@@ -50,7 +50,6 @@ namespace Nektar::StdRegions
 using vec_t = tinysimd::scalarT<double>;
 #include <StdRegions/Operators/BwdTransSumFacStdKernels.hpp>
 #include <StdRegions/Operators/IProductWRTBaseSumFacStdKernels.hpp>
-#include <StdRegions/Operators/PhysDerivSumFacStdKernels.hpp>
 
 StdHexExp::StdHexExp(const LibUtilities::BasisKey &Ba,
                      const LibUtilities::BasisKey &Bb,
@@ -83,95 +82,16 @@ bool StdHexExp::v_IsBoundaryInteriorExpansion() const
 ///////////////////////////////
 /// Differentiation Methods
 ///////////////////////////////
-void StdHexExp::PhysTensorDeriv(const Array<OneD, const NekDouble> &inarray,
-                                Array<OneD, NekDouble> &out_d0,
-                                Array<OneD, NekDouble> &out_d1,
-                                Array<OneD, NekDouble> &out_d2)
-{
-    const int nquad0 = m_base[0]->GetNumPoints();
-    const int nquad1 = m_base[1]->GetNumPoints();
-    const int nquad2 = m_base[2]->GetNumPoints();
-
-    bool Deriv0         = (out_d0.size() > 0);
-    bool Deriv1         = (out_d1.size() > 0);
-    bool Deriv2         = (out_d2.size() > 0);
-    const NekDouble *D0 = m_base[0]->GetD()->GetRawPtr();
-    const NekDouble *D1 = m_base[1]->GetD()->GetRawPtr();
-    const NekDouble *D2 = m_base[2]->GetD()->GetRawPtr();
-
-    Array<OneD, const NekDouble> intmp;
-    // copy inarray data if inarray and outarray are the same.
-    if ((inarray.data() == out_d0.data()) ||
-        (inarray.data() == out_d1.data()) || (inarray.data() == out_d2.data()))
-    {
-        Array<OneD, NekDouble> wsp(nquad0 * nquad1 * nquad2);
-        CopyArray(inarray, wsp);
-        intmp = wsp;
-    }
-    else
-    {
-        intmp = inarray;
-    }
-
-    // Switch statment using boost_pp and macros. This unfolls into a
-    // nested switch statement which runs from SMIN to SMAX for quadratrure
-    // order. If you want to see it unwrapped compile in verbose mode and add
-    // --preprocess to the c++ command. Default case
-#undef PHYSDERIV_DEF
-#define PHYSDERIV_DEF                                                          \
-    PhysDerivTensor3DKernel(nquad0, nquad1, nquad2,                            \
-                            (const vec_t *)intmp.data(), (const vec_t *)D0,    \
-                            (const vec_t *)D1, (const vec_t *)D2,              \
-                            (vec_t *)out_d0.data(), (vec_t *)out_d1.data(),    \
-                            (vec_t *)out_d2.data(), Deriv0, Deriv1, Deriv2)
-
-    // Loop case over quarature points
-#undef PHYSDERIV_Q
-#define PHYSDERIV_Q(r, i)                                                      \
-    case NQ1(i):                                                               \
-        PhysDerivTensor3DKernel(                                               \
-            NQ1(i), NQ1(i), NQ1(i), (const vec_t *)intmp.data(),               \
-            (const vec_t *)D0, (const vec_t *)D1, (const vec_t *)D2,           \
-            (vec_t *)out_d0.data(), (vec_t *)out_d1.data(),                    \
-            (vec_t *)out_d2.data(), Deriv0, Deriv1, Deriv2);                   \
-        break;
-
-    // templated cases on  standard quadrature
-    // usage where quad order goes from SMIN to SMAX
-    if ((nquad0 == nquad1) && (nquad1 == nquad2))
-    {
-        switch (nquad0)
-        {
-            BOOST_PP_FOR((SMIN, SMAX), STDLEV1TEST, STDLEV1UPDATE, PHYSDERIV_Q);
-            default:
-                PHYSDERIV_DEF;
-                break;
-        }
-    }
-    else
-    {
-        PHYSDERIV_DEF;
-    }
-}
-
 /**
  * For Hexahedral region can use the PhysTensorDeriv function defined
  * under StdExpansion. Following tenserproduct:
  */
-void StdHexExp::v_PhysDeriv(const Array<OneD, const NekDouble> &inarray,
-                            Array<OneD, NekDouble> &out_d0,
-                            Array<OneD, NekDouble> &out_d1,
-                            Array<OneD, NekDouble> &out_d2)
-{
-    PhysTensorDeriv(inarray, out_d0, out_d1, out_d2);
-}
-
 void StdHexExp::v_StdPhysDeriv(const Array<OneD, const NekDouble> &inarray,
                                Array<OneD, NekDouble> &out_d0,
                                Array<OneD, NekDouble> &out_d1,
                                Array<OneD, NekDouble> &out_d2)
 {
-    StdHexExp::v_PhysDeriv(inarray, out_d0, out_d1, out_d2);
+    PhysTensorDeriv(inarray, out_d0, out_d1, out_d2);
 }
 
 /**
@@ -281,96 +201,6 @@ void StdHexExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
         {
             BWDTRANS_DEF;
         }
-    }
-}
-
-/**
- * Solves the system
- * \f$ \mathbf{B^{\top}WB\hat{u}}=\mathbf{B^{\top}Wu^{\delta}} \f$
- *
- * @param   inarray     array of physical quadrature points to be
- *                      transformed, \f$ \mathbf{u^{\delta}} \f$.
- * @param   outarray    array of expansion coefficients,
- *                      \f$ \mathbf{\hat{u}} \f$.
- */
-void StdHexExp::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,
-                           Array<OneD, NekDouble> &outarray)
-{
-    // If using collocation expansion, coefficients match physical
-    // data points so just do a direct copy.
-    if ((m_base[0]->Collocation()) && (m_base[1]->Collocation()) &&
-        (m_base[2]->Collocation()))
-    {
-        Vmath::Vcopy(GetNcoeffs(), &inarray[0], 1, &outarray[0], 1);
-    }
-    else
-    {
-        // Compute B^TWu
-        IProductWRTBase(inarray, outarray);
-
-        // get Mass matrix inverse
-        StdMatrixKey masskey(eInvMass, DetShapeType(), *this);
-        DNekMatSharedPtr matsys = GetStdMatrix(masskey);
-
-        // copy inarray in case inarray == outarray
-        DNekVec in(m_ncoeffs, outarray);
-        DNekVec out(m_ncoeffs, outarray, eWrapper);
-
-        // Solve for coefficients.
-        out = (*matsys) * in;
-    }
-}
-
-/**
- * \f$
- * \begin{array}{rcl}
- * I_{pqr} = (\phi_{pqr}, u)_{\delta} & = &
- * \sum_{i=0}^{nq_0} \sum_{j=0}^{nq_1} \sum_{k=0}^{nq_2}
- * \psi_{p}^{a}(\xi_{1i}) \psi_{q}^{a}(\xi_{2j}) \psi_{r}^{a}(\xi_{3k})
- * w_i w_j w_k u(\xi_{1,i} \xi_{2,j} \xi_{3,k})
- *
- * J_{i,j,k}\\ & = & \sum_{i=0}^{nq_0} \psi_p^a(\xi_{1,i})
- *                   \sum_{j=0}^{nq_1} \psi_{q}^a(\xi_{2,j})
- *                   \sum_{k=0}^{nq_2} \psi_{r}^a
- *                   u(\xi_{1i},\xi_{2j},\xi_{3k}) J_{i,j,k}
- * \end{array} \f$ \n
- * where
- * \f$ \phi_{pqr} (\xi_1 , \xi_2 , \xi_3)
- *  = \psi_p^a( \xi_1) \psi_{q}^a(\xi_2) \psi_{r}^a(\xi_3) \f$ \n
- * which can be implemented as \n
- * \f$f_{r} (\xi_{3k})
- *  = \sum_{k=0}^{nq_3} \psi_{r}^a u(\xi_{1i},\xi_{2j}, \xi_{3k})
- * J_{i,j,k} = {\bf B_3 U}   \f$ \n
- * \f$ g_{q} (\xi_{3k})
- *  = \sum_{j=0}^{nq_1} \psi_{q}^a(\xi_{2j}) f_{r}(\xi_{3k})
- *  = {\bf B_2 F}  \f$ \n
- * \f$ (\phi_{pqr}, u)_{\delta}
- *  = \sum_{k=0}^{nq_0} \psi_{p}^a (\xi_{3k})  g_{q} (\xi_{3k})
- *  = {\bf B_1 G} \f$
- *
- * @param   inarray     Physical space function definition
- * @param   outarray    Inner product with respect to basis
- *
- *
- * This is a wrapper function around \a IProductWRTBaseKernel()
- */
-void StdHexExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
-                                  Array<OneD, NekDouble> &outarray)
-{
-    const bool CollDir0 = m_base[0]->Collocation();
-    const bool CollDir1 = m_base[1]->Collocation();
-    const bool CollDir2 = m_base[2]->Collocation();
-
-    if (CollDir0 && CollDir1 && CollDir2)
-    {
-        MultiplyByStdQuadratureMetric(inarray, outarray);
-    }
-    else
-    {
-        const Array<OneD, const NekDouble> one(1, 1.0);
-        v_IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
-                                m_base[2]->GetBdata(), inarray, outarray, one,
-                                false, CollDir0, CollDir1, CollDir2);
     }
 }
 
@@ -2387,29 +2217,6 @@ void StdHexExp::v_HelmholtzMatrixOp(const Array<OneD, const NekDouble> &inarray,
                                     const StdMatrixKey &mkey)
 {
     StdHexExp::v_HelmholtzMatrixOp_MatFree(inarray, outarray, mkey);
-}
-
-void StdHexExp::v_MultiplyByStdQuadratureMetric(
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray)
-{
-    int nquad0 = m_base[0]->GetNumPoints();
-    int nquad1 = m_base[1]->GetNumPoints();
-    int nquad2 = m_base[2]->GetNumPoints();
-
-    int cnt = 0;
-    for (int i = 0; i < nquad2; ++i)
-    {
-        NekDouble w2 = m_weights[2][i];
-        for (int j = 0; j < nquad1; ++j)
-        {
-            NekDouble w1w2 = m_weights[1][j] * w2;
-            for (int k = 0; k < nquad0; ++k, ++cnt)
-            {
-                outarray[cnt] = inarray[cnt] * m_weights[0][k] * w1w2;
-            }
-        }
-    }
 }
 
 void StdHexExp::v_SVVLaplacianFilter(Array<OneD, NekDouble> &array,

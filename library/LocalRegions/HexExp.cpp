@@ -124,90 +124,6 @@ NekDouble HexExp::v_Integral(const Array<OneD, const NekDouble> &inarray)
     return returnVal;
 }
 
-//-----------------------------
-// Differentiation Methods
-//-----------------------------
-/**
- * \brief Calculate the derivative of the physical points
- *
- * For Hexahedral region can use the Tensor_Deriv function defined
- * under StdExpansion.
- * @param   inarray     Input array
- * @param   out_d0      Derivative of \a inarray in first direction.
- * @param   out_d1      Derivative of \a inarray in second direction.
- * @param   out_d2      Derivative of \a inarray in third direction.
- */
-void HexExp::v_PhysDeriv(const Array<OneD, const NekDouble> &inarray,
-                         Array<OneD, NekDouble> &out_d0,
-                         Array<OneD, NekDouble> &out_d1,
-                         Array<OneD, NekDouble> &out_d2)
-{
-    int nquad0 = m_base[0]->GetNumPoints();
-    int nquad1 = m_base[1]->GetNumPoints();
-    int nquad2 = m_base[2]->GetNumPoints();
-    int ntot   = nquad0 * nquad1 * nquad2;
-
-    Array<TwoD, const NekDouble> df = m_geomFactors->GetDerivFactors();
-    Array<OneD, NekDouble> Diff0    = Array<OneD, NekDouble>(ntot);
-    Array<OneD, NekDouble> Diff1    = Array<OneD, NekDouble>(ntot);
-    Array<OneD, NekDouble> Diff2    = Array<OneD, NekDouble>(ntot);
-
-    StdHexExp::v_PhysDeriv(inarray, Diff0, Diff1, Diff2);
-
-    if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed)
-    {
-        if (out_d0.size())
-        {
-            Vmath::Vmul(ntot, &df[0][0], 1, &Diff0[0], 1, &out_d0[0], 1);
-            Vmath::Vvtvp(ntot, &df[1][0], 1, &Diff1[0], 1, &out_d0[0], 1,
-                         &out_d0[0], 1);
-            Vmath::Vvtvp(ntot, &df[2][0], 1, &Diff2[0], 1, &out_d0[0], 1,
-                         &out_d0[0], 1);
-        }
-
-        if (out_d1.size())
-        {
-            Vmath::Vmul(ntot, &df[3][0], 1, &Diff0[0], 1, &out_d1[0], 1);
-            Vmath::Vvtvp(ntot, &df[4][0], 1, &Diff1[0], 1, &out_d1[0], 1,
-                         &out_d1[0], 1);
-            Vmath::Vvtvp(ntot, &df[5][0], 1, &Diff2[0], 1, &out_d1[0], 1,
-                         &out_d1[0], 1);
-        }
-
-        if (out_d2.size())
-        {
-            Vmath::Vmul(ntot, &df[6][0], 1, &Diff0[0], 1, &out_d2[0], 1);
-            Vmath::Vvtvp(ntot, &df[7][0], 1, &Diff1[0], 1, &out_d2[0], 1,
-                         &out_d2[0], 1);
-            Vmath::Vvtvp(ntot, &df[8][0], 1, &Diff2[0], 1, &out_d2[0], 1,
-                         &out_d2[0], 1);
-        }
-    }
-    else // regular geometry
-    {
-        if (out_d0.size())
-        {
-            Vmath::Smul(ntot, df[0][0], &Diff0[0], 1, &out_d0[0], 1);
-            Blas::Daxpy(ntot, df[1][0], &Diff1[0], 1, &out_d0[0], 1);
-            Blas::Daxpy(ntot, df[2][0], &Diff2[0], 1, &out_d0[0], 1);
-        }
-
-        if (out_d1.size())
-        {
-            Vmath::Smul(ntot, df[3][0], &Diff0[0], 1, &out_d1[0], 1);
-            Blas::Daxpy(ntot, df[4][0], &Diff1[0], 1, &out_d1[0], 1);
-            Blas::Daxpy(ntot, df[5][0], &Diff2[0], 1, &out_d1[0], 1);
-        }
-
-        if (out_d2.size())
-        {
-            Vmath::Smul(ntot, df[6][0], &Diff0[0], 1, &out_d2[0], 1);
-            Blas::Daxpy(ntot, df[7][0], &Diff1[0], 1, &out_d2[0], 1);
-            Blas::Daxpy(ntot, df[8][0], &Diff2[0], 1, &out_d2[0], 1);
-        }
-    }
-}
-
 void HexExp::v_PhysDirectionalDeriv(
     const Array<OneD, const NekDouble> &inarray,
     const Array<OneD, const NekDouble> &direction,
@@ -225,7 +141,7 @@ void HexExp::v_PhysDirectionalDeriv(
     Array<OneD, NekDouble> Diff1    = Array<OneD, NekDouble>(ntot);
     Array<OneD, NekDouble> Diff2    = Array<OneD, NekDouble>(ntot);
 
-    StdHexExp::v_PhysDeriv(inarray, Diff0, Diff1, Diff2);
+    v_StdPhysDeriv(inarray, Diff0, Diff1, Diff2);
 
     Array<OneD, Array<OneD, NekDouble>> dfdir(shapedim);
     Expansion::ComputeGmatcdotMF(df, direction, dfdir);
@@ -238,83 +154,8 @@ void HexExp::v_PhysDirectionalDeriv(
 }
 
 //-----------------------------
-// Transforms
-//-----------------------------
-
-/**
- * \brief Forward transform from physical quadrature space stored in \a
- * inarray and evaluate the expansion coefficients and store in
- * \a (this)->_coeffs
- *
- * @param   inarray     Input array
- * @param   outarray    Output array
- */
-void HexExp::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,
-                        Array<OneD, NekDouble> &outarray)
-{
-    if (m_base[0]->Collocation() && m_base[1]->Collocation() &&
-        m_base[2]->Collocation())
-    {
-        Vmath::Vcopy(GetNcoeffs(), &inarray[0], 1, &outarray[0], 1);
-    }
-    else
-    {
-        IProductWRTBase(inarray, outarray);
-
-        // get Mass matrix inverse
-        MatrixKey masskey(StdRegions::eInvMass, DetShapeType(), *this);
-        DNekScalMatSharedPtr matsys = m_matrixManager[masskey];
-
-        // copy inarray in case inarray == outarray
-        DNekVec in(m_ncoeffs, outarray);
-        DNekVec out(m_ncoeffs, outarray, eWrapper);
-
-        out = (*matsys) * in;
-    }
-}
-
-//-----------------------------
 // Inner product functions
 //-----------------------------
-
-/**
- * \brief Calculate the inner product of inarray with respect to the
- * elements basis.
- *
- * @param   inarray     Input array of physical space data.
- * @param   outarray    Output array of data.
- */
-void HexExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
-                               Array<OneD, NekDouble> &outarray)
-{
-    const bool CollDir0 = m_base[0]->Collocation();
-    const bool CollDir1 = m_base[1]->Collocation();
-    const bool CollDir2 = m_base[2]->Collocation();
-
-    const Array<OneD, const NekDouble> &jac = m_geomFactors->GetJac();
-    bool Deformed = (m_geomFactors->GetGtype() == SpatialDomains::eDeformed);
-
-    if (CollDir0 && CollDir1 && CollDir2)
-    {
-        int nqtot = GetTotPoints();
-        if (Deformed)
-        {
-            Vmath::Vmul(nqtot, jac, 1, inarray, 1, outarray, 1);
-        }
-        else
-        {
-            Vmath::Smul(nqtot, jac[0], inarray, 1, outarray, 1);
-        }
-        v_MultiplyByStdQuadratureMetric(outarray, outarray);
-    }
-    else
-    {
-        v_IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
-                                m_base[2]->GetBdata(), inarray, outarray, jac,
-                                Deformed, CollDir0, CollDir1, CollDir2);
-    }
-}
-
 /**
  * @brief Calculates the inner product \f$ I_{pqr} = (u,
  * \partial_{x_i} \phi_{pqr}) \f$.
@@ -476,30 +317,6 @@ void HexExp::v_IProductWRTDirectionalDerivBase_SumFac(
 //-----------------------------
 // Evaluation functions
 //-----------------------------
-
-/**
- * Given the local cartesian coordinate \a Lcoord evaluate the
- * value of physvals at this point by calling through to the
- * StdExpansion method
- */
-NekDouble HexExp::v_StdPhysEvaluate(
-    const Array<OneD, const NekDouble> &Lcoord,
-    const Array<OneD, const NekDouble> &physvals)
-{
-    // Evaluate point in local coordinates.
-    return StdExpansion3D::v_PhysEvaluate(Lcoord, physvals);
-}
-
-NekDouble HexExp::v_PhysEvaluate(const Array<OneD, const NekDouble> &coord,
-                                 const Array<OneD, const NekDouble> &physvals)
-{
-    Array<OneD, NekDouble> Lcoord = Array<OneD, NekDouble>(3);
-
-    ASSERTL0(m_geom, "m_geom not defined");
-    m_geom->GetLocCoords(coord, Lcoord);
-    return StdExpansion3D::v_PhysEvaluate(Lcoord, physvals);
-}
-
 NekDouble HexExp::v_PhysEvalFirstDeriv(
     const Array<OneD, NekDouble> &coord,
     const Array<OneD, const NekDouble> &inarray,

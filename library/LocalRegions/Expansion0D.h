@@ -36,7 +36,6 @@
 #define EXPANSION0D_H
 
 #include <LocalRegions/Expansion.h>
-#include <LocalRegions/Expansion1D.h>
 #include <LocalRegions/LocalRegionsDeclspec.h>
 #include <SpatialDomains/Geometry0D.h>
 #include <StdRegions/StdExpansion0D.h>

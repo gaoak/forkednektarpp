@@ -481,11 +481,38 @@ public:
     }
 
     /**
-     * @brief This function performs the Forward transformation from
-     * physical space to coefficient space.
+     *  This function is a wrapper around the virtual function
+     *  \a v_FwdTrans()
+     *
+     *  Given a function evaluated at the quadrature points, this
+     *  function calculates the expansion coefficients such that the
+     *  resulting expansion approximates the original function.
+     *
+     *  The calculation of the expansion coefficients is done using a
+     *  Galerkin projection. This is equivalent to the operation:
+     *  \f[ \mathbf{\hat{u}} = \mathbf{M}^{-1} \mathbf{I}\f]
+     *  where
+     *  - \f$\mathbf{M}[p][q]= \int\phi_p(\mathbf{\xi})\phi_q(
+     *  \mathbf{\xi}) d\mathbf{\xi}\f$ is the Mass matrix
+     *  - \f$\mathbf{I}[p] = \int\phi_p(\mathbf{\xi}) u(\mathbf{\xi})
+     *  d\mathbf{\xi}\f$
+     *
+     *  This function takes the array \a inarray as the values of the
+     *  function evaluated at the quadrature points
+     *  (i.e. \f$\mathbf{u}\f$),
+     *  and stores the resulting coefficients \f$\mathbf{\hat{u}}\f$
+     *  in the \a outarray
+     *
+     *  @param inarray array of the function discretely evaluated at the
+     *  quadrature points
+     *
+     *  @param outarray array of the function coefficieints
      */
     inline void FwdTrans(const Array<OneD, const NekDouble> &inarray,
-                         Array<OneD, NekDouble> &outarray);
+                         Array<OneD, NekDouble> &outarray)
+    {
+        v_FwdTrans(inarray, outarray);
+    }
 
     void FwdTransBndConstrained(const Array<OneD, const NekDouble> &inarray,
                                 Array<OneD, NekDouble> &outarray)
@@ -730,7 +757,10 @@ public:
     // virtual functions related to LocalRegions
     STD_REGIONS_EXPORT NekDouble
     StdPhysEvaluate(const Array<OneD, const NekDouble> &Lcoord,
-                    const Array<OneD, const NekDouble> &physvals);
+                    const Array<OneD, const NekDouble> &physvals)
+    {
+        return v_StdPhysEvaluate(Lcoord, physvals);
+    }
 
     int GetCoordim()
     {
@@ -1230,13 +1260,6 @@ public:
         return std::dynamic_pointer_cast<T>(shared_from_this());
     }
 
-    void IProductWRTBase_SumFac_Kernel(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray)
-    {
-        v_IProductWRTBase_SumFac_Kernel(inarray, outarray);
-    }
-
     STD_REGIONS_EXPORT void GenStdMatBwdDeriv(const int dir,
                                               DNekMatSharedPtr &mat)
     {
@@ -1285,12 +1308,6 @@ protected:
     **/
     STD_REGIONS_EXPORT DNekBlkMatSharedPtr
     CreateStdStaticCondMatrix(const StdMatrixKey &mkey);
-
-    void BwdTrans_SumFac(const Array<OneD, const NekDouble> &inarray,
-                         Array<OneD, NekDouble> &outarray)
-    {
-        v_BwdTrans_SumFac(inarray, outarray);
-    }
 
     void IProductWRTDirectionalDerivBase_SumFac(
         const Array<OneD, const NekDouble> &direction,
@@ -1589,6 +1606,8 @@ protected:
 
     STD_REGIONS_EXPORT virtual int v_GetShapeDimension() const = 0;
 
+    STD_REGIONS_EXPORT virtual bool v_IsCollocatedBasis() const = 0;
+
     STD_REGIONS_EXPORT virtual bool v_IsBoundaryInteriorExpansion() const;
 
     STD_REGIONS_EXPORT virtual bool v_IsNodalNonTensorialExp();
@@ -1608,7 +1627,7 @@ protected:
      */
     STD_REGIONS_EXPORT virtual void v_FwdTrans(
         const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray) = 0;
+        Array<OneD, NekDouble> &outarray);
 
     /**
      * @brief Calculates the inner product of a given function \a f
@@ -1751,14 +1770,6 @@ protected:
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray);
 
-    STD_REGIONS_EXPORT virtual void v_BwdTrans_SumFac(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray);
-
-    STD_REGIONS_EXPORT virtual void v_IProductWRTBase_SumFac_Kernel(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray);
-
     STD_REGIONS_EXPORT virtual void v_IProductWRTDirectionalDerivBase_SumFac(
         const Array<OneD, const NekDouble> &direction,
         const Array<OneD, const NekDouble> &inarray,
@@ -1833,40 +1844,6 @@ protected:
 
 typedef std::shared_ptr<StdExpansion> StdExpansionSharedPtr;
 typedef std::vector<StdExpansionSharedPtr> StdExpansionVector;
-
-/**
- *  This function is a wrapper around the virtual function
- *  \a v_FwdTrans()
- *
- *  Given a function evaluated at the quadrature points, this
- *  function calculates the expansion coefficients such that the
- *  resulting expansion approximates the original function.
- *
- *  The calculation of the expansion coefficients is done using a
- *  Galerkin projection. This is equivalent to the operation:
- *  \f[ \mathbf{\hat{u}} = \mathbf{M}^{-1} \mathbf{I}\f]
- *  where
- *  - \f$\mathbf{M}[p][q]= \int\phi_p(\mathbf{\xi})\phi_q(
- *  \mathbf{\xi}) d\mathbf{\xi}\f$ is the Mass matrix
- *  - \f$\mathbf{I}[p] = \int\phi_p(\mathbf{\xi}) u(\mathbf{\xi})
- *  d\mathbf{\xi}\f$
- *
- *  This function takes the array \a inarray as the values of the
- *  function evaluated at the quadrature points
- *  (i.e. \f$\mathbf{u}\f$),
- *  and stores the resulting coefficients \f$\mathbf{\hat{u}}\f$
- *  in the \a outarray
- *
- *  @param inarray array of the function discretely evaluated at the
- *  quadrature points
- *
- *  @param outarray array of the function coefficieints
- */
-inline void StdExpansion::FwdTrans(const Array<OneD, const NekDouble> &inarray,
-                                   Array<OneD, NekDouble> &outarray)
-{
-    v_FwdTrans(inarray, outarray);
-}
 
 } // namespace Nektar::StdRegions
 

@@ -55,7 +55,10 @@ NekLinSysIterCGLoc::NekLinSysIterCGLoc(
     const NekSysKey &pKey)
     : NekLinSysIter(pSession, vRowComm, nDimen, pKey)
 {
-    m_isLocal = true;
+    m_isLocal  = true;
+    m_flexible = pSession->DefinesParameter("FlexibleConjugateGradient")
+                     ? pSession->GetParameter("FlexibleConjugateGradient")
+                     : false;
 }
 
 void NekLinSysIterCGLoc::v_InitObject()
@@ -115,9 +118,10 @@ void NekLinSysIterCGLoc::DoConjugateGradient(
     NekDouble beta;
     NekDouble rho;
     NekDouble rho_new;
+    NekDouble rho_star;
     NekDouble mu;
     NekDouble eps;
-    Array<OneD, NekDouble> vExchange(3, 0.0);
+    Array<OneD, NekDouble> vExchange(4, 0.0);
 
     // Copy initial residual from input
     Vmath::Vcopy(nLocal, pInput, 1, r_A, 1);
@@ -164,6 +168,7 @@ void NekLinSysIterCGLoc::DoConjugateGradient(
 
     m_rowComm->AllReduce(vExchange, Nektar::LibUtilities::ReduceSum);
 
+    rho_star          = 0.0;
     rho               = vExchange[0];
     mu                = vExchange[1];
     beta              = 0.0;
@@ -197,6 +202,12 @@ void NekLinSysIterCGLoc::DoConjugateGradient(
         // Update residual vector r_{k+1}
         Vmath::Svtvp(nLocal, -alpha, q_A, 1, r_A, 1, r_A, 1);
 
+        if (m_flexible)
+        {
+            // <r_{k+1}, w_{k}>
+            vExchange[3] = Vmath::Dot(nLocal, r_A, w_A);
+        }
+
         // Apply preconditioner
         m_operator.DoNekSysPrecon(r_A, w_A, true);
 
@@ -221,6 +232,10 @@ void NekLinSysIterCGLoc::DoConjugateGradient(
         rho_new = vExchange[0];
         mu      = vExchange[1];
         eps     = vExchange[2];
+        if (m_flexible)
+        {
+            rho_star = vExchange[3];
+        }
 
         m_totalIterations++;
 
@@ -239,7 +254,7 @@ void NekLinSysIterCGLoc::DoConjugateGradient(
         }
 
         // Compute search direction and solution coefficients
-        beta  = rho_new / rho;
+        beta  = (rho_new - rho_star) / rho;
         alpha = rho_new / (mu - rho_new * beta / alpha);
         rho   = rho_new;
     }

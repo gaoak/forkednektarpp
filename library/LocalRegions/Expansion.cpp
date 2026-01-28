@@ -419,6 +419,54 @@ void Expansion::v_DropLocMatrix(
     NEKERROR(ErrorUtil::efatal, "This function is only valid for LocalRegions");
 }
 
+/**
+ * \brief Forward transform from physical quadrature space stored in
+ * \a inarray and evaluate the expansion coefficients and store in \a
+ * (this)->m_coeffs
+ *
+ * Inputs:\n
+ *
+ * - \a inarray: array of physical quadrature points to be transformed
+ *
+ * Outputs:\n
+ *
+ * - (this)->_coeffs: updated array of expansion coefficients.
+ */
+void Expansion::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,
+                           Array<OneD, NekDouble> &outarray)
+{
+    if (v_IsCollocatedBasis())
+    {
+        Vmath::Vcopy(GetNcoeffs(), &inarray[0], 1, &outarray[0], 1);
+    }
+    else
+    {
+        v_IProductWRTBase(inarray, outarray);
+
+        // get Mass matrix inverse
+        MatrixKey masskey(StdRegions::eInvMass, DetShapeType(), *this);
+        DNekScalMatSharedPtr matsys = v_GetLocMatrix(masskey);
+
+        // copy inarray in case inarray == outarray
+        DNekVec in(m_ncoeffs, outarray);
+        DNekVec out(m_ncoeffs, outarray, eWrapper);
+
+        out = (*matsys) * in;
+    }
+}
+
+NekDouble Expansion::v_PhysEvaluate(
+    const Array<OneD, const NekDouble> &coord,
+    const Array<OneD, const NekDouble> &physvals)
+{
+    Array<OneD, NekDouble> Lcoord = Array<OneD, NekDouble>(GetShapeDimension());
+
+    ASSERTL0(m_geom, "m_geom not defined");
+    m_geom->GetLocCoords(coord, Lcoord);
+
+    return v_StdPhysEvaluate(Lcoord, physvals);
+}
+
 void Expansion::v_MultiplyByQuadratureMetric(
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray)

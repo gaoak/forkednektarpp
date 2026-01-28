@@ -119,6 +119,16 @@ protected:
                    Array<OneD, ExpansionSharedPtr> &FaceExp,
                    Array<OneD, Array<OneD, NekDouble>> &faceCoeffs,
                    Array<OneD, NekDouble> &out_d) override;
+    LOCAL_REGIONS_EXPORT void v_PhysDeriv(
+        const Array<OneD, const NekDouble> &inarray,
+        Array<OneD, NekDouble> &out_d0, Array<OneD, NekDouble> &out_d1,
+        Array<OneD, NekDouble> &out_d2) override;
+    using StdExpansion3D::v_PhysDeriv;
+
+    LOCAL_REGIONS_EXPORT void v_IProductWRTBase(
+        const Array<OneD, const NekDouble> &inarray,
+        Array<OneD, NekDouble> &outarray) override;
+
     DNekMatSharedPtr v_GenMatrix(const StdRegions::StdMatrixKey &mkey) override;
     void v_AddFaceNormBoundaryInt(const int face,
                                   const ExpansionSharedPtr &FaceExp,

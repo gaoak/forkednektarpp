@@ -147,6 +147,9 @@ private:
     Array<OneD, Array<OneD, NekDouble>> m_Upper;
     // Total search directions
     Array<OneD, Array<OneD, NekDouble>> m_V_total;
+    Array<OneD, Array<OneD, NekDouble>> m_Z_total;
+
+    bool m_flexible;
 };
 } // namespace Nektar::LibUtilities
 

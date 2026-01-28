@@ -105,16 +105,19 @@ public:
         const int nvert, const StdRegions::Orientation orient, const int nq0,
         Array<OneD, int> &idmap);
 
-    DNekMatSharedPtr v_GenMatrix(const StdRegions::StdMatrixKey &mkey) override;
-    void v_GenTraceExp(const int traceid, ExpansionSharedPtr &exp) override;
-
 protected:
     std::vector<bool> m_requireNeg;
 
     LOCAL_REGIONS_EXPORT void v_PhysDeriv(
         const int dir, const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;
-    using StdExpansion2D::v_PhysDeriv;
+    LOCAL_REGIONS_EXPORT void v_PhysDeriv(
+        const Array<OneD, const NekDouble> &inarray,
+        Array<OneD, NekDouble> &out_d0, Array<OneD, NekDouble> &out_d1,
+        Array<OneD, NekDouble> &out_d2 = NullNekDouble1DArray) override;
+    LOCAL_REGIONS_EXPORT void v_IProductWRTBase(
+        const Array<OneD, const NekDouble> &inarray,
+        Array<OneD, NekDouble> &outarray) override;
 
     // Hybridized DG routines
     void v_DGDeriv(const int dir, const Array<OneD, const NekDouble> &incoeffs,
@@ -122,6 +125,9 @@ protected:
                    Array<OneD, Array<OneD, NekDouble>> &edgeCoeffs,
                    Array<OneD, NekDouble> &out_d) override;
 
+    DNekMatSharedPtr v_GenMatrix(const StdRegions::StdMatrixKey &mkey) override;
+
+    void v_GenTraceExp(const int traceid, ExpansionSharedPtr &exp) override;
     void v_AddEdgeNormBoundaryInt(const int edge,
                                   const ExpansionSharedPtr &EdgeExp,
                                   const Array<OneD, const NekDouble> &Fx,

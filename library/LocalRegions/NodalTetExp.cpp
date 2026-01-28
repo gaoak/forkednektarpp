@@ -77,7 +77,7 @@ void NodalTetExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
 void NodalTetExp::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,
                              Array<OneD, NekDouble> &outarray)
 {
-    IProductWRTBase(inarray, outarray);
+    v_IProductWRTBase(inarray, outarray);
 
     // get Mass matrix inverse
     MatrixKey masskey(StdRegions::eInvMass, DetShapeType(), *this,

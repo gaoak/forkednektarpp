@@ -58,56 +58,10 @@ protected:
     //----------------------------
     // Differentiation Methods
     //----------------------------
-
-    /** \brief Calculate the 3D derivative in the local
-     *  tensor/collapsed coordinate at the physical points
-     *
-     *    This function is independent of the expansion basis and can
-     *    therefore be defined for all tensor product distribution of
-     *    quadrature points in a generic manner.  The key operations are:
-     *
-     *    - \f$ \frac{d}{d\eta_1} \rightarrow {\bf D^T_0 u } \f$ \n
-     *    - \f$ \frac{d}{d\eta_2} \rightarrow {\bf D_1 u } \f$
-     *    - \f$ \frac{d}{d\eta_3} \rightarrow {\bf D_2 u } \f$
-     *
-     *  \param inarray array of physical points to be differentiated
-     *  \param  out_d0 the resulting array of derivative in the
-     *  \f$\eta_1\f$ direction will be stored in out_d0 as output
-     *  of the function
-     *  \param out_d1 the resulting array of derivative in the
-     *  \f$\eta_2\f$ direction will be stored in out_d1 as output
-     *  of the function
-     *  \param out_d2 the resulting array of derivative in the
-     *  \f$\eta_3\f$ direction will be stored in out_d2 as output
-     *  of the function
-     *
-     *  Recall that:
-     *  \f$
-     *  \hspace{1cm} \begin{array}{llll}
-     *  \mbox{Shape}    & \mbox{Cartesian coordinate range} &
-     *  \mbox{Collapsed coord.}      &
-     *  \mbox{Collapsed coordinate definition}\\
-     *  \mbox{Hexahedral}  & -1 \leq \xi_1,\xi_2, \xi_3 \leq  1
-     *  & -1 \leq \eta_1,\eta_2, \eta_3 \leq 1
-     *  & \eta_1 = \xi_1, \eta_2 = \xi_2, \eta_3 = \xi_3 \\
-     *  \mbox{Tetrahedral}  & -1 \leq \xi_1,\xi_2,\xi_3; \xi_1+\xi_2 +\xi_3 \leq
-     * -1 & -1 \leq \eta_1,\eta_2, \eta_3 \leq 1
-     *  & \eta_1 = \frac{2(1+\xi_1)}{-\xi_2 -\xi_3}-1, \eta_2 =
-     * \frac{2(1+\xi_2)}{1 - \xi_3}-1, \eta_3 = \xi_3 \\ \end{array} \f$
-     */
-    STD_REGIONS_EXPORT void PhysTensorDeriv(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &out_d0, Array<OneD, NekDouble> &out_d1,
-        Array<OneD, NekDouble> &out_d2);
-    using StdExpansion::v_PhysDeriv;
-    STD_REGIONS_EXPORT void v_PhysDeriv(
+    STD_REGIONS_EXPORT void v_StdPhysDeriv(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &out_dx, Array<OneD, NekDouble> &out_dy,
         Array<OneD, NekDouble> &out_dz) override;
-    STD_REGIONS_EXPORT void v_StdPhysDeriv(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &out_d0, Array<OneD, NekDouble> &out_d1,
-        Array<OneD, NekDouble> &out_d2) override;
 
     //---------------------------------------
     // Transforms
@@ -115,16 +69,10 @@ protected:
     STD_REGIONS_EXPORT void v_BwdTrans(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;
-    STD_REGIONS_EXPORT void v_FwdTrans(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray) override;
 
     //---------------------------------------
     // Inner product functions
     //---------------------------------------
-    STD_REGIONS_EXPORT void v_IProductWRTBase(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray) override;
     STD_REGIONS_EXPORT void v_IProductWRTBaseKernel(
         const Array<OneD, const NekDouble> &base0,
         const Array<OneD, const NekDouble> &base1,
@@ -214,9 +162,6 @@ protected:
     v_GenMatrix(const StdMatrixKey &mkey) override;
     STD_REGIONS_EXPORT DNekMatSharedPtr
     v_CreateStdMatrix(const StdMatrixKey &mkey) override;
-    STD_REGIONS_EXPORT void v_MultiplyByStdQuadratureMetric(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray) override;
     STD_REGIONS_EXPORT void v_SVVLaplacianFilter(
         Array<OneD, NekDouble> &array, const StdMatrixKey &mkey) override;
 

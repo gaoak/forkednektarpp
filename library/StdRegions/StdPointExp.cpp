@@ -95,34 +95,6 @@ void StdPointExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
     }
 }
 
-void StdPointExp::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,
-                             Array<OneD, NekDouble> &outarray)
-{
-    if (m_base[0]->Collocation())
-    {
-        Vmath::Vcopy(m_ncoeffs, inarray, 1, outarray, 1);
-    }
-    else
-    {
-        v_IProductWRTBase(inarray, outarray);
-
-        // get Mass matrix inverse
-        StdMatrixKey masskey(eInvMass, v_DetShapeType(), *this);
-        DNekMatSharedPtr matsys = GetStdMatrix(masskey);
-
-        NekVector<NekDouble> in(m_ncoeffs, outarray, eCopy);
-        NekVector<NekDouble> out(m_ncoeffs, outarray, eWrapper);
-
-        out = (*matsys) * in;
-    }
-}
-
-void StdPointExp::v_BwdTrans_SumFac(const Array<OneD, const NekDouble> &inarray,
-                                    Array<OneD, NekDouble> &outarray)
-{
-    v_BwdTrans(inarray, outarray);
-}
-
 // Inner product
 void StdPointExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
                                     Array<OneD, NekDouble> &outarray)

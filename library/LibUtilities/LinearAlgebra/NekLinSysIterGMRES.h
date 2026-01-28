@@ -127,7 +127,6 @@ private:
 
     // QR fatorization through Givens rotation
     void DoGivensRotation(const int starttem, const int endtem,
-                          const int nGlobal, const int nDir,
                           Array<OneD, NekDouble> &c, Array<OneD, NekDouble> &s,
                           Array<OneD, NekDouble> &hsingle,
                           Array<OneD, NekDouble> &eta);
@@ -148,6 +147,9 @@ private:
     Array<OneD, Array<OneD, NekDouble>> m_Upper;
     // Total search directions
     Array<OneD, Array<OneD, NekDouble>> m_V_total;
+    Array<OneD, Array<OneD, NekDouble>> m_Z_total;
+
+    bool m_flexible;
 };
 } // namespace Nektar::LibUtilities
 

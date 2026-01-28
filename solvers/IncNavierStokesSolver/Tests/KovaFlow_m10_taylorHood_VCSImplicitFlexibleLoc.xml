@@ -23,7 +23,7 @@
 
         <GLOBALSYSSOLNINFO>
             <V VAR="u,v">
-                <I PROPERTY="GlobalSysSoln"	        VALUE="DirectFull" />
+                <I PROPERTY="GlobalSysSoln"	        VALUE="IterativeFull" />
                 <I PROPERTY="Preconditioner"	        VALUE="Null"/>
                 <I PROPERTY="IterativeSolverTolerance"  VALUE="1e-14"/>
                 <I PROPERTY="LinSysIterSolver"          VALUE="GMRESLoc"/>
@@ -42,6 +42,8 @@
             <P> NumSteps      = 200         </P>
             <P> IO_InfoSteps  = 100         </P>
             <P> Kinvis        = 0.025       </P>
+            <P> FlexibleGMRES = 1           </P>
+            <P> FlexibleConjugateGradient = 1 </P>
         </PARAMETERS>
 
         <VARIABLES>

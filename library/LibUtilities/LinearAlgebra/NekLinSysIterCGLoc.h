@@ -84,6 +84,8 @@ protected:
                      int &iter) override;
 
 private:
+    bool m_flexible;
+
     /// Actual iterative solve
     void DoConjugateGradient(const int pNumRows,
                              const Array<OneD, const NekDouble> &pInput,

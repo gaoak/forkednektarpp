@@ -70,6 +70,10 @@ NekLinSysIterGMRESLoc::NekLinSysIterGMRESLoc(
 
     m_isLocal = true;
 
+    m_flexible = pSession->DefinesParameter("FlexibleGMRES")
+                     ? pSession->GetParameter("FlexibleGMRES")
+                     : false;
+
     // Allocate array storage of coefficients
     // Hessenburg matrix
     m_hes = Array<OneD, Array<OneD, NekDouble>>(m_LinSysMaxStorage);
@@ -85,6 +89,7 @@ NekLinSysIterGMRESLoc::NekLinSysIterGMRESLoc(
     }
     // Total search directions
     m_V_total = Array<OneD, Array<OneD, NekDouble>>(m_LinSysMaxStorage + 1);
+    m_Z_total = Array<OneD, Array<OneD, NekDouble>>(m_LinSysMaxStorage + 1);
 }
 
 void NekLinSysIterGMRESLoc::v_InitObject()
@@ -161,6 +166,7 @@ int NekLinSysIterGMRESLoc::DoGMRES(const int nLocal,
         restarted = true;
     }
 
+    // Verbose print error, iteration count, tolerance, ..
     if (m_verbose)
     {
         Array<OneD, NekDouble> r0(nLocal);
@@ -237,6 +243,7 @@ NekDouble NekLinSysIterGMRESLoc::DoGmresRestart(
     Array<OneD, NekDouble> w(nLocal, 0.0);
     Array<OneD, NekDouble> wk(nLocal, 0.0);
     Array<OneD, NekDouble> r0(nLocal, 0.0);
+    Array<OneD, NekDouble> Z1;
     Array<OneD, NekDouble> V1;
     Array<OneD, NekDouble> V2;
     Array<OneD, NekDouble> h1;
@@ -319,34 +326,33 @@ NekDouble NekLinSysIterGMRESLoc::DoGmresRestart(
     if (m_V_total[0].size() == 0)
     {
         m_V_total[0] = Array<OneD, NekDouble>(nLocal, 0.0);
+        m_Z_total[0] = Array<OneD, NekDouble>(nLocal, 0.0);
     }
     Vmath::Smul(nLocal, alpha, r0, 1, m_V_total[0], 1);
 
-    // restarted Gmres(m) process
-    if (m_NekLinSysRightPrecon)
-    {
-        V1 = Array<OneD, NekDouble>(nLocal, 0.0);
-    }
-
+    // Restarted Gmres(m) process
     int nswp = 0;
     for (int nd = 0; nd < m_LinSysMaxStorage; ++nd)
     {
         if (m_V_total[nd + 1].size() == 0)
         {
             m_V_total[nd + 1] = Array<OneD, NekDouble>(nLocal, 0.0);
+            if (m_flexible)
+            {
+                m_Z_total[nd + 1] = Array<OneD, NekDouble>(nLocal, 0.0);
+            }
         }
         Vmath::Zero(nLocal, m_V_total[nd + 1], 1);
         Vmath::Zero(m_LinSysMaxStorage + 1, m_hes[nd], 1);
+        unsigned int znd = m_flexible ? nd : 0;
+        Z1 = m_NekLinSysRightPrecon ? m_Z_total[znd] : m_V_total[nd];
+        V1 = m_V_total[nd];
         V2 = m_V_total[nd + 1];
         h1 = m_hes[nd];
 
         if (m_NekLinSysRightPrecon)
         {
-            m_operator.DoNekSysPrecon(m_V_total[nd], V1, true);
-        }
-        else
-        {
-            V1 = m_V_total[nd];
+            m_operator.DoNekSysPrecon(V1, Z1, true);
         }
 
         // w here is no need to add nDir due to temporary Array
@@ -354,7 +360,7 @@ NekDouble NekLinSysIterGMRESLoc::DoGmresRestart(
         starttem = id_start[idtem];
         endtem   = id_end[idtem];
 
-        DoArnoldi(starttem, endtem, nLocal, w, wk, V1, V2, h1);
+        DoArnoldi(starttem, endtem, nLocal, w, wk, Z1, V2, h1);
 
         if (starttem > 0)
         {
@@ -372,12 +378,13 @@ NekDouble NekLinSysIterGMRESLoc::DoGmresRestart(
         // the last term of eta is not residual
         if ((!truncted) || (nd < m_KrylovMaxHessMatBand))
         {
-            if ((eps < m_NekLinSysTolerance * m_NekLinSysTolerance *
-                           m_rhs_magnitude)) //&& nd > 0)
+            if ((eps <
+                 m_NekLinSysTolerance * m_NekLinSysTolerance * m_rhs_magnitude))
             {
                 m_converged = true;
             }
         }
+
         nswp++;
         m_totalIterations++;
 
@@ -389,21 +396,33 @@ NekDouble NekLinSysIterGMRESLoc::DoGmresRestart(
 
     DoBackward(nswp, m_Upper, eta, y_total);
 
-    // calculate output y_total*V_total
-    Array<OneD, NekDouble> solution(nLocal, 0.0);
-    for (int i = 0; i < nswp; ++i)
+    if (m_flexible)
     {
-        beta = y_total[i];
-        Vmath::Svtvp(nLocal, beta, m_V_total[i], 1, solution, 1, solution, 1);
+        // Calculate output y_total*Z_total.
+        for (unsigned int i = 0; i < nswp; ++i)
+        {
+            Vmath::Svtvp(nLocal, y_total[i], m_Z_total[i], 1, pOutput, 1,
+                         pOutput, 1);
+        }
     }
-
-    if (m_NekLinSysRightPrecon)
+    else
     {
-        m_operator.DoNekSysPrecon(solution, solution, true);
-    }
+        // Calculate output V_total * y_total.
+        Array<OneD, NekDouble> solution(nLocal, 0.0);
+        for (int i = 0; i < nswp; ++i)
+        {
+            Vmath::Svtvp(nLocal, y_total[i], m_V_total[i], 1, solution, 1,
+                         solution, 1);
+        }
 
-    // Update output.
-    Vmath::Vadd(nLocal, solution, 1, pOutput, 1, pOutput, 1);
+        if (m_NekLinSysRightPrecon)
+        {
+            m_operator.DoNekSysPrecon(solution, solution, true);
+        }
+
+        // Update output.
+        Vmath::Vadd(nLocal, solution, 1, pOutput, 1, pOutput, 1);
+    }
 
     return eps;
 }
@@ -467,7 +486,7 @@ void NekLinSysIterGMRESLoc::DoGivensRotation(const int starttem,
                                              Array<OneD, NekDouble> &h,
                                              Array<OneD, NekDouble> &eta)
 {
-    NekDouble temp_dbl;
+    NekDouble dbl;
     NekDouble dd;
     NekDouble hh;
     int idtem = endtem - 1;
@@ -478,9 +497,9 @@ void NekLinSysIterGMRESLoc::DoGivensRotation(const int starttem,
     // Pan's User Guide
     for (int i = starttem; i < idtem; ++i)
     {
-        temp_dbl = c[i] * h[i] - s[i] * h[i + 1];
+        dbl      = c[i] * h[i] - s[i] * h[i + 1];
         h[i + 1] = s[i] * h[i] + c[i] * h[i + 1];
-        h[i]     = temp_dbl;
+        h[i]     = dbl;
     }
     dd = h[idtem];
     hh = h[endtem];
@@ -491,29 +510,28 @@ void NekLinSysIterGMRESLoc::DoGivensRotation(const int starttem,
     }
     else if (abs(hh) > abs(dd))
     {
-        temp_dbl = -dd / hh;
-        s[idtem] = 1.0 / sqrt(1.0 + temp_dbl * temp_dbl);
-        c[idtem] = temp_dbl * s[idtem];
+        dbl      = -dd / hh;
+        s[idtem] = 1.0 / sqrt(1.0 + dbl * dbl);
+        c[idtem] = dbl * s[idtem];
     }
     else
     {
-        temp_dbl = -hh / dd;
-        c[idtem] = 1.0 / sqrt(1.0 + temp_dbl * temp_dbl);
-        s[idtem] = temp_dbl * c[idtem];
+        dbl      = -hh / dd;
+        c[idtem] = 1.0 / sqrt(1.0 + dbl * dbl);
+        s[idtem] = dbl * c[idtem];
     }
 
     h[idtem]  = c[idtem] * h[idtem] - s[idtem] * h[endtem];
     h[endtem] = 0.0;
 
-    temp_dbl    = c[idtem] * eta[idtem] - s[idtem] * eta[endtem];
+    dbl         = c[idtem] * eta[idtem] - s[idtem] * eta[endtem];
     eta[endtem] = s[idtem] * eta[idtem] + c[idtem] * eta[endtem];
-    eta[idtem]  = temp_dbl;
+    eta[idtem]  = dbl;
 }
 
 // Backward calculation
 // To notice, Hesssenburg matrix's column
-// and row changes due to use Array<OneD,Array<OneD,NekDouble>> --> Put into a
-// helper class
+// and row changes due to use Array<OneD,Array<OneD,NekDouble>>
 void NekLinSysIterGMRESLoc::DoBackward(const int number,
                                        Array<OneD, Array<OneD, NekDouble>> &A,
                                        const Array<OneD, const NekDouble> &b,

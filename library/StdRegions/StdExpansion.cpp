@@ -1175,13 +1175,6 @@ void StdExpansion::HelmholtzMatrixOp_MatFree_GenericImpl(
 }
 
 // VIRTUAL INLINE FUNCTIONS FROM HEADER FILE
-NekDouble StdExpansion::StdPhysEvaluate(
-    const Array<OneD, const NekDouble> &Lcoord,
-    const Array<OneD, const NekDouble> &physvals)
-{
-    return v_StdPhysEvaluate(Lcoord, physvals);
-}
-
 int StdExpansion::v_CalcNumberOfCoefficients(
     [[maybe_unused]] const std::vector<unsigned int> &nummodes,
     [[maybe_unused]] int &modes_offset)
@@ -1340,6 +1333,46 @@ void StdExpansion::v_IProductWRTDirectionalDerivBase(
 }
 
 /**
+ * \brief Forward transform from physical quadrature space stored in \a
+ * inarray and evaluate the expansion coefficients and store in \a
+ * outarray
+ *
+ * Perform a forward transform using a Galerkin projection by taking the
+ * inner product of the physical points and multiplying by the inverse
+ * of the mass matrix using the Solve method of the standard matrix
+ * container holding the local mass matrix, i.e. \f$ {\bf \hat{u}} =
+ * {\bf M}^{-1} {\bf I} \f$ where \f$ {\bf I}[p] = \int^1_{-1}
+ * \phi_p(\xi_1) u(\xi_1) d\xi_1 \f$
+ *
+ * This function stores the expansion coefficients calculated by the
+ * transformation in the coefficient space array \a outarray
+ *
+ * \param inarray: array of physical quadrature points to be transformed
+ * \param outarray: the coeffficients of the expansion
+ */
+void StdExpansion::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,
+                              Array<OneD, NekDouble> &outarray)
+{
+    if (v_IsCollocatedBasis())
+    {
+        Vmath::Vcopy(m_ncoeffs, inarray, 1, outarray, 1);
+    }
+    else
+    {
+        v_IProductWRTBase(inarray, outarray);
+
+        // get Mass matrix inverse
+        StdMatrixKey masskey(eInvMass, v_DetShapeType(), *this);
+        DNekMatSharedPtr matsys = GetStdMatrix(masskey);
+
+        NekVector<NekDouble> in(m_ncoeffs, outarray, eCopy);
+        NekVector<NekDouble> out(m_ncoeffs, outarray, eWrapper);
+
+        out = (*matsys) * in;
+    }
+}
+
+/**
  *
  */
 void StdExpansion::v_FwdTransBndConstrained(
@@ -1371,8 +1404,7 @@ void StdExpansion::v_PhysDeriv(
     [[maybe_unused]] Array<OneD, NekDouble> &out_d2,
     [[maybe_unused]] Array<OneD, NekDouble> &out_d3)
 {
-    NEKERROR(ErrorUtil::efatal, "This function is only valid for "
-                                "local expansions");
+    v_StdPhysDeriv(inarray, out_d1, out_d2, out_d3);
 }
 
 void StdExpansion::v_PhysDeriv_s(
@@ -1439,8 +1471,7 @@ NekDouble StdExpansion::v_PhysEvaluate(
     [[maybe_unused]] const Array<OneD, const NekDouble> &coords,
     [[maybe_unused]] const Array<OneD, const NekDouble> &physvals)
 {
-    NEKERROR(ErrorUtil::efatal, "Method does not exist for this shape");
-    return 0;
+    return v_StdPhysEvaluate(coords, physvals);
 }
 
 NekDouble StdExpansion::v_PhysEvaluateInterp(
@@ -1608,20 +1639,6 @@ void StdExpansion::v_MultiplyByStdQuadratureMetric(
 {
     NEKERROR(ErrorUtil::efatal,
              "Method does not exist for this shape or library");
-}
-
-void StdExpansion::v_BwdTrans_SumFac(
-    [[maybe_unused]] const Array<OneD, const NekDouble> &inarray,
-    [[maybe_unused]] Array<OneD, NekDouble> &outarray)
-{
-    NEKERROR(ErrorUtil::efatal, "Method does not exist for this shape");
-}
-
-void StdExpansion::v_IProductWRTBase_SumFac_Kernel(
-    [[maybe_unused]] const Array<OneD, const NekDouble> &inarray,
-    [[maybe_unused]] Array<OneD, NekDouble> &outarray)
-{
-    NEKERROR(ErrorUtil::efatal, "Method does not exist for this shape");
 }
 
 void StdExpansion::v_IProductWRTDirectionalDerivBase_SumFac(

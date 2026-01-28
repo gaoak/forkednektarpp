@@ -67,31 +67,14 @@ protected:
     //-----------------------------
     // Differentiation Methods
     //-----------------------------
-    using StdHexExp::v_PhysDeriv;
-    LOCAL_REGIONS_EXPORT void v_PhysDeriv(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &out_d0, Array<OneD, NekDouble> &out_d1,
-        Array<OneD, NekDouble> &out_d2) override;
-
     LOCAL_REGIONS_EXPORT void v_PhysDirectionalDeriv(
         const Array<OneD, const NekDouble> &inarray,
         const Array<OneD, const NekDouble> &direction,
         Array<OneD, NekDouble> &out) override;
 
     //---------------------------------------
-    // Transforms
-    //---------------------------------------
-    LOCAL_REGIONS_EXPORT void v_FwdTrans(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray) override;
-
-    //---------------------------------------
     // Inner product functions
     //---------------------------------------
-    LOCAL_REGIONS_EXPORT void v_IProductWRTBase(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray) override;
-
     LOCAL_REGIONS_EXPORT void v_IProductWRTDerivBase(
         const int dir, const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;
@@ -116,14 +99,6 @@ protected:
     //---------------------------------------
     // Evaluation functions
     //---------------------------------------
-    LOCAL_REGIONS_EXPORT NekDouble
-    v_StdPhysEvaluate(const Array<OneD, const NekDouble> &Lcoord,
-                      const Array<OneD, const NekDouble> &physvals) override;
-
-    LOCAL_REGIONS_EXPORT NekDouble
-    v_PhysEvaluate(const Array<OneD, const NekDouble> &coords,
-                   const Array<OneD, const NekDouble> &physvals) override;
-
     STD_REGIONS_EXPORT NekDouble
     v_PhysEvalFirstDeriv(const Array<OneD, NekDouble> &coord,
                          const Array<OneD, const NekDouble> &inarray,

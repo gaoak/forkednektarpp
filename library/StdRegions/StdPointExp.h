@@ -70,12 +70,6 @@ protected:
     STD_REGIONS_EXPORT void v_BwdTrans(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;
-    STD_REGIONS_EXPORT void v_FwdTrans(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray) override;
-    STD_REGIONS_EXPORT void v_BwdTrans_SumFac(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray) override;
 
     //----------------------------
     // Inner product functions

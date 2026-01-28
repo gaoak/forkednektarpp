@@ -242,7 +242,15 @@ with the approach: for example \texttt{IterativeStaticCond} or
 \item \textbf{NekLinSysMaxIterations} specifies the maximum number of
   iterations and has a default value of 5000.
 \item \textbf{IterativeSolverTolerance} specifies the relative
-    stopping tolerances for the iterative solver. Default is $1e-9$.
+  stopping tolerances for the iterative solver. Default is $1e-9$.
+\item \textbf{FlexibleConjugateGradient} specifies if Flexible version of 
+  ConjugateGradient is used. Possible values are 1 or 0 (Default is 0). 
+  The "Flexible" variant of the ConjugateGradient algorithm relaxes some 
+  restriction regarding the preconditioner (constant SPD).
+\item \textbf{FlexibleGMRES} specifies if Flexible version of GMRES is used. 
+  Possible values are 1 or 0 (Default is 0). The "Flexible" variant of the 
+  GMRES algorithm allows the use of a non-linear preconditioner. The required
+  memory storage is about the double of regular GMRES.
 \end{itemize} 
 
 \subsubsection{Preconditioner options}

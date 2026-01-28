@@ -19,8 +19,9 @@ v5.10.0
 - Added UnitTest for the LinearADR operator in Collections (!1831)
 - Add support for pybind11 v3.0 (2332)
 - fix for ReOrientTraceMap to accurately reflect eDir1FwdDir2_Dir2BwdDir1 & eDir1BwdDir2_Dir2FwdDir1 (!2362)
-
 - Tidy PhysDeriv in StdRegion and LocalRegion (!2367)
+- Add Flexible option for Conjugate Gradient and GMRES (!2376)
+- Tidy v_FwdTrans, v_IProductWRTBase, v_MultiplyByStdQuadratureMetric, v_StdPhysEvaluate, v_PhysEvaluate, v_StdPhysDeriv, v_PhysDeriv inheritance in StdRegion and LocalRegion (!2381)
 
 v5.9.0
 ------

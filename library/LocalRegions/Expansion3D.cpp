@@ -1621,7 +1621,7 @@ DNekMatSharedPtr Expansion3D::v_GenMatrix(const StdRegions::StdMatrixKey &mkey)
             for (int i = 0; i < m_ncoeffs; ++i)
             {
                 FillMode(i, phys);
-                PhysDeriv(phys, Deriv[0], Deriv[1], Deriv[2]);
+                v_PhysDeriv(phys, Deriv[0], Deriv[1], Deriv[2]);
 
                 for (int t = 0; t < ntraces; ++t)
                 {
@@ -1703,6 +1703,128 @@ DNekMatSharedPtr Expansion3D::v_GenMatrix(const StdRegions::StdMatrixKey &mkey)
     }
 
     return returnval;
+}
+
+//---------------------------------------
+// Transforms
+//---------------------------------------
+/**
+ * \brief Calculate the derivative of the physical points
+ *
+ * For Hexahedral region can use the Tensor_Deriv function defined
+ * under StdExpansion.
+ * @param   inarray     Input array
+ * @param   out_d0      Derivative of \a inarray in first direction.
+ * @param   out_d1      Derivative of \a inarray in second direction.
+ * @param   out_d2      Derivative of \a inarray in third direction.
+ */
+void Expansion3D::v_PhysDeriv(const Array<OneD, const NekDouble> &inarray,
+                              Array<OneD, NekDouble> &out_d0,
+                              Array<OneD, NekDouble> &out_d1,
+                              Array<OneD, NekDouble> &out_d2)
+{
+    int nquad0 = m_base[0]->GetNumPoints();
+    int nquad1 = m_base[1]->GetNumPoints();
+    int nquad2 = m_base[2]->GetNumPoints();
+    int ntot   = nquad0 * nquad1 * nquad2;
+
+    Array<TwoD, const NekDouble> df = m_geomFactors->GetDerivFactors();
+    Array<OneD, NekDouble> Diff0    = Array<OneD, NekDouble>(ntot);
+    Array<OneD, NekDouble> Diff1    = Array<OneD, NekDouble>(ntot);
+    Array<OneD, NekDouble> Diff2    = Array<OneD, NekDouble>(ntot);
+
+    v_StdPhysDeriv(inarray, Diff0, Diff1, Diff2);
+
+    if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed)
+    {
+        if (out_d0.size())
+        {
+            Vmath::Vmul(ntot, &df[0][0], 1, &Diff0[0], 1, &out_d0[0], 1);
+            Vmath::Vvtvp(ntot, &df[1][0], 1, &Diff1[0], 1, &out_d0[0], 1,
+                         &out_d0[0], 1);
+            Vmath::Vvtvp(ntot, &df[2][0], 1, &Diff2[0], 1, &out_d0[0], 1,
+                         &out_d0[0], 1);
+        }
+
+        if (out_d1.size())
+        {
+            Vmath::Vmul(ntot, &df[3][0], 1, &Diff0[0], 1, &out_d1[0], 1);
+            Vmath::Vvtvp(ntot, &df[4][0], 1, &Diff1[0], 1, &out_d1[0], 1,
+                         &out_d1[0], 1);
+            Vmath::Vvtvp(ntot, &df[5][0], 1, &Diff2[0], 1, &out_d1[0], 1,
+                         &out_d1[0], 1);
+        }
+
+        if (out_d2.size())
+        {
+            Vmath::Vmul(ntot, &df[6][0], 1, &Diff0[0], 1, &out_d2[0], 1);
+            Vmath::Vvtvp(ntot, &df[7][0], 1, &Diff1[0], 1, &out_d2[0], 1,
+                         &out_d2[0], 1);
+            Vmath::Vvtvp(ntot, &df[8][0], 1, &Diff2[0], 1, &out_d2[0], 1,
+                         &out_d2[0], 1);
+        }
+    }
+    else // regular geometry
+    {
+        if (out_d0.size())
+        {
+            Vmath::Smul(ntot, df[0][0], &Diff0[0], 1, &out_d0[0], 1);
+            Blas::Daxpy(ntot, df[1][0], &Diff1[0], 1, &out_d0[0], 1);
+            Blas::Daxpy(ntot, df[2][0], &Diff2[0], 1, &out_d0[0], 1);
+        }
+
+        if (out_d1.size())
+        {
+            Vmath::Smul(ntot, df[3][0], &Diff0[0], 1, &out_d1[0], 1);
+            Blas::Daxpy(ntot, df[4][0], &Diff1[0], 1, &out_d1[0], 1);
+            Blas::Daxpy(ntot, df[5][0], &Diff2[0], 1, &out_d1[0], 1);
+        }
+
+        if (out_d2.size())
+        {
+            Vmath::Smul(ntot, df[6][0], &Diff0[0], 1, &out_d2[0], 1);
+            Blas::Daxpy(ntot, df[7][0], &Diff1[0], 1, &out_d2[0], 1);
+            Blas::Daxpy(ntot, df[8][0], &Diff2[0], 1, &out_d2[0], 1);
+        }
+    }
+}
+
+/**
+ * \brief Calculate the inner product of inarray with respect to the
+ * elements basis.
+ *
+ * @param   inarray     Input array of physical space data.
+ * @param   outarray    Output array of data.
+ */
+void Expansion3D::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
+                                    Array<OneD, NekDouble> &outarray)
+{
+    const bool CollDir0 = m_base[0]->Collocation();
+    const bool CollDir1 = m_base[1]->Collocation();
+    const bool CollDir2 = m_base[2]->Collocation();
+
+    const Array<OneD, const NekDouble> &jac = m_geomFactors->GetJac();
+    bool Deformed = (m_geomFactors->GetGtype() == SpatialDomains::eDeformed);
+
+    if (v_IsCollocatedBasis())
+    {
+        int nqtot = GetTotPoints();
+        if (Deformed)
+        {
+            Vmath::Vmul(nqtot, jac, 1, inarray, 1, outarray, 1);
+        }
+        else
+        {
+            Vmath::Smul(nqtot, jac[0], inarray, 1, outarray, 1);
+        }
+        v_MultiplyByStdQuadratureMetric(outarray, outarray);
+    }
+    else
+    {
+        v_IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
+                                m_base[2]->GetBdata(), inarray, outarray, jac,
+                                Deformed, CollDir0, CollDir1, CollDir2);
+    }
 }
 
 void Expansion3D::v_AddFaceNormBoundaryInt(

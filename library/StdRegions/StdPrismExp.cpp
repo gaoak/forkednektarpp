@@ -46,7 +46,6 @@ namespace Nektar::StdRegions
 using vec_t = tinysimd::scalarT<double>;
 #include <StdRegions/Operators/BwdTransSumFacStdKernels.hpp>
 #include <StdRegions/Operators/IProductWRTBaseSumFacStdKernels.hpp>
-#include <StdRegions/Operators/PhysDerivSumFacStdKernels.hpp>
 
 StdPrismExp::StdPrismExp(const LibUtilities::BasisKey &Ba,
                          const LibUtilities::BasisKey &Bb,
@@ -73,77 +72,6 @@ StdPrismExp::StdPrismExp(const LibUtilities::BasisKey &Ba,
 //---------------------------------------
 // Differentiation Methods
 //---------------------------------------
-void StdPrismExp::PhysTensorDeriv(const Array<OneD, const NekDouble> &inarray,
-                                  Array<OneD, NekDouble> &out_d0,
-                                  Array<OneD, NekDouble> &out_d1,
-                                  Array<OneD, NekDouble> &out_d2)
-{
-    const int nquad0 = m_base[0]->GetNumPoints();
-    const int nquad1 = m_base[1]->GetNumPoints();
-    const int nquad2 = m_base[2]->GetNumPoints();
-
-    bool Deriv0         = (out_d0.size() > 0);
-    bool Deriv1         = (out_d1.size() > 0);
-    bool Deriv2         = (out_d2.size() > 0);
-    const NekDouble *D0 = m_base[0]->GetD()->GetRawPtr();
-    const NekDouble *D1 = m_base[1]->GetD()->GetRawPtr();
-    const NekDouble *D2 = m_base[2]->GetD()->GetRawPtr();
-
-    Array<OneD, const NekDouble> intmp;
-    // copy inarray data if inarray and outarray are the same.
-    if ((inarray.data() == out_d0.data()) ||
-        (inarray.data() == out_d1.data()) || (inarray.data() == out_d2.data()))
-    {
-        Array<OneD, NekDouble> wsp(nquad0 * nquad1 * nquad2);
-        CopyArray(inarray, wsp);
-        intmp = wsp;
-    }
-    else
-    {
-        intmp = inarray;
-    }
-
-    // Switch statment using boost_pp and macros. This unfolls into a
-    // nested switch statement which runs from SMIN to SMAX for quadratrure
-    // order. If you want to see it unwrapped compile in verbose mode and add
-    // --preprocess to the c++ command. Default case
-#undef PHYSDERIV_DEF
-#define PHYSDERIV_DEF                                                          \
-    PhysDerivTensor3DKernel(nquad0, nquad1, nquad2,                            \
-                            (const vec_t *)intmp.data(), (const vec_t *)D0,    \
-                            (const vec_t *)D1, (const vec_t *)D2,              \
-                            (vec_t *)out_d0.data(), (vec_t *)out_d1.data(),    \
-                            (vec_t *)out_d2.data(), Deriv0, Deriv1, Deriv2)
-
-    // Loop case over quarature points
-#undef PHYSDERIV_Q
-#define PHYSDERIV_Q(r, i)                                                      \
-    case NQ1(i):                                                               \
-        PhysDerivTensor3DKernel(                                               \
-            NQ1(i), NQ1(i), NQ1_M1(i), (const vec_t *)intmp.data(),            \
-            (const vec_t *)D0, (const vec_t *)D1, (const vec_t *)D2,           \
-            (vec_t *)out_d0.data(), (vec_t *)out_d1.data(),                    \
-            (vec_t *)out_d2.data(), Deriv0, Deriv1, Deriv2);                   \
-        break;
-
-    // templated cases on  standard quadrature
-    // usage where quad order goes from SMIN to SMAX
-    if ((nquad0 == nquad1) && (nquad1 == nquad2 + 1))
-    {
-        switch (nquad0)
-        {
-            BOOST_PP_FOR((SMIN, SMAX), STDLEV1TEST, STDLEV1UPDATE, PHYSDERIV_Q);
-            default:
-                PHYSDERIV_DEF;
-                break;
-        }
-    }
-    else
-    {
-        PHYSDERIV_DEF;
-    }
-}
-
 /**
  * \brief Calculate the derivative of the physical points
  *
@@ -158,10 +86,10 @@ void StdPrismExp::PhysTensorDeriv(const Array<OneD, const NekDouble> &inarray,
  * \bar \eta_1} + \frac {\partial} {\partial \eta_3} \end{Bmatrix}\f$
  */
 
-void StdPrismExp::v_PhysDeriv(const Array<OneD, const NekDouble> &u_physical,
-                              Array<OneD, NekDouble> &out_dxi1,
-                              Array<OneD, NekDouble> &out_dxi2,
-                              Array<OneD, NekDouble> &out_dxi3)
+void StdPrismExp::v_StdPhysDeriv(const Array<OneD, const NekDouble> &u_physical,
+                                 Array<OneD, NekDouble> &out_dxi1,
+                                 Array<OneD, NekDouble> &out_dxi2,
+                                 Array<OneD, NekDouble> &out_dxi3)
 {
     int Qx   = m_base[0]->GetNumPoints();
     int Qy   = m_base[1]->GetNumPoints();
@@ -221,14 +149,6 @@ void StdPrismExp::v_PhysDeriv(const Array<OneD, const NekDouble> &u_physical,
                          &out_dxi3[0] + i, Qx, &out_dxi3[0] + i, Qx);
         }
     }
-}
-
-void StdPrismExp::v_StdPhysDeriv(const Array<OneD, const NekDouble> &inarray,
-                                 Array<OneD, NekDouble> &out_d0,
-                                 Array<OneD, NekDouble> &out_d1,
-                                 Array<OneD, NekDouble> &out_d2)
-{
-    StdPrismExp::v_PhysDeriv(inarray, out_d0, out_d1, out_d2);
 }
 
 //---------------------------------------
@@ -350,82 +270,9 @@ void StdPrismExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
     }
 }
 
-/**
- * \brief Forward transform from physical quadrature space stored in
- * \a inarray and evaluate the expansion coefficients and store in \a
- * outarray
- *
- *  Inputs:\n
- *  - \a inarray: array of physical quadrature points to be transformed
- *
- * Outputs:\n
- *  - \a outarray: updated array of expansion coefficients.
- */
-void StdPrismExp::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,
-                             Array<OneD, NekDouble> &outarray)
-{
-    v_IProductWRTBase(inarray, outarray);
-
-    // Get Mass matrix inverse
-    StdMatrixKey masskey(eInvMass, DetShapeType(), *this);
-    DNekMatSharedPtr matsys = GetStdMatrix(masskey);
-
-    // copy inarray in case inarray == outarray
-    DNekVec in(m_ncoeffs, outarray);
-    DNekVec out(m_ncoeffs, outarray, eWrapper);
-
-    out = (*matsys) * in;
-}
-
 //---------------------------------------
 // Inner product functions
 //---------------------------------------
-
-/**
- * \brief Calculate the inner product of inarray with respect to the
- * basis B=base0*base1*base2 and put into outarray:
- *
- * \f$ \begin{array}{rcl} I_{pqr} = (\phi_{pqr}, u)_{\delta} & = &
- * \sum_{i=0}^{nq_0} \sum_{j=0}^{nq_1} \sum_{k=0}^{nq_2} \psi_{p}^{a}
- * (\bar \eta_{1i}) \psi_{q}^{a} (\xi_{2j}) \psi_{pr}^{b} (\xi_{3k})
- * w_i w_j w_k u(\bar \eta_{1,i} \xi_{2,j} \xi_{3,k}) J_{i,j,k}\\ & =
- * & \sum_{i=0}^{nq_0} \psi_p^a(\bar \eta_{1,i}) \sum_{j=0}^{nq_1}
- * \psi_{q}^a(\xi_{2,j}) \sum_{k=0}^{nq_2} \psi_{pr}^b u(\bar
- * \eta_{1i},\xi_{2j},\xi_{3k}) J_{i,j,k} \end{array} \f$ \n
- *
- * where
- *
- * \f$ \phi_{pqr} (\xi_1 , \xi_2 , \xi_3) = \psi_p^a (\bar \eta_1)
- * \psi_{q}^a (\xi_2) \psi_{pr}^b (\xi_3) \f$ \n
- *
- * which can be implemented as \n
- *
- * \f$f_{pr} (\xi_{3k}) = \sum_{k=0}^{nq_3} \psi_{pr}^b u(\bar
- * \eta_{1i},\xi_{2j},\xi_{3k}) J_{i,j,k} = {\bf B_3 U} \f$ \n \f$
- * g_{q} (\xi_{3k}) = \sum_{j=0}^{nq_1} \psi_{q}^a (\xi_{2j}) f_{pr}
- * (\xi_{3k}) = {\bf B_2 F} \f$ \n \f$ (\phi_{pqr}, u)_{\delta} =
- * \sum_{k=0}^{nq_0} \psi_{p}^a (\xi_{3k}) g_{q} (\xi_{3k}) = {\bf B_1
- * G} \f$
- *
- * This is a wrapper function around \a IProductWRTBaseKernel()
- */
-void StdPrismExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
-                                    Array<OneD, NekDouble> &outarray)
-{
-    ASSERTL1((m_base[1]->GetBasisType() != LibUtilities::eOrtho_B) ||
-                 (m_base[1]->GetBasisType() != LibUtilities::eModified_B),
-             "Basis[1] is not a general tensor type");
-
-    ASSERTL1((m_base[2]->GetBasisType() != LibUtilities::eOrtho_C) ||
-                 (m_base[2]->GetBasisType() != LibUtilities::eModified_C),
-             "Basis[2] is not a general tensor type");
-
-    const Array<OneD, const NekDouble> one(1, 1.0);
-    v_IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
-                            m_base[2]->GetBdata(), inarray, outarray, one,
-                            false);
-}
-
 /** \brief Inner product of \a inarray over region with respect to the
  *  expansion basis (this)->m_base[0] and return in \a outarray
  *
@@ -455,6 +302,14 @@ void StdPrismExp::v_IProductWRTBaseKernel(
     const bool Deformed, [[maybe_unused]] bool CollDir0,
     [[maybe_unused]] bool CollDir1, [[maybe_unused]] bool CollDir2)
 {
+    ASSERTL1((m_base[1]->GetBasisType() != LibUtilities::eOrtho_B) ||
+                 (m_base[1]->GetBasisType() != LibUtilities::eModified_B),
+             "Basis[1] is not a general tensor type");
+
+    ASSERTL1((m_base[2]->GetBasisType() != LibUtilities::eOrtho_C) ||
+                 (m_base[2]->GetBasisType() != LibUtilities::eModified_C),
+             "Basis[2] is not a general tensor type");
+
     int nquad0 = m_base[0]->GetNumPoints();
     int nquad1 = m_base[1]->GetNumPoints();
     int nquad2 = m_base[2]->GetNumPoints();
@@ -790,7 +645,7 @@ NekDouble StdPrismExp::v_PhysEvalFirstDeriv(
         int totPoints = GetTotPoints();
         Array<OneD, NekDouble> EphysDeriv0(totPoints), EphysDeriv1(totPoints),
             EphysDeriv2(totPoints);
-        PhysDeriv(inarray, EphysDeriv0, EphysDeriv1, EphysDeriv2);
+        v_PhysDeriv(inarray, EphysDeriv0, EphysDeriv1, EphysDeriv2);
 
         Array<OneD, DNekMatSharedPtr> I(3);
         I[0] = GetBase()[0]->GetI(coll);
@@ -2028,29 +1883,6 @@ int StdPrismExp::GetMode(int p, int q, int r)
            q * (R + 1 - p) + // Skip along columns (q-direction)
            (Q + 1) * (p * R + 1 -
                       (p - 2) * (p - 1) / 2); // Skip along rows (p-direction)
-}
-
-void StdPrismExp::v_MultiplyByStdQuadratureMetric(
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray)
-{
-    int nquad0 = m_base[0]->GetNumPoints();
-    int nquad1 = m_base[1]->GetNumPoints();
-    int nquad2 = m_base[2]->GetNumPoints();
-
-    int cnt = 0;
-    for (int i = 0; i < nquad2; ++i)
-    {
-        NekDouble w2 = m_weights[2][i];
-        for (int j = 0; j < nquad1; ++j)
-        {
-            NekDouble w1w2 = m_weights[1][j] * w2;
-            for (int k = 0; k < nquad0; ++k, ++cnt)
-            {
-                outarray[cnt] = inarray[cnt] * m_weights[0][k] * w1w2;
-            }
-        }
-    }
 }
 
 void StdPrismExp::v_SVVLaplacianFilter(Array<OneD, NekDouble> &array,

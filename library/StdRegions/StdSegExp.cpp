@@ -46,7 +46,6 @@ namespace Nektar::StdRegions
 using vec_t = tinysimd::scalarT<double>;
 #include <StdRegions/Operators/BwdTransSumFacStdKernels.hpp>
 #include <StdRegions/Operators/IProductWRTBaseSumFacStdKernels.hpp>
-#include <StdRegions/Operators/PhysDerivSumFacStdKernels.hpp>
 
 /** \brief Constructor using BasisKey class for quadrature points and
  *  order definition
@@ -119,49 +118,6 @@ NekDouble StdSegExp::v_Integral(const Array<OneD, const NekDouble> &inarray)
 //---------------------------------------------------------------------
 // Differentiation Methods
 //---------------------------------------------------------------------
-
-void StdSegExp::PhysTensorDeriv(const Array<OneD, const NekDouble> &inarray,
-                                Array<OneD, NekDouble> &outarray)
-{
-    int nquad    = GetTotPoints();
-    NekDouble *D = m_base[0]->GetD()->GetRawPtr();
-    Array<OneD, const NekDouble> intmp;
-
-    // copy inarray data if inarray and outarray are the same.
-    if (inarray.data() == outarray.data())
-    {
-        Array<OneD, NekDouble> wsp(nquad);
-        CopyArray(inarray, wsp);
-        intmp = wsp;
-    }
-    else
-    {
-        intmp = inarray;
-    }
-
-    // Switch statment using boost_pp and macros. This unfolls into a
-    // nested switch statement which runs from SMIN to SMAX for quadratrure
-    // order. If you want to see it unwrapped compile in verbose mode and add
-    // --preprocess to the c++ command. Default case
-#undef PHYSDERIV_Q
-#define PHYSDERIV_Q(r, i)                                                      \
-    case NQ1(i):                                                               \
-        PhysDerivTensor1DKernel(NQ1(i), (const vec_t *)intmp.data(),           \
-                                (const vec_t *)D, (vec_t *)outarray.data());   \
-        break;
-
-    // templated cases on  standard quadrature
-    // usage where quad order goes from SMIN to SMAX
-    switch (nquad)
-    {
-        BOOST_PP_FOR((SMIN, SMAX), STDLEV1TEST, STDLEV1UPDATE, PHYSDERIV_Q);
-        default:
-            PhysDerivTensor1DKernel(nquad, (const vec_t *)intmp.data(),
-                                    (const vec_t *)D, (vec_t *)outarray.data());
-            break;
-    }
-}
-
 /** \brief Evaluate the derivative \f$ d/d{\xi_1} \f$ at the physical
  *  quadrature points given by \a inarray and return in \a outarray.
  *
@@ -170,14 +126,6 @@ void StdSegExp::PhysTensorDeriv(const Array<OneD, const NekDouble> &inarray,
  *  \param  outarray the resulting array of the derivative \f$
  *  du/d_{\xi_1}|_{\xi_{1i}} \f$ will be stored in the array \a outarra
  */
-
-void StdSegExp::v_PhysDeriv(const Array<OneD, const NekDouble> &inarray,
-                            Array<OneD, NekDouble> &out_d0,
-                            [[maybe_unused]] Array<OneD, NekDouble> &out_d1,
-                            [[maybe_unused]] Array<OneD, NekDouble> &out_d2)
-{
-    PhysTensorDeriv(inarray, out_d0);
-}
 
 void StdSegExp::v_StdPhysDeriv(const Array<OneD, const NekDouble> &inarray,
                                Array<OneD, NekDouble> &out_d0,
@@ -307,46 +255,6 @@ void StdSegExp::v_ReduceOrderCoeffs(int numMin,
     LibUtilities::InterpCoeff1D(bortho0, coeff_tmp, b0, outarray);
 }
 
-/**
- * \brief Forward transform from physical quadrature space stored in \a
- * inarray and evaluate the expansion coefficients and store in \a
- * outarray
- *
- * Perform a forward transform using a Galerkin projection by taking the
- * inner product of the physical points and multiplying by the inverse
- * of the mass matrix using the Solve method of the standard matrix
- * container holding the local mass matrix, i.e. \f$ {\bf \hat{u}} =
- * {\bf M}^{-1} {\bf I} \f$ where \f$ {\bf I}[p] = \int^1_{-1}
- * \phi_p(\xi_1) u(\xi_1) d\xi_1 \f$
- *
- * This function stores the expansion coefficients calculated by the
- * transformation in the coefficient space array \a outarray
- *
- * \param inarray: array of physical quadrature points to be transformed
- * \param outarray: the coeffficients of the expansion
- */
-void StdSegExp::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,
-                           Array<OneD, NekDouble> &outarray)
-{
-    if (m_base[0]->Collocation())
-    {
-        Vmath::Vcopy(m_ncoeffs, inarray, 1, outarray, 1);
-    }
-    else
-    {
-        v_IProductWRTBase(inarray, outarray);
-
-        // get Mass matrix inverse
-        StdMatrixKey masskey(eInvMass, v_DetShapeType(), *this);
-        DNekMatSharedPtr matsys = GetStdMatrix(masskey);
-
-        NekVector<NekDouble> in(m_ncoeffs, outarray, eCopy);
-        NekVector<NekDouble> out(m_ncoeffs, outarray, eWrapper);
-
-        out = (*matsys) * in;
-    }
-}
-
 void StdSegExp::v_FwdTransBndConstrained(
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray)
@@ -416,7 +324,7 @@ void StdSegExp::v_FwdTransBndConstrained(
         }
         else
         {
-            StdSegExp::v_FwdTrans(inarray, outarray);
+            v_FwdTrans(inarray, outarray);
         }
     }
 }
@@ -424,33 +332,6 @@ void StdSegExp::v_FwdTransBndConstrained(
 //---------------------------------------------------------------------
 // Inner product functions
 //---------------------------------------------------------------------
-
-/** \brief Inner product of \a inarray over region with respect to the
- *  expansion basis (this)->m_base[0] and return in \a outarray
- *
- *  Wrapper call to \a IProductWRTBaseKernel()
- *
- *  @param inarray - Array of function values evaluated at the physical
- *  collocation points
- *  @param outarray - The values of the inner product with respect to
- *  each basis over region will be stored in the array \a outarray as
- *  output of the function
- */
-void StdSegExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
-                                  Array<OneD, NekDouble> &outarray)
-{
-    if (m_base[0]->Collocation())
-    {
-        v_MultiplyByStdQuadratureMetric(inarray, outarray);
-    }
-    else
-    {
-        const Array<OneD, const NekDouble> one(1, 1.0);
-        v_IProductWRTBaseKernel(m_base[0]->GetBdata(), inarray, outarray, one,
-                                false);
-    }
-}
-
 /** \brief Inner product of \a inarray over region with respect to the
  *  expansion basis (this)->m_base[0] and return in \a outarray
  *
@@ -647,7 +528,8 @@ void StdSegExp::v_LaplacianMatrixOp(const Array<OneD, const NekDouble> &inarray,
     v_BwdTrans(inarray, physValues);
 
     // Laplacian matrix operation
-    v_PhysDeriv(physValues, dPhysValuesdx);
+    v_PhysDeriv(physValues, dPhysValuesdx, NullNekDouble1DArray,
+                NullNekDouble1DArray);
     v_IProductWRTBase(dPhysValuesdx, outarray);
 }
 
@@ -676,7 +558,8 @@ void StdSegExp::v_HelmholtzMatrixOp(const Array<OneD, const NekDouble> &inarray,
 
     // Laplacian matrix operation
     const Array<OneD, const NekDouble> one(1, 1.0);
-    v_PhysDeriv(physValues, dPhysValuesdx);
+    v_PhysDeriv(physValues, dPhysValuesdx, NullNekDouble1DArray,
+                NullNekDouble1DArray);
     v_IProductWRTBaseKernel(m_base[0]->GetDbdata(), dPhysValuesdx, outarray,
                             one, false);
     Blas::Daxpy(m_ncoeffs, mkey.GetConstFactor(eFactorLambda), wsp.data(), 1,
@@ -761,19 +644,6 @@ void StdSegExp::v_ExponentialFilter(Array<OneD, NekDouble> &array,
 
     // backward transform to physical space
     OrthoExp.BwdTrans(orthocoeffs, array);
-}
-
-// up to here
-void StdSegExp::v_MultiplyByStdQuadratureMetric(
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray)
-{
-    int nquad0 = m_base[0]->GetNumPoints();
-
-    for (int j = 0; j < nquad0; ++j)
-    {
-        outarray[j] = inarray[j] * m_weights[0][j];
-    }
 }
 
 void StdSegExp::v_GetCoords(Array<OneD, NekDouble> &coords_0,

@@ -48,7 +48,7 @@ StdExpansion0D::StdExpansion0D(
 //----------------------------
 // Differentiation Methods
 //-----------------------------
-NekDouble StdExpansion0D::v_PhysEvaluate(
+NekDouble StdExpansion0D::v_StdPhysEvaluate(
     const Array<OneD, const NekDouble> &Lcoord,
     const Array<OneD, const NekDouble> &physvals)
 {

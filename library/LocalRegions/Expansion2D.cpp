@@ -735,6 +735,92 @@ void Expansion2D::v_PhysDeriv(const int dir,
     }
 }
 
+void Expansion2D::v_PhysDeriv(const Array<OneD, const NekDouble> &inarray,
+                              Array<OneD, NekDouble> &out_d0,
+                              Array<OneD, NekDouble> &out_d1,
+                              Array<OneD, NekDouble> &out_d2)
+{
+    int nquad0                             = m_base[0]->GetNumPoints();
+    int nquad1                             = m_base[1]->GetNumPoints();
+    int nqtot                              = nquad0 * nquad1;
+    const Array<TwoD, const NekDouble> &df = m_geomFactors->GetDerivFactors();
+    Array<OneD, NekDouble> diff0(2 * nqtot);
+    Array<OneD, NekDouble> diff1(diff0 + nqtot);
+
+    v_StdPhysDeriv(inarray, diff0, diff1, NullNekDouble1DArray);
+
+    if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed)
+    {
+        if (out_d0.size())
+        {
+            Vmath::Vmul(nqtot, df[0], 1, diff0, 1, out_d0, 1);
+            Vmath::Vvtvp(nqtot, df[1], 1, diff1, 1, out_d0, 1, out_d0, 1);
+        }
+
+        if (out_d1.size())
+        {
+            Vmath::Vmul(nqtot, df[2], 1, diff0, 1, out_d1, 1);
+            Vmath::Vvtvp(nqtot, df[3], 1, diff1, 1, out_d1, 1, out_d1, 1);
+        }
+
+        if (out_d2.size())
+        {
+            Vmath::Vmul(nqtot, df[4], 1, diff0, 1, out_d2, 1);
+            Vmath::Vvtvp(nqtot, df[5], 1, diff1, 1, out_d2, 1, out_d2, 1);
+        }
+    }
+    else // regular geometry
+    {
+        if (out_d0.size())
+        {
+            Vmath::Smul(nqtot, df[0][0], diff0, 1, out_d0, 1);
+            Blas::Daxpy(nqtot, df[1][0], diff1, 1, out_d0, 1);
+        }
+
+        if (out_d1.size())
+        {
+            Vmath::Smul(nqtot, df[2][0], diff0, 1, out_d1, 1);
+            Blas::Daxpy(nqtot, df[3][0], diff1, 1, out_d1, 1);
+        }
+
+        if (out_d2.size())
+        {
+            Vmath::Smul(nqtot, df[4][0], diff0, 1, out_d2, 1);
+            Blas::Daxpy(nqtot, df[5][0], diff1, 1, out_d2, 1);
+        }
+    }
+}
+
+void Expansion2D::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
+                                    Array<OneD, NekDouble> &outarray)
+{
+    const bool CollDir0 = m_base[0]->Collocation();
+    const bool CollDir1 = m_base[1]->Collocation();
+
+    const Array<OneD, const NekDouble> &jac = m_geomFactors->GetJac();
+    bool Deformed = (m_geomFactors->GetGtype() == SpatialDomains::eDeformed);
+
+    if (v_IsCollocatedBasis())
+    {
+        int nqtot = GetTotPoints();
+        if (Deformed)
+        {
+            Vmath::Vmul(nqtot, jac, 1, inarray, 1, outarray, 1);
+        }
+        else
+        {
+            Vmath::Smul(nqtot, jac[0], inarray, 1, outarray, 1);
+        }
+        v_MultiplyByStdQuadratureMetric(outarray, outarray);
+    }
+    else
+    {
+        v_IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
+                                inarray, outarray, jac, Deformed, CollDir0,
+                                CollDir1);
+    }
+}
+
 void Expansion2D::v_AddEdgeNormBoundaryInt(
     const int edge, const ExpansionSharedPtr &EdgeExp,
     const Array<OneD, const NekDouble> &Fx,
@@ -1940,7 +2026,7 @@ DNekMatSharedPtr Expansion2D::v_GenMatrix(const StdRegions::StdMatrixKey &mkey)
             for (int i = 0; i < m_ncoeffs; ++i)
             {
                 FillMode(i, phys);
-                PhysDeriv(phys, Deriv[0], Deriv[1], Deriv[2]);
+                v_PhysDeriv(phys, Deriv[0], Deriv[1], Deriv[2]);
 
                 for (int t = 0; t < ntraces; ++t)
                 {

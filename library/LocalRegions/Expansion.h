@@ -308,6 +308,14 @@ protected:
     Array<OneD, NekDouble> GetMFMag(const int dir,
                                     const StdRegions::VarCoeffMap &varcoeffs);
 
+    LOCAL_REGIONS_EXPORT void v_FwdTrans(
+        const Array<OneD, const NekDouble> &inarray,
+        Array<OneD, NekDouble> &outarray) override;
+
+    LOCAL_REGIONS_EXPORT NekDouble
+    v_PhysEvaluate(const Array<OneD, const NekDouble> &coord,
+                   const Array<OneD, const NekDouble> &physvals) override;
+
     void v_MultiplyByQuadratureMetric(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;

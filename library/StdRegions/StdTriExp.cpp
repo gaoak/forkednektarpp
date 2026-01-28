@@ -45,7 +45,6 @@ namespace Nektar::StdRegions
 using vec_t = tinysimd::scalarT<double>;
 #include <StdRegions/Operators/BwdTransSumFacStdKernels.hpp>
 #include <StdRegions/Operators/IProductWRTBaseSumFacStdKernels.hpp>
-#include <StdRegions/Operators/PhysDerivSumFacStdKernels.hpp>
 
 StdTriExp::StdTriExp(const LibUtilities::BasisKey &Ba,
                      const LibUtilities::BasisKey &Bb)
@@ -106,76 +105,6 @@ NekDouble StdTriExp::v_Integral(const Array<OneD, const NekDouble> &inarray)
 //-----------------------------
 // Differentiation Methods
 //-----------------------------
-
-/**
- *   Calculate the derivative along the tenosr directions. This function was
- *  originally in StdEpxansion2D but due to the boost_pp switch statement is
- *  currently shape dependent
- */
-void StdTriExp::PhysTensorDeriv(const Array<OneD, const NekDouble> &inarray,
-                                Array<OneD, NekDouble> &outarray_d0,
-                                Array<OneD, NekDouble> &outarray_d1)
-{
-    int nquad0          = m_base[0]->GetNumPoints();
-    int nquad1          = m_base[1]->GetNumPoints();
-    bool Deriv0         = (outarray_d0.size() > 0);
-    bool Deriv1         = (outarray_d1.size() > 0);
-    const NekDouble *D0 = m_base[0]->GetD()->GetRawPtr();
-    const NekDouble *D1 = m_base[1]->GetD()->GetRawPtr();
-
-    Array<OneD, const NekDouble> intmp;
-    // copy inarray data if inarray and outarray are the same.
-    if ((inarray.data() == outarray_d0.data()) ||
-        (inarray.data() == outarray_d1.data()))
-    {
-        Array<OneD, NekDouble> wsp(nquad0 * nquad1);
-        CopyArray(inarray, wsp);
-        intmp = wsp;
-    }
-    else
-    {
-        intmp = inarray;
-    }
-
-    // Switch statment using boost_pp and macros. This unfolls into a
-    // nested switch statement which runs from SMIN to SMAX for quadratrure
-    // order. If you want to see it unwrapped compile in verbose mode and add
-    // --preprocess to the c++ command. Default case
-#undef PHYSDERIV_DEF
-#define PHYSDERIV_DEF                                                          \
-    PhysDerivTensor2DKernel(nquad0, nquad1, (const vec_t *)intmp.data(),       \
-                            (const vec_t *)D0, (const vec_t *)D1,              \
-                            (vec_t *)outarray_d0.data(),                       \
-                            (vec_t *)outarray_d1.data(), Deriv0, Deriv1)
-
-    // Loop case over quarature points
-#undef PHYSDERIV_Q
-#define PHYSDERIV_Q(r, i)                                                      \
-    case NQ1(i):                                                               \
-        PhysDerivTensor2DKernel(                                               \
-            NQ1(i), NQ1_M1(i), (const vec_t *)intmp.data(), (const vec_t *)D0, \
-            (const vec_t *)D1, (vec_t *)outarray_d0.data(),                    \
-            (vec_t *)outarray_d1.data(), Deriv0, Deriv1);                      \
-        break;
-
-    // templated cases on  standard quadrature
-    // usage where quad order goes from SMIN to SMAX
-    if (nquad0 == nquad1 + 1)
-    {
-        switch (nquad0)
-        {
-            BOOST_PP_FOR((SMIN, SMAX), STDLEV1TEST, STDLEV1UPDATE, PHYSDERIV_Q);
-            default:
-                PHYSDERIV_DEF;
-                break;
-        }
-    }
-    else
-    {
-        PHYSDERIV_DEF;
-    }
-}
-
 /**
  * \brief Calculate the derivative of the physical points.
  *
@@ -188,10 +117,10 @@ void StdTriExp::PhysTensorDeriv(const Array<OneD, const NekDouble> &inarray,
  * \right |_{\eta_2}  + \left . \frac{\partial u}{\partial d\eta_2}
  * \right |_{\eta_1}  \f$
  */
-void StdTriExp::v_PhysDeriv(const Array<OneD, const NekDouble> &inarray,
-                            Array<OneD, NekDouble> &out_d0,
-                            Array<OneD, NekDouble> &out_d1,
-                            [[maybe_unused]] Array<OneD, NekDouble> &out_d2)
+void StdTriExp::v_StdPhysDeriv(const Array<OneD, const NekDouble> &inarray,
+                               Array<OneD, NekDouble> &out_d0,
+                               Array<OneD, NekDouble> &out_d1,
+                               [[maybe_unused]] Array<OneD, NekDouble> &out_d2)
 {
     int i;
     int nquad0 = m_base[0]->GetNumPoints();
@@ -249,14 +178,6 @@ void StdTriExp::v_PhysDeriv(const Array<OneD, const NekDouble> &inarray,
                          1);
         }
     }
-}
-
-void StdTriExp::v_StdPhysDeriv(const Array<OneD, const NekDouble> &inarray,
-                               Array<OneD, NekDouble> &out_d0,
-                               Array<OneD, NekDouble> &out_d1,
-                               [[maybe_unused]] Array<OneD, NekDouble> &out_d2)
-{
-    StdTriExp::v_PhysDeriv(inarray, out_d0, out_d1);
 }
 
 //---------------------------------------
@@ -344,22 +265,6 @@ void StdTriExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
     {
         BWDTRANS_DEF;
     }
-}
-
-void StdTriExp::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,
-                           Array<OneD, NekDouble> &outarray)
-{
-    v_IProductWRTBase(inarray, outarray);
-
-    // get Mass matrix inverse
-    StdMatrixKey masskey(eInvMass, DetShapeType(), *this);
-    DNekMatSharedPtr matsys = GetStdMatrix(masskey);
-
-    // copy inarray in case inarray == outarray
-    NekVector<NekDouble> in(m_ncoeffs, outarray, eCopy);
-    NekVector<NekDouble> out(m_ncoeffs, outarray, eWrapper);
-
-    out = (*matsys) * in;
 }
 
 void StdTriExp::v_FwdTransBndConstrained(
@@ -454,55 +359,6 @@ void StdTriExp::v_FwdTransBndConstrained(
 //---------------------------------------
 // Inner product functions
 //---------------------------------------
-
-/**
- * \brief Calculate the inner product of inarray with respect to the
- * basis B=base0[p]*base1[pq] and put into outarray.
- *
- * \f$
- * \begin{array}{rcl}
- * I_{pq} = (\phi^A_q \phi^B_{pq}, u) &=&
- * \sum_{i=0}^{nq_0}\sum_{j=0}^{nq_1}
- * \phi^A_p(\eta_{0,i})\phi^B_{pq}(\eta_{1,j}) w^0_i w^1_j
- * u(\xi_{0,i} \xi_{1,j}) \\
- * & = & \sum_{i=0}^{nq_0} \phi^A_p(\eta_{0,i})
- * \sum_{j=0}^{nq_1} \phi^B_{pq}(\eta_{1,j}) \tilde{u}_{i,j}
- * \end{array}
- * \f$
- *
- * where
- *
- * \f$  \tilde{u}_{i,j} = w^0_i w^1_j u(\xi_{0,i},\xi_{1,j}) \f$
- *
- * which can be implemented as
- *
- * \f$  f_{pj} = \sum_{i=0}^{nq_0} \phi^A_p(\eta_{0,i})
- * \tilde{u}_{i,j}
- * \rightarrow {\bf B_1 U}  \f$
- * \f$  I_{pq} = \sum_{j=0}^{nq_1} \phi^B_{pq}(\eta_{1,j}) f_{pj}
- * \rightarrow {\bf B_2[p*skip] f[skip]}  \f$
- *
- * \b Recall: \f$ \eta_{1} = \frac{2(1+\xi_1)}{(1-\xi_2)}-1, \,
- * \eta_2 = \xi_2\f$
- *
- * \b Note: For the orthgonality of this expansion to be realised the
- * 'q' ordering must run fastest in contrast to the Quad and Hex
- * ordering where 'p' index runs fastest to be consistent with the
- * quadrature ordering.
- *
- * In the triangular space the i (i.e. \f$\eta_1\f$ direction)
- * ordering still runs fastest by convention.
- *
- * This is a wrapper function around \a IProductWRTBaseKernel()
- */
-void StdTriExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
-                                  Array<OneD, NekDouble> &outarray)
-{
-    const Array<OneD, const NekDouble> one(1, 1.0);
-    v_IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
-                            inarray, outarray, one, false);
-}
-
 /** \brief Inner product of \a inarray over region with respect to the
  *  expansion basis (this)->m_base[0] and return in \a outarray
  *
@@ -833,7 +689,7 @@ NekDouble StdTriExp::v_PhysEvalFirstDeriv(
     {
         int totPoints = GetTotPoints();
         Array<OneD, NekDouble> EphysDeriv0(totPoints), EphysDeriv1(totPoints);
-        PhysDeriv(inarray, EphysDeriv0, EphysDeriv1);
+        v_PhysDeriv(inarray, EphysDeriv0, EphysDeriv1, NullNekDouble1DArray);
 
         Array<OneD, DNekMatSharedPtr> I(2);
         I[0] = GetBase()[0]->GetI(coll);
@@ -1717,24 +1573,6 @@ void StdTriExp::v_ReduceOrderCoeffs(int numMin,
 //---------------------------------------
 // Private helper functions
 //---------------------------------------
-
-// Still needed for calls from Collections - think can be removed with
-// Collections.
-void StdTriExp::v_MultiplyByStdQuadratureMetric(
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray)
-{
-    int nquad0 = m_base[0]->GetNumPoints();
-    int nquad1 = m_base[1]->GetNumPoints();
-    int cnt    = 0;
-    for (int i = 0; i < nquad1; ++i)
-    {
-        for (int j = 0; j < nquad0; ++j, ++cnt)
-        {
-            outarray[cnt] = inarray[cnt] * m_weights[0][j] * m_weights[1][i];
-        }
-    }
-}
 
 void StdTriExp::v_GetSimplexEquiSpacedConnectivity(
     Array<OneD, int> &conn, [[maybe_unused]] bool standard)

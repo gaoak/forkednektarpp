@@ -47,7 +47,6 @@ namespace Nektar::StdRegions
 using vec_t = tinysimd::scalarT<double>;
 #include <StdRegions/Operators/BwdTransSumFacStdKernels.hpp>
 #include <StdRegions/Operators/IProductWRTBaseSumFacStdKernels.hpp>
-#include <StdRegions/Operators/PhysDerivSumFacStdKernels.hpp>
 
 StdPyrExp::StdPyrExp(const LibUtilities::BasisKey &Ba,
                      const LibUtilities::BasisKey &Bb,
@@ -83,77 +82,6 @@ StdPyrExp::StdPyrExp(const LibUtilities::BasisKey &Ba,
 //---------------------------------------
 // Differentiation/integration Methods
 //---------------------------------------
-void StdPyrExp::PhysTensorDeriv(const Array<OneD, const NekDouble> &inarray,
-                                Array<OneD, NekDouble> &out_d0,
-                                Array<OneD, NekDouble> &out_d1,
-                                Array<OneD, NekDouble> &out_d2)
-{
-    const int nquad0 = m_base[0]->GetNumPoints();
-    const int nquad1 = m_base[1]->GetNumPoints();
-    const int nquad2 = m_base[2]->GetNumPoints();
-
-    bool Deriv0         = (out_d0.size() > 0);
-    bool Deriv1         = (out_d1.size() > 0);
-    bool Deriv2         = (out_d2.size() > 0);
-    const NekDouble *D0 = m_base[0]->GetD()->GetRawPtr();
-    const NekDouble *D1 = m_base[1]->GetD()->GetRawPtr();
-    const NekDouble *D2 = m_base[2]->GetD()->GetRawPtr();
-
-    Array<OneD, const NekDouble> intmp;
-    // copy inarray data if inarray and outarray are the same.
-    if ((inarray.data() == out_d0.data()) ||
-        (inarray.data() == out_d1.data()) || (inarray.data() == out_d2.data()))
-    {
-        Array<OneD, NekDouble> wsp(nquad0 * nquad1 * nquad2);
-        CopyArray(inarray, wsp);
-        intmp = wsp;
-    }
-    else
-    {
-        intmp = inarray;
-    }
-
-    // Switch statment using boost_pp and macros. This unfolls into a
-    // nested switch statement which runs from SMIN to SMAX for quadratrure
-    // order. If you want to see it unwrapped compile in verbose mode and add
-    // --preprocess to the c++ command. Default case
-#undef PHYSDERIV_DEF
-#define PHYSDERIV_DEF                                                          \
-    PhysDerivTensor3DKernel(nquad0, nquad1, nquad2,                            \
-                            (const vec_t *)intmp.data(), (const vec_t *)D0,    \
-                            (const vec_t *)D1, (const vec_t *)D2,              \
-                            (vec_t *)out_d0.data(), (vec_t *)out_d1.data(),    \
-                            (vec_t *)out_d2.data(), Deriv0, Deriv1, Deriv2)
-
-    // Loop case over quarature points
-#undef PHYSDERIV_Q
-#define PHYSDERIV_Q(r, i)                                                      \
-    case NQ1(i):                                                               \
-        PhysDerivTensor3DKernel(                                               \
-            NQ1(i), NQ1(i), NQ1_M1(i), (const vec_t *)intmp.data(),            \
-            (const vec_t *)D0, (const vec_t *)D1, (const vec_t *)D2,           \
-            (vec_t *)out_d0.data(), (vec_t *)out_d1.data(),                    \
-            (vec_t *)out_d2.data(), Deriv0, Deriv1, Deriv2);                   \
-        break;
-
-    // templated cases on  standard quadrature
-    // usage where quad order goes from SMIN to SMAX
-    if ((nquad0 == nquad1) && (nquad1 == nquad2 + 1))
-    {
-        switch (nquad0)
-        {
-            BOOST_PP_FOR((SMIN, SMAX), STDLEV1TEST, STDLEV1UPDATE, PHYSDERIV_Q);
-            default:
-                PHYSDERIV_DEF;
-                break;
-        }
-    }
-    else
-    {
-        PHYSDERIV_DEF;
-    }
-}
-
 /**
  * \brief Calculate the derivative of the physical points
  *
@@ -167,10 +95,10 @@ void StdPyrExp::PhysTensorDeriv(const Array<OneD, const NekDouble> &inarray,
  * \frac {(1 + \bar \eta_1)} {(1 - \eta_3)} \frac \partial {\partial
  * \bar \eta_1} + \frac {\partial} {\partial \eta_3} \end{Bmatrix}\f$
  */
-void StdPyrExp::v_PhysDeriv(const Array<OneD, const NekDouble> &u_physical,
-                            Array<OneD, NekDouble> &out_dxi1,
-                            Array<OneD, NekDouble> &out_dxi2,
-                            Array<OneD, NekDouble> &out_dxi3)
+void StdPyrExp::v_StdPhysDeriv(const Array<OneD, const NekDouble> &u_physical,
+                               Array<OneD, NekDouble> &out_dxi1,
+                               Array<OneD, NekDouble> &out_dxi2,
+                               Array<OneD, NekDouble> &out_dxi3)
 {
     // PhysDerivative implementation based on Spen's book page 152.
     int Qx = m_base[0]->GetNumPoints();
@@ -235,14 +163,6 @@ void StdPyrExp::v_PhysDeriv(const Array<OneD, const NekDouble> &u_physical,
             }
         }
     }
-}
-
-void StdPyrExp::v_StdPhysDeriv(const Array<OneD, const NekDouble> &inarray,
-                               Array<OneD, NekDouble> &out_d0,
-                               Array<OneD, NekDouble> &out_d1,
-                               Array<OneD, NekDouble> &out_d2)
-{
-    StdPyrExp::v_PhysDeriv(inarray, out_d0, out_d1, out_d2);
 }
 
 //---------------------------------------
@@ -352,64 +272,9 @@ void StdPyrExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
     }
 }
 
-/** \brief Forward transform from physical quadrature space
-    stored in \a inarray and evaluate the expansion coefficients and
-    store in \a outarray
-
-    Inputs:\n
-
-    - \a inarray: array of physical quadrature points to be transformed
-
-    Outputs:\n
-
-    - \a outarray: updated array of expansion coefficients.
-
-*/
-void StdPyrExp::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,
-                           Array<OneD, NekDouble> &outarray)
-{
-    StdPyrExp::v_IProductWRTBase(inarray, outarray);
-
-    // get Mass matrix inverse
-    StdMatrixKey imasskey(eInvMass, DetShapeType(), *this);
-    DNekMatSharedPtr imatsys = GetStdMatrix(imasskey);
-
-    // copy inarray in case inarray == outarray
-    DNekVec in(m_ncoeffs, outarray);
-    DNekVec out(m_ncoeffs, outarray, eWrapper);
-
-    out = (*imatsys) * in;
-}
-
 //---------------------------------------
 // Inner product functions
 //---------------------------------------
-
-/** \brief  Inner product of \a inarray over region with respect to the
-    expansion basis m_base[0]->GetBdata(),m_base[1]->GetBdata(),
-   m_base[2]->GetBdata() and return in \a outarray
-
-    Wrapper call to StdPyrExp::IProductWRTBase
-
-    Input:\n
-
-    - \a inarray: array of function evaluated at the physical collocation points
-
-    Output:\n
-
-    - \a outarray: array of inner product with respect to each basis over region
- *
- * This is a wrapper function around \a IProductWRTBaseKernel()
-*/
-void StdPyrExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
-                                  Array<OneD, NekDouble> &outarray)
-{
-    const Array<OneD, const NekDouble> one(1, 1.0);
-    v_IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
-                            m_base[2]->GetBdata(), inarray, outarray, one,
-                            false);
-}
-
 /** \brief Inner product of \a inarray over region with respect to the
  *  expansion basis (this)->m_base[0] and return in \a outarray
  *
@@ -813,7 +678,7 @@ NekDouble StdPyrExp::v_PhysEvalFirstDeriv(
         int totPoints = GetTotPoints();
         Array<OneD, NekDouble> EphysDeriv0(totPoints), EphysDeriv1(totPoints),
             EphysDeriv2(totPoints);
-        PhysDeriv(inarray, EphysDeriv0, EphysDeriv1, EphysDeriv2);
+        v_PhysDeriv(inarray, EphysDeriv0, EphysDeriv1, EphysDeriv2);
 
         Array<OneD, DNekMatSharedPtr> I(3);
         I[0] = GetBase()[0]->GetI(coll);
@@ -1942,30 +1807,6 @@ int StdPyrExp::GetMode(const int I, const int J, const int K)
     cnt += K;
 
     return cnt;
-}
-
-void StdPyrExp::v_MultiplyByStdQuadratureMetric(
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray)
-{
-
-    int nquad0 = m_base[0]->GetNumPoints();
-    int nquad1 = m_base[1]->GetNumPoints();
-    int nquad2 = m_base[2]->GetNumPoints();
-
-    int cnt = 0;
-    for (int i = 0; i < nquad2; ++i)
-    {
-        NekDouble w2 = m_weights[2][i];
-        for (int j = 0; j < nquad1; ++j)
-        {
-            NekDouble w1w2 = m_weights[1][j] * w2;
-            for (int k = 0; k < nquad0; ++k, ++cnt)
-            {
-                outarray[cnt] = inarray[cnt] * m_weights[0][k] * w1w2;
-            }
-        }
-    }
 }
 
 void StdPyrExp::v_SVVLaplacianFilter(Array<OneD, NekDouble> &array,

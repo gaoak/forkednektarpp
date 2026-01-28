@@ -89,63 +89,6 @@ NekDouble TriExp::v_Integral(const Array<OneD, const NekDouble> &inarray)
     return ival;
 }
 
-void TriExp::v_PhysDeriv(const Array<OneD, const NekDouble> &inarray,
-                         Array<OneD, NekDouble> &out_d0,
-                         Array<OneD, NekDouble> &out_d1,
-                         Array<OneD, NekDouble> &out_d2)
-{
-    int nquad0                             = m_base[0]->GetNumPoints();
-    int nquad1                             = m_base[1]->GetNumPoints();
-    int nqtot                              = nquad0 * nquad1;
-    const Array<TwoD, const NekDouble> &df = m_geomFactors->GetDerivFactors();
-
-    Array<OneD, NekDouble> diff0(2 * nqtot);
-    Array<OneD, NekDouble> diff1(diff0 + nqtot);
-
-    StdTriExp::v_PhysDeriv(inarray, diff0, diff1);
-
-    if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed)
-    {
-        if (out_d0.size())
-        {
-            Vmath::Vmul(nqtot, df[0], 1, diff0, 1, out_d0, 1);
-            Vmath::Vvtvp(nqtot, df[1], 1, diff1, 1, out_d0, 1, out_d0, 1);
-        }
-
-        if (out_d1.size())
-        {
-            Vmath::Vmul(nqtot, df[2], 1, diff0, 1, out_d1, 1);
-            Vmath::Vvtvp(nqtot, df[3], 1, diff1, 1, out_d1, 1, out_d1, 1);
-        }
-
-        if (out_d2.size())
-        {
-            Vmath::Vmul(nqtot, df[4], 1, diff0, 1, out_d2, 1);
-            Vmath::Vvtvp(nqtot, df[5], 1, diff1, 1, out_d2, 1, out_d2, 1);
-        }
-    }
-    else // regular geometry
-    {
-        if (out_d0.size())
-        {
-            Vmath::Smul(nqtot, df[0][0], diff0, 1, out_d0, 1);
-            Blas::Daxpy(nqtot, df[1][0], diff1, 1, out_d0, 1);
-        }
-
-        if (out_d1.size())
-        {
-            Vmath::Smul(nqtot, df[2][0], diff0, 1, out_d1, 1);
-            Blas::Daxpy(nqtot, df[3][0], diff1, 1, out_d1, 1);
-        }
-
-        if (out_d2.size())
-        {
-            Vmath::Smul(nqtot, df[4][0], diff0, 1, out_d2, 1);
-            Blas::Daxpy(nqtot, df[5][0], diff1, 1, out_d2, 1);
-        }
-    }
-}
-
 void TriExp::v_PhysDirectionalDeriv(
     const Array<OneD, const NekDouble> &inarray,
     const Array<OneD, const NekDouble> &direction, Array<OneD, NekDouble> &out)
@@ -165,7 +108,7 @@ void TriExp::v_PhysDirectionalDeriv(
     Array<OneD, NekDouble> diff1(diff0 + nqtot);
 
     // diff0 = du/d_xi, diff1 = du/d_eta
-    StdTriExp::v_PhysDeriv(inarray, diff0, diff1);
+    v_StdPhysDeriv(inarray, diff0, diff1, NullNekDouble1DArray);
 
     if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed)
     {
@@ -208,22 +151,6 @@ void TriExp::v_PhysDirectionalDeriv(
         Vmath::Vvtvp(nqtot, &tangmat[1][0], 1, &diff1[0], 1, &out[0], 1,
                      &out[0], 1);
     }
-}
-
-void TriExp::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,
-                        Array<OneD, NekDouble> &outarray)
-{
-    v_IProductWRTBase(inarray, outarray);
-
-    // get Mass matrix inverse
-    MatrixKey masskey(StdRegions::eInvMass, DetShapeType(), *this);
-    DNekScalMatSharedPtr matsys = m_matrixManager[masskey];
-
-    // copy inarray in case inarray == outarray
-    NekVector<NekDouble> in(m_ncoeffs, outarray, eCopy);
-    NekVector<NekDouble> out(m_ncoeffs, outarray, eWrapper);
-
-    out = (*matsys) * in;
 }
 
 void TriExp::v_FwdTransBndConstrained(
@@ -348,15 +275,6 @@ void TriExp::v_FwdTransBndConstrained(
             outarray[mapArray[i]] = result[i];
         }
     }
-}
-
-void TriExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
-                               Array<OneD, NekDouble> &outarray)
-{
-    const Array<OneD, const NekDouble> &jac = m_geomFactors->GetJac();
-    bool Deformed = (m_geomFactors->GetGtype() == SpatialDomains::eDeformed);
-    v_IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
-                            inarray, outarray, jac, Deformed);
 }
 
 void TriExp::v_IProductWRTDerivBase(const int dir,
@@ -584,30 +502,6 @@ void TriExp::v_GetCoords(Array<OneD, NekDouble> &coords_0,
                          Array<OneD, NekDouble> &coords_2)
 {
     Expansion::v_GetCoords(coords_0, coords_1, coords_2);
-}
-
-/**
- * Given the local cartesian coordinate \a Lcoord evaluate the
- * value of physvals at this point by calling through to the
- * StdExpansion method
- */
-NekDouble TriExp::v_StdPhysEvaluate(
-    const Array<OneD, const NekDouble> &Lcoord,
-    const Array<OneD, const NekDouble> &physvals)
-{
-    // Evaluate point in local (eta) coordinates.
-    return StdExpansion2D::v_PhysEvaluate(Lcoord, physvals);
-}
-
-NekDouble TriExp::v_PhysEvaluate(const Array<OneD, const NekDouble> &coord,
-                                 const Array<OneD, const NekDouble> &physvals)
-{
-    Array<OneD, NekDouble> Lcoord = Array<OneD, NekDouble>(2);
-
-    ASSERTL0(m_geom, "m_geom not defined");
-    m_geom->GetLocCoords(coord, Lcoord);
-
-    return StdExpansion2D::v_PhysEvaluate(Lcoord, physvals);
 }
 
 NekDouble TriExp::v_PhysEvalFirstDeriv(

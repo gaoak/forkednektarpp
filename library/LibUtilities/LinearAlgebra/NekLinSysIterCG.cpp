@@ -55,6 +55,9 @@ NekLinSysIterCG::NekLinSysIterCG(
     const NekSysKey &pKey)
     : NekLinSysIter(pSession, vRowComm, nDimen, pKey)
 {
+    m_flexible = pSession->DefinesParameter("FlexibleConjugateGradient")
+                     ? pSession->GetParameter("FlexibleConjugateGradient")
+                     : false;
 }
 
 void NekLinSysIterCG::v_InitObject()
@@ -117,9 +120,10 @@ void NekLinSysIterCG::DoConjugateGradient(
     NekDouble beta;
     NekDouble rho;
     NekDouble rho_new;
+    NekDouble rho_star;
     NekDouble mu;
     NekDouble eps;
-    Array<OneD, NekDouble> vExchange(3, 0.0);
+    Array<OneD, NekDouble> vExchange(4, 0.0);
 
     // Copy initial residual from input
     Vmath::Vcopy(nNonDir, pInput + nDir, 1, r_A, 1);
@@ -165,6 +169,7 @@ void NekLinSysIterCG::DoConjugateGradient(
 
     m_rowComm->AllReduce(vExchange, Nektar::LibUtilities::ReduceSum);
 
+    rho_star          = 0.0;
     rho               = vExchange[0];
     mu                = vExchange[1];
     beta              = 0.0;
@@ -198,6 +203,21 @@ void NekLinSysIterCG::DoConjugateGradient(
 
         // Update residual vector r_{k+1}
         Vmath::Svtvp(nNonDir, -alpha, &q_A[0], 1, &r_A[0], 1, &r_A[0], 1);
+
+        if (m_flexible)
+        {
+            if (m_mapIsOnes)
+            {
+                // <r_{k+1}, w_{k}>
+                vExchange[3] = Vmath::Dot(nNonDir, r_A, w_A + nDir);
+            }
+            else
+            {
+                // <r_{k+1}, w_{k}>
+                vExchange[3] =
+                    Vmath::Dot2(nNonDir, r_A, w_A + nDir, m_map + nDir);
+            }
+        }
 
         // Apply preconditioner
         m_operator.DoNekSysPrecon(r_A, tmp = w_A + nDir);
@@ -240,6 +260,10 @@ void NekLinSysIterCG::DoConjugateGradient(
         rho_new = vExchange[0];
         mu      = vExchange[1];
         eps     = vExchange[2];
+        if (m_flexible)
+        {
+            rho_star = vExchange[3];
+        }
 
         m_totalIterations++;
 
@@ -258,7 +282,7 @@ void NekLinSysIterCG::DoConjugateGradient(
         }
 
         // Compute search direction and solution coefficients
-        beta  = rho_new / rho;
+        beta  = (rho_new - rho_star) / rho;
         alpha = rho_new / (mu - rho_new * beta / alpha);
         rho   = rho_new;
     }

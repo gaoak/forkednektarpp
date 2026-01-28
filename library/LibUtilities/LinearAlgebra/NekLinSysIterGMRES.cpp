@@ -66,6 +66,10 @@ NekLinSysIterGMRES::NekLinSysIterGMRES(
 
     m_GMRESCentralDifference = pKey.m_GMRESCentralDifference;
 
+    m_flexible = pSession->DefinesParameter("FlexibleGMRES")
+                     ? pSession->GetParameter("FlexibleGMRES")
+                     : false;
+
     // Allocate array storage of coefficients
     // Hessenburg matrix
     m_hes = Array<OneD, Array<OneD, NekDouble>>(m_LinSysMaxStorage);
@@ -81,6 +85,7 @@ NekLinSysIterGMRES::NekLinSysIterGMRES(
     }
     // Total search directions
     m_V_total = Array<OneD, Array<OneD, NekDouble>>(m_LinSysMaxStorage + 1);
+    m_Z_total = Array<OneD, Array<OneD, NekDouble>>(m_LinSysMaxStorage + 1);
 }
 
 void NekLinSysIterGMRES::v_InitObject()
@@ -239,10 +244,11 @@ NekDouble NekLinSysIterGMRES::DoGmresRestart(
     Array<OneD, NekDouble> wk(nGlobal, 0.0);
     Array<OneD, NekDouble> r0(nGlobal, 0.0);
     Array<OneD, NekDouble> tmp;
-    Array<OneD, NekDouble> Vsingle1;
-    Array<OneD, NekDouble> Vsingle2;
-    Array<OneD, NekDouble> hsingle1;
-    Array<OneD, NekDouble> hsingle2;
+    Array<OneD, NekDouble> Z1;
+    Array<OneD, NekDouble> V1;
+    Array<OneD, NekDouble> V2;
+    Array<OneD, NekDouble> h1;
+    Array<OneD, NekDouble> h2;
 
     if (restarted)
     {
@@ -330,35 +336,33 @@ NekDouble NekLinSysIterGMRES::DoGmresRestart(
     if (m_V_total[0].size() == 0)
     {
         m_V_total[0] = Array<OneD, NekDouble>(nGlobal, 0.0);
+        m_Z_total[0] = Array<OneD, NekDouble>(nGlobal, 0.0);
     }
     Vmath::Smul(nNonDir, alpha, &r0[0] + nDir, 1, &m_V_total[0][0] + nDir, 1);
 
     // Restarted Gmres(m) process
-    if (m_NekLinSysRightPrecon)
-    {
-        Vsingle1 = Array<OneD, NekDouble>(nGlobal, 0.0);
-    }
-
     int nswp = 0;
     for (int nd = 0; nd < m_LinSysMaxStorage; ++nd)
     {
         if (m_V_total[nd + 1].size() == 0)
         {
             m_V_total[nd + 1] = Array<OneD, NekDouble>(nGlobal, 0.0);
+            if (m_flexible)
+            {
+                m_Z_total[nd + 1] = Array<OneD, NekDouble>(nGlobal, 0.0);
+            }
         }
         Vmath::Zero(nGlobal, m_V_total[nd + 1], 1);
         Vmath::Zero(m_LinSysMaxStorage + 1, m_hes[nd], 1);
-        Vsingle2 = m_V_total[nd + 1];
-        hsingle1 = m_hes[nd];
+        unsigned int znd = m_flexible ? nd : 0;
+        Z1 = m_NekLinSysRightPrecon ? m_Z_total[znd] : m_V_total[nd];
+        V1 = m_V_total[nd];
+        V2 = m_V_total[nd + 1];
+        h1 = m_hes[nd];
 
         if (m_NekLinSysRightPrecon)
         {
-            m_operator.DoNekSysPrecon(m_V_total[nd] + nDir,
-                                      tmp = Vsingle1 + nDir);
-        }
-        else
-        {
-            Vsingle1 = m_V_total[nd];
+            m_operator.DoNekSysPrecon(V1 + nDir, tmp = Z1 + nDir);
         }
 
         // w here is no need to add nDir due to temporary Array
@@ -366,18 +370,16 @@ NekDouble NekLinSysIterGMRES::DoGmresRestart(
         starttem = id_start[idtem];
         endtem   = id_end[idtem];
 
-        DoArnoldi(starttem, endtem, nGlobal, nDir, w, Vsingle1, Vsingle2,
-                  hsingle1);
+        DoArnoldi(starttem, endtem, nGlobal, nDir, w, Z1, V2, h1);
 
         if (starttem > 0)
         {
             starttem = starttem - 1;
         }
 
-        hsingle2 = m_Upper[nd];
-        Vmath::Vcopy(m_LinSysMaxStorage + 1, &hsingle1[0], 1, &hsingle2[0], 1);
-        DoGivensRotation(starttem, endtem, nGlobal, nDir, cs, sn, hsingle2,
-                         eta);
+        h2 = m_Upper[nd];
+        Vmath::Vcopy(m_LinSysMaxStorage + 1, &h1[0], 1, &h2[0], 1);
+        DoGivensRotation(starttem, endtem, cs, sn, h2, eta);
 
         eps = eta[nd + 1] * eta[nd + 1];
 
@@ -405,22 +407,34 @@ NekDouble NekLinSysIterGMRES::DoGmresRestart(
 
     DoBackward(nswp, m_Upper, eta, y_total);
 
-    // Calculate output V_total * y_total.
-    Array<OneD, NekDouble> solution(nNonDir, 0.0);
-    for (int i = 0; i < nswp; ++i)
+    if (m_flexible)
     {
-        Vmath::Svtvp(nNonDir, y_total[i], &m_V_total[i][0] + nDir, 1,
-                     solution.data(), 1, solution.data(), 1);
+        // Calculate output y_total*Z_total.
+        for (unsigned int i = 0; i < nswp; ++i)
+        {
+            Vmath::Svtvp(nNonDir, y_total[i], &m_Z_total[i][0] + nDir, 1,
+                         &pOutput[0] + nDir, 1, &pOutput[0] + nDir, 1);
+        }
     }
-
-    if (m_NekLinSysRightPrecon)
+    else
     {
-        m_operator.DoNekSysPrecon(solution, solution);
-    }
+        // Calculate output V_total * y_total.
+        Array<OneD, NekDouble> solution(nNonDir, 0.0);
+        for (int i = 0; i < nswp; ++i)
+        {
+            Vmath::Svtvp(nNonDir, y_total[i], &m_V_total[i][0] + nDir, 1,
+                         solution.data(), 1, solution.data(), 1);
+        }
 
-    // Update output.
-    Vmath::Vadd(nNonDir, solution.data(), 1, &pOutput[0] + nDir, 1,
-                &pOutput[0] + nDir, 1);
+        if (m_NekLinSysRightPrecon)
+        {
+            m_operator.DoNekSysPrecon(solution, solution);
+        }
+
+        // Update output.
+        Vmath::Vadd(nNonDir, solution.data(), 1, &pOutput[0] + nDir, 1,
+                    &pOutput[0] + nDir, 1);
+    }
 
     return eps;
 }
@@ -429,19 +443,16 @@ NekDouble NekLinSysIterGMRES::DoGmresRestart(
 void NekLinSysIterGMRES::DoArnoldi(const int starttem, const int endtem,
                                    const int nGlobal, const int nDir,
                                    Array<OneD, NekDouble> &w,
-                                   // V[nd]
-                                   Array<OneD, NekDouble> &Vsingle1,
-                                   // V[nd+1]
-                                   Array<OneD, NekDouble> &Vsingle2,
-                                   // h
-                                   Array<OneD, NekDouble> &hsingle)
+                                   Array<OneD, NekDouble> &V1,
+                                   Array<OneD, NekDouble> &V2,
+                                   Array<OneD, NekDouble> &h)
 {
     NekDouble alpha, beta, vExchange = 0.0;
     Array<OneD, NekDouble> tmp;
     int nNonDir = nGlobal - nDir;
     LibUtilities::Timer timer;
     timer.Start();
-    m_operator.DoNekSysLhsEval(Vsingle1, w, m_GMRESCentralDifference);
+    m_operator.DoNekSysLhsEval(V1, w, m_GMRESCentralDifference);
     timer.Stop();
     timer.AccumulateRegion("NekSysOperators::DoNekSysLhsEval", 10);
 
@@ -459,7 +470,7 @@ void NekLinSysIterGMRES::DoArnoldi(const int starttem, const int endtem,
                                 &m_map[0] + nDir);
         m_rowComm->AllReduce(vExchange, LibUtilities::ReduceSum);
 
-        hsingle[i] = vExchange;
+        h[i] = vExchange;
 
         beta = -1.0 * vExchange;
         Vmath::Svtvp(nNonDir, beta, &m_V_total[i][0] + nDir, 1, &w[0] + nDir, 1,
@@ -472,22 +483,20 @@ void NekLinSysIterGMRES::DoArnoldi(const int starttem, const int endtem,
         Vmath::Dot2(nNonDir, &w[0] + nDir, &w[0] + nDir, &m_map[0] + nDir);
     m_rowComm->AllReduce(vExchange, LibUtilities::ReduceSum);
 
-    hsingle[endtem] = sqrt(vExchange);
+    h[endtem] = sqrt(vExchange);
 
-    alpha = 1.0 / hsingle[endtem];
-    Vmath::Smul(nNonDir, alpha, &w[0] + nDir, 1, &Vsingle2[0] + nDir, 1);
+    alpha = 1.0 / h[endtem];
+    Vmath::Smul(nNonDir, alpha, &w[0] + nDir, 1, &V2[0] + nDir, 1);
 }
 
 // QR factorization through Givens rotation
 void NekLinSysIterGMRES::DoGivensRotation(const int starttem, const int endtem,
-                                          [[maybe_unused]] const int nGlobal,
-                                          [[maybe_unused]] const int nDir,
                                           Array<OneD, NekDouble> &c,
                                           Array<OneD, NekDouble> &s,
-                                          Array<OneD, NekDouble> &hsingle,
+                                          Array<OneD, NekDouble> &h,
                                           Array<OneD, NekDouble> &eta)
 {
-    NekDouble temp_dbl;
+    NekDouble dbl;
     NekDouble dd;
     NekDouble hh;
     int idtem = endtem - 1;
@@ -498,12 +507,12 @@ void NekLinSysIterGMRES::DoGivensRotation(const int starttem, const int endtem,
     // Pan's User Guide
     for (int i = starttem; i < idtem; ++i)
     {
-        temp_dbl       = c[i] * hsingle[i] - s[i] * hsingle[i + 1];
-        hsingle[i + 1] = s[i] * hsingle[i] + c[i] * hsingle[i + 1];
-        hsingle[i]     = temp_dbl;
+        dbl      = c[i] * h[i] - s[i] * h[i + 1];
+        h[i + 1] = s[i] * h[i] + c[i] * h[i + 1];
+        h[i]     = dbl;
     }
-    dd = hsingle[idtem];
-    hh = hsingle[endtem];
+    dd = h[idtem];
+    hh = h[endtem];
     if (hh == 0.0)
     {
         c[idtem] = 1.0;
@@ -511,23 +520,23 @@ void NekLinSysIterGMRES::DoGivensRotation(const int starttem, const int endtem,
     }
     else if (abs(hh) > abs(dd))
     {
-        temp_dbl = -dd / hh;
-        s[idtem] = 1.0 / sqrt(1.0 + temp_dbl * temp_dbl);
-        c[idtem] = temp_dbl * s[idtem];
+        dbl      = -dd / hh;
+        s[idtem] = 1.0 / sqrt(1.0 + dbl * dbl);
+        c[idtem] = dbl * s[idtem];
     }
     else
     {
-        temp_dbl = -hh / dd;
-        c[idtem] = 1.0 / sqrt(1.0 + temp_dbl * temp_dbl);
-        s[idtem] = temp_dbl * c[idtem];
+        dbl      = -hh / dd;
+        c[idtem] = 1.0 / sqrt(1.0 + dbl * dbl);
+        s[idtem] = dbl * c[idtem];
     }
 
-    hsingle[idtem]  = c[idtem] * hsingle[idtem] - s[idtem] * hsingle[endtem];
-    hsingle[endtem] = 0.0;
+    h[idtem]  = c[idtem] * h[idtem] - s[idtem] * h[endtem];
+    h[endtem] = 0.0;
 
-    temp_dbl    = c[idtem] * eta[idtem] - s[idtem] * eta[endtem];
+    dbl         = c[idtem] * eta[idtem] - s[idtem] * eta[endtem];
     eta[endtem] = s[idtem] * eta[idtem] + c[idtem] * eta[endtem];
-    eta[idtem]  = temp_dbl;
+    eta[idtem]  = dbl;
 }
 
 // Backward calculation

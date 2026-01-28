@@ -58,25 +58,6 @@ protected:
     //-----------------------------
     // Differentiation Methods
     //-----------------------------
-    /** \brief Evaluate the derivative \f$ d/d{\xi_1} \f$ at the
-     *  physical quadrature points given by \a inarray and return in
-     *  \a outarray.
-     *
-     *  \param inarray array of a function evaluated at the quadrature
-     *  points
-     *  \param outarray the resulting array of the derivative \f$
-     *  du/d_{\xi_1}|_{\xi_{1i}} \f$ will be stored in the array
-     *  \a outarray as output of the function
-     */
-    STD_REGIONS_EXPORT void PhysTensorDeriv(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray);
-    using StdExpansion::v_PhysDeriv;
-    STD_REGIONS_EXPORT void v_PhysDeriv(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &out_d0,
-        Array<OneD, NekDouble> &out_d1 = NullNekDouble1DArray,
-        Array<OneD, NekDouble> &out_d2 = NullNekDouble1DArray) override;
     STD_REGIONS_EXPORT void v_StdPhysDeriv(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &out_d0,
@@ -89,9 +70,6 @@ protected:
     STD_REGIONS_EXPORT void v_BwdTrans(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;
-    STD_REGIONS_EXPORT void v_FwdTrans(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray) override;
     STD_REGIONS_EXPORT void v_FwdTransBndConstrained(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;
@@ -99,9 +77,6 @@ protected:
     //----------------------------
     // Inner product functions
     //----------------------------
-    STD_REGIONS_EXPORT void v_IProductWRTBase(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray) override;
     STD_REGIONS_EXPORT void v_IProductWRTBaseKernel(
         const Array<OneD, const NekDouble> &base0,
         const Array<OneD, const NekDouble> &inarray,
@@ -145,9 +120,6 @@ protected:
     STD_REGIONS_EXPORT void v_ExponentialFilter(
         Array<OneD, NekDouble> &array, const NekDouble alpha,
         const NekDouble exponent, const NekDouble cutoff) override;
-    STD_REGIONS_EXPORT void v_MultiplyByStdQuadratureMetric(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray) override;
     STD_REGIONS_EXPORT void v_FillMode(
         const int mode, Array<OneD, NekDouble> &outarray) override;
     STD_REGIONS_EXPORT void v_GetCoords(

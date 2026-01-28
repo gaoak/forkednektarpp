@@ -67,12 +67,6 @@ protected:
     //-----------------------------
     // Differentiation Methods
     //-----------------------------
-    using StdSegExp::v_PhysDeriv;
-    LOCAL_REGIONS_EXPORT void v_PhysDeriv(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &out_d0,
-        Array<OneD, NekDouble> &out_d1 = NullNekDouble1DArray,
-        Array<OneD, NekDouble> &out_d2 = NullNekDouble1DArray) override;
 
     LOCAL_REGIONS_EXPORT void v_PhysDeriv_s(
         const Array<OneD, const NekDouble> &inarray,
@@ -85,10 +79,6 @@ protected:
     //-----------------------------
     // Transforms
     //-----------------------------
-    LOCAL_REGIONS_EXPORT void v_FwdTrans(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray) override;
-
     LOCAL_REGIONS_EXPORT void v_FwdTransBndConstrained(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;
@@ -96,10 +86,6 @@ protected:
     //-----------------------------
     // Inner product functions
     //-----------------------------
-    LOCAL_REGIONS_EXPORT void v_IProductWRTBase(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray) override;
-
     LOCAL_REGIONS_EXPORT void v_IProductWRTDerivBase(
         const int dir, const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;
@@ -116,14 +102,6 @@ protected:
     //-----------------------------
     // Evaluation functions
     //-----------------------------
-    LOCAL_REGIONS_EXPORT NekDouble
-    v_StdPhysEvaluate(const Array<OneD, const NekDouble> &Lcoord,
-                      const Array<OneD, const NekDouble> &physvals) override;
-
-    LOCAL_REGIONS_EXPORT NekDouble
-    v_PhysEvaluate(const Array<OneD, const NekDouble> &coord,
-                   const Array<OneD, const NekDouble> &physvals) override;
-
     LOCAL_REGIONS_EXPORT NekDouble
     v_PhysEvalFirstDeriv(const Array<OneD, NekDouble> &coord,
                          const Array<OneD, const NekDouble> &inarray,

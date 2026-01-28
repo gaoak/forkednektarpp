@@ -119,73 +119,6 @@ NekDouble SegExp::v_Integral(const Array<OneD, const NekDouble> &inarray)
 //-----------------------------
 // Differentiation Methods
 //-----------------------------
-
-/** \brief Evaluate the derivative \f$ d/d{\xi_1} \f$ at the
-    physical quadrature points given by \a inarray and return in \a
-    outarray.
-
-    This is a wrapper around StdExpansion1D::Tensor_Deriv
-
-    Input:\n
-
-    - \a n: number of derivatives to be evaluated where \f$ n \leq  dim\f$
-
-    - \a inarray: array of function evaluated at the quadrature points
-
-    Output: \n
-
-    - \a outarray: array of the derivatives \f$
-    du/d_{\xi_1}|_{\xi_{1i}} d\xi_1/dx,
-    du/d_{\xi_1}|_{\xi_{1i}} d\xi_1/dy,
-    du/d_{\xi_1}|_{\xi_{1i}} d\xi_1/dz,
-    \f$ depending on value of \a dim
-*/
-void SegExp::v_PhysDeriv(const Array<OneD, const NekDouble> &inarray,
-                         Array<OneD, NekDouble> &out_d0,
-                         Array<OneD, NekDouble> &out_d1,
-                         Array<OneD, NekDouble> &out_d2)
-{
-    int nquad0                        = m_base[0]->GetNumPoints();
-    Array<TwoD, const NekDouble> gmat = m_geomFactors->GetDerivFactors();
-    Array<OneD, NekDouble> diff(nquad0);
-
-    PhysTensorDeriv(inarray, diff);
-    if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed)
-    {
-        if (out_d0.size())
-        {
-            Vmath::Vmul(nquad0, &gmat[0][0], 1, &diff[0], 1, &out_d0[0], 1);
-        }
-
-        if (out_d1.size())
-        {
-            Vmath::Vmul(nquad0, &gmat[1][0], 1, &diff[0], 1, &out_d1[0], 1);
-        }
-
-        if (out_d2.size())
-        {
-            Vmath::Vmul(nquad0, &gmat[2][0], 1, &diff[0], 1, &out_d2[0], 1);
-        }
-    }
-    else
-    {
-        if (out_d0.size())
-        {
-            Vmath::Smul(nquad0, gmat[0][0], diff, 1, out_d0, 1);
-        }
-
-        if (out_d1.size())
-        {
-            Vmath::Smul(nquad0, gmat[1][0], diff, 1, out_d1, 1);
-        }
-
-        if (out_d2.size())
-        {
-            Vmath::Smul(nquad0, gmat[2][0], diff, 1, out_d2, 1);
-        }
-    }
-}
-
 /**
  *\brief Evaluate the derivative along a line:
  * \f$ d/ds=\frac{spacedim}{||tangent||}d/d{\xi}  \f$.
@@ -285,51 +218,6 @@ void SegExp::v_PhysDeriv_n(const Array<OneD, const NekDouble> &inarray,
 //-----------------------------
 // Transforms
 //-----------------------------
-
-/** \brief Forward transform from physical quadrature space
-    stored in \a inarray and evaluate the expansion coefficients and
-    store in \a outarray
-
-    Perform a forward transform using a Galerkin projection by
-    taking the inner product of the physical points and multiplying
-    by the inverse of the mass matrix using the Solve method of the
-    standard matrix container holding the local mass matrix, i.e.
-    \f$ {\bf \hat{u}} = {\bf M}^{-1} {\bf I} \f$ where \f$ {\bf I}[p] =
-    \int^1_{-1} \phi_p(\xi_1) u(\xi_1) d\xi_1 \f$
-
-    Inputs:\n
-
-    - \a inarray: array of physical quadrature points to be transformed
-
-    Outputs:\n
-
-    - \a outarray: updated array of expansion coefficients.
-
-*/
-// need to sort out family of matrices
-void SegExp::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,
-                        Array<OneD, NekDouble> &outarray)
-{
-    if (m_base[0]->Collocation())
-    {
-        Vmath::Vcopy(m_ncoeffs, inarray, 1, outarray, 1);
-    }
-    else
-    {
-        v_IProductWRTBase(inarray, outarray);
-
-        // get Mass matrix inverse
-        MatrixKey masskey(StdRegions::eInvMass, DetShapeType(), *this);
-        DNekScalMatSharedPtr matsys = m_matrixManager[masskey];
-
-        // copy inarray in case inarray == outarray
-        NekVector<NekDouble> in(m_ncoeffs, outarray, eCopy);
-        NekVector<NekDouble> out(m_ncoeffs, outarray, eWrapper);
-
-        out = (*matsys) * in;
-    }
-}
-
 void SegExp::v_FwdTransBndConstrained(
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray)
@@ -435,7 +323,7 @@ void SegExp::v_FwdTransBndConstrained(
         }
         else
         {
-            SegExp::v_FwdTrans(inarray, outarray);
+            v_FwdTrans(inarray, outarray);
         }
     }
 }
@@ -443,54 +331,6 @@ void SegExp::v_FwdTransBndConstrained(
 //-----------------------------
 // Inner product functions
 //-----------------------------
-
-/**
-   \brief  Inner product of \a inarray over region with respect to
-   expansion basis \a base and return in \a outarray
-
-   Calculate \f$ I[p] = \int^{1}_{-1} \phi_p(\xi_1) u(\xi_1) d\xi_1
-   = \sum_{i=0}^{nq-1} \phi_p(\xi_{1i}) u(\xi_{1i}) w_i \f$ where
-   \f$ outarray[p] = I[p], inarray[i] = u(\xi_{1i}), base[p*nq+i] =
-   \phi_p(\xi_{1i}) \f$.
-
-   Inputs: \n
-   - \a inarray: physical point array of function to be integrated
-   \f$ u(\xi_1) \f$
-
-   Output: \n
-
-   - \a outarray: array of coefficients representing the inner
-   product of function with ever  mode in the exapnsion
-
-**/
-void SegExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
-                               Array<OneD, NekDouble> &outarray)
-{
-    const bool CollDir0 = m_base[0]->Collocation();
-
-    const Array<OneD, const NekDouble> &jac = m_geomFactors->GetJac();
-    bool Deformed = (m_geomFactors->GetGtype() == SpatialDomains::eDeformed);
-
-    if (CollDir0)
-    {
-        int nqtot = GetTotPoints();
-        if (Deformed)
-        {
-            Vmath::Vmul(nqtot, jac, 1, inarray, 1, outarray, 1);
-        }
-        else
-        {
-            Vmath::Smul(nqtot, jac[0], inarray, 1, outarray, 1);
-        }
-        v_MultiplyByStdQuadratureMetric(outarray, outarray);
-    }
-    else
-    {
-        v_IProductWRTBaseKernel(m_base[0]->GetBdata(), inarray, outarray, jac,
-                                Deformed);
-    }
-}
-
 void SegExp::v_IProductWRTDerivBase(const int dir,
                                     const Array<OneD, const NekDouble> &inarray,
                                     Array<OneD, NekDouble> &outarray)
@@ -548,31 +388,6 @@ void SegExp::v_NormVectorIProductWRTBase(
 //-----------------------------
 // Evaluation functions
 //-----------------------------
-
-/**
- * Given the local cartesian coordinate \a Lcoord evaluate the
- * value of physvals at this point by calling through to the
- * StdExpansion method
- */
-NekDouble SegExp::v_StdPhysEvaluate(
-    const Array<OneD, const NekDouble> &Lcoord,
-    const Array<OneD, const NekDouble> &physvals)
-{
-    // Evaluate point in local (eta) coordinates.
-    return StdExpansion1D::v_PhysEvaluate(Lcoord, physvals);
-}
-
-NekDouble SegExp::v_PhysEvaluate(const Array<OneD, const NekDouble> &coord,
-                                 const Array<OneD, const NekDouble> &physvals)
-{
-    Array<OneD, NekDouble> Lcoord = Array<OneD, NekDouble>(1);
-
-    ASSERTL0(m_geom, "m_geom not defined");
-    m_geom->GetLocCoords(coord, Lcoord);
-
-    return StdExpansion1D::v_PhysEvaluate(Lcoord, physvals);
-}
-
 NekDouble SegExp::v_PhysEvalFirstDeriv(
     const Array<OneD, NekDouble> &coord,
     const Array<OneD, const NekDouble> &inarray,
@@ -859,7 +674,8 @@ void SegExp::v_LaplacianMatrixOp(
     {
         case 1:
         {
-            PhysDeriv(physValues, dPhysValuesdx);
+            v_PhysDeriv(physValues, dPhysValuesdx, NullNekDouble1DArray,
+                        NullNekDouble1DArray);
 
             // multiply with the proper geometric factors
             if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed)

@@ -318,6 +318,117 @@ void Expansion1D::v_PhysDeriv(const int dir,
     }
 }
 
+/**
+   \brief  Inner product of \a inarray over region with respect to
+   expansion basis \a base and return in \a outarray
+
+   Calculate \f$ I[p] = \int^{1}_{-1} \phi_p(\xi_1) u(\xi_1) d\xi_1
+   = \sum_{i=0}^{nq-1} \phi_p(\xi_{1i}) u(\xi_{1i}) w_i \f$ where
+   \f$ outarray[p] = I[p], inarray[i] = u(\xi_{1i}), base[p*nq+i] =
+   \phi_p(\xi_{1i}) \f$.
+
+   Inputs: \n
+   - \a inarray: physical point array of function to be integrated
+   \f$ u(\xi_1) \f$
+
+   Output: \n
+
+   - \a outarray: array of coefficients representing the inner
+   product of function with ever  mode in the exapnsion
+
+**/
+void Expansion1D::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
+                                    Array<OneD, NekDouble> &outarray)
+{
+    const Array<OneD, const NekDouble> &jac = m_geomFactors->GetJac();
+    bool Deformed = (m_geomFactors->GetGtype() == SpatialDomains::eDeformed);
+
+    if (v_IsCollocatedBasis())
+    {
+        int nqtot = GetTotPoints();
+        if (Deformed)
+        {
+            Vmath::Vmul(nqtot, jac, 1, inarray, 1, outarray, 1);
+        }
+        else
+        {
+            Vmath::Smul(nqtot, jac[0], inarray, 1, outarray, 1);
+        }
+        v_MultiplyByStdQuadratureMetric(outarray, outarray);
+    }
+    else
+    {
+        v_IProductWRTBaseKernel(m_base[0]->GetBdata(), inarray, outarray, jac,
+                                Deformed);
+    }
+}
+
+/** \brief Evaluate the derivative \f$ d/d{\xi_1} \f$ at the
+    physical quadrature points given by \a inarray and return in \a
+    outarray.
+
+    This is a wrapper around StdExpansion1D::Tensor_Deriv
+
+    Input:\n
+
+    - \a n: number of derivatives to be evaluated where \f$ n \leq  dim\f$
+
+    - \a inarray: array of function evaluated at the quadrature points
+
+    Output: \n
+
+    - \a outarray: array of the derivatives \f$
+    du/d_{\xi_1}|_{\xi_{1i}} d\xi_1/dx,
+    du/d_{\xi_1}|_{\xi_{1i}} d\xi_1/dy,
+    du/d_{\xi_1}|_{\xi_{1i}} d\xi_1/dz,
+    \f$ depending on value of \a dim
+*/
+void Expansion1D::v_PhysDeriv(const Array<OneD, const NekDouble> &inarray,
+                              Array<OneD, NekDouble> &out_d0,
+                              Array<OneD, NekDouble> &out_d1,
+                              Array<OneD, NekDouble> &out_d2)
+{
+    int nquad0                        = m_base[0]->GetNumPoints();
+    Array<TwoD, const NekDouble> gmat = m_geomFactors->GetDerivFactors();
+    Array<OneD, NekDouble> diff(nquad0);
+
+    PhysTensorDeriv(inarray, diff);
+    if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed)
+    {
+        if (out_d0.size())
+        {
+            Vmath::Vmul(nquad0, &gmat[0][0], 1, &diff[0], 1, &out_d0[0], 1);
+        }
+
+        if (out_d1.size())
+        {
+            Vmath::Vmul(nquad0, &gmat[1][0], 1, &diff[0], 1, &out_d1[0], 1);
+        }
+
+        if (out_d2.size())
+        {
+            Vmath::Vmul(nquad0, &gmat[2][0], 1, &diff[0], 1, &out_d2[0], 1);
+        }
+    }
+    else
+    {
+        if (out_d0.size())
+        {
+            Vmath::Smul(nquad0, gmat[0][0], diff, 1, out_d0, 1);
+        }
+
+        if (out_d1.size())
+        {
+            Vmath::Smul(nquad0, gmat[1][0], diff, 1, out_d1, 1);
+        }
+
+        if (out_d2.size())
+        {
+            Vmath::Smul(nquad0, gmat[2][0], diff, 1, out_d2, 1);
+        }
+    }
+}
+
 void Expansion1D::AddNormTraceInt([[maybe_unused]] const int dir,
                                   Array<OneD, const NekDouble> &inarray,
                                   Array<OneD, NekDouble> &outarray)
