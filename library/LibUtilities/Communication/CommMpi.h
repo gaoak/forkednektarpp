@@ -31,6 +31,7 @@
 // Description: CommMpi header
 //
 ///////////////////////////////////////////////////////////////////////////////
+
 #ifndef NEKTAR_LIB_UTILITIES_COMMMPI_H
 #define NEKTAR_LIB_UTILITIES_COMMMPI_H
 
@@ -126,6 +127,10 @@ protected:
 
     void v_AllReduce(void *buf, int count, CommDataType dt,
                      enum ReduceOperator pOp) final;
+    void v_AllReduceBegin(void *buf, int count, CommDataType dt,
+                          enum ReduceOperator pOp,
+                          CommRequestSharedPtr request) final;
+    void v_AllReduceEnd(CommRequestSharedPtr request) final;
 
     void v_AlltoAll(const void *sendbuf, int sendcount, CommDataType sendtype,
                     void *recvbuf, int recvcount, CommDataType recvtype) final;

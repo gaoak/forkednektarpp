@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: ConjResV2Op.hpp
+// File: PipeConjResOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -39,31 +39,31 @@
 namespace Nektar::Operators
 {
 
-// ConjResV2 base class
+// PipeConjRes base class
 // Defines the apply operator to enforce apply parameter types
-template <typename TData> class ConjResV2Op : public LinearSolverOp<TData>
+template <typename TData> class PipeConjResOp : public LinearSolverOp<TData>
 {
 public:
-    static std::shared_ptr<ConjResV2Op<TData>> Create(
+    static std::shared_ptr<PipeConjResOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
-        return std::dynamic_pointer_cast<ConjResV2Op<TData>>(
+        return std::dynamic_pointer_cast<PipeConjResOp<TData>>(
             LinearSolverOp<TData>::Create(expansionList, components, name,
                                           execStr));
     }
 
-    static inline const std::string name = "ConjResV2";
+    static inline const std::string name = "PipeConjRes";
 
 protected:
-    ConjResV2Op(const MultiRegions::ExpListSharedPtr &expansionList,
-                const std::vector<std::string> &components)
+    PipeConjResOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                  const std::vector<std::string> &components)
         : LinearSolverOp<TData>(expansionList, components)
     {
     }
 
-    ~ConjResV2Op() override = default;
+    ~PipeConjResOp() override = default;
 };
 
 } // namespace Nektar::Operators

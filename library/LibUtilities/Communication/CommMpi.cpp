@@ -296,6 +296,58 @@ void CommMpi::v_AllReduce(void *buf, int count, CommDataType dt,
 /**
  *
  */
+void CommMpi::v_AllReduceBegin(void *buf, int count, CommDataType dt,
+                               enum ReduceOperator pOp,
+                               CommRequestSharedPtr request)
+{
+    if (GetSize() == 1)
+    {
+        return;
+    }
+
+    MPI_Op vOp;
+    switch (pOp)
+    {
+        case ReduceMax:
+            vOp = MPI_MAX;
+            break;
+        case ReduceMin:
+            vOp = MPI_MIN;
+            break;
+        case ReduceSum:
+        default:
+            vOp = MPI_SUM;
+            break;
+    }
+    CommRequestMpiSharedPtr req =
+        std::static_pointer_cast<CommRequestMpi>(request);
+    int retval = MPI_Iallreduce(MPI_IN_PLACE, buf, count, dt, vOp, m_comm,
+                                req->GetRequest(0));
+
+    ASSERTL0(retval == MPI_SUCCESS, "MPI error performing All-reduce.");
+}
+
+/**
+ *
+ */
+void CommMpi::v_AllReduceEnd(CommRequestSharedPtr request)
+{
+    if (GetSize() == 1)
+    {
+        return;
+    }
+
+    CommRequestMpiSharedPtr req =
+        std::static_pointer_cast<CommRequestMpi>(request);
+    if (req->GetNumRequest() != 0)
+    {
+        MPI_Wait(req->GetRequest(0), MPI_STATUS_IGNORE);
+    }
+}
+
+/**
+ *
+ */
 void CommMpi::v_AlltoAll(const void *sendbuf, int sendcount,
                          CommDataType sendtype, void *recvbuf, int recvcount,
                          CommDataType recvtype)

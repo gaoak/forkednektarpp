@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestLinearADRSolveGMRES
+#define BOOST_TEST_MODULE TestLinearADRSolve
 
 #include "init_linearadrsolve_fields.hpp"
 
@@ -170,7 +170,7 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestLinearADRSolveGMRES)
+BOOST_AUTO_TEST_SUITE(TestLinearADRSolve)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_LINEARADRSOLVE_CGS(linearadrsolve_cgs_seg, Helmholtz1D_Seg, 4.0E-12)

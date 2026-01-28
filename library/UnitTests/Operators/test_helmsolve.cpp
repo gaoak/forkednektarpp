@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestHelmSolveConjGrad
+#define BOOST_TEST_MODULE TestHelmSolve
 
 #include "init_helmsolve_fields.hpp"
 
@@ -64,6 +64,30 @@
         }                                                                      \
     }
 
+#define TEST_HELMSOLVE_PCG(test_name, test, tol)                               \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        Configure();                                                           \
+        SetTestCase();                                                         \
+        RunTestCase("PipeConjGrad");                                           \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
+#define TEST_HELMSOLVE_PCG2(test_name, test, tol)                              \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        Configure();                                                           \
+        SetTestCase();                                                         \
+        RunTestCase("PipeConjGrad2");                                          \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
 #define TEST_HELMSOLVE_CR(test_name, test, tol)                                \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
@@ -76,12 +100,12 @@
         }                                                                      \
     }
 
-#define TEST_HELMSOLVE_CR2(test_name, test, tol)                               \
+#define TEST_HELMSOLVE_PCR(test_name, test, tol)                               \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         Configure();                                                           \
         SetTestCase();                                                         \
-        RunTestCase("ConjResV2");                                              \
+        RunTestCase("PipeConjRes");                                            \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(Compare(tol));                                          \
@@ -124,7 +148,7 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestHelmSolveConjGrad)
+BOOST_AUTO_TEST_SUITE(TestHelmSolve)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_HELMSOLVE_RICH(helmsolve_rich_seg, Helmholtz1D_Seg, 1.0E-12)
@@ -139,6 +163,26 @@ TEST_HELMSOLVE_CG(helmsolve_cg_hex, Helmholtz3D_Hex, 1.0E-10)
 
 TEST_HELMSOLVE_CG(helmsolve_cg_tet, Helmholtz3D_Tet, 1.0E-10)
 
+TEST_HELMSOLVE_PCG(helmsolve_pipe_cg_seg, Helmholtz1D_Seg, 1.0E-12)
+
+TEST_HELMSOLVE_PCG(helmsolve_pipe_cg_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
+
+TEST_HELMSOLVE_PCG(helmsolve_pipe_cg_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
+
+TEST_HELMSOLVE_PCG(helmsolve_pipe_cg_hex, Helmholtz3D_Hex, 1.0E-10)
+
+TEST_HELMSOLVE_PCG(helmsolve_pipe_cg_tet, Helmholtz3D_Tet, 1.0E-10)
+
+TEST_HELMSOLVE_PCG2(helmsolve_pipe_cg2_seg, Helmholtz1D_Seg, 1.0E-12)
+
+TEST_HELMSOLVE_PCG2(helmsolve_pipe_cg2_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
+
+TEST_HELMSOLVE_PCG2(helmsolve_pipe_cg2_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
+
+TEST_HELMSOLVE_PCG2(helmsolve_pipe_cg2_hex, Helmholtz3D_Hex, 1.0E-10)
+
+TEST_HELMSOLVE_PCG2(helmsolve_pipe_cg2_tet, Helmholtz3D_Tet, 1.0E-10)
+
 TEST_HELMSOLVE_CR(helmsolve_cr_seg, Helmholtz1D_Seg, 1.0E-12)
 
 TEST_HELMSOLVE_CR(helmsolve_cr_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
@@ -149,15 +193,15 @@ TEST_HELMSOLVE_CR(helmsolve_cr_hex, Helmholtz3D_Hex, 1.0E-10)
 
 TEST_HELMSOLVE_CR(helmsolve_cr_tet, Helmholtz3D_Tet, 1.0E-10)
 
-TEST_HELMSOLVE_CR2(helmsolve_cr2_seg, Helmholtz1D_Seg, 1.0E-12)
+TEST_HELMSOLVE_PCR(helmsolve_pipe_cr_seg, Helmholtz1D_Seg, 1.0E-12)
 
-TEST_HELMSOLVE_CR2(helmsolve_cr2_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
+TEST_HELMSOLVE_PCR(helmsolve_pipe_cr_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
 
-TEST_HELMSOLVE_CR2(helmsolve_cr2_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
+TEST_HELMSOLVE_PCR(helmsolve_pipe_cr_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
 
-TEST_HELMSOLVE_CR2(helmsolve_cr2_hex, Helmholtz3D_Hex, 1.0E-10)
+TEST_HELMSOLVE_PCR(helmsolve_pipe_cr_hex, Helmholtz3D_Hex, 1.0E-10)
 
-TEST_HELMSOLVE_CR2(helmsolve_cr2_tet, Helmholtz3D_Tet, 1.0E-10)
+TEST_HELMSOLVE_PCR(helmsolve_pipe_cr_tet, Helmholtz3D_Tet, 1.0E-10)
 
 TEST_HELMSOLVE_MINRES(helmsolve_minres_seg, Helmholtz1D_Seg, 1.0E-12)
 
