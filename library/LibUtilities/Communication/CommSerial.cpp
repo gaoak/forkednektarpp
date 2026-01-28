@@ -154,6 +154,24 @@ void CommSerial::v_AllReduce([[maybe_unused]] void *buf,
 /**
  *
  */
+void CommSerial::v_AllReduceBegin([[maybe_unused]] void *buf,
+                                  [[maybe_unused]] int count,
+                                  [[maybe_unused]] CommDataType dt,
+                                  [[maybe_unused]] enum ReduceOperator pOp,
+                                  [[maybe_unused]] CommRequestSharedPtr request)
+{
+}
+
+/**
+ *
+ */
+void CommSerial::v_AllReduceEnd([[maybe_unused]] CommRequestSharedPtr request)
+{
+}
+
+/**
+ *
+ */
 void CommSerial::v_AlltoAll([[maybe_unused]] const void *sendbuf,
                             [[maybe_unused]] int sendcount,
                             [[maybe_unused]] CommDataType sendtype,

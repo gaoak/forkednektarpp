@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: ConjResV2OpImpl.hpp
+// File: PipeConjGrad2OpImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -35,7 +35,7 @@
 #pragma once
 
 #include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
-#include "Operators/GlobalLinSysOps/LinearSolvers/ConjResV2/ConjResV2Op.hpp"
+#include "Operators/GlobalLinSysOps/LinearSolvers/PipeConjGrad2/PipeConjGrad2Op.hpp"
 
 #include <iomanip>
 
@@ -45,43 +45,39 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-class ConjResV2OpImpl : public ConjResV2Op<TData>
+class PipeConjGrad2OpImpl : public PipeConjGrad2Op<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    ConjResV2OpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
-                    const std::vector<std::string> &components)
-        : ConjResV2Op<TData>(expansionList, components),
+    PipeConjGrad2OpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                        const std::vector<std::string> &components)
+        : PipeConjGrad2Op<TData>(expansionList, components),
           m_w(Field<TData, FieldState::Coeff>(
-              "ConjResV2 w",
+              "PipeConjGrad2 w",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
-          m_wk(Field<TData, FieldState::Coeff>(
-              "ConjResV2 wk",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
-              components, 1)),
-          m_z(Field<TData, FieldState::Coeff>(
-              "ConjResV2 v",
+          m_u(Field<TData, FieldState::Coeff>(
+              "PipeConjGrad2 u",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
           m_s(Field<TData, FieldState::Coeff>(
-              "ConjResV2 s",
+              "PipeConjGrad2 s",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
           m_r(Field<TData, FieldState::Coeff>(
-              "ConjResV2 r",
+              "PipeConjGrad2 r",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
           m_q(Field<TData, FieldState::Coeff>(
-              "ConjResV2 q",
+              "PipeConjGrad2 q",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
           m_p(Field<TData, FieldState::Coeff>(
-              "ConjResV2 p",
+              "PipeConjGrad2 p",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
-          m_vExchange(MemoryRegion<TData>(3, ePinned))
+          m_vExchange(MemoryRegion<TData>(2, ePinned))
     {
         auto session = expansionList->GetSession();
 
@@ -95,6 +91,7 @@ public:
             this->m_expansionList, components, ExecSpace::name);
         m_rowComm = session->GetComm()->GetRowComm();
         m_root    = m_rowComm->GetRank() == 0;
+        m_request = m_rowComm->CreateRequest(1);
 
         // Set parameters.
         session->LoadParameter("NekLinSysMaxIterations", m_maxIter, 5000);
@@ -109,11 +106,12 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
-        return std::make_unique<ConjResV2OpImpl<ExecSpace, TData>>(
+        return std::make_unique<PipeConjGrad2OpImpl<ExecSpace, TData>>(
             expansionList, components);
     }
 
 protected:
+    LibUtilities::CommRequestSharedPtr m_request;
     LibUtilities::CommSharedPtr m_rowComm = nullptr;
     std::unique_ptr<AssmbScatrOpImpl<ExecSpace, TData>> m_assmbScatrOp;
     std::unique_ptr<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>
@@ -123,8 +121,7 @@ protected:
     std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
 
     Field<TData, FieldState::Coeff> m_w;
-    Field<TData, FieldState::Coeff> m_wk;
-    Field<TData, FieldState::Coeff> m_z;
+    Field<TData, FieldState::Coeff> m_u;
     Field<TData, FieldState::Coeff> m_s;
     Field<TData, FieldState::Coeff> m_r;
     Field<TData, FieldState::Coeff> m_q;
@@ -138,7 +135,7 @@ protected:
     void v_Apply(Field<TData, FieldState::Coeff> &in,
                  Field<TData, FieldState::Coeff> &out) override
     {
-        // Based on the pipelined conjugate residual method
+        // Based on the Gropp conjugate gradiant method
         //
         // Reference:
         // Ghysels, Pieter, and Wim Vanroose. "Hiding global synchronization
@@ -146,8 +143,8 @@ protected:
         // Computing 40, no. 7 (2014): 224-238.
 
         // Convergence parameters.
-        unsigned int totalIterations = 0, residualReplacementFreq = 50;
-        TData rhsMagnitude, eps, mu, scale;
+        unsigned int totalIterations = 0;
+        TData rhsMagnitude, eps, delta, scale;
         TData alpha = 1.0, beta, rho = 1.0, rho_new = 1.0;
 
         // Reset the fields to zero.
@@ -164,16 +161,18 @@ protected:
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
-        m_assmbScatrZeroDirOp->Apply(m_r);
-        ddot<ExecSpace>(in, m_r, exchange + 0);
+        ddot<ExecSpace>(m_r, m_r, exchange + 0);
 
-        // Apply preconditioner
-        this->m_precon->Apply(m_r, m_r);
-        ddot<ExecSpace>(m_r, m_r, exchange + 2);
+        // Begin communication.
+        m_rowComm->AllReduceBegin<MemSpace>(
+            m_vExchange, Nektar::LibUtilities::ReduceSum, m_request);
 
-        // Communication.
-        m_rowComm->AllReduce<MemSpace>(m_vExchange,
-                                       Nektar::LibUtilities::ReduceSum);
+        // Overlap communication with matrix-vector multiply operation.
+        m_assmbScatrZeroDirOp->Apply(m_r, m_u);
+        this->m_precon->Apply(m_u, m_u);
+
+        // End communication.
+        m_rowComm->AllReduceEnd<MemSpace>(m_vExchange, m_request);
 
         // Device-to-host copy.
         auto exchangeHost =
@@ -181,7 +180,6 @@ protected:
 
         rhsMagnitude = (exchangeHost[1] > 1.0e-6) ? exchangeHost[1] : 1.0;
         eps          = exchangeHost[0];
-        scale        = exchangeHost[2] / eps;
 
         // If the input residual is less than tolerance then skip solve.
         if (eps < m_tol * m_tol * rhsMagnitude)
@@ -189,9 +187,32 @@ protected:
             return;
         }
 
+        // Reset device memory.
+        m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+
+        ddot<ExecSpace>(m_u, m_u, exchange + 0);
+        ddot<ExecSpace>(m_u, m_r, exchange + 1);
+
+        // Begin communication.
+        m_rowComm->AllReduceBegin<MemSpace>(
+            m_vExchange, Nektar::LibUtilities::ReduceSum, m_request);
+
+        // Overlap communication with matrix-vector multiply operation.
+        m_p.template Copy<MemSpace>(m_u);
+        this->m_lhs->Apply(m_p, m_s);
+        m_robBndCondOp->Apply(m_p, m_s);
+
+        // End communication.
+        m_rowComm->AllReduceEnd<MemSpace>(m_vExchange, m_request);
+
+        // Device-to-host copy.
+        exchangeHost =
+            m_vExchange.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+
+        scale = exchangeHost[0] / eps;
+        rho   = exchangeHost[1];
+
         // Iteration >= 1
-        this->m_lhs->Apply(m_r, m_w);
-        m_robBndCondOp->Apply(m_r, m_w);
         while (true)
         {
             if (totalIterations > m_maxIter)
@@ -206,39 +227,53 @@ protected:
             // Reset device memory.
             m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
-            // Residual replacement strategy.
-            if (totalIterations > 0 &&
-                totalIterations % residualReplacementFreq == 0)
-            {
-                this->m_lhs->Apply(out, m_r);
-                m_robBndCondOp->Apply(out, m_r);
-                sub<ExecSpace>(in, m_r, m_r);
-                m_assmbScatrZeroDirOp->Apply(m_r);
-                this->m_precon->Apply(m_r, m_r);
-                this->m_lhs->Apply(m_r, m_w);
-                m_robBndCondOp->Apply(m_r, m_w);
-            }
+            // <p_{k+1}, s_{k+1}>
+            ddot<ExecSpace>(m_p, m_s, exchange + 0);
 
-            // <r_{k+1}, r_{k+1}>
-            ddot<ExecSpace>(m_r, m_r, exchange + 0);
+            // Begin communication.
+            m_rowComm->AllReduceBegin<MemSpace>(
+                m_vExchange, Nektar::LibUtilities::ReduceSum, m_request);
 
-            // <r_{k+1}, w_{k+1}>
-            ddot<ExecSpace>(m_r, m_w, exchange + 1);
+            // Overlap communication with matrix-vector multiply operation.
+            m_assmbScatrZeroDirOp->Apply(m_s, m_q);
+            this->m_precon->Apply(m_q, m_q);
 
-            // Apply preconditioner.
-            m_assmbScatrZeroDirOp->Apply(m_w, m_wk);
-            this->m_precon->Apply(m_wk, m_wk);
+            // End communication.
+            m_rowComm->AllReduceEnd<MemSpace>(m_vExchange, m_request);
 
-            // <w_{k+1}, wk_{k+1}>
-            ddot<ExecSpace>(m_w, m_wk, exchange + 2);
+            // Device-to-host copy.
+            exchangeHost =
+                m_vExchange
+                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
 
-            // Perform the method-specific matrix-vector multiply operation.
-            this->m_lhs->Apply(m_wk, m_s);
-            m_robBndCondOp->Apply(m_wk, m_s);
+            // Update coefficient
+            delta = exchangeHost[0];
+            alpha = rho / delta;
 
-            // Communication.
-            m_rowComm->AllReduce<MemSpace>(m_vExchange,
-                                           Nektar::LibUtilities::ReduceSum);
+            // Compute new search direction.
+            daxpy<ExecSpace>(alpha, m_p, out, out);
+            daxpy<ExecSpace>(-alpha, m_s, m_r, m_r);
+            daxpy<ExecSpace>(-alpha, m_q, m_u, m_u);
+
+            // Reset device memory.
+            m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+
+            // <u_{k+1}, u_{k+1}>
+            ddot<ExecSpace>(m_u, m_u, exchange + 0);
+
+            // <r_{k+1}, u_{k+1}>
+            ddot<ExecSpace>(m_r, m_u, exchange + 1);
+
+            // Begin communication.
+            m_rowComm->AllReduceBegin<MemSpace>(
+                m_vExchange, Nektar::LibUtilities::ReduceSum, m_request);
+
+            // Overlap communication with matrix-vector multiply operation.
+            this->m_lhs->Apply(m_u, m_w);
+            m_robBndCondOp->Apply(m_u, m_w);
+
+            // End communication.
+            m_rowComm->AllReduceEnd<MemSpace>(m_vExchange, m_request);
 
             // Device-to-host copy.
             exchangeHost =
@@ -247,7 +282,6 @@ protected:
 
             eps     = exchangeHost[0];
             rho_new = exchangeHost[1];
-            mu      = exchangeHost[2];
 
             ++totalIterations;
 
@@ -263,27 +297,13 @@ protected:
                 break;
             }
 
-            // Update search coefficients.
-            beta  = (totalIterations > 1) ? rho_new / rho : 0.0;
-            alpha = rho_new / (mu - rho_new * beta / alpha);
-            rho   = rho_new;
+            // Update coefficients.
+            beta = rho_new / rho;
+            rho  = rho_new;
 
-            // Update search vectors.
-            if (totalIterations == 1)
-            {
-                m_z.template Copy<MemSpace>(m_s);
-                m_q.template Copy<MemSpace>(m_wk);
-                m_p.template Copy<MemSpace>(m_r);
-            }
-            else
-            {
-                daxpy<ExecSpace>(beta, m_z, m_s, m_z);
-                daxpy<ExecSpace>(beta, m_q, m_wk, m_q);
-                daxpy<ExecSpace>(beta, m_p, m_r, m_p);
-            }
-            daxpy<ExecSpace>(alpha, m_p, out, out);
-            daxpy<ExecSpace>(-alpha, m_q, m_r, m_r);
-            daxpy<ExecSpace>(-alpha, m_z, m_w, m_w);
+            // Compute new search direction.
+            daxpy<ExecSpace>(beta, m_p, m_u, m_p);
+            daxpy<ExecSpace>(beta, m_s, m_w, m_s);
         }
     }
 };

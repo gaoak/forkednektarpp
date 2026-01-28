@@ -53,6 +53,7 @@
 
 namespace Nektar::LibUtilities
 {
+
 // Forward declarations
 class Comm;
 
@@ -134,9 +135,20 @@ public:
 #endif
 
     template <class T> void AllReduce(T &pData, enum ReduceOperator pOp);
+    template <class T>
+    void AllReduceBegin(T &pData, enum ReduceOperator pOp,
+                        CommRequestSharedPtr request);
+    template <class T>
+    void AllReduceEnd(T &pData, CommRequestSharedPtr request);
 #if defined(NEKTAR_BUILD_REDESIGN)
     template <class MemSpace, class T>
     void AllReduce(Operators::MemoryRegion<T> &pData, enum ReduceOperator pOp);
+    template <class MemSpace, class T>
+    void AllReduceBegin(Operators::MemoryRegion<T> &pData,
+                        enum ReduceOperator pOp, CommRequestSharedPtr request);
+    template <class MemSpace, class T>
+    void AllReduceEnd(Operators::MemoryRegion<T> &pData,
+                      CommRequestSharedPtr request);
 #endif
 
     template <class T> void AlltoAll(T &pSendData, T &pRecvData);
@@ -286,6 +298,10 @@ protected:
                             int source)                                     = 0;
     virtual void v_AllReduce(void *buf, int count, CommDataType dt,
                              enum ReduceOperator pOp)                       = 0;
+    virtual void v_AllReduceBegin(void *buf, int count, CommDataType dt,
+                                  enum ReduceOperator pOp,
+                                  CommRequestSharedPtr request)             = 0;
+    virtual void v_AllReduceEnd(CommRequestSharedPtr request)               = 0;
     virtual void v_AlltoAll(const void *sendbuf, int sendcount,
                             CommDataType sendtype, void *recvbuf, int recvcount,
                             CommDataType recvtype)                          = 0;
@@ -546,6 +562,27 @@ template <class T> void Comm::AllReduce(T &pData, enum ReduceOperator pOp)
                 CommDataTypeTraits<T>::GetDataType(), pOp);
 }
 
+/**
+ *
+ */
+template <class T>
+void Comm::AllReduceBegin(T &pData, enum ReduceOperator pOp,
+                          CommRequestSharedPtr request)
+{
+    v_AllReduceBegin(CommDataTypeTraits<T>::GetPointer(pData),
+                     CommDataTypeTraits<T>::GetCount(pData),
+                     CommDataTypeTraits<T>::GetDataType(), pOp, request);
+}
+
+/**
+ *
+ */
+template <class T>
+void Comm::AllReduceEnd([[maybe_unused]] T &pData, CommRequestSharedPtr request)
+{
+    v_AllReduceEnd(request);
+}
+
 #if defined(NEKTAR_BUILD_REDESIGN)
 /**
  *
@@ -562,6 +599,44 @@ void Comm::AllReduce(Operators::MemoryRegion<T> &pData, enum ReduceOperator pOp)
     {
         v_AllReduce(pData.template GetPtr<NektarSpaces::HostSpace, ReadWrite>(),
                     pData.size(), CommDataTypeTraits<T>::GetDataType(), pOp);
+    }
+}
+
+/**
+ *
+ */
+template <class MemSpace, class T>
+void Comm::AllReduceBegin(Operators::MemoryRegion<T> &pData,
+                          enum ReduceOperator pOp, CommRequestSharedPtr request)
+{
+    if (m_gpu_aware)
+    {
+        v_AllReduceBegin(pData.template GetPtr<MemSpace, ReadWrite>(),
+                         pData.size(), CommDataTypeTraits<T>::GetDataType(),
+                         pOp, request);
+    }
+    else
+    {
+        v_AllReduceBegin(
+            pData.template GetPtr<NektarSpaces::HostSpace, ReadWrite>(),
+            pData.size(), CommDataTypeTraits<T>::GetDataType(), pOp, request);
+    }
+}
+
+/**
+ *
+ */
+template <class MemSpace, class T>
+void Comm::AllReduceEnd([[maybe_unused]] Operators::MemoryRegion<T> &pData,
+                        CommRequestSharedPtr request)
+{
+    if (m_gpu_aware)
+    {
+        v_AllReduceEnd(request);
+    }
+    else
+    {
+        v_AllReduceEnd(request);
     }
 }
 #endif

@@ -62,7 +62,7 @@ public:
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
           m_w(Field<TData, FieldState::Coeff>(
-              "BICGSTABOp h",
+              "BICGSTABOp w",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
           m_z(Field<TData, FieldState::Coeff>(
