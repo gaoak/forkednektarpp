@@ -130,7 +130,7 @@ protected:
         // Convergence parameters.
         unsigned int totalIterations = 0;
         TData rhsMagnitude, eps;
-        TData alpha = 1.0, beta, rho, rho_new = 1.0;
+        TData alpha, beta, rho, rho_new;
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
@@ -146,7 +146,6 @@ protected:
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
         m_assmbScatrZeroDirOp->Apply(m_r);
-
         eps = m_math.ddot(in, m_r);
         m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
 
@@ -160,6 +159,8 @@ protected:
         this->m_precon->Apply(m_r, m_r);
 
         // Iteration >= 1
+        alpha   = 0.0;
+        rho_new = 1.0;
         while (true)
         {
             if (totalIterations > m_maxIter)
@@ -178,19 +179,23 @@ protected:
             // Update vector.
             if (totalIterations == 0)
             {
+                // Update coefficient.
                 rho_new = m_math.ddot(m_r, m_s);
                 m_rowComm->AllReduce(rho_new, Nektar::LibUtilities::ReduceSum);
 
+                // Update vectors.
                 m_p.template Copy<MemSpace>(m_r);
                 m_q.template Copy<MemSpace>(m_s);
             }
             else
             {
+                // Update coefficient.
                 rho     = rho_new;
                 rho_new = m_math.ddot(m_r, m_s);
                 m_rowComm->AllReduce(rho_new, Nektar::LibUtilities::ReduceSum);
-
                 beta = rho_new / rho;
+
+                // Update vectors.
                 daxpy<ExecSpace>(beta, m_p, m_r, m_p);
                 daxpy<ExecSpace>(beta, m_q, m_s, m_q);
             }
@@ -208,6 +213,7 @@ protected:
             daxpy<ExecSpace>(alpha, m_p, out, out);
             daxpy<ExecSpace>(-alpha, m_w, m_r, m_r);
 
+            // Update residual norm.
             eps = m_math.ddot(m_r, m_r);
             m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
 

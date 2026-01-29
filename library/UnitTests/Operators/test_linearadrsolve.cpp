@@ -88,6 +88,36 @@
         }                                                                      \
     }
 
+#define TEST_LINEARADRSOLVE_BICGSTABL(test_name, test, tol)                    \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        Configure();                                                           \
+        int BICGSTABLLeftPrecon = 0;                                           \
+        this->session->SetParameter("BICGSTABLLeftPrecon",                     \
+                                    BICGSTABLLeftPrecon);                      \
+        SetTestCase();                                                         \
+        RunTestCase("BICGSTABL");                                              \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
+#define TEST_LINEARADRSOLVE_BICGSTABL2(test_name, test, tol)                   \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        Configure();                                                           \
+        int BICGSTABLLeftPrecon = 1;                                           \
+        this->session->SetParameter("BICGSTABLLeftPrecon",                     \
+                                    BICGSTABLLeftPrecon);                      \
+        SetTestCase();                                                         \
+        RunTestCase("BICGSTABL");                                              \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
 #define TEST_LINEARADRSOLVE_GMRES(test_name, test, tol)                        \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
@@ -224,6 +254,36 @@ TEST_LINEARADRSOLVE_BICGSTABR(linearadrsolve_bicgstabr_hex, Helmholtz3D_Hex,
 
 TEST_LINEARADRSOLVE_BICGSTABR(linearadrsolve_bicgstabr_tet, Helmholtz3D_Tet,
                               1.0E-10)
+
+TEST_LINEARADRSOLVE_BICGSTABL(linearadrsolve_bicgstabl_seg, Helmholtz1D_Seg,
+                              4.0E-12)
+
+TEST_LINEARADRSOLVE_BICGSTABL(linearadrsolve_bicgstabl_tri_quad,
+                              Helmholtz2D_Tri_Quad, 2.0E-09)
+
+TEST_LINEARADRSOLVE_BICGSTABL(linearadrsolve_bicgstabl_all_bcs,
+                              Helmholtz2D_AllBCs, 4.0E-10)
+
+TEST_LINEARADRSOLVE_BICGSTABL(linearadrsolve_bicgstabl_hex, Helmholtz3D_Hex,
+                              1.0E-10)
+
+TEST_LINEARADRSOLVE_BICGSTABL(linearadrsolve_bicgstabl_tet, Helmholtz3D_Tet,
+                              1.0E-10)
+
+TEST_LINEARADRSOLVE_BICGSTABL2(linearadrsolve_bicgstabl_left_precon_seg,
+                               Helmholtz1D_Seg, 4.0E-12)
+
+TEST_LINEARADRSOLVE_BICGSTABL2(linearadrsolve_bicgstabl_left_precon_tri_quad,
+                               Helmholtz2D_Tri_Quad, 2.0E-09)
+
+TEST_LINEARADRSOLVE_BICGSTABL2(linearadrsolve_bicgstabl_left_precon_all_bcs,
+                               Helmholtz2D_AllBCs, 4.0E-10)
+
+TEST_LINEARADRSOLVE_BICGSTABL2(linearadrsolve_bicgstabl_left_precon_hex,
+                               Helmholtz3D_Hex, 1.0E-10)
+
+TEST_LINEARADRSOLVE_BICGSTABL2(linearadrsolve_bicgstabl_left_precon_tet,
+                               Helmholtz3D_Tet, 1.0E-10)
 
 TEST_LINEARADRSOLVE_GMRES(linearadrsolve_gmres_seg, Helmholtz1D_Seg, 1.0E-12)
 

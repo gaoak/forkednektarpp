@@ -149,8 +149,8 @@ protected:
 
         // Convergence parameters.
         unsigned int totalIterations = 0, residualReplacementFreq = 50;
-        TData rhsMagnitude, eps, mu, scale;
-        TData alpha = 1.0, beta, rho = 1.0, rho_new = 1.0;
+        TData rhsMagnitude, eps, scale;
+        TData alpha, beta, rho, rho_new, mu;
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
@@ -192,6 +192,8 @@ protected:
         }
 
         // Iteration >= 1
+        alpha = 1.0;
+        rho   = 1.0;
         this->m_lhs->Apply(m_r, m_w);
         m_robBndCondOp->Apply(m_r, m_w);
         while (true)

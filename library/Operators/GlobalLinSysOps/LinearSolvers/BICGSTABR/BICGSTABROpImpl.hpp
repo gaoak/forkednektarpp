@@ -150,8 +150,9 @@ protected:
 
         // Convergence parameters.
         unsigned int totalIterations = 0;
-        TData rhsMagnitude, alpha, beta = 0.0, sigma, tau, eps;
-        TData omega = 0.0, omega0, omega1;
+        TData rhsMagnitude, eps;
+        TData alpha, beta, sigma, tau;
+        TData omega, omega0, omega1;
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
@@ -188,6 +189,8 @@ protected:
         }
 
         // Iteration >= 1
+        beta  = 0.0;
+        omega = 0.0;
         m_rtilde.template Copy<MemSpace>(m_r);
         m_p.template Copy<MemSpace>(m_r);
         while (true)

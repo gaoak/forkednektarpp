@@ -182,8 +182,8 @@ protected:
 
         // Convergence parameters.
         unsigned int totalIterations = 0;
-        TData rhsMagnitude, eps, mu;
-        TData alpha = 1.0, beta = 0.0, rho = 1.0, rho_new, rho_star = 0.0;
+        TData rhsMagnitude, eps;
+        TData alpha, beta, rho, rho_new, rho_star, mu;
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
@@ -223,6 +223,10 @@ protected:
         this->m_precon->Apply(m_r, m_w);
 
         // Iteration >= 1
+        alpha    = 1.0;
+        beta     = 0.0;
+        rho      = 1.0;
+        rho_star = 0.0;
         while (true)
         {
             if (totalIterations > m_maxIter)
@@ -249,10 +253,10 @@ protected:
                 m_assmbScatrZeroDirOp->Apply(m_s);
 
                 // Compute new search direction.
-                // daxpy<ExecSpace>(beta, m_p_A, m_w_A, m_p_A);
-                // daxpy<ExecSpace>(beta, m_q_A, m_s_A, m_q_A);
-                // daxpy<ExecSpace>(alpha, m_p_A, out, out);
-                // daxpy<ExecSpace>(-alpha, m_q_A, m_r_A, m_r_A);
+                // daxpy<ExecSpace>(beta, m_p, m_w, m_p);
+                // daxpy<ExecSpace>(beta, m_q, m_s, m_q);
+                // daxpy<ExecSpace>(alpha, m_p, out, out);
+                // daxpy<ExecSpace>(-alpha, m_q, m_r, m_r);
                 UpdateConjGradSearchDirection<ExecSpace>(alpha, beta, m_w, m_s,
                                                          m_p, m_q, m_r, out);
 
@@ -310,7 +314,7 @@ protected:
                 break;
             }
 
-            // Compute search direction and solution coefficients.
+            // Update coefficients.
             beta  = (totalIterations > 1) ? (rho_new - rho_star) / rho : 0.0;
             alpha = rho_new / (mu - rho_new * beta / alpha);
             rho   = rho_new;

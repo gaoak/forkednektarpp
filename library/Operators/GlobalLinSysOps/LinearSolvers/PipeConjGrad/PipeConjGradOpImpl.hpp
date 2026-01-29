@@ -159,8 +159,8 @@ protected:
 
         // Convergence parameters.
         unsigned int totalIterations = 0, residualReplacementFreq = 50;
-        TData rhsMagnitude, eps, mu, scale;
-        TData alpha = 1.0, beta, rho = 1.0, rho_new = 1.0;
+        TData rhsMagnitude, eps, scale;
+        TData alpha, beta, rho, rho_new, mu;
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
@@ -176,10 +176,10 @@ protected:
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
-        ddot<ExecSpace>(m_r, m_r, exchange + 0);
+        m_assmbScatrZeroDirOp->Apply(m_r, m_u);
+        ddot<ExecSpace>(m_r, m_u, exchange + 0);
 
         // Apply preconditioner
-        m_assmbScatrZeroDirOp->Apply(m_r, m_u);
         this->m_precon->Apply(m_u, m_u);
         ddot<ExecSpace>(m_u, m_u, exchange + 2);
 
@@ -202,6 +202,8 @@ protected:
         }
 
         // Iteration >= 1
+        alpha = 1.0;
+        rho   = 1.0;
         this->m_lhs->Apply(m_u, m_w);
         m_robBndCondOp->Apply(m_u, m_w);
         while (true)

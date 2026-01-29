@@ -146,7 +146,8 @@ protected:
 
         // Convergence parameters.
         unsigned int totalIterations = 0;
-        TData rhsMagnitude, alpha, beta, rho_new, rho, eps;
+        TData rhsMagnitude, eps;
+        TData alpha, beta, rho, rho_new;
         TData sigma, theta, eta, tau;
 
         // Reset the fields to zero.
@@ -182,7 +183,6 @@ protected:
         theta = 0.0;
         eta   = 0.0;
         beta  = 0.0;
-
         while (true)
         {
             if (totalIterations > m_maxIter)
@@ -194,7 +194,7 @@ protected:
                 return;
             }
 
-            // Compute new search direction.
+            // Update vectors.
             if (totalIterations == 0)
             {
                 m_u.template Copy<MemSpace>(m_r);
@@ -216,13 +216,16 @@ protected:
             m_robBndCondOp->Apply(m_w, m_s);
             m_assmbScatrZeroDirOp->Apply(m_s);
 
+            // Update vectors.
             daxpy<ExecSpace>(beta, m_p, m_s, m_p);
 
+            // Update coefficients.
             alpha = m_math.ddot(m_rtilde, m_p);
             m_rowComm->AllReduce(alpha, Nektar::LibUtilities::ReduceSum);
             alpha = rho_new / alpha;
 
-            // First pass
+            // --- First pass ---
+            // Update vectors.
             daxpy<ExecSpace>(-alpha, m_s, m_r, m_r);
             daxpy<ExecSpace>(theta * theta * eta / alpha, m_d, m_w, m_d);
 
@@ -238,8 +241,8 @@ protected:
             daxpy<ExecSpace>(eta, m_d, out, out);
 
             // Test if norm is within tolerance.
-            if (tau * std::sqrt(2 * totalIterations) <
-                m_tol * std::sqrt(rhsMagnitude))
+            eps = tau * tau * (2 * totalIterations);
+            if (eps < m_tol * m_tol * rhsMagnitude)
             {
                 if (m_root)
                 {
@@ -251,7 +254,8 @@ protected:
                 break;
             }
 
-            // Second pass
+            // --- Second pass ---
+            // Update vectors.
             daxpy<ExecSpace>(-alpha, m_p, m_u, m_u);
 
             // Apply preconditioner.
@@ -262,6 +266,7 @@ protected:
             m_robBndCondOp->Apply(m_w, m_s);
             m_assmbScatrZeroDirOp->Apply(m_s);
 
+            // Update vectors.
             daxpy<ExecSpace>(-alpha, m_s, m_r, m_r);
             daxpy<ExecSpace>(theta * theta * eta / alpha, m_d, m_w, m_d);
 
@@ -277,8 +282,8 @@ protected:
             daxpy<ExecSpace>(eta, m_d, out, out);
 
             // Test if norm is within tolerance.
-            if (tau * std::sqrt(2 * totalIterations + 1) <
-                m_tol * std::sqrt(rhsMagnitude))
+            eps = tau * tau * (2 * totalIterations + 1);
+            if (eps < m_tol * m_tol * rhsMagnitude)
             {
                 if (m_root)
                 {
