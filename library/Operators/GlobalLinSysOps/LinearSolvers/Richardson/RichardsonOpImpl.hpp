@@ -135,7 +135,6 @@ protected:
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
         m_assmbScatrZeroDirOp->Apply(m_r);
-
         eps = m_math.ddot(in, m_r);
         m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
 

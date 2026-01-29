@@ -135,8 +135,9 @@ protected:
     {
         // Convergence parameters.
         unsigned int totalIterations = 0;
-        TData rhsMagnitude, alpha, beta = 0.0, rho_new, rho, eps;
-        TData omega = 0.0, omega0, omega1;
+        TData rhsMagnitude, eps;
+        TData alpha, beta, rho, rho_new;
+        TData omega, omega0, omega1;
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
@@ -152,7 +153,6 @@ protected:
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
         m_assmbScatrZeroDirOp->Apply(m_r);
-
         eps = m_math.ddot(in, m_r);
         m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
 
@@ -163,6 +163,8 @@ protected:
         }
 
         // Iteration >= 1
+        beta  = 0.0;
+        omega = 0.0;
         m_rtilde.template Copy<MemSpace>(m_r);
         m_p.template Copy<MemSpace>(m_r);
         rho_new = m_math.ddot(m_rtilde, m_r);
@@ -229,7 +231,6 @@ protected:
             omega1 = m_math.ddot(m_z, m_z);
             m_rowComm->AllReduce(omega0, LibUtilities::ReduceSum);
             m_rowComm->AllReduce(omega1, LibUtilities::ReduceSum);
-
             omega = omega0 / omega1;
 
             // Update solution.

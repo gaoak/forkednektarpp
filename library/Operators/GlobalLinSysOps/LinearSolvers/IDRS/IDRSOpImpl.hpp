@@ -167,8 +167,8 @@ protected:
 
         // Convergence parameters.
         unsigned int totalIterations = 0;
-        TData rhsMagnitude, omega, omega0, omega1, eps, rho, alpha, beta,
-            kappa = 0.7;
+        TData rhsMagnitude, eps;
+        TData omega, omega0, omega1, rho, alpha, beta, kappa = 0.7;
         std::vector<TData> Phi(m_stage), gamma(m_stage);
         std::vector<std::vector<TData>> Mu(m_stage);
 
@@ -186,7 +186,6 @@ protected:
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
         m_assmbScatrZeroDirOp->Apply(m_r);
-
         eps = m_math.ddot(in, m_r);
         m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
 
@@ -196,7 +195,7 @@ protected:
             return;
         }
 
-        // Initialize value.
+        // Iteration >= 1
         omega = 1.0;
         for (unsigned int k = 0; k < m_stage; k++)
         {
@@ -205,10 +204,6 @@ protected:
             m_G[k].template Initialize<MemSpace>(0.0);
             m_U[k].template Initialize<MemSpace>(0.0);
         }
-
-        // Use initial residual forthe first P vector.
-        // m_P[0].template Copy<MemSpace>(m_r);
-
         while (true)
         {
             // Compute Phi.
@@ -388,9 +383,7 @@ protected:
             omega1 = m_math.ddot(m_w, m_w);
             m_rowComm->AllReduce(omega1, LibUtilities::ReduceSum);
             omega = omega0 / omega1;
-
-            // Check rho (potentially optional).
-            rho = m_math.ddot(m_r, m_r);
+            rho   = m_math.ddot(m_r, m_r);
             m_rowComm->AllReduce(rho, LibUtilities::ReduceSum);
             rho = std::abs(omega0 / (std::sqrt(omega1) * std::sqrt(rho)));
             if (rho < kappa)

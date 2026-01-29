@@ -144,8 +144,8 @@ protected:
 
         // Convergence parameters.
         unsigned int totalIterations = 0;
-        TData rhsMagnitude, eps, delta, scale;
-        TData alpha = 1.0, beta, rho = 1.0, rho_new = 1.0;
+        TData rhsMagnitude, eps, scale;
+        TData alpha, beta, rho, rho_new, delta;
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
@@ -161,14 +161,14 @@ protected:
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
-        ddot<ExecSpace>(m_r, m_r, exchange + 0);
+        m_assmbScatrZeroDirOp->Apply(m_r, m_u);
+        ddot<ExecSpace>(m_r, m_u, exchange + 0);
 
         // Begin communication.
         m_rowComm->AllReduceBegin<MemSpace>(
             m_vExchange, Nektar::LibUtilities::ReduceSum, m_request);
 
         // Overlap communication with matrix-vector multiply operation.
-        m_assmbScatrZeroDirOp->Apply(m_r, m_u);
         this->m_precon->Apply(m_u, m_u);
 
         // End communication.
@@ -209,10 +209,10 @@ protected:
         exchangeHost =
             m_vExchange.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
 
+        // Iteration >= 1
+        alpha = 1.0;
         scale = exchangeHost[0] / eps;
         rho   = exchangeHost[1];
-
-        // Iteration >= 1
         while (true)
         {
             if (totalIterations > m_maxIter)

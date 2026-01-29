@@ -140,7 +140,8 @@ protected:
     {
         // Convergence parameters.
         unsigned int totalIterations = 0;
-        TData rhsMagnitude, alpha, beta, rho_new, rho, eps;
+        TData rhsMagnitude, eps;
+        TData alpha, beta, rho, rho_new;
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
@@ -156,8 +157,6 @@ protected:
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
         m_assmbScatrZeroDirOp->Apply(m_r);
-        m_rtilde.template Copy<MemSpace>(m_r);
-
         eps = m_math.ddot(in, m_r);
         m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
 
@@ -168,6 +167,7 @@ protected:
         }
 
         // Iteration >= 1
+        m_rtilde.template Copy<MemSpace>(m_r);
         rho_new = m_math.ddot(m_rtilde, m_r);
         m_rowComm->AllReduce(rho_new, Nektar::LibUtilities::ReduceSum);
         while (true)
@@ -181,7 +181,7 @@ protected:
                 return;
             }
 
-            // Compute new search direction.
+            // Update vectors.
             if (totalIterations == 0)
             {
                 m_u.template Copy<MemSpace>(m_r);
@@ -202,11 +202,12 @@ protected:
             m_robBndCondOp->Apply(m_w, m_s);
             m_assmbScatrZeroDirOp->Apply(m_s);
 
-            // <s_{k+1}, r_{k+1}>
+            // Update coefficients.
             alpha = m_math.ddot(m_s, m_rtilde);
             m_rowComm->AllReduce(alpha, LibUtilities::ReduceSum);
             alpha = rho_new / alpha;
 
+            // Update vectors.
             daxpy<ExecSpace>(-alpha, m_s, m_u, m_q);
             add<ExecSpace>(m_u, m_q, m_w);
 
@@ -221,6 +222,7 @@ protected:
             m_robBndCondOp->Apply(m_w, m_s);
             m_assmbScatrZeroDirOp->Apply(m_s);
 
+            // Update residual.
             daxpy<ExecSpace>(-alpha, m_s, m_r, m_r);
 
             // Update coefficients.

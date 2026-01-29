@@ -141,13 +141,12 @@ protected:
 
         // Convergence parameters.
         unsigned int totalIterations = 0;
-        TData rhsMagnitude, alpha, eta;
-        TData alpha1, alpha2, alpha3, delta;
-        TData gamma0, gamma1, sigma0, sigma1, beta0, beta1;
+        TData rhsMagnitude, eps;
+        TData alpha, alpha1, alpha2, alpha3, delta;
+        TData eta, gamma0, gamma1, sigma0, sigma1, beta0, beta1;
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
-        m_p1.template Initialize<MemSpace>(0);
 
         // Calculate inital rhs magnitude.
         m_v0.template Copy<MemSpace>(in);
@@ -159,16 +158,14 @@ protected:
         // Iteration 0
         // Copy RHS into initial vector.
         m_v0.template Copy<MemSpace>(in);
-
-        // Apply preconditioner
         m_assmbScatrZeroDirOp->Apply(m_v0, m_w);
         this->m_precon->Apply(m_w, m_w);
-        beta1 = m_math.ddot(m_v0, m_w);
-        m_rowComm->AllReduce(beta1, Nektar::LibUtilities::ReduceSum);
-        beta1 = std::sqrt(beta1);
+        eps = m_math.ddot(m_v0, m_w);
+        m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
+        beta1 = std::sqrt(eps);
 
         // If the input residual is less than tolerance then skip solve.
-        if (beta1 < m_tol * std::sqrt(rhsMagnitude))
+        if (eps < m_tol * m_tol * rhsMagnitude)
         {
             return;
         }
@@ -177,6 +174,7 @@ protected:
         eta    = beta1;
         gamma1 = gamma0 = 1.0;
         sigma1 = sigma0 = 0.0;
+        m_p1.template Initialize<MemSpace>(0);
         while (true)
         {
             if (totalIterations > m_maxIter)
@@ -188,6 +186,7 @@ protected:
                 return;
             }
 
+            // Update search vector.
             mul<ExecSpace>(1.0 / beta1, m_v0, m_v0);
             mul<ExecSpace>(1.0 / beta1, m_w, m_w);
 
@@ -195,7 +194,7 @@ protected:
             this->m_lhs->Apply(m_w, m_q);
             m_robBndCondOp->Apply(m_w, m_q);
 
-            // <w_{k+1}, q_{k+1}>
+            // Update coefficients.
             alpha = m_math.ddot(m_w, m_q);
             m_rowComm->AllReduce(alpha, LibUtilities::ReduceSum);
 
@@ -251,12 +250,13 @@ protected:
             }
             daxpy<ExecSpace>(gamma1 * eta, m_p0, out, out);
 
+            // Update coefficients.
             eta *= -sigma1;
 
             ++totalIterations;
 
             // Test if norm is within tolerance.
-            if (std::abs(eta) < m_tol * std::sqrt(rhsMagnitude))
+            if (eta * eta < m_tol * m_tol * rhsMagnitude)
             {
                 if (m_root)
                 {
