@@ -34,7 +34,6 @@ SET(BasicUtilsHeaders
     ./BasicUtils/Thread.h
     ./BasicUtils/ThreadStd.h
     ./BasicUtils/Vmath.hpp
-    ./BasicUtils/VmathSIMD.hpp
     ./BasicUtils/VmathArray.hpp
     ./BasicUtils/Smath.hpp
     ./BasicUtils/Metis.hpp

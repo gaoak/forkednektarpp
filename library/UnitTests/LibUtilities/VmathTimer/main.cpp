@@ -117,8 +117,8 @@ int main(int argc, char const *argv[])
         for (size_t j = 0; j < experiments; ++j)
         {
             // time
-            Vmath::SIMD::Gathr(nPts, data.data(), indexTrace.data(),
-                               dataTrace.data());
+            Vmath::Gathr(nPts, data.data(), indexTrace.data(),
+                         dataTrace.data());
         }
         LIKWID_MARKER_STOP("GathrSimd");
         // get likwid events

@@ -961,18 +961,6 @@ public:
         v_PhysDeriv(dir, inarray, outarray);
     }
 
-    void PhysDeriv_s(const Array<OneD, const NekDouble> &inarray,
-                     Array<OneD, NekDouble> &out_ds)
-    {
-        v_PhysDeriv_s(inarray, out_ds);
-    }
-
-    void PhysDeriv_n(const Array<OneD, const NekDouble> &inarray,
-                     Array<OneD, NekDouble> &out_dn)
-    {
-        v_PhysDeriv_n(inarray, out_dn);
-    }
-
     void PhysDirectionalDeriv(const Array<OneD, const NekDouble> &inarray,
                               const Array<OneD, const NekDouble> &direction,
                               Array<OneD, NekDouble> &outarray)
@@ -1657,14 +1645,6 @@ protected:
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &out_d1, Array<OneD, NekDouble> &out_d2,
         Array<OneD, NekDouble> &out_d3);
-
-    STD_REGIONS_EXPORT virtual void v_PhysDeriv_s(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &out_ds);
-
-    STD_REGIONS_EXPORT virtual void v_PhysDeriv_n(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &out_dn);
 
     STD_REGIONS_EXPORT virtual void v_PhysDeriv(
         const int dir, const Array<OneD, const NekDouble> &inarray,

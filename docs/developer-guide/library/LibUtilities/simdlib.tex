@@ -50,16 +50,6 @@ __m256d sign_mask = _mm256_set1_pd(1<<63);
 __m256d b = _mm256_andnot_pd(sign_mask, a);
 \end{lstlisting}
 
-\paragraph{A realistic example: } an example of a more realistic usage can be found in the SIMD version of the Vmath routines
-
-\lstinputlisting[language=C++, firstline=47, lastline=88]{src/library/LibUtilities/BasicUtils/VmathSIMD.hpp}
-
-Note that there are 2 loops, a vectorized loop and a spillover loop (which is used when the input array size is not a multiple of the vector width).
-For more complex methods the core of the loop is replaced by a call to a kernel that can accept both a vector type or a scalar type.
-In general the loops are characterized 3 sections: a load to local variables from the input arrays, a call to one or more kernels, a store from the local variables to the output arrays.
-The load and store operations need to specify the flag \verb+is_not_aligned+ if the referenced memory is not guaranteed to be aligned to the vector width boundaries.
-Otherwise a segmentation fault is just waiting to happen!
-
 As an example of a method with a complex body with calls to multiple kernels refer to RoeSolverSIMD.cpp.
 
 \paragraph{Usage with matrix free operators: }
@@ -71,6 +61,6 @@ a key factor to improve performance on modern architectures is to limit as much 
 \begin{itemize}
 \item use local temporary variables to store intermediate values
 \item do not call \verb+Vmath+ functions more than once, make a loop over the points instead
-\item if you do call a \verb+Vmath+ function, call the \verb+VmathArray+ version (it might be optimized via \verb+VmathSIMD+ call)
+\item if you do call a \verb+Vmath+ function, call the \verb+VmathArray+ version
 
 \end{itemize}

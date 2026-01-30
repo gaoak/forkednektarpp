@@ -1407,21 +1407,6 @@ void StdExpansion::v_PhysDeriv(
     v_StdPhysDeriv(inarray, out_d1, out_d2, out_d3);
 }
 
-void StdExpansion::v_PhysDeriv_s(
-    [[maybe_unused]] const Array<OneD, const NekDouble> &inarray,
-    [[maybe_unused]] Array<OneD, NekDouble> &out_ds)
-{
-    NEKERROR(ErrorUtil::efatal, "This function is only valid for "
-                                "local expansions");
-}
-void StdExpansion::v_PhysDeriv_n(
-    [[maybe_unused]] const Array<OneD, const NekDouble> &inarray,
-    [[maybe_unused]] Array<OneD, NekDouble> &out_dn)
-{
-    NEKERROR(ErrorUtil::efatal, "This function is only valid for "
-                                "local expansions");
-}
-
 /**
  * @brief Calculate the derivative of the physical points in a
  * given direction

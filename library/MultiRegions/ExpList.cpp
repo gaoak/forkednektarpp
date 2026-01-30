@@ -2193,48 +2193,26 @@ void ExpList::v_PhysDeriv(Direction edir,
                           const Array<OneD, const NekDouble> &inarray,
                           Array<OneD, NekDouble> &out_d)
 {
-    int i;
-    if (edir == MultiRegions::eS)
+    // initialise if required
+    if (m_collectionsDoInit[Collections::ePhysDeriv])
     {
-        Array<OneD, NekDouble> e_out_ds;
-        for (i = 0; i < (*m_exp).size(); ++i)
-        {
-            e_out_ds = out_d + m_phys_offset[i];
-            (*m_exp)[i]->PhysDeriv_s(inarray + m_phys_offset[i], e_out_ds);
-        }
-    }
-    else if (edir == MultiRegions::eN)
-    {
-        Array<OneD, NekDouble> e_out_dn;
-        for (i = 0; i < (*m_exp).size(); i++)
-        {
-            e_out_dn = out_d + m_phys_offset[i];
-            (*m_exp)[i]->PhysDeriv_n(inarray + m_phys_offset[i], e_out_dn);
-        }
-    }
-    else
-    {
-        // initialise if required
-        if (m_collectionsDoInit[Collections::ePhysDeriv])
-        {
-            for (int i = 0; i < m_collections.size(); ++i)
-            {
-                m_collections[i].Initialise(Collections::ePhysDeriv);
-            }
-            m_collectionsDoInit[Collections::ePhysDeriv] = false;
-        }
-
-        // convert enum into int
-        int intdir = (int)edir;
-        Array<OneD, NekDouble> e_out_d;
-        int offset{0};
         for (int i = 0; i < m_collections.size(); ++i)
         {
-            e_out_d = out_d + offset;
-            m_collections[i].ApplyOperator(Collections::ePhysDeriv, intdir,
-                                           inarray + offset, e_out_d);
-            offset += m_collections[i].GetInputSize(Collections::ePhysDeriv);
+            m_collections[i].Initialise(Collections::ePhysDeriv);
         }
+        m_collectionsDoInit[Collections::ePhysDeriv] = false;
+    }
+
+    // convert enum into int
+    int intdir = (int)edir;
+    Array<OneD, NekDouble> e_out_d;
+    int offset{0};
+    for (int i = 0; i < m_collections.size(); ++i)
+    {
+        e_out_d = out_d + offset;
+        m_collections[i].ApplyOperator(Collections::ePhysDeriv, intdir,
+                                       inarray + offset, e_out_d);
+        offset += m_collections[i].GetInputSize(Collections::ePhysDeriv);
     }
 }
 

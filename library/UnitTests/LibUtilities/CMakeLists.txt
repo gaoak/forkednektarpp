@@ -6,7 +6,6 @@ SET(LibUtilitiesUnitTestSources
     TestCheckedCast.cpp
     TestRealComparison.cpp
     TestPolylib.cpp
-    TestVmathSIMD.cpp
     main.cpp
     ../util.cpp
 )
