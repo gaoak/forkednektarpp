@@ -132,6 +132,11 @@ protected:
         m_HelmOp->SetLambda(lambda);
     }
 
+    void v_SetDiffCoeff(std::vector<TData> &diffCoeff) override
+    {
+        m_HelmOp->SetDiffCoeff(diffCoeff);
+    }
+
     void v_SetLinearSolver(
         const std::shared_ptr<LinearSolverOp<TData>> &linsolve) override
     {

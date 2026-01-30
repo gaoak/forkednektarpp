@@ -61,7 +61,20 @@ public:
 
     static inline const std::string name = "Laplacian";
 
+    void SetDiffCoeff(std::vector<TData> &diffCoeff)
+    {
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
+        {
+            this->m_blockOp[blk]->SetDiffCoeff(diffCoeff);
+        }
+        m_isSetDiffCoeff = true;
+    }
+
 protected:
+    bool m_isSetDiffCoeff    = false;
+    bool m_isSetVarDiffCoeff = false;
+
     std::vector<std::shared_ptr<LaplacianBlockOp<TData>>> m_blockOp;
 
     LaplacianOp(const MultiRegions::ExpListSharedPtr &expansionList,
@@ -81,6 +94,16 @@ protected:
 
         ASSERTL1(in.GetNumHomoModes() == out.GetNumHomoModes(),
                  "Number of input and output homogeneous modes differ");
+
+        ASSERTL1(m_isSetDiffCoeff || m_isSetVarDiffCoeff,
+                 "diffusion coefficient has not been set."
+                 "Set the value with SetDiffCoeff() OR SetVarDiffCoeff() "
+                 "before calling Apply().");
+
+        ASSERTL1(m_isSetDiffCoeff != m_isSetVarDiffCoeff,
+                 "can't set both DiffCoeff and VarDiffCoeff."
+                 "Set the value with SetDiffCoeff() OR SetVarDiffCoeff() "
+                 "before calling Apply().");
 
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)

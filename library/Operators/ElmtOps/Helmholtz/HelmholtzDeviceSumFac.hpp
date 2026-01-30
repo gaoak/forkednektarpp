@@ -51,9 +51,7 @@ public:
     HelmholtzBlockOpImpl(const unsigned int block_idx,
                          const LocalRegions::ExpansionSharedPtr &exp,
                          NekDataWarehouseSharedPtr dataWarehouse)
-        : HelmholtzBlockOp<TData>(block_idx, exp, dataWarehouse),
-          m_diffCoeff(MemoryRegion<TData>(
-              "Helmholtz diffCoeff", exp->GetCoordim() * exp->GetCoordim()))
+        : HelmholtzBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -185,30 +183,6 @@ public:
                     : nullptr);
         }
 
-        // Set diffusion coefficient.
-        TData *diffCoeff =
-            m_diffCoeff.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-
-        if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
-        {
-            for (unsigned int d = 0; d < m_coordDim; d++)
-            {
-                diffCoeff[d * m_coordDim + d] = 1.0;
-            }
-        }
-        else if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
-        {
-            diffCoeff[0] = 1.0; // m_D00
-            if (m_coordDim >= 2)
-            {
-                diffCoeff[2] = 1.0; // m_D11
-                if (m_coordDim == 3)
-                {
-                    diffCoeff[5] = 1.0; // m_D22
-                }
-            }
-        }
-
         // Fetch Jacobian and deriv factors.
         constexpr bool transpose =
             std::is_same_v<Implementation, Operators::SumFacTOP>;
@@ -252,7 +226,6 @@ protected:
     std::vector<const TData *> m_W;
     std::vector<const TData *> m_f;
     std::vector<const unsigned int *> m_index;
-    MemoryRegion<TData> m_diffCoeff;
     MemoryRegion<TData> m_wsp;
     const TData *m_nodToMod;
     const TData *m_jacptr;
@@ -326,11 +299,6 @@ protected:
             default:
                 std::cout << "shapetype not implemented" << std::endl;
         }
-    }
-
-    void v_SetLambda(const TData &lambda) override
-    {
-        this->m_lambda = lambda;
     }
 
     size_t GetWorkspaceSize(const LibUtilities::ShapeType shapeType,
@@ -451,7 +419,8 @@ protected:
 
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
-        auto diffptr = m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
+        auto diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -487,7 +456,7 @@ protected:
             // Helmholtz kernel.
             Helmholtz1DKernel<ExecSpace, Implementation, DEFORMED>(
                 m_coordDim, nm0, nq0, nelmt, m_B[0], m_D[0], m_W[0], m_dfptr,
-                m_jacptr, diffptr, inptr, outptr, wspptr, this->m_lambda);
+                m_jacptr, diffCoeffPtr, inptr, outptr, wspptr, this->m_lambda);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -513,7 +482,8 @@ protected:
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
-        auto diffptr = m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
+        auto diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -549,7 +519,7 @@ protected:
             // Helmholtz kernel.
             Helmholtz1DKernel<ExecSpace, Implementation, DEFORMED, nm0, nq0>(
                 m_coordDim, nelmt, m_B[0], m_D[0], m_W[0], m_dfptr, m_jacptr,
-                diffptr, inptr, outptr, wspptr, this->m_lambda);
+                diffCoeffPtr, inptr, outptr, wspptr, this->m_lambda);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -581,7 +551,8 @@ protected:
 
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
-        auto diffptr = m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
+        auto diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -618,8 +589,8 @@ protected:
             Helmholtz2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
                 m_coordDim, nm0, nm1, nq0, nq1, nelmt, m_isModified, m_index[0],
                 m_B[0], m_B[1], m_D[0], m_D[1], m_W[0], m_W[1], m_f[0], m_f[1],
-                m_nodToMod, m_dfptr, m_jacptr, diffptr, inptr, outptr, wspptr,
-                this->m_lambda);
+                m_nodToMod, m_dfptr, m_jacptr, diffCoeffPtr, inptr, outptr,
+                wspptr, this->m_lambda);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -646,7 +617,8 @@ protected:
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
-        auto diffptr = m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
+        auto diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -684,7 +656,7 @@ protected:
                               nm0, nm1, nq0, nq1>(
                 m_coordDim, nelmt, m_isModified, m_index[0], m_B[0], m_B[1],
                 m_D[0], m_D[1], m_W[0], m_W[1], m_f[0], m_f[1], m_nodToMod,
-                m_dfptr, m_jacptr, diffptr, inptr, outptr, wspptr,
+                m_dfptr, m_jacptr, diffCoeffPtr, inptr, outptr, wspptr,
                 this->m_lambda);
 
             // Reshape back, if necessary.
@@ -719,7 +691,8 @@ protected:
 
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
-        auto diffptr = m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
+        auto diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -756,8 +729,8 @@ protected:
                 nm0, nm1, nm2, nq0, nq1, nq2, nelmt, m_isModified, m_index[0],
                 m_index[1], m_index[2], m_index[3], m_B[0], m_B[1], m_B[2],
                 m_D[0], m_D[1], m_D[2], m_W[0], m_W[1], m_W[2], m_f[0], m_f[1],
-                m_f[2], m_f[3], m_nodToMod, m_dfptr, m_jacptr, diffptr, inptr,
-                outptr, wspptr, this->m_lambda);
+                m_f[2], m_f[3], m_nodToMod, m_dfptr, m_jacptr, diffCoeffPtr,
+                inptr, outptr, wspptr, this->m_lambda);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -784,7 +757,8 @@ protected:
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
-        auto diffptr = m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
+        auto diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -822,8 +796,8 @@ protected:
                 nelmt, m_isModified, m_index[0], m_index[1], m_index[2],
                 m_index[3], m_B[0], m_B[1], m_B[2], m_D[0], m_D[1], m_D[2],
                 m_W[0], m_W[1], m_W[2], m_f[0], m_f[1], m_f[2], m_f[3],
-                m_nodToMod, m_dfptr, m_jacptr, diffptr, inptr, outptr, wspptr,
-                this->m_lambda);
+                m_nodToMod, m_dfptr, m_jacptr, diffCoeffPtr, inptr, outptr,
+                wspptr, this->m_lambda);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,

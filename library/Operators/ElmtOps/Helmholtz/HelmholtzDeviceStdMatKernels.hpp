@@ -38,6 +38,29 @@
 
 namespace Nektar::Operators::detail
 {
+
+NEK_DEVICE_INLINE static unsigned int *GetDiffCoeffMapPtr(
+    const unsigned int ncoord)
+{
+
+    if (ncoord == 1)
+    {
+        static std::array<unsigned int, 1> diffCoeff1DMap{0};
+        return &diffCoeff1DMap[0];
+    }
+    else if (ncoord == 2)
+    {
+        static std::array<unsigned int, 4> diffCoeff2DMap{0, 1, 1, 2};
+        return &diffCoeff2DMap[0];
+    }
+    else
+    {
+        static std::array<unsigned int, 9> diffCoeff3DMap{0, 1, 3, 1, 2,
+                                                          4, 3, 4, 5};
+        return &diffCoeff3DMap[0];
+    }
+}
+
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void ApplyMetricKernel(
@@ -47,8 +70,9 @@ NEK_DEVICE_KERNEL static void ApplyMetricKernel(
     const TData *jacptr, const TData *dfptr, const TData *inptr, TData *outptr,
     TData *bwdptr, const TData scale, const TthreadBlock &threadBlock)
 {
-    const auto ndf   = ncoord * dimension;
-    const auto nsize = nqTot * nelmt * nhomo;
+    const auto diffCoeffMapPtr = GetDiffCoeffMapPtr(ncoord);
+    const auto ndf             = ncoord * dimension;
+    const auto nsize           = nqTot * nelmt * nhomo;
 
     const size_t idx0   = getGlobalIdx(threadBlock);
     const size_t stride = getGlobalRange(threadBlock);
@@ -83,13 +107,13 @@ NEK_DEVICE_KERNEL static void ApplyMetricKernel(
             {
                 for (unsigned int k = 0; k < ncoord; ++k)
                 {
-                    metric[k] =
-                        dfptr[ndf * nqTot * e + d * nqTot + i] * diffCoeff[k];
+                    metric[k] = dfptr[ndf * nqTot * e + d * nqTot + i] *
+                                diffCoeff[diffCoeffMapPtr[k]];
                     for (unsigned int l = 1; l < ncoord; ++l)
                     {
                         metric[k] += dfptr[ndf * nqTot * e +
                                            (l * dimension + d) * nqTot + i] *
-                                     diffCoeff[l * ncoord + k];
+                                     diffCoeff[diffCoeffMapPtr[l * ncoord + k]];
                     }
                 }
                 tmp0 = metric[0] * tmp[0];
@@ -112,11 +136,12 @@ NEK_DEVICE_KERNEL static void ApplyMetricKernel(
             {
                 for (unsigned int k = 0; k < ncoord; ++k)
                 {
-                    metric[k] = dfptr[(ndf * e + d)] * diffCoeff[k];
+                    metric[k] =
+                        dfptr[(ndf * e + d)] * diffCoeff[diffCoeffMapPtr[k]];
                     for (unsigned int l = 1; l < ncoord; ++l)
                     {
                         metric[k] += dfptr[(ndf * e + l * dimension + d)] *
-                                     diffCoeff[l * ncoord + k];
+                                     diffCoeff[diffCoeffMapPtr[l * ncoord + k]];
                     }
                 }
                 for (unsigned int k = 0; k < dimension; ++k)

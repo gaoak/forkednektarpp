@@ -126,6 +126,26 @@ public:
 
         this->fixt_out->template Initialize<NektarSpaces::HostSpace>(0.0);
 
+        // Set up diffusion coefficient.
+        if (this->fixt_explist->GetCoordim(0) == 1)
+        {
+            m_diffCoeff.resize(1);
+            m_diffCoeff[0] = 1.0; // D00
+        }
+        else if (this->fixt_explist->GetCoordim(0) == 2)
+        {
+            m_diffCoeff.resize(4);
+            m_diffCoeff[0] = 2.0; // D00
+            m_diffCoeff[2] = 3.0; // D11
+        }
+        else
+        {
+            m_diffCoeff.resize(6);
+            m_diffCoeff[0] = 2.0; // D00
+            m_diffCoeff[2] = 3.0; // D11
+            m_diffCoeff[5] = 4.0; // D22
+        }
+
         // Compute expected solution.
         ExpectedSolution();
     }
@@ -138,6 +158,7 @@ public:
             this->fixt_explist, this->session->GetVariables(), "Diagonal");
         auto linsolve = LinearSolverOp<TData>::Create(
             this->fixt_explist, this->session->GetVariables(), method);
+        op->SetDiffCoeff(m_diffCoeff);
         op->SetLinearSolver(linsolve);
         op->SetPrecon(precon);
         op->Apply(*this->fixt_in, *this->fixt_out);
@@ -148,12 +169,38 @@ public:
         // Calculate expected result from Nektar++.
         Array<OneD, TData> inphys = this->fixt_in->ToArray();
         Array<OneD, TData> outcoeffs(this->fixt_explist->GetNcoeffs(), 0.0);
-        StdRegions::ConstFactorMap factors;
-        factors[StdRegions::eFactorLambda] = 0.0;
+
+        // Set up diffusion coefficient.
+        StdRegions::FactorMap factors;
+        if (this->fixt_explist->GetCoordim(0) == 1)
+        {
+            factors[StdRegions::eFactorLambda] = 0.0;
+        }
+        else if (this->fixt_explist->GetCoordim(0) == 2)
+        {
+            factors[StdRegions::eFactorLambda]   = 0.0;
+            factors[StdRegions::eFactorCoeffD00] = m_diffCoeff[0];
+            factors[StdRegions::eFactorCoeffD01] = m_diffCoeff[1];
+            factors[StdRegions::eFactorCoeffD11] = m_diffCoeff[2];
+        }
+        else
+        {
+            factors[StdRegions::eFactorLambda]   = 0.0;
+            factors[StdRegions::eFactorCoeffD00] = m_diffCoeff[0];
+            factors[StdRegions::eFactorCoeffD01] = m_diffCoeff[1];
+            factors[StdRegions::eFactorCoeffD11] = m_diffCoeff[2];
+            factors[StdRegions::eFactorCoeffD02] = m_diffCoeff[3];
+            factors[StdRegions::eFactorCoeffD12] = m_diffCoeff[4];
+            factors[StdRegions::eFactorCoeffD22] = m_diffCoeff[5];
+        }
+
         this->fixt_explist->HelmSolve(inphys, outcoeffs, factors);
         this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
             outcoeffs);
     }
+
+protected:
+    std::vector<TData> m_diffCoeff;
 };
 
 // clang-format off

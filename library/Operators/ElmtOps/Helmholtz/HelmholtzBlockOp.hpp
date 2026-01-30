@@ -59,11 +59,19 @@ public:
 
     void SetLambda(const TData &lambda)
     {
-        this->v_SetLambda(lambda);
+        this->m_lambda = lambda;
+    }
+
+    void SetDiffCoeff(std::vector<TData> &diffCoeff)
+    {
+        this->m_diffCoeff =
+            MemoryRegion<TData>::template FromVector<NektarSpaces::HostSpace>(
+                diffCoeff);
     }
 
 protected:
     TData m_lambda;
+    MemoryRegion<TData> m_diffCoeff;
 
     HelmholtzBlockOp(const unsigned int block_idx,
                      const LocalRegions::ExpansionSharedPtr &exp,
@@ -74,8 +82,6 @@ protected:
     }
 
     ~HelmholtzBlockOp() override = default;
-
-    virtual void v_SetLambda(const TData &lambda) = 0;
 };
 
 } // namespace Nektar::Operators

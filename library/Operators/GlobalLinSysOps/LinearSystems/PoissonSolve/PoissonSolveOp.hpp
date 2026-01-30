@@ -57,6 +57,11 @@ public:
 
     static inline const std::string name = "PoissonSolve";
 
+    void SetDiffCoeff(std::vector<TData> &diffCoeff)
+    {
+        v_SetDiffCoeff(diffCoeff);
+    }
+
 protected:
     PoissonSolveOp(const MultiRegions::ExpListSharedPtr &expansionList,
                    const std::vector<std::string> &components)
@@ -65,6 +70,8 @@ protected:
     }
 
     ~PoissonSolveOp() override = default;
+
+    virtual void v_SetDiffCoeff(std::vector<TData> &diffCoeff) = 0;
 };
 
 } // namespace Nektar::Operators

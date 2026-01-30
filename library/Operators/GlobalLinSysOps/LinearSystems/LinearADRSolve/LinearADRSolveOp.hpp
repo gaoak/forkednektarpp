@@ -62,6 +62,11 @@ public:
         v_SetLambda(lambda);
     }
 
+    void SetDiffCoeff(std::vector<TData> &diffCoeff)
+    {
+        v_SetDiffCoeff(diffCoeff);
+    }
+
     void SetAdvVel(const Array<OneD, NekDouble> &Vel)
     {
         v_SetAdvVel(Vel);
@@ -77,6 +82,8 @@ protected:
     ~LinearADRSolveOp() override = default;
 
     virtual void v_SetLambda(const TData &lambda) = 0;
+
+    virtual void v_SetDiffCoeff(std::vector<TData> &diffCoeff) = 0;
 
     virtual void v_SetAdvVel(const Array<OneD, NekDouble> &Vel) = 0;
 };

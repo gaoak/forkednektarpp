@@ -115,21 +115,6 @@ public:
                                      eTwoOverOneMinusZero)));
         }
 
-        // Set diffusion coefficient.
-        m_diffCoeff =
-            std::vector<TData>(m_coordDim * (m_coordDim + 1) / 2, 0.0);
-
-        // Set up temprary solution.
-        m_diffCoeff[0] = 1.0; // m_D[0]0
-        if (m_coordDim >= 2)
-        {
-            m_diffCoeff[2] = 1.0; // m_D[1]1
-            if (m_coordDim == 3)
-            {
-                m_diffCoeff[5] = 1.0; // m_D[2]2
-            }
-        }
-
         if ((m_shapeType == LibUtilities::eNodalTri) ||
             (m_shapeType == LibUtilities::eNodalTet) ||
             (m_shapeType == LibUtilities::eNodalPrism))
@@ -197,7 +182,6 @@ protected:
     std::vector<const simd_t *> m_D;
     std::vector<const simd_t *> m_W;
     std::vector<const simd_t *> m_f;
-    std::vector<TData> m_diffCoeff;
     std::vector<TData> NullTDataVector;
     const simd_t *m_nodToMod;
     const simd_t *m_nodToModTrans;
@@ -340,6 +324,8 @@ protected:
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
         // Allocate workspace.
         std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
@@ -381,9 +367,9 @@ protected:
 
                 // Step 3: Apply diffusion coefficients.
                 DiffusionCoeffSegKernel<DEFORMED>(
-                    m_coordDim, nq0, true, this->m_diffCoeff, false,
+                    m_coordDim, nq0, true, diffCoeffPtr, false, NullTDataVector,
                     NullTDataVector, NullTDataVector, NullTDataVector,
-                    NullTDataVector, NullTDataVector, NullTDataVector,
+                    NullTDataVector, NullTDataVector,
                     reinterpret_cast<const simd_t *>(dfptr), deriv0.data());
 
                 // Step 4: Apply Laplacian metrics & inner product.
@@ -439,6 +425,8 @@ protected:
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
         // Allocate workspace.
         std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
@@ -480,9 +468,9 @@ protected:
 
                 // Step 3: Apply diffusion coefficiets.
                 DiffusionCoeffSegKernel<DEFORMED>(
-                    m_coordDim, nq0, true, this->m_diffCoeff, false,
+                    m_coordDim, nq0, true, diffCoeffPtr, false, NullTDataVector,
                     NullTDataVector, NullTDataVector, NullTDataVector,
-                    NullTDataVector, NullTDataVector, NullTDataVector,
+                    NullTDataVector, NullTDataVector,
                     reinterpret_cast<const simd_t *>(dfptr), deriv0.data());
 
                 // Step 4: Apply Laplacian metrics & inner product.
@@ -544,6 +532,8 @@ protected:
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
         // Workspace for kernels - also checks preconditions.
         unsigned int wsp0Size = 0;
@@ -592,7 +582,7 @@ protected:
 
                 // Step 3: Apply diffusion coeff and WJ
                 DiffusionCoeffwithWJ2DKernel<SHAPE_TYPE, DEFORMED, true>(
-                    m_coordDim, nq0, nq1, true, this->m_diffCoeff, false,
+                    m_coordDim, nq0, nq1, true, diffCoeffPtr, false,
                     NullTDataVector, NullTDataVector, NullTDataVector,
                     NullTDataVector, NullTDataVector, NullTDataVector,
                     reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1],
@@ -659,6 +649,8 @@ protected:
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
         // Workspace for kernels - also checks preconditions.
         unsigned int wsp0Size = 0;
@@ -707,7 +699,7 @@ protected:
 
                 // Step 3: Apply diffusion coeff and WJ
                 DiffusionCoeffwithWJ2DKernel<SHAPE_TYPE, DEFORMED, true>(
-                    m_coordDim, nq0, nq1, true, this->m_diffCoeff, false,
+                    m_coordDim, nq0, nq1, true, diffCoeffPtr, false,
                     NullTDataVector, NullTDataVector, NullTDataVector,
                     NullTDataVector, NullTDataVector, NullTDataVector,
                     reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1],
@@ -780,6 +772,8 @@ protected:
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
         // Workspace for kernels - also checks preconditions.
         unsigned int wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
@@ -833,9 +827,9 @@ protected:
 
                 // Step 3: Apply diffusion coeff and WJ
                 DiffusionCoeffwithWJ3DKernel<SHAPE_TYPE, DEFORMED, true>(
-                    nq0, nq1, nq2, true, this->m_diffCoeff, false,
+                    nq0, nq1, nq2, true, diffCoeffPtr, false, NullTDataVector,
                     NullTDataVector, NullTDataVector, NullTDataVector,
-                    NullTDataVector, NullTDataVector, NullTDataVector,
+                    NullTDataVector, NullTDataVector,
                     reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1],
                     m_W[2], reinterpret_cast<const simd_t *>(dfptr), m_f[0],
                     m_f[1], m_f[2], m_f[3], deriv0.data(), deriv1.data(),
@@ -902,6 +896,8 @@ protected:
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
         // Workspace for kernels - also checks preconditions.
         unsigned int wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
@@ -954,9 +950,9 @@ protected:
 
                 // Step 3: Apply diffusion coeff and WJ
                 DiffusionCoeffwithWJ3DKernel<SHAPE_TYPE, DEFORMED, true>(
-                    nq0, nq1, nq2, true, this->m_diffCoeff, false,
+                    nq0, nq1, nq2, true, diffCoeffPtr, false, NullTDataVector,
                     NullTDataVector, NullTDataVector, NullTDataVector,
-                    NullTDataVector, NullTDataVector, NullTDataVector,
+                    NullTDataVector, NullTDataVector,
                     reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1],
                     m_W[2], reinterpret_cast<const simd_t *>(dfptr), m_f[0],
                     m_f[1], m_f[2], m_f[3], deriv0.data(), deriv1.data(),

@@ -82,6 +82,12 @@ public:
                        ? this->session->GetParameter("Lambda")
                        : 10.0;
 
+        // Set diffusion coefficient.
+        m_diffCoeff.resize(6);
+        m_diffCoeff[0] = 1.0; // D00
+        m_diffCoeff[2] = 1.0; // D11
+        m_diffCoeff[5] = 1.0; // D22
+
         // Compute expected solution.
         ExpectedSolution(method);
     }
@@ -95,6 +101,7 @@ public:
         auto precon = PreconOp<TData>::Create(
             this->fixt_explist, this->session->GetVariables(), method);
         op->SetLambda(m_lambda);
+        op->SetDiffCoeff(m_diffCoeff);
         precon->Configure(op);
         assmb->Apply(*this->fixt_in, *this->fixt_out);
         precon->Apply(*this->fixt_out, *this->fixt_out);
@@ -133,6 +140,7 @@ public:
 
 private:
     TData m_lambda;
+    std::vector<TData> m_diffCoeff;
 };
 
 // clang-format off

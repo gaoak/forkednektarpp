@@ -52,9 +52,7 @@ public:
     LaplacianBlockOpImpl(const unsigned int block_idx,
                          const LocalRegions::ExpansionSharedPtr &exp,
                          NekDataWarehouseSharedPtr dataWarehouse)
-        : LaplacianBlockOp<TData>(block_idx, exp, dataWarehouse),
-          m_diffCoeff(MemoryRegion<TData>(
-              "Laplacian diffCoeff", exp->GetCoordim() * exp->GetCoordim()))
+        : LaplacianBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -82,14 +80,6 @@ public:
             StdMatKey<TData>(basisKeys, m_shapeType, eDerivStdMat, nodalType));
         m_ipdmat = dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
             basisKeys, m_shapeType, eIProductWRTDerivBaseStdMat, nodalType));
-
-        TData *diffCoeff =
-            m_diffCoeff.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-
-        for (unsigned int d = 0; d < m_coordDim; d++)
-        {
-            diffCoeff[d * m_coordDim + d] = 1.0; // temporary solution
-        }
 
         // Fetch Jacobian and deriv factors.
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
@@ -127,7 +117,6 @@ protected:
     const TData *m_jacptr;
     const TData *m_dfptr;
     MemoryRegion<TData> m_deriv;
-    MemoryRegion<TData> m_diffCoeff;
 
     void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
                  BlockAccessor<TData, FieldState::Coeff> &outblock) override

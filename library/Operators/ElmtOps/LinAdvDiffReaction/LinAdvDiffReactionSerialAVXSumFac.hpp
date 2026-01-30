@@ -113,21 +113,6 @@ public:
                                      eTwoOverOneMinusZero)));
         }
 
-        // Set diffusion coefficient.
-        m_diffCoeff =
-            std::vector<TData>(m_coordDim * (m_coordDim + 1) / 2, 0.0);
-
-        // Set up temprary solution.
-        m_diffCoeff[0] = 1.0; // m_D[0]0
-        if (m_coordDim >= 2)
-        {
-            m_diffCoeff[2] = 1.0; // m_D[1]1
-            if (m_coordDim == 3)
-            {
-                m_diffCoeff[5] = 1.0; // m_D[2]2
-            }
-        }
-
         if ((m_shapeType == LibUtilities::eNodalTri) ||
             (m_shapeType == LibUtilities::eNodalTet) ||
             (m_shapeType == LibUtilities::eNodalPrism))
@@ -195,7 +180,6 @@ protected:
     std::vector<const simd_t *> m_D;
     std::vector<const simd_t *> m_W;
     std::vector<const simd_t *> m_f;
-    std::vector<TData> m_diffCoeff;
     std::vector<TData> NullTDataVector;
     TData *m_advVel;
     const simd_t *m_nodToMod;
@@ -288,11 +272,6 @@ protected:
         }
     }
 
-    void v_SetLambda(const TData &lambda) override
-    {
-        this->m_lambda = lambda;
-    }
-
     void v_SetAdvVel(BlockAccessor<TData, FieldState::Phys> &advVel) override
     {
         const auto interleaveWidth = advVel.GetInterleaveWidth();
@@ -359,6 +338,8 @@ protected:
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
         // Allocate workspace.
         std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
@@ -399,7 +380,7 @@ protected:
                 // Step 2: Take derivatives in collapsed coordinate space.
                 PhysDerivTensor1DKernel(nq0, bwd.data(), m_D[0], deriv0.data());
 
-                // Step 3: add Advect solution to  this->m_lambda * bwd.
+                // Step 3: Add Advect solution to  this->m_lambda * bwd.
                 AddAdvectionSegKernel<DEFORMED>(
                     nq0, reinterpret_cast<const simd_t *>(advVelPtr),
                     reinterpret_cast<const simd_t *>(dfptr), deriv0.data(),
@@ -413,9 +394,9 @@ protected:
 
                 // Step 5: Apply diffusion coefficiets.
                 DiffusionCoeffSegKernel<DEFORMED>(
-                    m_coordDim, nq0, true, this->m_diffCoeff, false,
+                    m_coordDim, nq0, true, diffCoeffPtr, false, NullTDataVector,
                     NullTDataVector, NullTDataVector, NullTDataVector,
-                    NullTDataVector, NullTDataVector, NullTDataVector,
+                    NullTDataVector, NullTDataVector,
                     reinterpret_cast<const simd_t *>(dfptr), deriv0.data());
 
                 // Step 6: Apply Laplacian metrics & inner product.
@@ -472,6 +453,8 @@ protected:
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
         // Allocate workspace.
         std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
@@ -512,7 +495,7 @@ protected:
                 // Step 2: Take derivatives in collapsed coordinate space.
                 PhysDerivTensor1DKernel(nq0, bwd.data(), m_D[0], deriv0.data());
 
-                // Step 3: add Advect solution to  this->m_lambda * bwd.
+                // Step 3: Add Advect solution to  this->m_lambda * bwd.
                 AddAdvectionSegKernel<DEFORMED>(
                     nq0, reinterpret_cast<const simd_t *>(advVelPtr),
                     reinterpret_cast<const simd_t *>(dfptr), deriv0.data(),
@@ -526,9 +509,9 @@ protected:
 
                 // Step 5: Apply diffusion coefficiets.
                 DiffusionCoeffSegKernel<DEFORMED>(
-                    m_coordDim, nq0, true, this->m_diffCoeff, false,
+                    m_coordDim, nq0, true, diffCoeffPtr, false, NullTDataVector,
                     NullTDataVector, NullTDataVector, NullTDataVector,
-                    NullTDataVector, NullTDataVector, NullTDataVector,
+                    NullTDataVector, NullTDataVector,
                     reinterpret_cast<const simd_t *>(dfptr), deriv0.data());
 
                 // Step 6: Apply Laplacian metrics & inner product.
@@ -593,6 +576,8 @@ protected:
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
         // Workspace for kernels - also checks preconditions.
         unsigned int wsp0Size = 0;
@@ -641,7 +626,7 @@ protected:
                 PhysDerivTensor2DKernel(nq0, nq1, bwd.data(), m_D[0], m_D[1],
                                         deriv0.data(), deriv1.data());
 
-                // Step 3: evaluate advection term and add to bwd * lambda.
+                // Step 3: Evaluate advection term and add to bwd * lambda.
                 AddAdvection2DKernel<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, m_f[0], m_f[1],
                     reinterpret_cast<const simd_t *>(advVelPtr),
@@ -652,19 +637,19 @@ protected:
                 // Step 4: apply diffusion coeff to (diffderiv0, diffderiv1) and
                 // apply WJ
                 DiffusionCoeffwithWJ2DKernel<SHAPE_TYPE, DEFORMED, true>(
-                    m_coordDim, nq0, nq1, true, this->m_diffCoeff, false,
+                    m_coordDim, nq0, nq1, true, diffCoeffPtr, false,
                     NullTDataVector, NullTDataVector, NullTDataVector,
                     NullTDataVector, NullTDataVector, NullTDataVector,
                     reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1],
                     reinterpret_cast<const simd_t *>(dfptr), m_f[0], m_f[1],
                     deriv0.data(), deriv1.data(), bwd.data(), 1.0);
 
-                // Step 5: apply derivative and sum up.
+                // Step 5: Apply derivative and sum up.
                 SumDerivTensor2DKernel<true>(nq0, nq1, deriv0.data(),
                                              deriv1.data(), m_D[0], m_D[1],
                                              bwd.data());
 
-                // Step 6 : inner product without WJ.
+                // Step 6: Inner product without WJ.
                 IProduct2DKernel<SHAPE_TYPE, false, false>(
                     nm0, nm1, nq0, nq1, m_isModified, bwd.data(), m_B[0],
                     m_B[1], m_nodToModTrans, wsp0.data(),
@@ -722,6 +707,8 @@ protected:
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
         // Workspace for kernels - also checks preconditions.
         unsigned int wsp0Size = 0;
@@ -772,7 +759,7 @@ protected:
                 PhysDerivTensor2DKernel(nq0, nq1, bwd.data(), m_D[0], m_D[1],
                                         deriv0.data(), deriv1.data());
 
-                // Step 3: evaluate advection term and add to bwd * lambda.
+                // Step 3: Evaluate advection term and add to bwd * lambda.
                 AddAdvection2DKernel<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, m_f[0], m_f[1],
                     reinterpret_cast<const simd_t *>(advVelPtr),
@@ -783,19 +770,19 @@ protected:
                 // Step 4: apply diffusion coeff to (diffderiv0, diffderiv1) and
                 // apply WJ
                 DiffusionCoeffwithWJ2DKernel<SHAPE_TYPE, DEFORMED, true>(
-                    m_coordDim, nq0, nq1, true, this->m_diffCoeff, false,
+                    m_coordDim, nq0, nq1, true, diffCoeffPtr, false,
                     NullTDataVector, NullTDataVector, NullTDataVector,
                     NullTDataVector, NullTDataVector, NullTDataVector,
                     reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1],
                     reinterpret_cast<const simd_t *>(dfptr), m_f[0], m_f[1],
                     deriv0.data(), deriv1.data(), bwd.data(), 1.0);
 
-                // Step 5: apply derivative and sum up.
+                // Step 5: Apply derivative and sum up.
                 SumDerivTensor2DKernel<true>(nq0, nq1, deriv0.data(),
                                              deriv1.data(), m_D[0], m_D[1],
                                              bwd.data());
 
-                // Step 6 : inner product without WJ.
+                // Step 6: Inner product without WJ.
                 IProduct2DKernel<SHAPE_TYPE, false, false>(
                     nm0, nm1, nq0, nq1, m_isModified, bwd.data(), m_B[0],
                     m_B[1], m_nodToModTrans, wsp0.data(),
@@ -859,6 +846,8 @@ protected:
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
         // Workspace for kernels - also checks preconditions.
         unsigned int wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
@@ -915,7 +904,7 @@ protected:
                                         m_D[1], m_D[2], deriv0.data(),
                                         deriv1.data(), deriv2.data());
 
-                // Step 3: evaluate advection term and add to bwd * lambda.
+                // Step 3: Evaluate advection term and add to bwd * lambda.
                 AddAdvection3DKernel<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
                     reinterpret_cast<const simd_t *>(advVelPtr),
@@ -925,23 +914,23 @@ protected:
                     reinterpret_cast<const simd_t *>(dfptr), deriv0.data(),
                     deriv1.data(), deriv2.data(), bwd.data(), this->m_lambda);
 
-                // Step 4: apply diffusion coeff to (diffderiv0, diffderiv1) and
+                // Step 4: Apply diffusion coeff to (diffderiv0, diffderiv1) and
                 // apply WJ
                 DiffusionCoeffwithWJ3DKernel<SHAPE_TYPE, DEFORMED, true>(
-                    nq0, nq1, nq2, true, this->m_diffCoeff, false,
+                    nq0, nq1, nq2, true, diffCoeffPtr, false, NullTDataVector,
                     NullTDataVector, NullTDataVector, NullTDataVector,
-                    NullTDataVector, NullTDataVector, NullTDataVector,
+                    NullTDataVector, NullTDataVector,
                     reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1],
                     m_W[2], reinterpret_cast<const simd_t *>(dfptr), m_f[0],
                     m_f[1], m_f[2], m_f[3], deriv0.data(), deriv1.data(),
                     deriv2.data(), bwd.data(), 1.0);
 
-                // Step 5: apply derivative and sum up.
+                // Step 5: Apply derivative and sum up.
                 SumDerivTensor3DKernel<true>(
                     nq0, nq1, nq2, deriv0.data(), deriv1.data(), deriv2.data(),
                     m_D[0], m_D[1], m_D[2], bwd.data());
 
-                // Step 6 : inner product without WJ.
+                // Step 6: Inner product without WJ.
                 IProduct3DKernel<SHAPE_TYPE, false, false>(
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwd.data(),
                     m_B[0], m_B[1], m_B[2], m_nodToModTrans, wsp0.data(),
@@ -1000,6 +989,8 @@ protected:
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
         // Workspace for kernels - also checks preconditions.
         unsigned int wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
@@ -1050,12 +1041,12 @@ protected:
                     m_B[2], m_nodToMod, wsp0.data(), wsp1.data(),
                     reinterpret_cast<const simd_t *>(inptr), bwd.data());
 
-                // Step 2: Get tensor derivative (deriv0, deriv1)
+                // Step 2: Get tensor derivatives
                 PhysDerivTensor3DKernel(nq0, nq1, nq2, bwd.data(), m_D[0],
                                         m_D[1], m_D[2], deriv0.data(),
                                         deriv1.data(), deriv2.data());
 
-                // Step 3: evaluate advection term and add to bwd * lambda.
+                // Step 3: Evaluate advection term and add to bwd * lambda.
                 AddAdvection3DKernel<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
                     reinterpret_cast<const simd_t *>(advVelPtr),
@@ -1068,20 +1059,20 @@ protected:
                 // Step 4: apply diffusion coeff to (diffderiv0, diffderiv1) and
                 // apply WJ
                 DiffusionCoeffwithWJ3DKernel<SHAPE_TYPE, DEFORMED, true>(
-                    nq0, nq1, nq2, true, this->m_diffCoeff, false,
+                    nq0, nq1, nq2, true, diffCoeffPtr, false, NullTDataVector,
                     NullTDataVector, NullTDataVector, NullTDataVector,
-                    NullTDataVector, NullTDataVector, NullTDataVector,
+                    NullTDataVector, NullTDataVector,
                     reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1],
                     m_W[2], reinterpret_cast<const simd_t *>(dfptr), m_f[0],
                     m_f[1], m_f[2], m_f[3], deriv0.data(), deriv1.data(),
                     deriv2.data(), bwd.data(), 1.0);
 
-                // Step 5: apply derivative and sum up.
+                // Step 5: Apply derivative and sum up.
                 SumDerivTensor3DKernel<true>(
                     nq0, nq1, nq2, deriv0.data(), deriv1.data(), deriv2.data(),
                     m_D[0], m_D[1], m_D[2], bwd.data());
 
-                // Step 6 : inner product without WJ.
+                // Step 6: Inner product without WJ.
                 IProduct3DKernel<SHAPE_TYPE, false, false>(
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwd.data(),
                     m_B[0], m_B[1], m_B[2], m_nodToModTrans, wsp0.data(),

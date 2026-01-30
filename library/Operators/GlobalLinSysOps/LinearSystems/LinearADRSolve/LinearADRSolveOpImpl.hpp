@@ -132,6 +132,11 @@ protected:
         m_ADROp->SetLambda(lambda);
     }
 
+    void v_SetDiffCoeff(std::vector<TData> &diffCoeff) override
+    {
+        m_ADROp->SetDiffCoeff(diffCoeff);
+    }
+
     void v_SetAdvVel(const Array<OneD, NekDouble> &Vel) override
     {
         m_ADROp->SetAdvVel(Vel);

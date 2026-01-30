@@ -73,6 +73,27 @@ public:
                 inptr += block.CompSize();
             }
         }
+
+        // Set up diffusion coefficient.
+        if (this->fixt_explist->GetCoordim(0) == 1)
+        {
+            m_diffCoeff.resize(1);
+            m_diffCoeff[0] = 1.0; // D00
+        }
+        else if (this->fixt_explist->GetCoordim(0) == 2)
+        {
+            m_diffCoeff.resize(4);
+            m_diffCoeff[0] = 2.0; // D00
+            m_diffCoeff[2] = 3.0; // D11
+        }
+        else
+        {
+            m_diffCoeff.resize(6);
+            m_diffCoeff[0] = 2.0; // D00
+            m_diffCoeff[2] = 3.0; // D11
+            m_diffCoeff[5] = 4.0; // D22
+        }
+
         // Compute expected solution.
         ExpectedSolution();
     }
@@ -81,6 +102,7 @@ public:
     {
         auto op = LaplacianOp<TData>::Create(this->fixt_explist,
                                              this->session->GetVariables());
+        op->SetDiffCoeff(m_diffCoeff);
         op->Apply(*this->fixt_in, *this->fixt_out);
     }
 
@@ -92,7 +114,29 @@ public:
         const size_t ncoeffs =
             this->fixt_explist->GetNcoeffs() / this->fixt_in->GetNumHomoModes();
 
+        // Set up diffusion coefficient.
         StdRegions::FactorMap factors;
+        if (this->fixt_explist->GetCoordim(0) == 1)
+        {
+            factors[StdRegions::eFactorLambda] = 0.0;
+        }
+        else if (this->fixt_explist->GetCoordim(0) == 2)
+        {
+            factors[StdRegions::eFactorLambda]   = 0.0;
+            factors[StdRegions::eFactorCoeffD00] = m_diffCoeff[0];
+            factors[StdRegions::eFactorCoeffD01] = m_diffCoeff[1];
+            factors[StdRegions::eFactorCoeffD11] = m_diffCoeff[2];
+        }
+        else
+        {
+            factors[StdRegions::eFactorLambda]   = 0.0;
+            factors[StdRegions::eFactorCoeffD00] = m_diffCoeff[0];
+            factors[StdRegions::eFactorCoeffD01] = m_diffCoeff[1];
+            factors[StdRegions::eFactorCoeffD11] = m_diffCoeff[2];
+            factors[StdRegions::eFactorCoeffD02] = m_diffCoeff[3];
+            factors[StdRegions::eFactorCoeffD12] = m_diffCoeff[4];
+            factors[StdRegions::eFactorCoeffD22] = m_diffCoeff[5];
+        }
 
         Array<OneD, TData> incoeffs = this->fixt_in->ToArray();
         Array<OneD, TData> outcoeffs(numComp * ncoeffs);
@@ -123,6 +167,7 @@ public:
     }
 
 private:
+    std::vector<TData> m_diffCoeff;
 };
 
 // clang-format off

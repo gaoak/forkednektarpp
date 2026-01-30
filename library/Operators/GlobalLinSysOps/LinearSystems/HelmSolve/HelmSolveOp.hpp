@@ -62,6 +62,11 @@ public:
         v_SetLambda(lambda);
     }
 
+    void SetDiffCoeff(std::vector<TData> &diffCoeff)
+    {
+        v_SetDiffCoeff(diffCoeff);
+    }
+
 protected:
     HelmSolveOp(const MultiRegions::ExpListSharedPtr &expansionList,
                 const std::vector<std::string> &components)
@@ -72,6 +77,8 @@ protected:
     ~HelmSolveOp() override = default;
 
     virtual void v_SetLambda(const TData &lambda) = 0;
+
+    virtual void v_SetDiffCoeff(std::vector<TData> &diffCoeff) = 0;
 };
 
 } // namespace Nektar::Operators
