@@ -84,7 +84,13 @@ int main(int argc, char *argv[])
     }
     else if (BP == 3)
     {
+        std::vector<double> diffCoeff(6);
+        diffCoeff[0] = 1.0; // D00
+        diffCoeff[2] = 1.0; // D11
+        diffCoeff[5] = 1.0; // D22
         elmtOp = HelmholtzOp<TData>::Create(expList, session->GetVariables());
+        std::dynamic_pointer_cast<HelmholtzOp<TData>>(elmtOp)->SetDiffCoeff(
+            diffCoeff);
     }
 
     auto assembOp =

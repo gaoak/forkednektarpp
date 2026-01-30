@@ -289,11 +289,6 @@ protected:
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
-    void v_SetLambda(const TData &lambda) override
-    {
-        this->m_lambda = lambda;
-    }
-
     void v_SetAdvVel(BlockAccessor<TData, FieldState::Phys> &advVel) override
     {
         const auto interleaveWidth = advVel.GetInterleaveWidth();

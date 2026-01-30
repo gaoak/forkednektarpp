@@ -131,6 +131,12 @@ public:
                        ? this->session->GetParameter("Lambda")
                        : 10.0;
 
+        // Set diffusion coefficient.
+        m_diffCoeff.resize(6);
+        m_diffCoeff[0] = 1.0; // D00
+        m_diffCoeff[2] = 1.0; // D11
+        m_diffCoeff[5] = 1.0; // D22
+
         // Set advection velocity
         size_t nphys = this->fixt_explist->GetTotPoints() /
                        this->fixt_in->GetNumHomoModes();
@@ -155,6 +161,7 @@ public:
         auto linsolve = LinearSolverOp<TData>::Create(
             this->fixt_explist, this->session->GetVariables(), method);
         op->SetLambda(m_lambda);
+        op->SetDiffCoeff(m_diffCoeff);
         op->SetAdvVel(m_vel);
         op->SetLinearSolver(linsolve);
         op->SetPrecon(precon);
@@ -200,6 +207,7 @@ public:
 protected:
     unsigned int m_dim;
     TData m_lambda;
+    std::vector<TData> m_diffCoeff;
     Array<OneD, TData> m_vel;
 };
 

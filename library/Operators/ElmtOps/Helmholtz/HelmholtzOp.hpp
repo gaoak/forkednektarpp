@@ -71,8 +71,21 @@ public:
         m_isSetLambda = true;
     }
 
+    void SetDiffCoeff(std::vector<TData> &diffCoeff)
+    {
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
+        {
+            this->m_blockOp[blk]->SetDiffCoeff(diffCoeff);
+        }
+        m_isSetDiffCoeff = true;
+    }
+
 protected:
-    bool m_isSetLambda = false;
+    bool m_isSetLambda       = false;
+    bool m_isSetDiffCoeff    = false;
+    bool m_isSetVarDiffCoeff = false;
+
     std::vector<std::shared_ptr<HelmholtzBlockOp<TData>>> m_blockOp;
 
     HelmholtzOp(const MultiRegions::ExpListSharedPtr &expansionList,
@@ -94,8 +107,18 @@ protected:
                  "Number of input and output homogeneous modes differ");
 
         ASSERTL1(m_isSetLambda,
-                 "m_lambda has not been set."
+                 "lambda has not been set."
                  "Set the value with SetLambda() before calling Apply().");
+
+        ASSERTL1(m_isSetDiffCoeff || m_isSetVarDiffCoeff,
+                 "diffusion coefficient has not been set."
+                 "Set the value with SetDiffCoeff() OR SetVarDiffCoeff() "
+                 "before calling Apply().");
+
+        ASSERTL1(m_isSetDiffCoeff != m_isSetVarDiffCoeff,
+                 "can't set both DiffCoeff and VarDiffCoeff."
+                 "Set the value with SetDiffCoeff() OR SetVarDiffCoeff() "
+                 "before calling Apply().");
 
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)

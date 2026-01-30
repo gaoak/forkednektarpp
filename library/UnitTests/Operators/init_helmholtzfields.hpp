@@ -79,6 +79,26 @@ public:
                        ? this->session->GetParameter("Lambda")
                        : 10.0;
 
+        // Set up diffusion coefficient.
+        if (this->fixt_explist->GetCoordim(0) == 1)
+        {
+            m_diffCoeff.resize(1);
+            m_diffCoeff[0] = 1.0; // D00
+        }
+        else if (this->fixt_explist->GetCoordim(0) == 2)
+        {
+            m_diffCoeff.resize(4);
+            m_diffCoeff[0] = 2.0; // D00
+            m_diffCoeff[2] = 3.0; // D11
+        }
+        else
+        {
+            m_diffCoeff.resize(6);
+            m_diffCoeff[0] = 2.0; // D00
+            m_diffCoeff[2] = 3.0; // D11
+            m_diffCoeff[5] = 4.0; // D22
+        }
+
         // Compute expected solution.
         ExpectedSolution();
     }
@@ -88,6 +108,7 @@ public:
         auto op = HelmholtzOp<TData>::Create(this->fixt_explist,
                                              this->session->GetVariables());
         op->SetLambda(m_lambda);
+        op->SetDiffCoeff(m_diffCoeff);
         op->Apply(*this->fixt_in, *this->fixt_out);
     }
 
@@ -99,8 +120,29 @@ public:
         const size_t ncoeffs =
             this->fixt_explist->GetNcoeffs() / this->fixt_in->GetNumHomoModes();
 
+        // Set up diffusion coefficient.
         StdRegions::FactorMap factors;
-        factors[StdRegions::eFactorLambda] = m_lambda;
+        if (this->fixt_explist->GetCoordim(0) == 1)
+        {
+            factors[StdRegions::eFactorLambda] = m_lambda;
+        }
+        else if (this->fixt_explist->GetCoordim(0) == 2)
+        {
+            factors[StdRegions::eFactorLambda]   = m_lambda;
+            factors[StdRegions::eFactorCoeffD00] = m_diffCoeff[0];
+            factors[StdRegions::eFactorCoeffD01] = m_diffCoeff[1];
+            factors[StdRegions::eFactorCoeffD11] = m_diffCoeff[2];
+        }
+        else
+        {
+            factors[StdRegions::eFactorLambda]   = m_lambda;
+            factors[StdRegions::eFactorCoeffD00] = m_diffCoeff[0];
+            factors[StdRegions::eFactorCoeffD01] = m_diffCoeff[1];
+            factors[StdRegions::eFactorCoeffD11] = m_diffCoeff[2];
+            factors[StdRegions::eFactorCoeffD02] = m_diffCoeff[3];
+            factors[StdRegions::eFactorCoeffD12] = m_diffCoeff[4];
+            factors[StdRegions::eFactorCoeffD22] = m_diffCoeff[5];
+        }
 
         Array<OneD, TData> incoeffs = this->fixt_in->ToArray();
         Array<OneD, TData> outcoeffs(numComp * ncoeffs);
@@ -130,8 +172,9 @@ public:
             outcoeffs);
     }
 
-private:
+protected:
     TData m_lambda;
+    std::vector<TData> m_diffCoeff;
 };
 
 // clang-format off

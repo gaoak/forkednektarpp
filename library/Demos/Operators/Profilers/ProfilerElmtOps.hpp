@@ -372,15 +372,27 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
     // Check if addition configure is required.
     if (opName == "Helmholtz")
     {
+        std::vector<double> diffCoeff(6);
+        diffCoeff[0] = 1.0; // D00
+        diffCoeff[2] = 1.0; // D11
+        diffCoeff[5] = 1.0; // D22
         std::dynamic_pointer_cast<HelmholtzOp<TData>>(oper)->SetLambda(1.0);
+        std::dynamic_pointer_cast<HelmholtzOp<TData>>(oper)->SetDiffCoeff(
+            diffCoeff);
     }
     if (opName == "LinAdvDiffReaction")
     {
+        std::vector<double> diffCoeff(6);
+        diffCoeff[0] = 1.0; // D00
+        diffCoeff[2] = 1.0; // D11
+        diffCoeff[5] = 1.0; // D22
         Array<OneD, double> vel(expList->GetCoordim(0) *
                                     (size_t)expList->GetNpoints(),
                                 1.0); // prevent overflow
         std::dynamic_pointer_cast<LinAdvDiffReactionOp<TData>>(oper)->SetLambda(
             -1.0);
+        std::dynamic_pointer_cast<LinAdvDiffReactionOp<TData>>(oper)
+            ->SetDiffCoeff(diffCoeff);
         std::dynamic_pointer_cast<LinAdvDiffReactionOp<TData>>(oper)->SetAdvVel(
             vel);
     }

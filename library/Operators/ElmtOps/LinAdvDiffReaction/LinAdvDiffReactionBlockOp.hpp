@@ -57,9 +57,16 @@ public:
 
     static inline const std::string name = "BlockLinAdvDiffReaction";
 
-    void SetLambda(TData lambda)
+    void SetLambda(const TData &lambda)
     {
-        this->v_SetLambda(lambda);
+        this->m_lambda = lambda;
+    }
+
+    void SetDiffCoeff(std::vector<TData> &diffCoeff)
+    {
+        this->m_diffCoeff =
+            MemoryRegion<TData>::template FromVector<NektarSpaces::HostSpace>(
+                diffCoeff);
     }
 
     void SetAdvVel(BlockAccessor<TData, FieldState::Phys> &Vel)
@@ -69,6 +76,7 @@ public:
 
 protected:
     TData m_lambda;
+    MemoryRegion<TData> m_diffCoeff;
 
     LinAdvDiffReactionBlockOp(const unsigned int block_idx,
                               const LocalRegions::ExpansionSharedPtr &exp,
@@ -79,8 +87,6 @@ protected:
     }
 
     ~LinAdvDiffReactionBlockOp() override = default;
-
-    virtual void v_SetLambda(const TData &lambda) = 0;
 
     virtual void v_SetAdvVel(BlockAccessor<TData, FieldState::Phys> &Vel) = 0;
 };

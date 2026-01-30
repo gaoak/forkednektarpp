@@ -127,6 +127,11 @@ protected:
         add<ExecSpace>(out, m_tmp, out);
     }
 
+    void v_SetDiffCoeff(std::vector<TData> &diffCoeff) override
+    {
+        m_LaplacianOp->SetDiffCoeff(diffCoeff);
+    }
+
     void v_SetLinearSolver(
         const std::shared_ptr<LinearSolverOp<TData>> &linsolve) override
     {

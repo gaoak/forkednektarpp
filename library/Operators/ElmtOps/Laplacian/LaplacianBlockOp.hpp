@@ -57,7 +57,16 @@ public:
 
     static inline const std::string name = "BlockLaplacian";
 
+    void SetDiffCoeff(std::vector<TData> &diffCoeff)
+    {
+        this->m_diffCoeff =
+            MemoryRegion<TData>::template FromVector<NektarSpaces::HostSpace>(
+                diffCoeff);
+    }
+
 protected:
+    MemoryRegion<TData> m_diffCoeff;
+
     LaplacianBlockOp(const unsigned int block_idx,
                      const LocalRegions::ExpansionSharedPtr &exp,
                      NekDataWarehouseSharedPtr dataWarehouse)

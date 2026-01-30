@@ -632,16 +632,16 @@ NEK_DEVICE_INLINE static void ApplyMetric1DSumFacTOPKernel(
             else if (ncoord == 2)
             {
                 metric[0] = diffCoeff[0] * df[0] + diffCoeff[1] * df[1];
-                metric[1] = diffCoeff[2] * df[0] + diffCoeff[3] * df[1];
+                metric[1] = diffCoeff[1] * df[0] + diffCoeff[2] * df[1];
             }
             else if (ncoord == 3)
             {
                 metric[0] = diffCoeff[0] * df[0] + diffCoeff[1] * df[1] +
-                            diffCoeff[2] * df[2];
-                metric[1] = diffCoeff[3] * df[0] + diffCoeff[4] * df[1] +
+                            diffCoeff[3] * df[2];
+                metric[1] = diffCoeff[1] * df[0] + diffCoeff[2] * df[1] +
+                            diffCoeff[4] * df[2];
+                metric[2] = diffCoeff[3] * df[0] + diffCoeff[4] * df[1] +
                             diffCoeff[5] * df[2];
-                metric[2] = diffCoeff[6] * df[0] + diffCoeff[7] * df[1] +
-                            diffCoeff[8] * df[2];
             }
         }
     }
@@ -666,19 +666,19 @@ NEK_DEVICE_INLINE static void ApplyMetric1DSumFacTOPKernel(
                     metric[0] =
                         diffCoeff[0] * df[i] + diffCoeff[1] * df[dfsize + i];
                     metric[1] =
-                        diffCoeff[2] * df[i] + diffCoeff[3] * df[dfsize + i];
+                        diffCoeff[1] * df[i] + diffCoeff[2] * df[dfsize + i];
                 }
                 else if (ncoord == 3)
                 {
                     metric[0] = diffCoeff[0] * df[i] +
                                 diffCoeff[1] * df[dfsize + i] +
-                                diffCoeff[2] * df[2 * dfsize + i];
-                    metric[1] = diffCoeff[3] * df[i] +
+                                diffCoeff[3] * df[2 * dfsize + i];
+                    metric[1] = diffCoeff[1] * df[i] +
+                                diffCoeff[2] * df[dfsize + i] +
+                                diffCoeff[4] * df[2 * dfsize + i];
+                    metric[2] = diffCoeff[3] * df[i] +
                                 diffCoeff[4] * df[dfsize + i] +
                                 diffCoeff[5] * df[2 * dfsize + i];
-                    metric[2] = diffCoeff[6] * df[i] +
-                                diffCoeff[7] * df[dfsize + i] +
-                                diffCoeff[8] * df[2 * dfsize + i];
                 }
             }
         }
@@ -735,22 +735,25 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacTOPKernel(
         {
             if (ncoord == 2)
             {
-                for (unsigned int idx = idx0; idx < 4u; idx += stride)
-                {
-                    metric[idx] =
-                        diffCoeff[(idx / 2u) * 2u] * df[idx % 2u] +
-                        diffCoeff[(idx / 2u) * 2u + 1u] * df[idx % 2u + 2u];
-                }
+                metric[0] = diffCoeff[0] * df[0] + diffCoeff[1] * df[2];
+                metric[1] = diffCoeff[0] * df[1] + diffCoeff[1] * df[3];
+                metric[2] = diffCoeff[1] * df[0] + diffCoeff[2] * df[2];
+                metric[3] = diffCoeff[1] * df[1] + diffCoeff[2] * df[3];
             }
             else if (ncoord == 3)
             {
-                for (unsigned int idx = idx0; idx < 6u; idx += stride)
-                {
-                    metric[idx] =
-                        diffCoeff[(idx / 3u) * 3u] * df[idx % 2u] +
-                        diffCoeff[(idx / 3u) * 3u + 1u] * df[idx % 2u + 2u] +
-                        diffCoeff[(idx / 3u) * 3u + 2u] * df[idx % 2u + 4u];
-                }
+                metric[0] = diffCoeff[0] * df[0] + diffCoeff[1] * df[2] +
+                            diffCoeff[3] * df[4];
+                metric[1] = diffCoeff[0] * df[1] + diffCoeff[1] * df[3] +
+                            diffCoeff[3] * df[5];
+                metric[2] = diffCoeff[0] * df[0] + diffCoeff[1] * df[2] +
+                            diffCoeff[3] * df[4];
+                metric[3] = diffCoeff[1] * df[1] + diffCoeff[2] * df[3] +
+                            diffCoeff[4] * df[5];
+                metric[4] = diffCoeff[1] * df[0] + diffCoeff[2] * df[2] +
+                            diffCoeff[4] * df[4];
+                metric[5] = diffCoeff[1] * df[1] + diffCoeff[2] * df[3] +
+                            diffCoeff[4] * df[5];
             }
 
             localBarrier(threadBlock);
@@ -773,31 +776,31 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacTOPKernel(
                                 diffCoeff[1] * df[2 * dfsize + dfindex];
                     metric[1] = diffCoeff[0] * df[1 * dfsize + dfindex] +
                                 diffCoeff[1] * df[3 * dfsize + dfindex];
-                    metric[2] = diffCoeff[2] * df[dfindex] +
-                                diffCoeff[3] * df[2 * dfsize + dfindex];
-                    metric[3] = diffCoeff[2] * df[1 * dfsize + dfindex] +
-                                diffCoeff[3] * df[3 * dfsize + dfindex];
+                    metric[2] = diffCoeff[1] * df[dfindex] +
+                                diffCoeff[2] * df[2 * dfsize + dfindex];
+                    metric[3] = diffCoeff[1] * df[1 * dfsize + dfindex] +
+                                diffCoeff[2] * df[3 * dfsize + dfindex];
                 }
                 else if (ncoord == 3)
                 {
                     metric[0] = diffCoeff[0] * df[dfindex] +
                                 diffCoeff[1] * df[2 * dfsize + dfindex] +
-                                diffCoeff[2] * df[4 * dfsize + dfindex];
+                                diffCoeff[3] * df[4 * dfsize + dfindex];
                     metric[1] = diffCoeff[0] * df[1 * dfsize + dfindex] +
                                 diffCoeff[1] * df[3 * dfsize + dfindex] +
-                                diffCoeff[2] * df[5 * dfsize + dfindex];
-                    metric[2] = diffCoeff[3] * df[dfindex] +
-                                diffCoeff[4] * df[2 * dfsize + dfindex] +
-                                diffCoeff[5] * df[4 * dfsize + dfindex];
-                    metric[3] = diffCoeff[3] * df[1 * dfsize + dfindex] +
-                                diffCoeff[4] * df[3 * dfsize + dfindex] +
-                                diffCoeff[5] * df[5 * dfsize + dfindex];
-                    metric[4] = diffCoeff[6] * df[dfindex] +
-                                diffCoeff[7] * df[2 * dfsize + dfindex] +
-                                diffCoeff[8] * df[4 * dfsize + dfindex];
-                    metric[5] = diffCoeff[6] * df[1 * dfsize + dfindex] +
-                                diffCoeff[7] * df[3 * dfsize + dfindex] +
-                                diffCoeff[8] * df[5 * dfsize + dfindex];
+                                diffCoeff[3] * df[5 * dfsize + dfindex];
+                    metric[2] = diffCoeff[0] * df[dfindex] +
+                                diffCoeff[1] * df[2 * dfsize + dfindex] +
+                                diffCoeff[2] * df[4 * dfsize + dfindex];
+                    metric[3] = diffCoeff[1] * df[1 * dfsize + dfindex] +
+                                diffCoeff[2] * df[3 * dfsize + dfindex] +
+                                diffCoeff[4] * df[5 * dfsize + dfindex];
+                    metric[4] = diffCoeff[1] * df[dfindex] +
+                                diffCoeff[2] * df[2 * dfsize + dfindex] +
+                                diffCoeff[4] * df[4 * dfsize + dfindex];
+                    metric[5] = diffCoeff[1] * df[1 * dfsize + dfindex] +
+                                diffCoeff[2] * df[3 * dfsize + dfindex] +
+                                diffCoeff[4] * df[5 * dfsize + dfindex];
                 }
             }
         }
@@ -887,13 +890,24 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacTOPKernel(
     {
         if (diffCoeff)
         {
-            for (unsigned int idx = idx0; idx < 9u; idx += stride)
-            {
-                metric[idx] =
-                    diffCoeff[(idx / 3u) * 3u] * df[idx % 3u] +
-                    diffCoeff[(idx / 3u) * 3u + 1u] * df[idx % 3u + 3u] +
-                    diffCoeff[(idx / 3u) * 3u + 2u] * df[idx % 3u + 6u];
-            }
+            metric[0] = diffCoeff[0] * df[0] + diffCoeff[1] * df[3] +
+                        diffCoeff[3] * df[6];
+            metric[1] = diffCoeff[0] * df[1] + diffCoeff[1] * df[4] +
+                        diffCoeff[3] * df[7];
+            metric[2] = diffCoeff[0] * df[2] + diffCoeff[1] * df[5] +
+                        diffCoeff[3] * df[8];
+            metric[3] = diffCoeff[1] * df[0] + diffCoeff[2] * df[3] +
+                        diffCoeff[4] * df[6];
+            metric[4] = diffCoeff[1] * df[1] + diffCoeff[2] * df[4] +
+                        diffCoeff[4] * df[7];
+            metric[5] = diffCoeff[1] * df[2] + diffCoeff[2] * df[5] +
+                        diffCoeff[4] * df[8];
+            metric[6] = diffCoeff[3] * df[0] + diffCoeff[4] * df[3] +
+                        diffCoeff[5] * df[6];
+            metric[7] = diffCoeff[3] * df[1] + diffCoeff[4] * df[4] +
+                        diffCoeff[5] * df[7];
+            metric[8] = diffCoeff[3] * df[2] + diffCoeff[4] * df[5] +
+                        diffCoeff[5] * df[8];
 
             localBarrier(threadBlock);
         }
@@ -912,31 +926,31 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacTOPKernel(
             {
                 metric[0] = diffCoeff[0] * df[dfindex] +
                             diffCoeff[1] * df[3 * dfsize + dfindex] +
-                            diffCoeff[2] * df[6 * dfsize + dfindex];
+                            diffCoeff[3] * df[6 * dfsize + dfindex];
                 metric[1] = diffCoeff[0] * df[1 * dfsize + dfindex] +
                             diffCoeff[1] * df[4 * dfsize + dfindex] +
-                            diffCoeff[2] * df[7 * dfsize + dfindex];
+                            diffCoeff[3] * df[7 * dfsize + dfindex];
                 metric[2] = diffCoeff[0] * df[2 * dfsize + dfindex] +
                             diffCoeff[1] * df[5 * dfsize + dfindex] +
-                            diffCoeff[2] * df[8 * dfsize + dfindex];
-                metric[3] = diffCoeff[3] * df[dfindex] +
+                            diffCoeff[3] * df[8 * dfsize + dfindex];
+                metric[3] = diffCoeff[1] * df[dfindex] +
+                            diffCoeff[2] * df[3 * dfsize + dfindex] +
+                            diffCoeff[4] * df[6 * dfsize + dfindex];
+                metric[4] = diffCoeff[1] * df[1 * dfsize + dfindex] +
+                            diffCoeff[2] * df[4 * dfsize + dfindex] +
+                            diffCoeff[4] * df[7 * dfsize + dfindex];
+                metric[5] = diffCoeff[1] * df[2 * dfsize + dfindex] +
+                            diffCoeff[2] * df[5 * dfsize + dfindex] +
+                            diffCoeff[4] * df[8 * dfsize + dfindex];
+                metric[6] = diffCoeff[3] * df[dfindex] +
                             diffCoeff[4] * df[3 * dfsize + dfindex] +
                             diffCoeff[5] * df[6 * dfsize + dfindex];
-                metric[4] = diffCoeff[3] * df[1 * dfsize + dfindex] +
+                metric[7] = diffCoeff[3] * df[1 * dfsize + dfindex] +
                             diffCoeff[4] * df[4 * dfsize + dfindex] +
                             diffCoeff[5] * df[7 * dfsize + dfindex];
-                metric[5] = diffCoeff[3] * df[2 * dfsize + dfindex] +
+                metric[8] = diffCoeff[3] * df[2 * dfsize + dfindex] +
                             diffCoeff[4] * df[5 * dfsize + dfindex] +
                             diffCoeff[5] * df[8 * dfsize + dfindex];
-                metric[6] = diffCoeff[6] * df[dfindex] +
-                            diffCoeff[7] * df[3 * dfsize + dfindex] +
-                            diffCoeff[8] * df[6 * dfsize + dfindex];
-                metric[7] = diffCoeff[6] * df[1 * dfsize + dfindex] +
-                            diffCoeff[7] * df[4 * dfsize + dfindex] +
-                            diffCoeff[8] * df[7 * dfsize + dfindex];
-                metric[8] = diffCoeff[6] * df[2 * dfsize + dfindex] +
-                            diffCoeff[7] * df[5 * dfsize + dfindex] +
-                            diffCoeff[8] * df[8 * dfsize + dfindex];
             }
         }
 
