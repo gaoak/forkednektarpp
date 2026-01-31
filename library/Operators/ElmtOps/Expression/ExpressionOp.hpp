@@ -54,52 +54,46 @@ public:
     static std::shared_ptr<ExpressionOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components,
-        const std::string &exprStr = "", const std::string &execStr = "",
-        const std::string &implStr = "")
+        const std::string &execStr = "", const std::string &implStr = "")
     {
         auto op =
             ElmtOp<FieldState::Phys, FieldState::Phys, TData>::template Create<
                 ExpressionOp, ExpressionBlockOp>(expansionList, components,
                                                  execStr, implStr);
 
-        auto numFields = expansionList->GetSession()->GetVariables().size();
-
-        // Gather all expressions defined in session file
-        std::vector<LibUtilities::EquationSharedPtr> expressions;
-        std::vector<unsigned int> numEvars;
-        for (unsigned int nf = 0; nf < numFields; ++nf)
-        {
-            // Read expression for each component
-            expressions.push_back(
-                expansionList->GetSession()->GetFunction(exprStr, nf));
-
-            // Check if we use EVARS (expression variables)
-            // Note that by default we use 4 variables: x, y, z, t
-            auto variableList = expressions[nf]->GetVlist();
-            std::vector<std::string> vars;
-            boost::split(vars, variableList, boost::is_any_of(", "));
-            numEvars.push_back(vars.size());
-        }
-
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < op->m_blockOp.size(); ++blk)
         {
-            // Set expressions for each component
-            op->m_blockOp[blk]->SetExpressions(expressions);
-
-            // Set number of expression variables
-            op->m_blockOp[blk]->SetNumEvars(numEvars);
-
-            // Note: m_time defaults to 0.0
+            // Default time set to 0.0
             op->m_blockOp[blk]->SetTime(0.0);
 
-            // Default scale to 1.0
+            // Default scale set to 1.0
             op->m_blockOp[blk]->SetScale(1.0);
         }
         return op;
     }
 
     static inline const std::string name = "Expression";
+
+    void SetExpressions(
+        const std::vector<LibUtilities::EquationSharedPtr> &exprs)
+    {
+        // Check number of EVARS for new expressions
+        std::vector<unsigned int> numEvars;
+        for (unsigned int ne = 0; ne < exprs.size(); ++ne)
+        {
+            numEvars.push_back(this->getNumberEvars(exprs[ne]));
+        }
+
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < m_blockOp.size(); ++blk)
+        {
+            this->m_blockOp[blk]->SetExpressions(exprs);
+            this->m_blockOp[blk]->SetNumEvars(numEvars);
+        }
+
+        m_isExpressionsDefined = true;
+    }
 
     void SetTime(const TData &time)
     {
@@ -119,7 +113,19 @@ public:
         }
     }
 
+    unsigned int getNumberEvars(
+        const LibUtilities::EquationSharedPtr &expression)
+    {
+        // Extract the number of expression variables (EVARS).
+        // Note that we use four by default: x, y, z, t
+        std::vector<std::string> vars;
+        auto variableList = expression->GetVlist();
+        boost::split(vars, variableList, boost::is_any_of(", "));
+        return vars.size();
+    }
+
 protected:
+    bool m_isExpressionsDefined = false;
     std::vector<std::shared_ptr<ExpressionBlockOp<TData>>> m_blockOp;
 
     ExpressionOp(const MultiRegions::ExpListSharedPtr &expansionList,
@@ -139,6 +145,10 @@ protected:
 
         ASSERTL1(in.GetNumHomoModes() == out.GetNumHomoModes(),
                  "Number of input and output homogeneous modes differ");
+
+        ASSERTL1(this->m_isExpressionsDefined,
+                 "No expressions defined for this Operator. Define with "
+                 "SetExpressions().")
 
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
