@@ -90,10 +90,21 @@ public:
 
     void RunTestCase()
     {
-        auto op = ExpressionOp<TData>::Create(
-            this->fixt_explist, this->session->GetVariables(), "Forcing");
+        // Note we enforce execution on the Host for the expression operator
+        // Currently we do not have a method to evaluate expressions on the
+        // device
+        auto op = ExpressionOp<TData>::Create(this->fixt_explist,
+                                              this->session->GetVariables(),
+                                              "Serial", "Generic");
         op->SetTime(m_time);
         op->SetScale(m_scale);
+        std::vector<LibUtilities::EquationSharedPtr> expressions;
+        const auto numfields = this->session->GetVariables().size();
+        for (int nf = 0; nf < numfields; ++nf)
+        {
+            expressions.push_back(this->session->GetFunction("Forcing", nf));
+        }
+        op->SetExpressions(expressions);
         op->Apply(*this->fixt_in, *this->fixt_out);
     }
 

@@ -256,7 +256,7 @@ MemoryRegion<TData> GeometricDataCreator::Create(
         ((num_elements + vector_width - 1) / vector_width) * vector_width /
         interleave_width;
 
-    const auto nDim   = expPtr->GetShapeDimension();
+    const auto nDim   = expPtr->GetCoordim();
     const auto range1 = transpose ? nDim : expPtr->GetTotPoints();
     const auto range2 = transpose ? expPtr->GetTotPoints() : nDim;
 

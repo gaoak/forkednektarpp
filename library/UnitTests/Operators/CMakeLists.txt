@@ -203,7 +203,7 @@ ENDIF()
 
 # Serial generic
 SET_UNIT_TEST(MultiplyByElmtInvMass_serial_generic test_multiplybyelmtinvmass Serial Generic FALSE)
-SET_UNIT_TEST(expression_serial_generic test_expression Serial Generic FALSE)
+SET_UNIT_TEST(Expression_serial_generic test_expression Serial Generic FALSE)
 
 # Serial StdMat
 SET_UNIT_TEST(AddTraceIntegral_serial_stdmat test_addtraceintegral Serial StdMat FALSE)
@@ -273,7 +273,7 @@ ENDIF()
 # AVX generic
 IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(MultiplyByElmtInvMass_avx_generic test_multiplybyelmtinvmass AVX Generic FALSE)
-    # SET_UNIT_TEST(expression_avx_generic test_expression AVX Generic FALSE)
+    # SET_UNIT_TEST(Expression_avx_generic test_expression AVX Generic FALSE)
 ENDIF()
 
 # AVX StdMat
@@ -346,7 +346,7 @@ ENDIF()
 # Device generic
 IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(MultiplyByElmtInvMass_device_generic test_multiplybyelmtinvmass Device Generic FALSE)
-    # SET_UNIT_TEST(expression_device_generic test_expression Device Generic FALSE)
+     SET_UNIT_TEST(Expression_device_generic test_expression Device Generic FALSE)
 ENDIF()
 
 # Device StdMat

@@ -94,6 +94,11 @@ protected:
     void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
                  BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
+        ASSERTL1(m_expressions.size() == inblock.GetNumComponents() &&
+                     m_expressions.size() == outblock.GetNumComponents(),
+                 "Number of expressions must match number of components in "
+                 "input and output Field when calling Apply().")
+
         const auto nelmt = inblock.GetNumElements();
         const auto compSize =
             inblock.GetNumData() * inblock.GetNumElementsWithPadding();
@@ -135,9 +140,13 @@ protected:
                 for (unsigned int pt = 0; pt < m_nqTot; ++pt, ++cnt)
                 {
                     // Gather fielddata
+                    // Note we set y and z coordinate only if the coordinate
+                    // dimension is large enough otherwise they default to zero
+                    // This is relevant for example for boundary elements where
+                    // the domain uses one more dimension than the boundary
                     fielddata[0] = *(coordptr);
-                    fielddata[1] = *(coordptr + 1);
-                    fielddata[2] = *(coordptr + 2);
+                    fielddata[1] = m_coordDim > 1 ? *(coordptr + 1) : 0.0;
+                    fielddata[2] = m_coordDim > 2 ? *(coordptr + 2) : 0.0;
                     fielddata[3] = m_time;
 
                     // Add EVARS, if required
@@ -156,7 +165,7 @@ protected:
                     // Add fce to outptr.
                     *(outptr + cnt) += m_scale * fce;
 
-                    coordptr += m_dimension;
+                    coordptr += m_coordDim;
                 }
             }
 
