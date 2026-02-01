@@ -68,6 +68,8 @@ public:
 
         session = LibUtilities::SessionReader::CreateInstance(argc, argv);
         session->InitSession();
+
+        delete[] argv;
     }
 
     void Configure(const std::string &execSpace, const std::string &impl)
@@ -86,6 +88,8 @@ public:
 
         session = LibUtilities::SessionReader::CreateInstance(argc, argv);
         session->InitSession();
+
+        delete[] argv;
     }
 
 protected:

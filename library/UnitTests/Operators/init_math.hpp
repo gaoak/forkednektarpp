@@ -166,6 +166,8 @@ public:
         this->session = LibUtilities::SessionReader::CreateInstance(argc, argv);
         auto graph    = SpatialDomains::MeshGraphIO::Read(this->session);
 
+        delete[] argv;
+
         if (this->session->GetComm())
         {
             auto rank        = this->session->GetComm()->GetRank();
