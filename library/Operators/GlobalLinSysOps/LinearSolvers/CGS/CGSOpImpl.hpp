@@ -97,8 +97,14 @@ public:
         m_root    = m_rowComm->GetRank() == 0;
 
         // Set parameters.
+        int leftPreconditioner  = 0;
+        int rightPreconditioner = 0;
         session->LoadParameter("NekLinSysMaxIterations", m_maxIter, 5000);
         session->LoadParameter("IterativeSolverTolerance", m_tol, 1.0E-09);
+        session->LoadParameter("CGSLeftPrecon", leftPreconditioner, 0);
+        session->LoadParameter("CGSRightPrecon", rightPreconditioner, 0);
+        m_leftPreconditioner  = leftPreconditioner;
+        m_rightPreconditioner = rightPreconditioner;
     }
 
     // className - for OperatorFactory
@@ -132,8 +138,10 @@ protected:
     Field<TData, FieldState::Coeff> m_r;
     Field<TData, FieldState::Coeff> m_rtilde;
 
-    TData m_tol            = 0.0;
-    unsigned int m_maxIter = 0;
+    TData m_tol                = 0.0;
+    unsigned int m_maxIter     = 0;
+    bool m_leftPreconditioner  = false;
+    bool m_rightPreconditioner = false;
 
     void v_Apply(Field<TData, FieldState::Coeff> &in,
                  Field<TData, FieldState::Coeff> &out) override
@@ -157,6 +165,12 @@ protected:
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
         m_assmbScatrZeroDirOp->Apply(m_r);
+
+        if (m_leftPreconditioner)
+        {
+            this->m_precon->Apply(m_r, m_r);
+        }
+
         eps = m_math.ddot(in, m_r);
         m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
 
@@ -194,13 +208,19 @@ protected:
                 daxpy<ExecSpace>(beta, m_p, m_u, m_p);
             }
 
-            // Apply preconditioner.
-            this->m_precon->Apply(m_p, m_w);
-
             // Perform the method-specific matrix-vector multiply operation.
-            this->m_lhs->Apply(m_w, m_s);
-            m_robBndCondOp->Apply(m_w, m_s);
+            auto &tmp = (m_rightPreconditioner) ? m_w : m_p;
+            if (m_rightPreconditioner)
+            {
+                this->m_precon->Apply(m_p, tmp);
+            }
+            this->m_lhs->Apply(tmp, m_s);
+            m_robBndCondOp->Apply(tmp, m_s);
             m_assmbScatrZeroDirOp->Apply(m_s);
+            if (m_leftPreconditioner)
+            {
+                this->m_precon->Apply(m_s, m_s);
+            }
 
             // Update coefficients.
             alpha = m_math.ddot(m_s, m_rtilde);
@@ -211,16 +231,21 @@ protected:
             daxpy<ExecSpace>(-alpha, m_s, m_u, m_q);
             add<ExecSpace>(m_u, m_q, m_w);
 
-            // Apply preconditioner.
-            this->m_precon->Apply(m_w, m_w);
-
-            // Update solution.
-            daxpy<ExecSpace>(alpha, m_w, out, out);
-
             // Perform the method-specific matrix-vector multiply operation.
+            if (m_rightPreconditioner)
+            {
+                this->m_precon->Apply(m_w, m_w);
+            }
             this->m_lhs->Apply(m_w, m_s);
             m_robBndCondOp->Apply(m_w, m_s);
             m_assmbScatrZeroDirOp->Apply(m_s);
+            if (m_leftPreconditioner)
+            {
+                this->m_precon->Apply(m_s, m_s);
+            }
+
+            // Update solution.
+            daxpy<ExecSpace>(alpha, m_w, out, out);
 
             // Update residual.
             daxpy<ExecSpace>(-alpha, m_s, m_r, m_r);

@@ -43,6 +43,8 @@
 #define TEST_HELMSOLVE_RICH(test_name, test, tol)                              \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
         SetTestCase();                                                         \
         RunTestCase("Richardson");                                             \
@@ -55,6 +57,8 @@
 #define TEST_HELMSOLVE_CG(test_name, test, tol)                                \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
         SetTestCase();                                                         \
         RunTestCase("ConjGrad");                                               \
@@ -67,6 +71,8 @@
 #define TEST_HELMSOLVE_PCG(test_name, test, tol)                               \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
         SetTestCase();                                                         \
         RunTestCase("PipeConjGrad");                                           \
@@ -79,6 +85,8 @@
 #define TEST_HELMSOLVE_PCG2(test_name, test, tol)                              \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
         SetTestCase();                                                         \
         RunTestCase("PipeConjGrad2");                                          \
@@ -91,6 +99,8 @@
 #define TEST_HELMSOLVE_CR(test_name, test, tol)                                \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
         SetTestCase();                                                         \
         RunTestCase("ConjRes");                                                \
@@ -103,6 +113,8 @@
 #define TEST_HELMSOLVE_PCR(test_name, test, tol)                               \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
         SetTestCase();                                                         \
         RunTestCase("PipeConjRes");                                            \
@@ -115,6 +127,8 @@
 #define TEST_HELMSOLVE_MINRES(test_name, test, tol)                            \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
         SetTestCase();                                                         \
         RunTestCase("MINRES");                                                 \
@@ -127,6 +141,8 @@
 #define TEST_HELMSOLVE_GMRES(test_name, test, tol)                             \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
         SetTestCase();                                                         \
         RunTestCase("GMRES");                                                  \
@@ -139,6 +155,8 @@
 #define TEST_HELMSOLVE_GMRES(test_name, test, tol)                             \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
         SetTestCase();                                                         \
         RunTestCase("GMRES");                                                  \

@@ -43,7 +43,27 @@
 #define TEST_LINEARADRSOLVE_CGS(test_name, test, tol)                          \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
+        int CGSRightPrecon = 1;                                                \
+        this->session->SetParameter("CGSRightPrecon", CGSRightPrecon);         \
+        SetTestCase();                                                         \
+        RunTestCase("CGS");                                                    \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
+#define TEST_LINEARADRSOLVE_CGS2(test_name, test, tol)                         \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        Configure();                                                           \
+        int CGSLeftPrecon = 1;                                                 \
+        this->session->SetParameter("CGSLeftPrecon", CGSLeftPrecon);           \
         SetTestCase();                                                         \
         RunTestCase("CGS");                                                    \
         boost::test_tools::output_test_stream output;                          \
@@ -55,6 +75,8 @@
 #define TEST_LINEARADRSOLVE_GCR(test_name, test, tol)                          \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
         SetTestCase();                                                         \
         RunTestCase("GCR");                                                    \
@@ -67,7 +89,28 @@
 #define TEST_LINEARADRSOLVE_BICGSTAB(test_name, test, tol)                     \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
+        int BICGSTABRightPrecon = 1;                                           \
+        this->session->SetParameter("BICGSTABRightPrecon",                     \
+                                    BICGSTABRightPrecon);                      \
+        SetTestCase();                                                         \
+        RunTestCase("BICGSTAB");                                               \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
+#define TEST_LINEARADRSOLVE_BICGSTAB2(test_name, test, tol)                    \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        Configure();                                                           \
+        int BICGSTABLeftPrecon = 1;                                            \
+        this->session->SetParameter("BICGSTABLeftPrecon", BICGSTABLeftPrecon); \
         SetTestCase();                                                         \
         RunTestCase("BICGSTAB");                                               \
         boost::test_tools::output_test_stream output;                          \
@@ -79,7 +122,29 @@
 #define TEST_LINEARADRSOLVE_BICGSTABR(test_name, test, tol)                    \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
+        int BICGSTABRRightPrecon = 1;                                          \
+        this->session->SetParameter("BICGSTABRRightPrecon",                    \
+                                    BICGSTABRRightPrecon);                     \
+        SetTestCase();                                                         \
+        RunTestCase("BICGSTABR");                                              \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
+#define TEST_LINEARADRSOLVE_BICGSTABR2(test_name, test, tol)                   \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        Configure();                                                           \
+        int BICGSTABRLeftPrecon = 1;                                           \
+        this->session->SetParameter("BICGSTABRLeftPrecon",                     \
+                                    BICGSTABRLeftPrecon);                      \
         SetTestCase();                                                         \
         RunTestCase("BICGSTABR");                                              \
         boost::test_tools::output_test_stream output;                          \
@@ -91,10 +156,12 @@
 #define TEST_LINEARADRSOLVE_BICGSTABL(test_name, test, tol)                    \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
-        int BICGSTABLLeftPrecon = 0;                                           \
-        this->session->SetParameter("BICGSTABLLeftPrecon",                     \
-                                    BICGSTABLLeftPrecon);                      \
+        int BICGSTABLRightPrecon = 1;                                          \
+        this->session->SetParameter("BICGSTABLRightPrecon",                    \
+                                    BICGSTABLRightPrecon);                     \
         SetTestCase();                                                         \
         RunTestCase("BICGSTABL");                                              \
         boost::test_tools::output_test_stream output;                          \
@@ -106,6 +173,8 @@
 #define TEST_LINEARADRSOLVE_BICGSTABL2(test_name, test, tol)                   \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
         int BICGSTABLLeftPrecon = 1;                                           \
         this->session->SetParameter("BICGSTABLLeftPrecon",                     \
@@ -121,6 +190,8 @@
 #define TEST_LINEARADRSOLVE_GMRES(test_name, test, tol)                        \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
         SetTestCase();                                                         \
         RunTestCase("GMRES");                                                  \
@@ -133,6 +204,8 @@
 #define TEST_LINEARADRSOLVE_FGMRES(test_name, test, tol)                       \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
         int FlexibleGMRES = 0;                                                 \
         this->session->SetParameter("FlexibleGMRES", FlexibleGMRES);           \
@@ -147,6 +220,8 @@
 #define TEST_LINEARADRSOLVE_MGMRES(test_name, test, tol)                       \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
         int ModifiedGramSchmidt = 0;                                           \
         this->session->SetParameter("ModifiedGramSchmidt",                     \
@@ -162,6 +237,8 @@
 #define TEST_LINEARADRSOLVE_MFGMRES(test_name, test, tol)                      \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
         int FlexibleGMRES       = 0;                                           \
         int ModifiedGramSchmidt = 0;                                           \
@@ -179,7 +256,27 @@
 #define TEST_LINEARADRSOLVE_TFQMR(test_name, test, tol)                        \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
+        SetTestCase();                                                         \
+        int TFQMRRightPrecon = 1;                                              \
+        this->session->SetParameter("TFQMRRightPrecon", TFQMRRightPrecon);     \
+        RunTestCase("TFQMR");                                                  \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
+#define TEST_LINEARADRSOLVE_TFQMR2(test_name, test, tol)                       \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        Configure();                                                           \
+        int TFQMRLeftPrecon = 1;                                               \
+        this->session->SetParameter("TFQMRLeftPrecon", TFQMRLeftPrecon);       \
         SetTestCase();                                                         \
         RunTestCase("TFQMR");                                                  \
         boost::test_tools::output_test_stream output;                          \
@@ -191,7 +288,27 @@
 #define TEST_LINEARADRSOLVE_IDRS(test_name, test, tol)                         \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
+        int IDRSRightPrecon = 1;                                               \
+        this->session->SetParameter("IDRSRightPrecon", IDRSRightPrecon);       \
+        SetTestCase();                                                         \
+        RunTestCase("IDRS");                                                   \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
+#define TEST_LINEARADRSOLVE_IDRS2(test_name, test, tol)                        \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        Configure();                                                           \
+        int IDRSLeftPrecon = 1;                                                \
+        this->session->SetParameter("IDRSLeftPrecon", IDRSLeftPrecon);         \
         SetTestCase();                                                         \
         RunTestCase("IDRS");                                                   \
         boost::test_tools::output_test_stream output;                          \
@@ -213,6 +330,21 @@ TEST_LINEARADRSOLVE_CGS(linearadrsolve_cgs_all_bcs, Helmholtz2D_AllBCs, 4.0E-10)
 TEST_LINEARADRSOLVE_CGS(linearadrsolve_cgs_hex, Helmholtz3D_Hex, 1.0E-10)
 
 TEST_LINEARADRSOLVE_CGS(linearadrsolve_cgs_tet, Helmholtz3D_Tet, 1.0E-10)
+
+TEST_LINEARADRSOLVE_CGS2(linearadrsolve_cgs_left_precon_seg, Helmholtz1D_Seg,
+                         4.0E-12)
+
+TEST_LINEARADRSOLVE_CGS2(linearadrsolve_cgs_left_precon_tri_quad,
+                         Helmholtz2D_Tri_Quad, 2.0E-09)
+
+TEST_LINEARADRSOLVE_CGS2(linearadrsolve_cgs_left_precon_all_bcs,
+                         Helmholtz2D_AllBCs, 2.0E-09)
+
+TEST_LINEARADRSOLVE_CGS2(linearadrsolve_cgs_left_precon_hex, Helmholtz3D_Hex,
+                         4.0E-10)
+
+TEST_LINEARADRSOLVE_CGS2(linearadrsolve_cgs_left_precon_tet, Helmholtz3D_Tet,
+                         1.0E-10)
 
 TEST_LINEARADRSOLVE_GCR(linearadrsolve_gcr_seg, Helmholtz1D_Seg, 4.0E-12)
 
@@ -240,6 +372,21 @@ TEST_LINEARADRSOLVE_BICGSTAB(linearadrsolve_bicgstab_hex, Helmholtz3D_Hex,
 TEST_LINEARADRSOLVE_BICGSTAB(linearadrsolve_bicgstab_tet, Helmholtz3D_Tet,
                              1.0E-10)
 
+TEST_LINEARADRSOLVE_BICGSTAB2(linearadrsolve_bicgstab_left_precon_seg,
+                              Helmholtz1D_Seg, 4.0E-12)
+
+TEST_LINEARADRSOLVE_BICGSTAB2(linearadrsolve_bicgstab_left_precon_tri_quad,
+                              Helmholtz2D_Tri_Quad, 2.0E-09)
+
+TEST_LINEARADRSOLVE_BICGSTAB2(linearadrsolve_bicgstab_left_precon_all_bcs,
+                              Helmholtz2D_AllBCs, 4.0E-10)
+
+TEST_LINEARADRSOLVE_BICGSTAB2(linearadrsolve_bicgstab_left_precon_hex,
+                              Helmholtz3D_Hex, 1.0E-10)
+
+TEST_LINEARADRSOLVE_BICGSTAB2(linearadrsolve_bicgstab_left_precon_tet,
+                              Helmholtz3D_Tet, 1.0E-10)
+
 TEST_LINEARADRSOLVE_BICGSTABR(linearadrsolve_bicgstabr_seg, Helmholtz1D_Seg,
                               4.0E-12)
 
@@ -254,6 +401,21 @@ TEST_LINEARADRSOLVE_BICGSTABR(linearadrsolve_bicgstabr_hex, Helmholtz3D_Hex,
 
 TEST_LINEARADRSOLVE_BICGSTABR(linearadrsolve_bicgstabr_tet, Helmholtz3D_Tet,
                               1.0E-10)
+
+TEST_LINEARADRSOLVE_BICGSTABR2(linearadrsolve_bicgstabr_left_precon_seg,
+                               Helmholtz1D_Seg, 4.0E-12)
+
+TEST_LINEARADRSOLVE_BICGSTABR2(linearadrsolve_bicgstabr_left_precon_tri_quad,
+                               Helmholtz2D_Tri_Quad, 2.0E-09)
+
+TEST_LINEARADRSOLVE_BICGSTABR2(linearadrsolve_bicgstabr_left_precon_all_bcs,
+                               Helmholtz2D_AllBCs, 4.0E-10)
+
+TEST_LINEARADRSOLVE_BICGSTABR2(linearadrsolve_bicgstabr_left_precon_hex,
+                               Helmholtz3D_Hex, 1.0E-10)
+
+TEST_LINEARADRSOLVE_BICGSTABR2(linearadrsolve_bicgstabr_left_precon_tet,
+                               Helmholtz3D_Tet, 1.0E-10)
 
 TEST_LINEARADRSOLVE_BICGSTABL(linearadrsolve_bicgstabl_seg, Helmholtz1D_Seg,
                               4.0E-12)
@@ -315,7 +477,7 @@ TEST_LINEARADRSOLVE_MFGMRES(linearadrsolve_mfgmres_hex, Helmholtz3D_Hex,
 
 TEST_LINEARADRSOLVE_TFQMR(linearadrsolve_tfqmr_seg, Helmholtz1D_Seg, 1.0E-12)
 
-TEST_LINEARADRSOLVE_TFQMR(linearadrsolve_tfqm_rtri_quad, Helmholtz2D_Tri_Quad,
+TEST_LINEARADRSOLVE_TFQMR(linearadrsolve_tfqmr_tri_quad, Helmholtz2D_Tri_Quad,
                           1.0E-10)
 
 TEST_LINEARADRSOLVE_TFQMR(linearadrsolve_tfqmr_all_bcs, Helmholtz2D_AllBCs,
@@ -324,6 +486,21 @@ TEST_LINEARADRSOLVE_TFQMR(linearadrsolve_tfqmr_all_bcs, Helmholtz2D_AllBCs,
 TEST_LINEARADRSOLVE_TFQMR(linearadrsolve_tfqmr_hex, Helmholtz3D_Hex, 1.0E-10)
 
 TEST_LINEARADRSOLVE_TFQMR(linearadrsolve_tfqmr_tet, Helmholtz3D_Tet, 1.0E-10)
+
+TEST_LINEARADRSOLVE_TFQMR2(linearadrsolve_tfqmr_left_precon_seg,
+                           Helmholtz1D_Seg, 1.0E-12)
+
+TEST_LINEARADRSOLVE_TFQMR2(linearadrsolve_tfqmr_left_precon_tri_quad,
+                           Helmholtz2D_Tri_Quad, 4.0E-10)
+
+TEST_LINEARADRSOLVE_TFQMR2(linearadrsolve_tfqmr_left_precon_all_bcs,
+                           Helmholtz2D_AllBCs, 4.0E-09)
+
+TEST_LINEARADRSOLVE_TFQMR2(linearadrsolve_tfqmr_left_precon_hex,
+                           Helmholtz3D_Hex, 1.0E-10)
+
+TEST_LINEARADRSOLVE_TFQMR2(linearadrsolve_tfqmr_left_precon_tet,
+                           Helmholtz3D_Tet, 1.0E-10)
 
 TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_seg, Helmholtz1D_Seg, 1.0E-12)
 
@@ -336,6 +513,21 @@ TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_all_bcs, Helmholtz2D_AllBCs,
 TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_hex, Helmholtz3D_Hex, 5.0E-10)
 
 TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_tet, Helmholtz3D_Tet, 5.0E-10)
+
+TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_seg, Helmholtz1D_Seg,
+                          1.0E-12)
+
+TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_tri_quad,
+                          Helmholtz2D_Tri_Quad, 2.0E-09)
+
+TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_all_bcs,
+                          Helmholtz2D_AllBCs, 5.0E-10)
+
+TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_hex, Helmholtz3D_Hex,
+                          5.0E-10)
+
+TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_tet, Helmholtz3D_Tet,
+                          5.0E-10)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

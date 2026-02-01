@@ -82,9 +82,15 @@ public:
         m_root    = m_rowComm->GetRank() == 0;
 
         // Set parameters.
+        int leftPreconditioner  = 0;
+        int rightPreconditioner = 0;
         session->LoadParameter("NekLinSysMaxIterations", m_maxIter, 5000);
         session->LoadParameter("IterativeSolverTolerance", m_tol, 1.0E-09);
         session->LoadParameter("IDRstage", m_stage, 4);
+        session->LoadParameter("IDRSLeftPrecon", leftPreconditioner, 0);
+        session->LoadParameter("IDRSRightPrecon", rightPreconditioner, 0);
+        m_leftPreconditioner  = leftPreconditioner;
+        m_rightPreconditioner = rightPreconditioner;
 
         std::random_device rd;
         std::mt19937 gen(rd());
@@ -150,9 +156,11 @@ protected:
     Field<TData, FieldState::Coeff> m_w;
     Field<TData, FieldState::Coeff> m_r;
 
-    TData m_tol            = 0.0;
-    unsigned int m_maxIter = 0;
-    unsigned int m_stage   = 0;
+    TData m_tol                = 0.0;
+    unsigned int m_maxIter     = 0;
+    unsigned int m_stage       = 0;
+    bool m_leftPreconditioner  = false;
+    bool m_rightPreconditioner = false;
 
     void v_Apply(Field<TData, FieldState::Coeff> &in,
                  Field<TData, FieldState::Coeff> &out) override
@@ -186,6 +194,12 @@ protected:
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
         m_assmbScatrZeroDirOp->Apply(m_r);
+
+        if (m_leftPreconditioner)
+        {
+            this->m_precon->Apply(m_r, m_r);
+        }
+
         eps = m_math.ddot(in, m_r);
         m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
 
@@ -260,7 +274,10 @@ protected:
                 }
 
                 // Apply preconditioner.
-                this->m_precon->Apply(m_v, m_v);
+                if (m_rightPreconditioner)
+                {
+                    this->m_precon->Apply(m_v, m_v);
+                }
 
                 // Compute new U.
                 if (totalIterations == 0)
@@ -281,6 +298,10 @@ protected:
                 this->m_lhs->Apply(m_U[k], m_G[k]);
                 m_robBndCondOp->Apply(m_U[k], m_G[k]);
                 m_assmbScatrZeroDirOp->Apply(m_G[k]);
+                if (m_leftPreconditioner)
+                {
+                    this->m_precon->Apply(m_G[k], m_G[k]);
+                }
 
                 // Bi-Orthogonalize the basis vectors:
                 for (unsigned int i = 0; i < k; i++)
@@ -369,13 +390,19 @@ protected:
                 return;
             }
 
-            // Apply preconditioner.
-            this->m_precon->Apply(m_r, m_v);
-
             // Perform the method-specific matrix-vector multiply operation.
-            this->m_lhs->Apply(m_v, m_w);
-            m_robBndCondOp->Apply(m_v, m_w);
+            auto &tmp = (m_rightPreconditioner) ? m_v : m_r;
+            if (m_rightPreconditioner)
+            {
+                this->m_precon->Apply(m_r, tmp);
+            }
+            this->m_lhs->Apply(tmp, m_w);
+            m_robBndCondOp->Apply(tmp, m_w);
             m_assmbScatrZeroDirOp->Apply(m_w);
+            if (m_leftPreconditioner)
+            {
+                this->m_precon->Apply(m_w, m_w);
+            }
 
             // Update coefficients.
             omega0 = m_math.ddot(m_w, m_r);
@@ -392,8 +419,8 @@ protected:
             }
 
             // Update solution.
+            daxpy<ExecSpace>(omega, tmp, out, out);
             daxpy<ExecSpace>(-omega, m_w, m_r, m_r);
-            daxpy<ExecSpace>(omega, m_v, out, out);
 
             // Update residual norm.
             eps = m_math.ddot(m_r, m_r);
