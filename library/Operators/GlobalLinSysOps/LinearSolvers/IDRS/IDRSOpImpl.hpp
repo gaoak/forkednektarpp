@@ -34,7 +34,6 @@
 
 #pragma once
 
-#include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
 #include "Operators/GlobalLinSysOps/LinearSolvers/IDRS/IDRSOp.hpp"
 
 #include <iomanip>
@@ -67,31 +66,10 @@ public:
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1))
     {
+        this->template SetLinearSolver<ExecSpace>();
+
         auto session = expansionList->GetSession();
-
-        // Set operators.
-        m_math         = Math(ExecSpace::name);
-        m_assmbScatrOp = std::make_unique<AssmbScatrOpImpl<ExecSpace, TData>>(
-            this->m_expansionList, components);
-        m_assmbScatrZeroDirOp =
-            std::make_unique<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>(
-                this->m_expansionList, components);
-        m_robBndCondOp = RobBndCondOp<TData>::Create(
-            this->m_expansionList, components, ExecSpace::name);
-        m_rowComm = session->GetComm()->GetRowComm();
-        m_root    = m_rowComm->GetRank() == 0;
-
-        // Set parameters.
-        int leftPreconditioner  = 0;
-        int rightPreconditioner = 0;
-        session->LoadParameter("NekLinSysMaxIterations", m_maxIter, 5000);
-        session->LoadParameter("IterativeSolverTolerance", m_tol, 1.0E-09);
         session->LoadParameter("IDRstage", m_stage, 4);
-        session->LoadParameter("IDRSLeftPrecon", leftPreconditioner, 0);
-        session->LoadParameter("IDRSRightPrecon", rightPreconditioner, 0);
-        m_leftPreconditioner  = leftPreconditioner;
-        m_rightPreconditioner = rightPreconditioner;
-
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_real_distribution<> dis(0.0, 1.0);
@@ -139,16 +117,6 @@ public:
     }
 
 protected:
-    LibUtilities::CommSharedPtr m_rowComm = nullptr;
-    std::unique_ptr<AssmbScatrOpImpl<ExecSpace, TData>> m_assmbScatrOp;
-    std::unique_ptr<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>
-        m_assmbScatrZeroDirOp;
-    bool m_root;
-
-    Math m_math;
-
-    std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
-
     std::vector<Field<TData, FieldState::Coeff>> m_P;
     std::vector<Field<TData, FieldState::Coeff>> m_U;
     std::vector<Field<TData, FieldState::Coeff>> m_G;
@@ -156,11 +124,7 @@ protected:
     Field<TData, FieldState::Coeff> m_w;
     Field<TData, FieldState::Coeff> m_r;
 
-    TData m_tol                = 0.0;
-    unsigned int m_maxIter     = 0;
-    unsigned int m_stage       = 0;
-    bool m_leftPreconditioner  = false;
-    bool m_rightPreconditioner = false;
+    unsigned int m_stage = 0;
 
     void v_Apply(Field<TData, FieldState::Coeff> &in,
                  Field<TData, FieldState::Coeff> &out) override
@@ -185,26 +149,27 @@ protected:
 
         // Calculate inital rhs magnitude.
         m_r.template Copy<MemSpace>(in);
-        m_assmbScatrOp->Apply(m_r);
-        rhsMagnitude = m_math.ddot(in, m_r);
-        m_rowComm->AllReduce(rhsMagnitude, Nektar::LibUtilities::ReduceSum);
+        this->m_assmbScatrOp->Apply(m_r);
+        rhsMagnitude = this->m_math.ddot(in, m_r);
+        this->m_rowComm->AllReduce(rhsMagnitude,
+                                   Nektar::LibUtilities::ReduceSum);
         rhsMagnitude = (rhsMagnitude > 1.0e-6) ? rhsMagnitude : 1.0;
 
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
-        m_assmbScatrZeroDirOp->Apply(m_r);
+        this->m_assmbScatrZeroDirOp->Apply(m_r);
 
-        if (m_leftPreconditioner)
+        if (this->m_leftPreconditioner)
         {
             this->m_precon->Apply(m_r, m_r);
         }
 
-        eps = m_math.ddot(in, m_r);
-        m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
+        eps = this->m_math.ddot(in, m_r);
+        this->m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
 
         // If the input residual is less than tolerance then skip solve.
-        if (eps < m_tol * m_tol * rhsMagnitude)
+        if (eps < this->m_tol * this->m_tol * rhsMagnitude)
         {
             return;
         }
@@ -223,14 +188,14 @@ protected:
             // Compute Phi.
             for (unsigned int k = 0; k < m_stage; k++)
             {
-                Phi[k] = m_math.ddot(m_P[k], m_r);
+                Phi[k] = this->m_math.ddot(m_P[k], m_r);
             }
-            m_rowComm->AllReduce(Phi, Nektar::LibUtilities::ReduceSum);
+            this->m_rowComm->AllReduce(Phi, Nektar::LibUtilities::ReduceSum);
 
             // Inner iteration.
             for (unsigned int k = 0; k < m_stage; k++)
             {
-                if (totalIterations > m_maxIter)
+                if (totalIterations > this->m_maxIter)
                 {
                     std::stringstream msg;
                     msg << "Exceeded max iterations: " << totalIterations;
@@ -255,7 +220,7 @@ protected:
                                   Mu_k[i].data());
                     }
                     std::copy(Phi.begin() + k, Phi.end(), Phi_k.begin());
-                    DirectSolve(Mu_k, Phi_k);
+                    this->DirectSolve(Mu_k, Phi_k);
                     std::copy(Phi_k.begin(), Phi_k.end(), gamma.begin() + k);
                 }
 
@@ -274,7 +239,7 @@ protected:
                 }
 
                 // Apply preconditioner.
-                if (m_rightPreconditioner)
+                if (this->m_rightPreconditioner)
                 {
                     this->m_precon->Apply(m_v, m_v);
                 }
@@ -296,9 +261,9 @@ protected:
 
                 // Perform the method-specific matrix-vector multiply operation.
                 this->m_lhs->Apply(m_U[k], m_G[k]);
-                m_robBndCondOp->Apply(m_U[k], m_G[k]);
-                m_assmbScatrZeroDirOp->Apply(m_G[k]);
-                if (m_leftPreconditioner)
+                this->m_robBndCondOp->Apply(m_U[k], m_G[k]);
+                this->m_assmbScatrZeroDirOp->Apply(m_G[k]);
+                if (this->m_leftPreconditioner)
                 {
                     this->m_precon->Apply(m_G[k], m_G[k]);
                 }
@@ -306,9 +271,9 @@ protected:
                 // Bi-Orthogonalize the basis vectors:
                 for (unsigned int i = 0; i < k; i++)
                 {
-                    alpha = m_math.ddot(m_P[i], m_G[k]);
-                    m_rowComm->AllReduce(alpha,
-                                         Nektar::LibUtilities::ReduceSum);
+                    alpha = this->m_math.ddot(m_P[i], m_G[k]);
+                    this->m_rowComm->AllReduce(alpha,
+                                               Nektar::LibUtilities::ReduceSum);
                     alpha /= Mu[i][i];
                     daxpy<ExecSpace>(-alpha, m_G[i], m_G[k], m_G[k]);
                     daxpy<ExecSpace>(-alpha, m_U[i], m_U[k], m_U[k]);
@@ -317,8 +282,9 @@ protected:
                 // Update Mu.
                 for (unsigned int i = k; i < m_stage; i++)
                 {
-                    TData mu = m_math.ddot(m_P[i], m_G[k]);
-                    m_rowComm->AllReduce(mu, Nektar::LibUtilities::ReduceSum);
+                    TData mu = this->m_math.ddot(m_P[i], m_G[k]);
+                    this->m_rowComm->AllReduce(mu,
+                                               Nektar::LibUtilities::ReduceSum);
                     Mu[i][k] = mu;
                 }
 
@@ -336,15 +302,16 @@ protected:
                 daxpy<ExecSpace>(-beta, m_G[k], m_r, m_r);
                 daxpy<ExecSpace>(beta, m_U[k], out, out);
 
-                eps = m_math.ddot(m_r, m_r);
-                m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
+                eps = this->m_math.ddot(m_r, m_r);
+                this->m_rowComm->AllReduce(eps,
+                                           Nektar::LibUtilities::ReduceSum);
 
                 ++totalIterations;
 
                 // Test if norm is within tolerance.
-                if (eps < m_tol * m_tol * rhsMagnitude)
+                if (eps < this->m_tol * this->m_tol * rhsMagnitude)
                 {
-                    if (m_root)
+                    if (this->m_root)
                     {
                         std::cout << "iterations: " << totalIterations
                                   << " eps: " << std::sqrt(eps)
@@ -370,9 +337,9 @@ protected:
             ++totalIterations;
 
             // Test if norm is within tolerance.
-            if (eps < m_tol * m_tol * rhsMagnitude)
+            if (eps < this->m_tol * this->m_tol * rhsMagnitude)
             {
-                if (m_root)
+                if (this->m_root)
                 {
                     std::cout << "iterations: " << totalIterations
                               << " eps: " << std::sqrt(eps)
@@ -381,7 +348,7 @@ protected:
                 return;
             }
 
-            if (totalIterations > m_maxIter)
+            if (totalIterations > this->m_maxIter)
             {
                 std::stringstream msg;
                 msg << "Exceeded max iterations: " << totalIterations;
@@ -391,27 +358,27 @@ protected:
             }
 
             // Perform the method-specific matrix-vector multiply operation.
-            auto &tmp = (m_rightPreconditioner) ? m_v : m_r;
-            if (m_rightPreconditioner)
+            auto &tmp = (this->m_rightPreconditioner) ? m_v : m_r;
+            if (this->m_rightPreconditioner)
             {
                 this->m_precon->Apply(m_r, tmp);
             }
             this->m_lhs->Apply(tmp, m_w);
-            m_robBndCondOp->Apply(tmp, m_w);
-            m_assmbScatrZeroDirOp->Apply(m_w);
-            if (m_leftPreconditioner)
+            this->m_robBndCondOp->Apply(tmp, m_w);
+            this->m_assmbScatrZeroDirOp->Apply(m_w);
+            if (this->m_leftPreconditioner)
             {
                 this->m_precon->Apply(m_w, m_w);
             }
 
             // Update coefficients.
-            omega0 = m_math.ddot(m_w, m_r);
-            m_rowComm->AllReduce(omega0, LibUtilities::ReduceSum);
-            omega1 = m_math.ddot(m_w, m_w);
-            m_rowComm->AllReduce(omega1, LibUtilities::ReduceSum);
+            omega0 = this->m_math.ddot(m_w, m_r);
+            this->m_rowComm->AllReduce(omega0, LibUtilities::ReduceSum);
+            omega1 = this->m_math.ddot(m_w, m_w);
+            this->m_rowComm->AllReduce(omega1, LibUtilities::ReduceSum);
             omega = omega0 / omega1;
-            rho   = m_math.ddot(m_r, m_r);
-            m_rowComm->AllReduce(rho, LibUtilities::ReduceSum);
+            rho   = this->m_math.ddot(m_r, m_r);
+            this->m_rowComm->AllReduce(rho, LibUtilities::ReduceSum);
             rho = std::abs(omega0 / (std::sqrt(omega1) * std::sqrt(rho)));
             if (rho < kappa)
             {
@@ -423,54 +390,8 @@ protected:
             daxpy<ExecSpace>(-omega, m_w, m_r, m_r);
 
             // Update residual norm.
-            eps = m_math.ddot(m_r, m_r);
-            m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
-        }
-    }
-
-    void DirectSolve(std::vector<std::vector<TData>> &A, std::vector<TData> &b)
-    {
-        unsigned int n = A.size();
-
-        // Forward Elimination with Partial Pivoting.
-        for (unsigned int k = 0; k < n; ++k)
-        {
-            // --- Partial Pivoting ---
-            unsigned int maxRow = k;
-            TData maxVal        = std::abs(A[k][k]);
-            for (unsigned int i = k + 1; i < n; ++i)
-            {
-                if (std::abs(A[i][k]) > maxVal)
-                {
-                    maxVal = std::abs(A[i][k]);
-                    maxRow = i;
-                }
-            }
-
-            std::swap(A[k], A[maxRow]);
-            std::swap(b[k], b[maxRow]);
-
-            // --- Elimination Stage ---
-            for (unsigned int i = k + 1; i < n; ++i)
-            {
-                TData factor = A[i][k] / A[k][k];
-                b[i] -= factor * b[k];
-                for (unsigned int j = k; j < n; ++j)
-                {
-                    A[i][j] -= factor * A[k][j];
-                }
-            }
-        }
-
-        // Backward Substitution.
-        for (int i = n - 1; i >= 0; --i)
-        {
-            TData sum = 0;
-            for (unsigned int j = i + 1; j < n; ++j)
-            {
-                sum += A[i][j] * b[j];
-            }
-            b[i] = (b[i] - sum) / A[i][i];
+            eps = this->m_math.ddot(m_r, m_r);
+            this->m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
         }
     }
 };

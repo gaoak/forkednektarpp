@@ -34,7 +34,6 @@
 
 #pragma once
 
-#include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
 #include "Operators/GlobalLinSysOps/LinearSolvers/BICGSTAB/BICGSTABOp.hpp"
 
 #include <iomanip>
@@ -78,29 +77,7 @@ public:
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1))
     {
-        auto session = expansionList->GetSession();
-
-        // Set operators.
-        m_math         = Math(ExecSpace::name);
-        m_assmbScatrOp = std::make_unique<AssmbScatrOpImpl<ExecSpace, TData>>(
-            this->m_expansionList, components);
-        m_assmbScatrZeroDirOp =
-            std::make_unique<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>(
-                this->m_expansionList, components);
-        m_robBndCondOp = RobBndCondOp<TData>::Create(
-            this->m_expansionList, components, ExecSpace::name);
-        m_rowComm = session->GetComm()->GetRowComm();
-        m_root    = m_rowComm->GetRank() == 0;
-
-        // Set parameters.
-        int leftPreconditioner  = 0;
-        int rightPreconditioner = 0;
-        session->LoadParameter("NekLinSysMaxIterations", m_maxIter, 5000);
-        session->LoadParameter("IterativeSolverTolerance", m_tol, 1.0E-09);
-        session->LoadParameter("BICGSTABLeftPrecon", leftPreconditioner, 0);
-        session->LoadParameter("BICGSTABRightPrecon", rightPreconditioner, 0);
-        m_leftPreconditioner  = leftPreconditioner;
-        m_rightPreconditioner = rightPreconditioner;
+        this->template SetLinearSolver<ExecSpace>();
     }
 
     // className - for OperatorFactory
@@ -116,27 +93,12 @@ public:
     }
 
 protected:
-    LibUtilities::CommSharedPtr m_rowComm = nullptr;
-    std::unique_ptr<AssmbScatrOpImpl<ExecSpace, TData>> m_assmbScatrOp;
-    std::unique_ptr<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>
-        m_assmbScatrZeroDirOp;
-    bool m_root;
-
-    Math m_math;
-
-    std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
-
     Field<TData, FieldState::Coeff> m_p;
     Field<TData, FieldState::Coeff> m_v;
     Field<TData, FieldState::Coeff> m_w;
     Field<TData, FieldState::Coeff> m_z;
     Field<TData, FieldState::Coeff> m_r;
     Field<TData, FieldState::Coeff> m_rtilde;
-
-    TData m_tol                = 0.0;
-    unsigned int m_maxIter     = 0;
-    bool m_leftPreconditioner  = false;
-    bool m_rightPreconditioner = false;
 
     void v_Apply(Field<TData, FieldState::Coeff> &in,
                  Field<TData, FieldState::Coeff> &out) override
@@ -152,26 +114,27 @@ protected:
 
         // Calculate inital rhs magnitude.
         m_r.template Copy<MemSpace>(in);
-        m_assmbScatrOp->Apply(m_r);
-        rhsMagnitude = m_math.ddot(in, m_r);
-        m_rowComm->AllReduce(rhsMagnitude, Nektar::LibUtilities::ReduceSum);
+        this->m_assmbScatrOp->Apply(m_r);
+        rhsMagnitude = this->m_math.ddot(in, m_r);
+        this->m_rowComm->AllReduce(rhsMagnitude,
+                                   Nektar::LibUtilities::ReduceSum);
         rhsMagnitude = (rhsMagnitude > 1.0e-6) ? rhsMagnitude : 1.0;
 
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
-        m_assmbScatrZeroDirOp->Apply(m_r);
+        this->m_assmbScatrZeroDirOp->Apply(m_r);
 
-        if (m_leftPreconditioner)
+        if (this->m_leftPreconditioner)
         {
             this->m_precon->Apply(m_r, m_r);
         }
 
-        eps = m_math.ddot(in, m_r);
-        m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
+        eps = this->m_math.ddot(in, m_r);
+        this->m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
 
         // If the input residual is less than tolerance then skip solve.
-        if (eps < m_tol * m_tol * rhsMagnitude)
+        if (eps < this->m_tol * this->m_tol * rhsMagnitude)
         {
             return;
         }
@@ -181,11 +144,11 @@ protected:
         omega = 0.0;
         m_p.template Copy<MemSpace>(m_r);
         m_rtilde.template Copy<MemSpace>(m_r);
-        rho_new = m_math.ddot(m_rtilde, m_r);
-        m_rowComm->AllReduce(rho_new, Nektar::LibUtilities::ReduceSum);
+        rho_new = this->m_math.ddot(m_rtilde, m_r);
+        this->m_rowComm->AllReduce(rho_new, Nektar::LibUtilities::ReduceSum);
         while (true)
         {
-            if (totalIterations > m_maxIter)
+            if (totalIterations > this->m_maxIter)
             {
                 std::stringstream msg;
                 msg << "Exceeded max iterations: " << totalIterations;
@@ -202,22 +165,22 @@ protected:
             }
 
             // Perform the method-specific matrix-vector multiply operation.
-            auto &tmp = (m_rightPreconditioner) ? m_w : m_p;
-            if (m_rightPreconditioner)
+            auto &tmp = (this->m_rightPreconditioner) ? m_w : m_p;
+            if (this->m_rightPreconditioner)
             {
                 this->m_precon->Apply(m_p, tmp);
             }
             this->m_lhs->Apply(tmp, m_v);
-            m_robBndCondOp->Apply(tmp, m_v);
-            m_assmbScatrZeroDirOp->Apply(m_v);
-            if (m_leftPreconditioner)
+            this->m_robBndCondOp->Apply(tmp, m_v);
+            this->m_assmbScatrZeroDirOp->Apply(m_v);
+            if (this->m_leftPreconditioner)
             {
                 this->m_precon->Apply(m_v, m_v);
             }
 
             // Update coefficients.
-            alpha = m_math.ddot(m_v, m_rtilde);
-            m_rowComm->AllReduce(alpha, LibUtilities::ReduceSum);
+            alpha = this->m_math.ddot(m_v, m_rtilde);
+            this->m_rowComm->AllReduce(alpha, LibUtilities::ReduceSum);
             alpha = rho_new / alpha;
 
             // Update solution.
@@ -225,11 +188,11 @@ protected:
             daxpy<ExecSpace>(-alpha, m_v, m_r, m_r);
 
             // Test if norm is within tolerance.
-            eps = m_math.ddot(m_r, m_r);
-            m_rowComm->AllReduce(eps, LibUtilities::ReduceSum);
-            if (eps < m_tol * m_tol * rhsMagnitude)
+            eps = this->m_math.ddot(m_r, m_r);
+            this->m_rowComm->AllReduce(eps, LibUtilities::ReduceSum);
+            if (eps < this->m_tol * this->m_tol * rhsMagnitude)
             {
-                if (m_root)
+                if (this->m_root)
                 {
                     std::cout << "iterations: " << totalIterations
                               << " eps: " << std::sqrt(eps)
@@ -239,24 +202,24 @@ protected:
             }
 
             // Perform the method-specific matrix-vector multiply operation.
-            auto &tmp2 = (m_rightPreconditioner) ? m_w : m_r;
-            if (m_rightPreconditioner)
+            auto &tmp2 = (this->m_rightPreconditioner) ? m_w : m_r;
+            if (this->m_rightPreconditioner)
             {
                 this->m_precon->Apply(m_r, tmp2);
             }
             this->m_lhs->Apply(tmp2, m_z);
-            m_robBndCondOp->Apply(tmp2, m_z);
-            m_assmbScatrZeroDirOp->Apply(m_z);
-            if (m_leftPreconditioner)
+            this->m_robBndCondOp->Apply(tmp2, m_z);
+            this->m_assmbScatrZeroDirOp->Apply(m_z);
+            if (this->m_leftPreconditioner)
             {
                 this->m_precon->Apply(m_z, m_z);
             }
 
             // Update coefficients.
-            omega0 = m_math.ddot(m_r, m_z);
-            omega1 = m_math.ddot(m_z, m_z);
-            m_rowComm->AllReduce(omega0, LibUtilities::ReduceSum);
-            m_rowComm->AllReduce(omega1, LibUtilities::ReduceSum);
+            omega0 = this->m_math.ddot(m_r, m_z);
+            omega1 = this->m_math.ddot(m_z, m_z);
+            this->m_rowComm->AllReduce(omega0, LibUtilities::ReduceSum);
+            this->m_rowComm->AllReduce(omega1, LibUtilities::ReduceSum);
             omega = omega0 / omega1;
 
             // Update solution.
@@ -266,11 +229,11 @@ protected:
             ++totalIterations;
 
             // Test if norm is within tolerance.
-            eps = m_math.ddot(m_r, m_r);
-            m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
-            if (eps < m_tol * m_tol * rhsMagnitude)
+            eps = this->m_math.ddot(m_r, m_r);
+            this->m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
+            if (eps < this->m_tol * this->m_tol * rhsMagnitude)
             {
-                if (m_root)
+                if (this->m_root)
                 {
                     std::cout << "iterations: " << totalIterations
                               << " eps: " << std::sqrt(eps)
@@ -281,8 +244,9 @@ protected:
 
             // Update coefficients.
             rho     = rho_new;
-            rho_new = m_math.ddot(m_rtilde, m_r);
-            m_rowComm->AllReduce(rho_new, Nektar::LibUtilities::ReduceSum);
+            rho_new = this->m_math.ddot(m_rtilde, m_r);
+            this->m_rowComm->AllReduce(rho_new,
+                                       Nektar::LibUtilities::ReduceSum);
             beta = rho_new / rho * (alpha / omega);
         }
     }

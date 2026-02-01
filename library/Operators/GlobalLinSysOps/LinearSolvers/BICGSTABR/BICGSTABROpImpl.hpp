@@ -34,7 +34,6 @@
 
 #pragma once
 
-#include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
 #include "Operators/GlobalLinSysOps/LinearSolvers/BICGSTABR/BICGSTABROp.hpp"
 
 #include <iomanip>
@@ -83,29 +82,7 @@ public:
               components, 1)),
           m_vExchange(MemoryRegion<TData>(4, ePinned))
     {
-        auto session = expansionList->GetSession();
-
-        // Set operators.
-        m_math         = Math(ExecSpace::name);
-        m_assmbScatrOp = std::make_unique<AssmbScatrOpImpl<ExecSpace, TData>>(
-            this->m_expansionList, components);
-        m_assmbScatrZeroDirOp =
-            std::make_unique<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>(
-                this->m_expansionList, components);
-        m_robBndCondOp = RobBndCondOp<TData>::Create(
-            this->m_expansionList, components, ExecSpace::name);
-        m_rowComm = session->GetComm()->GetRowComm();
-        m_root    = m_rowComm->GetRank() == 0;
-
-        // Set parameters.
-        int leftPreconditioner  = 0;
-        int rightPreconditioner = 0;
-        session->LoadParameter("NekLinSysMaxIterations", m_maxIter, 5000);
-        session->LoadParameter("IterativeSolverTolerance", m_tol, 1.0E-09);
-        session->LoadParameter("BICGSTABRLeftPrecon", leftPreconditioner, 0);
-        session->LoadParameter("BICGSTABRRightPrecon", rightPreconditioner, 0);
-        m_leftPreconditioner  = leftPreconditioner;
-        m_rightPreconditioner = rightPreconditioner;
+        this->template SetLinearSolver<ExecSpace>();
     }
 
     // className - for OperatorFactory
@@ -121,16 +98,6 @@ public:
     }
 
 protected:
-    LibUtilities::CommSharedPtr m_rowComm = nullptr;
-    std::unique_ptr<AssmbScatrOpImpl<ExecSpace, TData>> m_assmbScatrOp;
-    std::unique_ptr<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>
-        m_assmbScatrZeroDirOp;
-    bool m_root;
-
-    Math m_math;
-
-    std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
-
     Field<TData, FieldState::Coeff> m_p;
     Field<TData, FieldState::Coeff> m_v;
     Field<TData, FieldState::Coeff> m_w;
@@ -140,11 +107,6 @@ protected:
     Field<TData, FieldState::Coeff> m_rtilde;
 
     MemoryRegion<TData> m_vExchange;
-
-    TData m_tol                = 0.0;
-    unsigned int m_maxIter     = 0;
-    bool m_leftPreconditioner  = false;
-    bool m_rightPreconditioner = false;
 
     void v_Apply(Field<TData, FieldState::Coeff> &in,
                  Field<TData, FieldState::Coeff> &out) override
@@ -170,15 +132,15 @@ protected:
 
         // Calculate inital rhs magnitude.
         m_r.template Copy<MemSpace>(in);
-        m_assmbScatrOp->Apply(m_r);
+        this->m_assmbScatrOp->Apply(m_r);
         ddot<ExecSpace>(in, m_r, exchange + 1);
 
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
-        m_assmbScatrZeroDirOp->Apply(m_r);
+        this->m_assmbScatrZeroDirOp->Apply(m_r);
 
-        if (m_leftPreconditioner)
+        if (this->m_leftPreconditioner)
         {
             this->m_precon->Apply(m_r, m_r);
         }
@@ -186,8 +148,8 @@ protected:
         ddot<ExecSpace>(m_r, m_r, exchange + 0);
 
         // Communication.
-        m_rowComm->AllReduce<MemSpace>(m_vExchange,
-                                       Nektar::LibUtilities::ReduceSum);
+        this->m_rowComm->template AllReduce<MemSpace>(
+            m_vExchange, Nektar::LibUtilities::ReduceSum);
 
         // Device-to-host copy.
         auto exchangeHost =
@@ -197,7 +159,7 @@ protected:
         eps          = exchangeHost[0];
 
         // If the input residual is less than tolerance then skip solve.
-        if (eps < m_tol * m_tol * rhsMagnitude)
+        if (eps < this->m_tol * this->m_tol * rhsMagnitude)
         {
             return;
         }
@@ -209,7 +171,7 @@ protected:
         m_rtilde.template Copy<MemSpace>(m_r);
         while (true)
         {
-            if (totalIterations > m_maxIter)
+            if (totalIterations > this->m_maxIter)
             {
                 std::stringstream msg;
                 msg << "Exceeded max iterations: " << totalIterations;
@@ -226,15 +188,15 @@ protected:
             }
 
             // Perform the method-specific matrix-vector multiply operation.
-            auto &tmp = (m_rightPreconditioner) ? m_w : m_p;
-            if (m_rightPreconditioner)
+            auto &tmp = (this->m_rightPreconditioner) ? m_w : m_p;
+            if (this->m_rightPreconditioner)
             {
                 this->m_precon->Apply(m_p, tmp);
             }
             this->m_lhs->Apply(tmp, m_v);
-            m_robBndCondOp->Apply(tmp, m_v);
-            m_assmbScatrZeroDirOp->Apply(m_v);
-            if (m_leftPreconditioner)
+            this->m_robBndCondOp->Apply(tmp, m_v);
+            this->m_assmbScatrZeroDirOp->Apply(m_v);
+            if (this->m_leftPreconditioner)
             {
                 this->m_precon->Apply(m_v, m_v);
             }
@@ -248,8 +210,8 @@ protected:
             // ddot<ExecSpace>(m_r, m_r, exchange + 2);
 
             // Communication.
-            m_rowComm->AllReduce<MemSpace>(m_vExchange,
-                                           Nektar::LibUtilities::ReduceSum);
+            this->m_rowComm->template AllReduce<MemSpace>(
+                m_vExchange, Nektar::LibUtilities::ReduceSum);
 
             // Device-to-host copy.
             exchangeHost =
@@ -267,9 +229,9 @@ protected:
             daxpy<ExecSpace>(-alpha, m_v, m_r, m_s);
 
             /*// Test if norm is within tolerance.
-            if (eps < m_tol * m_tol * rhsMagnitude)
+            if (eps < this->m_tol * this->m_tol * rhsMagnitude)
             {
-                if (m_root)
+                if (this->m_root)
                 {
                     std::cout << "iterations: " << totalIterations
                               << " eps: " << std::sqrt(eps)
@@ -279,15 +241,15 @@ protected:
             }*/
 
             // Perform the method-specific matrix-vector multiply operation.
-            auto &tmp2 = (m_rightPreconditioner) ? m_w : m_s;
-            if (m_rightPreconditioner)
+            auto &tmp2 = (this->m_rightPreconditioner) ? m_w : m_s;
+            if (this->m_rightPreconditioner)
             {
                 this->m_precon->Apply(m_s, tmp2);
             }
             this->m_lhs->Apply(tmp2, m_z);
-            m_robBndCondOp->Apply(tmp2, m_z);
-            m_assmbScatrZeroDirOp->Apply(m_z);
-            if (m_leftPreconditioner)
+            this->m_robBndCondOp->Apply(tmp2, m_z);
+            this->m_assmbScatrZeroDirOp->Apply(m_z);
+            if (this->m_leftPreconditioner)
             {
                 this->m_precon->Apply(m_z, m_z);
             }
@@ -302,8 +264,8 @@ protected:
             ddot<ExecSpace>(m_z, m_rtilde, exchange + 3);
 
             // Communication.
-            m_rowComm->AllReduce<MemSpace>(m_vExchange,
-                                           Nektar::LibUtilities::ReduceSum);
+            this->m_rowComm->template AllReduce<MemSpace>(
+                m_vExchange, Nektar::LibUtilities::ReduceSum);
 
             // Device-to-host copy.
             exchangeHost =
@@ -324,9 +286,9 @@ protected:
             ++totalIterations;
 
             // Test if norm is within tolerance.
-            if (eps < m_tol * m_tol * rhsMagnitude)
+            if (eps < this->m_tol * this->m_tol * rhsMagnitude)
             {
-                if (m_root)
+                if (this->m_root)
                 {
                     std::cout << "iterations: " << totalIterations
                               << " eps: " << std::sqrt(eps)

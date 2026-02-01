@@ -35,6 +35,8 @@
 #pragma once
 
 #include "Operators/AssmbScatr/AssmbScatrOp.hpp"
+#include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
+#include "Operators/AssmbScatr/AssmbScatrZeroDirOp.hpp"
 #include "Operators/BndCondOps/RobBndCond/RobBndCondOp.hpp"
 #include "Operators/ElmtOps/ElmtOp.hpp"
 #include "Operators/PreconOps/PreconOp.hpp"
@@ -105,9 +107,20 @@ public:
     }
 
 protected:
+    LibUtilities::CommSharedPtr m_rowComm = nullptr;
     std::shared_ptr<ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>> m_lhs;
     std::shared_ptr<ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>>
         m_precon;
+    std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
+    std::unique_ptr<AssmbScatrOp<TData>> m_assmbScatrOp;
+    std::unique_ptr<AssmbScatrOp<TData>> m_assmbScatrZeroDirOp;
+    Math m_math;
+    bool m_root;
+
+    TData m_tol                = 0.0;
+    unsigned int m_maxIter     = 0;
+    bool m_leftPreconditioner  = false;
+    bool m_rightPreconditioner = false;
 
     LinearSolverOp(const MultiRegions::ExpListSharedPtr &expansionList,
                    const std::vector<std::string> &components)
@@ -119,6 +132,82 @@ protected:
 
     virtual void v_Apply(Field<TData, FieldState::Coeff> &in,
                          Field<TData, FieldState::Coeff> &out) = 0;
+
+    template <typename ExecSpace> void SetLinearSolver(void)
+    {
+        auto session = this->m_expansionList->GetSession();
+
+        // Set operators.
+        this->m_assmbScatrOp =
+            std::make_unique<detail::AssmbScatrOpImpl<ExecSpace, TData>>(
+                this->m_expansionList, this->m_components);
+        this->m_assmbScatrZeroDirOp =
+            std::make_unique<detail::AssmbScatrZeroDirOpImpl<ExecSpace, TData>>(
+                this->m_expansionList, this->m_components);
+        this->m_robBndCondOp = RobBndCondOp<TData>::Create(
+            this->m_expansionList, this->m_components, ExecSpace::name);
+        this->m_rowComm = session->GetComm()->GetRowComm();
+        this->m_root    = this->m_rowComm->GetRank() == 0;
+
+        // Set parameters.
+        int leftPreconditioner  = 0;
+        int rightPreconditioner = 0;
+        session->LoadParameter("NekLinSysMaxIterations", this->m_maxIter, 5000);
+        session->LoadParameter("IterativeSolverTolerance", this->m_tol,
+                               1.0E-09);
+        session->LoadParameter("LinSysLeftPrecon", leftPreconditioner, 0);
+        session->LoadParameter("LinSysRightPrecon", rightPreconditioner, 0);
+        this->m_leftPreconditioner  = leftPreconditioner;
+        this->m_rightPreconditioner = rightPreconditioner;
+
+        this->m_math = Math(ExecSpace::name);
+    }
+
+    void DirectSolve(std::vector<std::vector<TData>> &A, std::vector<TData> &b)
+    {
+        unsigned int n = A.size();
+
+        // Forward Elimination with Partial Pivoting.
+        for (unsigned int k = 0; k < n; ++k)
+        {
+            // --- Partial Pivoting ---
+            unsigned int maxRow = k;
+            TData maxVal        = std::abs(A[k][k]);
+            for (unsigned int i = k + 1; i < n; ++i)
+            {
+                if (std::abs(A[i][k]) > maxVal)
+                {
+                    maxVal = std::abs(A[i][k]);
+                    maxRow = i;
+                }
+            }
+
+            std::swap(A[k], A[maxRow]);
+            std::swap(b[k], b[maxRow]);
+
+            // --- Elimination Stage ---
+            for (unsigned int i = k + 1; i < n; ++i)
+            {
+                TData factor = A[i][k] / A[k][k];
+                b[i] -= factor * b[k];
+                for (unsigned int j = k; j < n; ++j)
+                {
+                    A[i][j] -= factor * A[k][j];
+                }
+            }
+        }
+
+        // Backward Substitution.
+        for (int i = n - 1; i >= 0; --i)
+        {
+            TData sum = 0;
+            for (unsigned int j = i + 1; j < n; ++j)
+            {
+                sum += A[i][j] * b[j];
+            }
+            b[i] = (b[i] - sum) / A[i][i];
+        }
+    }
 };
 
 } // namespace Nektar::Operators

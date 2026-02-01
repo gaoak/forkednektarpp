@@ -144,20 +144,8 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
-        SetTestCase();                                                         \
-        RunTestCase("GMRES");                                                  \
-        boost::test_tools::output_test_stream output;                          \
-        {                                                                      \
-            BOOST_TEST(Compare(tol));                                          \
-        }                                                                      \
-    }
-
-#define TEST_HELMSOLVE_GMRES(test_name, test, tol)                             \
-    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
-    {                                                                          \
-        std::cout << std::string("Run: ") + std::string(#test_name)            \
-                  << std::endl;                                                \
-        Configure();                                                           \
+        int LinSysRightPrecon = 1;                                             \
+        this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         SetTestCase();                                                         \
         RunTestCase("GMRES");                                                  \
         boost::test_tools::output_test_stream output;                          \
