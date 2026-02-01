@@ -69,63 +69,82 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
     const auto nodaltype  = stdMatKey.m_nodalType;
     const auto &nq        = stdMatKey.m_nq;
 
-    StdExpansion *stdExp = nullptr;
+    StdExpansionSharedPtr stdExp = nullptr;
 
     switch (shapeType)
     {
         case ePoint:
         {
-            stdExp = new StdPointExp(bkey[0]);
+            stdExp = MemoryManager<
+                Nektar::StdRegions::StdPointExp>::AllocateSharedPtr(bkey[0]);
             break;
         }
         case eSegment:
         {
-            stdExp = new StdSegExp(bkey[0]);
+            stdExp =
+                MemoryManager<Nektar::StdRegions::StdSegExp>::AllocateSharedPtr(
+                    bkey[0]);
             break;
         }
         case eTriangle:
         {
-            stdExp = new StdTriExp(bkey[0], bkey[1]);
+            stdExp =
+                MemoryManager<Nektar::StdRegions::StdTriExp>::AllocateSharedPtr(
+                    bkey[0], bkey[1]);
             break;
         }
         case eNodalTri:
         {
-            stdExp = new StdNodalTriExp(bkey[0], bkey[1], nodaltype);
+            stdExp = MemoryManager<Nektar::StdRegions::StdNodalTriExp>::
+                AllocateSharedPtr(bkey[0], bkey[1], nodaltype);
             break;
         }
         case eQuadrilateral:
         {
-            stdExp = new StdQuadExp(bkey[0], bkey[1]);
+            stdExp = MemoryManager<
+                Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(bkey[0],
+                                                                   bkey[1]);
             break;
         }
         case eTetrahedron:
         {
-            stdExp = new StdTetExp(bkey[0], bkey[1], bkey[2]);
+            stdExp =
+                MemoryManager<Nektar::StdRegions::StdTetExp>::AllocateSharedPtr(
+                    bkey[0], bkey[1], bkey[2]);
             break;
         }
         case eNodalTet:
         {
-            stdExp = new StdNodalTetExp(bkey[0], bkey[1], bkey[2], nodaltype);
+            stdExp = MemoryManager<Nektar::StdRegions::StdNodalTetExp>::
+                AllocateSharedPtr(bkey[0], bkey[1], bkey[2], nodaltype);
             break;
         }
         case ePyramid:
         {
-            stdExp = new StdPyrExp(bkey[0], bkey[1], bkey[2]);
+            stdExp =
+                MemoryManager<Nektar::StdRegions::StdPyrExp>::AllocateSharedPtr(
+                    bkey[0], bkey[1], bkey[2]);
             break;
         }
         case ePrism:
         {
-            stdExp = new StdPrismExp(bkey[0], bkey[1], bkey[2]);
+            stdExp = MemoryManager<
+                Nektar::StdRegions::StdPrismExp>::AllocateSharedPtr(bkey[0],
+                                                                    bkey[1],
+                                                                    bkey[2]);
             break;
         }
         case eNodalPrism:
         {
-            stdExp = new StdNodalPrismExp(bkey[0], bkey[1], bkey[2], nodaltype);
+            stdExp = MemoryManager<Nektar::StdRegions::StdNodalPrismExp>::
+                AllocateSharedPtr(bkey[0], bkey[1], bkey[2], nodaltype);
             break;
         }
         case eHexahedron:
         {
-            stdExp = new StdHexExp(bkey[0], bkey[1], bkey[2]);
+            stdExp =
+                MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
+                    bkey[0], bkey[1], bkey[2]);
             break;
         }
         default:

@@ -228,6 +228,8 @@ public:
 
         this->session = LibUtilities::SessionReader::CreateInstance(argc, argv);
 
+        delete[] argv;
+
         if (this->session->GetComm())
         {
             auto rank        = this->session->GetComm()->GetRank();
