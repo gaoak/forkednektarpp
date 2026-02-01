@@ -93,8 +93,14 @@ public:
         m_root    = m_rowComm->GetRank() == 0;
 
         // Set parameters.
+        int leftPreconditioner  = 0;
+        int rightPreconditioner = 0;
         session->LoadParameter("NekLinSysMaxIterations", m_maxIter, 5000);
         session->LoadParameter("IterativeSolverTolerance", m_tol, 1.0E-09);
+        session->LoadParameter("BICGSTABLeftPrecon", leftPreconditioner, 0);
+        session->LoadParameter("BICGSTABRightPrecon", rightPreconditioner, 0);
+        m_leftPreconditioner  = leftPreconditioner;
+        m_rightPreconditioner = rightPreconditioner;
     }
 
     // className - for OperatorFactory
@@ -127,8 +133,10 @@ protected:
     Field<TData, FieldState::Coeff> m_r;
     Field<TData, FieldState::Coeff> m_rtilde;
 
-    TData m_tol            = 0.0;
-    unsigned int m_maxIter = 0;
+    TData m_tol                = 0.0;
+    unsigned int m_maxIter     = 0;
+    bool m_leftPreconditioner  = false;
+    bool m_rightPreconditioner = false;
 
     void v_Apply(Field<TData, FieldState::Coeff> &in,
                  Field<TData, FieldState::Coeff> &out) override
@@ -153,6 +161,12 @@ protected:
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
         m_assmbScatrZeroDirOp->Apply(m_r);
+
+        if (m_leftPreconditioner)
+        {
+            this->m_precon->Apply(m_r, m_r);
+        }
+
         eps = m_math.ddot(in, m_r);
         m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
 
@@ -165,8 +179,8 @@ protected:
         // Iteration >= 1
         beta  = 0.0;
         omega = 0.0;
-        m_rtilde.template Copy<MemSpace>(m_r);
         m_p.template Copy<MemSpace>(m_r);
+        m_rtilde.template Copy<MemSpace>(m_r);
         rho_new = m_math.ddot(m_rtilde, m_r);
         m_rowComm->AllReduce(rho_new, Nektar::LibUtilities::ReduceSum);
         while (true)
@@ -187,13 +201,19 @@ protected:
                 daxpy<ExecSpace>(beta, m_p, m_r, m_p);
             }
 
-            // Apply preconditioner.
-            this->m_precon->Apply(m_p, m_w);
-
             // Perform the method-specific matrix-vector multiply operation.
-            this->m_lhs->Apply(m_w, m_v);
-            m_robBndCondOp->Apply(m_w, m_v);
+            auto &tmp = (m_rightPreconditioner) ? m_w : m_p;
+            if (m_rightPreconditioner)
+            {
+                this->m_precon->Apply(m_p, tmp);
+            }
+            this->m_lhs->Apply(tmp, m_v);
+            m_robBndCondOp->Apply(tmp, m_v);
             m_assmbScatrZeroDirOp->Apply(m_v);
+            if (m_leftPreconditioner)
+            {
+                this->m_precon->Apply(m_v, m_v);
+            }
 
             // Update coefficients.
             alpha = m_math.ddot(m_v, m_rtilde);
@@ -201,7 +221,7 @@ protected:
             alpha = rho_new / alpha;
 
             // Update solution.
-            daxpy<ExecSpace>(alpha, m_w, out, out);
+            daxpy<ExecSpace>(alpha, tmp, out, out);
             daxpy<ExecSpace>(-alpha, m_v, m_r, m_r);
 
             // Test if norm is within tolerance.
@@ -218,13 +238,19 @@ protected:
                 break;
             }
 
-            // Apply preconditioner.
-            this->m_precon->Apply(m_r, m_w);
-
             // Perform the method-specific matrix-vector multiply operation.
-            this->m_lhs->Apply(m_w, m_z);
-            m_robBndCondOp->Apply(m_w, m_z);
+            auto &tmp2 = (m_rightPreconditioner) ? m_w : m_r;
+            if (m_rightPreconditioner)
+            {
+                this->m_precon->Apply(m_r, tmp2);
+            }
+            this->m_lhs->Apply(tmp2, m_z);
+            m_robBndCondOp->Apply(tmp2, m_z);
             m_assmbScatrZeroDirOp->Apply(m_z);
+            if (m_leftPreconditioner)
+            {
+                this->m_precon->Apply(m_z, m_z);
+            }
 
             // Update coefficients.
             omega0 = m_math.ddot(m_r, m_z);
@@ -234,7 +260,7 @@ protected:
             omega = omega0 / omega1;
 
             // Update solution.
-            daxpy<ExecSpace>(omega, m_w, out, out);
+            daxpy<ExecSpace>(omega, tmp2, out, out);
             daxpy<ExecSpace>(-omega, m_z, m_r, m_r);
 
             ++totalIterations;

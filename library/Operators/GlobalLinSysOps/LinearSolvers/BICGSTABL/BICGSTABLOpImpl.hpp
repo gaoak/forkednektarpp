@@ -85,12 +85,15 @@ public:
         m_root    = m_rowComm->GetRank() == 0;
 
         // Set parameters.
-        int leftPreconditioner = 0;
+        int leftPreconditioner  = 0;
+        int rightPreconditioner = 0;
         session->LoadParameter("NekLinSysMaxIterations", m_maxIter, 5000);
         session->LoadParameter("IterativeSolverTolerance", m_tol, 1.0E-09);
         session->LoadParameter("BICGSTABLstage", m_stage, 4);
         session->LoadParameter("BICGSTABLLeftPrecon", leftPreconditioner, 0);
-        m_leftPreconditioner = leftPreconditioner;
+        session->LoadParameter("BICGSTABLRightPrecon", rightPreconditioner, 0);
+        m_leftPreconditioner  = leftPreconditioner;
+        m_rightPreconditioner = rightPreconditioner;
 
         for (unsigned int stage = 0; stage <= m_stage; stage++)
         {
@@ -142,11 +145,12 @@ protected:
 
     MemoryRegion<TData> m_vExchange;
 
-    TData m_tol               = 0.0;
-    unsigned int m_maxIter    = 0;
-    unsigned int m_stage      = 0;
-    bool m_accurateUpdate     = true; // Flag for enhanced update
-    bool m_leftPreconditioner = false;
+    TData m_tol                = 0.0;
+    unsigned int m_maxIter     = 0;
+    unsigned int m_stage       = 0;
+    bool m_accurateUpdate      = true; // Flag for enhanced update
+    bool m_leftPreconditioner  = false;
+    bool m_rightPreconditioner = false;
 
     void v_Apply(Field<TData, FieldState::Coeff> &in,
                  Field<TData, FieldState::Coeff> &out) override
@@ -264,19 +268,17 @@ protected:
                 }
 
                 // Perform the method-specific matrix-vector multiply operation.
+                auto &tmp = (m_rightPreconditioner) ? m_w : m_u[ii];
+                if (m_rightPreconditioner)
+                {
+                    this->m_precon->Apply(m_u[ii], tmp);
+                }
+                this->m_lhs->Apply(tmp, m_u[ii + 1]);
+                m_robBndCondOp->Apply(tmp, m_u[ii + 1]);
+                m_assmbScatrZeroDirOp->Apply(m_u[ii + 1]);
                 if (m_leftPreconditioner)
                 {
-                    this->m_lhs->Apply(m_u[ii], m_u[ii + 1]);
-                    m_robBndCondOp->Apply(m_u[ii], m_u[ii + 1]);
-                    m_assmbScatrZeroDirOp->Apply(m_u[ii + 1]);
                     this->m_precon->Apply(m_u[ii + 1], m_u[ii + 1]);
-                }
-                else
-                {
-                    this->m_precon->Apply(m_u[ii], m_w);
-                    this->m_lhs->Apply(m_w, m_u[ii + 1]);
-                    m_robBndCondOp->Apply(m_w, m_u[ii + 1]);
-                    m_assmbScatrZeroDirOp->Apply(m_u[ii + 1]);
                 }
 
                 // Update coefficients.
@@ -304,19 +306,17 @@ protected:
                 }
 
                 // Perform the method-specific matrix-vector multiply operation.
+                auto &tmp2 = (m_rightPreconditioner) ? m_w : m_r[ii];
+                if (m_rightPreconditioner)
+                {
+                    this->m_precon->Apply(m_r[ii], tmp2);
+                }
+                this->m_lhs->Apply(tmp2, m_r[ii + 1]);
+                m_robBndCondOp->Apply(tmp2, m_r[ii + 1]);
+                m_assmbScatrZeroDirOp->Apply(m_r[ii + 1]);
                 if (m_leftPreconditioner)
                 {
-                    this->m_lhs->Apply(m_r[ii], m_r[ii + 1]);
-                    m_robBndCondOp->Apply(m_r[ii], m_r[ii + 1]);
-                    m_assmbScatrZeroDirOp->Apply(m_r[ii + 1]);
                     this->m_precon->Apply(m_r[ii + 1], m_r[ii + 1]);
-                }
-                else
-                {
-                    this->m_precon->Apply(m_r[ii], m_w);
-                    this->m_lhs->Apply(m_w, m_r[ii + 1]);
-                    m_robBndCondOp->Apply(m_w, m_r[ii + 1]);
-                    m_assmbScatrZeroDirOp->Apply(m_r[ii + 1]);
                 }
 
                 // Test if norm is within tolerance.
@@ -329,7 +329,7 @@ protected:
                 // Test if norm is within tolerance.
                 if (eps < m_tol * m_tol * rhsMagnitude)
                 {
-                    if (!m_leftPreconditioner)
+                    if (m_rightPreconditioner)
                     {
                         this->m_precon->Apply(m_acc, m_acc);
                     }
@@ -483,19 +483,17 @@ protected:
                 {
                     // Perform the method-specific matrix-vector multiply
                     // operation.
+                    auto &tmp3 = (m_rightPreconditioner) ? m_w : m_acc;
+                    if (m_rightPreconditioner)
+                    {
+                        this->m_precon->Apply(m_acc, tmp3);
+                    }
+                    this->m_lhs->Apply(tmp3, m_r[0]);
+                    m_robBndCondOp->Apply(tmp3, m_r[0]);
+                    m_assmbScatrZeroDirOp->Apply(m_r[0]);
                     if (m_leftPreconditioner)
                     {
-                        this->m_lhs->Apply(m_acc, m_r[0]);
-                        m_robBndCondOp->Apply(m_acc, m_r[0]);
-                        m_assmbScatrZeroDirOp->Apply(m_r[0]);
                         this->m_precon->Apply(m_r[0], m_r[0]);
-                    }
-                    else
-                    {
-                        this->m_precon->Apply(m_acc, m_w);
-                        this->m_lhs->Apply(m_w, m_r[0]);
-                        m_robBndCondOp->Apply(m_w, m_r[0]);
-                        m_assmbScatrZeroDirOp->Apply(m_r[0]);
                     }
 
                     // Compute exact residual.
@@ -504,13 +502,13 @@ protected:
                     MaxResTrue = zeta;
                     if (update_app)
                     {
-                        if (m_leftPreconditioner)
+                        if (m_rightPreconditioner)
                         {
-                            add<ExecSpace>(m_acc, out, out);
+                            add<ExecSpace>(m_w, out, out);
                         }
                         else
                         {
-                            add<ExecSpace>(m_w, out, out);
+                            add<ExecSpace>(m_acc, out, out);
                         }
                         m_acc.template Initialize<MemSpace>(0);
                         m_rhs.template Copy<MemSpace>(m_r[0]);
@@ -534,7 +532,7 @@ protected:
         }
 
         // Final update.
-        if (!m_leftPreconditioner)
+        if (m_rightPreconditioner)
         {
             this->m_precon->Apply(m_acc, m_acc);
         }
