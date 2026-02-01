@@ -34,7 +34,6 @@
 
 #pragma once
 
-#include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
 #include "Operators/GlobalLinSysOps/LinearSolvers/ConjGrad/ConjGradOp.hpp"
 
 #include "Operators/GlobalLinSysOps/LinearSolvers/ConjGrad/ConjGradKernels.hpp"
@@ -81,25 +80,12 @@ public:
               components, 1)),
           m_vExchange(MemoryRegion<TData>(4, ePinned))
     {
+        this->template SetLinearSolver<ExecSpace>();
+
         auto session = expansionList->GetSession();
-
-        // Set operators.
-        m_assmbScatrOp = std::make_unique<AssmbScatrOpImpl<ExecSpace, TData>>(
-            this->m_expansionList, components);
-        m_assmbScatrZeroDirOp =
-            std::make_unique<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>(
-                this->m_expansionList, components);
-        m_robBndCondOp = RobBndCondOp<TData>::Create(
-            this->m_expansionList, components, ExecSpace::name);
-        m_rowComm = session->GetComm()->GetRowComm();
-        m_root    = m_rowComm->GetRank() == 0;
-
-        // Set parameters.
-        session->LoadParameter("NekLinSysMaxIterations", m_maxIter, 5000);
-        session->LoadParameter("IterativeSolverTolerance", m_tol, 1.0E-09);
-        m_flexible = session->DefinesParameter("FlexibleConjugateGradient")
-                         ? session->GetParameter("FlexibleConjugateGradient")
-                         : false;
+        m_flexible   = session->DefinesParameter("FlexibleConjugateGradient")
+                           ? session->GetParameter("FlexibleConjugateGradient")
+                           : false;
 
         // Fill mask.
         auto maskptr =
@@ -131,26 +117,15 @@ public:
     }
 
 protected:
-    LibUtilities::CommSharedPtr m_rowComm = nullptr;
-    std::unique_ptr<AssmbScatrOpImpl<ExecSpace, TData>> m_assmbScatrOp;
-    std::unique_ptr<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>
-        m_assmbScatrZeroDirOp;
-    bool m_root;
-    bool m_flexible;
-
-    std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
-
     Field<TData, FieldState::Coeff> m_w;
     Field<TData, FieldState::Coeff> m_s;
     Field<TData, FieldState::Coeff> m_r;
     Field<TData, FieldState::Coeff> m_q;
     Field<TData, FieldState::Coeff> m_p;
     Field<std::uint8_t, FieldState::Coeff> m_mask;
-
     MemoryRegion<TData> m_vExchange;
 
-    TData m_tol            = 0.0;
-    unsigned int m_maxIter = 0;
+    bool m_flexible;
 
     void v_Apply(Field<TData, FieldState::Coeff> &in,
                  Field<TData, FieldState::Coeff> &out) override
@@ -193,18 +168,18 @@ protected:
 
         // Calculate inital rhs magnitude.
         m_r.template Copy<MemSpace>(in);
-        m_assmbScatrOp->Apply(m_r);
+        this->m_assmbScatrOp->Apply(m_r);
         ddot<ExecSpace>(in, m_r, exchange + 1);
 
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
-        m_assmbScatrZeroDirOp->Apply(m_r);
+        this->m_assmbScatrZeroDirOp->Apply(m_r);
         ddot<ExecSpace>(in, m_r, exchange + 0);
 
         // Communication.
-        m_rowComm->AllReduce<MemSpace>(m_vExchange,
-                                       Nektar::LibUtilities::ReduceSum);
+        this->m_rowComm->template AllReduce<MemSpace>(
+            m_vExchange, Nektar::LibUtilities::ReduceSum);
 
         // Device-to-host copy.
         auto exchangeHost =
@@ -214,7 +189,7 @@ protected:
         eps          = exchangeHost[0];
 
         // If the input residual is less than tolerance then skip solve.
-        if (eps < m_tol * m_tol * rhsMagnitude)
+        if (eps < this->m_tol * this->m_tol * rhsMagnitude)
         {
             return;
         }
@@ -229,7 +204,7 @@ protected:
         rho_star = 0.0;
         while (true)
         {
-            if (totalIterations > m_maxIter)
+            if (totalIterations > this->m_maxIter)
             {
                 std::stringstream msg;
                 msg << "Exceeded max iterations: " << totalIterations;
@@ -250,7 +225,7 @@ protected:
             {
                 // Assemble matrix output from previous matrix-vector multiply
                 // could be moved around loop if optimal elsewhere.
-                m_assmbScatrZeroDirOp->Apply(m_s);
+                this->m_assmbScatrZeroDirOp->Apply(m_s);
 
                 // Compute new search direction.
                 // daxpy<ExecSpace>(beta, m_p, m_w, m_p);
@@ -278,14 +253,14 @@ protected:
 
             // Perform the method-specific matrix-vector multiply operation.
             this->m_lhs->Apply(m_w, m_s);
-            m_robBndCondOp->Apply(m_w, m_s);
+            this->m_robBndCondOp->Apply(m_w, m_s);
 
             // <w_{k+1}, s_{k+1}>
             ddot<ExecSpace>(m_w, m_s, exchange + 2);
 
             // Communication.
-            m_rowComm->AllReduce<MemSpace>(m_vExchange,
-                                           Nektar::LibUtilities::ReduceSum);
+            this->m_rowComm->template AllReduce<MemSpace>(
+                m_vExchange, Nektar::LibUtilities::ReduceSum);
 
             // Device-to-host copy.
             exchangeHost =
@@ -303,9 +278,9 @@ protected:
             ++totalIterations;
 
             // Test if norm is within tolerance.
-            if (eps < m_tol * m_tol * rhsMagnitude)
+            if (eps < this->m_tol * this->m_tol * rhsMagnitude)
             {
-                if (m_root)
+                if (this->m_root)
                 {
                     std::cout << "iterations: " << totalIterations
                               << " eps: " << std::sqrt(eps)

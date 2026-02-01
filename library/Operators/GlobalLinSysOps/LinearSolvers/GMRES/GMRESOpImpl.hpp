@@ -34,7 +34,6 @@
 
 #pragma once
 
-#include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
 #include "Operators/GlobalLinSysOps/LinearSolvers/GMRES/GMRESOp.hpp"
 
 #include <iomanip>
@@ -65,19 +64,12 @@ public:
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1))
     {
-        auto session = expansionList->GetSession();
+        this->template SetLinearSolver<ExecSpace>();
 
-        // Set parameters.
-        session->LoadParameter("NekLinSysMaxIterations",
-                               m_NekLinSysMaxIterations, 5000);
+        auto session = expansionList->GetSession();
         session->LoadParameter("LinSysMaxStorage", m_LinSysMaxStorage, 50);
-        session->LoadParameter("IterativeSolverTolerance", m_tol, 1.0E-09);
         session->LoadParameter("GMRESMaxHessMatBand", m_KrylovMaxHessMatBand,
                                m_LinSysMaxStorage + 1);
-        session->MatchSolverInfo("GMRESLeftPrecon", "True",
-                                 m_NekLinSysLeftPrecon, false);
-        session->MatchSolverInfo("GMRESRightPrecon", "True",
-                                 m_NekLinSysRightPrecon, true);
         session->MatchSolverInfo("GMRESCentralDifference", "True",
                                  m_GMRESCentralDifference, false);
         m_flexible = session->DefinesParameter("FlexibleGMRES")
@@ -87,18 +79,6 @@ public:
             session->DefinesParameter("ModifiedGramSchmidt")
                 ? session->GetParameter("ModifiedGramSchmidt")
                 : true;
-
-        // Set operators.
-        m_math         = Math(ExecSpace::name);
-        m_assmbScatrOp = std::make_unique<AssmbScatrOpImpl<ExecSpace, TData>>(
-            this->m_expansionList, components);
-        m_assmbScatrZeroDirOp =
-            std::make_unique<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>(
-                this->m_expansionList, components);
-        m_robBndCondOp = RobBndCondOp<TData>::Create(
-            this->m_expansionList, components, ExecSpace::name);
-        m_rowComm = session->GetComm()->GetRowComm();
-        m_root    = m_rowComm->GetRank() == 0;
 
         // Allocate array storage.
         if (!m_isModifiedGramSchmidt)
@@ -127,18 +107,6 @@ public:
     }
 
 protected:
-    LibUtilities::CommSharedPtr m_rowComm = nullptr;
-
-    std::unique_ptr<AssmbScatrOpImpl<ExecSpace, TData>> m_assmbScatrOp;
-    std::unique_ptr<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>
-        m_assmbScatrZeroDirOp;
-    std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
-    bool m_root;
-    bool m_flexible;
-    bool m_isModifiedGramSchmidt = true;
-
-    Math m_math;
-
     Field<TData, FieldState::Coeff> m_w;
     Field<TData, FieldState::Coeff> m_wk;
     Field<TData, FieldState::Coeff> m_r0;
@@ -150,11 +118,9 @@ protected:
     MemoryRegion<TData> m_vExchange;
 
     TData m_rhs_magnitude = NekConstants::kNekUnsetDouble;
-    TData m_tol;
-    bool m_NekLinSysLeftPrecon;
-    bool m_NekLinSysRightPrecon;
+    bool m_flexible;
+    bool m_isModifiedGramSchmidt = true;
     bool m_GMRESCentralDifference;
-    unsigned int m_NekLinSysMaxIterations;
     unsigned int m_LinSysMaxStorage;
     unsigned int m_KrylovMaxHessMatBand;
 
@@ -197,20 +163,20 @@ protected:
         // Calculate rhs magnitude.
         if (m_rhs_magnitude == NekConstants::kNekUnsetDouble)
         {
-            m_assmbScatrOp->Apply(in, m_w);
-            m_rhs_magnitude = m_math.ddot(in, m_w);
-            m_rowComm->AllReduce(m_rhs_magnitude,
-                                 Nektar::LibUtilities::ReduceSum);
+            this->m_assmbScatrOp->Apply(in, m_w);
+            m_rhs_magnitude = this->m_math.ddot(in, m_w);
+            this->m_rowComm->AllReduce(m_rhs_magnitude,
+                                       Nektar::LibUtilities::ReduceSum);
             m_rhs_magnitude =
                 (m_rhs_magnitude > 1.0e-6) ? m_rhs_magnitude : 1.0;
         }
 
         // Calculate prefactor.
-        if (m_NekLinSysLeftPrecon)
+        if (this->m_leftPreconditioner)
         {
-            m_assmbScatrZeroDirOp->Apply(in, m_w);
-            prec_factor = m_math.ddot(in, m_w);
-            m_rowComm->AllReduce(prec_factor, LibUtilities::ReduceSum);
+            this->m_assmbScatrZeroDirOp->Apply(in, m_w);
+            prec_factor = this->m_math.ddot(in, m_w);
+            this->m_rowComm->AllReduce(prec_factor, LibUtilities::ReduceSum);
         }
 
         // Allocate memory, if necessary.
@@ -229,7 +195,7 @@ protected:
         // GMRES with restart.
         while (true)
         {
-            if (totalIterations == m_NekLinSysMaxIterations)
+            if (totalIterations == this->m_maxIter)
             {
                 break;
             }
@@ -247,43 +213,43 @@ protected:
             {
                 // This is A*x
                 this->m_lhs->Apply(out, m_r0);
-                m_robBndCondOp->Apply(out, m_r0);
+                this->m_robBndCondOp->Apply(out, m_r0);
 
                 // This is r0 = b-A*x
                 sub<ExecSpace>(in, m_r0, m_r0);
             }
 
             // Apply preconditioner.
-            if (m_NekLinSysLeftPrecon)
+            if (this->m_leftPreconditioner)
             {
-                m_assmbScatrZeroDirOp->Apply(m_r0);
+                this->m_assmbScatrZeroDirOp->Apply(m_r0);
                 this->m_precon->Apply(m_r0, m_r0);
             }
 
             // Norm of (r0)
             if (m_isModifiedGramSchmidt)
             {
-                m_assmbScatrZeroDirOp->Apply(m_r0, m_wk);
-                eps = m_math.ddot(m_r0, m_wk);
+                this->m_assmbScatrZeroDirOp->Apply(m_r0, m_wk);
+                eps = this->m_math.ddot(m_r0, m_wk);
             }
             else
             {
-                m_assmbScatrZeroDirOp->Apply(m_r0);
-                eps = m_math.ddot(m_r0, m_r0);
+                this->m_assmbScatrZeroDirOp->Apply(m_r0);
+                eps = this->m_math.ddot(m_r0, m_r0);
             }
-            m_rowComm->AllReduce(eps, LibUtilities::ReduceSum);
-            if (m_NekLinSysLeftPrecon && outerIterations == 0)
+            this->m_rowComm->AllReduce(eps, LibUtilities::ReduceSum);
+            if (this->m_leftPreconditioner && outerIterations == 0)
             {
                 eps0 = eps;
             }
 
             // If the input residual is less than tolerance then skip solve.
-            if (eps < m_tol * m_tol * m_rhs_magnitude)
+            if (eps < this->m_tol * this->m_tol * m_rhs_magnitude)
             {
                 return;
             }
 
-            if (m_NekLinSysLeftPrecon)
+            if (this->m_leftPreconditioner)
             {
                 mul<ExecSpace>(std::sqrt(prec_factor / eps0), m_r0, m_r0);
                 eta[0] = std::sqrt(prec_factor * eps / eps0);
@@ -300,21 +266,21 @@ protected:
             while (true)
             {
                 if ((ii == m_LinSysMaxStorage) ||
-                    (totalIterations == m_NekLinSysMaxIterations))
+                    (totalIterations == this->m_maxIter))
                 {
                     break;
                 }
 
                 unsigned int znd = m_flexible ? ii : 0;
-                auto &Z1         = m_NekLinSysRightPrecon ? m_Z[znd] : m_V[ii];
-                auto &V1         = m_V[ii];
-                auto &h1         = m_hes[ii];
-                auto &h2         = m_upper[ii];
+                auto &Z1 = this->m_rightPreconditioner ? m_Z[znd] : m_V[ii];
+                auto &V1 = m_V[ii];
+                auto &h1 = m_hes[ii];
+                auto &h2 = m_upper[ii];
 
                 // Apply preconditioner.
-                if (m_NekLinSysRightPrecon)
+                if (this->m_rightPreconditioner)
                 {
-                    m_assmbScatrZeroDirOp->Apply(V1, Z1);
+                    this->m_assmbScatrZeroDirOp->Apply(V1, Z1);
                     this->m_precon->Apply(Z1, Z1);
                 }
 
@@ -325,16 +291,16 @@ protected:
                 // -- Begin Arnoldi --
                 // Apply lhs.
                 this->m_lhs->Apply(Z1, m_w);
-                m_robBndCondOp->Apply(Z1, m_w);
+                this->m_robBndCondOp->Apply(Z1, m_w);
                 if (!m_isModifiedGramSchmidt)
                 {
-                    m_assmbScatrZeroDirOp->Apply(m_w);
+                    this->m_assmbScatrZeroDirOp->Apply(m_w);
                 }
 
                 // Apply preconditioner.
-                if (m_NekLinSysLeftPrecon)
+                if (this->m_leftPreconditioner)
                 {
-                    m_assmbScatrZeroDirOp->Apply(m_w);
+                    this->m_assmbScatrZeroDirOp->Apply(m_w);
                     this->m_precon->Apply(m_w, m_w);
                     mul<ExecSpace>(std::sqrt(prec_factor / eps0), m_w, m_w);
                 }
@@ -344,16 +310,18 @@ protected:
                     // Modified Gram-Schmidt.
                     for (unsigned int i = starttem; i < endtem; ++i)
                     {
-                        m_assmbScatrZeroDirOp->Apply(m_V[i], m_wk);
-                        h1[i] = m_math.ddot(m_w, m_wk);
-                        m_rowComm->AllReduce(h1[i], LibUtilities::ReduceSum);
+                        this->m_assmbScatrZeroDirOp->Apply(m_V[i], m_wk);
+                        h1[i] = this->m_math.ddot(m_w, m_wk);
+                        this->m_rowComm->AllReduce(h1[i],
+                                                   LibUtilities::ReduceSum);
                         daxpy<ExecSpace>(-h1[i], m_V[i], m_w, m_w);
                     }
 
                     // Calculate the L2 norm and normalize.
-                    m_assmbScatrZeroDirOp->Apply(m_w, m_wk);
-                    h1[endtem] = m_math.ddot(m_w, m_wk);
-                    m_rowComm->AllReduce(h1[endtem], LibUtilities::ReduceSum);
+                    this->m_assmbScatrZeroDirOp->Apply(m_w, m_wk);
+                    h1[endtem] = this->m_math.ddot(m_w, m_wk);
+                    this->m_rowComm->AllReduce(h1[endtem],
+                                               LibUtilities::ReduceSum);
                     h1[endtem] = std::sqrt(h1[endtem]);
                 }
                 else
@@ -367,8 +335,8 @@ protected:
                     {
                         ddot<ExecSpace>(m_w, m_V[i], exchange + i);
                     }
-                    m_rowComm->AllReduce<MemSpace>(m_vExchange,
-                                                   LibUtilities::ReduceSum);
+                    this->m_rowComm->template AllReduce<MemSpace>(
+                        m_vExchange, LibUtilities::ReduceSum);
 
                     // Device-to-host copy.
                     auto exchangeHost =
@@ -381,8 +349,9 @@ protected:
                     }
 
                     // Calculate the L2 norm and normalize.
-                    h1[endtem] = m_math.ddot(m_w, m_w);
-                    m_rowComm->AllReduce(h1[endtem], LibUtilities::ReduceSum);
+                    h1[endtem] = this->m_math.ddot(m_w, m_w);
+                    this->m_rowComm->AllReduce(h1[endtem],
+                                               LibUtilities::ReduceSum);
                     h1[endtem] = std::sqrt(h1[endtem]);
                 }
                 // -- End Arnoldi --
@@ -405,7 +374,7 @@ protected:
                 // the last term of eta is not residual
                 if ((!truncted) || (ii <= m_KrylovMaxHessMatBand))
                 {
-                    if (eps < m_tol * m_tol * m_rhs_magnitude)
+                    if (eps < this->m_tol * this->m_tol * m_rhs_magnitude)
                     {
                         converged = true;
                         break;
@@ -453,9 +422,9 @@ protected:
                 }
 
                 // Apply preconditioner.
-                if (m_NekLinSysRightPrecon)
+                if (this->m_rightPreconditioner)
                 {
-                    m_assmbScatrZeroDirOp->Apply(m_w);
+                    this->m_assmbScatrZeroDirOp->Apply(m_w);
                     this->m_precon->Apply(m_w, m_w);
                 }
 
@@ -479,21 +448,21 @@ protected:
 
             // Calculate difference in residual of solution.
             this->m_lhs->Apply(out, m_r0);
-            m_robBndCondOp->Apply(out, m_r0);
+            this->m_robBndCondOp->Apply(out, m_r0);
             sub<ExecSpace>(in, m_r0, m_r0);
-            m_assmbScatrZeroDirOp->Apply(m_r0, m_w);
-            eps1 = m_math.ddot(m_w, m_r0);
-            m_rowComm->AllReduce(eps1, LibUtilities::ReduceSum);
+            this->m_assmbScatrZeroDirOp->Apply(m_r0, m_w);
+            eps1 = this->m_math.ddot(m_w, m_r0);
+            this->m_rowComm->AllReduce(eps1, LibUtilities::ReduceSum);
 
-            if (m_root)
+            if (this->m_root)
             {
                 int nwidthcolm = 13;
 
                 std::cout << std::scientific << std::setw(nwidthcolm)
                           << std::setprecision(nwidthcolm - 8)
                           << "       GMRES iterations made = "
-                          << totalIterations << " using tolerance of " << m_tol
-                          << " (error = "
+                          << totalIterations << " using tolerance of "
+                          << this->m_tol << " (error = "
                           << std::sqrt(eps / eps0 * prec_factor /
                                        m_rhs_magnitude)
                           << ")";

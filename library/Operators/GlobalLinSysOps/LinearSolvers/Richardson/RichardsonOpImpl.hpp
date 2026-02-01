@@ -34,7 +34,6 @@
 
 #pragma once
 
-#include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
 #include "Operators/GlobalLinSysOps/LinearSolvers/Richardson/RichardsonOp.hpp"
 
 #include "Operators/PreconOps/DiagPrecon/DiagPreconOp.hpp"
@@ -64,24 +63,10 @@ public:
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1))
     {
+        this->template SetLinearSolver<ExecSpace>();
+
         auto session = expansionList->GetSession();
-
-        // Set operators.
-        m_math         = Math(ExecSpace::name);
-        m_assmbScatrOp = std::make_unique<AssmbScatrOpImpl<ExecSpace, TData>>(
-            this->m_expansionList, components);
-        m_assmbScatrZeroDirOp =
-            std::make_unique<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>(
-                this->m_expansionList, components);
-        m_robBndCondOp = RobBndCondOp<TData>::Create(
-            this->m_expansionList, components, ExecSpace::name);
-        m_rowComm = session->GetComm()->GetRowComm();
-        m_root    = m_rowComm->GetRank() == 0;
-
-        // Set parameters.
         session->LoadParameter("RichardsonRelaxation", m_scale, 0.25);
-        session->LoadParameter("NekLinSysMaxIterations", m_maxIter, 5000);
-        session->LoadParameter("IterativeSolverTolerance", m_tol, 1.0E-09);
     }
 
     // className - for OperatorFactory
@@ -97,22 +82,10 @@ public:
     }
 
 protected:
-    LibUtilities::CommSharedPtr m_rowComm = nullptr;
-    std::unique_ptr<AssmbScatrOpImpl<ExecSpace, TData>> m_assmbScatrOp;
-    std::unique_ptr<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>
-        m_assmbScatrZeroDirOp;
-    bool m_root;
-
-    Math m_math;
-
-    std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
-
     Field<TData, FieldState::Coeff> m_w;
     Field<TData, FieldState::Coeff> m_r;
 
-    TData m_scale          = 0.0;
-    TData m_tol            = 0.0;
-    unsigned int m_maxIter = 0;
+    TData m_scale = 0.0;
 
     void v_Apply(Field<TData, FieldState::Coeff> &in,
                  Field<TData, FieldState::Coeff> &out) override
@@ -126,20 +99,21 @@ protected:
 
         // Calculate inital rhs magnitude.
         m_r.template Copy<MemSpace>(in);
-        m_assmbScatrOp->Apply(m_r);
-        rhsMagnitude = m_math.ddot(in, m_r);
-        m_rowComm->AllReduce(rhsMagnitude, Nektar::LibUtilities::ReduceSum);
+        this->m_assmbScatrOp->Apply(m_r);
+        rhsMagnitude = this->m_math.ddot(in, m_r);
+        this->m_rowComm->AllReduce(rhsMagnitude,
+                                   Nektar::LibUtilities::ReduceSum);
         rhsMagnitude = (rhsMagnitude > 1.0e-6) ? rhsMagnitude : 1.0;
 
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
-        m_assmbScatrZeroDirOp->Apply(m_r);
-        eps = m_math.ddot(in, m_r);
-        m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
+        this->m_assmbScatrZeroDirOp->Apply(m_r);
+        eps = this->m_math.ddot(in, m_r);
+        this->m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
 
         // If the input residual is less than tolerance then skip solve.
-        if (eps < m_tol * m_tol * rhsMagnitude)
+        if (eps < this->m_tol * this->m_tol * rhsMagnitude)
         {
             return;
         }
@@ -150,7 +124,7 @@ protected:
         // Iteration >= 1
         while (true)
         {
-            if (totalIterations > m_maxIter)
+            if (totalIterations > this->m_maxIter)
             {
                 std::stringstream msg;
                 msg << "Exceeded max iterations: " << totalIterations;
@@ -164,25 +138,25 @@ protected:
 
             // This is A*x
             this->m_lhs->Apply(out, m_r);
-            m_robBndCondOp->Apply(out, m_r);
+            this->m_robBndCondOp->Apply(out, m_r);
 
             // This is r = b-A*x
             sub<ExecSpace>(in, m_r, m_r);
 
             // This is D^-1 * r
-            m_assmbScatrZeroDirOp->Apply(m_r);
+            this->m_assmbScatrZeroDirOp->Apply(m_r);
             this->m_precon->Apply(m_r, m_w);
 
             // <r_{k+1}, r_{k+1}>
-            eps = m_math.ddot(m_r, m_r);
-            m_rowComm->AllReduce(eps, LibUtilities::ReduceSum);
+            eps = this->m_math.ddot(m_r, m_r);
+            this->m_rowComm->AllReduce(eps, LibUtilities::ReduceSum);
 
             ++totalIterations;
 
             // Test if norm is within tolerance.
-            if (eps < m_tol * m_tol * rhsMagnitude)
+            if (eps < this->m_tol * this->m_tol * rhsMagnitude)
             {
-                if (m_root)
+                if (this->m_root)
                 {
                     std::cout << "iterations: " << totalIterations
                               << " eps: " << std::sqrt(eps)

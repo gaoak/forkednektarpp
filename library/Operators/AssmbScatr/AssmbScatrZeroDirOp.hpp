@@ -46,6 +46,8 @@ namespace Nektar::Operators
 template <typename TData> class AssmbScatrZeroDirOp : public Operator<TData>
 {
 public:
+    ~AssmbScatrZeroDirOp() override = default;
+
     static std::shared_ptr<AssmbScatrZeroDirOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components,
@@ -85,8 +87,6 @@ protected:
         : Operator<TData>(expansionList, components)
     {
     }
-
-    ~AssmbScatrZeroDirOp() override = default;
 
     virtual void v_Apply(Field<TData, FieldState::Coeff> &inout) = 0;
 

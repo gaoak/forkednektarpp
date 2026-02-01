@@ -34,7 +34,6 @@
 
 #pragma once
 
-#include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
 #include "Operators/GlobalLinSysOps/LinearSolvers/MINRES/MINRESOp.hpp"
 
 #include <iomanip>
@@ -78,23 +77,7 @@ public:
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1))
     {
-        auto session = expansionList->GetSession();
-
-        // Set operators.
-        m_math         = Math(ExecSpace::name);
-        m_assmbScatrOp = std::make_unique<AssmbScatrOpImpl<ExecSpace, TData>>(
-            this->m_expansionList, components);
-        m_assmbScatrZeroDirOp =
-            std::make_unique<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>(
-                this->m_expansionList, components);
-        m_robBndCondOp = RobBndCondOp<TData>::Create(
-            this->m_expansionList, components, ExecSpace::name);
-        m_rowComm = session->GetComm()->GetRowComm();
-        m_root    = m_rowComm->GetRank() == 0;
-
-        // Set parameters.
-        session->LoadParameter("NekLinSysMaxIterations", m_maxIter, 5000);
-        session->LoadParameter("IterativeSolverTolerance", m_tol, 1.0E-09);
+        this->template SetLinearSolver<ExecSpace>();
     }
 
     // className - for OperatorFactory
@@ -110,25 +93,12 @@ public:
     }
 
 protected:
-    LibUtilities::CommSharedPtr m_rowComm = nullptr;
-    std::unique_ptr<AssmbScatrOpImpl<ExecSpace, TData>> m_assmbScatrOp;
-    std::unique_ptr<AssmbScatrZeroDirOpImpl<ExecSpace, TData>>
-        m_assmbScatrZeroDirOp;
-    bool m_root;
-
-    Math m_math;
-
-    std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
-
     Field<TData, FieldState::Coeff> m_q;
     Field<TData, FieldState::Coeff> m_w;
     Field<TData, FieldState::Coeff> m_p0;
     Field<TData, FieldState::Coeff> m_p1;
     Field<TData, FieldState::Coeff> m_v0;
     Field<TData, FieldState::Coeff> m_v1;
-
-    TData m_tol            = 0.0;
-    unsigned int m_maxIter = 0;
 
     void v_Apply(Field<TData, FieldState::Coeff> &in,
                  Field<TData, FieldState::Coeff> &out) override
@@ -150,22 +120,23 @@ protected:
 
         // Calculate inital rhs magnitude.
         m_v0.template Copy<MemSpace>(in);
-        m_assmbScatrOp->Apply(m_v0);
-        rhsMagnitude = m_math.ddot(in, m_v0);
-        m_rowComm->AllReduce(rhsMagnitude, Nektar::LibUtilities::ReduceSum);
+        this->m_assmbScatrOp->Apply(m_v0);
+        rhsMagnitude = this->m_math.ddot(in, m_v0);
+        this->m_rowComm->AllReduce(rhsMagnitude,
+                                   Nektar::LibUtilities::ReduceSum);
         rhsMagnitude = (rhsMagnitude > 1.0e-6) ? rhsMagnitude : 1.0;
 
         // Iteration 0
         // Copy RHS into initial vector.
         m_v0.template Copy<MemSpace>(in);
-        m_assmbScatrZeroDirOp->Apply(m_v0, m_w);
+        this->m_assmbScatrZeroDirOp->Apply(m_v0, m_w);
         this->m_precon->Apply(m_w, m_w);
-        eps = m_math.ddot(m_v0, m_w);
-        m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
+        eps = this->m_math.ddot(m_v0, m_w);
+        this->m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
         beta1 = std::sqrt(eps);
 
         // If the input residual is less than tolerance then skip solve.
-        if (eps < m_tol * m_tol * rhsMagnitude)
+        if (eps < this->m_tol * this->m_tol * rhsMagnitude)
         {
             return;
         }
@@ -177,7 +148,7 @@ protected:
         m_p1.template Initialize<MemSpace>(0);
         while (true)
         {
-            if (totalIterations > m_maxIter)
+            if (totalIterations > this->m_maxIter)
             {
                 std::stringstream msg;
                 msg << "Exceeded max iterations: " << totalIterations;
@@ -192,11 +163,11 @@ protected:
 
             // Perform the method-specific matrix-vector multiply operation.
             this->m_lhs->Apply(m_w, m_q);
-            m_robBndCondOp->Apply(m_w, m_q);
+            this->m_robBndCondOp->Apply(m_w, m_q);
 
             // Update coefficients.
-            alpha = m_math.ddot(m_w, m_q);
-            m_rowComm->AllReduce(alpha, LibUtilities::ReduceSum);
+            alpha = this->m_math.ddot(m_w, m_q);
+            this->m_rowComm->AllReduce(alpha, LibUtilities::ReduceSum);
 
             // Update search vector.
             if (totalIterations > 0)
@@ -211,13 +182,13 @@ protected:
             add<ExecSpace>(m_v1, m_q, m_v1);
 
             // Apply preconditioner.
-            m_assmbScatrZeroDirOp->Apply(m_v1, m_q);
+            this->m_assmbScatrZeroDirOp->Apply(m_v1, m_q);
             this->m_precon->Apply(m_q, m_q);
 
             // Update coefficients.
             beta0 = beta1;
-            beta1 = m_math.ddot(m_v1, m_q);
-            m_rowComm->AllReduce(beta1, LibUtilities::ReduceSum);
+            beta1 = this->m_math.ddot(m_v1, m_q);
+            this->m_rowComm->AllReduce(beta1, LibUtilities::ReduceSum);
             beta1 = std::sqrt(beta1);
 
             delta  = gamma1 * alpha - gamma0 * sigma1 * beta0;
@@ -256,9 +227,9 @@ protected:
             ++totalIterations;
 
             // Test if norm is within tolerance.
-            if (eta * eta < m_tol * m_tol * rhsMagnitude)
+            if (eta * eta < this->m_tol * this->m_tol * rhsMagnitude)
             {
-                if (m_root)
+                if (this->m_root)
                 {
                     std::cout << "iterations: " << totalIterations
                               << " eta: " << std::abs(eta)
