@@ -208,6 +208,73 @@ protected:
             b[i] = (b[i] - sum) / A[i][i];
         }
     }
+
+    // QR factorization through Givens rotation
+    void DoGivensRotation(const unsigned int starttem,
+                          const unsigned int endtem, std::vector<TData> &c,
+                          std::vector<TData> &s, std::vector<TData> &h,
+                          std::vector<TData> &eta)
+    {
+        TData dbl;
+        TData dd;
+        TData hh;
+        unsigned int idtem = endtem - 1;
+
+        // The starttem and endtem are beginning and ending order of Givens
+        // rotation They usually equal to the beginning position and ending
+        // position of Hessenburg matrix But sometimes starttem will change,
+        // like if it is initial 0 and becomes nonzero because previous Givens
+        // rotation See Yu Pan's User Guide
+        for (unsigned int i = starttem; i < idtem; ++i)
+        {
+            dbl      = c[i] * h[i] - s[i] * h[i + 1];
+            h[i + 1] = s[i] * h[i] + c[i] * h[i + 1];
+            h[i]     = dbl;
+        }
+        dd = h[idtem];
+        hh = h[endtem];
+        if (hh == 0.0)
+        {
+            c[idtem] = 1.0;
+            s[idtem] = 0.0;
+        }
+        else if (std::abs(hh) > std::abs(dd))
+        {
+            dbl      = -dd / hh;
+            s[idtem] = 1.0 / std::sqrt(1.0 + dbl * dbl);
+            c[idtem] = dbl * s[idtem];
+        }
+        else
+        {
+            dbl      = -hh / dd;
+            c[idtem] = 1.0 / std::sqrt(1.0 + dbl * dbl);
+            s[idtem] = dbl * c[idtem];
+        }
+
+        h[idtem]  = c[idtem] * h[idtem] - s[idtem] * h[endtem];
+        h[endtem] = 0.0;
+
+        dbl         = c[idtem] * eta[idtem] - s[idtem] * eta[endtem];
+        eta[endtem] = s[idtem] * eta[idtem] + c[idtem] * eta[endtem];
+        eta[idtem]  = dbl;
+    }
+
+    void DoBackward(const unsigned int n,
+                    const std::vector<std::vector<TData>> &A,
+                    const std::vector<TData> &b, std::vector<TData> &y)
+    {
+        TData sum;
+        y[n - 1] = b[n - 1] / A[n - 1][n - 1];
+        for (unsigned int i = n - 2; i + 1 > 0; --i)
+        {
+            sum = b[i];
+            for (unsigned int j = i + 1; j < n; ++j)
+            {
+                sum -= y[j] * A[j][i];
+            }
+            y[i] = sum / A[i][i];
+        }
+    }
 };
 
 } // namespace Nektar::Operators

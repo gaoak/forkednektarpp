@@ -68,6 +68,15 @@ public:
 
         auto session = expansionList->GetSession();
         session->LoadParameter("LinSysMaxStorage", m_LinSysMaxStorage, 50);
+
+        // LGMRES parameter
+        // Reference:
+        // Baker, Allison H., Elizabeth R. Jessup, and Thomas Manteuffel. "A
+        // technique for accelerating the convergence of restarted GMRES." SIAM
+        // Journal on Matrix Analysis and Applications 26, no. 4 (2005):
+        // 962-984.
+        session->LoadParameter("GMRESDeltaDirection", m_GMRESDeltaDirection, 0);
+
         session->LoadParameter("GMRESMaxHessMatBand", m_KrylovMaxHessMatBand,
                                m_LinSysMaxStorage + 1);
         session->MatchSolverInfo("GMRESCentralDifference", "True",
@@ -80,17 +89,49 @@ public:
                 ? session->GetParameter("ModifiedGramSchmidt")
                 : true;
 
+        ASSERTL0(!(m_flexible && this->m_leftPreconditioner),
+                 "Flexible GMRES only avaible with right preconditioner");
+
+        ASSERTL0(!(m_flexible && m_GMRESDeltaDirection),
+                 "Can't both use Flexible GMRES and GMRESDeltaDirection "
+                 "(LGMRES) at the same time");
+
         // Allocate array storage.
         if (!m_isModifiedGramSchmidt)
         {
             m_vExchange = MemoryRegion<TData>(m_LinSysMaxStorage, ePinned);
         }
-        m_hes   = std::vector<std::vector<TData>>(m_LinSysMaxStorage);
-        m_upper = std::vector<std::vector<TData>>(m_LinSysMaxStorage);
+
+        m_truncted = (m_KrylovMaxHessMatBand > 0);
+        m_hes      = std::vector<std::vector<TData>>(m_LinSysMaxStorage);
+        m_upper    = std::vector<std::vector<TData>>(m_LinSysMaxStorage);
+        m_id       = std::vector<unsigned int>(m_LinSysMaxStorage);
+        m_id_start = std::vector<unsigned int>(m_LinSysMaxStorage);
+        m_id_end   = std::vector<unsigned int>(m_LinSysMaxStorage);
         for (unsigned int nd = 0; nd < m_LinSysMaxStorage; nd++)
         {
-            m_hes[nd]   = std::vector<TData>(m_LinSysMaxStorage + 1, 0.0);
-            m_upper[nd] = std::vector<TData>(m_LinSysMaxStorage + 1, 0.0);
+            m_hes[nd]    = std::vector<TData>(m_LinSysMaxStorage + 1, 0.0);
+            m_upper[nd]  = std::vector<TData>(m_LinSysMaxStorage + 1, 0.0);
+            m_id[nd]     = nd;
+            m_id_end[nd] = nd + 1;
+            if (m_truncted && m_id_end[nd] > m_KrylovMaxHessMatBand)
+            {
+                m_id_start[nd] = m_id_end[nd] - m_KrylovMaxHessMatBand;
+            }
+            else
+            {
+                m_id_start[nd] = 0;
+            }
+        }
+
+        // Set storage of LGMRES.
+        for (unsigned int dir = 0; dir < m_GMRESDeltaDirection; dir++)
+        {
+            m_delta.push_back(Field<TData, FieldState::Coeff>(
+                "GMRESOp delta" + std::to_string(dir),
+                GetBlockAttributes<TData, FieldState::Coeff>(
+                    this->m_expansionList),
+                this->m_components, 1));
         }
     }
 
@@ -112,15 +153,22 @@ protected:
     Field<TData, FieldState::Coeff> m_r0;
     std::vector<Field<TData, FieldState::Coeff>> m_V;
     std::vector<Field<TData, FieldState::Coeff>> m_Z;
+    std::deque<Field<TData, FieldState::Coeff>> m_delta;
     std::vector<std::vector<TData>> m_hes;
     std::vector<std::vector<TData>> m_upper;
+    std::vector<unsigned int> m_id;
+    std::vector<unsigned int> m_id_start;
+    std::vector<unsigned int> m_id_end;
 
     MemoryRegion<TData> m_vExchange;
 
     TData m_rhs_magnitude = NekConstants::kNekUnsetDouble;
+    bool m_verbose        = true;
     bool m_flexible;
+    bool m_truncted;
     bool m_isModifiedGramSchmidt = true;
     bool m_GMRESCentralDifference;
+    unsigned int m_GMRESDeltaDirection;
     unsigned int m_LinSysMaxStorage;
     unsigned int m_KrylovMaxHessMatBand;
 
@@ -137,28 +185,9 @@ protected:
         // Total coefficients
         std::vector<TData> yn(m_LinSysMaxStorage);
         // Search direction order
-        std::vector<unsigned int> id(m_LinSysMaxStorage);
-        std::vector<unsigned int> id_start(m_LinSysMaxStorage);
-        std::vector<unsigned int> id_end(m_LinSysMaxStorage);
-        const bool truncted          = (m_KrylovMaxHessMatBand > 0);
         unsigned int totalIterations = 0, ii = 0, outerIterations = 0;
         bool converged    = false;
         TData prec_factor = 1.0, eps, eps0 = 1.0;
-
-        // Give an order for the entries in Hessenburg matrix.
-        for (unsigned int nd = 0; nd < m_LinSysMaxStorage; ++nd)
-        {
-            id[nd]     = nd;
-            id_end[nd] = nd + 1;
-            if (truncted && id_end[nd] > m_KrylovMaxHessMatBand)
-            {
-                id_start[nd] = id_end[nd] - m_KrylovMaxHessMatBand;
-            }
-            else
-            {
-                id_start[nd] = 0;
-            }
-        }
 
         // Calculate rhs magnitude.
         if (m_rhs_magnitude == NekConstants::kNekUnsetDouble)
@@ -197,6 +226,10 @@ protected:
         {
             if (totalIterations == this->m_maxIter)
             {
+                std::stringstream msg;
+                msg << "Exceeded max iterations: " << totalIterations;
+                WARNINGL0(false, msg.str());
+
                 break;
             }
 
@@ -271,11 +304,23 @@ protected:
                     break;
                 }
 
-                unsigned int znd = m_flexible ? ii : 0;
-                auto &Z1 = this->m_rightPreconditioner ? m_Z[znd] : m_V[ii];
-                auto &V1 = m_V[ii];
-                auto &h1 = m_hes[ii];
-                auto &h2 = m_upper[ii];
+                // For LGMRES use m_delta for the last m_GMRESDeltaDirection
+                // iterations.
+                bool cond =
+                    ii >= (m_LinSysMaxStorage - m_GMRESDeltaDirection) &&
+                    outerIterations >= m_GMRESDeltaDirection;
+                unsigned int index =
+                    ii - (m_LinSysMaxStorage - m_GMRESDeltaDirection);
+                auto &V1 = (cond) ? m_delta[index] : m_V[ii];
+
+                auto &Z1      = (this->m_rightPreconditioner)
+                                    ? m_Z[(m_flexible) ? ii : 0]
+                                    : V1;
+                auto &h1      = m_hes[ii];
+                auto &h2      = m_upper[ii];
+                auto idtem    = m_id[ii];
+                auto starttem = m_id_start[idtem];
+                auto endtem   = m_id_end[idtem];
 
                 // Apply preconditioner.
                 if (this->m_rightPreconditioner)
@@ -283,10 +328,6 @@ protected:
                     this->m_assmbScatrZeroDirOp->Apply(V1, Z1);
                     this->m_precon->Apply(Z1, Z1);
                 }
-
-                auto idtem    = id[ii];
-                auto starttem = id_start[idtem];
-                auto endtem   = id_end[idtem];
 
                 // -- Begin Arnoldi --
                 // Apply lhs.
@@ -362,7 +403,7 @@ protected:
                 }
 
                 std::copy_n(h1.data(), m_LinSysMaxStorage + 1, h2.data());
-                DoGivensRotation(starttem, endtem, cs, sn, h2, eta);
+                this->DoGivensRotation(starttem, endtem, cs, sn, h2, eta);
 
                 eps = eta[ii + 1] * eta[ii + 1];
 
@@ -372,7 +413,7 @@ protected:
                 // This Gmres merge truncted Gmres to accelerate.
                 // If truncted, cannot jump out because
                 // the last term of eta is not residual
-                if ((!truncted) || (ii <= m_KrylovMaxHessMatBand))
+                if ((!m_truncted) || (ii <= m_KrylovMaxHessMatBand))
                 {
                     if (eps < this->m_tol * this->m_tol * m_rhs_magnitude)
                     {
@@ -402,35 +443,47 @@ protected:
             }
 
             // Do backward substitution.
-            DoBackward(ii, m_upper, eta, yn);
+            this->DoBackward(ii, m_upper, eta, yn);
 
-            if (m_flexible)
+            // Calculate solution delta.
+            auto &Z = (m_flexible) ? m_Z : m_V;
+            mul<ExecSpace>(yn[0], Z[0], m_w);
+            for (unsigned int i = 1; i < ii; ++i)
             {
-                // Calculate output yn*m_Z.
-                for (unsigned int i = 0; i < ii; ++i)
+                // For LGMRES use m_delta for the last m_GMRESDeltaDirection
+                // iterations.
+                bool cond = i >= (m_LinSysMaxStorage - m_GMRESDeltaDirection) &&
+                            outerIterations >= m_GMRESDeltaDirection;
+                if (cond)
                 {
-                    daxpy<ExecSpace>(yn[i], m_Z[i], out, out);
+                    unsigned int index =
+                        i - (m_LinSysMaxStorage - m_GMRESDeltaDirection);
+                    daxpy<ExecSpace>(yn[i], m_delta[index], m_w, m_w);
+                }
+                else
+                {
+                    daxpy<ExecSpace>(yn[i], Z[i], m_w, m_w);
                 }
             }
-            else
+
+            // Store last m_GMRESDeltaDirection delta for LGMRES.
+            if (m_GMRESDeltaDirection)
             {
-                // Calculate output yn*m_V.
-                mul<ExecSpace>(yn[0], m_V[0], m_w);
-                for (unsigned int i = 1; i < ii; ++i)
-                {
-                    daxpy<ExecSpace>(yn[i], m_V[i], m_w, m_w);
-                }
-
-                // Apply preconditioner.
-                if (this->m_rightPreconditioner)
-                {
-                    this->m_assmbScatrZeroDirOp->Apply(m_w);
-                    this->m_precon->Apply(m_w, m_w);
-                }
-
-                // Update output.
-                add<ExecSpace>(m_w, out, out);
+                auto last = std::move(m_delta.back());
+                last.template Copy<MemSpace>(m_w);
+                m_delta.pop_back();
+                m_delta.push_front(std::move(last));
             }
+
+            // Apply preconditioner.
+            if (!m_flexible && this->m_rightPreconditioner)
+            {
+                this->m_assmbScatrZeroDirOp->Apply(m_w);
+                this->m_precon->Apply(m_w, m_w);
+            }
+
+            // Update solution.
+            add<ExecSpace>(m_w, out, out);
 
             ii = 0;
             outerIterations++;
@@ -442,17 +495,17 @@ protected:
         }
 
         // Print output.
-        // if (m_verbose)
+        if (m_verbose)
         {
-            TData eps1;
+            TData eps_real;
 
             // Calculate difference in residual of solution.
             this->m_lhs->Apply(out, m_r0);
             this->m_robBndCondOp->Apply(out, m_r0);
             sub<ExecSpace>(in, m_r0, m_r0);
             this->m_assmbScatrZeroDirOp->Apply(m_r0, m_w);
-            eps1 = this->m_math.ddot(m_w, m_r0);
-            this->m_rowComm->AllReduce(eps1, LibUtilities::ReduceSum);
+            eps_real = this->m_math.ddot(m_w, m_r0);
+            this->m_rowComm->AllReduce(eps_real, LibUtilities::ReduceSum);
 
             if (this->m_root)
             {
@@ -468,7 +521,7 @@ protected:
                           << ")";
 
                 std::cout << " WITH (GMRES eps = " << eps
-                          << " REAL eps= " << eps1 << ")";
+                          << " REAL eps= " << eps_real << ")";
 
                 if (converged)
                 {
@@ -482,73 +535,6 @@ protected:
         }
 
         WARNINGL1(converged, "GMRES did not converge.");
-    }
-
-    // QR factorization through Givens rotation -> Put into a helper class
-    void DoGivensRotation(const unsigned int starttem,
-                          const unsigned int endtem, std::vector<TData> &c,
-                          std::vector<TData> &s, std::vector<TData> &h,
-                          std::vector<TData> &eta)
-    {
-        TData dbl;
-        TData dd;
-        TData hh;
-        unsigned int idtem = endtem - 1;
-
-        // The starttem and endtem are beginning and ending order of Givens
-        // rotation They usually equal to the beginning position and ending
-        // position of Hessenburg matrix But sometimes starttem will change,
-        // like if it is initial 0 and becomes nonzero because previous Givens
-        // rotation See Yu Pan's User Guide
-        for (unsigned int i = starttem; i < idtem; ++i)
-        {
-            dbl      = c[i] * h[i] - s[i] * h[i + 1];
-            h[i + 1] = s[i] * h[i] + c[i] * h[i + 1];
-            h[i]     = dbl;
-        }
-        dd = h[idtem];
-        hh = h[endtem];
-        if (hh == 0.0)
-        {
-            c[idtem] = 1.0;
-            s[idtem] = 0.0;
-        }
-        else if (std::abs(hh) > std::abs(dd))
-        {
-            dbl      = -dd / hh;
-            s[idtem] = 1.0 / std::sqrt(1.0 + dbl * dbl);
-            c[idtem] = dbl * s[idtem];
-        }
-        else
-        {
-            dbl      = -hh / dd;
-            c[idtem] = 1.0 / std::sqrt(1.0 + dbl * dbl);
-            s[idtem] = dbl * c[idtem];
-        }
-
-        h[idtem]  = c[idtem] * h[idtem] - s[idtem] * h[endtem];
-        h[endtem] = 0.0;
-
-        dbl         = c[idtem] * eta[idtem] - s[idtem] * eta[endtem];
-        eta[endtem] = s[idtem] * eta[idtem] + c[idtem] * eta[endtem];
-        eta[idtem]  = dbl;
-    }
-
-    void DoBackward(const unsigned int n,
-                    const std::vector<std::vector<TData>> &A,
-                    const std::vector<TData> &b, std::vector<TData> &y)
-    {
-        TData sum;
-        y[n - 1] = b[n - 1] / A[n - 1][n - 1];
-        for (unsigned int i = n - 2; i + 1 > 0; --i)
-        {
-            sum = b[i];
-            for (unsigned int j = i + 1; j < n; ++j)
-            {
-                sum -= y[j] * A[j][i];
-            }
-            y[i] = sum / A[i][i];
-        }
     }
 };
 

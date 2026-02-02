@@ -188,8 +188,14 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
-        int LinSysRightPrecon = 1;                                             \
+        int LinSysRightPrecon   = 1;                                           \
+        int GMRESDeltaDirection = 3;                                           \
+        int ModifiedGramSchmidt = 0;                                           \
         this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
+        this->session->SetParameter("GMRESDeltaDirection",                     \
+                                    GMRESDeltaDirection);                      \
+        this->session->SetParameter("ModifiedGramSchmidt",                     \
+                                    ModifiedGramSchmidt);                      \
         SetTestCase();                                                         \
         RunTestCase("GMRES");                                                  \
         boost::test_tools::output_test_stream output;                          \
@@ -204,10 +210,16 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
-        int LinSysRightPrecon = 1;                                             \
-        int FlexibleGMRES     = 0;                                             \
+        int LinSysRightPrecon   = 1;                                           \
+        int GMRESDeltaDirection = 0;                                           \
+        int FlexibleGMRES       = 1;                                           \
+        int ModifiedGramSchmidt = 0;                                           \
         this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
+        this->session->SetParameter("GMRESDeltaDirection",                     \
+                                    GMRESDeltaDirection);                      \
         this->session->SetParameter("FlexibleGMRES", FlexibleGMRES);           \
+        this->session->SetParameter("ModifiedGramSchmidt",                     \
+                                    ModifiedGramSchmidt);                      \
         SetTestCase();                                                         \
         RunTestCase("GMRES");                                                  \
         boost::test_tools::output_test_stream output;                          \
@@ -223,8 +235,11 @@
                   << std::endl;                                                \
         Configure();                                                           \
         int LinSysRightPrecon   = 1;                                           \
-        int ModifiedGramSchmidt = 0;                                           \
+        int GMRESDeltaDirection = 3;                                           \
+        int ModifiedGramSchmidt = 1;                                           \
         this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
+        this->session->SetParameter("GMRESDeltaDirection",                     \
+                                    GMRESDeltaDirection);                      \
         this->session->SetParameter("ModifiedGramSchmidt",                     \
                                     ModifiedGramSchmidt);                      \
         SetTestCase();                                                         \
@@ -242,9 +257,12 @@
                   << std::endl;                                                \
         Configure();                                                           \
         int LinSysRightPrecon   = 1;                                           \
-        int FlexibleGMRES       = 0;                                           \
-        int ModifiedGramSchmidt = 0;                                           \
+        int GMRESDeltaDirection = 0;                                           \
+        int FlexibleGMRES       = 1;                                           \
+        int ModifiedGramSchmidt = 1;                                           \
         this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
+        this->session->SetParameter("GMRESDeltaDirection",                     \
+                                    GMRESDeltaDirection);                      \
         this->session->SetParameter("FlexibleGMRES", FlexibleGMRES);           \
         this->session->SetParameter("ModifiedGramSchmidt",                     \
                                     ModifiedGramSchmidt);                      \
