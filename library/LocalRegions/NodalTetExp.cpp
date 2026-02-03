@@ -74,25 +74,6 @@ void NodalTetExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
     StdTetExp::v_BwdTrans(tmp, outarray);
 }
 
-void NodalTetExp::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,
-                             Array<OneD, NekDouble> &outarray)
-{
-    v_IProductWRTBase(inarray, outarray);
-
-    // get Mass matrix inverse
-    MatrixKey masskey(StdRegions::eInvMass, DetShapeType(), *this,
-                      StdRegions::NullConstFactorMap,
-                      StdRegions::NullVarCoeffMap,
-                      m_nodalPointsKey.GetPointsType());
-    DNekScalMatSharedPtr matsys = m_matrixManager[masskey];
-
-    // copy inarray in case inarray == outarray
-    NekVector<NekDouble> in(m_ncoeffs, outarray, eCopy);
-    NekVector<NekDouble> out(m_ncoeffs, outarray, eWrapper);
-
-    out = (*matsys) * in;
-}
-
 void NodalTetExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
                                     Array<OneD, NekDouble> &outarray)
 {

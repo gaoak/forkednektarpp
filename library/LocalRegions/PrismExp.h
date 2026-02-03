@@ -60,18 +60,9 @@ public:
     LOCAL_REGIONS_EXPORT ~PrismExp() override = default;
 
 protected:
-    //-------------------------------
-    // Integration Methods
-    //-------------------------------
-    LOCAL_REGIONS_EXPORT NekDouble
-    v_Integral(const Array<OneD, const NekDouble> &inarray) override;
-
     //---------------------------------------
     // Inner product functions
     //---------------------------------------
-    LOCAL_REGIONS_EXPORT void v_IProductWRTBase(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray) override;
     LOCAL_REGIONS_EXPORT void v_IProductWRTDerivBase(
         const int dir, const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;

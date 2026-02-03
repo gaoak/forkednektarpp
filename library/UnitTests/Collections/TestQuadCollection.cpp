@@ -100,17 +100,13 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_StdMat_UniformP)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eBwdTrans);
 
@@ -165,17 +161,13 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_StdMat_VariableP)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eBwdTrans);
 
@@ -230,11 +222,7 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_StdMat_VariableP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     int nelmts = 10;
     for (int i = 0; i < nelmts; ++i)
     {
@@ -244,7 +232,7 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_StdMat_VariableP_MultiElmt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eBwdTrans);
 
@@ -300,17 +288,13 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_IterPerExp_UniformP)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eIterPerExp);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eBwdTrans);
 
@@ -365,17 +349,13 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_IterPerExp_VariableP)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eBwdTrans);
 
@@ -428,17 +408,13 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_MatrixFree_UniformP)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     impTypes[Collections::eBwdTrans]     = Collections::eMatrixFree;
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eBwdTrans);
@@ -491,11 +467,7 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_SumFac_UniformP)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     int nelmts = 1;
     for (int i = 0; i < nelmts; ++i)
@@ -506,7 +478,7 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_SumFac_UniformP)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eBwdTrans);
 
@@ -562,11 +534,7 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_SumFac_UniformP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     int nelmts = 10;
     for (int i = 0; i < nelmts; ++i)
@@ -577,7 +545,7 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_SumFac_UniformP_MultiElmt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eBwdTrans);
 
@@ -636,13 +604,9 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_SumFac_VariableP)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2);
-
     int nelmts = 1;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -651,7 +615,7 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_SumFac_VariableP)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eBwdTrans);
 
@@ -710,13 +674,9 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_SumFac_VariableP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -725,7 +685,7 @@ BOOST_AUTO_TEST_CASE(TestQuadBwdTrans_SumFac_VariableP_MultiElmt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eBwdTrans);
 
@@ -781,17 +741,13 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_StdMat_UniformP)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -855,17 +811,13 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_StdMat_VariableP)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -929,13 +881,9 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_StdMat_VariableP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -944,7 +892,7 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_StdMat_VariableP_MultiElmt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -1010,17 +958,13 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_IterPerExp_UniformP)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -1080,17 +1024,13 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_SumFac_UniformP)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -1153,17 +1093,13 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_SumFac_VariableP)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -1224,17 +1160,13 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_MatrixFree_UniformP_Undeformed)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -1295,17 +1227,13 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTBase_MatrixFree_UniformP_Deformed)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -1367,17 +1295,13 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -1437,17 +1361,13 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_IterPerExp_UniformP)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::ePhysDeriv);
 
@@ -1507,12 +1427,9 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_IterPerExp_VariableP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2);
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1521,7 +1438,7 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_IterPerExp_VariableP_MultiElmt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::ePhysDeriv);
 
@@ -1588,17 +1505,13 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_MatrixFree_UniformP_Undeformed)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::ePhysDeriv);
 
@@ -1658,17 +1571,13 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_MatrixFree_UniformP_Deformed)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::ePhysDeriv);
 
@@ -1728,7 +1637,7 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_MatrixFree_UniformP_Deformed_3D)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -1797,17 +1706,13 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::ePhysDeriv);
 
@@ -1869,17 +1774,13 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_StdMat_UniformP)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::ePhysDeriv);
 
@@ -1939,13 +1840,9 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_StdMat_VariableP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1954,7 +1851,7 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_StdMat_VariableP_MultiElmt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::ePhysDeriv);
 
@@ -2020,17 +1917,13 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_SumFac_UniformP)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::ePhysDeriv);
 
@@ -2090,13 +1983,9 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_SumFac_VariableP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2105,7 +1994,7 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysDeriv_SumFac_VariableP_MultiElmt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::ePhysDeriv);
 
@@ -2171,17 +2060,13 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_IterPerExp_UniformP)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTDerivBase);
 
@@ -2252,13 +2137,9 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2267,7 +2148,7 @@ BOOST_AUTO_TEST_CASE(
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTDerivBase);
 
@@ -2344,17 +2225,13 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection cref(CollExp, impTypes);
     cref.Initialise(Collections::eIProductWRTDerivBase);
     Collections::Collection c(CollExp, impTypes);
@@ -2426,17 +2303,13 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_MatrixFree_UniformP_Deformed)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection cref(CollExp, impTypes);
     cref.Initialise(Collections::eIProductWRTDerivBase);
     Collections::Collection c(CollExp, impTypes);
@@ -2509,12 +2382,9 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2523,7 +2393,7 @@ BOOST_AUTO_TEST_CASE(
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTDerivBase);
 
@@ -2609,17 +2479,13 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection cref(CollExp, impTypes);
     cref.Initialise(Collections::eIProductWRTDerivBase);
     Collections::Collection c(CollExp, impTypes);
@@ -2690,17 +2556,13 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_StdMat_UniformP)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTDerivBase);
 
@@ -2770,13 +2632,9 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_StdMat_VariableP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2785,7 +2643,7 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_StdMat_VariableP_MultiElmt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTDerivBase);
 
@@ -2860,17 +2718,13 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_SumFac_UniformP)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTDerivBase);
 
@@ -2940,13 +2794,9 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_SumFac_VariableP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2955,7 +2805,7 @@ BOOST_AUTO_TEST_CASE(TestQuadIProductWRTDerivBase_SumFac_VariableP_MultiElmt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTDerivBase);
 
@@ -3034,13 +2884,9 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3049,7 +2895,7 @@ BOOST_AUTO_TEST_CASE(
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTDerivBase);
 
@@ -3133,13 +2979,9 @@ BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_IterPerExp_UniformP_ConstVarDiff)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3148,7 +2990,7 @@ BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_IterPerExp_UniformP_ConstVarDiff)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eIterPerExp);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda]   = 1.5;
@@ -3219,13 +3061,9 @@ BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_MatrixFree_UniformP)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3234,7 +3072,7 @@ BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_MatrixFree_UniformP)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;
@@ -3302,13 +3140,9 @@ BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_MatrixFree_UniformP_Deformed)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3317,7 +3151,7 @@ BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_MatrixFree_UniformP_Deformed)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;
@@ -3385,13 +3219,9 @@ BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_MatrixFree_UniformP_ConstVarDiff)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3400,7 +3230,7 @@ BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_MatrixFree_UniformP_ConstVarDiff)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda]   = 1.5;
@@ -3470,11 +3300,7 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysInterp1D_NoCollection_UniformP)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -3549,11 +3375,7 @@ BOOST_AUTO_TEST_CASE(TestQuadPhysInterp1D_MatrixFree_UniformP)
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -3630,13 +3452,9 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3645,7 +3463,7 @@ BOOST_AUTO_TEST_CASE(
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eIterPerExp);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;
@@ -3728,13 +3546,9 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3743,7 +3557,7 @@ BOOST_AUTO_TEST_CASE(
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;
@@ -3826,13 +3640,9 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, quadGeom.get());
 
-    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3841,7 +3651,7 @@ BOOST_AUTO_TEST_CASE(
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;

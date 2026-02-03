@@ -88,34 +88,6 @@ bool StdSegExp::v_IsBoundaryInteriorExpansion() const
 }
 
 //---------------------------------------------------------------------
-// Integration Methods
-//---------------------------------------------------------------------
-
-/** \brief Integrate the physical point list \a inarray over region
- *  and return the value
- *
- *  \param inarray definition of function to be integrated evauluated at
- *  quadrature point of expansion.
- *  \return returns \f$\int^1_{-1} u(\xi_1)d \xi_1 \f$ where \f$inarray[i]
- *  = u(\xi_{1i}) \f$
- */
-NekDouble StdSegExp::v_Integral(const Array<OneD, const NekDouble> &inarray)
-{
-    NekDouble Int = 0.0;
-    int nquad0    = m_base[0]->GetNumPoints();
-    Array<OneD, NekDouble> tmp(nquad0);
-    Array<OneD, const NekDouble> z  = m_base[0]->GetZ();
-    Array<OneD, const NekDouble> w0 = m_base[0]->GetW();
-
-    // multiply by integration constants
-    Vmath::Vmul(nquad0, inarray, 1, w0, 1, tmp, 1);
-
-    Int = Vmath::Vsum(nquad0, tmp, 1);
-
-    return Int;
-}
-
-//---------------------------------------------------------------------
 // Differentiation Methods
 //---------------------------------------------------------------------
 /** \brief Evaluate the derivative \f$ d/d{\xi_1} \f$ at the physical

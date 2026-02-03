@@ -166,7 +166,7 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_IterPerExp_UniformP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -254,7 +254,7 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_StdMat_UniformP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -343,7 +343,7 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_SumFac_UniformP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -434,7 +434,7 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_IterPerExp_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -529,7 +529,7 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_MatrixFree_UniformP_MultiElmt)
 
     unsigned int nelmts = 2;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (unsigned int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -627,7 +627,7 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_MatrixFree_UniformP_OverInt_MultiElmt)
 
     unsigned int nelmts = 2;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (unsigned int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -719,7 +719,7 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_StdMat_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -807,7 +807,7 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_SumFac_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -898,7 +898,7 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTBase_IterPerExp_UniformP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -998,7 +998,7 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTBase_StdMat_UniformP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1098,7 +1098,7 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTBase_SumFac_UniformP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1205,7 +1205,7 @@ BOOST_AUTO_TEST_CASE(
 
     unsigned int nelmts = 2;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (unsigned int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1315,7 +1315,7 @@ BOOST_AUTO_TEST_CASE(
 
     unsigned int nelmts = 2;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (unsigned int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1425,7 +1425,7 @@ BOOST_AUTO_TEST_CASE(
 
     unsigned int nelmts = 2;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (unsigned int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1528,7 +1528,7 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTBase_IterPerExp_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1628,7 +1628,7 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTBase_StdMat_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1728,7 +1728,7 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTBase_SumFac_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1828,7 +1828,7 @@ BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_IterPerExp_UniformP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1927,7 +1927,7 @@ BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_StdMat_UniformP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2029,7 +2029,7 @@ BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_SumFac_UniformP_MultiElmt)
 
     int nelmts = 2;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2130,7 +2130,7 @@ BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_IterPerExp_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2232,7 +2232,7 @@ BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_SumFac_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2338,7 +2338,7 @@ BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_MatrixFree_UniformP_MultiElmt)
 
     int nelmts = 2;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2443,7 +2443,7 @@ BOOST_AUTO_TEST_CASE(
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2558,7 +2558,7 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTDerivBase_StdMat_UniformP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2673,7 +2673,7 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTDerivBase_SumFac_UniformP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2789,7 +2789,7 @@ BOOST_AUTO_TEST_CASE(
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2904,7 +2904,7 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTDerivBase_StdMat_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3019,7 +3019,7 @@ BOOST_AUTO_TEST_CASE(TestPrismIProductWRTDerivBase_SumFac_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3141,7 +3141,7 @@ BOOST_AUTO_TEST_CASE(
 
     unsigned int nelmts = 1;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (unsigned int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3266,7 +3266,7 @@ BOOST_AUTO_TEST_CASE(
 
     unsigned int nelmts = 1;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (unsigned int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3391,7 +3391,7 @@ BOOST_AUTO_TEST_CASE(
 
     unsigned int nelmts = 1;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (unsigned int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3513,13 +3513,9 @@ BOOST_AUTO_TEST_CASE(TestPrismHelmholtz_IterPerExp_UniformP_ConstVarDiff)
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
-    Nektar::StdRegions::StdPrismExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdPrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3528,7 +3524,7 @@ BOOST_AUTO_TEST_CASE(TestPrismHelmholtz_IterPerExp_UniformP_ConstVarDiff)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eIterPerExp);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda]   = 1.5;
@@ -3628,13 +3624,9 @@ BOOST_AUTO_TEST_CASE(TestPrismHelmholtz_MatrixFree_UniformP)
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
-    Nektar::StdRegions::StdPrismExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdPrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3643,7 +3635,7 @@ BOOST_AUTO_TEST_CASE(TestPrismHelmholtz_MatrixFree_UniformP)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;
@@ -3737,13 +3729,9 @@ BOOST_AUTO_TEST_CASE(TestPrismHelmholtz_MatrixFree_Deformed_OverInt)
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
-    Nektar::StdRegions::StdPrismExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdPrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3752,7 +3740,7 @@ BOOST_AUTO_TEST_CASE(TestPrismHelmholtz_MatrixFree_Deformed_OverInt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;
@@ -3846,13 +3834,9 @@ BOOST_AUTO_TEST_CASE(TestPrismHelmholtz_MatrixFree_UniformP_ConstVarDiff)
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
-    Nektar::StdRegions::StdPrismExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdPrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3861,7 +3845,7 @@ BOOST_AUTO_TEST_CASE(TestPrismHelmholtz_MatrixFree_UniformP_ConstVarDiff)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda]   = 1.5;
@@ -3961,11 +3945,7 @@ BOOST_AUTO_TEST_CASE(TestPrismPhsyInterp1DScaled_NoCollection_UniformP)
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
-    Nektar::StdRegions::StdPrismExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdPrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -4067,11 +4047,7 @@ BOOST_AUTO_TEST_CASE(TestPrismPhsyInterp1DScaled_MatrixFree_UniformP)
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
-    Nektar::StdRegions::StdPrismExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdPrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -4174,13 +4150,9 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
-    Nektar::StdRegions::StdPrismExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdPrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -4189,7 +4161,7 @@ BOOST_AUTO_TEST_CASE(
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eIterPerExp);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;
@@ -4299,13 +4271,9 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
-    Nektar::StdRegions::StdPrismExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdPrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -4314,7 +4282,7 @@ BOOST_AUTO_TEST_CASE(
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;
@@ -4424,13 +4392,9 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::PrismExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, prismGeom.get());
 
-    Nektar::StdRegions::StdPrismExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdPrismExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -4439,7 +4403,7 @@ BOOST_AUTO_TEST_CASE(
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = -1.5;

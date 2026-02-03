@@ -200,7 +200,7 @@ protected:
     int m_coordim;
 
 private:
-    PhysDeriv_StdMat(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    PhysDeriv_StdMat(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                      CoalescedGeomDataSharedPtr pGeomData,
                      StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), PhysDeriv_Helper()
@@ -322,21 +322,20 @@ private:
     int m_coordim;
     Array<OneD, Array<OneD, NekDouble>> m_output;
 
-    PhysDeriv_MatrixFree(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    PhysDeriv_MatrixFree(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                          CoalescedGeomDataSharedPtr pGeomData,
                          StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), PhysDeriv_Helper(),
-          MatrixFreeBase(pCollExp[0]->GetStdExp()->GetTotPoints(),
-                         pCollExp[0]->GetStdExp()->GetTotPoints(),
-                         pCollExp.size())
+          MatrixFreeBase(pCollExp[0]->GetTotPoints(),
+                         pCollExp[0]->GetTotPoints(), pCollExp.size())
     {
         // Check if deformed
         bool deformed{pGeomData->IsDeformed(pCollExp)};
-        const auto dim = pCollExp[0]->GetStdExp()->GetShapeDimension();
+        const auto dim = pCollExp[0]->GetShapeDimension();
 
         // only used operator(dir, in, out)
         m_coordim   = pCollExp[0]->GetCoordim();
-        int nOut    = pCollExp[0]->GetStdExp()->GetTotPoints();
+        int nOut    = pCollExp[0]->GetTotPoints();
         m_output    = Array<OneD, Array<OneD, NekDouble>>(m_coordim);
         m_output[0] = Array<OneD, NekDouble>{nOut * m_nElmtPad, 0.0};
         if (m_coordim == 2)
@@ -357,7 +356,7 @@ private:
         }
 
         // Get shape type
-        auto shapeType = pCollExp[0]->GetStdExp()->DetShapeType();
+        auto shapeType = pCollExp[0]->DetShapeType();
 
         // Generate operator string and create operator.
         std::string op_string = "PhysDeriv";
@@ -528,7 +527,7 @@ protected:
     int m_coordim;
 
 private:
-    PhysDeriv_IterPerExp(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    PhysDeriv_IterPerExp(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                          CoalescedGeomDataSharedPtr pGeomData,
                          StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), PhysDeriv_Helper()
@@ -648,10 +647,10 @@ public:
     }
 
 protected:
-    vector<StdRegions::StdExpansionSharedPtr> m_expList;
+    vector<LocalRegions::ExpansionSharedPtr> m_expList;
 
 private:
-    PhysDeriv_NoCollection(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    PhysDeriv_NoCollection(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                            CoalescedGeomDataSharedPtr pGeomData,
                            StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), PhysDeriv_Helper()
@@ -802,7 +801,7 @@ protected:
     NekDouble *m_Deriv0;
 
 private:
-    PhysDeriv_SumFac_Seg(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    PhysDeriv_SumFac_Seg(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                          CoalescedGeomDataSharedPtr pGeomData,
                          StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), PhysDeriv_Helper(),
@@ -963,7 +962,7 @@ protected:
     NekDouble *m_Deriv1;
 
 private:
-    PhysDeriv_SumFac_Quad(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    PhysDeriv_SumFac_Quad(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                           CoalescedGeomDataSharedPtr pGeomData,
                           StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), PhysDeriv_Helper(),
@@ -1146,7 +1145,7 @@ protected:
     Array<OneD, NekDouble> m_fac1;
 
 private:
-    PhysDeriv_SumFac_Tri(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    PhysDeriv_SumFac_Tri(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                          CoalescedGeomDataSharedPtr pGeomData,
                          StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), PhysDeriv_Helper(),
@@ -1356,7 +1355,7 @@ protected:
     NekDouble *m_Deriv2;
 
 private:
-    PhysDeriv_SumFac_Hex(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    PhysDeriv_SumFac_Hex(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                          CoalescedGeomDataSharedPtr pGeomData,
                          StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), PhysDeriv_Helper(),
@@ -1604,7 +1603,7 @@ protected:
     Array<OneD, NekDouble> m_fac3;
 
 private:
-    PhysDeriv_SumFac_Tet(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    PhysDeriv_SumFac_Tet(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                          CoalescedGeomDataSharedPtr pGeomData,
                          StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), PhysDeriv_Helper(),
@@ -1848,7 +1847,7 @@ protected:
     Array<OneD, NekDouble> m_fac1;
 
 private:
-    PhysDeriv_SumFac_Prism(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    PhysDeriv_SumFac_Prism(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                            CoalescedGeomDataSharedPtr pGeomData,
                            StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), PhysDeriv_Helper(),
@@ -2099,7 +2098,7 @@ protected:
     Array<OneD, NekDouble> m_fac2;
 
 private:
-    PhysDeriv_SumFac_Pyr(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    PhysDeriv_SumFac_Pyr(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                          CoalescedGeomDataSharedPtr pGeomData,
                          StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), PhysDeriv_Helper(),

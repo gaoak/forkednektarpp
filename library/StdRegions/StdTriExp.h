@@ -50,12 +50,6 @@ public:
     STD_REGIONS_EXPORT ~StdTriExp() override         = default;
 
 protected:
-    //-------------------------------
-    // Integration Methods
-    //-------------------------------
-    STD_REGIONS_EXPORT NekDouble
-    v_Integral(const Array<OneD, const NekDouble> &inarray) override;
-
     //----------------------------
     // Differentiation Methods
     //----------------------------

@@ -84,47 +84,6 @@ TetExp::TetExp(const TetExp &T)
 }
 
 //-----------------------------
-// Integration Methods
-//-----------------------------
-/**
- * \brief Integrate the physical point list \a inarray over region
- *
- * @param   inarray     Definition of function to be returned at
- *                      quadrature point of expansion.
- * @returns \f$\int^1_{-1}\int^1_{-1} \int^1_{-1}
- *   u(\eta_1, \eta_2, \eta_3) J[i,j,k] d \eta_1 d \eta_2 d \eta_3 \f$
- * where \f$inarray[i,j,k] = u(\eta_{1i},\eta_{2j},\eta_{3k})
- * \f$ and \f$ J[i,j,k] \f$ is the Jacobian evaluated at the quadrature
- * point.
- */
-NekDouble TetExp::v_Integral(const Array<OneD, const NekDouble> &inarray)
-{
-    int nquad0                       = m_base[0]->GetNumPoints();
-    int nquad1                       = m_base[1]->GetNumPoints();
-    int nquad2                       = m_base[2]->GetNumPoints();
-    Array<OneD, const NekDouble> jac = m_geomFactors->GetJac();
-    NekDouble retrunVal;
-    Array<OneD, NekDouble> tmp(nquad0 * nquad1 * nquad2);
-
-    // multiply inarray with Jacobian
-    if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed)
-    {
-        Vmath::Vmul(nquad0 * nquad1 * nquad2, &jac[0], 1,
-                    (NekDouble *)&inarray[0], 1, &tmp[0], 1);
-    }
-    else
-    {
-        Vmath::Smul(nquad0 * nquad1 * nquad2, (NekDouble)jac[0],
-                    (NekDouble *)&inarray[0], 1, &tmp[0], 1);
-    }
-
-    // call StdTetExp version;
-    retrunVal = StdTetExp::v_Integral(tmp);
-
-    return retrunVal;
-}
-
-//-----------------------------
 // Inner product functions
 //-----------------------------
 /**
@@ -166,7 +125,6 @@ void TetExp::v_IProductWRTDerivBase(const int dir,
     const int nquad2 = m_base[2]->GetNumPoints();
     const int nqtot  = nquad0 * nquad1 * nquad2;
 
-    Array<OneD, NekDouble> tmp1(nqtot);
     Array<OneD, NekDouble> tmp2(nqtot);
     Array<OneD, NekDouble> tmp3(nqtot);
     Array<OneD, NekDouble> tmp4(nqtot);
@@ -180,7 +138,7 @@ void TetExp::v_IProductWRTDerivBase(const int dir,
     const Array<OneD, const NekDouble> &jac = m_geomFactors->GetJac();
     bool Deformed = (m_geomFactors->GetGtype() == SpatialDomains::eDeformed);
 
-    TetExp::v_AlignVectorToCollapsedDir(dir, inarray, tmp2D);
+    v_AlignVectorToCollapsedDir(dir, inarray, tmp2D);
 
     v_IProductWRTBaseKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
                             m_base[2]->GetBdata(), tmp2, outarray, jac,

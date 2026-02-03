@@ -41,8 +41,8 @@
 #include <Collections/CollectionsDeclspec.h>
 #include <Collections/Operator.h>
 #include <LibUtilities/BasicUtils/HashUtils.hpp>
+#include <LocalRegions/Expansion.h>
 #include <SpatialDomains/Geometry.h>
-#include <StdRegions/StdExpansion.h>
 
 namespace Nektar::Collections
 {
@@ -54,7 +54,7 @@ class Collection
 {
 public:
     COLLECTIONS_EXPORT Collection(
-        std::vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+        std::vector<LocalRegions::ExpansionSharedPtr> pCollExp,
         OperatorImpMap &impTypes);
 
     /// Update the factor map in operator @param opType by input @param factors
@@ -99,7 +99,7 @@ public:
     {
         return m_geomData;
     }
-    inline std::vector<StdRegions::StdExpansionSharedPtr> &GetExpVector()
+    inline std::vector<LocalRegions::ExpansionSharedPtr> &GetExpVector()
     {
         return m_collExp;
     }
@@ -125,7 +125,7 @@ protected:
     CoalescedGeomDataSharedPtr m_geomData;
     // store details for initialisation on call rather than default
     // initialisation
-    std::vector<StdRegions::StdExpansionSharedPtr> m_collExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> m_collExp;
     OperatorImpMap m_impTypes;
 };
 

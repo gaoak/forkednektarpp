@@ -167,7 +167,7 @@ BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_IterPerExp_UniformP_MultiElmt)
 
     int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -258,7 +258,7 @@ BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_StdMat_UniformP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -345,7 +345,7 @@ BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_SumFac_UniformP_MultiElmt)
 
     int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -437,7 +437,7 @@ BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_IterPerExp_VariableP_MultiElmt)
             basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -524,7 +524,7 @@ BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_StdMat_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -611,7 +611,7 @@ BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_SumFac_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -698,7 +698,7 @@ BOOST_AUTO_TEST_CASE(TestPyrPhysDeriv_IterPerExp_UniformP_MultiElmt)
             basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
     int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -799,7 +799,7 @@ BOOST_AUTO_TEST_CASE(TestPyrPhysDeriv_StdMat_UniformP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -898,7 +898,7 @@ BOOST_AUTO_TEST_CASE(TestPyrPhysDeriv_SumFac_UniformP_MultiElmt)
             basisKeyDir1, basisKeyDir2, basisKeyDir3, pyrGeom.get());
     int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1003,7 +1003,7 @@ BOOST_AUTO_TEST_CASE(TestPyrPhysDeriv_IterPerExp_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1103,7 +1103,7 @@ BOOST_AUTO_TEST_CASE(TestPyrPhysDeriv_SumFac_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1210,7 +1210,7 @@ BOOST_AUTO_TEST_CASE(TestPyrPhysDeriv_MatrixFree_UniformP_MultiElmt)
 
     int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1316,7 +1316,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_IterPerExp_UniformP_MultiElmt)
 
     int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1418,7 +1418,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_StdMat_UniformP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1516,7 +1516,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_SumFac_UniformP_MultiElmt)
 
     int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1619,7 +1619,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_IterPerExp_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1717,7 +1717,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_StdMat_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1815,7 +1815,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_SumFac_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1920,7 +1920,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_MatrixFree_UniformP_MultiElmt)
 
     int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2029,7 +2029,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTBase_MatrixFree_Deformed_MultiElmt)
 
     int nelmts = 5;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2129,7 +2129,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_IterPerExp_UniformP_MultiElmt)
 
     int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2246,7 +2246,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_StdMat_UniformP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2359,7 +2359,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_SumFac_UniformP_MultiElmt)
 
     int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2476,7 +2476,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_IterPerExp_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2595,7 +2595,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_MatrixFree_Deformed_MultiElmt)
 
     int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2717,7 +2717,7 @@ BOOST_AUTO_TEST_CASE(
 
     int nelmts = 5;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2835,7 +2835,7 @@ BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_MatrixFree_UniformP_MultiElmt)
 
     unsigned int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (unsigned int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2935,7 +2935,7 @@ BOOST_AUTO_TEST_CASE(TestPyrBwdTrans_MatrixFree_UniformP_OverInt_MultiElmt)
 
     unsigned int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (unsigned int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3025,7 +3025,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_StdMat_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3138,7 +3138,7 @@ BOOST_AUTO_TEST_CASE(TestPyrIProductWRTDerivBase_SumFac_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3257,7 +3257,7 @@ BOOST_AUTO_TEST_CASE(TestPyrHelmholtz_IterPerExp_UniformP_ConstVarDiff)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3366,7 +3366,7 @@ BOOST_AUTO_TEST_CASE(TestPyrHelmholtz_MatrixFree_UniformP)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3469,7 +3469,7 @@ BOOST_AUTO_TEST_CASE(TestPyrHelmholtz_MatrixFree_Deformed_overInt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3572,7 +3572,7 @@ BOOST_AUTO_TEST_CASE(TestPyrHelmholtz_MatrixFree_UniformP_ConstVarDiff)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3675,7 +3675,7 @@ BOOST_AUTO_TEST_CASE(TestPyrPhysInterp1DScaled_NoCollection_UniformP_MultiElmt)
 
     int nelmts = 1;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3773,7 +3773,7 @@ BOOST_AUTO_TEST_CASE(TestPyrPhysInterp1DScaled_MatrixFree_UniformP_MultiElmt)
 
     int nelmts = 1;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3878,7 +3878,7 @@ BOOST_AUTO_TEST_CASE(
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3997,7 +3997,7 @@ BOOST_AUTO_TEST_CASE(
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -4116,7 +4116,7 @@ BOOST_AUTO_TEST_CASE(
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);

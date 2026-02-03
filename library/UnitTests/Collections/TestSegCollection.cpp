@@ -76,7 +76,7 @@ BOOST_AUTO_TEST_CASE(TestSegBwdTrans_StdMat_UniformP)
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
             basisKeyDir1, segGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -128,7 +128,7 @@ BOOST_AUTO_TEST_CASE(TestSegBwdTrans_StdMat_UniformP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
             basisKeyDir1, segGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     int nelmts = 10;
     for (int i = 0; i < nelmts; ++i)
@@ -189,7 +189,7 @@ BOOST_AUTO_TEST_CASE(TestSegBwdTrans_IterPerExp_UniformP)
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
             basisKeyDir1, segGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -241,7 +241,7 @@ BOOST_AUTO_TEST_CASE(TestSegBwdTrans_SumFac_UniformP)
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
             basisKeyDir1, segGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     int nelmts = 1;
     for (int i = 0; i < nelmts; ++i)
@@ -302,7 +302,7 @@ BOOST_AUTO_TEST_CASE(TestSegBwdTrans_SumFac_UniformP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
             basisKeyDir1, segGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     int nelmts = 10;
     for (int i = 0; i < nelmts; ++i)
@@ -363,7 +363,7 @@ BOOST_AUTO_TEST_CASE(TestSegBwdTrans_MatrixFree_UniformP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
             basisKeyDir1, segGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     int nelmts = 10;
     for (int i = 0; i < nelmts; ++i)
@@ -424,7 +424,7 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTBase_IterPerExp_UniformP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
             basisKeyDir1, segGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     int nelmts = 10;
     for (int i = 0; i < nelmts; ++i)
@@ -491,7 +491,7 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTBase_StdMat_UniformP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
             basisKeyDir1, segGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     int nelmts = 10;
     for (int i = 0; i < nelmts; ++i)
@@ -558,7 +558,7 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTBase_SumFac_UniformP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
             basisKeyDir1, segGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     int nelmts = 10;
     for (int i = 0; i < nelmts; ++i)
@@ -625,7 +625,7 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTBase_MatrixFree_UniformP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
             basisKeyDir1, segGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     int nelmts = 10;
     for (int i = 0; i < nelmts; ++i)
@@ -693,7 +693,7 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_IterPerExp_UniformP)
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
             basisKeyDir1, segGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -751,7 +751,7 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_IterPerExp_UniformP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -818,7 +818,7 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_StdMat_UniformP)
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
             basisKeyDir1, segGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -876,7 +876,7 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_StdMat_UniformP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -945,7 +945,7 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_SumFac_UniformP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1014,7 +1014,7 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_MatrixFree_UniformP_MultiElmt_1D)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1084,7 +1084,7 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_MatrixFree_UniformP_MultiElmt_2D)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1156,7 +1156,7 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_MatrixFree_UniformP_MultiElmt_3D)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1229,7 +1229,7 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_IterPerExp_UniformP)
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
             basisKeyDir1, segGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -1292,7 +1292,7 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_IterPerExp_UniformP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
             basisKeyDir1, segGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     int nelmts = 10;
     for (int i = 0; i < nelmts; ++i)
@@ -1365,7 +1365,7 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_StdMat_UniformP)
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
             basisKeyDir1, segGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -1428,7 +1428,7 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_StdMat_UniformP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
             basisKeyDir1, segGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     int nelmts = 10;
     for (int i = 0; i < nelmts; ++i)
@@ -1501,7 +1501,7 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_SumFac_UniformP)
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
             basisKeyDir1, segGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -1564,7 +1564,7 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_SumFac_UniformP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
             basisKeyDir1, segGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     int nelmts = 10;
     for (int i = 0; i < nelmts; ++i)
@@ -1638,7 +1638,7 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
             basisKeyDir1, segGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     int nelmts = 10;
     for (int i = 0; i < nelmts; ++i)
@@ -1717,7 +1717,7 @@ BOOST_AUTO_TEST_CASE(TestSegIProductWRTDerivBase_MatrixFree_UniformP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
             basisKeyDir1, segGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     int nelmts = 10;
     for (int i = 0; i < nelmts; ++i)
@@ -1792,7 +1792,7 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
             basisKeyDir1, segGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     int nelmts = 10;
     for (int i = 0; i < nelmts; ++i)
@@ -1872,7 +1872,7 @@ BOOST_AUTO_TEST_CASE(TestSegPhysInterp1D_NoCollection_UniformP)
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
             basisKeyDir1, segGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -1941,7 +1941,7 @@ BOOST_AUTO_TEST_CASE(TestSegPhysInterp1D_MatrixFree_UniformP)
         MemoryManager<Nektar::LocalRegions::SegExp>::AllocateSharedPtr(
             basisKeyDir1, segGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;

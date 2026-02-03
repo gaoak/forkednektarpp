@@ -144,13 +144,13 @@ public:
 protected:
     int m_dim;
     int m_coordim;
-    vector<StdRegions::StdExpansionSharedPtr> m_expList;
+    vector<LocalRegions::ExpansionSharedPtr> m_expList;
     StdRegions::FactorMap m_factors;
     StdRegions::VarCoeffMap m_varcoeffs;
 
 private:
     LinearAdvectionDiffusionReaction_NoCollection(
-        vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+        vector<LocalRegions::ExpansionSharedPtr> pCollExp,
         CoalescedGeomDataSharedPtr pGeomData, StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors),
           LinearAdvectionDiffusionReaction_Helper()
@@ -468,7 +468,7 @@ protected:
 
 private:
     LinearAdvectionDiffusionReaction_IterPerExp(
-        vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+        vector<LocalRegions::ExpansionSharedPtr> pCollExp,
         CoalescedGeomDataSharedPtr pGeomData, StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors),
           LinearAdvectionDiffusionReaction_Helper()
@@ -737,17 +737,16 @@ private:
                                                      StdRegions::eVarCoeffVelZ};
 
     LinearAdvectionDiffusionReaction_MatrixFree(
-        vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+        vector<LocalRegions::ExpansionSharedPtr> pCollExp,
         CoalescedGeomDataSharedPtr pGeomData, StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors),
-          MatrixFreeBase(pCollExp[0]->GetStdExp()->GetNcoeffs(),
-                         pCollExp[0]->GetStdExp()->GetNcoeffs(),
+          MatrixFreeBase(pCollExp[0]->GetNcoeffs(), pCollExp[0]->GetNcoeffs(),
                          pCollExp.size()),
           LinearAdvectionDiffusionReaction_Helper()
     {
-        m_nmtot = m_numElmt * pCollExp[0]->GetStdExp()->GetNcoeffs();
+        m_nmtot = m_numElmt * pCollExp[0]->GetNcoeffs();
 
-        const auto dim = pCollExp[0]->GetStdExp()->GetShapeDimension();
+        const auto dim = pCollExp[0]->GetShapeDimension();
         m_coordim      = dim;
 
         // Basis vector.
@@ -758,7 +757,7 @@ private:
         }
 
         // Get shape type
-        auto shapeType = pCollExp[0]->GetStdExp()->DetShapeType();
+        auto shapeType = pCollExp[0]->DetShapeType();
 
         // Generate operator string and create operator.
         std::string op_string = "LinearAdvectionDiffusionReaction";
@@ -767,7 +766,7 @@ private:
             op_string, basis, pCollExp.size());
 
         // Get N quadpoints with padding
-        m_nqtot = m_numElmt * pCollExp[0]->GetStdExp()->GetTotPoints();
+        m_nqtot = m_numElmt * pCollExp[0]->GetTotPoints();
 
         // set up required copies for operations
         oper->SetUpBdata(basis);

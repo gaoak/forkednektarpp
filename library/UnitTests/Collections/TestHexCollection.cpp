@@ -140,7 +140,7 @@ BOOST_AUTO_TEST_CASE(TestHexBwdTrans_StdMat_UniformP)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -214,17 +214,13 @@ BOOST_AUTO_TEST_CASE(TestHexBwdTrans_StdMat_VariableP)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eBwdTrans);
 
@@ -285,17 +281,13 @@ BOOST_AUTO_TEST_CASE(TestHexBwdTrans_IterPerExp_UniformP)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eIterPerExp);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eBwdTrans);
 
@@ -360,17 +352,13 @@ BOOST_AUTO_TEST_CASE(TestHexBwdTrans_IterPerExp_VariableP)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eIterPerExp);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eBwdTrans);
 
@@ -436,13 +424,9 @@ BOOST_AUTO_TEST_CASE(TestHexBwdTrans_IterPerExp_VariableP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -451,7 +435,7 @@ BOOST_AUTO_TEST_CASE(TestHexBwdTrans_IterPerExp_VariableP_MultiElmt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eIterPerExp);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eBwdTrans);
 
@@ -521,17 +505,13 @@ BOOST_AUTO_TEST_CASE(TestHexBwdTrans_NoCollection_VariableP)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eNoCollection);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eBwdTrans);
 
@@ -593,13 +573,9 @@ BOOST_AUTO_TEST_CASE(TestHexBwdTrans_SumFac_UniformP)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
     int nelmts = 1;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -608,7 +584,7 @@ BOOST_AUTO_TEST_CASE(TestHexBwdTrans_SumFac_UniformP)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eBwdTrans);
 
@@ -673,13 +649,9 @@ BOOST_AUTO_TEST_CASE(TestHexBwdTrans_SumFac_UniformP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -688,7 +660,7 @@ BOOST_AUTO_TEST_CASE(TestHexBwdTrans_SumFac_UniformP_MultiElmt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eBwdTrans);
 
@@ -760,13 +732,9 @@ BOOST_AUTO_TEST_CASE(TestHexBwdTrans_SumFac_VariableP)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
     int nelmts = 1;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -775,7 +743,7 @@ BOOST_AUTO_TEST_CASE(TestHexBwdTrans_SumFac_VariableP)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eBwdTrans);
 
@@ -847,13 +815,9 @@ BOOST_AUTO_TEST_CASE(TestHexBwdTrans_SumFac_VariableP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -862,7 +826,7 @@ BOOST_AUTO_TEST_CASE(TestHexBwdTrans_SumFac_VariableP_MultiElmt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eBwdTrans);
 
@@ -928,17 +892,13 @@ BOOST_AUTO_TEST_CASE(TestHexBwdTrans_MatrixFree_UniformP)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eBwdTrans);
 
@@ -999,17 +959,13 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTBase_StdMat_UniformP)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -1077,17 +1033,13 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTBase_MatrixFree_UniformP_Undeformed)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -1157,17 +1109,13 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTBase_MatrixFree_UniformP_Deformed)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -1238,17 +1186,13 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -1324,17 +1268,13 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTBase_StdMat_VariableP)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -1409,17 +1349,13 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTBase_NoCollection_VariableP)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eNoCollection);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -1494,17 +1430,13 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTBase_SumFac_VariableP_CollAll)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -1578,17 +1510,13 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTBase_SumFac_VariableP_CollDir02)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -1662,17 +1590,13 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTBase_SumFac_VariableP_CollDir12)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -1746,13 +1670,9 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTBase_StdMat_VariableP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1761,7 +1681,7 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTBase_StdMat_VariableP_MultiElmt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -1842,13 +1762,9 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTBase_IterPerExp_VariableP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1857,7 +1773,7 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTBase_IterPerExp_VariableP_MultiElmt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eIterPerExp);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -1931,17 +1847,13 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTBase_SumFac_UniformP)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -2018,17 +1930,13 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTBase_SumFac_VariableP)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -2097,13 +2005,9 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTBase_SumFac_UniformP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2112,7 +2016,7 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTBase_SumFac_UniformP_MultiElmt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -2195,13 +2099,9 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTBase_SumFac_VariableP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2210,7 +2110,7 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTBase_SumFac_VariableP_MultiElmt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -2294,13 +2194,9 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2309,7 +2205,7 @@ BOOST_AUTO_TEST_CASE(
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -2393,13 +2289,9 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2408,7 +2300,7 @@ BOOST_AUTO_TEST_CASE(
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTBase);
 
@@ -2484,17 +2376,13 @@ BOOST_AUTO_TEST_CASE(TestHexPhysDeriv_IterPerExp_UniformP)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eIterPerExp);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::ePhysDeriv);
 
@@ -2562,17 +2450,13 @@ BOOST_AUTO_TEST_CASE(TestHexPhysDeriv_MatrixFree_UniformP_Undeformed)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::ePhysDeriv);
 
@@ -2642,17 +2526,13 @@ BOOST_AUTO_TEST_CASE(TestHexPhysDeriv_MatrixFree_UniformP_Deformed)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::ePhysDeriv);
 
@@ -2728,13 +2608,9 @@ BOOST_AUTO_TEST_CASE(TestHexPhysDeriv_IterPerExp_VariableP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2743,7 +2619,7 @@ BOOST_AUTO_TEST_CASE(TestHexPhysDeriv_IterPerExp_VariableP_MultiElmt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eIterPerExp);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::ePhysDeriv);
 
@@ -2825,13 +2701,9 @@ BOOST_AUTO_TEST_CASE(TestHexPhysDeriv_NoCollection_VariableP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2840,7 +2712,7 @@ BOOST_AUTO_TEST_CASE(TestHexPhysDeriv_NoCollection_VariableP_MultiElmt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eNoCollection);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::ePhysDeriv);
 
@@ -2916,17 +2788,13 @@ BOOST_AUTO_TEST_CASE(TestHexPhysDeriv_StdMat_UniformP)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::ePhysDeriv);
 
@@ -3000,13 +2868,9 @@ BOOST_AUTO_TEST_CASE(TestHexPhysDeriv_StdMat_VariableP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3015,7 +2879,7 @@ BOOST_AUTO_TEST_CASE(TestHexPhysDeriv_StdMat_VariableP_MultiElmt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::ePhysDeriv);
 
@@ -3090,17 +2954,13 @@ BOOST_AUTO_TEST_CASE(TestHexPhysDeriv_SumFac_UniformP)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::ePhysDeriv);
 
@@ -3174,13 +3034,9 @@ BOOST_AUTO_TEST_CASE(TestHexPhysDeriv_SumFac_VariableP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3189,7 +3045,7 @@ BOOST_AUTO_TEST_CASE(TestHexPhysDeriv_SumFac_VariableP_MultiElmt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::ePhysDeriv);
 
@@ -3264,17 +3120,13 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTDerivBase_Iterperexp_UniformP)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eIterPerExp);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTDerivBase);
 
@@ -3356,17 +3208,13 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTDerivBase_MatrixFree_UniformP_Undeformed)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTDerivBase);
 
@@ -3448,17 +3296,13 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTDerivBase_MatrixFree_UniformP_Deformed)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTDerivBase);
 
@@ -3541,17 +3385,13 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTDerivBase);
 
@@ -3639,13 +3479,9 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTDerivBase_IterPerExp_VariableP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3654,7 +3490,7 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTDerivBase_IterPerExp_VariableP_MultiElmt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eIterPerExp);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTDerivBase);
 
@@ -3749,17 +3585,13 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTDerivBase_StdMat_UniformP)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTDerivBase);
 
@@ -3847,13 +3679,9 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTDerivBase_StdMat_VariableP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3862,7 +3690,7 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTDerivBase_StdMat_VariableP_MultiElmt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eStdMat);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTDerivBase);
 
@@ -3965,13 +3793,9 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3980,7 +3804,7 @@ BOOST_AUTO_TEST_CASE(
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eNoCollection);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTDerivBase);
 
@@ -4074,17 +3898,13 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTDerivBase_SumFac_UniformP)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTDerivBase);
 
@@ -4172,13 +3992,9 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTDerivBase_SumFac_VariableP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -4187,7 +4003,7 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTDerivBase_SumFac_VariableP_MultiElmt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eSumFac);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     c.Initialise(Collections::eIProductWRTDerivBase);
 
@@ -4283,13 +4099,9 @@ BOOST_AUTO_TEST_CASE(TestHexHelmholtz_NoCollection_UniformP)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -4298,7 +4110,7 @@ BOOST_AUTO_TEST_CASE(TestHexHelmholtz_NoCollection_UniformP)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eNoCollection);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;
@@ -4376,13 +4188,9 @@ BOOST_AUTO_TEST_CASE(TestHexHelmholtz_IterPerExp_UniformP)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -4391,7 +4199,7 @@ BOOST_AUTO_TEST_CASE(TestHexHelmholtz_IterPerExp_UniformP)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eIterPerExp);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;
@@ -4469,13 +4277,9 @@ BOOST_AUTO_TEST_CASE(TestHexHelmholtz_IterPerExp_UniformP_ConstVarDiff)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -4484,7 +4288,7 @@ BOOST_AUTO_TEST_CASE(TestHexHelmholtz_IterPerExp_UniformP_ConstVarDiff)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eIterPerExp);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda]   = 1.5;
@@ -4568,13 +4372,9 @@ BOOST_AUTO_TEST_CASE(TestHexHelmholtz_MatrixFree_UniformP)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -4583,7 +4383,7 @@ BOOST_AUTO_TEST_CASE(TestHexHelmholtz_MatrixFree_UniformP)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;
@@ -4661,13 +4461,9 @@ BOOST_AUTO_TEST_CASE(TestHexHelmholtz_MatrixFree_UniformP_Deformed_OverInt)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -4676,7 +4472,7 @@ BOOST_AUTO_TEST_CASE(TestHexHelmholtz_MatrixFree_UniformP_Deformed_OverInt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;
@@ -4754,13 +4550,9 @@ BOOST_AUTO_TEST_CASE(TestHexHelmholtz_MatrixFree_UniformP_ConstVarDiff)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -4769,7 +4561,7 @@ BOOST_AUTO_TEST_CASE(TestHexHelmholtz_MatrixFree_UniformP_ConstVarDiff)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda]   = 1.5;
@@ -4852,11 +4644,7 @@ BOOST_AUTO_TEST_CASE(TestHexPhysInterp1D_NoCollection_UniformP)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -4943,11 +4731,7 @@ BOOST_AUTO_TEST_CASE(TestHexPhysInterp1D_MatrixFree_UniformP)
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -5037,13 +4821,9 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -5052,7 +4832,7 @@ BOOST_AUTO_TEST_CASE(
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eNoCollection);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;
@@ -5147,13 +4927,9 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -5162,7 +4938,7 @@ BOOST_AUTO_TEST_CASE(
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eIterPerExp);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;
@@ -5257,13 +5033,9 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -5272,7 +5044,7 @@ BOOST_AUTO_TEST_CASE(
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;
@@ -5367,13 +5139,9 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom.get());
 
-    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -5382,7 +5150,7 @@ BOOST_AUTO_TEST_CASE(
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = -1.5;

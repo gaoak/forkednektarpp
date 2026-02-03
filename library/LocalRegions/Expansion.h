@@ -80,6 +80,17 @@ public:
                                           ExpansionSharedPtr &f);
     LOCAL_REGIONS_EXPORT ExpansionSharedPtr GetTraceExp(const int traceid);
 
+    LOCAL_REGIONS_EXPORT StdRegions::StdExpansionSharedPtr GetStdExp() const
+    {
+        return v_GetStdExp();
+    }
+
+    LOCAL_REGIONS_EXPORT StdRegions::StdExpansionSharedPtr GetLinStdExp(
+        void) const
+    {
+        return v_GetLinStdExp();
+    }
+
     LOCAL_REGIONS_EXPORT DNekScalMatSharedPtr
     GetLocMatrix(const LocalRegions::MatrixKey &mkey);
 
@@ -327,6 +338,12 @@ protected:
     virtual void v_ComputeLaplacianMetric()
     {
     }
+
+    LOCAL_REGIONS_EXPORT virtual StdRegions::StdExpansionSharedPtr v_GetStdExp()
+        const;
+
+    LOCAL_REGIONS_EXPORT virtual StdRegions::StdExpansionSharedPtr v_GetLinStdExp(
+        void) const;
 
     int v_GetCoordim() const override
     {

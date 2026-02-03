@@ -261,6 +261,20 @@ const NormalVector &Expansion::GetTraceNormal(const int id)
     return x->second;
 }
 
+StdRegions::StdExpansionSharedPtr Expansion::v_GetStdExp(void) const
+{
+    ASSERTL0(false, "This method is not defined for this expansion");
+    StdRegions::StdExpansionSharedPtr returnval;
+    return returnval;
+}
+
+StdRegions::StdExpansionSharedPtr Expansion::v_GetLinStdExp(void) const
+{
+    ASSERTL0(false, "This method is not defined for this expansion");
+    StdRegions::StdExpansionSharedPtr returnval;
+    return returnval;
+}
+
 DNekScalMatSharedPtr Expansion::v_GetLocMatrix(
     [[maybe_unused]] const LocalRegions::MatrixKey &mkey)
 {
@@ -444,7 +458,13 @@ void Expansion::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,
         v_IProductWRTBase(inarray, outarray);
 
         // get Mass matrix inverse
-        MatrixKey masskey(StdRegions::eInvMass, DetShapeType(), *this);
+        LibUtilities::PointsType nodalPointsType =
+            (v_GetNodalPointsKey() == LibUtilities::NullPointsKey)
+                ? LibUtilities::eNoPointsType
+                : v_GetNodalPointsKey().GetPointsType();
+        MatrixKey masskey(StdRegions::eInvMass, DetShapeType(), *this,
+                          StdRegions::NullConstFactorMap,
+                          StdRegions::NullVarCoeffMap, nodalPointsType);
         DNekScalMatSharedPtr matsys = v_GetLocMatrix(masskey);
 
         // copy inarray in case inarray == outarray

@@ -109,7 +109,7 @@ BOOST_AUTO_TEST_CASE(TestTriBwdTrans_StdMat_UniformP)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -173,7 +173,7 @@ BOOST_AUTO_TEST_CASE(TestTriBwdTrans_StdMat_VariableP)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -239,7 +239,7 @@ BOOST_AUTO_TEST_CASE(TestTriBwdTrans_StdMat_VariableP_MultiElmt)
 
     int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -311,7 +311,7 @@ BOOST_AUTO_TEST_CASE(TestTriBwdTrans_IterPerExp_UniformP)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -375,7 +375,7 @@ BOOST_AUTO_TEST_CASE(TestTriBwdTrans_IterPerExp_VariableP)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -441,7 +441,7 @@ BOOST_AUTO_TEST_CASE(TestTriBwdTrans_MatrixFree_UniformP)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -509,7 +509,7 @@ BOOST_AUTO_TEST_CASE(TestTriBwdTrans_MatrixFree_UniformP_OverInt)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -575,7 +575,7 @@ BOOST_AUTO_TEST_CASE(TestTriBwdTrans_SumFac_UniformP)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     int nelmts = 1;
     for (int i = 0; i < nelmts; ++i)
@@ -648,7 +648,7 @@ BOOST_AUTO_TEST_CASE(TestTriBwdTrans_SumFac_UniformP_MultiElmt)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     int nelmts = NELMTS;
     for (int i = 0; i < nelmts; ++i)
@@ -723,7 +723,7 @@ BOOST_AUTO_TEST_CASE(TestTriBwdTrans_SumFac_VariableP)
 
     int nelmts = 1;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -796,7 +796,7 @@ BOOST_AUTO_TEST_CASE(TestTriBwdTrans_SumFac_VariableP_MultiElmt)
 
     int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -867,7 +867,7 @@ BOOST_AUTO_TEST_CASE(TestTriIProductWRTBase_StdMat_UniformP)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -937,7 +937,7 @@ BOOST_AUTO_TEST_CASE(TestTriIProductWRTBase_StdMat_VariableP)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -1009,7 +1009,7 @@ BOOST_AUTO_TEST_CASE(TestTriIProductWRTBase_StdMat_VariableP_MultiElmt)
 
     int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1089,7 +1089,7 @@ BOOST_AUTO_TEST_CASE(TestTriIProductWRTBase_SumFac_UniformP)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -1159,7 +1159,7 @@ BOOST_AUTO_TEST_CASE(TestTriIProductWRTBase_SumFac_VariableP)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -1230,7 +1230,7 @@ BOOST_AUTO_TEST_CASE(TestTriIProductWRTBase_MatrixFree_UniformP_Undeformed)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -1303,7 +1303,7 @@ BOOST_AUTO_TEST_CASE(TestTriIProductWRTBase_MatrixFree_UniformP_Deformed)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -1377,7 +1377,7 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -1451,7 +1451,7 @@ BOOST_AUTO_TEST_CASE(TestTriIProductWRTBase_SumFac_VariableP_MultiElmt)
 
     int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1531,7 +1531,7 @@ BOOST_AUTO_TEST_CASE(TestTriPhysDeriv_IterPerExp_UniformP)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -1600,7 +1600,7 @@ BOOST_AUTO_TEST_CASE(TestTriPhysDeriv_IterPerExp_VariableP)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -1671,7 +1671,7 @@ BOOST_AUTO_TEST_CASE(TestTriPhysDeriv_IterPerExp_VariableP_MultiElmt)
 
     int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1751,7 +1751,7 @@ BOOST_AUTO_TEST_CASE(TestTriPhysDeriv_StdMat_UniformP)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -1822,7 +1822,7 @@ BOOST_AUTO_TEST_CASE(TestTriPhysDeriv_StdMat_VariableP_MultiElmt)
 
     int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1902,7 +1902,7 @@ BOOST_AUTO_TEST_CASE(TestTriPhysDeriv_SumFac_UniformP)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -1973,7 +1973,7 @@ BOOST_AUTO_TEST_CASE(TestTriPhysDeriv_SumFac_VariableP_MultiElmt)
 
     int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2053,7 +2053,7 @@ BOOST_AUTO_TEST_CASE(TestTriPhysDeriv_MatrixFree_UniformP_Undeformed)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -2126,7 +2126,7 @@ BOOST_AUTO_TEST_CASE(TestTriPhysDeriv_MatrixFree_UniformP_Deformed)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -2199,7 +2199,7 @@ BOOST_AUTO_TEST_CASE(TestTriPhysDeriv_MatrixFree_UniformP_Deformed_3D)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -2272,7 +2272,7 @@ BOOST_AUTO_TEST_CASE(TestTriIProductWRTDerivBase_IterPerExp_UniformP)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -2353,7 +2353,7 @@ BOOST_AUTO_TEST_CASE(TestTriIProductWRTDerivBase_IterPerExp_VariableP_MultiElmt)
 
     int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2443,7 +2443,7 @@ BOOST_AUTO_TEST_CASE(TestTriIProductWRTDerivBase_MatrixFree_UniformP_Undeformed)
     Nektar::LocalRegions::TriExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -2529,7 +2529,7 @@ BOOST_AUTO_TEST_CASE(
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2626,7 +2626,7 @@ BOOST_AUTO_TEST_CASE(TestTriIProductWRTDerivBase_MatrixFree_UniformP_Deformed)
             basisKeyDir1, basisKeyDir2, triGeom.get());
     int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2727,7 +2727,7 @@ BOOST_AUTO_TEST_CASE(
             basisKeyDir1, basisKeyDir2, triGeom.get());
     int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2835,7 +2835,7 @@ BOOST_AUTO_TEST_CASE(
     Nektar::LocalRegions::TriExpSharedPtr Exp =
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -2917,7 +2917,7 @@ BOOST_AUTO_TEST_CASE(TestTriIProductWRTDerivBase_StdMat_UniformP)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -2998,7 +2998,7 @@ BOOST_AUTO_TEST_CASE(TestTriIProductWRTDerivBase_StdMat_VariableP_MultiElmt)
 
     int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3088,7 +3088,7 @@ BOOST_AUTO_TEST_CASE(TestTriIProductWRTDerivBase_SumFac_UniformP)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -3169,7 +3169,7 @@ BOOST_AUTO_TEST_CASE(TestTriIProductWRTDerivBase_SumFac_VariableP_MultiElmt)
 
     int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3262,7 +3262,7 @@ BOOST_AUTO_TEST_CASE(
 
     int nelmts = NELMTS;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3362,13 +3362,9 @@ BOOST_AUTO_TEST_CASE(TestTriHelmholtz_IterPerExp_UniformP_ConstVarDiff)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    Nektar::StdRegions::StdTriExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdTriExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     for (int i = 0; i < nelmts; ++i)
     {
@@ -3378,7 +3374,7 @@ BOOST_AUTO_TEST_CASE(TestTriHelmholtz_IterPerExp_UniformP_ConstVarDiff)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eIterPerExp);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda]   = 1.5;
@@ -3457,13 +3453,9 @@ BOOST_AUTO_TEST_CASE(TestTriHelmholtz_MatrixFree_UniformP)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    Nektar::StdRegions::StdTriExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdTriExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     for (int i = 0; i < nelmts; ++i)
     {
@@ -3473,7 +3465,7 @@ BOOST_AUTO_TEST_CASE(TestTriHelmholtz_MatrixFree_UniformP)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;
@@ -3549,13 +3541,9 @@ BOOST_AUTO_TEST_CASE(TestTriHelmholtz_MatrixFree_UniformP_OverInt)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    Nektar::StdRegions::StdTriExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdTriExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     for (int i = 0; i < nelmts; ++i)
     {
@@ -3565,7 +3553,7 @@ BOOST_AUTO_TEST_CASE(TestTriHelmholtz_MatrixFree_UniformP_OverInt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;
@@ -3641,13 +3629,9 @@ BOOST_AUTO_TEST_CASE(TestTriHelmholtz_MatrixFree_UniformP_ConstVarDiff)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    Nektar::StdRegions::StdTriExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdTriExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     for (int i = 0; i < nelmts; ++i)
     {
@@ -3657,7 +3641,7 @@ BOOST_AUTO_TEST_CASE(TestTriHelmholtz_MatrixFree_UniformP_ConstVarDiff)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda]   = 1.5;
@@ -3736,7 +3720,7 @@ BOOST_AUTO_TEST_CASE(TestTriPhysInterp1D_NoCollection_UniformP)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -3820,7 +3804,7 @@ BOOST_AUTO_TEST_CASE(TestTriPhysInterp1D_MatrixFree_UniformP)
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -3905,13 +3889,9 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    Nektar::StdRegions::StdTriExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdTriExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     for (int i = 0; i < nelmts; ++i)
     {
@@ -3921,7 +3901,7 @@ BOOST_AUTO_TEST_CASE(
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eIterPerExp);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;
@@ -4012,13 +3992,9 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    Nektar::StdRegions::StdTriExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdTriExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     for (int i = 0; i < nelmts; ++i)
     {
@@ -4028,7 +4004,7 @@ BOOST_AUTO_TEST_CASE(
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;
@@ -4119,13 +4095,9 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    Nektar::StdRegions::StdTriExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdTriExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     for (int i = 0; i < nelmts; ++i)
     {
@@ -4135,7 +4107,7 @@ BOOST_AUTO_TEST_CASE(
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;
@@ -4226,13 +4198,9 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::TriExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, triGeom.get());
 
-    Nektar::StdRegions::StdTriExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdTriExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
 
     for (int i = 0; i < nelmts; ++i)
     {
@@ -4242,7 +4210,7 @@ BOOST_AUTO_TEST_CASE(
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda]   = 1.5;

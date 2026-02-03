@@ -65,54 +65,6 @@ PyrExp::PyrExp(const PyrExp &T)
 {
 }
 
-//----------------------------
-// Integration Methods
-//----------------------------
-
-/**
- * \brief Integrate the physical point list \a inarray over pyramidic
- * region and return the value.
- *
- * Inputs:\n
- *
- * - \a inarray: definition of function to be returned at quadrature
- * point of expansion.
- *
- * Outputs:\n
- *
- * - returns \f$\int^1_{-1}\int^1_{-1}\int^1_{-1} u(\bar \eta_1,
- * \eta_2, \eta_3) J[i,j,k] d \bar \eta_1 d \eta_2 d \eta_3\f$ \n \f$=
- * \sum_{i=0}^{Q_1 - 1} \sum_{j=0}^{Q_2 - 1} \sum_{k=0}^{Q_3 - 1}
- * u(\bar \eta_{1i}^{0,0}, \eta_{2j}^{0,0},\eta_{3k}^{2,0})w_{i}^{0,0}
- * w_{j}^{0,0} \hat w_{k}^{2,0} \f$ \n where \f$inarray[i,j, k] =
- * u(\bar \eta_{1i},\eta_{2j}, \eta_{3k}) \f$, \n \f$\hat w_{k}^{2,0}
- * = \frac {w^{2,0}} {2} \f$ \n and \f$ J[i,j,k] \f$ is the Jacobian
- * evaluated at the quadrature point.
- */
-NekDouble PyrExp::v_Integral(const Array<OneD, const NekDouble> &inarray)
-{
-    int nquad0                       = m_base[0]->GetNumPoints();
-    int nquad1                       = m_base[1]->GetNumPoints();
-    int nquad2                       = m_base[2]->GetNumPoints();
-    Array<OneD, const NekDouble> jac = m_geomFactors->GetJac();
-    Array<OneD, NekDouble> tmp(nquad0 * nquad1 * nquad2);
-
-    // multiply inarray with Jacobian
-    if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed)
-    {
-        Vmath::Vmul(nquad0 * nquad1 * nquad2, &jac[0], 1,
-                    (NekDouble *)&inarray[0], 1, &tmp[0], 1);
-    }
-    else
-    {
-        Vmath::Smul(nquad0 * nquad1 * nquad2, (NekDouble)jac[0],
-                    (NekDouble *)&inarray[0], 1, &tmp[0], 1);
-    }
-
-    // call StdPyrExp version;
-    return StdPyrExp::v_Integral(tmp);
-}
-
 //---------------------------------------
 // Inner product functions
 //---------------------------------------
@@ -155,7 +107,6 @@ void PyrExp::v_IProductWRTDerivBase(const int dir,
     const int nquad2 = m_base[2]->GetNumPoints();
     const int nqtot  = nquad0 * nquad1 * nquad2;
 
-    Array<OneD, NekDouble> tmp1(nqtot);
     Array<OneD, NekDouble> tmp2(nqtot);
     Array<OneD, NekDouble> tmp3(nqtot);
     Array<OneD, NekDouble> tmp4(nqtot);
@@ -169,7 +120,7 @@ void PyrExp::v_IProductWRTDerivBase(const int dir,
     const Array<OneD, const NekDouble> &jac = m_geomFactors->GetJac();
     bool Deformed = (m_geomFactors->GetGtype() == SpatialDomains::eDeformed);
 
-    PyrExp::v_AlignVectorToCollapsedDir(dir, inarray, tmp2D);
+    v_AlignVectorToCollapsedDir(dir, inarray, tmp2D);
 
     v_IProductWRTBaseKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
                             m_base[2]->GetBdata(), tmp2, outarray, jac,

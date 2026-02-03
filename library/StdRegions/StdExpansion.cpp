@@ -135,7 +135,7 @@ NekDouble StdExpansion::L2(const Array<OneD, const NekDouble> &phys,
         Vmath::Vmul(ntot, wsp, 1, wsp, 1, wsp, 1);
     }
 
-    val = v_Integral(wsp);
+    val = Integral(wsp);
 
     return (val < 0.0) ? 0.0 : sqrt(val);
 }
@@ -168,7 +168,7 @@ NekDouble StdExpansion::H1(const Array<OneD, const NekDouble> &phys,
         Vmath::Vvtvp(ntot, wsp_deriv, 1, wsp_deriv, 1, sum, 1, sum, 1);
     }
 
-    val = sqrt(v_Integral(sum));
+    val = sqrt(Integral(sum));
 
     return val;
 }
@@ -1283,23 +1283,7 @@ LibUtilities::PointsKey StdExpansion::v_GetTracePointsKey(
 
 const LibUtilities::PointsKey StdExpansion::v_GetNodalPointsKey() const
 {
-    ASSERTL0(false, "This function is not valid or not defined");
-
     return LibUtilities::NullPointsKey;
-}
-
-std::shared_ptr<StdExpansion> StdExpansion::v_GetStdExp(void) const
-{
-    ASSERTL0(false, "This method is not defined for this expansion");
-    StdExpansionSharedPtr returnval;
-    return returnval;
-}
-
-std::shared_ptr<StdExpansion> StdExpansion::v_GetLinStdExp(void) const
-{
-    ASSERTL0(false, "This method is not defined for this expansion");
-    StdExpansionSharedPtr returnval;
-    return returnval;
 }
 
 bool StdExpansion::v_IsBoundaryInteriorExpansion() const
@@ -1362,9 +1346,18 @@ void StdExpansion::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,
         v_IProductWRTBase(inarray, outarray);
 
         // get Mass matrix inverse
-        StdMatrixKey masskey(eInvMass, v_DetShapeType(), *this);
+        LibUtilities::PointsType nodalPointsType =
+            (v_GetNodalPointsKey() == LibUtilities::NullPointsKey)
+                ? LibUtilities::eNoPointsType
+                : v_GetNodalPointsKey().GetPointsType();
+
+        // get Mass matrix inverse
+        StdMatrixKey masskey(StdRegions::eInvMass, DetShapeType(), *this,
+                             StdRegions::NullConstFactorMap,
+                             StdRegions::NullVarCoeffMap, nodalPointsType);
         DNekMatSharedPtr matsys = GetStdMatrix(masskey);
 
+        // copy inarray in case inarray == outarray
         NekVector<NekDouble> in(m_ncoeffs, outarray, eCopy);
         NekVector<NekDouble> out(m_ncoeffs, outarray, eWrapper);
 
@@ -1380,18 +1373,6 @@ void StdExpansion::v_FwdTransBndConstrained(
     [[maybe_unused]] Array<OneD, NekDouble> &outarray)
 {
     NEKERROR(ErrorUtil::efatal, "This method has not been defined");
-}
-
-/**
- * @brief Integrates the specified function over the domain.
- * @see StdRegions#StdExpansion#Integral.
- */
-NekDouble StdExpansion::v_Integral(
-    [[maybe_unused]] const Array<OneD, const NekDouble> &inarray)
-{
-    NEKERROR(ErrorUtil::efatal, "This function is only valid for "
-                                "local expansions");
-    return 0;
 }
 
 /**
@@ -1624,14 +1605,6 @@ void StdExpansion::v_MultiplyByStdQuadratureMetric(
 {
     NEKERROR(ErrorUtil::efatal,
              "Method does not exist for this shape or library");
-}
-
-void StdExpansion::v_IProductWRTDirectionalDerivBase_SumFac(
-    [[maybe_unused]] const Array<OneD, const NekDouble> &direction,
-    [[maybe_unused]] const Array<OneD, const NekDouble> &inarray,
-    [[maybe_unused]] Array<OneD, NekDouble> &outarray)
-{
-    NEKERROR(ErrorUtil::efatal, "Method does not exist for this shape");
 }
 
 void StdExpansion::v_MassMatrixOp(const Array<OneD, const NekDouble> &inarray,

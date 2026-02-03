@@ -136,12 +136,12 @@ public:
 protected:
     int m_dim;
     int m_coordim;
-    vector<StdRegions::StdExpansionSharedPtr> m_expList;
+    vector<LocalRegions::ExpansionSharedPtr> m_expList;
     StdRegions::FactorMap m_factors;
     StdRegions::VarCoeffMap m_varcoeffs;
 
 private:
-    Helmholtz_NoCollection(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    Helmholtz_NoCollection(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                            CoalescedGeomDataSharedPtr pGeomData,
                            StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), Helmholtz_Helper()
@@ -528,7 +528,7 @@ protected:
          StdRegions::eFactorCoeffD22}};
 
 private:
-    Helmholtz_IterPerExp(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    Helmholtz_IterPerExp(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                          CoalescedGeomDataSharedPtr pGeomData,
                          StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), Helmholtz_Helper()
@@ -712,19 +712,18 @@ private:
     StdRegions::FactorMap m_factors;
     StdRegions::VarCoeffMap m_varcoeffs;
 
-    Helmholtz_MatrixFree(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    Helmholtz_MatrixFree(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                          CoalescedGeomDataSharedPtr pGeomData,
                          StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors),
-          MatrixFreeBase(pCollExp[0]->GetStdExp()->GetNcoeffs(),
-                         pCollExp[0]->GetStdExp()->GetNcoeffs(),
+          MatrixFreeBase(pCollExp[0]->GetNcoeffs(), pCollExp[0]->GetNcoeffs(),
                          pCollExp.size()),
           Helmholtz_Helper()
     {
 
-        m_nmtot = m_numElmt * pCollExp[0]->GetStdExp()->GetNcoeffs();
+        m_nmtot = m_numElmt * pCollExp[0]->GetNcoeffs();
 
-        const auto dim = pCollExp[0]->GetStdExp()->GetShapeDimension();
+        const auto dim = pCollExp[0]->GetShapeDimension();
 
         // Basis vector.
         std::vector<LibUtilities::BasisSharedPtr> basis(dim);
@@ -734,7 +733,7 @@ private:
         }
 
         // Get shape type
-        auto shapeType = pCollExp[0]->GetStdExp()->DetShapeType();
+        auto shapeType = pCollExp[0]->DetShapeType();
 
         // Generate operator string and create operator.
         std::string op_string = "Helmholtz";

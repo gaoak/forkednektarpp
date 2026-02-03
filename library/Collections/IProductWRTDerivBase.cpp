@@ -195,7 +195,7 @@ protected:
 
 private:
     IProductWRTDerivBase_StdMat(
-        vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+        vector<LocalRegions::ExpansionSharedPtr> pCollExp,
         CoalescedGeomDataSharedPtr pGeomData, StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), IProductWRTDerivBase_Helper()
     {
@@ -330,15 +330,14 @@ private:
     int m_coordim;
 
     IProductWRTDerivBase_MatrixFree(
-        vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+        vector<LocalRegions::ExpansionSharedPtr> pCollExp,
         CoalescedGeomDataSharedPtr pGeomData, StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors),
-          MatrixFreeBase(pCollExp[0]->GetStdExp()->GetTotPoints(),
-                         pCollExp[0]->GetStdExp()->GetNcoeffs(),
+          MatrixFreeBase(pCollExp[0]->GetTotPoints(), pCollExp[0]->GetNcoeffs(),
                          pCollExp.size()),
           IProductWRTDerivBase_Helper()
     {
-        const auto dim = pCollExp[0]->GetStdExp()->GetShapeDimension();
+        const auto dim = pCollExp[0]->GetShapeDimension();
         m_coordim      = pCollExp[0]->GetCoordim();
 
         // Basis vector
@@ -349,7 +348,7 @@ private:
         }
 
         // Get shape type
-        auto shapeType = pCollExp[0]->GetStdExp()->DetShapeType();
+        auto shapeType = pCollExp[0]->DetShapeType();
 
         // Generate operator string and create operator.
         std::string op_string = "IProductWRTDerivBase";
@@ -530,7 +529,7 @@ protected:
 
 private:
     IProductWRTDerivBase_IterPerExp(
-        vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+        vector<LocalRegions::ExpansionSharedPtr> pCollExp,
         CoalescedGeomDataSharedPtr pGeomData, StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), IProductWRTDerivBase_Helper()
     {
@@ -647,11 +646,11 @@ public:
 protected:
     int m_dim;
     int m_coordim;
-    vector<StdRegions::StdExpansionSharedPtr> m_expList;
+    vector<LocalRegions::ExpansionSharedPtr> m_expList;
 
 private:
     IProductWRTDerivBase_NoCollection(
-        vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+        vector<LocalRegions::ExpansionSharedPtr> pCollExp,
         CoalescedGeomDataSharedPtr pGeomData, StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), IProductWRTDerivBase_Helper()
     {
@@ -788,7 +787,7 @@ protected:
 
 private:
     IProductWRTDerivBase_SumFac_Seg(
-        vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+        vector<LocalRegions::ExpansionSharedPtr> pCollExp,
         CoalescedGeomDataSharedPtr pGeomData, StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), IProductWRTDerivBase_Helper(),
           m_nquad0(m_stdExp->GetNumPoints(0)),
@@ -914,7 +913,7 @@ protected:
 
 private:
     IProductWRTDerivBase_SumFac_Quad(
-        vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+        vector<LocalRegions::ExpansionSharedPtr> pCollExp,
         CoalescedGeomDataSharedPtr pGeomData, StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), IProductWRTDerivBase_Helper(),
           m_nquad0(m_stdExp->GetNumPoints(0)),
@@ -1095,7 +1094,7 @@ protected:
 
 private:
     IProductWRTDerivBase_SumFac_Tri(
-        vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+        vector<LocalRegions::ExpansionSharedPtr> pCollExp,
         CoalescedGeomDataSharedPtr pGeomData, StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), IProductWRTDerivBase_Helper(),
           m_nquad0(m_stdExp->GetNumPoints(0)),
@@ -1275,7 +1274,7 @@ protected:
 
 private:
     IProductWRTDerivBase_SumFac_Hex(
-        vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+        vector<LocalRegions::ExpansionSharedPtr> pCollExp,
         CoalescedGeomDataSharedPtr pGeomData, StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), IProductWRTDerivBase_Helper(),
           m_nquad0(m_stdExp->GetNumPoints(0)),
@@ -1505,7 +1504,7 @@ protected:
 
 private:
     IProductWRTDerivBase_SumFac_Tet(
-        vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+        vector<LocalRegions::ExpansionSharedPtr> pCollExp,
         CoalescedGeomDataSharedPtr pGeomData, StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), IProductWRTDerivBase_Helper(),
           m_nquad0(m_stdExp->GetNumPoints(0)),
@@ -1748,7 +1747,7 @@ protected:
 
 private:
     IProductWRTDerivBase_SumFac_Prism(
-        vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+        vector<LocalRegions::ExpansionSharedPtr> pCollExp,
         CoalescedGeomDataSharedPtr pGeomData, StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), IProductWRTDerivBase_Helper(),
           m_nquad0(m_stdExp->GetNumPoints(0)),
@@ -2003,7 +2002,7 @@ protected:
 
 private:
     IProductWRTDerivBase_SumFac_Pyr(
-        vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+        vector<LocalRegions::ExpansionSharedPtr> pCollExp,
         CoalescedGeomDataSharedPtr pGeomData, StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), IProductWRTDerivBase_Helper(),
           m_nquad0(m_stdExp->GetNumPoints(0)),

@@ -63,7 +63,7 @@ OperatorImpMap SetFixedImpType(ImplementationType defaultType)
 /**
  *
  */
-Operator::Operator(std::vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+Operator::Operator(std::vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                    std::shared_ptr<CoalescedGeomData> GeomData,
                    [[maybe_unused]] StdRegions::FactorMap factors)
     : m_isDeformed(GeomData->IsDeformed(pCollExp)),

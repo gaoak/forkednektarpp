@@ -42,7 +42,7 @@ namespace Nektar::Collections
 {
 
 const Array<OneD, const NekDouble> &CoalescedGeomData::GetJac(
-    vector<StdRegions::StdExpansionSharedPtr> &pCollExp)
+    vector<LocalRegions::ExpansionSharedPtr> &pCollExp)
 {
 
     if (m_oneDGeomData.count(eJac) == 0)
@@ -59,12 +59,8 @@ const Array<OneD, const NekDouble> &CoalescedGeomData::GetJac(
             int cnt = 0;
             for (int i = 0; i < nElmts; ++i)
             {
-                const StdRegions::StdExpansion *sep = &(*pCollExp[i]);
-                const LocalRegions::Expansion *lep =
-                    dynamic_cast<const LocalRegions::Expansion *>(sep);
-
                 const Array<OneD, const NekDouble> jac =
-                    lep->GetGeomFactors()->GetJac();
+                    pCollExp[i]->GetGeomFactors()->GetJac();
 
                 Vmath::Vcopy(npts, &jac[0], 1, &newjac[cnt], 1);
 
@@ -79,12 +75,8 @@ const Array<OneD, const NekDouble> &CoalescedGeomData::GetJac(
             // copy Jacobians into a continuous list
             for (int i = 0; i < nElmts; ++i)
             {
-                const StdRegions::StdExpansion *sep = &(*pCollExp[i]);
-                const LocalRegions::Expansion *lep =
-                    dynamic_cast<const LocalRegions::Expansion *>(sep);
-
                 const Array<OneD, const NekDouble> jac =
-                    lep->GetGeomFactors()->GetJac();
+                    pCollExp[i]->GetGeomFactors()->GetJac();
 
                 newjac[i] = jac[0];
             }
@@ -96,7 +88,7 @@ const Array<OneD, const NekDouble> &CoalescedGeomData::GetJac(
 }
 
 const std::shared_ptr<VecVec_t> CoalescedGeomData::GetJacInterLeave(
-    vector<StdRegions::StdExpansionSharedPtr> &pCollExp, int nElmt)
+    vector<LocalRegions::ExpansionSharedPtr> &pCollExp, int nElmt)
 {
 
     if (m_oneDGeomDataInterLeave.count(eJac) == 0)
@@ -173,7 +165,7 @@ const std::shared_ptr<VecVec_t> CoalescedGeomData::GetJacInterLeave(
 }
 
 const Array<OneD, const NekDouble> &CoalescedGeomData::GetJacWithStdWeights(
-    vector<StdRegions::StdExpansionSharedPtr> &pCollExp)
+    vector<LocalRegions::ExpansionSharedPtr> &pCollExp)
 {
     if (m_oneDGeomData.count(eJacWithStdWeights) == 0)
     {
@@ -186,14 +178,11 @@ const Array<OneD, const NekDouble> &CoalescedGeomData::GetJacWithStdWeights(
         int cnt = 0;
         for (int i = 0; i < nElmts; ++i)
         {
-            const StdRegions::StdExpansion *sep = &(*pCollExp[i]);
-            const LocalRegions::Expansion *lep =
-                dynamic_cast<const LocalRegions::Expansion *>(sep);
-
             const Array<OneD, const NekDouble> jac =
-                lep->GetGeomFactors()->GetJac();
+                pCollExp[i]->GetGeomFactors()->GetJac();
 
-            if (lep->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed)
+            if (pCollExp[i]->GetGeomFactors()->GetGtype() ==
+                SpatialDomains::eDeformed)
             {
                 Vmath::Vcopy(npts, &jac[0], 1, &newjac[cnt], 1);
             }
@@ -214,7 +203,7 @@ const Array<OneD, const NekDouble> &CoalescedGeomData::GetJacWithStdWeights(
 }
 
 const Array<TwoD, const NekDouble> &CoalescedGeomData::GetDerivFactors(
-    vector<StdRegions::StdExpansionSharedPtr> &pCollExp)
+    vector<LocalRegions::ExpansionSharedPtr> &pCollExp)
 {
     if (m_twoDGeomData.count(eDerivFactors) == 0)
     {
@@ -241,12 +230,8 @@ const Array<TwoD, const NekDouble> &CoalescedGeomData::GetDerivFactors(
         int cnt = 0;
         for (int i = 0; i < nElmts; ++i)
         {
-            const StdRegions::StdExpansion *sep = &(*pCollExp[i]);
-            const LocalRegions::Expansion *lep =
-                dynamic_cast<const LocalRegions::Expansion *>(sep);
-
             const Array<TwoD, const NekDouble> Dfac =
-                lep->GetGeomFactors()->GetDerivFactors();
+                pCollExp[i]->GetGeomFactors()->GetDerivFactors();
 
             if (IsDeformed(pCollExp))
             {
@@ -272,7 +257,7 @@ const Array<TwoD, const NekDouble> &CoalescedGeomData::GetDerivFactors(
 }
 
 const std::shared_ptr<VecVec_t> CoalescedGeomData::GetDerivFactorsInterLeave(
-    vector<StdRegions::StdExpansionSharedPtr> &pCollExp, int nElmt)
+    vector<LocalRegions::ExpansionSharedPtr> &pCollExp, int nElmt)
 {
     if (m_twoDGeomDataInterLeave.count(eDerivFactors) == 0)
     {
@@ -357,12 +342,10 @@ const std::shared_ptr<VecVec_t> CoalescedGeomData::GetDerivFactorsInterLeave(
 }
 
 bool CoalescedGeomData::IsDeformed(
-    vector<StdRegions::StdExpansionSharedPtr> &pCollExp)
+    vector<LocalRegions::ExpansionSharedPtr> &pCollExp)
 {
-    const StdRegions::StdExpansion *sep = &(*pCollExp[0]);
-    const LocalRegions::Expansion *lep =
-        dynamic_cast<const LocalRegions::Expansion *>(sep);
-    return lep->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed;
+    return pCollExp[0]->GetGeomFactors()->GetGtype() ==
+           SpatialDomains::eDeformed;
 }
 
 } // namespace Nektar::Collections

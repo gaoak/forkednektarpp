@@ -250,37 +250,6 @@ void StdExpansion2D::v_IProductWRTBase(
     }
 }
 
-//////////////////////////////
-// Integration Methods
-//////////////////////////////
-
-NekDouble StdExpansion2D::Integral(const Array<OneD, const NekDouble> &inarray,
-                                   const Array<OneD, const NekDouble> &w0,
-                                   const Array<OneD, const NekDouble> &w1)
-{
-    int i;
-    NekDouble Int = 0.0;
-    int nquad0    = m_base[0]->GetNumPoints();
-    int nquad1    = m_base[1]->GetNumPoints();
-    Array<OneD, NekDouble> tmp(nquad0 * nquad1);
-
-    // multiply by integration constants
-    for (i = 0; i < nquad1; ++i)
-    {
-        Vmath::Vmul(nquad0, &inarray[0] + i * nquad0, 1, w0.data(), 1,
-                    &tmp[0] + i * nquad0, 1);
-    }
-
-    for (i = 0; i < nquad0; ++i)
-    {
-        Vmath::Vmul(nquad1, &tmp[0] + i, nquad0, w1.data(), 1, &tmp[0] + i,
-                    nquad0);
-    }
-    Int = Vmath::Vsum(nquad0 * nquad1, tmp, 1);
-
-    return Int;
-}
-
 void StdExpansion2D::IProductWRTBaseKernel(
     const Array<OneD, const NekDouble> &base0,
     const Array<OneD, const NekDouble> &base1,

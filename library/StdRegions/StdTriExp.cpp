@@ -67,41 +67,6 @@ StdTriExp::StdTriExp(const LibUtilities::BasisKey &Ba,
     m_weights.push_back(GetStdFac(w1key));
 }
 
-//-------------------------------
-// Integration Methods
-//-------------------------------
-NekDouble StdTriExp::v_Integral(const Array<OneD, const NekDouble> &inarray)
-{
-    int i;
-    int nquad1 = m_base[1]->GetNumPoints();
-    Array<OneD, NekDouble> w1_tmp(nquad1);
-
-    Array<OneD, const NekDouble> w0 = m_base[0]->GetW();
-    Array<OneD, const NekDouble> w1 = m_base[1]->GetW();
-    Array<OneD, const NekDouble> z1 = m_base[1]->GetZ();
-
-    switch (m_base[1]->GetPointsType())
-    {
-        case LibUtilities::eGaussRadauMAlpha1Beta0: // (0,1) Jacobi Inner
-                                                    // product
-        {
-            Vmath::Smul(nquad1, 0.5, w1, 1, w1_tmp, 1);
-            break;
-        }
-        default:
-        {
-            // include jacobian factor on whatever coordinates are defined.
-            for (i = 0; i < nquad1; ++i)
-            {
-                w1_tmp[i] = 0.5 * (1 - z1[i]) * w1[i];
-            }
-            break;
-        }
-    }
-
-    return StdExpansion2D::Integral(inarray, w0, w1_tmp);
-}
-
 //-----------------------------
 // Differentiation Methods
 //-----------------------------

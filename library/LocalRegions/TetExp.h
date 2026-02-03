@@ -60,12 +60,6 @@ public:
 
 protected:
     //-----------------------------
-    // Integration Methods
-    //-----------------------------
-    LOCAL_REGIONS_EXPORT NekDouble
-    v_Integral(const Array<OneD, const NekDouble> &inarray) override;
-
-    //-----------------------------
     // Inner product functions
     //-----------------------------
     LOCAL_REGIONS_EXPORT void v_IProductWRTDerivBase(

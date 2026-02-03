@@ -107,7 +107,7 @@ protected:
     DNekMatSharedPtr m_mat;
 
 private:
-    BwdTrans_StdMat(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    BwdTrans_StdMat(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                     CoalescedGeomDataSharedPtr pGeomData,
                     StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), BwdTrans_Helper()
@@ -187,16 +187,15 @@ public:
 private:
     std::shared_ptr<MatrixFree::BwdTrans> m_oper;
 
-    BwdTrans_MatrixFree(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    BwdTrans_MatrixFree(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                         CoalescedGeomDataSharedPtr pGeomData,
                         StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), BwdTrans_Helper(),
-          MatrixFreeBase(pCollExp[0]->GetStdExp()->GetNcoeffs(),
-                         pCollExp[0]->GetStdExp()->GetTotPoints(),
+          MatrixFreeBase(pCollExp[0]->GetNcoeffs(), pCollExp[0]->GetTotPoints(),
                          pCollExp.size())
     {
         // Basis vector.
-        const auto dim = pCollExp[0]->GetStdExp()->GetShapeDimension();
+        const auto dim = pCollExp[0]->GetShapeDimension();
         std::vector<LibUtilities::BasisSharedPtr> basis(dim);
         for (auto i = 0; i < dim; ++i)
         {
@@ -204,7 +203,7 @@ private:
         }
 
         // Get shape type
-        auto shapeType = pCollExp[0]->GetStdExp()->DetShapeType();
+        auto shapeType = pCollExp[0]->DetShapeType();
 
         // Generate operator string and create operator.
         std::string op_string = "BwdTrans";
@@ -279,7 +278,7 @@ public:
     }
 
 private:
-    BwdTrans_IterPerExp(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    BwdTrans_IterPerExp(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                         CoalescedGeomDataSharedPtr pGeomData,
                         StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), BwdTrans_Helper()
@@ -358,10 +357,10 @@ public:
     }
 
 protected:
-    vector<StdRegions::StdExpansionSharedPtr> m_expList;
+    vector<LocalRegions::ExpansionSharedPtr> m_expList;
 
 private:
-    BwdTrans_NoCollection(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    BwdTrans_NoCollection(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                           CoalescedGeomDataSharedPtr pGeomData,
                           StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), BwdTrans_Helper()
@@ -450,7 +449,7 @@ protected:
     Array<OneD, const NekDouble> m_base0;
 
 private:
-    BwdTrans_SumFac_Seg(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    BwdTrans_SumFac_Seg(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                         CoalescedGeomDataSharedPtr pGeomData,
                         StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), BwdTrans_Helper(),
@@ -547,7 +546,7 @@ protected:
     Array<OneD, const NekDouble> m_base1;
 
 private:
-    BwdTrans_SumFac_Quad(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    BwdTrans_SumFac_Quad(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                          CoalescedGeomDataSharedPtr pGeomData,
                          StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), BwdTrans_Helper(),
@@ -636,7 +635,7 @@ protected:
     bool m_sortTopVertex;
 
 private:
-    BwdTrans_SumFac_Tri(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    BwdTrans_SumFac_Tri(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                         CoalescedGeomDataSharedPtr pGeomData,
                         StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors),
@@ -741,7 +740,7 @@ protected:
     const bool m_colldir2;
 
 private:
-    BwdTrans_SumFac_Hex(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    BwdTrans_SumFac_Hex(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                         CoalescedGeomDataSharedPtr pGeomData,
                         StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), BwdTrans_Helper(),
@@ -901,7 +900,7 @@ protected:
     bool m_sortTopEdge;
 
 private:
-    BwdTrans_SumFac_Tet(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    BwdTrans_SumFac_Tet(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                         CoalescedGeomDataSharedPtr pGeomData,
                         StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), BwdTrans_Helper(),
@@ -1038,7 +1037,7 @@ protected:
     bool m_sortTopVertex;
 
 private:
-    BwdTrans_SumFac_Prism(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    BwdTrans_SumFac_Prism(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                           CoalescedGeomDataSharedPtr pGeomData,
                           StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), BwdTrans_Helper(),
@@ -1193,7 +1192,7 @@ protected:
     bool m_sortTopVertex;
 
 private:
-    BwdTrans_SumFac_Pyr(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    BwdTrans_SumFac_Pyr(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                         CoalescedGeomDataSharedPtr pGeomData,
                         StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), BwdTrans_Helper(),

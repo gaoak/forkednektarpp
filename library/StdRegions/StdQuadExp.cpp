@@ -63,18 +63,6 @@ StdQuadExp::StdQuadExp(const LibUtilities::BasisKey &Ba,
     m_weights.push_back(m_base[1]->GetW());
 }
 
-/////////////////////////
-// Integration Methods //
-/////////////////////////
-
-NekDouble StdQuadExp::v_Integral(const Array<OneD, const NekDouble> &inarray)
-{
-    Array<OneD, const NekDouble> w0 = m_base[0]->GetW();
-    Array<OneD, const NekDouble> w1 = m_base[1]->GetW();
-
-    return StdExpansion2D::Integral(inarray, w0, w1);
-}
-
 /////////////////////////////
 // Differentiation Methods //
 /////////////////////////////

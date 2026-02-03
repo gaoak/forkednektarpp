@@ -189,15 +189,14 @@ private:
     std::shared_ptr<MatrixFree::PhysInterp1DScaled> m_oper;
 
     PhysInterp1DScaled_MatrixFree(
-        vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+        vector<LocalRegions::ExpansionSharedPtr> pCollExp,
         CoalescedGeomDataSharedPtr pGeomData, StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors),
-          MatrixFreeBase(pCollExp[0]->GetStdExp()->GetTotPoints(),
-                         pCollExp[0]->GetStdExp()->GetTotPoints(),
-                         pCollExp.size()),
+          MatrixFreeBase(pCollExp[0]->GetTotPoints(),
+                         pCollExp[0]->GetTotPoints(), pCollExp.size()),
           PhysInterp1DScaled_Helper()
     {
-        const auto dim = pCollExp[0]->GetStdExp()->GetShapeDimension();
+        const auto dim = pCollExp[0]->GetShapeDimension();
 
         // Definition of basis vector
         std::vector<LibUtilities::BasisSharedPtr> basis(dim);
@@ -207,7 +206,7 @@ private:
         }
 
         // Get shape type
-        auto shapeType = pCollExp[0]->GetStdExp()->DetShapeType();
+        auto shapeType = pCollExp[0]->DetShapeType();
 
         // Generate operator string and create operator.
         std::string op_string = "PhysInterp1DScaled";
@@ -465,7 +464,7 @@ public:
 
 private:
     PhysInterp1DScaled_NoCollection(
-        vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+        vector<LocalRegions::ExpansionSharedPtr> pCollExp,
         CoalescedGeomDataSharedPtr pGeomData, StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), PhysInterp1DScaled_Helper()
     {
@@ -474,7 +473,7 @@ private:
     }
 
     StdRegions::FactorMap m_factors;
-    vector<StdRegions::StdExpansionSharedPtr> m_expList;
+    vector<LocalRegions::ExpansionSharedPtr> m_expList;
 };
 
 /// Factory initialisation for the PhysInterp1DScaled_NoCollection operators

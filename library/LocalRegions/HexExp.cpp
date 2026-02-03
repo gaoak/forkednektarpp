@@ -82,48 +82,6 @@ HexExp::HexExp(const HexExp &T)
 {
 }
 
-//-----------------------------
-// Integration Methods
-//-----------------------------
-/**
- * \brief Integrate the physical point list \a inarray over region
- *
- * @param   inarray     definition of function to be returned at
- *                      quadrature points of expansion.
- * @returns \f$\int^1_{-1}\int^1_{-1} \int^1_{-1}
- *   u(\eta_1, \eta_2, \eta_3) J[i,j,k] d \eta_1 d \eta_2 d \eta_3 \f$
- * where \f$inarray[i,j,k] = u(\eta_{1i},\eta_{2j},\eta_{3k}) \f$
- * and \f$ J[i,j,k] \f$ is the Jacobian evaluated at the quadrature
- * point.
- */
-NekDouble HexExp::v_Integral(const Array<OneD, const NekDouble> &inarray)
-{
-    int nquad0                       = m_base[0]->GetNumPoints();
-    int nquad1                       = m_base[1]->GetNumPoints();
-    int nquad2                       = m_base[2]->GetNumPoints();
-    Array<OneD, const NekDouble> jac = m_geomFactors->GetJac();
-    NekDouble returnVal;
-    Array<OneD, NekDouble> tmp(nquad0 * nquad1 * nquad2);
-
-    // multiply inarray with Jacobian
-
-    if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed)
-    {
-        Vmath::Vmul(nquad0 * nquad1 * nquad2, &jac[0], 1,
-                    (NekDouble *)&inarray[0], 1, &tmp[0], 1);
-    }
-    else
-    {
-        Vmath::Smul(nquad0 * nquad1 * nquad2, (NekDouble)jac[0],
-                    (NekDouble *)&inarray[0], 1, &tmp[0], 1);
-    }
-
-    // call StdHexExp version;
-    returnVal = StdHexExp::v_Integral(tmp);
-
-    return returnVal;
-}
-
 void HexExp::v_PhysDirectionalDeriv(
     const Array<OneD, const NekDouble> &inarray,
     const Array<OneD, const NekDouble> &direction,
@@ -262,7 +220,7 @@ void HexExp::v_AlignVectorToCollapsedDir(
  * @param inarray   The function \f$ u \f$.
  * @param outarray  Value of the inner product.
  */
-void HexExp::v_IProductWRTDirectionalDerivBase_SumFac(
+void HexExp::v_IProductWRTDirectionalDerivBase(
     const Array<OneD, const NekDouble> &direction,
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray)
@@ -382,13 +340,6 @@ void HexExp::v_GetCoords(Array<OneD, NekDouble> &coords_0,
 //-----------------------------
 // Helper functions
 //-----------------------------
-
-/// Return the region shape using the enum-list of ShapeType
-LibUtilities::ShapeType HexExp::v_DetShapeType() const
-{
-    return LibUtilities::eHexahedron;
-}
-
 void HexExp::v_ExtractDataToCoeffs(
     const NekDouble *data, const std::vector<unsigned int> &nummodes,
     const int mode_offset, NekDouble *coeffs,

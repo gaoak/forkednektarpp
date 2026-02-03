@@ -37,15 +37,15 @@
 
 #include <Collections/CollectionsDeclspec.h>
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
+#include <LocalRegions/Expansion.h>
 #include <SpatialDomains/Geometry.h>
-#include <StdRegions/StdExpansion.h>
 
 #define OPERATOR_CREATE(cname)                                                 \
     static OperatorKey m_type;                                                 \
     static OperatorKey m_typeArr[];                                            \
     friend class MemoryManager<cname>;                                         \
     static OperatorSharedPtr create(                                           \
-        std::vector<StdRegions::StdExpansionSharedPtr> pCollExp,               \
+        std::vector<LocalRegions::ExpansionSharedPtr> pCollExp,                \
         std::shared_ptr<CoalescedGeomData> GeomData,                           \
         StdRegions::FactorMap factors)                                         \
     {                                                                          \
@@ -121,7 +121,7 @@ typedef std::tuple<LibUtilities::ShapeType, OperatorType, ImplementationType,
 
 /// Operator factory definition
 typedef Nektar::LibUtilities::NekFactory<
-    OperatorKey, Operator, std::vector<StdRegions::StdExpansionSharedPtr>,
+    OperatorKey, Operator, std::vector<LocalRegions::ExpansionSharedPtr>,
     CoalescedGeomDataSharedPtr, StdRegions::FactorMap>
     OperatorFactory;
 
@@ -138,7 +138,7 @@ class Operator
 {
 public:
     /// Constructor
-    Operator(std::vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    Operator(std::vector<LocalRegions::ExpansionSharedPtr> pCollExp,
              std::shared_ptr<CoalescedGeomData> GeomData,
              StdRegions::FactorMap factors);
 

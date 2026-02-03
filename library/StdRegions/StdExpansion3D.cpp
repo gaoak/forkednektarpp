@@ -484,15 +484,6 @@ void StdExpansion3D::v_HelmholtzMatrixOp_MatFree(
     }
 }
 
-NekDouble StdExpansion3D::v_Integral(
-    const Array<OneD, const NekDouble> &inarray)
-{
-    const int nqtot = GetTotPoints();
-    Array<OneD, NekDouble> tmp(GetTotPoints());
-    v_MultiplyByStdQuadratureMetric(inarray, tmp);
-    return Vmath::Vsum(nqtot, tmp, 1);
-}
-
 int StdExpansion3D::v_GetNedges(void) const
 {
     NEKERROR(ErrorUtil::efatal, "This function is not valid or not defined");

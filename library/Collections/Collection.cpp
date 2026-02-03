@@ -43,7 +43,7 @@ namespace Nektar::Collections
 /**
  *
  */
-Collection::Collection(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+Collection::Collection(vector<LocalRegions::ExpansionSharedPtr> pCollExp,
                        OperatorImpMap &impTypes)
     : m_collExp(pCollExp), m_impTypes(impTypes)
 {

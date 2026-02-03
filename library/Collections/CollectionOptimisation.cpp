@@ -354,7 +354,7 @@ void CollectionOptimisation::ReadCollOps(TiXmlElement *xmlCol,
 }
 
 OperatorImpMap CollectionOptimisation::GetOperatorImpMap(
-    StdRegions::StdExpansionSharedPtr pExp)
+    LocalRegions::ExpansionSharedPtr pExp)
 {
     OperatorImpMap ret;
     ElmtOrder searchKey(pExp->DetShapeType(), pExp->GetBasisNumModes(0));
@@ -391,12 +391,12 @@ OperatorImpMap CollectionOptimisation::GetOperatorImpMap(
 }
 
 OperatorImpMap CollectionOptimisation::SetWithTimings(
-    vector<StdRegions::StdExpansionSharedPtr> pCollExp,
+    vector<LocalRegions::ExpansionSharedPtr> pCollExp,
     [[maybe_unused]] OperatorImpMap &impTypes, bool verbose)
 {
     OperatorImpMap ret;
 
-    StdRegions::StdExpansionSharedPtr pExp = pCollExp[0];
+    LocalRegions::ExpansionSharedPtr pExp = pCollExp[0];
 
     // check to see if already defined for this expansion
     OpImpTimingKey OpKey(pExp, pCollExp.size(), pExp->GetNumBases());

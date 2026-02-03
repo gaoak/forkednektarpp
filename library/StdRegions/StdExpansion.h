@@ -416,16 +416,6 @@ public:
         return v_DetShapeType();
     }
 
-    std::shared_ptr<StdExpansion> GetStdExp() const
-    {
-        return v_GetStdExp();
-    }
-
-    std::shared_ptr<StdExpansion> GetLinStdExp(void) const
-    {
-        return v_GetLinStdExp();
-    }
-
     int GetShapeDimension() const
     {
         return v_GetShapeDimension();
@@ -523,9 +513,6 @@ public:
     /** \brief This function integrates the specified function over the
      *  domain
      *
-     *  This function is a wrapper around the virtual function
-     *  \a v_Integral()
-     *
      *  Based on the values of the function evaluated at the quadrature
      *  points (which are stored in \a inarray), this function calculates
      *  the integral of this function over the domain.  This is
@@ -552,7 +539,10 @@ public:
      */
     NekDouble Integral(const Array<OneD, const NekDouble> &inarray)
     {
-        return v_Integral(inarray);
+        const int nqtot = GetTotPoints();
+        Array<OneD, NekDouble> tmp(GetTotPoints());
+        v_MultiplyByQuadratureMetric(inarray, tmp);
+        return Vmath::Vsum(nqtot, tmp, 1);
     }
 
     /** \brief This function fills the array \a outarray with the
@@ -1297,14 +1287,6 @@ protected:
     STD_REGIONS_EXPORT DNekBlkMatSharedPtr
     CreateStdStaticCondMatrix(const StdMatrixKey &mkey);
 
-    void IProductWRTDirectionalDerivBase_SumFac(
-        const Array<OneD, const NekDouble> &direction,
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray)
-    {
-        v_IProductWRTDirectionalDerivBase_SumFac(direction, inarray, outarray);
-    }
-
     // The term _MatFree denotes that the action of the
     // MatrixOperation is done withouth actually using the
     // matrix (which then needs to be stored/calculated).
@@ -1586,12 +1568,6 @@ protected:
     STD_REGIONS_EXPORT virtual LibUtilities::ShapeType v_DetShapeType()
         const = 0;
 
-    STD_REGIONS_EXPORT virtual std::shared_ptr<StdExpansion> v_GetStdExp()
-        const;
-
-    STD_REGIONS_EXPORT virtual std::shared_ptr<StdExpansion> v_GetLinStdExp(
-        void) const;
-
     STD_REGIONS_EXPORT virtual int v_GetShapeDimension() const = 0;
 
     STD_REGIONS_EXPORT virtual bool v_IsCollocatedBasis() const = 0;
@@ -1637,9 +1613,6 @@ protected:
     STD_REGIONS_EXPORT virtual void v_FwdTransBndConstrained(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray);
-
-    STD_REGIONS_EXPORT virtual NekDouble v_Integral(
-        const Array<OneD, const NekDouble> &inarray);
 
     STD_REGIONS_EXPORT virtual void v_PhysDeriv(
         const Array<OneD, const NekDouble> &inarray,
@@ -1747,11 +1720,6 @@ protected:
         NekDouble &outarray);
 
     STD_REGIONS_EXPORT virtual void v_MultiplyByQuadratureMetric(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray);
-
-    STD_REGIONS_EXPORT virtual void v_IProductWRTDirectionalDerivBase_SumFac(
-        const Array<OneD, const NekDouble> &direction,
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray);
 

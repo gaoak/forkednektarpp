@@ -38,7 +38,7 @@
 #include <map>
 #include <vector>
 
-#include <StdRegions/StdExpansion.h>
+#include <LocalRegions/Expansion.h>
 
 namespace Nektar::Collections
 {
@@ -62,21 +62,21 @@ public:
     virtual ~CoalescedGeomData(void) = default;
 
     const Array<OneD, const NekDouble> &GetJac(
-        std::vector<StdRegions::StdExpansionSharedPtr> &pColLExp);
+        std::vector<LocalRegions::ExpansionSharedPtr> &pColLExp);
 
     const std::shared_ptr<VecVec_t> GetJacInterLeave(
-        std::vector<StdRegions::StdExpansionSharedPtr> &pCollExp, int nElmts);
+        std::vector<LocalRegions::ExpansionSharedPtr> &pCollExp, int nElmts);
 
     const Array<OneD, const NekDouble> &GetJacWithStdWeights(
-        std::vector<StdRegions::StdExpansionSharedPtr> &pColLExp);
+        std::vector<LocalRegions::ExpansionSharedPtr> &pColLExp);
 
     const Array<TwoD, const NekDouble> &GetDerivFactors(
-        std::vector<StdRegions::StdExpansionSharedPtr> &pColLExp);
+        std::vector<LocalRegions::ExpansionSharedPtr> &pColLExp);
 
     const std::shared_ptr<VecVec_t> GetDerivFactorsInterLeave(
-        std::vector<StdRegions::StdExpansionSharedPtr> &pCollExp, int nElmts);
+        std::vector<LocalRegions::ExpansionSharedPtr> &pCollExp, int nElmts);
 
-    bool IsDeformed(std::vector<StdRegions::StdExpansionSharedPtr> &pCollExp);
+    bool IsDeformed(std::vector<LocalRegions::ExpansionSharedPtr> &pCollExp);
 
 private:
     std::map<GeomData, Array<OneD, NekDouble>> m_oneDGeomData;

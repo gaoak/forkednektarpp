@@ -134,7 +134,7 @@ BOOST_AUTO_TEST_CASE(TestTetBwdTrans_IterPerExp_UniformP)
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -212,7 +212,7 @@ BOOST_AUTO_TEST_CASE(TestTetBwdTrans_IterPerExp_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -296,7 +296,7 @@ BOOST_AUTO_TEST_CASE(TestTetIProductWRTBase_IterPerExp_UniformP)
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -382,7 +382,7 @@ BOOST_AUTO_TEST_CASE(TestTetIProductWRTBase_IterPerExp_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -476,7 +476,7 @@ BOOST_AUTO_TEST_CASE(TestTetBwdTrans_StdMat_UniformP)
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -554,7 +554,7 @@ BOOST_AUTO_TEST_CASE(TestTetBwdTrans_StdMat_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -638,7 +638,7 @@ BOOST_AUTO_TEST_CASE(TestTetBwdTrans_SumFac_UniformP)
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -716,7 +716,7 @@ BOOST_AUTO_TEST_CASE(TestTetBwdTrans_SumFac_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -802,7 +802,7 @@ BOOST_AUTO_TEST_CASE(TestTetBwdTrans_SumFac_MultiElmt_VariableP)
 
     int nelmts = 1;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -889,7 +889,7 @@ BOOST_AUTO_TEST_CASE(TestTetBwdTrans_MatrixFree_UniformP)
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -970,7 +970,7 @@ BOOST_AUTO_TEST_CASE(TestTetBwdTrans_MatrixFree_UniformP_OverInt)
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -1048,7 +1048,7 @@ BOOST_AUTO_TEST_CASE(TestTetIProductWRTBase_StdMat_UniformP)
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -1132,7 +1132,7 @@ BOOST_AUTO_TEST_CASE(TestTetIProductWRTBase_StdMat_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1226,7 +1226,7 @@ BOOST_AUTO_TEST_CASE(TestTetIProductWRTBase_SumFac_UniformP)
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -1312,7 +1312,7 @@ BOOST_AUTO_TEST_CASE(TestTetIProductWRTBase_SumFac_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1409,7 +1409,7 @@ BOOST_AUTO_TEST_CASE(TestTetIProductWRTBase_MatrixFree_UniformP_Undeformed)
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -1496,7 +1496,7 @@ BOOST_AUTO_TEST_CASE(TestTetIProductWRTBase_MatrixFree_UniformP_Deformed)
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -1584,7 +1584,7 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -1668,7 +1668,7 @@ BOOST_AUTO_TEST_CASE(TestTetPhysDeriv_IterPerExp_UniformP)
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -1752,7 +1752,7 @@ BOOST_AUTO_TEST_CASE(TestTetPhysDeriv_IterPerExp_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -1846,7 +1846,7 @@ BOOST_AUTO_TEST_CASE(TestTetPhysDeriv_StdMat_UniformP)
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -1930,7 +1930,7 @@ BOOST_AUTO_TEST_CASE(TestTetPhysDeriv_StdMat_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2024,7 +2024,7 @@ BOOST_AUTO_TEST_CASE(TestTetPhysDeriv_SumFac_UniformP)
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -2108,7 +2108,7 @@ BOOST_AUTO_TEST_CASE(TestTetPhysDeriv_SumFac_VariableP_MultiElmt)
 
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2205,7 +2205,7 @@ BOOST_AUTO_TEST_CASE(TestTetPhysDeriv_MatrixFree_UniformP)
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -2289,7 +2289,7 @@ BOOST_AUTO_TEST_CASE(TestTetIProductWRTDerivBase_IterPerExp_UniformP)
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -2389,7 +2389,7 @@ BOOST_AUTO_TEST_CASE(TestTetIProductWRTDerivBase_IterPerExp_VariableP_MultiElmt)
 
     int nelmts = 1;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2499,7 +2499,7 @@ BOOST_AUTO_TEST_CASE(TestTetIProductWRTDerivBase_StdMat_UniformP)
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -2599,7 +2599,7 @@ BOOST_AUTO_TEST_CASE(TestTetIProductWRTDerivBase_StdMat_VariableP_MultiElmt)
 
     int nelmts = 1;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2709,7 +2709,7 @@ BOOST_AUTO_TEST_CASE(TestTetIProductWRTDerivBase_SumFac_UniformP)
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -2809,7 +2809,7 @@ BOOST_AUTO_TEST_CASE(TestTetIProductWRTDerivBase_SumFac_VariableP_MultiElmt)
 
     int nelmts = 1;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2922,13 +2922,9 @@ BOOST_AUTO_TEST_CASE(TestTetHelmholtz_IterPerExp_UniformP_ConstVarDiff)
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    Nektar::StdRegions::StdTetExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdTetExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -2937,7 +2933,7 @@ BOOST_AUTO_TEST_CASE(TestTetHelmholtz_IterPerExp_UniformP_ConstVarDiff)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eIterPerExp);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda]   = 1.5;
@@ -3031,13 +3027,9 @@ BOOST_AUTO_TEST_CASE(TestTetHelmholtz_MatrixFree_UniformP)
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    Nektar::StdRegions::StdTetExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdTetExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3046,7 +3038,7 @@ BOOST_AUTO_TEST_CASE(TestTetHelmholtz_MatrixFree_UniformP)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;
@@ -3134,13 +3126,9 @@ BOOST_AUTO_TEST_CASE(TestTetHelmholtz_MatrixFree_Deformed_OverInt)
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    Nektar::StdRegions::StdTetExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdTetExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3149,7 +3137,7 @@ BOOST_AUTO_TEST_CASE(TestTetHelmholtz_MatrixFree_Deformed_OverInt)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;
@@ -3237,7 +3225,7 @@ BOOST_AUTO_TEST_CASE(TestTetIProductWRTDerivBase_MatrixFree_UniformP_Undeformed)
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -3338,13 +3326,9 @@ BOOST_AUTO_TEST_CASE(TestTetHelmholtz_MatrixFree_UniformP_ConstVarDiff)
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    Nektar::StdRegions::StdTetExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdTetExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir2, basisKeyDir3);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3353,7 +3337,7 @@ BOOST_AUTO_TEST_CASE(TestTetHelmholtz_MatrixFree_UniformP_ConstVarDiff)
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda]   = 1.5;
@@ -3448,7 +3432,7 @@ BOOST_AUTO_TEST_CASE(TestTetPhysInterp1D_NoCollections_UniformP)
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -3547,7 +3531,7 @@ BOOST_AUTO_TEST_CASE(TestTetPhysInterp1D_MatrixFree_UniformP)
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
@@ -3646,13 +3630,9 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    Nektar::StdRegions::StdTetExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdTetExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3661,7 +3641,7 @@ BOOST_AUTO_TEST_CASE(
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eIterPerExp);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;
@@ -3765,13 +3745,9 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    Nektar::StdRegions::StdTetExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdTetExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3780,7 +3756,7 @@ BOOST_AUTO_TEST_CASE(
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;
@@ -3884,13 +3860,9 @@ BOOST_AUTO_TEST_CASE(
         MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom.get());
 
-    Nektar::StdRegions::StdTetExpSharedPtr stdExp =
-        MemoryManager<Nektar::StdRegions::StdTetExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
-
     int nelmts = 10;
 
-    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    std::vector<LocalRegions::ExpansionSharedPtr> CollExp;
     for (int i = 0; i < nelmts; ++i)
     {
         CollExp.push_back(Exp);
@@ -3899,7 +3871,7 @@ BOOST_AUTO_TEST_CASE(
     LibUtilities::SessionReaderSharedPtr dummySession;
     Collections::CollectionOptimisation colOpt(dummySession, 2,
                                                Collections::eMatrixFree);
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
     Collections::Collection c(CollExp, impTypes);
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 1.5;

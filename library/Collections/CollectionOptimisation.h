@@ -47,7 +47,7 @@ class OpImpTimingKey
 {
 public:
     /// Constructor
-    OpImpTimingKey(StdRegions::StdExpansionSharedPtr pExp, int ngeoms,
+    OpImpTimingKey(LocalRegions::ExpansionSharedPtr pExp, int ngeoms,
                    int nbases)
         : m_exp(pExp), m_ngeoms(ngeoms), m_nbasis(nbases)
     {
@@ -109,7 +109,7 @@ public:
         return false;
     }
 
-    StdRegions::StdExpansionSharedPtr m_exp;
+    LocalRegions::ExpansionSharedPtr m_exp;
     int m_ngeoms;
     int m_nbasis;
 
@@ -143,11 +143,11 @@ public:
 
     /// Get Operator Implementation Map from XMl or using default;
     COLLECTIONS_EXPORT OperatorImpMap
-    GetOperatorImpMap(StdRegions::StdExpansionSharedPtr pExp);
+    GetOperatorImpMap(LocalRegions::ExpansionSharedPtr pExp);
 
     // Get Map by doing autotuning testing.
     COLLECTIONS_EXPORT OperatorImpMap
-    SetWithTimings(std::vector<StdRegions::StdExpansionSharedPtr> pGeom,
+    SetWithTimings(std::vector<LocalRegions::ExpansionSharedPtr> pGeom,
                    OperatorImpMap &impTypes, bool verbose = true);
 
     // Wite out autotuning testing to file

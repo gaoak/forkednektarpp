@@ -5868,7 +5868,7 @@ void ExpList::CreateCollections(Collections::ImplementationType ImpType)
         (colOpt.GetMaxCollectionSize() > 0 ? colOpt.GetMaxCollectionSize()
                                            : 2 * m_exp->size());
 
-    vector<StdRegions::StdExpansionSharedPtr> collExp;
+    vector<LocalRegions::ExpansionSharedPtr> collExp;
     LocalRegions::ExpansionSharedPtr exp = (*m_exp)[0];
     Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(exp);
 

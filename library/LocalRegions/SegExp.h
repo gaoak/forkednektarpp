@@ -58,12 +58,6 @@ public:
     LOCAL_REGIONS_EXPORT ~SegExp() override = default;
 
 protected:
-    //----------------------------
-    // Integration Methods
-    //----------------------------
-    LOCAL_REGIONS_EXPORT NekDouble
-    v_Integral(const Array<OneD, const NekDouble> &inarray) override;
-
     //-----------------------------
     // Differentiation Methods
     //-----------------------------

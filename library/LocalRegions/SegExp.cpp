@@ -75,47 +75,6 @@ SegExp::SegExp(const SegExp &S)
 {
 }
 
-//----------------------------
-// Integration Methods
-//----------------------------
-
-/** \brief Integrate the physical point list \a inarray over region
-    and return the value
-
-    Inputs:\n
-
-    - \a inarray: definition of function to be returned at
-    quadrature point of expansion.
-
-    Outputs:\n
-
-    - returns \f$\int^1_{-1} u(\xi_1)d \xi_1 \f$ where \f$inarray[i]
-    = u(\xi_{1i}) \f$
-*/
-
-NekDouble SegExp::v_Integral(const Array<OneD, const NekDouble> &inarray)
-{
-    int nquad0                       = m_base[0]->GetNumPoints();
-    Array<OneD, const NekDouble> jac = m_geomFactors->GetJac();
-    NekDouble ival;
-    Array<OneD, NekDouble> tmp(nquad0);
-
-    // multiply inarray with Jacobian
-    if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed)
-    {
-        Vmath::Vmul(nquad0, jac, 1, inarray, 1, tmp, 1);
-    }
-    else
-    {
-        Vmath::Smul(nquad0, jac[0], inarray, 1, tmp, 1);
-    }
-
-    // call StdSegExp version;
-    ival = StdSegExp::v_Integral(tmp);
-    // ival = StdSegExp::Integral(tmp);
-    return ival;
-}
-
 //-----------------------------
 // Transforms
 //-----------------------------

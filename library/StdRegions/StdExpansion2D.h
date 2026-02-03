@@ -52,12 +52,6 @@ public:
     STD_REGIONS_EXPORT ~StdExpansion2D() override              = default;
 
     // Generic operations in different element
-
-    STD_REGIONS_EXPORT NekDouble
-    Integral(const Array<OneD, const NekDouble> &inarray,
-             const Array<OneD, const NekDouble> &w0,
-             const Array<OneD, const NekDouble> &w1);
-
     // find derivative of u (inarray) at all coords points
     STD_REGIONS_EXPORT inline NekDouble BaryTensorDeriv(
         const Array<OneD, NekDouble> &coord,

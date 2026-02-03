@@ -64,29 +64,6 @@ QuadExp::QuadExp(const QuadExp &T)
 {
 }
 
-NekDouble QuadExp::v_Integral(const Array<OneD, const NekDouble> &inarray)
-{
-    int nquad0                       = m_base[0]->GetNumPoints();
-    int nquad1                       = m_base[1]->GetNumPoints();
-    Array<OneD, const NekDouble> jac = m_geomFactors->GetJac();
-    NekDouble ival;
-    Array<OneD, NekDouble> tmp(nquad0 * nquad1);
-
-    // multiply inarray with Jacobian
-    if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed)
-    {
-        Vmath::Vmul(nquad0 * nquad1, jac, 1, inarray, 1, tmp, 1);
-    }
-    else
-    {
-        Vmath::Smul(nquad0 * nquad1, jac[0], inarray, 1, tmp, 1);
-    }
-
-    // call StdQuadExp version;
-    ival = StdQuadExp::v_Integral(tmp);
-    return ival;
-}
-
 void QuadExp::v_PhysDirectionalDeriv(
     const Array<OneD, const NekDouble> &inarray,
     const Array<OneD, const NekDouble> &direction, Array<OneD, NekDouble> &out)

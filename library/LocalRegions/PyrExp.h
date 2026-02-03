@@ -60,12 +60,6 @@ public:
     LOCAL_REGIONS_EXPORT ~PyrExp() override = default;
 
 protected:
-    //-------------------------------
-    // Integration Methods
-    //-------------------------------
-    LOCAL_REGIONS_EXPORT NekDouble
-    v_Integral(const Array<OneD, const NekDouble> &inarray) override;
-
     //---------------------------------------
     // Inner product functions
     //---------------------------------------
