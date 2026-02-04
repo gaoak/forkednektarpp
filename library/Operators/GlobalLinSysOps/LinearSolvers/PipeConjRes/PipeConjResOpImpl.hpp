@@ -84,7 +84,22 @@ public:
     {
         this->template SetLinearSolver<ExecSpace>();
 
+        auto session = this->m_expansionList->GetSession();
+
+        // Set parameters.
+        this->m_leftPreconditioner =
+            session->DefinesParameter("LinSysLeftPrecon")
+                ? session->GetParameter("LinSysLeftPrecon")
+                : true;
+        this->m_rightPreconditioner =
+            session->DefinesParameter("LinSysRightPrecon")
+                ? session->GetParameter("LinSysRightPrecon")
+                : false;
+
         m_request = this->m_rowComm->CreateRequest(1);
+
+        ASSERTL0(!this->m_rightPreconditioner,
+                 "PipeConjResOpImpl: Only left preconditioner is supported");
     }
 
     // className - for OperatorFactory
@@ -144,7 +159,10 @@ protected:
         ddot<ExecSpace>(in, m_r, exchange + 0);
 
         // Apply preconditioner
-        this->m_precon->Apply(m_r, m_r);
+        if (this->m_leftPreconditioner)
+        {
+            this->m_precon->Apply(m_r, m_r);
+        }
         ddot<ExecSpace>(m_r, m_r, exchange + 2);
 
         // Communication.
@@ -192,7 +210,10 @@ protected:
                 this->m_robBndCondOp->Apply(out, m_r);
                 sub<ExecSpace>(in, m_r, m_r);
                 this->m_assmbScatrZeroDirOp->Apply(m_r);
-                this->m_precon->Apply(m_r, m_r);
+                if (this->m_leftPreconditioner)
+                {
+                    this->m_precon->Apply(m_r, m_r);
+                }
                 this->m_lhs->Apply(m_r, m_w);
                 this->m_robBndCondOp->Apply(m_r, m_w);
             }
@@ -205,7 +226,10 @@ protected:
 
             // Apply preconditioner.
             this->m_assmbScatrZeroDirOp->Apply(m_w, m_wk);
-            this->m_precon->Apply(m_wk, m_wk);
+            if (this->m_leftPreconditioner)
+            {
+                this->m_precon->Apply(m_wk, m_wk);
+            }
 
             // <w_{k+1}, wk_{k+1}>
             ddot<ExecSpace>(m_w, m_wk, exchange + 2);

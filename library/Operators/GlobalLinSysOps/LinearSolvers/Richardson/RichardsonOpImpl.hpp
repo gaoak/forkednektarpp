@@ -65,8 +65,23 @@ public:
     {
         this->template SetLinearSolver<ExecSpace>();
 
-        auto session = expansionList->GetSession();
-        session->LoadParameter("RichardsonRelaxation", m_scale, 0.25);
+        auto session = this->m_expansionList->GetSession();
+
+        // Set parameters.
+        this->m_leftPreconditioner =
+            session->DefinesParameter("LinSysLeftPrecon")
+                ? session->GetParameter("LinSysLeftPrecon")
+                : true;
+        this->m_rightPreconditioner =
+            session->DefinesParameter("LinSysRightPrecon")
+                ? session->GetParameter("LinSysRightPrecon")
+                : false;
+        m_scale = session->DefinesParameter("RichardsonRelaxation")
+                      ? session->GetParameter("RichardsonRelaxation")
+                      : 0.25;
+
+        ASSERTL0(!this->m_rightPreconditioner,
+                 "RichardsonOpImpl: Only left preconditioner is supported");
     }
 
     // className - for OperatorFactory

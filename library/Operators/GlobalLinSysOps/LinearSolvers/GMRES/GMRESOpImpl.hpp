@@ -66,9 +66,20 @@ public:
     {
         this->template SetLinearSolver<ExecSpace>();
 
-        auto session = expansionList->GetSession();
-        session->LoadParameter("LinSysMaxStorage", m_LinSysMaxStorage, 50);
+        auto session = this->m_expansionList->GetSession();
 
+        this->m_leftPreconditioner =
+            session->DefinesParameter("LinSysLeftPrecon")
+                ? session->GetParameter("LinSysLeftPrecon")
+                : false;
+        this->m_rightPreconditioner =
+            session->DefinesParameter("LinSysRightPrecon")
+                ? session->GetParameter("LinSysRightPrecon")
+                : true;
+        this->m_LinSysMaxStorage =
+            session->DefinesParameter("LinSysMaxStorage")
+                ? session->GetParameter("LinSysMaxStorage")
+                : 50;
         // LGMRES parameter
         // Reference:
         // Baker, Allison H., Elizabeth R. Jessup, and Thomas Manteuffel. "A

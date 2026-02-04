@@ -82,10 +82,23 @@ public:
     {
         this->template SetLinearSolver<ExecSpace>();
 
-        auto session = expansionList->GetSession();
-        m_flexible   = session->DefinesParameter("FlexibleConjugateGradient")
-                           ? session->GetParameter("FlexibleConjugateGradient")
-                           : false;
+        auto session = this->m_expansionList->GetSession();
+
+        // Set parameters.
+        this->m_leftPreconditioner =
+            session->DefinesParameter("LinSysLeftPrecon")
+                ? session->GetParameter("LinSysLeftPrecon")
+                : true;
+        this->m_rightPreconditioner =
+            session->DefinesParameter("LinSysRightPrecon")
+                ? session->GetParameter("LinSysRightPrecon")
+                : false;
+        m_flexible = session->DefinesParameter("FlexibleConjugateGradient")
+                         ? session->GetParameter("FlexibleConjugateGradient")
+                         : false;
+
+        ASSERTL0(!this->m_rightPreconditioner,
+                 "ConjGradOpImpl: Only left preconditioner is supported");
 
         // Fill mask.
         auto maskptr =
@@ -195,7 +208,14 @@ protected:
         }
 
         // Apply preconditioner - output is assembled
-        this->m_precon->Apply(m_r, m_w);
+        if (this->m_leftPreconditioner)
+        {
+            this->m_precon->Apply(m_r, m_w);
+        }
+        else
+        {
+            m_w.template Copy<MemSpace>(m_r);
+        }
 
         // Iteration >= 1
         alpha    = 1.0;
@@ -245,7 +265,14 @@ protected:
                 }
 
                 // Apply preconditioner - output is assumeed holding global dof
-                this->m_precon->Apply(m_r, m_w);
+                if (this->m_leftPreconditioner)
+                {
+                    this->m_precon->Apply(m_r, m_w);
+                }
+                else
+                {
+                    m_w.template Copy<MemSpace>(m_r);
+                }
             }
 
             // <r_{k+1}, w_{k+1}>

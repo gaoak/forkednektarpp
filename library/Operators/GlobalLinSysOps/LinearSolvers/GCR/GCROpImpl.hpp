@@ -59,8 +59,24 @@ public:
     {
         this->template SetLinearSolver<ExecSpace>();
 
-        auto session = expansionList->GetSession();
-        session->LoadParameter("LinSysMaxStorage", m_LinSysMaxStorage, 50);
+        auto session = this->m_expansionList->GetSession();
+
+        // Set parameters.
+        this->m_leftPreconditioner =
+            session->DefinesParameter("LinSysLeftPrecon")
+                ? session->GetParameter("LinSysLeftPrecon")
+                : true;
+        this->m_rightPreconditioner =
+            session->DefinesParameter("LinSysRightPrecon")
+                ? session->GetParameter("LinSysRightPrecon")
+                : false;
+        this->m_LinSysMaxStorage =
+            session->DefinesParameter("LinSysMaxStorage")
+                ? session->GetParameter("LinSysMaxStorage")
+                : 50;
+
+        ASSERTL0(!this->m_rightPreconditioner,
+                 "GCROpImpl: Only left preconditioner is supported");
     }
 
     // className - for OperatorFactory
@@ -152,7 +168,14 @@ protected:
             }
 
             // Apply preconditioner
-            this->m_precon->Apply(m_r, m_P[ii]);
+            if (this->m_leftPreconditioner)
+            {
+                this->m_precon->Apply(m_r, m_P[ii]);
+            }
+            else
+            {
+                m_P[ii].template Copy<MemSpace>(m_r);
+            }
 
             // Perform the method-specific matrix-vector multiply operation.
             this->m_lhs->Apply(m_P[ii], m_Q[ii]);

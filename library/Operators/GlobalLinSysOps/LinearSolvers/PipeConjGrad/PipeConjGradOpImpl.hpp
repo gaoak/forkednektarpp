@@ -92,7 +92,22 @@ public:
     {
         this->template SetLinearSolver<ExecSpace>();
 
+        auto session = this->m_expansionList->GetSession();
+
+        // Set parameters.
+        this->m_leftPreconditioner =
+            session->DefinesParameter("LinSysLeftPrecon")
+                ? session->GetParameter("LinSysLeftPrecon")
+                : true;
+        this->m_rightPreconditioner =
+            session->DefinesParameter("LinSysRightPrecon")
+                ? session->GetParameter("LinSysRightPrecon")
+                : false;
+
         m_request = this->m_rowComm->CreateRequest(1);
+
+        ASSERTL0(!this->m_rightPreconditioner,
+                 "PipeConjGradOpImpl: Only left preconditioner is supported");
     }
 
     // className - for OperatorFactory
@@ -154,7 +169,10 @@ protected:
         ddot<ExecSpace>(m_r, m_u, exchange + 0);
 
         // Apply preconditioner
-        this->m_precon->Apply(m_u, m_u);
+        if (this->m_leftPreconditioner)
+        {
+            this->m_precon->Apply(m_u, m_u);
+        }
         ddot<ExecSpace>(m_u, m_u, exchange + 2);
 
         // Communication.
@@ -202,7 +220,10 @@ protected:
                 this->m_robBndCondOp->Apply(out, m_r);
                 sub<ExecSpace>(in, m_r, m_r);
                 this->m_assmbScatrZeroDirOp->Apply(m_r, m_u);
-                this->m_precon->Apply(m_u, m_u);
+                if (this->m_leftPreconditioner)
+                {
+                    this->m_precon->Apply(m_u, m_u);
+                }
                 this->m_lhs->Apply(m_u, m_w);
                 this->m_robBndCondOp->Apply(m_u, m_w);
             }
@@ -222,7 +243,10 @@ protected:
 
             // Overlap communication with matrix-vector multiply operation.
             this->m_assmbScatrZeroDirOp->Apply(m_w, m_m);
-            this->m_precon->Apply(m_m, m_m);
+            if (this->m_leftPreconditioner)
+            {
+                this->m_precon->Apply(m_m, m_m);
+            }
             this->m_lhs->Apply(m_m, m_n);
             this->m_robBndCondOp->Apply(m_m, m_n);
 

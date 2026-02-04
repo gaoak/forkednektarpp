@@ -83,6 +83,18 @@ public:
           m_vExchange(MemoryRegion<TData>(4, ePinned))
     {
         this->template SetLinearSolver<ExecSpace>();
+
+        auto session = this->m_expansionList->GetSession();
+
+        // Set parameters.
+        this->m_leftPreconditioner =
+            session->DefinesParameter("LinSysLeftPrecon")
+                ? session->GetParameter("LinSysLeftPrecon")
+                : false;
+        this->m_rightPreconditioner =
+            session->DefinesParameter("LinSysRightPrecon")
+                ? session->GetParameter("LinSysRightPrecon")
+                : true;
     }
 
     // className - for OperatorFactory

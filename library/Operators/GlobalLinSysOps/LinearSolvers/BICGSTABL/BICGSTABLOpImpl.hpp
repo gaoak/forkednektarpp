@@ -72,7 +72,21 @@ public:
         this->template SetLinearSolver<ExecSpace>();
 
         auto session = this->m_expansionList->GetSession();
-        session->LoadParameter("BICGSTABLstage", m_stage, 4);
+
+        // Set parameters.
+        this->m_leftPreconditioner =
+            session->DefinesParameter("LinSysLeftPrecon")
+                ? session->GetParameter("LinSysLeftPrecon")
+                : false;
+        this->m_rightPreconditioner =
+            session->DefinesParameter("LinSysRightPrecon")
+                ? session->GetParameter("LinSysRightPrecon")
+                : true;
+        m_stage = session->DefinesParameter("BICGSTABLstage")
+                      ? session->GetParameter("BICGSTABLstage")
+                      : 4;
+
+        // Set-up storage.
         for (unsigned int stage = 0; stage <= m_stage; stage++)
         {
             m_r.push_back(Field<TData, FieldState::Coeff>(
@@ -469,14 +483,7 @@ protected:
                     MaxResTrue = zeta;
                     if (update_app)
                     {
-                        if (this->m_rightPreconditioner)
-                        {
-                            add<ExecSpace>(m_w, out, out);
-                        }
-                        else
-                        {
-                            add<ExecSpace>(m_acc, out, out);
-                        }
+                        add<ExecSpace>(tmp3, out, out);
                         m_acc.template Initialize<MemSpace>(0);
                         m_rhs.template Copy<MemSpace>(m_r[0]);
 
