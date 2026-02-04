@@ -82,6 +82,16 @@ public:
               components, 1))
     {
         this->template SetLinearSolver<ExecSpace>();
+
+        auto session = this->m_expansionList->GetSession();
+
+        // Set parameters.
+        int leftPreconditioner  = 0;
+        int rightPreconditioner = 0;
+        session->LoadParameter("LinSysLeftPrecon", leftPreconditioner, 0);
+        session->LoadParameter("LinSysRightPrecon", rightPreconditioner, 1);
+        this->m_leftPreconditioner  = leftPreconditioner;
+        this->m_rightPreconditioner = rightPreconditioner;
     }
 
     // className - for OperatorFactory

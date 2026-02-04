@@ -43,6 +43,8 @@
 #define TEST_LINADVDIFFREACTION(test_name, test, tol)                          \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
@@ -55,6 +57,8 @@
 #define TEST_LINADVDIFFREACTION3DH1(test_name, test, tol)                      \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure3DH1(4);                                                      \
         SetTestCase();                                                         \
         RunTestCase();                                                         \

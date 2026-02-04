@@ -78,6 +78,21 @@ public:
               components, 1))
     {
         this->template SetLinearSolver<ExecSpace>();
+
+        auto session = this->m_expansionList->GetSession();
+
+        // Set parameters.
+        this->m_leftPreconditioner =
+            session->DefinesParameter("LinSysLeftPrecon")
+                ? session->GetParameter("LinSysLeftPrecon")
+                : true;
+        this->m_rightPreconditioner =
+            session->DefinesParameter("LinSysRightPrecon")
+                ? session->GetParameter("LinSysRightPrecon")
+                : false;
+
+        ASSERTL0(!this->m_rightPreconditioner,
+                 "MINRESOpImpl: Only left preconditioner is supported");
     }
 
     // className - for OperatorFactory
@@ -130,7 +145,10 @@ protected:
         // Copy RHS into initial vector.
         m_v0.template Copy<MemSpace>(in);
         this->m_assmbScatrZeroDirOp->Apply(m_v0, m_w);
-        this->m_precon->Apply(m_w, m_w);
+        if (this->m_leftPreconditioner)
+        {
+            this->m_precon->Apply(m_w, m_w);
+        }
         eps = this->m_math.ddot(m_v0, m_w);
         this->m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
         beta1 = std::sqrt(eps);
@@ -183,7 +201,10 @@ protected:
 
             // Apply preconditioner.
             this->m_assmbScatrZeroDirOp->Apply(m_v1, m_q);
-            this->m_precon->Apply(m_q, m_q);
+            if (this->m_leftPreconditioner)
+            {
+                this->m_precon->Apply(m_q, m_q);
+            }
 
             // Update coefficients.
             beta0 = beta1;

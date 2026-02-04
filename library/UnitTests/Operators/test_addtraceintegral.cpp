@@ -43,6 +43,8 @@
 #define TEST_ADDTRACEINTEGRAL(test_name, test, tol)                            \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
         SetTestCase();                                                         \
         RunTestCase();                                                         \

@@ -46,7 +46,9 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
+        int LinSysLeftPrecon  = 0;                                             \
         int LinSysRightPrecon = 1;                                             \
+        this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         SetTestCase();                                                         \
         RunTestCase("CGS");                                                    \
@@ -62,8 +64,10 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
-        int LinSysLeftPrecon = 1;                                              \
+        int LinSysLeftPrecon  = 1;                                             \
+        int LinSysRightPrecon = 0;                                             \
         this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
+        this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         SetTestCase();                                                         \
         RunTestCase("CGS");                                                    \
         boost::test_tools::output_test_stream output;                          \
@@ -78,6 +82,8 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
+        int LinSysLeftPrecon = 1;                                              \
+        this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         SetTestCase();                                                         \
         RunTestCase("GCR");                                                    \
         boost::test_tools::output_test_stream output;                          \
@@ -92,7 +98,9 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
+        int LinSysLeftPrecon  = 0;                                             \
         int LinSysRightPrecon = 1;                                             \
+        this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         SetTestCase();                                                         \
         RunTestCase("BICGSTAB");                                               \
@@ -108,8 +116,10 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
-        int LinSysLeftPrecon = 1;                                              \
+        int LinSysLeftPrecon  = 1;                                             \
+        int LinSysRightPrecon = 0;                                             \
         this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
+        this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         SetTestCase();                                                         \
         RunTestCase("BICGSTAB");                                               \
         boost::test_tools::output_test_stream output;                          \
@@ -124,7 +134,9 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
+        int LinSysLeftPrecon  = 0;                                             \
         int LinSysRightPrecon = 1;                                             \
+        this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         SetTestCase();                                                         \
         RunTestCase("BICGSTABR");                                              \
@@ -140,8 +152,10 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
-        int LinSysLeftPrecon = 1;                                              \
+        int LinSysLeftPrecon  = 1;                                             \
+        int LinSysRightPrecon = 0;                                             \
         this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
+        this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         SetTestCase();                                                         \
         RunTestCase("BICGSTABR");                                              \
         boost::test_tools::output_test_stream output;                          \
@@ -156,7 +170,9 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
+        int LinSysLeftPrecon  = 0;                                             \
         int LinSysRightPrecon = 1;                                             \
+        this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         SetTestCase();                                                         \
         RunTestCase("BICGSTABL");                                              \
@@ -172,8 +188,10 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
-        int LinSysLeftPrecon = 1;                                              \
+        int LinSysLeftPrecon  = 1;                                             \
+        int LinSysRightPrecon = 0;                                             \
         this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
+        this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         SetTestCase();                                                         \
         RunTestCase("BICGSTABL");                                              \
         boost::test_tools::output_test_stream output;                          \
@@ -188,9 +206,11 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
+        int LinSysLeftPrecon    = 0;                                           \
         int LinSysRightPrecon   = 1;                                           \
         int GMRESDeltaDirection = 3;                                           \
         int ModifiedGramSchmidt = 0;                                           \
+        this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         this->session->SetParameter("GMRESDeltaDirection",                     \
                                     GMRESDeltaDirection);                      \
@@ -210,10 +230,12 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
+        int LinSysLeftPrecon    = 0;                                           \
         int LinSysRightPrecon   = 1;                                           \
         int GMRESDeltaDirection = 0;                                           \
         int FlexibleGMRES       = 1;                                           \
         int ModifiedGramSchmidt = 0;                                           \
+        this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         this->session->SetParameter("GMRESDeltaDirection",                     \
                                     GMRESDeltaDirection);                      \
@@ -234,9 +256,11 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
+        int LinSysLeftPrecon    = 0;                                           \
         int LinSysRightPrecon   = 1;                                           \
         int GMRESDeltaDirection = 3;                                           \
         int ModifiedGramSchmidt = 1;                                           \
+        this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         this->session->SetParameter("GMRESDeltaDirection",                     \
                                     GMRESDeltaDirection);                      \
@@ -256,10 +280,12 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
+        int LinSysLeftPrecon    = 0;                                           \
         int LinSysRightPrecon   = 1;                                           \
         int GMRESDeltaDirection = 0;                                           \
         int FlexibleGMRES       = 1;                                           \
         int ModifiedGramSchmidt = 1;                                           \
+        this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         this->session->SetParameter("GMRESDeltaDirection",                     \
                                     GMRESDeltaDirection);                      \
@@ -281,7 +307,9 @@
                   << std::endl;                                                \
         Configure();                                                           \
         SetTestCase();                                                         \
+        int LinSysLeftPrecon  = 0;                                             \
         int LinSysRightPrecon = 1;                                             \
+        this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         RunTestCase("TFQMR");                                                  \
         boost::test_tools::output_test_stream output;                          \
@@ -296,8 +324,10 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
-        int LinSysLeftPrecon = 1;                                              \
+        int LinSysLeftPrecon  = 1;                                             \
+        int LinSysRightPrecon = 0;                                             \
         this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
+        this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         SetTestCase();                                                         \
         RunTestCase("TFQMR");                                                  \
         boost::test_tools::output_test_stream output;                          \
@@ -312,7 +342,9 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
+        int LinSysLeftPrecon  = 0;                                             \
         int LinSysRightPrecon = 1;                                             \
+        this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         SetTestCase();                                                         \
         RunTestCase("IDRS");                                                   \
@@ -328,8 +360,10 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
-        int LinSysLeftPrecon = 1;                                              \
+        int LinSysLeftPrecon  = 1;                                             \
+        int LinSysRightPrecon = 0;                                             \
         this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
+        this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         SetTestCase();                                                         \
         RunTestCase("IDRS");                                                   \
         boost::test_tools::output_test_stream output;                          \

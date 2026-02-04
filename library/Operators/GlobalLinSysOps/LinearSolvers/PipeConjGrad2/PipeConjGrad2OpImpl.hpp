@@ -80,7 +80,22 @@ public:
     {
         this->template SetLinearSolver<ExecSpace>();
 
+        auto session = this->m_expansionList->GetSession();
+
+        // Set parameters.
+        this->m_leftPreconditioner =
+            session->DefinesParameter("LinSysLeftPrecon")
+                ? session->GetParameter("LinSysLeftPrecon")
+                : true;
+        this->m_rightPreconditioner =
+            session->DefinesParameter("LinSysRightPrecon")
+                ? session->GetParameter("LinSysRightPrecon")
+                : false;
+
         m_request = this->m_rowComm->CreateRequest(1);
+
+        ASSERTL0(!this->m_rightPreconditioner,
+                 "PipeConjGrad2OpImpl: Only left preconditioner is supported");
     }
 
     // className - for OperatorFactory
@@ -143,7 +158,10 @@ protected:
             m_vExchange, Nektar::LibUtilities::ReduceSum, m_request);
 
         // Overlap communication with matrix-vector multiply operation.
-        this->m_precon->Apply(m_u, m_u);
+        if (this->m_leftPreconditioner)
+        {
+            this->m_precon->Apply(m_u, m_u);
+        }
 
         // End communication.
         this->m_rowComm->template AllReduceEnd<MemSpace>(m_vExchange,
@@ -212,7 +230,10 @@ protected:
 
             // Overlap communication with matrix-vector multiply operation.
             this->m_assmbScatrZeroDirOp->Apply(m_s, m_q);
-            this->m_precon->Apply(m_q, m_q);
+            if (this->m_leftPreconditioner)
+            {
+                this->m_precon->Apply(m_q, m_q);
+            }
 
             // End communication.
             this->m_rowComm->template AllReduceEnd<MemSpace>(m_vExchange,

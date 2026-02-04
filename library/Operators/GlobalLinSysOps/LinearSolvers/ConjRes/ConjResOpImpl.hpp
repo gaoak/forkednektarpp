@@ -74,6 +74,21 @@ public:
               components, 1))
     {
         this->template SetLinearSolver<ExecSpace>();
+
+        auto session = this->m_expansionList->GetSession();
+
+        // Set parameters.
+        this->m_leftPreconditioner =
+            session->DefinesParameter("LinSysLeftPrecon")
+                ? session->GetParameter("LinSysLeftPrecon")
+                : true;
+        this->m_rightPreconditioner =
+            session->DefinesParameter("LinSysRightPrecon")
+                ? session->GetParameter("LinSysRightPrecon")
+                : false;
+
+        ASSERTL0(!this->m_rightPreconditioner,
+                 "ConjResOpImpl: Only left preconditioner is supported");
     }
 
     // className - for OperatorFactory
@@ -128,7 +143,10 @@ protected:
         }
 
         // Apply preconditioner
-        this->m_precon->Apply(m_r, m_r);
+        if (this->m_leftPreconditioner)
+        {
+            this->m_precon->Apply(m_r, m_r);
+        }
 
         // Iteration >= 1
         alpha   = 0.0;
@@ -176,7 +194,10 @@ protected:
 
             // Apply preconditioner
             this->m_assmbScatrZeroDirOp->Apply(m_q, m_w);
-            this->m_precon->Apply(m_w, m_w);
+            if (this->m_leftPreconditioner)
+            {
+                this->m_precon->Apply(m_w, m_w);
+            }
 
             // Update coefficient.
             alpha = this->m_math.ddot(m_q, m_w);

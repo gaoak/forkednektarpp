@@ -43,6 +43,8 @@
 #define TEST_PHYSINTERP1DSCALED(test_name, test, tol)                          \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         double scale = 1.5;                                                    \
         Configure(scale);                                                      \
         SetTestCase();                                                         \
@@ -56,6 +58,8 @@
 #define TEST_PHYSINTERP1DSCALED3DH1(test_name, test, tol)                      \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         double scale = 1.5;                                                    \
         Configure3DH1(scale, 4);                                               \
         SetTestCase();                                                         \
@@ -69,6 +73,8 @@
 #define TEST_PHYSINTERP1DSCALED3DH2(test_name, test, tol)                      \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         double scale = 1.5;                                                    \
         Configure3DH2(scale, 4, 4);                                            \
         SetTestCase();                                                         \

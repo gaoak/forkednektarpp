@@ -55,6 +55,8 @@
 #define TEST_IPWRTBASE3DH1(test_name, test, tol)                               \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure3DH1(4);                                                      \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
@@ -67,6 +69,8 @@
 #define TEST_IPWRTBASE3DH2(test_name, test, tol)                               \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure3DH2(4, 4);                                                   \
         SetTestCase();                                                         \
         RunTestCase();                                                         \

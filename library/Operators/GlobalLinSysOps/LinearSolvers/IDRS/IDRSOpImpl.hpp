@@ -68,8 +68,22 @@ public:
     {
         this->template SetLinearSolver<ExecSpace>();
 
-        auto session = expansionList->GetSession();
-        session->LoadParameter("IDRstage", m_stage, 4);
+        auto session = this->m_expansionList->GetSession();
+
+        // Set parameters.
+        this->m_leftPreconditioner =
+            session->DefinesParameter("LinSysLeftPrecon")
+                ? session->GetParameter("LinSysLeftPrecon")
+                : false;
+        this->m_rightPreconditioner =
+            session->DefinesParameter("LinSysRightPrecon")
+                ? session->GetParameter("LinSysRightPrecon")
+                : true;
+        m_stage = session->DefinesParameter("IDRstage")
+                      ? session->GetParameter("IDRstage")
+                      : 4;
+
+        // Set-up storage.
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_real_distribution<> dis(0.0, 1.0);

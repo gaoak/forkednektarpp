@@ -43,6 +43,8 @@
 #define TEST_SCHEME(test_name, test, scheme, variant, order, freeparam)        \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
         SetTestCase(1.0, -10.0);                                               \
         boost::test_tools::output_test_stream output;                          \

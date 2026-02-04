@@ -150,16 +150,11 @@ protected:
         this->m_root    = this->m_rowComm->GetRank() == 0;
 
         // Set parameters.
-        int leftPreconditioner  = 0;
-        int rightPreconditioner = 0;
         session->LoadParameter("NekLinSysMaxIterations", this->m_maxIter, 5000);
         session->LoadParameter("IterativeSolverTolerance", this->m_tol,
                                1.0E-09);
-        session->LoadParameter("LinSysLeftPrecon", leftPreconditioner, 0);
-        session->LoadParameter("LinSysRightPrecon", rightPreconditioner, 0);
-        this->m_leftPreconditioner  = leftPreconditioner;
-        this->m_rightPreconditioner = rightPreconditioner;
 
+        // Set math helper function.
         this->m_math = Math(ExecSpace::name);
     }
 

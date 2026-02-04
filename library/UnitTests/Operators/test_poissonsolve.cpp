@@ -43,7 +43,11 @@
 #define TEST_POISSONSOLVE(test_name, test, tol)                                \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
+        int LinSysLeftPrecon = 1;                                              \
+        this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         SetTestCase();                                                         \
         RunTestCase("ConjGrad");                                               \
         boost::test_tools::output_test_stream output;                          \
@@ -59,7 +63,7 @@ TEST_POISSONSOLVE(poissonsolve_seg, Poisson1D_Seg, 1.0E-12)
 
 TEST_POISSONSOLVE(poissonsolve_tri_quad, Poisson2D_Tri_Quad, 1.0E-10)
 
-// TEST_POISSONSOLVE(poissonsolve_all_bcs, Poisson2D_AllBCs, 1.0E-12)
+TEST_POISSONSOLVE(poissonsolve_all_bcs, Poisson2D_AllBCs, 1.0E-12)
 
 TEST_POISSONSOLVE(poissonsolve_hex, Poisson3D_Hex, 1.0E-10)
 

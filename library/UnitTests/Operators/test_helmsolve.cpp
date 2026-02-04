@@ -46,6 +46,8 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
+        int LinSysLeftPrecon = 1;                                              \
+        this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         SetTestCase();                                                         \
         RunTestCase("Richardson");                                             \
         boost::test_tools::output_test_stream output;                          \
@@ -60,6 +62,8 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
+        int LinSysLeftPrecon = 1;                                              \
+        this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         SetTestCase();                                                         \
         RunTestCase("ConjGrad");                                               \
         boost::test_tools::output_test_stream output;                          \
@@ -74,6 +78,8 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
+        int LinSysLeftPrecon = 1;                                              \
+        this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         SetTestCase();                                                         \
         RunTestCase("PipeConjGrad");                                           \
         boost::test_tools::output_test_stream output;                          \
@@ -88,6 +94,8 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
+        int LinSysLeftPrecon = 1;                                              \
+        this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         SetTestCase();                                                         \
         RunTestCase("PipeConjGrad2");                                          \
         boost::test_tools::output_test_stream output;                          \
@@ -102,6 +110,8 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
+        int LinSysLeftPrecon = 1;                                              \
+        this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         SetTestCase();                                                         \
         RunTestCase("ConjRes");                                                \
         boost::test_tools::output_test_stream output;                          \
@@ -116,6 +126,8 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
+        int LinSysLeftPrecon = 1;                                              \
+        this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         SetTestCase();                                                         \
         RunTestCase("PipeConjRes");                                            \
         boost::test_tools::output_test_stream output;                          \
@@ -130,6 +142,8 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
+        int LinSysLeftPrecon = 1;                                              \
+        this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         SetTestCase();                                                         \
         RunTestCase("MINRES");                                                 \
         boost::test_tools::output_test_stream output;                          \
@@ -144,8 +158,31 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
+        int LinSysLeftPrecon    = 0;                                           \
         int LinSysRightPrecon   = 1;                                           \
         int GMRESDeltaDirection = 3;                                           \
+        this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
+        this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
+        this->session->SetParameter("GMRESDeltaDirection",                     \
+                                    GMRESDeltaDirection);                      \
+        SetTestCase();                                                         \
+        RunTestCase("GMRES");                                                  \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
+#define TEST_HELMSOLVE_GMRES2(test_name, test, tol)                            \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        Configure();                                                           \
+        int LinSysLeftPrecon    = 1;                                           \
+        int LinSysRightPrecon   = 0;                                           \
+        int GMRESDeltaDirection = 3;                                           \
+        this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         this->session->SetParameter("GMRESDeltaDirection",                     \
                                     GMRESDeltaDirection);                      \
@@ -163,9 +200,11 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
+        int LinSysLeftPrecon    = 0;                                           \
         int LinSysRightPrecon   = 1;                                           \
         int FlexibleGMRES       = 1;                                           \
         int GMRESDeltaDirection = 0;                                           \
+        this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         this->session->SetParameter("FlexibleGMRES", FlexibleGMRES);           \
         this->session->SetParameter("GMRESDeltaDirection",                     \
@@ -252,6 +291,18 @@ TEST_HELMSOLVE_GMRES(helmsolve_gmres_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
 TEST_HELMSOLVE_GMRES(helmsolve_gmres_hex, Helmholtz3D_Hex, 1.0E-10)
 
 TEST_HELMSOLVE_GMRES(helmsolve_gmres_tet, Helmholtz3D_Tet, 1.0E-10)
+
+TEST_HELMSOLVE_GMRES2(helmsolve_gmres_left_precon_seg, Helmholtz1D_Seg, 1.0E-12)
+
+TEST_HELMSOLVE_GMRES2(helmsolve_gmres_left_precon_tri_quad,
+                      Helmholtz2D_Tri_Quad, 1.0E-10)
+
+TEST_HELMSOLVE_GMRES2(helmsolve_gmres_left_precon_all_bcs, Helmholtz2D_AllBCs,
+                      1.0E-10)
+
+TEST_HELMSOLVE_GMRES2(helmsolve_gmres_left_precon_hex, Helmholtz3D_Hex, 1.0E-10)
+
+TEST_HELMSOLVE_GMRES2(helmsolve_gmres_left_precon_tet, Helmholtz3D_Tet, 1.0E-10)
 
 TEST_HELMSOLVE_FGMRES(helmsolve_fgmres_seg, Helmholtz1D_Seg, 1.0E-12)
 
