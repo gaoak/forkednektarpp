@@ -67,6 +67,7 @@ public:
     {
         m_IProdOp = IProductWRTBaseOp<TData>::Create(
             this->m_expansionList, components, ExecSpace::name);
+        m_IProdOp->SetScale(-1.0);
         m_DirBCOp     = DirBndCondOp<TData>::Create(this->m_expansionList,
                                                     components, ExecSpace::name);
         m_NeuBCOp     = NeuBndCondOp<TData>::Create(this->m_expansionList,
@@ -105,7 +106,6 @@ protected:
     {
         // IProductWRT of RHS.
         m_IProdOp->Apply(in, m_rhs);
-        neg<ExecSpace>(m_rhs, m_rhs);
 
         // Handle Neumann BCs on RHS.
         m_NeuBCOp->Apply(m_rhs);
