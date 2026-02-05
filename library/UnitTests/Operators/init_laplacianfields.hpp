@@ -75,20 +75,22 @@ public:
         }
 
         // Set up diffusion coefficient.
-        if (this->fixt_explist->GetCoordim(0) == 1)
+        const auto coordDim      = this->fixt_explist->GetCoordim(0);
+        const auto diffCoeffSize = coordDim * (coordDim + 1) / 2;
+        m_diffCoeff.resize(diffCoeffSize);
+
+        // Set up (isotropic) diffusion coefficient.
+        if (coordDim == 1)
         {
-            m_diffCoeff.resize(1);
             m_diffCoeff[0] = 1.0; // D00
         }
-        else if (this->fixt_explist->GetCoordim(0) == 2)
+        else if (coordDim == 2)
         {
-            m_diffCoeff.resize(4);
             m_diffCoeff[0] = 2.0; // D00
             m_diffCoeff[2] = 3.0; // D11
         }
         else
         {
-            m_diffCoeff.resize(6);
             m_diffCoeff[0] = 2.0; // D00
             m_diffCoeff[2] = 3.0; // D11
             m_diffCoeff[5] = 4.0; // D22

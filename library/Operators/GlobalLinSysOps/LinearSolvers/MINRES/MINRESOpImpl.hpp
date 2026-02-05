@@ -252,9 +252,12 @@ protected:
             {
                 if (this->m_root)
                 {
-                    std::cout << "iterations: " << totalIterations
-                              << " eta: " << std::abs(eta)
-                              << " rhs_mag: " << rhsMagnitude << std::endl;
+                    std::cout << this->name
+                              << " iterations made = " << totalIterations
+                              << " using tolerance of " << this->m_tol
+                              << " eta = " << std::abs(eta)
+                              << " rhs_mag = " << std::sqrt(rhsMagnitude)
+                              << std::endl;
                 }
                 break;
             }

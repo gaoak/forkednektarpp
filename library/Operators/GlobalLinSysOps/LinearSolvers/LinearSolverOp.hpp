@@ -58,9 +58,24 @@ public:
     {
         auto session = expansionList->GetSession();
 
-        std::string method0 = (method == "")
-                                  ? session->GetSolverInfo("LinSysIterSolver")
-                                  : method;
+        std::string method0 = method;
+        if (method == "" && session->DefinesGlobalSysSolnInfo(
+                                components[0], "LinSysIterSolver"))
+        {
+            method0 = session->GetGlobalSysSolnInfo(components[0],
+                                                    "LinSysIterSolver");
+        }
+        else if (method == "" && session->DefinesSolverInfo("LinSysIterSolver"))
+        {
+            method0 = session->GetSolverInfo("LinSysIterSolver");
+        }
+
+        // TODO fix name of Conjugate Gradient solver for legacy/redesign
+        // Rename from legacy specification
+        if (method0 == "ConjugateGradientLoc" || method0 == "ConjugateGradient")
+        {
+            method0 = "ConjGrad";
+        }
 
         std::string execStr0 = (execStr == "")
                                    ? Operator<TData>::GetOpExecSpace(session)

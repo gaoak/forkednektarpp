@@ -173,8 +173,8 @@ protected:
 
     MemoryRegion<TData> m_vExchange;
 
-    TData m_rhs_magnitude = NekConstants::kNekUnsetDouble;
-    bool m_verbose        = true;
+    TData rhsMagnitude = NekConstants::kNekUnsetDouble;
+    bool m_verbose     = true;
     bool m_flexible;
     bool m_truncted;
     bool m_isModifiedGramSchmidt = true;
@@ -201,14 +201,13 @@ protected:
         TData prec_factor = 1.0, eps, eps0 = 1.0;
 
         // Calculate rhs magnitude.
-        if (m_rhs_magnitude == NekConstants::kNekUnsetDouble)
+        if (rhsMagnitude == NekConstants::kNekUnsetDouble)
         {
             this->m_assmbScatrOp->Apply(in, m_w);
-            m_rhs_magnitude = this->m_math.ddot(in, m_w);
-            this->m_rowComm->AllReduce(m_rhs_magnitude,
+            rhsMagnitude = this->m_math.ddot(in, m_w);
+            this->m_rowComm->AllReduce(rhsMagnitude,
                                        Nektar::LibUtilities::ReduceSum);
-            m_rhs_magnitude =
-                (m_rhs_magnitude > 1.0e-6) ? m_rhs_magnitude : 1.0;
+            rhsMagnitude = (rhsMagnitude > 1.0e-6) ? rhsMagnitude : 1.0;
         }
 
         // Calculate prefactor.
@@ -288,7 +287,7 @@ protected:
             }
 
             // If the input residual is less than tolerance then skip solve.
-            if (eps < this->m_tol * this->m_tol * m_rhs_magnitude)
+            if (eps < this->m_tol * this->m_tol * rhsMagnitude)
             {
                 return;
             }
@@ -426,7 +425,7 @@ protected:
                 // the last term of eta is not residual
                 if ((!m_truncted) || (ii <= m_KrylovMaxHessMatBand))
                 {
-                    if (eps < this->m_tol * this->m_tol * m_rhs_magnitude)
+                    if (eps < this->m_tol * this->m_tol * rhsMagnitude)
                     {
                         converged = true;
                         break;
@@ -520,18 +519,13 @@ protected:
 
             if (this->m_root)
             {
-                int nwidthcolm = 13;
-
-                std::cout << std::scientific << std::setw(nwidthcolm)
-                          << std::setprecision(nwidthcolm - 8)
-                          << "       GMRES iterations made = "
-                          << totalIterations << " using tolerance of "
-                          << this->m_tol << " (error = "
-                          << std::sqrt(eps / eps0 * prec_factor /
-                                       m_rhs_magnitude)
-                          << ")";
-
-                std::cout << " WITH (GMRES eps = " << eps
+                std::cout << this->name
+                          << " iterations made = " << totalIterations
+                          << " using tolerance of " << this->m_tol
+                          << " error = "
+                          << std::sqrt(eps / eps0 * prec_factor / rhsMagnitude)
+                          << " rhs_mag = " << std::sqrt(rhsMagnitude)
+                          << " WITH (GMRES eps = " << eps
                           << " REAL eps= " << eps_real << ")";
 
                 if (converged)
