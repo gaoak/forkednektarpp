@@ -234,9 +234,12 @@ protected:
                 if (this->m_root)
                 {
                     std::cout
-                        << "iterations: " << totalIterations
-                        << " eps: " << tau * std::sqrt(2 * totalIterations)
-                        << " rhs_mag: " << rhsMagnitude << std::endl;
+                        << this->name
+                        << " iterations made = " << totalIterations
+                        << " using tolerance of " << this->m_tol
+                        << " error = " << tau * std::sqrt(2 * totalIterations)
+                        << " rhs_mag = " << std::sqrt(rhsMagnitude)
+                        << std::endl;
                 }
                 break;
             }
@@ -280,10 +283,13 @@ protected:
             {
                 if (this->m_root)
                 {
-                    std::cout
-                        << "iterations: " << totalIterations
-                        << " eps: " << tau * std::sqrt(2 * totalIterations + 1)
-                        << " rhs_mag: " << rhsMagnitude << std::endl;
+                    std::cout << this->name
+                              << " iterations made = " << totalIterations
+                              << " using tolerance of " << this->m_tol
+                              << " error = "
+                              << tau * std::sqrt(2 * totalIterations + 1)
+                              << " rhs_mag = " << std::sqrt(rhsMagnitude)
+                              << std::endl;
                 }
                 break;
             }

@@ -131,11 +131,26 @@ public:
                        ? this->session->GetParameter("Lambda")
                        : 10.0;
 
-        // Set diffusion coefficient.
-        m_diffCoeff.resize(6);
-        m_diffCoeff[0] = 1.0; // D00
-        m_diffCoeff[2] = 1.0; // D11
-        m_diffCoeff[5] = 1.0; // D22
+        // Set up diffusion coefficient.
+        const auto coordDim      = this->fixt_explist->GetCoordim(0);
+        const auto diffCoeffSize = coordDim * (coordDim + 1) / 2;
+        m_diffCoeff.resize(diffCoeffSize);
+
+        if (coordDim == 1)
+        {
+            m_diffCoeff[0] = 1.0; // D00
+        }
+        else if (coordDim == 2)
+        {
+            m_diffCoeff[0] = 1.0; // D00
+            m_diffCoeff[2] = 1.0; // D11
+        }
+        else
+        {
+            m_diffCoeff[0] = 1.0; // D00
+            m_diffCoeff[2] = 1.0; // D11
+            m_diffCoeff[5] = 1.0; // D22
+        }
 
         // Set advection velocity
         size_t nphys = this->fixt_explist->GetTotPoints() /

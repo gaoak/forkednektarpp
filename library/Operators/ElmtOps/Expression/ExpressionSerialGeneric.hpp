@@ -105,7 +105,7 @@ protected:
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto outptr = outblock.template GetPtr<MemSpace, ReadWrite>();
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();

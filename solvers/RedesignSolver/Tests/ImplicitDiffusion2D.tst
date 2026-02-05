@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test>
+    <description> 2D unsteady CG implicit diffusion with Redesign operators </description>
+    <executable>RedesignSolver</executable>
+    <parameters> ImplicitDiffusion2D.xml</parameters>
+    <files>
+        <file description="Session File"> ImplicitDiffusion2D.xml </file>
+    </files>
+    <metrics>
+        <metric type="L2" id="1">
+	        <value variable="u" tolerance="1e-9"> 2.96932e-08 </value>
+        </metric>
+        <metric type="Linf" id="2">
+            <value variable="u" tolerance="4e-9"> 4.08091e-08 </value>
+        </metric>
+    </metrics>
+</test>

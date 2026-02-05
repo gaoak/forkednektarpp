@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test>
+    <description> 3D unsteady CG implicit diffusion with 3 components </description>
+    <executable>RedesignSolver</executable>
+    <parameters> ImplicitDiffusion3D_3C.xml</parameters>
+    <files>
+        <file description="Session File"> ImplicitDiffusion3D_3C.xml </file>
+    </files>
+    <metrics>
+        <metric type="L2" id="1">
+           <value variable="u" tolerance="1e-9"> 2.96932e-08 </value>
+           <value variable="v" tolerance="1e-9"> 2.96932e-08 </value>
+           <value variable="w" tolerance="1e-9"> 2.96932e-08 </value>
+        </metric>
+        <metric type="Linf" id="2">
+            <value variable="u" tolerance="2e-9"> 4.08091e-08 </value>
+            <value variable="v" tolerance="2e-9"> 4.08091e-08 </value>
+            <value variable="w" tolerance="2e-9"> 4.08091e-08 </value>
+        </metric>
+    </metrics>
+</test>

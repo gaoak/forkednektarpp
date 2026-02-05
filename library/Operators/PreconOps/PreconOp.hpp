@@ -51,11 +51,17 @@ public:
     {
         auto session = expansionList->GetSession();
 
-        // TODO: Update with proper varible names.
-        std::string method0 =
-            (method == "")
-                ? session->GetGlobalSysSolnInfo("u", "Preconditioner")
-                : method;
+        std::string method0 = method;
+        if (method == "" &&
+            session->DefinesGlobalSysSolnInfo(components[0], "Preconditioner"))
+        {
+            method0 =
+                session->GetGlobalSysSolnInfo(components[0], "Preconditioner");
+        }
+        else if (method == "" && session->DefinesSolverInfo("Preconditioner"))
+        {
+            method0 = session->GetSolverInfo("Preconditioner");
+        }
 
         std::string execStr0 = (execStr == "")
                                    ? Operator<TData>::GetOpExecSpace(session)

@@ -316,9 +316,13 @@ protected:
 
                     if (this->m_root)
                     {
-                        std::cout << "iterations: " << totalIterations
-                                  << " eps: " << std::sqrt(eps)
-                                  << " rhs_mag: " << rhsMagnitude << std::endl;
+                        std::cout
+                            << this->name
+                            << " iterations made = " << totalIterations
+                            << " using tolerance of " << this->m_tol
+                            << " error = " << std::sqrt(eps / rhsMagnitude)
+                            << " rhs_mag = " << std::sqrt(rhsMagnitude)
+                            << std::endl;
                     }
                     return;
                 }
@@ -497,9 +501,12 @@ protected:
             {
                 if (this->m_root)
                 {
-                    std::cout << "iterations: " << totalIterations
-                              << " eps: " << std::sqrt(eps)
-                              << " rhs_mag: " << rhsMagnitude << std::endl;
+                    std::cout << this->name
+                              << " iterations made = " << totalIterations
+                              << " using tolerance of " << this->m_tol
+                              << " error = " << std::sqrt(eps / rhsMagnitude)
+                              << " rhs_mag = " << std::sqrt(rhsMagnitude)
+                              << std::endl;
                 }
                 break;
             }
