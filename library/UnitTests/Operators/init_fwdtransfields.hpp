@@ -140,6 +140,7 @@ public:
             this->fixt_explist, this->session->GetVariables(), method);
         op->SetLinearSolver(linsolve);
         op->SetPrecon(precon);
+        op->UpdatePrecon();
         op->Apply(*this->fixt_in, *this->fixt_out);
     }
 

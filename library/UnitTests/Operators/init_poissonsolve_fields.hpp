@@ -163,6 +163,7 @@ public:
         op->SetDiffCoeff(m_diffCoeff);
         op->SetLinearSolver(linsolve);
         op->SetPrecon(precon);
+        op->UpdatePrecon();
         op->Apply(*this->fixt_in, *this->fixt_out);
     }
 

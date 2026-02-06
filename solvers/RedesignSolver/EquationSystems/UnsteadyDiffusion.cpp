@@ -227,7 +227,20 @@ void UnsteadyDiffusion::DoDiffusion(
 
     // Update HelmSolve
     m_helmSolveOp->SetLambda(m_lambda);
-    m_helmSolveOp->SetPrecon(m_preconOp); // TODO: Update to cache precon.
+    if (m_preconOp.find(dt_inv_gamma) == m_preconOp.end())
+    {
+        // Configure and cache preconditioner
+        m_preconOp.insert(
+            {dt_inv_gamma,
+             PreconOp<double>::Create(m_fields[0], m_session->GetVariables())});
+        m_helmSolveOp->SetPrecon(m_preconOp[dt_inv_gamma]);
+        m_helmSolveOp->UpdatePrecon();
+    }
+    else
+    {
+        // Re-use preconditioner
+        m_helmSolveOp->SetPrecon(m_preconOp[dt_inv_gamma]);
+    }
 
     // Multiply by negative lambda
     m_math.mul(-m_lambda, in, out);
@@ -287,25 +300,22 @@ void UnsteadyDiffusion::DoProjection(Field<double, FieldState::Phys> &in,
  */
 void UnsteadyDiffusion::InitialiseOperators()
 {
-    // Create Helmsolve and BwdTrans operators
-    m_helmSolveOp =
-        HelmSolveOp<double>::Create(m_fields[0], m_session->GetVariables());
-    m_bwdTransOp =
-        BwdTransOp<double>::Create(m_fields[0], m_session->GetVariables());
-
-    // Create preconditioner and linear system solver
-    m_preconOp =
-        PreconOp<double>::Create(m_fields[0], m_session->GetVariables());
-    m_linearSolverOp =
-        LinearSolverOp<double>::Create(m_fields[0], m_session->GetVariables());
-
     // Initialise Math
     std::string execName = Operator<double>::GetOpExecSpace(m_session);
     m_math               = Math(execName);
 
+    // Create Helmsolve and BwdTrans operators
+    m_bwdTransOp =
+        BwdTransOp<double>::Create(m_fields[0], m_session->GetVariables());
+    m_helmSolveOp =
+        HelmSolveOp<double>::Create(m_fields[0], m_session->GetVariables());
+
     // Configure HelmSolve with default parameters
-    m_helmSolveOp->SetDiffCoeff(m_diffCoeff);
+    m_linearSolverOp =
+        LinearSolverOp<double>::Create(m_fields[0], m_session->GetVariables());
     m_helmSolveOp->SetLinearSolver(m_linearSolverOp);
+    m_helmSolveOp->SetLinearSolver(m_linearSolverOp);
+    m_helmSolveOp->SetDiffCoeff(m_diffCoeff);
 
     // Check if forcing is defined
     if (m_session->DefinesFunction("BodyForce"))
@@ -334,6 +344,7 @@ void UnsteadyDiffusion::InitialiseOperators()
         LinearSolverOp<double>::Create(m_fields[0], m_session->GetVariables());
     m_fwdTransOp->SetLinearSolver(linsolverOp);
     m_fwdTransOp->SetPrecon(preconOp);
+    m_fwdTransOp->UpdatePrecon();
 }
 
 /*

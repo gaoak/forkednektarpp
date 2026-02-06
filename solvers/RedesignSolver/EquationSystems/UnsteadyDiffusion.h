@@ -94,7 +94,7 @@ protected:
     std::shared_ptr<BwdTransOp<double>> m_bwdTransOp;
     std::shared_ptr<HelmSolveOp<double>> m_helmSolveOp;
     std::shared_ptr<LinearSolverOp<double>> m_linearSolverOp;
-    std::shared_ptr<PreconOp<double>> m_preconOp;
+    std::map<double, std::shared_ptr<PreconOp<double>>> m_preconOp;
     std::shared_ptr<ExpressionOp<double>> m_forcingOp;
     std::shared_ptr<FwdTransOp<double>> m_fwdTransOp;
 

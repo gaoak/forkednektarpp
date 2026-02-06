@@ -121,11 +121,15 @@ public:
         this->m_precon = ptr;
     }
 
+    void UpdatePrecon(void)
+    {
+        this->m_precon->Configure(this->m_lhs);
+    }
+
 protected:
     LibUtilities::CommSharedPtr m_rowComm = nullptr;
     std::shared_ptr<ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>> m_lhs;
-    std::shared_ptr<ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>>
-        m_precon;
+    std::shared_ptr<PreconOp<TData>> m_precon;
     std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
     std::unique_ptr<AssmbScatrOp<TData>> m_assmbScatrOp;
     std::unique_ptr<AssmbScatrOp<TData>> m_assmbScatrZeroDirOp;

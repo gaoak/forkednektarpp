@@ -180,6 +180,7 @@ public:
         op->SetAdvVel(m_vel);
         op->SetLinearSolver(linsolve);
         op->SetPrecon(precon);
+        op->UpdatePrecon();
         op->Apply(*this->fixt_in, *this->fixt_out);
     }
 
