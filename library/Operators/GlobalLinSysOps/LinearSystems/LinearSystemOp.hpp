@@ -65,6 +65,11 @@ public:
         v_SetPrecon(precon);
     }
 
+    void UpdatePrecon(void)
+    {
+        v_UpdatePrecon();
+    }
+
 protected:
     LinearSystemOp(const MultiRegions::ExpListSharedPtr &expansionList,
                    const std::vector<std::string> &components)
@@ -82,6 +87,8 @@ protected:
 
     virtual void v_SetPrecon(
         const std::shared_ptr<PreconOp<TData>> &precon) = 0;
+
+    virtual void v_UpdatePrecon(void) = 0;
 };
 
 } // namespace Nektar::Operators

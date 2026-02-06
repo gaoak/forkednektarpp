@@ -127,9 +127,12 @@ protected:
 
     void v_SetPrecon(const std::shared_ptr<PreconOp<TData>> &precon) override
     {
-        precon->Configure(m_MassOp);
-
         m_LinSolverOp->SetPrecon(precon);
+    }
+
+    void v_UpdatePrecon(void) override
+    {
+        m_LinSolverOp->UpdatePrecon();
     }
 };
 
