@@ -52,10 +52,7 @@ public:
     LinAdvDiffReactionBlockOpImpl(const unsigned int block_idx,
                                   const LocalRegions::ExpansionSharedPtr &exp,
                                   NekDataWarehouseSharedPtr dataWarehouse)
-        : LinAdvDiffReactionBlockOp<TData>(block_idx, exp, dataWarehouse),
-          m_diffCoeff(
-              MemoryRegion<TData>("LinAdvDiffReaction diffCoeff",
-                                  exp->GetCoordim() * exp->GetCoordim()))
+        : LinAdvDiffReactionBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -87,14 +84,6 @@ public:
             StdMatKey<TData>(basisKeys, m_shapeType, eDerivStdMat, nodalType));
         m_ipdmat = dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
             basisKeys, m_shapeType, eIProductWRTDerivBaseStdMat, nodalType));
-
-        TData *diffCoeff =
-            m_diffCoeff.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-
-        for (unsigned int d = 0; d < m_coordDim; d++)
-        {
-            diffCoeff[d * m_coordDim + d] = 1.0; // temporary solution
-        }
 
         // Fetch Jacobian and deriv factors.
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
@@ -135,7 +124,6 @@ protected:
     const TData *m_dfptr;
     MemoryRegion<TData> m_bwd;
     MemoryRegion<TData> m_deriv;
-    MemoryRegion<TData> m_diffCoeff;
     TData *m_advVel;
 
     void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
