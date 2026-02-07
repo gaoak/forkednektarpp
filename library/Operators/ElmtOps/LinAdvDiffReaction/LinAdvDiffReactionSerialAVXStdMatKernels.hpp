@@ -34,6 +34,31 @@
 
 #pragma once
 
+namespace Nektar::Operators::detail
+{
+
+NEK_FORCE_INLINE static unsigned int *GetDiffCoeffMapPtr(
+    const unsigned int ncoord)
+{
+
+    if (ncoord == 1)
+    {
+        static std::array<unsigned int, 1> diffCoeff1DMap{0};
+        return &diffCoeff1DMap[0];
+    }
+    else if (ncoord == 2)
+    {
+        static std::array<unsigned int, 4> diffCoeff2DMap{0, 1, 1, 2};
+        return &diffCoeff2DMap[0];
+    }
+    else
+    {
+        static std::array<unsigned int, 9> diffCoeff3DMap{0, 1, 3, 1, 2,
+                                                          4, 3, 4, 5};
+        return &diffCoeff3DMap[0];
+    }
+}
+
 template <typename ExecSpace, bool DEFORMED, typename TData, typename TScalar>
 NEK_FORCE_INLINE static void ApplyMetricKernel(
     const unsigned int nqTot, const unsigned int ncoord,
@@ -42,8 +67,9 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
     const TData *jacptr, const TData *dfptr, const TData *advVel,
     const TData *inptr, TData *outptr, TData *bwdptr, const TScalar scale)
 {
-    const auto ndf   = ncoord * dimension;
-    const auto nsize = nqTot * nelmt;
+    const auto diffCoeffMapPtr = GetDiffCoeffMapPtr(ncoord);
+    const auto ndf             = ncoord * dimension;
+    const auto nsize           = nqTot * nelmt;
 
     if constexpr (DEFORMED)
     {
@@ -73,11 +99,13 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
             {
                 for (unsigned int k = 0; k < ncoord; ++k)
                 {
-                    metric[k] = dfptr[ndf * idx + d] * diffCoeff[k];
+                    metric[k] =
+                        dfptr[ndf * idx + d] * diffCoeff[diffCoeffMapPtr[k]];
                     for (unsigned int l = 1; l < ncoord; ++l)
                     {
-                        metric[k].fma(dfptr[ndf * idx + l * dimension + d],
-                                      diffCoeff[l * ncoord + k]);
+                        metric[k].fma(
+                            dfptr[ndf * idx + l * dimension + d],
+                            diffCoeff[diffCoeffMapPtr[l * ncoord + k]]);
                     }
                 }
                 tmp0 = metric[0] * tmp[0];
@@ -124,12 +152,13 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
                         for (unsigned int k = 0; k < ncoord; ++k)
                         {
                             metric[d * ncoord + k] =
-                                dfptr[ndf * e + d] * diffCoeff[k];
+                                dfptr[ndf * e + d] *
+                                diffCoeff[diffCoeffMapPtr[k]];
                             for (unsigned int l = 1; l < ncoord; ++l)
                             {
                                 metric[d * ncoord + k].fma(
                                     dfptr[ndf * e + l * dimension + d],
-                                    diffCoeff[l * ncoord + k]);
+                                    diffCoeff[diffCoeffMapPtr[l * ncoord + k]]);
                             }
                         }
                     }
@@ -146,3 +175,5 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
         }
     }
 }
+
+} // namespace Nektar::Operators::detail
