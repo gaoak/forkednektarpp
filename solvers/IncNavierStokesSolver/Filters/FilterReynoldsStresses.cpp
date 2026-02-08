@@ -80,7 +80,7 @@ FilterReynoldsStresses::FilterReynoldsStresses(
         m_sampleFrequency = round(equ.Evaluate());
     }
 
-    // Check if should use moving average
+    // Check if we should use moving average
     it = pParams.find("MovingAverage");
     if (it == pParams.end())
     {
@@ -91,6 +91,19 @@ FilterReynoldsStresses::FilterReynoldsStresses(
         std::string sOption = it->second.c_str();
         m_movAvg            = (boost::iequals(sOption, "true")) ||
                    (boost::iequals(sOption, "yes"));
+    }
+
+    // Check if highOrder is switched on
+    it = pParams.find("ScaleNumModes");
+    if (it == pParams.end())
+    {
+        m_Scale = false;
+    }
+    else
+    {
+        m_Scale = true;
+        LibUtilities::Equation equ(m_session->GetInterpreter(), it->second);
+        m_ScaleNumModes = equ.Evaluate();
     }
 
     if (!m_movAvg)
@@ -128,8 +141,8 @@ FilterReynoldsStresses::FilterReynoldsStresses(
         it = pParams.find("tau");
         if (it != pParams.end())
         {
-            ASSERTL0(false,
-                     "Cannot define both alpha and tau in MovingAverage.");
+            NEKERROR(ErrorUtil::efatal,
+                     "Cannot define both alpha and tau in MovingAverage");
         }
     }
     // Check bounds of m_alpha
@@ -144,22 +157,141 @@ void FilterReynoldsStresses::v_Initialise(
     size_t nExtraFields = (dim + 1) * dim / 2;
     size_t origFields   = pFields.size();
     size_t nqtot        = pFields[0]->GetTotPoints();
+    bool waveSpace      = pFields[0]->GetWaveSpace();
+
+    if (m_Scale)
+    {
+        // Getting mesh
+        SpatialDomains::MeshGraphSharedPtr graph = pFields[0]->GetGraph();
+
+        // Initialising high order m_pFieldsInterp
+        int nvariables = m_session->GetVariables().size();
+        m_pFieldsScaled =
+            Array<OneD, MultiRegions::ExpListSharedPtr>(nvariables);
+
+        const SpatialDomains::ExpansionInfoMap expInfo =
+            graph->GetExpansionInfo(m_session->GetVariable(0));
+
+        SpatialDomains::ExpansionInfoMapShPtr expInfoScaled = MemoryManager<
+            SpatialDomains::ExpansionInfoMap>::AllocateSharedPtr();
+
+        for (auto expIt = expInfo.begin(); expIt != expInfo.end(); ++expIt)
+        {
+            int expSpDim = expIt->second->m_basisKeyVector.size();
+
+            std::vector<LibUtilities::BasisKey> BKeyVector;
+            std::vector<int> oldPts(expSpDim);
+
+            for (int i = 0; i < expSpDim; ++i)
+            {
+                LibUtilities::BasisKey bkey =
+                    expIt->second->m_basisKeyVector[i];
+                oldPts[i] = bkey.GetNumPoints();
+            }
+
+            for (int i = 0; i < expSpDim; ++i)
+            {
+                LibUtilities::BasisKey bkeyold =
+                    expIt->second->m_basisKeyVector[i];
+                int newNumModes =
+                    static_cast<int>(m_ScaleNumModes * bkeyold.GetNumModes());
+
+                int npts;
+                // 1D
+                if (i == 0)
+                {
+                    npts = static_cast<int>(oldPts[0] * m_ScaleNumModes);
+                }
+                else // 2D and 3D
+                {
+                    npts =
+                        (oldPts[0] - oldPts[i] == 1)
+                            ? static_cast<int>(oldPts[0] * m_ScaleNumModes - 1)
+                            : static_cast<int>(oldPts[i] * m_ScaleNumModes);
+                }
+
+                const LibUtilities::PointsKey pkey(npts,
+                                                   bkeyold.GetPointsType());
+                LibUtilities::BasisKey bkeynew(bkeyold.GetBasisType(),
+                                               newNumModes, pkey);
+                BKeyVector.push_back(bkeynew);
+            }
+
+            (*expInfoScaled)[expIt->first] =
+                MemoryManager<SpatialDomains::ExpansionInfo>::AllocateSharedPtr(
+                    expIt->second->m_geomPtr, BKeyVector);
+        }
+
+        graph->SetExpansionInfo("Highorder", expInfoScaled);
+
+        for (int i = 0; i < pFields.size(); ++i)
+        {
+            if (waveSpace)
+            {
+                ASSERTL0(pFields[0]->GetExpType() == MultiRegions::e3DH1D,
+                         "Nummodes scaling for Reynolds stresses is "
+                         "implemented for 3DH1D expansions only.");
+
+                int npointsZ;
+                NekDouble LhomZ;
+                bool useFFT, homogen_dealiasing;
+
+                m_session->LoadParameter("HomModesZ", npointsZ);
+                m_session->LoadParameter("LZ", LhomZ);
+                m_session->MatchSolverInfo("USEFFT", "FFTW", useFFT, false);
+                m_session->MatchSolverInfo("DEALIASING", "True",
+                                           homogen_dealiasing, false);
+
+                const LibUtilities::PointsKey PkeyZ(
+                    npointsZ, LibUtilities::eFourierEvenlySpaced);
+                const LibUtilities::BasisKey BkeyZ(LibUtilities::eFourier,
+                                                   npointsZ, PkeyZ);
+
+                m_pFieldsScaled[i] =
+                    MemoryManager<MultiRegions::ExpList3DHomogeneous1D>::
+                        AllocateSharedPtr(m_session, BkeyZ, LhomZ, useFFT,
+                                          homogen_dealiasing, graph,
+                                          "Highorder", Collections::eNoImpType);
+            }
+            else
+            {
+                m_pFieldsScaled[i] =
+                    MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
+                        m_session, graph, false, "Highorder",
+                        Collections::eNoImpType);
+            }
+        }
+
+        nqtot = m_pFieldsScaled[0]->GetTotPoints();
+        WARNINGL0(nqtot != pFields[0]->GetTotPoints(),
+                  "The scaled number of modes did not increase in the Reynolds "
+                  "Stress filter, "
+                  "please increase scaled factor further.")
+    }
 
     // Allocate storage
     m_fields.resize(origFields + nExtraFields);
     m_delta.resize(dim);
-
+    // Initialising average fields
     for (size_t n = 0; n < m_fields.size(); ++n)
     {
         m_fields[n] = Array<OneD, NekDouble>(nqtot, 0.0);
     }
+    // Initialising fluctuating fields
     for (size_t n = 0; n < m_delta.size(); ++n)
     {
         m_delta[n] = Array<OneD, NekDouble>(nqtot, 0.0);
     }
 
     // Initialise output arrays
-    FilterFieldConvert::v_Initialise(pFields, time);
+    if (m_Scale)
+    {
+        FilterFieldConvert::v_Initialise(m_pFieldsScaled, time);
+    }
+    else
+    {
+        FilterFieldConvert::v_Initialise(pFields, time);
+    }
 
     // Update m_fields if using restart file
     if (m_numSamples)
@@ -204,10 +336,17 @@ void FilterReynoldsStresses::v_ProcessSample(
     [[maybe_unused]] const NekDouble &time)
 {
     size_t i, j, n;
-    size_t nq          = pFields[0]->GetTotPoints();
     size_t dim         = pFields.size() - 1;
     bool waveSpace     = pFields[0]->GetWaveSpace();
     NekDouble nSamples = (NekDouble)m_numSamples;
+    size_t nq          = pFields[0]->GetTotPoints();
+    size_t ncoeffs     = pFields[0]->GetNcoeffs();
+
+    if (m_Scale)
+    {
+        nq      = m_pFieldsScaled[0]->GetTotPoints();
+        ncoeffs = m_pFieldsScaled[0]->GetNcoeffs();
+    }
 
     // For moving average, take first sample as initial vector
     NekDouble alpha = m_alpha;
@@ -241,19 +380,74 @@ void FilterReynoldsStresses::v_ProcessSample(
     {
         if (waveSpace)
         {
-            pFields[n]->HomogeneousBwdTrans(nq, pFields[n]->GetPhys(), vel);
+            if (m_Scale)
+            {
+                // BwdTrans into phys space before interpolating onto high-order
+                // grid
+                Array<OneD, NekDouble> phys(pFields[n]->GetTotPoints());
+                pFields[n]->HomogeneousBwdTrans(pFields[n]->GetTotPoints(),
+                                                pFields[n]->GetPhys(), phys);
+                pFields[0]->PhysInterp1DScaled(m_ScaleNumModes, phys, vel);
+            }
+            else
+            {
+                pFields[n]->HomogeneousBwdTrans(nq, pFields[n]->GetPhys(), vel);
+            }
         }
         else
         {
-            vel = pFields[n]->GetPhys();
+            if (m_Scale)
+            {
+                // Interpolate phys-field by ScaleNumModes
+                pFields[0]->PhysInterp1DScaled(m_ScaleNumModes,
+                                               pFields[n]->GetPhys(), vel);
+            }
+            else
+            {
+                vel = pFields[n]->GetPhys();
+            }
         }
+
         Vmath::Svtsvtp(nq, facAvg, vel, 1, facOld, m_fields[n], 1, m_fields[n],
                        1);
         Vmath::Svtvm(nq, facDelta, m_fields[n], 1, vel, 1, m_delta[n], 1);
     }
+
     // Update pressure (directly to outFields)
-    Vmath::Svtsvtp(m_outFields[dim].size(), facAvg, pFields[dim]->GetCoeffs(),
-                   1, facOld, m_outFields[dim], 1, m_outFields[dim], 1);
+    if (m_Scale)
+    {
+        Array<OneD, NekDouble> wsp1(nq);
+        Array<OneD, NekDouble> wsp2(ncoeffs);
+
+        if (waveSpace)
+        {
+            Array<OneD, NekDouble> phys(pFields[dim]->GetTotPoints());
+            pFields[dim]->HomogeneousBwdTrans(pFields[dim]->GetTotPoints(),
+                                              pFields[dim]->GetPhys(), phys);
+
+            // Interpolate phys-field by ScaleNumModes
+            pFields[dim]->PhysInterp1DScaled(m_ScaleNumModes, phys, wsp1);
+
+            m_pFieldsScaled[dim]->FwdTransLocalElmt(wsp1, wsp2);
+            Vmath::Svtsvtp(m_outFields[dim].size(), facAvg, wsp2, 1, facOld,
+                           m_outFields[dim], 1, m_outFields[dim], 1);
+        }
+        else
+        {
+            // Interpolate phys-field by ScaleNumModes
+            pFields[dim]->PhysInterp1DScaled(m_ScaleNumModes,
+                                             pFields[dim]->GetPhys(), wsp1);
+            m_pFieldsScaled[dim]->FwdTransLocalElmt(wsp1, wsp2);
+            Vmath::Svtsvtp(m_outFields[dim].size(), facAvg, wsp2, 1, facOld,
+                           m_outFields[dim], 1, m_outFields[dim], 1);
+        }
+    }
+    else
+    {
+        Vmath::Svtsvtp(m_outFields[dim].size(), facAvg,
+                       pFields[dim]->GetCoeffs(), 1, facOld, m_outFields[dim],
+                       1, m_outFields[dim], 1);
+    }
 
     // Ignore Reynolds stress for first sample (its contribution is zero)
     if (m_numSamples == 1)
@@ -290,7 +484,15 @@ void FilterReynoldsStresses::v_PrepareOutput(
     {
         if (i != dim)
         {
-            pFields[0]->FwdTransLocalElmt(m_fields[i], m_outFields[i]);
+            if (m_Scale)
+            {
+                m_pFieldsScaled[0]->FwdTransLocalElmt(m_fields[i],
+                                                      m_outFields[i]);
+            }
+            else
+            {
+                pFields[0]->FwdTransLocalElmt(m_fields[i], m_outFields[i]);
+            }
         }
     }
 
@@ -307,6 +509,71 @@ NekDouble FilterReynoldsStresses::v_GetScale()
     else
     {
         return 1.0 / m_numSamples;
+    }
+}
+
+void FilterReynoldsStresses::v_OutputField(
+    const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields, int dump)
+{
+    NekDouble scale = v_GetScale();
+    for (int n = 0; n < m_outFields.size(); ++n)
+    {
+        Vmath::Smul(m_outFields[n].size(), scale, m_outFields[n], 1,
+                    m_outFields[n], 1);
+    }
+
+    // Generating high order field
+    if (m_Scale)
+    {
+        CreateFields(m_pFieldsScaled);
+    }
+    else
+    {
+        CreateFields(pFields);
+    }
+
+    // Determine new file name
+    std::stringstream tmpOutname;
+    std::string outname;
+    int dot            = m_outputFile.find_last_of('.');
+    std::string name   = m_outputFile.substr(0, dot);
+    std::string ext    = m_outputFile.substr(dot, m_outputFile.length() - dot);
+    std::string suffix = v_GetFileSuffix();
+
+    if (dump == -1) // final dump
+    {
+        tmpOutname << name << suffix << ext;
+    }
+    else
+    {
+        tmpOutname << name << "_" << dump << suffix << ext;
+    }
+    outname = Filter::SetupOutput(ext, tmpOutname.str());
+    m_modules[m_modules.size() - 1]->RegisterConfig("outfile", outname);
+
+    // Run field process.
+    for (int n = 0; n < SIZE_ModulePriority; ++n)
+    {
+        ModulePriority priority = static_cast<ModulePriority>(n);
+        for (int i = 0; i < m_modules.size(); ++i)
+        {
+            if (m_modules[i]->GetModulePriority() == priority)
+            {
+                m_modules[i]->Process(m_vm);
+            }
+        }
+    }
+
+    // Empty m_f to save memory
+    m_f->ClearField();
+
+    if (dump != -1) // not final dump so rescale
+    {
+        for (int n = 0; n < m_outFields.size(); ++n)
+        {
+            Vmath::Smul(m_outFields[n].size(), 1.0 / scale, m_outFields[n], 1,
+                        m_outFields[n], 1);
+        }
     }
 }
 

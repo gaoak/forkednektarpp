@@ -459,7 +459,8 @@ int main(int argc, char *argv[])
 
                 std::string pathString = LibUtilities::PortablePath(execPath);
                 command += pathString;
-                if (HaveOptFile)
+                if (HaveOptFile && cmd.m_executable.filename().string().find(
+                                       "FieldConvert") == std::string::npos)
                 {
                     command += " --use-opt-file test.opt ";
                 }

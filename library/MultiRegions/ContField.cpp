@@ -88,7 +88,8 @@ ContField::ContField()
     : DisContField(), m_locToGloMap(), m_globalMat(),
       m_globalLinSysManager(
           std::bind(&ContField::GenGlobalLinSys, this, std::placeholders::_1),
-          std::string("GlobalLinSys"))
+          std::string("GlobalLinSys")),
+      m_GJPData(nullptr)
 {
 }
 
@@ -720,6 +721,35 @@ void ContField::v_GlobalToLocal(void)
  * \f{tabbing}
  * \hspace{1cm}  \= Do \= $e=$  $1, N_{\mathrm{el}}$ \\
  * \> \> Do \= $i=$  $0,N_m^e-1$ \\
+ * \> \> \> $\boldsymbol{\hat{u}}_g[\mbox{map}[e][i]] +=
+ * \mbox{invMultiplicityWithign}[e][i] \cdot \boldsymbol{\hat{u}}^{e}[i]$\\
+ * \> \> continue\\
+ * \> continue
+ * \f}
+ * where \a map\f$[e][i]\f$ is the mapping array and \a
+ * invMultiplicityWithSign\f$[e][i]\f$ is an array of similar dimensions
+ * ensuring the correct modal connectivity between the different elements
+ * divided by the multiplicity of the degree of freedom(both these arrays are
+ * contained in the data member #m_locToGloMap).
+ *
+ */
+void ContField::v_AvgAssemble(const Array<OneD, const NekDouble> &inarray,
+                              Array<OneD, NekDouble> &outarray, bool useComm)
+{
+    m_locToGloMap->AvgAssemble(inarray, outarray, useComm);
+}
+
+void ContField::v_AvgAssemble(bool useComm)
+
+{
+    m_locToGloMap->AvgAssemble(m_coeffs, m_coeffs, useComm);
+}
+
+/**
+ * This operation is evaluated as:
+ * \f{tabbing}
+ * \hspace{1cm}  \= Do \= $e=$  $1, N_{\mathrm{el}}$ \\
+ * \> \> Do \= $i=$  $0,N_m^e-1$ \\
  * \> \> \> $\boldsymbol{\hat{u}}_g[\mbox{map}[e][i]] =
  * \mbox{sign}[e][i] \cdot \boldsymbol{\hat{u}}^{e}[i]$\\
  * \> \> continue\\
@@ -728,14 +758,9 @@ void ContField::v_GlobalToLocal(void)
  * where \a map\f$[e][i]\f$ is the mapping array and \a
  * sign\f$[e][i]\f$ is an array of similar dimensions ensuring the
  * correct modal connectivity between the different elements (both
- * these arrays are contained in the data member #m_locToGloMap). This
- * operation is equivalent to the gather operation
- * \f$\boldsymbol{\hat{u}}_g=\mathcal{A}^{-1}\boldsymbol{\hat{u}}_l\f$,
- * where \f$\mathcal{A}\f$ is the
- * \f$N_{\mathrm{eof}}\times N_{\mathrm{dof}}\f$ permutation matrix.
+ * these arrays are contained in the data member #m_locToGloMap).
  *
  */
-
 void ContField::v_LocalToGlobal(const Array<OneD, const NekDouble> &inarray,
                                 Array<OneD, NekDouble> &outarray, bool useComm)
 {
@@ -773,7 +798,7 @@ GlobalLinSysKey ContField::v_HelmSolve(
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray, const StdRegions::ConstFactorMap &factors,
     const StdRegions::VarCoeffMap &pvarcoeff,
-    const MultiRegions::VarFactorsMap &varfactors,
+    const StdRegions::VarFactorsMap &pvarfactors,
     const Array<OneD, const NekDouble> &dirForcing, const bool PhysSpaceForcing)
 {
     int i, j;
@@ -833,33 +858,64 @@ GlobalLinSysKey ContField::v_HelmSolve(
     StdRegions::MatrixType mtype = StdRegions::eHelmholtz;
 
     StdRegions::VarCoeffMap varcoeff(pvarcoeff);
+    StdRegions::VarFactorsMap varfactors(pvarfactors);
     if (factors.count(StdRegions::eFactorGJP))
     {
+        LibUtilities::Timer timer;
+        timer.Start();
+
         // initialize if required
         if (!m_GJPData)
         {
             m_GJPData = MemoryManager<GJPStabilisation>::AllocateSharedPtr(
                 GetSharedThisPtr());
         }
+        timer.Stop();
+        timer.AccumulateRegion("GJP:Initialize", 10);
 
         if (m_GJPData->IsSemiImplicit())
         {
+            timer.Start();
             mtype = StdRegions::eHelmholtzGJP;
+            // set up varcoeff
+
+            varfactors[StdRegions::eFactorGJPTraceWeight] =
+                m_GJPData->GetTraceWeightVarFactors();
+            timer.Stop();
+            timer.AccumulateRegion("GJP:GetTraceWeights", 10);
         }
 
-        // to set up forcing need initial guess in physical space
-        Array<OneD, NekDouble> phys(m_npoints), tmp;
-        BwdTrans(outarray, phys);
-        NekDouble scale = -1.0 * factors.find(StdRegions::eFactorGJP)->second;
+        // add GJP forcing if explicit of semi-implicit
+        if (m_GJPData->IsExplicit() || m_GJPData->IsSemiImplicit())
+        {
+            timer.Start();
+            // to set up forcing need initial guess in physical space
+            Array<OneD, NekDouble> phys(m_npoints), tmp;
+            BwdTrans(outarray, phys);
+            NekDouble scale =
+                -1.0 * factors.find(StdRegions::eFactorGJP)->second;
 
-        m_GJPData->Apply(phys, wsp,
-                         pvarcoeff.count(StdRegions::eVarCoeffGJPNormVel)
-                             ? pvarcoeff.find(StdRegions::eVarCoeffGJPNormVel)
-                                   ->second.GetValue()
-                             : NullNekDouble1DArray,
-                         scale);
+            m_GJPData->Apply(
+                phys, wsp,
+                pvarcoeff.count(StdRegions::eVarCoeffGJPNormVel)
+                    ? pvarcoeff.find(StdRegions::eVarCoeffGJPNormVel)
+                          ->second.GetValue()
+                    : NullNekDouble1DArray,
+                scale);
 
-        varcoeff.erase(StdRegions::eVarCoeffGJPNormVel);
+            varcoeff.erase(StdRegions::eVarCoeffGJPNormVel);
+            timer.Stop();
+            timer.AccumulateRegion("GJP:Apply", 10);
+        }
+
+        if (m_GJPData->IsImplicit())
+        {
+            timer.Start();
+            varfactors[StdRegions::eFactorGJPTraceWeight] =
+                m_GJPData->GetTraceWeightVarFactors();
+            timer.Stop();
+            timer.AccumulateRegion("GJP:GetTraceWeights", 10);
+        }
     }
 
     GlobalLinSysKey key(mtype, m_locToGloMap, factors, varcoeff, varfactors);
@@ -884,7 +940,7 @@ GlobalLinSysKey ContField::v_LinearAdvectionDiffusionReactionSolve(
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray, const StdRegions::ConstFactorMap &factors,
     const StdRegions::VarCoeffMap &pvarcoeff,
-    const MultiRegions::VarFactorsMap &varfactors,
+    const StdRegions::VarFactorsMap &pvarfactors,
     const Array<OneD, const NekDouble> &dirForcing, const bool PhysSpaceForcing)
 {
     // Inner product of forcing
@@ -943,33 +999,63 @@ GlobalLinSysKey ContField::v_LinearAdvectionDiffusionReactionSolve(
         StdRegions::eLinearAdvectionDiffusionReaction;
 
     StdRegions::VarCoeffMap varcoeff(pvarcoeff);
+    StdRegions::VarFactorsMap varfactors(pvarfactors);
     if (factors.count(StdRegions::eFactorGJP))
     {
+        LibUtilities::Timer timer;
+        timer.Start();
+
         // initialize if required
         if (!m_GJPData)
         {
             m_GJPData = MemoryManager<GJPStabilisation>::AllocateSharedPtr(
                 GetSharedThisPtr());
         }
+        timer.Stop();
+        timer.AccumulateRegion("GJP:Initialize", 10);
 
         if (m_GJPData->IsSemiImplicit())
         {
+            timer.Start();
             mtype = StdRegions::eLinearAdvectionDiffusionReactionGJP;
+
+            varfactors[StdRegions::eFactorGJPTraceWeight] =
+                m_GJPData->GetTraceWeightVarFactors();
+            timer.Stop();
+            timer.AccumulateRegion("GJP:GetTraceWeights", 10);
         }
 
-        // to set up forcing need initial guess in physical space
-        Array<OneD, NekDouble> phys(m_npoints), tmp;
-        BwdTrans(outarray, phys);
-        NekDouble scale = -1.0 * factors.find(StdRegions::eFactorGJP)->second;
+        if (m_GJPData->IsExplicit() || m_GJPData->IsSemiImplicit())
+        {
+            timer.Start();
+            // Set up forcing need initial guess in physical space
+            Array<OneD, NekDouble> phys(m_npoints), tmp;
+            BwdTrans(outarray, phys);
+            NekDouble scale =
+                -1.0 * factors.find(StdRegions::eFactorGJP)->second;
 
-        m_GJPData->Apply(phys, wsp,
-                         pvarcoeff.count(StdRegions::eVarCoeffGJPNormVel)
-                             ? pvarcoeff.find(StdRegions::eVarCoeffGJPNormVel)
-                                   ->second.GetValue()
-                             : NullNekDouble1DArray,
-                         scale);
+            m_GJPData->Apply(
+                phys, wsp,
+                pvarcoeff.count(StdRegions::eVarCoeffGJPNormVel)
+                    ? pvarcoeff.find(StdRegions::eVarCoeffGJPNormVel)
+                          ->second.GetValue()
+                    : NullNekDouble1DArray,
+                scale);
+            // erase VarCoeffGJPNormVel in temporary arrya so not used in key
+            // below
+            varcoeff.erase(StdRegions::eVarCoeffGJPNormVel);
+            timer.Stop();
+            timer.AccumulateRegion("GJP:Apply", 10);
+        }
 
-        varcoeff.erase(StdRegions::eVarCoeffGJPNormVel);
+        if (m_GJPData->IsImplicit())
+        {
+            timer.Start();
+            varfactors[StdRegions::eFactorGJPTraceWeight] =
+                m_GJPData->GetTraceWeightVarFactors();
+            timer.Stop();
+            timer.AccumulateRegion("GJP:GetTraceWeights", 10);
+        }
     }
 
     // Solve the system
@@ -993,7 +1079,7 @@ GlobalLinSysKey ContField::v_LinearAdvectionReactionSolve(
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray, const StdRegions::ConstFactorMap &factors,
     const StdRegions::VarCoeffMap &pvarcoeff,
-    const MultiRegions::VarFactorsMap &varfactors,
+    const StdRegions::VarFactorsMap &pvarfactors,
     const Array<OneD, const NekDouble> &dirForcing, const bool PhysSpaceForcing)
 {
     // Inner product of forcing
@@ -1051,34 +1137,64 @@ GlobalLinSysKey ContField::v_LinearAdvectionReactionSolve(
     StdRegions::MatrixType mtype = StdRegions::eLinearAdvectionReaction;
 
     StdRegions::VarCoeffMap varcoeff(pvarcoeff);
+    StdRegions::VarFactorsMap varfactors(pvarfactors);
     if (factors.count(StdRegions::eFactorGJP))
     {
+        LibUtilities::Timer timer;
+        timer.Start();
+
         // initialize if required
         if (!m_GJPData)
         {
             m_GJPData = MemoryManager<GJPStabilisation>::AllocateSharedPtr(
                 GetSharedThisPtr());
         }
+        timer.Stop();
+        timer.AccumulateRegion("GJP:Initialize", 10);
 
         if (m_GJPData->IsSemiImplicit())
         {
+            timer.Start();
             ASSERTL0(false, "SemiImplicit GJPStabilisation not implemented for "
                             "LinearAdvectionReactionSolve().")
+
+            varfactors[StdRegions::eFactorGJPTraceWeight] =
+                m_GJPData->GetTraceWeightVarFactors();
+            timer.Stop();
+            timer.AccumulateRegion("GJP:GetTraceWeights", 10);
         }
 
-        // to set up forcing need initial guess in physical space
-        Array<OneD, NekDouble> phys(m_npoints), tmp;
-        BwdTrans(outarray, phys);
-        NekDouble scale = -1.0 * factors.find(StdRegions::eFactorGJP)->second;
+        if (m_GJPData->IsExplicit() || m_GJPData->IsSemiImplicit())
+        {
+            timer.Start();
+            // Set up forcing need initial guess in physical space
+            // add GJP forcing
+            Array<OneD, NekDouble> phys(m_npoints), tmp;
+            BwdTrans(outarray, phys);
+            NekDouble scale =
+                -1.0 * factors.find(StdRegions::eFactorGJP)->second;
 
-        m_GJPData->Apply(phys, wsp,
-                         pvarcoeff.count(StdRegions::eVarCoeffGJPNormVel)
-                             ? pvarcoeff.find(StdRegions::eVarCoeffGJPNormVel)
-                                   ->second.GetValue()
-                             : NullNekDouble1DArray,
-                         scale);
+            m_GJPData->Apply(
+                phys, wsp,
+                pvarcoeff.count(StdRegions::eVarCoeffGJPNormVel)
+                    ? pvarcoeff.find(StdRegions::eVarCoeffGJPNormVel)
+                          ->second.GetValue()
+                    : NullNekDouble1DArray,
+                scale);
 
-        varcoeff.erase(StdRegions::eVarCoeffGJPNormVel);
+            varcoeff.erase(StdRegions::eVarCoeffGJPNormVel);
+            timer.Stop();
+            timer.AccumulateRegion("GJP:Apply", 10);
+        }
+
+        if (m_GJPData->IsImplicit())
+        {
+            timer.Start();
+            varfactors[StdRegions::eFactorGJPTraceWeight] =
+                m_GJPData->GetTraceWeightVarFactors();
+            timer.Stop();
+            timer.AccumulateRegion("GJP:GetTraceWeights", 10);
+        }
     }
 
     // Solve the system

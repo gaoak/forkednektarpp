@@ -127,6 +127,17 @@ void ContField3DHomogeneous2D::v_ImposeDirichletConditions(
 /**
  *
  */
+void ContField3DHomogeneous2D::v_AvgAssemble(bool useComm)
+{
+    for (int n = 0; n < m_lines.size(); ++n)
+    {
+        m_lines[n]->AvgAssemble(useComm);
+    }
+}
+
+/**
+ *
+ */
 void ContField3DHomogeneous2D::v_LocalToGlobal(bool useComm)
 {
     for (int n = 0; n < m_lines.size(); ++n)
@@ -150,7 +161,7 @@ GlobalLinSysKey ContField3DHomogeneous2D::v_HelmSolve(
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray, const StdRegions::ConstFactorMap &factors,
     const StdRegions::VarCoeffMap &varcoeff,
-    const MultiRegions::VarFactorsMap &varfactors,
+    const StdRegions::VarFactorsMap &varfactors,
     const Array<OneD, const NekDouble> &dirForcing, const bool PhysSpaceForcing)
 {
     int n, m;

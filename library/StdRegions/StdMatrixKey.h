@@ -54,6 +54,7 @@ public:
         const StdRegions::StdExpansion &stdExpansion,
         const ConstFactorMap &factorMap    = NullConstFactorMap,
         const VarCoeffMap &varCoeffMap     = NullVarCoeffMap,
+        const VarFactorsMap &varFactorMap  = NullVarFactorsMap,
         LibUtilities::PointsType nodalType = LibUtilities::eNoPointsType);
 
     STD_REGIONS_EXPORT StdMatrixKey(const StdMatrixKey &rhs,
@@ -199,6 +200,36 @@ public:
         return false;
     }
 
+    inline int GetNVarFactors() const
+    {
+        return m_varfactors.size();
+    }
+
+    inline const Array<OneD, const NekDouble> &GetVarFactors(
+        const StdRegions::ConstFactorType &type) const
+    {
+        auto x = m_varfactors.find(type);
+        ASSERTL1(x != m_varfactors.end(),
+                 "Variable factors not defined: " +
+                     std::string(StdRegions::ConstFactorTypeMap[type]));
+        return x->second;
+    }
+
+    std::vector<std::size_t> GetVarFactorsfHashes() const
+    {
+        return m_varfactor_hashes;
+    }
+
+    inline const VarFactorsMap &GetVarFactors() const
+    {
+        return m_varfactors;
+    }
+
+    inline bool HasVarFactors(const StdRegions::ConstFactorType &type) const
+    {
+        return (m_varfactors.find(type) != m_varfactors.end());
+    }
+
 protected:
     LibUtilities::ShapeType m_shapeType;
     Array<OneD, const LibUtilities::BasisSharedPtr> m_base;
@@ -208,8 +239,10 @@ protected:
     LibUtilities::PointsType m_nodalPointsType;
 
     ConstFactorMap m_factors;
+    VarFactorsMap m_varfactors;
     VarCoeffMap m_varcoeffs;
 
+    std::vector<std::size_t> m_varfactor_hashes;
     std::vector<std::size_t> m_varcoeff_hashes;
 
 private:

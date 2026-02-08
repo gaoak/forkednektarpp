@@ -196,10 +196,10 @@ protected:
         Array<OneD, NekDouble> &array,
         const StdRegions::StdMatrixKey &mkey) override;
 
-    LOCAL_REGIONS_EXPORT void v_NormalTraceDerivFactors(
-        Array<OneD, Array<OneD, NekDouble>> &factors,
-        Array<OneD, Array<OneD, NekDouble>> &d0factors,
-        Array<OneD, Array<OneD, NekDouble>> &d1factors) override;
+    void v_GetLocTracePhysVals(const int edge,
+                               const StdRegions::StdExpansionSharedPtr &EdgeExp,
+                               const NekDouble *inarray,
+                               Array<OneD, NekDouble> &outarray) override;
 
 private:
     LibUtilities::NekManager<MatrixKey, DNekScalMat, MatrixKey::opLess>

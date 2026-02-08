@@ -67,6 +67,7 @@ class AssemblyMapCG;
 class InterfaceMapDG;
 class GlobalLinSysKey;
 class GlobalMatrix;
+class GJPStabilisation;
 
 enum Direction
 {
@@ -315,8 +316,8 @@ public:
         Array<OneD, NekDouble> &outarray,
         const StdRegions::ConstFactorMap &factors,
         const StdRegions::VarCoeffMap &varcoeff = StdRegions::NullVarCoeffMap,
-        const MultiRegions::VarFactorsMap &varfactors =
-            MultiRegions::NullVarFactorsMap,
+        const StdRegions::VarFactorsMap &varfactors =
+            StdRegions::NullVarFactorsMap,
         const Array<OneD, const NekDouble> &dirForcing = NullNekDouble1DArray,
         const bool PhysSpaceForcing                    = true);
 
@@ -326,8 +327,8 @@ public:
         Array<OneD, NekDouble> &outarray,
         const StdRegions::ConstFactorMap &factors,
         const StdRegions::VarCoeffMap &varcoeff = StdRegions::NullVarCoeffMap,
-        const MultiRegions::VarFactorsMap &varfactors =
-            MultiRegions::NullVarFactorsMap,
+        const StdRegions::VarFactorsMap &varfactors =
+            StdRegions::NullVarFactorsMap,
         const Array<OneD, const NekDouble> &dirForcing = NullNekDouble1DArray,
         const bool PhysSpaceForcing                    = true);
 
@@ -337,8 +338,8 @@ public:
         Array<OneD, NekDouble> &outarray,
         const StdRegions::ConstFactorMap &factors,
         const StdRegions::VarCoeffMap &varcoeff = StdRegions::NullVarCoeffMap,
-        const MultiRegions::VarFactorsMap &varfactors =
-            MultiRegions::NullVarFactorsMap,
+        const StdRegions::VarFactorsMap &varfactors =
+            StdRegions::NullVarFactorsMap,
         const Array<OneD, const NekDouble> &dirForcing = NullNekDouble1DArray,
         const bool PhysSpaceForcing                    = true);
     ///
@@ -461,6 +462,13 @@ public:
     /// stored in expansion
     inline void FillBndCondFromField(const int nreg,
                                      const Array<OneD, NekDouble> coeffs);
+    /// Assemble the average global coefficients \f$\boldsymbol{\hat{u}}_g\f$
+    /// from the local coefficients \f$\boldsymbol{\hat{u}}_l\f$ .
+    // inline
+    MULTI_REGIONS_EXPORT inline void AvgAssemble(bool useComm = true);
+    MULTI_REGIONS_EXPORT inline void AvgAssemble(
+        const Array<OneD, const NekDouble> &inarray,
+        Array<OneD, NekDouble> &outarray, bool useComm = true);
     /// Gathers the global coefficients \f$\boldsymbol{\hat{u}}_g\f$
     /// from the local coefficients \f$\boldsymbol{\hat{u}}_l\f$.
     // inline
@@ -1003,6 +1011,12 @@ public:
     {
         return v_GetPlane(n);
     }
+
+    inline const std::shared_ptr<GJPStabilisation> GetGJPData(void)
+    {
+        return v_GetGJPData();
+    }
+
     MULTI_REGIONS_EXPORT void CreateCollections(
         Collections::ImplementationType ImpType = Collections::eNoImpType);
     MULTI_REGIONS_EXPORT void ClearGlobalLinSysManager(void);
@@ -1305,7 +1319,7 @@ protected:
         Array<OneD, NekDouble> &outarray,
         const StdRegions::ConstFactorMap &factors,
         const StdRegions::VarCoeffMap &varcoeff,
-        const MultiRegions::VarFactorsMap &varfactors,
+        const StdRegions::VarFactorsMap &varfactors,
         const Array<OneD, const NekDouble> &dirForcing,
         const bool PhysSpaceForcing);
 
@@ -1314,7 +1328,7 @@ protected:
         Array<OneD, NekDouble> &outarray,
         const StdRegions::ConstFactorMap &factors,
         const StdRegions::VarCoeffMap &varcoeff,
-        const MultiRegions::VarFactorsMap &varfactors,
+        const StdRegions::VarFactorsMap &varfactors,
         const Array<OneD, const NekDouble> &dirForcing,
         const bool PhysSpaceForcing);
 
@@ -1323,7 +1337,7 @@ protected:
         Array<OneD, NekDouble> &outarray,
         const StdRegions::ConstFactorMap &factors,
         const StdRegions::VarCoeffMap &varcoeff,
-        const MultiRegions::VarFactorsMap &varfactors,
+        const StdRegions::VarFactorsMap &varfactors,
         const Array<OneD, const NekDouble> &dirForcing,
         const bool PhysSpaceForcing);
 
@@ -1335,6 +1349,9 @@ protected:
     virtual void v_FillBndCondFromField(const int nreg,
                                         const Array<OneD, NekDouble> coeffs);
     virtual void v_Reset();
+    virtual void v_AvgAssemble(bool UseComm);
+    virtual void v_AvgAssemble(const Array<OneD, const NekDouble> &inarray,
+                               Array<OneD, NekDouble> &outarray, bool UseComm);
     virtual void v_LocalToGlobal(bool UseComm);
     virtual void v_LocalToGlobal(const Array<OneD, const NekDouble> &inarray,
                                  Array<OneD, NekDouble> &outarray,
@@ -1563,6 +1580,12 @@ protected:
         const Array<OneD, const NekDouble> &FwdFlux,
         const Array<OneD, const NekDouble> &BwdFlux,
         Array<OneD, NekDouble> &outarray);
+
+    virtual const std::shared_ptr<GJPStabilisation> v_GetGJPData(void)
+    {
+        // default is to return empty pointer
+        return nullptr; // std::shared_ptr<GJPStabilisation>();
+    }
 
 private:
     /// Definition of the total number of degrees of freedom and
@@ -1820,7 +1843,7 @@ inline GlobalLinSysKey ExpList::HelmSolve(
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray, const StdRegions::ConstFactorMap &factors,
     const StdRegions::VarCoeffMap &varcoeff,
-    const MultiRegions::VarFactorsMap &varfactors,
+    const StdRegions::VarFactorsMap &varfactors,
     const Array<OneD, const NekDouble> &dirForcing, const bool PhysSpaceForcing)
 {
     return v_HelmSolve(inarray, outarray, factors, varcoeff, varfactors,
@@ -1833,7 +1856,7 @@ inline GlobalLinSysKey ExpList::LinearAdvectionDiffusionReactionSolve(
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray, const StdRegions::ConstFactorMap &factors,
     const StdRegions::VarCoeffMap &varcoeff,
-    const MultiRegions::VarFactorsMap &varfactors,
+    const StdRegions::VarFactorsMap &varfactors,
     const Array<OneD, const NekDouble> &dirForcing, const bool PhysSpaceForcing)
 {
     return v_LinearAdvectionDiffusionReactionSolve(
@@ -1845,7 +1868,7 @@ inline GlobalLinSysKey ExpList::LinearAdvectionReactionSolve(
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray, const StdRegions::ConstFactorMap &factors,
     const StdRegions::VarCoeffMap &varcoeff,
-    const MultiRegions::VarFactorsMap &varfactors,
+    const StdRegions::VarFactorsMap &varfactors,
     const Array<OneD, const NekDouble> &dirForcing, const bool PhysSpaceForcing)
 {
     return v_LinearAdvectionReactionSolve(inarray, outarray, factors, varcoeff,
@@ -2053,6 +2076,15 @@ inline void ExpList::FillBndCondFromField(const int nreg,
                                           const Array<OneD, NekDouble> coeffs)
 {
     v_FillBndCondFromField(nreg, coeffs);
+}
+inline void ExpList::AvgAssemble(bool useComm)
+{
+    v_AvgAssemble(useComm);
+}
+inline void ExpList::AvgAssemble(const Array<OneD, const NekDouble> &inarray,
+                                 Array<OneD, NekDouble> &outarray, bool useComm)
+{
+    v_AvgAssemble(inarray, outarray, useComm);
 }
 inline void ExpList::LocalToGlobal(bool useComm)
 {

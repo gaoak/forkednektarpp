@@ -105,6 +105,11 @@ public:
         const int nvert, const StdRegions::Orientation orient, const int nq0,
         Array<OneD, int> &idmap);
 
+    LOCAL_REGIONS_EXPORT void v_NormalTraceDerivFactors(
+        Array<OneD, Array<OneD, NekDouble>> &factors,
+        Array<OneD, Array<OneD, NekDouble>> &d0factors,
+        Array<OneD, Array<OneD, NekDouble>> &d1factors) override;
+
 protected:
     std::vector<bool> m_requireNeg;
 
@@ -128,6 +133,7 @@ protected:
     DNekMatSharedPtr v_GenMatrix(const StdRegions::StdMatrixKey &mkey) override;
 
     void v_GenTraceExp(const int traceid, ExpansionSharedPtr &exp) override;
+
     void v_AddEdgeNormBoundaryInt(const int edge,
                                   const ExpansionSharedPtr &EdgeExp,
                                   const Array<OneD, const NekDouble> &Fx,
@@ -154,6 +160,11 @@ protected:
     void v_ReOrientTracePhysMap(const StdRegions::Orientation orient,
                                 Array<OneD, int> &idmap, const int nq0,
                                 const int nq1, bool Forwards) override;
+
+    void v_ReOrientTracePhysVals(const StdRegions::Orientation orient,
+                                 const Array<OneD, const NekDouble> &in,
+                                 Array<OneD, NekDouble> &out, const int nq0,
+                                 const int nq1, bool Forwards) override;
 
     void v_SetUpPhysNormals(const int edge) override;
     NekDouble v_VectorFlux(

@@ -94,5 +94,6 @@ int main(int argc, char *argv[])
         LibUtilities::SessionReader::CreateInstance(argc, new_argv, filenames,
                                                     vComm);
 
+    delete[] new_argv;
     return 0;
 }

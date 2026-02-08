@@ -643,7 +643,8 @@ LibUtilities::BasisKey EvaluateTriFaceBasisKey(
                     switch (pointsType) // determine the points type
                     {
                         case LibUtilities::eGaussRadauMLegendre:
-                        case LibUtilities::eGaussRadauMAlpha2Beta0:
+                            // case LibUtilities::eGaussRadauMAlpha2Beta0: don't
+                            // this this is posssible
                         case LibUtilities::eGaussRadauMAlpha1Beta0:
                         {
                             pkey = LibUtilities::PointsKey(
@@ -818,7 +819,8 @@ LibUtilities::BasisKey EvaluateTriFaceBasisKey(
 
 void StdExpansion3D::v_PhysInterp(std::shared_ptr<StdExpansion> fromExp,
                                   const Array<OneD, const NekDouble> &fromData,
-                                  Array<OneD, NekDouble> &toData)
+                                  Array<OneD, NekDouble> &toData,
+                                  [[maybe_unused]] bool Transpose)
 {
 
     LibUtilities::Interp3D(fromExp->GetBasis(0)->GetPointsKey(),

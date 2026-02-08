@@ -40,16 +40,20 @@ using namespace std;
 
 namespace Nektar::StdRegions
 {
+
 StdMatrixKey::StdMatrixKey(const MatrixType matrixType,
                            const LibUtilities::ShapeType shapeType,
                            const StdExpansion &stdExpansion,
                            const ConstFactorMap &factorMap,
                            const VarCoeffMap &varCoeffMap,
+                           const VarFactorsMap &varFactorsMap,
                            LibUtilities::PointsType nodalType)
     : m_shapeType(shapeType), m_base(stdExpansion.GetBase()),
       m_ncoeffs(stdExpansion.GetNcoeffs()), m_matrixType(matrixType),
       m_nodalPointsType(nodalType), m_factors(factorMap),
-      m_varcoeffs(varCoeffMap), m_varcoeff_hashes(varCoeffMap.size())
+      m_varfactors(varFactorsMap), m_varcoeffs(varCoeffMap),
+      m_varfactor_hashes(varFactorsMap.size()),
+      m_varcoeff_hashes(varCoeffMap.size())
 {
     // Create hash
     int i = 0;
@@ -61,6 +65,14 @@ StdMatrixKey::StdMatrixKey(const MatrixType matrixType,
         hash_combine(m_varcoeff_hashes[i], (int)x.first);
         i++;
     }
+
+    i = 0;
+    for (auto &x : varFactorsMap)
+    {
+        m_varfactor_hashes[i] = hash_range(x.second.begin(), x.second.end());
+        hash_combine(m_varfactor_hashes[i], (int)x.first);
+        i++;
+    }
 }
 
 StdMatrixKey::StdMatrixKey(const StdMatrixKey &rhs,
@@ -68,7 +80,9 @@ StdMatrixKey::StdMatrixKey(const StdMatrixKey &rhs,
     : m_shapeType(rhs.m_shapeType), m_base(rhs.m_base),
       m_ncoeffs(rhs.m_ncoeffs), m_matrixType(matrixType),
       m_nodalPointsType(rhs.m_nodalPointsType), m_factors(rhs.m_factors),
-      m_varcoeffs(rhs.m_varcoeffs), m_varcoeff_hashes(rhs.m_varcoeff_hashes)
+      m_varfactors(rhs.m_varfactors), m_varcoeffs(rhs.m_varcoeffs),
+      m_varfactor_hashes(rhs.m_varfactor_hashes),
+      m_varcoeff_hashes(rhs.m_varcoeff_hashes)
 {
 }
 
@@ -76,7 +90,9 @@ StdMatrixKey::StdMatrixKey(const StdMatrixKey &rhs)
     : m_shapeType(rhs.m_shapeType), m_base(rhs.m_base),
       m_ncoeffs(rhs.m_ncoeffs), m_matrixType(rhs.m_matrixType),
       m_nodalPointsType(rhs.m_nodalPointsType), m_factors(rhs.m_factors),
-      m_varcoeffs(rhs.m_varcoeffs), m_varcoeff_hashes(rhs.m_varcoeff_hashes)
+      m_varfactors(rhs.m_varfactors), m_varcoeffs(rhs.m_varcoeffs),
+      m_varfactor_hashes(rhs.m_varfactor_hashes),
+      m_varcoeff_hashes(rhs.m_varcoeff_hashes)
 {
 }
 
@@ -164,6 +180,28 @@ bool operator<(const StdMatrixKey &lhs, const StdMatrixKey &rhs)
         }
     }
 
+    if (lhs.m_varfactors.size() < rhs.m_varfactors.size())
+    {
+        return true;
+    }
+
+    if (lhs.m_varfactors.size() > rhs.m_varfactors.size())
+    {
+        return false;
+    }
+
+    for (unsigned int i = 0; i < lhs.m_varfactor_hashes.size(); ++i)
+    {
+        if (lhs.m_varfactor_hashes[i] < rhs.m_varfactor_hashes[i])
+        {
+            return true;
+        }
+        if (lhs.m_varfactor_hashes[i] > rhs.m_varfactor_hashes[i])
+        {
+            return false;
+        }
+    }
+
     if (lhs.m_varcoeffs.size() < rhs.m_varcoeffs.size())
     {
         return true;
@@ -241,6 +279,19 @@ bool operator==(const StdMatrixKey &lhs, const StdMatrixKey &rhs)
         return false;
     }
 
+    if (lhs.m_varfactors.size() != rhs.m_varfactors.size())
+    {
+        return false;
+    }
+
+    for (unsigned int i = 0; i < lhs.m_varfactor_hashes.size(); ++i)
+    {
+        if (lhs.m_varfactor_hashes[i] != rhs.m_varfactor_hashes[i])
+        {
+            return false;
+        }
+    }
+
     for (unsigned int i = 0; i < lhs.m_varcoeff_hashes.size(); ++i)
     {
         if (lhs.m_varcoeff_hashes[i] != rhs.m_varcoeff_hashes[i])
@@ -263,6 +314,7 @@ bool operator==(const StdMatrixKey &lhs, const StdMatrixKey &rhs)
             return false;
         }
     }
+
     for (unsigned int i = 0; i < lhs.m_varcoeffs.size(); ++i)
     {
         if (lhs.m_varcoeff_hashes[i] != rhs.m_varcoeff_hashes[i])

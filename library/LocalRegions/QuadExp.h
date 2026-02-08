@@ -116,11 +116,16 @@ protected:
     v_PhysEvalFirstDeriv(const Array<OneD, NekDouble> &coord,
                          const Array<OneD, const NekDouble> &inarray,
                          std::array<NekDouble, 3> &firstOrderDerivs) override;
+
     LOCAL_REGIONS_EXPORT void v_GetTracePhysVals(
-        const int edge, const StdRegions::StdExpansionSharedPtr &EdgeExp,
+        const int trace, const StdRegions::StdExpansionSharedPtr &TraceExp,
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray,
         StdRegions::Orientation orient) override;
+
+    LOCAL_REGIONS_EXPORT void v_GetLocTracePhysVals(
+        const int edge, const StdRegions::StdExpansionSharedPtr &EdgeExp,
+        const NekDouble *inarray, Array<OneD, NekDouble> &outarray) override;
 
     LOCAL_REGIONS_EXPORT void v_GetTraceQFactors(
         const int edge, Array<OneD, NekDouble> &outarray) override;
@@ -201,10 +206,8 @@ protected:
         Array<OneD, NekDouble> &array,
         const StdRegions::StdMatrixKey &mkey) override;
 
-    LOCAL_REGIONS_EXPORT void v_NormalTraceDerivFactors(
-        Array<OneD, Array<OneD, NekDouble>> &factors,
-        Array<OneD, Array<OneD, NekDouble>> &d0factors,
-        Array<OneD, Array<OneD, NekDouble>> &d1factors) override;
+    void GetEdgeInterpVals(const int edge, const NekDouble *inarray,
+                           Array<OneD, NekDouble> &outarray);
 
 private:
     LibUtilities::NekManager<MatrixKey, DNekScalMat, MatrixKey::opLess>

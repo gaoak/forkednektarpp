@@ -114,6 +114,10 @@ public:
     MULTI_REGIONS_EXPORT void GlobalToLocal(const NekVector<NekDouble> &global,
                                             NekVector<NekDouble> &loc) const;
 
+    MULTI_REGIONS_EXPORT void AvgAssemble(
+        const Array<OneD, const NekDouble> &loc, Array<OneD, NekDouble> &global,
+        bool useComm = true) const;
+
     MULTI_REGIONS_EXPORT void Assemble(const Array<OneD, const NekDouble> &loc,
                                        Array<OneD, NekDouble> &global) const;
 
@@ -471,6 +475,10 @@ protected:
 
     virtual void v_GlobalToLocal(const NekVector<NekDouble> &global,
                                  NekVector<NekDouble> &loc) const;
+
+    virtual void v_AvgAssemble(const Array<OneD, const NekDouble> &loc,
+                               Array<OneD, NekDouble> &global,
+                               bool useComm) const;
 
     virtual void v_Assemble(const Array<OneD, const NekDouble> &loc,
                             Array<OneD, NekDouble> &global) const;

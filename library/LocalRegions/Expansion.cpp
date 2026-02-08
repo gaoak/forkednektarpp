@@ -261,6 +261,18 @@ const NormalVector &Expansion::GetTraceNormal(const int id)
     return x->second;
 }
 
+const std::map<int, NormalVector> &Expansion::GetTraceNormals(void)
+{
+    if (m_traceNormals.size() != GetNtraces())
+    {
+        for (unsigned i = 0; i < GetNtraces(); ++i)
+        {
+            v_ComputeTraceNormal(i);
+        }
+    }
+    return m_traceNormals;
+}
+
 StdRegions::StdExpansionSharedPtr Expansion::v_GetStdExp(void) const
 {
     ASSERTL0(false, "This method is not defined for this expansion");
@@ -419,8 +431,9 @@ DNekScalBlkMatSharedPtr Expansion::CreateStaticCondMatrix(const MatrixKey &mkey)
                 Atmp = MemoryManager<DNekScalMat>::AllocateSharedPtr(invfactor,
                                                                      D));
 
-            // Remove the local matrix from manager if using this option since
-            // we assume it is only created to generate static condensed system
+            // Remove the local matrix from manager if using this option
+            // since we assume it is only created to generate static
+            // condensed system
             v_DropLocMatrix(mkey);
         }
     }
@@ -464,7 +477,8 @@ void Expansion::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,
                 : v_GetNodalPointsKey().GetPointsType();
         MatrixKey masskey(StdRegions::eInvMass, DetShapeType(), *this,
                           StdRegions::NullConstFactorMap,
-                          StdRegions::NullVarCoeffMap, nodalPointsType);
+                          StdRegions::NullVarCoeffMap,
+                          StdRegions::NullVarFactorsMap, nodalPointsType);
         DNekScalMatSharedPtr matsys = v_GetLocMatrix(masskey);
 
         // copy inarray in case inarray == outarray
@@ -558,21 +572,26 @@ void Expansion::StdDerivBaseOnTraceMat(Array<OneD, DNekMatSharedPtr> &DerivMat)
     Array<OneD, NekDouble> coeffs(m_ncoeffs);
     Array<OneD, NekDouble> phys(nquad);
 
-    Array<OneD, Array<OneD, int>> traceids(ntraces);
-
     int tottracepts = 0;
+    int maxtracepts = 0;
+    Array<OneD, ExpansionSharedPtr> traceExp(ntraces);
     for (int i = 0; i < ntraces; ++i)
     {
-        GetTracePhysMap(i, traceids[i]);
-        tottracepts += GetTraceNumPoints(i);
+        // Note we are using GenTraceExp to ensure we have local trace
+        // expansion not ont from shared trace which can happe if we use
+        // GetTraceExp since it can be set in DisContField::SetupDG
+        v_GenTraceExp(i, traceExp[i]);
+        int ntpts   = traceExp[i]->GetTotPoints();
+        maxtracepts = max(maxtracepts, ntpts);
+        tottracepts += ntpts;
     }
 
     // initialise array to null so can call for
     // differnt dimensions
     Array<OneD, Array<OneD, NekDouble>> Deriv(3, NullNekDouble1DArray);
+    Array<OneD, NekDouble> traceDeriv(maxtracepts);
 
     DerivMat = Array<OneD, DNekMatSharedPtr>(ndir);
-
     for (int i = 0; i < ndir; ++i)
     {
         Deriv[i] = Array<OneD, NekDouble>(nquad);
@@ -592,14 +611,24 @@ void Expansion::StdDerivBaseOnTraceMat(Array<OneD, DNekMatSharedPtr> &DerivMat)
         int cnt = 0;
         for (int j = 0; j < ntraces; ++j)
         {
-            int nTracePts = GetTraceNumPoints(j);
-            for (int k = 0; k < nTracePts; ++k)
+            LibUtilities::BasisKey traceKey0 = GetTraceBasisKey(j, 0);
+            LibUtilities::BasisKey traceKey1 = GetTraceBasisKey(j, 1);
+
+            int nTracePts = traceExp[j]->GetTotPoints();
+
+            for (int d = 0; d < ndir; ++d)
             {
-                for (int d = 0; d < ndir; ++d)
+                // specifying eForwards since Std Operation always Fwd
+                GetTracePhysVals(j, traceExp[j], Deriv[d], traceDeriv,
+                                 StdRegions::eDir1FwdDir1_Dir2FwdDir2);
+
+                // fill matrix
+                for (int k = 0; k < nTracePts; ++k)
                 {
-                    (*DerivMat[d])(i, cnt + k) = Deriv[d][traceids[j][k]];
+                    (*DerivMat[d])(i, cnt + k) = traceDeriv[k];
                 }
             }
+
             cnt += nTracePts;
         }
     }
@@ -993,6 +1022,17 @@ void Expansion::v_GetTracePhysVals(
              "Method does not exist for this shape or library");
 }
 
+void Expansion::v_GetLocTracePhysVals(
+    [[maybe_unused]] const int trace,
+    [[maybe_unused]] const StdRegions::StdExpansionSharedPtr &TraceExp,
+    [[maybe_unused]] const NekDouble *inarray,
+    [[maybe_unused]] Array<OneD, NekDouble> &outarray)
+
+{
+    NEKERROR(ErrorUtil::efatal,
+             "Method does not exist for this shape or library");
+}
+
 void Expansion::v_GetTracePhysMap([[maybe_unused]] const int edge,
                                   [[maybe_unused]] Array<OneD, int> &outarray)
 {
@@ -1004,6 +1044,17 @@ void Expansion::v_ReOrientTracePhysMap(
     [[maybe_unused]] const StdRegions::Orientation orient,
     [[maybe_unused]] Array<OneD, int> &idmap, [[maybe_unused]] const int nq0,
     [[maybe_unused]] const int nq1, [[maybe_unused]] bool Forwards)
+{
+    NEKERROR(ErrorUtil::efatal,
+             "Method does not exist for this shape or library");
+}
+
+void Expansion::v_ReOrientTracePhysVals(
+    [[maybe_unused]] const StdRegions::Orientation orient,
+    [[maybe_unused]] const Array<OneD, const NekDouble> &in,
+    [[maybe_unused]] Array<OneD, NekDouble> &out,
+    [[maybe_unused]] const int nq0, [[maybe_unused]] const int nq1,
+    [[maybe_unused]] bool Forwards)
 {
     NEKERROR(ErrorUtil::efatal,
              "Method does not exist for this shape or library");

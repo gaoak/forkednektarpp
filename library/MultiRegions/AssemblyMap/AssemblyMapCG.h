@@ -119,6 +119,8 @@ protected:
     Array<OneD, int> m_localToGlobalMap;
     /// Integer sign of local coeffs to global space
     Array<OneD, NekDouble> m_localToGlobalSign;
+    /// Inverse of multiplicity with sign
+    Array<OneD, NekDouble> m_invMultiplicityWithSign;
     /// Bandwith of the full matrix system (no static condensation).
     int m_fullSystemBandWidth;
     /// Integer map of process coeffs to universal space
@@ -208,6 +210,10 @@ protected:
         const NekVector<NekDouble> &global,
         NekVector<NekDouble> &loc) const override;
 
+    MULTI_REGIONS_EXPORT void v_AvgAssemble(
+        const Array<OneD, const NekDouble> &loc, Array<OneD, NekDouble> &global,
+        bool useComm) const override;
+
     MULTI_REGIONS_EXPORT void v_Assemble(
         const Array<OneD, const NekDouble> &loc,
         Array<OneD, NekDouble> &global) const override;
@@ -240,6 +246,9 @@ protected:
 
     MULTI_REGIONS_EXPORT AssemblyMapSharedPtr v_LinearSpaceMap(
         const ExpList &locexp, GlobalSysSolnType solnType) override;
+
+private:
+    void SetInvMultiplicityWithSign();
 };
 
 } // namespace Nektar::MultiRegions

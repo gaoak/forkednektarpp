@@ -1016,14 +1016,14 @@ const LibUtilities::BasisKey StdTetExp::v_GetTraceBasisKey(const int i,
     switch (i)
     {
         case 0:
-            dir = k;
+            dir = k; // retrun facedir=0-> 0 facedir=1->1
             break;
         case 1:
-            dir = 2 * k;
+            dir = 2 * k; // retrun facedir=0-> 0 facedir=1->2
             break;
         case 2:
         case 3:
-            dir = k + 1;
+            dir = k + 1; // retrun facedir=0-> 1 facedir=1->2
             break;
     }
 

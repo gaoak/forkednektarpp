@@ -122,6 +122,8 @@ void TriangleInterface::Mesh(bool Quality)
     strcpy(cstr, cmd.c_str());
 
     dt.Run(cstr);
+
+    delete[] cstr;
 }
 
 void TriangleInterface::SetUp()

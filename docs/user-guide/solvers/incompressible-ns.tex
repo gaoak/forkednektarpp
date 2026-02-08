@@ -1103,16 +1103,20 @@ problems, GJP stabilisation should suffices though.
 <I PROPERTY="GJPStabilisation" VALUE="SemiImplicit"/>
 \end{lstlisting}
 
-Another option for the GJP stabilisation is to use \inltt{Explicit} for its value
-instead of \inltt{SemiImplicit}. If the \inltt{Explicit} value is set, there is 
-an additional option that can be set for the explicit GJP stabilisation in the 
-solver info as follwos.
+Another option for the GJP stabilisation is to use \inltt{Explicit} or
+\inltt{Implicit} for its value instead of \inltt{SemiImplicit}. If the
+\inltt{Explicit} value is set, there is an additional option that can
+be set for the explicit GJP stabilisation in the solver info as
+follwos.
 
 \begin{lstlisting}[style=XMLStyle]
 <I PROPERTY="GJPNormalVelocity" VALUE="True"/>
 \end{lstlisting}
-Using the \inltt{GJPNormalVelocity}, the GJP formulation  will uses the average
-velocity normal to the edge/face as the velocity scaling of jump term. 
+Using the \inltt{GJPNormalVelocity}, the GJP formulation will uses the
+average velocity normal to the edge/face as the velocity scaling of
+jump term. For the \inltt{Implicit} formulation you must use the
+\inltt{IterativeFull} option for the global linear system solver. A
+error is given if this is not the case.
 
 \subsection{Simulation Parameters}
 In Setting up the simulation, various parmeters can be used to set required 

@@ -35,6 +35,7 @@
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <LocalRegions/Expansion.h>
 #include <LocalRegions/MatrixKey.h>
+#include <MultiRegions/GJPStabilisation.h>
 #include <MultiRegions/GlobalLinSys.h>
 #include <MultiRegions/Preconditioner.h>
 
@@ -238,7 +239,7 @@ LocalRegions::MatrixKey GlobalLinSys::GetBlockMatrixKey(unsigned int n)
     // need to be initialised with zero size for non variable
     // coefficient case
     StdRegions::VarCoeffMap vVarCoeffMap;
-
+    StdRegions::VarFactorsMap vVarFactorsMap;
     StdRegions::ConstFactorMap vConstFactorMap = m_linSysKey.GetConstFactors();
 
     // setup variable factors
@@ -284,9 +285,49 @@ LocalRegions::MatrixKey GlobalLinSys::GetBlockMatrixKey(unsigned int n)
                                                     vExp->GetTotPoints());
     }
 
-    LocalRegions::MatrixKey matkey(m_linSysKey.GetMatrixType(),
-                                   vExp->DetShapeType(), *vExp, vConstFactorMap,
-                                   vVarCoeffMap);
+    StdRegions::MatrixType mtype = m_linSysKey.GetMatrixType();
+
+    // replace mtype with GJP version if required - necessary for preconditioner
+    if (vConstFactorMap.count(StdRegions::eFactorGJP) &&
+        expList->GetGJPData()->IsImplicit())
+    {
+
+        switch (mtype)
+        {
+            case StdRegions::eHelmholtzGJP:
+            case StdRegions::eLinearAdvectionDiffusionReactionGJP:
+                // do nothing
+                break;
+            case StdRegions::eHelmholtz:
+                mtype = StdRegions::eHelmholtzGJP;
+                break;
+            case StdRegions::eLinearAdvectionDiffusionReaction:
+                mtype = StdRegions::eLinearAdvectionDiffusionReactionGJP;
+                break;
+            case StdRegions::eMass:
+                mtype = StdRegions::eMassGJP;
+                break;
+            default:
+                NEKERROR(ErrorUtil::ewarning,
+                         "GJP matrix flag not being set in GlobalLinSys");
+                break;
+        }
+    }
+
+    if (vConstFactorMap.count(StdRegions::eFactorGJP) &&
+        (expList->GetGJPData()->IsSemiImplicit() ||
+         expList->GetGJPData()->IsImplicit()))
+    {
+        vVarFactorsMap[StdRegions::eFactorGJPTraceWeight] =
+            Array<OneD, NekDouble>(
+                6, m_linSysKey.GetVarFactors(StdRegions::eFactorGJPTraceWeight)
+                           .data() +
+                       6 * n);
+    }
+
+    LocalRegions::MatrixKey matkey(mtype, vExp->DetShapeType(), *vExp,
+                                   vConstFactorMap, vVarCoeffMap,
+                                   vVarFactorsMap);
     return matkey;
 }
 

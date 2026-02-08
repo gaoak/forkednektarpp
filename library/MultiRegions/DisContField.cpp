@@ -176,9 +176,6 @@ void DisContField::SetUpDG(const std::string variable,
         m_session, m_bndCondExpansions, m_bndConditions, *m_exp, m_graph,
         m_comm, true, "DefaultVar", ImpType);
 
-    m_locElmtTrace = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
-        m_session, *m_exp, GetGraph(), true, "LocElmtTrace");
-
     PeriodicMap periodicTraces = (m_expType == e1D)   ? m_periodicVerts
                                  : (m_expType == e2D) ? m_periodicEdges
                                                       : m_periodicFaces;
@@ -749,8 +746,8 @@ DisContField::DisContField(const DisContField &In,
         {
             m_globalBndMat       = In.m_globalBndMat;
             m_trace              = In.m_trace;
-            m_locElmtTrace       = In.m_locElmtTrace;
             m_traceMap           = In.m_traceMap;
+            m_locElmtTrace       = In.m_locElmtTrace;
             m_interfaceMap       = In.m_interfaceMap;
             m_locTraceToTraceMap = In.m_locTraceToTraceMap;
             m_periodicVerts      = In.m_periodicVerts;
@@ -3740,7 +3737,7 @@ GlobalLinSysKey DisContField::v_HelmSolve(
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray, const StdRegions::ConstFactorMap &factors,
     const StdRegions::VarCoeffMap &varcoeff,
-    [[maybe_unused]] const MultiRegions::VarFactorsMap &varfactors,
+    [[maybe_unused]] const StdRegions::VarFactorsMap &varfactors,
     [[maybe_unused]] const Array<OneD, const NekDouble> &dirForcing,
     const bool PhysSpaceForcing)
 {

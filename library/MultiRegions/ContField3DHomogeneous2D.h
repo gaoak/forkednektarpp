@@ -68,6 +68,8 @@ protected:
 
     void v_ImposeDirichletConditions(Array<OneD, NekDouble> &outarray) override;
 
+    void v_AvgAssemble(bool useComm) override;
+
     /// Template method virtual forwarded for LocalToGlobal()
     using DisContField3DHomogeneous2D::v_LocalToGlobal;
     void v_LocalToGlobal(bool useComm) override;
@@ -82,7 +84,7 @@ protected:
                                 Array<OneD, NekDouble> &outarray,
                                 const StdRegions::ConstFactorMap &factors,
                                 const StdRegions::VarCoeffMap &varcoeff,
-                                const MultiRegions::VarFactorsMap &varfactors,
+                                const StdRegions::VarFactorsMap &varfactors,
                                 const Array<OneD, const NekDouble> &dirForcing,
                                 const bool PhysSpaceForcing) override;
 

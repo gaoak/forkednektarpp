@@ -123,10 +123,10 @@ void VelocityCorrectionScheme::v_InitObject(bool DeclareField)
 
     if (m_useGJPNormalVel)
     {
-        ASSERTL0(boost::iequals(m_session->GetSolverInfo("GJPStabilisation"),
-                                "Explicit"),
-                 "Can only specify GJPNormalVelocity with"
-                 " GJPStabilisation set to Explicit currently");
+        ASSERTL0(!boost::iequals(m_session->GetSolverInfo("GJPStabilisation"),
+                                 "SemiImplicit"),
+                 "Can not  specify GJPNormalVelocity with"
+                 " GJPStabilisation set to SemiImplicit");
     }
 
     m_session->LoadParameter("GJPJumpScale", m_GJPJumpScale, 1.0);
@@ -410,7 +410,45 @@ void VelocityCorrectionScheme::SetupFlowrate(NekDouble aii_dt)
     //  to spacedim. Only need velocity components for stokes forcing
     int SaveNConvectiveFields = m_nConvectiveFields;
     m_nConvectiveFields       = m_spacedim;
+    // Save Dirichlet BCs and set to zero for Stokes solve
+    std::map<std::pair<int, int>, Array<OneD, NekDouble>> SaveDirBCs;
+    for (int i = 0; i < m_nConvectiveFields; ++i)
+    {
+        const Array<OneD, const ExpListSharedPtr> &BndCondExp =
+            m_fields[i]->GetBndCondExpansions();
+
+        for (int j = 0; j < BndCondExp.size(); ++j)
+        {
+            if (m_fields[i]
+                    ->GetBndConditions()[j]
+                    ->GetBoundaryConditionType() == SpatialDomains::eDirichlet)
+            {
+                Array<OneD, NekDouble> bndcoeffs =
+                    m_fields[i]->UpdateBndCondExpansion(j)->UpdateCoeffs();
+                SaveDirBCs[std::make_pair(i, j)] =
+                    Array<OneD, NekDouble>(bndcoeffs.size(), bndcoeffs.data());
+                Vmath::Zero(bndcoeffs.size(), bndcoeffs, 1);
+            }
+        }
+    }
     SolveUnsteadyStokesSystem(inTmp, m_flowrateStokes, 0.0, aii_dt);
+    // Reset Dirichlet BCs
+    for (int i = 0; i < m_nConvectiveFields; ++i)
+    {
+        for (int j = 0; j < m_fields[i]->GetBndCondExpansions().size(); ++j)
+        {
+            if (m_fields[i]
+                    ->GetBndConditions()[j]
+                    ->GetBoundaryConditionType() == SpatialDomains::eDirichlet)
+            {
+                Array<OneD, NekDouble> bndcoeffs =
+                    m_fields[i]->UpdateBndCondExpansion(j)->UpdateCoeffs();
+                Vmath::Vcopy(bndcoeffs.size(), SaveDirBCs[std::make_pair(i, j)],
+                             1, bndcoeffs, 1);
+            }
+        }
+    }
+
     m_nConvectiveFields = SaveNConvectiveFields;
     m_greenFlux         = MeasureFlowrate(m_flowrateStokes);
 
@@ -647,6 +685,21 @@ void VelocityCorrectionScheme::v_DoInitialise(bool dumpInitialConditions)
         m_fields[i]->GlobalToLocal();
         m_fields[i]->BwdTrans(m_fields[i]->GetCoeffs(),
                               m_fields[i]->UpdatePhys());
+    }
+
+    if (m_useGJPStabilisation)
+    {
+        // initialise GJP in first field and copy to other convective fields
+        if (m_fields[0]->GetGJPData() == nullptr)
+        {
+            std::dynamic_pointer_cast<MultiRegions::ContField>(m_fields[0])
+                ->InitGJPData();
+        }
+        for (unsigned i = 1; i < m_nConvectiveFields; ++i)
+        {
+            std::dynamic_pointer_cast<MultiRegions::ContField>(m_fields[i])
+                ->SetGJPData(m_fields[0]->GetGJPData());
+        }
     }
 }
 
@@ -900,8 +953,8 @@ void VelocityCorrectionScheme::v_SolveViscous(
     Array<OneD, Array<OneD, NekDouble>> &outarray, const NekDouble aii_Dt)
 {
     StdRegions::ConstFactorMap factors;
-    StdRegions::VarCoeffMap varCoeffMap       = StdRegions::NullVarCoeffMap;
-    MultiRegions::VarFactorsMap varFactorsMap = MultiRegions::NullVarFactorsMap;
+    StdRegions::VarCoeffMap varCoeffMap     = StdRegions::NullVarCoeffMap;
+    StdRegions::VarFactorsMap varFactorsMap = StdRegions::NullVarFactorsMap;
 
     AppendSVVFactors(factors, varFactorsMap);
     ComputeGJPNormalVelocity(inarray, varCoeffMap);
@@ -1153,7 +1206,7 @@ void VelocityCorrectionScheme::SVVVarDiffCoeff(
 
 void VelocityCorrectionScheme::AppendSVVFactors(
     StdRegions::ConstFactorMap &factors,
-    MultiRegions::VarFactorsMap &varFactorsMap)
+    StdRegions::VarFactorsMap &varFactorsMap)
 {
 
     if (m_useSpecVanVisc)
@@ -1191,8 +1244,9 @@ void VelocityCorrectionScheme::ComputeGJPNormalVelocity(
         MultiRegions::ContFieldSharedPtr cfield =
             std::dynamic_pointer_cast<MultiRegions::ContField>(m_fields[0]);
 
-        MultiRegions::GJPStabilisationSharedPtr GJPData =
-            cfield->GetGJPForcing();
+        cfield->InitGJPData();
+
+        MultiRegions::GJPStabilisationSharedPtr GJPData = cfield->GetGJPData();
 
         int nTracePts = GJPData->GetNumTracePts();
         Array<OneD, NekDouble> unorm(nTracePts, 1.0);

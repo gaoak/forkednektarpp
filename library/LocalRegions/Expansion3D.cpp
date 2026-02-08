@@ -82,17 +82,17 @@ void Expansion3D::AddHDGHelmholtzFaceTerms(
 
     // @TODO Variable coefficients
     /*
-    StdRegions::VarCoeffType VarCoeff[3] = {StdRegions::eVarCoeffD00,
-                                            StdRegions::eVarCoeffD11,
-                                            StdRegions::eVarCoeffD22};
-    Array<OneD, NekDouble> varcoeff_work(nquad_f);
-    StdRegions::VarCoeffMap::const_iterator x;
-    ///// @TODO: What direction to use here??
-    if ((x = varcoeffs.find(VarCoeff[0])) != varcoeffs.end())
-    {
-        GetPhysFaceVarCoeffsFromElement(face,FaceExp,x->second,varcoeff_work);
-        Vmath::Vmul(nquad_f,varcoeff_work,1,FaceExp->GetPhys(),1,FaceExp->UpdatePhys(),1);
-    }
+      StdRegions::VarCoeffType VarCoeff[3] = {StdRegions::eVarCoeffD00,
+      StdRegions::eVarCoeffD11,
+      StdRegions::eVarCoeffD22};
+      Array<OneD, NekDouble> varcoeff_work(nquad_f);
+      StdRegions::VarCoeffMap::const_iterator x;
+      ///// @TODO: What direction to use here??
+      if ((x = varcoeffs.find(VarCoeff[0])) != varcoeffs.end())
+      {
+      GetPhysFaceVarCoeffsFromElement(face,FaceExp,x->second,varcoeff_work);
+      Vmath::Vmul(nquad_f,varcoeff_work,1,FaceExp->GetPhys(),1,FaceExp->UpdatePhys(),1);
+      }
     */
 
     //================================================================
@@ -139,12 +139,12 @@ void Expansion3D::AddHDGHelmholtzFaceTerms(
         // @TODO Multiply by variable coefficients
         // @TODO: Document this (probably not needed)
         /*
-        StdRegions::VarCoeffMap::const_iterator x;
-        if ((x = varcoeffs.find(VarCoeff[n])) != varcoeffs.end())
-        {
-            GetPhysEdgeVarCoeffsFromElement(edge,FaceExp,x->second,varcoeff_work);
-            Vmath::Vmul(nquad_f,varcoeff_work,1,FaceExp->GetPhys(),1,FaceExp->UpdatePhys(),1);
-        }
+          StdRegions::VarCoeffMap::const_iterator x;
+          if ((x = varcoeffs.find(VarCoeff[n])) != varcoeffs.end())
+          {
+          GetPhysEdgeVarCoeffsFromElement(edge,FaceExp,x->second,varcoeff_work);
+          Vmath::Vmul(nquad_f,varcoeff_work,1,FaceExp->GetPhys(),1,FaceExp->UpdatePhys(),1);
+          }
         */
 
         FaceExp->IProductWRTBase(inval, outcoeff);
@@ -183,18 +183,18 @@ void Expansion3D::AddHDGHelmholtzFaceTerms(
         }
 
         /*
-        if(varcoeffs.find(VarCoeff[n]) != varcoeffs.end())
-        {
-            MatrixKey mkey(DerivType[n], DetExpansionType(), *this,
-        StdRegions::NullConstFactorMap, varcoeffs); DNekScalMat &Dmat =
-        *GetLocMatrix(mkey); Coeffs = Coeffs  + Dmat*Tmpcoeff;
-        }
+          if(varcoeffs.find(VarCoeff[n]) != varcoeffs.end())
+          {
+          MatrixKey mkey(DerivType[n], DetExpansionType(), *this,
+          StdRegions::NullConstFactorMap, varcoeffs); DNekScalMat &Dmat =
+          *GetLocMatrix(mkey); Coeffs = Coeffs  + Dmat*Tmpcoeff;
+          }
 
-        else
-        {
-            DNekScalMat &Dmat = *GetLocMatrix(DerivType[n]);
-            Coeffs = Coeffs  + Dmat*Tmpcoeff;
-        }
+          else
+          {
+          DNekScalMat &Dmat = *GetLocMatrix(DerivType[n]);
+          Coeffs = Coeffs  + Dmat*Tmpcoeff;
+          }
         */
     }
 }
@@ -431,6 +431,32 @@ DNekScalMatSharedPtr Expansion3D::CreateMatrix(const MatrixKey &mkey)
                 returnval =
                     MemoryManager<DNekScalMat>::AllocateSharedPtr(jac, mat);
             }
+        }
+        break;
+        case StdRegions::eMassGJP:
+        {
+            MatrixKey masskey(mkey, StdRegions::eMass);
+            DNekScalMat &MassMat = *GetLocMatrix(masskey);
+
+            // Generate a local copy of traceMat
+            MatrixKey key(mkey, StdRegions::eNormDerivOnTrace);
+            DNekMatSharedPtr NDTraceMat = Expansion3D::v_GenMatrix(key);
+
+            ASSERTL1(mkey.ConstFactorExists(StdRegions::eFactorGJP),
+                     "Need to specify eFactorGJP to construct "
+                     "a MassGJP matrix");
+
+            NekDouble factor = mkey.GetConstFactor(StdRegions::eFactorGJP);
+
+            factor /= MassMat.Scale();
+
+            int ntot = MassMat.GetRows() * MassMat.GetColumns();
+
+            Vmath::Svtvp(ntot, factor, &NDTraceMat->GetPtr()[0], 1,
+                         MassMat.GetRawPtr(), 1, &NDTraceMat->GetPtr()[0], 1);
+
+            returnval = MemoryManager<DNekScalMat>::AllocateSharedPtr(
+                MassMat.Scale(), NDTraceMat);
         }
         break;
         case StdRegions::eInvMass:
@@ -780,7 +806,9 @@ DNekScalMatSharedPtr Expansion3D::CreateMatrix(const MatrixKey &mkey)
 
             // Generate a local copy of traceMat
             MatrixKey gjpkey(StdRegions::eNormDerivOnTrace, mkey.GetShapeType(),
-                             *this, mkey.GetConstFactors());
+                             *this, mkey.GetConstFactors(),
+                             StdRegions::NullVarCoeffMap, mkey.GetVarFactors());
+
             DNekScalMat &NDTraceMat = *GetLocMatrix(gjpkey);
 
             NekDouble gjpfactor = mkey.GetConstFactor(StdRegions::eFactorGJP);
@@ -948,7 +976,7 @@ DNekMatSharedPtr Expansion3D::v_GenMatrix(const StdRegions::StdMatrixKey &mkey)
 
     switch (mkey.GetMatrixType())
     {
-        // (Z^e)^{-1} (Eqn. 33, P22)
+            // (Z^e)^{-1} (Eqn. 33, P22)
         case StdRegions::eHybridDGHelmholtz:
         {
             ASSERTL1(IsBoundaryInteriorExpansion(),
@@ -1021,22 +1049,22 @@ DNekMatSharedPtr Expansion3D::v_GenMatrix(const StdRegions::StdMatrixKey &mkey)
                 }
 
                 /*
-                if(mkey.HasVarCoeff(Coeffs[i]))
-                {
-                    MatrixKey DmatkeyL(DerivType[i], DetExpansionType(), *this,
-                                       StdRegions::NullConstFactorMap,
-                                       mkey.GetVarCoeffAsMap(Coeffs[i]));
-                    MatrixKey DmatkeyR(DerivType[i], DetExpansionType(), *this);
+                  if(mkey.HasVarCoeff(Coeffs[i]))
+                  {
+                  MatrixKey DmatkeyL(DerivType[i], DetExpansionType(), *this,
+                  StdRegions::NullConstFactorMap,
+                  mkey.GetVarCoeffAsMap(Coeffs[i]));
+                  MatrixKey DmatkeyR(DerivType[i], DetExpansionType(), *this);
 
-                    DNekScalMat &DmatL = *GetLocMatrix(DmatkeyL);
-                    DNekScalMat &DmatR = *GetLocMatrix(DmatkeyR);
-                    Mat = Mat + DmatL*invMass*Transpose(DmatR);
-                }
-                else
-                {
-                    DNekScalMat &Dmat = *GetLocMatrix(DerivType[i]);
-                    Mat = Mat + Dmat*invMass*Transpose(Dmat);
-                }
+                  DNekScalMat &DmatL = *GetLocMatrix(DmatkeyL);
+                  DNekScalMat &DmatR = *GetLocMatrix(DmatkeyR);
+                  Mat = Mat + DmatL*invMass*Transpose(DmatR);
+                  }
+                  else
+                  {
+                  DNekScalMat &Dmat = *GetLocMatrix(DerivType[i]);
+                  Mat = Mat + Dmat*invMass*Transpose(Dmat);
+                  }
                 */
             }
 
@@ -1059,18 +1087,18 @@ DNekMatSharedPtr Expansion3D::v_GenMatrix(const StdRegions::StdMatrixKey &mkey)
 
                 // @TODO: Document
                 /*
-                StdRegions::VarCoeffMap edgeVarCoeffs;
-                if (mkey.HasVarCoeff(StdRegions::eVarCoeffD00))
-                {
-                    Array<OneD, NekDouble> mu(nq);
-                    GetPhysEdgeVarCoeffsFromElement(
-                        i, EdgeExp2,
-                        mkey.GetVarCoeff(StdRegions::eVarCoeffD00), mu);
-                    edgeVarCoeffs[StdRegions::eVarCoeffMass] = mu;
-                }
-                DNekScalMat &eMass = *EdgeExp->GetLocMatrix(
-                    StdRegions::eMass,
-                    StdRegions::NullConstFactorMap, edgeVarCoeffs);
+                  StdRegions::VarCoeffMap edgeVarCoeffs;
+                  if (mkey.HasVarCoeff(StdRegions::eVarCoeffD00))
+                  {
+                  Array<OneD, NekDouble> mu(nq);
+                  GetPhysEdgeVarCoeffsFromElement(
+                  i, EdgeExp2,
+                  mkey.GetVarCoeff(StdRegions::eVarCoeffD00), mu);
+                  edgeVarCoeffs[StdRegions::eVarCoeffMass] = mu;
+                  }
+                  DNekScalMat &eMass = *EdgeExp->GetLocMatrix(
+                  StdRegions::eMass,
+                  StdRegions::NullConstFactorMap, edgeVarCoeffs);
                 */
 
                 DNekScalMat &eMass = *FaceExp->GetLocMatrix(StdRegions::eMass);
@@ -1087,7 +1115,7 @@ DNekMatSharedPtr Expansion3D::v_GenMatrix(const StdRegions::StdMatrixKey &mkey)
             break;
         }
 
-        // U^e (P22)
+            // U^e (P22)
         case StdRegions::eHybridDGLamToU:
         {
             int i, j, k;
@@ -1190,11 +1218,11 @@ DNekMatSharedPtr Expansion3D::v_GenMatrix(const StdRegions::StdMatrixKey &mkey)
             //}
         }
         break;
-        // Q_0, Q_1, Q_2 matrices (P23)
-        // Each are a product of a row of Eqn 32 with the C matrix.
-        // Rather than explicitly computing all of Eqn 32, we note each
-        // row is almost a multiple of U^e, so use that as our starting
-        // point.
+            // Q_0, Q_1, Q_2 matrices (P23)
+            // Each are a product of a row of Eqn 32 with the C matrix.
+            // Rather than explicitly computing all of Eqn 32, we note each
+            // row is almost a multiple of U^e, so use that as our starting
+            // point.
         case StdRegions::eHybridDGLamToQ0:
         case StdRegions::eHybridDGLamToQ1:
         case StdRegions::eHybridDGLamToQ2:
@@ -1325,7 +1353,7 @@ DNekMatSharedPtr Expansion3D::v_GenMatrix(const StdRegions::StdMatrixKey &mkey)
             }
         }
         break;
-        // Matrix K (P23)
+            // Matrix K (P23)
         case StdRegions::eHybridDGHelmBndLam:
         {
             int i, j, f, cnt;
@@ -1406,12 +1434,12 @@ DNekMatSharedPtr Expansion3D::v_GenMatrix(const StdRegions::StdMatrixKey &mkey)
 
                     // @TODO Variable coefficients
                     /*
-                    StdRegions::VarCoeffType VarCoeff[3] =
-                    {StdRegions::eVarCoeffD00, StdRegions::eVarCoeffD11,
-                                                            StdRegions::eVarCoeffD22};
-                    const StdRegions::VarCoeffMap &varcoeffs =
-                    mkey.GetVarCoeffs(); StdRegions::VarCoeffMap::const_iterator
-                    x;
+                      StdRegions::VarCoeffType VarCoeff[3] =
+                      {StdRegions::eVarCoeffD00, StdRegions::eVarCoeffD11,
+                      StdRegions::eVarCoeffD22};
+                      const StdRegions::VarCoeffMap &varcoeffs =
+                      mkey.GetVarCoeffs();
+                      StdRegions::VarCoeffMap::const_iterator x;
                     */
 
                     // Q0 * n0 (BQ_0 terms)
@@ -1428,11 +1456,11 @@ DNekMatSharedPtr Expansion3D::v_GenMatrix(const StdRegions::StdMatrixKey &mkey)
                     // @TODO Variable coefficients
                     // Multiply by variable coefficient
                     /*
-                    if ((x = varcoeffs.find(VarCoeff[0])) != varcoeffs.end())
-                    {
-                        GetPhysEdgeVarCoeffsFromElement(e,EdgeExp[e],x->second,varcoeff_work);
-                        Vmath::Vmul(nquad_e,varcoeff_work,1,EdgeExp[e]->GetPhys(),1,EdgeExp[e]->UpdatePhys(),1);
-                    }
+                      if ((x = varcoeffs.find(VarCoeff[0])) != varcoeffs.end())
+                      {
+                      GetPhysEdgeVarCoeffsFromElement(e,EdgeExp[e],x->second,varcoeff_work);
+                      Vmath::Vmul(nquad_e,varcoeff_work,1,EdgeExp[e]->GetPhys(),1,EdgeExp[e]->UpdatePhys(),1);
+                      }
                     */
 
                     if (varcoeffs.find(StdRegions::eVarCoeffMF1x) !=
@@ -1461,11 +1489,11 @@ DNekMatSharedPtr Expansion3D::v_GenMatrix(const StdRegions::StdMatrixKey &mkey)
                     // @TODO Variable coefficients
                     // Multiply by variable coefficients
                     /*
-                    if ((x = varcoeffs.find(VarCoeff[1])) != varcoeffs.end())
-                    {
-                        GetPhysEdgeVarCoeffsFromElement(e,EdgeExp[e],x->second,varcoeff_work);
-                        Vmath::Vmul(nquad_e,varcoeff_work,1,EdgeExp[e]->GetPhys(),1,EdgeExp[e]->UpdatePhys(),1);
-                    }
+                      if ((x = varcoeffs.find(VarCoeff[1])) != varcoeffs.end())
+                      {
+                      GetPhysEdgeVarCoeffsFromElement(e,EdgeExp[e],x->second,varcoeff_work);
+                      Vmath::Vmul(nquad_e,varcoeff_work,1,EdgeExp[e]->GetPhys(),1,EdgeExp[e]->UpdatePhys(),1);
+                      }
                     */
 
                     if ((varcoeffs.find(StdRegions::eVarCoeffMF1x)) !=
@@ -1495,11 +1523,11 @@ DNekMatSharedPtr Expansion3D::v_GenMatrix(const StdRegions::StdMatrixKey &mkey)
                     // @TODO Variable coefficients
                     // Multiply by variable coefficients
                     /*
-                    if ((x = varcoeffs.find(VarCoeff[2])) != varcoeffs.end())
-                    {
-                        GetPhysEdgeVarCoeffsFromElement(e,EdgeExp[e],x->second,varcoeff_work);
-                        Vmath::Vmul(nquad_e,varcoeff_work,1,EdgeExp[e]->GetPhys(),1,EdgeExp[e]->UpdatePhys(),1);
-                    }
+                      if ((x = varcoeffs.find(VarCoeff[2])) != varcoeffs.end())
+                      {
+                      GetPhysEdgeVarCoeffsFromElement(e,EdgeExp[e],x->second,varcoeff_work);
+                      Vmath::Vmul(nquad_e,varcoeff_work,1,EdgeExp[e]->GetPhys(),1,EdgeExp[e]->UpdatePhys(),1);
+                      }
                     */
 
                     if (varcoeffs.find(StdRegions::eVarCoeffMF1x) !=
@@ -1531,11 +1559,11 @@ DNekMatSharedPtr Expansion3D::v_GenMatrix(const StdRegions::StdMatrixKey &mkey)
                     // @TODO Variable coefficients
                     // Multiply by variable coefficients
                     /*
-                    if ((x = varcoeffs.find(VarCoeff[0])) != varcoeffs.end())
-                    {
-                        GetPhysEdgeVarCoeffsFromElement(e,FaceExp[f],x->second,varcoeff_work);
-                        Vmath::Vmul(nquad_f,varcoeff_work,1,FaceExp[f]->GetPhys(),1,FaceExp[f]->UpdatePhys(),1);
-                    }
+                      if ((x = varcoeffs.find(VarCoeff[0])) != varcoeffs.end())
+                      {
+                      GetPhysEdgeVarCoeffsFromElement(e,FaceExp[f],x->second,varcoeff_work);
+                      Vmath::Vmul(nquad_f,varcoeff_work,1,FaceExp[f]->GetPhys(),1,FaceExp[f]->UpdatePhys(),1);
+                      }
                     */
 
                     Vmath::Svtvp(nquad_f, -tau, facePhys, 1, work, 1, work, 1);
@@ -1555,7 +1583,7 @@ DNekMatSharedPtr Expansion3D::v_GenMatrix(const StdRegions::StdMatrixKey &mkey)
             }
         }
         break;
-        // HDG postprocessing
+            // HDG postprocessing
         case StdRegions::eInvLaplacianWithUnityMean:
         {
             MatrixKey lapkey(StdRegions::eLaplacian, DetShapeType(), *this,
@@ -1654,8 +1682,8 @@ DNekMatSharedPtr Expansion3D::v_GenMatrix(const StdRegions::StdMatrixKey &mkey)
                             n = norm[d];
                         }
 
-                        GetTracePhysVals(t, traceExp[t], Deriv[d], val,
-                                         v_GetTraceOrient(t));
+                        v_GetTracePhysVals(t, traceExp[t], Deriv[d], val,
+                                           v_GetTraceOrient(t));
 
                         Vmath::Vvtvp(tracepts[t], n, 1, val, 1,
                                      tmp  = dphidn[t] + i * tracepts[t], 1,
@@ -1670,9 +1698,11 @@ DNekMatSharedPtr Expansion3D::v_GenMatrix(const StdRegions::StdMatrixKey &mkey)
                 NekDouble h, p;
                 TraceNormLen(t, h, p);
 
-                // scaling from GJP paper
+                // scaling of trace
+                ASSERTL1(mkey.HasVarFactors(StdRegions::eFactorGJPTraceWeight),
+                         "Cannot find TraceWeights in key");
                 NekDouble scale =
-                    (p == 1) ? 0.02 * h * h : 0.8 * pow(p + 1, -4.0) * h * h;
+                    mkey.GetVarFactors(StdRegions::eFactorGJPTraceWeight)[t];
 
                 for (int i = 0; i < m_ncoeffs; ++i)
                 {
@@ -2906,7 +2936,7 @@ StdRegions::Orientation Expansion3D::v_GetTraceOrient(int face)
 
 /**
  * @brief Extract the physical values along face \a face from \a
- * inarray into \a outarray following the local face orientation
+ * inarray into \a outarray following the face orientation
  * and point distribution defined by defined in \a FaceExp.
  */
 void Expansion3D::v_GetTracePhysVals(
@@ -2914,51 +2944,74 @@ void Expansion3D::v_GetTracePhysVals(
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray, StdRegions::Orientation orient)
 {
+
+    v_GetLocTracePhysVals(face, FaceExp, inarray.data(), outarray);
+
+    // Reshuffule points as required and put into outarray.
     if (orient == StdRegions::eNoOrientation)
     {
         orient = GetTraceOrient(face);
     }
 
-    int nq0 = FaceExp->GetNumPoints(0);
-    int nq1 = FaceExp->GetNumPoints(1);
+    // If transposed face need to swap interpolation point
+    int id0, id1;
+    if (GetTraceOrient(face) < StdRegions::eDir1FwdDir2_Dir2FwdDir1)
+    {
+        id0 = 0;
+        id1 = 1;
+    }
+    else // transpose points key evaluation
+    {
+        id0 = 1;
+        id1 = 0;
+    }
+    v_ReOrientTracePhysVals(orient, outarray, outarray,
+                            FaceExp->GetNumPoints(id0),
+                            FaceExp->GetNumPoints(id1), true);
+}
 
-    int nfacepts = GetTraceNumPoints(face);
-    int dir0     = GetGeom3D()->GetDir(face, 0);
-    int dir1     = GetGeom3D()->GetDir(face, 1);
+/**
+ * @brief Extract the physical values along face \a face from \a
+ * inarray into \a outarray following the local elemental face orientation
+ * and point distribution defined by defined in \a FaceExp.
+ */
+inline void Expansion3D::v_GetLocTracePhysVals(
+    const int face, const StdRegions::StdExpansionSharedPtr &FaceExp,
+    const NekDouble *inarray, Array<OneD, NekDouble> &outarray)
+{
+    unsigned nfacepts = GetTraceNumPoints(face);
+    unsigned dir0     = GetGeom3D()->GetDir(face, 0);
+    unsigned dir1     = GetGeom3D()->GetDir(face, 1);
 
     Array<OneD, NekDouble> o_tmp(nfacepts);
-    Array<OneD, NekDouble> o_tmp2(FaceExp->GetTotPoints());
     Array<OneD, int> faceids;
 
     // Get local face pts and put into o_tmp
     GetTracePhysMap(face, faceids);
     // The static cast is necessary because faceids should be
-    // Array<OneD, size_t> faceids ... or at leaste the same type as
+    // Array<OneD, size_t> faceids ... or at least the same type as
     // faceids.size() ...
-    Vmath::Gathr(static_cast<int>(faceids.size()), inarray, faceids, o_tmp);
+    Vmath::Gathr(static_cast<int>(faceids.size()), inarray, faceids.data(),
+                 o_tmp.data());
 
-    int to_id0, to_id1;
-
-    if (orient < StdRegions::eDir1FwdDir2_Dir2FwdDir1)
+    // If transposed face need to swap interpolation point
+    int id0, id1;
+    if (GetTraceOrient(face) < StdRegions::eDir1FwdDir2_Dir2FwdDir1)
     {
-        to_id0 = 0;
-        to_id1 = 1;
+        id0 = 0;
+        id1 = 1;
     }
     else // transpose points key evaluation
     {
-        to_id0 = 1;
-        to_id1 = 0;
+        id0 = 1;
+        id1 = 0;
     }
 
     // interpolate to points distrbution given in FaceExp
     LibUtilities::Interp2D(
         m_base[dir0]->GetPointsKey(), m_base[dir1]->GetPointsKey(),
-        o_tmp.data(), FaceExp->GetBasis(to_id0)->GetPointsKey(),
-        FaceExp->GetBasis(to_id1)->GetPointsKey(), o_tmp2.data());
-
-    // Reshuffule points as required and put into outarray.
-    v_ReOrientTracePhysMap(orient, faceids, nq0, nq1, true);
-    Vmath::Gathr(nq0 * nq1, o_tmp2, faceids, outarray);
+        o_tmp.data(), FaceExp->GetBasis(id0)->GetPointsKey(),
+        FaceExp->GetBasis(id1)->GetPointsKey(), outarray.data());
 }
 
 void Expansion3D::v_GenTraceExp(const int traceid, ExpansionSharedPtr &exp)
@@ -2992,7 +3045,6 @@ void Expansion3D::v_ReOrientTracePhysMap(const StdRegions::Orientation orient,
                                          Array<OneD, int> &idmap, const int nq0,
                                          const int nq1, bool Forwards)
 {
-
     if (idmap.size() != nq0 * nq1)
     {
         idmap = Array<OneD, int>(nq0 * nq1);
@@ -3151,6 +3203,177 @@ void Expansion3D::v_ReOrientTracePhysMap(const StdRegions::Orientation orient,
     }
 }
 
+/**
+ * @breif This will take the in-values and apply the reorientation of the
+ * points given by orient to output
+ */
+void Expansion3D::v_ReOrientTracePhysVals(
+    const StdRegions::Orientation orient,
+    const Array<OneD, const NekDouble> &in, Array<OneD, NekDouble> &out,
+    const int nq0, const int nq1, bool Forwards)
+{
+    switch (orient)
+    {
+        case StdRegions::eDir1FwdDir1_Dir2FwdDir2: // used for Tris and Quads
+        {
+            if (out.data() != in.data()) // only do copy if required
+            {
+                // traight copy
+                std::memcpy(out.data(), in.data(),
+                            nq0 * nq1 * sizeof(NekDouble));
+            }
+            break;
+        }
+        case StdRegions::eDir1BwdDir1_Dir2FwdDir2: // used for Tris and
+                                                   // Quads
+        {
+            // Direction A negative and B positive
+            for (int j = 0; j < nq1; j++)
+            {
+                Vmath::Reverse(nq0, &in[j * nq0], 1, &out[j * nq0], 1);
+            }
+        }
+        break;
+        case StdRegions::eDir1FwdDir1_Dir2BwdDir2:
+        {
+            Array<OneD, NekDouble> intmp(nq0 * nq1, in.data());
+            // Direction A positive and B negative
+            for (int j = 0; j < nq1; j++)
+            {
+                for (int i = 0; i < nq0; ++i)
+                {
+                    out[j * nq0 + i] = intmp[nq0 * (nq1 - 1 - j) + i];
+                }
+            }
+        }
+        break;
+        case StdRegions::eDir1BwdDir1_Dir2BwdDir2:
+        {
+            Array<OneD, NekDouble> intmp(nq0 * nq1, in.data());
+            // Direction A negative and B negative
+            for (int j = 0; j < nq1; j++)
+            {
+                for (int i = 0; i < nq0; ++i)
+                {
+                    out[j * nq0 + i] = intmp[nq0 * nq1 - 1 - j * nq0 - i];
+                }
+            }
+        }
+        break;
+        case StdRegions::eDir1FwdDir2_Dir2FwdDir1:
+        {
+            Array<OneD, NekDouble> intmp(nq0 * nq1, in.data());
+            // Transposed, Direction A and B positive
+            if (Forwards)
+            {
+                for (int i = 0; i < nq0; ++i)
+                {
+                    for (int j = 0; j < nq1; ++j)
+                    {
+                        out[i * nq1 + j] = intmp[i + j * nq0];
+                    }
+                }
+            }
+            else // inverse case - different if nq0 != nq1
+            {
+                for (int j = 0; j < nq1; ++j)
+                {
+                    for (int i = 0; i < nq0; ++i)
+                    {
+                        out[j * nq0 + i] = intmp[i * nq1 + j];
+                    }
+                }
+            }
+        }
+        break;
+        case StdRegions::eDir1FwdDir2_Dir2BwdDir1:
+        {
+            Array<OneD, NekDouble> intmp(nq0 * nq1, in.data());
+            if (Forwards)
+            {
+
+                // Transposed, Direction A positive and B negative
+                for (int i = 0; i < nq0; ++i)
+                {
+                    for (int j = 0; j < nq1; ++j)
+                    {
+
+                        out[i * nq1 + j] = intmp[i + nq0 * (nq1 - 1) - j * nq0];
+                    }
+                }
+            }
+            else
+            {
+                // inverse case (trace to element)
+                // Transposed, Direction A positive and B negative
+                for (int j = 0; j < nq1; ++j)
+                {
+                    for (int i = 0; i < nq0; ++i)
+                    {
+                        out[j * nq0 + i] = intmp[nq1 - 1 - j + i * nq1];
+                    }
+                }
+            }
+        }
+        break;
+        case StdRegions::eDir1BwdDir2_Dir2FwdDir1:
+        {
+            Array<OneD, NekDouble> intmp(nq0 * nq1, in.data());
+            // Transposed, Direction A negative and B positive
+            if (Forwards)
+            {
+                for (int i = 0; i < nq0; ++i)
+                {
+                    for (int j = 0; j < nq1; ++j)
+                    {
+                        out[i * nq1 + j] = intmp[nq0 - 1 - i + j * nq0];
+                    }
+                }
+            }
+            else
+            {
+                for (int j = 0; j < nq1; ++j)
+                {
+                    for (int i = 0; i < nq0; ++i)
+                    {
+                        out[j * nq0 + i] = intmp[nq0 * (nq1 - 1) - i * nq1 + j];
+                    }
+                }
+            }
+        }
+        break;
+        case StdRegions::eDir1BwdDir2_Dir2BwdDir1:
+        {
+            Array<OneD, NekDouble> intmp(nq0 * nq1, in.data());
+            // Transposed, Direction A and B negative
+            if (Forwards)
+            {
+                for (int i = 0; i < nq0; ++i)
+                {
+                    for (int j = 0; j < nq1; ++j)
+                    {
+                        out[i * nq1 + j] = intmp[nq0 * nq1 - 1 - i - j * nq0];
+                    }
+                }
+            }
+            else // inverse case - different if nq0 != nq1
+            {
+                for (int j = 0; j < nq1; ++j)
+                {
+                    for (int i = 0; i < nq0; ++i)
+                    {
+                        out[j * nq0 + i] = intmp[nq0 * nq1 - 1 - j - i * nq1];
+                    }
+                }
+            }
+        }
+        break;
+        default:
+            ASSERTL0(false, "Unknow orientation");
+            break;
+    }
+}
+
 void Expansion3D::v_NormVectorIProductWRTBase(
     const Array<OneD, const Array<OneD, NekDouble>> &Fvec,
     Array<OneD, NekDouble> &outarray)
@@ -3252,5 +3475,125 @@ void Expansion3D::v_TraceNormLen(const int traceid, NekDouble &h, NekDouble &p)
         }
     }
     p = (NekDouble)(GetBasisNumModes(dirn) - 1);
+}
+
+/** @brief: This method gets all of the factors which are
+    required as part of the Gradient Jump Penalty
+    stabilisation and involves the product of the normal and
+    geometric factors along the element trace.
+*/
+void Expansion3D::v_NormalTraceDerivFactors(
+    Array<OneD, Array<OneD, NekDouble>> &d0factors,
+    Array<OneD, Array<OneD, NekDouble>> &d1factors,
+    Array<OneD, Array<OneD, NekDouble>> &d2factors)
+{
+    const Array<TwoD, const NekDouble> &df  = m_geomFactors->GetDerivFactors();
+    const Array<OneD, const NekDouble> &Jac = m_geomFactors->GetJac();
+
+    unsigned ntrace = GetNtraces();
+
+    if (d0factors.size() != ntrace)
+    {
+        d0factors = Array<OneD, Array<OneD, NekDouble>>(ntrace);
+        d1factors = Array<OneD, Array<OneD, NekDouble>>(ntrace);
+        d2factors = Array<OneD, Array<OneD, NekDouble>>(ntrace);
+    }
+
+    Array<OneD, ExpansionSharedPtr> traceExp(ntrace);
+    Array<OneD, unsigned> nq_face(ntrace);
+    unsigned nq_max = 0;
+    for (int i = 0; i < ntrace; ++i)
+    {
+        // Note we are using GenTraceExp to ensure we have local
+        // trace expansion not one from shared trace which can happe
+        // if we use GetTraceExp since it can be set in
+        // DisContField::SetupDG
+        v_GenTraceExp(i, traceExp[i]);
+        nq_face[i] = traceExp[i]->GetTotPoints();
+        if (d0factors[i].size() != nq_face[i])
+        {
+            d0factors[i] = Array<OneD, NekDouble>(nq_face[i]);
+            d1factors[i] = Array<OneD, NekDouble>(nq_face[i]);
+            d2factors[i] = Array<OneD, NekDouble>(nq_face[i]);
+        }
+        nq_max = max(nq_max, nq_face[i]);
+    }
+
+    const std::map<int, NormalVector> &normals = GetTraceNormals();
+
+    int ncoords = normals.find(0)->second.size();
+
+    // first gather together standard cartesian inner products
+    if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed)
+    {
+        Array<OneD, Array<OneD, NekDouble>> fac(3);
+        for (int i = 0; i < 3; ++i)
+        {
+            fac[i] = Array<OneD, NekDouble>(nq_max);
+        }
+
+        Array<OneD, NekDouble> jac(nq_max);
+
+        // construct local copy of df multiplied by jacobian so that
+        // interpolation is of a polynomial function to be accurate
+        Array<OneD, Array<OneD, NekDouble>> dfdj(3 * ncoords);
+        unsigned nqtot = GetTotPoints();
+        for (unsigned i = 0; i < 3 * ncoords; ++i)
+        {
+            dfdj[i] = Array<OneD, NekDouble>(nqtot);
+            Vmath::Vmul(nqtot, &(df[i][0]), 1, &(Jac[0]), 1, &(dfdj[i][0]), 1);
+        }
+
+        for (unsigned f = 0; f < ntrace; ++f)
+        {
+            // get local trace phys values
+            v_GetLocTracePhysVals(f, traceExp[f], &(Jac[0]), jac);
+            Vmath::Sdiv(nq_face[f], 1.0, jac, 1, jac, 1);
+
+            Vmath::Zero(nq_face[f], d0factors[f], 1);
+            Vmath::Zero(nq_face[f], d1factors[f], 1);
+            Vmath::Zero(nq_face[f], d2factors[f], 1);
+
+            for (int n = 0; n < ncoords; ++n)
+            {
+                v_GetLocTracePhysVals(f, traceExp[f], &(dfdj[3 * n][0]),
+                                      fac[0]);
+                v_GetLocTracePhysVals(f, traceExp[f], &(dfdj[3 * n + 1][0]),
+                                      fac[1]);
+                v_GetLocTracePhysVals(f, traceExp[f], &(dfdj[3 * n + 2][0]),
+                                      fac[2]);
+                for (int i = 0; i < nq_face[f]; ++i)
+                {
+                    d0factors[f][i] +=
+                        fac[0][i] * normals.find(f)->second[n][i] * jac[i];
+                    d1factors[f][i] +=
+                        fac[1][i] * normals.find(f)->second[n][i] * jac[i];
+                    d2factors[f][i] +=
+                        fac[2][i] * normals.find(f)->second[n][i] * jac[i];
+                }
+            }
+        }
+    }
+    else
+    {
+        for (unsigned f = 0; f < ntrace; ++f)
+        {
+            Vmath::Zero(nq_face[f], d0factors[f], 1);
+            Vmath::Zero(nq_face[f], d1factors[f], 1);
+            Vmath::Zero(nq_face[f], d2factors[f], 1);
+            for (int n = 0; n < ncoords; ++n)
+            {
+                for (int i = 0; i < nq_face[f]; ++i)
+                {
+                    d0factors[f][i] +=
+                        df[3 * n][0] * normals.find(f)->second[n][i];
+                    d1factors[f][i] +=
+                        df[3 * n + 1][0] * normals.find(f)->second[n][i];
+                    d2factors[f][i] +=
+                        df[3 * n + 2][0] * normals.find(f)->second[n][i];
+                }
+            }
+        }
+    }
 }
 } // namespace Nektar::LocalRegions

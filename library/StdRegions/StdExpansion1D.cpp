@@ -155,7 +155,8 @@ void StdExpansion1D::IProductWRTBaseKernel(
 
 void StdExpansion1D::v_PhysInterp(std::shared_ptr<StdExpansion> fromExp,
                                   const Array<OneD, const NekDouble> &fromData,
-                                  Array<OneD, NekDouble> &toData)
+                                  Array<OneD, NekDouble> &toData,
+                                  [[maybe_unused]] bool Transpose)
 {
     LibUtilities::Interp1D(fromExp->GetBasis(0)->GetPointsKey(), fromData,
                            m_base[0]->GetPointsKey(), toData);

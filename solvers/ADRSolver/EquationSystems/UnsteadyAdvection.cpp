@@ -299,27 +299,45 @@ void UnsteadyAdvection::DoOdeProjection(
 
                     m_fields[i]->IProductWRTBase(inarray[i], wsp);
 
+                    cfield->InitGJPData();
+
                     const MultiRegions::GJPStabilisationSharedPtr GJPData =
-                        cfield->GetGJPForcing();
+                        cfield->GetGJPData();
 
                     factors[StdRegions::eFactorGJP] =
                         m_GJPJumpScale * m_timestep;
 
+                    StdRegions::VarCoeffMap varcoeffs;
+                    StdRegions::VarFactorsMap varfactors;
+
                     if (GJPData->IsSemiImplicit())
                     {
                         mtype = StdRegions::eMassGJP;
+
+                        varfactors[StdRegions::eFactorGJPTraceWeight] =
+                            GJPData->GetTraceWeightVarFactors();
                     }
 
-                    // to set up forcing need initial guess in
-                    // physical space
-                    NekDouble scale = -factors[StdRegions::eFactorGJP];
+                    if (GJPData->IsSemiImplicit() || GJPData->IsExplicit())
+                    {
+                        // to set up forcing need initial guess in
+                        // physical space
+                        NekDouble scale = -factors[StdRegions::eFactorGJP];
 
-                    GJPData->Apply(inarray[i], wsp, NullNekDouble1DArray,
-                                   scale);
+                        GJPData->Apply(inarray[i], wsp, NullNekDouble1DArray,
+                                       scale);
+                    }
+
+                    if (GJPData->IsImplicit())
+                    {
+                        varfactors[StdRegions::eFactorGJPTraceWeight] =
+                            GJPData->GetTraceWeightVarFactors();
+                    }
 
                     // Solve the system
                     MultiRegions::GlobalLinSysKey key(
-                        mtype, cfield->GetLocalToGlobalMap(), factors);
+                        mtype, cfield->GetLocalToGlobalMap(), factors,
+                        varcoeffs, varfactors);
 
                     cfield->GlobalSolve(key, wsp, coeffs, NullNekDouble1DArray);
 

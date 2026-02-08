@@ -2209,6 +2209,8 @@ AssemblyMapCG::AssemblyMapCG(
 
     CalculateBndSystemBandWidth();
     CalculateFullSystemBandWidth();
+
+    SetInvMultiplicityWithSign();
 }
 
 /**
@@ -2882,6 +2884,31 @@ void AssemblyMapCG::v_GlobalToLocal(const NekVector<NekDouble> &global,
     GlobalToLocal(global.GetPtr(), loc.GetPtr());
 }
 
+void AssemblyMapCG::v_AvgAssemble(const Array<OneD, const NekDouble> &loc,
+                                  Array<OneD, NekDouble> &global,
+                                  bool useComm) const
+{
+    Array<OneD, const NekDouble> local;
+    if (global.data() == loc.data())
+    {
+        local = Array<OneD, NekDouble>(m_numLocalCoeffs, loc.data());
+    }
+    else
+    {
+        local = loc; // create reference
+    }
+
+    Vmath::Zero(m_numGlobalCoeffs, global.data(), 1);
+
+    Vmath::Assmb(m_numLocalCoeffs, m_invMultiplicityWithSign.data(),
+                 local.data(), m_localToGlobalMap.data(), global.data());
+
+    if (useComm)
+    {
+        UniversalAssemble(global);
+    }
+}
+
 void AssemblyMapCG::v_Assemble(const Array<OneD, const NekDouble> &loc,
                                Array<OneD, NekDouble> &global) const
 {
@@ -2964,5 +2991,38 @@ int AssemblyMapCG::v_GetNumNonDirFaces() const
 const Array<OneD, const int> &AssemblyMapCG::v_GetExtraDirEdges()
 {
     return m_extraDirEdges;
+}
+
+void AssemblyMapCG::SetInvMultiplicityWithSign(void)
+{
+    m_invMultiplicityWithSign = Array<OneD, NekDouble>(m_numLocalCoeffs, 0.0);
+
+    Array<OneD, NekDouble> l2gSign;
+
+    if (m_localToGlobalSign.size())
+    {
+        l2gSign = m_localToGlobalSign;
+    }
+    else // case that does not need to have sign array set up
+    {
+        l2gSign = Array<OneD, NekDouble>(m_numLocalCoeffs, 1.0);
+    }
+
+    Assemble(l2gSign, m_invMultiplicityWithSign);
+    GlobalToLocal(m_invMultiplicityWithSign, m_invMultiplicityWithSign);
+    for (unsigned i = 0; i < m_numLocalCoeffs; ++i)
+    {
+        // for variable order mult might be near zero. All non-zero
+        // values shoudl be one or bigger so large tolreance shoudl
+        // be fine
+        if (fabs(m_invMultiplicityWithSign[i]) < 0.1)
+        {
+            m_invMultiplicityWithSign[i] = 0.0;
+        }
+        else
+        {
+            m_invMultiplicityWithSign[i] = 1.0 / m_invMultiplicityWithSign[i];
+        }
+    }
 }
 } // namespace Nektar::MultiRegions

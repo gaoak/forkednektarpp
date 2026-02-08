@@ -487,15 +487,13 @@ void HexGeom::SetUpFaceOrientation()
 
         baseVertex = m_faces[f]->GetVid(0);
 
-        // We are going to construct the vectors representing the A and B axis
-        // of every face. These vectors will be constructed as a
-        // vector-representation
-        // of the edges of the face. However, for both coordinate directions, we
-        // can
-        // represent the vectors by two different edges. That's why we need to
-        // make sure that
-        // we pick the edge to which the baseVertex of the
-        // Geometry2D-representation of the face
+        // We are going to construct the vectors representing the A
+        // and B axis of every face. These vectors will be constructed
+        // as a vector-representation of the edges of the
+        // face. However, for both coordinate directions, we can
+        // represent the vectors by two different edges. That's why we
+        // need to make sure that we pick the edge to which the
+        // baseVertex of the Geometry2D-representation of the face
         // belongs...
         if (baseVertex == m_verts[faceVerts[f][0]]->GetGlobalID())
         {

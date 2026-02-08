@@ -10,11 +10,11 @@
     <metrics>
         <metric type="L2" id="1">
             <value variable="u" tolerance="0.0001">2.58904</value>
-            <value variable="v" tolerance="0.0001">0.00277094</value>
+            <value variable="v" tolerance="0.0001">0.00276636</value>
         </metric>
         <metric type="Linf" id="2">
-		<value variable="u" tolerance="0.00001">1.00147</value>
-            <value variable="v" tolerance="0.00001">0.00367426</value>
+		<value variable="u" tolerance="0.00001">1.0015</value>
+            <value variable="v" tolerance="0.00001">0.00371338</value>
         </metric>
     </metrics>
 </test>

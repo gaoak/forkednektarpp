@@ -204,9 +204,9 @@ protected:
     // Helper functions
     //---------------------------------------
     virtual int v_GetVid(int i) const;
-    virtual PointGeom *v_GetVertex(int i) const;
-    virtual Geometry1D *v_GetEdge(int i) const;
-    virtual Geometry2D *v_GetFace(int i) const;
+    virtual PointGeom *v_GetVertex(const int i) const;
+    virtual Geometry1D *v_GetEdge(const int i) const;
+    virtual Geometry2D *v_GetFace(const int i) const;
     virtual StdRegions::Orientation v_GetEorient(const int i) const;
     virtual StdRegions::Orientation v_GetForient(const int i) const;
     virtual int v_GetNumVerts() const;

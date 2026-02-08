@@ -108,6 +108,8 @@ void TetGenInterface::InitialMesh(map<int, NodeSharedPtr> tgidton,
     strcpy(cstr, cmd.c_str());
 
     tetrahedralize(cstr, &surface, &output);
+
+    delete[] cstr;
 }
 
 void TetGenInterface::GetNewPoints(int num,
@@ -139,6 +141,8 @@ void TetGenInterface::RefineMesh(std::map<int, NekDouble> delta)
     strcpy(cstr, cmd.c_str());
 
     tetrahedralize(cstr, &input, &output);
+
+    delete[] cstr;
 }
 
 vector<std::array<int, 4>> TetGenInterface::Extract()

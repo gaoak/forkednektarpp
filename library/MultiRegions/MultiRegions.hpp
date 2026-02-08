@@ -107,6 +107,7 @@ enum GJPStabilisationType
 {
     eNoGJPStabilisation,
     eExplicitGJPStabilisation,
+    eFullImplicitGJPStabilisation,
     eSemiImplicitGJPStabilisation
 };
 

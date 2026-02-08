@@ -148,11 +148,6 @@ protected:
 
     LOCAL_REGIONS_EXPORT void v_ComputeLaplacianMetric() override;
 
-    LOCAL_REGIONS_EXPORT void v_NormalTraceDerivFactors(
-        Array<OneD, Array<OneD, NekDouble>> &d0factors,
-        Array<OneD, Array<OneD, NekDouble>> &d1factors,
-        Array<OneD, Array<OneD, NekDouble>> &d2factors) override;
-
 private:
     LibUtilities::NekManager<MatrixKey, DNekScalMat, MatrixKey::opLess>
         m_matrixManager;

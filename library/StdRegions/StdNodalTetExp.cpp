@@ -74,7 +74,7 @@ void StdNodalTetExp::NodalToModal(const Array<OneD, const NekDouble> &inarray,
                                   Array<OneD, NekDouble> &outarray)
 {
     StdMatrixKey Nkey(eInvNBasisTrans, DetShapeType(), *this,
-                      NullConstFactorMap, NullVarCoeffMap,
+                      NullConstFactorMap, NullVarCoeffMap, NullVarFactorsMap,
                       m_nodalPointsKey.GetPointsType());
     DNekMatSharedPtr inv_vdm = GetStdMatrix(Nkey);
 
@@ -89,7 +89,7 @@ void StdNodalTetExp::NodalToModalTranspose(
     Array<OneD, NekDouble> &outarray)
 {
     StdMatrixKey Nkey(eInvNBasisTrans, DetShapeType(), *this,
-                      NullConstFactorMap, NullVarCoeffMap,
+                      NullConstFactorMap, NullVarCoeffMap, NullVarFactorsMap,
                       m_nodalPointsKey.GetPointsType());
     DNekMatSharedPtr inv_vdm = GetStdMatrix(Nkey);
 
@@ -102,7 +102,8 @@ void StdNodalTetExp::ModalToNodal(const Array<OneD, const NekDouble> &inarray,
                                   Array<OneD, NekDouble> &outarray)
 {
     StdMatrixKey Nkey(eNBasisTrans, DetShapeType(), *this, NullConstFactorMap,
-                      NullVarCoeffMap, m_nodalPointsKey.GetPointsType());
+                      NullVarCoeffMap, NullVarFactorsMap,
+                      m_nodalPointsKey.GetPointsType());
     DNekMatSharedPtr vdm = GetStdMatrix(Nkey);
 
     // Multiply out matrix

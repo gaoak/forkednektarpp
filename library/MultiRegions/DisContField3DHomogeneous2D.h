@@ -97,7 +97,7 @@ protected:
                                 Array<OneD, NekDouble> &outarray,
                                 const StdRegions::ConstFactorMap &factors,
                                 const StdRegions::VarCoeffMap &varcoeff,
-                                const MultiRegions::VarFactorsMap &varfactors,
+                                const StdRegions::VarFactorsMap &varfactors,
                                 const Array<OneD, const NekDouble> &dirForcing,
                                 const bool PhysSpaceForcing) override;
 

@@ -53,6 +53,8 @@ public:
             StdRegions::NullConstFactorMap,
         const StdRegions::VarCoeffMap &varCoeffMap =
             StdRegions::NullVarCoeffMap,
+        const StdRegions::VarFactorsMap &varFactorMap =
+            StdRegions::NullVarFactorsMap,
         LibUtilities::PointsType nodalType = LibUtilities::eNoPointsType);
 
     LOCAL_REGIONS_EXPORT MatrixKey(const MatrixKey &mkey,

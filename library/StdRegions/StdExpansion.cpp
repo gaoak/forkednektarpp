@@ -255,7 +255,7 @@ DNekMatSharedPtr StdExpansion::CreateGeneralMatrix(const StdMatrixKey &mkey)
         {
             StdMatrixKey masskey(eMass, mkey.GetShapeType(), *this,
                                  NullConstFactorMap, NullVarCoeffMap,
-                                 mkey.GetNodalPointsType());
+                                 NullVarFactorsMap, mkey.GetNodalPointsType());
             DNekMatSharedPtr mmat = GetStdMatrix(masskey);
 
             returnval = MemoryManager<DNekMat>::AllocateSharedPtr(
@@ -267,7 +267,7 @@ DNekMatSharedPtr StdExpansion::CreateGeneralMatrix(const StdMatrixKey &mkey)
         {
             StdMatrixKey tmpkey(eNBasisTrans, mkey.GetShapeType(), *this,
                                 NullConstFactorMap, NullVarCoeffMap,
-                                mkey.GetNodalPointsType());
+                                NullVarFactorsMap, mkey.GetNodalPointsType());
             DNekMatSharedPtr tmpmat = GetStdMatrix(tmpkey);
             returnval               = MemoryManager<DNekMat>::AllocateSharedPtr(
                 *tmpmat); // Populate  matrix.
@@ -1149,7 +1149,7 @@ void StdExpansion::LinearAdvectionDiffusionReactionMatrixOp_MatFree(
         Array<OneD, NekDouble> lap(m_ncoeffs);
         StdMatrixKey mkeylap(eLaplacian, DetShapeType(), *this,
                              mkey.GetConstFactors(), mkey.GetVarCoeffs(),
-                             mkey.GetNodalPointsType());
+                             mkey.GetVarFactors(), mkey.GetNodalPointsType());
         LaplacianMatrixOp(inarray, lap, mkeylap);
 
         Vmath::Vadd(m_ncoeffs, lap, 1, outarray, 1, outarray,
@@ -1166,7 +1166,7 @@ void StdExpansion::HelmholtzMatrixOp_MatFree_GenericImpl(
     StdMatrixKey mkeymass(eMass, DetShapeType(), *this);
     StdMatrixKey mkeylap(eLaplacian, DetShapeType(), *this,
                          mkey.GetConstFactors(), mkey.GetVarCoeffs(),
-                         mkey.GetNodalPointsType());
+                         mkey.GetVarFactors(), mkey.GetNodalPointsType());
 
     MassMatrixOp(inarray, tmp, mkeymass);
     LaplacianMatrixOp(inarray, outarray, mkeylap);
@@ -1261,7 +1261,8 @@ void StdExpansion::v_LocCollapsedToLocCoord(
 void StdExpansion::v_PhysInterp(
     [[maybe_unused]] std::shared_ptr<StdExpansion> FromExp,
     [[maybe_unused]] const Array<OneD, const NekDouble> &fromData,
-    [[maybe_unused]] Array<OneD, NekDouble> &toData)
+    [[maybe_unused]] Array<OneD, NekDouble> &toData,
+    [[maybe_unused]] bool Traspose)
 {
     ASSERTL0(false, "This function is not valid or not defined");
 }
@@ -1354,7 +1355,8 @@ void StdExpansion::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,
         // get Mass matrix inverse
         StdMatrixKey masskey(StdRegions::eInvMass, DetShapeType(), *this,
                              StdRegions::NullConstFactorMap,
-                             StdRegions::NullVarCoeffMap, nodalPointsType);
+                             StdRegions::NullVarCoeffMap,
+                             StdRegions::NullVarFactorsMap, nodalPointsType);
         DNekMatSharedPtr matsys = GetStdMatrix(masskey);
 
         // copy inarray in case inarray == outarray

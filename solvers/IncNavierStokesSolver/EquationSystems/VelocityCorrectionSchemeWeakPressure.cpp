@@ -149,7 +149,7 @@ void VCSWeakPressure::v_SolvePressure(const Array<OneD, NekDouble> &Forcing)
     // Solver Pressure Poisson Equation
     m_pressure->HelmSolve(Forcing, m_pressure->UpdateCoeffs(), factors,
                           StdRegions::NullVarCoeffMap,
-                          MultiRegions::NullVarFactorsMap, NullNekDouble1DArray,
+                          StdRegions::NullVarFactorsMap, NullNekDouble1DArray,
                           false);
 
     // Add presure to outflow bc if using convective like BCs

@@ -194,6 +194,17 @@ void ContField3DHomogeneous1D::v_FillBndCondFromField(
 /**
  *
  */
+void ContField3DHomogeneous1D::v_AvgAssemble(bool useComm)
+{
+    for (int n = 0; n < m_planes.size(); ++n)
+    {
+        m_planes[n]->AvgAssemble(useComm);
+    }
+}
+
+/**
+ *
+ */
 void ContField3DHomogeneous1D::v_LocalToGlobal(bool useComm)
 {
     for (int n = 0; n < m_planes.size(); ++n)
@@ -232,7 +243,7 @@ GlobalLinSysKey ContField3DHomogeneous1D::v_HelmSolve(
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray, const StdRegions::ConstFactorMap &factors,
     const StdRegions::VarCoeffMap &varcoeff,
-    const MultiRegions::VarFactorsMap &varfactors,
+    const StdRegions::VarFactorsMap &varfactors,
     const Array<OneD, const NekDouble> &dirForcing, const bool PhysSpaceForcing)
 {
 
@@ -275,7 +286,7 @@ GlobalLinSysKey ContField3DHomogeneous1D::v_HelmSolve(
         for (n = 1; n < m_planes.size(); ++n)
         {
             std::dynamic_pointer_cast<ContField>(m_planes[n])
-                ->SetGJPForcing(zero_plane->GetGJPForcing());
+                ->SetGJPData(zero_plane->GetGJPData());
         }
     }
 

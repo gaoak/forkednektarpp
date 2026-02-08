@@ -30,6 +30,8 @@ ADD_NEKTAR_EXECUTABLE(Int3DHomo1D
      COMPONENT demos DEPENDS MultiRegions SOURCES Int3DHomo1D.cpp)
 ADD_NEKTAR_EXECUTABLE(SteadyAdvectionDiffusionReaction2D
      COMPONENT demos DEPENDS MultiRegions SOURCES SteadyAdvectionDiffusionReaction2D.cpp)
+ADD_NEKTAR_EXECUTABLE(SteadyAdvectionDiffusionReaction3D
+     COMPONENT demos DEPENDS MultiRegions SOURCES SteadyAdvectionDiffusionReaction3D.cpp)
 ADD_NEKTAR_EXECUTABLE(Project1D
      COMPONENT demos DEPENDS MultiRegions SOURCES Project1D.cpp)
 ADD_NEKTAR_EXECUTABLE(Project2D

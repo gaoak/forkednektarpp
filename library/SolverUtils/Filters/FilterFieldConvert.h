@@ -100,16 +100,16 @@ protected:
         return "_fc";
     }
 
-    void OutputField(
+    SOLVER_UTILS_EXPORT virtual void v_OutputField(
         const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
         int dump = -1);
 
     SOLVER_UTILS_EXPORT bool v_IsTimeDependent() override;
 
-    void CreateModules(std::vector<std::string> &modcmds);
-
-    void CreateFields(
+    SOLVER_UTILS_EXPORT void CreateFields(
         const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields);
+
+    void CreateModules(std::vector<std::string> &modcmds);
 
     void CheckModules(std::vector<ModuleSharedPtr> &modules);
 

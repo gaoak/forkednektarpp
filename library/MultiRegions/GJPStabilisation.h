@@ -43,6 +43,14 @@
 namespace Nektar::MultiRegions
 {
 
+enum GJPFormulation
+{
+    eGJPNoFormulation,
+    eGJPExplicit,
+    eGJPImplicit,
+    eGJPSemiImplicit
+};
+
 class GJPStabilisation
 {
 public:
@@ -67,13 +75,26 @@ public:
 
     bool IsSemiImplicit() const
     {
-        return m_useGJPSemiImplicit;
+        return (m_formulation == eGJPSemiImplicit);
     }
 
+    bool IsExplicit() const
+    {
+        return (m_formulation == eGJPExplicit);
+    }
+
+    bool IsImplicit() const
+    {
+        return (m_formulation == eGJPImplicit);
+    }
+
+    MULTI_REGIONS_EXPORT Array<OneD, NekDouble> GetTraceWeightVarFactors(void);
+
 private:
-    int m_coordDim;
-    int m_traceDim;
-    bool m_useGJPSemiImplicit;
+    unsigned m_coordDim;
+    unsigned m_traceDim;
+    unsigned m_nLocTracePts;
+    GJPFormulation m_formulation = eGJPNoFormulation;
     static std::string GJPStabilisationLookupIds[];
 
     // Trace normals
@@ -81,25 +102,55 @@ private:
 
     /// DG expansion for projection evalaution along trace
     MultiRegions::ExpListSharedPtr m_dgfield;
-    /// LocaTraceToTraceMap
-    MultiRegions::LocTraceToTraceMapSharedPtr m_locTraceToTraceMap;
-    /// Local Elemental trace expansions
-    MultiRegions::ExpListSharedPtr m_locElmtTrace;
 
-    /// Scale factor for phys values along trace involving the lcoal
-    /// normals and tangent geometric factors n
+    /// Scale factor for phys values along trace involving the local
+    /// normals and geometric factors
     Array<OneD, Array<OneD, NekDouble>> m_scalTrace;
+
+    Array<OneD, NekDouble> m_locTraceWeights;
+
+    /// phys offset in trace expannsion of each trace as we loop over elmts
+    std::vector<unsigned> m_traceOffset;
+    /// npoints in local trace expannsion in dir 0
+    std::vector<unsigned> m_locTracePts0;
+    /// npoints in local trace expannsion in dir 1
+    std::vector<unsigned> m_locTracePts1;
+    /// list of the number of traces over an element;
+    std::vector<unsigned> m_ntrace;
+    /// local trace and multiregion dg trace  if different (i.e variable p and
+    /// BC trace)
+    std::map<int, std::pair<LocalRegions::ExpansionSharedPtr,
+                            LocalRegions::ExpansionSharedPtr>>
+        m_interpTrace;
+
+    std::vector<bool> m_traceFwd;
 
     std::vector<std::pair<int, Array<OneD, DNekMatSharedPtr>>>
         m_StdDBaseOnTraceMat;
 
-    void SetUpExpansionInfoMapForGJP(SpatialDomains::MeshGraphSharedPtr graph,
-                                     std::string variable);
+    std::vector<NekDouble> m_locEdgeScale;
 
-    void MultiplyByStdDerivBaseOnTraceMat(int i, Array<OneD, NekDouble> &in,
-                                          Array<OneD, NekDouble> &out) const;
+    void ConstructLocalTraceJump(const int dir,
+                                 const Array<OneD, const NekDouble> &in,
+                                 Array<OneD, NekDouble> &store) const;
+
+    void ConstructLocalTraceJumpSI(const int dir,
+                                   const Array<OneD, const NekDouble> &Fwd,
+                                   const Array<OneD, const NekDouble> &Bwd,
+                                   Array<OneD, NekDouble> &store) const;
+
+    void IProductwrtStdDerivBaseOnTraceMat(int i, Array<OneD, NekDouble> &in,
+                                           Array<OneD, NekDouble> &out) const;
+
+    void StdDerivOnTraceFromModes(int i, Array<OneD, NekDouble> &in,
+                                  Array<OneD, NekDouble> &out) const;
+
+    void TraceJumpFromLocTraceNormDeriv(Array<OneD, NekDouble> &normderiv,
+                                        Array<OneD, NekDouble> &Fwd,
+                                        Array<OneD, NekDouble> &Bwd) const;
 };
 
 typedef std::shared_ptr<GJPStabilisation> GJPStabilisationSharedPtr;
+
 } // namespace Nektar::MultiRegions
 #endif // GJP

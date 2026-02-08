@@ -52,7 +52,7 @@ namespace Nektar::MultiRegions
 string GlobalLinSysXxtStaticCond::className =
     GetGlobalLinSysFactory().RegisterCreatorFunction(
         "XxtStaticCond", GlobalLinSysXxtStaticCond::create,
-        "Iterative static condensation.");
+        "Xxt static condensation.");
 
 string GlobalLinSysXxtStaticCond::className2 =
     GetGlobalLinSysFactory().RegisterCreatorFunction(

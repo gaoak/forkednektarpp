@@ -1093,9 +1093,9 @@ public:
      **/
     void PhysInterp(std::shared_ptr<StdExpansion> fromExp,
                     const Array<OneD, const NekDouble> &fromData,
-                    Array<OneD, NekDouble> &toData)
+                    Array<OneD, NekDouble> &toData, bool Transpose = false)
     {
-        v_PhysInterp(fromExp, fromData, toData);
+        v_PhysInterp(fromExp, fromData, toData, Transpose);
     }
 
     STD_REGIONS_EXPORT virtual int v_CalcNumberOfCoefficients(
@@ -1664,7 +1664,7 @@ protected:
     STD_REGIONS_EXPORT virtual void v_PhysInterp(
         std::shared_ptr<StdExpansion> FromExp,
         const Array<OneD, const NekDouble> &fromData,
-        Array<OneD, NekDouble> &toData);
+        Array<OneD, NekDouble> &toData, bool Transpose);
 
     STD_REGIONS_EXPORT
     virtual void v_FillMode(const int mode, Array<OneD, NekDouble> &outarray);

@@ -575,6 +575,14 @@ const Array<OneD, NekDouble> &AssemblyMap::v_GetLocalToGlobalSign() const
     return result;
 }
 
+void AssemblyMap::v_AvgAssemble(
+    [[maybe_unused]] const Array<OneD, const NekDouble> &loc,
+    [[maybe_unused]] Array<OneD, NekDouble> &global,
+    [[maybe_unused]] bool useComm) const
+{
+    NEKERROR(ErrorUtil::efatal, "Not defined for this type of mapping.");
+}
+
 void AssemblyMap::v_LocalToGlobal(
     [[maybe_unused]] const Array<OneD, const NekDouble> &loc,
     [[maybe_unused]] Array<OneD, NekDouble> &global,
@@ -734,6 +742,13 @@ NekDouble AssemblyMap::GetLocalToGlobalSign(const int i) const
 const Array<OneD, NekDouble> &AssemblyMap::GetLocalToGlobalSign() const
 {
     return v_GetLocalToGlobalSign();
+}
+
+void AssemblyMap::AvgAssemble(const Array<OneD, const NekDouble> &loc,
+                              Array<OneD, NekDouble> &global,
+                              bool useComm) const
+{
+    v_AvgAssemble(loc, global, useComm);
 }
 
 void AssemblyMap::LocalToGlobal(const Array<OneD, const NekDouble> &loc,

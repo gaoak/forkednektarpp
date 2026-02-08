@@ -2,7 +2,7 @@
 //
 // File: GJPStabilisation.cpp
 //
-// For more information, please see: http://www.nektar.info
+// For mre information, please see: http://www.nektar.info
 //
 // The MIT License
 //
@@ -36,21 +36,47 @@
 
 namespace Nektar::MultiRegions
 {
-std::string GJPStabilisation::GJPStabilisationLookupIds[2] = {
+std::string GJPStabilisation::GJPStabilisationLookupIds[3] = {
     LibUtilities::SessionReader::RegisterEnumValue(
         "GJPStabilisation", "Explicit", eExplicitGJPStabilisation),
     LibUtilities::SessionReader::RegisterEnumValue(
         "GJPStabilisation", "SemiImplicit", eSemiImplicitGJPStabilisation),
+    LibUtilities::SessionReader::RegisterEnumValue(
+        "GJPStabilisation", "Implicit", eFullImplicitGJPStabilisation),
 };
 GJPStabilisation::GJPStabilisation(ExpListSharedPtr pField)
 {
     LibUtilities::SessionReaderSharedPtr session = pField->GetSession();
 
-    session->MatchSolverInfo("GJPStabilisation", "SemiImplicit",
-                             m_useGJPSemiImplicit, false);
+    bool test;
+
+    session->MatchSolverInfo("GJPStabilisation", "Explicit", test, false);
+    if (test)
+    {
+        m_formulation = eGJPExplicit;
+    }
+
+    session->MatchSolverInfo("GJPStabilisation", "Implicit", test, false);
+    if (test)
+    {
+        m_formulation = eGJPImplicit;
+
+        ASSERTL0(session->MatchSolverInfo("GlobalSysSoln", "IterativeFull"),
+                 "To use GJP Fully implicit stabilisation you must use a "
+                 "Iterative Full solver");
+    }
+
+    session->MatchSolverInfo("GJPStabilisation", "SemiImplicit", test, false);
+    if (test)
+    {
+        m_formulation = eGJPSemiImplicit;
+    }
+    ASSERTL0(m_formulation != eGJPNoFormulation,
+             "Need a valid formualtion type for GradientJumpStabilisation: "
+             "Explicit, Implicit, SemiImplicit");
 
     // Call GetTrace on the initialising field will set up
-    // DG. Store a copoy so that if we make a soft copy of
+    // DG. Store a copy so that if we make a soft copy of
     // this class we can re-used this field for operators.
     pField->GetTrace();
     m_dgfield = pField;
@@ -68,31 +94,29 @@ GJPStabilisation::GJPStabilisation(ExpListSharedPtr pField)
     }
     m_dgfield->GetTrace()->GetNormals(m_traceNormals);
 
-    SetUpExpansionInfoMapForGJP(pField->GetGraph(), session->GetVariable(0));
-
-    MultiRegions::DisContFieldSharedPtr dgfield;
-
-    dgfield = MemoryManager<MultiRegions::DisContField>::AllocateSharedPtr(
-        session, pField->GetGraph(), "GJP", true, false,
-        Collections::eNoImpType, session->GetVariable(0));
-    dgfield->GetLocTraceToTraceMap(m_locTraceToTraceMap);
-
-    m_locElmtTrace = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
-        session, *(dgfield->GetExp()), dgfield->GetGraph(), true, "GJP");
-
     m_scalTrace = Array<OneD, Array<OneD, NekDouble>>(m_traceDim + 1);
 
+    MultiRegions::ExpListSharedPtr dgtrace = m_dgfield->GetTrace();
+
     const std::shared_ptr<LocalRegions::ExpansionVector> exp =
-        dgfield->GetExp();
+        m_dgfield->GetExp();
 
     Array<OneD, Array<OneD, NekDouble>> dfactors[3];
-    Array<OneD, Array<OneD, NekDouble>> LocTrace(m_traceDim + 1);
     Array<OneD, NekDouble> e_tmp;
 
+    m_nLocTracePts = 0;
+    for (unsigned e = 0; e < (*exp).size(); ++e)
+    {
+        for (unsigned t = 0; t < (*exp)[e]->GetNtraces(); ++t)
+        {
+            m_nLocTracePts += (*exp)[e]->GetLocTraceExp(t)->GetTotPoints();
+        }
+    }
+
+    m_scalTrace = Array<OneD, Array<OneD, NekDouble>>(m_traceDim + 1);
     for (int i = 0; i < m_traceDim + 1; ++i)
     {
-        LocTrace[i] =
-            Array<OneD, NekDouble>(m_locTraceToTraceMap->GetNLocTracePts());
+        m_scalTrace[i] = Array<OneD, NekDouble>(m_nLocTracePts);
     }
 
     int cnt         = 0;
@@ -100,9 +124,12 @@ GJPStabilisation::GJPStabilisation(ExpListSharedPtr pField)
     Array<OneD, Array<OneD, Array<OneD, NekDouble>>> dbasis;
     Array<OneD, Array<OneD, Array<OneD, unsigned int>>> traceToCoeffMap;
 
-    Array<OneD, unsigned int> map, map1;
     Array<OneD, int> sign, sign1;
     NekDouble h, p;
+    std::map<unsigned, std::pair<NekDouble, unsigned>> hpscale;
+
+    MultiRegions::DisContFieldSharedPtr dgfield =
+        std::dynamic_pointer_cast<MultiRegions::DisContField>(m_dgfield);
 
     for (int e = 0; e < m_dgfield->GetExpSize(); ++e)
     {
@@ -112,60 +139,125 @@ GJPStabilisation::GJPStabilisation(ExpListSharedPtr pField)
 
         for (int n = 0; n < elmt->GetNtraces(); ++n, ++cnt)
         {
-            NekDouble jumpScal;
-            elmt->TraceNormLen(n, h, p);
-            ASSERTL0(boost::math::isnan(h) == false,
-                     "h has a nan value when e = " + std::to_string(e) +
-                         " n =" + std::to_string(n));
-
-            if (p == 1)
+            // collect offset for traces in dgtrace
+            unsigned eid = dgfield->GetTraceElmtId(e, n);
+            m_traceOffset.push_back(dgtrace->GetPhys_Offset(eid));
+            LocalRegions::ExpansionSharedPtr LocTraceExp =
+                elmt->GetLocTraceExp(n);
+            unsigned LocTracepts = LocTraceExp->GetTotPoints();
+            if (LocTracepts != dgtrace->GetExp(eid)->GetTotPoints())
             {
-                jumpScal = 0.02 * h * h;
+                m_interpTrace[cnt] =
+                    std::make_pair(LocTraceExp, dgtrace->GetExp(eid));
+            }
+
+            m_locTracePts0.push_back(LocTraceExp->GetNumPoints(0));
+            if (m_traceDim == 1)
+            {
+                m_locTracePts1.push_back(1);
             }
             else
             {
-                jumpScal = 0.8 * pow(p + 1, -4.0) * h * h;
+                m_locTracePts1.push_back(LocTraceExp->GetNumPoints(1));
+            }
+            m_traceFwd.push_back(dgfield->IsLeftAdjacentTrace(e, n));
+
+            // gather h and p average informatoin
+            elmt->TraceNormLen(n, h, p);
+            unsigned edgeid = elmt->GetTraceExp(n)->GetGeom()->GetGlobalID();
+            if (hpscale.count(edgeid))
+            {
+                auto hp         = hpscale[edgeid];
+                hpscale[edgeid] = std::pair<NekDouble, unsigned>(
+                    0.5 * (hp.first + h), (int)(0.5 * (hp.second + p)));
+            }
+            else
+            {
+                hpscale[edgeid] = std::pair<NekDouble, unsigned>(h, p);
             }
 
-            int nptrace = elmt->GetTraceNumPoints(n);
-            elmt->GetTraceCoeffMap(n, map);
-
+            int nptrace = dfactors[0][n].size();
             for (int i = 0; i < m_traceDim + 1; ++i)
             {
-                Vmath::Smul(nptrace, jumpScal, dfactors[i][n], 1,
-                            e_tmp = LocTrace[i] + offset_phys, 1);
+                Vmath::Smul(nptrace, 1.0, dfactors[i][n], 1,
+                            e_tmp = m_scalTrace[i] + offset_phys, 1);
             }
-
             offset_phys += nptrace;
         }
+        m_ntrace.push_back(elmt->GetNtraces());
     }
+    m_nLocTracePts = offset_phys;
 
-    for (int i = 0; i < m_traceDim + 1; ++i)
+    m_locTraceWeights = Array<OneD, NekDouble>(m_nLocTracePts);
+    // set up scale factors
+    for (int e = 0; e < m_dgfield->GetExpSize(); ++e)
     {
-        m_scalTrace[i] = LocTrace[i];
-
-        if (m_traceDim > 0)
+        LocalRegions::ExpansionSharedPtr elmt = (*exp)[e];
+        for (int n = 0; n < elmt->GetNtraces(); ++n, ++cnt)
         {
-            // multiply by Jacobian and quadrature points.
-            m_locElmtTrace->MultiplyByQuadratureMetric(m_scalTrace[i],
-                                                       m_scalTrace[i]);
+            unsigned edgeid = elmt->GetTraceExp(n)->GetGeom()->GetGlobalID();
+
+            ASSERTL1(hpscale.count(edgeid), "Scale has not been defined");
+            auto hp     = hpscale[edgeid];
+            NekDouble h = hp.first;
+            unsigned p  = hp.second;
+            NekDouble jumpScal =
+                (p == 1) ? 0.02 * h * h : 0.8 * pow(p + 1, -4.0) * h * h;
+
+            m_locEdgeScale.push_back(jumpScal);
         }
     }
 
+    m_locTraceWeights = Array<OneD, NekDouble>(m_nLocTracePts, 1.0);
+
+    //  Generate array of quadrature and Jacobian for loc Trace
+    unsigned offset = 0;
+    cnt             = 0;
+    for (int e = 0; e < m_dgfield->GetExpSize(); ++e)
+    {
+        for (unsigned j = 0; j < m_ntrace[e]; ++j)
+        {
+            unsigned eid =
+                std::dynamic_pointer_cast<MultiRegions::DisContField>(m_dgfield)
+                    ->GetTraceElmtId(e, j);
+
+            if (m_interpTrace.count(cnt)) // manage interpolated case
+            {
+                m_interpTrace[cnt].first->MultiplyByQuadratureMetric(
+                    m_locTraceWeights + offset,
+                    e_tmp = m_locTraceWeights + offset);
+            }
+            else
+            {
+                dgtrace->GetExp(eid)->MultiplyByQuadratureMetric(
+                    m_locTraceWeights + offset,
+                    e_tmp = m_locTraceWeights + offset);
+
+                // reverse data if necessary
+                m_dgfield->GetExp(e)->ReOrientTracePhysVals(
+                    m_dgfield->GetExp(e)->GetTraceOrient(j), e_tmp, e_tmp,
+                    m_locTracePts0[cnt], m_locTracePts1[cnt], false);
+            }
+            offset += m_locTracePts0[cnt] * m_locTracePts1[cnt];
+            cnt++;
+        }
+    }
     // Assemble list of Matrix Product
     Array<OneD, DNekMatSharedPtr> TraceMat;
 
+    m_dgfield->GetExp(0)->StdDerivBaseOnTraceMat(TraceMat);
+
     int nelmt = 1;
     Array<OneD, const LibUtilities::BasisSharedPtr> base_sav =
-        dgfield->GetExp(0)->GetBase();
+        m_dgfield->GetExp(0)->GetBase();
 
-    dgfield->GetExp(0)->StdDerivBaseOnTraceMat(TraceMat);
-
-    for (int n = 1; n < dgfield->GetExpSize(); ++n)
+    for (int n = 1; n < m_dgfield->GetExpSize(); ++n)
     {
         const Array<OneD, const LibUtilities::BasisSharedPtr> &base =
-            dgfield->GetExp(n)->GetBase();
+            m_dgfield->GetExp(n)->GetBase();
 
+        // check to see if same element expansion as previous matrix and if
+        // so can reused
         int i;
         for (i = 0; i < base.size(); ++i)
         {
@@ -186,11 +278,12 @@ GJPStabilisation::GJPStabilisation(ExpListSharedPtr pField)
                 std::pair<int, Array<OneD, DNekMatSharedPtr>>(nelmt, TraceMat));
 
             // start new block
-            dgfield->GetExp(n)->StdDerivBaseOnTraceMat(TraceMat);
+            m_dgfield->GetExp(n)->StdDerivBaseOnTraceMat(TraceMat);
             nelmt    = 1;
-            base_sav = dgfield->GetExp(n)->GetBase();
+            base_sav = m_dgfield->GetExp(n)->GetBase();
         }
     }
+
     // save latest block of data.
     m_StdDBaseOnTraceMat.push_back(
         std::pair<int, Array<OneD, DNekMatSharedPtr>>(nelmt, TraceMat));
@@ -201,35 +294,17 @@ void GJPStabilisation::Apply(const Array<OneD, NekDouble> &inarray,
                              const Array<OneD, NekDouble> &pUnorm,
                              NekDouble scale) const
 {
-    int ncoeffs    = m_dgfield->GetNcoeffs();
-    int nphys      = m_dgfield->GetNpoints();
-    int nTracePts  = m_dgfield->GetTrace()->GetTotPoints();
-    int nLocETrace = m_locElmtTrace->GetTotPoints();
+    int ncoeffs   = m_dgfield->GetNcoeffs();
+    int nTracePts = m_dgfield->GetTrace()->GetTotPoints();
+    LibUtilities::Timer timer, timer1;
+    timer.Start();
+    timer1.Start();
 
-    ASSERTL1(nLocETrace == m_scalTrace[0].size(), "expect these to be similar");
-    ASSERTL1(m_locElmtTrace->GetNcoeffs() <= nphys,
-             "storage assumptions presume "
-             "that nLocETraceCoeffs < nphys");
-
-    Array<OneD, Array<OneD, NekDouble>> deriv(3, NullNekDouble1DArray);
-    for (int i = 0; i < m_coordDim; ++i)
-    {
-        deriv[i] = Array<OneD, NekDouble>(nphys);
-    }
-
-    int nmax = std::max(ncoeffs, nphys);
-    Array<OneD, NekDouble> FilterCoeffs(nmax, 0.0);
-    Array<OneD, NekDouble> GradJumpOnTrace(nTracePts, 0.0);
-    Array<OneD, NekDouble> Fwd(nTracePts), Bwd(nTracePts);
-
-    Array<OneD, NekDouble> wsp(nLocETrace), tmp;
-    Array<OneD, NekDouble> LocElmtTracePhys   = m_locElmtTrace->UpdatePhys();
-    Array<OneD, NekDouble> LocElmtTraceCoeffs = m_locElmtTrace->UpdateCoeffs();
-
-    ASSERTL1(LocElmtTracePhys.size() <= nLocETrace,
-             "expect this vector to be at least of size nLocETrace");
-
+    Array<OneD, NekDouble> FilterCoeffs(ncoeffs), CoeffsTmp(ncoeffs);
+    Array<OneD, NekDouble> Fwd(nTracePts, 0.0), Bwd(nTracePts, 0.0);
+    Array<OneD, NekDouble> Store(m_nLocTracePts);
     Array<OneD, NekDouble> unorm;
+
     if (pUnorm == NullNekDouble1DArray)
     {
         unorm = Array<OneD, NekDouble>(nTracePts, 1.0);
@@ -239,161 +314,376 @@ void GJPStabilisation::Apply(const Array<OneD, NekDouble> &inarray,
         unorm = pUnorm;
     }
 
-    Array<OneD, NekDouble> GradJumpOnTraceBwd;
-    if (m_useGJPSemiImplicit)
-    {
-        GradJumpOnTraceBwd = Array<OneD, NekDouble>(nTracePts);
-    }
+    Array<OneD, NekDouble> dudn(m_nLocTracePts, 0.0);
 
-    if (m_useGJPSemiImplicit)
-    {
-        Vmath::Zero(nTracePts, GradJumpOnTraceBwd, 1);
-    }
+    timer1.Stop();
+    timer1.AccumulateRegion("GJP:Init", 10);
+    timer1.Start();
 
-    // calculate derivative
-    m_dgfield->PhysDeriv(inarray, deriv[0], deriv[1], deriv[2]);
+    // Fwd Trans
+    m_dgfield->FwdTransLocalElmt(inarray, FilterCoeffs);
 
-    // Evaluate the  normal derivative jump on the trace
+    // Construct local derivaitves on trace
     for (int n = 0; n < m_coordDim; ++n)
     {
-        m_dgfield->GetFwdBwdTracePhys(deriv[n], Fwd, Bwd, true, true);
-
-        if (m_useGJPSemiImplicit)
-        {
-            // want to put Fwd vals on bwd trace and vice versa
-            Vmath::Vvtvp(nTracePts, Bwd, 1, m_traceNormals[n], 1,
-                         GradJumpOnTrace, 1, GradJumpOnTrace, 1);
-            Vmath::Vvtvp(nTracePts, Fwd, 1, m_traceNormals[n], 1,
-                         GradJumpOnTraceBwd, 1, GradJumpOnTraceBwd, 1);
-        }
-        else
-        {
-            // Multiply by normal and add to trace evaluation
-            Vmath::Vsub(nTracePts, Fwd, 1, Bwd, 1, Fwd, 1);
-            Vmath::Vvtvp(nTracePts, Fwd, 1, m_traceNormals[n], 1,
-                         GradJumpOnTrace, 1, GradJumpOnTrace, 1);
-        }
+        StdDerivOnTraceFromModes(n, FilterCoeffs, Store);
+        Vmath::Vvtvp(m_nLocTracePts, Store, 1, m_scalTrace[n], 1, dudn, 1, dudn,
+                     1);
     }
 
-    if (m_useGJPSemiImplicit)
+    timer1.Stop();
+    timer1.AccumulateRegion("GJP:FwdTrans + StdDerivFromModes", 10);
+    timer1.Start();
+
+    if (m_formulation == eGJPSemiImplicit)
     {
-        // Need to negate Bwd case when  using Fwd normal
-        Vmath::Neg(nTracePts, GradJumpOnTrace, 1);
-    }
-
-    Vmath::Vmul(nTracePts, unorm, 1, GradJumpOnTrace, 1, GradJumpOnTrace, 1);
-
-    // Interpolate GradJumpOnTrace to Local elemental traces.
-    m_locTraceToTraceMap->InterpTraceToLocTrace(0, GradJumpOnTrace, wsp);
-    m_locTraceToTraceMap->UnshuffleLocTraces(0, wsp, LocElmtTracePhys);
-
-    if (m_useGJPSemiImplicit)
-    {
-        // Vmath::Neg(nTracePts,GradJumpOnTraceBwd,1);
-        Vmath::Vmul(nTracePts, unorm, 1, GradJumpOnTraceBwd, 1,
-                    GradJumpOnTraceBwd, 1);
-        m_locTraceToTraceMap->InterpTraceToLocTrace(1, GradJumpOnTraceBwd, wsp);
-        m_locTraceToTraceMap->UnshuffleLocTraces(1, wsp, LocElmtTracePhys);
+        // want to put Fwd vals on bwd trace and vice versa
+        TraceJumpFromLocTraceNormDeriv(dudn, Bwd, Fwd);
     }
     else
     {
-        m_locTraceToTraceMap->InterpTraceToLocTrace(1, GradJumpOnTrace, wsp);
-        m_locTraceToTraceMap->UnshuffleLocTraces(1, wsp, LocElmtTracePhys);
+        TraceJumpFromLocTraceNormDeriv(dudn, Fwd, Bwd);
+        Vmath::Vadd(nTracePts, Fwd, 1, Bwd, 1, Fwd, 1);
     }
+    timer1.Stop();
+    timer1.AccumulateRegion("GJP:TransJumpFromLocDeriv", 10);
+    timer1.Start();
 
-    // Scale jump on trace
-    Vmath::Vmul(nLocETrace, m_scalTrace[0], 1, LocElmtTracePhys, 1, wsp, 1);
-    MultiplyByStdDerivBaseOnTraceMat(0, wsp, FilterCoeffs);
-
-    for (int i = 0; i < m_traceDim; ++i)
+    if (m_formulation == eGJPSemiImplicit)
     {
-        // Scale jump on trace
-        Vmath::Vmul(nLocETrace, m_scalTrace[i + 1], 1, LocElmtTracePhys, 1, wsp,
-                    1);
-        MultiplyByStdDerivBaseOnTraceMat(i + 1, wsp, deriv[0]);
-        Vmath::Vadd(ncoeffs, deriv[0], 1, FilterCoeffs, 1, FilterCoeffs, 1);
+        Vmath::Vmul(nTracePts, unorm, 1, Fwd, 1, Fwd, 1);
+        Vmath::Vmul(nTracePts, unorm, 1, Bwd, 1, Bwd, 1);
+        // Evaluate trace inner product with respect to derivative of the
+        // basis
+        ConstructLocalTraceJumpSI(0, Fwd, Bwd, Store);
+        timer1.Stop();
+        timer1.AccumulateRegion("GJP:Construct Trace ", 10);
+        timer1.Start();
+        IProductwrtStdDerivBaseOnTraceMat(0, Store, FilterCoeffs);
+        timer1.Stop();
+        timer1.AccumulateRegion("GJP:Deriv on Trace", 10);
+
+        timer1.Start();
+
+        for (int i = 0; i < m_traceDim; ++i)
+        {
+            ConstructLocalTraceJumpSI(i + 1, Fwd, Bwd, Store);
+            timer1.Stop();
+            timer1.AccumulateRegion("GJP:Construct Trace ", 10);
+
+            timer1.Start();
+            IProductwrtStdDerivBaseOnTraceMat(i + 1, Store, CoeffsTmp);
+            timer1.Stop();
+            timer1.AccumulateRegion("GJP:Deriv on Trace", 10);
+
+            timer1.Start();
+            Vmath::Vadd(ncoeffs, CoeffsTmp, 1, FilterCoeffs, 1, FilterCoeffs,
+                        1);
+        }
+    }
+    else
+    {
+        Vmath::Vmul(nTracePts, unorm, 1, Fwd, 1, Fwd, 1);
+
+        // Evaluate trace inner product with respect to derivitive of the
+        // basis
+        ConstructLocalTraceJump(0, Fwd, Store);
+        IProductwrtStdDerivBaseOnTraceMat(0, Store, FilterCoeffs);
+
+        for (int i = 0; i < m_traceDim; ++i)
+        {
+            ConstructLocalTraceJump(i + 1, Fwd, Store);
+            IProductwrtStdDerivBaseOnTraceMat(i + 1, Store, CoeffsTmp);
+            Vmath::Vadd(ncoeffs, CoeffsTmp, 1, FilterCoeffs, 1, FilterCoeffs,
+                        1);
+        }
     }
 
     Vmath::Svtvp(ncoeffs, scale, FilterCoeffs, 1, outarray, 1, outarray, 1);
+    timer.Stop();
+    // Elapsed time
+    timer.AccumulateRegion("GJP:Total", 10);
 }
 
-void GJPStabilisation::SetUpExpansionInfoMapForGJP(
-    SpatialDomains::MeshGraphSharedPtr graph, std::string variable)
+/**
+ * construct the gradient jump on local trace using input
+ * 'in' which  is in trace orientation
+ */
+void GJPStabilisation::ConstructLocalTraceJump(
+    const int dir, const Array<OneD, const NekDouble> &in,
+    Array<OneD, NekDouble> &store) const
 {
+    LibUtilities::Timer timer;
+    unsigned offset = 0;
+    unsigned cnt    = 0;
+    Array<OneD, NekDouble> tmp;
 
-    // check to see if already deifned and if so return
-    if (graph->ExpansionInfoDefined("GJP"))
+    for (unsigned e = 0; e < m_dgfield->GetExpSize(); ++e)
     {
-        return;
-    }
-
-    const SpatialDomains::ExpansionInfoMap expInfo =
-        graph->GetExpansionInfo(variable);
-
-    SpatialDomains::ExpansionInfoMapShPtr newInfo =
-        MemoryManager<SpatialDomains::ExpansionInfoMap>::AllocateSharedPtr();
-
-    // loop over epxansion info
-    for (auto expIt = expInfo.begin(); expIt != expInfo.end(); ++expIt)
-    {
-        std::vector<LibUtilities::BasisKey> BKeyVector;
-
-        for (int i = 0; i < expIt->second->m_basisKeyVector.size(); ++i)
+        for (unsigned j = 0; j < m_ntrace[e]; ++j)
         {
-            LibUtilities::BasisKey bkeyold = expIt->second->m_basisKeyVector[i];
+            unsigned locTracePts = m_locTracePts0[cnt] * m_locTracePts1[cnt];
 
-            // Reset radauM alpha non-zero cases to radauM
-            // Legendre at one order higher
+            NekDouble jumpScal = m_locEdgeScale[cnt];
 
-            switch (bkeyold.GetPointsType())
+            if (m_interpTrace.count(cnt)) // variable p and BCs
             {
-                case LibUtilities::eGaussRadauMAlpha1Beta0:
-                case LibUtilities::eGaussRadauMAlpha2Beta0:
-                {
-                    int npts = bkeyold.GetNumPoints();
+                auto it = m_interpTrace.find(cnt);
 
-                    // const LibUtilities::PointsKey pkey(npts+1,
-                    // LibUtilities::eGaussRadauMLegendre); trying
-                    // npts to be consistent for tri faces
-                    const LibUtilities::PointsKey pkey(
-                        npts, LibUtilities::eGaussRadauMLegendre);
-                    LibUtilities::BasisKey bkeynew(bkeyold.GetBasisType(),
-                                                   bkeyold.GetNumModes(), pkey);
-                    BKeyVector.push_back(bkeynew);
-                }
-                break;
-                default:
-                    BKeyVector.push_back(bkeyold);
-                    break;
+                StdRegions::Orientation orient =
+                    m_dgfield->GetExp(e)->GetTraceOrient(j);
+
+                // interpolate to new space
+                it->second.first->PhysInterp(
+                    it->second.second, in + m_traceOffset[cnt],
+                    tmp = store + offset,
+                    orient >= StdRegions::eDir1FwdDir2_Dir2FwdDir1);
+
+                // reorientate
+                m_dgfield->GetExp(e)->ReOrientTracePhysVals(
+                    orient, tmp, tmp, m_locTracePts0[cnt], m_locTracePts1[cnt],
+                    false);
             }
+            else
+            {
+                tmp = store + offset;
+                timer.Start();
+                // Reverse data if necessary - using mapping from trace to local
+                // trace
+                m_dgfield->GetExp(e)->ReOrientTracePhysVals(
+                    m_dgfield->GetExp(e)->GetTraceOrient(j),
+                    in + m_traceOffset[cnt], tmp, m_locTracePts0[cnt],
+                    m_locTracePts1[cnt], false);
+                timer.Stop();
+                timer.AccumulateRegion("GJPStab::Construct Trace:: Reorient",
+                                       10);
+            }
+
+            // multiply by local factors in local trace space
+            for (unsigned i = 0; i < locTracePts; ++i)
+            {
+                tmp[i] *= jumpScal * m_scalTrace[dir][offset + i] *
+                          m_locTraceWeights[offset + i];
+            }
+
+            offset += locTracePts;
+            cnt++;
         }
-
-        (*newInfo)[expIt->first] =
-            MemoryManager<SpatialDomains::ExpansionInfo>::AllocateSharedPtr(
-                expIt->second->m_geomPtr, BKeyVector);
     }
-
-    graph->SetExpansionInfo("GJP", newInfo);
 }
 
-void GJPStabilisation::MultiplyByStdDerivBaseOnTraceMat(
-    int i, Array<OneD, NekDouble> &in, Array<OneD, NekDouble> &out) const
+void GJPStabilisation::ConstructLocalTraceJumpSI(
+    const int dir, const Array<OneD, const NekDouble> &Fwd,
+    const Array<OneD, const NekDouble> &Bwd,
+    Array<OneD, NekDouble> &store) const
 {
-    // Should probably be vectorised
+    unsigned offset = 0;
+    unsigned cnt    = 0;
+    Array<OneD, NekDouble> tmp;
+    LibUtilities::Timer timer;
 
-    int cnt  = 0;
-    int cnt1 = 0;
+    for (unsigned e = 0; e < m_dgfield->GetExpSize(); ++e)
+    {
+        for (unsigned j = 0; j < m_ntrace[e]; ++j)
+        {
+            unsigned locTracePts = m_locTracePts0[cnt] * m_locTracePts1[cnt];
+
+            NekDouble jumpScal = m_locEdgeScale[cnt];
+
+            if (m_traceFwd[cnt])
+            {
+                if (m_interpTrace.count(cnt)) // variable p and BCs
+                {
+                    auto it = m_interpTrace.find(cnt);
+
+                    StdRegions::Orientation orient =
+                        m_dgfield->GetExp(e)->GetTraceOrient(j);
+
+                    // interpolate to new space
+                    it->second.first->PhysInterp(
+                        it->second.second, Fwd + m_traceOffset[cnt],
+                        tmp = store + offset,
+                        orient >= StdRegions::eDir1FwdDir2_Dir2FwdDir1);
+
+                    // reorientate
+                    m_dgfield->GetExp(e)->ReOrientTracePhysVals(
+                        orient, tmp, tmp, m_locTracePts0[cnt],
+                        m_locTracePts1[cnt], false);
+                }
+                else
+                {
+                    // Reverse data if necessary - using mapping from trace to
+                    // local trace
+                    timer.Start();
+                    m_dgfield->GetExp(e)->ReOrientTracePhysVals(
+                        m_dgfield->GetExp(e)->GetTraceOrient(j),
+                        Fwd + m_traceOffset[cnt], tmp = store + offset,
+                        m_locTracePts0[cnt], m_locTracePts1[cnt], false);
+                    timer.Stop();
+                    timer.AccumulateRegion(
+                        "GJPStab::Construct Trace:: Reorient", 10);
+                }
+            }
+            else
+            {
+                if (m_interpTrace.count(cnt)) // variable p and BCs
+                {
+                    auto it = m_interpTrace.find(cnt);
+
+                    StdRegions::Orientation orient =
+                        m_dgfield->GetExp(e)->GetTraceOrient(j);
+
+                    // interpolate to new space
+                    it->second.first->PhysInterp(
+                        it->second.second, Fwd + m_traceOffset[cnt],
+                        tmp = store + offset,
+                        orient >= StdRegions::eDir1FwdDir2_Dir2FwdDir1);
+
+                    // reorientate
+                    m_dgfield->GetExp(e)->ReOrientTracePhysVals(
+                        orient, tmp, tmp, m_locTracePts0[cnt],
+                        m_locTracePts1[cnt], false);
+                }
+                else
+                {
+                    // Reverse data if necessary - using mapping from trace to
+                    // local trace
+                    timer.Start();
+                    m_dgfield->GetExp(e)->ReOrientTracePhysVals(
+                        m_dgfield->GetExp(e)->GetTraceOrient(j),
+                        Bwd + m_traceOffset[cnt], tmp = store + offset,
+                        m_locTracePts0[cnt], m_locTracePts1[cnt], false);
+                    timer.Stop();
+                    timer.AccumulateRegion(
+                        "GJPStab::Construct Trace:: Reorient", 10);
+                }
+            }
+            // multiply by local factors in local trace space
+            for (unsigned i = 0; i < locTracePts; ++i)
+            {
+                tmp[i] *= jumpScal * m_scalTrace[dir][offset + i] *
+                          m_locTraceWeights[offset + i];
+            }
+
+            offset += locTracePts;
+            cnt++;
+        }
+    }
+    ASSERTL1(offset <= 2 * m_dgfield->GetTrace()->GetTotPoints(),
+             "Stroage is not large enough");
+}
+
+/* Given the local trace point of a function whcih include the integration
+ * weights return the Inner product with respect to the Std Derivative in the
+ * dir direction */
+void GJPStabilisation::IProductwrtStdDerivBaseOnTraceMat(
+    int dir, Array<OneD, NekDouble> &in, Array<OneD, NekDouble> &out) const
+{
+    unsigned cnt  = 0;
+    unsigned cnt1 = 0;
+
     for (auto &it : m_StdDBaseOnTraceMat)
     {
-        int rows = it.second[i]->GetRows();
-        int cols = it.second[i]->GetColumns();
+        unsigned modes    = it.second[dir]->GetRows();
+        unsigned tracepts = it.second[dir]->GetColumns();
 
-        Blas::Dgemm('N', 'N', rows, it.first, cols, 1.0,
-                    &(it.second[i]->GetPtr())[0], rows, &in[0] + cnt, cols, 0.0,
-                    &out[0] + cnt1, rows);
+        Blas::Dgemm('N', 'N', modes, it.first, tracepts, 1.0,
+                    &(it.second[dir]->GetPtr())[0], modes, &in[0] + cnt,
+                    tracepts, 0.0, &out[0] + cnt1, modes);
 
-        cnt += cols * it.first;
-        cnt1 += rows * it.first;
+        cnt += tracepts * it.first;
+        cnt1 += modes * it.first;
     }
 }
+
+void GJPStabilisation::TraceJumpFromLocTraceNormDeriv(
+    Array<OneD, NekDouble> &normderiv, Array<OneD, NekDouble> &Fwd,
+    Array<OneD, NekDouble> &Bwd) const
+{
+    unsigned offset = 0;
+    unsigned cnt    = 0;
+    Array<OneD, NekDouble> tmp, tmp1;
+
+    for (unsigned e = 0; e < m_dgfield->GetExpSize(); ++e)
+    {
+        for (unsigned j = 0; j < m_ntrace[e]; ++j)
+        {
+            unsigned locTracePts = m_locTracePts0[cnt] * m_locTracePts1[cnt];
+
+            tmp = normderiv + offset;
+            ASSERTL0(offset < normderiv.size(), "Issue");
+            // Reverse data if necessary
+            m_dgfield->GetExp(e)->ReOrientTracePhysVals(
+                m_dgfield->GetExp(e)->GetTraceOrient(j), tmp, tmp,
+                m_locTracePts0[cnt], m_locTracePts1[cnt]);
+
+            if (m_traceFwd[cnt])
+            {
+                tmp1 = Fwd + m_traceOffset[cnt];
+            }
+            else
+            {
+                tmp1 = Bwd + m_traceOffset[cnt];
+            }
+
+            if (m_interpTrace.count(cnt)) // variable p and BCs
+            {
+                auto it = m_interpTrace.find(cnt);
+                it->second.second->PhysInterp(it->second.first, tmp, tmp1);
+            }
+            else
+            {
+                Vmath::Vcopy(locTracePts, tmp, 1, tmp1, 1);
+            }
+
+            offset += locTracePts;
+            cnt++;
+        }
+    }
+
+    // globally assemble Fwd and Bwd traces;
+    m_dgfield->PeriodicBwdCopy(Fwd, Bwd);
+    m_dgfield->FillBwdWithBoundCond(Fwd, Bwd, true);
+    m_dgfield->GetTraceMap()->GetAssemblyCommDG()->PerformExchange(Fwd, Bwd);
+}
+
+/* Given the modes of an element on input  return the std derivative in
+ * direction dir on the trace at local tracepoints
+ */
+void GJPStabilisation::StdDerivOnTraceFromModes(
+    int dir, Array<OneD, NekDouble> &in, Array<OneD, NekDouble> &out) const
+{
+    unsigned cnt  = 0;
+    unsigned cnt1 = 0;
+
+    for (auto &it : m_StdDBaseOnTraceMat)
+    {
+        unsigned modes    = it.second[dir]->GetRows();
+        unsigned tracepts = it.second[dir]->GetColumns();
+
+        Blas::Dgemm('T', 'N', tracepts, it.first, modes, 1.0,
+                    &(it.second[dir]->GetPtr())[0], modes, &in[0] + cnt, modes,
+                    0.0, &out[0] + cnt1, tracepts);
+
+        cnt += modes * it.first;
+        cnt1 += tracepts * it.first;
+    }
+}
+
+Array<OneD, NekDouble> GJPStabilisation::GetTraceWeightVarFactors(void)
+{
+
+    Array<OneD, NekDouble> returnval(m_dgfield->GetNumElmts() * 6, 0.0);
+
+    unsigned cnt = 0;
+    for (unsigned e = 0; e < m_dgfield->GetExpSize(); ++e)
+    {
+        for (unsigned n = 0; n < m_dgfield->GetExp(e)->GetNtraces(); ++n)
+        {
+            returnval[6 * e + n] = m_locEdgeScale[cnt++];
+        }
+    }
+    return returnval;
+}
+
 } // namespace Nektar::MultiRegions

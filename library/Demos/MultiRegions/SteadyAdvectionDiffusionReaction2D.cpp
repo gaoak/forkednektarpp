@@ -66,6 +66,7 @@ int main(int argc, char *argv[])
     Array<OneD, NekDouble> xc0, xc1, xc2;
     NekDouble lambda;
     NekDouble ax, ay;
+    StdRegions::ConstFactorMap factors;
 
     if (argc < 2)
     {
@@ -87,6 +88,17 @@ int main(int argc, char *argv[])
     //----------------------------------------------
 
     //----------------------------------------------
+    // if GJPStabilisation set to False bool will be true and
+    // if not false so negate/revese bool
+    bool useGJPStabilisation = false;
+    vSession->MatchSolverInfo("GJPStabilisation", "False", useGJPStabilisation,
+                              true);
+    useGJPStabilisation = !useGJPStabilisation;
+    double GJPJumpScale = 1.0;
+    vSession->LoadParameter("GJPJumpScale", GJPJumpScale, 1.0);
+    //----------------------------------------------
+
+    //----------------------------------------------
     // Print summary of solution details
     lambda = vSession->GetParameter("Lambda");
     cout << "            Lambda         : " << lambda << endl;
@@ -103,6 +115,12 @@ int main(int argc, char *argv[])
          << LibUtilities::BasisTypeMap[bkey0.GetBasisType()] << ","
          << LibUtilities::BasisTypeMap[bkey1.GetBasisType()] << ")" << endl;
     cout << "            No. modes      : " << bkey0.GetNumModes() << endl;
+    if (useGJPStabilisation)
+    {
+        cout << "  - GJP Stab Type : "
+             << vSession->GetSolverInfo("GJPStabilisation") << endl;
+        cout << "  - GJP Scale     : " << GJPJumpScale << endl;
+    }
     cout << endl;
     //----------------------------------------------
 
@@ -113,6 +131,15 @@ int main(int argc, char *argv[])
     //----------------------------------------------
 
     Timing("Read files and define exp ..");
+
+    //----------------------------------------------
+    // Set up GJP if requested
+    if (useGJPStabilisation)
+    {
+        Exp->InitGJPData();
+        factors[StdRegions::eFactorGJP] = GJPJumpScale;
+    }
+    //----------------------------------------------
 
     //----------------------------------------------
     // Set up coordinates of mesh for Forcing function evaluation
@@ -140,7 +167,6 @@ int main(int argc, char *argv[])
     Vel[0] = Array<OneD, NekDouble>(nq, ax);
     Vel[1] = Array<OneD, NekDouble>(nq, ay);
 
-    StdRegions::ConstFactorMap factors;
     StdRegions::VarCoeffMap varcoeffs;
 
     factors[StdRegions::eFactorLambda] = lambda;
@@ -182,6 +208,23 @@ int main(int argc, char *argv[])
     Exp->BwdTrans(Exp->GetCoeffs(), Exp->UpdatePhys());
     // Exp->BwdTrans(Exp->GetContCoeffs(), Exp->UpdatePhys(), true);
     //----------------------------------------------
+
+    //-----------------------------------------------
+    // Write solution to file
+    LibUtilities::FieldIOSharedPtr fld =
+        LibUtilities::FieldIO::CreateDefault(vSession);
+    string out = vSession->GetSessionName() + ".fld";
+    std::vector<LibUtilities::FieldDefinitionsSharedPtr> FieldDef =
+        Exp->GetFieldDefinitions();
+    std::vector<std::vector<NekDouble>> FieldData(FieldDef.size());
+
+    for (int i = 0; i < FieldDef.size(); ++i)
+    {
+        FieldDef[i]->m_fields.push_back("u");
+        Exp->AppendFieldData(FieldDef[i], FieldData[i]);
+    }
+    fld->Write(out, FieldDef, FieldData);
+    //-----------------------------------------------
 
     //----------------------------------------------
     // See if there is an exact solution, if so

@@ -381,7 +381,7 @@ void VCSImplicit::v_SolvePressure(const Array<OneD, NekDouble> &Forcing)
     // Solve Pressure Poisson Equation (with Weak Forcing)
     m_pressure->HelmSolve(Forcing, m_pressure->UpdateCoeffs(), factors,
                           StdRegions::NullVarCoeffMap,
-                          MultiRegions::NullVarFactorsMap, NullNekDouble1DArray,
+                          StdRegions::NullVarFactorsMap, NullNekDouble1DArray,
                           false);
 
     // Add presure to outflow bc if using convective like BCs
@@ -414,7 +414,7 @@ void VCSImplicit::v_SolveViscous(
 {
     StdRegions::ConstFactorMap factors;
     StdRegions::VarCoeffMap varcoeffs;
-    MultiRegions::VarFactorsMap varfactors = MultiRegions::NullVarFactorsMap;
+    StdRegions::VarFactorsMap varfactors = StdRegions::NullVarFactorsMap;
 
     AppendSVVFactors(factors, varfactors);
     ComputeGJPNormalVelocity(inarray, varcoeffs);

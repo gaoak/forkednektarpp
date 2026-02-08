@@ -55,14 +55,14 @@ GlobalLinSysKey::GlobalLinSysKey(const StdRegions::MatrixType matrixType,
                                  const AssemblyMapSharedPtr &locToGloMap,
                                  const StdRegions::ConstFactorMap &factors,
                                  const StdRegions::VarCoeffMap &varCoeffs,
-                                 const VarFactorsMap &varFactors)
+                                 const StdRegions::VarFactorsMap &varFactors)
     : GlobalMatrixKey(matrixType, locToGloMap, factors, varCoeffs),
       m_solnType(eNoSolnType), m_varFactors(varFactors),
       m_varFactors_hashes(varFactors.size())
 {
     // Create hash
     int i = 0;
-    for (VarFactorsMap::const_iterator x = varFactors.begin();
+    for (StdRegions::VarFactorsMap::const_iterator x = varFactors.begin();
          x != varFactors.end(); ++x)
     {
         m_varFactors_hashes[i] = boost::hash_range(

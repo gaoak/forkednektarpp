@@ -8,13 +8,13 @@
     </files>
     <metrics>
         <metric type="L2" id="1">
-            <value variable="u" tolerance="1e-9">2.5291e-08</value>
-            <value variable="v" tolerance="1e-10">9.82199e-09</value>
+            <value variable="u" tolerance="1e-9">2.30703e-08</value>
+            <value variable="v" tolerance="1e-10">5.73407e-09</value>
             <value variable="p" tolerance="1e-9">1.15756e-08</value>
         </metric>
         <metric type="Linf" id="2">
-            <value variable="u" tolerance="1e-9">9.53822e-08</value>
-            <value variable="v" tolerance="1e-9">5.67855e-08</value>
+            <value variable="u" tolerance="1e-9">7.08275e-08</value>
+            <value variable="v" tolerance="1e-9">4.61323e-08</value>
             <value variable="p" tolerance="1e-8">2.93157e-07</value>
         </metric>
     </metrics>

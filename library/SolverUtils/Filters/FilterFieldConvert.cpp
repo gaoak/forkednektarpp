@@ -328,7 +328,6 @@ void FilterFieldConvert::v_Initialise(
     const NekDouble &time)
 {
     v_FillVariablesName(pFields);
-
     // m_variables need to be filled by a derived class
     m_outFields.resize(m_variables.size());
     int nfield;
@@ -498,7 +497,7 @@ void FilterFieldConvert::v_Update(
         m_fieldMetaData["FinalTime"] = boost::lexical_cast<std::string>(time);
         v_PrepareOutput(pFields, time);
         m_fieldMetaData["FilterFileNum"] = std::to_string(++m_outputIndex);
-        OutputField(pFields, m_outputIndex);
+        v_OutputField(pFields, m_outputIndex);
     }
 }
 
@@ -508,7 +507,7 @@ void FilterFieldConvert::v_Finalise(
 {
     m_fieldMetaData["FinalTime"] = boost::lexical_cast<std::string>(time);
     v_PrepareOutput(pFields, time);
-    OutputField(pFields);
+    v_OutputField(pFields);
 }
 
 void FilterFieldConvert::v_ProcessSample(
@@ -524,7 +523,7 @@ void FilterFieldConvert::v_ProcessSample(
     }
 }
 
-void FilterFieldConvert::OutputField(
+void FilterFieldConvert::v_OutputField(
     const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields, int dump)
 {
     NekDouble scale = v_GetScale();

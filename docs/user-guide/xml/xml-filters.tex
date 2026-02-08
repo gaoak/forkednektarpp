@@ -886,6 +886,29 @@ averages and the Reynolds stresses calculated based on them. For example:
   </FILTER>
 \end{lstlisting}
 
+The Reynolds stress fields are represented by same the 
+polynomial order, P, as the velocity fields defined in the session file.
+Since the Reynolds stress fields are quadratic products of the velocity fields, 
+(i.e. require twice the polynomial order as the velocity fields), they may be 
+under resolved.
+
+To overcome this issue, the user can specify ScaleNumModes, a factor which scales
+the number of modes (ScaleNumModes * NUMMODES) of which the Reynolds stresses will
+be processed on.
+Note that the resulting number of modes is rounded to the lowest integer,
+i.e. Nummodes of RSS = floor(3 * 1.4) = 4.
+
+\begin{lstlisting}[style=XMLStyle,gobble=2]
+    <FILTER TYPE="ReynoldsStresses">
+        <PARAM NAME="OutputFile">MyAverageField</PARAM>
+        <PARAM NAME="MovingAverage">true</PARAM>
+        <PARAM NAME="OutputFrequency">100</PARAM>
+        <PARAM NAME="SampleFrequency"> 10 </PARAM>
+        <PARAM NAME="ScaleNumModes"> 1.4 </PARAM>
+    </FILTER>
+\end{lstlisting}
+
+
 \subsection{Time-averaged fields}\label{filters:TimeAveragedFields}
 
 This filter computes time-averaged fields for each variable defined in the

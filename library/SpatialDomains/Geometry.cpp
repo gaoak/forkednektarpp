@@ -96,7 +96,7 @@ int Geometry::GetFid(int i) const
 /**
  * @copydoc Geometry::GetVertex()
  */
-PointGeom *Geometry::v_GetVertex([[maybe_unused]] int i) const
+PointGeom *Geometry::v_GetVertex([[maybe_unused]] const int i) const
 {
     NEKERROR(ErrorUtil::efatal,
              "This function is only valid for shape type geometries");
@@ -106,7 +106,7 @@ PointGeom *Geometry::v_GetVertex([[maybe_unused]] int i) const
 /**
  * @copydoc Geometry::GetEdge()
  */
-Geometry1D *Geometry::v_GetEdge([[maybe_unused]] int i) const
+Geometry1D *Geometry::v_GetEdge([[maybe_unused]] const int i) const
 {
     NEKERROR(ErrorUtil::efatal,
              "This function is only valid for shape type geometries");
@@ -116,7 +116,7 @@ Geometry1D *Geometry::v_GetEdge([[maybe_unused]] int i) const
 /**
  * @copydoc Geometry::GetFace()
  */
-Geometry2D *Geometry::v_GetFace([[maybe_unused]] int i) const
+Geometry2D *Geometry::v_GetFace([[maybe_unused]] const int i) const
 {
     NEKERROR(ErrorUtil::efatal,
              "This function is only valid for shape type geometries");

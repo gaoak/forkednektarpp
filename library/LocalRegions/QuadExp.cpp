@@ -375,6 +375,24 @@ void QuadExp::v_GetTracePhysVals(
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray, StdRegions::Orientation orient)
 {
+    v_GetLocTracePhysVals(edge, EdgeExp, inarray.data(), outarray);
+
+    if (orient == StdRegions::eNoOrientation)
+    {
+        orient = GetTraceOrient(edge);
+    }
+    // Reverse data if necessary
+    if (orient == StdRegions::eBackwards)
+    {
+        Vmath::Reverse(EdgeExp->GetNumPoints(0), &outarray[0], 1, &outarray[0],
+                       1);
+    }
+}
+
+void QuadExp::v_GetLocTracePhysVals(
+    const int edge, const StdRegions::StdExpansionSharedPtr &EdgeExp,
+    const double *inarray, Array<OneD, NekDouble> &outarray)
+{
     int nquad0 = m_base[0]->GetNumPoints();
     int nquad1 = m_base[1]->GetNumPoints();
 
@@ -419,21 +437,16 @@ void QuadExp::v_GetTracePhysVals(
         LibUtilities::Interp1D(m_base[edge % 2]->GetPointsKey(), outtmp,
                                EdgeExp->GetBasis(0)->GetPointsKey(), outarray);
     }
-
-    if (orient == StdRegions::eNoOrientation)
-    {
-        orient = GetTraceOrient(edge);
-    }
-    // Reverse data if necessary
-    if (orient == StdRegions::eBackwards)
-    {
-        Vmath::Reverse(EdgeExp->GetNumPoints(0), &outarray[0], 1, &outarray[0],
-                       1);
-    }
 }
 
 void QuadExp::GetEdgeInterpVals(const int edge,
                                 const Array<OneD, const NekDouble> &inarray,
+                                Array<OneD, NekDouble> &outarray)
+{
+    GetEdgeInterpVals(edge, inarray.data(), outarray);
+}
+
+void QuadExp::GetEdgeInterpVals(const int edge, const NekDouble *inarray,
                                 Array<OneD, NekDouble> &outarray)
 {
     int i;
@@ -1385,177 +1398,4 @@ void QuadExp::v_SVVLaplacianFilter(Array<OneD, NekDouble> &array,
     Vmath::Vdiv(nq, array, 1, sqrt_jac, 1, array, 1);
 }
 
-/** @brief: This method gets all of the factors which are
-    required as part of the Gradient Jump Penalty (GJP)
-    stabilisation and involves the product of the normal and
-    geometric factors along the element trace.
-*/
-void QuadExp::v_NormalTraceDerivFactors(
-    Array<OneD, Array<OneD, NekDouble>> &d0factors,
-    Array<OneD, Array<OneD, NekDouble>> &d1factors,
-    [[maybe_unused]] Array<OneD, Array<OneD, NekDouble>> &d2factors)
-{
-    int nquad0 = GetNumPoints(0);
-    int nquad1 = GetNumPoints(1);
-
-    const Array<TwoD, const NekDouble> &df = m_geomFactors->GetDerivFactors();
-
-    if (d0factors.size() != 4)
-    {
-        d0factors = Array<OneD, Array<OneD, NekDouble>>(4);
-        d1factors = Array<OneD, Array<OneD, NekDouble>>(4);
-    }
-
-    if (d0factors[0].size() != nquad0)
-    {
-        d0factors[0] = Array<OneD, NekDouble>(nquad0);
-        d0factors[2] = Array<OneD, NekDouble>(nquad0);
-        d1factors[0] = Array<OneD, NekDouble>(nquad0);
-        d1factors[2] = Array<OneD, NekDouble>(nquad0);
-    }
-
-    if (d0factors[1].size() != nquad1)
-    {
-        d0factors[1] = Array<OneD, NekDouble>(nquad1);
-        d0factors[3] = Array<OneD, NekDouble>(nquad1);
-        d1factors[1] = Array<OneD, NekDouble>(nquad1);
-        d1factors[3] = Array<OneD, NekDouble>(nquad1);
-    }
-
-    // Outwards normals
-    const Array<OneD, const Array<OneD, NekDouble>> &normal_0 =
-        GetTraceNormal(0);
-    const Array<OneD, const Array<OneD, NekDouble>> &normal_1 =
-        GetTraceNormal(1);
-    const Array<OneD, const Array<OneD, NekDouble>> &normal_2 =
-        GetTraceNormal(2);
-    const Array<OneD, const Array<OneD, NekDouble>> &normal_3 =
-        GetTraceNormal(3);
-
-    int ncoords = normal_0.size();
-
-    if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed)
-    {
-        // needs checking for 3D coords
-
-        // factors 0 and 2
-        for (int i = 0; i < nquad0; ++i)
-        {
-            d0factors[0][i] = df[0][i] * normal_0[0][i];
-            d0factors[2][i] = df[0][nquad0 * (nquad1 - 1) + i] * normal_2[0][i];
-
-            d1factors[0][i] = df[1][i] * normal_0[0][i];
-            d1factors[2][i] = df[1][nquad0 * (nquad1 - 1) + i] * normal_2[0][i];
-        }
-
-        for (int n = 1; n < ncoords; ++n)
-        {
-            // d xi_1/dy n_y
-            // needs checking for 3D coords
-            for (int i = 0; i < nquad0; ++i)
-            {
-                d0factors[0][i] += df[2 * n][i] * normal_0[n][i];
-                d0factors[2][i] +=
-                    df[2 * n][nquad0 * (nquad1 - 1) + i] * normal_2[n][i];
-
-                d1factors[0][i] += df[2 * n + 1][i] * normal_0[n][i];
-                d1factors[2][i] +=
-                    df[2 * n + 1][nquad0 * (nquad1 - 1) + i] * normal_2[n][i];
-            }
-        }
-
-        // faces 1 and 3
-        for (int i = 0; i < nquad1; ++i)
-        {
-            d0factors[1][i] = df[0][(i + 1) * nquad0 - 1] * normal_1[0][i];
-            d0factors[3][i] = df[0][i * nquad0] * normal_3[0][i];
-
-            d1factors[1][i] = df[1][(i + 1) * nquad0 - 1] * normal_1[0][i];
-            d1factors[3][i] = df[1][i * nquad0] * normal_3[0][i];
-        }
-
-        for (int n = 1; n < ncoords; ++n)
-        {
-            for (int i = 0; i < nquad1; ++i)
-            {
-                d0factors[1][i] +=
-                    df[2 * n][(i + 1) * nquad0 - 1] * normal_1[n][i];
-                d0factors[3][i] += df[2 * n][i * nquad0] * normal_3[n][i];
-
-                d1factors[1][i] +=
-                    df[2 * n + 1][(i + 1) * nquad0 - 1] * normal_1[n][i];
-                d1factors[3][i] += df[2 * n + 1][i * nquad0] * normal_3[n][i];
-            }
-        }
-    }
-    else
-    {
-        // d xi_2/dx n_x
-        for (int i = 0; i < nquad0; ++i)
-        {
-            d1factors[0][i] = df[1][0] * normal_0[0][i];
-            d1factors[2][i] = df[1][0] * normal_2[0][i];
-        }
-
-        // d xi_1/dx n_x
-        for (int i = 0; i < nquad1; ++i)
-        {
-            d0factors[1][i] = df[0][0] * normal_1[0][i];
-            d0factors[3][i] = df[0][0] * normal_3[0][i];
-        }
-
-        for (int n = 1; n < ncoords; ++n)
-        {
-            // d xi_2/dy n_y
-            // needs checking for 3D coords
-            for (int i = 0; i < nquad0; ++i)
-            {
-                d1factors[0][i] += df[2 * n + 1][0] * normal_0[n][i];
-                d1factors[2][i] += df[2 * n + 1][0] * normal_2[n][i];
-            }
-
-            // d xi_1/dy n_y
-            // needs checking for 3D coords
-            for (int i = 0; i < nquad1; ++i)
-            {
-                d0factors[1][i] += df[2 * n][0] * normal_1[n][i];
-                d0factors[3][i] += df[2 * n][0] * normal_3[n][i];
-            }
-        }
-
-        // d1factors
-        // d xi_1/dx n_x
-        for (int i = 0; i < nquad0; ++i)
-        {
-            d0factors[0][i] = df[0][0] * normal_0[0][i];
-            d0factors[2][i] = df[0][0] * normal_2[0][i];
-        }
-
-        // d xi_2/dx n_x
-        for (int i = 0; i < nquad1; ++i)
-        {
-            d1factors[1][i] = df[1][0] * normal_1[0][i];
-            d1factors[3][i] = df[1][0] * normal_3[0][i];
-        }
-
-        for (int n = 1; n < ncoords; ++n)
-        {
-            // d xi_1/dy n_y
-            // needs checking for 3D coords
-            for (int i = 0; i < nquad0; ++i)
-            {
-                d0factors[0][i] += df[2 * n][0] * normal_0[n][i];
-                d0factors[2][i] += df[2 * n][0] * normal_2[n][i];
-            }
-
-            // d xi_2/dy n_y
-            // needs checking for 3D coords
-            for (int i = 0; i < nquad1; ++i)
-            {
-                d1factors[1][i] += df[2 * n + 1][0] * normal_1[n][i];
-                d1factors[3][i] += df[2 * n + 1][0] * normal_3[n][i];
-            }
-        }
-    }
-}
 } // namespace Nektar::LocalRegions

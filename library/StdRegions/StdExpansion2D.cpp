@@ -536,13 +536,22 @@ void StdExpansion2D::v_GetTraceToElementMap(const int eid,
 
 void StdExpansion2D::v_PhysInterp(std::shared_ptr<StdExpansion> fromExp,
                                   const Array<OneD, const NekDouble> &fromData,
-                                  Array<OneD, NekDouble> &toData)
+                                  Array<OneD, NekDouble> &toData,
+                                  bool Transpose)
 {
-
-    LibUtilities::Interp2D(fromExp->GetBasis(0)->GetPointsKey(),
-                           fromExp->GetBasis(1)->GetPointsKey(), fromData,
-                           m_base[0]->GetPointsKey(), m_base[1]->GetPointsKey(),
-                           toData);
+    if (Transpose)
+    {
+        LibUtilities::Interp2D(fromExp->GetBasis(0)->GetPointsKey(),
+                               fromExp->GetBasis(1)->GetPointsKey(), fromData,
+                               m_base[1]->GetPointsKey(),
+                               m_base[0]->GetPointsKey(), toData);
+    }
+    else
+    {
+        LibUtilities::Interp2D(fromExp->GetBasis(0)->GetPointsKey(),
+                               fromExp->GetBasis(1)->GetPointsKey(), fromData,
+                               m_base[0]->GetPointsKey(),
+                               m_base[1]->GetPointsKey(), toData);
+    }
 }
-
 } // namespace Nektar::StdRegions

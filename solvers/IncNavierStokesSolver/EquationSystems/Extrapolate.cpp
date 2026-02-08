@@ -968,26 +968,30 @@ std::string Extrapolate::v_GetSubStepName(void)
  */
 void Extrapolate::ExtrapolateArray(Array<OneD, Array<OneD, NekDouble>> &array)
 {
-    int nint    = std::min(m_pressureCalls, m_intSteps);
-    int nlevels = array.size();
-    int nPts    = array[0].size();
-
-    // Check integer for time levels
-    // Note that ExtrapolateArray assumes m_pressureCalls is >= 1
-    // meaning v_EvaluatePressureBCs has been called previously
-    ASSERTL0(nint > 0, "nint must be > 0 when calling ExtrapolateArray.");
-
-    // Update array
-    RollOver(array);
-
-    // Extrapolate to outarray
-    Vmath::Smul(nPts, StifflyStable_Betaq_Coeffs[nint - 1][nint - 1],
-                array[nint - 1], 1, array[nlevels - 1], 1);
-
-    for (int n = 0; n < nint - 1; ++n)
+    int nPts = array[0].size();
+    if (nPts) // potential for triply perioidc case
     {
-        Vmath::Svtvp(nPts, StifflyStable_Betaq_Coeffs[nint - 1][n], array[n], 1,
-                     array[nlevels - 1], 1, array[nlevels - 1], 1);
+        int nint    = std::min(m_pressureCalls, m_intSteps);
+        int nlevels = array.size();
+
+        // Check integer for time levels
+        // Note that ExtrapolateArray assumes m_pressureCalls is >= 1
+        // meaning v_EvaluatePressureBCs has been called previously
+        ASSERTL0(nint > 0, "nint must be > 0 when calling ExtrapolateArray.");
+
+        // Update array
+        RollOver(array);
+
+        // Extrapolate to outarray
+        Vmath::Smul(nPts, StifflyStable_Betaq_Coeffs[nint - 1][nint - 1],
+                    array[nint - 1], 1, array[nlevels - 1], 1);
+
+        for (int n = 0; n < nint - 1; ++n)
+        {
+            Vmath::Svtvp(nPts, StifflyStable_Betaq_Coeffs[nint - 1][n],
+                         array[n], 1, array[nlevels - 1], 1, array[nlevels - 1],
+                         1);
+        }
     }
 }
 

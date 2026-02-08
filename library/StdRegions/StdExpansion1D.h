@@ -113,7 +113,7 @@ protected:
     STD_REGIONS_EXPORT void v_PhysInterp(
         std::shared_ptr<StdExpansion> fromExp,
         const Array<OneD, const NekDouble> &fromData,
-        Array<OneD, NekDouble> &toData) override;
+        Array<OneD, NekDouble> &toData, bool Transpose) override;
 
     STD_REGIONS_EXPORT void v_MultiplyByStdQuadratureMetric(
         const Array<OneD, const NekDouble> &inarray,

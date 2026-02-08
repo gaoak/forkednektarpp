@@ -234,7 +234,7 @@ protected:
                          const Array<OneD, Array<OneD, NekDouble>> &vel =
                              NullNekDoubleArrayOfArray);
     void AppendSVVFactors(StdRegions::ConstFactorMap &factors,
-                          MultiRegions::VarFactorsMap &varFactorsMap);
+                          StdRegions::VarFactorsMap &varFactorsMap);
 
     void ComputeGJPNormalVelocity(
         const Array<OneD, const Array<OneD, NekDouble>> &inarray,

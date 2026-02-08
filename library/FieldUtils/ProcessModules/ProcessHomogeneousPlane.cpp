@@ -149,6 +149,8 @@ void ProcessHomogeneousPlane::v_Process(po::variables_map &vm)
         m_f->m_session = LibUtilities::SessionReader::CreateInstance(
             argc, (char **)argv, files, m_f->m_comm->GetRowComm());
         m_f->m_session->InitSession();
+
+        delete[] argv;
     }
     else
     {

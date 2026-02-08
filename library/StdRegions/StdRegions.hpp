@@ -141,7 +141,7 @@ enum MatrixType
 const char *const MatrixTypeMap[] = {
     "NoMatrixType",
     "Mass",
-    "Mass wiht Diagonal GJP",
+    "Mass with Diagonal GJP",
     "InvMass",
     "Laplacian",
     "Laplacian00",
@@ -234,18 +234,18 @@ enum VarCoeffType
 };
 
 const char *const VarCoeffTypeMap[] = {
-    "VarCoeffMass",      "VarCoeffLaplacian", "VarCoeffWeakDeriv",
-    "VarCoeffD00",       "VarCoeffD01",       "VarCoeffD02",
-    "VarCoeffD10",       "VarCoeffD11",       "VarCoeffD12",
-    "VarCoeffD20",       "VarCoeffD21",       "VarCoeffD22",
-    "VarCoeffVelX",      "VarCoeffVelY",      "VarCoeffVelZ",
-    "VarCoeffMF1x",      "VarCoeffMF1y",      "VarCoeffMF1z",
-    "VarCoeffMF1Div",    "VarCoeffMF1Mag",    "VarCoeffMF2x",
-    "VarCoeffMF2y",      "VarCoeffMF2z",      "VarCoeffMF2Div",
-    "VarCoeffMF2Mag",    "VarCoeffMF3x",      "VarCoeffMF3y",
-    "VarCoeffMF3z",      "VarCoeffMF3Div",    "VarCoeffMF3Mag",
-    "VarCoeffMF",        "VarCoeffMFDiv",     "VarCoeffGmat",
-    "VarCoeffGJPNormVel"};
+    "VarCoeffMass",       "VarCoeffLaplacian",  "VarCoeffWeakDeriv",
+    "VarCoeffD00",        "VarCoeffD01",        "VarCoeffD02",
+    "VarCoeffD10",        "VarCoeffD11",        "VarCoeffD12",
+    "VarCoeffD20",        "VarCoeffD21",        "VarCoeffD22",
+    "VarCoeffVelX",       "VarCoeffVelY",       "VarCoeffVelZ",
+    "VarCoeffMF1x",       "VarCoeffMF1y",       "VarCoeffMF1z",
+    "VarCoeffMF1Div",     "VarCoeffMF1Mag",     "VarCoeffMF2x",
+    "VarCoeffMF2y",       "VarCoeffMF2z",       "VarCoeffMF2Div",
+    "VarCoeffMF2Mag",     "VarCoeffMF3x",       "VarCoeffMF3y",
+    "VarCoeffMF3z",       "VarCoeffMF3Div",     "VarCoeffMF3Mag",
+    "VarCoeffMF",         "VarCoeffMFDiv",      "VarCoeffGmat",
+    "VarCoeffGJPNormVel", "VarCoeffTraceWeight"};
 
 // Structure to map matrix type to relevant variable coefficients
 // Note the mappings require manual definition and are used via
@@ -449,6 +449,7 @@ enum ConstFactorType
     eFactorGaussVertex,
     eFactorGaussEdge,
     eFactorGJP,
+    eFactorGJPTraceWeight,
     eFactorConst,
     SIZE_ConstFactorType
 };
@@ -469,6 +470,7 @@ const char *const ConstFactorTypeMap[] = {"FactorLambda",
                                           "FactorGaussVertex",
                                           "FactorGaussEdge",
                                           "FactorGJP",
+                                          "FactorGJPTraceWeight",
                                           "FactorConstant"};
 typedef std::map<ConstFactorType, NekDouble> ConstFactorMap;
 static ConstFactorMap NullConstFactorMap;
@@ -476,6 +478,11 @@ static ConstFactorMap NullConstFactorMap;
 // FactorMap
 typedef ConstFactorMap FactorMap;
 static FactorMap NullFactorMap;
+
+// Variable FactorMap
+typedef std::map<StdRegions::ConstFactorType, Array<OneD, NekDouble>>
+    VarFactorsMap;
+static VarFactorsMap NullVarFactorsMap;
 
 enum Orientation
 {

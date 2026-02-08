@@ -852,8 +852,8 @@ void CouplingCwipi::ReceiveCwipi(const int step, const NekDouble time,
 
                 StdRegions::ConstFactorMap factors;
                 StdRegions::VarCoeffMap varcoeffs;
-                MultiRegions::VarFactorsMap varfactors =
-                    MultiRegions::NullVarFactorsMap;
+                StdRegions::VarFactorsMap varfactors =
+                    StdRegions::NullVarFactorsMap;
 
                 factors[StdRegions::eFactorLambda] = -m_filtWidth;
 

@@ -93,6 +93,11 @@ public:
         const StdRegions::Orientation orient, Array<OneD, int> &idmap,
         const int nq0, const int nq1, bool Forwards) override;
 
+    LOCAL_REGIONS_EXPORT void v_ReOrientTracePhysVals(
+        const StdRegions::Orientation orient,
+        const Array<OneD, const NekDouble> &in, Array<OneD, NekDouble> &out,
+        const int nq0, const int nq1, bool Forwards) override;
+
     LOCAL_REGIONS_EXPORT void v_NormVectorIProductWRTBase(
         const Array<OneD, const Array<OneD, NekDouble>> &Fvec,
         Array<OneD, NekDouble> &outarray) override;
@@ -112,6 +117,23 @@ public:
 
     LOCAL_REGIONS_EXPORT DNekScalMatSharedPtr
     CreateMatrix(const MatrixKey &mkey);
+
+    inline void GetTracePhysVals(
+        const int trace, const StdRegions::StdExpansionSharedPtr &TraceExp,
+        const Array<OneD, const NekDouble> &inarray,
+        Array<OneD, NekDouble> &outarray,
+        StdRegions::Orientation orient = StdRegions::eNoOrientation)
+    {
+        v_GetTracePhysVals(trace, TraceExp, inarray, outarray, orient);
+    }
+
+    inline void GetLocTracePhysVals(
+        const int trace, const StdRegions::StdExpansionSharedPtr &TraceExp,
+        const Array<OneD, const NekDouble> &inarray,
+        Array<OneD, NekDouble> &outarray)
+    {
+        v_GetLocTracePhysVals(trace, TraceExp, inarray.data(), outarray);
+    }
 
 protected:
     std::map<int, NormalVector> m_faceNormals;
@@ -147,6 +169,11 @@ protected:
                             Array<OneD, NekDouble> &outarray,
                             StdRegions::Orientation orient) override;
 
+    void v_GetLocTracePhysVals(const int face,
+                               const StdRegions::StdExpansionSharedPtr &FaceExp,
+                               const NekDouble *inarray,
+                               Array<OneD, NekDouble> &outarray) override;
+
     void v_GenTraceExp(const int traceid, ExpansionSharedPtr &exp) override;
 
     void GetPhysFaceVarCoeffsFromElement(
@@ -170,6 +197,11 @@ protected:
 
     LOCAL_REGIONS_EXPORT void v_TraceNormLen(const int traceid, NekDouble &h,
                                              NekDouble &p) override;
+
+    LOCAL_REGIONS_EXPORT void v_NormalTraceDerivFactors(
+        Array<OneD, Array<OneD, NekDouble>> &d0factors,
+        Array<OneD, Array<OneD, NekDouble>> &d1factors,
+        Array<OneD, Array<OneD, NekDouble>> &d2factors) override;
 
 private:
     // Do not add members here since it may lead to conflicts.

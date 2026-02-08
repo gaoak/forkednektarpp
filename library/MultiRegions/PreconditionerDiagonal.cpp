@@ -126,7 +126,6 @@ void PreconditionerDiagonal::DiagonalPreconditionerSum()
 
     // Assemble diagonal contributions across processes
     asmMap->UniversalAssemble(vOutput);
-
     m_diagonals = Array<OneD, NekDouble>(nInt);
     Vmath::Sdiv(nInt, 1.0, &vOutput[nDir], 1, &m_diagonals[0], 1);
 }

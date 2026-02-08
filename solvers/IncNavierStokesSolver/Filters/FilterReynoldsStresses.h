@@ -35,6 +35,7 @@
 #ifndef NEKTAR_SOLVERUTILS_FILTERS_FILTERREYNOLDSSTRESSES_H
 #define NEKTAR_SOLVERUTILS_FILTERS_FILTERREYNOLDSSTRESSES_H
 
+#include <LibUtilities/Foundations/ManagerAccess.h>
 #include <SolverUtils/Filters/FilterFieldConvert.h>
 
 namespace Nektar::SolverUtils
@@ -61,10 +62,13 @@ public:
     static std::string className;
 
 protected:
+    Array<OneD, MultiRegions::ExpListSharedPtr> m_pFieldsScaled;
     std::vector<Array<OneD, NekDouble>> m_fields;
     std::vector<Array<OneD, NekDouble>> m_delta;
     NekDouble m_alpha;
     bool m_movAvg;
+    bool m_Scale;
+    NekDouble m_ScaleNumModes;
 
     FilterReynoldsStresses(
         const LibUtilities::SessionReaderSharedPtr &pSession,
@@ -86,6 +90,10 @@ protected:
     void v_PrepareOutput(
         const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
         const NekDouble &time) override;
+    void v_OutputField(
+        const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
+        int dump) override;
+
     NekDouble v_GetScale() override;
     std::string v_GetFileSuffix() override
     {
