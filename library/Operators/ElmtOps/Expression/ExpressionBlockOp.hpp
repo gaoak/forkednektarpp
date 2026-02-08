@@ -61,26 +61,36 @@ public:
     void SetExpressions(
         const std::vector<LibUtilities::EquationSharedPtr> &exprs)
     {
-        v_SetExpressions(exprs);
+        this->m_expressions = exprs;
     }
 
     void SetTime(const TData &time)
     {
-        v_SetTime(time);
+        this->m_time = time;
     }
 
     void SetScale(const TData &scale)
     {
-        v_SetScale(scale);
+        this->m_scale = scale;
+    }
+
+    void SetAppend(const bool &append)
+    {
+        this->m_append = append;
     }
 
     void SetNumEvars(const std::vector<unsigned int> &numEvars)
     {
-        v_SetNumEvars(numEvars);
+        this->m_numEvars = numEvars;
     }
 
 protected:
     std::vector<LibUtilities::EquationSharedPtr> m_expressions;
+    std::vector<unsigned int> m_numEvars;
+
+    TData m_time  = 0.0;
+    TData m_scale = 1.0;
+    bool m_append = false;
 
     ExpressionBlockOp(const unsigned int block_idx,
                       const LocalRegions::ExpansionSharedPtr &exp,
@@ -91,15 +101,6 @@ protected:
     }
 
     ~ExpressionBlockOp() override = default;
-
-    virtual void v_SetExpressions(
-        const std::vector<LibUtilities::EquationSharedPtr> &exprs) = 0;
-
-    virtual void v_SetTime(const TData &time) = 0;
-
-    virtual void v_SetScale(const TData &scale) = 0;
-
-    virtual void v_SetNumEvars(const std::vector<unsigned int> &numEvars) = 0;
 };
 
 } // namespace Nektar::Operators
