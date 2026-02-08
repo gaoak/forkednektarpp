@@ -54,12 +54,12 @@ public:
         : ExpressionBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
-        m_dimension = exp->GetShapeDimension();
-        m_coordDim  = exp->GetCoordim();
-        m_nqTot     = exp->GetTotPoints();
+        this->m_dimension = exp->GetShapeDimension();
+        this->m_coordDim  = exp->GetCoordim();
+        this->m_nqTot     = exp->GetTotPoints();
 
-        m_coordptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            CoordKey<TData>(block_idx, m_implInterleaveWidth, false));
+        this->m_coordptr = this->m_dataWarehouse->template GetData<MemSpace>(
+            CoordKey<TData>(block_idx, this->m_implInterleaveWidth, false));
     }
 
     // className - for BlockOperatorFactory
@@ -83,19 +83,13 @@ protected:
     unsigned int m_dimension;
     unsigned int m_coordDim;
     unsigned int m_nqTot;
-    std::vector<unsigned int> m_numEvars;
     const TData *m_coordptr;
-
-    TData m_time;
-    TData m_scale;
-
-    std::vector<LibUtilities::EquationSharedPtr> m_expressions;
 
     void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
                  BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
-        ASSERTL1(m_expressions.size() == inblock.GetNumComponents() &&
-                     m_expressions.size() == outblock.GetNumComponents(),
+        ASSERTL1(this->m_expressions.size() == inblock.GetNumComponents() &&
+                     this->m_expressions.size() == outblock.GetNumComponents(),
                  "Number of expressions must match number of components in "
                  "input and output Field when calling Apply().")
 
@@ -105,7 +99,9 @@ protected:
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = (this->m_append)
+                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                          : outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -119,25 +115,30 @@ protected:
             nc = n / inblock.GetNumHomoModes();
 
             // Pre-allocate vector for point-wise fielddata
-            std::vector<double> fielddata(m_numEvars[nc]);
+            std::vector<double> fielddata(this->m_numEvars[nc]);
 
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+            ReshapeStorage<ExecSpace>(this->m_implInterleaveWidth,
+                                      interleaveWidth,
                                       inblock.GetNumElementsWithPadding(),
                                       inblock.GetNumData(), (TData *)inptr);
 
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                      outblock.GetNumElementsWithPadding(),
-                                      outblock.GetNumData(), (TData *)outptr);
+            if (this->m_append)
+            {
+                ReshapeStorage<ExecSpace>(
+                    this->m_implInterleaveWidth, interleaveWidth,
+                    outblock.GetNumElementsWithPadding(), outblock.GetNumData(),
+                    (TData *)outptr);
+            }
 
             // Evaluate expression.
-            auto coordptr = m_coordptr;
+            auto coordptr = this->m_coordptr;
             for (size_t e = 0, cnt = 0; e < nelmt; e++)
             {
                 // Kernel operation.
                 unsigned int nev;
                 TData fce = 0.0;
-                for (unsigned int pt = 0; pt < m_nqTot; ++pt, ++cnt)
+                for (unsigned int pt = 0; pt < this->m_nqTot; ++pt, ++cnt)
                 {
                     // Gather fielddata
                     // Note we set y and z coordinate only if the coordinate
@@ -145,36 +146,40 @@ protected:
                     // This is relevant for example for boundary elements where
                     // the domain uses one more dimension than the boundary
                     fielddata[0] = *(coordptr);
-                    fielddata[1] = m_coordDim > 1 ? *(coordptr + 1) : 0.0;
-                    fielddata[2] = m_coordDim > 2 ? *(coordptr + 2) : 0.0;
-                    fielddata[3] = m_time;
+                    fielddata[1] = this->m_coordDim > 1 ? *(coordptr + 1) : 0.0;
+                    fielddata[2] = this->m_coordDim > 2 ? *(coordptr + 2) : 0.0;
+                    fielddata[3] = this->m_time;
 
                     // Add EVARS, if required
                     // Note we assume that inblock holds all fields as
                     // components
                     nev = 0;
-                    for (unsigned i = 4; i < m_numEvars[nc]; i++, nev++)
+                    for (unsigned i = 4; i < this->m_numEvars[nc]; i++, nev++)
                     {
                         fielddata[i] = *(inptr + nev * compSize + cnt);
                     }
 
                     // Evaluate the function assuming fixed input of x, y and z
                     // coordinate.
-                    fce = m_expressions[n]->Evaluate(fielddata);
+                    fce = this->m_expressions[n]->Evaluate(fielddata);
 
                     // Add fce to outptr.
-                    *(outptr + cnt) += m_scale * fce;
+                    outptr[cnt] = (this->m_append)
+                                      ? outptr[cnt] + this->m_scale * fce
+                                      : this->m_scale * fce;
 
-                    coordptr += m_coordDim;
+                    coordptr += this->m_coordDim;
                 }
             }
 
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+            ReshapeStorage<ExecSpace>(interleaveWidth,
+                                      this->m_implInterleaveWidth,
                                       inblock.GetNumElementsWithPadding(),
                                       inblock.GetNumData(), (TData *)inptr);
 
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+            ReshapeStorage<ExecSpace>(interleaveWidth,
+                                      this->m_implInterleaveWidth,
                                       outblock.GetNumElementsWithPadding(),
                                       outblock.GetNumData(), (TData *)outptr);
 
@@ -184,27 +189,6 @@ protected:
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
-    }
-
-    void v_SetExpressions(
-        const std::vector<LibUtilities::EquationSharedPtr> &exprs) override
-    {
-        this->m_expressions = exprs;
-    }
-
-    void v_SetTime(const TData &time) override
-    {
-        this->m_time = time;
-    }
-
-    void v_SetScale(const TData &scale) override
-    {
-        this->m_scale = scale;
-    }
-
-    void v_SetNumEvars(const std::vector<unsigned int> &numEvars) override
-    {
-        this->m_numEvars = numEvars;
     }
 };
 

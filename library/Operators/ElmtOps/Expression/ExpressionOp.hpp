@@ -82,7 +82,7 @@ public:
         std::vector<unsigned int> numEvars;
         for (unsigned int ne = 0; ne < exprs.size(); ++ne)
         {
-            numEvars.push_back(this->getNumberEvars(exprs[ne]));
+            numEvars.push_back(this->GetNumberEvars(exprs[ne]));
         }
 
         // Loop over the blocks.
@@ -113,7 +113,16 @@ public:
         }
     }
 
-    unsigned int getNumberEvars(
+    void SetAppend(const bool &append)
+    {
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < m_blockOp.size(); ++blk)
+        {
+            this->m_blockOp[blk]->SetAppend(append);
+        }
+    }
+
+    unsigned int GetNumberEvars(
         const LibUtilities::EquationSharedPtr &expression)
     {
         // Extract the number of expression variables (EVARS).

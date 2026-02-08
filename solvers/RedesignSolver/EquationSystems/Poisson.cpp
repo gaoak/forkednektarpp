@@ -234,6 +234,7 @@ void Poisson::InitialiseOperators()
             forcingEquations.push_back(m_session->GetFunction("BodyForce", i));
         }
         m_forcingOp->SetExpressions(forcingEquations);
+        m_forcingOp->SetScale(1.0 / m_epsilon);
     }
 }
 
@@ -279,8 +280,6 @@ void Poisson::DoRhs(Field<double, FieldState::Phys> &inout)
     {
         // Evaluate forcing operator
         m_forcingOp->Apply(inout, inout);
-
-        m_math.mul(1.0 / m_epsilon, inout, inout);
     }
 }
 
