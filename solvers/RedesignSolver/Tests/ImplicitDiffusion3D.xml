@@ -37,6 +37,7 @@
             <V ID="30">1.00000000e+00 1.00000000e+00 -1.00000000e+00</V>
             <V ID="31">1.00000000e+00 1.00000000e+00 1.00000000e+00</V>
         </VERTEX>
+
         <EDGE>
             <E ID="0">0 1</E>
             <E ID="1">1 2</E>
@@ -103,6 +104,7 @@
             <E ID="62">29 31</E>
             <E ID="63">31 23</E>
         </EDGE>
+
         <FACE>
             <Q ID="0">0 1 2 3</Q>
             <Q ID="1">0 5 8 4</Q>
@@ -147,6 +149,7 @@
             <Q ID="40">60 61 63 43</Q>
             <Q ID="41">58 62 63 44</Q>
         </FACE>
+
         <ELEMENT>
             <H ID="0">0 1 2 3 4 5 </H>
             <H ID="1">6 3 7 8 9 10 </H>
@@ -158,6 +161,7 @@
             <H ID="7">34 32 35 36 22 37 </H>
             <H ID="8">38 36 39 40 26 41 </H>
         </ELEMENT>
+
         <COMPOSITE>
             <C ID="0"> H[0-8] </C>
             <C ID="1"> F[5,10,15,20,24,28,33,37,41] </C>    <!-- Front? -->
@@ -169,7 +173,6 @@
         </COMPOSITE>
 
         <DOMAIN> C[0] </DOMAIN>
-
     </GEOMETRY>
 
     <EXPANSIONS>
@@ -177,16 +180,14 @@
     </EXPANSIONS>
 
     <CONDITIONS>
-
         <PARAMETERS>
-            <P> TimeStep       = 0.001           </P>
-            <P> NumSteps       = 100              </P>
-            <P> FinTime        = NumSteps*TimeStep </P>
-            <P> IO_InfoSteps   = NumSteps/20     </P>
-            <P> dimension      = 3               </P>
-            <P> freq           = PI/2               </P>
-            <P> epsilon        = 0.2              </P>
-            <P> lambda         = epsilon * dimension * freq * freq </P>
+            <P> TimeStep       = 0.001                       </P>
+            <P> NumSteps       = 100                         </P>
+            <P> FinTime        = NumSteps*TimeStep           </P>
+            <P> IO_InfoSteps   = NumSteps/20                 </P>
+            <P> freq           = PI/2                        </P>
+            <P> epsilon        = 0.2                         </P>
+            <P> lambda         = epsilon * 3.0 * freq * freq </P>
         </PARAMETERS>
 
         <TIMEINTEGRATIONSCHEME>
@@ -223,7 +224,6 @@
         <FUNCTION NAME="InitialConditions">
             <E VAR="u" VALUE="cos(freq*x)*cos(freq*y)*cos(freq*z)" />
         </FUNCTION>
-
     </CONDITIONS>
 
 </NEKTAR>

@@ -42,21 +42,19 @@
     </GEOMETRY>
 
     <EXPANSIONS>
-        <E COMPOSITE="C[0,3]" NUMMODES="10" FIELDS="u" TYPE="MODIFIED" />
+        <E COMPOSITE="C[0,3]" NUMMODES="6" TYPE="MODIFIED" FIELDS="u" />
     </EXPANSIONS>
 
     <CONDITIONS>
-
         <PARAMETERS>
-            <P> TimeStep       = 0.001           </P>
-            <P> NumSteps       = 100              </P>
-            <P> FinTime        = NumSteps*TimeStep </P>
-            <P> IO_InfoSteps   = NumSteps/20     </P>
-            <P> dimension      = 1               </P>
-            <P> freq           = PI/2               </P>
-            <P> epsilon        = 0.2              </P>
-            <P> lambda         = 0.1              </P>
-            <P> kappa          = - ( lambda - epsilon * dimension * freq * freq ) </P>
+            <P> TimeStep       = 0.001                 </P>
+            <P> NumSteps       = 100                   </P>
+            <P> FinTime        = NumSteps*TimeStep     </P>
+            <P> IO_InfoSteps   = NumSteps/20           </P>
+            <P> freq           = PI/2                  </P>
+            <P> epsilon        = 0.2                   </P>
+            <P> lambda         = 0.1                   </P>
+            <P> kappa          = - ( lambda - epsilon * freq * freq ) </P>
         </PARAMETERS>
 
         <TIMEINTEGRATIONSCHEME>
@@ -69,6 +67,7 @@
             <I PROPERTY="Projection"            VALUE="Continuous" />
             <I PROPERTY="DiffusionAdvancement"  VALUE="Implicit" />
             <I PROPERTY="GLOBALSYSSOLN"         VALUE="IterativeFull" />
+            <I PROPERTY="LinSysIterSolver"      VALUE="ConjugateGradientLoc" />
             <I PROPERTY="Preconditioner"        VALUE="Diagonal" />
         </SOLVERINFO>
 
@@ -98,7 +97,6 @@
         <FUNCTION NAME="BodyForce">
             <E VAR="u" EVARS="u" VALUE="kappa*u" />
         </FUNCTION>
-
     </CONDITIONS>
 
     <FORCING>
