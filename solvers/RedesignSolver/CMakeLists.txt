@@ -45,6 +45,7 @@ IF(NEKTAR_BUILD_REDESIGN)
         ADD_SOLVER_EXECUTABLE(RedesignSolver SOURCES
             RedesignSolver.cpp
             EquationSystems/UnsteadyDiffusion.cpp
+            EquationSystems/Poisson.cpp
         )
 
         IF(NEKTAR_BUILD_SOLVER_LIBS)
@@ -54,6 +55,9 @@ IF(NEKTAR_BUILD_REDESIGN)
         SET_ALL_SOLVER_TEST(RedesignSolver ImplicitDiffusion1D)
         SET_ALL_SOLVER_TEST(RedesignSolver ImplicitDiffusion2D)
         SET_ALL_SOLVER_TEST(RedesignSolver ImplicitDiffusion3D)
+        SET_ALL_SOLVER_TEST(RedesignSolver SteadyDiffusion1D)
+        SET_ALL_SOLVER_TEST(RedesignSolver SteadyDiffusion2D)
+        SET_ALL_SOLVER_TEST(RedesignSolver SteadyDiffusion3D)
     #    SET_ALL_SOLVER_TEST(RedesignSolver ImplicitDiffusion3D_3C)
     #    SET_ALL_SOLVER_TEST(RedesignSolver ReactionDiffusion1D)
     #    SET_ALL_SOLVER_TEST(RedesignSolver ReactionDiffusion2D)

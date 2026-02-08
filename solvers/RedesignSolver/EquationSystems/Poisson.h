@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: UnsteadyDiffusion.h
+// File: Poisson.h
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,18 +28,16 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Unsteady diffusion solve routines
+// Description: Poisson problem solve routines for new operators
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
 #include "Operators/Math/Math.hpp"
-#include <Operators/ElmtOps/BwdTrans/BwdTransOp.hpp>
 #include <Operators/ElmtOps/Expression/ExpressionOp.hpp>
 #include <Operators/Field/Field.hpp>
-#include <Operators/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp>
-#include <Operators/GlobalLinSysOps/LinearSystems/HelmSolve/HelmSolveOp.hpp>
+#include <Operators/GlobalLinSysOps/LinearSystems/PoissonSolve/PoissonSolveOp.hpp>
 #include <SolverUtils/EquationSystem.h>
 
 namespace Nektar
@@ -47,10 +45,10 @@ namespace Nektar
 using namespace SolverUtils;
 using namespace Operators;
 
-class UnsteadyDiffusion : public EquationSystem
+class Poisson : public EquationSystem
 {
 public:
-    friend class MemoryManager<UnsteadyDiffusion>;
+    friend class MemoryManager<Poisson>;
 
     /// Creates an instance of this class
     static EquationSystemSharedPtr create(
@@ -58,8 +56,7 @@ public:
         const SpatialDomains::MeshGraphSharedPtr &pGraph)
     {
         EquationSystemSharedPtr p =
-            MemoryManager<UnsteadyDiffusion>::AllocateSharedPtr(pSession,
-                                                                pGraph);
+            MemoryManager<Poisson>::AllocateSharedPtr(pSession, pGraph);
         p->InitObject();
         return p;
     }
@@ -72,35 +69,27 @@ protected:
     double m_epsilon;
     std::vector<double> m_diffCoeff;
 
-    // Time stepping coefficient
-    double m_lambda;
-
     // Save variable strings and number for verbose output and looping
     std::vector<std::string> m_variables;
     unsigned int m_nVariables;
 
     // Setup workspaces
-    Field<double, FieldState::Phys> m_in;
+    Field<double, FieldState::Phys> m_wsp_fce;
     Field<double, FieldState::Coeff> m_wsp_coeff;
 
     // Declare math
     Math m_math;
 
-    // Time-integration
-    std::shared_ptr<TimeOp<double>> m_timeOp;
-
     // Initialise operators
-    std::shared_ptr<BwdTransOp<double>> m_bwdTransOp;
-    std::shared_ptr<HelmSolveOp<double>> m_helmSolveOp;
+    std::shared_ptr<PoissonSolveOp<double>> m_poissonSolveOp;
     std::shared_ptr<LinearSolverOp<double>> m_linearSolverOp;
-    std::map<double, std::shared_ptr<PreconOp<double>>> m_preconOp;
+    std::shared_ptr<PreconOp<double>> m_preconOp;
     std::shared_ptr<ExpressionOp<double>> m_forcingOp;
-    std::shared_ptr<FwdTransOp<double>> m_fwdTransOp;
 
-    UnsteadyDiffusion(const LibUtilities::SessionReaderSharedPtr &pSession,
-                      const SpatialDomains::MeshGraphSharedPtr &pGraph);
+    Poisson(const LibUtilities::SessionReaderSharedPtr &pSession,
+            const SpatialDomains::MeshGraphSharedPtr &pGraph);
 
-    ~UnsteadyDiffusion() override = default;
+    ~Poisson() override = default;
 
     void v_InitObject(bool DeclareFields = true) override;
 
@@ -108,24 +97,13 @@ protected:
 
     void v_GenerateSummary(SummaryList &s) override;
 
-    void DoDiffusion(Field<double, FieldState::Phys> &in,
-                     Field<double, FieldState::Phys> &out,
-                     [[maybe_unused]] const double &time, const double &lambda);
-
-    void DoReaction(Field<double, FieldState::Phys> &in,
-                    Field<double, FieldState::Phys> &out, const double &time,
-                    const double &dt);
-
-    void DoProjection(Field<double, FieldState::Phys> &in,
-                      Field<double, FieldState::Phys> &out, const double time);
+    void DoRhs(Field<double, FieldState::Phys> &inout);
 
     void InitialiseOperators();
 
     void InitialiseFields();
 
     void SetDiffusionCoeff();
-
-    void SetInitialConditionsField(Field<double, FieldState::Phys> &field);
 };
 
 } // namespace Nektar

@@ -48,8 +48,8 @@ std::string UnsteadyDiffusion::className =
 UnsteadyDiffusion::UnsteadyDiffusion(
     const LibUtilities::SessionReaderSharedPtr &pSession,
     const SpatialDomains::MeshGraphSharedPtr &pGraph)
-    : EquationSystem(pSession, pGraph), m_epsilon(1.0), m_lambda(1.0),
-      m_diffCoeff(std::vector<double>(1.0)), m_nVariables(1)
+    : EquationSystem(pSession, pGraph), m_epsilon(1.0),
+      m_diffCoeff(std::vector<double>(1.0)), m_lambda(1.0), m_nVariables(1)
 {
 }
 
@@ -79,27 +79,8 @@ void UnsteadyDiffusion::v_InitObject(bool DeclareFields)
     // Load diffusion coefficient
     m_session->LoadParameter("epsilon", m_epsilon, 1.0);
 
-    // Initialise default diffusion coefficients
-    const auto coordDim      = m_fields[0]->GetCoordim(0);
-    const auto diffCoeffSize = coordDim * (coordDim + 1) / 2;
-    m_diffCoeff.resize(diffCoeffSize);
-
-    // Set up (isotropic) diffusion coefficient.
-    if (coordDim == 1)
-    {
-        m_diffCoeff[0] = 1.0; // D00
-    }
-    else if (coordDim == 2)
-    {
-        m_diffCoeff[0] = 1.0; // D00
-        m_diffCoeff[2] = 1.0; // D11
-    }
-    else
-    {
-        m_diffCoeff[0] = 1.0; // D00
-        m_diffCoeff[2] = 1.0; // D11
-        m_diffCoeff[5] = 1.0; // D22
-    }
+    // Set up diffusion Coeff.
+    SetDiffusionCoeff();
 
     // Create and initialise all operators
     InitialiseOperators();
@@ -147,6 +128,8 @@ void UnsteadyDiffusion::v_DoSolve()
         }
     }
 
+    // TODO : Remove the below code, when updated with Redesign solverUtils
+    //  ----------------------------------------------------------------------
     // Write result into m_fields.m_coeffs for correct output to Fld file and
     // check against exact solution
     // Note outcoeffs has data arranged as [comp0, comp1, comp2] in a single
@@ -169,6 +152,7 @@ void UnsteadyDiffusion::v_DoSolve()
         // Increment
         sizeCoeffs += nCoeff;
     }
+    //--------------------------------------------------------------------------
 }
 
 void UnsteadyDiffusion::v_GenerateSummary(SummaryList &s)
@@ -295,6 +279,62 @@ void UnsteadyDiffusion::DoProjection(Field<double, FieldState::Phys> &in,
     m_bwdTransOp->Apply(m_wsp_coeff, out);
 }
 
+/**
+ * @brief Set the diffusion Coeff.
+ * the diff. coeff., diffCoeff_{ij} := \epslion * D_{ij}
+ * where,
+ *  \epslion is scalar part
+ *   D_{ij}  is a 2D tensor for enforcing anisotropy
+ * Note, it is assumed that,  diffCoeff_{ij}  =  diffCoeff_{ji}
+ *
+ * Let, Vec be a Vector<double> storing a flatten \diffCoeff_{ij}, then
+ * Case 1: For 1D
+ *      Vec[0] = D_{00}
+ * Case 2: For 2D
+ *      Vec[0] = D_{00}
+ *      Vec[1] = D_{01}
+ *      Vec[2] = D_{11}
+ * Case 3: For 3D
+ *      Vec[0] = D_{00}
+ *      Vec[1] = D_{01}
+ *      Vec[2] = D_{11}
+ *      Vec[3] = D_{02}
+ *      Vec[4] = D_{12}
+ *      Vec[5] = D_{22}
+ */
+void UnsteadyDiffusion::SetDiffusionCoeff()
+{
+    // Get the scalar part
+    m_session->LoadParameter("epsilon", m_epsilon, 1.0);
+
+    // Set-up anisotropic diffusion coefficient
+    // Default value for D_ij = 1, if i = j
+    // Default value for D_ij = 0, if i != j
+    const auto coordDim      = m_fields[0]->GetCoordim(0);
+    const auto diffCoeffSize = coordDim * (coordDim + 1) / 2;
+    m_diffCoeff.resize(diffCoeffSize);
+
+    if (coordDim == 1)
+    {
+        m_session->LoadParameter("D00", m_diffCoeff[0], 1.0);
+    }
+    else if (coordDim == 2)
+    {
+        m_session->LoadParameter("D00", m_diffCoeff[0], 1.0);
+        m_session->LoadParameter("D01", m_diffCoeff[1], 0.0);
+        m_session->LoadParameter("D11", m_diffCoeff[2], 1.0);
+    }
+    else
+    {
+        m_session->LoadParameter("D00", m_diffCoeff[0], 1.0);
+        m_session->LoadParameter("D01", m_diffCoeff[1], 0.0);
+        m_session->LoadParameter("D11", m_diffCoeff[2], 1.0);
+        m_session->LoadParameter("D02", m_diffCoeff[3], 0.0);
+        m_session->LoadParameter("D12", m_diffCoeff[4], 0.0);
+        m_session->LoadParameter("D22", m_diffCoeff[5], 1.0);
+    }
+}
+
 /*
  *  Create and initialise all operators for this solver
  */
@@ -304,16 +344,15 @@ void UnsteadyDiffusion::InitialiseOperators()
     std::string execName = Operator<double>::GetOpExecSpace(m_session);
     m_math               = Math(execName);
 
-    // Create Helmsolve and BwdTrans operators
+    // Create Helmsolve, BwdTrans, and linear system operators
+    m_linearSolverOp =
+        LinearSolverOp<double>::Create(m_fields[0], m_session->GetVariables());
     m_bwdTransOp =
         BwdTransOp<double>::Create(m_fields[0], m_session->GetVariables());
     m_helmSolveOp =
         HelmSolveOp<double>::Create(m_fields[0], m_session->GetVariables());
 
-    // Configure HelmSolve with default parameters
-    m_linearSolverOp =
-        LinearSolverOp<double>::Create(m_fields[0], m_session->GetVariables());
-    m_helmSolveOp->SetLinearSolver(m_linearSolverOp);
+    // Configure HelmSolve
     m_helmSolveOp->SetLinearSolver(m_linearSolverOp);
     m_helmSolveOp->SetDiffCoeff(m_diffCoeff);
 
@@ -427,4 +466,5 @@ void UnsteadyDiffusion::SetInitialConditionsField(
         }
     }
 }
+
 } // namespace Nektar

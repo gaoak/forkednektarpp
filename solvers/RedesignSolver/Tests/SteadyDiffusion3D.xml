@@ -176,30 +176,20 @@
     </GEOMETRY>
 
     <EXPANSIONS>
-        <E COMPOSITE="C[0]" NUMMODES="5" TYPE="MODIFIED" FIELDS="u" />
+        <E COMPOSITE="C[0]" NUMMODES="6" TYPE="MODIFIED" FIELDS="u" />
     </EXPANSIONS>
 
     <CONDITIONS>
         <PARAMETERS>
-            <P> TimeStep       = 0.001                       </P>
-            <P> NumSteps       = 100                         </P>
-            <P> FinTime        = NumSteps*TimeStep           </P>
-            <P> IO_InfoSteps   = NumSteps/20                 </P>
-            <P> freq           = PI/2                        </P>
-            <P> epsilon        = 0.2                         </P>
-            <P> lambda         = 0.1                         </P>
-            <P> kappa          = - ( lambda - epsilon * 3.0 * freq * freq ) </P>
+            <P> epsilon          = 0.6            </P>
+            <P> D00              = 0.4            </P>
+            <P> D11              = 0.5            </P>
+            <P> D22              = 0.7            </P>
         </PARAMETERS>
 
-        <TIMEINTEGRATIONSCHEME>
-            <METHOD> IMEX </METHOD>
-            <ORDER> 2 </ORDER>
-        </TIMEINTEGRATIONSCHEME>
-
         <SOLVERINFO>
-            <I PROPERTY="EQTYPE"                VALUE="UnsteadyDiffusion" />
+            <I PROPERTY="EQTYPE"                VALUE="PoissonRedesign" />
             <I PROPERTY="Projection"            VALUE="Continuous" />
-            <I PROPERTY="DiffusionAdvancement"  VALUE="Implicit" />
             <I PROPERTY="GLOBALSYSSOLN"         VALUE="IterativeFull" />
             <I PROPERTY="Preconditioner"        VALUE="Diagonal" />
         </SOLVERINFO>
@@ -219,18 +209,13 @@
         </BOUNDARYCONDITIONS>
 
         <FUNCTION NAME="ExactSolution">
-            <E VAR="u" VALUE="exp(-lambda*FinTime)*cos(freq*x)*cos(freq*y)*cos(freq*z)" />
-        </FUNCTION>
-
-        <FUNCTION NAME="InitialConditions">
-            <E VAR="u" VALUE="cos(freq*x)*cos(freq*y)*cos(freq*z)" />
+            <E VAR="u" VALUE="(x+1)*(x-1)*(y+1)*(y-1)*(z+1)*(z-1)" />
         </FUNCTION>
 
         <!-- Body force to enforce reaction term -->
         <FUNCTION NAME="BodyForce">
-            <E VAR="u" EVARS="u" VALUE="kappa*u" />
+            <E VAR="u" EVARS="u" VALUE="2*(y+1)*(y-1)*(z+1)*(z-1)*epsilon*D00 + 2*(x+1)*(x-1)*(z+1)*(z-1)*epsilon*D11 + 2*(y+1)*(y-1)*(x+1)*(x-1)*epsilon*D22" />
         </FUNCTION>
-
     </CONDITIONS>
 
     <FORCING>
