@@ -543,7 +543,7 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
             StdRegions::StdMatrixKey Nkey(
                 StdRegions::eInvNBasisTrans, stdExp->DetShapeType(), *stdExp,
                 StdRegions::NullConstFactorMap, StdRegions::NullVarCoeffMap,
-                nodaltype);
+                StdRegions::NullVarFactorsMap, nodaltype);
             auto vdmMat = stdExp->GetStdMatrix(Nkey);
 
             auto vdm = MemoryRegion<TData>(nmTot * nmTot);
@@ -565,7 +565,7 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
             StdRegions::StdMatrixKey Nkey(
                 StdRegions::eNBasisTrans, stdExp->DetShapeType(), *stdExp,
                 StdRegions::NullConstFactorMap, StdRegions::NullVarCoeffMap,
-                nodaltype);
+                StdRegions::NullVarFactorsMap, nodaltype);
             auto vdmMat = stdExp->GetStdMatrix(Nkey);
 
             auto vdm = MemoryRegion<TData>(nmTot * nmTot);
@@ -587,7 +587,7 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
             StdRegions::StdMatrixKey Nkey(
                 StdRegions::eInvNBasisTrans, stdExp->DetShapeType(), *stdExp,
                 StdRegions::NullConstFactorMap, StdRegions::NullVarCoeffMap,
-                nodaltype);
+                StdRegions::NullVarFactorsMap, nodaltype);
             auto vdmMat = stdExp->GetStdMatrix(Nkey);
 
             auto vdm = MemoryRegion<TData>(nmTot * nmTot);
