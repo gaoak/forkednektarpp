@@ -621,7 +621,7 @@ SET(GROUP_SOURCES ${OPERATORS_SOURCES})
 
 # Loop through all of the directories which contain operators and add
 # their source and header files.
-FILE(GLOB children AddTraceIntegral  BndCondOps/*  ElmtOps/*  GlobalLinSysOps/LinearSystems/* GlobalLinSysOps/LinearSolvers/* PreconOps/*)
+FILE(GLOB children AddTraceIntegral  BndCondOps/*  ElmtOps/*  GlobalLinSysOps/LinearSystems/* GlobalLinSysOps/LinearSolvers/* PreconOps/* SolverUtilsOps/RiemannSolvers/*)
 
 FOREACH(child ${children})
    MESSAGE("Child : " "${child}")
@@ -693,7 +693,7 @@ ENDFOREACH()
 
 SET(OPERATORS_DEPENDS
     MultiRegions)
-
+    
 # LIBXSMM specific file
 IF(NEKTAR_ENABLE_SIMD)
     SET(OPERATORS_HEADERS
@@ -855,3 +855,7 @@ INSTALL(DIRECTORY ./
   DESTINATION ${NEKTAR_INCLUDE_DIR}/Operators
   COMPONENT dev
   FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.cuh")
+
+IF(NEKTAR_BUILD_UNIT_TESTS)
+    ADD_SUBDIRECTORY(SolverUtilsOps/RiemannSolvers/UnitTests)
+ENDIF()
