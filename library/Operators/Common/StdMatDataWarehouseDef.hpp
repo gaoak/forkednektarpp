@@ -604,6 +604,37 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
             return vdm;
         }
         break;
+        case eInvMassInteriorStdMat:
+        {
+            const auto nBoundaryDofs = stdExp->NumBndryCoeffs();
+            const auto nInteriorDofs = nmTot - nBoundaryDofs;
+            Nektar::StdRegions::StdMatrixKey mkey(
+                StdRegions::eMass, stdExp->DetShapeType(), *stdExp);
+            const auto &InvMassInterior =
+                stdExp->GetStdStaticCondMatrix(mkey)->GetBlock(1, 1);
+            Array<OneD, NekDouble> mat(InvMassInterior->GetStorageSize());
+            std::copy_n(InvMassInterior->GetRawPtr(),
+                        nInteriorDofs * nInteriorDofs, mat.data());
+
+            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+        }
+        break;
+        case eInvMassInteriorStdMatTranspose:
+        {
+            const auto nBoundaryDofs = stdExp->NumBndryCoeffs();
+            const auto nInteriorDofs = nmTot - nBoundaryDofs;
+            Nektar::StdRegions::StdMatrixKey mkey(
+                StdRegions::eMass, stdExp->DetShapeType(), *stdExp);
+            const auto &InvMassInterior =
+                stdExp->GetStdStaticCondMatrix(mkey)->GetBlock(1, 1);
+            InvMassInterior->Transpose();
+            Array<OneD, NekDouble> mat(InvMassInterior->GetStorageSize());
+            std::copy_n(InvMassInterior->GetRawPtr(),
+                        nInteriorDofs * nInteriorDofs, mat.data());
+
+            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+        }
+        break;
         default:
             NEKERROR(ErrorUtil::efatal, "invalid StdMat requested.");
             return MemoryRegion<TData>(0);

@@ -2,6 +2,7 @@
 # AddTraceIntegral       Nodepend ReConfigure() - Seg, Quad, etc
 # AssmbScatr             Nodepend - Seg, Quad, etc
 # BwdTran                Nodepend - Seg, Quad, etc
+# FwdTransBC             Nodepend - Seg, Quad, only 0D, 1D and 2D
 # Helmholtz              Nodepend - Seg, Quad, etc
 # Laplacian              Nodepend - Seg, Quad, etc
 # IdentityCoeff          Nodepend - Seg, Quad, etc
@@ -94,6 +95,8 @@ ADD_NEKTAR_EXECUTABLE(test_addtraceintegral
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral.cpp)
 ADD_NEKTAR_EXECUTABLE(test_bwdtrans
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans.cpp)
+ADD_NEKTAR_EXECUTABLE(test_fwdtransbc
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtransbc.cpp)
 ADD_NEKTAR_EXECUTABLE(test_diagprecon
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon.cpp)
 ADD_NEKTAR_EXECUTABLE(test_fwdtrans
@@ -203,6 +206,7 @@ ENDIF()
 
 # Serial generic
 SET_UNIT_TEST(MultiplyByElmtInvMass_serial_generic test_multiplybyelmtinvmass Serial Generic FALSE)
+SET_UNIT_TEST(FwdTransBC_serial_generic test_fwdtransbc Serial Generic FALSE)
 SET_UNIT_TEST(Expression_serial_generic test_expression Serial Generic FALSE)
 
 # Serial StdMat
@@ -274,6 +278,7 @@ ENDIF()
 IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(MultiplyByElmtInvMass_avx_generic test_multiplybyelmtinvmass AVX Generic FALSE)
     # SET_UNIT_TEST(Expression_avx_generic test_expression AVX Generic FALSE)
+    SET_UNIT_TEST(FwdTransBC_avx_generic test_fwdtransbc AVX Generic FALSE)
 ENDIF()
 
 # AVX StdMat
@@ -347,6 +352,7 @@ ENDIF()
 IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(MultiplyByElmtInvMass_device_generic test_multiplybyelmtinvmass Device Generic FALSE)
      SET_UNIT_TEST(Expression_device_generic test_expression Device Generic FALSE)
+    SET_UNIT_TEST(FwdTransBC_device_generic test_fwdtransbc Device Generic FALSE)
 ENDIF()
 
 # Device StdMat

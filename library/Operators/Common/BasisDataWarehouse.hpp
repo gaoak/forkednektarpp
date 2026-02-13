@@ -48,6 +48,7 @@ enum BasisDataType
     eBasisDerivative,
     eDerivative,
     eInterp,
+    eInterpTranspose,
     eWeights,
     eZeros,
     eHalfMultOnePlusZero,
@@ -67,21 +68,25 @@ public:
     ~BasisDataKey() override = default;
 
     BasisDataKey(const LibUtilities::BasisKey &basisKey,
-                 const BasisDataType basisDataType, const unsigned int npts = 0)
-        : m_basisKey(basisKey), m_basisDataType(basisDataType), m_npts(npts)
+                 const BasisDataType basisDataType, const unsigned int npts = 0,
+                 const LibUtilities::PointsType toPointsType =
+                     LibUtilities::eNoPointsType)
+        : m_basisKey(basisKey), m_basisDataType(basisDataType), m_npts(npts),
+          m_toPointsType(toPointsType)
     {
         hash_combine(m_hash, m_basisKey.GetNumModes(),
                      m_basisKey.GetBasisType(),
                      m_basisKey.GetPointsKey().GetNumPoints(),
                      m_basisKey.GetPointsKey().GetPointsType(),
                      m_basisKey.GetPointsKey().GetFactor(), m_basisDataType,
-                     typeid(value_type).name(), "BasisKey");
+                     m_toPointsType, typeid(value_type).name(), "BasisKey");
     }
 
 private:
     LibUtilities::BasisKey m_basisKey;
     BasisDataType m_basisDataType;
     unsigned int m_npts;
+    LibUtilities::PointsType m_toPointsType;
 };
 
 class BasisDataCreator : public DataCreatorClass

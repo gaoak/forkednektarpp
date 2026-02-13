@@ -114,6 +114,120 @@ private:
     bool m_transpose;
 };
 
+template <typename TData> class OrientKey : public BaseKey
+{
+    friend class GeometricDataCreator;
+
+public:
+    using creator = GeometricDataCreator;
+    typedef unsigned int value_type;
+
+    ~OrientKey() override = default;
+
+    OrientKey(const unsigned int block_idx, const unsigned int interleave_width)
+        : m_block_idx(block_idx), m_interleave_width(interleave_width)
+    {
+        hash_combine(m_hash, m_block_idx, m_interleave_width,
+                     typeid(value_type).name(), "OrientKey");
+    }
+
+private:
+    unsigned int m_block_idx;
+    unsigned int m_interleave_width;
+};
+
+template <typename TData> class TraceToElmtMapKey : public BaseKey
+{
+    friend class GeometricDataCreator;
+
+public:
+    using creator = GeometricDataCreator;
+    typedef unsigned int value_type;
+
+    ~TraceToElmtMapKey() override = default;
+
+    TraceToElmtMapKey(const unsigned int block_idx,
+                      const unsigned int interleave_width)
+        : m_block_idx(block_idx), m_interleave_width(interleave_width)
+    {
+        hash_combine(m_hash, m_block_idx, m_interleave_width,
+                     typeid(value_type).name(), "TraceToElmtMapKey");
+    }
+
+private:
+    unsigned int m_block_idx;
+    unsigned int m_interleave_width;
+};
+
+template <typename TData> class TraceToElmtSignKey : public BaseKey
+{
+    friend class GeometricDataCreator;
+
+public:
+    using creator = GeometricDataCreator;
+    typedef int value_type;
+
+    ~TraceToElmtSignKey() override = default;
+
+    TraceToElmtSignKey(const unsigned int block_idx,
+                       const unsigned int interleave_width)
+        : m_block_idx(block_idx), m_interleave_width(interleave_width)
+    {
+        hash_combine(m_hash, m_block_idx, m_interleave_width,
+                     typeid(value_type).name(), "TraceToElmtSignKey");
+    }
+
+private:
+    unsigned int m_block_idx;
+    unsigned int m_interleave_width;
+};
+
+template <typename TData> class InteriorMapKey : public BaseKey
+{
+    friend class GeometricDataCreator;
+
+public:
+    using creator = GeometricDataCreator;
+    typedef unsigned int value_type;
+
+    ~InteriorMapKey() override = default;
+
+    InteriorMapKey(const unsigned int block_idx,
+                   const unsigned int interleave_width)
+        : m_block_idx(block_idx), m_interleave_width(interleave_width)
+    {
+        hash_combine(m_hash, m_block_idx, m_interleave_width,
+                     typeid(value_type).name(), "InteriorMapKey");
+    }
+
+private:
+    unsigned int m_block_idx;
+    unsigned int m_interleave_width;
+};
+
+template <typename TData> class JacobianTraceKey : public BaseKey
+{
+    friend class GeometricDataCreator;
+
+public:
+    using creator = GeometricDataCreator;
+    typedef TData value_type;
+
+    ~JacobianTraceKey() override = default;
+
+    JacobianTraceKey(const unsigned int block_idx,
+                     const unsigned int interleave_width)
+        : m_block_idx(block_idx), m_interleave_width(interleave_width)
+    {
+        hash_combine(m_hash, m_block_idx, m_interleave_width,
+                     typeid(value_type).name(), "JacobianTraceKey");
+    }
+
+private:
+    unsigned int m_block_idx;
+    unsigned int m_interleave_width;
+};
+
 class GeometricDataCreator : public DataCreatorClass
 {
 public:
@@ -131,6 +245,24 @@ public:
 
     template <typename MemSpace, typename TData>
     MemoryRegion<TData> Create(const CoordKey<TData> &coordKey);
+
+    template <typename MemSpace, typename TData>
+    MemoryRegion<unsigned int> Create(const OrientKey<TData> &orientKey);
+
+    template <typename MemSpace, typename TData>
+    MemoryRegion<unsigned int> Create(
+        const TraceToElmtMapKey<TData> &traceToElmtMapKey);
+
+    template <typename MemSpace, typename TData>
+    MemoryRegion<int> Create(
+        const TraceToElmtSignKey<TData> &traceToElmtSignKey);
+
+    template <typename MemSpace, typename TData>
+    MemoryRegion<unsigned int> Create(
+        const InteriorMapKey<TData> &interiorMapKey);
+
+    template <typename MemSpace, typename TData>
+    MemoryRegion<TData> Create(const JacobianTraceKey<TData> &jacobianTraceKey);
 
     inline static const std::string m_name = "GeometricDataCreator";
 
