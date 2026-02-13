@@ -63,24 +63,17 @@ TEST_FWDTRANSBC(fwdtransbc_seg_sem, SegSEM, 1.0E-12)
 
 TEST_FWDTRANSBC(fwdtransbc_quad, Quad, 1.0E-12)
 
-// TEST_FWDTRANSBC3DH1(fwdtransbc_quad_3dh1, Quad, 1.0E-12)
-
 TEST_FWDTRANSBC(fwdtransbc_quad_sem, QuadSEM, 1.0E-12)
 
 TEST_FWDTRANSBC(fwdtransbc_quad_varp, QuadVarP, 1.0E-12)
 
 TEST_FWDTRANSBC(fwdtransbc_tri, Tri, 1.0E-12)
 
-// // TEST_FWDTRANSBC3DH1(fwdtransbc_tri_3dh1, Tri, 1.0E-12)
-//
 TEST_FWDTRANSBC(fwdtransbc_tri_varp, TriVarP, 1.0E-12)
 
 // TEST_FWDTRANSBC(fwdtransbc_tri_nodal, TriNodal, 1.0E-12)
 
 TEST_FWDTRANSBC(fwdtransbc_square_all_elements, SquareAllElements, 1.0E-12)
-
-// TEST_FWDTRANSBC3DH1(fwdtransbc_square_all_elements_3dh1,
-// SquareAllElements, 1.0E-12)
 
 /// This Operator is not implemented for 3D geometries
 #endif
