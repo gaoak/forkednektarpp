@@ -40,9 +40,7 @@
 #include <Operators/Field/Field.hpp>
 #include <Operators/Utils/UtilsKernels.hpp>
 
-#include "SolverUtils/RiemannSolvers/RiemannSolver.h"
-
-#include "../LaxFriedrichsSolver/LaxFriedrichsSolverOp.hpp"
+#include "../CompressibleSolverOp.hpp"
 
 // Currently the BOOST_TEST_DYN_LINK is local only to this unit
 // test. It is undefined at the bottom of the file.
@@ -187,15 +185,16 @@ static MultiRegions::DisContFieldSharedPtr SetExpList(
 }
 
 // Apply operator to fwd/bwd arrays, producing flux arrays
-template <typename TData, typename CreateOp>
+template <typename TData>
 static void ApplyRiemannOperator(
     const LibUtilities::SessionReaderSharedPtr &session,
+    const std::string &method, const std::string &execStr,
     const MultiRegions::DisContFieldSharedPtr &dg, unsigned int spaceDim,
     size_t npts, unsigned int nFields,
     const Array<OneD, Array<OneD, TData>> &normals,
     const Array<OneD, Array<OneD, TData>> &fwd,
     const Array<OneD, Array<OneD, TData>> &bwd,
-    Array<OneD, Array<OneD, TData>> &flx, CreateOp &&Op)
+    Array<OneD, Array<OneD, TData>> &flx)
 {
     auto traceAttr =
         GetBlockAttributes<TData, FieldState::Phys>(dg->GetTrace());
@@ -216,7 +215,7 @@ static void ApplyRiemannOperator(
 
     auto vars = session->GetVariables();
 
-    auto op = Op(dg, vars);
+    auto op = CompressibleSolverOp<double>::Create(dg, vars, method, execStr);
     op->SetTraceNormals(normalsField);
     op->Apply(fwdField, bwdField, flxField);
 
@@ -289,13 +288,12 @@ static void FillConstStateAndReferenceFlux(
 // Runner: setup session/dg, make normals, fill states, apply op, check flux
 // normalDir: 0=x, 1=y, 2=z (valid if normalDir < spaceDim)
 // If normalDir is invalid for that mesh dimension, we SKIP.
-template <typename CreateOp>
 static void RunConstStateRiemannTest(const std::string &xml,
-                                     const std::string &exec,
-                                     unsigned int normalDir, CreateOp &&Op,
-                                     double gamma = 1.4)
+                                     const std::string &method,
+                                     const std::string &execStr,
+                                     unsigned int normalDir, double gamma = 1.4)
 {
-    auto session = SetSession(xml, exec);
+    auto session = SetSession(xml, execStr);
     auto dg      = SetExpList(session);
 
     dg->SetDataWarehouse();
@@ -337,8 +335,8 @@ static void RunConstStateRiemannTest(const std::string &xml,
     FillConstStateAndReferenceFlux(spaceDim, npts, normals, fwd, bwd, flxRef,
                                    gamma);
 
-    ApplyRiemannOperator<double>(session, dg, spaceDim, npts, nFields, normals,
-                                 fwd, bwd, flx, std::forward<CreateOp>(Op));
+    ApplyRiemannOperator<double>(session, method, execStr, dg, spaceDim, npts,
+                                 nFields, normals, fwd, bwd, flx);
 
     // check
     for (unsigned int c = 0; c < nFields; ++c)
@@ -358,16 +356,15 @@ struct Case
     unsigned int normalDir;
 };
 
-template <typename CreateOp>
-static void RunCasesForOp(const std::string &opName, const std::string &execStr,
-                          const std::vector<Case> &cases, CreateOp Op)
+static void RunCasesForOp(const std::string &method, const std::string &execStr,
+                          const std::vector<Case> &cases)
 {
     for (const auto &tc : cases)
     {
-        BOOST_TEST_CONTEXT("op=" << opName << " exec=" << execStr << " xml="
-                                 << tc.xml << " normalDir=" << tc.normalDir)
+        BOOST_TEST_CONTEXT("method=" << method << " exec=" << execStr << " xml="
+                                     << tc.xml << " normalDir=" << tc.normalDir)
         {
-            RunConstStateRiemannTest(tc.xml, execStr, tc.normalDir, Op);
+            RunConstStateRiemannTest(tc.xml, method, execStr, tc.normalDir);
         }
     }
 }
@@ -385,11 +382,7 @@ BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_LaxFriedrichs)
         {"run/hex_Euler.xml", 2},
     };
 
-    RunCasesForOp("LaxFriedrichs", execStr, cases,
-                  [](const MultiRegions::DisContFieldSharedPtr &dg,
-                     const std::vector<std::string> &vars) {
-                      return LaxFriedrichsSolverOp<double>::Create(dg, vars);
-                  });
+    RunCasesForOp("LaxFriedrichsSolver", execStr, cases);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

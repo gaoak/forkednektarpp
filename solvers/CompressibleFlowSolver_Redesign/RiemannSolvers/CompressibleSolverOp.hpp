@@ -43,6 +43,17 @@ namespace Nektar::Operators
 template <typename TData>
 class CompressibleSolverOp : public RiemannSolverOp<TData>
 {
+public:
+    static std::shared_ptr<CompressibleSolverOp<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components, const std::string &method,
+        const std::string &execStr)
+    {
+        return std::static_pointer_cast<CompressibleSolverOp<TData>>(
+            RiemannSolverOp<TData>::Create(expansionList, components, method,
+                                           execStr));
+    }
+
 protected:
     CompressibleSolverOp(const MultiRegions::ExpListSharedPtr &expansionList,
                          const std::vector<std::string> &components)

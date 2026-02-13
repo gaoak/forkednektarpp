@@ -185,16 +185,17 @@ static MultiRegions::DisContFieldSharedPtr SetExpList(
 }
 
 // Apply operator to fwd/bwd arrays, producing flux arrays
-template <typename TData, typename CreateOp>
+template <typename TData>
 static void ApplyRiemannOperator(
     const LibUtilities::SessionReaderSharedPtr &session,
+    const std::string &method, const std::string &execStr,
     const MultiRegions::DisContFieldSharedPtr &dg, unsigned int spaceDim,
     size_t npts, unsigned int nFields,
     const Array<OneD, Array<OneD, TData>> &normals,
     const Array<OneD, Array<OneD, TData>> &traceAdvVel,
     const Array<OneD, Array<OneD, TData>> &fwd,
     const Array<OneD, Array<OneD, TData>> &bwd,
-    Array<OneD, Array<OneD, TData>> &flx, CreateOp &&Op)
+    Array<OneD, Array<OneD, TData>> &flx)
 {
     auto traceAttr =
         GetBlockAttributes<TData, FieldState::Phys>(dg->GetTrace());
@@ -219,7 +220,7 @@ static void ApplyRiemannOperator(
 
     auto vars = session->GetVariables();
 
-    auto op = Op(dg, vars);
+    auto op = RiemannSolverOp<double>::Create(dg, vars, method, execStr);
     op->SetTraceNormals(normalsField);
     op->SetTraceAdvVel(traceAdvVelField);
     op->Apply(fwdField, bwdField, flxField);
@@ -273,11 +274,11 @@ static void FillConstStateAndReferenceFlux(
 }
 
 // Runner: setup session/dg, make normals, fill states, apply op, check flux
-template <typename CreateOp>
 static void RunConstStateRiemannTest(const std::string &xml,
-                                     const std::string &exec, CreateOp &&Op)
+                                     const std::string &method,
+                                     const std::string &execStr)
 {
-    auto session = SetSession(xml, exec);
+    auto session = SetSession(xml, execStr);
     auto dg      = SetExpList(session);
 
     dg->SetDataWarehouse();
@@ -310,9 +311,8 @@ static void RunConstStateRiemannTest(const std::string &xml,
     FillConstStateAndReferenceFlux(spaceDim, nFields, npts, normals,
                                    traceAdvVel, fwd, bwd, flxRef);
 
-    ApplyRiemannOperator<double>(session, dg, spaceDim, npts, nFields, normals,
-                                 traceAdvVel, fwd, bwd, flx,
-                                 std::forward<CreateOp>(Op));
+    ApplyRiemannOperator<double>(session, method, execStr, dg, spaceDim, npts,
+                                 nFields, normals, traceAdvVel, fwd, bwd, flx);
 
     // check
     for (unsigned int c = 0; c < nFields; ++c)
@@ -331,16 +331,15 @@ struct Case
     std::string xml;
 };
 
-template <typename CreateOp>
-static void RunCasesForOp(const std::string &opName, const std::string &execStr,
-                          const std::vector<Case> &cases, CreateOp Op)
+static void RunCasesForOp(const std::string &method, const std::string &execStr,
+                          const std::vector<Case> &cases)
 {
     for (const auto &tc : cases)
     {
-        BOOST_TEST_CONTEXT("op=" << opName << " exec=" << execStr
-                                 << " xml=" << tc.xml)
+        BOOST_TEST_CONTEXT("method=" << method << " exec=" << execStr
+                                     << " xml=" << tc.xml)
         {
-            RunConstStateRiemannTest(tc.xml, execStr, Op);
+            RunConstStateRiemannTest(tc.xml, method, execStr);
         }
     }
 }
@@ -357,11 +356,7 @@ BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_Upwind)
         {"run/hex.xml"},
     };
 
-    RunCasesForOp("Upwind", execStr, cases,
-                  [](const MultiRegions::DisContFieldSharedPtr &dg,
-                     const std::vector<std::string> &vars) {
-                      return UpwindSolverOp<double>::Create(dg, vars);
-                  });
+    RunCasesForOp("UpwindSolver", execStr, cases);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

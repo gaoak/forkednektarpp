@@ -222,12 +222,16 @@ public:
         int argc    = 4;
         char **argv = new char *[argc];
         argv[0]     = strdup("exe_name");
-        argv[1]     = meshName.data();
+        argv[1]     = strdup(meshName.data());
         argv[2]     = strdup(("--opExecSpace=" + execStr).c_str());
         argv[3]     = strdup(("--opImpl=" + implStr).c_str());
 
         this->session = LibUtilities::SessionReader::CreateInstance(argc, argv);
 
+        for (int i = 0; i < argc; ++i)
+        {
+            free(argv[i]);
+        }
         delete[] argv;
 
         if (this->session->GetComm())

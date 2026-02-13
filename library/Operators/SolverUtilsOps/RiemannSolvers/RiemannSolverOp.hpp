@@ -35,6 +35,7 @@
 #pragma once
 
 #include "Operators/Common/Operator.hpp"
+
 #include "Operators/Math/MathKernels.hpp"
 #include "Operators/SolverUtilsOps//RiemannSolvers/RiemannSolverKernels.hpp"
 
@@ -45,6 +46,40 @@ namespace Nektar::Operators
 template <typename TData> class RiemannSolverOp : public Operator<TData>
 {
 public:
+    static std::shared_ptr<RiemannSolverOp<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
+        const std::string &method = "", const std::string &execStr = "")
+    {
+        auto session = expansionList->GetSession();
+
+        std::string method0 = method;
+        if (method == "" && session->DefinesSolverInfo("UpwindType"))
+        {
+            method0 = session->GetSolverInfo("UpwindType");
+        }
+
+        std::string execStr0 = (execStr == "")
+                                   ? Operator<TData>::GetOpExecSpace(session)
+                                   : execStr;
+
+        std::string requestedKey = method0 + execStr0;
+
+        OperatorFactory<TData> &factory = GetOperatorFactory<TData>();
+
+        // No suitable operator was found.
+        if (!factory.ModuleExists(requestedKey))
+        {
+            std::stringstream msg;
+            msg << "No such operator: " << requestedKey << std::endl;
+            factory.PrintAvailableClasses(msg);
+            NEKERROR(ErrorUtil::efatal, msg.str());
+        }
+
+        return std::static_pointer_cast<RiemannSolverOp<TData>>(
+            factory.CreateInstance(requestedKey, expansionList, components));
+    }
+
     void Apply(Field<TData, FieldState::Phys> &Fwd,
                Field<TData, FieldState::Phys> &Bwd,
                Field<TData, FieldState::Phys> &flux)

@@ -49,8 +49,9 @@ public:
         const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
-        return Operator<TData>::template Create<UpwindSolverOp>(
-            expansionList, components, execStr);
+        return std::dynamic_pointer_cast<UpwindSolverOp<TData>>(
+            RiemannSolverOp<TData>::template Create<UpwindSolverOp>(
+                expansionList, components, name, execStr));
     }
 
     static inline const std::string name = "UpwindSolver";

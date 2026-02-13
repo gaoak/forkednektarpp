@@ -33,7 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
-#include "Operators/Common/Spaces.hpp"
+
 #include "Operators/LoopExecution/LoopExecution.hpp"
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 
