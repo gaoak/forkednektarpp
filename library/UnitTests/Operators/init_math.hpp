@@ -161,11 +161,15 @@ public:
         int argc    = 2;
         char **argv = new char *[argc];
         argv[0]     = strdup("exe_name");
-        argv[1]     = meshName.data();
+        argv[1]     = strdup(meshName.data());
 
         this->session = LibUtilities::SessionReader::CreateInstance(argc, argv);
         auto graph    = SpatialDomains::MeshGraphIO::Read(this->session);
 
+        for (int i = 0; i < argc; ++i)
+        {
+            free(argv[i]);
+        }
         delete[] argv;
 
         if (this->session->GetComm())

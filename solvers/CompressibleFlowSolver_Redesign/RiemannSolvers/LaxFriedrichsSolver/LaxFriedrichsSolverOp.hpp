@@ -50,8 +50,9 @@ public:
         const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
-        return Operator<TData>::template Create<LaxFriedrichsSolverOp>(
-            expansionList, components, execStr);
+        return std::dynamic_pointer_cast<LaxFriedrichsSolverOp<TData>>(
+            CompressibleSolverOp<TData>::template Create<LaxFriedrichsSolverOp>(
+                expansionList, components, name, execStr));
     }
 
     static inline const std::string name = "LaxFriedrichsSolver";
