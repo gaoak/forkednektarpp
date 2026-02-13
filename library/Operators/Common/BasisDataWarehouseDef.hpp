@@ -150,13 +150,56 @@ MemoryRegion<TData> BasisDataCreator::Create(
         break;
         case eInterp:
         {
-            const auto np = basisDataKey.m_npts;
-            LibUtilities::PointsKey pkey(np, basis->GetPointsType());
+            const auto npTo = basisDataKey.m_npts;
+            // Check if we interpolate to
+            // a different PointsType specified via m_pointsToType
+            // or use the basis' PointsType
+            LibUtilities::PointsType ptype =
+                basisDataKey.m_toPointsType == LibUtilities::eNoPointsType
+                    ? basis->GetPointsType()
+                    : basisDataKey.m_toPointsType;
+            LibUtilities::PointsKey toPkey(npTo, ptype);
 
             // Need points manager to get correct interpolation matrix
             auto I = LibUtilities::PointsManager()[basis->GetPointsKey()]
-                         ->GetI(pkey)
+                         ->GetI(toPkey)
                          ->GetPtr();
+
+            return MemoryRegion<TData>::template FromArray<MemSpace>(I);
+        }
+        break;
+        case eInterpTranspose:
+        {
+            const auto npTo = basisDataKey.m_npts;
+            // Check if we interpolate to
+            // a different PointsType specified via m_pointsToType
+            // or use the basis' PointsType
+            LibUtilities::PointsType ptype =
+                basisDataKey.m_toPointsType == LibUtilities::eNoPointsType
+                    ? basis->GetPointsType()
+                    : basisDataKey.m_toPointsType;
+            LibUtilities::PointsKey toPkey(npTo, ptype);
+
+            // Need points manager to get correct interpolation matrix
+            auto I = LibUtilities::PointsManager()[basis->GetPointsKey()]
+                         ->GetI(toPkey)
+                         ->GetPtr();
+
+            // Transpose interpolation matrix
+            const auto npFrom = basis->GetPointsKey().GetNumPoints();
+            Array<OneD, NekDouble> tmpI(npFrom * npTo);
+            for (int i = 0; i < npFrom; ++i)
+            {
+                for (int j = 0; j < npTo; ++j)
+                {
+                    tmpI[i + j * npFrom] = I[j + i * npTo];
+                }
+            }
+            // copy back into original matrix
+            for (int i = 0; i < npFrom * npTo; ++i)
+            {
+                I[i] = tmpI[i];
+            }
 
             return MemoryRegion<TData>::template FromArray<MemSpace>(I);
         }

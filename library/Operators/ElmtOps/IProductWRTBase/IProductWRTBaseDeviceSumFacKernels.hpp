@@ -38,6 +38,7 @@
 
 #include "Operators/Common/DeviceProperties.hpp"
 #include "Operators/Common/Spaces.hpp"
+#include "Operators/Utils/UtilsDeviceKernels.hpp"
 
 namespace Nektar::Operators::detail
 {

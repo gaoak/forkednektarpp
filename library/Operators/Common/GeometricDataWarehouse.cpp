@@ -74,4 +74,75 @@ template MemoryRegion<float> GeometricDataCreator::Create<
     NektarSpaces::DeviceSpace, float>(const CoordKey<float> &coordKey);
 #endif
 
+template MemoryRegion<unsigned int> GeometricDataCreator::Create<
+    NektarSpaces::HostSpace, double>(const OrientKey<double> &orientKey);
+template MemoryRegion<unsigned int> GeometricDataCreator::Create<
+    NektarSpaces::HostSpace, float>(const OrientKey<float> &orientKey);
+#if defined(NEKTAR_ENABLE_DEVICE)
+template MemoryRegion<unsigned int> GeometricDataCreator::Create<
+    NektarSpaces::DeviceSpace, double>(const OrientKey<double> &orientKey);
+template MemoryRegion<unsigned int> GeometricDataCreator::Create<
+    NektarSpaces::DeviceSpace, float>(const OrientKey<float> &orientKey);
+#endif
+
+template MemoryRegion<unsigned int> GeometricDataCreator::Create<
+    NektarSpaces::HostSpace, double>(
+    const TraceToElmtMapKey<double> &traceToElmtMapKey);
+template MemoryRegion<unsigned int> GeometricDataCreator::Create<
+    NektarSpaces::HostSpace, float>(
+    const TraceToElmtMapKey<float> &traceToElmtMapKey);
+#if defined(NEKTAR_ENABLE_DEVICE)
+template MemoryRegion<unsigned int> GeometricDataCreator::Create<
+    NektarSpaces::DeviceSpace, double>(
+    const TraceToElmtMapKey<double> &traceToElmtMapKey);
+template MemoryRegion<unsigned int> GeometricDataCreator::Create<
+    NektarSpaces::DeviceSpace, float>(
+    const TraceToElmtMapKey<float> &traceToElmtMapKey);
+#endif
+
+template MemoryRegion<int> GeometricDataCreator::Create<NektarSpaces::HostSpace,
+                                                        double>(
+    const TraceToElmtSignKey<double> &traceToElmtSignKey);
+template MemoryRegion<int> GeometricDataCreator::Create<NektarSpaces::HostSpace,
+                                                        float>(
+    const TraceToElmtSignKey<float> &traceToElmtSignKey);
+#if defined(NEKTAR_ENABLE_DEVICE)
+template MemoryRegion<int> GeometricDataCreator::Create<
+    NektarSpaces::DeviceSpace, double>(
+    const TraceToElmtSignKey<double> &traceToElmtSignKey);
+template MemoryRegion<int> GeometricDataCreator::Create<
+    NektarSpaces::DeviceSpace, float>(
+    const TraceToElmtSignKey<float> &traceToElmtSignKey);
+#endif
+
+template MemoryRegion<unsigned int> GeometricDataCreator::Create<
+    NektarSpaces::HostSpace, double>(
+    const InteriorMapKey<double> &interiorMapKey);
+template MemoryRegion<unsigned int> GeometricDataCreator::Create<
+    NektarSpaces::HostSpace, float>(
+    const InteriorMapKey<float> &interiorMapKey);
+#if defined(NEKTAR_ENABLE_DEVICE)
+template MemoryRegion<unsigned int> GeometricDataCreator::Create<
+    NektarSpaces::DeviceSpace, double>(
+    const InteriorMapKey<double> &interiorMapKey);
+template MemoryRegion<unsigned int> GeometricDataCreator::Create<
+    NektarSpaces::DeviceSpace, float>(
+    const InteriorMapKey<float> &interiorMapKey);
+#endif
+
+template MemoryRegion<double> GeometricDataCreator::Create<
+    NektarSpaces::HostSpace, double>(
+    const JacobianTraceKey<double> &jacobianTraceKey);
+template MemoryRegion<float> GeometricDataCreator::Create<
+    NektarSpaces::HostSpace, float>(
+    const JacobianTraceKey<float> &jacobianTraceKey);
+#if defined(NEKTAR_ENABLE_DEVICE)
+template MemoryRegion<double> GeometricDataCreator::Create<
+    NektarSpaces::DeviceSpace, double>(
+    const JacobianTraceKey<double> &jacobianTraceKey);
+template MemoryRegion<float> GeometricDataCreator::Create<
+    NektarSpaces::DeviceSpace, float>(
+    const JacobianTraceKey<float> &jacobianTraceKey);
+#endif
+
 } // namespace Nektar::Operators

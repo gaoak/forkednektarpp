@@ -147,13 +147,11 @@ void TriExp::v_FwdTransBndConstrained(
     }
 
     Array<OneD, NekDouble> physEdge[3];
-    Array<OneD, NekDouble> coeffEdge[3];
     for (i = 0; i < 3; i++)
     {
         // define physEdge and add 1 so can interpolate grl10 points if
         // necessary
-        physEdge[i]  = Array<OneD, NekDouble>(max(npoints[i != 0], npoints[0]));
-        coeffEdge[i] = Array<OneD, NekDouble>(nmodes[i != 0]);
+        physEdge[i] = Array<OneD, NekDouble>(max(npoints[i != 0], npoints[0]));
     }
 
     for (i = 0; i < npoints[0]; i++)
@@ -162,7 +160,8 @@ void TriExp::v_FwdTransBndConstrained(
     }
 
     // extract data in cartesian directions
-    for (i = 0; i < npoints[1]; i++)
+    const int npoints1 = npoints[1];
+    for (i = 0; i < npoints1; i++)
     {
         physEdge[1][i] = inarray[npoints[0] - 1 + i * npoints[0]];
         physEdge[2][i] = inarray[i * npoints[0]];
@@ -191,6 +190,13 @@ void TriExp::v_FwdTransBndConstrained(
                                    m_base[0]->GetPointsKey(), physEdge[i]);
         }
         npoints[1] = npoints[0];
+        nmodes[1]  = nmodes[0];
+    }
+
+    Array<OneD, NekDouble> coeffEdge[3];
+    for (i = 0; i < 3; i++)
+    {
+        coeffEdge[i] = Array<OneD, NekDouble>(nmodes[i != 0]);
     }
 
     Array<OneD, unsigned int> mapArray;

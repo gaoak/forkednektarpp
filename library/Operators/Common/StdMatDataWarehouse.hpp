@@ -63,7 +63,9 @@ enum StdMatType
     eInvMassStdMatTranspose              = 16,
     eNodalToModal                        = 17,
     eNodalToModalTranspose               = 18,
-    eModalToNodal                        = 19
+    eModalToNodal                        = 19,
+    eInvMassInteriorStdMat               = 20,
+    eInvMassInteriorStdMatTranspose      = 21,
 };
 
 class StdMatDataCreator;
