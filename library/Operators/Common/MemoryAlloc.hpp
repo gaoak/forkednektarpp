@@ -35,6 +35,7 @@
 #pragma once
 
 #include "Operators/Common/DeviceProperties.hpp"
+#include <cstring>
 
 namespace Nektar
 {

@@ -14,10 +14,9 @@ if(NOT BOOST_MIN_VERSION)
     SET(BOOST_MIN_VERSION "1.60.0")
 endif()
 
+SET(NEEDED_BOOST_LIBS iostreams system program_options)
 IF (NEKTAR_USE_BOOST_FILESYSTEM)
-    SET(NEEDED_BOOST_LIBS iostreams filesystem system program_options)
-ELSE()
-    SET(NEEDED_BOOST_LIBS iostreams system program_options)
+    SET(NEEDED_BOOST_LIBS ${NEEDED_BOOST_LIBS} filesystem)
 ENDIF()
 
 IF( BOOST_TEST_DYN_LINK )
