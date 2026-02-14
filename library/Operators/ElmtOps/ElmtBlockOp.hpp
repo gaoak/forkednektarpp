@@ -100,6 +100,8 @@ public:
     }
 
 protected:
+    bool m_warnOnceTemplate = false; /// boolean flag to allow one warning
+
     ElmtBlockOp(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,
                 NekDataWarehouseSharedPtr dataWarehouse)

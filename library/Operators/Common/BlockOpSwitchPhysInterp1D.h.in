@@ -22,12 +22,19 @@
     {                                                                          \
         switch (nq0)                                                           \
         {                                                                      \
-            BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
-                             LEV2TEST1, LEV2UPDATE1,                           \
-                             PHYSINTERP1D_Q)                                   \
+            BOOST_PP_FOR_##r((NM(i), NM_P1(i),                                 \
+               BOOST_PP_ADD(BOOST_PP_MUL(@NEKTAR_SWITCH_QMAX_MUL@, NM(i)),     \
+                         @NEKTAR_SWITCH_QMAX_ADD@)),                           \
+                             LEV2TEST1, LEV2UPDATE1, PHYSINTERP1D_Q)           \
             default :                                                          \
+            {                                                                  \
+                WARNINGL0( m_warnOnceTemplate,                                 \
+                           "Executing nq = " + std::to_string(nq0) +           \
+                           " non-templated operator");                         \
+                m_warnOnceTemplate = true;                                     \
                 PHYSINTERP1D_DEF                                               \
-                break;                                                         \
+            }                                                                  \
+            break;                                                             \
         }                                                                      \
     }                                                                          \
     break;
@@ -38,9 +45,15 @@
        {
             BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
                          PHYSINTERP1D_M)
-            default:
-                PHYSINTERP1D_DEF
-                break;
+       default:
+           {                                                            
+               WARNINGL0( m_warnOnceTemplate,                           
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator"); 
+               m_warnOnceTemplate = true;                               
+               PHYSINTERP1D_DEF                                        
+           }                                                            
+           break;
         }
         
 #elif defined(SHAPE_TYPE_Quad) || defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
@@ -77,12 +90,19 @@
     {                                                                          \
         switch (nq0)                                                           \
         {                                                                      \
-            BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
-                             LEV2TEST1, LEV2UPDATE1,                           \
-                             PHYSINTERP1D_Q)                                   \
+            BOOST_PP_FOR_##r((NM(i), NM_P1(i),                                 \
+               BOOST_PP_ADD(BOOST_PP_MUL(@NEKTAR_SWITCH_QMAX_MUL@, NM(i)),     \
+                         @NEKTAR_SWITCH_QMAX_ADD@)),                           \
+                             LEV2TEST1, LEV2UPDATE1, PHYSINTERP1D_Q)           \
             default :                                                          \
+            {                                                                  \
+                WARNINGL0( m_warnOnceTemplate,                                 \
+                           "Executing nq = " + std::to_string(nq0) +           \
+                           " non-templated operator");                         \
+                m_warnOnceTemplate = true;                                     \
                 PHYSINTERP1D_DEF                                               \
-                break;                                                         \
+            }                                                                  \
+            break;                                                             \
         }                                                                      \
     }                                                                          \
     break;
@@ -102,13 +122,23 @@
                 BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
                              PHYSINTERP1D_M)
                 default:
-                    PHYSINTERP1D_DEF
-                    break;
+                {                                                       
+                    WARNINGL0( m_warnOnceTemplate,                      
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator"); 
+                    m_warnOnceTemplate = true;                          
+                    PHYSINTERP1D_DEF                           
+                }                                               
+                break;
             }
         }
         else
         {
-            PHYSINTERP1D_DEF
+            WARNINGL0( m_warnOnceTemplate,                              
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator"); 
+            m_warnOnceTemplate = true;                                  
+            PHYSINTERP1D_DEF                                           
         }
 #else
     const auto nm0 = m_nm[0];
@@ -132,7 +162,8 @@
         Operator3D<NM(i), NM(i), NM(i), NQ(i),                                 \
                    NQ(i), NQ(i)>(inblock, outblock);                           \
         break;
-#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || defined(SHAPE_TYPE_Pyr)
+#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || \
+    defined(SHAPE_TYPE_Pyr)
 #undef PHYSINTERP1D_Q
 #define PHYSINTERP1D_Q(r, i)                                                   \
     case NQ(i):                                                                \
@@ -155,12 +186,19 @@
     {                                                                          \
         switch (nq0)                                                           \
         {                                                                      \
-            BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
-                             LEV2TEST1, LEV2UPDATE1,                           \
-                             PHYSINTERP1D_Q)                                   \
+            BOOST_PP_FOR_##r((NM(i), NM_P1(i),                                 \
+               BOOST_PP_ADD(BOOST_PP_MUL(@NEKTAR_SWITCH_QMAX_MUL@, NM(i)),     \
+                         @NEKTAR_SWITCH_QMAX_ADD@)),                           \
+                             LEV2TEST1, LEV2UPDATE1, PHYSINTERP1D_Q)           \
             default :                                                          \
+            {                                                                  \
+                WARNINGL0( m_warnOnceTemplate,                                 \
+                           "Executing nq = " + std::to_string(nq0) +           \
+                           " non-templated operator");                         \
+                m_warnOnceTemplate = true;                                     \
                 PHYSINTERP1D_DEF                                               \
-                break;                                                         \
+            }                                                                  \
+            break;                                                             \
         }                                                                      \
     }                                                                          \
     break;
@@ -183,12 +221,22 @@
                 BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
                              PHYSINTERP1D_M)
                 default:
-                    PHYSINTERP1D_DEF
-                    break;
+                {                                                       
+                    WARNINGL0( m_warnOnceTemplate,                      
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator"); 
+                    m_warnOnceTemplate = true;                          
+                    PHYSINTERP1D_DEF                                   
+                }                                                       
+                break;
             }
         }
         else
         {
+            WARNINGL0( m_warnOnceTemplate,                              
+                       "Executing nm = " + std::to_string(nm0) +
+                       " non-templated operator"); 
+            m_warnOnceTemplate = true;                                  
             PHYSINTERP1D_DEF
         }
 #endif

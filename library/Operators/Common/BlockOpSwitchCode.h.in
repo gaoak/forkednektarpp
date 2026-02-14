@@ -26,25 +26,39 @@
     {                                                                          \
         switch (nq0)                                                           \
         {                                                                      \
-            BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
-                             LEV2TEST1, LEV2UPDATE1,                           \
-                             OPERATOR_Q)                                       \
+            BOOST_PP_FOR_##r((NM(i), NM(i),                                    \
+               BOOST_PP_ADD(BOOST_PP_MUL(@NEKTAR_SWITCH_QMAX_MUL@, NM(i)),     \
+                         @NEKTAR_SWITCH_QMAX_ADD@)),                           \
+                             LEV2TEST1, LEV2UPDATE1, OPERATOR_Q)               \
             default :                                                          \
+            {                                                                  \
+                WARNINGL0( m_warnOnceTemplate,                                 \
+                           "Executing nq = " + std::to_string(nq0) +           \
+                           " non-templated operator");                         \
+                m_warnOnceTemplate = true;                                     \
                 OPERATOR_DEF                                                   \
-                break;                                                         \
+            }                                                                  \
+            break;                                                             \
         }                                                                      \
     }                                                                          \
     break;
 
-            // templated cases on equi-ordered modes and standard quad usage
-            // where quad order goes from mode order to 2(*mode order)
-            switch (nm0)
+        // templated cases on equi-ordered modes and standard quad
+        // usage where quad order goes from mode order to
+        // QMAX_MUL(*mode order) + QMAX_ADD
+        switch (nm0)
         {
             BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
                          OPERATOR_M)
             default:
+            {
+                WARNINGL0( m_warnOnceTemplate,                                 
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator"); 
+                m_warnOnceTemplate = true;                                     
                 OPERATOR_DEF
-                break;
+            }
+            break;
         }
     }
     else
@@ -69,12 +83,19 @@
     {                                                                          \
         switch (nq0)                                                           \
         {                                                                      \
-            BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
-                             LEV2TEST1, LEV2UPDATE1,                           \
-                             OPERATOR_Q)                                       \
+            BOOST_PP_FOR_##r((NM(i), NM(i),                                    \
+               BOOST_PP_ADD(BOOST_PP_MUL(@NEKTAR_SWITCH_QMAX_MUL@, NM(i)),     \
+                         @NEKTAR_SWITCH_QMAX_ADD@)),                           \
+                             LEV2TEST1, LEV2UPDATE1, OPERATOR_Q)               \
             default :                                                          \
+            {                                                                  \
+                WARNINGL0( m_warnOnceTemplate,                                 \
+                           "Executing nq = " + std::to_string(nq0) +           \
+                           " non-templated operator");                         \
+                m_warnOnceTemplate = true;                                     \
                 OPERATOR_DEF                                                   \
-                break;                                                         \
+            }                                                                  \
+            break;                                                             \
         }                                                                      \
     }                                                                          \
     break;
@@ -86,8 +107,14 @@
             BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
                          OPERATOR_M)
             default:
+            {
+                WARNINGL0( m_warnOnceTemplate,                                 
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator"); 
+                m_warnOnceTemplate = true;                                   
                 OPERATOR_DEF
-                break;
+            }
+            break;
         }
     }
 #elif defined(SHAPE_TYPE_Quad) || defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
@@ -128,12 +155,19 @@
     {                                                                          \
         switch (nq0)                                                           \
         {                                                                      \
-            BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
-                             LEV2TEST1, LEV2UPDATE1,                           \
-                             OPERATOR_Q)                                       \
+            BOOST_PP_FOR_##r((NM(i), NM(i),                                    \
+               BOOST_PP_ADD(BOOST_PP_MUL(@NEKTAR_SWITCH_QMAX_MUL@, NM(i)),     \
+                         @NEKTAR_SWITCH_QMAX_ADD@)),                           \
+                             LEV2TEST1, LEV2UPDATE1, OPERATOR_Q)               \
             default :                                                          \
+            {                                                                  \
+                WARNINGL0( m_warnOnceTemplate,                                 \
+                           "Executing nq = " + std::to_string(nq0) +           \
+                           " non-templated operator");                         \
+                m_warnOnceTemplate = true;                                     \
                 OPERATOR_DEF                                                   \
-                break;                                                         \
+            }                                                                  \
+            break;                                                             \
         }                                                                      \
     }                                                                          \
     break;
@@ -151,12 +185,22 @@
                 BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
                              OPERATOR_M)
                 default:
+                {                                                       
+                    WARNINGL0( m_warnOnceTemplate,
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator");
+                    m_warnOnceTemplate = true;                          
                     OPERATOR_DEF
-                    break;
+                }
+                break;
             }
         }
         else
         {
+            WARNINGL0( m_warnOnceTemplate,                                 
+                       "Executing nm = " + std::to_string(nm0) +
+                       " non-templated operator");
+            m_warnOnceTemplate = true;                                     
             OPERATOR_DEF
         }
     }
@@ -191,12 +235,19 @@
     {                                                                          \
         switch (nq0)                                                           \
         {                                                                      \
-            BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
-                             LEV2TEST1, LEV2UPDATE1,                           \
-                             OPERATOR_Q)                                       \
+            BOOST_PP_FOR_##r((NM(i), NM(i),                                    \
+               BOOST_PP_ADD(BOOST_PP_MUL(@NEKTAR_SWITCH_QMAX_MUL@, NM(i)),     \
+                         @NEKTAR_SWITCH_QMAX_ADD@)),                           \
+                             LEV2TEST1, LEV2UPDATE1, OPERATOR_Q)               \
             default :                                                          \
+            {                                                                  \
+                WARNINGL0( m_warnOnceTemplate,                                 \
+                           "Executing nq = " + std::to_string(nq0) +           \
+                           " non-templated operator");                         \
+                m_warnOnceTemplate = true;                                     \
                 OPERATOR_DEF                                                   \
-                break;                                                         \
+            }                                                                  \
+            break;                                                             \
         }                                                                      \
     }                                                                          \
     break;
@@ -220,6 +271,10 @@
         }
         else
         {
+            WARNINGL0( m_warnOnceTemplate,                                 
+                       "Executing nm = " + std::to_string(nm0) +
+                       " non-templated operator");
+            m_warnOnceTemplate = true;                                     
             OPERATOR_DEF
         }
     }
@@ -270,12 +325,19 @@
     {                                                                          \
         switch (nq0)                                                           \
         {                                                                      \
-            BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
-                             LEV2TEST1, LEV2UPDATE1,                           \
-                             OPERATOR_Q)                                       \
+            BOOST_PP_FOR_##r((NM(i), NM(i),                                    \
+               BOOST_PP_ADD(BOOST_PP_MUL(@NEKTAR_SWITCH_QMAX_MUL@, NM(i)),     \
+                         @NEKTAR_SWITCH_QMAX_ADD@)),                           \
+                             LEV2TEST1, LEV2UPDATE1, OPERATOR_Q)               \
             default :                                                          \
+            {                                                                  \
+                WARNINGL0( m_warnOnceTemplate,                                 \
+                           "Executing nq = " + std::to_string(nq0) +           \
+                           " non-templated operator");                         \
+                m_warnOnceTemplate = true;                                     \
                 OPERATOR_DEF                                                   \
-                break;                                                         \
+            }                                                                  \
+            break;                                                             \
         }                                                                      \
     }                                                                          \
     break;
@@ -298,12 +360,22 @@
                 BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
                              OPERATOR_M)
                 default:
+                {
+                    WARNINGL0( m_warnOnceTemplate,
+                       "Executing nm = " + std::to_string(nm0) +
+                       " non-templated operator");
+                    m_warnOnceTemplate = true;                                
                     OPERATOR_DEF
-                    break;
+                }
+                break;
             }
         }
         else
         {
+            WARNINGL0( m_warnOnceTemplate,
+                       "Executing nm = " + std::to_string(nm0) +
+                       " non-templated operator"); 
+            m_warnOnceTemplate = true;                                   
             OPERATOR_DEF
         }
     }
@@ -345,12 +417,19 @@
     {                                                                          \
         switch (nq0)                                                           \
         {                                                                      \
-            BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
-                             LEV2TEST1, LEV2UPDATE1,                           \
-                             OPERATOR_Q)                                       \
+            BOOST_PP_FOR_##r((NM(i), NM(i),                                    \
+               BOOST_PP_ADD(BOOST_PP_MUL(@NEKTAR_SWITCH_QMAX_MUL@, NM(i)),     \
+                         @NEKTAR_SWITCH_QMAX_ADD@)),                           \
+                             LEV2TEST1, LEV2UPDATE1, OPERATOR_Q)               \
             default :                                                          \
+            {                                                                  \
+                WARNINGL0( m_warnOnceTemplate,                                 \
+                           "Executing nq = " + std::to_string(nq0) +           \
+                           " non-templated operator");                         \
+                m_warnOnceTemplate = true;                                     \
                 OPERATOR_DEF                                                   \
-                break;                                                         \
+            }                                                                  \
+            break;                                                             \
         }                                                                      \
     }                                                                          \
     break;
@@ -373,12 +452,22 @@
                 BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
                              OPERATOR_M)
                 default:
+                {
+                    WARNINGL0( m_warnOnceTemplate,
+                       "Executing nm = " + std::to_string(nm0) +
+                       " non-templated operator");
+                    m_warnOnceTemplate = true;                             
                     OPERATOR_DEF
-                    break;
+                }                    
+                break;
             }
         }
         else
         {
+            WARNINGL0( m_warnOnceTemplate,
+                       "Executing nm = " + std::to_string(nm0) +
+                       " non-templated operator");
+            m_warnOnceTemplate = true;                                   
             OPERATOR_DEF
         }
     }

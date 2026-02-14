@@ -48,7 +48,7 @@
     case NM(i):                                                                \
         switch (nq0)                                                           \
         {                                                                      \
-            BOOST_PP_FOR_##r((NM(i), NM(i), BOOST_PP_MUL(2, NM(i))),           \
+            BOOST_PP_FOR_##r((NM(i), NM(i), (BOOST_PP_MUL(2, NM(i)))),         \
                              LEV2TEST1, LEV2UPDATE1, OPERATOR1D_Q)             \
             default :                                                          \
                 OPERATOR1D_DEF;                                                \

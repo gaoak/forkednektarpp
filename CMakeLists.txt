@@ -251,6 +251,12 @@ SET(NEKTAR_SWITCH_MAX 8 CACHE STRING "Set max range of auto generated switch")
 MARK_AS_ADVANCED(NEKTAR_SWITCH_MAX)
 MATH(EXPR NEKTAR_SWITCH_MAX_PLUSONE "${NEKTAR_SWITCH_MAX} + 1")
 
+SET(NEKTAR_SWITCH_QMAX_MUL 2 CACHE STRING "Set max quad range integer multiplier")
+MARK_AS_ADVANCED(NEKTAR_SWITCH_QMAX_MUL)
+
+SET(NEKTAR_SWITCH_QMAX_ADD 0 CACHE STRING "Set max quad range integer addition")
+MARK_AS_ADVANCED(NEKTAR_SWITCH_QMAX_ADD)
+
 # Memory pools
 OPTION(NEKTAR_USE_MEMORY_POOLS
     "Use memory pools to accelerate memory allocation." ON)
