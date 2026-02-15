@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: UnsteadyDiffusion.cpp
+// File: UnsteadyADR.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,34 +28,33 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Unsteady diffusion solve routines
+// Description: UnsteadyADR problem solve routines
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "Operators/TimeOps/TimeOp.hpp"
 
 #include <LibUtilities/BasicUtils/Timer.h>
-#include <RedesignSolver/EquationSystems/UnsteadyDiffusion.h>
+#include <RedesignSolver/EquationSystems/UnsteadyADR.h>
 
 namespace Nektar
 {
 using namespace Operators;
 
-std::string UnsteadyDiffusion::className =
-    GetEquationSystemFactory().RegisterCreatorFunction(
-        "UnsteadyDiffusion", UnsteadyDiffusion::create);
+std::string UnsteadyADR::className =
+    GetEquationSystemFactory().RegisterCreatorFunction("UnsteadyADRRedesign",
+                                                       UnsteadyADR::create);
 
-UnsteadyDiffusion::UnsteadyDiffusion(
-    const LibUtilities::SessionReaderSharedPtr &pSession,
-    const SpatialDomains::MeshGraphSharedPtr &pGraph)
+UnsteadyADR::UnsteadyADR(const LibUtilities::SessionReaderSharedPtr &pSession,
+                         const SpatialDomains::MeshGraphSharedPtr &pGraph)
     : EquationSystem(pSession, pGraph)
 {
 }
 
 /**
- * @brief Initialisation object for the unsteady diffusion problem.
+ * @brief Initialisation object for the UnsteadyADR problem.
  */
-void UnsteadyDiffusion::v_InitObject(bool DeclareFields)
+void UnsteadyADR::v_InitObject(bool DeclareFields)
 {
     EquationSystem::v_InitObject(DeclareFields);
 
@@ -68,12 +67,15 @@ void UnsteadyDiffusion::v_InitObject(bool DeclareFields)
 
     // Initialise Time-stepping operator
     m_timeOp = TimeOp<double>::Create(m_fields[0], m_session->GetVariables());
-    m_timeOp->DefineImplicit(&UnsteadyDiffusion::DoDiffusion, this);
-    m_timeOp->DefineExplicitRhs(&UnsteadyDiffusion::DoReaction, this);
-    m_timeOp->DefineProjection(&UnsteadyDiffusion::DoProjection, this);
+    m_timeOp->DefineImplicit(&UnsteadyADR::DoLinearADR, this);
+    m_timeOp->DefineExplicitRhs(&UnsteadyADR::DoReaction, this);
+    m_timeOp->DefineProjection(&UnsteadyADR::DoProjection, this);
 
     // Set up diffusion Coeff.
     SetDiffusionCoeff();
+
+    // Set Advection Vecloity
+    SetAdvectionVel();
 
     // Create and initialise all operators
     InitialiseOperators();
@@ -83,10 +85,9 @@ void UnsteadyDiffusion::v_InitObject(bool DeclareFields)
 }
 
 /**
- * @brief Implicit solution of the unsteady diffusion problem.
- * Using a standalone time stepping loop.
+ * @brief Solves UnsteadyADR problem.
  */
-void UnsteadyDiffusion::v_DoSolve()
+void UnsteadyADR::v_DoSolve()
 {
     // Initialise counters
     LibUtilities::Timer timer;
@@ -150,7 +151,7 @@ void UnsteadyDiffusion::v_DoSolve()
     //--------------------------------------------------------------------------
 }
 
-void UnsteadyDiffusion::v_GenerateSummary(SummaryList &s)
+void UnsteadyADR::v_GenerateSummary(SummaryList &s)
 {
     SessionSummary(s);
 
@@ -179,24 +180,7 @@ void UnsteadyDiffusion::v_GenerateSummary(SummaryList &s)
     AddSummaryItem(s, "Redesign disclaimer", ss.str());
 }
 
-/*
- *  @brief Setup rhs forcing term and solve Helmholtz system.
- *
- *  Upon input
- *  param in: = \sum_q=0^{J-1} \alpha_q / \gamma u^{n-q}
- *      + \Delta t \sum_q=0^{J-1} \beta_q / \gamma g(u^{n-q})
- *  the first term is used for implicit schemes, e.g. BDFImplicit
- *  the second term is used for explicit schemes, e.g. Adams-Bashforth
- *  both terms are used for implicit-explicit (IMEX) schemes
- *  param out: = param in
- *  param time: = t^{n+1}
- *  param dt_inv_gamma: = \Delta t / \gamma
- *
- *  Upon output
- *  param in: = u^{n+1}
- *  param out: = param in
- */
-void UnsteadyDiffusion::DoDiffusion(
+void UnsteadyADR::DoLinearADR(
     Field<double, FieldState::Phys> &in,
     [[maybe_unused]] Field<double, FieldState::Phys> &out,
     [[maybe_unused]] const double &time, const double &dt_inv_gamma)
@@ -204,28 +188,28 @@ void UnsteadyDiffusion::DoDiffusion(
     // Update \lambda = \gamma / \Delta t
     m_lambda = 1.0 / dt_inv_gamma;
 
-    // Update HelmSolve
-    m_helmSolveOp->SetLambda(m_lambda);
+    // Update LinearADRSolve
+    m_linearADRSolveOp->SetLambda(m_lambda);
     if (m_preconOp.find(dt_inv_gamma) == m_preconOp.end())
     {
         // Configure and cache preconditioner
         m_preconOp.insert(
             {dt_inv_gamma,
              PreconOp<double>::Create(m_fields[0], m_session->GetVariables())});
-        m_helmSolveOp->SetPrecon(m_preconOp[dt_inv_gamma]);
-        m_helmSolveOp->UpdatePrecon();
+        m_linearADRSolveOp->SetPrecon(m_preconOp[dt_inv_gamma]);
+        m_linearADRSolveOp->UpdatePrecon();
     }
     else
     {
         // Re-use preconditioner
-        m_helmSolveOp->SetPrecon(m_preconOp[dt_inv_gamma]);
+        m_linearADRSolveOp->SetPrecon(m_preconOp[dt_inv_gamma]);
     }
 
     // Multiply by negative lambda
     m_math.mul(-m_lambda, in, out);
 
-    // Solve diffusion problem
-    m_helmSolveOp->Apply(out, m_wsp_coeff);
+    // Solve LinearADR problem
+    m_linearADRSolveOp->Apply(out, m_wsp_coeff);
 
     // Transform to physical space
     m_bwdTransOp->Apply(m_wsp_coeff, out);
@@ -240,9 +224,9 @@ void UnsteadyDiffusion::DoDiffusion(
  *  Upon output
  *  param out: = \kappa u^{n}
  */
-void UnsteadyDiffusion::DoReaction(Field<double, FieldState::Phys> &in,
-                                   Field<double, FieldState::Phys> &out,
-                                   const double &time, const double &dt)
+void UnsteadyADR::DoReaction(Field<double, FieldState::Phys> &in,
+                             Field<double, FieldState::Phys> &out,
+                             const double &time, const double &dt)
 {
     // Evaluate and add forcing function, if defined
     if (m_session->DefinesFunction("BodyForce"))
@@ -261,9 +245,9 @@ void UnsteadyDiffusion::DoReaction(Field<double, FieldState::Phys> &in,
  * @param out   CG-projected fields.
  * @param time  Time.
  */
-void UnsteadyDiffusion::DoProjection(Field<double, FieldState::Phys> &in,
-                                     Field<double, FieldState::Phys> &out,
-                                     [[maybe_unused]] const double time)
+void UnsteadyADR::DoProjection(Field<double, FieldState::Phys> &in,
+                               Field<double, FieldState::Phys> &out,
+                               [[maybe_unused]] const double time)
 {
     // Update time-varying boundary conditions
     // SetBoundaryConditions(time);
@@ -297,7 +281,7 @@ void UnsteadyDiffusion::DoProjection(Field<double, FieldState::Phys> &in,
  *      Vec[4] = D_{12}
  *      Vec[5] = D_{22}
  */
-void UnsteadyDiffusion::SetDiffusionCoeff()
+void UnsteadyADR::SetDiffusionCoeff()
 {
     // Get the scalar part
     m_session->LoadParameter("epsilon", m_epsilon, 1.0);
@@ -346,23 +330,24 @@ void UnsteadyDiffusion::SetDiffusionCoeff()
 /*
  *  Create and initialise all operators for this solver
  */
-void UnsteadyDiffusion::InitialiseOperators()
+void UnsteadyADR::InitialiseOperators()
 {
     // Initialise Math
     std::string execName = Operator<double>::GetOpExecSpace(m_session);
     m_math               = Math(execName);
 
-    // Create Helmsolve, BwdTrans, and linear system operators
+    // Create LinearADRSolve, preconditioner, and linear system operators
     m_linearSolverOp =
         LinearSolverOp<double>::Create(m_fields[0], m_session->GetVariables());
     m_bwdTransOp =
         BwdTransOp<double>::Create(m_fields[0], m_session->GetVariables());
-    m_helmSolveOp =
-        HelmSolveOp<double>::Create(m_fields[0], m_session->GetVariables());
+    m_linearADRSolveOp = LinearADRSolveOp<double>::Create(
+        m_fields[0], m_session->GetVariables());
 
-    // Configure HelmSolve
-    m_helmSolveOp->SetLinearSolver(m_linearSolverOp);
-    m_helmSolveOp->SetDiffCoeff(m_diffCoeff);
+    // Configure UnsteadyADRSolve
+    m_linearADRSolveOp->SetLinearSolver(m_linearSolverOp);
+    m_linearADRSolveOp->SetDiffCoeff(m_diffCoeff);
+    m_linearADRSolveOp->SetAdvVel(m_AdVel);
 
     // Check if forcing is defined
     if (m_session->DefinesFunction("BodyForce"))
@@ -397,7 +382,7 @@ void UnsteadyDiffusion::InitialiseOperators()
 /*
  *  Create and initialise Fields.
  */
-void UnsteadyDiffusion::InitialiseFields()
+void UnsteadyADR::InitialiseFields()
 {
     // Get block Attributes.
     auto block_attr_phys =
@@ -413,7 +398,86 @@ void UnsteadyDiffusion::InitialiseFields()
         "m_wsp_coeff", block_attr_coeff, m_nVariables, nhomo);
 }
 
-void UnsteadyDiffusion::SetInitialConditionsField(
+/*
+ *  @brief Sets the Advection Veclocity
+ */
+void UnsteadyADR::SetAdvectionVel()
+{
+    unsigned int nhomo = m_npointsZ; // Note read in EquationSystem.cpp
+    unsigned int dim   = m_fields[0]->GetCoordim(0);
+    double Vx;
+
+    // Set advection velocity
+    size_t nphys = m_fields[0]->GetTotPoints() / nhomo;
+    std::cout << std::endl;
+    std::cout << "nphys = " << nphys << " , dim = " << dim << std::endl;
+
+    // Get the advection velocity
+    m_AdVel = Array<OneD, double>(nphys * dim);
+
+    if (m_session->DefinesFunction("BaseFlow"))
+    {
+        // Reads the Session File Vecoity defined as function
+        std::vector<std::string> vel;
+        vel.push_back("Vx");
+        vel.push_back("Vy");
+        vel.push_back("Vz");
+
+        // Resize the advection velocities vector to dimension of the problem
+        vel.resize(dim);
+
+        // Get Advection Velocity from Session file
+        // A Temp variable, tmp of type Array<OneD, Array<OneD, NekDouble>>
+        // tmp reads from Session, with Legacy routnie
+        Array<OneD, Array<OneD, NekDouble>> tmp =
+            Array<OneD, Array<OneD, NekDouble>>(dim);
+        GetFunction("BaseFlow")->Evaluate(vel, tmp);
+
+        // Rewrite into m_AdVel of type Array<OneD, double>
+        // Since, the Redeisgn expects adevection velocity of that type
+        int count = 0;
+        for (int i = 0; i < dim; i++)
+        {
+            for (int j = 0; j < nphys; j++)
+            {
+                m_AdVel[count] = tmp[i][j];
+                count += 1;
+            }
+        }
+    }
+    else
+    {
+        // Reads the Session File velocity defined as paramter for a constant
+        // value
+
+        // For the first dimension
+        m_session->LoadParameter("Vx", Vx, 0.0);
+        for (size_t i = 0; i < nphys; i++)
+        {
+            m_AdVel[i] = Vx;
+        }
+        if (dim >= 2)
+        {
+            // For the second dimension
+            m_session->LoadParameter("Vy", Vx, 0.0);
+            for (size_t i = nphys; i < nphys * 2; i++)
+            {
+                m_AdVel[i] = Vx;
+            }
+        }
+        if (dim == 3)
+        {
+            // For the third dimension
+            m_session->LoadParameter("Vz", Vx, 0.0);
+            for (size_t i = 2 * nphys; i < nphys * 3; i++)
+            {
+                m_AdVel[i] = Vx;
+            }
+        }
+    }
+}
+
+void UnsteadyADR::SetInitialConditionsField(
     Field<double, FieldState::Phys> &field)
 {
     // Print to log/console

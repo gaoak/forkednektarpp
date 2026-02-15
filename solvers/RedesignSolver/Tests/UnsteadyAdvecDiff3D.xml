@@ -176,17 +176,19 @@
     </GEOMETRY>
 
     <EXPANSIONS>
-        <E COMPOSITE="C[0]" NUMMODES="7" TYPE="MODIFIED" FIELDS="u" />
+        <E COMPOSITE="C[0]" NUMMODES="10" TYPE="MODIFIED" FIELDS="u" />
     </EXPANSIONS>
 
     <CONDITIONS>
         <PARAMETERS>
-            <P> TimeStep       = 0.001                 </P>
-            <P> NumSteps       = 100                   </P>
+            <P> TimeStep       = 0.0001                </P>
+            <P> NumSteps       = 10                    </P>
             <P> FinTime        = NumSteps*TimeStep     </P>
-            <P> IO_InfoSteps   = NumSteps/20           </P>
-            <P> freq           = PI/2                  </P>
-            <P> epsilon        = 0.2                   </P>
+            <P> IO_InfoSteps   = NumSteps/2            </P>
+            <P> epsilon        = 0.45                  </P>
+            <P> Vx             = 0.6                   </P>
+            <P> Vy             = 0.2                   </P>
+            <P> Vz             = 3*epsilon - Vx - Vy -1</P>
         </PARAMETERS>
 
         <TIMEINTEGRATIONSCHEME>
@@ -195,12 +197,11 @@
         </TIMEINTEGRATIONSCHEME>
 
         <SOLVERINFO>
-            <I PROPERTY="EQTYPE"                VALUE="UnsteadyDiffusion" />
+            <I PROPERTY="EQTYPE"                VALUE="UnsteadyADRRedesign" />
             <I PROPERTY="Projection"            VALUE="Continuous" />
-            <I PROPERTY="DiffusionAdvancement"  VALUE="Implicit" />
             <I PROPERTY="GLOBALSYSSOLN"         VALUE="IterativeFull" />
-            <I PROPERTY="LinSysIterSolver"      VALUE="ConjugateGradientLoc" />
             <I PROPERTY="Preconditioner"        VALUE="Diagonal" />
+            <I PROPERTY="LinSysIterSolver"      VALUE="GMRES"   />
         </SOLVERINFO>
 
         <VARIABLES>
@@ -213,16 +214,16 @@
 
         <BOUNDARYCONDITIONS>
             <REGION REF="0">
-                <D VAR="u" VALUE="0" />
+                <D VAR="u" VALUE="5*exp(x)*exp(y)*exp(z)*exp(-t)" />
             </REGION>
         </BOUNDARYCONDITIONS>
 
         <FUNCTION NAME="ExactSolution">
-            <E VAR="u" VALUE="exp(-epsilon*3.0*freq*freq*FinTime)*cos(freq*x)*cos(freq*y)*cos(freq*z)" />
+            <E VAR="u" VALUE="5*exp(x)*exp(y)*exp(z)*exp(-t)" />
         </FUNCTION>
 
         <FUNCTION NAME="InitialConditions">
-            <E VAR="u" VALUE="cos(freq*x)*cos(freq*y)*cos(freq*z)" />
+            <E VAR="u" VALUE="5*exp(x)*exp(y)*exp(z)" />
         </FUNCTION>
     </CONDITIONS>
 

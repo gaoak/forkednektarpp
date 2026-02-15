@@ -176,31 +176,27 @@
     </GEOMETRY>
 
     <EXPANSIONS>
-        <E COMPOSITE="C[0]" NUMMODES="7" TYPE="MODIFIED" FIELDS="u" />
+        <E COMPOSITE="C[0]" NUMMODES="8" TYPE="MODIFIED" FIELDS="u" />
     </EXPANSIONS>
 
     <CONDITIONS>
         <PARAMETERS>
-            <P> TimeStep       = 0.001                 </P>
-            <P> NumSteps       = 100                   </P>
-            <P> FinTime        = NumSteps*TimeStep     </P>
-            <P> IO_InfoSteps   = NumSteps/20           </P>
-            <P> freq           = PI/2                  </P>
-            <P> epsilon        = 0.2                   </P>
+            <P> epsilon          = 0.6            </P>
+            <P> lambda           = 0.81           </P>
+            <P> D00              = 0.4            </P>
+            <P> D11              = 0.5            </P>
+            <P> D22              = 0.7            </P>
+            <P> Vx               = 0.8            </P>
+            <P> Vy               = 0.6            </P>
+            <P> Vz               = 0.7            </P>
         </PARAMETERS>
 
-        <TIMEINTEGRATIONSCHEME>
-            <METHOD> BDFImplicit </METHOD>
-            <ORDER> 2 </ORDER>
-        </TIMEINTEGRATIONSCHEME>
-
         <SOLVERINFO>
-            <I PROPERTY="EQTYPE"                VALUE="UnsteadyDiffusion" />
+            <I PROPERTY="EQTYPE"                VALUE="SteadyADRRedesign" />
             <I PROPERTY="Projection"            VALUE="Continuous" />
-            <I PROPERTY="DiffusionAdvancement"  VALUE="Implicit" />
             <I PROPERTY="GLOBALSYSSOLN"         VALUE="IterativeFull" />
-            <I PROPERTY="LinSysIterSolver"      VALUE="ConjugateGradientLoc" />
             <I PROPERTY="Preconditioner"        VALUE="Diagonal" />
+            <I PROPERTY="LinSysIterSolver"      VALUE="GMRES"   />
         </SOLVERINFO>
 
         <VARIABLES>
@@ -218,12 +214,19 @@
         </BOUNDARYCONDITIONS>
 
         <FUNCTION NAME="ExactSolution">
-            <E VAR="u" VALUE="exp(-epsilon*3.0*freq*freq*FinTime)*cos(freq*x)*cos(freq*y)*cos(freq*z)" />
+            <E VAR="u" VALUE="(x-1)*(x+1)*(y-1)*(y+1)*(z-1)*(z+1)" />
         </FUNCTION>
 
-        <FUNCTION NAME="InitialConditions">
-            <E VAR="u" VALUE="cos(freq*x)*cos(freq*y)*cos(freq*z)" />
+        <!-- Body force to enforce reaction term -->
+        <FUNCTION NAME="BodyForce">
+            <E VAR="u" EVARS="u" VALUE="2*(y+1)*(y-1)*(z+1)*(z-1)*epsilon*D00 + 2*(x+1)*(x-1)*(z+1)*(z-1)*epsilon*D11 + 2*(y+1)*(y-1)*(x+1)*(x-1)*epsilon*D22 - Vx*2*x*(y+1)*(y-1)*(z+1)*(z-1) - Vy*2*y*(x+1)*(x-1)*(z+1)*(z-1) - Vz*2*z*(y+1)*(y-1)*(x+1)*(x-1) - lambda*(x-1)*(x+1)*(y-1)*(y+1)*(z-1)*(z+1)" />
         </FUNCTION>
     </CONDITIONS>
+
+    <FORCING>
+        <FORCE TYPE="Body">
+            <BODYFORCE> BodyForce </BODYFORCE>
+        </FORCE>
+    </FORCING>
 
 </NEKTAR>

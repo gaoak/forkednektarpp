@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: Poisson.h
+// File: SteadyADR.h
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,7 +28,8 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Poisson problem solve routines for new operators
+// Description: Steady Advection Diffusion problem solve routines for new
+// operators
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -37,7 +38,7 @@
 #include "Operators/Math/Math.hpp"
 #include <Operators/ElmtOps/Expression/ExpressionOp.hpp>
 #include <Operators/Field/Field.hpp>
-#include <Operators/GlobalLinSysOps/LinearSystems/PoissonSolve/PoissonSolveOp.hpp>
+#include <Operators/GlobalLinSysOps/LinearSystems/LinearADRSolve/LinearADRSolveOp.hpp>
 #include <SolverUtils/EquationSystem.h>
 
 namespace Nektar
@@ -45,10 +46,10 @@ namespace Nektar
 using namespace SolverUtils;
 using namespace Operators;
 
-class Poisson : public EquationSystem
+class SteadyADR : public EquationSystem
 {
 public:
-    friend class MemoryManager<Poisson>;
+    friend class MemoryManager<SteadyADR>;
 
     /// Creates an instance of this class
     static EquationSystemSharedPtr create(
@@ -56,7 +57,7 @@ public:
         const SpatialDomains::MeshGraphSharedPtr &pGraph)
     {
         EquationSystemSharedPtr p =
-            MemoryManager<Poisson>::AllocateSharedPtr(pSession, pGraph);
+            MemoryManager<SteadyADR>::AllocateSharedPtr(pSession, pGraph);
         p->InitObject();
         return p;
     }
@@ -68,6 +69,9 @@ protected:
     // Diffusion coefficient
     double m_epsilon;
     std::vector<double> m_diffCoeff;
+    double m_lambda; // Set's the parameter Lambda
+    // Variables for the Advection, Diffusion, Reaction Solver
+    Array<OneD, double> m_AdVel; // Advection Veclocity
 
     // Save variable strings and number for verbose output and looping
     std::vector<std::string> m_variables;
@@ -81,15 +85,15 @@ protected:
     Math m_math;
 
     // Initialise operators
-    std::shared_ptr<PoissonSolveOp<double>> m_poissonSolveOp;
+    std::shared_ptr<LinearADRSolveOp<double>> m_linearADRSolveOp;
     std::shared_ptr<LinearSolverOp<double>> m_linearSolverOp;
     std::shared_ptr<PreconOp<double>> m_preconOp;
     std::shared_ptr<ExpressionOp<double>> m_forcingOp;
 
-    Poisson(const LibUtilities::SessionReaderSharedPtr &pSession,
-            const SpatialDomains::MeshGraphSharedPtr &pGraph);
+    SteadyADR(const LibUtilities::SessionReaderSharedPtr &pSession,
+              const SpatialDomains::MeshGraphSharedPtr &pGraph);
 
-    ~Poisson() override = default;
+    ~SteadyADR() override = default;
 
     void v_InitObject(bool DeclareFields = true) override;
 
@@ -102,6 +106,8 @@ protected:
     void InitialiseFields();
 
     void SetDiffusionCoeff();
+
+    void SetAdvectionVel();
 };
 
 } // namespace Nektar
