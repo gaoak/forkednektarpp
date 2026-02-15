@@ -46,6 +46,8 @@ IF(NEKTAR_BUILD_REDESIGN)
             RedesignSolver.cpp
             EquationSystems/UnsteadyDiffusion.cpp
             EquationSystems/Poisson.cpp
+	    EquationSystems/SteadyADR.cpp
+	    EquationSystems/UnsteadyADR.cpp
         )
 
         IF(NEKTAR_BUILD_SOLVER_LIBS)
@@ -63,5 +65,18 @@ IF(NEKTAR_BUILD_REDESIGN)
         SET_ALL_SOLVER_TEST(RedesignSolver ReactionDiffusion2D)
         SET_ALL_SOLVER_TEST(RedesignSolver ReactionDiffusion3D)
     #    SET_ALL_SOLVER_TEST(RedesignSolver ReactionDiffusion3D_3C)
+    	SET_ALL_SOLVER_TEST(RedesignSolver SteadyAdvecDiff1D)
+        SET_ALL_SOLVER_TEST(RedesignSolver SteadyAdvecDiff2D)
+        SET_ALL_SOLVER_TEST(RedesignSolver SteadyAdvecDiff3D)
+        SET_ALL_SOLVER_TEST(RedesignSolver SteadyAdvecDiff1DBaseFlow)
+	SET_ALL_SOLVER_TEST(RedesignSolver SteadyAdvecDiff2DBaseFlow)
+	SET_ALL_SOLVER_TEST(RedesignSolver SteadyAdvecDiff3DBaseFlow)
+	SET_ALL_SOLVER_TEST(RedesignSolver SteadyAdvecDiffReaction1D)
+	SET_ALL_SOLVER_TEST(RedesignSolver SteadyAdvecDiffReaction2D)
+	SET_ALL_SOLVER_TEST(RedesignSolver SteadyAdvecDiffReaction3D)
+	# SET_ALL_SOLVER_TEST(RedesignSolver UnsteadyAdvecDiff1D)
+	# SET_ALL_SOLVER_TEST(RedesignSolver UnsteadyAdvecDiff2D)
+        # SET_ALL_SOLVER_TEST(RedesignSolver UnsteadyAdvecDiff3D)
+
     ENDIF()
 ENDIF(NEKTAR_BUILD_REDESIGN)

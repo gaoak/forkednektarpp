@@ -59,13 +59,12 @@
 
     <CONDITIONS>
         <PARAMETERS>
-            <P> TimeStep       = 0.001                       </P>
-            <P> NumSteps       = 100                         </P>
-            <P> FinTime        = NumSteps*TimeStep           </P>
-            <P> IO_InfoSteps   = NumSteps/20                 </P>
-            <P> freq           = PI/2                        </P>
-            <P> epsilon        = 0.2                         </P>
-            <P> lambda         = epsilon * 2.0 * freq * freq </P>
+            <P> TimeStep       = 0.001                 </P>
+            <P> NumSteps       = 100                   </P>
+            <P> FinTime        = NumSteps*TimeStep     </P>
+            <P> IO_InfoSteps   = NumSteps/20           </P>
+            <P> freq           = PI/2                  </P>
+            <P> epsilon        = 0.2                   </P>
         </PARAMETERS>
 
         <TIMEINTEGRATIONSCHEME>
@@ -97,7 +96,7 @@
         </BOUNDARYCONDITIONS>
 
         <FUNCTION NAME="ExactSolution">
-            <E VAR="u" VALUE="exp(-lambda*FinTime)*cos(freq*x)*cos(freq*y)" />
+            <E VAR="u" VALUE="exp(-epsilon*2.0*freq*freq*FinTime)*cos(freq*x)*cos(freq*y)" />
         </FUNCTION>
 
         <FUNCTION NAME="InitialConditions">

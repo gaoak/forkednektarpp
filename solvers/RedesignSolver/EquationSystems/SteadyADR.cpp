@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: Poisson.cpp
+// File: SteadyADR.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,31 +28,31 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Poisson problem solve routines
+// Description: SteadyADR problem solve routines
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <LibUtilities/BasicUtils/Timer.h>
-#include <RedesignSolver/EquationSystems/Poisson.h>
+#include <RedesignSolver/EquationSystems/SteadyADR.h>
 
 namespace Nektar
 {
 using namespace Operators;
 
-std::string Poisson::className =
-    GetEquationSystemFactory().RegisterCreatorFunction("PoissonRedesign",
-                                                       Poisson::create);
+std::string SteadyADR::className =
+    GetEquationSystemFactory().RegisterCreatorFunction("SteadyADRRedesign",
+                                                       SteadyADR::create);
 
-Poisson::Poisson(const LibUtilities::SessionReaderSharedPtr &pSession,
-                 const SpatialDomains::MeshGraphSharedPtr &pGraph)
+SteadyADR::SteadyADR(const LibUtilities::SessionReaderSharedPtr &pSession,
+                     const SpatialDomains::MeshGraphSharedPtr &pGraph)
     : EquationSystem(pSession, pGraph)
 {
 }
 
 /**
- * @brief Initialisation object for the Poisson problem.
+ * @brief Initialisation object for the SteadyADR problem.
  */
-void Poisson::v_InitObject(bool DeclareFields)
+void SteadyADR::v_InitObject(bool DeclareFields)
 {
     EquationSystem::v_InitObject(DeclareFields);
 
@@ -66,6 +66,9 @@ void Poisson::v_InitObject(bool DeclareFields)
     // Set up diffusion Coeff.
     SetDiffusionCoeff();
 
+    // Set Advection Vecloity
+    SetAdvectionVel();
+
     // Create and initialise all operators
     InitialiseOperators();
 
@@ -74,9 +77,9 @@ void Poisson::v_InitObject(bool DeclareFields)
 }
 
 /**
- * @brief Solves Poisson problem.
+ * @brief Solves SteadyADR problem.
  */
-void Poisson::v_DoSolve()
+void SteadyADR::v_DoSolve()
 {
     // Evaluate the forcing
     if (m_session->DefinesFunction("BodyForce"))
@@ -85,8 +88,8 @@ void Poisson::v_DoSolve()
         m_forcingOp->Apply(m_wsp_fce, m_wsp_fce);
     }
 
-    // Apply method for solving the Poisson problem
-    m_poissonSolveOp->Apply(m_wsp_fce, m_wsp_coeff);
+    // Apply method for solving the SteadyADR problem
+    m_linearADRSolveOp->Apply(m_wsp_fce, m_wsp_coeff);
 
     // TODO : Remove the below code, when updated with Redesign solverUtils
     //  ----------------------------------------------------------------------
@@ -115,7 +118,7 @@ void Poisson::v_DoSolve()
     //--------------------------------------------------------------------------
 }
 
-void Poisson::v_GenerateSummary(SummaryList &s)
+void SteadyADR::v_GenerateSummary(SummaryList &s)
 {
     SessionSummary(s);
 
@@ -162,7 +165,7 @@ void Poisson::v_GenerateSummary(SummaryList &s)
  *      Vec[4] = D_{12}
  *      Vec[5] = D_{22}
  */
-void Poisson::SetDiffusionCoeff()
+void SteadyADR::SetDiffusionCoeff()
 {
     // Get the scalar part
     m_session->LoadParameter("epsilon", m_epsilon, 1.0);
@@ -211,25 +214,28 @@ void Poisson::SetDiffusionCoeff()
 /*
  *  Create and initialise all operators for this solver
  */
-void Poisson::InitialiseOperators()
+void SteadyADR::InitialiseOperators()
 {
     // Initialise Math
     std::string execName = Operator<double>::GetOpExecSpace(m_session);
     m_math               = Math(execName);
 
-    // Create PoisonSolve, preconditioner, and linear system operators
+    // Create LinearADRSolve, preconditioner, and linear system operators
     m_preconOp =
         PreconOp<double>::Create(m_fields[0], m_session->GetVariables());
     m_linearSolverOp =
         LinearSolverOp<double>::Create(m_fields[0], m_session->GetVariables());
-    m_poissonSolveOp =
-        PoissonSolveOp<double>::Create(m_fields[0], m_session->GetVariables());
+    m_linearADRSolveOp = LinearADRSolveOp<double>::Create(
+        m_fields[0], m_session->GetVariables());
 
-    // Configure PoissonSolve
-    m_poissonSolveOp->SetLinearSolver(m_linearSolverOp);
-    m_poissonSolveOp->SetDiffCoeff(m_diffCoeff);
-    m_poissonSolveOp->SetPrecon(m_preconOp);
-    m_poissonSolveOp->UpdatePrecon();
+    // Configure SteadyADRSolve
+    m_session->LoadParameter("lambda", m_lambda, 0.0);
+    m_linearADRSolveOp->SetLinearSolver(m_linearSolverOp);
+    m_linearADRSolveOp->SetLambda(m_lambda);
+    m_linearADRSolveOp->SetDiffCoeff(m_diffCoeff);
+    m_linearADRSolveOp->SetAdvVel(m_AdVel);
+    m_linearADRSolveOp->SetPrecon(m_preconOp);
+    m_linearADRSolveOp->UpdatePrecon();
 
     // Check if forcing is defined
     if (m_session->DefinesFunction("BodyForce"))
@@ -255,7 +261,7 @@ void Poisson::InitialiseOperators()
  * term m_wsp_coeff is a FieldState::Coeff workspace initialised to zero for the
  * solution
  */
-void Poisson::InitialiseFields()
+void SteadyADR::InitialiseFields()
 {
     // Get block Attributes.
     auto block_attr_phys =
@@ -275,6 +281,85 @@ void Poisson::InitialiseFields()
     // Initialise fields
     m_math.zero(m_wsp_fce);
     m_math.zero(m_wsp_coeff);
+}
+
+/*
+ *  @brief Sets the Advection Veclocity
+ */
+void SteadyADR::SetAdvectionVel()
+{
+    unsigned int nhomo = m_npointsZ; // Note read in EquationSystem.cpp
+    unsigned int dim   = m_fields[0]->GetCoordim(0);
+    double Vx;
+
+    // Set advection velocity
+    size_t nphys = m_fields[0]->GetTotPoints() / nhomo;
+    std::cout << std::endl;
+    std::cout << "nphys = " << nphys << " , dim = " << dim << std::endl;
+
+    // Get the advection velocity
+    m_AdVel = Array<OneD, double>(nphys * dim);
+
+    if (m_session->DefinesFunction("BaseFlow"))
+    {
+        // Reads the Session File Vecoity defined as function
+        std::vector<std::string> vel;
+        vel.push_back("Vx");
+        vel.push_back("Vy");
+        vel.push_back("Vz");
+
+        // Resize the advection velocities vector to dimension of the problem
+        vel.resize(dim);
+
+        // Get Advection Velocity from Session file
+        // A Temp variable, tmp of type Array<OneD, Array<OneD, NekDouble>>
+        // tmp reads from Session, with Legacy routnie
+        Array<OneD, Array<OneD, NekDouble>> tmp =
+            Array<OneD, Array<OneD, NekDouble>>(dim);
+        GetFunction("BaseFlow")->Evaluate(vel, tmp);
+
+        // Rewrite into m_AdVel of type Array<OneD, double>
+        // Since, the Redeisgn expects adevection velocity of that type
+        int count = 0;
+        for (int i = 0; i < dim; i++)
+        {
+            for (int j = 0; j < nphys; j++)
+            {
+                m_AdVel[count] = tmp[i][j];
+                count += 1;
+            }
+        }
+    }
+    else
+    {
+        // Reads the Session File velocity defined as paramter for a constant
+        // value
+
+        // For the first dimension
+        m_session->LoadParameter("Vx", Vx, 0.0);
+        for (size_t i = 0; i < nphys; i++)
+        {
+            m_AdVel[i] = Vx;
+        }
+        if (dim >= 2)
+        {
+            // For the second dimension
+            m_session->LoadParameter("Vy", Vx, 0.0);
+            for (size_t i = nphys; i < nphys * 2; i++)
+            {
+                m_AdVel[i] = Vx;
+            }
+        }
+        if (dim == 3)
+        {
+            // For the third dimension
+            m_session->LoadParameter("Vz", Vx, 0.0);
+            for (size_t i = 2 * nphys; i < nphys * 3; i++)
+            {
+                m_AdVel[i] = Vx;
+            }
+        }
+    }
 }
 
 } // namespace Nektar

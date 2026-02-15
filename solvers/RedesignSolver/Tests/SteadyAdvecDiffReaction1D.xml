@@ -5,16 +5,16 @@
 
     <GEOMETRY DIM="1" SPACE="1">
         <VERTEX>
-            <V ID="0"> -1.0  0.0  0.0</V>
-            <V ID="1"> -0.8  0.0  0.0</V>
-            <V ID="2"> -0.6  0.0  0.0</V>
-            <V ID="3"> -0.4  0.0  0.0</V>
-            <V ID="4"> -0.2  0.0  0.0</V>
-            <V ID="5">  0.0  0.0  0.0</V>
-            <V ID="6">  0.2  0.0  0.0</V>
-            <V ID="7">  0.4  0.0  0.0</V>
-            <V ID="8">  0.6  0.0  0.0</V>
-            <V ID="9">  0.8  0.0  0.0</V>
+            <V ID="0">  0.0  0.0  0.0</V>
+            <V ID="1">  0.1  0.0  0.0</V>
+            <V ID="2">  0.2  0.0  0.0</V>
+            <V ID="3">  0.3  0.0  0.0</V>
+            <V ID="4">  0.4  0.0  0.0</V>
+            <V ID="5">  0.5  0.0  0.0</V>
+            <V ID="6">  0.6  0.0  0.0</V>
+            <V ID="7">  0.7  0.0  0.0</V>
+            <V ID="8">  0.8  0.0  0.0</V>
+            <V ID="9">  0.9  0.0  0.0</V>
             <V ID="10"> 1.0  0.0  0.0</V>
         </VERTEX>
 
@@ -42,31 +42,22 @@
     </GEOMETRY>
 
     <EXPANSIONS>
-        <E COMPOSITE="C[0,3]" NUMMODES="10" TYPE="MODIFIED" FIELDS="u" />
+        <E COMPOSITE="C[0,3]" NUMMODES="10" FIELDS="u" TYPE="MODIFIED" />
     </EXPANSIONS>
 
     <CONDITIONS>
         <PARAMETERS>
-            <P> TimeStep       = 0.001                 </P>
-            <P> NumSteps       = 100                   </P>
-            <P> FinTime        = NumSteps*TimeStep     </P>
-            <P> IO_InfoSteps   = NumSteps/20           </P>
-            <P> freq           = PI/2                  </P>
-            <P> epsilon        = 0.2                   </P>
+            <P> epsilon        = 0.2           </P>
+            <P> lambda         = 0.6           </P>
+            <P> Vx             = 0.5           </P>
         </PARAMETERS>
 
-        <TIMEINTEGRATIONSCHEME>
-            <METHOD> BDFImplicit </METHOD>
-            <ORDER> 2 </ORDER>
-        </TIMEINTEGRATIONSCHEME>
-
         <SOLVERINFO>
-            <I PROPERTY="EQTYPE"                VALUE="UnsteadyDiffusion" />
+            <I PROPERTY="EQTYPE"                VALUE="SteadyADRRedesign" />
             <I PROPERTY="Projection"            VALUE="Continuous" />
-            <I PROPERTY="DiffusionAdvancement"  VALUE="Implicit" />
             <I PROPERTY="GLOBALSYSSOLN"         VALUE="IterativeFull" />
-            <I PROPERTY="LinSysIterSolver"      VALUE="ConjugateGradientLoc" />
             <I PROPERTY="Preconditioner"        VALUE="Diagonal" />
+            <I PROPERTY="LinSysIterSolver"      VALUE="GMRES"   />
         </SOLVERINFO>
 
         <VARIABLES>
@@ -74,22 +65,33 @@
         </VARIABLES>
 
         <BOUNDARYREGIONS>
-            <B ID="0"> C[1-2] </B>
+            <B ID="0"> C[1] </B>
+            <B ID="1"> C[2] </B>
         </BOUNDARYREGIONS>
 
         <BOUNDARYCONDITIONS>
             <REGION REF="0">
                 <D VAR="u" VALUE="0" />
             </REGION>
+            <REGION REF="1">
+                <D VAR="u" VALUE="1" />
+            </REGION>
         </BOUNDARYCONDITIONS>
 
         <FUNCTION NAME="ExactSolution">
-            <E VAR="u" VALUE="exp(-epsilon*freq*freq*FinTime)*cos(freq*x)" />
+            <E VAR="u" VALUE="x^2" />
         </FUNCTION>
 
-        <FUNCTION NAME="InitialConditions">
-            <E VAR="u" VALUE="cos(freq*x)" />
+        <!-- Body force to enforce reaction term -->
+        <FUNCTION NAME="BodyForce">
+            <E VAR="u" EVARS="u" VALUE="2*epsilon - 2*Vx*x - lambda*(x^2)" />
         </FUNCTION>
     </CONDITIONS>
+
+    <FORCING>
+        <FORCE TYPE="Body">
+            <BODYFORCE> BodyForce </BODYFORCE>
+        </FORCE>
+    </FORCING>
 
 </NEKTAR>
