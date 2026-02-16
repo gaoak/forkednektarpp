@@ -37,6 +37,7 @@
 #define NEKTAR_LIB_UTILITIES_LINEAR_ALGEBRA_NEK_LINSYS_ITERAT_GMRES_H
 
 #include <LibUtilities/LinearAlgebra/NekLinSysIter.h>
+#include <deque>
 
 namespace Nektar::LibUtilities
 {
@@ -110,7 +111,7 @@ private:
                 Array<OneD, NekDouble> &pOutput, const int pNumDir);
 
     /// Actual iterative gmres solver for one restart
-    NekDouble DoGmresRestart(const bool restarted, const bool truncted,
+    NekDouble DoGmresRestart(const unsigned int nrestart, const bool truncted,
                              const int nGlobal,
                              const Array<OneD, const NekDouble> &pInput,
                              Array<OneD, NekDouble> &pOutput, const int nDir);
@@ -119,16 +120,16 @@ private:
     void DoArnoldi(const int starttem, const int endtem, const int nGlobal,
                    const int nDir, Array<OneD, NekDouble> &w,
                    // V[nd] current search direction
-                   Array<OneD, NekDouble> &Vsingle1,
+                   Array<OneD, NekDouble> &V1,
                    // V[nd+1] new search direction
-                   Array<OneD, NekDouble> &Vsingle2,
+                   Array<OneD, NekDouble> &V2,
                    // One line of Hessenburg matrix
-                   Array<OneD, NekDouble> &hsingle);
+                   Array<OneD, NekDouble> &h);
 
     // QR fatorization through Givens rotation
     void DoGivensRotation(const int starttem, const int endtem,
                           Array<OneD, NekDouble> &c, Array<OneD, NekDouble> &s,
-                          Array<OneD, NekDouble> &hsingle,
+                          Array<OneD, NekDouble> &h,
                           Array<OneD, NekDouble> &eta);
 
     // Backward calculation to calculate coeficients
@@ -148,8 +149,10 @@ private:
     // Total search directions
     Array<OneD, Array<OneD, NekDouble>> m_V_total;
     Array<OneD, Array<OneD, NekDouble>> m_Z_total;
+    std::deque<Array<OneD, NekDouble>> m_delta;
 
     bool m_flexible;
+    unsigned int m_GMRESDeltaDirection;
 };
 } // namespace Nektar::LibUtilities
 

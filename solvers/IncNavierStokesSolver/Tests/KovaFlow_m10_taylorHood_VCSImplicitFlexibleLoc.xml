@@ -24,14 +24,14 @@
         <GLOBALSYSSOLNINFO>
             <V VAR="u,v">
                 <I PROPERTY="GlobalSysSoln"	        VALUE="IterativeFull" />
-                <I PROPERTY="Preconditioner"	        VALUE="Null"/>
+                <I PROPERTY="Preconditioner"	        VALUE="Diagonal"/>
                 <I PROPERTY="IterativeSolverTolerance"  VALUE="1e-14"/>
                 <I PROPERTY="LinSysIterSolver"          VALUE="GMRESLoc"/>
             </V>
 
             <V VAR="p">
                 <I PROPERTY="GlobalSysSoln"	        VALUE="IterativeFull" />
-                <I PROPERTY="Preconditioner"	        VALUE="Null"/>
+                <I PROPERTY="Preconditioner"	        VALUE="Diagonal"/>
                 <I PROPERTY="IterativeSolverTolerance"  VALUE="1e-09"/>
                 <I PROPERTY="LinSysIterSolver"          VALUE="ConjugateGradientLoc"/>
             </V>

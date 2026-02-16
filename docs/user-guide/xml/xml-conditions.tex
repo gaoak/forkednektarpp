@@ -251,6 +251,9 @@ with the approach: for example \texttt{IterativeStaticCond} or
   Possible values are 1 or 0 (Default is 0). The "Flexible" variant of the 
   GMRES algorithm allows the use of a non-linear preconditioner. The required
   memory storage is about the double of regular GMRES.
+\item \textbf{GMRESDeltaDirection} specifies number of vector to carry between
+  GMRES restart cycle to improve convergence of restarted GMRES (LGMRES). Recommended
+  number of GMRESDeltaDirection is between 1 and 3 (Default is 0). 
 \end{itemize} 
 
 \subsubsection{Preconditioner options}

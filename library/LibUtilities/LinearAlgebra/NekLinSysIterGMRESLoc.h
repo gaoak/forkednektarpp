@@ -37,6 +37,7 @@
 #define NEKTAR_LIB_UTILITIES_LINEAR_ALGEBRA_NEK_LINSYS_ITERAT_GMRESLoc_H
 
 #include <LibUtilities/LinearAlgebra/NekLinSysIter.h>
+#include <deque>
 
 namespace Nektar::LibUtilities
 {
@@ -110,7 +111,7 @@ private:
                 Array<OneD, NekDouble> &pOutput);
 
     /// Actual iterative gmres solver for one restart
-    NekDouble DoGmresRestart(const bool restarted, const bool truncted,
+    NekDouble DoGmresRestart(const unsigned int nrestart, const bool truncted,
                              const int nLocal,
                              const Array<OneD, const NekDouble> &pInput,
                              Array<OneD, NekDouble> &pOutput);
@@ -148,8 +149,10 @@ private:
     // Total search directions
     Array<OneD, Array<OneD, NekDouble>> m_V_total;
     Array<OneD, Array<OneD, NekDouble>> m_Z_total;
+    std::deque<Array<OneD, NekDouble>> m_delta;
 
     bool m_flexible;
+    unsigned int m_GMRESDeltaDirection;
 };
 } // namespace Nektar::LibUtilities
 

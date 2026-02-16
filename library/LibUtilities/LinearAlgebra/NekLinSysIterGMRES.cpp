@@ -66,6 +66,16 @@ NekLinSysIterGMRES::NekLinSysIterGMRES(
 
     m_GMRESCentralDifference = pKey.m_GMRESCentralDifference;
 
+    // LGMRES parameter
+    // Reference:
+    // Baker, Allison H., Elizabeth R. Jessup, and Thomas Manteuffel. "A
+    // technique for accelerating the convergence of restarted GMRES." SIAM
+    // Journal on Matrix Analysis and Applications 26, no. 4 (2005):
+    // 962-984.
+    m_GMRESDeltaDirection = pSession->DefinesParameter("GMRESDeltaDirection")
+                                ? pSession->GetParameter("GMRESDeltaDirection")
+                                : 0;
+
     m_flexible = pSession->DefinesParameter("FlexibleGMRES")
                      ? pSession->GetParameter("FlexibleGMRES")
                      : false;
@@ -130,7 +140,6 @@ int NekLinSysIterGMRES::DoGMRES(const int nGlobal,
                                 Array<OneD, NekDouble> &pOutput, const int nDir)
 {
     m_prec_factor = NekConstants::kNekUnsetDouble;
-
     if (m_rhs_magnitude == NekConstants::kNekUnsetDouble)
     {
         Set_Rhs_Magnitude(pInput);
@@ -150,8 +159,7 @@ int NekLinSysIterGMRES::DoGMRES(const int nGlobal,
     m_totalIterations = 0;
     m_converged       = false;
 
-    bool restarted = false;
-    bool truncted  = false;
+    bool truncted = false;
 
     if (m_KrylovMaxHessMatBand > 0)
     {
@@ -161,13 +169,12 @@ int NekLinSysIterGMRES::DoGMRES(const int nGlobal,
     for (int nrestart = 0; nrestart < m_maxrestart; ++nrestart)
     {
         eps =
-            DoGmresRestart(restarted, truncted, nGlobal, pInput, pOutput, nDir);
+            DoGmresRestart(nrestart, truncted, nGlobal, pInput, pOutput, nDir);
 
         if (m_converged)
         {
             break;
         }
-        restarted = true;
     }
 
     // Verbose print error, iteration count, tolerance, ..
@@ -212,7 +219,7 @@ int NekLinSysIterGMRES::DoGMRES(const int nGlobal,
 }
 
 NekDouble NekLinSysIterGMRES::DoGmresRestart(
-    const bool restarted, const bool truncted, const int nGlobal,
+    const unsigned int nrestart, const bool truncted, const int nGlobal,
     const Array<OneD, const NekDouble> &pInput, Array<OneD, NekDouble> &pOutput,
     const int nDir)
 {
@@ -250,7 +257,7 @@ NekDouble NekLinSysIterGMRES::DoGmresRestart(
     Array<OneD, NekDouble> h1;
     Array<OneD, NekDouble> h2;
 
-    if (restarted)
+    if (nrestart)
     {
         // This is A*x
         m_operator.DoNekSysLhsEval(pOutput, r0, m_GMRESCentralDifference);
@@ -292,7 +299,7 @@ NekDouble NekLinSysIterGMRES::DoGmresRestart(
         return eps;
     }
 
-    if (!restarted)
+    if (!nrestart)
     {
         if (m_NekLinSysLeftPrecon &&
             m_prec_factor == NekConstants::kNekUnsetDouble)
@@ -337,6 +344,11 @@ NekDouble NekLinSysIterGMRES::DoGmresRestart(
     {
         m_V_total[0] = Array<OneD, NekDouble>(nGlobal, 0.0);
         m_Z_total[0] = Array<OneD, NekDouble>(nGlobal, 0.0);
+        // Set storage of LGMRES
+        for (unsigned int dir = 0; dir < m_GMRESDeltaDirection; dir++)
+        {
+            m_delta.push_back(Array<OneD, NekDouble>(nGlobal, 0.0));
+        }
     }
     Vmath::Smul(nNonDir, alpha, &r0[0] + nDir, 1, &m_V_total[0][0] + nDir, 1);
 
@@ -354,9 +366,15 @@ NekDouble NekLinSysIterGMRES::DoGmresRestart(
         }
         Vmath::Zero(nGlobal, m_V_total[nd + 1], 1);
         Vmath::Zero(m_LinSysMaxStorage + 1, m_hes[nd], 1);
-        unsigned int znd = m_flexible ? nd : 0;
-        Z1 = m_NekLinSysRightPrecon ? m_Z_total[znd] : m_V_total[nd];
-        V1 = m_V_total[nd];
+
+        // For LGMRES use m_delta for the last m_GMRESDeltaDirection
+        // iterations.
+        bool cond = nd >= (m_LinSysMaxStorage - m_GMRESDeltaDirection) &&
+                    nrestart >= m_GMRESDeltaDirection;
+        unsigned int index = nd - (m_LinSysMaxStorage - m_GMRESDeltaDirection);
+        auto &V1           = (cond) ? m_delta[index] : m_V_total[nd];
+        auto &Z1 =
+            (m_NekLinSysRightPrecon) ? m_Z_total[(m_flexible) ? nd : 0] : V1;
         V2 = m_V_total[nd + 1];
         h1 = m_hes[nd];
 
@@ -407,34 +425,46 @@ NekDouble NekLinSysIterGMRES::DoGmresRestart(
 
     DoBackward(nswp, m_Upper, eta, y_total);
 
-    if (m_flexible)
+    // Calculate output V_total * y_total or Z_total * y_total (flexible).
+    auto &Z_total = (m_flexible) ? m_Z_total : m_V_total;
+    Array<OneD, NekDouble> solution(nNonDir, 0.0);
+    for (int i = 0; i < nswp; ++i)
     {
-        // Calculate output y_total*Z_total.
-        for (unsigned int i = 0; i < nswp; ++i)
+        // For LGMRES use m_delta for the last m_GMRESDeltaDirection
+        // iterations.
+        bool cond = i >= (m_LinSysMaxStorage - m_GMRESDeltaDirection) &&
+                    nrestart >= m_GMRESDeltaDirection;
+        if (cond)
         {
-            Vmath::Svtvp(nNonDir, y_total[i], &m_Z_total[i][0] + nDir, 1,
-                         &pOutput[0] + nDir, 1, &pOutput[0] + nDir, 1);
-        }
-    }
-    else
-    {
-        // Calculate output V_total * y_total.
-        Array<OneD, NekDouble> solution(nNonDir, 0.0);
-        for (int i = 0; i < nswp; ++i)
-        {
-            Vmath::Svtvp(nNonDir, y_total[i], &m_V_total[i][0] + nDir, 1,
+            unsigned int index =
+                i - (m_LinSysMaxStorage - m_GMRESDeltaDirection);
+            Vmath::Svtvp(nNonDir, y_total[i], &m_delta[index][0] + nDir, 1,
                          solution.data(), 1, solution.data(), 1);
         }
-
-        if (m_NekLinSysRightPrecon)
+        else
         {
-            m_operator.DoNekSysPrecon(solution, solution);
+            Vmath::Svtvp(nNonDir, y_total[i], &Z_total[i][0] + nDir, 1,
+                         solution.data(), 1, solution.data(), 1);
         }
-
-        // Update output.
-        Vmath::Vadd(nNonDir, solution.data(), 1, &pOutput[0] + nDir, 1,
-                    &pOutput[0] + nDir, 1);
     }
+
+    // Store last m_GMRESDeltaDirection delta for LGMRES.
+    if (m_GMRESDeltaDirection)
+    {
+        auto last = std::move(m_delta.back());
+        Vmath::Vcopy(nNonDir, solution.data(), 1, &last[0] + nDir, 1);
+        m_delta.pop_back();
+        m_delta.push_front(std::move(last));
+    }
+
+    if (!m_flexible && m_NekLinSysRightPrecon)
+    {
+        m_operator.DoNekSysPrecon(solution, solution);
+    }
+
+    // Update output.
+    Vmath::Vadd(nNonDir, solution.data(), 1, &pOutput[0] + nDir, 1,
+                &pOutput[0] + nDir, 1);
 
     return eps;
 }
