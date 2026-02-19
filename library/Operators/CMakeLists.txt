@@ -131,7 +131,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
 
     # These operator have an additional argument for the FieldState
     # which requires two delcarations.
-    SET(CONFIG_FILE Common/BlockOperatorFactoryDec.cpp.in)
+    SET(CONFIG_FILE ElmtOps/ElmtBlockOpFactoryDec.cpp.in)
 
     # Check to see if shape specific BlockOpSwitch*.h files have
     # been generated and if not generate for later potential use.
