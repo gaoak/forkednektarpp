@@ -563,7 +563,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJQuadKernel(
         }
     }
 
-    // Precompute Laplacian metricsp
+    // Precompute Laplacian metrics
     if constexpr (!DEFORMED)
     {
         jac = jac_ptr[0];
@@ -647,116 +647,143 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJQuadKernel(
         }
     }
 
-    for (unsigned int q = 0; q < nq1; ++q)
+    if (DEFORMED || isVarDiff)
     {
-        simd_type w1J = jac * w1[q];
-        for (unsigned int p = 0; p < nq0; ++p)
+        for (unsigned int q = 0; q < nq1; ++q)
         {
-            unsigned int cnt = q * nq0 + p;
-
-            simd_type wJ = w1J * w0[p];
-
-            if constexpr (DEFORMED)
+            simd_type w1J = jac * w1[q];
+            for (unsigned int p = 0; p < nq0; ++p)
             {
-                wJ *= jac_ptr[cnt];
-                df0 = df_ptr[cnt * ndf];
-                df1 = df_ptr[cnt * ndf + 1];
-                df2 = df_ptr[cnt * ndf + 2];
-                df3 = df_ptr[cnt * ndf + 3];
-            }
+                unsigned int cnt = q * nq0 + p;
 
-            if (!isConstVarDiff)
-            {
-                metric00 = df0 * df0;
-                metric00.fma(df2, df2);
-                metric01 = df0 * df1;
-                metric01.fma(df2, df3);
-                metric11 = df1 * df1;
-                metric11.fma(df3, df3);
+                simd_type wJ = w1J * w0[p];
 
-                if (ncoord == 3)
+                if constexpr (DEFORMED)
                 {
-                    metric00.fma(df4, df4);
-                    metric01.fma(df4, df5);
-                    metric11.fma(df5, df5);
+                    wJ *= jac_ptr[cnt];
+                    df0 = df_ptr[cnt * ndf];
+                    df1 = df_ptr[cnt * ndf + 1];
+                    df2 = df_ptr[cnt * ndf + 2];
+                    df3 = df_ptr[cnt * ndf + 3];
                 }
-            }
-            else
-            {
-                if (isVarDiff)
+
+                if (!isConstVarDiff)
                 {
-                    d00 = varD00[cnt];
-                    d01 = varD01[cnt];
-                    d11 = varD11[cnt];
+                    metric00 = df0 * df0;
+                    metric00.fma(df2, df2);
+                    metric01 = df0 * df1;
+                    metric01.fma(df2, df3);
+                    metric11 = df1 * df1;
+                    metric11.fma(df3, df3);
+
                     if (ncoord == 3)
                     {
-                        d02 = varD02[cnt];
-                        d12 = varD12[cnt];
-                        d22 = varD22[cnt];
+                        metric00.fma(df4, df4);
+                        metric01.fma(df4, df5);
+                        metric11.fma(df5, df5);
                     }
-                }
-
-                if (ncoord == 2)
-                {
-                    dtmp0 = df0 * d00;
-                    dtmp0.fma(df2, d01);
-                    dtmp1 = df0 * d01;
-                    dtmp1.fma(df2, d11);
-                    dtmp2 = df1 * d00;
-                    dtmp2.fma(df3, d01);
-                    dtmp3 = df1 * d01;
-                    dtmp3.fma(df3, d11);
-
-                    metric00 = df0 * dtmp0;
-                    metric00.fma(df2, dtmp1);
-                    metric01 = df1 * dtmp0;
-                    metric01.fma(df3, dtmp1);
-                    metric11 = df1 * dtmp2;
-                    metric11.fma(df3, dtmp3);
                 }
                 else
                 {
-                    dtmp0 = df0 * d00;
-                    dtmp0.fma(df2, d01);
-                    dtmp0.fma(df4, d02);
-                    dtmp1 = df0 * d01;
-                    dtmp1.fma(df2, d11);
-                    dtmp1.fma(df3, d12);
-                    dtmp2 = df0 * d02;
-                    dtmp2.fma(df2, d12);
-                    dtmp2.fma(df3, d22);
-                    dtmp3 = df1 * d00;
-                    dtmp3.fma(df3, d01);
-                    dtmp3.fma(df5, d02);
-                    dtmp4 = df1 * d01;
-                    dtmp4.fma(df3, d11);
-                    dtmp4.fma(df5, d12);
-                    dtmp5 = df1 * d02;
-                    dtmp5.fma(df3, d12);
-                    dtmp5.fma(df5, d22);
+                    if (isVarDiff)
+                    {
+                        d00 = varD00[cnt];
+                        d01 = varD01[cnt];
+                        d11 = varD11[cnt];
+                        if (ncoord == 3)
+                        {
+                            d02 = varD02[cnt];
+                            d12 = varD12[cnt];
+                            d22 = varD22[cnt];
+                        }
+                    }
 
-                    metric00 = df0 * dtmp0;
-                    metric00.fma(df2, dtmp1);
-                    metric00.fma(df4, dtmp2);
-                    metric01 = df1 * dtmp0;
-                    metric01.fma(df3, dtmp1);
-                    metric01.fma(df5, dtmp2);
-                    metric11 = df1 * dtmp3;
-                    metric11.fma(df3, dtmp4);
-                    metric11.fma(df5, dtmp5);
+                    if (ncoord == 2)
+                    {
+                        dtmp0 = df0 * d00;
+                        dtmp0.fma(df2, d01);
+                        dtmp1 = df0 * d01;
+                        dtmp1.fma(df2, d11);
+                        dtmp2 = df1 * d00;
+                        dtmp2.fma(df3, d01);
+                        dtmp3 = df1 * d01;
+                        dtmp3.fma(df3, d11);
+
+                        metric00 = df0 * dtmp0;
+                        metric00.fma(df2, dtmp1);
+                        metric01 = df1 * dtmp0;
+                        metric01.fma(df3, dtmp1);
+                        metric11 = df1 * dtmp2;
+                        metric11.fma(df3, dtmp3);
+                    }
+                    else
+                    {
+                        dtmp0 = df0 * d00;
+                        dtmp0.fma(df2, d01);
+                        dtmp0.fma(df4, d02);
+                        dtmp1 = df0 * d01;
+                        dtmp1.fma(df2, d11);
+                        dtmp1.fma(df3, d12);
+                        dtmp2 = df0 * d02;
+                        dtmp2.fma(df2, d12);
+                        dtmp2.fma(df3, d22);
+                        dtmp3 = df1 * d00;
+                        dtmp3.fma(df3, d01);
+                        dtmp3.fma(df5, d02);
+                        dtmp4 = df1 * d01;
+                        dtmp4.fma(df3, d11);
+                        dtmp4.fma(df5, d12);
+                        dtmp5 = df1 * d02;
+                        dtmp5.fma(df3, d12);
+                        dtmp5.fma(df5, d22);
+
+                        metric00 = df0 * dtmp0;
+                        metric00.fma(df2, dtmp1);
+                        metric00.fma(df4, dtmp2);
+                        metric01 = df1 * dtmp0;
+                        metric01.fma(df3, dtmp1);
+                        metric01.fma(df5, dtmp2);
+                        metric11 = df1 * dtmp3;
+                        metric11.fma(df3, dtmp4);
+                        metric11.fma(df5, dtmp5);
+                    }
                 }
+
+                simd_type d0 = deriv0[cnt];
+                simd_type d1 = deriv1[cnt];
+
+                simd_type tmp = metric00 * d0;
+                tmp.fma(metric01, d1);
+                deriv0[cnt] = tmp * wJ;
+
+                tmp = metric01 * d0;
+                tmp.fma(metric11, d1);
+                deriv1[cnt] = tmp * wJ;
             }
+        }
+    }
+    else
+    { // make use of the precomputed metric
+        for (unsigned int q = 0; q < nq1; ++q)
+        {
+            simd_type w1J = jac * w1[q];
+            for (unsigned int p = 0; p < nq0; ++p)
+            {
+                unsigned int cnt = q * nq0 + p;
 
-            simd_type d0 = deriv0[cnt];
-            simd_type d1 = deriv1[cnt];
+                simd_type wJ = w1J * w0[p];
 
-            simd_type tmp = metric00 * d0;
-            tmp.fma(metric01, d1);
-            deriv0[cnt] = tmp * wJ;
+                simd_type d0 = deriv0[cnt];
+                simd_type d1 = deriv1[cnt];
 
-            tmp = metric01 * d0;
-            tmp.fma(metric11, d1);
-            deriv1[cnt] = tmp * wJ;
+                simd_type tmp = metric00 * d0;
+                tmp.fma(metric01, d1);
+                deriv0[cnt] = tmp * wJ;
+
+                tmp = metric01 * d0;
+                tmp.fma(metric11, d1);
+                deriv1[cnt] = tmp * wJ;
+            }
         }
     }
 }
@@ -801,7 +828,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJHexKernel(
         d22 = constVarDiff[5];
     }
 
-    // Precompute Laplacian metricsp
+    // Precompute Laplacian metrics
     if constexpr (!DEFORMED)
     {
         jac = jac_ptr[0];
@@ -815,7 +842,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJHexKernel(
         df7 = df_ptr[7];
         df8 = df_ptr[8];
 
-        if (!isConstVarDiff && !isConstVarDiff)
+        if (!isConstVarDiff && !isVarDiff)
         {
             metric00 = df0 * df0;
             metric00.fma(df3, df3);
@@ -907,154 +934,194 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJHexKernel(
 
     // All matricies are column major ordered since operators used to
     // be computed via BLAS.
-
-    for (unsigned int r = 0; r < nq2; ++r)
+    if (DEFORMED || isVarDiff)
     {
-        simd_type w2J = jac * w2[r];
-        for (unsigned int q = 0; q < nq1; ++q)
+        for (unsigned int r = 0; r < nq2; ++r)
         {
-            simd_type w21J      = w2J * w1[q];
-            unsigned int cnt_qr = (r * nq1 + q);
-            for (unsigned int p = 0; p < nq0; ++p)
+            simd_type w2J = jac * w2[r];
+            for (unsigned int q = 0; q < nq1; ++q)
             {
-                unsigned int cnt = cnt_qr * nq0 + p;
-
-                simd_type wJ = w21J * w0[p];
-
-                // 2. evaluate diffusion coeff if deformed
-                if constexpr (DEFORMED)
+                simd_type w21J      = w2J * w1[q];
+                unsigned int cnt_qr = (r * nq1 + q);
+                for (unsigned int p = 0; p < nq0; ++p)
                 {
-                    wJ *= jac_ptr[cnt];
-                    df0 = df_ptr[cnt * ndf];
-                    df1 = df_ptr[cnt * ndf + 1];
-                    df2 = df_ptr[cnt * ndf + 2];
-                    df3 = df_ptr[cnt * ndf + 3];
-                    df4 = df_ptr[cnt * ndf + 4];
-                    df5 = df_ptr[cnt * ndf + 5];
-                    df6 = df_ptr[cnt * ndf + 6];
-                    df7 = df_ptr[cnt * ndf + 7];
-                    df8 = df_ptr[cnt * ndf + 8];
-                }
+                    unsigned int cnt = cnt_qr * nq0 + p;
 
-                if (!isConstVarDiff && !isVarDiff)
-                {
-                    metric00 = df0 * df0;
-                    metric00.fma(df3, df3);
-                    metric00.fma(df6, df6);
+                    simd_type wJ = w21J * w0[p];
 
-                    metric01 = df0 * df1;
-                    metric01.fma(df3, df4);
-                    metric01.fma(df6, df7);
-
-                    metric02 = df0 * df2;
-                    metric02.fma(df3, df5);
-                    metric02.fma(df6, df8);
-
-                    metric11 = df1 * df1;
-                    metric11.fma(df4, df4);
-                    metric11.fma(df7, df7);
-
-                    metric12 = df1 * df2;
-                    metric12.fma(df4, df5);
-                    metric12.fma(df7, df8);
-
-                    metric22 = df2 * df2;
-                    metric22.fma(df5, df5);
-                    metric22.fma(df8, df8);
-                }
-                else
-                { // with vardiff
-
-                    if (isVarDiff)
+                    // 2. evaluate diffusion coeff if deformed
+                    if constexpr (DEFORMED)
                     {
-                        d00 = varD00[cnt];
-                        d01 = varD01[cnt];
-                        d11 = varD11[cnt];
-                        d02 = varD02[cnt];
-                        d12 = varD12[cnt];
-                        d22 = varD22[cnt];
+                        wJ *= jac_ptr[cnt];
+                        df0 = df_ptr[cnt * ndf];
+                        df1 = df_ptr[cnt * ndf + 1];
+                        df2 = df_ptr[cnt * ndf + 2];
+                        df3 = df_ptr[cnt * ndf + 3];
+                        df4 = df_ptr[cnt * ndf + 4];
+                        df5 = df_ptr[cnt * ndf + 5];
+                        df6 = df_ptr[cnt * ndf + 6];
+                        df7 = df_ptr[cnt * ndf + 7];
+                        df8 = df_ptr[cnt * ndf + 8];
                     }
 
-                    td0 = df0 * d00;
-                    td0.fma(df3, d01);
-                    td0.fma(df6, d02);
+                    if (!isConstVarDiff && !isVarDiff)
+                    {
+                        metric00 = df0 * df0;
+                        metric00.fma(df3, df3);
+                        metric00.fma(df6, df6);
 
-                    td1 = df0 * d01;
-                    td1.fma(df3, d11);
-                    td1.fma(df6, d12);
+                        metric01 = df0 * df1;
+                        metric01.fma(df3, df4);
+                        metric01.fma(df6, df7);
 
-                    td2 = df0 * d02;
-                    td2.fma(df3, d12);
-                    td2.fma(df6, d22);
+                        metric02 = df0 * df2;
+                        metric02.fma(df3, df5);
+                        metric02.fma(df6, df8);
 
-                    td3 = df1 * d00;
-                    td3.fma(df4, d01);
-                    td3.fma(df7, d02);
+                        metric11 = df1 * df1;
+                        metric11.fma(df4, df4);
+                        metric11.fma(df7, df7);
 
-                    td4 = df1 * d01;
-                    td4.fma(df4, d11);
-                    td4.fma(df7, d12);
+                        metric12 = df1 * df2;
+                        metric12.fma(df4, df5);
+                        metric12.fma(df7, df8);
 
-                    td5 = df1 * d02;
-                    td5.fma(df4, d12);
-                    td5.fma(df7, d22);
+                        metric22 = df2 * df2;
+                        metric22.fma(df5, df5);
+                        metric22.fma(df8, df8);
+                    }
+                    else
+                    { // with vardiff
 
-                    td6 = df2 * d00;
-                    td6.fma(df5, d01);
-                    td6.fma(df8, d02);
+                        if (isVarDiff)
+                        {
+                            d00 = varD00[cnt];
+                            d01 = varD01[cnt];
+                            d11 = varD11[cnt];
+                            d02 = varD02[cnt];
+                            d12 = varD12[cnt];
+                            d22 = varD22[cnt];
+                        }
 
-                    td7 = df2 * d01;
-                    td7.fma(df5, d11);
-                    td7.fma(df8, d12);
+                        td0 = df0 * d00;
+                        td0.fma(df3, d01);
+                        td0.fma(df6, d02);
 
-                    td8 = df2 * d02;
-                    td8.fma(df5, d12);
-                    td8.fma(df8, d22);
+                        td1 = df0 * d01;
+                        td1.fma(df3, d11);
+                        td1.fma(df6, d12);
 
-                    metric00 = td0 * df0;
-                    metric00.fma(td1, df3);
-                    metric00.fma(td2, df6);
+                        td2 = df0 * d02;
+                        td2.fma(df3, d12);
+                        td2.fma(df6, d22);
 
-                    metric01 = td0 * df1;
-                    metric01.fma(td1, df4);
-                    metric01.fma(td2, df7);
+                        td3 = df1 * d00;
+                        td3.fma(df4, d01);
+                        td3.fma(df7, d02);
 
-                    metric02 = td0 * df2;
-                    metric02.fma(td1, df5);
-                    metric02.fma(td2, df8);
+                        td4 = df1 * d01;
+                        td4.fma(df4, d11);
+                        td4.fma(df7, d12);
 
-                    metric11 = td3 * df1;
-                    metric11.fma(td4, df4);
-                    metric11.fma(td5, df7);
+                        td5 = df1 * d02;
+                        td5.fma(df4, d12);
+                        td5.fma(df7, d22);
 
-                    metric12 = td3 * df2;
-                    metric12.fma(td4, df5);
-                    metric12.fma(td5, df8);
+                        td6 = df2 * d00;
+                        td6.fma(df5, d01);
+                        td6.fma(df8, d02);
 
-                    metric22 = td6 * df2;
-                    metric22.fma(td7, df5);
-                    metric22.fma(td8, df8);
+                        td7 = df2 * d01;
+                        td7.fma(df5, d11);
+                        td7.fma(df8, d12);
+
+                        td8 = df2 * d02;
+                        td8.fma(df5, d12);
+                        td8.fma(df8, d22);
+
+                        metric00 = td0 * df0;
+                        metric00.fma(td1, df3);
+                        metric00.fma(td2, df6);
+
+                        metric01 = td0 * df1;
+                        metric01.fma(td1, df4);
+                        metric01.fma(td2, df7);
+
+                        metric02 = td0 * df2;
+                        metric02.fma(td1, df5);
+                        metric02.fma(td2, df8);
+
+                        metric11 = td3 * df1;
+                        metric11.fma(td4, df4);
+                        metric11.fma(td5, df7);
+
+                        metric12 = td3 * df2;
+                        metric12.fma(td4, df5);
+                        metric12.fma(td5, df8);
+
+                        metric22 = td6 * df2;
+                        metric22.fma(td7, df5);
+                        metric22.fma(td8, df8);
+                    }
+
+                    simd_type d0 = deriv0[cnt];
+                    simd_type d1 = deriv1[cnt];
+                    simd_type d2 = deriv2[cnt];
+
+                    // 3. apply diffusion coeff to deriv and get output
+                    simd_type tmp0 = metric00 * d0;
+                    tmp0.fma(metric01, d1);
+                    tmp0.fma(metric02, d2);
+                    deriv0[cnt] = tmp0 * wJ;
+
+                    simd_type tmp1 = metric01 * d0;
+                    tmp1.fma(metric11, d1);
+                    tmp1.fma(metric12, d2);
+                    deriv1[cnt] = tmp1 * wJ;
+
+                    simd_type tmp2 = metric02 * d0;
+                    tmp2.fma(metric12, d1);
+                    tmp2.fma(metric22, d2);
+                    deriv2[cnt] = tmp2 * wJ;
                 }
+            }
+        }
+    }
+    else
+    { // Make use of the precomputed metric
 
-                simd_type d0 = deriv0[cnt];
-                simd_type d1 = deriv1[cnt];
-                simd_type d2 = deriv2[cnt];
+        for (unsigned int r = 0; r < nq2; ++r)
+        {
+            simd_type w2J = jac * w2[r];
+            for (unsigned int q = 0; q < nq1; ++q)
+            {
+                simd_type w21J      = w2J * w1[q];
+                unsigned int cnt_qr = (r * nq1 + q);
+                for (unsigned int p = 0; p < nq0; ++p)
+                {
+                    unsigned int cnt = cnt_qr * nq0 + p;
 
-                // 3. apply diffusion coeff to deriv and get output
-                simd_type tmp0 = metric00 * d0;
-                tmp0.fma(metric01, d1);
-                tmp0.fma(metric02, d2);
-                deriv0[cnt] = tmp0 * wJ;
+                    simd_type wJ = w21J * w0[p];
 
-                simd_type tmp1 = metric01 * d0;
-                tmp1.fma(metric11, d1);
-                tmp1.fma(metric12, d2);
-                deriv1[cnt] = tmp1 * wJ;
+                    simd_type d0 = deriv0[cnt];
+                    simd_type d1 = deriv1[cnt];
+                    simd_type d2 = deriv2[cnt];
 
-                simd_type tmp2 = metric02 * d0;
-                tmp2.fma(metric12, d1);
-                tmp2.fma(metric22, d2);
-                deriv2[cnt] = tmp2 * wJ;
+                    simd_type tmp0 = metric00 * d0;
+                    tmp0.fma(metric01, d1);
+                    tmp0.fma(metric02, d2);
+                    deriv0[cnt] = tmp0 * wJ;
+
+                    simd_type tmp1 = metric01 * d0;
+                    tmp1.fma(metric11, d1);
+                    tmp1.fma(metric12, d2);
+                    deriv1[cnt] = tmp1 * wJ;
+
+                    simd_type tmp2 = metric02 * d0;
+                    tmp2.fma(metric12, d1);
+                    tmp2.fma(metric22, d2);
+                    deriv2[cnt] = tmp2 * wJ;
+                }
             }
         }
     }
