@@ -688,12 +688,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Workspace for kernels - also checks preconditions.
-        unsigned int wsp0Size = 0, wsp1Size = 0;
-        PhysDeriv3DWorkspace<SHAPE_TYPE>(nq0, nq1, nq2, wsp0Size, wsp1Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
-            wsp1(wsp1Size);
-
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
         const auto width_ratio     = (interleaveWidth == 1)
@@ -730,8 +724,8 @@ protected:
                 // Calculate physical derivative.
                 PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
-                    reinterpret_cast<const simd_t *>(dfptr), wsp0.data(),
-                    wsp1.data(), outvec[0], outvec[1], outvec[2]);
+                    reinterpret_cast<const simd_t *>(dfptr), outvec[0],
+                    outvec[1], outvec[2]);
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
@@ -789,12 +783,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Workspace for kernels - also checks preconditions.
-        unsigned int wsp0Size = 0, wsp1Size = 0;
-        PhysDeriv3DWorkspace<SHAPE_TYPE>(nq0, nq1, nq2, wsp0Size, wsp1Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
-            wsp1(wsp1Size);
-
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
         const auto width_ratio     = (interleaveWidth == 1)
@@ -831,8 +819,8 @@ protected:
                 // Calculate physical derivative.
                 PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
-                    reinterpret_cast<const simd_t *>(dfptr), wsp0.data(),
-                    wsp1.data(), outvec[0], outvec[1], outvec[2]);
+                    reinterpret_cast<const simd_t *>(dfptr), outvec[0],
+                    outvec[1], outvec[2]);
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
