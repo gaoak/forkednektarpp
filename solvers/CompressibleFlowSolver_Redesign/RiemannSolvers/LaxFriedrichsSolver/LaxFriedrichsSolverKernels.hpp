@@ -35,7 +35,6 @@
 #pragma once
 
 #include "Operators/LoopExecution/LoopExecution.hpp"
-#include <LibUtilities/BasicUtils/NekInline.hpp>
 
 // The dimension and shape kernels. NOTE: They are NOT duplicate
 // templated version based on the array size like the
@@ -45,6 +44,17 @@
 
 namespace Nektar::Operators::detail
 {
+
+// TODO: move to Common/Spaces.hpp and tidy.
+template <bool B, typename TData> struct data_type_if
+{
+    typedef TData type;
+};
+
+template <typename TData> struct data_type_if<true, TData>
+{
+    typedef tinysimd::simd<TData> type;
+};
 
 template <typename TData>
 NEK_DEVICE_INLINE TData GetPressure(const TData &rho, const TData &e)
@@ -66,117 +76,136 @@ NEK_DEVICE_INLINE TData GetRoeSoundSpeed(
     // Specific heat ratio for air
     const TData gamma = 1.4;
     // Calculate sound speed using ideal gas relation
+#if defined(_MSC_VER)
     return std::sqrt((gamma - 1.0) * (HRoe - 0.5 * URoe2));
+#else
+    return sqrt((gamma - 1.0) * (HRoe - 0.5 * URoe2));
+#endif
 }
 
-template <typename ExecSpace, typename TData, unsigned int NDIM>
+template <typename ExecSpace, typename TScalar, unsigned int NDIM>
 NEK_FORCE_INLINE static void LaxFriedrichsSolverKernel(const size_t blksize,
-                                                       const TData *fwd,
-                                                       const TData *bwd,
-                                                       TData *flux)
+                                                       const TScalar *fwd,
+                                                       const TScalar *bwd,
+                                                       TScalar *flux)
 {
+    // Explicit vectorisation for AVX backend, vec_t = tinysimd::simd<TScalar>
+    // for AVX, vec_t = TScalar otherwise.
+    using vec_t =
+        typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                              TScalar>::type;
+    const unsigned int vec_width =
+        (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
+            ? tinysimd::simd<TScalar>::width
+            : 1;
+
     // Layout: [rho | m0 | m1 | m2 | E] but only first (NDIM) moment exist.
-    const TData *rhoL = fwd + 0u * blksize;
-    const TData *rhoR = bwd + 0u * blksize;
-
-    const TData *EL = fwd + (1u + NDIM) * blksize;
-    const TData *ER = bwd + (1u + NDIM) * blksize;
-
-    // Output blocks
-    TData *rhof = flux + 0u * blksize;
-    TData *Ef   = flux + (1u + NDIM) * blksize;
-
     Nektar::parallel_for<ExecSpace>(
-        0u, blksize, NEKTAR_LAMBDA(const size_t i) {
-            // Velocities (in rotated frame: m0 is normal)
-            TData uL[3] = {0, 0, 0}, uR[3] = {0, 0, 0};
-            for (unsigned int d = 0; d < NDIM; ++d)
-            {
-                uL[d] = (fwd + (1u + d) * blksize)[i] / rhoL[i];
-                uR[d] = (bwd + (1u + d) * blksize)[i] / rhoR[i];
-            }
+        0u, blksize / vec_width, NEKTAR_LAMBDA(const size_t i) {
+            const vec_t oneHalf = 0.5;
 
-            // Kinetic energy terms
-            TData qL2 = 0, qR2 = 0;
-            for (unsigned int d = 0; d < NDIM; ++d)
-            {
-                qL2 += (fwd + (1u + d) * blksize)[i] * uL[d];
-                qR2 += (bwd + (1u + d) * blksize)[i] * uR[d];
-            }
-
-            // Internal energy per unit mass
-            TData eL = (EL[i] - static_cast<TData>(0.5) * qL2) / rhoL[i];
-            TData eR = (ER[i] - static_cast<TData>(0.5) * qR2) / rhoR[i];
-
-            // Pressure + enthalpy
-            TData pL = GetPressure(rhoL[i], eL);
-            TData pR = GetPressure(rhoR[i], eR);
-            TData HL = (EL[i] + pL) / rhoL[i];
-            TData HR = (ER[i] + pR) / rhoR[i];
-
-            // Roe averages (same as your code)
-            TData srL  = std::sqrt(rhoL[i]);
-            TData srR  = std::sqrt(rhoR[i]);
-            TData srLR = srL + srR;
-
-            TData uRoe[3] = {0, 0, 0};
-            for (unsigned int d = 0; d < NDIM; ++d)
-            {
-                uRoe[d] = (srL * uL[d] + srR * uR[d]) / srLR;
-            }
-
-            TData URoe2 = 0;
-            for (unsigned int d = 0; d < NDIM; ++d)
-            {
-                URoe2 += uRoe[d] * uRoe[d];
-            }
-
-            TData HRoe = (srL * HL + srR * HR) / srLR;
-
-            TData cRoe = GetRoeSoundSpeed(rhoL[i], pL, eL, HL, srL, rhoR[i], pR,
-                                          eR, HR, srR, HRoe, URoe2, srLR);
-
-            // max eigenvalue in normal direction
-            TData a = std::abs(uRoe[0]) + cRoe;
+            // Density
+            const vec_t rhoL = reinterpret_cast<const vec_t *>(fwd)[i];
+            const vec_t rhoR = reinterpret_cast<const vec_t *>(bwd)[i];
 
             // Physical fluxes in normal direction (note: uL[0] is normal
             // velocity)
-            const TData Fn_rho_L = (fwd + 1u * blksize)[i];
-            const TData Fn_rho_R = (bwd + 1u * blksize)[i];
+            const vec_t Fn_rho_L =
+                reinterpret_cast<const vec_t *>(fwd + 1u * blksize)[i];
+            const vec_t Fn_rho_R =
+                reinterpret_cast<const vec_t *>(bwd + 1u * blksize)[i];
+
+            // Velocities and kinetic energy terms (in rotated frame: m0 is
+            // normal)
+            vec_t uL[3] = {0, 0, 0};
+            vec_t uR[3] = {0, 0, 0};
+            uL[0]       = Fn_rho_L / rhoL;
+            uR[0]       = Fn_rho_R / rhoR;
+            vec_t qL2   = Fn_rho_L * uL[0];
+            vec_t qR2   = Fn_rho_R * uR[0];
+            for (unsigned int d = 1; d < NDIM; ++d)
+            {
+                const vec_t rhouL = reinterpret_cast<const vec_t *>(
+                    fwd + (1u + d) * blksize)[i];
+                const vec_t rhouR = reinterpret_cast<const vec_t *>(
+                    bwd + (1u + d) * blksize)[i];
+
+                uL[d] = rhouL / rhoL;
+                uR[d] = rhouR / rhoR;
+
+                qL2 += rhouL * uL[d];
+                qR2 += rhouR * uR[d];
+            }
+
+            // Internal energy per unit mass
+            const vec_t EL =
+                reinterpret_cast<const vec_t *>(fwd + (1u + NDIM) * blksize)[i];
+            const vec_t ER =
+                reinterpret_cast<const vec_t *>(bwd + (1u + NDIM) * blksize)[i];
+            const vec_t eL = (EL - oneHalf * qL2) / rhoL;
+            const vec_t eR = (ER - oneHalf * qR2) / rhoR;
+
+            // Pressure + enthalpy
+            const vec_t pL = GetPressure(rhoL, eL);
+            const vec_t pR = GetPressure(rhoR, eR);
+            const vec_t HL = (EL + pL) / rhoL;
+            const vec_t HR = (ER + pR) / rhoR;
+
+        // Roe averages (same as your code)
+#if defined(_MSC_VER)
+            const vec_t srL = std::sqrt(rhoL);
+            const vec_t srR = std::sqrt(rhoR);
+#else
+            const vec_t srL  = sqrt(rhoL);
+            const vec_t srR  = sqrt(rhoR);
+#endif
+            const vec_t srLR = srL + srR;
+
+            vec_t uRoe[3] = {0, 0, 0};
+            vec_t URoe2   = 0;
+            for (unsigned int d = 0; d < NDIM; ++d)
+            {
+                uRoe[d] = (srL * uL[d] + srR * uR[d]) / srLR;
+                URoe2 += uRoe[d] * uRoe[d];
+            }
+
+            const vec_t HRoe = (srL * HL + srR * HR) / srLR;
+
+            const vec_t cRoe = GetRoeSoundSpeed(rhoL, pL, eL, HL, srL, rhoR, pR,
+                                                eR, HR, srR, HRoe, URoe2, srLR);
+
+        // Max eigenvalue in normal direction
+#if defined(_MSC_VER)
+            const vec_t a = std::abs(uRoe[0]) + cRoe;
+#else
+            const vec_t a = abs(uRoe[0]) + cRoe;
+#endif
 
             // Mass
-            rhof[i] = static_cast<TData>(0.5) *
-                      (Fn_rho_L + Fn_rho_R - a * (rhoR[i] - rhoL[i]));
+            reinterpret_cast<vec_t *>(flux)[i] =
+                oneHalf * (Fn_rho_L + Fn_rho_R - a * (rhoR - rhoL));
 
             // Normal momentum (d=0): p + m0*u0
-            {
-                TData Fm0_L = pL + (fwd + 1u * blksize)[i] * uL[0];
-                TData Fm0_R = pR + (bwd + 1u * blksize)[i] * uR[0];
-                (flux + 1u * blksize)[i] =
-                    static_cast<TData>(0.5) *
-                    (Fm0_L + Fm0_R -
-                     a * ((bwd + 1u * blksize)[i] - (fwd + 1u * blksize)[i]));
-            }
+            const vec_t Fm0_L = pL + Fn_rho_L * uL[0];
+            const vec_t Fm0_R = pR + Fn_rho_R * uR[0];
+            reinterpret_cast<vec_t *>(flux + 1u * blksize)[i] =
+                oneHalf * (Fm0_L + Fm0_R - a * (Fn_rho_R - Fn_rho_L));
 
             // Tangential momentum(s): m0*u_t
             for (unsigned int d = 1; d < NDIM; ++d)
             {
-                TData Fmd_L = (fwd + 1u * blksize)[i] * uL[d];
-                TData Fmd_R = (bwd + 1u * blksize)[i] * uR[d];
-                (flux + (1u + d) * blksize)[i] =
-                    static_cast<TData>(0.5) *
-                    (Fmd_L + Fmd_R -
-                     a * ((bwd + (1u + d) * blksize)[i] -
-                          (fwd + (1u + d) * blksize)[i]));
+                const vec_t Fmd_L = Fn_rho_L * uL[d];
+                const vec_t Fmd_R = Fn_rho_R * uR[d];
+                reinterpret_cast<vec_t *>(flux + (1u + d) * blksize)[i] =
+                    oneHalf *
+                    (Fmd_L + Fmd_R - a * (rhoR * uR[d] - rhoL * uL[d]));
             }
 
             // Energy: u0*(E+p)
-            {
-                TData FE_L = uL[0] * (EL[i] + pL);
-                TData FE_R = uR[0] * (ER[i] + pR);
-                Ef[i]      = static_cast<TData>(0.5) *
-                        (FE_L + FE_R - a * (ER[i] - EL[i]));
-            }
+            const vec_t FE_L = uL[0] * (EL + pL);
+            const vec_t FE_R = uR[0] * (ER + pR);
+            reinterpret_cast<vec_t *>(flux + (1u + NDIM) * blksize)[i] =
+                oneHalf * (FE_L + FE_R - a * (ER - EL));
         });
 }
 

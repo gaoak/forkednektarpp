@@ -35,7 +35,6 @@
 #pragma once
 
 #include "Operators/LoopExecution/LoopExecution.hpp"
-#include <LibUtilities/BasicUtils/NekInline.hpp>
 
 // The dimension and shape kernels. NOTE: They are NOT duplicate
 // templated version based on the array size like the
@@ -45,36 +44,68 @@
 
 namespace Nektar::Operators::detail
 {
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static void UpwindSolverKernel(
-    const size_t npts, const unsigned int velComps,
-    const unsigned int fluxComps, const TData *velbase, const TData *normbase,
-    const TData *fwdbase, const TData *bwdbase, TData *fluxbase)
+
+// TODO: move to Common/Spaces.hpp and tidy.
+template <bool B, typename TData> struct data_type_if
 {
+    typedef TData type;
+};
+
+template <typename TData> struct data_type_if<true, TData>
+{
+    typedef tinysimd::simd<TData> type;
+};
+
+template <typename ExecSpace, typename TScalar>
+NEK_FORCE_INLINE static void UpwindSolverKernel(
+    const size_t blksize, const unsigned int velComps,
+    const unsigned int fluxComps, const TScalar *velbase,
+    const TScalar *normbase, const TScalar *fwdbase, const TScalar *bwdbase,
+    TScalar *fluxbase)
+{
+    // Explicit vectorisation for AVX backend, vec_t = tinysimd::simd<TScalar>
+    // for AVX, vec_t = TScalar otherwise.
+    using vec_t =
+        typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                              TScalar>::type;
+    const unsigned int vec_width =
+        (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
+            ? tinysimd::simd<TScalar>::width
+            : 1;
+
     // Parallelize over points; each i is independent
     Nektar::parallel_for<ExecSpace>(
-        0u, npts, NEKTAR_LAMBDA(const size_t i) {
+        0u, blksize / vec_width, NEKTAR_LAMBDA(const size_t i) {
             // Build nv = v·n on the fly
-            TData nv = 0.0;
+            vec_t nv = 0.0;
             for (unsigned int d = 0; d < velComps; ++d)
             {
-                const TData v_i = velbase[d * npts + i];
-                const TData n_i = normbase[d * npts + i];
+                const vec_t v_i =
+                    reinterpret_cast<const vec_t *>(velbase + d * blksize)[i];
+                const vec_t n_i =
+                    reinterpret_cast<const vec_t *>(normbase + d * blksize)[i];
                 nv += v_i * n_i;
             }
 
-            // Branchless split: nv_pos=max(nv,0), nv_neg=min(nv,0)
-            // Use fabs to stay device-friendly.
-            const TData nv_abs = std::fabs(nv);
-            const TData nv_pos = 0.5 * (nv + nv_abs);
-            const TData nv_neg = 0.5 * (nv - nv_abs);
+        // Branchless split: nv_pos=max(nv,0), nv_neg=min(nv,0)
+        // Use fabs to stay device-friendly.
+#if defined(_MSC_VER)
+            const vec_t nv_abs = std::abs(nv);
+#else
+            const vec_t nv_abs = abs(nv);
+#endif
+            const vec_t nv_pos = 0.5 * (nv + nv_abs);
+            const vec_t nv_neg = 0.5 * (nv - nv_abs);
 
             // Blend without branches:
             // flux = nv_pos * Fwd + nv_neg * Bwd
             for (unsigned int nc = 0; nc < fluxComps; ++nc)
             {
-                const size_t off = nc * npts + i;
-                fluxbase[off] = nv_pos * fwdbase[off] + nv_neg * bwdbase[off];
+                reinterpret_cast<vec_t *>(fluxbase + nc * blksize)[i] =
+                    nv_pos * reinterpret_cast<const vec_t *>(fwdbase +
+                                                             nc * blksize)[i] +
+                    nv_neg * reinterpret_cast<const vec_t *>(bwdbase +
+                                                             nc * blksize)[i];
             }
         });
 }
