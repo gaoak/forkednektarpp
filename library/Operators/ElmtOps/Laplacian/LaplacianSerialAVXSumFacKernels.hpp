@@ -38,8 +38,6 @@
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivSerialAVXSumFacKernels.hpp"
 
-#include <LibUtilities/BasicUtils/NekInline.hpp>
-
 namespace Nektar::Operators::detail
 {
 

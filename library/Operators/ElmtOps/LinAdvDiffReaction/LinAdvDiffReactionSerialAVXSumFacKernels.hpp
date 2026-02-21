@@ -39,8 +39,6 @@
 
 #include "ElmtOps/Helmholtz/HelmholtzSerialAVXSumFacKernels.hpp"
 
-#include <LibUtilities/BasicUtils/NekInline.hpp>
-
 namespace Nektar::Operators::detail
 {
 

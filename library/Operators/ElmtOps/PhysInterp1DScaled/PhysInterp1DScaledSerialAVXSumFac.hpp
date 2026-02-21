@@ -260,81 +260,25 @@ protected:
     void Operator1D(BlockAccessor<TData, FieldState::Phys> &inblock,
                     BlockAccessor<TData, FieldState::Phys> &outblock)
     {
-        // Shape size.
-        const auto nm0 = m_nm[0];
-        const auto nq0 = m_nq[0];
-
-        const auto nmTot = nm0;
-        const auto nqTot = nq0;
-
-        // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        // Workspace for kernels - also checks preconditions.
-        BwdTrans1DWorkspace<LibUtilities::Seg>(nm0, nq0);
-
-        // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
-
-        // Loop over components.
-        for (unsigned int n = 0;
-             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
-        {
-            // Loop over element groups.
-            for (size_t e = 0;
-                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
-            {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
-                {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize, nmTot,
-                                              (TData *)inptr);
-                }
-
-                // PhysInterp1DScaled kernel.
-                BwdTransSegKernel(nm0, nq0, m_B[0],
-                                  reinterpret_cast<const simd_t *>(inptr),
-                                  reinterpret_cast<simd_t *>(outptr));
-
-                // Reshape back, if necessary.
-                if (e % width_ratio == width_ratio - 1)
-                {
-                    ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nmTot,
-                        (TData *)inptr -
-                            (width_ratio - 1) * nmTot * simd_t::width);
-                    ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nqTot,
-                        (TData *)outptr -
-                            (width_ratio - 1) * nqTot * simd_t::width);
-                }
-
-                // Increment pointers for the next elmt group.
-                inptr += nmTot * simd_t::width;
-                outptr += nqTot * simd_t::width;
-            }
-        }
-
-        // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        Operator1D(inblock, outblock, m_nm[0], m_nq[0]);
     }
 
-    // size based template version
+    // Size based template version.
     template <unsigned int nm0, unsigned int nq0>
     void Operator1D(BlockAccessor<TData, FieldState::Phys> &inblock,
                     BlockAccessor<TData, FieldState::Phys> &outblock)
     {
+        Operator1D(inblock, outblock, nm0, nq0);
+    }
+
+    NEK_FORCE_INLINE void Operator1D(
+        BlockAccessor<TData, FieldState::Phys> &inblock,
+        BlockAccessor<TData, FieldState::Phys> &outblock,
+        const unsigned int nm0, const unsigned int nq0)
+    {
         // Shape size.
-        constexpr auto nmTot = nm0;
-        constexpr auto nqTot = nq0;
+        const auto nmTot = nm0;
+        const auto nqTot = nq0;
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -400,13 +344,24 @@ protected:
     void Operator2D(BlockAccessor<TData, FieldState::Phys> &inblock,
                     BlockAccessor<TData, FieldState::Phys> &outblock)
     {
-        // Shape size.
-        const auto nm0 = m_nm[0];
-        const auto nm1 = m_nm[1];
+        Operator2D(inblock, outblock, m_nm[0], m_nm[1], m_nq[0], m_nq[1]);
+    }
 
-        const auto nq0 = m_nq[0];
-        const auto nq1 = m_nq[1];
+    // Size based template version.
+    template <unsigned int nm0, unsigned int nm1, unsigned int nq0,
+              unsigned int nq1>
+    void Operator2D(BlockAccessor<TData, FieldState::Phys> &inblock,
+                    BlockAccessor<TData, FieldState::Phys> &outblock)
+    {
+        Operator2D(inblock, outblock, nm0, nm1, nq0, nq1);
+    }
 
+    NEK_FORCE_INLINE void Operator2D(
+        BlockAccessor<TData, FieldState::Phys> &inblock,
+        BlockAccessor<TData, FieldState::Phys> &outblock,
+        const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
+        const unsigned int nq1)
+    {
         // Shape size.
         const auto nmTot = nm0 * nm1;
         const auto nqTot = nq0 * nq1;
@@ -474,169 +429,32 @@ protected:
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
-    // size based template version
-    template <unsigned int nm0, unsigned int nm1, unsigned int nq0,
-              unsigned int nq1>
-    void Operator2D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, FieldState::Phys> &outblock)
-    {
-        // Shape size.
-        constexpr auto nmTot = nm0 * nm1;
-        constexpr auto nqTot = nq0 * nq1;
-
-        // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        // Workspace for kernels - also checks preconditions.
-        unsigned int wsp0Size = 0;
-        BwdTrans2DWorkspace<LibUtilities::Quad>(nm0, nm1, nq0, nq1, wsp0Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
-
-        // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
-
-        // Loop over components.
-        for (unsigned int n = 0;
-             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
-        {
-            // Loop over element groups.
-            for (size_t e = 0;
-                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
-            {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
-                {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize, nmTot,
-                                              (TData *)inptr);
-                }
-
-                // PhysInterp1DScaled kernel.
-                BwdTransQuadKernel(nm0, nm1, nq0, nq1, m_B[0], m_B[1],
-                                   wsp0.data(),
-                                   reinterpret_cast<const simd_t *>(inptr),
-                                   reinterpret_cast<simd_t *>(outptr));
-
-                // Reshape back, if necessary.
-                if (e % width_ratio == width_ratio - 1)
-                {
-                    ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nmTot,
-                        (TData *)inptr -
-                            (width_ratio - 1) * nmTot * simd_t::width);
-                    ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nqTot,
-                        (TData *)outptr -
-                            (width_ratio - 1) * nqTot * simd_t::width);
-                }
-
-                // Increment pointers for the next elmt group.
-                inptr += nmTot * simd_t::width;
-                outptr += nqTot * simd_t::width;
-            }
-        }
-
-        // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
-    }
-
     // Non-size based operator.
     void Operator3D(BlockAccessor<TData, FieldState::Phys> &inblock,
                     BlockAccessor<TData, FieldState::Phys> &outblock)
     {
-        // Shape size.
-        const auto nm0 = m_nm[0];
-        const auto nm1 = m_nm[1];
-        const auto nm2 = m_nm[2];
-
-        const auto nq0 = m_nq[0];
-        const auto nq1 = m_nq[1];
-        const auto nq2 = m_nq[2];
-
-        // Shape size.
-        const auto nmTot = nm0 * nm1 * nm2;
-        const auto nqTot = nq0 * nq1 * nq2;
-
-        // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        // Workspace for kernels - also checks preconditions.
-        unsigned int wsp0Size = 0, wsp1Size = 0;
-        BwdTrans3DWorkspace<LibUtilities::Hex>(nm0, nm1, nm2, nq0, nq1, nq2,
-                                               wsp0Size, wsp1Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
-            wsp1(wsp1Size);
-
-        // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
-
-        // Loop over components.
-        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
-        {
-            // Loop over element groups.
-            for (size_t e = 0;
-                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
-            {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
-                {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize, nmTot,
-                                              (TData *)inptr);
-                }
-
-                // PhysInterp1DScaled kernel.
-                BwdTransHexKernel(nm0, nm1, nm2, nq0, nq1, nq2, m_B[0], m_B[1],
-                                  m_B[2], wsp0.data(), wsp1.data(),
-                                  reinterpret_cast<const simd_t *>(inptr),
-                                  reinterpret_cast<simd_t *>(outptr));
-
-                // Reshape back, if necessary.
-                if (e % width_ratio == width_ratio - 1)
-                {
-                    ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nmTot,
-                        (TData *)inptr -
-                            (width_ratio - 1) * nmTot * simd_t::width);
-                    ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nqTot,
-                        (TData *)outptr -
-                            (width_ratio - 1) * nqTot * simd_t::width);
-                }
-
-                // Increment pointers for the next elmt group.
-                inptr += nmTot * simd_t::width;
-                outptr += nqTot * simd_t::width;
-            }
-        }
-
-        // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        Operator3D(inblock, outblock, m_nm[0], m_nm[1], m_nm[2], m_nq[0],
+                   m_nq[1], m_nq[2]);
     }
 
-    // size based template version
+    // Size based template version.
     template <unsigned int nm0, unsigned int nm1, unsigned int nm2,
               unsigned int nq0, unsigned int nq1, unsigned int nq2>
     void Operator3D(BlockAccessor<TData, FieldState::Phys> &inblock,
                     BlockAccessor<TData, FieldState::Phys> &outblock)
     {
+        Operator3D(inblock, outblock, nm0, nm1, nm2, nq0, nq1, nq2);
+    }
+
+    NEK_FORCE_INLINE void Operator3D(
+        BlockAccessor<TData, FieldState::Phys> &inblock,
+        BlockAccessor<TData, FieldState::Phys> &outblock,
+        const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+        const unsigned int nq0, const unsigned int nq1, const unsigned int nq2)
+    {
         // Shape size.
-        constexpr auto nmTot = nm0 * nm1 * nm2;
-        constexpr auto nqTot = nq0 * nq1 * nq2;
+        const auto nmTot = nm0 * nm1 * nm2;
+        const auto nqTot = nq0 * nq1 * nq2;
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();

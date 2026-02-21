@@ -34,8 +34,6 @@
 
 #pragma once
 
-#include <LibUtilities/BasicUtils/NekInline.hpp>
-
 #include "StdRegions/Operators/PhysDerivSumFacStdKernels.hpp"
 
 namespace Nektar::Operators::detail

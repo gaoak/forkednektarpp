@@ -87,13 +87,13 @@ NEK_FORCE_INLINE static void UpwindSolverKernel(
                 nv += v_i * n_i;
             }
 
-        // Branchless split: nv_pos=max(nv,0), nv_neg=min(nv,0)
-        // Use fabs to stay device-friendly.
 #if defined(_MSC_VER)
             const vec_t nv_abs = std::abs(nv);
 #else
             const vec_t nv_abs = abs(nv);
 #endif
+            // Branchless split: nv_pos=max(nv,0), nv_neg=min(nv,0)
+            // Use fabs to stay device-friendly.
             const vec_t nv_pos = 0.5 * (nv + nv_abs);
             const vec_t nv_neg = 0.5 * (nv - nv_abs);
 

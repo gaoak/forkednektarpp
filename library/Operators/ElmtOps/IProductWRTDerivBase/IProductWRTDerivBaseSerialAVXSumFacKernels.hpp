@@ -33,8 +33,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 #pragma once
 
-#include <LibUtilities/BasicUtils/NekInline.hpp>
-
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivSerialAVXSumFacKernels.hpp"
 

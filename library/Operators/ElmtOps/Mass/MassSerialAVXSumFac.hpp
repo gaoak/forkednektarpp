@@ -269,86 +269,7 @@ protected:
     void Operator1D(BlockAccessor<TData, FieldState::Coeff> &inblock,
                     BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
-        // Shape size.
-        const auto nm0 = m_nm[0];
-        const auto nq0 = m_nq[0];
-
-        const auto nmTot = nm0;
-        const auto nqTot = nq0;
-
-        unsigned int jacSize = 1;
-        if constexpr (DEFORMED)
-        {
-            jacSize *= nqTot;
-        }
-
-        // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        // Allocate workspace.
-        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
-
-        // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
-
-        // Loop over components.
-        for (unsigned int n = 0;
-             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
-        {
-            auto jacptr = m_jacptr;
-
-            // Loop over element groups.
-            for (size_t e = 0;
-                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
-            {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
-                {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize, nmTot,
-                                              (TData *)inptr);
-                }
-
-                // Step 1: BwdTrans.
-                BwdTrans1DKernel<SHAPE_TYPE>(
-                    nm0, nq0, m_B[0], reinterpret_cast<const simd_t *>(inptr),
-                    bwd.data());
-
-                // Step 2: Inner product for mass matrix operation.
-                IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nq0, bwd.data(), m_B[0], m_W[0],
-                    reinterpret_cast<const simd_t *>(jacptr),
-                    reinterpret_cast<simd_t *>(outptr));
-
-                // Reshape back, if necessary.
-                if (e % width_ratio == width_ratio - 1)
-                {
-                    ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nmTot,
-                        (TData *)inptr -
-                            (width_ratio - 1) * nmTot * simd_t::width);
-                    ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nmTot,
-                        (TData *)outptr -
-                            (width_ratio - 1) * nmTot * simd_t::width);
-                }
-
-                // Increment pointers.
-                inptr += nmTot * simd_t::width;
-                outptr += nmTot * simd_t::width;
-                jacptr += jacSize * simd_t::width;
-            }
-        }
-
-        // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        Operator1D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_nm[0], m_nq[0]);
     }
 
     // Size based template version.
@@ -357,9 +278,18 @@ protected:
     void Operator1D(BlockAccessor<TData, FieldState::Coeff> &inblock,
                     BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
+        Operator1D<SHAPE_TYPE, DEFORMED>(inblock, outblock, nm0, nq0);
+    }
+
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
+    NEK_FORCE_INLINE void Operator1D(
+        BlockAccessor<TData, FieldState::Coeff> &inblock,
+        BlockAccessor<TData, FieldState::Coeff> &outblock,
+        const unsigned int nm0, const unsigned int nq0)
+    {
         // Shape size.
-        constexpr auto nmTot = nm0;
-        constexpr auto nqTot = nq0;
+        const auto nmTot = nm0;
+        const auto nqTot = nq0;
 
         unsigned int jacSize = 1;
         if constexpr (DEFORMED)
@@ -441,13 +371,28 @@ protected:
     void Operator2D(BlockAccessor<TData, FieldState::Coeff> &inblock,
                     BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
+        Operator2D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_nm[0], m_nm[1],
+                                         m_nq[0], m_nq[1]);
+    }
+
+    // Size based template version.
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              unsigned int nm0, unsigned int nm1, unsigned int nq0,
+              unsigned int nq1>
+    void Operator2D(BlockAccessor<TData, FieldState::Coeff> &inblock,
+                    BlockAccessor<TData, FieldState::Coeff> &outblock)
+    {
+        Operator2D<SHAPE_TYPE, DEFORMED>(inblock, outblock, nm0, nm1, nq0, nq1);
+    }
+
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
+    NEK_FORCE_INLINE void Operator2D(
+        BlockAccessor<TData, FieldState::Coeff> &inblock,
+        BlockAccessor<TData, FieldState::Coeff> &outblock,
+        const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
+        const unsigned int nq1)
+    {
         // Shape size.
-        const auto nm0 = m_nm[0];
-        const auto nm1 = m_nm[1];
-
-        const auto nq0 = m_nq[0];
-        const auto nq1 = m_nq[1];
-
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
         const auto nqTot = nq0 * nq1;
@@ -533,199 +478,13 @@ protected:
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
-    // Size based template version.
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              unsigned int nm0, unsigned int nm1, unsigned int nq0,
-              unsigned int nq1>
-    void Operator2D(BlockAccessor<TData, FieldState::Coeff> &inblock,
-                    BlockAccessor<TData, FieldState::Coeff> &outblock)
-    {
-        // Shape size.
-        constexpr auto nmTot =
-            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
-        constexpr auto nqTot = nq0 * nq1;
-
-        unsigned int jacSize = 1;
-        if constexpr (DEFORMED)
-        {
-            jacSize *= nqTot;
-        }
-
-        // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        // Workspace for kernels - also checks preconditions.
-        unsigned int wsp0Size = 0;
-        BwdTrans2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
-        IProduct2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
-
-        // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
-
-        // Loop over components.
-        for (unsigned int n = 0;
-             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
-        {
-            auto jacptr = m_jacptr;
-
-            // Loop over element groups.
-            for (size_t e = 0;
-                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
-            {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
-                {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize, nmTot,
-                                              (TData *)inptr);
-                }
-
-                // Step 1: BwdTrans.
-                BwdTrans2DKernel<SHAPE_TYPE>(
-                    nm0, nm1, nq0, nq1, m_isModified, m_B[0], m_B[1],
-                    m_nodToMod, wsp0.data(),
-                    reinterpret_cast<const simd_t *>(inptr), bwd.data());
-
-                // Step 2: Inner product for mass matrix operation.
-                IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nm1, nq0, nq1, m_isModified, bwd.data(), m_B[0],
-                    m_B[1], m_W[0], m_W[1], m_nodToModTrans,
-                    reinterpret_cast<const simd_t *>(jacptr), wsp0.data(),
-                    reinterpret_cast<simd_t *>(outptr));
-
-                // Reshape back, if necessary.
-                if (e % width_ratio == width_ratio - 1)
-                {
-                    ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nmTot,
-                        (TData *)inptr -
-                            (width_ratio - 1) * nmTot * simd_t::width);
-                    ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nmTot,
-                        (TData *)outptr -
-                            (width_ratio - 1) * nmTot * simd_t::width);
-                }
-
-                // Increment pointers.
-                inptr += nmTot * simd_t::width;
-                outptr += nmTot * simd_t::width;
-                jacptr += jacSize * simd_t::width;
-            }
-        }
-
-        // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
-    }
-
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator3D(BlockAccessor<TData, FieldState::Coeff> &inblock,
                     BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
-        // Shape size.
-        const auto nm0 = m_nm[0];
-        const auto nm1 = m_nm[1];
-        const auto nm2 = m_nm[2];
-
-        const auto nq0 = m_nq[0];
-        const auto nq1 = m_nq[1];
-        const auto nq2 = m_nq[2];
-
-        const auto nmTot =
-            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
-        const auto nqTot = nq0 * nq1 * nq2;
-
-        unsigned int jacSize = 1;
-        if constexpr (DEFORMED)
-        {
-            jacSize *= nqTot;
-        }
-
-        // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        // Workspace for kernels - also checks preconditions.
-        unsigned int wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
-        BwdTrans3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
-                                        wsp1Size);
-        IProduct3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
-                                        wsp1Size, wsp2Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
-            wsp1(wsp1Size), wsp2(wsp2Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
-
-        // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
-
-        // Loop over components.
-        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
-        {
-            auto jacptr = m_jacptr;
-
-            // Loop over element groups.
-            for (size_t e = 0;
-                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
-            {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
-                {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize, nmTot,
-                                              (TData *)inptr);
-                }
-
-                // Step 1: BwdTrans.
-                BwdTrans3DKernel<SHAPE_TYPE>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, m_B[0], m_B[1],
-                    m_B[2], m_nodToMod, wsp0.data(), wsp1.data(),
-                    reinterpret_cast<const simd_t *>(inptr), bwd.data());
-
-                // Step 2: Inner product for mass matrix operation.
-                IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwd.data(),
-                    m_B[0], m_B[1], m_B[2], m_W[0], m_W[1], m_W[2],
-                    m_nodToModTrans, reinterpret_cast<const simd_t *>(jacptr),
-                    wsp0.data(), wsp1.data(), wsp2.data(),
-                    reinterpret_cast<simd_t *>(outptr));
-
-                // Reshape back, if necessary.
-                if (e % width_ratio == width_ratio - 1)
-                {
-                    ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nmTot,
-                        (TData *)inptr -
-                            (width_ratio - 1) * nmTot * simd_t::width);
-                    ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nmTot,
-                        (TData *)outptr -
-                            (width_ratio - 1) * nmTot * simd_t::width);
-                }
-
-                // Increment pointers.
-                inptr += nmTot * simd_t::width;
-                outptr += nmTot * simd_t::width;
-                jacptr += jacSize * simd_t::width;
-            }
-        }
-
-        // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        Operator3D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_nm[0], m_nm[1],
+                                         m_nm[2], m_nq[0], m_nq[1], m_nq[2]);
     }
 
     // Size based template version.
@@ -735,10 +494,21 @@ protected:
     void Operator3D(BlockAccessor<TData, FieldState::Coeff> &inblock,
                     BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
+        Operator3D<SHAPE_TYPE, DEFORMED>(inblock, outblock, nm0, nm1, nm2, nq0,
+                                         nq1, nq2);
+    }
+
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
+    NEK_FORCE_INLINE void Operator3D(
+        BlockAccessor<TData, FieldState::Coeff> &inblock,
+        BlockAccessor<TData, FieldState::Coeff> &outblock,
+        const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+        const unsigned int nq0, const unsigned int nq1, const unsigned int nq2)
+    {
         // Shape size.
-        constexpr auto nmTot =
+        const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
-        constexpr auto nqTot = nq0 * nq1 * nq2;
+        const auto nqTot = nq0 * nq1 * nq2;
 
         unsigned int jacSize = 1;
         if constexpr (DEFORMED)
