@@ -54,7 +54,7 @@ public:
                 expansionList, components, name, execStr));
     }
 
-    static inline const std::string name = "UpwindSolver";
+    static inline const std::string name = "Upwind";
 
 protected:
     UpwindSolverOp(const MultiRegions::ExpListSharedPtr &expansionList,

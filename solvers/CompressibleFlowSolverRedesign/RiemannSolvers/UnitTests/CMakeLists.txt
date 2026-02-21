@@ -9,7 +9,7 @@ ADD_NEKTAR_EXECUTABLE(RiemannCompOpUnitTests
     COMPONENT unit-test DEPENDS ${RIEMANN_UNIT_TEST_DEPENDS} SOURCES TestRiemann.cpp ${RIEMANN_FACTORY_SOURCES})
     
 TARGET_INCLUDE_DIRECTORIES(RiemannCompOpUnitTests PRIVATE
-    "${CMAKE_SOURCE_DIR}/solvers/CompressibleFlowSolver_Redesign"
+    "${CMAKE_SOURCE_DIR}/solvers/CompressibleFlowSolverRedesign"
 )
 
 # Macro
@@ -38,4 +38,4 @@ IF(NEKTAR_ENABLE_DEVICE)
 ENDIF()
 
 # Copy XML file to build directory
-FILE(COPY run DESTINATION ${CMAKE_BINARY_DIR}/solvers/CompressibleFlowSolver_Redesign/RiemannSolvers/UnitTests/)
+FILE(COPY run DESTINATION ${CMAKE_BINARY_DIR}/solvers/CompressibleFlowSolverRedesign/RiemannSolvers/UnitTests/)
