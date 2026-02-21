@@ -382,7 +382,7 @@ BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_LaxFriedrichs)
         {"run/hex_Euler.xml", 2},
     };
 
-    RunCasesForOp("LaxFriedrichsSolver", execStr, cases);
+    RunCasesForOp("LaxFriedrichs", execStr, cases);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

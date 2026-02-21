@@ -356,7 +356,7 @@ BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_Upwind)
         {"run/hex.xml"},
     };
 
-    RunCasesForOp("UpwindSolver", execStr, cases);
+    RunCasesForOp("Upwind", execStr, cases);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

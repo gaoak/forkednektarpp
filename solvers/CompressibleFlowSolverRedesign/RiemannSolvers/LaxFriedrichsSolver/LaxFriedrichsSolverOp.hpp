@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "CompressibleFlowSolver_Redesign/RiemannSolvers/CompressibleSolverOp.hpp"
+#include "CompressibleFlowSolverRedesign/RiemannSolvers/CompressibleSolverOp.hpp"
 
 namespace Nektar::Operators
 {
@@ -55,7 +55,7 @@ public:
                 expansionList, components, name, execStr));
     }
 
-    static inline const std::string name = "LaxFriedrichsSolver";
+    static inline const std::string name = "LaxFriedrichs";
 
 protected:
     LaxFriedrichsSolverOp(const MultiRegions::ExpListSharedPtr &expansionList,
