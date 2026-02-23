@@ -163,7 +163,6 @@
             <P> TimeStep       = 0.001           </P>
             <P> NumSteps       = 100              </P>
             <P> FinTime        = NumSteps*TimeStep </P>
-            <P> IO_InfoSteps   = NumSteps/20     </P>
             <P> dimension      = 3               </P>
             <P> freqA          = PI/2               </P>
             <P> freqB          = PI/4               </P>

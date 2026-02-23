@@ -62,7 +62,6 @@
             <P> TimeStep       = 0.001                       </P>
             <P> NumSteps       = 100                         </P>
             <P> FinTime        = NumSteps*TimeStep           </P>
-            <P> IO_InfoSteps   = NumSteps/20                 </P>
             <P> freq           = PI/2                        </P>
             <P> epsilon        = 0.2                         </P>
             <P> lambda         = 0.1                         </P>

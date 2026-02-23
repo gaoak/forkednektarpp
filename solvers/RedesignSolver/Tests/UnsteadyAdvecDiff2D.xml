@@ -58,7 +58,6 @@
             <P> TimeStep       = 0.01                  </P>
             <P> NumSteps       = 1000                  </P>
             <P> FinTime        = NumSteps*TimeStep     </P>
-            <P> IO_InfoSteps   = NumSteps/10           </P>
             <P> epsilon        = 0.65                  </P>
             <P> Vx             = 0.2                   </P>
             <P> Vy             = 2*epsilon - 1 - Vx    </P>
