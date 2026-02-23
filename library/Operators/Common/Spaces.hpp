@@ -109,6 +109,16 @@
 
 using default_fp_type = double;
 
+template <bool B, typename TData> struct data_type_if
+{
+    typedef TData type;
+};
+
+template <typename TData> struct data_type_if<true, TData>
+{
+    typedef tinysimd::simd<TData> type;
+};
+
 template <bool B, typename TData> struct simd_type_if
 {
     typedef tinysimd::scalarT<TData> type;

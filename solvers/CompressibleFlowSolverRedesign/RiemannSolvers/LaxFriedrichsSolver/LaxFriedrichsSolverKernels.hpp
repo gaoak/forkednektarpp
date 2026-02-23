@@ -45,44 +45,6 @@
 namespace Nektar::Operators::detail
 {
 
-// TODO: move to Common/Spaces.hpp and tidy.
-template <bool B, typename TData> struct data_type_if
-{
-    typedef TData type;
-};
-
-template <typename TData> struct data_type_if<true, TData>
-{
-    typedef tinysimd::simd<TData> type;
-};
-
-template <typename TData>
-NEK_DEVICE_INLINE TData GetPressure(const TData &rho, const TData &e)
-{
-    // Ideal gas law: P = (gamma - 1) * rho * e
-    const TData gamma = 1.4; // Specific heat ratio for air
-    return (gamma - 1) * rho * e;
-}
-
-template <typename TData>
-NEK_DEVICE_INLINE TData GetRoeSoundSpeed(
-    [[maybe_unused]] const TData &rhoL, [[maybe_unused]] const TData &pL,
-    [[maybe_unused]] const TData &eL, [[maybe_unused]] const TData &HL,
-    [[maybe_unused]] const TData &srL, [[maybe_unused]] const TData &rhoR,
-    [[maybe_unused]] const TData &pR, [[maybe_unused]] const TData &eR,
-    [[maybe_unused]] const TData &HR, [[maybe_unused]] const TData &srR,
-    const TData &HRoe, const TData &URoe2, [[maybe_unused]] const TData &srLR)
-{
-    // Specific heat ratio for air
-    const TData gamma = 1.4;
-    // Calculate sound speed using ideal gas relation
-#if defined(_MSC_VER)
-    return std::sqrt((gamma - 1.0) * (HRoe - 0.5 * URoe2));
-#else
-    return sqrt((gamma - 1.0) * (HRoe - 0.5 * URoe2));
-#endif
-}
-
 template <typename ExecSpace, typename TScalar, unsigned int NDIM>
 NEK_FORCE_INLINE static void LaxFriedrichsSolverKernel(const size_t blksize,
                                                        const TScalar *fwd,
@@ -100,20 +62,25 @@ NEK_FORCE_INLINE static void LaxFriedrichsSolverKernel(const size_t blksize,
             : 1;
 
     // Layout: [rho | m0 | m1 | m2 | E] but only first (NDIM) moment exist.
+    const size_t groupsize = blksize / vec_width;
+    const auto fwdvec      = reinterpret_cast<const vec_t *>(fwd);
+    const auto bwdvec      = reinterpret_cast<const vec_t *>(bwd);
+    auto fluxvec           = reinterpret_cast<vec_t *>(flux);
     Nektar::parallel_for<ExecSpace>(
-        0u, blksize / vec_width, NEKTAR_LAMBDA(const size_t i) {
+        0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
+            using std::sqrt;
+            using std::abs;
+
             const vec_t oneHalf = 0.5;
 
             // Density
-            const vec_t rhoL = reinterpret_cast<const vec_t *>(fwd)[i];
-            const vec_t rhoR = reinterpret_cast<const vec_t *>(bwd)[i];
+            const vec_t rhoL = fwdvec[i];
+            const vec_t rhoR = bwdvec[i];
 
             // Physical fluxes in normal direction (note: uL[0] is normal
             // velocity)
-            const vec_t Fn_rho_L =
-                reinterpret_cast<const vec_t *>(fwd + 1u * blksize)[i];
-            const vec_t Fn_rho_R =
-                reinterpret_cast<const vec_t *>(bwd + 1u * blksize)[i];
+            const vec_t Fn_rho_L = fwdvec[1u * groupsize + i];
+            const vec_t Fn_rho_R = bwdvec[1u * groupsize + i];
 
             // Velocities and kinetic energy terms (in rotated frame: m0 is
             // normal)
@@ -125,10 +92,8 @@ NEK_FORCE_INLINE static void LaxFriedrichsSolverKernel(const size_t blksize,
             vec_t qR2   = Fn_rho_R * uR[0];
             for (unsigned int d = 1; d < NDIM; ++d)
             {
-                const vec_t rhouL = reinterpret_cast<const vec_t *>(
-                    fwd + (1u + d) * blksize)[i];
-                const vec_t rhouR = reinterpret_cast<const vec_t *>(
-                    bwd + (1u + d) * blksize)[i];
+                const vec_t rhouL = fwdvec[(1u + d) * groupsize + i];
+                const vec_t rhouR = bwdvec[(1u + d) * groupsize + i];
 
                 uL[d] = rhouL / rhoL;
                 uR[d] = rhouR / rhoR;
@@ -138,27 +103,22 @@ NEK_FORCE_INLINE static void LaxFriedrichsSolverKernel(const size_t blksize,
             }
 
             // Internal energy per unit mass
-            const vec_t EL =
-                reinterpret_cast<const vec_t *>(fwd + (1u + NDIM) * blksize)[i];
-            const vec_t ER =
-                reinterpret_cast<const vec_t *>(bwd + (1u + NDIM) * blksize)[i];
+            const vec_t EL = fwdvec[(1u + NDIM) * groupsize + i];
+            const vec_t ER = bwdvec[(1u + NDIM) * groupsize + i];
             const vec_t eL = (EL - oneHalf * qL2) / rhoL;
             const vec_t eR = (ER - oneHalf * qR2) / rhoR;
 
-            // Pressure + enthalpy
+            // Pressure
             const vec_t pL = GetPressure(rhoL, eL);
             const vec_t pR = GetPressure(rhoR, eR);
+
+            // Enthalpy
             const vec_t HL = (EL + pL) / rhoL;
             const vec_t HR = (ER + pR) / rhoR;
 
-        // Roe averages (same as your code)
-#if defined(_MSC_VER)
-            const vec_t srL = std::sqrt(rhoL);
-            const vec_t srR = std::sqrt(rhoR);
-#else
+            // Roe averages
             const vec_t srL  = sqrt(rhoL);
             const vec_t srR  = sqrt(rhoR);
-#endif
             const vec_t srLR = srL + srR;
 
             vec_t uRoe[3] = {0, 0, 0};
@@ -174,21 +134,16 @@ NEK_FORCE_INLINE static void LaxFriedrichsSolverKernel(const size_t blksize,
             const vec_t cRoe = GetRoeSoundSpeed(rhoL, pL, eL, HL, srL, rhoR, pR,
                                                 eR, HR, srR, HRoe, URoe2, srLR);
 
-        // Max eigenvalue in normal direction
-#if defined(_MSC_VER)
-            const vec_t a = std::abs(uRoe[0]) + cRoe;
-#else
+            // Max eigenvalue in normal direction
             const vec_t a = abs(uRoe[0]) + cRoe;
-#endif
 
             // Mass
-            reinterpret_cast<vec_t *>(flux)[i] =
-                oneHalf * (Fn_rho_L + Fn_rho_R - a * (rhoR - rhoL));
+            fluxvec[i] = oneHalf * (Fn_rho_L + Fn_rho_R - a * (rhoR - rhoL));
 
             // Normal momentum (d=0): p + m0*u0
             const vec_t Fm0_L = pL + Fn_rho_L * uL[0];
             const vec_t Fm0_R = pR + Fn_rho_R * uR[0];
-            reinterpret_cast<vec_t *>(flux + 1u * blksize)[i] =
+            fluxvec[1u * groupsize + i] =
                 oneHalf * (Fm0_L + Fm0_R - a * (Fn_rho_R - Fn_rho_L));
 
             // Tangential momentum(s): m0*u_t
@@ -196,7 +151,7 @@ NEK_FORCE_INLINE static void LaxFriedrichsSolverKernel(const size_t blksize,
             {
                 const vec_t Fmd_L = Fn_rho_L * uL[d];
                 const vec_t Fmd_R = Fn_rho_R * uR[d];
-                reinterpret_cast<vec_t *>(flux + (1u + d) * blksize)[i] =
+                fluxvec[(1u + d) * groupsize + i] =
                     oneHalf *
                     (Fmd_L + Fmd_R - a * (rhoR * uR[d] - rhoL * uL[d]));
             }
@@ -204,7 +159,7 @@ NEK_FORCE_INLINE static void LaxFriedrichsSolverKernel(const size_t blksize,
             // Energy: u0*(E+p)
             const vec_t FE_L = uL[0] * (EL + pL);
             const vec_t FE_R = uR[0] * (ER + pR);
-            reinterpret_cast<vec_t *>(flux + (1u + NDIM) * blksize)[i] =
+            fluxvec[(1u + NDIM) * groupsize + i] =
                 oneHalf * (FE_L + FE_R - a * (ER - EL));
         });
 }
