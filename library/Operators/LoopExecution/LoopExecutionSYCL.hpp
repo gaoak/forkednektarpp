@@ -251,7 +251,7 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
                            reducer.combine(functor(begin + indx));
                        });
 #else
-        TData *buffer = (TData *)internalSYCLBuffer;
+        TData *buffer = (TData *)internalMemoryBuffer;
         reduceSumKernel<true>(gridSize, blockSize, begin, end, buffer, functor);
         reduceSumKernel<init>(1, gridSize, 0, gridSize, out,
                               [=](const size_t i) { return buffer[i]; });
@@ -271,7 +271,7 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
                            reducer.combine(functor(begin + indx));
                        });
 #else
-        TData *buffer = (TData *)internalSYCLBuffer;
+        TData *buffer = (TData *)internalMemoryBuffer;
         reduceMaxKernel<true>(gridSize, blockSize, begin, end, buffer, functor);
         reduceMaxKernel<init>(1, gridSize, 0, gridSize, out,
                               [=](const size_t i) { return buffer[i]; });
