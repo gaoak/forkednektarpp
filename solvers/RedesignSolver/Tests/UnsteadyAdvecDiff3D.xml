@@ -184,7 +184,6 @@
             <P> TimeStep       = 0.0001                </P>
             <P> NumSteps       = 10                    </P>
             <P> FinTime        = NumSteps*TimeStep     </P>
-            <P> IO_InfoSteps   = NumSteps/2            </P>
             <P> epsilon        = 0.45                  </P>
             <P> Vx             = 0.6                   </P>
             <P> Vy             = 0.2                   </P>
