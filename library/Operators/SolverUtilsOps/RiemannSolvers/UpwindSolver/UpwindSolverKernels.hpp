@@ -45,17 +45,6 @@
 namespace Nektar::Operators::detail
 {
 
-// TODO: move to Common/Spaces.hpp and tidy.
-template <bool B, typename TData> struct data_type_if
-{
-    typedef TData type;
-};
-
-template <typename TData> struct data_type_if<true, TData>
-{
-    typedef tinysimd::simd<TData> type;
-};
-
 template <typename ExecSpace, typename TScalar>
 NEK_FORCE_INLINE static void UpwindSolverKernel(
     const size_t blksize, const unsigned int velComps,
@@ -74,24 +63,27 @@ NEK_FORCE_INLINE static void UpwindSolverKernel(
             : 1;
 
     // Parallelize over points; each i is independent
+    const size_t groupsize = blksize / vec_width;
+    const auto velvec      = reinterpret_cast<const vec_t *>(velbase);
+    const auto normvec     = reinterpret_cast<const vec_t *>(normbase);
+    const auto fwdvec      = reinterpret_cast<const vec_t *>(fwdbase);
+    const auto bwdvec      = reinterpret_cast<const vec_t *>(bwdbase);
+    auto fluxvec           = reinterpret_cast<vec_t *>(fluxbase);
     Nektar::parallel_for<ExecSpace>(
-        0u, blksize / vec_width, NEKTAR_LAMBDA(const size_t i) {
+        0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
+            using std::abs;
+
             // Build nv = v·n on the fly
             vec_t nv = 0.0;
             for (unsigned int d = 0; d < velComps; ++d)
             {
-                const vec_t v_i =
-                    reinterpret_cast<const vec_t *>(velbase + d * blksize)[i];
-                const vec_t n_i =
-                    reinterpret_cast<const vec_t *>(normbase + d * blksize)[i];
+                const vec_t v_i = velvec[d * groupsize + i];
+                const vec_t n_i = normvec[d * groupsize + i];
                 nv += v_i * n_i;
             }
 
-#if defined(_MSC_VER)
-            const vec_t nv_abs = std::abs(nv);
-#else
             const vec_t nv_abs = abs(nv);
-#endif
+
             // Branchless split: nv_pos=max(nv,0), nv_neg=min(nv,0)
             // Use fabs to stay device-friendly.
             const vec_t nv_pos = 0.5 * (nv + nv_abs);
@@ -101,11 +93,9 @@ NEK_FORCE_INLINE static void UpwindSolverKernel(
             // flux = nv_pos * Fwd + nv_neg * Bwd
             for (unsigned int nc = 0; nc < fluxComps; ++nc)
             {
-                reinterpret_cast<vec_t *>(fluxbase + nc * blksize)[i] =
-                    nv_pos * reinterpret_cast<const vec_t *>(fwdbase +
-                                                             nc * blksize)[i] +
-                    nv_neg * reinterpret_cast<const vec_t *>(bwdbase +
-                                                             nc * blksize)[i];
+                fluxvec[nc * groupsize + i] =
+                    nv_pos * fwdvec[nc * groupsize + i] +
+                    nv_neg * bwdvec[nc * groupsize + i];
             }
         });
 }

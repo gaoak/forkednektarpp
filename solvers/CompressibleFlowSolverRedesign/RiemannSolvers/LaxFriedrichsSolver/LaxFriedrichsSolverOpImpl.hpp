@@ -34,9 +34,10 @@
 
 #pragma once
 
+#include "RiemannSolvers/LaxFriedrichsSolver/LaxFriedrichsSolverOp.hpp"
+
 #include "Operators/Utils/UtilsKernels.hpp"
 #include "RiemannSolvers/LaxFriedrichsSolver/LaxFriedrichsSolverKernels.hpp"
-#include "RiemannSolvers/LaxFriedrichsSolver/LaxFriedrichsSolverOp.hpp"
 
 namespace Nektar::Operators::detail
 {

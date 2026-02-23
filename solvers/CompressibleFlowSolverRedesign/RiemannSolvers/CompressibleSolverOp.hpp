@@ -64,4 +64,30 @@ protected:
     ~CompressibleSolverOp() override = default;
 };
 
+// Helper function
+template <typename TData>
+NEK_DEVICE_INLINE TData GetPressure(const TData &rho, const TData &e)
+{
+    // Ideal gas law: P = (gamma - 1) * rho * e
+    const TData gamma = 1.4; // Specific heat ratio for air
+    return (gamma - 1) * rho * e;
+}
+
+template <typename TData>
+NEK_DEVICE_INLINE TData GetRoeSoundSpeed(
+    [[maybe_unused]] const TData &rhoL, [[maybe_unused]] const TData &pL,
+    [[maybe_unused]] const TData &eL, [[maybe_unused]] const TData &HL,
+    [[maybe_unused]] const TData &srL, [[maybe_unused]] const TData &rhoR,
+    [[maybe_unused]] const TData &pR, [[maybe_unused]] const TData &eR,
+    [[maybe_unused]] const TData &HR, [[maybe_unused]] const TData &srR,
+    const TData &HRoe, const TData &URoe2, [[maybe_unused]] const TData &srLR)
+{
+    using std::sqrt;
+
+    // Specific heat ratio for air
+    const TData gamma = 1.4;
+    // Calculate sound speed using ideal gas relation
+    return sqrt((gamma - 1.0) * (HRoe - 0.5 * URoe2));
+}
+
 } // namespace Nektar::Operators
