@@ -385,4 +385,46 @@ BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_LaxFriedrichs)
     RunCasesForOp("LaxFriedrichs", execStr, cases);
 }
 
+BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_HLL)
+{
+    std::string execStr(
+        boost::unit_test::framework::master_test_suite().argv[1]);
+
+    const std::vector<Case> cases = {
+        {"run/square_Euler.xml", 0}, {"run/square_Euler.xml", 1},
+        {"run/hex_Euler.xml", 0},    {"run/hex_Euler.xml", 1},
+        {"run/hex_Euler.xml", 2},
+    };
+
+    RunCasesForOp("HLL", execStr, cases);
+}
+
+BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_HLLC)
+{
+    std::string execStr(
+        boost::unit_test::framework::master_test_suite().argv[1]);
+
+    const std::vector<Case> cases = {
+        {"run/square_Euler.xml", 0}, {"run/square_Euler.xml", 1},
+        {"run/hex_Euler.xml", 0},    {"run/hex_Euler.xml", 1},
+        {"run/hex_Euler.xml", 2},
+    };
+
+    RunCasesForOp("HLLC", execStr, cases);
+}
+
+BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_Average)
+{
+    std::string execStr(
+        boost::unit_test::framework::master_test_suite().argv[1]);
+
+    const std::vector<Case> cases = {
+        {"run/square_Euler.xml", 0}, {"run/square_Euler.xml", 1},
+        {"run/hex_Euler.xml", 0},    {"run/hex_Euler.xml", 1},
+        {"run/hex_Euler.xml", 2},
+    };
+
+    RunCasesForOp("Average", execStr, cases);
+}
+
 BOOST_AUTO_TEST_SUITE_END()

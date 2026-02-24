@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: LaxFriedrichsSolverOpImpl.hpp
+// File: AverageSolverOpImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,30 +28,29 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: LaxFriedrichs Riemann solver.
+// Description: Average Riemann solver.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include "RiemannSolvers/LaxFriedrichsSolver/LaxFriedrichsSolverOp.hpp"
+#include "RiemannSolvers/AverageSolver/AverageSolverOp.hpp"
 
 #include "Operators/Utils/UtilsKernels.hpp"
-#include "RiemannSolvers/LaxFriedrichsSolver/LaxFriedrichsSolverKernels.hpp"
+#include "RiemannSolvers/AverageSolver/AverageSolverKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-class LaxFriedrichsSolverOpImpl : public LaxFriedrichsSolverOp<TData>
+class AverageSolverOpImpl : public AverageSolverOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    LaxFriedrichsSolverOpImpl(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::vector<std::string> &components)
-        : LaxFriedrichsSolverOp<TData>(expansionList, components)
+    AverageSolverOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                        const std::vector<std::string> &components)
+        : AverageSolverOp<TData>(expansionList, components)
     {
         m_dimension = expansionList->GetExp(0)->GetShapeDimension();
     }
@@ -64,7 +63,7 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
-        return std::make_unique<LaxFriedrichsSolverOpImpl<ExecSpace, TData>>(
+        return std::make_unique<AverageSolverOpImpl<ExecSpace, TData>>(
             expansionList, components);
     }
 
@@ -80,22 +79,22 @@ protected:
             // 1D
             case 1:
             {
-                this->template OperatorND<LaxFriedrichsSolverKernel, ExecSpace,
-                                          1>(Fwd, Bwd, flux);
+                this->template OperatorND<AverageSolverKernel, ExecSpace, 1>(
+                    Fwd, Bwd, flux);
                 break;
             }
             // 2D
             case 2:
             {
-                this->template OperatorND<LaxFriedrichsSolverKernel, ExecSpace,
-                                          2>(Fwd, Bwd, flux);
+                this->template OperatorND<AverageSolverKernel, ExecSpace, 2>(
+                    Fwd, Bwd, flux);
                 break;
             }
             // 3D
             case 3:
             {
-                this->template OperatorND<LaxFriedrichsSolverKernel, ExecSpace,
-                                          3>(Fwd, Bwd, flux);
+                this->template OperatorND<AverageSolverKernel, ExecSpace, 3>(
+                    Fwd, Bwd, flux);
                 break;
             }
         }

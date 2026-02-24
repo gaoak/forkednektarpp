@@ -219,11 +219,10 @@ NEK_FORCE_INLINE static void GenerateRotationMatrices(const size_t blksize,
         });
 }
 
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static void RotateToNormal1DKernel(const size_t blksize,
-                                                    const TData *inptr,
-                                                    const TData *normalsptr,
-                                                    TData *outptr)
+template <typename ExecSpace, unsigned int NDIM, typename TData>
+NEK_FORCE_INLINE static typename std::enable_if<NDIM == 1>::type
+RotateToNormalKernel(const size_t blksize, const TData *inptr,
+                     const TData *normalsptr, TData *outptr)
 {
     // in/out layout: [rho | rhou | E]
     const TData *nx = normalsptr;
@@ -233,21 +232,18 @@ NEK_FORCE_INLINE static void RotateToNormal1DKernel(const size_t blksize,
         NEKTAR_LAMBDA(const size_t i) { outptr[i] = inptr[i] * nx[i]; });
 }
 
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static void RotateFromNormal1DKernel(const size_t blksize,
-                                                      const TData *inptr,
-                                                      const TData *normalsptr,
-                                                      TData *outptr)
+template <typename ExecSpace, unsigned int NDIM, typename TData>
+NEK_FORCE_INLINE static typename std::enable_if<NDIM == 1>::type
+RotateFromNormalKernel(const size_t blksize, const TData *inptr,
+                       const TData *normalsptr, TData *outptr)
 {
-    RotateToNormal1DKernel<ExecSpace, TData>(blksize, inptr, normalsptr,
-                                             outptr);
+    RotateToNormalKernel<ExecSpace, 1>(blksize, inptr, normalsptr, outptr);
 }
 
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static void RotateToNormal2DKernel(const size_t blksize,
-                                                    const TData *inptr,
-                                                    const TData *normalsptr,
-                                                    TData *outptr)
+template <typename ExecSpace, unsigned int NDIM, typename TData>
+NEK_FORCE_INLINE static typename std::enable_if<NDIM == 2>::type
+RotateToNormalKernel(const size_t blksize, const TData *inptr,
+                     const TData *normalsptr, TData *outptr)
 {
     // Block layout: [rho | u | v | E], each of length blksize
     const TData *rhoIn  = inptr;
@@ -275,11 +271,10 @@ NEK_FORCE_INLINE static void RotateToNormal2DKernel(const size_t blksize,
         });
 }
 
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static void RotateFromNormal2DKernel(const size_t blksize,
-                                                      const TData *inptr,
-                                                      const TData *normalsptr,
-                                                      TData *outptr)
+template <typename ExecSpace, unsigned int NDIM, typename TData>
+NEK_FORCE_INLINE static typename std::enable_if<NDIM == 2>::type
+RotateFromNormalKernel(const size_t blksize, const TData *inptr,
+                       const TData *normalsptr, TData *outptr)
 {
     // Block layout: [rho | u | v | E], each of length blksize
     const TData *rhoIn  = inptr;
@@ -307,11 +302,10 @@ NEK_FORCE_INLINE static void RotateFromNormal2DKernel(const size_t blksize,
         });
 }
 
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static void RotateToNormal3DKernel(const size_t blksize,
-                                                    const TData *inptr,
-                                                    const TData *rotMatPtr,
-                                                    TData *outptr)
+template <typename ExecSpace, unsigned int NDIM, typename TData>
+NEK_FORCE_INLINE static typename std::enable_if<NDIM == 3>::type
+RotateToNormalKernel(const size_t blksize, const TData *inptr,
+                     const TData *rotMatPtr, TData *outptr)
 {
     // inptr/outptr: [rho | rhou | rhov | rhow | E], each length blksize
     const TData *rhoIn  = inptr;
@@ -357,11 +351,10 @@ NEK_FORCE_INLINE static void RotateToNormal3DKernel(const size_t blksize,
         });
 }
 
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static void RotateFromNormal3DKernel(const size_t blksize,
-                                                      const TData *inptr,
-                                                      const TData *rotMatPtr,
-                                                      TData *outptr)
+template <typename ExecSpace, unsigned int NDIM, typename TData>
+NEK_FORCE_INLINE static typename std::enable_if<NDIM == 3>::type
+RotateFromNormalKernel(const size_t blksize, const TData *inptr,
+                       const TData *rotMatPtr, TData *outptr)
 {
     // inptr/outptr: [rho | rhou | rhov | rhow | E], each length blksize
     const TData *rhoIn  = inptr;
