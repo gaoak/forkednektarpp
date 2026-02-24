@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: LaxFriedrichsSolverOpImpl.hpp
+// File: HLLCSolverOpImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,30 +28,29 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: LaxFriedrichs Riemann solver.
+// Description: HLLC Riemann solver.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include "RiemannSolvers/LaxFriedrichsSolver/LaxFriedrichsSolverOp.hpp"
+#include "RiemannSolvers/HLLCSolver/HLLCSolverOp.hpp"
 
 #include "Operators/Utils/UtilsKernels.hpp"
-#include "RiemannSolvers/LaxFriedrichsSolver/LaxFriedrichsSolverKernels.hpp"
+#include "RiemannSolvers/HLLCSolver/HLLCSolverKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-class LaxFriedrichsSolverOpImpl : public LaxFriedrichsSolverOp<TData>
+class HLLCSolverOpImpl : public HLLCSolverOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    LaxFriedrichsSolverOpImpl(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::vector<std::string> &components)
-        : LaxFriedrichsSolverOp<TData>(expansionList, components)
+    HLLCSolverOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                     const std::vector<std::string> &components)
+        : HLLCSolverOp<TData>(expansionList, components)
     {
         m_dimension = expansionList->GetExp(0)->GetShapeDimension();
     }
@@ -64,7 +63,7 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
-        return std::make_unique<LaxFriedrichsSolverOpImpl<ExecSpace, TData>>(
+        return std::make_unique<HLLCSolverOpImpl<ExecSpace, TData>>(
             expansionList, components);
     }
 
@@ -80,22 +79,22 @@ protected:
             // 1D
             case 1:
             {
-                this->template OperatorND<LaxFriedrichsSolverKernel, ExecSpace,
-                                          1>(Fwd, Bwd, flux);
+                this->template OperatorND<HLLCSolverKernel, ExecSpace, 1>(
+                    Fwd, Bwd, flux);
                 break;
             }
             // 2D
             case 2:
             {
-                this->template OperatorND<LaxFriedrichsSolverKernel, ExecSpace,
-                                          2>(Fwd, Bwd, flux);
+                this->template OperatorND<HLLCSolverKernel, ExecSpace, 2>(
+                    Fwd, Bwd, flux);
                 break;
             }
             // 3D
             case 3:
             {
-                this->template OperatorND<LaxFriedrichsSolverKernel, ExecSpace,
-                                          3>(Fwd, Bwd, flux);
+                this->template OperatorND<HLLCSolverKernel, ExecSpace, 3>(
+                    Fwd, Bwd, flux);
                 break;
             }
         }
