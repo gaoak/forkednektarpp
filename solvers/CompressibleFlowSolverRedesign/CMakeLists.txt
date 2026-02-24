@@ -128,7 +128,7 @@ IF(NEKTAR_SOLVER_COMPRESSIBLE_FLOW_RE)
 
     # Loop through all of the directories which contain operators and add
     # their source and header files.
-    FILE(GLOB children RiemannSolvers/*)
+    FILE(GLOB children RiemannSolvers/* RiemannSolvers/AUSMSolver/*)
 
     FOREACH(child ${children})
     MESSAGE("Child : " "${child}")
