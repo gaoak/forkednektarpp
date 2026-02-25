@@ -148,12 +148,12 @@ struct AUSMSolverKernel
                 const TData rhoL = fwd[i];
                 const TData rhoR = bwd[i];
 
-                // Velocities and kinetic energy terms (in rotated frame: m0 is
-                // normal)
-                TData uL[3] = {0, 0, 0};
-                TData uR[3] = {0, 0, 0};
-                TData qL2   = 0.0;
-                TData qR2   = 0.0;
+                // Velocities and kinetic energy terms
+                TData uL[NDIM];
+                TData uR[NDIM];
+                TData qL2 = 0.0;
+                TData qR2 = 0.0;
+#pragma unroll
                 for (unsigned int d = 0; d < NDIM; ++d)
                 {
                     const TData rhouL = fwd[(1u + d) * blksize + i];
@@ -191,26 +191,22 @@ struct AUSMSolverKernel
                 TData pbar, Mbar;
                 AUSMUpwinding()(cA, rhoL, rhoR, pL, pR, ML, MR, pbar, Mbar);
 
-                if (Mbar >= 0.0)
+                // Conditional assignment
+                const bool cond    = Mbar >= 0.0;
+                const TData &rhoUp = (cond) ? rhoL : rhoR;
+                const TData &pUp   = (cond) ? pL : pR;
+                const TData *uUp   = (cond) ? uL : uR;
+                const TData &EUp   = (cond) ? EL : ER;
+
+                // Compute flux
+                flux[i]                = cA * Mbar * rhoUp;
+                flux[1u * blksize + i] = cA * Mbar * rhoUp * uUp[0] + pbar;
+#pragma unroll
+                for (unsigned int d = 1; d < NDIM; ++d)
                 {
-                    flux[i]                = cA * Mbar * rhoL;
-                    flux[1u * blksize + i] = cA * Mbar * rhoL * uL[0] + pbar;
-                    for (unsigned int d = 1; d < NDIM; ++d)
-                    {
-                        flux[(1u + d) * blksize + i] = cA * Mbar * rhoL * uL[d];
-                    }
-                    flux[(1u + NDIM) * blksize + i] = cA * Mbar * (EL + pL);
+                    flux[(1u + d) * blksize + i] = cA * Mbar * rhoUp * uUp[d];
                 }
-                else
-                {
-                    flux[i]                = cA * Mbar * rhoR;
-                    flux[1u * blksize + i] = cA * Mbar * rhoR * uR[0] + pbar;
-                    for (unsigned int d = 1; d < NDIM; ++d)
-                    {
-                        flux[(1u + d) * blksize + i] = cA * Mbar * rhoR * uR[d];
-                    }
-                    flux[(1u + NDIM) * blksize + i] = cA * Mbar * (ER + pR);
-                }
+                flux[(1u + NDIM) * blksize + i] = cA * Mbar * (EUp + pUp);
             });
     }
 };

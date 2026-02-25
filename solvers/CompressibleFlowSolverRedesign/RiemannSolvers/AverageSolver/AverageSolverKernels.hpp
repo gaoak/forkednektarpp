@@ -77,12 +77,12 @@ template <typename ExecSpace, unsigned int NDIM> struct AverageSolverKernel
                 const vec_t rhoL = fwdvec[i];
                 const vec_t rhoR = bwdvec[i];
 
-                // Velocities and kinetic energy terms (in rotated frame: m0 is
-                // normal)
-                vec_t uL[3] = {0, 0, 0};
-                vec_t uR[3] = {0, 0, 0};
-                vec_t qL2   = 0.0;
-                vec_t qR2   = 0.0;
+                // Velocities and kinetic energy terms
+                vec_t uL[NDIM];
+                vec_t uR[NDIM];
+                vec_t qL2 = 0.0;
+                vec_t qR2 = 0.0;
+#pragma unroll
                 for (unsigned int d = 0; d < NDIM; ++d)
                 {
                     const vec_t rhouL = fwdvec[(1u + d) * groupsize + i];
@@ -110,6 +110,7 @@ template <typename ExecSpace, unsigned int NDIM> struct AverageSolverKernel
                 fluxvec[1u * groupsize + i] =
                     0.5 *
                     ((rhoR * uR[0] * uR[0] + pR) + (rhoL * uL[0] * uL[0] + pL));
+#pragma unroll
                 for (unsigned int d = 1; d < NDIM; ++d)
                 {
                     fluxvec[(1u + d) * groupsize + i] =

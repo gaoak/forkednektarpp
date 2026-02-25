@@ -63,12 +63,12 @@ template <typename ExecSpace, unsigned int NDIM> struct HLLCSolverKernel
                 const TData rhoL = fwd[i];
                 const TData rhoR = bwd[i];
 
-                // Velocities and kinetic energy terms (in rotated frame: m0 is
-                // normal)
-                TData uL[3] = {0, 0, 0};
-                TData uR[3] = {0, 0, 0};
-                TData qL2   = 0.0;
-                TData qR2   = 0.0;
+                // Velocities and kinetic energy terms
+                TData uL[NDIM];
+                TData uR[NDIM];
+                TData qL2 = 0.0;
+                TData qR2 = 0.0;
+#pragma unroll
                 for (unsigned int d = 0; d < NDIM; ++d)
                 {
                     const TData rhouL = fwd[(1u + d) * blksize + i];
@@ -96,27 +96,28 @@ template <typename ExecSpace, unsigned int NDIM> struct HLLCSolverKernel
                 const TData cR = GetSoundSpeed(rhoR, eR);
 
                 // Enthalpy
-                const TData HL = (EL + pL) / rhoL;
-                const TData HR = (ER + pR) / rhoR;
+                const TData hL = (EL + pL) / rhoL;
+                const TData hR = (ER + pR) / rhoR;
 
                 // Roe averages
                 const TData srL  = sqrt(rhoL);
                 const TData srR  = sqrt(rhoR);
                 const TData srLR = srL + srR;
 
-                TData uRoe[3] = {0, 0, 0};
-                TData URoe2   = 0;
+                TData uRoe[NDIM];
+                TData URoe2 = 0;
+#pragma unroll
                 for (unsigned int d = 0; d < NDIM; ++d)
                 {
                     uRoe[d] = (srL * uL[d] + srR * uR[d]) / srLR;
                     URoe2 += uRoe[d] * uRoe[d];
                 }
 
-                const TData HRoe = (srL * HL + srR * HR) / srLR;
+                const TData hRoe = (srL * hL + srR * hR) / srLR;
 
                 const TData cRoe =
-                    GetRoeSoundSpeed(rhoL, pL, eL, HL, srL, rhoR, pR, eR, HR,
-                                     srR, HRoe, URoe2, srLR);
+                    GetRoeSoundSpeed(rhoL, pL, eL, hL, srL, rhoR, pR, eR, hR,
+                                     srR, hRoe, URoe2, srLR);
 
                 // Maximum wave speeds
                 const TData SL = std::min(uL[0] - cL, uRoe[0] - cRoe);
@@ -127,6 +128,7 @@ template <typename ExecSpace, unsigned int NDIM> struct HLLCSolverKernel
                 {
                     flux[i]                = rhoL * uL[0];
                     flux[1u * blksize + i] = rhoL * uL[0] * uL[0] + pL;
+#pragma unroll
                     for (unsigned int d = 1; d < NDIM; ++d)
                     {
                         flux[(1u + d) * blksize + i] = rhoL * uL[0] * uL[d];
@@ -138,6 +140,7 @@ template <typename ExecSpace, unsigned int NDIM> struct HLLCSolverKernel
                 {
                     flux[i]                = rhoR * uR[0];
                     flux[1u * blksize + i] = rhoR * uR[0] * uR[0] + pR;
+#pragma unroll
                     for (unsigned int d = 1; d < NDIM; ++d)
                     {
                         flux[(1u + d) * blksize + i] = rhoR * uR[0] * uR[d];
@@ -147,12 +150,13 @@ template <typename ExecSpace, unsigned int NDIM> struct HLLCSolverKernel
                 // HLL Riemann fluxes (general case (SL < 0 | SR > 0)
                 else
                 {
-                    TData rhouML[3] = {0, 0, 0};
-                    TData SM        = (pR - pL + rhoL * uL[0] * (SL - uL[0]) -
+                    TData rhouML[NDIM];
+                    TData SM = (pR - pL + rhoL * uL[0] * (SL - uL[0]) -
                                 rhoR * uR[0] * (SR - uR[0])) /
                                (rhoL * (SL - uL[0]) - rhoR * (SR - uR[0]));
                     TData rhoML = rhoL * (SL - uL[0]) / (SL - SM);
                     rhouML[0]   = rhoML * SM;
+#pragma unroll
                     for (unsigned int d = 1; d < NDIM; ++d)
                     {
                         rhouML[d] = rhoML * uL[d];
@@ -161,9 +165,10 @@ template <typename ExecSpace, unsigned int NDIM> struct HLLCSolverKernel
                                          (SM - uL[0]) *
                                              (SM + pL / (rhoL * (SL - uL[0]))));
 
-                    TData rhouMR[3] = {0, 0, 0};
-                    TData rhoMR     = rhoR * (SR - uR[0]) / (SR - SM);
-                    rhouML[0]       = rhoMR * SM;
+                    TData rhouMR[NDIM];
+                    TData rhoMR = rhoR * (SR - uR[0]) / (SR - SM);
+                    rhouMR[0]   = rhoMR * SM;
+#pragma unroll
                     for (unsigned int d = 1; d < NDIM; ++d)
                     {
                         rhouMR[d] = rhoMR * uR[d];
@@ -172,36 +177,30 @@ template <typename ExecSpace, unsigned int NDIM> struct HLLCSolverKernel
                                          (SM - uR[0]) *
                                              (SM + pR / (rhoR * (SR - uR[0]))));
 
-                    if (SL < 0.0 && SM >= 0.0)
+                    // Conditional assignment
+                    const bool cond      = SL < 0.0 && SM >= 0.0;
+                    const TData &rhoUp   = (cond) ? rhoL : rhoR;
+                    const TData &pUp     = (cond) ? pL : pR;
+                    const TData *uUp     = (cond) ? uL : uR;
+                    const TData &EUp     = (cond) ? EL : ER;
+                    const TData &rhoMUp  = (cond) ? rhoML : rhoMR;
+                    const TData *rhouMUp = (cond) ? rhouML : rhouMR;
+                    const TData &SUp     = (cond) ? SL : SR;
+                    const TData &EMUp    = (cond) ? EML : EMR;
+
+                    // Compute flux
+                    flux[i] = rhoUp * uUp[0] + SUp * (rhoMUp - rhoUp);
+                    flux[1u * blksize + i] = rhoUp * uUp[0] * uUp[0] + pUp +
+                                             SL * (rhouMUp[0] - rhoUp * uUp[0]);
+#pragma unroll
+                    for (unsigned int d = 1; d < NDIM; ++d)
                     {
-                        flux[i] = rhoL * uL[0] + SL * (rhoML - rhoL);
-                        flux[1u * blksize + i] =
-                            rhoL * uL[0] * uL[0] + pL +
-                            SL * (rhouML[0] - rhoL * uL[0]);
-                        for (unsigned int d = 1; d < NDIM; ++d)
-                        {
-                            flux[(1u + d) * blksize + i] =
-                                rhoL * uL[0] * uL[d] +
-                                SL * (rhouML[d] - rhoL * uL[d]);
-                        }
-                        flux[(1u + NDIM) * blksize + i] =
-                            uL[0] * (EL + pL) + SL * (EML - EL);
+                        flux[(1u + d) * blksize + i] =
+                            rhoUp * uUp[0] * uUp[d] +
+                            SUp * (rhouMUp[d] - rhoUp * uUp[d]);
                     }
-                    else if (SM < 0.0 && SR > 0.0)
-                    {
-                        flux[i] = rhoR * uR[0] + SR * (rhoMR - rhoR);
-                        flux[1u * blksize + i] =
-                            rhoR * uR[0] * uR[0] + pR +
-                            SR * (rhouMR[0] - rhoR * uR[0]);
-                        for (unsigned int d = 1; d < NDIM; ++d)
-                        {
-                            flux[(1u + d) * blksize + i] =
-                                rhoR * uR[0] * uR[d] +
-                                SR * (rhouMR[d] - rhoR * uR[d]);
-                        }
-                        flux[(1u + NDIM) * blksize + i] =
-                            uR[0] * (ER + pR) + SR * (EMR - ER);
-                    }
+                    flux[(1u + NDIM) * blksize + i] =
+                        uUp[0] * (EUp + pUp) + SUp * (EMUp - EUp);
                 }
             });
     }
