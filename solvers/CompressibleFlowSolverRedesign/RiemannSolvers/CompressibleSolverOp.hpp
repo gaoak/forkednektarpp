@@ -57,6 +57,7 @@ public:
 protected:
     Field<TData, FieldState::Phys> m_rotStorage1, m_rotStorage2, m_rotStorage3,
         m_rotMat;
+    bool m_updateRotMat = false;
 
     CompressibleSolverOp(const MultiRegions::ExpListSharedPtr &expansionList,
                          const std::vector<std::string> &components)
@@ -86,6 +87,13 @@ protected:
 
     ~CompressibleSolverOp() override = default;
 
+    void v_SetTraceNormals(
+        Field<TData, FieldState::Phys> &traceNormals) override
+    {
+        this->m_traceNormals = std::move(traceNormals);
+        m_updateRotMat       = true;
+    }
+
     template <template <typename, unsigned int> typename RiemannKernel,
               typename ExecSpace, unsigned int NDIM>
     void OperatorND(Field<TData, FieldState::Phys> &Fwd,
@@ -101,8 +109,8 @@ protected:
             // Initialize pointers.
             auto &fwdBlk         = Fwd.GetBlocks()[blk];
             auto &bwdBlk         = Bwd.GetBlocks()[blk];
-            auto &normalBlk      = this->m_traceNormals.GetBlocks()[blk];
             auto &fluxBlk        = flux.GetBlocks()[blk];
+            auto &normalBlk      = this->m_traceNormals.GetBlocks()[blk];
             auto &rotStorage1Blk = m_rotStorage1.GetBlocks()[blk];
             auto &rotStorage2Blk = m_rotStorage2.GetBlocks()[blk];
             auto &rotStorage3Blk = m_rotStorage3.GetBlocks()[blk];
@@ -121,12 +129,17 @@ protected:
 
             const auto blksize = fwdBlk.CompSize();
 
+            // Only update rotation matrice when necessary.
             if constexpr (NDIM == 3)
             {
-                auto rotMatPtr = m_rotMat.GetBlocks()[blk]
-                                     .template GetPtr<MemSpace, WriteOnly>();
-                GenerateRotationMatrices<ExecSpace>(blksize, normalPtr,
-                                                    rotMatPtr);
+                if (m_updateRotMat)
+                {
+                    auto rotMatPtr =
+                        this->m_rotMat.GetBlocks()[blk]
+                            .template GetPtr<MemSpace, WriteOnly>();
+                    GenerateRotationMatrices<ExecSpace>(blksize, normalPtr,
+                                                        rotMatPtr);
+                }
             }
 
             auto rotMatPtr = (NDIM == 3)
@@ -148,6 +161,8 @@ protected:
             RotateFromNormalKernel<ExecSpace, NDIM>(blksize, rotStorage3Ptr,
                                                     rotMatPtr, fluxPtr);
         }
+
+        m_updateRotMat = false;
     }
 };
 

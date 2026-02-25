@@ -94,7 +94,7 @@ NEK_FORCE_INLINE static void GenerateRotationMatrices(const size_t blksize,
 
             // e = from . to = nx
             const TData e = fx * tox + fy * toy + fz * toz; // = fx
-            const TData f = (e < static_cast<TData>(0)) ? -e : e;
+            const TData f = std::abs(e);
 
             if (f > static_cast<TData>(1) - eps)
             {
@@ -102,9 +102,9 @@ NEK_FORCE_INLINE static void GenerateRotationMatrices(const size_t blksize,
                 // Build R = H(vvec) * H(uvec), where
                 // uvec = x - from, vvec = x - to
                 // and x is a basis vector least aligned with "from"
-                TData x0 = (fx < static_cast<TData>(0)) ? -fx : fx;
-                TData x1 = (fy < static_cast<TData>(0)) ? -fy : fy;
-                TData x2 = (fz < static_cast<TData>(0)) ? -fz : fz;
+                TData x0 = std::abs(fx);
+                TData x1 = std::abs(fy);
+                TData x2 = std::abs(fz);
 
                 TData xx, xy, xz;
                 if (x0 < x1)
@@ -219,17 +219,30 @@ NEK_FORCE_INLINE static void GenerateRotationMatrices(const size_t blksize,
         });
 }
 
-template <typename ExecSpace, unsigned int NDIM, typename TData>
+template <typename ExecSpace, unsigned int NDIM, typename TScalar>
 NEK_FORCE_INLINE static typename std::enable_if<NDIM == 1>::type
-RotateToNormalKernel(const size_t blksize, const TData *inptr,
-                     const TData *normalsptr, TData *outptr)
+RotateToNormalKernel(const size_t blksize, const TScalar *inptr,
+                     const TScalar *normalsptr, TScalar *outptr)
 {
+    // Explicit vectorisation for AVX backend, vec_t = tinysimd::simd<TScalar>
+    // for AVX, vec_t = TScalar otherwise.
+    using vec_t =
+        typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                              TScalar>::type;
+    const unsigned int vec_width =
+        (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
+            ? tinysimd::simd<TScalar>::width
+            : 1;
+
     // in/out layout: [rho | rhou | E]
-    const TData *nx = normalsptr;
+    const size_t groupsize = blksize / vec_width;
+    const vec_t *nx        = reinterpret_cast<const vec_t *>(normalsptr);
+    const vec_t *invecptr  = reinterpret_cast<const vec_t *>(inptr);
+    vec_t *outvecptr       = reinterpret_cast<vec_t *>(outptr);
 
     Nektar::parallel_for<ExecSpace>(
-        0u, blksize,
-        NEKTAR_LAMBDA(const size_t i) { outptr[i] = inptr[i] * nx[i]; });
+        0u, groupsize,
+        NEKTAR_LAMBDA(const size_t i) { outvecptr[i] = invecptr[i] * nx[i]; });
 }
 
 template <typename ExecSpace, unsigned int NDIM, typename TData>
@@ -240,28 +253,41 @@ RotateFromNormalKernel(const size_t blksize, const TData *inptr,
     RotateToNormalKernel<ExecSpace, 1>(blksize, inptr, normalsptr, outptr);
 }
 
-template <typename ExecSpace, unsigned int NDIM, typename TData>
+template <typename ExecSpace, unsigned int NDIM, typename TScalar>
 NEK_FORCE_INLINE static typename std::enable_if<NDIM == 2>::type
-RotateToNormalKernel(const size_t blksize, const TData *inptr,
-                     const TData *normalsptr, TData *outptr)
+RotateToNormalKernel(const size_t blksize, const TScalar *inptr,
+                     const TScalar *normalsptr, TScalar *outptr)
 {
+    // Explicit vectorisation for AVX backend, vec_t = tinysimd::simd<TScalar>
+    // for AVX, vec_t = TScalar otherwise.
+    using vec_t =
+        typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                              TScalar>::type;
+    const unsigned int vec_width =
+        (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
+            ? tinysimd::simd<TScalar>::width
+            : 1;
+
     // Block layout: [rho | u | v | E], each of length blksize
-    const TData *rhoIn  = inptr;
-    const TData *rhouIn = inptr + blksize;
-    const TData *rhovIn = inptr + 2 * blksize;
-    const TData *EIn    = inptr + 3 * blksize;
+    const size_t groupsize = blksize / vec_width;
+    const vec_t *invecptr  = reinterpret_cast<const vec_t *>(inptr);
+    const vec_t *rhoIn     = invecptr;
+    const vec_t *rhouIn    = invecptr + groupsize;
+    const vec_t *rhovIn    = invecptr + 2 * groupsize;
+    const vec_t *EIn       = invecptr + 3 * groupsize;
 
-    TData *rhoOut  = outptr;
-    TData *rhouOut = outptr + blksize;     // stores u_n
-    TData *rhovOut = outptr + 2 * blksize; // stores u_t
-    TData *EOut    = outptr + 3 * blksize;
+    vec_t *outvecptr = reinterpret_cast<vec_t *>(outptr);
+    vec_t *rhoOut    = outvecptr;
+    vec_t *rhouOut   = outvecptr + groupsize;     // stores u_n
+    vec_t *rhovOut   = outvecptr + 2 * groupsize; // stores u_t
+    vec_t *EOut      = outvecptr + 3 * groupsize;
 
-    // Normals layout: [nx | ny], each of length blksize
-    const TData *nx = normalsptr;
-    const TData *ny = normalsptr + blksize;
+    // Normals layout: [nx | ny], each of length groupsize
+    const vec_t *nx = reinterpret_cast<const vec_t *>(normalsptr);
+    const vec_t *ny = reinterpret_cast<const vec_t *>(normalsptr) + groupsize;
 
     Nektar::parallel_for<ExecSpace>(
-        0u, blksize, NEKTAR_LAMBDA(const size_t i) {
+        0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
             rhoOut[i] = rhoIn[i];
             EOut[i]   = EIn[i];
 
@@ -271,28 +297,41 @@ RotateToNormalKernel(const size_t blksize, const TData *inptr,
         });
 }
 
-template <typename ExecSpace, unsigned int NDIM, typename TData>
+template <typename ExecSpace, unsigned int NDIM, typename TScalar>
 NEK_FORCE_INLINE static typename std::enable_if<NDIM == 2>::type
-RotateFromNormalKernel(const size_t blksize, const TData *inptr,
-                       const TData *normalsptr, TData *outptr)
+RotateFromNormalKernel(const size_t blksize, const TScalar *inptr,
+                       const TScalar *normalsptr, TScalar *outptr)
 {
-    // Block layout: [rho | u | v | E], each of length blksize
-    const TData *rhoIn  = inptr;
-    const TData *rhouIn = inptr + blksize;
-    const TData *rhovIn = inptr + 2 * blksize;
-    const TData *EIn    = inptr + 3 * blksize;
+    // Explicit vectorisation for AVX backend, vec_t = tinysimd::simd<TScalar>
+    // for AVX, vec_t = TScalar otherwise.
+    using vec_t =
+        typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                              TScalar>::type;
+    const unsigned int vec_width =
+        (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
+            ? tinysimd::simd<TScalar>::width
+            : 1;
 
-    TData *rhoOut  = outptr;
-    TData *rhouOut = outptr + blksize;
-    TData *rhovOut = outptr + 2 * blksize;
-    TData *EOut    = outptr + 3 * blksize;
+    // Block layout: [rho | u | v | E], each of length groupsize
+    const size_t groupsize = blksize / vec_width;
+    const vec_t *invecptr  = reinterpret_cast<const vec_t *>(inptr);
+    const vec_t *rhoIn     = invecptr;
+    const vec_t *rhouIn    = invecptr + groupsize;
+    const vec_t *rhovIn    = invecptr + 2 * groupsize;
+    const vec_t *EIn       = invecptr + 3 * groupsize;
 
-    // Normals layout: [nx | ny], each of length blksize
-    const TData *nx = normalsptr;
-    const TData *ny = normalsptr + blksize;
+    vec_t *outvecptr = reinterpret_cast<vec_t *>(outptr);
+    vec_t *rhoOut    = outvecptr;
+    vec_t *rhouOut   = outvecptr + groupsize;
+    vec_t *rhovOut   = outvecptr + 2 * groupsize;
+    vec_t *EOut      = outvecptr + 3 * groupsize;
+
+    // Normals layout: [nx | ny], each of length groupsize
+    const vec_t *nx = reinterpret_cast<const vec_t *>(normalsptr);
+    const vec_t *ny = reinterpret_cast<const vec_t *>(normalsptr) + groupsize;
 
     Nektar::parallel_for<ExecSpace>(
-        0u, blksize, NEKTAR_LAMBDA(const size_t i) {
+        0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
             rhoOut[i] = rhoIn[i];
             EOut[i]   = EIn[i];
 
@@ -302,48 +341,62 @@ RotateFromNormalKernel(const size_t blksize, const TData *inptr,
         });
 }
 
-template <typename ExecSpace, unsigned int NDIM, typename TData>
+template <typename ExecSpace, unsigned int NDIM, typename TScalar>
 NEK_FORCE_INLINE static typename std::enable_if<NDIM == 3>::type
-RotateToNormalKernel(const size_t blksize, const TData *inptr,
-                     const TData *rotMatPtr, TData *outptr)
+RotateToNormalKernel(const size_t blksize, const TScalar *inptr,
+                     const TScalar *rotMatPtr, TScalar *outptr)
 {
-    // inptr/outptr: [rho | rhou | rhov | rhow | E], each length blksize
-    const TData *rhoIn  = inptr;
-    const TData *rhouIn = inptr + blksize;
-    const TData *rhovIn = inptr + 2 * blksize;
-    const TData *rhowIn = inptr + 3 * blksize;
-    const TData *EIn    = inptr + 4 * blksize;
+    // Explicit vectorisation for AVX backend, vec_t = tinysimd::simd<TScalar>
+    // for AVX, vec_t = TScalar otherwise.
+    using vec_t =
+        typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                              TScalar>::type;
+    const unsigned int vec_width =
+        (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
+            ? tinysimd::simd<TScalar>::width
+            : 1;
 
-    TData *rhoOut  = outptr;
-    TData *rhouOut = outptr + blksize;
-    TData *rhovOut = outptr + 2 * blksize;
-    TData *rhowOut = outptr + 3 * blksize;
-    TData *EOut    = outptr + 4 * blksize;
+    // inptr/outptr: [rho | rhou | rhov | rhow | E], each length groupsize
+    const size_t groupsize = blksize / vec_width;
+    const vec_t *invecptr  = reinterpret_cast<const vec_t *>(inptr);
+    const vec_t *rhoIn     = invecptr;
+    const vec_t *rhouIn    = invecptr + groupsize;
+    const vec_t *rhovIn    = invecptr + 2 * groupsize;
+    const vec_t *rhowIn    = invecptr + 3 * groupsize;
+    const vec_t *EIn       = invecptr + 4 * groupsize;
+
+    vec_t *outvecptr = reinterpret_cast<vec_t *>(outptr);
+    vec_t *rhoOut    = outvecptr;
+    vec_t *rhouOut   = outvecptr + groupsize;
+    vec_t *rhovOut   = outvecptr + 2 * groupsize;
+    vec_t *rhowOut   = outvecptr + 3 * groupsize;
+    vec_t *EOut      = outvecptr + 4 * groupsize;
 
     // rotMatPtr layout (SoA like legacy m_rotMat[0..8]):
     // [R00 | R01 | R02 | R10 | R11 | R12 | R20 | R21 | R22], each length
-    // blksize
-    const TData *R00 = rotMatPtr + 0 * blksize;
-    const TData *R01 = rotMatPtr + 1 * blksize;
-    const TData *R02 = rotMatPtr + 2 * blksize;
-    const TData *R10 = rotMatPtr + 3 * blksize;
-    const TData *R11 = rotMatPtr + 4 * blksize;
-    const TData *R12 = rotMatPtr + 5 * blksize;
-    const TData *R20 = rotMatPtr + 6 * blksize;
-    const TData *R21 = rotMatPtr + 7 * blksize;
-    const TData *R22 = rotMatPtr + 8 * blksize;
+    // groupsize
+    const vec_t *rotMatVecPtr = reinterpret_cast<const vec_t *>(rotMatPtr);
+    const vec_t *R00          = rotMatVecPtr + 0 * groupsize;
+    const vec_t *R01          = rotMatVecPtr + 1 * groupsize;
+    const vec_t *R02          = rotMatVecPtr + 2 * groupsize;
+    const vec_t *R10          = rotMatVecPtr + 3 * groupsize;
+    const vec_t *R11          = rotMatVecPtr + 4 * groupsize;
+    const vec_t *R12          = rotMatVecPtr + 5 * groupsize;
+    const vec_t *R20          = rotMatVecPtr + 6 * groupsize;
+    const vec_t *R21          = rotMatVecPtr + 7 * groupsize;
+    const vec_t *R22          = rotMatVecPtr + 8 * groupsize;
 
     // out[vx] = in[vx]*R00 + in[vy]*R01 + in[vz]*R02
     // out[vy] = in[vx]*R10 + in[vy]*R11 + in[vz]*R12
     // out[vz] = in[vx]*R20 + in[vy]*R21 + in[vz]*R22
     Nektar::parallel_for<ExecSpace>(
-        0u, blksize, NEKTAR_LAMBDA(const size_t i) {
+        0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
             rhoOut[i] = rhoIn[i];
             EOut[i]   = EIn[i];
 
-            const TData rhou = rhouIn[i];
-            const TData rhov = rhovIn[i];
-            const TData rhow = rhowIn[i];
+            const vec_t rhou = rhouIn[i];
+            const vec_t rhov = rhovIn[i];
+            const vec_t rhow = rhowIn[i];
 
             rhouOut[i] = rhou * R00[i] + rhov * R01[i] + rhow * R02[i];
             rhovOut[i] = rhou * R10[i] + rhov * R11[i] + rhow * R12[i];
@@ -351,48 +404,62 @@ RotateToNormalKernel(const size_t blksize, const TData *inptr,
         });
 }
 
-template <typename ExecSpace, unsigned int NDIM, typename TData>
+template <typename ExecSpace, unsigned int NDIM, typename TScalar>
 NEK_FORCE_INLINE static typename std::enable_if<NDIM == 3>::type
-RotateFromNormalKernel(const size_t blksize, const TData *inptr,
-                       const TData *rotMatPtr, TData *outptr)
+RotateFromNormalKernel(const size_t blksize, const TScalar *inptr,
+                       const TScalar *rotMatPtr, TScalar *outptr)
 {
-    // inptr/outptr: [rho | rhou | rhov | rhow | E], each length blksize
-    const TData *rhoIn  = inptr;
-    const TData *rhouIn = inptr + blksize;
-    const TData *rhovIn = inptr + 2 * blksize;
-    const TData *rhowIn = inptr + 3 * blksize;
-    const TData *EIn    = inptr + 4 * blksize;
+    // Explicit vectorisation for AVX backend, vec_t = tinysimd::simd<TScalar>
+    // for AVX, vec_t = TScalar otherwise.
+    using vec_t =
+        typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                              TScalar>::type;
+    const unsigned int vec_width =
+        (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
+            ? tinysimd::simd<TScalar>::width
+            : 1;
 
-    TData *rhoOut  = outptr;
-    TData *rhouOut = outptr + blksize;
-    TData *rhovOut = outptr + 2 * blksize;
-    TData *rhowOut = outptr + 3 * blksize;
-    TData *EOut    = outptr + 4 * blksize;
+    // inptr/outptr: [rho | rhou | rhov | rhow | E], each length groupsize
+    const size_t groupsize = blksize / vec_width;
+    const vec_t *invecptr  = reinterpret_cast<const vec_t *>(inptr);
+    const vec_t *rhoIn     = invecptr;
+    const vec_t *rhouIn    = invecptr + groupsize;
+    const vec_t *rhovIn    = invecptr + 2 * groupsize;
+    const vec_t *rhowIn    = invecptr + 3 * groupsize;
+    const vec_t *EIn       = invecptr + 4 * groupsize;
+
+    vec_t *outvecptr = reinterpret_cast<vec_t *>(outptr);
+    vec_t *rhoOut    = outvecptr;
+    vec_t *rhouOut   = outvecptr + groupsize;
+    vec_t *rhovOut   = outvecptr + 2 * groupsize;
+    vec_t *rhowOut   = outvecptr + 3 * groupsize;
+    vec_t *EOut      = outvecptr + 4 * groupsize;
 
     // Rotation matrix layout (SoA like legacy m_rotMat[0..8]):
     // [R00 | R01 | R02 | R10 | R11 | R12 | R20 | R21 | R22], each length
-    // blksize
-    const TData *R00 = rotMatPtr + 0 * blksize;
-    const TData *R01 = rotMatPtr + 1 * blksize;
-    const TData *R02 = rotMatPtr + 2 * blksize;
-    const TData *R10 = rotMatPtr + 3 * blksize;
-    const TData *R11 = rotMatPtr + 4 * blksize;
-    const TData *R12 = rotMatPtr + 5 * blksize;
-    const TData *R20 = rotMatPtr + 6 * blksize;
-    const TData *R21 = rotMatPtr + 7 * blksize;
-    const TData *R22 = rotMatPtr + 8 * blksize;
+    // groupsize
+    const vec_t *rotMatVecPtr = reinterpret_cast<const vec_t *>(rotMatPtr);
+    const vec_t *R00          = rotMatVecPtr + 0 * groupsize;
+    const vec_t *R01          = rotMatVecPtr + 1 * groupsize;
+    const vec_t *R02          = rotMatVecPtr + 2 * groupsize;
+    const vec_t *R10          = rotMatVecPtr + 3 * groupsize;
+    const vec_t *R11          = rotMatVecPtr + 4 * groupsize;
+    const vec_t *R12          = rotMatVecPtr + 5 * groupsize;
+    const vec_t *R20          = rotMatVecPtr + 6 * groupsize;
+    const vec_t *R21          = rotMatVecPtr + 7 * groupsize;
+    const vec_t *R22          = rotMatVecPtr + 8 * groupsize;
 
     // out[vx] = in[vx]*R00 + in[vy]*R10 + in[vz]*R20
     // out[vy] = in[vx]*R01 + in[vy]*R11 + in[vz]*R21
     // out[vz] = in[vx]*R02 + in[vy]*R12 + in[vz]*R22
     Nektar::parallel_for<ExecSpace>(
-        0u, blksize, NEKTAR_LAMBDA(const size_t i) {
+        0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
             rhoOut[i] = rhoIn[i];
             EOut[i]   = EIn[i];
 
-            const TData a = rhouIn[i];
-            const TData b = rhovIn[i];
-            const TData c = rhowIn[i];
+            const vec_t a = rhouIn[i];
+            const vec_t b = rhovIn[i];
+            const vec_t c = rhowIn[i];
 
             rhouOut[i] = a * R00[i] + b * R10[i] + c * R20[i];
             rhovOut[i] = a * R01[i] + b * R11[i] + c * R21[i];

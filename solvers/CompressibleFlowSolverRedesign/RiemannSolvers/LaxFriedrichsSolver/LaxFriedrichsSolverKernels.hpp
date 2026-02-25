@@ -85,12 +85,13 @@ struct LaxFriedrichsSolverKernel
 
                 // Velocities and kinetic energy terms (in rotated frame: m0 is
                 // normal)
-                vec_t uL[3] = {0, 0, 0};
-                vec_t uR[3] = {0, 0, 0};
-                uL[0]       = Fn_rho_L / rhoL;
-                uR[0]       = Fn_rho_R / rhoR;
-                vec_t qL2   = Fn_rho_L * uL[0];
-                vec_t qR2   = Fn_rho_R * uR[0];
+                vec_t uL[NDIM];
+                vec_t uR[NDIM];
+                uL[0]     = Fn_rho_L / rhoL;
+                uR[0]     = Fn_rho_R / rhoR;
+                vec_t qL2 = Fn_rho_L * uL[0];
+                vec_t qR2 = Fn_rho_R * uR[0];
+#pragma unroll
                 for (unsigned int d = 1; d < NDIM; ++d)
                 {
                     const vec_t rhouL = fwdvec[(1u + d) * groupsize + i];
@@ -114,27 +115,28 @@ struct LaxFriedrichsSolverKernel
                 const vec_t pR = GetPressure(rhoR, eR);
 
                 // Enthalpy
-                const vec_t HL = (EL + pL) / rhoL;
-                const vec_t HR = (ER + pR) / rhoR;
+                const vec_t hL = (EL + pL) / rhoL;
+                const vec_t hR = (ER + pR) / rhoR;
 
                 // Roe averages
                 const vec_t srL  = sqrt(rhoL);
                 const vec_t srR  = sqrt(rhoR);
                 const vec_t srLR = srL + srR;
 
-                vec_t uRoe[3] = {0, 0, 0};
-                vec_t URoe2   = 0;
+                vec_t uRoe[NDIM];
+                vec_t URoe2 = 0;
+#pragma unroll
                 for (unsigned int d = 0; d < NDIM; ++d)
                 {
                     uRoe[d] = (srL * uL[d] + srR * uR[d]) / srLR;
                     URoe2 += uRoe[d] * uRoe[d];
                 }
 
-                const vec_t HRoe = (srL * HL + srR * HR) / srLR;
+                const vec_t hRoe = (srL * hL + srR * hR) / srLR;
 
                 const vec_t cRoe =
-                    GetRoeSoundSpeed(rhoL, pL, eL, HL, srL, rhoR, pR, eR, HR,
-                                     srR, HRoe, URoe2, srLR);
+                    GetRoeSoundSpeed(rhoL, pL, eL, hL, srL, rhoR, pR, eR, hR,
+                                     srR, hRoe, URoe2, srLR);
 
                 // Max eigenvalue in normal direction
                 const vec_t a = abs(uRoe[0]) + cRoe;
@@ -149,7 +151,8 @@ struct LaxFriedrichsSolverKernel
                 fluxvec[1u * groupsize + i] =
                     oneHalf * (Fm0_L + Fm0_R - a * (Fn_rho_R - Fn_rho_L));
 
-                // Tangential momentum(s): m0*u_t
+            // Tangential momentum(s): m0*u_t
+#pragma unroll
                 for (unsigned int d = 1; d < NDIM; ++d)
                 {
                     const vec_t Fmd_L = Fn_rho_L * uL[d];

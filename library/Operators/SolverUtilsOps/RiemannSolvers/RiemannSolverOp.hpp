@@ -106,7 +106,7 @@ public:
 
     void SetTraceNormals(Field<TData, FieldState::Phys> &traceNormals)
     {
-        this->m_traceNormals = std::move(traceNormals);
+        v_SetTraceNormals(traceNormals);
     }
 
 protected:
@@ -158,6 +158,11 @@ protected:
     virtual void v_Apply(Field<TData, FieldState::Phys> &Fwd,
                          Field<TData, FieldState::Phys> &Bwd,
                          Field<TData, FieldState::Phys> &flux) = 0;
+
+    virtual void v_SetTraceNormals(Field<TData, FieldState::Phys> &traceNormals)
+    {
+        this->m_traceNormals = std::move(traceNormals);
+    }
 };
 
 } // namespace Nektar::Operators

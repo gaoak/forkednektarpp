@@ -63,12 +63,12 @@ template <typename ExecSpace, unsigned int NDIM> struct HLLSolverKernel
                 const TData rhoL = fwd[i];
                 const TData rhoR = bwd[i];
 
-                // Velocities and kinetic energy terms (in rotated frame: m0 is
-                // normal)
-                TData uL[3] = {0, 0, 0};
-                TData uR[3] = {0, 0, 0};
-                TData qL2   = 0.0;
-                TData qR2   = 0.0;
+                // Velocities and kinetic energy terms
+                TData uL[NDIM];
+                TData uR[NDIM];
+                TData qL2 = 0.0;
+                TData qR2 = 0.0;
+#pragma unroll
                 for (unsigned int d = 0; d < NDIM; ++d)
                 {
                     const TData rhouL = fwd[(1u + d) * blksize + i];
@@ -96,27 +96,28 @@ template <typename ExecSpace, unsigned int NDIM> struct HLLSolverKernel
                 const TData cR = GetSoundSpeed(rhoR, eR);
 
                 // Enthalpy
-                const TData HL = (EL + pL) / rhoL;
-                const TData HR = (ER + pR) / rhoR;
+                const TData hL = (EL + pL) / rhoL;
+                const TData hR = (ER + pR) / rhoR;
 
                 // Roe averages
                 const TData srL  = sqrt(rhoL);
                 const TData srR  = sqrt(rhoR);
                 const TData srLR = srL + srR;
 
-                TData uRoe[3] = {0, 0, 0};
-                TData URoe2   = 0;
+                TData uRoe[NDIM];
+                TData URoe2 = 0;
+#pragma unroll
                 for (unsigned int d = 0; d < NDIM; ++d)
                 {
                     uRoe[d] = (srL * uL[d] + srR * uR[d]) / srLR;
                     URoe2 += uRoe[d] * uRoe[d];
                 }
 
-                const TData HRoe = (srL * HL + srR * HR) / srLR;
+                const TData hRoe = (srL * hL + srR * hR) / srLR;
 
                 const TData cRoe =
-                    GetRoeSoundSpeed(rhoL, pL, eL, HL, srL, rhoR, pR, eR, HR,
-                                     srR, HRoe, URoe2, srLR);
+                    GetRoeSoundSpeed(rhoL, pL, eL, hL, srL, rhoR, pR, eR, hR,
+                                     srR, hRoe, URoe2, srLR);
 
                 // Maximum wave speeds
                 const TData SL = std::min(uL[0] - cL, uRoe[0] - cRoe);
@@ -127,6 +128,7 @@ template <typename ExecSpace, unsigned int NDIM> struct HLLSolverKernel
                 {
                     flux[i]                = rhoL * uL[0];
                     flux[1u * blksize + i] = rhoL * uL[0] * uL[0] + pL;
+#pragma unroll
                     for (unsigned int d = 1; d < NDIM; ++d)
                     {
                         flux[(1u + d) * blksize + i] = rhoL * uL[0] * uL[d];
@@ -138,6 +140,7 @@ template <typename ExecSpace, unsigned int NDIM> struct HLLSolverKernel
                 {
                     flux[i]                = rhoR * uR[0];
                     flux[1u * blksize + i] = rhoR * uR[0] * uR[0] + pR;
+#pragma unroll
                     for (unsigned int d = 1; d < NDIM; ++d)
                     {
                         flux[(1u + d) * blksize + i] = rhoR * uR[0] * uR[d];
@@ -157,6 +160,7 @@ template <typename ExecSpace, unsigned int NDIM> struct HLLSolverKernel
                          SL * (rhoR * uR[0] * uR[0] + pR) +
                          tmp2 * (rhoR * uR[0] - rhoL * uL[0])) *
                         tmp1;
+#pragma unroll
                     for (unsigned int d = 1; d < NDIM; ++d)
                     {
                         flux[(1u + d) * blksize + i] =

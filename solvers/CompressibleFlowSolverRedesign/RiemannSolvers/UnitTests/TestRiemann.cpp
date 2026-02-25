@@ -483,4 +483,18 @@ BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_AUSM3)
     RunCasesForOp("AUSM3", execStr, cases);
 }
 
+BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_Roe)
+{
+    std::string execStr(
+        boost::unit_test::framework::master_test_suite().argv[1]);
+
+    const std::vector<Case> cases = {
+        {"run/square_Euler.xml", 0}, {"run/square_Euler.xml", 1},
+        {"run/hex_Euler.xml", 0},    {"run/hex_Euler.xml", 1},
+        {"run/hex_Euler.xml", 2},
+    };
+
+    RunCasesForOp("Roe", execStr, cases);
+}
+
 BOOST_AUTO_TEST_SUITE_END()
