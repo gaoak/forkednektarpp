@@ -22,17 +22,16 @@ v5.10.0
 - Updated GJP feature to ensure symmetric and works in 3D (2366)
 - fix for ReOrientTraceMap to accurately reflect eDir1FwdDir2_Dir2BwdDir1 & eDir1BwdDir2_Dir2FwdDir1 (!2362)
 - fix to make Continuous Galerkin initial conditions consistent in serial and parallel (!2387)
-
 - Tidy PhysDeriv in StdRegion and LocalRegion (!2367)
 - Add Flexible option for Conjugate Gradient and GMRES (!2376)
 - Tidy v_FwdTrans, v_IProductWRTBase, v_MultiplyByStdQuadratureMetric, v_StdPhysEvaluate, v_PhysEvaluate, v_StdPhysDeriv, v_PhysDeriv inheritance in StdRegion and LocalRegion (!2381)
 - Remove Vmath SIMD (!2365) 
 - Update GMRES with improved restart capabilities (LGMRES) (!2402)
 - Tidy v_FwdTrans, v_Integral, v_GetStdExp, v_GetLinStdExp virtual functions (!!2384)
+- Remove AdvectionFR, DiffusionLFR, and DiffusioLFRNS (!2425)
 
 **IncNavierStokesSolver**
 - Added an option to process Reynolds Stress fields at a higher polynomial order (!2303)
-
 - Remove Vmath SIMD (!2365) 
 - Fix non-zero Dirichlet BCs with flow rate for inc NS Solver (!2399)
 

@@ -56,9 +56,6 @@ std::string Advection3DHomogeneous1D::type[] = {
         "FRcinf3DHomogeneous1D", Advection3DHomogeneous1D::create)};
 
 /**
- * @brief AdvectionFR uses the Flux Reconstruction (FR) approach to
- * compute the advection term. The implementation is only for segments,
- * quadrilaterals and hexahedra at the moment.
  *
  * \todo Extension to triangles, tetrahedra and other shapes.
  * (Long term objective)
