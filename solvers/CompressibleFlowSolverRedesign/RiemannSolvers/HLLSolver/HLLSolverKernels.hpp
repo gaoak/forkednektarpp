@@ -47,134 +47,150 @@ namespace Nektar::Operators::detail
 
 template <typename ExecSpace, unsigned int NDIM> struct HLLSolverKernel
 {
-    template <typename TData>
-    NEK_FORCE_INLINE void operator()(const size_t blksize, const TData *fwd,
-                                     const TData *bwd, TData *flux)
+    template <typename TScalar>
+    NEK_DEVICE_INLINE void operator()(const size_t blksize, const TScalar *fwd,
+                                      const TScalar *bwd, TScalar *flux)
     {
-        // Layout: [rho | m0 | m1 | m2 | E] but only first (NDIM) moment exist.
-        Nektar::parallel_for<ExecSpace>(
-            0u, blksize, NEKTAR_LAMBDA(const size_t i) {
-                using std::sqrt;
-                using std::abs;
+        // Explicit vectorisation for AVX backend, vec_t =
+        // tinysimd::simd<TScalar> for AVX, vec_t = TScalar otherwise.
+        // using vec_t =
+        //    typename data_type_if<std::is_same_v<ExecSpace,
+        //    NektarSpaces::AVX>,
+        //                          TScalar>::type;
+        constexpr unsigned int vec_width =
+            (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
+                ? tinysimd::simd<TScalar>::width
+                : 1;
 
-                const TData oneHalf = 0.5;
+        using std::abs;
+        using std::sqrt;
 
-                // Density
-                const TData rhoL = fwd[i];
-                const TData rhoR = bwd[i];
+        const TScalar oneHalf = 0.5;
 
-                // Velocities and kinetic energy terms
-                TData uL[NDIM];
-                TData uR[NDIM];
-                TData qL2 = 0.0;
-                TData qR2 = 0.0;
+        // Currently not directly vectorisable due to branching
+        for (unsigned int k = 0; k < vec_width; k++)
+        {
+            // Layout: [rho | m0 | m1 | m2 | E] but only first (NDIM) moment
+            // exist.
+
+            // Density
+            const TScalar rhoL = fwd[0];
+            const TScalar rhoR = bwd[0];
+
+            // Velocities and kinetic energy terms
+            TScalar uL[NDIM];
+            TScalar uR[NDIM];
+            TScalar qL2 = 0.0;
+            TScalar qR2 = 0.0;
 #pragma unroll
-                for (unsigned int d = 0; d < NDIM; ++d)
-                {
-                    const TData rhouL = fwd[(1u + d) * blksize + i];
-                    const TData rhouR = bwd[(1u + d) * blksize + i];
+            for (unsigned int d = 0; d < NDIM; ++d)
+            {
+                const TScalar rhouL = fwd[(1u + d) * blksize];
+                const TScalar rhouR = bwd[(1u + d) * blksize];
 
-                    uL[d] = rhouL / rhoL;
-                    uR[d] = rhouR / rhoR;
+                uL[d] = rhouL / rhoL;
+                uR[d] = rhouR / rhoR;
 
-                    qL2 += rhouL * uL[d];
-                    qR2 += rhouR * uR[d];
-                }
+                qL2 += rhouL * uL[d];
+                qR2 += rhouR * uR[d];
+            }
 
-                // Internal energy per unit mass
-                const TData EL = fwd[(1u + NDIM) * blksize + i];
-                const TData ER = bwd[(1u + NDIM) * blksize + i];
-                const TData eL = (EL - oneHalf * qL2) / rhoL;
-                const TData eR = (ER - oneHalf * qR2) / rhoR;
+            // Internal energy per unit mass
+            const TScalar EL = fwd[(1u + NDIM) * blksize];
+            const TScalar ER = bwd[(1u + NDIM) * blksize];
+            const TScalar eL = (EL - oneHalf * qL2) / rhoL;
+            const TScalar eR = (ER - oneHalf * qR2) / rhoR;
 
-                // Pressure
-                const TData pL = GetPressure(rhoL, eL);
-                const TData pR = GetPressure(rhoR, eR);
+            // Pressure
+            const TScalar pL = GetPressure(rhoL, eL);
+            const TScalar pR = GetPressure(rhoR, eR);
 
-                // Speed of sound
-                const TData cL = GetSoundSpeed(rhoL, eL);
-                const TData cR = GetSoundSpeed(rhoR, eR);
+            // Speed of sound
+            const TScalar cL = GetSoundSpeed(rhoL, eL);
+            const TScalar cR = GetSoundSpeed(rhoR, eR);
 
-                // Enthalpy
-                const TData hL = (EL + pL) / rhoL;
-                const TData hR = (ER + pR) / rhoR;
+            // Enthalpy
+            const TScalar hL = (EL + pL) / rhoL;
+            const TScalar hR = (ER + pR) / rhoR;
 
-                // Roe averages
-                const TData srL  = sqrt(rhoL);
-                const TData srR  = sqrt(rhoR);
-                const TData srLR = srL + srR;
+            // Roe averages
+            const TScalar srL  = sqrt(rhoL);
+            const TScalar srR  = sqrt(rhoR);
+            const TScalar srLR = srL + srR;
 
-                TData uRoe[NDIM];
-                TData URoe2 = 0;
+            TScalar uRoe[NDIM];
+            TScalar URoe2 = 0;
 #pragma unroll
-                for (unsigned int d = 0; d < NDIM; ++d)
-                {
-                    uRoe[d] = (srL * uL[d] + srR * uR[d]) / srLR;
-                    URoe2 += uRoe[d] * uRoe[d];
-                }
+            for (unsigned int d = 0; d < NDIM; ++d)
+            {
+                uRoe[d] = (srL * uL[d] + srR * uR[d]) / srLR;
+                URoe2 += uRoe[d] * uRoe[d];
+            }
 
-                const TData hRoe = (srL * hL + srR * hR) / srLR;
+            const TScalar hRoe = (srL * hL + srR * hR) / srLR;
 
-                const TData cRoe =
-                    GetRoeSoundSpeed(rhoL, pL, eL, hL, srL, rhoR, pR, eR, hR,
-                                     srR, hRoe, URoe2, srLR);
+            const TScalar cRoe =
+                GetRoeSoundSpeed(rhoL, pL, eL, hL, srL, rhoR, pR, eR, hR, srR,
+                                 hRoe, URoe2, srLR);
 
-                // Maximum wave speeds
-                const TData SL = std::min(uL[0] - cL, uRoe[0] - cRoe);
-                const TData SR = std::max(uR[0] + cR, uRoe[0] + cRoe);
+            // Maximum wave speeds
+            const TScalar SL = std::min(uL[0] - cL, uRoe[0] - cRoe);
+            const TScalar SR = std::max(uR[0] + cR, uRoe[0] + cRoe);
 
-                // HLL Riemann fluxes (positive case)
-                if (SL >= 0)
-                {
-                    flux[i]                = rhoL * uL[0];
-                    flux[1u * blksize + i] = rhoL * uL[0] * uL[0] + pL;
+            // HLL Riemann fluxes (positive case)
+            if (SL >= 0)
+            {
+                flux[0]            = rhoL * uL[0];
+                flux[1u * blksize] = rhoL * uL[0] * uL[0] + pL;
 #pragma unroll
-                    for (unsigned int d = 1; d < NDIM; ++d)
-                    {
-                        flux[(1u + d) * blksize + i] = rhoL * uL[0] * uL[d];
-                    }
-                    flux[(1u + NDIM) * blksize + i] = uL[0] * (EL + pL);
-                }
-                // HLL Riemann fluxes (negative case)
-                else if (SR <= 0)
+                for (unsigned int d = 1; d < NDIM; ++d)
                 {
-                    flux[i]                = rhoR * uR[0];
-                    flux[1u * blksize + i] = rhoR * uR[0] * uR[0] + pR;
+                    flux[(1u + d) * blksize] = rhoL * uL[0] * uL[d];
+                }
+                flux[(1u + NDIM) * blksize] = uL[0] * (EL + pL);
+            }
+            // HLL Riemann fluxes (negative case)
+            else if (SR <= 0)
+            {
+                flux[0]            = rhoR * uR[0];
+                flux[1u * blksize] = rhoR * uR[0] * uR[0] + pR;
 #pragma unroll
-                    for (unsigned int d = 1; d < NDIM; ++d)
-                    {
-                        flux[(1u + d) * blksize + i] = rhoR * uR[0] * uR[d];
-                    }
-                    flux[(1u + NDIM) * blksize + i] = uR[0] * (ER + pR);
-                }
-                // HLL Riemann fluxes (general case (SL < 0 | SR > 0)
-                else
+                for (unsigned int d = 1; d < NDIM; ++d)
                 {
-                    TData tmp1 = 1.0 / (SR - SL);
-                    TData tmp2 = SR * SL;
-                    flux[i]    = (SR * rhoL * uL[0] - SL * rhoR * uR[0] +
-                               tmp2 * (rhoR - rhoL)) *
-                              tmp1;
-                    flux[1u * blksize + i] =
-                        (SR * (rhoL * uL[0] * uL[0] + pL) -
-                         SL * (rhoR * uR[0] * uR[0] + pR) +
-                         tmp2 * (rhoR * uR[0] - rhoL * uL[0])) *
+                    flux[(1u + d) * blksize] = rhoR * uR[0] * uR[d];
+                }
+                flux[(1u + NDIM) * blksize] = uR[0] * (ER + pR);
+            }
+            // HLL Riemann fluxes (general case (SL < 0 | SR > 0)
+            else
+            {
+                TScalar tmp1 = 1.0 / (SR - SL);
+                TScalar tmp2 = SR * SL;
+                flux[0]      = (SR * rhoL * uL[0] - SL * rhoR * uR[0] +
+                           tmp2 * (rhoR - rhoL)) *
+                          tmp1;
+                flux[1u * blksize] = (SR * (rhoL * uL[0] * uL[0] + pL) -
+                                      SL * (rhoR * uR[0] * uR[0] + pR) +
+                                      tmp2 * (rhoR * uR[0] - rhoL * uL[0])) *
+                                     tmp1;
+#pragma unroll
+                for (unsigned int d = 1; d < NDIM; ++d)
+                {
+                    flux[(1u + d) * blksize] =
+                        (SR * rhoL * uL[0] * uL[d] - SL * rhoR * uR[0] * uR[d] +
+                         tmp2 * (rhoR * uR[d] - rhoL * uL[d])) *
                         tmp1;
-#pragma unroll
-                    for (unsigned int d = 1; d < NDIM; ++d)
-                    {
-                        flux[(1u + d) * blksize + i] =
-                            (SR * rhoL * uL[0] * uL[d] -
-                             SL * rhoR * uR[0] * uR[d] +
-                             tmp2 * (rhoR * uR[d] - rhoL * uL[d])) *
-                            tmp1;
-                    }
-                    flux[(1u + NDIM) * blksize + i] =
-                        (SR * uL[0] * (EL + pL) - SL * uR[0] * (ER + pR) +
-                         tmp2 * (ER - EL)) *
-                        tmp1;
                 }
-            });
+                flux[(1u + NDIM) * blksize] =
+                    (SR * uL[0] * (EL + pL) - SL * uR[0] * (ER + pR) +
+                     tmp2 * (ER - EL)) *
+                    tmp1;
+            }
+
+            fwd++;
+            bwd++;
+            flux++;
+        }
     }
 };
 

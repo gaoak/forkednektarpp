@@ -56,14 +56,14 @@ struct AUSM2Upwinding
                                       const TData &MR, TData &pbar, TData &Mbar)
     {
         // Parameters for specify the upwinding
-        TData beta   = 0.125;
-        TData alpha  = 0.1875;
-        TData sigma  = 1.0;
-        TData Kp     = 0.25;
-        TData Ku     = 0.75;
-        TData Mtilde = 0.5 * (ML * ML + MR * MR);
-        TData rhoA   = 0.5 * (rhoL + rhoR);
-        TData Mp     = -Kp * ((pR - pL) / (rhoA * cA * cA)) *
+        constexpr TData beta  = 0.125;
+        constexpr TData alpha = 0.1875;
+        constexpr TData sigma = 1.0;
+        constexpr TData Kp    = 0.25;
+        constexpr TData Ku    = 0.75;
+        TData Mtilde          = 0.5 * (ML * ML + MR * MR);
+        TData rhoA            = 0.5 * (rhoL + rhoR);
+        TData Mp              = -Kp * ((pR - pL) / (rhoA * cA * cA)) *
                    std::max(1.0 - sigma * Mtilde, 0.0);
 
         Mbar = M4Function(0, beta, ML) + M4Function(1, beta, MR) + Mp;
@@ -79,8 +79,8 @@ struct AUSM2Upwinding
 template <typename ExecSpace, unsigned int NDIM> struct AUSM2SolverKernel
 {
     template <typename TData>
-    NEK_FORCE_INLINE void operator()(const size_t blksize, const TData *fwd,
-                                     const TData *bwd, TData *flux)
+    NEK_DEVICE_INLINE void operator()(const size_t blksize, const TData *fwd,
+                                      const TData *bwd, TData *flux)
     {
         AUSMSolverKernel<ExecSpace, NDIM, AUSM2Upwinding>()(blksize, fwd, bwd,
                                                             flux);

@@ -41,6 +41,33 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static void RiemannKernelLauncher(
+    const size_t blksize, const unsigned int velComps,
+    const unsigned int fluxComps, const TData *velbase, const TData *normbase,
+    const TData *fwdbase, const TData *bwdbase, TData *fluxbase)
+{
+    // Explicit vectorisation for AVX backend,
+    // vec_t = tinysimd::simd<TData> for AVX,
+    // vec_t = TData otherwise.
+    // using vec_t = typename data_type_if<
+    //    std::is_same_v<ExecSpace, NektarSpaces::AVX>, TData>::type;
+    constexpr unsigned int vec_width =
+        (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
+            ? tinysimd::simd<TData>::width
+            : 1;
+
+    const size_t groupsize = blksize / vec_width;
+
+    Nektar::parallel_for<ExecSpace>(
+        0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
+            UpwindSolverKernel<ExecSpace>(
+                blksize, velComps, fluxComps, velbase + i * vec_width,
+                normbase + i * vec_width, fwdbase + i * vec_width,
+                bwdbase + i * vec_width, fluxbase + i * vec_width);
+        });
+}
+
+template <typename ExecSpace, typename TData>
 class UpwindSolverOpImpl : public UpwindSolverOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -87,13 +114,14 @@ protected:
             auto fluxbase = fluxblock.template GetPtr<MemSpace, WriteOnly>();
 
             // Sizes / strides
-            const auto npts      = fluxblock.CompSize();
+            const auto blksize   = fluxblock.CompSize();
             const auto velComps  = velblock.GetNumComponents();
             const auto fluxComps = fluxblock.GetNumComponents();
 
             // Launch kernel
-            UpwindSolverKernel<ExecSpace>(npts, velComps, fluxComps, velbase,
-                                          normbase, fwdbase, bwdbase, fluxbase);
+            RiemannKernelLauncher<ExecSpace>(blksize, velComps, fluxComps,
+                                             velbase, normbase, fwdbase,
+                                             bwdbase, fluxbase);
         }
     }
 };
