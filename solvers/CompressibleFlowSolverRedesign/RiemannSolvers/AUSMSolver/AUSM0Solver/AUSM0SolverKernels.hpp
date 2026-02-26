@@ -58,9 +58,9 @@ struct AUSM0Upwinding
                                       TData &pbar, TData &Mbar)
     {
         // Parameters for specify the upwinding
-        TData beta  = 0.0;
-        TData alpha = 0.0;
-        Mbar        = M4Function(0, beta, ML) + M4Function(1, beta, MR);
+        constexpr TData beta  = 0.0;
+        constexpr TData alpha = 0.0;
+        Mbar = M4Function(0, beta, ML) + M4Function(1, beta, MR);
         pbar = pL * P5Function(0, alpha, ML) + pR * P5Function(1, alpha, MR);
     }
 };
@@ -68,8 +68,8 @@ struct AUSM0Upwinding
 template <typename ExecSpace, unsigned int NDIM> struct AUSM0SolverKernel
 {
     template <typename TData>
-    NEK_FORCE_INLINE void operator()(const size_t blksize, const TData *fwd,
-                                     const TData *bwd, TData *flux)
+    NEK_DEVICE_INLINE void operator()(const size_t blksize, const TData *fwd,
+                                      const TData *bwd, TData *flux)
     {
         AUSMSolverKernel<ExecSpace, NDIM, AUSM0Upwinding>()(blksize, fwd, bwd,
                                                             flux);

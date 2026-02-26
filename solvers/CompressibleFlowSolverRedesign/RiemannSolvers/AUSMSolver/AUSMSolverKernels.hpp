@@ -132,82 +132,100 @@ NEK_DEVICE_INLINE TData P5Function(int A, TData alpha, TData M)
 template <typename ExecSpace, unsigned int NDIM, typename AUSMUpwinding>
 struct AUSMSolverKernel
 {
-    template <typename TData>
-    NEK_FORCE_INLINE void operator()(const size_t blksize, const TData *fwd,
-                                     const TData *bwd, TData *flux)
+    template <typename TScalar>
+    NEK_DEVICE_INLINE void operator()(const size_t blksize, const TScalar *fwd,
+                                      const TScalar *bwd, TScalar *flux)
     {
-        // Layout: [rho | m0 | m1 | m2 | E] but only first (NDIM) moment exist.
-        Nektar::parallel_for<ExecSpace>(
-            0u, blksize, NEKTAR_LAMBDA(const size_t i) {
-                using std::sqrt;
-                using std::abs;
+        // Explicit vectorisation for AVX backend, vec_t =
+        // tinysimd::simd<TScalar> for AVX, vec_t = TScalar otherwise.
+        // using vec_t =
+        //    typename data_type_if<std::is_same_v<ExecSpace,
+        //    NektarSpaces::AVX>,
+        //                          TScalar>::type;
+        constexpr unsigned int vec_width =
+            (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
+                ? tinysimd::simd<TScalar>::width
+                : 1;
 
-                const TData oneHalf = 0.5;
+        using std::abs;
+        using std::sqrt;
 
-                // Density
-                const TData rhoL = fwd[i];
-                const TData rhoR = bwd[i];
+        const TScalar oneHalf = 0.5;
 
-                // Velocities and kinetic energy terms
-                TData uL[NDIM];
-                TData uR[NDIM];
-                TData qL2 = 0.0;
-                TData qR2 = 0.0;
+        // Currently not directly vectorisable due to branching
+        for (unsigned int k = 0; k < vec_width; k++)
+        {
+            // Layout: [rho | m0 | m1 | m2 | E] but only first (NDIM) moment
+            // exist.
+
+            // Density
+            const TScalar rhoL = fwd[0];
+            const TScalar rhoR = bwd[0];
+
+            // Velocities and kinetic energy terms
+            TScalar uL[NDIM];
+            TScalar uR[NDIM];
+            TScalar qL2 = 0.0;
+            TScalar qR2 = 0.0;
 #pragma unroll
-                for (unsigned int d = 0; d < NDIM; ++d)
-                {
-                    const TData rhouL = fwd[(1u + d) * blksize + i];
-                    const TData rhouR = bwd[(1u + d) * blksize + i];
+            for (unsigned int d = 0; d < NDIM; ++d)
+            {
+                const TScalar rhouL = fwd[(1u + d) * blksize];
+                const TScalar rhouR = bwd[(1u + d) * blksize];
 
-                    uL[d] = rhouL / rhoL;
-                    uR[d] = rhouR / rhoR;
+                uL[d] = rhouL / rhoL;
+                uR[d] = rhouR / rhoR;
 
-                    qL2 += rhouL * uL[d];
-                    qR2 += rhouR * uR[d];
-                }
+                qL2 += rhouL * uL[d];
+                qR2 += rhouR * uR[d];
+            }
 
-                // Internal energy per unit mass
-                const TData EL = fwd[(1u + NDIM) * blksize + i];
-                const TData ER = bwd[(1u + NDIM) * blksize + i];
-                const TData eL = (EL - oneHalf * qL2) / rhoL;
-                const TData eR = (ER - oneHalf * qR2) / rhoR;
+            // Internal energy per unit mass
+            const TScalar EL = fwd[(1u + NDIM) * blksize];
+            const TScalar ER = bwd[(1u + NDIM) * blksize];
+            const TScalar eL = (EL - oneHalf * qL2) / rhoL;
+            const TScalar eR = (ER - oneHalf * qR2) / rhoR;
 
-                // Pressure
-                const TData pL = GetPressure(rhoL, eL);
-                const TData pR = GetPressure(rhoR, eR);
+            // Pressure
+            const TScalar pL = GetPressure(rhoL, eL);
+            const TScalar pR = GetPressure(rhoR, eR);
 
-                // Speed of sound
-                const TData cL = GetSoundSpeed(rhoL, eL);
-                const TData cR = GetSoundSpeed(rhoR, eR);
+            // Speed of sound
+            const TScalar cL = GetSoundSpeed(rhoL, eL);
+            const TScalar cR = GetSoundSpeed(rhoR, eR);
 
-                // Average speeds of sound
-                TData cA = 0.5 * (cL + cR);
+            // Average speeds of sound
+            TScalar cA = 0.5 * (cL + cR);
 
-                // Local Mach numbers
-                TData ML = uL[0] / cA;
-                TData MR = uR[0] / cA;
+            // Local Mach numbers
+            TScalar ML = uL[0] / cA;
+            TScalar MR = uR[0] / cA;
 
-                // Parameters for specify the upwinding
-                TData pbar, Mbar;
-                AUSMUpwinding()(cA, rhoL, rhoR, pL, pR, ML, MR, pbar, Mbar);
+            // Parameters for specify the upwinding
+            TScalar pbar, Mbar;
+            AUSMUpwinding()(cA, rhoL, rhoR, pL, pR, ML, MR, pbar, Mbar);
 
-                // Conditional assignment
-                const bool cond    = Mbar >= 0.0;
-                const TData &rhoUp = (cond) ? rhoL : rhoR;
-                const TData &pUp   = (cond) ? pL : pR;
-                const TData *uUp   = (cond) ? uL : uR;
-                const TData &EUp   = (cond) ? EL : ER;
+            // Conditional assignment
+            const bool cond      = Mbar >= 0.0;
+            const TScalar &rhoUp = (cond) ? rhoL : rhoR;
+            const TScalar &pUp   = (cond) ? pL : pR;
+            const TScalar *uUp   = (cond) ? uL : uR;
+            const TScalar &EUp   = (cond) ? EL : ER;
 
-                // Compute flux
-                flux[i]                = cA * Mbar * rhoUp;
-                flux[1u * blksize + i] = cA * Mbar * rhoUp * uUp[0] + pbar;
+            // Compute flux
+            flux[0]            = cA * Mbar * rhoUp;
+            flux[1u * blksize] = cA * Mbar * rhoUp * uUp[0] + pbar;
 #pragma unroll
-                for (unsigned int d = 1; d < NDIM; ++d)
-                {
-                    flux[(1u + d) * blksize + i] = cA * Mbar * rhoUp * uUp[d];
-                }
-                flux[(1u + NDIM) * blksize + i] = cA * Mbar * (EUp + pUp);
-            });
+            for (unsigned int d = 1; d < NDIM; ++d)
+            {
+                flux[(1u + d) * blksize] = cA * Mbar * rhoUp * uUp[d];
+            }
+            flux[(1u + NDIM) * blksize] = cA * Mbar * (EUp + pUp);
+
+            fwd++;
+            bwd++;
+            flux++;
+        }
     }
 };
 

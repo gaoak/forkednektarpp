@@ -39,6 +39,57 @@
 namespace Nektar::Operators
 {
 
+template <template <typename, unsigned int> typename RiemannKernel,
+          typename ExecSpace, unsigned int NDIM, bool ROTMAT, typename TData>
+NEK_FORCE_INLINE static void RiemannKernelLauncher(
+    const size_t blksize, const TData *normalPtr, const TData *rotMatPtr,
+    TData *rotStorage1Ptr, TData *rotStorage2Ptr, TData *rotStorage3Ptr,
+    const TData *fwdPtr, const TData *bwdPtr, TData *fluxPtr)
+{
+    using namespace Nektar::Operators::detail;
+
+    // Explicit vectorisation for AVX backend,
+    // vec_t = tinysimd::simd<TData> for AVX,
+    // vec_t = TData otherwise.
+    // using vec_t = typename data_type_if<
+    //    std::is_same_v<ExecSpace, NektarSpaces::AVX>, TData>::type;
+    constexpr unsigned int vec_width =
+        (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
+            ? tinysimd::simd<TData>::width
+            : 1;
+
+    const size_t groupsize = blksize / vec_width;
+
+    Nektar::parallel_for<ExecSpace>(
+        0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
+            // Only update rotation matrice when necessary.
+            if (NDIM == 3 && ROTMAT)
+            {
+                GenerateRotationMatrices<ExecSpace>(
+                    blksize, normalPtr + i * vec_width,
+                    (TData *)rotMatPtr + i * vec_width);
+            }
+
+            // Rotate velocity to normal.
+            RotateToNormalKernel<ExecSpace, NDIM>(
+                blksize, fwdPtr + i * vec_width, rotMatPtr + i * vec_width,
+                rotStorage1Ptr + i * vec_width);
+            RotateToNormalKernel<ExecSpace, NDIM>(
+                blksize, bwdPtr + i * vec_width, rotMatPtr + i * vec_width,
+                rotStorage2Ptr + i * vec_width);
+
+            // Compute Lax-Friedrichs flux in rotated frame.
+            RiemannKernel<ExecSpace, NDIM>()(
+                blksize, rotStorage1Ptr + i * vec_width,
+                rotStorage2Ptr + i * vec_width, rotStorage3Ptr + i * vec_width);
+
+            // Rotate flux back to Cartesian frame.
+            RotateFromNormalKernel<ExecSpace, NDIM>(
+                blksize, rotStorage3Ptr + i * vec_width,
+                rotMatPtr + i * vec_width, fluxPtr + i * vec_width);
+        });
+}
+
 // CompressibleSolver operator base class
 template <typename TData>
 class CompressibleSolverOp : public RiemannSolverOp<TData>
@@ -100,7 +151,6 @@ protected:
                     Field<TData, FieldState::Phys> &Bwd,
                     Field<TData, FieldState::Phys> &flux)
     {
-        using namespace Nektar::Operators::detail;
         using MemSpace = typename ExecSpace::memory_space;
 
         // Loop over the blocks.
@@ -117,9 +167,8 @@ protected:
 
             auto fwdPtr    = fwdBlk.template GetPtr<MemSpace, ReadOnly>();
             auto bwdPtr    = bwdBlk.template GetPtr<MemSpace, ReadOnly>();
+            auto fluxPtr   = fluxBlk.template GetPtr<MemSpace, WriteOnly>();
             auto normalPtr = normalBlk.template GetPtr<MemSpace, ReadOnly>();
-
-            auto fluxPtr = fluxBlk.template GetPtr<MemSpace, WriteOnly>();
             auto rotStorage1Ptr =
                 rotStorage1Blk.template GetPtr<MemSpace, WriteOnly>();
             auto rotStorage2Ptr =
@@ -129,37 +178,26 @@ protected:
 
             const auto blksize = fwdBlk.CompSize();
 
-            // Only update rotation matrice when necessary.
-            if constexpr (NDIM == 3)
+            auto rotMatPtr =
+                (NDIM == 3) ? (m_updateRotMat)
+                                  ? m_rotMat.GetBlocks()[blk]
+                                        .template GetPtr<MemSpace, WriteOnly>()
+                                  : m_rotMat.GetBlocks()[blk]
+                                        .template GetPtr<MemSpace, ReadOnly>()
+                            : normalPtr;
+
+            if (m_updateRotMat)
             {
-                if (m_updateRotMat)
-                {
-                    auto rotMatPtr =
-                        this->m_rotMat.GetBlocks()[blk]
-                            .template GetPtr<MemSpace, WriteOnly>();
-                    GenerateRotationMatrices<ExecSpace>(blksize, normalPtr,
-                                                        rotMatPtr);
-                }
+                RiemannKernelLauncher<RiemannKernel, ExecSpace, NDIM, true>(
+                    blksize, normalPtr, rotMatPtr, rotStorage1Ptr,
+                    rotStorage2Ptr, rotStorage3Ptr, fwdPtr, bwdPtr, fluxPtr);
             }
-
-            auto rotMatPtr = (NDIM == 3)
-                                 ? m_rotMat.GetBlocks()[blk]
-                                       .template GetPtr<MemSpace, ReadOnly>()
-                                 : normalPtr;
-
-            // Rotate velocity to normal.
-            RotateToNormalKernel<ExecSpace, NDIM>(blksize, fwdPtr, rotMatPtr,
-                                                  rotStorage1Ptr);
-            RotateToNormalKernel<ExecSpace, NDIM>(blksize, bwdPtr, rotMatPtr,
-                                                  rotStorage2Ptr);
-
-            // Compute Lax-Friedrichs flux in rotated frame.
-            RiemannKernel<ExecSpace, NDIM>()(blksize, rotStorage1Ptr,
-                                             rotStorage2Ptr, rotStorage3Ptr);
-
-            // Rotate flux back to Cartesian frame.
-            RotateFromNormalKernel<ExecSpace, NDIM>(blksize, rotStorage3Ptr,
-                                                    rotMatPtr, fluxPtr);
+            else
+            {
+                RiemannKernelLauncher<RiemannKernel, ExecSpace, NDIM, false>(
+                    blksize, normalPtr, rotMatPtr, rotStorage1Ptr,
+                    rotStorage2Ptr, rotStorage3Ptr, fwdPtr, bwdPtr, fluxPtr);
+            }
         }
 
         m_updateRotMat = false;

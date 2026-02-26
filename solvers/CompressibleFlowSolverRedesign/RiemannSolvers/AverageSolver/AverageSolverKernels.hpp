@@ -48,77 +48,74 @@ namespace Nektar::Operators::detail
 template <typename ExecSpace, unsigned int NDIM> struct AverageSolverKernel
 {
     template <typename TScalar>
-    NEK_FORCE_INLINE void operator()(const size_t blksize, const TScalar *fwd,
-                                     const TScalar *bwd, TScalar *flux)
+    NEK_DEVICE_INLINE void operator()(const size_t blksize, const TScalar *fwd,
+                                      const TScalar *bwd, TScalar *flux)
     {
+        using std::abs;
+        using std::sqrt;
+
         // Explicit vectorisation for AVX backend, vec_t =
         // tinysimd::simd<TScalar> for AVX, vec_t = TScalar otherwise.
         using vec_t =
             typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                   TScalar>::type;
-        const unsigned int vec_width =
+        constexpr unsigned int vec_width =
             (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
                 ? tinysimd::simd<TScalar>::width
                 : 1;
+
+        const vec_t oneHalf = 0.5;
 
         // Layout: [rho | m0 | m1 | m2 | E] but only first (NDIM) moment exist.
         const size_t groupsize = blksize / vec_width;
         const auto fwdvec      = reinterpret_cast<const vec_t *>(fwd);
         const auto bwdvec      = reinterpret_cast<const vec_t *>(bwd);
         auto fluxvec           = reinterpret_cast<vec_t *>(flux);
-        Nektar::parallel_for<ExecSpace>(
-            0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
-                using std::sqrt;
-                using std::abs;
 
-                const vec_t oneHalf = 0.5;
+        // Density
+        const vec_t rhoL = fwdvec[0];
+        const vec_t rhoR = bwdvec[0];
 
-                // Density
-                const vec_t rhoL = fwdvec[i];
-                const vec_t rhoR = bwdvec[i];
-
-                // Velocities and kinetic energy terms
-                vec_t uL[NDIM];
-                vec_t uR[NDIM];
-                vec_t qL2 = 0.0;
-                vec_t qR2 = 0.0;
+        // Velocities and kinetic energy terms
+        vec_t uL[NDIM];
+        vec_t uR[NDIM];
+        vec_t qL2 = 0.0;
+        vec_t qR2 = 0.0;
 #pragma unroll
-                for (unsigned int d = 0; d < NDIM; ++d)
-                {
-                    const vec_t rhouL = fwdvec[(1u + d) * groupsize + i];
-                    const vec_t rhouR = bwdvec[(1u + d) * groupsize + i];
+        for (unsigned int d = 0; d < NDIM; ++d)
+        {
+            const vec_t rhouL = fwdvec[(1u + d) * groupsize];
+            const vec_t rhouR = bwdvec[(1u + d) * groupsize];
 
-                    uL[d] = rhouL / rhoL;
-                    uR[d] = rhouR / rhoR;
+            uL[d] = rhouL / rhoL;
+            uR[d] = rhouR / rhoR;
 
-                    qL2 += rhouL * uL[d];
-                    qR2 += rhouR * uR[d];
-                }
+            qL2 += rhouL * uL[d];
+            qR2 += rhouR * uR[d];
+        }
 
-                // Internal energy per unit mass
-                const vec_t EL = fwdvec[(1u + NDIM) * groupsize + i];
-                const vec_t ER = bwdvec[(1u + NDIM) * groupsize + i];
-                const vec_t eL = (EL - oneHalf * qL2) / rhoL;
-                const vec_t eR = (ER - oneHalf * qR2) / rhoR;
+        // Internal energy per unit mass
+        const vec_t EL = fwdvec[(1u + NDIM) * groupsize];
+        const vec_t ER = bwdvec[(1u + NDIM) * groupsize];
+        const vec_t eL = (EL - oneHalf * qL2) / rhoL;
+        const vec_t eR = (ER - oneHalf * qR2) / rhoR;
 
-                // Pressure
-                const vec_t pL = GetPressure(rhoL, eL);
-                const vec_t pR = GetPressure(rhoR, eR);
+        // Pressure
+        const vec_t pL = GetPressure(rhoL, eL);
+        const vec_t pR = GetPressure(rhoR, eR);
 
-                // Average Riemann fluxes
-                fluxvec[i] = oneHalf * (rhoR * uR[0] + rhoL * uL[0]);
-                fluxvec[1u * groupsize + i] =
-                    0.5 *
-                    ((rhoR * uR[0] * uR[0] + pR) + (rhoL * uL[0] * uL[0] + pL));
+        // Average Riemann fluxes
+        fluxvec[0] = oneHalf * (rhoR * uR[0] + rhoL * uL[0]);
+        fluxvec[1u * groupsize] =
+            0.5 * ((rhoR * uR[0] * uR[0] + pR) + (rhoL * uL[0] * uL[0] + pL));
 #pragma unroll
-                for (unsigned int d = 1; d < NDIM; ++d)
-                {
-                    fluxvec[(1u + d) * groupsize + i] =
-                        oneHalf * (rhoR * uR[0] * uR[d] + rhoL * uL[0] * uL[d]);
-                }
-                fluxvec[(1u + NDIM) * groupsize + i] =
-                    oneHalf * (uR[0] * (ER + pR) + uL[0] * (EL + pL));
-            });
+        for (unsigned int d = 1; d < NDIM; ++d)
+        {
+            fluxvec[(1u + d) * groupsize] =
+                oneHalf * (rhoR * uR[0] * uR[d] + rhoL * uL[0] * uL[d]);
+        }
+        fluxvec[(1u + NDIM) * groupsize] =
+            oneHalf * (uR[0] * (ER + pR) + uL[0] * (EL + pL));
     }
 };
 
