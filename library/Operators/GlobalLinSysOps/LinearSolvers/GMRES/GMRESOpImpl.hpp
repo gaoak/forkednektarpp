@@ -196,7 +196,8 @@ protected:
         // Total coefficients
         std::vector<TData> yn(m_LinSysMaxStorage);
         // Search direction order
-        unsigned int totalIterations = 0, ii = 0, outerIterations = 0;
+        this->m_niter   = 0;
+        unsigned int ii = 0, outerIterations = 0;
         bool converged    = false;
         TData prec_factor = 1.0, eps, eps0 = 1.0;
 
@@ -234,10 +235,10 @@ protected:
         // GMRES with restart.
         while (true)
         {
-            if (totalIterations == this->m_maxIter)
+            if (this->m_niter == this->m_maxIter)
             {
                 std::stringstream msg;
-                msg << "Exceeded max iterations: " << totalIterations;
+                msg << "Exceeded max iterations: " << this->m_niter;
                 WARNINGL0(false, msg.str());
 
                 break;
@@ -309,7 +310,7 @@ protected:
             while (true)
             {
                 if ((ii == m_LinSysMaxStorage) ||
-                    (totalIterations == this->m_maxIter))
+                    (this->m_niter == this->m_maxIter))
                 {
                     break;
                 }
@@ -418,7 +419,7 @@ protected:
                 eps = eta[ii + 1] * eta[ii + 1];
 
                 ii++;
-                totalIterations++;
+                this->m_niter++;
 
                 // This Gmres merge truncted Gmres to accelerate.
                 // If truncted, cannot jump out because
@@ -520,7 +521,7 @@ protected:
             if (this->m_root)
             {
                 std::cout << this->name
-                          << " iterations made = " << totalIterations
+                          << " iterations made = " << this->m_niter
                           << " using tolerance of " << this->m_tol
                           << " error = "
                           << std::sqrt(eps / eps0 * prec_factor / rhsMagnitude)

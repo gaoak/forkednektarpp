@@ -126,6 +126,11 @@ public:
         this->m_precon->Configure(this->m_lhs);
     }
 
+    unsigned int GetNiterations(void)
+    {
+        return m_niter;
+    }
+
 protected:
     LibUtilities::CommSharedPtr m_rowComm = nullptr;
     std::shared_ptr<ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>> m_lhs;
@@ -138,6 +143,7 @@ protected:
 
     TData m_tol                = 0.0;
     unsigned int m_maxIter     = 0;
+    unsigned int m_niter       = 0;
     bool m_leftPreconditioner  = false;
     bool m_rightPreconditioner = false;
 

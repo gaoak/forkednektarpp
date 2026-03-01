@@ -106,7 +106,7 @@ protected:
                  Field<TData, FieldState::Coeff> &out) override
     {
         // Convergence parameters.
-        unsigned int totalIterations = 0;
+        this->m_niter = 0;
         TData rhsMagnitude, eps;
 
         // Reset the fields to zero.
@@ -139,10 +139,10 @@ protected:
         // Iteration >= 1
         while (true)
         {
-            if (totalIterations > this->m_maxIter)
+            if (this->m_niter > this->m_maxIter)
             {
                 std::stringstream msg;
-                msg << "Exceeded max iterations: " << totalIterations;
+                msg << "Exceeded max iterations: " << this->m_niter;
                 WARNINGL0(false, msg.str());
 
                 return;
@@ -166,7 +166,7 @@ protected:
             eps = this->m_math.ddot(m_r, m_r);
             this->m_rowComm->AllReduce(eps, LibUtilities::ReduceSum);
 
-            ++totalIterations;
+            ++this->m_niter;
 
             // Test if norm is within tolerance.
             if (eps < this->m_tol * this->m_tol * rhsMagnitude)
@@ -174,7 +174,7 @@ protected:
                 if (this->m_root)
                 {
                     std::cout << this->name
-                              << " iterations made = " << totalIterations
+                              << " iterations made = " << this->m_niter
                               << " using tolerance of " << this->m_tol
                               << " error = " << std::sqrt(eps / rhsMagnitude)
                               << " rhs_mag = " << std::sqrt(rhsMagnitude)

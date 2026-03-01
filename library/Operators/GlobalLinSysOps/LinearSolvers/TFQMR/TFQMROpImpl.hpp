@@ -123,7 +123,7 @@ protected:
         // Computing, **14** (2), pp. 470--482, 1993.
 
         // Convergence parameters.
-        unsigned int totalIterations = 0;
+        this->m_niter = 0;
         TData rhsMagnitude, eps;
         TData alpha, beta, rho, rho_new;
         TData sigma, theta, eta, tau;
@@ -171,23 +171,23 @@ protected:
         beta  = 0.0;
         while (true)
         {
-            if (totalIterations > this->m_maxIter)
+            if (this->m_niter > this->m_maxIter)
             {
                 std::stringstream msg;
-                msg << "Exceeded max iterations: " << totalIterations;
+                msg << "Exceeded max iterations: " << this->m_niter;
                 WARNINGL0(false, msg.str());
 
                 return;
             }
 
             // Update vectors.
-            if (totalIterations > 0)
+            if (this->m_niter > 0)
             {
                 daxpy<ExecSpace>(beta, m_u, m_r, m_u);
                 daxpy<ExecSpace>(beta, m_p, m_s, m_p);
             }
 
-            ++totalIterations;
+            ++this->m_niter;
 
             // Perform the method-specific matrix-vector multiply operation.
             auto &tmp = (this->m_rightPreconditioner) ? m_w : m_u;
@@ -228,16 +228,15 @@ protected:
             daxpy<ExecSpace>(eta, m_d, out, out);
 
             // Test if norm is within tolerance.
-            eps = tau * tau * (2 * totalIterations);
+            eps = tau * tau * (2 * this->m_niter);
             if (eps < this->m_tol * this->m_tol * rhsMagnitude)
             {
                 if (this->m_root)
                 {
                     std::cout
-                        << this->name
-                        << " iterations made = " << totalIterations
+                        << this->name << " iterations made = " << this->m_niter
                         << " using tolerance of " << this->m_tol
-                        << " error = " << tau * std::sqrt(2 * totalIterations)
+                        << " error = " << tau * std::sqrt(2 * this->m_niter)
                         << " rhs_mag = " << std::sqrt(rhsMagnitude)
                         << std::endl;
                 }
@@ -278,18 +277,17 @@ protected:
             daxpy<ExecSpace>(eta, m_d, out, out);
 
             // Test if norm is within tolerance.
-            eps = tau * tau * (2 * totalIterations + 1);
+            eps = tau * tau * (2 * this->m_niter + 1);
             if (eps < this->m_tol * this->m_tol * rhsMagnitude)
             {
                 if (this->m_root)
                 {
-                    std::cout << this->name
-                              << " iterations made = " << totalIterations
-                              << " using tolerance of " << this->m_tol
-                              << " error = "
-                              << tau * std::sqrt(2 * totalIterations + 1)
-                              << " rhs_mag = " << std::sqrt(rhsMagnitude)
-                              << std::endl;
+                    std::cout
+                        << this->name << " iterations made = " << this->m_niter
+                        << " using tolerance of " << this->m_tol
+                        << " error = " << tau * std::sqrt(2 * this->m_niter + 1)
+                        << " rhs_mag = " << std::sqrt(rhsMagnitude)
+                        << std::endl;
                 }
                 break;
             }
