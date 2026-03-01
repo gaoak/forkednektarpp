@@ -60,34 +60,59 @@ NEK_FORCE_INLINE static void RiemannKernelLauncher(
 
     const size_t groupsize = blksize / vec_width;
 
-    Nektar::parallel_for<ExecSpace>(
-        0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
-            // Only update rotation matrice when necessary.
-            if (NDIM == 3 && ROTMAT)
-            {
+    if (NDIM == 3 && ROTMAT)
+    {
+        Nektar::parallel_for<ExecSpace>(
+            0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
+                // Only update rotation matrice when necessary.
                 GenerateRotationMatrices<ExecSpace>(
                     blksize, normalPtr + i * vec_width,
                     (TData *)rotMatPtr + i * vec_width);
-            }
 
-            // Rotate velocity to normal.
-            RotateToNormalKernel<ExecSpace, NDIM>(
-                blksize, fwdPtr + i * vec_width, rotMatPtr + i * vec_width,
-                rotStorage1Ptr + i * vec_width);
-            RotateToNormalKernel<ExecSpace, NDIM>(
-                blksize, bwdPtr + i * vec_width, rotMatPtr + i * vec_width,
-                rotStorage2Ptr + i * vec_width);
+                // Rotate velocity to normal.
+                RotateToNormalKernel<ExecSpace, NDIM>(
+                    blksize, fwdPtr + i * vec_width, rotMatPtr + i * vec_width,
+                    rotStorage1Ptr + i * vec_width);
+                RotateToNormalKernel<ExecSpace, NDIM>(
+                    blksize, bwdPtr + i * vec_width, rotMatPtr + i * vec_width,
+                    rotStorage2Ptr + i * vec_width);
 
-            // Compute Lax-Friedrichs flux in rotated frame.
-            RiemannKernel<ExecSpace, NDIM>()(
-                blksize, rotStorage1Ptr + i * vec_width,
-                rotStorage2Ptr + i * vec_width, rotStorage3Ptr + i * vec_width);
+                // Compute flux in rotated frame.
+                RiemannKernel<ExecSpace, NDIM>()(
+                    blksize, rotStorage1Ptr + i * vec_width,
+                    rotStorage2Ptr + i * vec_width,
+                    rotStorage3Ptr + i * vec_width);
 
-            // Rotate flux back to Cartesian frame.
-            RotateFromNormalKernel<ExecSpace, NDIM>(
-                blksize, rotStorage3Ptr + i * vec_width,
-                rotMatPtr + i * vec_width, fluxPtr + i * vec_width);
-        });
+                // Rotate flux back to Cartesian frame.
+                RotateFromNormalKernel<ExecSpace, NDIM>(
+                    blksize, rotStorage3Ptr + i * vec_width,
+                    rotMatPtr + i * vec_width, fluxPtr + i * vec_width);
+            });
+    }
+    else
+    {
+        Nektar::parallel_for<ExecSpace>(
+            0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
+                // Rotate velocity to normal.
+                RotateToNormalKernel<ExecSpace, NDIM>(
+                    blksize, fwdPtr + i * vec_width, rotMatPtr + i * vec_width,
+                    rotStorage1Ptr + i * vec_width);
+                RotateToNormalKernel<ExecSpace, NDIM>(
+                    blksize, bwdPtr + i * vec_width, rotMatPtr + i * vec_width,
+                    rotStorage2Ptr + i * vec_width);
+
+                // Compute flux in rotated frame.
+                RiemannKernel<ExecSpace, NDIM>()(
+                    blksize, rotStorage1Ptr + i * vec_width,
+                    rotStorage2Ptr + i * vec_width,
+                    rotStorage3Ptr + i * vec_width);
+
+                // Rotate flux back to Cartesian frame.
+                RotateFromNormalKernel<ExecSpace, NDIM>(
+                    blksize, rotStorage3Ptr + i * vec_width,
+                    rotMatPtr + i * vec_width, fluxPtr + i * vec_width);
+            });
+    }
 }
 
 // CompressibleSolver operator base class
