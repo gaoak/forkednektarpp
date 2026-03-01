@@ -125,7 +125,7 @@ protected:
         // der Vorst, 2003.
 
         // Convergence parameters.
-        unsigned int totalIterations = 0;
+        this->m_niter = 0;
         TData rhsMagnitude, eps;
         TData alpha, alpha1, alpha2, alpha3, delta;
         TData eta, gamma0, gamma1, sigma0, sigma1, beta0, beta1;
@@ -166,10 +166,10 @@ protected:
         m_p1.template Initialize<MemSpace>(0);
         while (true)
         {
-            if (totalIterations > this->m_maxIter)
+            if (this->m_niter > this->m_maxIter)
             {
                 std::stringstream msg;
-                msg << "Exceeded max iterations: " << totalIterations;
+                msg << "Exceeded max iterations: " << this->m_niter;
                 WARNINGL0(false, msg.str());
 
                 return;
@@ -188,7 +188,7 @@ protected:
             this->m_rowComm->AllReduce(alpha, LibUtilities::ReduceSum);
 
             // Update search vector.
-            if (totalIterations > 0)
+            if (this->m_niter > 0)
             {
                 mul<ExecSpace>(-beta1, m_v1, m_v1);
                 daxpy<ExecSpace>(-alpha, m_v0, m_v1, m_v1);
@@ -223,12 +223,12 @@ protected:
             sigma1 = beta1 / alpha1;
 
             // Update solution.
-            if (totalIterations == 0)
+            if (this->m_niter == 0)
             {
                 // m_p1, m_p0 = 0
                 mul<ExecSpace>(1.0 / alpha1, m_w, m_p0);
             }
-            else if (totalIterations == 1)
+            else if (this->m_niter == 1)
             {
                 // m_p0 = 0
                 mul<ExecSpace>(1.0 / alpha1, m_w, m_p0);
@@ -245,7 +245,7 @@ protected:
             // Update coefficients.
             eta *= -sigma1;
 
-            ++totalIterations;
+            ++this->m_niter;
 
             // Test if norm is within tolerance.
             if (eta * eta < this->m_tol * this->m_tol * rhsMagnitude)
@@ -253,7 +253,7 @@ protected:
                 if (this->m_root)
                 {
                     std::cout << this->name
-                              << " iterations made = " << totalIterations
+                              << " iterations made = " << this->m_niter
                               << " using tolerance of " << this->m_tol
                               << " eta = " << std::abs(eta)
                               << " rhs_mag = " << std::sqrt(rhsMagnitude)

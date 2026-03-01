@@ -114,7 +114,7 @@ protected:
                  Field<TData, FieldState::Coeff> &out) override
     {
         // Convergence parameters.
-        unsigned int totalIterations = 0;
+        this->m_niter = 0;
         TData rhsMagnitude, eps;
         TData alpha, beta, rho, rho_new;
 
@@ -153,10 +153,10 @@ protected:
         rho_new = 1.0;
         while (true)
         {
-            if (totalIterations > this->m_maxIter)
+            if (this->m_niter > this->m_maxIter)
             {
                 std::stringstream msg;
-                msg << "Exceeded max iterations: " << totalIterations;
+                msg << "Exceeded max iterations: " << this->m_niter;
                 WARNINGL0(false, msg.str());
 
                 return;
@@ -167,7 +167,7 @@ protected:
             this->m_robBndCondOp->Apply(m_r, m_s);
 
             // Update vector.
-            if (totalIterations == 0)
+            if (this->m_niter == 0)
             {
                 // Update coefficient.
                 rho_new = this->m_math.ddot(m_r, m_s);
@@ -212,7 +212,7 @@ protected:
             eps = this->m_math.ddot(m_r, m_r);
             this->m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
 
-            ++totalIterations;
+            ++this->m_niter;
 
             // Test if norm is within tolerance.
             if (eps < this->m_tol * this->m_tol * rhsMagnitude)
@@ -220,7 +220,7 @@ protected:
                 if (this->m_root)
                 {
                     std::cout << this->name
-                              << " iterations made = " << totalIterations
+                              << " iterations made = " << this->m_niter
                               << " using tolerance of " << this->m_tol
                               << " error = " << std::sqrt(eps / rhsMagnitude)
                               << " rhs_mag = " << std::sqrt(rhsMagnitude)

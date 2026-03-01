@@ -132,7 +132,7 @@ protected:
         // Computing 40, no. 7 (2014): 224-238.
 
         // Convergence parameters.
-        unsigned int totalIterations = 0;
+        this->m_niter = 0;
         TData rhsMagnitude, eps, scale;
         TData alpha, beta, rho, rho_new, delta;
 
@@ -209,10 +209,10 @@ protected:
         rho   = exchangeHost[1];
         while (true)
         {
-            if (totalIterations > this->m_maxIter)
+            if (this->m_niter > this->m_maxIter)
             {
                 std::stringstream msg;
-                msg << "Exceeded max iterations: " << totalIterations;
+                msg << "Exceeded max iterations: " << this->m_niter;
                 WARNINGL0(false, msg.str());
 
                 return;
@@ -282,7 +282,7 @@ protected:
             eps     = exchangeHost[0];
             rho_new = exchangeHost[1];
 
-            ++totalIterations;
+            ++this->m_niter;
 
             // Test if norm is within tolerance.
             if (eps < 100 * scale * this->m_tol * this->m_tol * rhsMagnitude)
@@ -290,7 +290,7 @@ protected:
                 if (this->m_root)
                 {
                     std::cout << this->name
-                              << " iterations made = " << totalIterations
+                              << " iterations made = " << this->m_niter
                               << " using tolerance of " << this->m_tol
                               << " error = " << std::sqrt(eps / rhsMagnitude)
                               << " rhs_mag = " << std::sqrt(rhsMagnitude)

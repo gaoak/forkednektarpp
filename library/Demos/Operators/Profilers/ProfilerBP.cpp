@@ -32,33 +32,97 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/AssmbScatr/AssmbScatrOp.hpp"
-#include "Operators/GlobalLinSysOps/LinearSolvers/ConjGrad/ConjGradOp.hpp"
-#include "Operators/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp"
-#include "Operators/PreconOps/DiagPrecon/DiagPreconOp.hpp"
-#include <Operators/ElmtOps/Helmholtz/HelmholtzOp.hpp>
-#include <Operators/ElmtOps/Mass/MassOp.hpp>
+#include "ProfilerBP.hpp"
 
-#include <LibUtilities/BasicUtils/Timer.h>
-#include <MultiRegions/ContField.h>
-#include <SpatialDomains/MeshGraphIO.h>
+#if defined(NEKTAR_ENABLE_MAGMA)
+#include "magma_v2.h"
+#endif
 
-using namespace Nektar::Operators;
-using namespace Nektar::LibUtilities;
-using namespace Nektar;
-
+/**
+ * @brief main program of the profiler
+ *
+ * Functions:
+ *
+ *  Benchmark/profile the Conjugate Gradient (CG) solver (BPs) and print out the
+ *  performance statistics, e.g. elapsed time, throughput, ndofs. Users can
+ *  customize which operators and data types(float, doubule) to be profiled.
+ *
+ * Usage:
+ *
+ *  1.  Build the Nektar++ project with following configurations to get the
+ *      profiler executable:
+ *          NEKTAR_BUILD_DEMOS=ON
+ *          NEKTAR_BUILD_REDESIGN=ON
+ *      You may need other configurations to enable certain features, e.g. CUDA,
+ *      AVX, MPI, etc.
+ *
+ *  2.  Prepare a mesh file for the profiling, e.g. mesh.xml. Make sure it has
+ *      enough elements to get meaningful profiling results. Make sure the file
+ *      contains correct EXPANSIONS definitions.
+ *
+ *  3.  Run the profiler executable with the mesh file and other parameters.
+ *      --opExecSpace=Serial
+ *              specify the execution space. Possible values are: Serial, AVX,
+ *              and Device
+ *      --opImpl=StdMat
+ *              specify the implementation. Possible values are: StdMat, SumFac,
+ *              and SumFacTOP
+ *      -P BP=1
+ *              specify the benchmark problem (BP). Possible values are: 1
+ * (Mass), 3 (Helmholtz). -P Ntest=100 number of repeated runs for each
+ * operator. Usually a operator takes very short time to finish, so we need to
+ * repeat it many times to get accurate timing, and also let CPU/GPU running at
+ *              a stable frequency.
+ *      -P order=5
+ *              the order of the polynomial expansions. If provided, it will
+ *              override the expansion definition in the mesh file. This gives
+ *              a convenient way to profile different orders by same mesh file.
+ *      -verbose
+ *              print out more information. Not recommended if you launch many
+ *              processes.
+ *
+ *      Examples:
+ *
+ *      # So far We can only launch serial run on GPUs:
+ *          ./ProfilerBP mesh.xml --opExecSpace=Serial --opImpl=StdMat
+ *          -P BP=1 -P Ntest=100 -P order=5 -verbose
+ *
+ *      # To squeeze all the performance of CPU, typically we launch as many
+ *      # processes as the number of cores on a machine:
+ *          mpirun -np 12 ./ProfilerBP mesh.xml --opExecSpace=Serial
+ *          --opImpl=StdMat -P BP=1 -P Ntest=200 -P order=3
+ *
+ *      # Launch likwid and use 18 processes per socket(CPU package), MEM_DP
+ *      # tells likwid to measure memory and flops performance, This is
+ *      # usually for a roofline analysis:
+ *          likwid-mpirun -nperdomain S:18 -m -g MEM_DP ./ProfilerBP
+ *          --opExecSpace=Serial --opImpl=SumFac -P BP=1
+ * mesh.xml
+ *
+ *  4.  likwid is a powerful tool to measure the performance of the CPU/GPI,
+ *      including memory bandwidth, flops, cache misses and stalls, etc. The
+ *      profiler already has the likwid API integrated. To use likwid. You need
+ *      to first ensure likwid is properly installed and then build Nektar with
+ *          NEKTAR_USE_LIKWID=ON.
+ *      See likwid documentation for more information.
+ */
 int main(int argc, char *argv[])
 {
-    typedef double TData;
+#ifdef NEKTAR_ENABLE_MAGMA
+    magma_init();
+#endif
+
+    LIKWID_MARKER_INIT;
+    LIKWID_MARKER_THREADINIT;
 
     // Initialise a session, graph and explist.
     auto session = LibUtilities::SessionReader::CreateInstance(argc, argv);
     auto graph   = SpatialDomains::MeshGraphIO::Read(session);
 
     // Load parameters (from the command lines).
-    int BP, nTest, order;
+    int BP, Ntest, order;
     session->LoadParameter("BP", BP, 1);
-    session->LoadParameter("Ntest", nTest, 100);
+    session->LoadParameter("Ntest", Ntest, 100);
     session->LoadParameter("order", order, 0);
 
     // Set the order of the polynomial expansion if provided
@@ -76,101 +140,28 @@ int main(int argc, char *argv[])
 
     expList->SetDataWarehouse();
 
-    // Initialize operators.
-    std::shared_ptr<ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>> elmtOp;
-    if (BP == 1)
+    // Print GPU properties.
+    if (session->GetComm()->GetRank() == 0 &&
+        Operator<double>::GetOpExecSpace(session) == "Device")
     {
-        elmtOp = MassOp<TData>::Create(expList, session->GetVariables());
-    }
-    else if (BP == 3)
-    {
-        std::vector<double> diffCoeff(6);
-        diffCoeff[0] = 1.0; // D00
-        diffCoeff[2] = 1.0; // D11
-        diffCoeff[5] = 1.0; // D22
-        elmtOp = HelmholtzOp<TData>::Create(expList, session->GetVariables());
-        std::dynamic_pointer_cast<HelmholtzOp<TData>>(elmtOp)->SetDiffCoeff(
-            diffCoeff);
+        PrintDeviceProperties();
     }
 
-    auto assembOp =
-        AssmbScatrOp<TData>::Create(expList, session->GetVariables());
-    auto diagPreconOp =
-        DiagPreconOp<TData>::Create(expList, session->GetVariables());
-    auto conjGradOp =
-        ConjGradOp<TData>::Create(expList, session->GetVariables());
-    diagPreconOp->Configure(elmtOp);
-    conjGradOp->SetLHS(elmtOp);
-    conjGradOp->SetPrecon(diagPreconOp);
+    // Benchmark-double
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+    LaunchProfiler<double>(expList, Ntest, BP);
+#endif
 
-    // Timer.
-    Timer timer;
+    // Benchmark-float
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+    LaunchProfiler<float>(expList, Ntest, BP);
+#endif
 
-    // Create block attributes.
-    auto blockAttr = GetBlockAttributes<TData, FieldState::Coeff>(expList);
+    LIKWID_MARKER_CLOSE;
 
-    // Create fields.
-    auto fIn         = Field<TData, FieldState::Coeff>("f_in", blockAttr,
-                                               session->GetVariables(), 1);
-    auto fOut        = Field<TData, FieldState::Coeff>("f_out", blockAttr,
-                                                session->GetVariables(), 1);
-    auto fOutCorrect = Field<TData, FieldState::Coeff>(
-        "f_out_correct", blockAttr, session->GetVariables(), 1);
-    auto fOutCorrectAssemb = Field<TData, FieldState::Coeff>(
-        "f_out_correct_assemb", blockAttr, session->GetVariables(), 1);
+    session->Finalise();
 
-    // Set random output.
-    srand(0);
-    auto &blockOut = fOutCorrect.GetBlocks();
-    for (size_t i = 0; i < blockOut.size(); ++i)
-    {
-        auto outPtr =
-            blockOut[i].template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (unsigned int n = 0; n < session->GetVariables().size(); n++)
-        {
-            for (size_t j = 0; j < blockOut[i].CompSize(); ++j)
-            {
-                outPtr[j] =
-                    ((static_cast<double>(rand()) / RAND_MAX) * 2.0 - 1.0);
-            }
-        }
-    }
-
-    // Ensure C0 continuity.
-    assembOp->Apply(fOutCorrect, fOutCorrectAssemb);
-
-    // Compute expected solution.
-    elmtOp->Apply(fOutCorrectAssemb, fIn);
-
-    // Warm up solves.
-    for (unsigned int i = 0; i < nTest / 2; ++i)
-    {
-        conjGradOp->Apply(fIn, fOut);
-    }
-
-    // Benchmark CG solve.
-    nekDeviceSynchronize();
-    timer.Start();
-    for (unsigned int i = 0; i < nTest; ++i)
-    {
-        conjGradOp->Apply(fIn, fOut);
-    }
-    nekDeviceSynchronize();
-
-    timer.Stop();
-
-    // Output results.
-    auto nDim = expList->GetGraph()->GetSpaceDimension();
-    unsigned int expOrder =
-        (*expList->GetExp())[0]->GetBase()[0]->GetNumModes();
-    size_t numElmts    = expList->GetNumElmts();
-    size_t numDofs     = expList->GetNcoeffs();
-    size_t elmtsPerDim = std::pow(numElmts, 1.0 / nDim);
-    size_t globalDOFs =
-        std::pow((elmtsPerDim - 1) * (expOrder - 1) + expOrder, 3);
-    double time        = timer.Elapsed().count();
-    double timePerIter = time / (nTest * 5000);
-
-    std::cout << expOrder << " " << numElmts << " " << globalDOFs << " "
-              << numDofs << " " << timePerIter << std::endl;
+#ifdef NEKTAR_ENABLE_MAGMA
+    magma_finalize();
+#endif
 }

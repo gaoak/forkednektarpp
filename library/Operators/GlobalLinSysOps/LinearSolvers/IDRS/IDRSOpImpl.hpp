@@ -152,7 +152,7 @@ protected:
         // 1 (2011): 1-19.
 
         // Convergence parameters.
-        unsigned int totalIterations = 0;
+        this->m_niter = 0;
         TData rhsMagnitude, eps;
         TData omega, omega0, omega1, rho, alpha, beta, kappa = 0.7;
         std::vector<TData> Phi(m_stage), gamma(m_stage);
@@ -209,10 +209,10 @@ protected:
             // Inner iteration.
             for (unsigned int k = 0; k < m_stage; k++)
             {
-                if (totalIterations > this->m_maxIter)
+                if (this->m_niter > this->m_maxIter)
                 {
                     std::stringstream msg;
-                    msg << "Exceeded max iterations: " << totalIterations;
+                    msg << "Exceeded max iterations: " << this->m_niter;
                     WARNINGL0(false, msg.str());
 
                     return;
@@ -239,7 +239,7 @@ protected:
                 }
 
                 // Compute m_v.
-                if (totalIterations == 0)
+                if (this->m_niter == 0)
                 {
                     m_v.template Copy<MemSpace>(m_r);
                 }
@@ -259,7 +259,7 @@ protected:
                 }
 
                 // Compute new U.
-                if (totalIterations == 0)
+                if (this->m_niter == 0)
                 {
                     mul<ExecSpace>(omega, m_v, m_U[k]);
                 }
@@ -320,7 +320,7 @@ protected:
                 this->m_rowComm->AllReduce(eps,
                                            Nektar::LibUtilities::ReduceSum);
 
-                ++totalIterations;
+                ++this->m_niter;
 
                 // Test if norm is within tolerance.
                 if (eps < this->m_tol * this->m_tol * rhsMagnitude)
@@ -329,12 +329,13 @@ protected:
                     {
                         std::cout
                             << this->name
-                            << " iterations made = " << totalIterations
+                            << " iterations made = " << this->m_niter
                             << " using tolerance of " << this->m_tol
                             << " error = " << std::sqrt(eps / rhsMagnitude)
                             << " rhs_mag = " << std::sqrt(rhsMagnitude)
                             << std::endl;
                     }
+
                     return;
                 }
 
@@ -352,7 +353,7 @@ protected:
                 }
             }
 
-            ++totalIterations;
+            ++this->m_niter;
 
             // Test if norm is within tolerance.
             if (eps < this->m_tol * this->m_tol * rhsMagnitude)
@@ -360,19 +361,20 @@ protected:
                 if (this->m_root)
                 {
                     std::cout << this->name
-                              << " iterations made = " << totalIterations
+                              << " iterations made = " << this->m_niter
                               << " using tolerance of " << this->m_tol
                               << " error = " << std::sqrt(eps / rhsMagnitude)
                               << " rhs_mag = " << std::sqrt(rhsMagnitude)
                               << std::endl;
                 }
+
                 return;
             }
 
-            if (totalIterations > this->m_maxIter)
+            if (this->m_niter > this->m_maxIter)
             {
                 std::stringstream msg;
-                msg << "Exceeded max iterations: " << totalIterations;
+                msg << "Exceeded max iterations: " << this->m_niter;
                 WARNINGL0(false, msg.str());
 
                 return;

@@ -169,7 +169,7 @@ protected:
         }
 
         // Convergence parameters.
-        unsigned int totalIterations = 0;
+        this->m_niter = 0;
         TData rhsMagnitude, eps;
         TData alpha, beta, rho, rho_new, rho_star, mu;
 
@@ -224,10 +224,10 @@ protected:
         rho_star = 0.0;
         while (true)
         {
-            if (totalIterations > this->m_maxIter)
+            if (this->m_niter > this->m_maxIter)
             {
                 std::stringstream msg;
-                msg << "Exceeded max iterations: " << totalIterations;
+                msg << "Exceeded max iterations: " << this->m_niter;
                 WARNINGL0(false, msg.str());
 
                 return;
@@ -236,7 +236,7 @@ protected:
             // Reset device memory.
             m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
-            if (totalIterations == 0)
+            if (this->m_niter == 0)
             {
                 m_p.template Initialize<MemSpace>(0);
                 m_q.template Initialize<MemSpace>(0);
@@ -302,7 +302,7 @@ protected:
                 rho_star = exchangeHost[3];
             }
 
-            ++totalIterations;
+            ++this->m_niter;
 
             // Test if norm is within tolerance.
             if (eps < this->m_tol * this->m_tol * rhsMagnitude)
@@ -310,7 +310,7 @@ protected:
                 if (this->m_root)
                 {
                     std::cout << this->name
-                              << " iterations made = " << totalIterations
+                              << " iterations made = " << this->m_niter
                               << " using tolerance of " << this->m_tol
                               << " error = " << std::sqrt(eps / rhsMagnitude)
                               << " rhs_mag = " << std::sqrt(rhsMagnitude)
@@ -320,7 +320,7 @@ protected:
             }
 
             // Update coefficients.
-            beta  = (totalIterations > 1) ? (rho_new - rho_star) / rho : 0.0;
+            beta  = (this->m_niter > 1) ? (rho_new - rho_star) / rho : 0.0;
             alpha = rho_new / (mu - rho_new * beta / alpha);
             rho   = rho_new;
         }

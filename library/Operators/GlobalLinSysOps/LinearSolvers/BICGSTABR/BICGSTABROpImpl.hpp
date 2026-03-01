@@ -131,7 +131,7 @@ protected:
         // https://github.com/petsc/petsc/blob/main/src/ksp/ksp/impls/bcgs/fbcgsr/fbcgsr.c
 
         // Convergence parameters.
-        unsigned int totalIterations = 0;
+        this->m_niter = 0;
         TData rhsMagnitude, eps;
         TData alpha, beta, sigma, tau;
         TData omega, omega0, omega1;
@@ -183,17 +183,17 @@ protected:
         m_rtilde.template Copy<MemSpace>(m_r);
         while (true)
         {
-            if (totalIterations > this->m_maxIter)
+            if (this->m_niter > this->m_maxIter)
             {
                 std::stringstream msg;
-                msg << "Exceeded max iterations: " << totalIterations;
+                msg << "Exceeded max iterations: " << this->m_niter;
                 WARNINGL0(false, msg.str());
 
                 return;
             }
 
             // Update search vectors.
-            if (totalIterations > 0)
+            if (this->m_niter > 0)
             {
                 daxpy<ExecSpace>(-omega, m_v, m_p, m_p);
                 daxpy<ExecSpace>(beta, m_p, m_r, m_p);
@@ -246,7 +246,7 @@ protected:
                 if (this->m_root)
                 {
                     std::cout << this->name
-                              << " iterations made = " << totalIterations
+                              << " iterations made = " << this->m_niter
                               << " using tolerance of " << this->m_tol
                               << " error = " << std::sqrt(eps / rhsMagnitude)
                               << " rhs_mag = " << std::sqrt(rhsMagnitude)
@@ -298,7 +298,7 @@ protected:
             daxpy<ExecSpace>(omega, tmp2, out, out);
             daxpy<ExecSpace>(-omega, m_z, m_s, m_r);
 
-            ++totalIterations;
+            ++this->m_niter;
 
             // Test if norm is within tolerance.
             if (eps < this->m_tol * this->m_tol * rhsMagnitude)
@@ -306,7 +306,7 @@ protected:
                 if (this->m_root)
                 {
                     std::cout << this->name
-                              << " iterations made = " << totalIterations
+                              << " iterations made = " << this->m_niter
                               << " using tolerance of " << this->m_tol
                               << " error = " << std::sqrt(eps / rhsMagnitude)
                               << " rhs_mag = " << std::sqrt(rhsMagnitude)

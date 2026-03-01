@@ -137,7 +137,8 @@ protected:
         // Computing 40, no. 7 (2014): 224-238.
 
         // Convergence parameters.
-        unsigned int totalIterations = 0, residualReplacementFreq = 50;
+        this->m_niter                        = 0;
+        unsigned int residualReplacementFreq = 50;
         TData rhsMagnitude, eps, scale;
         TData alpha, beta, rho, rho_new, mu;
 
@@ -190,10 +191,10 @@ protected:
         this->m_robBndCondOp->Apply(m_r, m_w);
         while (true)
         {
-            if (totalIterations > this->m_maxIter)
+            if (this->m_niter > this->m_maxIter)
             {
                 std::stringstream msg;
-                msg << "Exceeded max iterations: " << totalIterations;
+                msg << "Exceeded max iterations: " << this->m_niter;
                 WARNINGL0(false, msg.str());
 
                 return;
@@ -203,8 +204,8 @@ protected:
             m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
             // Residual replacement strategy.
-            if (totalIterations > 0 &&
-                totalIterations % residualReplacementFreq == 0)
+            if (this->m_niter > 0 &&
+                this->m_niter % residualReplacementFreq == 0)
             {
                 this->m_lhs->Apply(out, m_r);
                 this->m_robBndCondOp->Apply(out, m_r);
@@ -255,7 +256,7 @@ protected:
             rho_new = exchangeHost[1];
             mu      = exchangeHost[2];
 
-            ++totalIterations;
+            ++this->m_niter;
 
             // Test if norm is within tolerance.
             if (eps < 100 * scale * this->m_tol * this->m_tol * rhsMagnitude)
@@ -263,7 +264,7 @@ protected:
                 if (this->m_root)
                 {
                     std::cout << this->name
-                              << " iterations made = " << totalIterations
+                              << " iterations made = " << this->m_niter
                               << " using tolerance of " << this->m_tol
                               << " error = " << std::sqrt(eps / rhsMagnitude)
                               << " rhs_mag = " << std::sqrt(rhsMagnitude)
@@ -273,12 +274,12 @@ protected:
             }
 
             // Update search coefficients.
-            beta  = (totalIterations > 1) ? rho_new / rho : 0.0;
+            beta  = (this->m_niter > 1) ? rho_new / rho : 0.0;
             alpha = rho_new / (mu - rho_new * beta / alpha);
             rho   = rho_new;
 
             // Update search vectors.
-            if (totalIterations == 1)
+            if (this->m_niter == 1)
             {
                 m_z.template Copy<MemSpace>(m_s);
                 m_q.template Copy<MemSpace>(m_wk);

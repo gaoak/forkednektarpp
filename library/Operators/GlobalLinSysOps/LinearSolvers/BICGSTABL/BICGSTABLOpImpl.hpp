@@ -143,8 +143,9 @@ protected:
 
         // Convergence parameters.
         const TData delta = 0.01, kappa = 0.7;
-        unsigned int totalIterations = 0;
-        unsigned int ldz             = m_stage + 1;
+        this->m_niter = 0;
+
+        unsigned int ldz = m_stage + 1;
         TData rhsMagnitude, eps;
         TData alpha, beta, rho, rho_new;
         TData omega, gamma, zeta0, zeta, kappa0, kappal;
@@ -211,10 +212,10 @@ protected:
         }
         while (true)
         {
-            if (totalIterations > this->m_maxIter)
+            if (this->m_niter > this->m_maxIter)
             {
                 std::stringstream msg;
-                msg << "Exceeded max iterations: " << totalIterations;
+                msg << "Exceeded max iterations: " << this->m_niter;
                 WARNINGL0(false, msg.str());
 
                 return;
@@ -234,7 +235,7 @@ protected:
                 if (rho_new == 0.0)
                 {
                     std::stringstream msg;
-                    msg << "Iteration diverged: " << totalIterations;
+                    msg << "Iteration diverged: " << this->m_niter;
                     WARNINGL0(false, msg.str());
 
                     return;
@@ -267,7 +268,7 @@ protected:
                 if (alpha == 0.0)
                 {
                     std::stringstream msg;
-                    msg << "Iteration diverged: " << totalIterations;
+                    msg << "Iteration diverged: " << this->m_niter;
                     WARNINGL0(false, msg.str());
 
                     return;
@@ -303,7 +304,7 @@ protected:
                 this->m_rowComm->AllReduce(eps, LibUtilities::ReduceSum);
                 zeta = std::sqrt(eps);
 
-                totalIterations++;
+                this->m_niter++;
 
                 // Test if norm is within tolerance.
                 if (eps < this->m_tol * this->m_tol * rhsMagnitude)
@@ -318,7 +319,7 @@ protected:
                     {
                         std::cout
                             << this->name
-                            << " iterations made = " << totalIterations
+                            << " iterations made = " << this->m_niter
                             << " using tolerance of " << this->m_tol
                             << " error = " << std::sqrt(eps / rhsMagnitude)
                             << " rhs_mag = " << std::sqrt(rhsMagnitude)
@@ -502,7 +503,7 @@ protected:
                 if (this->m_root)
                 {
                     std::cout << this->name
-                              << " iterations made = " << totalIterations
+                              << " iterations made = " << this->m_niter
                               << " using tolerance of " << this->m_tol
                               << " error = " << std::sqrt(eps / rhsMagnitude)
                               << " rhs_mag = " << std::sqrt(rhsMagnitude)
