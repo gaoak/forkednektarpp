@@ -762,9 +762,13 @@ static void RunMachTest(const std::string &xml,
             fluxRef[0]        = 0.0;  // mass
             fluxRef[1]        = pbar; // x-momentum
             if (spaceDim > 1)
+            {
                 fluxRef[2] = 0.0;
+            }
             if (spaceDim > 2)
+            {
                 fluxRef[3] = 0.0;
+            }
             fluxRef[nFields - 1] = 0.0; // energy
             return fluxRef;
         };
@@ -794,9 +798,13 @@ static void RunMachTest(const std::string &xml,
             fluxRef[0] = cA * Mp * rhoUp; // mass
             fluxRef[1] = pbar;            // x-momentum
             if (spaceDim > 1)
+            {
                 fluxRef[2] = 0.0;
+            }
             if (spaceDim > 2)
+            {
                 fluxRef[3] = 0.0;
+            }
 
             // EUp + pUp = gamma/(gamma-1) * pUp (since u=0)
             fluxRef[nFields - 1] =
