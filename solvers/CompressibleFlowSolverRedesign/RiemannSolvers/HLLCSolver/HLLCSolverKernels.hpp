@@ -205,7 +205,7 @@ template <typename ExecSpace, unsigned int NDIM> struct HLLCSolverKernel
                 // Compute flux
                 flux[0]            = rhoUp * uUp[0] + SUp * (rhoMUp - rhoUp);
                 flux[1u * blksize] = rhoUp * uUp[0] * uUp[0] + pUp +
-                                     SL * (rhouMUp[0] - rhoUp * uUp[0]);
+                                     SUp * (rhouMUp[0] - rhoUp * uUp[0]);
 #pragma unroll
                 for (unsigned int d = 1; d < NDIM; ++d)
                 {
