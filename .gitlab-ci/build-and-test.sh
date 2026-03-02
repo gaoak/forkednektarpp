@@ -65,16 +65,16 @@ elif [[ $BUILD_TYPE == "full" ]]; then
     elif [[ $BUILD_SIMD == "avx512" ]]; then
         CMAKEARGS+=("-DNEKTAR_ENABLE_SIMD:STRING=AVX512")
     fi
-    if [[ $BUILD_DEVICEONHOST == "on" ]]; then
+    if [[ $BUILD_DEVICE == "DEVICEONHOST" ]]; then
         CMAKEARGS+=("-DNEKTAR_ENABLE_DEVICE:STRING=DEVICEONHOST")
-    elif [[ $BUILD_CUDA == "on" ]]; then
+    elif [[ $BUILD_DEVICE == "CUDA" ]]; then
         # Load CUDA on Linux
         [[ $OS_VERSION != "macos" ]] && module load cuda/13.0.2
 
         # Enable CUDA in CMake configuration
         CMAKEARGS+=("-DNEKTAR_ENABLE_DEVICE:STRING=CUDA")
         CMAKEARGS+=("-DNEKTAR_DEVICE_ARCH=sm_86")
-    elif [[ $BUILD_SYCL == "CPU" ]]; then
+    elif [[ $BUILD_DEVICE == "SYCL-CPU" ]]; then
         if [[ $BUILD_CXX == "acpp" ]]; then
             # Load AdaptiveCpp compiler module for SYCL support on Linux
             [[ $OS_VERSION != "macos" ]] && module load adaptive-cpp
@@ -91,8 +91,10 @@ elif [[ $BUILD_TYPE == "full" ]]; then
 
         # Enable SYCL in CMake configuration
         CMAKEARGS+=("-DNEKTAR_ENABLE_DEVICE:STRING=SYCL-CPU")
-    elif [[ $BUILD_SYCL == "CUDA" ]]; then
+    elif [[ $BUILD_DEVICE == "SYCL-CUDA" ]]; then
         if [[ $BUILD_CXX == "acpp" ]]; then
+            # This hack is necessary to compile oneMath when using Apptainer
+            export PATH=$PATH:/apps/cuda/12.6.2/lib64/stubs/
             # Load LLVM support on Linux
             [[ $OS_VERSION != "macos" ]] && module load adaptive-cpp
         elif [[ $BUILD_CXX == "icpx" ]]; then

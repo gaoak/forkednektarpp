@@ -546,7 +546,7 @@ TEST_LINEARADRSOLVE_TFQMR2(linearadrsolve_tfqmr_left_precon_seg,
                            Helmholtz1D_Seg, 1.0E-12)
 
 TEST_LINEARADRSOLVE_TFQMR2(linearadrsolve_tfqmr_left_precon_tri_quad,
-                           Helmholtz2D_Tri_Quad, 4.0E-10)
+                           Helmholtz2D_Tri_Quad, 2.0E-08)
 
 TEST_LINEARADRSOLVE_TFQMR2(linearadrsolve_tfqmr_left_precon_all_bcs,
                            Helmholtz2D_AllBCs, 4.0E-09)

@@ -16,6 +16,8 @@ workflow:
     - if: $CI_PIPELINE_SOURCE == "web"
 
 stages:
+  - cluster-submit
+  - cluster-post-process
   - build-env-default
   - build-env-full
   - build-and-test
@@ -98,9 +100,7 @@ include:
       -h "${CI_RUNNER_ID}.${CI_JOB_NAME}"
       -e "BUILD_TYPE=$BUILD_TYPE"
       -e "BUILD_SIMD=$BUILD_SIMD"
-      -e "BUILD_CUDA=$BUILD_CUDA"
-      -e "BUILD_DEVICEONHOST=$BUILD_DEVICEONHOST"
-      -e "BUILD_SYCL=$BUILD_SYCL"
+      -e "BUILD_DEVICE=$BUILD_DEVICE"
       -e "BUILD_CC=$BUILD_CC"
       -e "BUILD_CXX=$BUILD_CXX"
       -e "BUILD_FC=$BUILD_FC"
@@ -135,6 +135,98 @@ include:
     paths:
       - log/
   timeout: 3h
+
+.cluster-submit-template: &cluster-submit-template
+  <<: *execution-conditions
+  stage: cluster-submit
+  image: ubuntu
+  before_script:
+    - 'command -v ssh-agent >/dev/null || ( apt-get update -y && apt-get install openssh-client wget gnupg -y )'
+    ## Run ssh-agent
+    - eval $(ssh-agent -s)
+    ## Create the SSH directory and give permissions
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    ## Create a shell script that will echo the environment variable CLUSTER_SSH_PASSPHRASE
+    - echo 'echo $CLUSTER_SSH_PASSPHRASE' > ~/.ssh/tmp && chmod 700 ~/.ssh/tmp
+    - cat "$CLUSTER_SSH_PRIVATE_KEY" | tr -d '\r' | DISPLAY=None SSH_ASKPASS=~/.ssh/tmp ssh-add -
+    - ssh-keyscan "$CLUSTER_HOSTNAME" >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    - export NUM_CPUS=8
+    - scp $CI_PROJECT_DIR/.gitlab-ci/cluster-test.sh $CLUSTER_USERNAME@$CLUSTER_HOSTNAME:~/
+    - ssh $CLUSTER_USERNAME@$CLUSTER_HOSTNAME sbatch "cluster-test.sh \"${CLUSTER_TOKEN}\" \"${CI_PIPELINE_ID}\" \"${CI_MERGE_REQUEST_IID}\" \"${CI_JOB_NAME}\" \"${CI_JOB_ID}\" \"${CI_REGISTRY_USER}\" \"${CI_REGISTRY_PASSWORD}\" \"${CI_REGISTRY}\" \"${CI_REGISTRY_IMAGE}\" \"${CI_RUNNER_ID}\" \"$BUILD_SIMD\" \"$BUILD_DEVICE\" \"$BUILD_CC\" \"$BUILD_CXX\" \"$BUILD_FC\" \"$BUILD_SINGLE_PRECISION\" \"$DISABLE_CWIPI\" \"$DISABLE_MCA\" \"$ENABLE_ALIGN_MEM\" \"$DO_COVERAGE\" \"$NUM_CPUS\" \"$LD_PRELOAD\" \"$PYTHON_EXECUTABLE\" \"$APPTAINER_FLAGS\""
+  tags:
+    - cluster
+  allow_failure: false
+  timeout: 15m
+
+.cluster-post-process-template: &cluster-post-process-template
+  <<: *execution-conditions
+  stage: cluster-post-process
+  image: ubuntu
+  when: manual 
+  before_script:
+    - 'command -v ssh-agent >/dev/null || ( apt-get update -y && apt-get install openssh-client wget gnupg -y )'
+    ## Run ssh-agent
+    - eval $(ssh-agent -s)
+    ## Create the SSH directory and give permissions
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    ## Create a shell script that will echo the environment variable CLUSTER_SSH_PASSPHRASE
+    - echo 'echo $CLUSTER_SSH_PASSPHRASE' > ~/.ssh/tmp && chmod 700 ~/.ssh/tmp
+    - cat "$CLUSTER_SSH_PRIVATE_KEY" | tr -d '\r' | DISPLAY=None SSH_ASKPASS=~/.ssh/tmp ssh-add -
+    - ssh-keyscan "$CLUSTER_HOSTNAME" >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    - export JOBNAME=$(echo $CI_JOB_NAME | rev | cut -d- -f3- | rev)
+    - export LOGFILE=${CI_PIPELINE_ID}/${JOBNAME}/outfile.log
+    - if [ $(ssh $CLUSTER_USERNAME@$CLUSTER_HOSTNAME  "grep \"JOB FAILED\" ${LOGFILE}") != "" ]; 
+      then exit_code=1;
+      elif [ $(ssh $CLUSTER_USERNAME@$CLUSTER_HOSTNAME  "grep \"tests FAILED\" ${LOGFILE}") != "" ]; 
+      then exit_code=1;
+      else exit_code=0;
+      fi
+    - ssh $CLUSTER_USERNAME@$CLUSTER_HOSTNAME " cat ${LOGFILE}"
+    - ssh $CLUSTER_USERNAME@$CLUSTER_HOSTNAME " rm -rf ${CI_PIPELINE_ID}/${JOBNAME}/nektar"
+    - exit $exit_code;
+  tags:
+    - cluster
+  allow_failure: false
+  timeout: 15m
+
+.cluster-compiler-warning-template: &cluster-compiler-warning-template
+  <<: *execution-conditions
+  image: ubuntu
+  stage: quality-checks
+  variables:
+    WARNING_REGEX: '.*warning[: ].*'
+    GIT_STRATEGY: none
+  before_script:
+    - 'command -v ssh-agent >/dev/null || ( apt-get update -y && apt-get install openssh-client wget gnupg -y )'
+    ## Run ssh-agent
+    - eval $(ssh-agent -s)
+    ## Create the SSH directory and give permissions
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    ## Create a shell script that will echo the environment variable CLUSTER_SSH_PASSPHRASE
+    - echo 'echo $CLUSTER_SSH_PASSPHRASE' > ~/.ssh/tmp && chmod 700 ~/.ssh/tmp
+    - cat "$CLUSTER_SSH_PRIVATE_KEY" | tr -d '\r' | DISPLAY=None SSH_ASKPASS=~/.ssh/tmp ssh-add -
+    - ssh-keyscan "$CLUSTER_HOSTNAME" >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    - export JOBNAME=$(echo $CI_JOB_NAME | rev | cut -d- -f2- | rev)
+    - export LOGFILE=${CI_PIPELINE_ID}/${JOBNAME}/outfile.log
+    - if [ $(ssh $CLUSTER_USERNAME@$CLUSTER_HOSTNAME "grep -Ev '(ThirdParty|AdaptiveCpp)' ${LOGFILE} | grep -c \"$WARNING_REGEX\"") -ne 0 ];
+      then
+      ssh $CLUSTER_USERNAME@$CLUSTER_HOSTNAME "grep -Ev '(ThirdParty|AdaptiveCpp)' ${LOGFILE} | grep --colour=always -A 1 -B 1 -0 \"$WARNING_REGEX\"";
+        exit 1;
+      fi
+    - ssh $CLUSTER_USERNAME@$CLUSTER_HOSTNAME " rm -rf ${CI_PIPELINE_ID}/${JOBNAME}"
+  tags:
+    - cluster
+  allow_failure: false
+  timeout: 15m
 
 .compiler-warning-template: &compiler-warning-template
   <<: *execution-conditions
@@ -245,6 +337,7 @@ include:
 
 debian-trixie-default-build-env:
   <<: *build-env-debian-template-default
+  needs: []
 
 debian-trixie-full-build-env:
   <<: *build-env-debian-template-full
@@ -254,6 +347,7 @@ debian-trixie-full-build-env:
 
 debian-bookworm-default-build-env:
   <<: *build-env-debian-template-default
+  needs: []
 
 debian-bookworm-full-build-env:
   <<: *build-env-debian-template-full
@@ -263,6 +357,7 @@ debian-bookworm-full-build-env:
 
 debian-bookworm-performance-build-env:
   <<: *build-env-debian-template-performance
+  needs: []
   tags:
     - perf
 
@@ -277,7 +372,7 @@ debian-trixie-full-build-and-test:
   needs: ["debian-trixie-full-build-env"]
   variables:
     DISABLE_CWIPI: true
-    BUILD_DEVICEONHOST: "on"
+    BUILD_DEVICE: DEVICEONHOST
     GIT_SUBMODULE_STRATEGY: recursive
 
 debian-trixie-full-avx2-build-and-test:
@@ -305,7 +400,7 @@ debian-trixie-full-clang19-build-and-test:
     BUILD_CC: clang-19
     BUILD_CXX: clang++-19
     DISABLE_CWIPI: true
-    BUILD_DEVICEONHOST: "on"
+    BUILD_DEVICE: DEVICEONHOST
 
 debian-trixie-full-acpp-build-and-test:
   <<: *build-and-test-template
@@ -314,18 +409,7 @@ debian-trixie-full-acpp-build-and-test:
     DOCKER_FLAGS: "-v /apps:/apps"
     DISABLE_CWIPI: true
     BUILD_CXX: acpp
-    BUILD_SYCL: "CPU"
-
-debian-trixie-full-acpp-cuda-build-and-test:
-  <<: *build-and-test-template
-  needs: ["debian-trixie-full-build-env"]
-  variables:
-    DOCKER_FLAGS: "--runtime nvidia --gpus=all -v /apps:/apps"
-    DISABLE_CWIPI: true
-    BUILD_CXX: acpp
-    BUILD_SYCL: "CUDA"
-  tags:
-    - gpu
+    BUILD_DEVICE: SYCL-CPU
 
 debian-bookworm-default-build-and-test:
   <<: *build-and-test-template
@@ -344,7 +428,7 @@ debian-bookworm-full-build-and-test:
   <<: *build-and-test-template
   needs: ["debian-bookworm-full-build-env"]
   variables:
-    BUILD_DEVICEONHOST: "on"
+    BUILD_DEVICE: DEVICEONHOST
 
 debian-bookworm-full-avx2-build-and-test:
   <<: *build-and-test-template
@@ -395,10 +479,6 @@ debian-trixie-full-clang19-warnings:
 debian-trixie-full-acpp-warnings:
   <<: *compiler-warning-template
   needs: ["debian-trixie-full-acpp-build-and-test"]
-
-debian-trixie-full-acpp-cuda-warnings:
-  <<: *compiler-warning-template
-  needs: ["debian-trixie-full-acpp-cuda-build-and-test"]
 
 debian-bookworm-default-warnings:
   <<: *compiler-warning-template
@@ -512,6 +592,7 @@ tutorials-build:
 
 ubuntu-noble-default-build-env:
   <<: *build-env-ubuntu-template-default
+  needs: []
   variables:
    BUILD_SINGLE_PRECISION: "on"
 
@@ -523,6 +604,7 @@ ubuntu-noble-full-build-env:
 
 ubuntu-jammy-default-build-env:
   <<: *build-env-ubuntu-template-default
+  needs: []
 
 ubuntu-jammy-full-build-env:
   <<: *build-env-ubuntu-template-full
@@ -530,6 +612,7 @@ ubuntu-jammy-full-build-env:
 
 ubuntu-focal-default-build-env:
   <<: *build-env-ubuntu-template-default
+  needs: []
 
 ubuntu-focal-full-build-env:
   <<: *build-env-ubuntu-template-full
@@ -543,7 +626,7 @@ ubuntu-jammy-full-build-and-test:
   <<: *build-and-test-template
   needs: ["ubuntu-jammy-full-build-env"]
   variables:
-    BUILD_DEVICEONHOST: "on"
+    BUILD_DEVICE: DEVICEONHOST
 
 ubuntu-focal-default-build-and-test:
   <<: *build-and-test-template
@@ -587,15 +670,6 @@ ubuntu-noble-full-clang18-avx512-build-and-test:
     BUILD_SIMD: avx512
   tags:
     - avx512
-
-ubuntu-noble-full-cuda-build-and-test:
-  <<: *build-and-test-template
-  needs: ["ubuntu-noble-full-build-env"]
-  variables:
-    DOCKER_FLAGS: "--runtime nvidia --gpus=all -v /apps:/apps"
-    BUILD_CUDA: "on"
-  tags:
-    - gpu
 
 ubuntu-jammy-full-avx512-coverage:
   <<: *build-and-test-template
@@ -649,10 +723,6 @@ ubuntu-noble-full-clang18-avx512-warnings:
   <<: *compiler-warning-template
   needs: ["ubuntu-noble-full-clang18-avx512-build-and-test"]
 
-ubuntu-noble-full-cuda-warnings:
-  <<: *compiler-warning-template
-  needs: ["ubuntu-noble-full-cuda-build-and-test"]
-
 
 ## UNCOMPILED FILES
 ubuntu-noble-uncompiled-files:
@@ -674,6 +744,7 @@ ubuntu-noble-uncompiled-files:
 
 fedora-40-default-build-env:
   <<: *build-env-fedora-template-default
+  needs: []
 
 fedora-40-full-build-env:
   <<: *build-env-fedora-template-full
@@ -751,7 +822,7 @@ macos-full-arm-build-and-test:
     - macos-arm
   variables:
     BUILD_TYPE: "full"
-    BUILD_DEVICEONHOST: "on"
+    BUILD_DEVICE: DEVICEONHOST
     PYTHON_EXECUTABLE: /opt/local/bin/python
   needs: []
 
@@ -857,6 +928,50 @@ win10-mpi-default-build-and-test:
   needs: []
   artifacts:
   timeout: 4h
+
+##################################################
+############## CLUSTER SUBMISSION ################
+##################################################
+
+ubuntu-noble-full-cuda-cluster-submit:
+  <<: *cluster-submit-template
+  needs: []
+  variables:
+    BUILD_DEVICE: CUDA
+    APPTAINER_FLAGS: "--nv --mount type=bind,src=/apps,dst=/apps"
+
+ubuntu-noble-full-acpp-cuda-cluster-submit:
+  <<: *cluster-submit-template
+  needs: []
+  variables:
+    DISABLE_CWIPI: true
+    BUILD_CXX: acpp
+    BUILD_DEVICE: SYCL-CUDA
+    APPTAINER_FLAGS: "--nv --mount type=bind,src=/apps,dst=/apps"
+
+##################################################
+############# CLUSTER POST-PROCESS ###############
+##################################################
+    
+ubuntu-noble-full-cuda-cluster-post-process:
+  <<: *cluster-post-process-template
+  needs: ["ubuntu-noble-full-cuda-cluster-submit"]
+    
+ubuntu-noble-full-acpp-cuda-cluster-post-process:
+  <<: *cluster-post-process-template
+  needs: ["ubuntu-noble-full-acpp-cuda-cluster-submit"]
+
+##################################################
+############## CLUSTER WARNING ###################
+##################################################
+    
+ubuntu-noble-full-cuda-cluster-warnings:
+  <<: *cluster-compiler-warning-template
+  needs: ["ubuntu-noble-full-cuda-cluster-post-process"]
+    
+ubuntu-noble-full-acpp-cuda-cluster-warnings:
+  <<: *cluster-compiler-warning-template
+  needs: ["ubuntu-noble-full-acpp-cuda-cluster-post-process"]
 
 ##################################################
 #################  DOCKERHUB  ####################

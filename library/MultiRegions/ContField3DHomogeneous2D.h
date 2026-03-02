@@ -68,6 +68,7 @@ protected:
 
     void v_ImposeDirichletConditions(Array<OneD, NekDouble> &outarray) override;
 
+    using DisContField3DHomogeneous2D::v_AvgAssemble;
     void v_AvgAssemble(bool useComm) override;
 
     /// Template method virtual forwarded for LocalToGlobal()
