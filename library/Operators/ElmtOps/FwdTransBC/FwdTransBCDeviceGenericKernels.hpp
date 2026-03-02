@@ -657,26 +657,6 @@ NEK_DEVICE_KERNEL void FwdTransBC1DKernelLauncher(
                                  threadBlock);
 }
 
-template <typename ExecSpace, bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static void FwdTransBC1DKernel(
-    const unsigned int nm0, const unsigned int nq0, const size_t nelmt,
-    const TData *basis0, const TData *w0, const unsigned int offset_seg,
-    const TData *invintmass, const TData *jac, const TData *in, TData *out,
-    TData *wsp1, TData *wsp2)
-{
-    const unsigned int shmemsize =
-        sizeof(TData) * FwdTransBCSharedMemorySize(nm0, nq0);
-    const unsigned int blocksize = GetDeviceBlockSize<SumFacTOP>(nq0);
-    const unsigned int gridsize  = GetDeviceGridSize<SumFacTOP>(nelmt);
-
-    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
-
-    DEVICE_1DGRID_KERNEL_LAUNCHER((FwdTransBC1DKernelLauncher<DEFORMED>),
-                                  gridsize, blocksize, shmemsize, 0, nm0, nq0,
-                                  nelmt, basis0, w0, offset_seg, invintmass,
-                                  jac, in, out, wsp1, wsp2);
-}
-
 // Kernel Launchers.
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
@@ -704,39 +684,6 @@ NEK_DEVICE_KERNEL void FwdTransBC2DKernelLauncher(
         w0, w1, interp1to0, offsetSeg, invintmass0, invintmass1, tJac, tMap,
         tSign, nmTotInt, iMap, invintmass, dmat, jac, in, out, wsp1, wsp2, wsp3,
         wsp4, shmemptr, threadBlock);
-}
-
-template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace, bool DEFORMED,
-          typename TData>
-NEK_FORCE_INLINE static void FwdTransBC2DKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
-    const unsigned int nq1, const size_t nelmt, const bool isModified,
-    const unsigned int *index0, const TData *basis0, const TData *basis1,
-    const TData *w0, const TData *w1, const TData *interp1to0,
-    const unsigned int offsetSeg, const TData *invintmass0,
-    const TData *invintmass1, const TData *tJac, const unsigned int *tMap,
-    const int *tSign, const unsigned int nmTotInt, const unsigned int *iMap,
-    const TData *invintmass, const TData *dmat, const TData *jac,
-    const TData *in, TData *out, TData *wsp1, TData *wsp2, TData *wsp3,
-    TData *wsp4)
-{
-    const unsigned int nmTot =
-        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
-    const unsigned int nqTot = nq0 * nq1;
-
-    const unsigned int shmemsize =
-        sizeof(TData) * FwdTransBCSharedMemorySize(nm0, nm1, nq0, nq1);
-    const unsigned int blocksize = GetDeviceBlockSize<SumFacTOP>(nqTot);
-    const unsigned int gridsize  = GetDeviceGridSize<SumFacTOP>(nelmt);
-
-    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
-
-    DEVICE_1DGRID_KERNEL_LAUNCHER(
-        (FwdTransBC2DKernelLauncher<SHAPE_TYPE, DEFORMED>), gridsize, blocksize,
-        shmemsize, 0, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0,
-        basis0, basis1, w0, w1, interp1to0, offsetSeg, invintmass0, invintmass1,
-        tJac, tMap, tSign, nmTotInt, iMap, invintmass, dmat, jac, in, out, wsp1,
-        wsp2, wsp3, wsp4);
 }
 
 } // namespace Nektar::Operators::detail

@@ -478,6 +478,13 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int blocksize = GetDeviceBlockSize<SumFacTOP>(nq0);
+        const unsigned int gridsize  = GetDeviceGridSize<SumFacTOP>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) * FwdTransBCSharedMemorySize(nm0, nq0);
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
         // Loop over components.
         for (unsigned int nc = 0;
              nc < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++nc)
@@ -496,8 +503,9 @@ protected:
             else
             {
                 // Launch FwdTransBC kernel
-                FwdTransBC1DKernel<ExecSpace, DEFORMED>(
-                    nm0, nq0, nelmt, m_B[0], m_W[0], m_offset_seg,
+                DEVICE_1DGRID_KERNEL_LAUNCHER(
+                    (FwdTransBC1DKernelLauncher<DEFORMED>), gridsize, blocksize,
+                    shmemsize, 0, nm0, nq0, nelmt, m_B[0], m_W[0], m_offset_seg,
                     m_massint_seg[0], m_jacptr, inptr, outptr, wspptr1,
                     wspptr2);
             }
@@ -573,6 +581,15 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+        const unsigned int blocksize = GetDeviceBlockSize<SumFacTOP>(nqTot);
+        const unsigned int gridsize  = GetDeviceGridSize<SumFacTOP>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) * FwdTransBCSharedMemorySize(nm0, nm1, nq0, nq1);
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
         // Loop over components.
         for (unsigned int nc = 0;
              nc < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++nc)
@@ -590,9 +607,11 @@ protected:
             }
             else
             {
-                FwdTransBC2DKernel<SHAPE_TYPE, ExecSpace, DEFORMED>(
-                    nm0, nm1, nq0, nq1, nelmt, m_isModified, m_index[0], m_B[0],
-                    m_B[1], m_W[0], m_W[1], m_interp1to0, m_offset_seg,
+                DEVICE_1DGRID_KERNEL_LAUNCHER(
+                    (FwdTransBC2DKernelLauncher<SHAPE_TYPE, DEFORMED>),
+                    gridsize, blocksize, shmemsize, 0, nm0, nm1, nmTot, nq0,
+                    nq1, nelmt, m_isModified, m_index[0], m_B[0], m_B[1],
+                    m_W[0], m_W[1], m_interp1to0, m_offset_seg,
                     m_massint_seg[0], m_massint_seg[1], m_jacTraceptr,
                     m_traceElmtMapptr, m_traceElmtSignptr, m_nmTotInt,
                     m_interiorMapptr, m_massint, dmatptr, m_jacptr, inptr,

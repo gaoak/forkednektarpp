@@ -37,4 +37,8 @@ ELSE()
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --acpp-targets=${ACPP_TARGETS} -O3 -Wno-nan-infinity-disabled -Wno-pass-failed ")
 ENDIF()
 
+IF (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcmodel=medium")
+ENDIF()
+
 INCLUDE(NektarOneMath)

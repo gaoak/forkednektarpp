@@ -43,6 +43,7 @@
 #include <iostream>
 #include <limits.h>
 #include <string>
+#include <utility>
 
 #if defined(_MSC_VER)
 #undef max
@@ -1298,14 +1299,21 @@ NEK_DEVICE_INLINE int localBarrier_count(
 #define DEVICE_1DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
                                       STREAM, ...)                             \
     sycl::queue &Q = SYCLQueue::GetInstance();                                 \
+    auto args      = std::make_tuple(__VA_ARGS__);                             \
     Q.submit([=](sycl::handler &cgh) {                                         \
         sycl::local_accessor<unsigned char, 1> shmem(                          \
             sycl::range<1>(SHMEMSIZE), cgh);                                   \
-        cgh.parallel_for(sycl::nd_range<1>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),   \
-                         [=](sycl::nd_item<1> item_ct1) {                      \
-                             auto shmemptr = &shmem[0];                        \
-                             KERNEL(__VA_ARGS__, shmemptr, item_ct1);          \
-                         });                                                   \
+        cgh.parallel_for(                                                      \
+            sycl::nd_range<1>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),                \
+            [=](sycl::nd_item<1> item_ct1) {                                   \
+                auto shmemptr = &shmem[0];                                     \
+                std::apply(                                                    \
+                    [&](auto &&...args) {                                      \
+                        KERNEL(std::forward<decltype(args)>(args)...,          \
+                               shmemptr, item_ct1);                            \
+                    },                                                         \
+                    args);                                                     \
+            });                                                                \
     });
 
 // Kernel launcher on a two-dimensional GPU grid with shared memory provision.
@@ -1317,14 +1325,21 @@ NEK_DEVICE_INLINE int localBarrier_count(
 #define DEVICE_2DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
                                       STREAM, ...)                             \
     sycl::queue &Q = SYCLQueue::GetInstance();                                 \
+    auto args      = std::make_tuple(__VA_ARGS__);                             \
     Q.submit([=](sycl::handler &cgh) {                                         \
         sycl::local_accessor<unsigned char, 1> shmem(                          \
             sycl::range<1>(SHMEMSIZE), cgh);                                   \
-        cgh.parallel_for(sycl::nd_range<2>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),   \
-                         [=](sycl::nd_item<2> item_ct1) {                      \
-                             auto shmemptr = &shmem[0];                        \
-                             KERNEL(__VA_ARGS__, shmemptr, item_ct1);          \
-                         });                                                   \
+        cgh.parallel_for(                                                      \
+            sycl::nd_range<2>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),                \
+            [=](sycl::nd_item<2> item_ct1) {                                   \
+                auto shmemptr = &shmem[0];                                     \
+                std::apply(                                                    \
+                    [&](auto &&...args) {                                      \
+                        KERNEL(std::forward<decltype(args)>(args)...,          \
+                               shmemptr, item_ct1);                            \
+                    },                                                         \
+                    args);                                                     \
+            });                                                                \
     });
 
 // Kernel launcher on a three-dimensional GPU grid with shared memory provision.
@@ -1336,14 +1351,21 @@ NEK_DEVICE_INLINE int localBarrier_count(
 #define DEVICE_3DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
                                       STREAM, ...)                             \
     sycl::queue &Q = SYCLQueue::GetInstance();                                 \
+    auto args      = std::make_tuple(__VA_ARGS__);                             \
     Q.submit([=](sycl::handler &cgh) {                                         \
         sycl::local_accessor<unsigned char, 1> shmem(                          \
             sycl::range<1>(SHMEMSIZE), cgh);                                   \
-        cgh.parallel_for(sycl::nd_range<3>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),   \
-                         [=](sycl::nd_item<3> item_ct1) {                      \
-                             auto shmemptr = &shmem[0];                        \
-                             KERNEL(__VA_ARGS__, shmemptr, item_ct1);          \
-                         });                                                   \
+        cgh.parallel_for(                                                      \
+            sycl::nd_range<3>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),                \
+            [=](sycl::nd_item<3> item_ct1) {                                   \
+                auto shmemptr = &shmem[0];                                     \
+                std::apply(                                                    \
+                    [&](auto &&...args) {                                      \
+                        KERNEL(std::forward<decltype(args)>(args)...,          \
+                               shmemptr, item_ct1);                            \
+                    },                                                         \
+                    args);                                                     \
+            });                                                                \
     });
 
 // Kernel launcher on a one-dimensional GPU grid without shared memory
@@ -1352,11 +1374,18 @@ NEK_DEVICE_INLINE int localBarrier_count(
 #define DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
                                               STREAM, ...)                     \
     sycl::queue &Q = SYCLQueue::GetInstance();                                 \
+    auto args      = std::make_tuple(__VA_ARGS__);                             \
     Q.submit([=](sycl::handler &cgh) {                                         \
-        cgh.parallel_for(sycl::nd_range<1>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),   \
-                         [=](sycl::nd_item<1> item_ct1) {                      \
-                             KERNEL(__VA_ARGS__, item_ct1);                    \
-                         });                                                   \
+        cgh.parallel_for(                                                      \
+            sycl::nd_range<1>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),                \
+            [=](sycl::nd_item<1> item_ct1) {                                   \
+                std::apply(                                                    \
+                    [&](auto &&...args) {                                      \
+                        KERNEL(std::forward<decltype(args)>(args)...,          \
+                               item_ct1);                                      \
+                    },                                                         \
+                    args);                                                     \
+            });                                                                \
     });
 
 // Kernel launcher on a two-dimensional GPU grid without shared memory
@@ -1365,11 +1394,18 @@ NEK_DEVICE_INLINE int localBarrier_count(
 #define DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
                                               STREAM, ...)                     \
     sycl::queue &Q = SYCLQueue::GetInstance();                                 \
+    auto args      = std::make_tuple(__VA_ARGS__);                             \
     Q.submit([=](sycl::handler &cgh) {                                         \
-        cgh.parallel_for(sycl::nd_range<2>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),   \
-                         [=](sycl::nd_item<2> item_ct1) {                      \
-                             KERNEL(__VA_ARGS__, item_ct1);                    \
-                         });                                                   \
+        cgh.parallel_for(                                                      \
+            sycl::nd_range<2>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),                \
+            [=](sycl::nd_item<2> item_ct1) {                                   \
+                std::apply(                                                    \
+                    [&](auto &&...args) {                                      \
+                        KERNEL(std::forward<decltype(args)>(args)...,          \
+                               item_ct1);                                      \
+                    },                                                         \
+                    args);                                                     \
+            });                                                                \
     });
 
 // Kernel launcher on a three-dimensional GPU grid without shared memory
@@ -1378,11 +1414,18 @@ NEK_DEVICE_INLINE int localBarrier_count(
 #define DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
                                               STREAM, ...)                     \
     sycl::queue &Q = SYCLQueue::GetInstance();                                 \
+    auto args      = std::make_tuple(__VA_ARGS__);                             \
     Q.submit([=](sycl::handler &cgh) {                                         \
-        cgh.parallel_for(sycl::nd_range<3>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),   \
-                         [=](sycl::nd_item<3> item_ct1) {                      \
-                             KERNEL(__VA_ARGS__, item_ct1);                    \
-                         });                                                   \
+        cgh.parallel_for(                                                      \
+            sycl::nd_range<3>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),                \
+            [=](sycl::nd_item<3> item_ct1) {                                   \
+                std::apply(                                                    \
+                    [&](auto &&...args) {                                      \
+                        KERNEL(std::forward<decltype(args)>(args)...,          \
+                               item_ct1);                                      \
+                    },                                                         \
+                    args);                                                     \
+            });                                                                \
     });
 
 NEK_DEVICE_INLINE static unsigned int getLocalIdx(
