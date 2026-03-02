@@ -60,15 +60,6 @@ IF(NEKTAR_BUILD_REDESIGN)
                     SET(SOURCE_EXT cpp)
                 ENDIF()
 
-                # Set execution space.
-                IF("${ExecSpace}" STREQUAL "Serial")
-                    SET(EXEC_MEM_SPACE_TAG NektarSpaces::Serial)
-                ELSEIF("${ExecSpace}" STREQUAL "AVX")
-                    SET(EXEC_MEM_SPACE_TAG NektarSpaces::AVX)
-                ELSEIF("${ExecSpace}" STREQUAL "Device")
-                    SET(EXEC_MEM_SPACE_TAG NektarSpaces::Device)
-                ENDIF()
-
                 # Loop through each possible data type.
                 FOREACH (TData IN LISTS DataTypes)
                     # Set up the name used for the .cpp declaration file.
@@ -135,39 +126,7 @@ IF(NEKTAR_BUILD_REDESIGN)
         MESSAGE("Child : " "${child}")
             ADD_OPERATOR(${child})
         ENDFOREACH()
-        MESSAGE("Sources 0 : " "${OPERATORS_SOURCES}")
-
-        # add operators manually 
-
-        #Serial double cases
-        SET(TData double)
-
-        SET(EXEC_MEM_SPACE_TAG NektarSpaces::Serial)
-        SET(ExecSpace Serial)
-        SET(SOURCE_EXT cpp)
-
-        #AVX double cases
-        IF (AVX IN_LIST ExecSpaces)
-            SET(EXEC_MEM_SPACE_TAG NektarSpaces::AVX)
-            SET(ExecSpace AVX)
-            SET(SOURCE_EXT cpp)
-        ENDIF()
-
-        #Device double cases
-        IF (Device IN_LIST ExecSpaces)
-            SET(EXEC_MEM_SPACE_TAG NektarSpaces::Device)
-            SET(ExecSpace Device)
-            IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-                    SET(SOURCE_EXT cu)
-            ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
-                    SET(SOURCE_EXT hip)
-            ELSE()
-                SET(SOURCE_EXT cpp)
-            ENDIF()
-
-        ENDIF()
-
-        MESSAGE("Sources 1 : " "${OPERATORS_SOURCES}")
+        MESSAGE("Sources : " "${OPERATORS_SOURCES}")
 
         LINK_LIBRARIES(Operators)
 
