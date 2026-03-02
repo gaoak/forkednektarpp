@@ -462,6 +462,13 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
+        const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) * HelmholtzSharedMemorySize<Implementation>(nq0, nm0);
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
         // Loop over components.
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
@@ -472,10 +479,11 @@ protected:
                                       (TData *)inptr);
 
             // LinAdvDiffReaction kernel.
-            LinAdvDiffReaction1DKernel<ExecSpace, Implementation, DEFORMED>(
-                m_coordDim, nm0, nq0, nelmt, m_B[0], m_D[0], m_W[0], m_dfptr,
-                m_jacptr, diffCoeffPtr, advVelptr, inptr, outptr, wspptr,
-                this->m_lambda);
+            DEVICE_1DGRID_KERNEL_LAUNCHER(
+                (LinAdvDiffReaction1DKernelLauncher<Implementation, DEFORMED>),
+                gridsize, blocksize, shmemsize, 0, m_coordDim, nm0, nq0, nelmt,
+                m_B[0], m_D[0], m_W[0], m_dfptr, m_jacptr, diffCoeffPtr,
+                advVelptr, inptr, outptr, wspptr, this->m_lambda);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -529,6 +537,13 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
+        const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) * HelmholtzSharedMemorySize<Implementation>(nq0, nm0);
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
         // Loop over components.
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
@@ -539,10 +554,12 @@ protected:
                                       (TData *)inptr);
 
             // LinAdvDiffReaction kernel.
-            LinAdvDiffReaction1DKernel<ExecSpace, Implementation, DEFORMED, nm0,
-                                       nq0>(
-                m_coordDim, nelmt, m_B[0], m_D[0], m_W[0], m_dfptr, m_jacptr,
-                diffCoeffPtr, advVelptr, inptr, outptr, wspptr, this->m_lambda);
+            DEVICE_1DGRID_KERNEL_LAUNCHER(
+                (LinAdvDiffReaction1DKernelLauncher<Implementation, DEFORMED,
+                                                    nm0, nq0>),
+                gridsize, blocksize, shmemsize, 0, m_coordDim, nelmt, m_B[0],
+                m_D[0], m_W[0], m_dfptr, m_jacptr, diffCoeffPtr, advVelptr,
+                inptr, outptr, wspptr, this->m_lambda);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -605,6 +622,18 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(nmTot);
+        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            HelmholtzSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nm0,
+                                                                  nm1);
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
         // Loop over components.
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
@@ -615,11 +644,13 @@ protected:
                                       (TData *)inptr);
 
             // LinAdvDiffReaction kernel.
-            LinAdvDiffReaction2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                       DEFORMED>(
-                m_coordDim, nm0, nm1, nq0, nq1, nelmt, m_isModified, m_index[0],
-                m_B[0], m_B[1], m_D[0], m_D[1], m_W[0], m_W[1], m_f[0], m_f[1],
-                m_nodToMod, m_dfptr, m_jacptr, diffCoeffPtr, advVelptr,
+            DEVICE_1DGRID_KERNEL_LAUNCHER(
+                (LinAdvDiffReaction2DKernelLauncher<SHAPE_TYPE, Implementation,
+                                                    DEFORMED>),
+                gridsize, blocksize, shmemsize, 0, m_coordDim, nm0, nm1, nmTot,
+                nq0, nq1, nelmt, m_isModified, m_index[0], m_B[0], m_B[1],
+                m_D[0], m_D[1], m_W[0], m_W[1], m_f[0], m_f[1], m_nodToMod,
+                m_dfptr, m_jacptr, diffCoeffPtr, advVelptr,
                 advVelptr + advVelSize, inptr, outptr, wspptr, this->m_lambda);
 
             // Reshape back, if necessary.
@@ -679,6 +710,18 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        constexpr unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(nmTot);
+        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            HelmholtzSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nm0,
+                                                                  nm1);
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
         // Loop over components.
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
@@ -689,12 +732,15 @@ protected:
                                       (TData *)inptr);
 
             // LinAdvDiffReaction kernel.
-            LinAdvDiffReaction2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                       DEFORMED, nm0, nm1, nq0, nq1>(
-                m_coordDim, nelmt, m_isModified, m_index[0], m_B[0], m_B[1],
-                m_D[0], m_D[1], m_W[0], m_W[1], m_f[0], m_f[1], m_nodToMod,
-                m_dfptr, m_jacptr, diffCoeffPtr, advVelptr,
-                advVelptr + advVelSize, inptr, outptr, wspptr, this->m_lambda);
+            DEVICE_1DGRID_KERNEL_LAUNCHER(
+                (LinAdvDiffReaction2DKernelLauncher<SHAPE_TYPE, Implementation,
+                                                    DEFORMED, nm0, nm1, nmTot,
+                                                    nq0, nq1>),
+                gridsize, blocksize, shmemsize, 0, m_coordDim, nelmt,
+                m_isModified, m_index[0], m_B[0], m_B[1], m_D[0], m_D[1],
+                m_W[0], m_W[1], m_f[0], m_f[1], m_nodToMod, m_dfptr, m_jacptr,
+                diffCoeffPtr, advVelptr, advVelptr + advVelSize, inptr, outptr,
+                wspptr, this->m_lambda);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -759,6 +805,18 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(nmTot);
+        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            HelmholtzSharedMemorySize<SHAPE_TYPE, Implementation>(
+                nq0, nq1, nq2, nm0, nm1, nm2);
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
         // Loop over components.
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
@@ -768,14 +826,16 @@ protected:
                                       (TData *)inptr);
 
             // LinAdvDiffReaction kernel.
-            LinAdvDiffReaction3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                       DEFORMED>(
-                nm0, nm1, nm2, nq0, nq1, nq2, nelmt, m_isModified, m_index[0],
-                m_index[1], m_index[2], m_index[3], m_B[0], m_B[1], m_B[2],
-                m_D[0], m_D[1], m_D[2], m_W[0], m_W[1], m_W[2], m_f[0], m_f[1],
-                m_f[2], m_f[3], m_nodToMod, m_dfptr, m_jacptr, diffCoeffPtr,
-                advVelptr, advVelptr + advVelSize, advVelptr + 2 * advVelSize,
-                inptr, outptr, wspptr, this->m_lambda);
+            DEVICE_1DGRID_KERNEL_LAUNCHER(
+                (LinAdvDiffReaction3DKernelLauncher<SHAPE_TYPE, Implementation,
+                                                    DEFORMED>),
+                gridsize, blocksize, shmemsize, 0, nm0, nm1, nm2, nmTot, nq0,
+                nq1, nq2, nelmt, m_isModified, m_index[0], m_index[1],
+                m_index[2], m_index[3], m_B[0], m_B[1], m_B[2], m_D[0], m_D[1],
+                m_D[2], m_W[0], m_W[1], m_W[2], m_f[0], m_f[1], m_f[2], m_f[3],
+                m_nodToMod, m_dfptr, m_jacptr, diffCoeffPtr, advVelptr,
+                advVelptr + advVelSize, advVelptr + 2 * advVelSize, inptr,
+                outptr, wspptr, this->m_lambda);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -833,6 +893,18 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        constexpr unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(nmTot);
+        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            HelmholtzSharedMemorySize<SHAPE_TYPE, Implementation>(
+                nq0, nq1, nq2, nm0, nm1, nm2);
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
         // Loop over components.
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
@@ -842,14 +914,17 @@ protected:
                                       (TData *)inptr);
 
             // LinAdvDiffReaction kernel.
-            LinAdvDiffReaction3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                       DEFORMED, nm0, nm1, nm2, nq0, nq1, nq2>(
-                nelmt, m_isModified, m_index[0], m_index[1], m_index[2],
-                m_index[3], m_B[0], m_B[1], m_B[2], m_D[0], m_D[1], m_D[2],
-                m_W[0], m_W[1], m_W[2], m_f[0], m_f[1], m_f[2], m_f[3],
-                m_nodToMod, m_dfptr, m_jacptr, diffCoeffPtr, advVelptr,
-                advVelptr + advVelSize, advVelptr + 2 * advVelSize, inptr,
-                outptr, wspptr, this->m_lambda);
+            DEVICE_1DGRID_KERNEL_LAUNCHER(
+                (LinAdvDiffReaction3DKernelLauncher<SHAPE_TYPE, Implementation,
+                                                    DEFORMED, nm0, nm1, nm2,
+                                                    nmTot, nq0, nq1, nq2>),
+                gridsize, blocksize, shmemsize, 0, nelmt, m_isModified,
+                m_index[0], m_index[1], m_index[2], m_index[3], m_B[0], m_B[1],
+                m_B[2], m_D[0], m_D[1], m_D[2], m_W[0], m_W[1], m_W[2], m_f[0],
+                m_f[1], m_f[2], m_f[3], m_nodToMod, m_dfptr, m_jacptr,
+                diffCoeffPtr, advVelptr, advVelptr + advVelSize,
+                advVelptr + 2 * advVelSize, inptr, outptr, wspptr,
+                this->m_lambda);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,

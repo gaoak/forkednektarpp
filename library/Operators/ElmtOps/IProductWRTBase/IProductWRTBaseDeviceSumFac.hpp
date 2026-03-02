@@ -379,6 +379,14 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
+        const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTBaseSharedMemorySize<Implementation>(nq0, nm0);
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
         // Loop over components.
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
@@ -393,18 +401,21 @@ protected:
             {
                 constexpr bool Scale = false;
 
-                IProductWRTBase1DKernel<ExecSpace, Implementation, Scale,
-                                        Append, DEFORMED>(
-                    nm0, nq0, nelmt, m_B[0], m_W[0], m_jacptr, inptr, outptr);
+                DEVICE_1DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTBase1DKernelLauncher<Implementation, Scale,
+                                                     Append, DEFORMED>),
+                    gridsize, blocksize, shmemsize, 0, nm0, nq0, nelmt, m_B[0],
+                    m_W[0], m_jacptr, inptr, outptr, 1.0);
             }
             else
             {
                 constexpr bool Scale = true;
 
-                IProductWRTBase1DKernel<ExecSpace, Implementation, Scale,
-                                        Append, DEFORMED>(
-                    nm0, nq0, nelmt, m_B[0], m_W[0], m_jacptr, inptr, outptr,
-                    this->m_scale);
+                DEVICE_1DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTBase1DKernelLauncher<Implementation, Scale,
+                                                     Append, DEFORMED>),
+                    gridsize, blocksize, shmemsize, 0, nm0, nq0, nelmt, m_B[0],
+                    m_W[0], m_jacptr, inptr, outptr, this->m_scale);
             }
 
             // Reshape back, if necessary.
@@ -440,6 +451,14 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
+        const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTBaseSharedMemorySize<Implementation>(nq0, nm0);
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
         // Loop over components.
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
@@ -454,18 +473,21 @@ protected:
             {
                 constexpr bool Scale = false;
 
-                IProductWRTBase1DKernel<ExecSpace, Implementation, Scale,
-                                        Append, DEFORMED, nm0, nq0>(
-                    nelmt, m_B[0], m_W[0], m_jacptr, inptr, outptr);
+                DEVICE_1DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTBase1DKernelLauncher<
+                        Implementation, Scale, Append, DEFORMED, nm0, nq0>),
+                    gridsize, blocksize, shmemsize, 0, nelmt, m_B[0], m_W[0],
+                    m_jacptr, inptr, outptr, 1.0);
             }
             else
             {
                 constexpr bool Scale = true;
 
-                IProductWRTBase1DKernel<ExecSpace, Implementation, Scale,
-                                        Append, DEFORMED, nm0, nq0>(
-                    nelmt, m_B[0], m_W[0], m_jacptr, inptr, outptr,
-                    this->m_scale);
+                DEVICE_1DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTBase1DKernelLauncher<
+                        Implementation, Scale, Append, DEFORMED, nm0, nq0>),
+                    gridsize, blocksize, shmemsize, 0, nelmt, m_B[0], m_W[0],
+                    m_jacptr, inptr, outptr, this->m_scale);
             }
 
             // Reshape back, if necessary.
@@ -522,6 +544,18 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(nmTot);
+        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
+                nq0, nq1, nm0, nm1);
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
         // Loop over components.
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
@@ -536,21 +570,25 @@ protected:
             {
                 constexpr bool Scale = false;
 
-                IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                        Scale, Append, DEFORMED>(
-                    nm0, nm1, nq0, nq1, nelmt, m_isModified, m_index[0], m_B[0],
-                    m_B[1], m_W[0], m_W[1], m_nodToMod, m_jacptr, inptr, outptr,
-                    wspptr);
+                DEVICE_1DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTBase2DKernelLauncher<SHAPE_TYPE, Implementation,
+                                                     Scale, Append, DEFORMED>),
+                    gridsize, blocksize, shmemsize, 0, nm0, nm1, nmTot, nq0,
+                    nq1, nelmt, m_isModified, m_index[0], m_B[0], m_B[1],
+                    m_W[0], m_W[1], m_nodToMod, m_jacptr, inptr, outptr, wspptr,
+                    1.0);
             }
             else
             {
                 constexpr bool Scale = true;
 
-                IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                        Scale, Append, DEFORMED>(
-                    nm0, nm1, nq0, nq1, nelmt, m_isModified, m_index[0], m_B[0],
-                    m_B[1], m_W[0], m_W[1], m_nodToMod, m_jacptr, inptr, outptr,
-                    wspptr, this->m_scale);
+                DEVICE_1DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTBase2DKernelLauncher<SHAPE_TYPE, Implementation,
+                                                     Scale, Append, DEFORMED>),
+                    gridsize, blocksize, shmemsize, 0, nm0, nm1, nmTot, nq0,
+                    nq1, nelmt, m_isModified, m_index[0], m_B[0], m_B[1],
+                    m_W[0], m_W[1], m_nodToMod, m_jacptr, inptr, outptr, wspptr,
+                    this->m_scale);
             }
 
             // Reshape back, if necessary.
@@ -602,6 +640,18 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        constexpr unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(nmTot);
+        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
+                nq0, nq1, nm0, nm1);
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
         // Loop over components.
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
@@ -616,22 +666,25 @@ protected:
             {
                 constexpr bool Scale = false;
 
-                IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                        Scale, Append, DEFORMED, nm0, nm1, nq0,
-                                        nq1>(
-                    nelmt, m_isModified, m_index[0], m_B[0], m_B[1], m_W[0],
-                    m_W[1], m_nodToMod, m_jacptr, inptr, outptr, wspptr);
+                DEVICE_1DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTBase2DKernelLauncher<
+                        SHAPE_TYPE, Implementation, Scale, Append, DEFORMED,
+                        nm0, nm1, nmTot, nq0, nq1>),
+                    gridsize, blocksize, shmemsize, 0, nelmt, m_isModified,
+                    m_index[0], m_B[0], m_B[1], m_W[0], m_W[1], m_nodToMod,
+                    m_jacptr, inptr, outptr, wspptr, 1.0);
             }
             else
             {
                 constexpr bool Scale = true;
 
-                IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                        Scale, Append, DEFORMED, nm0, nm1, nq0,
-                                        nq1>(nelmt, m_isModified, m_index[0],
-                                             m_B[0], m_B[1], m_W[0], m_W[1],
-                                             m_nodToMod, m_jacptr, inptr,
-                                             outptr, wspptr, this->m_scale);
+                DEVICE_1DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTBase2DKernelLauncher<
+                        SHAPE_TYPE, Implementation, Scale, Append, DEFORMED,
+                        nm0, nm1, nmTot, nq0, nq1>),
+                    gridsize, blocksize, shmemsize, 0, nelmt, m_isModified,
+                    m_index[0], m_B[0], m_B[1], m_W[0], m_W[1], m_nodToMod,
+                    m_jacptr, inptr, outptr, wspptr, this->m_scale);
             }
 
             // Reshape back, if necessary.
@@ -690,6 +743,18 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(nmTot);
+        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
+                nq0, nq1, nq2, nm0, nm1, nm2);
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
         // Loop over components.
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
@@ -703,23 +768,25 @@ protected:
             {
                 constexpr bool Scale = false;
 
-                IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                        Scale, Append, DEFORMED>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, nelmt, m_isModified,
-                    m_index[0], m_index[1], m_index[2], m_B[0], m_B[1], m_B[2],
-                    m_W[0], m_W[1], m_W[2], m_nodToMod, m_jacptr, inptr, outptr,
-                    wspptr);
+                DEVICE_1DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTBase3DKernelLauncher<SHAPE_TYPE, Implementation,
+                                                     Scale, Append, DEFORMED>),
+                    gridsize, blocksize, shmemsize, 0, nm0, nm1, nm2, nmTot,
+                    nq0, nq1, nq2, nelmt, m_isModified, m_index[0], m_index[1],
+                    m_index[2], m_B[0], m_B[1], m_B[2], m_W[0], m_W[1], m_W[2],
+                    m_nodToMod, m_jacptr, inptr, outptr, wspptr, 1.0);
             }
             else
             {
                 constexpr bool Scale = true;
 
-                IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                        Scale, Append, DEFORMED>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, nelmt, m_isModified,
-                    m_index[0], m_index[1], m_index[2], m_B[0], m_B[1], m_B[2],
-                    m_W[0], m_W[1], m_W[2], m_nodToMod, m_jacptr, inptr, outptr,
-                    wspptr, this->m_scale);
+                DEVICE_1DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTBase3DKernelLauncher<SHAPE_TYPE, Implementation,
+                                                     Scale, Append, DEFORMED>),
+                    gridsize, blocksize, shmemsize, 0, nm0, nm1, nm2, nmTot,
+                    nq0, nq1, nq2, nelmt, m_isModified, m_index[0], m_index[1],
+                    m_index[2], m_B[0], m_B[1], m_B[2], m_W[0], m_W[1], m_W[2],
+                    m_nodToMod, m_jacptr, inptr, outptr, wspptr, this->m_scale);
             }
 
             // Reshape back, if necessary.
@@ -771,6 +838,18 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        constexpr unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(nmTot);
+        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
+                nq0, nq1, nq2, nm0, nm1, nm2);
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
         // Loop over components.
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
@@ -784,23 +863,27 @@ protected:
             {
                 constexpr bool Scale = false;
 
-                IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                        Scale, Append, DEFORMED, nm0, nm1, nm2,
-                                        nq0, nq1, nq2>(
-                    nelmt, m_isModified, m_index[0], m_index[1], m_index[2],
-                    m_B[0], m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], m_nodToMod,
-                    m_jacptr, inptr, outptr, wspptr);
+                DEVICE_1DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTBase3DKernelLauncher<
+                        SHAPE_TYPE, Implementation, Scale, Append, DEFORMED,
+                        nm0, nm1, nm2, nmTot, nq0, nq1, nq2>),
+                    gridsize, blocksize, shmemsize, 0, nelmt, m_isModified,
+                    m_index[0], m_index[1], m_index[2], m_B[0], m_B[1], m_B[2],
+                    m_W[0], m_W[1], m_W[2], m_nodToMod, m_jacptr, inptr, outptr,
+                    wspptr, 1.0);
             }
             else
             {
                 constexpr bool Scale = true;
 
-                IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                        Scale, Append, DEFORMED, nm0, nm1, nm2,
-                                        nq0, nq1, nq2>(
-                    nelmt, m_isModified, m_index[0], m_index[1], m_index[2],
-                    m_B[0], m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], m_nodToMod,
-                    m_jacptr, inptr, outptr, wspptr, this->m_scale);
+                DEVICE_1DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTBase3DKernelLauncher<
+                        SHAPE_TYPE, Implementation, Scale, Append, DEFORMED,
+                        nm0, nm1, nm2, nmTot, nq0, nq1, nq2>),
+                    gridsize, blocksize, shmemsize, 0, nelmt, m_isModified,
+                    m_index[0], m_index[1], m_index[2], m_B[0], m_B[1], m_B[2],
+                    m_W[0], m_W[1], m_W[2], m_nodToMod, m_jacptr, inptr, outptr,
+                    wspptr, this->m_scale);
             }
 
             // Reshape back, if necessary.

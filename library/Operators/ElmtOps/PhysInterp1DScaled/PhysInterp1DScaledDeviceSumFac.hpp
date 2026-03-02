@@ -292,6 +292,13 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
+        const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) * BwdTransSharedMemorySize<Implementation>(nq0, nm0);
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
         // Loop over components.
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
@@ -302,8 +309,9 @@ protected:
                                       (TData *)inptr);
 
             // BwdTrans kernel.
-            BwdTrans1DKernel<ExecSpace, Implementation>(nm0, nq0, nelmt, m_B[0],
-                                                        inptr, outptr);
+            DEVICE_1DGRID_KERNEL_LAUNCHER(
+                BwdTrans1DKernelLauncher<Implementation>, gridsize, blocksize,
+                shmemsize, 0, nm0, nq0, nelmt, m_B[0], inptr, outptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -335,6 +343,13 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
+        const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) * BwdTransSharedMemorySize<Implementation>(nq0, nm0);
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
         // Loop over components.
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
@@ -345,8 +360,9 @@ protected:
                                       (TData *)inptr);
 
             // BwdTrans kernel.
-            BwdTrans1DKernel<ExecSpace, Implementation, nm0, nq0>(
-                nelmt, m_B[0], inptr, outptr);
+            DEVICE_1DGRID_KERNEL_LAUNCHER(
+                (BwdTrans1DKernelLauncher<Implementation, nm0, nq0>), gridsize,
+                blocksize, shmemsize, 0, nelmt, m_B[0], inptr, outptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -400,6 +416,18 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(LibUtilities::Quad, nm0, nm1);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(nmTot);
+        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            BwdTransSharedMemorySize<LibUtilities::Quad, Implementation>(
+                nq0, nq1, nm0, nm1);
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
         // Loop over components.
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
@@ -410,9 +438,10 @@ protected:
                                       (TData *)inptr);
 
             // BwdTrans kernel.
-            BwdTrans2DKernel<LibUtilities::Quad, ExecSpace, Implementation>(
-                nm0, nm1, nq0, nq1, nelmt, false, m_B[0], m_B[1], nodToMod,
-                inptr, outptr, wspptr);
+            DEVICE_1DGRID_KERNEL_LAUNCHER(
+                (BwdTrans2DKernelLauncher<LibUtilities::Quad, Implementation>),
+                gridsize, blocksize, shmemsize, 0, nm0, nm1, nmTot, nq0, nq1,
+                nelmt, false, m_B[0], m_B[1], nodToMod, inptr, outptr, wspptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -461,6 +490,18 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(LibUtilities::Quad, nm0, nm1);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(nmTot);
+        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            BwdTransSharedMemorySize<LibUtilities::Quad, Implementation>(
+                nq0, nq1, nm0, nm1);
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
         // Loop over components.
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
@@ -471,9 +512,11 @@ protected:
                                       (TData *)inptr);
 
             // BwdTrans kernel.
-            BwdTrans2DKernel<LibUtilities::Quad, ExecSpace, Implementation, nm0,
-                             nm1, nq0, nq1>(nelmt, false, m_B[0], m_B[1],
-                                            nodToMod, inptr, outptr, wspptr);
+            DEVICE_1DGRID_KERNEL_LAUNCHER(
+                (BwdTrans2DKernelLauncher<LibUtilities::Quad, Implementation,
+                                          nm0, nm1, nmTot, nq0, nq1>),
+                gridsize, blocksize, shmemsize, 0, nelmt, false, m_B[0], m_B[1],
+                nodToMod, inptr, outptr, wspptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -529,6 +572,18 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(
+            LibUtilities::Hex, nm0, nm1, nm2);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(nmTot);
+        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            BwdTransSharedMemorySize<LibUtilities::Hex, Implementation>(
+                nq0, nq1, nq2, nm0, nm1, nm2);
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
         // Loop over components.
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
@@ -538,9 +593,11 @@ protected:
                                       (TData *)inptr);
 
             // BwdTrans kernel.
-            BwdTrans3DKernel<LibUtilities::Hex, ExecSpace, Implementation>(
-                nm0, nm1, nm2, nq0, nq1, nq2, nelmt, false, nullptr, nullptr,
-                m_B[0], m_B[1], m_B[2], nodToMod, inptr, outptr, wspptr);
+            DEVICE_1DGRID_KERNEL_LAUNCHER(
+                (BwdTrans3DKernelLauncher<LibUtilities::Hex, Implementation>),
+                gridsize, blocksize, shmemsize, 0, nm0, nm1, nm2, nmTot, nq0,
+                nq1, nq2, nelmt, false, nullptr, nullptr, m_B[0], m_B[1],
+                m_B[2], nodToMod, inptr, outptr, wspptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -589,6 +646,18 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(
+            LibUtilities::Hex, nm0, nm1, nm2);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(nmTot);
+        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            BwdTransSharedMemorySize<LibUtilities::Hex, Implementation>(
+                nq0, nq1, nq2, nm0, nm1, nm2);
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
         // Loop over components.
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
@@ -598,10 +667,12 @@ protected:
                                       (TData *)inptr);
 
             // BwdTrans kernel.
-            BwdTrans3DKernel<LibUtilities::Hex, ExecSpace, Implementation, nm0,
-                             nm1, nm2, nq0, nq1, nq2>(
-                nelmt, false, nullptr, nullptr, m_B[0], m_B[1], m_B[2],
-                nodToMod, inptr, outptr, wspptr);
+            DEVICE_1DGRID_KERNEL_LAUNCHER(
+                (BwdTrans3DKernelLauncher<LibUtilities::Hex, Implementation,
+                                          nm0, nm1, nm2, nmTot, nq0, nq1, nq2>),
+                gridsize, blocksize, shmemsize, 0, nelmt, false, nullptr,
+                nullptr, m_B[0], m_B[1], m_B[2], nodToMod, inptr, outptr,
+                wspptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,

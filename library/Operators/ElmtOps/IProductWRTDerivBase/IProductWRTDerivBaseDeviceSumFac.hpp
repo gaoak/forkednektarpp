@@ -427,6 +427,13 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
+        const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTDerivBaseSharedMemorySize<Implementation>(nq0, nm0);
+
         // Loop over components.
         const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
         for (unsigned int n = 0;
@@ -441,9 +448,12 @@ protected:
             }
 
             // IProduct kernel.
-            IProductWRTDerivBase1DKernel<ExecSpace, Implementation, DEFORMED>(
-                m_coordDim, nm0, nq0, nelmt, inoffset, m_DB[0], m_W[0], m_dfptr,
-                m_jacptr, inptr, outptr, wspptr);
+            DEVICE_1DGRID_KERNEL_LAUNCHER(
+                (IProductWRTDerivBase1DKernelLauncher<Implementation,
+                                                      DEFORMED>),
+                gridsize, blocksize, shmemsize, 0, m_coordDim, nm0, nq0, nelmt,
+                inoffset, m_DB[0], m_W[0], m_dfptr, m_jacptr, inptr, outptr,
+                wspptr);
 
             // Reshape back, if necessary.
             for (unsigned int d = 0; d < m_coordDim; ++d)
@@ -497,6 +507,13 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
+        const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTDerivBaseSharedMemorySize<Implementation>(nq0, nm0);
+
         // Loop over components.
         const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
         for (unsigned int n = 0;
@@ -511,10 +528,11 @@ protected:
             }
 
             // IProduct kernel.
-            IProductWRTDerivBase1DKernel<ExecSpace, Implementation, DEFORMED,
-                                         nm0, nq0>(
-                m_coordDim, nelmt, inoffset, m_DB[0], m_W[0], m_dfptr, m_jacptr,
-                inptr, outptr, wspptr);
+            DEVICE_1DGRID_KERNEL_LAUNCHER(
+                (IProductWRTDerivBase1DKernelLauncher<Implementation, DEFORMED,
+                                                      nm0, nq0>),
+                gridsize, blocksize, shmemsize, 0, m_coordDim, nelmt, inoffset,
+                m_DB[0], m_W[0], m_dfptr, m_jacptr, inptr, outptr, wspptr);
 
             // Reshape back, if necessary.
             for (unsigned int d = 0; d < m_coordDim; ++d)
@@ -575,6 +593,18 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(nmTot);
+        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
+                nq0, nq1, nm0, nm1);
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
         // Loop over components.
         const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
         for (unsigned int n = 0;
@@ -589,12 +619,13 @@ protected:
             }
 
             // IProduct kernel.
-            IProductWRTDerivBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                         DEFORMED>(
-                m_coordDim, nm0, nm1, nq0, nq1, nelmt, inoffset, m_isModified,
-                m_index[0], m_B[0], m_B[1], m_D[0], m_D[1], m_W[0], m_W[1],
-                m_f[0], m_f[1], m_nodToMod, m_dfptr, m_jacptr, inptr, outptr,
-                wspptr);
+            DEVICE_1DGRID_KERNEL_LAUNCHER(
+                (IProductWRTDerivBase2DKernelLauncher<
+                    SHAPE_TYPE, Implementation, DEFORMED>),
+                gridsize, blocksize, shmemsize, 0, m_coordDim, nm0, nm1, nmTot,
+                nq0, nq1, nelmt, inoffset, m_isModified, m_index[0], m_B[0],
+                m_B[1], m_D[0], m_D[1], m_W[0], m_W[1], m_f[0], m_f[1],
+                m_nodToMod, m_dfptr, m_jacptr, inptr, outptr, wspptr);
 
             // Reshape back, if necessary.
             for (unsigned int d = 0; d < m_coordDim; ++d)
@@ -650,6 +681,18 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        constexpr unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(nmTot);
+        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
+                nq0, nq1, nm0, nm1);
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
         // Loop over components.
         const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
         for (unsigned int n = 0;
@@ -664,11 +707,14 @@ protected:
             }
 
             // IProduct kernel.
-            IProductWRTDerivBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                         DEFORMED, nm0, nm1, nq0, nq1>(
-                m_coordDim, nelmt, inoffset, m_isModified, m_index[0], m_B[0],
-                m_B[1], m_D[0], m_D[1], m_W[0], m_W[1], m_f[0], m_f[1],
-                m_nodToMod, m_dfptr, m_jacptr, inptr, outptr, wspptr);
+            DEVICE_1DGRID_KERNEL_LAUNCHER(
+                (IProductWRTDerivBase2DKernelLauncher<
+                    SHAPE_TYPE, Implementation, DEFORMED, nm0, nm1, nmTot, nq0,
+                    nq1>),
+                gridsize, blocksize, shmemsize, 0, m_coordDim, nelmt, inoffset,
+                m_isModified, m_index[0], m_B[0], m_B[1], m_D[0], m_D[1],
+                m_W[0], m_W[1], m_f[0], m_f[1], m_nodToMod, m_dfptr, m_jacptr,
+                inptr, outptr, wspptr);
 
             // Reshape back, if necessary.
             for (unsigned int d = 0; d < m_coordDim; ++d)
@@ -731,7 +777,20 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(nmTot);
+        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
+                nq0, nq1, nq2, nm0, nm1, nm2);
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
         // Loop over components.
+        const auto inoffset = inblock.CompSize();
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
@@ -744,13 +803,14 @@ protected:
             }
 
             // IProduct kernel.
-            IProductWRTDerivBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                         DEFORMED>(
-                nm0, nm1, nm2, nq0, nq1, nq2, nelmt, inblock.CompSize(),
-                m_isModified, m_index[0], m_index[1], m_index[2], m_B[0],
-                m_B[1], m_B[2], m_D[0], m_D[1], m_D[2], m_W[0], m_W[1], m_W[2],
-                m_f[0], m_f[1], m_f[2], m_f[3], m_nodToMod, m_dfptr, m_jacptr,
-                inptr, outptr, wspptr);
+            DEVICE_1DGRID_KERNEL_LAUNCHER(
+                (IProductWRTDerivBase3DKernelLauncher<
+                    SHAPE_TYPE, Implementation, DEFORMED>),
+                gridsize, blocksize, shmemsize, 0, nm0, nm1, nm2, nmTot, nq0,
+                nq1, nq2, nelmt, inoffset, m_isModified, m_index[0], m_index[1],
+                m_index[2], m_B[0], m_B[1], m_B[2], m_D[0], m_D[1], m_D[2],
+                m_W[0], m_W[1], m_W[2], m_f[0], m_f[1], m_f[2], m_f[3],
+                m_nodToMod, m_dfptr, m_jacptr, inptr, outptr, wspptr);
 
             // Reshape back, if necessary.
             for (unsigned int d = 0; d < m_coordDim; ++d)
@@ -803,7 +863,20 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        constexpr unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(nmTot);
+        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
+                nq0, nq1, nq2, nm0, nm1, nm2);
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
         // Loop over components.
+        const auto inoffset = inblock.CompSize();
         for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
         {
             // Reshape, if necessary.
@@ -816,13 +889,15 @@ protected:
             }
 
             // IProduct kernel.
-            IProductWRTDerivBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                         DEFORMED, nm0, nm1, nm2, nq0, nq1,
-                                         nq2>(
-                nelmt, inblock.CompSize(), m_isModified, m_index[0], m_index[1],
-                m_index[2], m_B[0], m_B[1], m_B[2], m_D[0], m_D[1], m_D[2],
-                m_W[0], m_W[1], m_W[2], m_f[0], m_f[1], m_f[2], m_f[3],
-                m_nodToMod, m_dfptr, m_jacptr, inptr, outptr, wspptr);
+            DEVICE_1DGRID_KERNEL_LAUNCHER(
+                (IProductWRTDerivBase3DKernelLauncher<
+                    SHAPE_TYPE, Implementation, DEFORMED, nm0, nm1, nm2, nmTot,
+                    nq0, nq1, nq2>),
+                gridsize, blocksize, shmemsize, 0, nelmt, inoffset,
+                m_isModified, m_index[0], m_index[1], m_index[2], m_B[0],
+                m_B[1], m_B[2], m_D[0], m_D[1], m_D[2], m_W[0], m_W[1], m_W[2],
+                m_f[0], m_f[1], m_f[2], m_f[3], m_nodToMod, m_dfptr, m_jacptr,
+                inptr, outptr, wspptr);
 
             // Reshape back, if necessary.
             for (unsigned int d = 0; d < m_coordDim; ++d)
