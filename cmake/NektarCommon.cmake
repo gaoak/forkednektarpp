@@ -284,8 +284,35 @@ MACRO(ADD_NEKTAR_TEST name)
 
     IF ((NEKTAR_BUILD_TESTS) AND (NOT NEKTEST_LENGTHY OR NEKTAR_TEST_ALL))
         GET_FILENAME_COMPONENT(dir ${CMAKE_CURRENT_SOURCE_DIR} NAME)
+
+        SET(test_file ${CMAKE_CURRENT_SOURCE_DIR}/Tests/${name}.tst)
+
         ADD_TEST(NAME ${dir}_${name}
-            COMMAND Tester ${CMAKE_CURRENT_SOURCE_DIR}/Tests/${name}.tst)
+            COMMAND Tester ${test_file})
+
+        # Read the test file and extract <processes> value
+        IF(EXISTS ${test_file})
+            FILE(READ ${test_file} test_contents)
+
+            SET(num_procs 1)
+
+            STRING(REGEX MATCH "<processes>[ \t\r\n]*([0-9]+)[ \t\r\n]*</processes>"
+                   match ${test_contents})
+
+            IF(match)
+                SET(num_procs ${CMAKE_MATCH_1})
+            ELSE()
+                
+            ENDIF()
+        ELSE()
+            SET(num_procs 1)
+        ENDIF()
+
+        # Set the number of processor cores required for this test
+        SET_PROPERTY(TEST ${dir}_${name} PROPERTY PROCESSORS "${num_procs}")
+
+        # Prioritise tests by parallelism so parallel tests get executed earlier
+        SET_PROPERTY(TEST ${dir}_${name} PROPERTY COST "${num_procs}")
     ENDIF()
 ENDMACRO(ADD_NEKTAR_TEST)
 

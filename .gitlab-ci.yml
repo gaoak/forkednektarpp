@@ -84,7 +84,7 @@ include:
     - OS_VERSION=$(echo $CI_JOB_NAME | cut -d- -f 2)
     - BUILD_TYPE=$(echo $CI_JOB_NAME | cut -d- -f 3)
     - export CCACHE_DIR=/cache/nektar/$OS_VERSION/
-    - export NUM_CPUS=8
+    - export NUM_CPUS=12
     - export CONTAINER_NAME=test-$CI_JOB_ID
     - export ENV_NAME=env-${OS_DISTRO}-${OS_VERSION}-${BUILD_TYPE}
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
@@ -173,7 +173,7 @@ include:
   <<: *execution-conditions
   stage: quality-checks
   variables:
-    NUM_CPUS: 8
+    NUM_CPUS: 12
     CL_T_VER: 16
     CL_F_VER: 16
     TARGETS: library solvers templates tests utilities

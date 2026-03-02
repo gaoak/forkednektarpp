@@ -35,6 +35,10 @@ v5.10.0
 - Remove Vmath SIMD (!2365) 
 - Fix non-zero Dirichlet BCs with flow rate for inc NS Solver (!2399)
 
+**CI**
+- Add PROCESSORS property to tests to enforce correct parallelism (!2445)
+
+
 v5.9.0
 ------
 **Library**
