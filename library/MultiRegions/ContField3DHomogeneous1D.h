@@ -78,6 +78,7 @@ protected:
                                 const Array<OneD, NekDouble> coeffs) override;
 
     /// Template method virtual forwarded for AvgAssemble()
+    using DisContField3DHomogeneous1D::v_AvgAssemble;
     void v_AvgAssemble(bool useComm) override;
 
     /// Template method virtual forwarded for LocalToGlobal()

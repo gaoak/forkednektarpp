@@ -50,7 +50,9 @@ ELSE()
                         -DENABLE_ROCSPARSE_BACKEND=OFF
                         -DBUILD_FUNCTIONAL_TESTS=OFF
                         -DBUILD_EXAMPLES=OFF
-                        -DCMAKE_INSTALL_PREFIX:PATH=${TPDIST})
+                        -DCMAKE_INSTALL_PREFIX:PATH=${TPDIST}
+                        -Wno-dev
+                        )
             EXECUTE_PROCESS(COMMAND make install -j8 -C ${TPBUILD}/oneMath)
         ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-HIP")
             EXECUTE_PROCESS(COMMAND 
@@ -79,7 +81,9 @@ ELSE()
                         -DENABLE_ROCSPARSE_BACKEND=OFF
                         -DBUILD_FUNCTIONAL_TESTS=OFF
                         -DBUILD_EXAMPLES=OFF
-                        -DCMAKE_INSTALL_PREFIX:PATH=${TPDIST})
+                        -DCMAKE_INSTALL_PREFIX:PATH=${TPDIST}
+                        -Wno-dev
+                        )
             EXECUTE_PROCESS(COMMAND make install -j8 -C ${TPBUILD}/oneMath)
         ENDIF()
     ENDIF()
