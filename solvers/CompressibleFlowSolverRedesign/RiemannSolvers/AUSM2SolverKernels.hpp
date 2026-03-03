@@ -34,9 +34,7 @@
 
 #pragma once
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
-
-#include "RiemannSolvers/AUSMSolver/AUSMSolverKernels.hpp"
+#include "RiemannSolvers/AUSMSolverKernels.hpp"
 
 // The dimension and shape kernels. NOTE: They are NOT duplicate
 // templated version based on the array size like the

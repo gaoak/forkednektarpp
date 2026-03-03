@@ -25,7 +25,7 @@ ENDIF()
 # Shape types for seperate code compilation.
 SET(Shapes Seg Tri NodalTri Quad Hex Pyr Prism NodalPrism Tet NodalTet)
 
-# set default data types
+# Set default data types.
 IF(NEKTAR_ENABLE_DOUBLE_PRECISION)
 SET(DataTypes double)
 ENDIF()
@@ -594,50 +594,12 @@ SET(GROUP_SOURCES ${OPERATORS_SOURCES})
 
 # Loop through all of the directories which contain operators and add
 # their source and header files.
-FILE(GLOB children AddTraceIntegral  BndCondOps/*  ElmtOps/*  GlobalLinSysOps/LinearSystems/* GlobalLinSysOps/LinearSolvers/* PreconOps/* SolverUtilsOps/RiemannSolvers/*)
+FILE(GLOB children AddTraceIntegral  BndCondOps/*  ElmtOps/*  GlobalLinSysOps/LinearSystems/* GlobalLinSysOps/LinearSolvers/* PreconOps/*)
 
 FOREACH(child ${children})
    MESSAGE("Child : " "${child}")
     ADD_OPERATOR(${child})
 ENDFOREACH()
-  MESSAGE("Sources 0 : " "${OPERATORS_SOURCES}")
-
-# add operators manually 
-
-  #Serial double cases
-  SET(TData double)
-
-  SET(ExecSpace Serial)
-  SET(SOURCE_EXT cpp)
-
-  ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatr)
-  ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatrZeroDir)
-
-  #AVX double cases
-  IF (AVX IN_LIST ExecSpaces)
-    SET(ExecSpace AVX)
-    SET(SOURCE_EXT cpp)
-
-    ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatr)
-    ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatrZeroDir)
-  ENDIF()
-
-  #Device double cases
-  IF (Device IN_LIST ExecSpaces)
-    SET(ExecSpace Device)
-    IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-         SET(SOURCE_EXT cu)
-    ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
-         SET(SOURCE_EXT hip)
-    ELSE()
-  	 SET(SOURCE_EXT cpp)
-    ENDIF()
-
-    ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatr)
-    ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatrZeroDir)
-  ENDIF()
-
-  MESSAGE("Sources 1 : " "${OPERATORS_SOURCES}")
 
 # Loop through all of the directories which contain block operators and add
 # their source and header files.
@@ -645,6 +607,117 @@ FILE(GLOB children ElmtOps/*)
 FOREACH(child ${children})
     ADD_ELMT_OPERATOR(${child})
 ENDFOREACH()
+
+# Set compilation for Riemann solvers
+SET(SolverTypes Upwind)
+
+SET(name RiemannSolver)
+SET(dir ${CMAKE_CURRENT_SOURCE_DIR}/SolverUtilsOps/RiemannSolvers)
+
+SET(NAME_HEADERS ${name}_HEADERS)
+SET(NAME_SOURCES ${name}_SOURCES)
+SET(OPERATOR ${name})
+
+# These operator have an additional argument for the FieldState
+# which requires two delcarations.
+SET(CONFIG_FILE ${dir}/OperatorFactoryDec.cpp.in)
+
+FOREACH (SolverType IN LISTS SolverTypes)
+    # Loop through each possible execution space.
+    FOREACH (ExecSpace IN LISTS ExecSpaces)
+
+        # Set file extension.
+        SET(HEADER_EXT hpp)
+        IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+            SET(SOURCE_EXT cu)
+        ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+            SET(SOURCE_EXT hip)
+        ELSE()
+            SET(SOURCE_EXT cpp)
+        ENDIF()
+
+        # Loop through each possible data type.
+        FOREACH (TData IN LISTS DataTypes)
+            # Set up the name used for the .cpp declaration file.
+            SET(FactoryDeclName ${name}${SolverType}${ExecSpace}${TData}.${SOURCE_EXT})
+
+            # Get the source and header files for this operator,
+            # execution space, and implementation.
+            SET(CURRENT_HEADERS ${name}${SolverType}_${ExecSpace}_HEADERS)
+            SET(CURRENT_SOURCES ${name}${SolverType}_${ExecSpace}_SOURCES)
+                
+            # Get the headers matching the name and execution space
+            FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+                ${dir}/${name}${SolverType}${ExecSpace}*.hpp)
+
+            FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                "${dir}/${name}OpImpl.hpp")
+            SET(IMPL_HEADER "#include \"${include_file}\"")
+
+            FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                "${dir}/${SolverType}SolverKernels.hpp")
+            SET(KERNEL_HEADER "#include \"${include_file}\"")
+
+            # Create the cpp file from the implementation file.
+            CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
+
+            # Add the respective cpp file.
+            SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
+            SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
+            SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
+
+        ENDFOREACH()
+    ENDFOREACH()
+ENDFOREACH()
+
+# Add this operator's implemenations to the global operator source
+# and header files.
+SET(OPERATORS_HEADERS
+        ${OPERATORS_HEADERS}
+        ${${NAME_HEADERS}}
+)
+SET(OPERATORS_SOURCES
+        ${OPERATORS_SOURCES}
+        ${${NAME_SOURCES}}
+)
+
+  #MESSAGE("Sources 0 : " "${OPERATORS_SOURCES}")
+
+# Assmbscater
+#Serial double cases
+SET(TData double)
+
+SET(ExecSpace Serial)
+SET(SOURCE_EXT cpp)
+
+ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatr)
+ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatrZeroDir)
+
+#AVX double cases
+IF (AVX IN_LIST ExecSpaces)
+SET(ExecSpace AVX)
+SET(SOURCE_EXT cpp)
+
+ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatr)
+ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatrZeroDir)
+ENDIF()
+
+#Device double cases
+IF (Device IN_LIST ExecSpaces)
+SET(ExecSpace Device)
+IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+     SET(SOURCE_EXT cu)
+ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+     SET(SOURCE_EXT hip)
+ELSE()
+     SET(SOURCE_EXT cpp)
+ENDIF()
+
+ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatr)
+ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatrZeroDir)
+ENDIF()
+
+  #MESSAGE("Sources 1 : " "${OPERATORS_SOURCES}")
 
 # Loop through TimeIntegration directory which contain operators and add
 # their source and header files.

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AUSM0SolverKernels.hpp
+// File: AUSM3SolverKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,9 +34,7 @@
 
 #pragma once
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
-
-#include "RiemannSolvers/AUSMSolver/AUSMSolverKernels.hpp"
+#include "RiemannSolvers/AUSMSolverKernels.hpp"
 
 // The dimension and shape kernels. NOTE: They are NOT duplicate
 // templated version based on the array size like the
@@ -47,31 +45,46 @@
 namespace Nektar::Operators::detail
 {
 
-struct AUSM0Upwinding
+struct AUSM3Upwinding
 {
     template <typename TData>
-    NEK_DEVICE_INLINE void operator()([[maybe_unused]] const TData &cA,
-                                      [[maybe_unused]] const TData &rhoL,
-                                      [[maybe_unused]] const TData &rhoR,
-                                      const TData &pL, const TData &pR,
-                                      const TData &ML, const TData &MR,
-                                      TData &pbar, TData &Mbar)
+    NEK_DEVICE_INLINE void operator()(const TData &cA, const TData &rhoL,
+                                      const TData &rhoR, const TData &pL,
+                                      const TData &pR, const TData &ML,
+                                      const TData &MR, TData &pbar, TData &Mbar)
     {
         // Parameters for specify the upwinding
-        constexpr TData beta  = 0.0;
-        constexpr TData alpha = 0.0;
-        Mbar = M4Function(0, beta, ML) + M4Function(1, beta, MR);
-        pbar = pL * P5Function(0, alpha, ML) + pR * P5Function(1, alpha, MR);
+        // Note: if fa = 1 then AUSM3 = AUSM2
+        TData Mco    = 0.01;
+        TData Mtilde = 0.5 * (ML * ML + MR * MR);
+        TData Mo     = std::sqrt(std::min(1.0, std::max(Mtilde, Mco * Mco)));
+        TData fa     = Mo * (2.0 - Mo);
+        constexpr TData beta  = 0.125;
+        constexpr TData alpha = 0.1875;
+        constexpr TData sigma = 1.0;
+        constexpr TData Kp    = 0.25;
+        constexpr TData Ku    = 0.75;
+        TData rhoA            = 0.5 * (rhoL + rhoR);
+        TData Mp              = -(Kp / fa) * ((pR - pL) / (rhoA * cA * cA)) *
+                   std::max(1.0 - sigma * Mtilde, 0.0);
+
+        Mbar = M4Function(0, beta, ML) + M4Function(1, beta, MR) + Mp;
+
+        TData pu = -2.0 * Ku * rhoA * cA * cA * (MR - ML) *
+                   P5Function(0, alpha, ML) * P5Function(1, alpha, MR);
+
+        pbar =
+            pL * P5Function(0, alpha, ML) + pR * P5Function(1, alpha, MR) + pu;
     }
 };
 
-template <typename ExecSpace, unsigned int NDIM> struct AUSM0SolverKernel
+template <typename ExecSpace, unsigned int NDIM> struct AUSM3SolverKernel
 {
     template <typename TData>
     NEK_DEVICE_INLINE void operator()(const size_t blksize, const TData *fwd,
                                       const TData *bwd, TData *flux)
     {
-        AUSMSolverKernel<ExecSpace, NDIM, AUSM0Upwinding>()(blksize, fwd, bwd,
+        AUSMSolverKernel<ExecSpace, NDIM, AUSM3Upwinding>()(blksize, fwd, bwd,
                                                             flux);
     }
 };

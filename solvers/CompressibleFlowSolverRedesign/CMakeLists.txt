@@ -30,26 +30,24 @@ IF(NEKTAR_BUILD_REDESIGN)
             SET(DataTypes ${DataTypes} float)
         ENDIF()
 
-        # Macro for each operator.
-        MACRO(ADD_OPERATOR dir)
+        # Set compilation for Riemann solvers
+        SET(SolverTypes Average AUSM0 AUSM1 AUSM2 AUSM3 HLL HLLC LaxFriedrichs Roe)
 
-            IF(IS_DIRECTORY ${dir})
-                GET_FILENAME_COMPONENT(name "${dir}" NAME)
-            ELSE()
-                CONTINUE()
-            ENDIF()
+        SET(name CompressibleSolver)
+        SET(dir ${CMAKE_CURRENT_SOURCE_DIR}/RiemannSolvers)
 
-            SET(NAME_HEADERS ${name}_HEADERS)
-            SET(NAME_SOURCES ${name}_SOURCES)
-            SET(OPERATOR ${name})
+        SET(NAME_HEADERS ${name}_HEADERS)
+        SET(NAME_SOURCES ${name}_SOURCES)
+        SET(OPERATOR ${name})
 
-            # These operator have an additional argument for the FieldState
-            # which requires two delcarations.
-            SET(CONFIG_FILE OperatorFactoryDec.cpp.in)
+        # These operator have an additional argument for the FieldState
+        # which requires two delcarations.
+        SET(CONFIG_FILE ${dir}/OperatorFactoryDec.cpp.in)
 
+        FOREACH (SolverType IN LISTS SolverTypes)
             # Loop through each possible execution space.
             FOREACH (ExecSpace IN LISTS ExecSpaces)
-            
+        
                 # Set file extension.
                 SET(HEADER_EXT hpp)
                 IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
@@ -63,26 +61,24 @@ IF(NEKTAR_BUILD_REDESIGN)
                 # Loop through each possible data type.
                 FOREACH (TData IN LISTS DataTypes)
                     # Set up the name used for the .cpp declaration file.
-                    SET(FactoryDeclName ${name}${ExecSpace}${TData}.${SOURCE_EXT})
+                    SET(FactoryDeclName ${name}${SolverType}${ExecSpace}${TData}.${SOURCE_EXT})
 
                     # Get the source and header files for this operator,
                     # execution space, and implementation.
-                    SET(CURRENT_HEADERS ${name}_${ExecSpace}_HEADERS)
-                    SET(CURRENT_SOURCES ${name}_${ExecSpace}_SOURCES)
+                    SET(CURRENT_HEADERS ${name}${SolverType}_${ExecSpace}_HEADERS)
+                    SET(CURRENT_SOURCES ${name}${SolverType}_${ExecSpace}_SOURCES)
                         
                     # Get the headers matching the name and execution space
                     FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-                        ${dir}/${name}${ExecSpace}*.hpp)
+                        ${dir}/${name}${SolverType}${ExecSpace}*.hpp)
 
-                    # Found a impl header.
-                    IF(EXISTS "${dir}/${name}OpImpl.hpp")
-                        FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                            "${dir}/${name}OpImpl.hpp")
-                        SET(IMPL_HEADER "#include \"${include_file}\"")
-                    # No implementation, skip.
-                    ELSE()
-                        CONTINUE() # This avoid creating a *.cpp file
-                    ENDIF()
+                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                        "${dir}/${name}OpImpl.hpp")
+                    SET(IMPL_HEADER "#include \"${include_file}\"")
+
+                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                        "${dir}/${SolverType}SolverKernels.hpp")
+                    SET(KERNEL_HEADER "#include \"${include_file}\"")
 
                     # Create the cpp file from the implementation file.
                     CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
@@ -94,40 +90,20 @@ IF(NEKTAR_BUILD_REDESIGN)
 
                 ENDFOREACH()
             ENDFOREACH()
-
-            # Add this operator's implemenations to the global operator source
-            # and header files.
-            SET(OPERATORS_HEADERS
-                ${OPERATORS_HEADERS}
-                ${${NAME_HEADERS}}
-                )
-            SET(OPERATORS_SOURCES
-                ${OPERATORS_SOURCES}
-                ${${NAME_SOURCES}}
-                )
-        ENDMACRO()
-
-        # Macro for single operator.
-        MACRO(ADD_SINGLE_OPERATOR dir opname)
-
-            SET(FactoryDeclName "${opname}${ExecSpace}${TData}.${SOURCE_EXT}")
-            CONFIGURE_FILE(${dir}/${opname}FactoryDec.cpp.in
-                            ${FactoryDeclName})
-            SET(OPERATORS_SOURCES  ${OPERATORS_SOURCES}  ${FactoryDeclName})
-            MESSAGE("Adding operator with a ${ExecSpace} implementation: "
-                            "${FactoryDeclName}")
-        ENDMACRO()
-
-        # Loop through all of the directories which contain operators and add
-        # their source and header files.
-        FILE(GLOB children RiemannSolvers/* RiemannSolvers/AUSMSolver/*)
-
-        FOREACH(child ${children})
-        MESSAGE("Child : " "${child}")
-            ADD_OPERATOR(${child})
         ENDFOREACH()
-        MESSAGE("Sources : " "${OPERATORS_SOURCES}")
 
+        # Add this operator's implemenations to the global operator source
+        # and header files.
+        SET(OPERATORS_HEADERS
+            ${OPERATORS_HEADERS}
+            ${${NAME_HEADERS}}
+            )
+        SET(OPERATORS_SOURCES
+            ${OPERATORS_SOURCES}
+            ${${NAME_SOURCES}}
+            )
+
+        # add operators manually 
         LINK_LIBRARIES(Operators)
 
         # Make list visible to subdirectories

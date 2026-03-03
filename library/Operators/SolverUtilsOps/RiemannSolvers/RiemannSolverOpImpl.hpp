@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: UpwindSolverOpImpl.hpp
+// File: RiemannSolverOpImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,19 +28,21 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Upwind Riemann solver.
+// Description: Riemann Riemann solver.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include "Operators/SolverUtilsOps/RiemannSolvers/UpwindSolver/UpwindSolverKernels.hpp"
-#include "Operators/SolverUtilsOps/RiemannSolvers/UpwindSolver/UpwindSolverOp.hpp"
+#include "Operators/LoopExecution/LoopExecution.hpp"
+
+#include "Operators/SolverUtilsOps/RiemannSolvers/RiemannSolverOp.hpp"
 
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, typename TData>
+template <template <typename> typename RiemannKernel, typename ExecSpace,
+          typename TData>
 NEK_FORCE_INLINE static void RiemannKernelLauncher(
     const size_t blksize, const unsigned int velComps,
     const unsigned int fluxComps, const TData *velbase, const TData *normbase,
@@ -60,22 +62,23 @@ NEK_FORCE_INLINE static void RiemannKernelLauncher(
 
     Nektar::parallel_for<ExecSpace>(
         0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
-            UpwindSolverKernel<ExecSpace>(
+            RiemannKernel<ExecSpace>()(
                 blksize, velComps, fluxComps, velbase + i * vec_width,
                 normbase + i * vec_width, fwdbase + i * vec_width,
                 bwdbase + i * vec_width, fluxbase + i * vec_width);
         });
 }
 
-template <typename ExecSpace, typename TData>
-class UpwindSolverOpImpl : public UpwindSolverOp<TData>
+template <template <typename> typename RiemannKernel, typename ExecSpace,
+          typename TData>
+class RiemannSolverOpImpl : public RiemannSolverOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    UpwindSolverOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
-                       const std::vector<std::string> &components)
-        : UpwindSolverOp<TData>(std::move(expansionList), components)
+    RiemannSolverOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                        const std::vector<std::string> &components)
+        : RiemannSolverOp<TData>(std::move(expansionList), components)
     {
     }
 
@@ -87,8 +90,9 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
-        return std::make_unique<UpwindSolverOpImpl<ExecSpace, TData>>(
-            expansionList, components);
+        return std::make_unique<
+            RiemannSolverOpImpl<RiemannKernel, ExecSpace, TData>>(expansionList,
+                                                                  components);
     }
 
 protected:
@@ -119,9 +123,9 @@ protected:
             const auto fluxComps = fluxblock.GetNumComponents();
 
             // Launch kernel
-            RiemannKernelLauncher<ExecSpace>(blksize, velComps, fluxComps,
-                                             velbase, normbase, fwdbase,
-                                             bwdbase, fluxbase);
+            RiemannKernelLauncher<RiemannKernel, ExecSpace>(
+                blksize, velComps, fluxComps, velbase, normbase, fwdbase,
+                bwdbase, fluxbase);
         }
     }
 };

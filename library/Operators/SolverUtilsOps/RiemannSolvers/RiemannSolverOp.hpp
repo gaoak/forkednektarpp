@@ -35,9 +35,9 @@
 #pragma once
 
 #include "Operators/Common/Operator.hpp"
+#include "Operators/SolverUtilsOps/RiemannSolvers/RiemannSolverKernels.hpp"
 
 #include "Operators/Math/MathKernels.hpp"
-#include "Operators/SolverUtilsOps//RiemannSolvers/RiemannSolverKernels.hpp"
 
 namespace Nektar::Operators
 {
@@ -79,6 +79,8 @@ public:
         return std::static_pointer_cast<RiemannSolverOp<TData>>(
             factory.CreateInstance(requestedKey, expansionList, components));
     }
+
+    static inline const std::string name = "";
 
     void Apply(Field<TData, FieldState::Phys> &Fwd,
                Field<TData, FieldState::Phys> &Bwd,
