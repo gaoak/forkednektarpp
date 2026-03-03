@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: HLLCSolverOp.hpp
+// File: AUSM0SolverKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,37 +34,44 @@
 
 #pragma once
 
-#include "CompressibleFlowSolverRedesign/RiemannSolvers/CompressibleSolverOp.hpp"
+#include "RiemannSolvers/AUSMSolverKernels.hpp"
 
-namespace Nektar::Operators
+// The dimension and shape kernels. NOTE: They are NOT duplicate
+// templated version based on the array size like the
+// operators. HOWEVER, they are forced to be INLINED. The inlining is
+// critical so that when used in the templated version of the operator
+// that loop unrolling occurs.
+
+namespace Nektar::Operators::detail
 {
 
-// HLLC base class
-// Defines the apply operator to enforce apply parameter types
-template <typename TData>
-class HLLCSolverOp : public CompressibleSolverOp<TData>
+struct AUSM0Upwinding
 {
-public:
-    static std::shared_ptr<HLLCSolverOp<TData>> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::vector<std::string> &components,
-        const std::string &execStr = "")
+    template <typename TData>
+    NEK_DEVICE_INLINE void operator()([[maybe_unused]] const TData &cA,
+                                      [[maybe_unused]] const TData &rhoL,
+                                      [[maybe_unused]] const TData &rhoR,
+                                      const TData &pL, const TData &pR,
+                                      const TData &ML, const TData &MR,
+                                      TData &pbar, TData &Mbar)
     {
-        return std::dynamic_pointer_cast<HLLCSolverOp<TData>>(
-            CompressibleSolverOp<TData>::template Create<HLLCSolverOp>(
-                expansionList, components, name, execStr));
+        // Parameters for specify the upwinding
+        constexpr TData beta  = 0.0;
+        constexpr TData alpha = 0.0;
+        Mbar = M4Function(0, beta, ML) + M4Function(1, beta, MR);
+        pbar = pL * P5Function(0, alpha, ML) + pR * P5Function(1, alpha, MR);
     }
-
-    static inline const std::string name = "HLLC";
-
-protected:
-    HLLCSolverOp(const MultiRegions::ExpListSharedPtr &expansionList,
-                 const std::vector<std::string> &components)
-        : CompressibleSolverOp<TData>(expansionList, components)
-    {
-    }
-
-    ~HLLCSolverOp() override = default;
 };
 
-} // namespace Nektar::Operators
+template <typename ExecSpace, unsigned int NDIM> struct AUSM0SolverKernel
+{
+    template <typename TData>
+    NEK_DEVICE_INLINE void operator()(const size_t blksize, const TData *fwd,
+                                      const TData *bwd, TData *flux)
+    {
+        AUSMSolverKernel<ExecSpace, NDIM, AUSM0Upwinding>()(blksize, fwd, bwd,
+                                                            flux);
+    }
+};
+
+} // namespace Nektar::Operators::detail

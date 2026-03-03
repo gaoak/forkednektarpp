@@ -39,82 +39,6 @@
 namespace Nektar::Operators
 {
 
-template <template <typename, unsigned int> typename RiemannKernel,
-          typename ExecSpace, unsigned int NDIM, bool ROTMAT, typename TData>
-NEK_FORCE_INLINE static void RiemannKernelLauncher(
-    const size_t blksize, const TData *normalPtr, const TData *rotMatPtr,
-    TData *rotStorage1Ptr, TData *rotStorage2Ptr, TData *rotStorage3Ptr,
-    const TData *fwdPtr, const TData *bwdPtr, TData *fluxPtr)
-{
-    using namespace Nektar::Operators::detail;
-
-    // Explicit vectorisation for AVX backend,
-    // vec_t = tinysimd::simd<TData> for AVX,
-    // vec_t = TData otherwise.
-    // using vec_t = typename data_type_if<
-    //    std::is_same_v<ExecSpace, NektarSpaces::AVX>, TData>::type;
-    constexpr unsigned int vec_width =
-        (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
-            ? tinysimd::simd<TData>::width
-            : 1;
-
-    const size_t groupsize = blksize / vec_width;
-
-    if (NDIM == 3 && ROTMAT)
-    {
-        Nektar::parallel_for<ExecSpace>(
-            0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
-                // Only update rotation matrice when necessary.
-                GenerateRotationMatrices<ExecSpace>(
-                    blksize, normalPtr + i * vec_width,
-                    (TData *)rotMatPtr + i * vec_width);
-
-                // Rotate velocity to normal.
-                RotateToNormalKernel<ExecSpace, NDIM>(
-                    blksize, fwdPtr + i * vec_width, rotMatPtr + i * vec_width,
-                    rotStorage1Ptr + i * vec_width);
-                RotateToNormalKernel<ExecSpace, NDIM>(
-                    blksize, bwdPtr + i * vec_width, rotMatPtr + i * vec_width,
-                    rotStorage2Ptr + i * vec_width);
-
-                // Compute flux in rotated frame.
-                RiemannKernel<ExecSpace, NDIM>()(
-                    blksize, rotStorage1Ptr + i * vec_width,
-                    rotStorage2Ptr + i * vec_width,
-                    rotStorage3Ptr + i * vec_width);
-
-                // Rotate flux back to Cartesian frame.
-                RotateFromNormalKernel<ExecSpace, NDIM>(
-                    blksize, rotStorage3Ptr + i * vec_width,
-                    rotMatPtr + i * vec_width, fluxPtr + i * vec_width);
-            });
-    }
-    else
-    {
-        Nektar::parallel_for<ExecSpace>(
-            0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
-                // Rotate velocity to normal.
-                RotateToNormalKernel<ExecSpace, NDIM>(
-                    blksize, fwdPtr + i * vec_width, rotMatPtr + i * vec_width,
-                    rotStorage1Ptr + i * vec_width);
-                RotateToNormalKernel<ExecSpace, NDIM>(
-                    blksize, bwdPtr + i * vec_width, rotMatPtr + i * vec_width,
-                    rotStorage2Ptr + i * vec_width);
-
-                // Compute flux in rotated frame.
-                RiemannKernel<ExecSpace, NDIM>()(
-                    blksize, rotStorage1Ptr + i * vec_width,
-                    rotStorage2Ptr + i * vec_width,
-                    rotStorage3Ptr + i * vec_width);
-
-                // Rotate flux back to Cartesian frame.
-                RotateFromNormalKernel<ExecSpace, NDIM>(
-                    blksize, rotStorage3Ptr + i * vec_width,
-                    rotMatPtr + i * vec_width, fluxPtr + i * vec_width);
-            });
-    }
-}
-
 // CompressibleSolver operator base class
 template <typename TData>
 class CompressibleSolverOp : public RiemannSolverOp<TData>
@@ -126,107 +50,20 @@ public:
         const std::string &execStr)
     {
         return std::static_pointer_cast<CompressibleSolverOp<TData>>(
-            RiemannSolverOp<TData>::Create(expansionList, components, method,
-                                           execStr));
+            RiemannSolverOp<TData>::Create(expansionList, components,
+                                           name + method, execStr));
     }
 
-protected:
-    Field<TData, FieldState::Phys> m_rotStorage1, m_rotStorage2, m_rotStorage3,
-        m_rotMat;
-    bool m_updateRotMat = false;
+    static inline const std::string name = "CompressibleSolver";
 
+protected:
     CompressibleSolverOp(const MultiRegions::ExpListSharedPtr &expansionList,
                          const std::vector<std::string> &components)
-        : RiemannSolverOp<TData>(expansionList, components),
-          m_rotStorage1(Field<TData, FieldState::Phys>(
-              "Fwd Rot Storage",
-              GetBlockAttributes<TData, FieldState::Phys>(
-                  expansionList->GetTrace()),
-              components, 1)),
-          m_rotStorage2(Field<TData, FieldState::Phys>(
-              "Bwd Rot Storage",
-              GetBlockAttributes<TData, FieldState::Phys>(
-                  expansionList->GetTrace()),
-              components, 1)),
-          m_rotStorage3(Field<TData, FieldState::Phys>(
-              "Flux Rot Storage",
-              GetBlockAttributes<TData, FieldState::Phys>(
-                  expansionList->GetTrace()),
-              components, 1)),
-          m_rotMat(Field<TData, FieldState::Phys>(
-              "Rotation Matrix",
-              GetBlockAttributes<TData, FieldState::Phys>(
-                  expansionList->GetTrace()),
-              9, 1))
+        : RiemannSolverOp<TData>(expansionList, components)
     {
     }
 
     ~CompressibleSolverOp() override = default;
-
-    void v_SetTraceNormals(
-        Field<TData, FieldState::Phys> &traceNormals) override
-    {
-        this->m_traceNormals = std::move(traceNormals);
-        m_updateRotMat       = true;
-    }
-
-    template <template <typename, unsigned int> typename RiemannKernel,
-              typename ExecSpace, unsigned int NDIM>
-    void OperatorND(Field<TData, FieldState::Phys> &Fwd,
-                    Field<TData, FieldState::Phys> &Bwd,
-                    Field<TData, FieldState::Phys> &flux)
-    {
-        using MemSpace = typename ExecSpace::memory_space;
-
-        // Loop over the blocks.
-        for (unsigned int blk = 0; blk < Fwd.GetBlocks().size(); ++blk)
-        {
-            // Initialize pointers.
-            auto &fwdBlk         = Fwd.GetBlocks()[blk];
-            auto &bwdBlk         = Bwd.GetBlocks()[blk];
-            auto &fluxBlk        = flux.GetBlocks()[blk];
-            auto &normalBlk      = this->m_traceNormals.GetBlocks()[blk];
-            auto &rotStorage1Blk = m_rotStorage1.GetBlocks()[blk];
-            auto &rotStorage2Blk = m_rotStorage2.GetBlocks()[blk];
-            auto &rotStorage3Blk = m_rotStorage3.GetBlocks()[blk];
-
-            auto fwdPtr    = fwdBlk.template GetPtr<MemSpace, ReadOnly>();
-            auto bwdPtr    = bwdBlk.template GetPtr<MemSpace, ReadOnly>();
-            auto fluxPtr   = fluxBlk.template GetPtr<MemSpace, WriteOnly>();
-            auto normalPtr = normalBlk.template GetPtr<MemSpace, ReadOnly>();
-            auto rotStorage1Ptr =
-                rotStorage1Blk.template GetPtr<MemSpace, WriteOnly>();
-            auto rotStorage2Ptr =
-                rotStorage2Blk.template GetPtr<MemSpace, WriteOnly>();
-            auto rotStorage3Ptr =
-                rotStorage3Blk.template GetPtr<MemSpace, WriteOnly>();
-
-            const auto blksize = fwdBlk.CompSize();
-
-            auto rotMatPtr =
-                (NDIM == 3) ? (m_updateRotMat)
-                                  ? m_rotMat.GetBlocks()[blk]
-                                        .template GetPtr<MemSpace, WriteOnly>()
-                                  : m_rotMat.GetBlocks()[blk]
-                                        .template GetPtr<MemSpace, ReadOnly>()
-                            : normalPtr;
-
-            if (m_updateRotMat)
-            {
-                RiemannKernelLauncher<RiemannKernel, ExecSpace, NDIM, true>(
-                    blksize, normalPtr, rotMatPtr, rotStorage1Ptr,
-                    rotStorage2Ptr, rotStorage3Ptr, fwdPtr, bwdPtr, fluxPtr);
-            }
-            else
-            {
-                RiemannKernelLauncher<RiemannKernel, ExecSpace, NDIM, false>(
-                    blksize, normalPtr, rotMatPtr, rotStorage1Ptr,
-                    rotStorage2Ptr, rotStorage3Ptr, fwdPtr, bwdPtr, fluxPtr);
-            }
-        }
-
-        m_updateRotMat = false;
-    }
 };
 
 // Helper function

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: HLLCSolverKernels.hpp
+// File: HLLSolverKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,8 +34,6 @@
 
 #pragma once
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
-
 // The dimension and shape kernels. NOTE: They are NOT duplicate
 // templated version based on the array size like the
 // operators. HOWEVER, they are forced to be INLINED. The inlining is
@@ -45,7 +43,7 @@
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, unsigned int NDIM> struct HLLCSolverKernel
+template <typename ExecSpace, unsigned int NDIM> struct HLLSolverKernel
 {
     template <typename TScalar>
     NEK_DEVICE_INLINE void operator()(const size_t blksize, const TScalar *fwd,
@@ -137,7 +135,7 @@ template <typename ExecSpace, unsigned int NDIM> struct HLLCSolverKernel
             const TScalar SL = std::min(uL[0] - cL, uRoe[0] - cRoe);
             const TScalar SR = std::max(uR[0] + cR, uRoe[0] + cRoe);
 
-            // HLLC Riemann fluxes (positive case)
+            // HLL Riemann fluxes (positive case)
             if (SL >= 0)
             {
                 flux[0]            = rhoL * uL[0];
@@ -149,7 +147,7 @@ template <typename ExecSpace, unsigned int NDIM> struct HLLCSolverKernel
                 }
                 flux[(1u + NDIM) * blksize] = uL[0] * (EL + pL);
             }
-            // HLLC Riemann fluxes (negative case)
+            // HLL Riemann fluxes (negative case)
             else if (SR <= 0)
             {
                 flux[0]            = rhoR * uR[0];
@@ -164,57 +162,27 @@ template <typename ExecSpace, unsigned int NDIM> struct HLLCSolverKernel
             // HLL Riemann fluxes (general case (SL < 0 | SR > 0)
             else
             {
-                TScalar rhouML[NDIM];
-                TScalar SM = (pR - pL + rhoL * uL[0] * (SL - uL[0]) -
-                              rhoR * uR[0] * (SR - uR[0])) /
-                             (rhoL * (SL - uL[0]) - rhoR * (SR - uR[0]));
-                TScalar rhoML = rhoL * (SL - uL[0]) / (SL - SM);
-                rhouML[0]     = rhoML * SM;
-#pragma unroll
-                for (unsigned int d = 1; d < NDIM; ++d)
-                {
-                    rhouML[d] = rhoML * uL[d];
-                }
-                TScalar EML =
-                    rhoML * (EL / rhoL +
-                             (SM - uL[0]) * (SM + pL / (rhoL * (SL - uL[0]))));
-
-                TScalar rhouMR[NDIM];
-                TScalar rhoMR = rhoR * (SR - uR[0]) / (SR - SM);
-                rhouMR[0]     = rhoMR * SM;
-#pragma unroll
-                for (unsigned int d = 1; d < NDIM; ++d)
-                {
-                    rhouMR[d] = rhoMR * uR[d];
-                }
-                TScalar EMR =
-                    rhoMR * (ER / rhoR +
-                             (SM - uR[0]) * (SM + pR / (rhoR * (SR - uR[0]))));
-
-                // Conditional assignment
-                const bool cond        = SL < 0.0 && SM >= 0.0;
-                const TScalar &rhoUp   = (cond) ? rhoL : rhoR;
-                const TScalar &pUp     = (cond) ? pL : pR;
-                const TScalar *uUp     = (cond) ? uL : uR;
-                const TScalar &EUp     = (cond) ? EL : ER;
-                const TScalar &rhoMUp  = (cond) ? rhoML : rhoMR;
-                const TScalar *rhouMUp = (cond) ? rhouML : rhouMR;
-                const TScalar &SUp     = (cond) ? SL : SR;
-                const TScalar &EMUp    = (cond) ? EML : EMR;
-
-                // Compute flux
-                flux[0]            = rhoUp * uUp[0] + SUp * (rhoMUp - rhoUp);
-                flux[1u * blksize] = rhoUp * uUp[0] * uUp[0] + pUp +
-                                     SUp * (rhouMUp[0] - rhoUp * uUp[0]);
+                TScalar tmp1 = 1.0 / (SR - SL);
+                TScalar tmp2 = SR * SL;
+                flux[0]      = (SR * rhoL * uL[0] - SL * rhoR * uR[0] +
+                           tmp2 * (rhoR - rhoL)) *
+                          tmp1;
+                flux[1u * blksize] = (SR * (rhoL * uL[0] * uL[0] + pL) -
+                                      SL * (rhoR * uR[0] * uR[0] + pR) +
+                                      tmp2 * (rhoR * uR[0] - rhoL * uL[0])) *
+                                     tmp1;
 #pragma unroll
                 for (unsigned int d = 1; d < NDIM; ++d)
                 {
                     flux[(1u + d) * blksize] =
-                        rhoUp * uUp[0] * uUp[d] +
-                        SUp * (rhouMUp[d] - rhoUp * uUp[d]);
+                        (SR * rhoL * uL[0] * uL[d] - SL * rhoR * uR[0] * uR[d] +
+                         tmp2 * (rhoR * uR[d] - rhoL * uL[d])) *
+                        tmp1;
                 }
                 flux[(1u + NDIM) * blksize] =
-                    uUp[0] * (EUp + pUp) + SUp * (EMUp - EUp);
+                    (SR * uL[0] * (EL + pL) - SL * uR[0] * (ER + pR) +
+                     tmp2 * (ER - EL)) *
+                    tmp1;
             }
 
             fwd++;

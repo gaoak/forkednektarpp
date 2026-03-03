@@ -34,8 +34,6 @@
 
 #pragma once
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
-
 // The dimension and shape kernels. NOTE: They are NOT duplicate
 // templated version based on the array size like the
 // operators. HOWEVER, they are forced to be INLINED. The inlining is
