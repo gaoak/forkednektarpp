@@ -52,10 +52,10 @@ namespace Nektar::Operators::detail
 
 // Register the implementation with Operator Factory
 template <>
-std::string AssmbScatrZeroDirOpImpl<@EXEC_MEM_SPACE_TAG@, @TData@>::className =
+std::string AssmbScatrZeroDirOpImpl<NektarSpaces::@ExecSpace@, @TData@>::className =
     GetOperatorFactory<@TData@>().RegisterCreatorFunction(
         AssmbScatrZeroDirOp<@TData@>::name + "@ExecSpace@",
-        AssmbScatrZeroDirOpImpl<@EXEC_MEM_SPACE_TAG@,
+        AssmbScatrZeroDirOpImpl<NektarSpaces::@ExecSpace@,
                          @TData@>::Instantiate,
         "...");
 

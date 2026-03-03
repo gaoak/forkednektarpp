@@ -51,10 +51,10 @@ namespace Nektar::Operators::detail
 
 // Register the implementation with Operator Factory
 template <>
-std::string @OPERATOR@OpImpl<@EXEC_MEM_SPACE_TAG@, @TData@>::className =
+std::string @OPERATOR@OpImpl<NektarSpaces::@ExecSpace@, @TData@>::className =
     GetOperatorFactory<@TData@>().RegisterCreatorFunction(
         @OPERATOR@Op<@TData@>::name + "@ExecSpace@",
-        @OPERATOR@OpImpl<@EXEC_MEM_SPACE_TAG@,
+        @OPERATOR@OpImpl<NektarSpaces::@ExecSpace@,
                          @TData@>::Instantiate,
         "...");
 

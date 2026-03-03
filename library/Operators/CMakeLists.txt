@@ -63,15 +63,6 @@ MACRO(ADD_OPERATOR dir)
             SET(SOURCE_EXT cpp)
         ENDIF()
 
-        # Set execution space.
-        IF("${ExecSpace}" STREQUAL "Serial")
-            SET(EXEC_MEM_SPACE_TAG NektarSpaces::Serial)
-        ELSEIF("${ExecSpace}" STREQUAL "AVX")
-            SET(EXEC_MEM_SPACE_TAG NektarSpaces::AVX)
-        ELSEIF("${ExecSpace}" STREQUAL "Device")
-            SET(EXEC_MEM_SPACE_TAG NektarSpaces::Device)
-        ENDIF()
-
         # Loop through each possible data type.
         FOREACH (TData IN LISTS DataTypes)
             # Set up the name used for the .cpp declaration file.
@@ -222,15 +213,6 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     ENDFOREACH()
                 ENDFOREACH()
             ENDIF()
-        ENDIF()
-
-        # Set execution space.
-        IF("${ExecSpace}" STREQUAL "Serial")
-            SET(EXEC_MEM_SPACE_TAG NektarSpaces::Serial)
-        ELSEIF("${ExecSpace}" STREQUAL "AVX")
-            SET(EXEC_MEM_SPACE_TAG NektarSpaces::AVX)
-        ELSEIF("${ExecSpace}" STREQUAL "Device")
-            SET(EXEC_MEM_SPACE_TAG NektarSpaces::Device)
         ENDIF()
 
         # Loop through each possible implementation.
@@ -505,15 +487,6 @@ MACRO(ADD_TIME_OPERATOR dir)
                 SET(SOURCE_EXT cpp)
             ENDIF()
 
-            # Set execution space.
-            IF("${ExecSpace}" STREQUAL "Serial")
-                SET(EXEC_MEM_SPACE_TAG NektarSpaces::Serial)
-            ELSEIF("${ExecSpace}" STREQUAL "AVX")
-                SET(EXEC_MEM_SPACE_TAG NektarSpaces::AVX)
-            ELSEIF("${ExecSpace}" STREQUAL "Device")
-                SET(EXEC_MEM_SPACE_TAG NektarSpaces::Device)
-            ENDIF()
-
             IF ("${Variant}" STREQUAL "Dummy")
                 SET(Variant "")
             ENDIF()
@@ -634,7 +607,6 @@ ENDFOREACH()
   #Serial double cases
   SET(TData double)
 
-  SET(EXEC_MEM_SPACE_TAG NektarSpaces::Serial)
   SET(ExecSpace Serial)
   SET(SOURCE_EXT cpp)
 
@@ -643,7 +615,6 @@ ENDFOREACH()
 
   #AVX double cases
   IF (AVX IN_LIST ExecSpaces)
-    SET(EXEC_MEM_SPACE_TAG NektarSpaces::AVX)
     SET(ExecSpace AVX)
     SET(SOURCE_EXT cpp)
 
@@ -653,7 +624,6 @@ ENDFOREACH()
 
   #Device double cases
   IF (Device IN_LIST ExecSpaces)
-    SET(EXEC_MEM_SPACE_TAG NektarSpaces::Device)
     SET(ExecSpace Device)
     IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
          SET(SOURCE_EXT cu)
