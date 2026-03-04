@@ -155,8 +155,8 @@ protected:
     /// Set indicating the local coeffs just touching parallel
     /// dirichlet boundary that have a sign change
     std::set<int> m_parallelDirBndSign;
-    std::unique_ptr<AssemblyCommCG> m_cgcomm;
-    std::unique_ptr<AssemblyCommCG> m_cgcommBnd;
+    std::unique_ptr<AssemblyCommCG<double>> m_cgcomm;
+    std::unique_ptr<AssemblyCommCG<double>> m_cgcommBnd;
 
     MULTI_REGIONS_EXPORT int CreateGraph(
         const ExpList &locExp, const BndCondExp &bndCondExp,

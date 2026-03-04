@@ -110,6 +110,44 @@ struct GlobalConfiguration
 #ifdef NEKTAR_USE_MPI
         MPI_Init(&argc, &argv);
 #endif
+
+        // check to see if at least one argument is given and that the last two
+        // argv entries are the same which happens when the -- is specified in
+        // command line
+        if (argc <= 1 && argv[argc] != argv[argc - 1])
+        {
+            int rank = 0;
+
+#ifdef NEKTAR_USE_MPI
+            MPI_Comm comm = MPI_COMM_WORLD;
+            MPI_Comm_rank(comm, &rank);
+#endif
+            if (rank == 0)
+            {
+                std::string execname(argv[0]);
+
+                std::cerr << "Usage: " << execname
+                          << " -- ExecName [optional] OpName" << std::endl;
+#if defined(NEKTAR_ENABLE_DEVICE) && defined(NEKTAR_ENABLE_SIMD)
+                std::cerr << "\t ExecName = Serial, AVX, Device" << std::endl;
+                std::cerr << "\t OpName   = StdMat, SumFac, SumFacTOP"
+#elif defined(NEKTAR_ENABLE_DEVICE)
+                std::cerr << "\t ExecName = Serial, Device" << std::endl;
+                std::cerr << "\t OpName   = StdMat, SumFac, SumFacTOP"
+#elif defined(NEKTAR_ENABLE_SIMD)
+                std::cerr << "\t ExecName = Serial, AVX" << std::endl;
+                std::cerr << "\t OpName   = StdMat, SumFac"
+#else
+                std::cerr << "\t ExecName = Serial" << std::endl;
+                std::cerr << "\t OpName   = StdMat, SumFac"
+#endif
+                          << std::endl;
+            }
+#ifdef NEKTAR_USE_MPI
+            MPI_Finalize();
+#endif
+            exit(1);
+        }
     }
 
     ~GlobalConfiguration()

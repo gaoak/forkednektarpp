@@ -42,71 +42,6 @@ namespace Nektar::Operators::detail
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void AssembleScatrKernel(
-    const unsigned nvals, const unsigned *__restrict__ GSInfo,
-    const int *__restrict__ sign, TData *__restrict__ inoutptr,
-    const TthreadBlock &threadBlock)
-{
-    const unsigned idx0   = getGlobalIdx(threadBlock);
-    const unsigned stride = getGlobalRange(threadBlock);
-
-    const unsigned *offset = GSInfo + 1;
-    const unsigned *ind    = GSInfo + nvals + 2;
-
-    for (unsigned idx = idx0; idx < nvals; idx += stride)
-    {
-        TData ass            = 0;
-        const unsigned start = offset[idx];
-        const unsigned end   = offset[idx + 1];
-        for (unsigned j = start; j < end; ++j)
-        {
-            ass += inoutptr[ind[j]] * sign[j];
-        }
-        for (unsigned j = start; j < end; ++j)
-        {
-            inoutptr[ind[j]] = ass * sign[j];
-        }
-    }
-}
-
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL static void AssembleScatrKernel(
-    const unsigned nvals, const unsigned *nassemble, const unsigned *index,
-    const int *sign, TData *inoutptr, const TthreadBlock &threadBlock)
-{
-    constexpr unsigned int warpSize = NektarSpaces::Device::warpSize;
-
-    const unsigned idx0   = getGlobalIdx(threadBlock);
-    const unsigned stride = getGlobalRange(threadBlock);
-
-    for (unsigned idx = idx0; idx < nvals; idx += stride)
-    {
-        TData ass = 0;
-        // this will determine the offset for index and sign data
-        // could be pre-caclculated and passed.
-        unsigned cnt = 0;
-        for (unsigned i = warpSize; i <= idx; i += warpSize)
-        {
-            cnt += nassemble[(i - warpSize) / warpSize * warpSize] * warpSize;
-        }
-
-        const unsigned i       = idx % warpSize;
-        const unsigned nassemb = nassemble[idx];
-        for (unsigned j = 0; j < nassemb; ++j)
-        {
-            ass += inoutptr[index[cnt + j * warpSize + i]] *
-                   sign[cnt + j * warpSize + i];
-        }
-
-        for (unsigned j = 0; j < nassemb; ++j)
-        {
-            inoutptr[index[cnt + j * warpSize + i]] =
-                ass * sign[cnt + j * warpSize + i];
-        }
-    }
-}
-
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL static void AssembleScatrKernel(
     const unsigned nvals, const unsigned *nassemble, const unsigned *index,
     const unsigned *offset, const int *sign, TData *inoutptr,
     const TthreadBlock &threadBlock)
@@ -137,92 +72,79 @@ NEK_DEVICE_KERNEL static void AssembleScatrKernel(
 
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void AssembleScatrBndKernel(
-    const unsigned nvals, const unsigned *GSInfo, const int *sign,
+    const unsigned nvals, const unsigned *nassemble, const unsigned *nbndvals,
+    const unsigned *index, const unsigned *offset, const int *sign,
     TData *inoutptr, TData *bndptr, const TthreadBlock &threadBlock)
 {
     const unsigned idx0   = getGlobalIdx(threadBlock);
     const unsigned stride = getGlobalRange(threadBlock);
 
-    const unsigned *offset = GSInfo + 1;
-    const unsigned *ind    = GSInfo + nvals + 2;
-
     for (unsigned idx = idx0; idx < nvals; idx += stride)
     {
-        TData ass  = 0;
-        auto start = offset[idx];
-        auto nidx  = ind[start];
-        auto nbnd  = ind[start + 1];
+        TData ass              = 0;
+        const unsigned ioffset = offset[idx];
+        const unsigned nidx    = nassemble[idx];
+        const unsigned nbnd    = nbndvals[idx];
 
-        // cannot evalaute cnt at end of loop since may only accesss
-        // loop once in GPU. So following hack just calculated cnt
-        unsigned cnt = 0;
-        for (unsigned i = 0; i < idx; ++i)
-        {
-            cnt += ind[offset[i]];
-        }
-
-        start += 2;
         // assemble values
         for (unsigned j = 0; j < nidx; ++j)
         {
-            ass += inoutptr[ind[start + j]] * sign[cnt + j];
+            const unsigned ind = ioffset + j;
+            ass += inoutptr[index[ind]] * sign[ind];
         }
-        // copy assembled values back to local values
-        for (unsigned j = 0; j < nidx; ++j)
-        {
-            inoutptr[ind[start + j]] = ass * sign[cnt + j];
-        }
+
+        // copy one assembled values back to local values
+        inoutptr[index[ioffset]] = ass * sign[ioffset];
+
         // put assembled values into boudnary array
-        start += nidx;
         for (unsigned j = 0; j < nbnd; ++j)
         {
-            bndptr[ind[start + j]] = ass;
+            const unsigned ind = ioffset + nidx + j;
+            bndptr[index[ind]] = ass;
         }
     }
 }
 
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void AssembleFromBndKernel(
-    const unsigned nvals, const unsigned *GSInfo, const int *sign,
-    const TData *bndptr, TData *inoutptr, const TthreadBlock &threadBlock)
+    const unsigned nvals, const unsigned *nassemble, const unsigned *nbndvals,
+    const unsigned *index, const unsigned *offset, const int *sign,
+    const unsigned *norder, const TData *bndptr, TData *inoutptr,
+    const TthreadBlock &threadBlock)
 {
     const unsigned idx0   = getGlobalIdx(threadBlock);
     const unsigned stride = getGlobalRange(threadBlock);
 
-    const unsigned *offset = GSInfo + 1;
-    const unsigned *ind    = GSInfo + nvals + 2;
-
     for (unsigned idx = idx0; idx < nvals; idx += stride)
     {
-        // cannot evalaute cnt at end of loop since may only accesss
-        // loop once in GPU. So following hack just calculated cnt
-        unsigned cnt = 0;
-        for (unsigned i = 0; i < idx; ++i)
-        {
-            cnt += ind[offset[i]];
-        }
-
-        TData ass  = 0;
-        auto start = offset[idx];
-        auto nidx  = ind[start];
-        auto nbnd  = ind[start + 1];
-        start += 2;
-
-        auto startbnd = start + nidx;
+        TData ass              = 0;
+        const unsigned ioffset = offset[idx];
+        const unsigned nidx    = nassemble[idx];
+        const unsigned nbnd    = nbndvals[idx];
+        const unsigned nord    = norder[idx];
 
         // assemble bndptr components wtih local ids
-        for (unsigned j = 0; j < nbnd; ++j)
+        for (unsigned j = 0; j < nord; ++j)
         {
-            ass += bndptr[ind[startbnd + j]];
+            const unsigned ind = ioffset + nidx + j;
+            ass += bndptr[index[ind]];
         }
 
         // add in local point in rank ordered assembly
-        ass += inoutptr[ind[start]] * sign[cnt];
+        ass += inoutptr[index[ioffset]] * sign[ioffset];
 
-        // copy rank ordered assembled values back to local values
+        // assemble rest of points from where we left off
+        for (unsigned j = nord; j < nbnd; ++j)
+        {
+            const unsigned ind = ioffset + nidx + j;
+            ass += bndptr[index[ind]];
+        }
+
+        // copy rank assembled values back to local values
         for (unsigned j = 0; j < nidx; ++j)
         {
-            inoutptr[ind[start + j]] = ass * sign[cnt + j];
+            const unsigned ind   = ioffset + j;
+            inoutptr[index[ind]] = ass * sign[ind];
         }
     }
 }
@@ -247,30 +169,35 @@ template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
-    AssembleScatrBndKernel(const unsigned nvals, const unsigned *GSInfo,
-                           const int *sign, TData *inoutptr, TData *bndptr)
+    AssembleScatrBndKernel(const unsigned nvals, const unsigned *nassemble,
+                           const unsigned *nbndvals, const unsigned *index,
+                           const unsigned *offset, const int *sign,
+                           TData *inoutptr, TData *bndptr)
 {
     const unsigned blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned gridSize  = (nvals + blockSize - 1) / blockSize;
 
-    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(AssembleScatrBndKernel<>, gridSize,
-                                          blockSize, 0, nvals, GSInfo, sign,
-                                          inoutptr, bndptr);
+    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+        AssembleScatrBndKernel<>, gridSize, blockSize, 0, nvals, nassemble,
+        nbndvals, index, offset, sign, inoutptr, bndptr);
 }
 
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                             void>::type
-    AssembleFromBndKernel(const unsigned nvals, const unsigned *GSInfo,
-                          const int *sign, const TData *bndptr, TData *inoutptr)
+    AssembleFromBndKernel(const unsigned nvals, const unsigned *nassemble,
+                          const unsigned *nbndvals, const unsigned *index,
+                          const unsigned *offset, const int *sign,
+                          const unsigned *norder, const TData *bndptr,
+                          TData *inoutptr)
 {
     const unsigned blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned gridSize  = (nvals + blockSize - 1) / blockSize;
 
-    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(AssembleFromBndKernel<>, gridSize,
-                                          blockSize, 0, nvals, GSInfo, sign,
-                                          bndptr, inoutptr);
+    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+        AssembleFromBndKernel<>, gridSize, blockSize, 0, nvals, nassemble,
+        nbndvals, index, offset, sign, norder, bndptr, inoutptr);
 }
 #endif
 

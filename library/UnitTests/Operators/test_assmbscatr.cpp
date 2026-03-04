@@ -43,9 +43,12 @@
 #define TEST_ASSMBSCATR(test_name, test, tol)                                  \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        std::cout << std::string("Run: ") + std::string(#test_name)            \
-                  << std::endl;                                                \
         Configure();                                                           \
+        if (this->session->GetComm()->GetRank() == 0)                          \
+        {                                                                      \
+            std::cout << std::string("Run: ") + std::string(#test_name)        \
+                      << std::endl;                                            \
+        }                                                                      \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
@@ -57,9 +60,12 @@
 #define TEST_ASSMBSCATR_ZERODIR(test_name, test, tol)                          \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        std::cout << std::string("Run: ") + std::string(#test_name)            \
-                  << std::endl;                                                \
         Configure();                                                           \
+        if (this->session->GetComm()->GetRank() == 0)                          \
+        {                                                                      \
+            std::cout << std::string("Run: ") + std::string(#test_name)        \
+                      << std::endl;                                            \
+        }                                                                      \
         SetTestCase(true);                                                     \
         RunTestCaseZeroDir();                                                  \
         boost::test_tools::output_test_stream output;                          \
