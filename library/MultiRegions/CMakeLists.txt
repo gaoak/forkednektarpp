@@ -1,5 +1,4 @@
 SET(MULTI_REGIONS_SOURCES
-./AssemblyMap/AssemblyCommCG.cpp
 ./AssemblyMap/AssemblyCommDG.cpp
 ./AssemblyMap/AssemblyMap.cpp
 ./AssemblyMap/AssemblyMapCG.cpp

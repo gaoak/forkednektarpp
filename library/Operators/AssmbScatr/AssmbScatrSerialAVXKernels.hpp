@@ -36,34 +36,6 @@
 
 namespace Nektar::Operators::detail
 {
-
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    AssembleScatrKernel(const unsigned nvals, const unsigned *GSInfo,
-                        const int *sign, TData *inoutptr)
-{
-    const unsigned *offset = GSInfo + 1;
-    const unsigned *ind    = GSInfo + nvals + 2;
-
-    for (unsigned idx = 0; idx < nvals; ++idx)
-    {
-        TData ass            = 0;
-        const unsigned start = offset[idx];
-        const unsigned end   = offset[idx + 1];
-        for (unsigned j = start; j < end; ++j)
-        {
-            ass += inoutptr[ind[j]] * sign[j];
-        }
-        for (unsigned j = start; j < end; ++j)
-        {
-            inoutptr[ind[j]] = ass * sign[j];
-        }
-    }
-}
-
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
@@ -132,40 +104,32 @@ NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
-    AssembleScatrBndKernel(const unsigned nvals, const unsigned *GSInfo,
-                           const int *sign, TData *inoutptr, TData *bndptr)
+    AssembleScatrBndKernel(const unsigned nvals, const unsigned *nassemble,
+                           const unsigned *nbndvals, const unsigned *index,
+                           const unsigned *offset, const int *sign,
+                           TData *inoutptr, TData *bndptr)
 {
-    const unsigned *offset = GSInfo + 1;
-    const unsigned *ind    = GSInfo + nvals + 2;
-
-    unsigned cnt = 0;
     for (unsigned idx = 0; idx < nvals; ++idx)
     {
-        TData ass  = 0;
-        auto start = offset[idx];
-        auto nidx  = ind[start];
-        auto nbnd  = ind[start + 1];
+        const unsigned ind  = offset[idx];
+        const unsigned nidx = nassemble[idx];
+        const unsigned nbnd = nbndvals[idx];
 
-        start += 2;
-        // assemble values
-        for (unsigned j = 0; j < nidx; ++j)
+        TData ass = inoutptr[index[ind]] * sign[ind];
+
+        for (unsigned j = 1; j < nidx; ++j)
         {
-            ass += inoutptr[ind[start + j]] * sign[cnt + j];
+            ass += inoutptr[index[ind + j]] * sign[ind + j];
         }
-        // copy assembled values back to local values
-        // !!!! Beleive we may only need to do first point here. Rest will be
-        // copied back in next kernel
-        for (unsigned j = 0; j < nidx; ++j)
-        {
-            inoutptr[ind[start + j]] = ass * sign[cnt + j];
-        }
+
+        // keep one local copy for full assembly
+        inoutptr[index[ind]] = ass * sign[ind];
+
         // put assembled values into boudnary array
-        start += nidx;
         for (unsigned j = 0; j < nbnd; ++j)
         {
-            bndptr[ind[start + j]] = ass;
+            bndptr[index[ind + nidx + j]] = ass;
         }
-        cnt += nidx;
     }
 }
 
@@ -174,47 +138,41 @@ NEK_FORCE_INLINE static
     typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
-    AssembleFromBndKernel(const unsigned nvals, const unsigned *GSInfo,
-                          const int *sign, const TData *bndptr, TData *inoutptr)
+    AssembleFromBndKernel(const unsigned nvals, const unsigned *nassemble,
+                          const unsigned *nbndvals, const unsigned *index,
+                          const unsigned *offset, const int *sign,
+                          const unsigned *norder, const TData *bndptr,
+                          TData *inoutptr)
 {
-    const unsigned *offset = GSInfo + 1;
-    const unsigned *ind    = GSInfo + nvals + 2;
-    unsigned cnt           = 0;
-
     for (unsigned idx = 0; idx < nvals; ++idx)
     {
-        TData ass   = 0;
-        auto start  = offset[idx];
-        auto nidx   = ind[start];
-        auto nbnd   = ind[start + 1];
-        auto norder = ind[start + 2 + nidx + nbnd];
-        start += 2;
+        const unsigned ind  = offset[idx];
+        const unsigned nidx = nassemble[idx];
+        const unsigned nbnd = nbndvals[idx];
+        const unsigned nord = norder[idx];
 
-        auto startbnd = start + nidx;
+        TData ass = 0;
 
-        ASSERTL1(norder <= nbnd, "norder is greater than nbnd");
         // assemble bndptr components wtih local ids
-        unsigned j;
-        for (j = 0; j < norder; ++j)
+        for (unsigned j = 0; j < nord; ++j)
         {
-            ass += bndptr[ind[startbnd + j]];
+            ass += bndptr[index[ind + nidx + j]];
         }
 
         // add in local point in rank ordered assembly
-        ass += inoutptr[ind[start]] * sign[cnt];
+        ass += inoutptr[index[ind]] * sign[ind];
 
         // assemble rest of points from where we left off
-        for (; j < nbnd; ++j)
+        for (unsigned j = nord; j < nbnd; ++j)
         {
-            ass += bndptr[ind[startbnd + j]];
+            ass += bndptr[index[ind + nidx + j]];
         }
 
         // copy rank ordered assembled values back to local values
-        for (j = 0; j < nidx; ++j)
+        for (unsigned j = 0; j < nidx; ++j)
         {
-            inoutptr[ind[start + j]] = ass * sign[cnt + j];
+            inoutptr[index[ind + j]] = ass * sign[ind + j];
         }
-        cnt += nidx;
     }
 }
 

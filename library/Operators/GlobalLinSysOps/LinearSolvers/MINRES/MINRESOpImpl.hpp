@@ -176,8 +176,8 @@ protected:
             }
 
             // Update search vector.
-            mul<ExecSpace>(1.0 / beta1, m_v0, m_v0);
-            mul<ExecSpace>(1.0 / beta1, m_w, m_w);
+            mul<ExecSpace>((TData)1.0 / beta1, m_v0, m_v0);
+            mul<ExecSpace>((TData)1.0 / beta1, m_w, m_w);
 
             // Perform the method-specific matrix-vector multiply operation.
             this->m_lhs->Apply(m_w, m_q);
@@ -226,19 +226,19 @@ protected:
             if (this->m_niter == 0)
             {
                 // m_p1, m_p0 = 0
-                mul<ExecSpace>(1.0 / alpha1, m_w, m_p0);
+                mul<ExecSpace>((TData)1.0 / alpha1, m_w, m_p0);
             }
             else if (this->m_niter == 1)
             {
                 // m_p0 = 0
-                mul<ExecSpace>(1.0 / alpha1, m_w, m_p0);
+                mul<ExecSpace>((TData)1.0 / alpha1, m_w, m_p0);
                 daxpy<ExecSpace>(-alpha2 / alpha1, m_p1, m_p0, m_p0);
             }
             else
             {
                 mul<ExecSpace>(-alpha3 / alpha1, m_p0, m_p0);
                 daxpy<ExecSpace>(-alpha2 / alpha1, m_p1, m_p0, m_p0);
-                daxpy<ExecSpace>(1.0 / alpha1, m_w, m_p0, m_p0);
+                daxpy<ExecSpace>((TData)1.0 / alpha1, m_w, m_p0, m_p0);
             }
             daxpy<ExecSpace>(gamma1 * eta, m_p0, out, out);
 

@@ -201,7 +201,7 @@ SET_UNIT_TEST(Explicit_GEM_serial test_explicit_gem Serial none FALSE)
 SET_UNIT_TEST(Implicit_GEM_serial test_implicit_gem Serial none FALSE)
 SET_UNIT_TEST(IMEX_GEM_serial test_imex_gem Serial none FALSE)
 IF (NEKTAR_USE_MPI)
-    # SET_UNIT_TEST(AssmbScatr_serial test_assmbscatr Serial none TRUE)
+    SET_UNIT_TEST(AssmbScatr_serial test_assmbscatr Serial none TRUE)
 ENDIF()
 
 # Serial generic

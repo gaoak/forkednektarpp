@@ -136,6 +136,101 @@ LocalToGlobalDataCreator::Create<NektarSpaces::DeviceSpace, float>(
 #endif
 
 template MemoryRegion<
+    typename DeviceBndLocalToGlobalNumAssembleKey<double>::value_type>
+LocalToGlobalDataCreator::Create<NektarSpaces::HostSpace, double>(
+    const DeviceBndLocalToGlobalNumAssembleKey<double> &LocToGloKey);
+template MemoryRegion<
+    typename DeviceBndLocalToGlobalNumAssembleKey<float>::value_type>
+LocalToGlobalDataCreator::Create<NektarSpaces::HostSpace, float>(
+    const DeviceBndLocalToGlobalNumAssembleKey<float> &LocToGloKey);
+#if defined(NEKTAR_ENABLE_DEVICE)
+template MemoryRegion<
+    typename DeviceBndLocalToGlobalNumAssembleKey<double>::value_type>
+LocalToGlobalDataCreator::Create<NektarSpaces::DeviceSpace, double>(
+    const DeviceBndLocalToGlobalNumAssembleKey<double> &LocToGloKey);
+template MemoryRegion<
+    typename DeviceBndLocalToGlobalNumAssembleKey<float>::value_type>
+LocalToGlobalDataCreator::Create<NektarSpaces::DeviceSpace, float>(
+    const DeviceBndLocalToGlobalNumAssembleKey<float> &LocToGloKey);
+#endif
+
+template MemoryRegion<
+    typename DeviceBndLocalToGlobalNumBndValsKey<double>::value_type>
+LocalToGlobalDataCreator::Create<NektarSpaces::HostSpace, double>(
+    const DeviceBndLocalToGlobalNumBndValsKey<double> &LocToGloKey);
+template MemoryRegion<
+    typename DeviceBndLocalToGlobalNumBndValsKey<float>::value_type>
+LocalToGlobalDataCreator::Create<NektarSpaces::HostSpace, float>(
+    const DeviceBndLocalToGlobalNumBndValsKey<float> &LocToGloKey);
+#if defined(NEKTAR_ENABLE_DEVICE)
+template MemoryRegion<
+    typename DeviceBndLocalToGlobalNumBndValsKey<double>::value_type>
+LocalToGlobalDataCreator::Create<NektarSpaces::DeviceSpace, double>(
+    const DeviceBndLocalToGlobalNumBndValsKey<double> &LocToGloKey);
+template MemoryRegion<
+    typename DeviceBndLocalToGlobalNumBndValsKey<float>::value_type>
+LocalToGlobalDataCreator::Create<NektarSpaces::DeviceSpace, float>(
+    const DeviceBndLocalToGlobalNumBndValsKey<float> &LocToGloKey);
+#endif
+
+template MemoryRegion<
+    typename DeviceBndLocalToGlobalIndexKey<double>::value_type>
+LocalToGlobalDataCreator::Create<NektarSpaces::HostSpace, double>(
+    const DeviceBndLocalToGlobalIndexKey<double> &LocToGloKey);
+template MemoryRegion<
+    typename DeviceBndLocalToGlobalIndexKey<float>::value_type>
+LocalToGlobalDataCreator::Create<NektarSpaces::HostSpace, float>(
+    const DeviceBndLocalToGlobalIndexKey<float> &LocToGloKey);
+#if defined(NEKTAR_ENABLE_DEVICE)
+template MemoryRegion<
+    typename DeviceBndLocalToGlobalIndexKey<double>::value_type>
+LocalToGlobalDataCreator::Create<NektarSpaces::DeviceSpace, double>(
+    const DeviceBndLocalToGlobalIndexKey<double> &LocToGloKey);
+template MemoryRegion<
+    typename DeviceBndLocalToGlobalIndexKey<float>::value_type>
+LocalToGlobalDataCreator::Create<NektarSpaces::DeviceSpace, float>(
+    const DeviceBndLocalToGlobalIndexKey<float> &LocToGloKey);
+#endif
+
+template MemoryRegion<
+    typename DeviceBndLocalToGlobalOffsetKey<double>::value_type>
+LocalToGlobalDataCreator::Create<NektarSpaces::HostSpace, double>(
+    const DeviceBndLocalToGlobalOffsetKey<double> &LocToGloKey);
+template MemoryRegion<
+    typename DeviceBndLocalToGlobalOffsetKey<float>::value_type>
+LocalToGlobalDataCreator::Create<NektarSpaces::HostSpace, float>(
+    const DeviceBndLocalToGlobalOffsetKey<float> &LocToGloKey);
+#if defined(NEKTAR_ENABLE_DEVICE)
+template MemoryRegion<
+    typename DeviceBndLocalToGlobalOffsetKey<double>::value_type>
+LocalToGlobalDataCreator::Create<NektarSpaces::DeviceSpace, double>(
+    const DeviceBndLocalToGlobalOffsetKey<double> &LocToGloKey);
+template MemoryRegion<
+    typename DeviceBndLocalToGlobalOffsetKey<float>::value_type>
+LocalToGlobalDataCreator::Create<NektarSpaces::DeviceSpace, float>(
+    const DeviceBndLocalToGlobalOffsetKey<float> &LocToGloKey);
+#endif
+
+template MemoryRegion<
+    typename DeviceBndLocalToGlobalAssembleOrderKey<double>::value_type>
+LocalToGlobalDataCreator::Create<NektarSpaces::HostSpace, double>(
+    const DeviceBndLocalToGlobalAssembleOrderKey<double> &LocToGloKey);
+template MemoryRegion<
+    typename DeviceBndLocalToGlobalAssembleOrderKey<float>::value_type>
+LocalToGlobalDataCreator::Create<NektarSpaces::HostSpace, float>(
+    const DeviceBndLocalToGlobalAssembleOrderKey<float> &LocToGloKey);
+#if defined(NEKTAR_ENABLE_DEVICE)
+template MemoryRegion<
+    typename DeviceBndLocalToGlobalAssembleOrderKey<double>::value_type>
+LocalToGlobalDataCreator::Create<NektarSpaces::DeviceSpace, double>(
+    const DeviceBndLocalToGlobalAssembleOrderKey<double> &LocToGloKey);
+template MemoryRegion<
+    typename DeviceBndLocalToGlobalAssembleOrderKey<float>::value_type>
+LocalToGlobalDataCreator::Create<NektarSpaces::DeviceSpace, float>(
+    const DeviceBndLocalToGlobalAssembleOrderKey<float> &LocToGloKey);
+#endif
+
+template MemoryRegion<
     typename DeviceBndLocalToGlobalSignKey<double>::value_type>
 LocalToGlobalDataCreator::Create<NektarSpaces::HostSpace, double>(
     const DeviceBndLocalToGlobalSignKey<double> &LocToGloKey);

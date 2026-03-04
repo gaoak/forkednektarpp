@@ -409,7 +409,7 @@ LocalToGlobalDataCreator::Create(
     {
         for (unsigned j = 0; j < width; ++j)
         {
-            // put in lcoal offset of jth point in width
+            // put in local offset of jth point in width
             ptr[i + j] = cnt + j;
         }
         // skip forward to next block of indices
@@ -839,6 +839,183 @@ LocalToGlobalDataCreator::Create(
 }
 
 template <typename MemSpace, typename TPadding>
+MemoryRegion<
+    typename DeviceBndLocalToGlobalNumAssembleKey<TPadding>::value_type>
+LocalToGlobalDataCreator::Create(
+    const DeviceBndLocalToGlobalNumAssembleKey<TPadding> &LocToGloKey)
+{
+    using value_type =
+        typename DeviceBndLocalToGlobalNumAssembleKey<TPadding>::value_type;
+
+    auto numComp = LocToGloKey.m_numComp;
+
+    auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
+    const auto *gsinfo =
+        dataWarehouse->template GetData<NektarSpaces::HostSpace>(
+            DeviceBndLocalToGlobalKey<TPadding>(numComp));
+
+    auto nvals = gsinfo[0];
+
+    // Decalare memory
+    auto LocToGlo = MemoryRegion<value_type>(nvals);
+    auto ptr = LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
+    const unsigned *ind = gsinfo + nvals + 2;
+    for (unsigned i = 0; i < nvals; ++i)
+    {
+        auto offset = gsinfo[1 + i];
+        ptr[i]      = ind[offset];
+    }
+
+    return LocToGlo;
+}
+
+template <typename MemSpace, typename TPadding>
+MemoryRegion<typename DeviceBndLocalToGlobalNumBndValsKey<TPadding>::value_type>
+LocalToGlobalDataCreator::Create(
+    const DeviceBndLocalToGlobalNumBndValsKey<TPadding> &LocToGloKey)
+{
+    using value_type =
+        typename DeviceBndLocalToGlobalNumBndValsKey<TPadding>::value_type;
+
+    auto numComp = LocToGloKey.m_numComp;
+
+    auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
+    const auto *gsinfo =
+        dataWarehouse->template GetData<NektarSpaces::HostSpace>(
+            DeviceBndLocalToGlobalKey<TPadding>(numComp));
+
+    auto nvals = gsinfo[0];
+
+    // Decalare memory
+    auto LocToGlo = MemoryRegion<value_type>(nvals);
+    auto ptr = LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
+    const unsigned *ind = gsinfo + nvals + 2;
+    for (unsigned i = 0; i < nvals; ++i)
+    {
+        auto offset = gsinfo[1 + i];
+        ptr[i]      = ind[offset + 1];
+    }
+
+    return LocToGlo;
+}
+
+template <typename MemSpace, typename TPadding>
+MemoryRegion<typename DeviceBndLocalToGlobalIndexKey<TPadding>::value_type>
+LocalToGlobalDataCreator::Create(
+    const DeviceBndLocalToGlobalIndexKey<TPadding> &LocToGloKey)
+{
+    using value_type =
+        typename DeviceBndLocalToGlobalIndexKey<TPadding>::value_type;
+
+    auto numComp = LocToGloKey.m_numComp;
+
+    auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
+    const auto *gsinfo =
+        dataWarehouse->template GetData<NektarSpaces::HostSpace>(
+            DeviceBndLocalToGlobalKey<TPadding>(numComp));
+
+    auto nvals           = gsinfo[0];
+    const unsigned *ind  = gsinfo + nvals + 2;
+    unsigned int nvaltot = 0;
+    for (unsigned i = 0; i < nvals; ++i)
+    {
+        auto offset = gsinfo[1 + i];
+        // count nassemble and nbndvals
+        nvaltot += ind[offset] + ind[offset + 1];
+    }
+
+    // Decalare memory
+    auto LocToGlo = MemoryRegion<value_type>(nvaltot);
+    auto ptr = LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
+    unsigned cnt = 0;
+    for (unsigned i = 0; i < nvals; ++i)
+    {
+        unsigned offset = gsinfo[1 + i];
+        unsigned nind   = ind[offset] + ind[offset + 1];
+
+        for (unsigned j = 0; j < nind; ++j)
+        {
+            ptr[cnt++] = ind[offset + 2 + j];
+        }
+    }
+
+    return LocToGlo;
+}
+
+template <typename MemSpace, typename TPadding>
+MemoryRegion<typename DeviceBndLocalToGlobalOffsetKey<TPadding>::value_type>
+LocalToGlobalDataCreator::Create(
+    const DeviceBndLocalToGlobalOffsetKey<TPadding> &LocToGloKey)
+{
+    using value_type =
+        typename DeviceBndLocalToGlobalOffsetKey<TPadding>::value_type;
+
+    auto numComp = LocToGloKey.m_numComp;
+
+    auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
+    const auto *gsinfo =
+        dataWarehouse->template GetData<NektarSpaces::HostSpace>(
+            DeviceBndLocalToGlobalKey<TPadding>(numComp));
+
+    auto nvals          = gsinfo[0];
+    const unsigned *ind = gsinfo + nvals + 2;
+
+    // Decalare memory
+    auto LocToGlo = MemoryRegion<value_type>(nvals);
+    auto ptr = LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
+    ptr[0] = 0;
+    for (unsigned i = 0; i < nvals - 1; ++i)
+    {
+        unsigned offset = gsinfo[1 + i];
+        // nassemble and nbndvals
+        unsigned nind = ind[offset] + ind[offset + 1];
+
+        ptr[i + 1] = ptr[i] + nind;
+    }
+
+    return LocToGlo;
+}
+
+template <typename MemSpace, typename TPadding>
+MemoryRegion<
+    typename DeviceBndLocalToGlobalAssembleOrderKey<TPadding>::value_type>
+LocalToGlobalDataCreator::Create(
+    const DeviceBndLocalToGlobalAssembleOrderKey<TPadding> &LocToGloKey)
+{
+    using value_type =
+        typename DeviceBndLocalToGlobalAssembleOrderKey<TPadding>::value_type;
+
+    auto numComp = LocToGloKey.m_numComp;
+
+    auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
+    const auto *gsinfo =
+        dataWarehouse->template GetData<NektarSpaces::HostSpace>(
+            DeviceBndLocalToGlobalKey<TPadding>(numComp));
+
+    auto nvals          = gsinfo[0];
+    const unsigned *ind = gsinfo + nvals + 2;
+
+    // Decalare memory
+    auto LocToGlo = MemoryRegion<value_type>(nvals);
+    auto ptr = LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
+    for (unsigned i = 0; i < nvals; ++i)
+    {
+        unsigned offset = gsinfo[1 + i];
+        // nassemble and nbndvals
+        unsigned nind = ind[offset] + ind[offset + 1];
+
+        ptr[i] = ind[offset + nind + 2];
+    }
+
+    return LocToGlo;
+}
+
+template <typename MemSpace, typename TPadding>
 MemoryRegion<typename DeviceBndLocalToGlobalSignKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
     const DeviceBndLocalToGlobalSignKey<TPadding> &LocToGloKey)
@@ -866,6 +1043,7 @@ LocalToGlobalDataCreator::Create(
     std::vector<unsigned> lids;
     unsigned nvals = gsinfo[0];
     auto idx_ptr   = gsinfo + nvals + 2;
+    unsigned ntot  = 0;
     for (unsigned i = 1; i <= nvals; ++i)
     {
         auto ptr  = idx_ptr + gsinfo[i];
@@ -874,15 +1052,34 @@ LocalToGlobalDataCreator::Create(
         {
             lids.push_back(ptr[j + 2]);
         }
+        ntot += nidx + ptr[1];
     }
 
-    // Decalare memory for all local to global information.
-    auto LocToGloSign = MemoryRegion<value_type>(lids.size());
-    auto ptr =
+    std::vector<value_type> sign(lids.size());
+
+    FillSignArray<TPadding>(lids, zeroDir, signChange, sign.data());
+
+    auto LocToGloSign = MemoryRegion<value_type>(ntot);
+    auto signptr =
         LocToGloSign.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
-    FillSignArray<TPadding>(lids, zeroDir, signChange, ptr);
-
+    unsigned cnt  = 0;
+    unsigned cnt1 = 0;
+    // write out sign array with boundary point packing.
+    for (unsigned i = 1; i <= nvals; ++i)
+    {
+        auto ptr  = idx_ptr + gsinfo[i];
+        auto nidx = ptr[0];
+        for (unsigned j = 0; j < nidx; ++j)
+        {
+            signptr[cnt++] = sign[cnt1++];
+        }
+        auto nbnd = ptr[1];
+        for (unsigned j = 0; j < nbnd; ++j)
+        {
+            signptr[cnt++] = 0;
+        }
+    }
     return LocToGloSign;
 }
 
