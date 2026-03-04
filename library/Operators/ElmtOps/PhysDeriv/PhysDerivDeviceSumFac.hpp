@@ -38,6 +38,7 @@
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivDeviceSumFacKernels.hpp"
+#include "Operators/ElmtOps/PhysDeriv/PhysDerivDeviceSumFacTOPKernels.hpp"
 
 namespace Nektar::Operators::detail
 {

@@ -38,6 +38,7 @@
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/Mass/MassDeviceSumFacKernels.hpp"
+#include "Operators/ElmtOps/Mass/MassDeviceSumFacTOPKernels.hpp"
 
 namespace Nektar::Operators::detail
 {

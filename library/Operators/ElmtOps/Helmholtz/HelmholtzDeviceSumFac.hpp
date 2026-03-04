@@ -38,6 +38,7 @@
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/Helmholtz/HelmholtzDeviceSumFacKernels.hpp"
+#include "Operators/ElmtOps/Helmholtz/HelmholtzDeviceSumFacTOPKernels.hpp"
 
 namespace Nektar::Operators::detail
 {

@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "ElmtOps/BwdTrans/BwdTransDeviceSumFacKernels.hpp"
-#include "ElmtOps/IProductWRTBase/IProductWRTBaseDeviceSumFacKernels.hpp"
+#include "ElmtOps/BwdTrans/BwdTransDeviceSumFacTOPKernels.hpp"
+#include "ElmtOps/IProductWRTBase/IProductWRTBaseDeviceSumFacTOPKernels.hpp"
 #include "Operators/LoopExecution/LoopExecution.hpp"
 #include "Operators/Utils/UtilsDeviceKernels.hpp"
 
@@ -299,9 +299,9 @@ NEK_DEVICE_INLINE static void FwdTransBCQuadSumFacTOPKernel(
     // Projection ie matrix vector product with inverse interior mass
     if constexpr (DEFORMED)
     {
-        Nektar::MatVecQPKernel<false, false>(nmTotInt, dmat, wsp1, wsp2,
-                                             threadBlock);
-        // Note localBarrier inside MatVecQPKernel
+        Nektar::MatVecSumFacTOPKernel<false, false>(nmTotInt, dmat, wsp1, wsp2,
+                                                    threadBlock);
+        // Note localBarrier inside MatVecSumFacTOPKernel
     }
     else
     {
@@ -488,9 +488,9 @@ NEK_DEVICE_INLINE static void FwdTransBCTriSumFacTOPKernel(
     // Projection ie matrix vector product with inverse interior mass
     if constexpr (DEFORMED)
     {
-        Nektar::MatVecQPKernel<false, false>(nmTotInt, dmat, wsp1, wsp2,
-                                             threadBlock);
-        // Note localBarrier inside MatVecQPKernel
+        Nektar::MatVecSumFacTOPKernel<false, false>(nmTotInt, dmat, wsp1, wsp2,
+                                                    threadBlock);
+        // Note localBarrier inside MatVecSumFacTOPKernel
     }
     else
     {
