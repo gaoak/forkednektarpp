@@ -38,6 +38,7 @@
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/Laplacian/LaplacianDeviceSumFacKernels.hpp"
+#include "Operators/ElmtOps/Laplacian/LaplacianDeviceSumFacTOPKernels.hpp"
 
 namespace Nektar::Operators::detail
 {

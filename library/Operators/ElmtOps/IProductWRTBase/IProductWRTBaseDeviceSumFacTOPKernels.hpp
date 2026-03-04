@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTBaseDeviceSumFacKernels.hpp
+// File: IProductWRTBaseDeviceSumFacTOPKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -46,43 +46,96 @@ namespace Nektar::Operators::detail
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 // Helper function
 template <typename Implementation,
-          typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
-              * = nullptr>
+          typename std::enable_if<
+              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
 inline unsigned int IProductWRTBaseSharedMemorySize(
-    [[maybe_unused]] const unsigned int nq0,
-    [[maybe_unused]] const unsigned int nm0)
+    const unsigned int nq0, [[maybe_unused]] const unsigned int nm0)
 {
-    return 0;
+    return nq0;
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
-              * = nullptr>
-inline unsigned int IProductWRTBaseSharedMemorySize(
-    [[maybe_unused]] const unsigned int nq0,
-    [[maybe_unused]] const unsigned int nq1,
-    [[maybe_unused]] const unsigned int nm0,
-    [[maybe_unused]] const unsigned int nm1)
+          typename std::enable_if<
+              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
+inline unsigned int IProductWRTBaseSharedMemorySize(const unsigned int nq0,
+                                                    const unsigned int nq1,
+                                                    const unsigned int nm0,
+                                                    const unsigned int nm1)
 {
-    return 0;
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+    {
+        return nm0 * nq0 + nm1 * nq1 + nq0 * nq1 + nm0 * nq1;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+    {
+        const unsigned int nmTot =
+            LibUtilities::StdTriData::getNumberOfCoefficients(nm0, nm1);
+        return nm0 * nq0 + nmTot * nq1 + nq0 * nq1 + nm0 * nq1;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
+    {
+        const unsigned int nmTot = nm0 * (nm0 + 1) / 2;
+        return nm0 * nq0 + nmTot * nq1 + nq0 * nq1 + nm0 * nq1 + nmTot;
+    }
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
-              * = nullptr>
+          typename std::enable_if<
+              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
 inline unsigned int IProductWRTBaseSharedMemorySize(
-    [[maybe_unused]] const unsigned int nq0,
-    [[maybe_unused]] const unsigned int nq1,
-    [[maybe_unused]] const unsigned int nq2,
-    [[maybe_unused]] const unsigned int nm0,
-    [[maybe_unused]] const unsigned int nm1,
-    [[maybe_unused]] const unsigned int nm2)
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2)
 {
-    return 0;
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+    {
+        return nm0 * nq0 + nm1 * nq1 + nm2 * nq2 + nq0 * nq1 * nq2 +
+               nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+    {
+        const unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+        const unsigned int nmode2 =
+            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+        return nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 + nq0 * nq1 * nq2 +
+               nm0 * nq1 * nq2 + nm01 * nq2;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
+    {
+        const unsigned int nmTot = nm0 * (nm0 + 1) * (nm0 + 2) / 6;
+        const unsigned int nmode2 =
+            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+        return nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 + nq0 * nq1 * nq2 +
+               nm0 * nq1 * nq2 + nm01 * nq2 + nmTot;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+    {
+        const unsigned int nm02 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
+        return nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + nq0 * nq1 * nq2 +
+               nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
+    {
+        const unsigned int nmTot = nm0 * (nm0 + 1) * nm0 / 2;
+        const unsigned int nm02  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
+        return nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + nq0 * nq1 * nq2 +
+               nm0 * nq1 * nq2 + nm0 * nm1 * nq2 + nmTot;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        const unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+        const unsigned int nmode2 =
+            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        return nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 + nq0 * nq1 * nq2 +
+               nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
+    }
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nq0,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
@@ -124,7 +177,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nq0,
     const TData *__restrict__ basis0, const TData *__restrict__ in,
     TData *__restrict__ out, const TData scale)
@@ -157,7 +210,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -215,7 +268,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -264,7 +317,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -359,7 +412,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -434,7 +487,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const TData *__restrict__ basis0,
@@ -517,7 +570,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const TData *__restrict__ basis0,
@@ -588,7 +641,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
@@ -765,7 +818,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
@@ -912,7 +965,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
@@ -1061,7 +1114,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
@@ -1183,7 +1236,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
@@ -1363,7 +1416,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
+NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
@@ -1513,7 +1566,729 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
           typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBaseSumFac1DKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacTOPKernel(
+    const unsigned int nm0, const unsigned int nq0,
+    const TData *__restrict__ basis0, const TData *__restrict__ in,
+    TData *__restrict__ out, const TData scale, const TthreadBlock &threadBlock)
+{
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+
+    for (unsigned int p = idx0; p < nm0; p += stride)
+    {
+        TData sum = 0.0;
+#pragma unroll
+        for (unsigned int i = 0u; i < nq0; ++i)
+        {
+            sum += in[i] * basis0[p * nq0 + i];
+        }
+
+        if constexpr (SCALE)
+        {
+            sum *= scale;
+        }
+
+        if constexpr (APPEND)
+        {
+            out[p] += sum;
+        }
+        else
+        {
+            out[p] = sum;
+        }
+    }
+
+    localBarrier(threadBlock);
+}
+
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
+          typename TData>
+NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacTOPKernel(
+    const unsigned int nm0, [[maybe_unused]] const unsigned int nm1,
+    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
+    [[maybe_unused]] const unsigned int nqTot, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp, const TData scale,
+    const TthreadBlock &threadBlock)
+{
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nm0 * nq1; idx += stride)
+    {
+        const unsigned int j = idx % nq1;
+        const unsigned int p = idx / nq1;
+        unsigned int cnt_ji  = nq0 * j;
+
+        TData sum = 0.0;
+#pragma unroll
+        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
+        {
+            sum += in[cnt_ji] * basis0[p * nq0 + i];
+        }
+        wsp[idx] = sum;
+    }
+
+    localBarrier(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+    {
+        const unsigned int p = idx % nm0;
+        const unsigned int q = idx / nm0;
+        unsigned int cnt_pj  = nq1 * p;
+
+        TData sum = 0.0;
+#pragma unroll
+        for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pj)
+        {
+            sum += wsp[cnt_pj] * basis1[q * nq1 + j];
+        }
+
+        if constexpr (SCALE)
+        {
+            sum *= scale;
+        }
+
+        if constexpr (APPEND)
+        {
+            out[idx] += sum;
+        }
+        else
+        {
+            out[idx] = sum;
+        }
+    }
+
+    localBarrier(threadBlock);
+}
+
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
+          typename TData>
+NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacTOPKernel(
+    const unsigned int nm0, [[maybe_unused]] const unsigned int nm1,
+    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nqTot, const bool isModified,
+    const unsigned int *__restrict__ pindex, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp, const TData scale,
+    const TthreadBlock &threadBlock)
+{
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nm0 * nq1; idx += stride)
+    {
+        const unsigned int j = idx % nq1;
+        const unsigned int p = idx / nq1;
+        unsigned int cnt_ji  = nq0 * j;
+
+        TData sum = 0.0;
+#pragma unroll
+        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
+        {
+            sum += in[cnt_ji] * basis0[p * nq0 + i];
+        }
+        wsp[idx] = sum;
+    }
+
+    localBarrier(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+    {
+        const unsigned int p = pindex[idx];
+        unsigned int cnt_pj  = nq1 * p;
+
+        TData sum = 0.0;
+#pragma unroll
+        for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pj)
+        {
+            sum += wsp[cnt_pj] * basis1[idx * nq1 + j];
+        }
+
+        if constexpr (SCALE)
+        {
+            sum *= scale;
+        }
+
+        if constexpr (APPEND)
+        {
+            out[idx] += sum;
+        }
+        else
+        {
+            out[idx] = sum;
+        }
+    }
+
+    // Correction for singular vertex in collpased coordinates.
+    // Basically we add phi_1 * phi_01 * (weighting, etc) to mode 00
+    // With contributions from every quadrature point
+    if (isModified)
+    {
+        localBarrier(threadBlock);
+
+        TData prod = 0.0;
+
+        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+        {
+            const unsigned int i = idx % nq0;
+            const unsigned int j = idx / nq0;
+            prod += basis0[nq0 + i] * basis1[nq1 + j] * in[idx];
+        }
+
+        if constexpr (SCALE)
+        {
+            prod *= scale;
+        }
+
+        blockReduceSum(prod, threadBlock, out + 1);
+    }
+
+    localBarrier(threadBlock);
+}
+
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
+          typename TData>
+NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacTOPKernel(
+    const unsigned int nm0, const unsigned int nm1,
+    [[maybe_unused]] const unsigned int nm2, const unsigned int nmTot,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    [[maybe_unused]] const unsigned int nqTot, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale,
+    const TthreadBlock &threadBlock)
+{
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
+    {
+        const unsigned int j = idx % nq1;
+        const unsigned int k = (idx / nq1) % nq2;
+        const unsigned int p = idx / (nq1 * nq2);
+        unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j;
+
+        TData sum_kj = 0.0;
+#pragma unroll
+        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+        {
+            sum_kj += in[cnt_kji] * basis0[i + nq0 * p];
+        }
+        wsp0[idx] = sum_kj;
+    }
+
+    localBarrier(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
+    {
+        const unsigned int k = idx % nq2;
+        const unsigned int q = (idx / nq2) % nm1;
+        const unsigned int p = idx / (nq2 * nm1);
+        unsigned int cnt_pkj = nq2 * nq1 * p + nq1 * k;
+
+        TData sum_k = 0.0;
+#pragma unroll
+        for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pkj)
+        {
+            sum_k += wsp0[cnt_pkj] * basis1[q * nq1 + j];
+        }
+        wsp1[idx] = sum_k;
+    }
+
+    localBarrier(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+    {
+        const unsigned int p = idx % nm0;
+        const unsigned int q = (idx / nm0) % nm1;
+        const unsigned int r = idx / (nm0 * nm1);
+        unsigned int cnt_pqk = nm1 * nq2 * p + nq2 * q;
+
+        TData sum = 0.0;
+#pragma unroll
+        for (unsigned int k = 0u; k < nq2; ++k, ++cnt_pqk)
+        {
+            sum += wsp1[cnt_pqk] * basis2[r * nq2 + k];
+        }
+
+        if constexpr (SCALE)
+        {
+            sum *= scale;
+        }
+
+        if constexpr (APPEND)
+        {
+            out[idx] += sum;
+        }
+        else
+        {
+            out[idx] = sum;
+        }
+    }
+
+    localBarrier(threadBlock);
+}
+
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
+          typename TData>
+NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacTOPKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const unsigned int nqTot, const bool isModified,
+    const unsigned int *__restrict__ pindex1,
+    const unsigned int *__restrict__ pindex2,
+    const unsigned int *__restrict__ qindex2, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale,
+    const TthreadBlock &threadBlock)
+{
+    const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
+    {
+        const unsigned int j = idx % nq1;
+        const unsigned int k = (idx / nq1) % nq2;
+        const unsigned int p = idx / (nq1 * nq2);
+        unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j;
+
+        TData sum_kj = 0.0;
+#pragma unroll
+        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+        {
+            sum_kj += in[cnt_kji] * basis0[i + nq0 * p];
+        }
+        wsp0[idx] = sum_kj;
+    }
+
+    localBarrier(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nm01 * nq2; idx += stride)
+    {
+        const unsigned int mode_pq = idx / nq2;
+        const unsigned int p       = pindex1[mode_pq];
+        const unsigned int k       = idx % nq2;
+        unsigned int cnt_pkj       = nq1 * nq2 * p + nq1 * k;
+
+        TData sum_k = 0.0;
+#pragma unroll
+        for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pkj)
+        {
+            sum_k += basis1[mode_pq * nq1 + j] * wsp0[cnt_pkj];
+        }
+        wsp1[idx] = sum_k;
+    }
+
+    localBarrier(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+    {
+        const unsigned int p       = pindex2[idx];
+        const unsigned int q       = qindex2[idx];
+        const unsigned int mode_pq = (2u * nm1 - p + 1u) * p / 2u + q;
+        const unsigned int mode2 =
+            idx + ((nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u : 0u);
+
+        TData tmp = 0.0;
+#pragma unroll
+        for (unsigned int k = 0u; k < nq2; ++k)
+        {
+            tmp += wsp1[mode_pq * nq2 + k] * basis2[mode2 * nq2 + k];
+        }
+
+        if constexpr (SCALE)
+        {
+            tmp *= scale;
+        }
+
+        if constexpr (APPEND)
+        {
+            out[idx] += tmp;
+        }
+        else
+        {
+            out[idx] = tmp;
+        }
+    }
+
+    // Add correction for collapsed coordinate.
+    if (isModified)
+    {
+        localBarrier(threadBlock);
+
+        constexpr unsigned int NM2_MAX = 8;
+        if (nm2 <= NM2_MAX)
+        {
+            TData prod[NM2_MAX] = {0.0};
+            for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+            {
+                const unsigned int i = idx % nq0;
+                const unsigned int j = (idx / nq0) % nq1;
+                const unsigned int k = idx / (nq0 * nq1);
+
+                // top vertex
+                prod[nm2 - 1u] +=
+                    (basis0[i] * basis1[nq1 + j] + basis0[nq0 + i] * basis1[j] +
+                     basis0[nq0 + i] * basis1[nq1 + j]) *
+                    basis2[nq2 + k] * in[idx];
+
+                // singular edge
+                TData tmp = basis1[nq1 + j] * basis0[nq0 + i] * in[idx];
+#pragma unroll
+                for (unsigned int r = 1u; r < nm2 - 1u; ++r)
+                {
+                    prod[r] += basis2[(r + 1u) * nq2 + k] * tmp;
+                }
+
+                // bottom vertex
+                prod[0] += basis2[k] * tmp;
+            }
+#if !defined(NEKTAR_ENABLE_SYCL)
+#pragma unroll
+#endif
+            for (unsigned int r = 0u; r < nm2; ++r)
+            {
+                if constexpr (SCALE)
+                {
+                    prod[r] *= scale;
+                }
+
+                if (r == nm2 - 1u)
+                {
+                    blockReduceSum(prod[r], threadBlock, out + 1);
+                }
+                else
+                {
+                    blockReduceSum(prod[r], threadBlock, out + nm2 + r);
+                }
+            }
+        }
+        else
+        {
+            TData prod0 = 0.0;
+            TData prod1 = 0.0;
+
+            for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+            {
+                const unsigned int i = idx % nq0;
+                const unsigned int j = (idx / nq0) % nq1;
+                const unsigned int k = idx / (nq0 * nq1);
+
+                // top vertex
+                prod0 +=
+                    (basis0[i] * basis1[nq1 + j] + basis0[nq0 + i] * basis1[j] +
+                     basis0[nq0 + i] * basis1[nq1 + j]) *
+                    basis2[nq2 + k] * in[idx];
+
+                // bottom vertex
+                prod1 +=
+                    basis0[nq0 + i] * basis1[nq1 + j] * basis2[k] * in[idx];
+            }
+
+            if constexpr (SCALE)
+            {
+                prod0 *= scale;
+                prod1 *= scale;
+            }
+
+            blockReduceSum(prod0, threadBlock, out + 1);
+            blockReduceSum(prod1, threadBlock, out + nm2);
+
+            // singular edge
+            for (unsigned int r = 1u; r < nm2 - 1u; ++r)
+            {
+                TData prod = 0.0;
+
+                for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+                {
+                    const unsigned int i = idx % nq0;
+                    const unsigned int j = (idx / nq0) % nq1;
+                    const unsigned int k = idx / (nq0 * nq1);
+
+                    prod += basis2[(r + 1u) * nq2 + k] * basis1[nq1 + j] *
+                            basis0[nq0 + i] * in[idx];
+                }
+
+                if constexpr (SCALE)
+                {
+                    prod *= scale;
+                }
+
+                blockReduceSum(prod, threadBlock, out + nm2 + r);
+            }
+        }
+    }
+
+    localBarrier(threadBlock);
+}
+
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
+          typename TData>
+NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacTOPKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const unsigned int nqTot, const bool isModified,
+    const unsigned int *__restrict__ pindex,
+    const unsigned int *__restrict__ qindex,
+    const unsigned int *__restrict__ rindex, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale,
+    const TthreadBlock &threadBlock)
+{
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
+    {
+        const unsigned int j = idx % nq1;
+        const unsigned int k = (idx / nq1) % nq2;
+        const unsigned int p = idx / (nq1 * nq2);
+        unsigned int cnt_kji = nq1 * nq0 * k + nq0 * j;
+
+        TData sum_kj = 0.0;
+#pragma unroll
+        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+        {
+            sum_kj += in[cnt_kji] * basis0[nq0 * p + i];
+        }
+        wsp0[idx] = sum_kj;
+    }
+
+    localBarrier(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
+    {
+        const unsigned int k = idx % nq2;
+        const unsigned int q = (idx / nq2) % nm1;
+        const unsigned int p = idx / (nq2 * nm1);
+        unsigned int cnt_pkj = nq1 * nq2 * p + nq1 * k;
+
+        TData sum_k = 0.0;
+#pragma unroll
+        for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pkj)
+        {
+            sum_k += basis1[q * nq1 + j] * wsp0[cnt_pkj];
+        }
+        wsp1[idx] = sum_k;
+    }
+
+    localBarrier(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+    {
+        const unsigned int p       = pindex[idx];
+        const unsigned int q       = qindex[idx];
+        const unsigned int r       = rindex[idx];
+        const unsigned int mode_pr = (2u * nm2 - p + 1u) * p / 2u + r;
+        unsigned int cnt_pqk       = nm1 * nq2 * p + nq2 * q;
+
+        TData sum_k = 0.0;
+#pragma unroll
+        for (unsigned int k = 0u; k < nq2; ++k, ++cnt_pqk)
+        {
+            sum_k += basis2[mode_pr * nq2 + k] * wsp1[cnt_pqk];
+        }
+
+        if constexpr (SCALE)
+        {
+            sum_k *= scale;
+        }
+
+        if constexpr (APPEND)
+        {
+            out[idx] += sum_k;
+        }
+        else
+        {
+            out[idx] = sum_k;
+        }
+    }
+
+    // Add correction for collapsed coordinate.
+    if (isModified)
+    {
+        localBarrier(threadBlock);
+
+        constexpr unsigned int NM1_MAX = 8;
+        if (nm1 <= NM1_MAX)
+        {
+            TData prod[NM1_MAX] = {0.0};
+
+            for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+            {
+                const unsigned int i = idx % nq0;
+                const unsigned int j = (idx / nq0) % nq1;
+                const unsigned int k = idx / (nq0 * nq1);
+
+                TData tmp = in[idx] * basis2[nq2 + k] * basis0[nq0 + i];
+#pragma unroll
+                for (unsigned int q = 0u; q < nm1; ++q)
+                {
+                    prod[q] += tmp * basis1[q * nq1 + j];
+                }
+            }
+
+#if !defined(NEKTAR_ENABLE_SYCL)
+#pragma unroll
+#endif
+            for (unsigned int q = 0u; q < nm1; ++q)
+            {
+                if constexpr (SCALE)
+                {
+                    prod[q] *= scale;
+                }
+
+                blockReduceSum(prod[q], threadBlock, out + nm2 * q + 1);
+            }
+        }
+        else
+        {
+            for (unsigned int q = 0u; q < nm1; ++q)
+            {
+                TData prod = 0.0;
+
+                for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+                {
+                    const unsigned int i = idx % nq0;
+                    const unsigned int j = (idx / nq0) % nq1;
+                    const unsigned int k = idx / (nq0 * nq1);
+
+                    prod += in[idx] * basis2[nq2 + k] * basis1[q * nq1 + j] *
+                            basis0[nq0 + i];
+                }
+
+                if constexpr (SCALE)
+                {
+                    prod *= scale;
+                }
+
+                blockReduceSum(prod, threadBlock, out + nm2 * q + 1);
+            }
+        }
+    }
+
+    localBarrier(threadBlock);
+}
+
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
+          typename TData>
+NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacTOPKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const unsigned int nqTot, const bool isModified,
+    const unsigned int *__restrict__ pindex,
+    const unsigned int *__restrict__ qindex, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale,
+    const TthreadBlock &threadBlock)
+{
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
+    {
+        const unsigned int j = idx % nq1;
+        const unsigned int k = (idx / nq1) % nq2;
+        const unsigned int p = idx / (nq1 * nq2);
+        unsigned int cnt_kji = k * nq1 * nq0 + j * nq0;
+
+        TData sum_kj = 0.0;
+#pragma unroll
+        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+        {
+            sum_kj += in[cnt_kji] * basis0[nq0 * p + i];
+        }
+        wsp0[idx] = sum_kj;
+    }
+
+    localBarrier(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
+    {
+        const unsigned int k = idx % nq2;
+        const unsigned int q = (idx / nq2) % nm1;
+        const unsigned int p = idx / (nq2 * nm1);
+        unsigned int cnt_pkj = nq1 * nq2 * p + k * nq1;
+
+        TData sum_k = 0.0;
+#pragma unroll
+        for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pkj)
+        {
+            sum_k += basis1[q * nq1 + j] * wsp0[cnt_pkj];
+        }
+        wsp1[idx] = sum_k;
+    }
+
+    localBarrier(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+    {
+        const unsigned int p = pindex[idx];
+        const unsigned int q = qindex[idx];
+        const unsigned int mode2 =
+            idx + ((nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u : 0u);
+        unsigned int cnt_pqk = nm1 * nq2 * p + nq2 * q;
+
+        TData sum_k = 0.0;
+#pragma unroll
+        for (unsigned int k = 0u; k < nq2; ++k, ++cnt_pqk)
+        {
+            sum_k += basis2[mode2 * nq2 + k] * wsp1[cnt_pqk];
+        }
+        if constexpr (SCALE)
+        {
+            sum_k *= scale;
+        }
+
+        if constexpr (APPEND)
+        {
+            out[idx] += sum_k;
+        }
+        else
+        {
+            out[idx] = sum_k;
+        }
+    }
+
+    // Add correction for collapsed coordinate.
+    if (isModified)
+    {
+        localBarrier(threadBlock);
+
+        TData prod = 0.0;
+
+        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+        {
+            const unsigned int i = idx % nq0;
+            const unsigned int j = (idx / nq0) % nq1;
+            const unsigned int k = idx / (nq0 * nq1);
+
+            // top vertex
+            prod += (basis0[i] * basis1[nq1 + j] + basis0[nq0 + i] * basis1[j] +
+                     basis0[nq0 + i] * basis1[nq1 + j]) *
+                    basis2[nq2 + k] * in[idx];
+        }
+
+        if constexpr (SCALE)
+        {
+            prod *= scale;
+        }
+
+        blockReduceSum(prod, threadBlock, out + 1);
+    }
+
+    localBarrier(threadBlock);
+}
+
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
+          typename TData>
+NEK_DEVICE_INLINE static void IProductWRTBaseSumFacTOP1DKernel(
     const unsigned int nm0, const unsigned int nq0, const size_t nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
@@ -1523,26 +2298,41 @@ NEK_DEVICE_INLINE static void IProductWRTBaseSumFac1DKernel(
 {
     const unsigned int jacsize = DEFORMED ? nq0 : 1u;
 
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+    TData *s_wsp0 = (TData *)shmemptr;
 
-    size_t e = getGlobalIdx(threadBlock);
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+
+    size_t e = getBlockIdx(threadBlock);
     while (e < nelmt)
     {
-        const size_t ilane = e % warpsize;
-        const size_t iwarp = e / warpsize;
-        const TData *jacptr =
-            DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
-        const TData *inptr = in + nq0 * warpsize * iwarp;
-        TData *outptr      = out + nm0 * warpsize * iwarp;
-        IProductWRTBaseSegSumFacKernel<SCALE, APPEND, DEFORMED>(
-            ilane, nm0, nq0, basis0, w0, jacptr, inptr, outptr, scale);
-        e += getGlobalRange(threadBlock);
+        const TData *jacptr = jac + jacsize * e;
+        const TData *inptr  = in + nq0 * e;
+        TData *outptr       = out + nm0 * e;
+
+        for (unsigned int i = idx0; i < nq0; i += stride)
+        {
+            if constexpr (DEFORMED)
+            {
+                s_wsp0[i] = inptr[i] * jacptr[i] * w0[i];
+            }
+            else
+            {
+                s_wsp0[i] = inptr[i] * jacptr[0] * w0[i];
+            }
+        }
+
+        localBarrier(threadBlock);
+
+        IProductWRTBaseSegSumFacTOPKernel<SCALE, APPEND, DEFORMED>(
+            nm0, nq0, basis0, s_wsp0, outptr, scale, threadBlock);
+        e += getBlockRange(threadBlock);
     }
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
           bool DEFORMED, typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBaseSumFac2DKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseSumFacTOP2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
     const bool isModified,
@@ -1558,50 +2348,94 @@ NEK_DEVICE_INLINE static void IProductWRTBaseSumFac2DKernel(
     const unsigned int nqTot   = nq0 * nq1;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+    unsigned int offset = 0, nmode0 = 0, nmode1 = 0;
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+    {
+        offset = nm0 * nq1;
+        nmode0 = nm0;
+        nmode1 = nm1;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                       SHAPE_TYPE == LibUtilities::NodalTri)
+    {
+        offset = nm0 * nq1;
+        nmode0 = nm0;
+        nmode1 = nmTot;
+    }
 
-    size_t e = getGlobalIdx(threadBlock);
+    TData *s_wsp0    = (TData *)shmemptr;
+    TData *s_wsp1    = s_wsp0 + nqTot;
+    TData *s_basis0  = s_wsp1 + offset;
+    TData *s_basis1  = s_basis0 + nmode0 * nq0;
+    TData *s_out1ptr = s_basis1 + nmode1 * nq1;
+
+    // Copy to shared memory.
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
+    {
+        s_basis0[idx] = basis0[idx];
+    }
+
+    for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
+    {
+        s_basis1[idx] = basis1[idx];
+    }
+
+    size_t e = getBlockIdx(threadBlock);
     while (e < nelmt)
     {
-        const size_t ilane = e % warpsize;
-        const size_t iwarp = e / warpsize;
-        const TData *jacptr =
-            DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
-        const TData *inptr = in + nqTot * warpsize * iwarp;
-        TData *outptr      = out + nmTot * warpsize * iwarp;
+        const TData *jacptr = jac + jacsize * e;
+        const TData *inptr  = in + nqTot * e;
+        TData *outptr       = out + nmTot * e;
+
+        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+        {
+            const unsigned int i = idx % nq0;
+            const unsigned int j = idx / nq0;
+            if constexpr (DEFORMED)
+            {
+                s_wsp0[idx] = inptr[idx] * jacptr[idx] * w0[i] * w1[j];
+            }
+            else
+            {
+                s_wsp0[idx] = inptr[idx] * jacptr[0] * w0[i] * w1[j];
+            }
+        }
+
+        localBarrier(threadBlock);
+
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
-            TData *wspptr = wsp + nq1 * warpsize * iwarp;
-            IProductWRTBaseQuadSumFacKernel<SCALE, APPEND, DEFORMED>(
-                ilane, nm0, nm1, nq0, nq1, basis0, basis1, w0, w1, jacptr,
-                inptr, outptr, wspptr, scale);
+            IProductWRTBaseQuadSumFacTOPKernel<SCALE, APPEND, DEFORMED>(
+                nm0, nm1, nmTot, nq0, nq1, nqTot, s_basis0, s_basis1, s_wsp0,
+                outptr, s_wsp1, scale, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
-            TData *wspptr = wsp + nq1 * warpsize * iwarp;
-            IProductWRTBaseTriSumFacKernel<SCALE, APPEND, DEFORMED>(
-                ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, w0, w1,
-                jacptr, inptr, outptr, wspptr, scale);
+            IProductWRTBaseTriSumFacTOPKernel<SCALE, APPEND, DEFORMED>(
+                nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
+                s_basis1, s_wsp0, outptr, s_wsp1, scale, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
         {
-            TData *out1ptr = wsp + nmTot * warpsize * iwarp;
-            TData *wspptr  = wsp + nmTot * nelmt;
-
-            IProductWRTBaseTriSumFacKernel<SCALE, false, DEFORMED>(
-                ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, w0, w1,
-                jacptr, inptr, out1ptr, wspptr, scale);
+            IProductWRTBaseTriSumFacTOPKernel<SCALE, false, DEFORMED>(
+                nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
+                s_basis1, s_wsp0, s_out1ptr, s_wsp1, scale, threadBlock);
 
             // Multiply by transpose notToMod to transform coeffs.
-            MatVecKernel<APPEND, true>(ilane, nmTot, nodToMod, out1ptr, outptr);
+            MatVecSumFacTOPKernel<APPEND, true>(nmTot, nodToMod, s_out1ptr,
+                                                outptr, threadBlock);
         }
-        e += getGlobalRange(threadBlock);
+
+        e += getBlockRange(threadBlock);
     }
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
           bool DEFORMED, typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBaseSumFac3DKernel(
+NEK_DEVICE_INLINE static void IProductWRTBaseSumFacTOP3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const size_t nelmt, const bool isModified,
@@ -1620,77 +2454,145 @@ NEK_DEVICE_INLINE static void IProductWRTBaseSumFac3DKernel(
     const unsigned int nqTot   = nq0 * nq1 * nq2;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+    unsigned int offset0 = 0, offset1 = 0, nmode0 = 0, nmode1 = 0, nmode2 = 0;
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+    {
+        offset0 = nm0 * nq1 * nq2;
+        offset1 = nm0 * nm1 * nq2;
+        nmode0  = nm0;
+        nmode1  = nm1;
+        nmode2  = nm2;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                       SHAPE_TYPE == LibUtilities::NodalTet)
+    {
+        offset0 = nm0 * nq1 * nq2;
+        offset1 = (2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2;
+        nmode0  = nm0;
+        nmode1  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+        nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                       SHAPE_TYPE == LibUtilities::NodalPrism)
+    {
+        offset0 = nm0 * nq1 * nq2;
+        offset1 = nm0 * nm1 * nq2;
+        nmode0  = nm0;
+        nmode1  = nm1;
+        nmode2  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        offset0 = nm0 * nq1 * nq2;
+        offset1 = nm0 * nm1 * nq2;
+        nmode0  = nm0;
+        nmode1  = nm1;
+        nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    }
 
-    size_t e = getGlobalIdx(threadBlock); // use size_t to prevent overflow
+    TData *s_wsp0    = (TData *)shmemptr;
+    TData *s_wsp1    = s_wsp0 + nqTot;
+    TData *s_wsp2    = s_wsp1 + offset0;
+    TData *s_basis0  = s_wsp2 + offset1;
+    TData *s_basis1  = s_basis0 + nmode0 * nq0;
+    TData *s_basis2  = s_basis1 + nmode1 * nq1;
+    TData *s_out1ptr = s_basis2 + nmode2 * nq2;
+
+    // Copy to shared memory.
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
+    {
+        s_basis0[idx] = basis0[idx];
+    }
+
+    for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
+    {
+        s_basis1[idx] = basis1[idx];
+    }
+
+    for (unsigned int idx = idx0; idx < nmode2 * nq2; idx += stride)
+    {
+        s_basis2[idx] = basis2[idx];
+    }
+
+    size_t e = getBlockIdx(threadBlock); // use size_t to prevent overflow
     while (e < nelmt)
     {
-        const size_t ilane = e % warpsize;
-        const size_t iwarp = e / warpsize;
-        const TData *jacptr =
-            DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
-        const TData *inptr = in + nqTot * warpsize * iwarp;
-        TData *outptr      = out + nmTot * warpsize * iwarp;
+        const TData *jacptr = jac + jacsize * e;
+        const TData *inptr  = in + nqTot * e;
+        TData *outptr       = out + nmTot * e;
+
+        // Copy to shared memory.
+        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+        {
+            const unsigned int i = idx % nq0;
+            const unsigned int j = (idx / nq0) % nq1;
+            const unsigned int k = idx / (nq0 * nq1);
+            if constexpr (DEFORMED)
+            {
+                s_wsp0[idx] = inptr[idx] * jacptr[idx] * w0[i] * w1[j] * w2[k];
+            }
+            else
+            {
+                s_wsp0[idx] = inptr[idx] * jacptr[0] * w0[i] * w1[j] * w2[k];
+            }
+        }
+
+        localBarrier(threadBlock);
+
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            TData *wsp0 = wsp + nq1 * nq2 * warpsize * iwarp;
-            TData *wsp1 = wsp + nq1 * nq2 * nelmt + nq2 * warpsize * iwarp;
-            IProductWRTBaseHexSumFacKernel<SCALE, APPEND, DEFORMED>(
-                ilane, nm0, nm1, nm2, nq0, nq1, nq2, basis0, basis1, basis2, w0,
-                w1, w2, jacptr, inptr, outptr, wsp0, wsp1, scale);
+            IProductWRTBaseHexSumFacTOPKernel<SCALE, APPEND, DEFORMED>(
+                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, s_basis0, s_basis1,
+                s_basis2, s_wsp0, outptr, s_wsp1, s_wsp2, scale, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
-            TData *wsp0 = wsp + nq1 * nq2 * warpsize * iwarp;
-            TData *wsp1 = wsp + nq1 * nq2 * nelmt + nq2 * warpsize * iwarp;
-            IProductWRTBaseTetSumFacKernel<SCALE, APPEND, DEFORMED>(
-                ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, w0, w1, w2, jacptr, inptr, outptr, wsp0, wsp1, scale);
+            IProductWRTBaseTetSumFacTOPKernel<SCALE, APPEND, DEFORMED>(
+                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
+                index1, index2, s_basis0, s_basis1, s_basis2, s_wsp0, outptr,
+                s_wsp1, s_wsp2, scale, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
         {
-
-            TData *out1ptr = wsp + nmTot * warpsize * iwarp;
-            TData *wsp0    = wsp + nmTot * nelmt + nq1 * nq2 * warpsize * iwarp;
-            TData *wsp1    = wsp + nmTot * nelmt + nq1 * nq2 * nelmt +
-                          nq2 * warpsize * iwarp;
-            IProductWRTBaseTetSumFacKernel<SCALE, APPEND, DEFORMED>(
-                ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, w0, w1, w2, jacptr, inptr, out1ptr, wsp0, wsp1, scale);
+            IProductWRTBaseTetSumFacTOPKernel<SCALE, APPEND, DEFORMED>(
+                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
+                index1, index2, s_basis0, s_basis1, s_basis2, s_wsp0, s_out1ptr,
+                s_wsp1, s_wsp2, scale, threadBlock);
 
             // Multiply by transpose notToMod to transform coeffs.
-            MatVecKernel<APPEND, true>(ilane, nmTot, nodToMod, out1ptr, outptr);
+            MatVecSumFacTOPKernel<APPEND, true>(nmTot, nodToMod, s_out1ptr,
+                                                outptr, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
-            TData *wsp0 = wsp + nq1 * nq2 * warpsize * iwarp;
-            TData *wsp1 = wsp + nq1 * nq2 * nelmt + nq2 * warpsize * iwarp;
-            IProductWRTBasePrismSumFacKernel<SCALE, APPEND, DEFORMED>(
-                ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, w0, w1, w2, jacptr, inptr, outptr, wsp0, wsp1, scale);
+            IProductWRTBasePrismSumFacTOPKernel<SCALE, APPEND, DEFORMED>(
+                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
+                index1, index2, s_basis0, s_basis1, s_basis2, s_wsp0, outptr,
+                s_wsp1, s_wsp2, scale, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
         {
-            TData *out1ptr = wsp + nmTot * warpsize * iwarp;
-            TData *wsp0    = wsp + nmTot * nelmt + nq1 * nq2 * warpsize * iwarp;
-            TData *wsp1    = wsp + nmTot * nelmt + nq1 * nq2 * nelmt +
-                          nq2 * warpsize * iwarp;
-            IProductWRTBasePrismSumFacKernel<SCALE, APPEND, DEFORMED>(
-                ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, w0, w1, w2, jacptr, inptr, out1ptr, wsp0, wsp1, scale);
+            IProductWRTBasePrismSumFacTOPKernel<SCALE, APPEND, DEFORMED>(
+                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
+                index1, index2, s_basis0, s_basis1, s_basis2, s_wsp0, s_out1ptr,
+                s_wsp1, s_wsp2, scale, threadBlock);
 
             // Multiply by transpose notToMod to transform coeffs.
-            MatVecKernel<APPEND, true>(ilane, nmTot, nodToMod, out1ptr, outptr);
+            MatVecSumFacTOPKernel<APPEND, true>(nmTot, nodToMod, s_out1ptr,
+                                                outptr, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            TData *wsp0 = wsp + nq1 * nq2 * warpsize * iwarp;
-            TData *wsp1 = wsp + nq1 * nq2 * nelmt + nq2 * warpsize * iwarp;
-            IProductWRTBasePyrSumFacKernel<SCALE, APPEND, DEFORMED>(
-                ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, w0, w1, w2, jacptr, inptr, outptr, wsp0, wsp1, scale);
+            IProductWRTBasePyrSumFacTOPKernel<SCALE, APPEND, DEFORMED>(
+                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
+                index1, s_basis0, s_basis1, s_basis2, s_wsp0, outptr, s_wsp1,
+                s_wsp2, scale, threadBlock);
         }
-        e += getGlobalRange(threadBlock);
+
+        e += getBlockRange(threadBlock);
     }
 }
 
@@ -1698,7 +2600,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseSumFac3DKernel(
 template <typename Implementation, bool SCALE, bool APPEND, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     IProductWRTBase1DKernelLauncher(
         const unsigned int nm0, const unsigned int nq0, const size_t nelmt,
         const TData *__restrict__ basis0, const TData *__restrict__ w0,
@@ -1708,7 +2610,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    IProductWRTBaseSumFac1DKernel<SCALE, APPEND, DEFORMED>(
+    IProductWRTBaseSumFacTOP1DKernel<SCALE, APPEND, DEFORMED>(
         nm0, nq0, nelmt, basis0, w0, jac, in, out, scale, shmemptr,
         threadBlock);
 }
@@ -1719,7 +2621,7 @@ template <
     unsigned int nm0, unsigned int nq0, typename TthreadBlock, typename TData,
     unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     __LAUNCH_BOUNDS__(maxThreadPerBlock) IProductWRTBase1DKernelLauncher(
         const size_t nelmt, const TData *__restrict__ basis0,
         const TData *__restrict__ w0, const TData *__restrict__ jac,
@@ -1729,7 +2631,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    IProductWRTBaseSumFac1DKernel<SCALE, APPEND, DEFORMED>(
+    IProductWRTBaseSumFacTOP1DKernel<SCALE, APPEND, DEFORMED>(
         nm0, nq0, nelmt, basis0, w0, jac, in, out, scale, shmemptr,
         threadBlock);
 }
@@ -1739,7 +2641,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
           typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     IProductWRTBase2DKernelLauncher(
         const unsigned int nm0, const unsigned int nm1,
         const unsigned int nmTot, const unsigned int nq0,
@@ -1754,7 +2656,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    IProductWRTBaseSumFac2DKernel<SHAPE_TYPE, SCALE, APPEND, DEFORMED>(
+    IProductWRTBaseSumFacTOP2DKernel<SHAPE_TYPE, SCALE, APPEND, DEFORMED>(
         nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
         w0, w1, nodToMod, jac, in, out, wsp, scale, shmemptr, threadBlock);
 }
@@ -1767,7 +2669,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(
               LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1))>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     __LAUNCH_BOUNDS__(maxThreadPerBlock) IProductWRTBase2DKernelLauncher(
         const size_t nelmt, const bool isModified,
         const unsigned int *__restrict__ index0,
@@ -1780,7 +2682,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    IProductWRTBaseSumFac2DKernel<SHAPE_TYPE, SCALE, APPEND, DEFORMED>(
+    IProductWRTBaseSumFacTOP2DKernel<SHAPE_TYPE, SCALE, APPEND, DEFORMED>(
         nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
         w0, w1, nodToMod, jac, in, out, wsp, scale, shmemptr, threadBlock);
 }
@@ -1790,7 +2692,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
           typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     IProductWRTBase3DKernelLauncher(
         const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
         const unsigned int nmTot, const unsigned int nq0,
@@ -1808,7 +2710,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    IProductWRTBaseSumFac3DKernel<SHAPE_TYPE, SCALE, APPEND, DEFORMED>(
+    IProductWRTBaseSumFacTOP3DKernel<SHAPE_TYPE, SCALE, APPEND, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         index2, basis0, basis1, basis2, w0, w1, w2, nodToMod, jac, in, out, wsp,
         scale, shmemptr, threadBlock);
@@ -1823,7 +2725,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(
               LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2))>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     __LAUNCH_BOUNDS__(maxThreadPerBlock) IProductWRTBase3DKernelLauncher(
         const size_t nelmt, const bool isModified,
         const unsigned int *__restrict__ index0,
@@ -1839,7 +2741,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    IProductWRTBaseSumFac3DKernel<SHAPE_TYPE, SCALE, APPEND, DEFORMED>(
+    IProductWRTBaseSumFacTOP3DKernel<SHAPE_TYPE, SCALE, APPEND, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         index2, basis0, basis1, basis2, w0, w1, w2, nodToMod, jac, in, out, wsp,
         scale, shmemptr, threadBlock);

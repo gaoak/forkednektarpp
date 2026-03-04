@@ -38,6 +38,7 @@
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionDeviceSumFacKernels.hpp"
+#include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionDeviceSumFacTOPKernels.hpp"
 
 namespace Nektar::Operators::detail
 {

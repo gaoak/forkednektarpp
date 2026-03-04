@@ -79,11 +79,10 @@ NEK_DEVICE_INLINE static void MatVecKernel(const unsigned int ilane,
 
 template <bool APPEND = false, bool TRANSPOSE = false, typename TthreadBlock,
           typename TData>
-NEK_DEVICE_INLINE static void MatVecQPKernel(const unsigned int nmTot,
-                                             const TData *__restrict__ nodToMod,
-                                             const TData *__restrict__ in,
-                                             TData *__restrict__ out,
-                                             const TthreadBlock &threadBlock)
+NEK_DEVICE_INLINE static void MatVecSumFacTOPKernel(
+    const unsigned int nmTot, const TData *__restrict__ nodToMod,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    const TthreadBlock &threadBlock)
 {
     const unsigned int idx0   = getLocalIdx(threadBlock);
     const unsigned int stride = getLocalRange(threadBlock);

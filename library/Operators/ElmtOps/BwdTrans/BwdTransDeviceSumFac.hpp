@@ -38,6 +38,7 @@
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/BwdTrans/BwdTransDeviceSumFacKernels.hpp"
+#include "Operators/ElmtOps/BwdTrans/BwdTransDeviceSumFacTOPKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
