@@ -14,6 +14,7 @@
 # MultiplyByElmtInvMass  Nodepend - Seg, Quad, etc
 # NullPrecon             Nodepend - Seg, Quad, etc
 # PhysDeriv              Nodepend - Seg, Quad, etc
+# Div                    Nodepend - Seg, Quad, etc
 # PhysInterp1D           Nodepend - Seg, Quad, etc
 # Expression             Nodepend - Helmholtz1D_Seg, etc.
 
@@ -85,7 +86,6 @@ ADD_NEKTAR_EXECUTABLE(test_implicit_gem
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_implicit_gem.cpp)
 ADD_NEKTAR_EXECUTABLE(test_imex_gem
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_imex_gem.cpp)
-
 ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass.cpp)
 ADD_NEKTAR_EXECUTABLE(test_expression
@@ -123,6 +123,8 @@ ADD_NEKTAR_EXECUTABLE(test_nullprecon
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon.cpp)
 ADD_NEKTAR_EXECUTABLE(test_physderiv
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv.cpp)
+ADD_NEKTAR_EXECUTABLE(test_div
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_div.cpp)
 ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled.cpp)
 
@@ -225,6 +227,7 @@ SET_UNIT_TEST(LinAdvDiffReaction_serial_stdmat test_linadvdiffreaction Serial St
 SET_UNIT_TEST(Mass_serial_stdmat test_mass Serial StdMat FALSE)
 SET_UNIT_TEST(NullPrecon_serial_stdmat test_nullprecon Serial StdMat FALSE)
 SET_UNIT_TEST(PhysDeriv_serial_stdmat test_physderiv Serial StdMat FALSE)
+SET_UNIT_TEST(Div_serial_stdmat test_div Serial StdMat FALSE)
 SET_UNIT_TEST(PhysInterp1DScaled_serial_stdmat test_physinterp1dscaled Serial StdMat FALSE)
 
 # Serial SumFac
@@ -243,6 +246,7 @@ SET_UNIT_TEST(LinAdvDiffReaction_serial_sumfac test_linadvdiffreaction Serial Su
 SET_UNIT_TEST(Mass_serial_sumfac test_mass Serial SumFac FALSE)
 SET_UNIT_TEST(NullPrecon_serial_sumfac test_nullprecon Serial SumFac FALSE)
 SET_UNIT_TEST(PhysDeriv_serial_sumfac test_physderiv Serial SumFac FALSE)
+SET_UNIT_TEST(Div_serial_sumfac test_div Serial SumFac FALSE)
 SET_UNIT_TEST(PhysInterp1DScaled_serial_sumfac test_physinterp1dscaled Serial SumFac FALSE)
 IF (NEKTAR_USE_MPI)
     # SET_UNIT_TEST(HelmSolve_serial test_helmsolve Serial SumFac TRUE)
@@ -297,6 +301,7 @@ IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(Mass_avx_stdmat test_mass AVX StdMat FALSE)
     SET_UNIT_TEST(NullPrecon_avx_stdmat test_nullprecon AVX StdMat FALSE)
     SET_UNIT_TEST(PhysDeriv_avx_stdmat test_physderiv AVX StdMat FALSE)
+    SET_UNIT_TEST(Div_avx_stdmat test_div AVX StdMat FALSE)
     SET_UNIT_TEST(PhysInterp1DScaled_avx_stdmat test_physinterp1dscaled Serial StdMat FALSE)
 ENDIF()
 
@@ -316,6 +321,7 @@ IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(Mass_avx_sumfac test_mass AVX SumFac FALSE)
     SET_UNIT_TEST(NullPrecon_avx_sumfac test_nullprecon AVX SumFac FALSE)
     SET_UNIT_TEST(PhysDeriv_avx_sumfac test_physderiv AVX SumFac FALSE)
+    SET_UNIT_TEST(Div_avx_sumfac test_div AVX SumFac FALSE)
     SET_UNIT_TEST(PhysInterp1DScaled_avx_sumfac test_physinterp1dscaled AVX SumFac FALSE)
 ENDIF()
 
@@ -372,6 +378,7 @@ IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(Mass_device_stdmat test_mass Device StdMat FALSE)
     SET_UNIT_TEST(NullPrecon_device_stdmat test_nullprecon Device StdMat FALSE)
     SET_UNIT_TEST(PhysDeriv_device_stdmat test_physderiv Device StdMat FALSE)
+    SET_UNIT_TEST(Div_device_stdmat test_div Device StdMat FALSE)
     SET_UNIT_TEST(PhysInterp1DScaled_device_stdmat test_physinterp1dscaled Device StdMat FALSE)
 ENDIF()
 
@@ -391,6 +398,7 @@ IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(Mass_device_sumfac test_mass Device SumFac FALSE)
     SET_UNIT_TEST(NullPrecon_device_sumfac test_nullprecon Device SumFac FALSE)
     SET_UNIT_TEST(PhysDeriv_device_sumfac test_physderiv Device SumFac FALSE)
+    SET_UNIT_TEST(Div_device_sumfac test_div Device SumFac FALSE)
     SET_UNIT_TEST(PhysInterp1DScaled_device_sumfac test_physinterp1dscaled Device SumFac FALSE)
 ENDIF()
 
@@ -411,6 +419,7 @@ IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(Mass_device_sumfactop test_mass Device SumFacTOP FALSE)
     SET_UNIT_TEST(NullPrecon_device_sumfactop test_nullprecon Device SumFacTOP FALSE)
     SET_UNIT_TEST(PhysDeriv_device_sumfactop test_physderiv Device SumFacTOP FALSE)
+    SET_UNIT_TEST(Div_device_sumfactop test_div Device SumFacTOP FALSE)
     SET_UNIT_TEST(PhysInterp1DScaled_device_sumfactop test_physinterp1dscaled Device SumFacTOP FALSE)
 ENDIF()
 

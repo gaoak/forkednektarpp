@@ -191,6 +191,83 @@ NEK_DEVICE_INLINE static void PhysDeriv2DSumFacTOPKernel(
 
     localBarrier(threadBlock);
 }
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
+          bool APPEND, typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void PhysDerivDir2DSumFacTOPKernel(
+    const unsigned int nq0, const unsigned int nq1,
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ f0, const TData *__restrict__ f1,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out, const TthreadBlock &threadBlock)
+{
+    const unsigned int nqTot  = nq0 * nq1;
+    const unsigned int dfsize = DEFORMED ? nqTot : 1u;
+
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+    {
+        const unsigned int i       = idx % nq0;
+        const unsigned int j       = idx / nq0;
+        const unsigned int dfindex = DEFORMED ? idx : 0;
+
+        // Compute tensorial derivative.
+        // Direction 0
+        TData d0 = 0.0;
+#pragma unroll
+        for (unsigned int q = 0u; q < nq0; ++q)
+        {
+            d0 += D0[q * nq0 + i] * in[nq0 * j + q];
+        }
+
+        // Direction 1
+        TData d1 = 0.0;
+#pragma unroll
+        for (unsigned int q = 0u; q < nq1; ++q)
+        {
+            d1 += D1[q * nq1 + j] * in[nq0 * q + i];
+        }
+
+        // Moving from standard to collapsed coordinates.
+        if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                      SHAPE_TYPE == LibUtilities::NodalTri)
+        {
+            d0 *= f1[j];
+            d1 += d0 * f0[i];
+        }
+
+        // Multiply by derivative factors.
+        if constexpr (DIR == 0)
+        {
+            if constexpr (APPEND)
+            {
+                out[idx] += d0 * df[0u * dfsize + dfindex] +
+                            d1 * df[1u * dfsize + dfindex];
+            }
+            else
+            {
+                out[idx] = d0 * df[0u * dfsize + dfindex] +
+                           d1 * df[1u * dfsize + dfindex];
+            }
+        }
+        else if constexpr (DIR == 1)
+        {
+            if constexpr (APPEND)
+            {
+                out[idx] += d0 * df[2u * dfsize + dfindex] +
+                            d1 * df[3u * dfsize + dfindex];
+            }
+            else
+            {
+                out[idx] = d0 * df[2u * dfsize + dfindex] +
+                           d1 * df[3u * dfsize + dfindex];
+            }
+        }
+    }
+
+    localBarrier(threadBlock);
+}
 
 template <bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void SumDerivTensor2DSumFacTOPKernel(
@@ -326,6 +403,129 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacTOPKernel(
 
     localBarrier(threadBlock);
 }
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
+          bool APPEND, typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void PhysDerivDir3DSumFacTOPKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ D2, const TData *__restrict__ f0,
+    const TData *__restrict__ f1, const TData *__restrict__ f1m,
+    const TData *__restrict__ f2, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    const TthreadBlock &threadBlock)
+{
+    const unsigned int nqTot  = nq0 * nq1 * nq2;
+    const unsigned int dfsize = DEFORMED ? nqTot : 1u;
+
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+    {
+        const unsigned int i       = idx % nq0;
+        const unsigned int j       = (idx / nq0) % nq1;
+        const unsigned int k       = idx / (nq0 * nq1);
+        const unsigned int dfindex = DEFORMED ? idx : 0;
+
+        // Compute tensorial derivative.
+        // Direction 0
+        TData d0 = 0.0;
+#pragma unroll
+        for (unsigned int q = 0u; q < nq0; ++q)
+        {
+            d0 += D0[q * nq0 + i] * in[nq0 * nq1 * k + nq0 * j + q];
+        }
+
+        // Direction 1
+        TData d1 = 0.0;
+#pragma unroll
+        for (unsigned int q = 0u; q < nq1; ++q)
+        {
+            d1 += D1[q * nq1 + j] * in[nq0 * nq1 * k + nq0 * q + i];
+        }
+
+        // Direction 2
+        TData d2 = 0.0;
+#pragma unroll
+        for (unsigned int q = 0u; q < nq2; ++q)
+        {
+            d2 += D2[q * nq2 + k] * in[nq0 * nq1 * q + nq0 * j + i];
+        }
+
+        // Moving from standard to collapsed coordinates.
+        if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                      SHAPE_TYPE == LibUtilities::NodalTet)
+        {
+            TData tmp0 = f1m[j] * f2[k] * d0;
+            TData tmp1 = f0[i] * tmp0;
+            TData tmp2 = f2[k] * d1;
+            d0         = tmp0;
+            d1         = tmp1 + tmp2;
+            d2 += tmp1 + f1[j] * tmp2;
+        }
+        else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                           SHAPE_TYPE == LibUtilities::NodalPrism)
+        {
+            d0 *= f2[k];
+            d2 += f0[i] * d0;
+        }
+        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+        {
+            d0 *= f2[k];
+            d1 *= f2[k];
+            d2 += f0[i] * d0 + f1[j] * d1;
+        }
+
+        // Multiply by derivative factors.
+        if constexpr (DIR == 0)
+        {
+            if constexpr (APPEND)
+            {
+                out[idx] += d0 * df[0u * dfsize + dfindex] +
+                            d1 * df[1u * dfsize + dfindex] +
+                            d2 * df[2u * dfsize + dfindex];
+            }
+            else
+            {
+                out[idx] = d0 * df[0u * dfsize + dfindex] +
+                           d1 * df[1u * dfsize + dfindex] +
+                           d2 * df[2u * dfsize + dfindex];
+            }
+        }
+        else if constexpr (DIR == 1)
+        {
+            if constexpr (APPEND)
+            {
+                out[idx] += d0 * df[3u * dfsize + dfindex] +
+                            d1 * df[4u * dfsize + dfindex] +
+                            d2 * df[5u * dfsize + dfindex];
+            }
+            else
+            {
+                out[idx] = d0 * df[3u * dfsize + dfindex] +
+                           d1 * df[4u * dfsize + dfindex] +
+                           d2 * df[5u * dfsize + dfindex];
+            }
+        }
+        else if constexpr (DIR == 2)
+        {
+            if constexpr (APPEND)
+            {
+                out[idx] += d0 * df[6u * dfsize + dfindex] +
+                            d1 * df[7u * dfsize + dfindex] +
+                            d2 * df[8u * dfsize + dfindex];
+            }
+            else
+            {
+                out[idx] = d0 * df[6u * dfsize + dfindex] +
+                           d1 * df[7u * dfsize + dfindex] +
+                           d2 * df[8u * dfsize + dfindex];
+            }
+        }
+    }
+
+    localBarrier(threadBlock);
+}
 
 template <bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void SumDerivTensor3DSumFacTOPKernel(
@@ -447,6 +647,45 @@ NEK_DEVICE_INLINE static void PhysDerivSumFacTOP2DKernel(
         e += getBlockRange(threadBlock);
     }
 }
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
+          bool APPEND, typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void PhysDerivDirSumFacTOP2DKernel(
+    const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ f0, const TData *__restrict__ f1,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out, unsigned char *__restrict__ shmemptr,
+    const TthreadBlock &threadBlock)
+{
+    const unsigned int ndf    = 4u;
+    const unsigned int nqTot  = nq0 * nq1;
+    const unsigned int dfsize = DEFORMED ? nqTot : 1u;
+
+    TData *s_wsp0             = (TData *)shmemptr;
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+
+    size_t e = getBlockIdx(threadBlock);
+    while (e < nelmt)
+    {
+        const TData *dfptr = df + ndf * dfsize * e;
+        const TData *inptr = in + nqTot * e;
+        TData *outptr      = out + nqTot * e;
+
+        // Copy to shared memory.
+        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+        {
+            s_wsp0[idx] = inptr[idx];
+        }
+
+        localBarrier(threadBlock);
+
+        PhysDerivDir2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED, DIR, APPEND>(
+            nq0, nq1, D0, D1, f0, f1, dfptr, s_wsp0, outptr, threadBlock);
+
+        e += getBlockRange(threadBlock);
+    }
+}
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
@@ -486,6 +725,49 @@ NEK_DEVICE_INLINE static void PhysDerivSumFacTOP3DKernel(
         PhysDeriv3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
             nq0, nq1, nq2, outoffset, D0, D1, D2, f0, f1, f1m, f2, dfptr,
             s_wsp0, outptr, threadBlock);
+
+        e += getBlockRange(threadBlock);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
+          bool APPEND, typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void PhysDerivDirSumFacTOP3DKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const size_t nelmt, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ D2,
+    const TData *__restrict__ f0, const TData *__restrict__ f1,
+    const TData *__restrict__ f1m, const TData *__restrict__ f2,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out, unsigned char *__restrict__ shmemptr,
+    const TthreadBlock &threadBlock)
+{
+    constexpr unsigned int ndf = 9u;
+    const unsigned int nqTot   = nq0 * nq1 * nq2;
+    const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
+
+    TData *s_wsp0             = (TData *)shmemptr;
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+
+    size_t e = getBlockIdx(threadBlock); // use size_t to prevent overflow
+    while (e < nelmt)
+    {
+        const TData *dfptr = df + ndf * dfsize * e;
+        const TData *inptr = in + nqTot * e;
+        TData *outptr      = out + nqTot * e;
+
+        // Copy to shared memory.
+        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+        {
+            s_wsp0[idx] = inptr[idx];
+        }
+
+        localBarrier(threadBlock);
+
+        PhysDerivDir3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED, DIR, APPEND>(
+            nq0, nq1, nq2, D0, D1, D2, f0, f1, f1m, f2, dfptr, s_wsp0, outptr,
+            threadBlock);
 
         e += getBlockRange(threadBlock);
     }
@@ -578,6 +860,49 @@ NEK_DEVICE_KERNEL
 
 // Non-size based version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, unsigned int DIR, bool APPEND, typename TthreadBlock,
+          typename TData>
+NEK_DEVICE_KERNEL
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
+    PhysDerivDir2DKernelLauncher(
+        const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
+        const TData *__restrict__ D0, const TData *__restrict__ D1,
+        const TData *__restrict__ f0, const TData *__restrict__ f1,
+        const TData *__restrict__ df, const TData *__restrict__ in,
+        TData *__restrict__ out, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    PhysDerivDirSumFacTOP2DKernel<SHAPE_TYPE, DEFORMED, DIR, APPEND>(
+        nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out, shmemptr, threadBlock);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, unsigned int DIR, bool APPEND, unsigned int nq0,
+          unsigned int nq1, typename TthreadBlock, typename TData/*,
+                                                                   unsigned int maxThreadPerBlock =
+                                                                   GetDeviceBlockSize<Implementation>(nq0 *nq1)*/>
+NEK_DEVICE_KERNEL 
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
+ /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
+PhysDerivDir2DKernelLauncher(const size_t nelmt, const TData *__restrict__ D0,
+                             const TData *__restrict__ D1,
+                             const TData *__restrict__ f0,
+                             const TData *__restrict__ f1,
+                             const TData *__restrict__ df,
+                             const TData *__restrict__ in,
+                             TData *__restrict__ out, unsigned char* shmemptr, const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    PhysDerivDirSumFacTOP2DKernel<SHAPE_TYPE, DEFORMED, DIR, APPEND>(
+        nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out, shmemptr, threadBlock);
+}
+
+// Non-size based version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
@@ -624,6 +949,53 @@ NEK_DEVICE_KERNEL
         nq0, nq1, nq2, nelmt, outoffset, D0, D1, D2, f0, f1, f1m, f2, df, in,
         out, shmemptr, threadBlock);
 }
+
+// Non-size based version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, unsigned int DIR, bool APPEND, typename TthreadBlock,
+          typename TData>
+NEK_DEVICE_KERNEL
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
+    PhysDerivDir3DKernelLauncher(
+        const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+        const size_t nelmt, const TData *__restrict__ D0,
+        const TData *__restrict__ D1, const TData *__restrict__ D2,
+        const TData *__restrict__ f0, const TData *__restrict__ f1,
+        const TData *__restrict__ f1m, const TData *__restrict__ f2,
+        const TData *__restrict__ df, const TData *__restrict__ in,
+        TData *__restrict__ out, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    PhysDerivDirSumFacTOP3DKernel<SHAPE_TYPE, DEFORMED, DIR, APPEND>(
+        nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in, out,
+        shmemptr, threadBlock);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, unsigned int DIR, bool APPEND, unsigned int nq0,
+          unsigned int nq1, unsigned int nq2, typename TthreadBlock,
+          typename TData>
+NEK_DEVICE_KERNEL
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
+    PhysDerivDir3DKernelLauncher(
+        const size_t nelmt, const TData *__restrict__ D0,
+        const TData *__restrict__ D1, const TData *__restrict__ D2,
+        const TData *__restrict__ f0, const TData *__restrict__ f1,
+        const TData *__restrict__ f1m, const TData *__restrict__ f2,
+        const TData *__restrict__ df, const TData *__restrict__ in,
+        TData *__restrict__ out, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    PhysDerivDirSumFacTOP3DKernel<SHAPE_TYPE, DEFORMED, DIR, APPEND>(
+        nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in, out,
+        shmemptr, threadBlock);
+}
+
 #endif
 
 } // namespace Nektar::Operators::detail

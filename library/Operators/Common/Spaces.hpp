@@ -386,10 +386,12 @@ template <unsigned int ndim> class hipcudaBlock
 // to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
 #define DEVICE_1DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
                                       STREAM, ...)                             \
-    unsigned char *shmemptr = nullptr;                                         \
-    KERNEL<<<GRIDSIZE, BLOCKSIZE, SHMEMSIZE, STREAM>>>(__VA_ARGS__, shmemptr,  \
-                                                       hipcudaBlock<1>());     \
-    CHECK_LAST_HIPCUDA_ERROR();
+    {                                                                          \
+        unsigned char *shmemptr = nullptr;                                     \
+        KERNEL<<<GRIDSIZE, BLOCKSIZE, SHMEMSIZE, STREAM>>>(                    \
+            __VA_ARGS__, shmemptr, hipcudaBlock<1>());                         \
+        CHECK_LAST_HIPCUDA_ERROR();                                            \
+    }
 
 // Kernel launcher on a two-dimensional GPU grid with shared memory provision.
 // KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL. The last two
@@ -399,10 +401,12 @@ template <unsigned int ndim> class hipcudaBlock
 // to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
 #define DEVICE_2DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
                                       STREAM, ...)                             \
-    unsigned char *shmemptr = nullptr;                                         \
-    KERNEL<<<GRIDSIZE, BLOCKSIZE, SHMEMSIZE, STREAM>>>(__VA_ARGS__, shmemptr,  \
-                                                       hipcudaBlock<2>());     \
-    CHECK_LAST_HIPCUDA_ERROR();
+    {                                                                          \
+        unsigned char *shmemptr = nullptr;                                     \
+        KERNEL<<<GRIDSIZE, BLOCKSIZE, SHMEMSIZE, STREAM>>>(                    \
+            __VA_ARGS__, shmemptr, hipcudaBlock<2>());                         \
+        CHECK_LAST_HIPCUDA_ERROR();                                            \
+    }
 
 // Kernel launcher on a three-dimensional GPU grid with shared memory provision.
 // KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL. The last two
@@ -412,10 +416,12 @@ template <unsigned int ndim> class hipcudaBlock
 // to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
 #define DEVICE_3DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
                                       STREAM, ...)                             \
-    unsigned char *shmemptr = nullptr;                                         \
-    KERNEL<<<GRIDSIZE, BLOCKSIZE, SHMEMSIZE, STREAM>>>(__VA_ARGS__, shmemptr,  \
-                                                       hipcudaBlock<3>());     \
-    CHECK_LAST_HIPCUDA_ERROR();
+    {                                                                          \
+        unsigned char *shmemptr = nullptr;                                     \
+        KERNEL<<<GRIDSIZE, BLOCKSIZE, SHMEMSIZE, STREAM>>>(                    \
+            __VA_ARGS__, shmemptr, hipcudaBlock<3>());                         \
+        CHECK_LAST_HIPCUDA_ERROR();                                            \
+    }
 
 // Kernel launcher on a one-dimensional GPU grid without shared memory
 // provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
@@ -1298,23 +1304,25 @@ NEK_DEVICE_INLINE int localBarrier_count(
 // to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
 #define DEVICE_1DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
                                       STREAM, ...)                             \
-    sycl::queue &Q = SYCLQueue::GetInstance();                                 \
-    auto args      = std::make_tuple(__VA_ARGS__);                             \
-    Q.submit([=](sycl::handler &cgh) {                                         \
-        sycl::local_accessor<unsigned char, 1> shmem(                          \
-            sycl::range<1>(SHMEMSIZE), cgh);                                   \
-        cgh.parallel_for(                                                      \
-            sycl::nd_range<1>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),                \
-            [=](sycl::nd_item<1> item_ct1) {                                   \
-                auto shmemptr = &shmem[0];                                     \
-                std::apply(                                                    \
-                    [&](auto &&...args) {                                      \
-                        KERNEL(std::forward<decltype(args)>(args)...,          \
-                               shmemptr, item_ct1);                            \
-                    },                                                         \
-                    args);                                                     \
-            });                                                                \
-    });
+    {                                                                          \
+        sycl::queue &Q = SYCLQueue::GetInstance();                             \
+        auto args      = std::make_tuple(__VA_ARGS__);                         \
+        Q.submit([=](sycl::handler &cgh) {                                     \
+            sycl::local_accessor<unsigned char, 1> shmem(                      \
+                sycl::range<1>(SHMEMSIZE), cgh);                               \
+            cgh.parallel_for(                                                  \
+                sycl::nd_range<1>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),            \
+                [=](sycl::nd_item<1> item_ct1) {                               \
+                    auto shmemptr = &shmem[0];                                 \
+                    std::apply(                                                \
+                        [&](auto &&...args) {                                  \
+                            KERNEL(std::forward<decltype(args)>(args)...,      \
+                                   shmemptr, item_ct1);                        \
+                        },                                                     \
+                        args);                                                 \
+                });                                                            \
+        });                                                                    \
+    }
 
 // Kernel launcher on a two-dimensional GPU grid with shared memory provision.
 // KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL. The last two
@@ -1324,23 +1332,25 @@ NEK_DEVICE_INLINE int localBarrier_count(
 // to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
 #define DEVICE_2DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
                                       STREAM, ...)                             \
-    sycl::queue &Q = SYCLQueue::GetInstance();                                 \
-    auto args      = std::make_tuple(__VA_ARGS__);                             \
-    Q.submit([=](sycl::handler &cgh) {                                         \
-        sycl::local_accessor<unsigned char, 1> shmem(                          \
-            sycl::range<1>(SHMEMSIZE), cgh);                                   \
-        cgh.parallel_for(                                                      \
-            sycl::nd_range<2>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),                \
-            [=](sycl::nd_item<2> item_ct1) {                                   \
-                auto shmemptr = &shmem[0];                                     \
-                std::apply(                                                    \
-                    [&](auto &&...args) {                                      \
-                        KERNEL(std::forward<decltype(args)>(args)...,          \
-                               shmemptr, item_ct1);                            \
-                    },                                                         \
-                    args);                                                     \
-            });                                                                \
-    });
+    {                                                                          \
+        sycl::queue &Q = SYCLQueue::GetInstance();                             \
+        auto args      = std::make_tuple(__VA_ARGS__);                         \
+        Q.submit([=](sycl::handler &cgh) {                                     \
+            sycl::local_accessor<unsigned char, 1> shmem(                      \
+                sycl::range<1>(SHMEMSIZE), cgh);                               \
+            cgh.parallel_for(                                                  \
+                sycl::nd_range<2>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),            \
+                [=](sycl::nd_item<2> item_ct1) {                               \
+                    auto shmemptr = &shmem[0];                                 \
+                    std::apply(                                                \
+                        [&](auto &&...args) {                                  \
+                            KERNEL(std::forward<decltype(args)>(args)...,      \
+                                   shmemptr, item_ct1);                        \
+                        },                                                     \
+                        args);                                                 \
+                });                                                            \
+        });                                                                    \
+    }
 
 // Kernel launcher on a three-dimensional GPU grid with shared memory provision.
 // KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL. The last two
@@ -1350,83 +1360,91 @@ NEK_DEVICE_INLINE int localBarrier_count(
 // to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
 #define DEVICE_3DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
                                       STREAM, ...)                             \
-    sycl::queue &Q = SYCLQueue::GetInstance();                                 \
-    auto args      = std::make_tuple(__VA_ARGS__);                             \
-    Q.submit([=](sycl::handler &cgh) {                                         \
-        sycl::local_accessor<unsigned char, 1> shmem(                          \
-            sycl::range<1>(SHMEMSIZE), cgh);                                   \
-        cgh.parallel_for(                                                      \
-            sycl::nd_range<3>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),                \
-            [=](sycl::nd_item<3> item_ct1) {                                   \
-                auto shmemptr = &shmem[0];                                     \
-                std::apply(                                                    \
-                    [&](auto &&...args) {                                      \
-                        KERNEL(std::forward<decltype(args)>(args)...,          \
-                               shmemptr, item_ct1);                            \
-                    },                                                         \
-                    args);                                                     \
-            });                                                                \
-    });
+    {                                                                          \
+        sycl::queue &Q = SYCLQueue::GetInstance();                             \
+        auto args      = std::make_tuple(__VA_ARGS__);                         \
+        Q.submit([=](sycl::handler &cgh) {                                     \
+            sycl::local_accessor<unsigned char, 1> shmem(                      \
+                sycl::range<1>(SHMEMSIZE), cgh);                               \
+            cgh.parallel_for(                                                  \
+                sycl::nd_range<3>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),            \
+                [=](sycl::nd_item<3> item_ct1) {                               \
+                    auto shmemptr = &shmem[0];                                 \
+                    std::apply(                                                \
+                        [&](auto &&...args) {                                  \
+                            KERNEL(std::forward<decltype(args)>(args)...,      \
+                                   shmemptr, item_ct1);                        \
+                        },                                                     \
+                        args);                                                 \
+                });                                                            \
+        });                                                                    \
+    }
 
 // Kernel launcher on a one-dimensional GPU grid without shared memory
 // provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
 // The last argument of the KERNEL function MUST be of type sycl::nd_item<1>.
 #define DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
                                               STREAM, ...)                     \
-    sycl::queue &Q = SYCLQueue::GetInstance();                                 \
-    auto args      = std::make_tuple(__VA_ARGS__);                             \
-    Q.submit([=](sycl::handler &cgh) {                                         \
-        cgh.parallel_for(                                                      \
-            sycl::nd_range<1>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),                \
-            [=](sycl::nd_item<1> item_ct1) {                                   \
-                std::apply(                                                    \
-                    [&](auto &&...args) {                                      \
-                        KERNEL(std::forward<decltype(args)>(args)...,          \
-                               item_ct1);                                      \
-                    },                                                         \
-                    args);                                                     \
-            });                                                                \
-    });
+    {                                                                          \
+        sycl::queue &Q = SYCLQueue::GetInstance();                             \
+        auto args      = std::make_tuple(__VA_ARGS__);                         \
+        Q.submit([=](sycl::handler &cgh) {                                     \
+            cgh.parallel_for(                                                  \
+                sycl::nd_range<1>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),            \
+                [=](sycl::nd_item<1> item_ct1) {                               \
+                    std::apply(                                                \
+                        [&](auto &&...args) {                                  \
+                            KERNEL(std::forward<decltype(args)>(args)...,      \
+                                   item_ct1);                                  \
+                        },                                                     \
+                        args);                                                 \
+                });                                                            \
+        });                                                                    \
+    }
 
 // Kernel launcher on a two-dimensional GPU grid without shared memory
 // provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
 // The last argument of the KERNEL function MUST be of type sycl::nd_item<2>.
 #define DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
                                               STREAM, ...)                     \
-    sycl::queue &Q = SYCLQueue::GetInstance();                                 \
-    auto args      = std::make_tuple(__VA_ARGS__);                             \
-    Q.submit([=](sycl::handler &cgh) {                                         \
-        cgh.parallel_for(                                                      \
-            sycl::nd_range<2>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),                \
-            [=](sycl::nd_item<2> item_ct1) {                                   \
-                std::apply(                                                    \
-                    [&](auto &&...args) {                                      \
-                        KERNEL(std::forward<decltype(args)>(args)...,          \
-                               item_ct1);                                      \
-                    },                                                         \
-                    args);                                                     \
-            });                                                                \
-    });
+    {                                                                          \
+        sycl::queue &Q = SYCLQueue::GetInstance();                             \
+        auto args      = std::make_tuple(__VA_ARGS__);                         \
+        Q.submit([=](sycl::handler &cgh) {                                     \
+            cgh.parallel_for(                                                  \
+                sycl::nd_range<2>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),            \
+                [=](sycl::nd_item<2> item_ct1) {                               \
+                    std::apply(                                                \
+                        [&](auto &&...args) {                                  \
+                            KERNEL(std::forward<decltype(args)>(args)...,      \
+                                   item_ct1);                                  \
+                        },                                                     \
+                        args);                                                 \
+                });                                                            \
+        });                                                                    \
+    }
 
 // Kernel launcher on a three-dimensional GPU grid without shared memory
 // provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
 // The last argument of the KERNEL function MUST be of type sycl::nd_item<3>.
 #define DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
                                               STREAM, ...)                     \
-    sycl::queue &Q = SYCLQueue::GetInstance();                                 \
-    auto args      = std::make_tuple(__VA_ARGS__);                             \
-    Q.submit([=](sycl::handler &cgh) {                                         \
-        cgh.parallel_for(                                                      \
-            sycl::nd_range<3>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),                \
-            [=](sycl::nd_item<3> item_ct1) {                                   \
-                std::apply(                                                    \
-                    [&](auto &&...args) {                                      \
-                        KERNEL(std::forward<decltype(args)>(args)...,          \
-                               item_ct1);                                      \
-                    },                                                         \
-                    args);                                                     \
-            });                                                                \
-    });
+    {                                                                          \
+        sycl::queue &Q = SYCLQueue::GetInstance();                             \
+        auto args      = std::make_tuple(__VA_ARGS__);                         \
+        Q.submit([=](sycl::handler &cgh) {                                     \
+            cgh.parallel_for(                                                  \
+                sycl::nd_range<3>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),            \
+                [=](sycl::nd_item<3> item_ct1) {                               \
+                    std::apply(                                                \
+                        [&](auto &&...args) {                                  \
+                            KERNEL(std::forward<decltype(args)>(args)...,      \
+                                   item_ct1);                                  \
+                        },                                                     \
+                        args);                                                 \
+                });                                                            \
+        });                                                                    \
+    }
 
 NEK_DEVICE_INLINE static unsigned int getLocalIdx(
     const sycl::nd_item<1> &threadBlock)
@@ -2065,10 +2083,12 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
 // to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
 #define DEVICE_1DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
                                       STREAM, ...)                             \
-    nektar_unused(GRIDSIZE);                                                   \
-    nektar_unused(BLOCKSIZE);                                                  \
-    std::vector<unsigned char> shmem(SHMEMSIZE);                               \
-    KERNEL(__VA_ARGS__, shmem.data(), deviceOnHostBlock<1>());
+    {                                                                          \
+        nektar_unused(GRIDSIZE);                                               \
+        nektar_unused(BLOCKSIZE);                                              \
+        std::vector<unsigned char> shmem(SHMEMSIZE);                           \
+        KERNEL(__VA_ARGS__, shmem.data(), deviceOnHostBlock<1>());             \
+    }
 
 // Kernel launcher on a two-dimensional GPU grid with shared memory provision.
 // KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL. The last two
@@ -2076,11 +2096,12 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
 // deviceOnHostBlock<2>. The shared memory size must be specified in bytes. The
 // shared memory is declared as unsigned char* type. The shmemptr must then cast
 // to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
-#define DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
-                                              STREAM, ...)                     \
+#define DEVICE_2DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, STREAM,     \
+                                      ...)                                     \
     nektar_unused(GRIDSIZE);                                                   \
     nektar_unused(BLOCKSIZE);                                                  \
-    KERNEL(__VA_ARGS__, deviceOnHostBlock<2>());
+    std::vector<unsigned char> shmem(SHMEMSIZE);                               \
+    KERNEL(__VA_ARGS__, shmem.data(), deviceOnHostBlock<2>());
 
 // Kernel launcher on a three-dimensional GPU grid with shared memory provision.
 // KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL. The last two
@@ -2088,11 +2109,12 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
 // deviceOnHostBlock<3>. The shared memory size must be specified in bytes. The
 // shared memory is declared as unsigned char* type. The shmemptr must then cast
 // to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
-#define DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
-                                              STREAM, ...)                     \
+#define DEVICE_3DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, STREAM,     \
+                                      ...)                                     \
     nektar_unused(GRIDSIZE);                                                   \
     nektar_unused(BLOCKSIZE);                                                  \
-    KERNEL(__VA_ARGS__, deviceOnHostBlock<3>());
+    std::vector<unsigned char> shmem(SHMEMSIZE);                               \
+    KERNEL(__VA_ARGS__, shmem.data(), deviceOnHostBlock<3>());
 
 // Kernel launcher on a one-dimensional GPU grid without shared memory
 // provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
