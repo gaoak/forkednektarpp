@@ -91,6 +91,8 @@ TEST_PHYSDERIV(physderiv_seg_sem, SegSEM, 1.0E-12)
 
 TEST_PHYSDERIV3DH2(physderiv_seg_sem_3dh2, SegSEM, 1.0E-12)
 
+TEST_PHYSDERIV(physderiv_tri, Tri, 1.0E-12)
+
 TEST_PHYSDERIV(physderiv_quad, Quad, 1.0E-12)
 
 TEST_PHYSDERIV3DH1(physderiv_quad_3dh1, Quad, 1.0E-12)
@@ -99,7 +101,7 @@ TEST_PHYSDERIV(physderiv_quad_sem, QuadSEM, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_quad_varp, QuadVarP, 1.0E-12)
 
-TEST_PHYSDERIV(physderiv_tri, Tri, 1.0E-12)
+// TEST_PHYSDERIV(physderiv_tri, Tri, 1.0E-12)
 
 TEST_PHYSDERIV3DH1(physderiv_tri_3dh1, Tri, 1.0E-12)
 

@@ -88,3 +88,59 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorKernel(
         }
     }
 }
+
+template <typename ExecSpace, bool DEFORMED, bool APPEND, typename TData>
+NEK_FORCE_INLINE static void MultiplyByDirDerivFactorKernel(
+    const unsigned dir, const unsigned nqTot, const unsigned ncoord,
+    const unsigned dimension, const size_t nelmt, const TData *dfptr,
+    const TData *derivptr, TData *outptr)
+{
+    const auto ndf   = ncoord * dimension;
+    const auto nsize = nqTot * nelmt;
+
+    TData tmp;
+    if constexpr (DEFORMED)
+    {
+        for (size_t idx = 0; idx < nsize; idx++)
+        {
+            tmp = dfptr[ndf * idx + dir * dimension] * derivptr[idx];
+            for (unsigned int d = 1; d < dimension; d++)
+            {
+                tmp.fma(dfptr[ndf * idx + dir * dimension + d],
+                        derivptr[d * nqTot + idx]);
+            }
+            if constexpr (APPEND)
+            {
+                outptr[idx] += tmp;
+            }
+            else
+            {
+                outptr[idx] = tmp;
+            }
+        }
+    }
+    else
+    {
+        for (size_t e = 0; e < nelmt; e++)
+        {
+            for (unsigned int i = 0; i < nqTot; i++)
+            {
+                tmp =
+                    dfptr[ndf * e + dir * dimension] * derivptr[nqTot * e + i];
+                for (unsigned int d = 1; d < dimension; d++)
+                {
+                    tmp.fma(dfptr[ndf * e + dir * dimension + d],
+                            derivptr[nqTot * e + i + d * nqTot]);
+                }
+                if constexpr (APPEND)
+                {
+                    outptr[nqTot * e + i] += tmp;
+                }
+                else
+                {
+                    outptr[nqTot * e + i] = tmp;
+                }
+            }
+        }
+    }
+}

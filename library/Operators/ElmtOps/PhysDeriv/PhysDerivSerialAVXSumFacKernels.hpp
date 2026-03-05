@@ -175,6 +175,86 @@ NEK_FORCE_INLINE void PhysDeriv2DKernel(
     }
 }
 
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned DIR,
+          bool APPEND, typename simd_type>
+NEK_FORCE_INLINE void PhysDerivDir2DKernel(
+    const unsigned nq0, const unsigned nq1,
+    [[maybe_unused]] const simd_type *f0, [[maybe_unused]] const simd_type *f1,
+    const simd_type *df_ptr, const simd_type *tderiv0, const simd_type *tderiv1,
+    simd_type *out)
+{
+    constexpr unsigned ndf = 4u;
+    simd_type df_tmp[2];
+
+    if constexpr (!DEFORMED)
+    {
+        if constexpr (DIR == 0)
+        {
+            df_tmp[0] = df_ptr[0];
+            df_tmp[1] = df_ptr[1];
+        }
+
+        if constexpr (DIR == 1)
+        {
+            df_tmp[0] = df_ptr[2];
+            df_tmp[1] = df_ptr[3];
+        }
+    }
+
+    for (unsigned int j = 0, cnt_ji = 0; j < nq1; ++j)
+    {
+        simd_type xfrm1;
+        if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
+                      SHAPE_TYPE == LibUtilities::eNodalTri)
+        {
+            xfrm1 = f1[j]; // Load 1x
+        }
+
+        for (unsigned int i = 0; i < nq0; ++i, ++cnt_ji)
+        {
+            simd_type d0, d1;
+            d0 = tderiv0[cnt_ji]; // Load 1x
+            d1 = tderiv1[cnt_ji]; // Load 1x
+
+            if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
+                          SHAPE_TYPE == LibUtilities::eNodalTri)
+            {
+                // Moving from standard to collapsed coordinates
+                simd_type xfrm0 = f0[i]; // Load 1x
+                d0 *= xfrm1;
+                d1.fma(d0, xfrm0);
+            }
+
+            // Multiply by derivative factors
+            if constexpr (DEFORMED)
+            {
+                if constexpr (DIR == 0)
+                {
+                    df_tmp[0] = df_ptr[cnt_ji * ndf];
+                    df_tmp[1] = df_ptr[cnt_ji * ndf + 1];
+                }
+                else if constexpr (DIR == 1)
+                {
+                    df_tmp[0] = df_ptr[cnt_ji * ndf + 2];
+                    df_tmp[1] = df_ptr[cnt_ji * ndf + 3];
+                }
+            }
+
+            simd_type tmp;
+            tmp = d0 * df_tmp[0];
+            tmp.fma(d1, df_tmp[1]);
+            if constexpr (APPEND)
+            {
+                out[cnt_ji] += tmp; // Store 1x
+            }
+            else
+            {
+                out[cnt_ji] = tmp; // Store 1x
+            }
+        }
+    }
+}
+
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE void PhysDeriv3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -286,6 +366,137 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
                 tmp.fma(d1, df_tmp[7]);
                 tmp.fma(d2, df_tmp[8]);
                 out_d2[cnt_ijk] = tmp; // Store 1x
+            }
+        }
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned DIR,
+          bool APPEND, typename simd_type>
+NEK_FORCE_INLINE void PhysDerivDir3DKernel(
+    const unsigned nq0, const unsigned nq1, const unsigned nq2,
+    [[maybe_unused]] const simd_type *f0, [[maybe_unused]] const simd_type *f1,
+    [[maybe_unused]] const simd_type *f1m, [[maybe_unused]] const simd_type *f2,
+    const simd_type *df_ptr, const simd_type *tderiv0, const simd_type *tderiv1,
+    const simd_type *tderiv2, simd_type *out)
+{
+    constexpr auto ndf = 9u;
+    simd_type df_tmp[3];
+
+    if constexpr (!DEFORMED)
+    {
+        if constexpr (DIR == 0)
+        {
+            df_tmp[0] = df_ptr[0];
+            df_tmp[1] = df_ptr[1];
+            df_tmp[2] = df_ptr[2];
+        }
+        else if constexpr (DIR == 1)
+        {
+            df_tmp[0] = df_ptr[3];
+            df_tmp[1] = df_ptr[4];
+            df_tmp[2] = df_ptr[5];
+        }
+        else if constexpr (DIR == 2)
+        {
+            df_tmp[0] = df_ptr[6];
+            df_tmp[1] = df_ptr[7];
+            df_tmp[2] = df_ptr[8];
+        }
+    }
+
+    for (unsigned int k = 0, cnt_ijk = 0; k < nq2; ++k)
+    {
+        simd_type xfrm_eta2;
+        if constexpr (SHAPE_TYPE != LibUtilities::eHexahedron)
+        {
+            xfrm_eta2 = f2[k];
+        }
+
+        for (unsigned int j = 0; j < nq1; ++j)
+        {
+            simd_type xfrm_eta1, xfrm;
+            if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
+            {
+                xfrm_eta1 = f1[j];
+            }
+            else if (SHAPE_TYPE == LibUtilities::eTetrahedron ||
+                     SHAPE_TYPE == LibUtilities::eNodalTet)
+            {
+                xfrm_eta1 = f1[j];
+                xfrm      = f1m[j] * xfrm_eta2;
+            }
+
+            for (unsigned int i = 0; i < nq0; ++i, ++cnt_ijk)
+            {
+                simd_type d0, d1, d2;
+                d0 = tderiv0[cnt_ijk];
+                d1 = tderiv1[cnt_ijk];
+                d2 = tderiv2[cnt_ijk];
+
+                simd_type xfrm_eta0, tmp;
+
+                // Chain-rule to construct cartesian  derivatives for non
+                // Hex shapes
+                if constexpr ((SHAPE_TYPE == LibUtilities::ePrism) ||
+                              (SHAPE_TYPE == LibUtilities::eNodalPrism))
+                {
+                    d0 *= xfrm_eta2;
+                    xfrm_eta0 = f0[i];
+                    d2.fma(xfrm_eta0, d0);
+                }
+                else if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
+                {
+                    d0 *= xfrm_eta2;
+                    d1 *= xfrm_eta2;
+                    xfrm_eta0 = f0[i];
+                    d2.fma(xfrm_eta0, d0);
+                    d2.fma(xfrm_eta1, d1);
+                }
+                else if (SHAPE_TYPE == LibUtilities::eTetrahedron ||
+                         SHAPE_TYPE == LibUtilities::eNodalTet)
+                {
+                    d0 *= xfrm;
+                    xfrm_eta0 = f0[i] * d0;
+                    tmp       = d1 * xfrm_eta2;
+                    d1        = xfrm_eta0 + tmp;
+                    xfrm_eta0.fma(tmp, xfrm_eta1);
+                    d2 += xfrm_eta0;
+                }
+
+                if constexpr (DEFORMED)
+                {
+                    if constexpr (DIR == 0) // d/dx
+                    {
+                        df_tmp[0] = df_ptr[cnt_ijk * ndf];
+                        df_tmp[1] = df_ptr[cnt_ijk * ndf + 1];
+                        df_tmp[2] = df_ptr[cnt_ijk * ndf + 2];
+                    }
+                    else if constexpr (DIR == 1) // d/dy
+                    {
+                        df_tmp[0] = df_ptr[cnt_ijk * ndf + 3];
+                        df_tmp[1] = df_ptr[cnt_ijk * ndf + 4];
+                        df_tmp[2] = df_ptr[cnt_ijk * ndf + 5];
+                    }
+                    else if constexpr (DIR == 2) // d/dz
+                    {
+                        df_tmp[0] = df_ptr[cnt_ijk * ndf + 6];
+                        df_tmp[1] = df_ptr[cnt_ijk * ndf + 7];
+                        df_tmp[2] = df_ptr[cnt_ijk * ndf + 8];
+                    }
+                }
+
+                tmp = d0 * df_tmp[0];
+                tmp.fma(d1, df_tmp[1]);
+                tmp.fma(d2, df_tmp[2]);
+                if constexpr (APPEND)
+                {
+                    out[cnt_ijk] += tmp;
+                }
+                else
+                {
+                    out[cnt_ijk] = tmp;
+                }
             }
         }
     }
