@@ -268,7 +268,7 @@ protected:
         const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
         // Loop over components.
-        const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
+        const auto inoffset = outblock.CompSize() * outblock.GetNumHomoModes();
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
@@ -279,28 +279,21 @@ protected:
 
             // Calculate derivative.
             DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                (PhysDeriv1DKernelLauncher<Implementation, DEFORMED>), gridsize,
-                blocksize, 0, m_coordDim, nq0, nelmt, outoffset, m_D[0],
-                m_dfptr, inptr, outptr);
+                (Divergence1DKernelLauncher<Implementation, DEFORMED>),
+                gridsize, blocksize, 0, m_coordDim, nq0, nelmt, inoffset,
+                m_D[0], m_dfptr, inptr, outptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
                                       (TData *)inptr);
-            for (unsigned int d = 0; d < m_coordDim; d++)
-            {
-                ReshapeStorage<ExecSpace>(
-                    interleaveWidth, m_implInterleaveWidth, nelmt,
-                    outblock.GetNumData(), (TData *)outptr + d * outoffset);
-            }
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(),
+                                      (TData *)outptr);
 
             // Increment pointers.
             inptr += inblock.CompSize();
             outptr += outblock.CompSize();
-            if ((n + 1) % outblock.GetNumHomoModes() == 0)
-            {
-                outptr += (m_coordDim - 1) * outoffset;
-            }
         }
 
         // Set output block to input interleave.
@@ -327,7 +320,7 @@ protected:
         const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
 
         // Loop over components.
-        const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
+        const auto inoffset = outblock.CompSize() * outblock.GetNumHomoModes();
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
@@ -338,29 +331,22 @@ protected:
 
             // Calculate derivative.
             DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                (PhysDeriv1DKernelLauncher<Implementation, DEFORMED, coordDim,
-                                           nq0>),
-                gridsize, blocksize, 0, nelmt, outoffset, m_D[0], m_dfptr,
-                inptr, outptr);
+                (Divergence1DKernelLauncher<Implementation, DEFORMED, coordDim,
+                                            nq0>),
+                gridsize, blocksize, 0, nelmt, inoffset, m_D[0], m_dfptr, inptr,
+                outptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
                                       (TData *)inptr);
-            for (unsigned int d = 0; d < m_coordDim; d++)
-            {
-                ReshapeStorage<ExecSpace>(
-                    interleaveWidth, m_implInterleaveWidth, nelmt,
-                    outblock.GetNumData(), (TData *)outptr + d * outoffset);
-            }
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, outblock.GetNumData(),
+                                      (TData *)outptr);
 
             // Increment pointers.
             inptr += inblock.CompSize();
             outptr += outblock.CompSize();
-            if ((n + 1) % outblock.GetNumHomoModes() == 0)
-            {
-                outptr += (m_coordDim - 1) * outoffset;
-            }
         }
 
         // Set output block to input interleave.
@@ -391,7 +377,7 @@ protected:
         const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
         const unsigned int shmemsize =
             sizeof(TData) *
-            PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1);
+            DivergenceSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1);
         GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
         // Loop over components.
@@ -409,8 +395,8 @@ protected:
         // Calculate derivative du/dx
         DEVICE_1DGRID_KERNEL_LAUNCHER(
             (Divergence2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            gridsize, blocksize, shmemsize, 0, nq0, nq1, nelmt, inoffset,
-            m_D[0], m_D[1], m_f[0], m_f[1], m_dfptr, inptr, outptr);
+            gridsize, blocksize, shmemsize, 0, m_coordDim, nq0, nq1, nelmt,
+            inoffset, m_D[0], m_D[1], m_f[0], m_f[1], m_dfptr, inptr, outptr);
 
         // Reshape back, if necessary.
         ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
@@ -449,7 +435,7 @@ protected:
         const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
         const unsigned int shmemsize =
             sizeof(TData) *
-            PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1);
+            DivergenceSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1);
         GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
         // Loop over components.
@@ -467,7 +453,7 @@ protected:
         // Calculate derivative du/dx
         DEVICE_1DGRID_KERNEL_LAUNCHER(
             (Divergence2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED,
-                                        nq0, nq1>),
+                                        coordDim, nq0, nq1>),
             gridsize, blocksize, shmemsize, 0, nelmt, inoffset, m_D[0], m_D[1],
             m_f[0], m_f[1], m_dfptr, inptr, outptr);
 
@@ -512,8 +498,8 @@ protected:
         const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
         const unsigned int shmemsize =
             sizeof(TData) *
-            PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1,
-                                                                  nq2);
+            DivergenceSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1,
+                                                                   nq2);
         GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
         // Loop over components.
@@ -582,8 +568,8 @@ protected:
         const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
         const unsigned int shmemsize =
             sizeof(TData) *
-            PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1,
-                                                                  nq2);
+            DivergenceSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1,
+                                                                   nq2);
         GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
         // Loop over components.

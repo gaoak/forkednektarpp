@@ -94,13 +94,47 @@ NEK_FORCE_INLINE void PhysDeriv1DKernel(const unsigned int nq0,
     }
 }
 
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
+          bool APPEND, typename simd_type>
+NEK_FORCE_INLINE void PhysDerivDir1DKernel(const unsigned int nq0,
+                                           const unsigned int ndf,
+                                           const simd_type *df_ptr,
+                                           const simd_type *in, simd_type *out)
+{
+    simd_type df_tmp;
+
+    if constexpr (!DEFORMED)
+    {
+        // unroll very small loops
+        df_tmp = df_ptr[DIR];
+    }
+
+    for (unsigned int j = 0; j < nq0; ++j)
+    {
+        if constexpr (DEFORMED)
+        {
+            df_tmp = df_ptr[j * ndf + DIR]; // load 1x
+        }
+
+        // Multiply by derivative factors
+        if constexpr (APPEND)
+        {
+            out[j] += in[j] * df_tmp;
+        }
+        else
+        {
+            out[j] = in[j] * df_tmp;
+        }
+    }
+}
+
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE void PhysDeriv2DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int outdim,
     [[maybe_unused]] const simd_type *f0, [[maybe_unused]] const simd_type *f1,
     const simd_type *df_ptr, simd_type *out[3])
 {
-    auto ndf = 2 * outdim;
+    const unsigned int ndf = 2 * outdim;
     simd_type df_tmp[6];
 
     if constexpr (!DEFORMED)
@@ -175,30 +209,21 @@ NEK_FORCE_INLINE void PhysDeriv2DKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned DIR,
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
           bool APPEND, typename simd_type>
 NEK_FORCE_INLINE void PhysDerivDir2DKernel(
-    const unsigned nq0, const unsigned nq1,
+    const unsigned nq0, const unsigned nq1, const unsigned int outdim,
     [[maybe_unused]] const simd_type *f0, [[maybe_unused]] const simd_type *f1,
     const simd_type *df_ptr, const simd_type *tderiv0, const simd_type *tderiv1,
     simd_type *out)
 {
-    constexpr unsigned ndf = 4u;
+    const unsigned int ndf = 2 * outdim;
     simd_type df_tmp[2];
 
     if constexpr (!DEFORMED)
     {
-        if constexpr (DIR == 0)
-        {
-            df_tmp[0] = df_ptr[0];
-            df_tmp[1] = df_ptr[1];
-        }
-
-        if constexpr (DIR == 1)
-        {
-            df_tmp[0] = df_ptr[2];
-            df_tmp[1] = df_ptr[3];
-        }
+        df_tmp[0] = df_ptr[2 * DIR];
+        df_tmp[1] = df_ptr[2 * DIR + 1];
     }
 
     for (unsigned int j = 0, cnt_ji = 0; j < nq1; ++j)
@@ -228,16 +253,8 @@ NEK_FORCE_INLINE void PhysDerivDir2DKernel(
             // Multiply by derivative factors
             if constexpr (DEFORMED)
             {
-                if constexpr (DIR == 0)
-                {
-                    df_tmp[0] = df_ptr[cnt_ji * ndf];
-                    df_tmp[1] = df_ptr[cnt_ji * ndf + 1];
-                }
-                else if constexpr (DIR == 1)
-                {
-                    df_tmp[0] = df_ptr[cnt_ji * ndf + 2];
-                    df_tmp[1] = df_ptr[cnt_ji * ndf + 3];
-                }
+                df_tmp[0] = df_ptr[cnt_ji * ndf + 2 * DIR];
+                df_tmp[1] = df_ptr[cnt_ji * ndf + 2 * DIR + 1];
             }
 
             simd_type tmp;
@@ -263,7 +280,7 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
     const simd_type *df_ptr, simd_type *out_d0, simd_type *out_d1,
     simd_type *out_d2)
 {
-    constexpr auto ndf = 9;
+    constexpr unsigned int ndf = 9;
     simd_type df_tmp[ndf];
 
     if constexpr (!DEFORMED)
@@ -371,7 +388,7 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned DIR,
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
           bool APPEND, typename simd_type>
 NEK_FORCE_INLINE void PhysDerivDir3DKernel(
     const unsigned nq0, const unsigned nq1, const unsigned nq2,
@@ -380,29 +397,14 @@ NEK_FORCE_INLINE void PhysDerivDir3DKernel(
     const simd_type *df_ptr, const simd_type *tderiv0, const simd_type *tderiv1,
     const simd_type *tderiv2, simd_type *out)
 {
-    constexpr auto ndf = 9u;
+    constexpr unsigned int ndf = 9u;
     simd_type df_tmp[3];
 
     if constexpr (!DEFORMED)
     {
-        if constexpr (DIR == 0)
-        {
-            df_tmp[0] = df_ptr[0];
-            df_tmp[1] = df_ptr[1];
-            df_tmp[2] = df_ptr[2];
-        }
-        else if constexpr (DIR == 1)
-        {
-            df_tmp[0] = df_ptr[3];
-            df_tmp[1] = df_ptr[4];
-            df_tmp[2] = df_ptr[5];
-        }
-        else if constexpr (DIR == 2)
-        {
-            df_tmp[0] = df_ptr[6];
-            df_tmp[1] = df_ptr[7];
-            df_tmp[2] = df_ptr[8];
-        }
+        df_tmp[0] = df_ptr[3 * DIR];
+        df_tmp[1] = df_ptr[3 * DIR + 1];
+        df_tmp[2] = df_ptr[3 * DIR + 2];
     }
 
     for (unsigned int k = 0, cnt_ijk = 0; k < nq2; ++k)
@@ -466,24 +468,9 @@ NEK_FORCE_INLINE void PhysDerivDir3DKernel(
 
                 if constexpr (DEFORMED)
                 {
-                    if constexpr (DIR == 0) // d/dx
-                    {
-                        df_tmp[0] = df_ptr[cnt_ijk * ndf];
-                        df_tmp[1] = df_ptr[cnt_ijk * ndf + 1];
-                        df_tmp[2] = df_ptr[cnt_ijk * ndf + 2];
-                    }
-                    else if constexpr (DIR == 1) // d/dy
-                    {
-                        df_tmp[0] = df_ptr[cnt_ijk * ndf + 3];
-                        df_tmp[1] = df_ptr[cnt_ijk * ndf + 4];
-                        df_tmp[2] = df_ptr[cnt_ijk * ndf + 5];
-                    }
-                    else if constexpr (DIR == 2) // d/dz
-                    {
-                        df_tmp[0] = df_ptr[cnt_ijk * ndf + 6];
-                        df_tmp[1] = df_ptr[cnt_ijk * ndf + 7];
-                        df_tmp[2] = df_ptr[cnt_ijk * ndf + 8];
-                    }
+                    df_tmp[0] = df_ptr[cnt_ijk * ndf + 3 * DIR];
+                    df_tmp[1] = df_ptr[cnt_ijk * ndf + 3 * DIR + 1];
+                    df_tmp[2] = df_ptr[cnt_ijk * ndf + 3 * DIR + 2];
                 }
 
                 tmp = d0 * df_tmp[0];

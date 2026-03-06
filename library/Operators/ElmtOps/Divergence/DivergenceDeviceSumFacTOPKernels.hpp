@@ -45,21 +45,65 @@ namespace Nektar::Operators::detail
 {
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
+// Helper function
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename std::enable_if<
+              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
+inline constexpr unsigned int DivergenceSharedMemorySize(const unsigned int nq0,
+                                                         const unsigned int nq1)
+{
+    return 2 * nq0 * nq1;
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename std::enable_if<
+              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
+inline constexpr unsigned int DivergenceSharedMemorySize(const unsigned int nq0,
+                                                         const unsigned int nq1,
+                                                         const unsigned int nq2)
+{
+    return 2 * nq0 * nq1 * nq2;
+}
+
+template <bool DEFORMED, typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void Divergence1DSumFacTOPKernel(
+    [[maybe_unused]] const unsigned int ncoord, const unsigned int nq0,
+    const size_t nelmt, [[maybe_unused]] const unsigned int inoffset,
+    const TData *__restrict__ D0, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    const TthreadBlock &threadBlock)
+{
+    const unsigned int ndf    = ncoord;
+    const unsigned int dfsize = DEFORMED ? nq0 : 1u;
+
+    size_t e = getBlockIdx(threadBlock);
+    while (e < nelmt)
+    {
+        const TData *dfptr = df + ndf * dfsize * e;
+        const TData *inptr = in + nq0 * e;
+        TData *outptr      = out + nq0 * e;
+        PhysDerivDir1DSumFacTOPKernel<DEFORMED, 0, false>(
+            ncoord, nq0, D0, dfptr, inptr, outptr, threadBlock);
+        e += getBlockRange(threadBlock);
+    }
+}
+
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void DivergenceSumFacTOP2DKernel(
-    const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
-    const size_t inoffset, const TData *__restrict__ D0,
+NEK_DEVICE_INLINE static void Divergence2DSumFacTOPKernel(
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
+    const size_t nelmt, const size_t inoffset, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ f0,
     const TData *__restrict__ f1, const TData *__restrict__ df,
     const TData *__restrict__ in, TData *__restrict__ out,
     unsigned char *__restrict__ shmemptr, const TthreadBlock &threadBlock)
 {
-    const unsigned int ndf    = 4u;
+    const unsigned int ndf    = 2 * ncoord;
     const unsigned int nqTot  = nq0 * nq1;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
     TData *s_wsp0             = (TData *)shmemptr;
+    TData *s_wsp1             = (TData *)shmemptr + nqTot;
     const unsigned int idx0   = getLocalIdx(threadBlock);
     const unsigned int stride = getLocalRange(threadBlock);
 
@@ -79,9 +123,8 @@ NEK_DEVICE_INLINE static void DivergenceSumFacTOP2DKernel(
         localBarrier(threadBlock);
 
         PhysDerivDir2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED, 0, false>(
-            nq0, nq1, D0, D1, f0, f1, dfptr, s_wsp0, outptr, threadBlock);
-
-        localBarrier(threadBlock);
+            ncoord, nq0, nq1, D0, D1, f0, f1, dfptr, s_wsp0, s_wsp1,
+            threadBlock);
 
         // Copy to shared memory.
         for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -92,7 +135,14 @@ NEK_DEVICE_INLINE static void DivergenceSumFacTOP2DKernel(
         localBarrier(threadBlock);
 
         PhysDerivDir2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED, 1, true>(
-            nq0, nq1, D0, D1, f0, f1, dfptr, s_wsp0, outptr, threadBlock);
+            ncoord, nq0, nq1, D0, D1, f0, f1, dfptr, s_wsp0, s_wsp1,
+            threadBlock);
+
+        // Copy to global memory.
+        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+        {
+            outptr[idx] = s_wsp1[idx];
+        }
 
         e += getBlockRange(threadBlock);
     }
@@ -100,7 +150,7 @@ NEK_DEVICE_INLINE static void DivergenceSumFacTOP2DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void DivergenceSumFacTOP3DKernel(
+NEK_DEVICE_INLINE static void Divergence3DSumFacTOPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const size_t nelmt, const size_t inoffset, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ D2,
@@ -115,6 +165,7 @@ NEK_DEVICE_INLINE static void DivergenceSumFacTOP3DKernel(
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
 
     TData *s_wsp0             = (TData *)shmemptr;
+    TData *s_wsp1             = (TData *)shmemptr + nqTot;
     const unsigned int idx0   = getLocalIdx(threadBlock);
     const unsigned int stride = getLocalRange(threadBlock);
 
@@ -134,10 +185,8 @@ NEK_DEVICE_INLINE static void DivergenceSumFacTOP3DKernel(
         localBarrier(threadBlock);
 
         PhysDerivDir3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED, 0, false>(
-            nq0, nq1, nq2, D0, D1, D2, f0, f1, f1m, f2, dfptr, s_wsp0, outptr,
+            nq0, nq1, nq2, D0, D1, D2, f0, f1, f1m, f2, dfptr, s_wsp0, s_wsp1,
             threadBlock);
-
-        localBarrier(threadBlock);
 
         // Copy to shared memory.
         for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -148,10 +197,8 @@ NEK_DEVICE_INLINE static void DivergenceSumFacTOP3DKernel(
         localBarrier(threadBlock);
 
         PhysDerivDir3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED, 1, true>(
-            nq0, nq1, nq2, D0, D1, D2, f0, f1, f1m, f2, dfptr, s_wsp0, outptr,
+            nq0, nq1, nq2, D0, D1, D2, f0, f1, f1m, f2, dfptr, s_wsp0, s_wsp1,
             threadBlock);
-
-        localBarrier(threadBlock);
 
         // Copy to shared memory.
         for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -162,11 +209,50 @@ NEK_DEVICE_INLINE static void DivergenceSumFacTOP3DKernel(
         localBarrier(threadBlock);
 
         PhysDerivDir3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED, 2, true>(
-            nq0, nq1, nq2, D0, D1, D2, f0, f1, f1m, f2, dfptr, s_wsp0, outptr,
+            nq0, nq1, nq2, D0, D1, D2, f0, f1, f1m, f2, dfptr, s_wsp0, s_wsp1,
             threadBlock);
+
+        // Copy to global memory.
+        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+        {
+            outptr[idx] = s_wsp1[idx];
+        }
 
         e += getBlockRange(threadBlock);
     }
+}
+
+// Non-size based version.
+template <typename Implementation, bool DEFORMED, typename TthreadBlock,
+          typename TData>
+NEK_DEVICE_KERNEL
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
+    Divergence1DKernelLauncher(
+        const unsigned int ncoord, const unsigned int nq0, const size_t nelmt,
+        const size_t inoffset, const TData *__restrict__ D0,
+        const TData *__restrict__ df, const TData *__restrict__ in,
+        TData *__restrict__ out, const TthreadBlock &threadBlock)
+{
+    Divergence1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, nelmt, inoffset, D0, df,
+                                          in, out, threadBlock);
+}
+
+// Size based template version.
+template <typename Implementation,
+          bool DEFORMED, unsigned int ncoord, unsigned int nq0,
+          typename TthreadBlock, typename TData/*,
+                                                                   unsigned int maxThreadPerBlock =
+                                                                   GetDeviceBlockSize<Implementation>(nq0 *nq1)*/>
+NEK_DEVICE_KERNEL 
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
+ /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
+Divergence1DKernelLauncher(const size_t nelmt, const size_t inoffset, const TData *__restrict__ D0,
+                             const TData *__restrict__ df,
+                             const TData *__restrict__ in,
+                             TData *__restrict__ out,  const TthreadBlock &threadBlock)
+{
+    Divergence1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, nelmt, inoffset, D0, df,
+                                          in, out, threadBlock);
 }
 
 // Non-size based version.
@@ -175,23 +261,24 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     Divergence2DKernelLauncher(
-        const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
-        const size_t inoffset, const TData *__restrict__ D0,
-        const TData *__restrict__ D1, const TData *__restrict__ f0,
-        const TData *__restrict__ f1, const TData *__restrict__ df,
-        const TData *__restrict__ in, TData *__restrict__ out,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+        const unsigned int ncoord, const unsigned int nq0,
+        const unsigned int nq1, const size_t nelmt, const size_t inoffset,
+        const TData *__restrict__ D0, const TData *__restrict__ D1,
+        const TData *__restrict__ f0, const TData *__restrict__ f1,
+        const TData *__restrict__ df, const TData *__restrict__ in,
+        TData *__restrict__ out, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    DivergenceSumFacTOP2DKernel<SHAPE_TYPE, DEFORMED>(
-        nq0, nq1, nelmt, inoffset, D0, D1, f0, f1, df, in, out, shmemptr,
-        threadBlock);
+    Divergence2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+        ncoord, nq0, nq1, nelmt, inoffset, D0, D1, f0, f1, df, in, out,
+        shmemptr, threadBlock);
 }
 
 // Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, unsigned int nq0,
+          bool DEFORMED, unsigned int ncoord, unsigned int nq0,
           unsigned int nq1, typename TthreadBlock, typename TData/*,
                                                                    unsigned int maxThreadPerBlock =
                                                                    GetDeviceBlockSize<Implementation>(nq0 *nq1)*/>
@@ -208,9 +295,9 @@ Divergence2DKernelLauncher(const size_t nelmt, const size_t inoffset, const TDat
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    DivergenceSumFacTOP2DKernel<SHAPE_TYPE, DEFORMED>(
-        nq0, nq1, nelmt, inoffset, D0, D1, f0, f1, df, in, out, shmemptr,
-        threadBlock);
+    Divergence2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+        ncoord, nq0, nq1, nelmt, inoffset, D0, D1, f0, f1, df, in, out,
+        shmemptr, threadBlock);
 }
 
 // Non-size based version.
@@ -230,7 +317,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    DivergenceSumFacTOP3DKernel<SHAPE_TYPE, DEFORMED>(
+    Divergence3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
         nq0, nq1, nq2, nelmt, inoffset, D0, D1, D2, f0, f1, f1m, f2, df, in,
         out, shmemptr, threadBlock);
 }
@@ -252,7 +339,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    DivergenceSumFacTOP3DKernel<SHAPE_TYPE, DEFORMED>(
+    Divergence3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
         nq0, nq1, nq2, nelmt, inoffset, D0, D1, D2, f0, f1, f1m, f2, df, in,
         out, shmemptr, threadBlock);
 }

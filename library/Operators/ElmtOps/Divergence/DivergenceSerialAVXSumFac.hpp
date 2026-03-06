@@ -298,15 +298,9 @@ protected:
                                          : interleaveWidth / m_implInterleaveWidth;
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
-        const auto compOffset =
-            outblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot *
-            outblock.GetNumHomoModes();
-
-        simd_t *outvec[3];
-        for (unsigned int d = 0; d < m_coordDim; ++d)
-        {
-            outvec[d] = reinterpret_cast<simd_t *>(outptr) + d * compOffset;
-        }
+        // const auto compOffset =
+        //     outblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot *
+        //     outblock.GetNumHomoModes();
 
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
@@ -325,14 +319,15 @@ protected:
                 }
 
                 // Get the basic derivative.
-                PhysDerivTensor1DKernel(nq0,
-                                        reinterpret_cast<const simd_t *>(inptr),
-                                        m_D[0], outvec[0]);
+                PhysDerivTensor1DKernel(
+                    nq0, reinterpret_cast<const simd_t *>(inptr), m_D[0],
+                    reinterpret_cast<simd_t *>(outptr));
 
                 // Calculate physical derivative.
-                PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(
+                PhysDerivDir1DKernel<SHAPE_TYPE, DEFORMED, 0, false>(
                     nq0, m_coordDim, reinterpret_cast<const simd_t *>(dfptr),
-                    outvec);
+                    reinterpret_cast<const simd_t *>(outptr),
+                    reinterpret_cast<simd_t *>(outptr));
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
@@ -345,14 +340,14 @@ protected:
                     ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         nqTot,
-                        (TData *)outvec[0] -
+                        (TData *)outptr -
                             (width_ratio - 1) * nqTot * simd_t::width);
                 }
 
                 // Increment pointers for the next elmt group.
                 dfptr += dfsize * simd_t::width;
                 inptr += nqTot * simd_t::width;
-                outvec[0] += nqTot;
+                outptr += nqTot * simd_t::width;
             }
         }
 
@@ -439,7 +434,7 @@ protected:
 
             // physical derivative.
             PhysDerivDir2DKernel<SHAPE_TYPE, DEFORMED, 0, false>(
-                nq0, nq1, m_f[0], m_f[1],
+                nq0, nq1, 2, m_f[0], m_f[1],
                 reinterpret_cast<const simd_t *>(dfptr), wsp0.data(),
                 wsp1.data(), reinterpret_cast<simd_t *>(outptr));
 
@@ -450,7 +445,7 @@ protected:
 
             //  physical derivative.
             PhysDerivDir2DKernel<SHAPE_TYPE, DEFORMED, 1, true>(
-                nq0, nq1, m_f[0], m_f[1],
+                nq0, nq1, 2, m_f[0], m_f[1],
                 reinterpret_cast<const simd_t *>(dfptr), wsp0.data(),
                 wsp1.data(), reinterpret_cast<simd_t *>(outptr));
 

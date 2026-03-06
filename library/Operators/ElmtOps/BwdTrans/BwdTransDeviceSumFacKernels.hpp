@@ -487,7 +487,7 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacKernel(
 }
 
 template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void BwdTransSumFac1DKernel(
+NEK_DEVICE_INLINE static void BwdTrans1DSumFacKernel(
     const unsigned int nm0, const unsigned int nq0, const size_t nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ in,
     TData *__restrict__ out,
@@ -510,7 +510,7 @@ NEK_DEVICE_INLINE static void BwdTransSumFac1DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename TthreadBlock,
           typename TData>
-NEK_DEVICE_INLINE static void BwdTransSumFac2DKernel(
+NEK_DEVICE_INLINE static void BwdTrans2DSumFacKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
     const bool isModified, const TData *__restrict__ basis0,
@@ -557,7 +557,7 @@ NEK_DEVICE_INLINE static void BwdTransSumFac2DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename TthreadBlock,
           typename TData>
-NEK_DEVICE_INLINE static void BwdTransSumFac3DKernel(
+NEK_DEVICE_INLINE static void BwdTrans3DSumFacKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const size_t nelmt, const bool isModified,
@@ -655,7 +655,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    BwdTransSumFac1DKernel(nm0, nq0, nelmt, basis0, in, out, shmemptr,
+    BwdTrans1DSumFacKernel(nm0, nq0, nelmt, basis0, in, out, shmemptr,
                            threadBlock);
 }
 
@@ -676,7 +676,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    BwdTransSumFac1DKernel(nm0, nq0, nelmt, basis0, in, out, shmemptr,
+    BwdTrans1DSumFacKernel(nm0, nq0, nelmt, basis0, in, out, shmemptr,
                            threadBlock);
 }
 
@@ -696,7 +696,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    BwdTransSumFac2DKernel<SHAPE_TYPE>(nm0, nm1, nmTot, nq0, nq1, nelmt,
+    BwdTrans2DSumFacKernel<SHAPE_TYPE>(nm0, nm1, nmTot, nq0, nq1, nelmt,
                                        isModified, basis0, basis1, nodToMod, in,
                                        out, wsp, shmemptr, threadBlock);
 }
@@ -719,7 +719,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    BwdTransSumFac2DKernel<SHAPE_TYPE>(nm0, nm1, nmTot, nq0, nq1, nelmt,
+    BwdTrans2DSumFacKernel<SHAPE_TYPE>(nm0, nm1, nmTot, nq0, nq1, nelmt,
                                        isModified, basis0, basis1, nodToMod, in,
                                        out, wsp, shmemptr, threadBlock);
 }
@@ -742,7 +742,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    BwdTransSumFac3DKernel<SHAPE_TYPE>(
+    BwdTrans3DSumFacKernel<SHAPE_TYPE>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         basis0, basis1, basis2, nodToMod, in, out, wsp, shmemptr, threadBlock);
 }
@@ -766,7 +766,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    BwdTransSumFac3DKernel<SHAPE_TYPE>(
+    BwdTrans3DSumFacKernel<SHAPE_TYPE>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         basis0, basis1, basis2, nodToMod, in, out, wsp, shmemptr, threadBlock);
 }

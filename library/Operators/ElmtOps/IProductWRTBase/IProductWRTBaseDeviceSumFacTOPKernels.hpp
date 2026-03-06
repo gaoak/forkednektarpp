@@ -2288,7 +2288,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacTOPKernel(
 
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
           typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBaseSumFacTOP1DKernel(
+NEK_DEVICE_INLINE static void IProductWRTBase1DSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nq0, const size_t nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
@@ -2332,7 +2332,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseSumFacTOP1DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
           bool DEFORMED, typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBaseSumFacTOP2DKernel(
+NEK_DEVICE_INLINE static void IProductWRTBase2DSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
     const bool isModified,
@@ -2435,7 +2435,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseSumFacTOP2DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
           bool DEFORMED, typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void IProductWRTBaseSumFacTOP3DKernel(
+NEK_DEVICE_INLINE static void IProductWRTBase3DSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const size_t nelmt, const bool isModified,
@@ -2610,7 +2610,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    IProductWRTBaseSumFacTOP1DKernel<SCALE, APPEND, DEFORMED>(
+    IProductWRTBase1DSumFacTOPKernel<SCALE, APPEND, DEFORMED>(
         nm0, nq0, nelmt, basis0, w0, jac, in, out, scale, shmemptr,
         threadBlock);
 }
@@ -2631,7 +2631,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    IProductWRTBaseSumFacTOP1DKernel<SCALE, APPEND, DEFORMED>(
+    IProductWRTBase1DSumFacTOPKernel<SCALE, APPEND, DEFORMED>(
         nm0, nq0, nelmt, basis0, w0, jac, in, out, scale, shmemptr,
         threadBlock);
 }
@@ -2656,7 +2656,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    IProductWRTBaseSumFacTOP2DKernel<SHAPE_TYPE, SCALE, APPEND, DEFORMED>(
+    IProductWRTBase2DSumFacTOPKernel<SHAPE_TYPE, SCALE, APPEND, DEFORMED>(
         nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
         w0, w1, nodToMod, jac, in, out, wsp, scale, shmemptr, threadBlock);
 }
@@ -2682,7 +2682,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    IProductWRTBaseSumFacTOP2DKernel<SHAPE_TYPE, SCALE, APPEND, DEFORMED>(
+    IProductWRTBase2DSumFacTOPKernel<SHAPE_TYPE, SCALE, APPEND, DEFORMED>(
         nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
         w0, w1, nodToMod, jac, in, out, wsp, scale, shmemptr, threadBlock);
 }
@@ -2710,7 +2710,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    IProductWRTBaseSumFacTOP3DKernel<SHAPE_TYPE, SCALE, APPEND, DEFORMED>(
+    IProductWRTBase3DSumFacTOPKernel<SHAPE_TYPE, SCALE, APPEND, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         index2, basis0, basis1, basis2, w0, w1, w2, nodToMod, jac, in, out, wsp,
         scale, shmemptr, threadBlock);
@@ -2741,7 +2741,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    IProductWRTBaseSumFacTOP3DKernel<SHAPE_TYPE, SCALE, APPEND, DEFORMED>(
+    IProductWRTBase3DSumFacTOPKernel<SHAPE_TYPE, SCALE, APPEND, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         index2, basis0, basis1, basis2, w0, w1, w2, nodToMod, jac, in, out, wsp,
         scale, shmemptr, threadBlock);

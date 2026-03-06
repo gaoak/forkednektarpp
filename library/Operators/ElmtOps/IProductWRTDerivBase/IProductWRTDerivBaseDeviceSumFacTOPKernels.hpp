@@ -154,9 +154,9 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase1DSumFacTOPKernel(
         const unsigned int dfindex = DEFORMED ? i : 0;
 
         TData sum = 0.0;
-        for (unsigned int d = 0u; d < ncoord; ++d)
+        for (unsigned int k = 0u; k < ncoord; ++k)
         {
-            sum += df[d * dfsize + dfindex] * in[d * inoffset + i];
+            sum += df[k * dfsize + dfindex] * in[k * inoffset + i];
         }
 
         if constexpr (DEFORMED)
@@ -318,7 +318,7 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacTOPKernel(
 }
 
 template <bool DEFORMED, typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void IProductWRTDerivBaseSumFacTOP1DKernel(
+NEK_DEVICE_INLINE static void IProductWRTDerivBase1DSumFacTOPKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nq0,
     const size_t nelmt, const unsigned int inoffset,
     const TData *__restrict__ dbasis0, const TData *__restrict__ w0,
@@ -354,7 +354,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBaseSumFacTOP1DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void IProductWRTDerivBaseSumFacTOP2DKernel(
+NEK_DEVICE_INLINE static void IProductWRTDerivBase2DSumFacTOPKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const size_t nelmt, const unsigned int inoffset, const bool isModified,
@@ -452,7 +452,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBaseSumFacTOP2DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void IProductWRTDerivBaseSumFacTOP3DKernel(
+NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const size_t nelmt, const unsigned int inoffset,
@@ -628,7 +628,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    IProductWRTDerivBaseSumFacTOP1DKernel<DEFORMED>(
+    IProductWRTDerivBase1DSumFacTOPKernel<DEFORMED>(
         ncoord, nm0, nq0, nelmt, inoffset, dbasis0, w0, df, jac, in, out, wsp,
         shmemptr, threadBlock);
 }
@@ -650,7 +650,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    IProductWRTDerivBaseSumFacTOP1DKernel<DEFORMED>(
+    IProductWRTDerivBase1DSumFacTOPKernel<DEFORMED>(
         ncoord, nm0, nq0, nelmt, inoffset, dbasis0, w0, df, jac, in, out, wsp,
         shmemptr, threadBlock);
 }
@@ -677,7 +677,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    IProductWRTDerivBaseSumFacTOP2DKernel<SHAPE_TYPE, DEFORMED>(
+    IProductWRTDerivBase2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
         ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, inoffset, isModified, index0,
         basis0, basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, in, out, wsp,
         shmemptr, threadBlock);
@@ -707,7 +707,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    IProductWRTDerivBaseSumFacTOP2DKernel<SHAPE_TYPE, DEFORMED>(
+    IProductWRTDerivBase2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
         ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, inoffset, isModified, index0,
         basis0, basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, in, out, wsp,
         shmemptr, threadBlock);
@@ -740,7 +740,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    IProductWRTDerivBaseSumFacTOP3DKernel<SHAPE_TYPE, DEFORMED>(
+    IProductWRTDerivBase3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, inoffset, isModified,
         index0, index1, index2, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2,
         f0, f1, f1m, f2, nodToMod, df, jac, in, out, wsp, shmemptr,
@@ -775,7 +775,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    IProductWRTDerivBaseSumFacTOP3DKernel<SHAPE_TYPE, DEFORMED>(
+    IProductWRTDerivBase3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, inoffset, isModified,
         index0, index1, index2, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2,
         f0, f1, f1m, f2, nodToMod, df, jac, in, out, wsp, shmemptr,
