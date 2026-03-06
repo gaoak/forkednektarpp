@@ -356,11 +356,11 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    for (unsigned int d = 0; d < m_coordDim; ++d)
+                    for (unsigned int k = 0; k < m_coordDim; ++k)
                     {
                         ReshapeStorage<ExecSpace>(
                             m_implInterleaveWidth, interleaveWidth, chunkSize,
-                            nq0, (TData *)(inptr + d * inoffset));
+                            nq0, (TData *)(inptr + k * inoffset));
                     }
                 }
 
@@ -376,13 +376,13 @@ protected:
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
-                    for (unsigned int d = 0; d < m_coordDim; ++d)
+                    for (unsigned int k = 0; k < m_coordDim; ++k)
                     {
                         ReshapeStorage<ExecSpace>(
                             interleaveWidth, m_implInterleaveWidth, chunkSize,
                             nq0,
                             (TData *)inptr +
-                                d * inblock.CompSize() *
+                                k * inblock.CompSize() *
                                     inblock.GetNumHomoModes() -
                                 (width_ratio - 1) * nq0 * simd_t::width);
                     }
@@ -486,11 +486,11 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    for (unsigned int d = 0; d < m_coordDim; ++d)
+                    for (unsigned int k = 0; k < m_coordDim; ++k)
                     {
                         ReshapeStorage<ExecSpace>(
                             m_implInterleaveWidth, interleaveWidth, chunkSize,
-                            nqTot, (TData *)(inptr + d * inoffset));
+                            nqTot, (TData *)(inptr + k * inoffset));
                     }
                 }
 
@@ -510,12 +510,12 @@ protected:
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
-                    for (unsigned int d = 0; d < m_coordDim; ++d)
+                    for (unsigned int k = 0; k < m_coordDim; ++k)
                     {
                         ReshapeStorage<ExecSpace>(
                             interleaveWidth, m_implInterleaveWidth, chunkSize,
                             nqTot,
-                            (TData *)inptr + d * inoffset -
+                            (TData *)inptr + k * inoffset -
                                 (width_ratio - 1) * nqTot * simd_t::width);
                     }
                     ReshapeStorage<ExecSpace>(
@@ -620,11 +620,11 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    for (unsigned int d = 0; d < 3; ++d)
+                    for (unsigned int k = 0; k < 3; ++k)
                     {
                         ReshapeStorage<ExecSpace>(
                             m_implInterleaveWidth, interleaveWidth, chunkSize,
-                            nqTot, (TData *)(inptr + d * inblock.CompSize()));
+                            nqTot, (TData *)(inptr + k * inblock.CompSize()));
                     }
                 }
 
@@ -647,12 +647,12 @@ protected:
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
-                    for (unsigned int d = 0; d < 3; ++d)
+                    for (unsigned int k = 0; k < 3; ++k)
                     {
                         ReshapeStorage<ExecSpace>(
                             interleaveWidth, m_implInterleaveWidth, chunkSize,
                             nqTot,
-                            (TData *)inptr + d * inblock.CompSize() -
+                            (TData *)inptr + k * inblock.CompSize() -
                                 (width_ratio - 1) * nqTot * simd_t::width);
                     }
                     ReshapeStorage<ExecSpace>(

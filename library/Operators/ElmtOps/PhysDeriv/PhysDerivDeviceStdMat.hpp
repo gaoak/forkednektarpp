@@ -156,11 +156,11 @@ protected:
                     outoffset, m_dfptr, outptr, outptr);
             }
 
-            for (unsigned int d = 0; d < m_coordDim; d++)
+            for (unsigned int k = 0; k < m_coordDim; k++)
             {
                 ReshapeStorage<ExecSpace>(
                     interleaveWidth, m_implInterleaveWidth, nelmtTot, m_nqTot,
-                    (TData *)outptr + d * outoffset);
+                    (TData *)outptr + k * outoffset);
             }
 
             // Increment pointer.

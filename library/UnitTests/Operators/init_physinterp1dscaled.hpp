@@ -220,6 +220,8 @@ TEST(Seg, "run/segment.xml")
 
 TEST(SegSEM, "run/line_sem.xml")
 
+TEST(Seg3D, "run/segment_3D.xml")
+
 TEST(Quad, "run/square.xml")
 
 TEST(QuadVarP, "run/square_varp.xml")
@@ -227,6 +229,8 @@ TEST(QuadVarP, "run/square_varp.xml")
 TEST(QuadSEM, "run/square_sem.xml")
 
 TEST(Tri, "run/tri.xml")
+
+TEST(Tri3D, "run/tri_3D.xml")
 
 TEST(TriVarP, "run/tri_varp.xml")
 

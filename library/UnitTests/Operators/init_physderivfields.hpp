@@ -53,7 +53,7 @@ public:
     {
         auto nin  = this->session->GetVariables().size();
         auto nout = this->session->GetVariables().size() *
-                    this->fixt_explist->GetShapeDimension();
+                    this->fixt_explist->GetCoordim(0);
         auto inblockAttr =
             GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
         auto outblockAttr =

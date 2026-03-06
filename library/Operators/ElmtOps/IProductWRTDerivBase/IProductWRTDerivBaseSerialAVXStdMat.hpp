@@ -168,11 +168,11 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    for (unsigned int d = 0; d < m_coordDim; ++d)
+                    for (unsigned int k = 0; k < m_coordDim; ++k)
                     {
                         ReshapeStorage<ExecSpace>(
                             m_implInterleaveWidth, interleaveWidth, chunkSize,
-                            m_nqTot, (TData *)inptr + d * inoffset);
+                            m_nqTot, (TData *)inptr + k * inoffset);
                     }
                 }
 
@@ -218,12 +218,12 @@ protected:
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
-                    for (unsigned int d = 0; d < m_coordDim; ++d)
+                    for (unsigned int k = 0; k < m_coordDim; ++k)
                     {
                         ReshapeStorage<ExecSpace>(
                             interleaveWidth, m_implInterleaveWidth, chunkSize,
                             m_nqTot,
-                            (TData *)inptr + d * inoffset -
+                            (TData *)inptr + k * inoffset -
                                 (width_ratio - 1) * m_nqTot * simd_t::width);
                     }
                     ReshapeStorage<ExecSpace>(

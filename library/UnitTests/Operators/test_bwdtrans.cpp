@@ -71,6 +71,8 @@
 #define TEST_BWDTRANS3DH2(test_name, test, tol)                                \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure3DH2(4, 4);                                                   \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
@@ -87,6 +89,8 @@ TEST_BWDTRANS(bwdtrans_seg, Seg, 1.0E-12)
 
 TEST_BWDTRANS(bwdtrans_seg_sem, SegSEM, 1.0E-12)
 
+TEST_BWDTRANS(bwdtrans_seg_3d, Seg3D, 1.0E-12)
+
 TEST_BWDTRANS3DH2(bwdtrans_seg_sem_3dh2, SegSEM, 1.0E-12)
 
 TEST_BWDTRANS(bwdtrans_quad, Quad, 1.0E-12)
@@ -98,6 +102,8 @@ TEST_BWDTRANS(bwdtrans_quad_sem, QuadSEM, 1.0E-12)
 TEST_BWDTRANS(bwdtrans_quad_varp, QuadVarP, 1.0E-12)
 
 TEST_BWDTRANS(bwdtrans_tri, Tri, 1.0E-12)
+
+TEST_BWDTRANS(bwdtrans_tri_3d, Tri3D, 1.0E-12)
 
 TEST_BWDTRANS3DH1(bwdtrans_tri_3dh1, Tri, 1.0E-12)
 

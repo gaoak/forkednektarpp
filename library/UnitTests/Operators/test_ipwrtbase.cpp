@@ -43,6 +43,8 @@
 #define TEST_IPWRTBASE(test_name, test, tol)                                   \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
@@ -87,6 +89,8 @@ TEST_IPWRTBASE(ipwrtbase_seg, Seg, 1.0E-12)
 
 TEST_IPWRTBASE(ipwrtbase_seg_sem, SegSEM, 1.0E-12)
 
+TEST_IPWRTBASE(ipwrtbase_seg_3d, Seg3D, 1.0E-12)
+
 TEST_IPWRTBASE3DH2(ipwrtbase_seg_sem_3dh2, SegSEM, 1.0E-12)
 
 TEST_IPWRTBASE(ipwrtbase_quad, Quad, 1.0E-12)
@@ -98,6 +102,8 @@ TEST_IPWRTBASE(ipwrtbase_quad_sem, QuadSEM, 1.0E-12)
 TEST_IPWRTBASE(ipwrtbase_quad_varp, QuadVarP, 1.0E-12)
 
 TEST_IPWRTBASE(ipwrtbase_tri, Tri, 1.0E-12)
+
+TEST_IPWRTBASE(ipwrtbase_tri_3d, Tri3D, 1.0E-12)
 
 TEST_IPWRTBASE3DH1(ipwrtbase_tri_3dh1, Tri, 1.0E-12)
 
