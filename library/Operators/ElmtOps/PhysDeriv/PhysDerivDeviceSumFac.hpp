@@ -283,11 +283,11 @@ protected:
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
                                       (TData *)inptr);
-            for (unsigned int d = 0; d < m_coordDim; d++)
+            for (unsigned int k = 0; k < m_coordDim; k++)
             {
                 ReshapeStorage<ExecSpace>(
                     interleaveWidth, m_implInterleaveWidth, nelmt,
-                    outblock.GetNumData(), (TData *)outptr + d * outoffset);
+                    outblock.GetNumData(), (TData *)outptr + k * outoffset);
             }
 
             // Increment pointers.
@@ -343,11 +343,11 @@ protected:
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
                                       (TData *)inptr);
-            for (unsigned int d = 0; d < m_coordDim; d++)
+            for (unsigned int k = 0; k < coordDim; k++)
             {
                 ReshapeStorage<ExecSpace>(
                     interleaveWidth, m_implInterleaveWidth, nelmt,
-                    outblock.GetNumData(), (TData *)outptr + d * outoffset);
+                    outblock.GetNumData(), (TData *)outptr + k * outoffset);
             }
 
             // Increment pointers.
@@ -355,7 +355,7 @@ protected:
             outptr += outblock.CompSize();
             if ((n + 1) % outblock.GetNumHomoModes() == 0)
             {
-                outptr += (m_coordDim - 1) * outoffset;
+                outptr += (coordDim - 1) * outoffset;
             }
         }
 
@@ -412,11 +412,11 @@ protected:
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
                                       (TData *)inptr);
-            for (unsigned int d = 0; d < m_coordDim; d++)
+            for (unsigned int k = 0; k < m_coordDim; k++)
             {
                 ReshapeStorage<ExecSpace>(
                     interleaveWidth, m_implInterleaveWidth, nelmt,
-                    outblock.GetNumData(), (TData *)outptr + d * outoffset);
+                    outblock.GetNumData(), (TData *)outptr + k * outoffset);
             }
 
             // Increment pointers.
@@ -477,11 +477,11 @@ protected:
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
                                       (TData *)inptr);
-            for (unsigned int d = 0; d < m_coordDim; d++)
+            for (unsigned int k = 0; k < coordDim; k++)
             {
                 ReshapeStorage<ExecSpace>(
                     interleaveWidth, m_implInterleaveWidth, nelmt,
-                    outblock.GetNumData(), (TData *)outptr + d * outoffset);
+                    outblock.GetNumData(), (TData *)outptr + k * outoffset);
             }
 
             // Increment pointers.
@@ -489,7 +489,7 @@ protected:
             outptr += outblock.CompSize();
             if ((n + 1) % outblock.GetNumHomoModes() == 0)
             {
-                outptr += (m_coordDim - 1) * outoffset;
+                outptr += (coordDim - 1) * outoffset;
             }
         }
 
@@ -547,12 +547,12 @@ protected:
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
                                       (TData *)inptr);
-            for (unsigned int d = 0; d < m_coordDim; d++)
+            for (unsigned int k = 0; k < m_coordDim; k++)
             {
                 ReshapeStorage<ExecSpace>(
                     interleaveWidth, m_implInterleaveWidth, nelmt,
                     outblock.GetNumData(),
-                    (TData *)outptr + d * outblock.CompSize());
+                    (TData *)outptr + k * outblock.CompSize());
             }
 
             // Increment pointers.
@@ -610,12 +610,12 @@ protected:
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
                                       (TData *)inptr);
-            for (unsigned int d = 0; d < m_coordDim; d++)
+            for (unsigned int k = 0; k < 3; k++)
             {
                 ReshapeStorage<ExecSpace>(
                     interleaveWidth, m_implInterleaveWidth, nelmt,
                     outblock.GetNumData(),
-                    (TData *)outptr + d * outblock.CompSize());
+                    (TData *)outptr + k * outblock.CompSize());
             }
 
             // Increment pointers.

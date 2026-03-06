@@ -623,7 +623,7 @@ public:
                                                tmp1 = output + n * nmodes);
         }
 
-        for (int i = 1; i < m_dim; ++i)
+        for (int i = 1; i < m_coordim; ++i)
         {
             for (int n = 0; n < m_numElmt; ++n)
             {

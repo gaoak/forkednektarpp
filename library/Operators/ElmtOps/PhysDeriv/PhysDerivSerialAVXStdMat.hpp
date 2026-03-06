@@ -151,7 +151,7 @@ protected:
                 }
 
                 // Perform matrix-matrix multiply.
-                for (unsigned int d = 0; d < m_coordDim; d++)
+                for (unsigned int d = 0; d < m_dimension; d++)
                 {
                     gemm_kernel(inptr, m_matptr + d * m_nqTot * m_nqTot,
                                 outptr + d * outoffset);
@@ -185,12 +185,12 @@ protected:
                         m_nqTot,
                         (TData *)inptr -
                             (width_ratio - 1) * m_nqTot * simd_t::width);
-                    for (unsigned int d = 0; d < m_coordDim; d++)
+                    for (unsigned int k = 0; k < m_coordDim; k++)
                     {
                         ReshapeStorage<ExecSpace>(
                             interleaveWidth, m_implInterleaveWidth, chunkSize,
                             m_nqTot,
-                            (TData *)outptr + d * outoffset -
+                            (TData *)outptr + k * outoffset -
                                 (width_ratio - 1) * m_nqTot * simd_t::width);
                     }
                 }

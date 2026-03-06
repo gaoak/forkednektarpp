@@ -151,11 +151,11 @@ protected:
         for (unsigned int n = 0; n < outblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
-            for (unsigned int d = 0; d < m_coordDim; ++d)
+            for (unsigned int k = 0; k < m_coordDim; ++k)
             {
                 ReshapeStorage<ExecSpace>(
                     m_implInterleaveWidth, interleaveWidth, nelmtTot,
-                    inblock.GetNumData(), (TData *)inptr + d * inoffset);
+                    inblock.GetNumData(), (TData *)inptr + k * inoffset);
             }
 
             // Multiply by derivative factor and Jacobian.
@@ -185,11 +185,11 @@ protected:
             }
 
             // Reshape back, if necessary.
-            for (unsigned int d = 0; d < m_coordDim; ++d)
+            for (unsigned int k = 0; k < m_coordDim; ++k)
             {
                 ReshapeStorage<ExecSpace>(
                     interleaveWidth, m_implInterleaveWidth, nelmtTot,
-                    inblock.GetNumData(), (TData *)inptr + d * inoffset);
+                    inblock.GetNumData(), (TData *)inptr + k * inoffset);
             }
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmtTot, outblock.GetNumData(), outptr);

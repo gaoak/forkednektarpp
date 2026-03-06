@@ -65,7 +65,26 @@
         <NekMeshCommandLine>tri.xml tri_3D.xml:xml:uncompress </NekMeshCommandLine>
     </Metadata>
     <EXPANSIONS>
-        <E COMPOSITE="C[5]" NUMMODES="4" TYPE="MODIFIED" FIELDS="u" />
-        <E COMPOSITE="C[6]" NUMMODES="4" TYPE="MODIFIED" FIELDS="u" />
+        <E COMPOSITE="C[5]" NUMMODES="4" TYPE="MODIFIED" FIELDS="u,v" />
+        <E COMPOSITE="C[6]" NUMMODES="4" TYPE="MODIFIED" FIELDS="u,v" />
     </EXPANSIONS>
+
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="GLOBALSYSSOLN"    VALUE="IterativeFull" />
+            <I PROPERTY="LinSysIterSolver" VALUE="ConjugateGradientLoc"/>
+            <I PROPERTY="Preconditioner"   VALUE="Diagonal"/>
+        </SOLVERINFO>
+        <PARAMETERS>
+            <P> Lambda    = 1 </P>
+            <P> IterativeSolverTolerance = 1e-14 </P>
+        </PARAMETERS>
+        <VARIABLES>
+            <V ID="0">u</V>
+            <V ID="1">v</V>
+        </VARIABLES>
+        <FUNCTION NAME="Forcing">
+            <E VAR="u" VALUE="-Lambda*(sin(PI*x)*sin(PI*y)-1) - 2*PI*PI*sin(PI*x)*sin(PI*y)" />
+        </FUNCTION>
+    </CONDITIONS>
 </NEKTAR>

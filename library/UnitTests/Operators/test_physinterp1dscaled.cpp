@@ -94,13 +94,7 @@ TEST_PHYSINTERP1DSCALED(physinterp1d_seg, Seg, 1.0E-12)
 
 TEST_PHYSINTERP1DSCALED(physinterp1d_seg_sem, SegSEM, 1.0E-12)
 
-TEST_PHYSINTERP1DSCALED(physinterp1d_tri, Tri, 1.0E-12)
-
-TEST_PHYSINTERP1DSCALED3DH1(physinterp1d_tri_3dh1, Tri, 1.0E-12)
-
-TEST_PHYSINTERP1DSCALED(physinterp1d_tri_varp, TriVarP, 1.0E-12)
-
-TEST_PHYSINTERP1DSCALED(physinterp1d_tri_nodal, TriNodal, 1.0E-12)
+TEST_PHYSINTERP1DSCALED(physinterp1d_seg_3d, Seg3D, 1.0E-12)
 
 TEST_PHYSINTERP1DSCALED(physinterp1d_quad, Quad, 1.0E-12)
 
@@ -109,6 +103,16 @@ TEST_PHYSINTERP1DSCALED3DH1(physinterp1d_quad_3dh1, Quad, 1.0E-12)
 TEST_PHYSINTERP1DSCALED(physinterp1d_quad_varp, QuadVarP, 1.0E-12)
 
 TEST_PHYSINTERP1DSCALED(physinterp1d_quad_sem, QuadSEM, 1.0E-12)
+
+TEST_PHYSINTERP1DSCALED(physinterp1d_tri, Tri, 1.0E-12)
+
+TEST_PHYSINTERP1DSCALED(physinterp1d_tri_3d, Tri3D, 1.0E-12)
+
+TEST_PHYSINTERP1DSCALED3DH1(physinterp1d_tri_3dh1, Tri, 1.0E-12)
+
+TEST_PHYSINTERP1DSCALED(physinterp1d_tri_varp, TriVarP, 1.0E-12)
+
+TEST_PHYSINTERP1DSCALED(physinterp1d_tri_nodal, TriNodal, 1.0E-12)
 
 TEST_PHYSINTERP1DSCALED(physinterp1d_square_all_elements, SquareAllElements,
                         1.0E-12)
