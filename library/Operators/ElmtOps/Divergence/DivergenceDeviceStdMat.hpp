@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DivDeviceStdMat.hpp
+// File: DivergenceDeviceStdMat.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/Div/DivBlockOp.hpp"
+#include "Operators/ElmtOps/Divergence/DivergenceBlockOp.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
@@ -44,15 +44,15 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class DivBlockOpImpl : public DivBlockOp<TData>
+class DivergenceBlockOpImpl : public DivergenceBlockOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    DivBlockOpImpl(const unsigned int block_idx,
-                   const LocalRegions::ExpansionSharedPtr &exp,
-                   NekDataWarehouseSharedPtr dataWarehouse)
-        : DivBlockOp<TData>(block_idx, exp, dataWarehouse)
+    DivergenceBlockOpImpl(const unsigned int block_idx,
+                          const LocalRegions::ExpansionSharedPtr &exp,
+                          NekDataWarehouseSharedPtr dataWarehouse)
+        : DivergenceBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -94,8 +94,8 @@ public:
                 NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
-            DivBlockOpImpl<ExecSpace, Implementation, TData>>(block_idx, exp,
-                                                              dataWarehouse);
+            DivergenceBlockOpImpl<ExecSpace, Implementation, TData>>(
+            block_idx, exp, dataWarehouse);
     }
 
 protected:

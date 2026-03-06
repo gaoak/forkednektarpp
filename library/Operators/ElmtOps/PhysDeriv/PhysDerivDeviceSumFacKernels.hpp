@@ -207,6 +207,7 @@ NEK_DEVICE_INLINE static void PhysDeriv2DSumFacKernel(
         }
     }
 }
+
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
           bool APPEND, typename TData>
 NEK_DEVICE_INLINE static void PhysDerivDir2DSumFacKernel(
@@ -230,14 +231,14 @@ NEK_DEVICE_INLINE static void PhysDerivDir2DSumFacKernel(
 
             // Compute tensorial derivative.
             // Direction 0
-            TData d0 = 0.0, d1 = 0.0;
-
+            TData d0 = 0.0;
 #pragma unroll
             for (unsigned int q = 0u; q < nq0; ++q)
             {
                 d0 += D0[q * nq0 + i] * in[warpsize * (nq0 * j + q) + ilane];
             }
 
+            TData d1 = 0.0;
 #pragma unroll
             for (unsigned int q = 0u; q < nq1; ++q)
             {
@@ -416,6 +417,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacKernel(
         }
     }
 }
+
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
           bool APPEND, typename TData>
 NEK_DEVICE_INLINE static void PhysDerivDir3DSumFacKernel(
@@ -685,6 +687,7 @@ NEK_DEVICE_INLINE static void PhysDerivSumFac2DKernel(
         e += getGlobalRange(threadBlock);
     }
 }
+
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
           bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void PhysDerivDirSumFac2DKernel(
@@ -851,6 +854,7 @@ NEK_DEVICE_INLINE static void PhysDerivSumFac3DKernel(
         e += getGlobalRange(threadBlock);
     }
 }
+
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
           bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void PhysDerivDirSumFac3DKernel(

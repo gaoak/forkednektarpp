@@ -191,6 +191,7 @@ NEK_DEVICE_INLINE static void PhysDeriv2DSumFacTOPKernel(
 
     localBarrier(threadBlock);
 }
+
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
           bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void PhysDerivDir2DSumFacTOPKernel(
@@ -403,6 +404,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacTOPKernel(
 
     localBarrier(threadBlock);
 }
+
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
           bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void PhysDerivDir3DSumFacTOPKernel(
@@ -647,6 +649,7 @@ NEK_DEVICE_INLINE static void PhysDerivSumFacTOP2DKernel(
         e += getBlockRange(threadBlock);
     }
 }
+
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
           bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void PhysDerivDirSumFacTOP2DKernel(

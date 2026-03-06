@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DivSerialAVXSumFac.hpp
+// File: DivergenceSerialAVXSumFac.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -36,16 +36,16 @@
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
-#include "Operators/ElmtOps/Div/DivBlockOp.hpp"
+#include "Operators/ElmtOps/Divergence/DivergenceBlockOp.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivSerialAVXSumFacKernels.hpp"
+#include "Operators/ElmtOps/Divergence/DivergenceSerialAVXSumFacKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class DivBlockOpImpl : public DivBlockOp<TData>
+class DivergenceBlockOpImpl : public DivergenceBlockOp<TData>
 {
     using simd_t =
         typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
@@ -53,10 +53,10 @@ class DivBlockOpImpl : public DivBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    DivBlockOpImpl(const unsigned int block_idx,
-                   const LocalRegions::ExpansionSharedPtr &exp,
-                   NekDataWarehouseSharedPtr dataWarehouse)
-        : DivBlockOp<TData>(block_idx, exp, dataWarehouse)
+    DivergenceBlockOpImpl(const unsigned int block_idx,
+                          const LocalRegions::ExpansionSharedPtr &exp,
+                          NekDataWarehouseSharedPtr dataWarehouse)
+        : DivergenceBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -124,8 +124,8 @@ public:
                 NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
-            DivBlockOpImpl<ExecSpace, Implementation, TData>>(block_idx, exp,
-                                                              dataWarehouse);
+            DivergenceBlockOpImpl<ExecSpace, Implementation, TData>>(
+            block_idx, exp, dataWarehouse);
     }
 
 protected:

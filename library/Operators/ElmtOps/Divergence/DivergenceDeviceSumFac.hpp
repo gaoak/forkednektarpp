@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DivDeviceSumFac.hpp
+// File: DivergenceDeviceSumFac.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,25 +34,25 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/Div/DivBlockOp.hpp"
+#include "Operators/ElmtOps/Divergence/DivergenceBlockOp.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivDeviceSumFacKernels.hpp"
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivDeviceSumFacTOPKernels.hpp"
+#include "Operators/ElmtOps/Divergence/DivergenceDeviceSumFacKernels.hpp"
+#include "Operators/ElmtOps/Divergence/DivergenceDeviceSumFacTOPKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class DivBlockOpImpl : public DivBlockOp<TData>
+class DivergenceBlockOpImpl : public DivergenceBlockOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    DivBlockOpImpl(const unsigned int block_idx,
-                   const LocalRegions::ExpansionSharedPtr &exp,
-                   NekDataWarehouseSharedPtr dataWarehouse)
-        : DivBlockOp<TData>(block_idx, exp, dataWarehouse)
+    DivergenceBlockOpImpl(const unsigned int block_idx,
+                          const LocalRegions::ExpansionSharedPtr &exp,
+                          NekDataWarehouseSharedPtr dataWarehouse)
+        : DivergenceBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -125,8 +125,8 @@ public:
                 NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
-            DivBlockOpImpl<ExecSpace, Implementation, TData>>(block_idx, exp,
-                                                              dataWarehouse);
+            DivergenceBlockOpImpl<ExecSpace, Implementation, TData>>(
+            block_idx, exp, dataWarehouse);
     }
 
 protected:
@@ -401,28 +401,20 @@ protected:
         ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth, nelmt,
                                   inblock.GetNumData(), (TData *)inptr);
 
-        // Calculate derivative du/dx
-        DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (PhysDerivDir2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED,
-                                          0, false>),
-            gridsize, blocksize, shmemsize, 0, nq0, nq1, nelmt, m_D[0], m_D[1],
-            m_f[0], m_f[1], m_dfptr, inptr, outptr);
-
-        // Reshape back, if necessary.
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
-                                  inblock.GetNumData(), (TData *)inptr);
-
         // Reshape v-component, if necessary.
         ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth, nelmt,
                                   inblock.GetNumData(),
                                   (TData *)inptr + inoffset);
 
-        // Calculate derivative dv/dy and append
+        // Calculate derivative du/dx
         DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (PhysDerivDir2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED,
-                                          1, true>),
-            gridsize, blocksize, shmemsize, 0, nq0, nq1, nelmt, m_D[0], m_D[1],
-            m_f[0], m_f[1], m_dfptr, (TData *)inptr + inoffset, outptr);
+            (Divergence2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
+            gridsize, blocksize, shmemsize, 0, nq0, nq1, nelmt, inoffset,
+            m_D[0], m_D[1], m_f[0], m_f[1], m_dfptr, inptr, outptr);
+
+        // Reshape back, if necessary.
+        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
+                                  inblock.GetNumData(), (TData *)inptr);
 
         // Reshape back, if necessary.
         ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
@@ -467,28 +459,21 @@ protected:
         ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth, nelmt,
                                   inblock.GetNumData(), (TData *)inptr);
 
-        // Calculate derivative du/dx
-        DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (PhysDerivDir2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED,
-                                          0, false, nq0, nq1>),
-            gridsize, blocksize, shmemsize, 0, nelmt, m_D[0], m_D[1], m_f[0],
-            m_f[1], m_dfptr, inptr, outptr);
-
-        // Reshape back, if necessary.
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
-                                  inblock.GetNumData(), (TData *)inptr);
-
         // Reshape v-component, if necessary.
         ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth, nelmt,
                                   inblock.GetNumData(),
                                   (TData *)inptr + inoffset);
 
-        // Calculate derivative dv/dy and append
+        // Calculate derivative du/dx
         DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (PhysDerivDir2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED,
-                                          1, true, nq0, nq1>),
-            gridsize, blocksize, shmemsize, 0, nelmt, m_D[0], m_D[1], m_f[0],
-            m_f[1], m_dfptr, (TData *)inptr + inoffset, outptr);
+            (Divergence2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED,
+                                        nq0, nq1>),
+            gridsize, blocksize, shmemsize, 0, nelmt, inoffset, m_D[0], m_D[1],
+            m_f[0], m_f[1], m_dfptr, inptr, outptr);
+
+        // Reshape back, if necessary.
+        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
+                                  inblock.GetNumData(), (TData *)inptr);
 
         // Reshape back, if necessary.
         ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
@@ -538,33 +523,8 @@ protected:
         ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth, nelmt,
                                   inblock.GetNumData(), (TData *)inptr);
 
-        // Calculate derivative du/dx
-        DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (PhysDerivDir3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED,
-                                          0, false>),
-            gridsize, blocksize, shmemsize, 0, nq0, nq1, nq2, nelmt, m_D[0],
-            m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3], m_dfptr, inptr,
-            outptr);
-
-        // Reshape back, if necessary.
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
-                                  inblock.GetNumData(), (TData *)inptr);
-
         // Reshape v-component, if necessary.
         ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth, nelmt,
-                                  inblock.GetNumData(),
-                                  (TData *)inptr + inoffset);
-
-        // Calculate derivative dv/dy and append
-        DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (PhysDerivDir3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED,
-                                          1, true>),
-            gridsize, blocksize, shmemsize, 0, nq0, nq1, nq2, nelmt, m_D[0],
-            m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3], m_dfptr,
-            (TData *)inptr + inoffset, outptr);
-
-        // Reshape back, if necessary.
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
                                   inblock.GetNumData(),
                                   (TData *)inptr + inoffset);
 
@@ -573,13 +533,21 @@ protected:
                                   inblock.GetNumData(),
                                   (TData *)inptr + 2u * inoffset);
 
-        // Calculate derivative dw/dz and append
+        // Calculate derivative du/dx
         DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (PhysDerivDir3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED,
-                                          2, true>),
-            gridsize, blocksize, shmemsize, 0, nq0, nq1, nq2, nelmt, m_D[0],
-            m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3], m_dfptr,
-            (TData *)inptr + 2u * inoffset, outptr);
+            (Divergence3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
+            gridsize, blocksize, shmemsize, 0, nq0, nq1, nq2, nelmt, inoffset,
+            m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3], m_dfptr,
+            inptr, outptr);
+
+        // Reshape back, if necessary.
+        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
+                                  inblock.GetNumData(), (TData *)inptr);
+
+        // Reshape back, if necessary.
+        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
+                                  inblock.GetNumData(),
+                                  (TData *)inptr + inoffset);
 
         // Reshape back, if necessary.
         ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
@@ -625,32 +593,8 @@ protected:
         ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth, nelmt,
                                   inblock.GetNumData(), (TData *)inptr);
 
-        // Calculate derivative du/dx
-        DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (PhysDerivDir3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED,
-                                          0, false, nq0, nq1, nq2>),
-            gridsize, blocksize, shmemsize, 0, nelmt, m_D[0], m_D[1], m_D[2],
-            m_f[0], m_f[1], m_f[2], m_f[3], m_dfptr, inptr, outptr);
-
-        // Reshape back, if necessary.
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
-                                  inblock.GetNumData(), (TData *)inptr);
-
         // Reshape v-component, if necessary.
         ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth, nelmt,
-                                  inblock.GetNumData(),
-                                  (TData *)inptr + inoffset);
-
-        // Calculate derivative dv/dy and append
-        DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (PhysDerivDir3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED,
-                                          1, true, nq0, nq1, nq2>),
-            gridsize, blocksize, shmemsize, 0, nelmt, m_D[0], m_D[1], m_D[2],
-            m_f[0], m_f[1], m_f[2], m_f[3], m_dfptr, (TData *)inptr + inoffset,
-            outptr);
-
-        // Reshape back, if necessary.
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
                                   inblock.GetNumData(),
                                   (TData *)inptr + inoffset);
 
@@ -659,13 +603,21 @@ protected:
                                   inblock.GetNumData(),
                                   (TData *)inptr + 2u * inoffset);
 
-        // Calculate derivative dw/dz and append
+        // Calculate derivative du/dx
         DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (PhysDerivDir3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED,
-                                          2, true, nq0, nq1, nq2>),
-            gridsize, blocksize, shmemsize, 0, nelmt, m_D[0], m_D[1], m_D[2],
-            m_f[0], m_f[1], m_f[2], m_f[3], m_dfptr,
-            (TData *)inptr + 2u * inoffset, outptr);
+            (Divergence3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED,
+                                        nq0, nq1, nq2>),
+            gridsize, blocksize, shmemsize, 0, nelmt, inoffset, m_D[0], m_D[1],
+            m_D[2], m_f[0], m_f[1], m_f[2], m_f[3], m_dfptr, inptr, outptr);
+
+        // Reshape back, if necessary.
+        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
+                                  inblock.GetNumData(), (TData *)inptr);
+
+        // Reshape back, if necessary.
+        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
+                                  inblock.GetNumData(),
+                                  (TData *)inptr + inoffset);
 
         // Reshape back, if necessary.
         ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,

@@ -1,8 +1,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DivSerialAVXSumFac@Shape@.cpp
+// File: DivergenceSerialAVXSumFacKernels.hpp
 //
-// For more informatioxn, please see: http://www.nektar.info
+// For more information, please see: http://www.nektar.info
 //
 // The MIT License
 //
@@ -28,41 +28,17 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Cmake configuration for boilerplate code to generate block
-// operator code wrapped in a 1 level switch statement with Coord as
-// templates too
+// Description:
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Common/SwitchLevel1Defs.h"
-// Update this include file to the appropriate operator class definition if
-// using for another operator
-#include "ElmtOps/Div/DivSerialAVXSumFac.hpp"
+#pragma once
+
+#include <LibUtilities/BasicUtils/NekInline.hpp>
+
+#include "Operators/ElmtOps/PhysDeriv/PhysDerivSerialAVXSumFacKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
-// clang-format off
-
-template <>
-void DivBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::SumFac,
-                                      @TData@>::@Shape@Block
-                (BlockAccessor<@TData@, FieldState::Phys> &inblock, 
-                 BlockAccessor<@TData@, FieldState::Phys> &outblock)
-{
-    // The following will use predefined code found in the Operators/Common
-    // directory to import boost_pp code to make wrapper code to call
-    // Operator1D methods for Segs, Operator2D method for Tris and Quads and
-    // Operator3D otherwise
-    //
-    // To see the full code from this macros,  Compile the .cpp file with make
-    // VERBOSE=1 copy the full compile command and add in --preprocess after the
-    // c++ command then you can view the file in the file output after the -o
-    // option in the compile line.
-    
-#define SHAPE_TYPE_@Shape@
-#include "@CMAKE_CURRENT_BINARY_DIR@/BlockOpSwitch1DCoordsCode@Shape@.h"
-
-}
-// clang-format on
 
 } // namespace Nektar::Operators::detail

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DivDeviceSumFacTOP@Shape@.cpp
+// File: DivergenceSerialAVXSumFac@Shape@.cpp
 //
 // For more informatioxn, please see: http://www.nektar.info
 //
@@ -35,17 +35,18 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "Common/SwitchLevel1Defs.h"
+
 // Update this include file to the appropriate operator class definition if
 // using for another operator
-#include "ElmtOps/Div/DivDeviceSumFac.hpp"
+#include "ElmtOps/Divergence/DivergenceSerialAVXSumFac.hpp"
 
 namespace Nektar::Operators::detail
 {
 // clang-format off
 
 template <>
-void DivBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::SumFacTOP,
-                                       @TData@>::@Shape@Block
+void DivergenceBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::SumFac,
+                                      @TData@>::@Shape@Block
                 (BlockAccessor<@TData@, FieldState::Phys> &inblock, 
                  BlockAccessor<@TData@, FieldState::Phys> &outblock)
 {
