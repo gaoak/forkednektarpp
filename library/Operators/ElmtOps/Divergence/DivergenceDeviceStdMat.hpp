@@ -182,11 +182,11 @@ protected:
             }
         }
 
-        for (unsigned int d = 0; d < m_coordDim; d++)
+        for (unsigned int k = 0; k < m_coordDim; k++)
         {
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmt, m_nqTot,
-                                      (TData *)inptr + d * inoffset);
+                                      (TData *)inptr + k * inoffset);
         }
         ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
                                   m_nqTot, (TData *)outptr);

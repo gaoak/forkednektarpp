@@ -184,15 +184,15 @@ NEK_DEVICE_INLINE static void ApplyMetric1DSumFacKernel(
         }
 
         TData sum = 0.0;
-        for (unsigned int d = 0u; d < ncoord; ++d)
+        for (unsigned int k = 0u; k < ncoord; ++k)
         {
             if (diffCoeff)
             {
-                sum += metric[d] * in[d * inoffset + index];
+                sum += metric[k] * in[k * inoffset + index];
             }
             else
             {
-                sum += df[d * warpsize + dfindex] * in[d * inoffset + index];
+                sum += df[k * warpsize + dfindex] * in[k * inoffset + index];
             }
         }
 
@@ -538,7 +538,7 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacKernel(
 }
 
 template <bool DEFORMED, typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void LaplacianSumFac1DKernel(
+NEK_DEVICE_INLINE static void Laplacian1DSumFacKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nq0,
     const size_t nelmt, const TData *__restrict__ basis0,
     const TData *__restrict__ D0, const TData *__restrict__ w0,
@@ -580,7 +580,7 @@ NEK_DEVICE_INLINE static void LaplacianSumFac1DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void LaplacianSumFac2DKernel(
+NEK_DEVICE_INLINE static void Laplacian2DSumFacKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const size_t nelmt, const bool isModified,
@@ -712,7 +712,7 @@ NEK_DEVICE_INLINE static void LaplacianSumFac2DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void LaplacianSumFac3DKernel(
+NEK_DEVICE_INLINE static void Laplacian3DSumFacKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const size_t nelmt, const bool isModified,
@@ -999,7 +999,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    LaplacianSumFac1DKernel<DEFORMED>(ncoord, nm0, nq0, nelmt, basis0, D0, w0,
+    Laplacian1DSumFacKernel<DEFORMED>(ncoord, nm0, nq0, nelmt, basis0, D0, w0,
                                       df, jac, coeff, in, out, wsp, shmemptr,
                                       threadBlock);
 }
@@ -1022,7 +1022,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    LaplacianSumFac1DKernel<DEFORMED>(ncoord, nm0, nq0, nelmt, basis0, D0, w0,
+    Laplacian1DSumFacKernel<DEFORMED>(ncoord, nm0, nq0, nelmt, basis0, D0, w0,
                                       df, jac, coeff, in, out, wsp, shmemptr,
                                       threadBlock);
 }
@@ -1049,7 +1049,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    LaplacianSumFac2DKernel<SHAPE_TYPE, DEFORMED>(
+    Laplacian2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
         ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
         basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, coeff, in, out, wsp,
         shmemptr, threadBlock);
@@ -1079,7 +1079,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    LaplacianSumFac2DKernel<SHAPE_TYPE, DEFORMED>(
+    Laplacian2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
         ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
         basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, coeff, in, out, wsp,
         shmemptr, threadBlock);
@@ -1112,7 +1112,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    LaplacianSumFac3DKernel<SHAPE_TYPE, DEFORMED>(
+    Laplacian3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         index2, index3, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1,
         f1m, f2, nodToMod, df, jac, coeff, in, out, wsp, shmemptr, threadBlock);
@@ -1147,7 +1147,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    LaplacianSumFac3DKernel<SHAPE_TYPE, DEFORMED>(
+    Laplacian3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         index2, index3, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1,
         f1m, f2, nodToMod, df, jac, coeff, in, out, wsp, shmemptr, threadBlock);

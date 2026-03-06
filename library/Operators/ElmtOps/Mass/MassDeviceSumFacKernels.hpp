@@ -84,7 +84,7 @@ inline unsigned int MassSharedMemorySize(
 }
 
 template <bool DEFORMED, typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void MassSumFac1DKernel(
+NEK_DEVICE_INLINE static void Mass1DSumFacKernel(
     const unsigned int nm0, const unsigned int nq0, const size_t nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
@@ -115,7 +115,7 @@ NEK_DEVICE_INLINE static void MassSumFac1DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void MassSumFac2DKernel(
+NEK_DEVICE_INLINE static void Mass2DSumFacKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
     const bool isModified,
@@ -183,7 +183,7 @@ NEK_DEVICE_INLINE static void MassSumFac2DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void MassSumFac3DKernel(
+NEK_DEVICE_INLINE static void Mass3DSumFacKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const size_t nelmt, const bool isModified,
@@ -325,7 +325,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    MassSumFac1DKernel<DEFORMED>(nm0, nq0, nelmt, basis0, w0, jac, in, out, wsp,
+    Mass1DSumFacKernel<DEFORMED>(nm0, nq0, nelmt, basis0, w0, jac, in, out, wsp,
                                  shmemptr, threadBlock);
 }
 
@@ -348,7 +348,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    MassSumFac1DKernel<DEFORMED>(nm0, nq0, nelmt, basis0, w0, jac, in, out, wsp,
+    Mass1DSumFacKernel<DEFORMED>(nm0, nq0, nelmt, basis0, w0, jac, in, out, wsp,
                                  shmemptr, threadBlock);
 }
 
@@ -371,7 +371,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    MassSumFac2DKernel<SHAPE_TYPE, DEFORMED>(
+    Mass2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
         nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
         w0, w1, nodToMod, jac, in, out, wsp, shmemptr, threadBlock);
 }
@@ -397,7 +397,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    MassSumFac2DKernel<SHAPE_TYPE, DEFORMED>(
+    Mass2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
         nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
         w0, w1, nodToMod, jac, in, out, wsp, shmemptr, threadBlock);
 }
@@ -425,7 +425,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    MassSumFac3DKernel<SHAPE_TYPE, DEFORMED>(
+    Mass3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         index2, index3, basis0, basis1, basis2, w0, w1, w2, nodToMod, jac, in,
         out, wsp, shmemptr, threadBlock);
@@ -456,7 +456,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    MassSumFac3DKernel<SHAPE_TYPE, DEFORMED>(
+    Mass3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         index2, index3, basis0, basis1, basis2, w0, w1, w2, nodToMod, jac, in,
         out, wsp, shmemptr, threadBlock);

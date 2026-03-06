@@ -112,9 +112,43 @@ NEK_DEVICE_INLINE static void PhysDeriv1DSumFacKernel(
         }
 
         // Multiply by derivative factors.
-        for (unsigned int d = 0u; d < ncoord; d++)
+        for (unsigned int k = 0u; k < ncoord; k++)
         {
-            out[d * outoffset + index] = d0 * df[d * warpsize + dfindex];
+            out[k * outoffset + index] = d0 * df[k * warpsize + dfindex];
+        }
+    }
+}
+
+template <bool DEFORMED, unsigned int DIR, bool APPEND, typename TData>
+NEK_DEVICE_INLINE static void PhysDerivDir1DSumFacKernel(
+    const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
+    const TData *__restrict__ D0, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out)
+{
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+
+    for (unsigned int i = 0u; i < nq0; ++i)
+    {
+        const unsigned int index = warpsize * i + ilane;
+        const unsigned int dfindex =
+            DEFORMED ? ncoord * warpsize * i + ilane : ilane;
+
+        // Compute tensorial derivative.
+        TData d0 = 0.0;
+#pragma unroll
+        for (unsigned int q = 0u; q < nq0; ++q)
+        {
+            d0 += D0[q * nq0 + i] * in[warpsize * q + ilane];
+        }
+
+        // Multiply by derivative factors.
+        if constexpr (APPEND)
+        {
+            out[index] += d0 * df[DIR * warpsize + dfindex];
+        }
+        else
+        {
+            out[index] += d0 * df[DIR * warpsize + dfindex];
         }
     }
 }
@@ -211,15 +245,15 @@ NEK_DEVICE_INLINE static void PhysDeriv2DSumFacKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
           bool APPEND, typename TData>
 NEK_DEVICE_INLINE static void PhysDerivDir2DSumFacKernel(
-    const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
-    const TData *__restrict__ D0, const TData *__restrict__ D1,
-    [[maybe_unused]] const TData *__restrict__ f0,
+    const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
+    const unsigned int nq1, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, [[maybe_unused]] const TData *__restrict__ f0,
     [[maybe_unused]] const TData *__restrict__ f1, const TData *__restrict__ df,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
-    const unsigned int ndf = 4u;
+    const unsigned int ndf = 2 * ncoord;
 
     for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
     {
@@ -254,31 +288,15 @@ NEK_DEVICE_INLINE static void PhysDerivDir2DSumFacKernel(
             }
 
             // Multiply by derivative factors.
-            if constexpr (DIR == 0)
+            if constexpr (APPEND)
             {
-                if constexpr (APPEND)
-                {
-                    out[index] += d0 * df[0u * warpsize + dfindex] +
-                                  d1 * df[1u * warpsize + dfindex];
-                }
-                else
-                {
-                    out[index] = d0 * df[0u * warpsize + dfindex] +
-                                 d1 * df[1u * warpsize + dfindex];
-                }
+                out[index] += d0 * df[2u * DIR * warpsize + dfindex] +
+                              d1 * df[(2u * DIR + 1u) * warpsize + dfindex];
             }
-            else if constexpr (DIR == 1)
+            else
             {
-                if constexpr (APPEND)
-                {
-                    out[index] += d0 * df[2u * warpsize + dfindex] +
-                                  d1 * df[3u * warpsize + dfindex];
-                }
-                else
-                {
-                    out[index] = d0 * df[2u * warpsize + dfindex] +
-                                 d1 * df[3u * warpsize + dfindex];
-                }
+                out[index] = d0 * df[2u * DIR * warpsize + dfindex] +
+                             d1 * df[(2u * DIR + 1u) * warpsize + dfindex];
             }
         }
     }
@@ -497,50 +515,17 @@ NEK_DEVICE_INLINE static void PhysDerivDir3DSumFacKernel(
                 }
 
                 // Multiply by derivative factors.
-                if constexpr (DIR == 0)
+                if constexpr (APPEND)
                 {
-                    if constexpr (APPEND)
-                    {
-                        out[index] += d0 * df[0u * warpsize + dfindex] +
-                                      d1 * df[1u * warpsize + dfindex] +
-                                      d2 * df[2u * warpsize + dfindex];
-                    }
-                    else
-                    {
-                        out[index] = d0 * df[0u * warpsize + dfindex] +
-                                     d1 * df[1u * warpsize + dfindex] +
-                                     d2 * df[2u * warpsize + dfindex];
-                    }
+                    out[index] += d0 * df[(3u * DIR) * warpsize + dfindex] +
+                                  d1 * df[(3u * DIR + 1) * warpsize + dfindex] +
+                                  d2 * df[(3u * DIR + 2) * warpsize + dfindex];
                 }
-                else if constexpr (DIR == 1)
+                else
                 {
-                    if constexpr (APPEND)
-                    {
-                        out[index] += d0 * df[3u * warpsize + dfindex] +
-                                      d1 * df[4u * warpsize + dfindex] +
-                                      d2 * df[5u * warpsize + dfindex];
-                    }
-                    else
-                    {
-                        out[index] = d0 * df[3u * warpsize + dfindex] +
-                                     d1 * df[4u * warpsize + dfindex] +
-                                     d2 * df[5u * warpsize + dfindex];
-                    }
-                }
-                else if constexpr (DIR == 2)
-                {
-                    if constexpr (APPEND)
-                    {
-                        out[index] += d0 * df[6u * warpsize + dfindex] +
-                                      d1 * df[7u * warpsize + dfindex] +
-                                      d2 * df[8u * warpsize + dfindex];
-                    }
-                    else
-                    {
-                        out[index] = d0 * df[6u * warpsize + dfindex] +
-                                     d1 * df[7u * warpsize + dfindex] +
-                                     d2 * df[8u * warpsize + dfindex];
-                    }
+                    out[index] = d0 * df[(3u * DIR) * warpsize + dfindex] +
+                                 d1 * df[(3u * DIR + 1) * warpsize + dfindex] +
+                                 d2 * df[(3u * DIR + 2) * warpsize + dfindex];
                 }
             }
         }
@@ -605,7 +590,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DKernel(
 }
 
 template <bool DEFORMED, typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void PhysDerivSumFac1DKernel(
+NEK_DEVICE_INLINE static void PhysDeriv1DSumFacKernel(
     const unsigned int ncoord, const unsigned int nq0, const size_t nelmt,
     const unsigned int outoffset, const TData *__restrict__ D0,
     const TData *__restrict__ df, const TData *__restrict__ in,
@@ -630,9 +615,36 @@ NEK_DEVICE_INLINE static void PhysDerivSumFac1DKernel(
     }
 }
 
+template <bool DEFORMED, typename TthreadBlock, unsigned int DIR, bool APPEND,
+          typename TData>
+NEK_DEVICE_INLINE static void PhysDeriv1DSumFacKernel(
+    const unsigned int ncoord, const unsigned int nq0, const size_t nelmt,
+    const unsigned int outoffset, const TData *__restrict__ D0,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out, const TthreadBlock &threadBlock)
+{
+    const unsigned int ndf    = ncoord;
+    const unsigned int dfsize = DEFORMED ? nq0 : 1u;
+
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+
+    size_t e = getGlobalIdx(threadBlock);
+    while (e < nelmt)
+    {
+        const size_t ilane = e % warpsize;
+        const size_t iwarp = e / warpsize;
+        const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
+        const TData *inptr = in + nq0 * warpsize * iwarp;
+        TData *outptr      = out + nq0 * warpsize * iwarp;
+        PhysDerivDir1DSumFacKernel<DEFORMED, DIR, APPEND>(
+            ilane, ncoord, nq0, outoffset, D0, dfptr, inptr, outptr);
+        e += getGlobalRange(threadBlock);
+    }
+}
+
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void PhysDerivSumFac2DKernel(
+NEK_DEVICE_INLINE static void PhysDeriv2DSumFacKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const size_t nelmt, const unsigned int outoffset,
     const TData *__restrict__ D0, const TData *__restrict__ D1,
@@ -690,7 +702,7 @@ NEK_DEVICE_INLINE static void PhysDerivSumFac2DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
           bool APPEND, typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void PhysDerivDirSumFac2DKernel(
+NEK_DEVICE_INLINE static void PhysDerivDir2DSumFacKernel(
     const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
     const TData *__restrict__ D0, const TData *__restrict__ D1,
     const TData *__restrict__ f0, const TData *__restrict__ f1,
@@ -747,7 +759,7 @@ NEK_DEVICE_INLINE static void PhysDerivDirSumFac2DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void PhysDerivSumFac3DKernel(
+NEK_DEVICE_INLINE static void PhysDeriv3DSumFacKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const size_t nelmt, const unsigned int outoffset,
     const TData *__restrict__ D0, const TData *__restrict__ D1,
@@ -857,7 +869,7 @@ NEK_DEVICE_INLINE static void PhysDerivSumFac3DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
           bool APPEND, typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void PhysDerivDirSumFac3DKernel(
+NEK_DEVICE_INLINE static void PhysDerivDir3DSumFacKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const size_t nelmt, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ D2,
@@ -971,14 +983,14 @@ template <typename Implementation, bool DEFORMED, typename TthreadBlock,
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
     PhysDeriv1DKernelLauncher(const unsigned int ncoord, const unsigned int nq0,
-                              const size_t nelmt, const unsigned int outoffset,
+                              const size_t nelmt, const size_t outoffset,
                               const TData *__restrict__ D0,
                               const TData *__restrict__ df,
                               const TData *__restrict__ in,
                               TData *__restrict__ out,
                               const TthreadBlock &threadBlock)
 {
-    PhysDerivSumFac1DKernel<DEFORMED>(ncoord, nq0, nelmt, outoffset, D0, df, in,
+    PhysDeriv1DSumFacKernel<DEFORMED>(ncoord, nq0, nelmt, outoffset, D0, df, in,
                                       out, threadBlock);
 }
 
@@ -991,15 +1003,51 @@ unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)*/
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
     /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
-    PhysDeriv1DKernelLauncher(const size_t nelmt, const unsigned int outoffset,
+    PhysDeriv1DKernelLauncher(const size_t nelmt, const size_t outoffset,
                               const TData *__restrict__ D0,
                               const TData *__restrict__ df,
                               const TData *__restrict__ in,
                               TData *__restrict__ out,
                               const TthreadBlock &threadBlock)
 {
-    PhysDerivSumFac1DKernel<DEFORMED>(ncoord, nq0, nelmt, outoffset, D0, df, in,
+    PhysDeriv1DSumFacKernel<DEFORMED>(ncoord, nq0, nelmt, outoffset, D0, df, in,
                                       out, threadBlock);
+}
+
+// Non-size based version.
+template <typename Implementation, bool DEFORMED, unsigned int DIR, bool APPEND,
+          typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL
+    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+    PhysDerivDir1DKernelLauncher(const unsigned int ncoord,
+                                 const unsigned int nq0, const size_t nelmt,
+                                 const TData *__restrict__ D0,
+                                 const TData *__restrict__ df,
+                                 const TData *__restrict__ in,
+                                 TData *__restrict__ out,
+                                 const TthreadBlock &threadBlock)
+{
+    PhysDerivDir1DSumFacKernel<DEFORMED, DIR, APPEND>(ncoord, nq0, nelmt, D0,
+                                                      df, in, out, threadBlock);
+}
+
+// Size based template version.
+template <typename Implementation, bool DEFORMED, unsigned int DIR, bool APPEND,
+          unsigned int ncoord, unsigned int nq0, typename TthreadBlock,
+          typename TData /*,
+unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)*/
+          >
+NEK_DEVICE_KERNEL
+    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+    /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
+    PhysDeriv1DKernelLauncher(const size_t nelmt, const TData *__restrict__ D0,
+                              const TData *__restrict__ df,
+                              const TData *__restrict__ in,
+                              TData *__restrict__ out,
+                              const TthreadBlock &threadBlock)
+{
+    PhysDerivDir1DSumFacKernel<DEFORMED, DIR, APPEND>(ncoord, nq0, nelmt, D0,
+                                                      df, in, out, threadBlock);
 }
 
 // Non-size based version.
@@ -1018,7 +1066,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    PhysDerivSumFac2DKernel<SHAPE_TYPE, DEFORMED>(
+    PhysDeriv2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
         ncoord, nq0, nq1, nelmt, outoffset, D0, D1, f0, f1, df, in, out,
         shmemptr, threadBlock);
 }
@@ -1045,7 +1093,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    PhysDerivSumFac2DKernel<SHAPE_TYPE, DEFORMED>(
+    PhysDeriv2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
         ncoord, nq0, nq1, nelmt, outoffset, D0, D1, f0, f1, df, in, out,
         shmemptr, threadBlock);
 }
@@ -1057,7 +1105,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
     PhysDerivDir2DKernelLauncher(
-        const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
+        const unsigned int ncoord, const unsigned int nq0,
+        const unsigned int nq1, const size_t nelmt,
         const TData *__restrict__ D0, const TData *__restrict__ D1,
         const TData *__restrict__ f0, const TData *__restrict__ f1,
         const TData *__restrict__ df, const TData *__restrict__ in,
@@ -1066,13 +1115,14 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    PhysDerivDirSumFac2DKernel<SHAPE_TYPE, DEFORMED, DIR, APPEND>(
-        nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out, shmemptr, threadBlock);
+    PhysDerivDir2DSumFacKernel<SHAPE_TYPE, DEFORMED, DIR, APPEND>(
+        ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out, shmemptr,
+        threadBlock);
 }
 
 // Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, unsigned int DIR, bool APPEND, unsigned int nq0,
+          bool DEFORMED, unsigned int DIR, bool APPEND, unsigned int ncoord, unsigned int nq0,
           unsigned int nq1, typename TthreadBlock, typename TData/*,
                                                                    unsigned int maxThreadPerBlock =
                                                                    GetDeviceBlockSize<Implementation>(nq0 *nq1)*/>
@@ -1089,8 +1139,9 @@ PhysDerivDir2DKernelLauncher(const size_t nelmt, const TData *__restrict__ D0,
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    PhysDerivDirSumFac2DKernel<SHAPE_TYPE, DEFORMED, DIR, APPEND>(
-        nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out, shmemptr, threadBlock);
+    PhysDerivDir2DSumFacKernel<SHAPE_TYPE, DEFORMED, DIR, APPEND>(
+        ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out, shmemptr,
+        threadBlock);
 }
 
 // Non-size based version.
@@ -1110,7 +1161,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    PhysDerivSumFac3DKernel<SHAPE_TYPE, DEFORMED>(
+    PhysDeriv3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
         nq0, nq1, nq2, nelmt, outoffset, D0, D1, D2, f0, f1, f1m, f2, df, in,
         out, shmemptr, threadBlock);
 }
@@ -1137,7 +1188,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    PhysDerivSumFac3DKernel<SHAPE_TYPE, DEFORMED>(
+    PhysDeriv3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
         nq0, nq1, nq2, nelmt, outoffset, D0, D1, D2, f0, f1, f1m, f2, df, in,
         out, shmemptr, threadBlock);
 }
@@ -1160,7 +1211,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    PhysDerivDirSumFac3DKernel<SHAPE_TYPE, DEFORMED, DIR, APPEND>(
+    PhysDerivDir3DSumFacKernel<SHAPE_TYPE, DEFORMED, DIR, APPEND>(
         nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in, out,
         shmemptr, threadBlock);
 }
@@ -1183,7 +1234,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    PhysDerivDirSumFac3DKernel<SHAPE_TYPE, DEFORMED, DIR, APPEND>(
+    PhysDerivDir3DSumFacKernel<SHAPE_TYPE, DEFORMED, DIR, APPEND>(
         nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in, out,
         shmemptr, threadBlock);
 }
