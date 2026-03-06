@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: init_divfields.hpp
+// File: init_divergencefields.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,17 +34,18 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/ElmtOps/Div/DivOp.hpp"
+#include "Operators/ElmtOps/Divergence/DivergenceOp.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
 template <typename TData>
-class DivField : public InitFields<TData, FieldState::Phys, FieldState::Phys>
+class DivergenceField
+    : public InitFields<TData, FieldState::Phys, FieldState::Phys>
 {
 public:
-    DivField() : InitFields<TData, FieldState::Phys, FieldState::Phys>()
+    DivergenceField() : InitFields<TData, FieldState::Phys, FieldState::Phys>()
     {
     }
 
@@ -72,8 +73,8 @@ public:
 
     void RunTestCase()
     {
-        auto op = DivOp<TData>::Create(this->fixt_explist,
-                                       this->session->GetVariables());
+        auto op = DivergenceOp<TData>::Create(this->fixt_explist,
+                                              this->session->GetVariables());
         op->Apply(*this->fixt_in, *this->fixt_out);
     }
 
@@ -169,7 +170,7 @@ public:
         ASSERTL0(numComp >= coordim,
                  "Need more components than dimensions for this test");
 
-        // calculate derivative
+        // Calculate derivative
         for (unsigned int i = 0; i < coordim; ++i)
         {
             this->fixt_explist->PhysDeriv(i, inphys + i * nphys, outderiv);
@@ -184,7 +185,7 @@ public:
 // clang-format off
 #if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
 #define TESTFLOAT(type, filename)                                              \
-    class type##float : public DivField<float>                                 \
+    class type##float : public DivergenceField<float>                                 \
     {                                                                          \
     public:                                                                    \
         type##float()                                                          \
@@ -197,7 +198,7 @@ public:
 #endif
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 #define TESTDOUBLE(type, filename)                                             \
-    class type : public DivField<double>                                       \
+    class type : public DivergenceField<double>                                       \
     {                                                                          \
     public:                                                                    \
         type()                                                                 \

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DivOpImpl.hpp
+// File: DivergenceOpImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,18 +34,18 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/Div/DivOp.hpp"
+#include "Operators/ElmtOps/Divergence/DivergenceOp.hpp"
 
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-class DivOpImpl : public DivOp<TData>
+class DivergenceOpImpl : public DivergenceOp<TData>
 {
 public:
-    DivOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
-              const std::vector<std::string> &components)
-        : DivOp<TData>(expansionList, components)
+    DivergenceOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                     const std::vector<std::string> &components)
+        : DivergenceOp<TData>(expansionList, components)
     {
     }
 
@@ -57,8 +57,8 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
-        return std::make_unique<DivOpImpl<ExecSpace, TData>>(expansionList,
-                                                             components);
+        return std::make_unique<DivergenceOpImpl<ExecSpace, TData>>(
+            expansionList, components);
     }
 };
 

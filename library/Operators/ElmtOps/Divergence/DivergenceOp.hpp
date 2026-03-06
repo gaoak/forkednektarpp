@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DivOp.hpp
+// File: DivergenceOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -36,44 +36,42 @@
 
 #include "Operators/ElmtOps/ElmtOp.hpp"
 
-#include "Operators/ElmtOps/Div/DivBlockOp.hpp"
+#include "Operators/ElmtOps/Divergence/DivergenceBlockOp.hpp"
 
 namespace Nektar::Operators
 {
 
-// Div base class
+// Divergence base class
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
-class DivOp : public ElmtOp<FieldState::Phys, FieldState::Phys, TData>
+class DivergenceOp : public ElmtOp<FieldState::Phys, FieldState::Phys, TData>
 {
     friend class ElmtOp<FieldState::Phys, FieldState::Phys, TData>;
 
 public:
-    static std::shared_ptr<DivOp<TData>> Create(
+    static std::shared_ptr<DivergenceOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components,
         const std::string &execStr = "", const std::string &implStr = "")
     {
-        return ElmtOp<FieldState::Phys, FieldState::Phys,
-                      TData>::template Create<DivOp, DivBlockOp>(expansionList,
-                                                                 components,
-                                                                 execStr,
-                                                                 implStr);
+        return ElmtOp<FieldState::Phys, FieldState::Phys, TData>::
+            template Create<DivergenceOp, DivergenceBlockOp>(
+                expansionList, components, execStr, implStr);
     }
 
-    static inline const std::string name = "Div";
+    static inline const std::string name = "Divergence";
 
 protected:
-    std::vector<std::shared_ptr<DivBlockOp<TData>>> m_blockOp;
+    std::vector<std::shared_ptr<DivergenceBlockOp<TData>>> m_blockOp;
 
-    DivOp(const MultiRegions::ExpListSharedPtr &expansionList,
-          const std::vector<std::string> &components)
+    DivergenceOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                 const std::vector<std::string> &components)
         : ElmtOp<FieldState::Phys, FieldState::Phys, TData>(expansionList,
                                                             components)
     {
     }
 
-    ~DivOp() override = default;
+    ~DivergenceOp() override = default;
 
     void v_Apply(Field<TData, FieldState::Phys> &in,
                  Field<TData, FieldState::Phys> &out) override

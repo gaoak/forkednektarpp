@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_div.cpp
+// File: test_divergence.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,9 +32,9 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestDiv
+#define BOOST_TEST_MODULE TestDivergence
 
-#include "init_divfields.hpp"
+#include "init_divergencefields.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
@@ -54,53 +54,53 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestDiv)
+BOOST_AUTO_TEST_SUITE(TestDivergence)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 
-TEST_DIV(div_seg, Seg, 5E-12)
+TEST_DIV(divergence_seg, Seg, 5E-12)
 
-TEST_DIV(div_seg_sem, SegSEM, 1.0E-12)
+TEST_DIV(divergence_seg_sem, SegSEM, 1.0E-12)
 
-TEST_DIV(div_quad, Quad, 1.0E-12)
+TEST_DIV(divergence_quad, Quad, 1.0E-12)
 
-TEST_DIV(div_quad_sem, QuadSEM, 1.0E-12)
+TEST_DIV(divergence_quad_sem, QuadSEM, 1.0E-12)
 
-TEST_DIV(div_quad_varp, QuadVarP, 1.0E-12)
+TEST_DIV(divergence_quad_varp, QuadVarP, 1.0E-12)
 
-TEST_DIV(div_tri, Tri, 1.5E-12)
+TEST_DIV(divergence_tri, Tri, 1.5E-12)
 
-TEST_DIV(div_tri_varp, TriVarP, 4.5E-12)
+TEST_DIV(divergence_tri_varp, TriVarP, 4.5E-12)
 
-TEST_DIV(div_tri_nodal, TriNodal, 1.5E-12)
+TEST_DIV(divergence_tri_nodal, TriNodal, 1.5E-12)
 
-TEST_DIV(div_square_all_elements, SquareAllElements, 2.0E-11)
+TEST_DIV(divergence_square_all_elements, SquareAllElements, 2.0E-11)
 
-TEST_DIV(div_hex, Hex, 2.0E-12)
+TEST_DIV(divergence_hex, Hex, 2.0E-12)
 
-TEST_DIV(div_hex_sem, HexSEM, 1.0E-12)
+TEST_DIV(divergence_hex_sem, HexSEM, 1.0E-12)
 
-TEST_DIV(div_hex_varp, HexVarP, 3.0E-12)
+TEST_DIV(divergence_hex_varp, HexVarP, 3.0E-12)
 
-TEST_DIV(div_prism, Prism, 2.0E-12)
+TEST_DIV(divergence_prism, Prism, 2.0E-12)
 
-TEST_DIV(div_prism_varp, PrismVarP, 4.0E-11)
+TEST_DIV(divergence_prism_varp, PrismVarP, 4.0E-11)
 
-TEST_DIV(div_prism_nodal, PrismNodal, 2.5E-12)
+TEST_DIV(divergence_prism_nodal, PrismNodal, 2.5E-12)
 
-TEST_DIV(div_pyr, Pyr, 9.0E-12)
+TEST_DIV(divergence_pyr, Pyr, 9.0E-12)
 
-TEST_DIV(div_pyr_varp, PyrVarP, 2.0E-11)
+TEST_DIV(divergence_pyr_varp, PyrVarP, 2.0E-11)
 
-TEST_DIV(div_tet, Tet, 8.0E-12)
+TEST_DIV(divergence_tet, Tet, 8.0E-12)
 
-TEST_DIV(div_tet_varp, TetVarP, 8.0E-12)
+TEST_DIV(divergence_tet_varp, TetVarP, 8.0E-12)
 
-TEST_DIV(div_tet_nodal, TetNodal, 8.0E-12)
+TEST_DIV(divergence_tet_nodal, TetNodal, 8.0E-12)
 
-TEST_DIV(div_cube_prism_hex, CubePrismHex, 2.5E-12)
+TEST_DIV(divergence_cube_prism_hex, CubePrismHex, 2.5E-12)
 
-TEST_DIV(div_cube_all_elements, CubeAllElements, 7.0E-12)
+TEST_DIV(divergence_cube_all_elements, CubeAllElements, 7.0E-12)
 
 #endif
 

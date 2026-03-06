@@ -1,8 +1,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DivDeviceSumFac@Shape@.cpp
+// File: DivergenceBlockOp.hpp
 //
-// For more informatioxn, please see: http://www.nektar.info
+// For more information, please see: http://www.nektar.info
 //
 // The MIT License
 //
@@ -28,41 +28,45 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Cmake configuration for boilerplate code to generate block
-// operator code wrapped in a 1 level switch statement with Coord as
-// templates too
+// Description:
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Common/SwitchLevel1Defs.h"
-// Update this include file to the appropriate operator class definition if
-// using for another operator
-#include "ElmtOps/Div/DivDeviceSumFac.hpp"
+#pragma once
 
-namespace Nektar::Operators::detail
+#include "Operators/ElmtOps/ElmtBlockOp.hpp"
+
+namespace Nektar::Operators
 {
-// clang-format off
 
-template <>
-void DivBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::SumFac,
-                                      @TData@>::@Shape@Block
-                (BlockAccessor<@TData@, FieldState::Phys> &inblock, 
-                 BlockAccessor<@TData@, FieldState::Phys> &outblock)
+template <typename TData>
+class DivergenceBlockOp
+    : public ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>
 {
-    // The following will use predefined code found in the Operators/Common
-    // directory to import boost_pp code to make wrapper code to call
-    // Operator1D methods for Segs, Operator2D method for Tris and Quads and
-    // Operator3D otherwise
-    //
-    // To see the full code from this macros,  Compile the .cpp file with make
-    // VERBOSE=1 copy the full compile command and add in --preprocess after the
-    // c++ command then you can view the file in the file output after the -o
-    // option in the compile line.
-    
-#define SHAPE_TYPE_@Shape@
-#include "@CMAKE_CURRENT_BINARY_DIR@/BlockOpSwitch1DCoordsCode@Shape@.h"
+public:
+    static std::shared_ptr<DivergenceBlockOp<TData>> Create(
+        const unsigned int block_idx,
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
+        std::string implStr)
+    {
+        return ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>::
+            template Create<DivergenceBlockOp>(block_idx, exp, dataWarehouse,
+                                               execStr, implStr);
+    }
 
-}
-// clang-format on
+    static inline const std::string name = "BlockDivergence";
 
-} // namespace Nektar::Operators::detail
+protected:
+    DivergenceBlockOp(const unsigned int block_idx,
+                      const LocalRegions::ExpansionSharedPtr &exp,
+                      NekDataWarehouseSharedPtr dataWarehouse)
+        : ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>(block_idx, exp,
+                                                                 dataWarehouse)
+    {
+    }
+
+    ~DivergenceBlockOp() override = default;
+};
+
+} // namespace Nektar::Operators
