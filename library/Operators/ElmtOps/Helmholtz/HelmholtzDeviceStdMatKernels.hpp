@@ -165,23 +165,5 @@ NEK_DEVICE_KERNEL static void ApplyMetricKernel(
         }
     }
 }
-
-template <typename ExecSpace, bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static void ApplyMetricKernel(
-    const unsigned int nqTot, const unsigned int ncoord,
-    const unsigned int dimension, const size_t nelmt, const unsigned int nhomo,
-    const size_t inoffset, const size_t outoffset, const TData *diffCoeff,
-    const TData *jacptr, const TData *dfptr, const TData *inptr, TData *outptr,
-    TData *bwdptr, const TData scale)
-{
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize =
-        (nelmt * nqTot * nhomo + blockSize - 1u) / blockSize;
-
-    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-        (ApplyMetricKernel<DEFORMED>), gridSize, blockSize, 0, nqTot, ncoord,
-        dimension, nelmt, nhomo, inoffset, outoffset, diffCoeff, jacptr, dfptr,
-        inptr, outptr, bwdptr, scale);
-}
 #endif
 } // namespace Nektar::Operators::detail

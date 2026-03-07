@@ -136,7 +136,8 @@ protected:
         // Allocate storage.
         if (m_deriv.size() == 0)
         {
-            m_deriv = MemoryRegion<TData>(m_coordDim * simd_t::width * m_nqTot);
+            m_deriv =
+                MemoryRegion<TData>(m_dimension * simd_t::width * m_nqTot);
         }
 
         // Get workspace pointer.

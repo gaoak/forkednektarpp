@@ -89,6 +89,8 @@ TEST_LAPLACIAN(laplacian_seg, Seg, 1.0E-12)
 
 TEST_LAPLACIAN(laplacian_seg_sem, SegSEM, 1.0E-12)
 
+// TEST_LAPLACIAN(laplacian_seg_3d, Seg3D, 1.0E-12)
+
 TEST_LAPLACIAN3DH2(laplacian_seg_sem_3dh2, SegSEM, 1.0E-12)
 
 TEST_LAPLACIAN(laplacian_quad, Quad, 1.0E-12)
@@ -100,6 +102,8 @@ TEST_LAPLACIAN(laplacian_quad_varp, QuadVarP, 1.0E-12)
 TEST_LAPLACIAN3DH1(laplacian_quad_3dh1, Quad, 1.0E-12)
 
 TEST_LAPLACIAN(laplacian_tri, Tri, 1.0E-12)
+
+// TEST_LAPLACIAN(laplacian_tri_3d, Tri3D, 1.0E-12)
 
 TEST_LAPLACIAN3DH1(laplacian_tri_3dh1, Tri, 1.0E-12)
 

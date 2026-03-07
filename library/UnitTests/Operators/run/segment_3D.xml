@@ -12,7 +12,7 @@
             <V ID="7">  0.4 -0.4  0.4</V>
             <V ID="8">  0.6 -0.6  0.6</V>
             <V ID="9">  0.8 -0.8  0.8</V>
-            <V ID="10"> 1.0 -1.0  1.0</V>
+            <V ID="10"> 1.1 -1.0  1.0</V>
         </VERTEX>
 
         <ELEMENT>
@@ -29,16 +29,18 @@
         </ELEMENT>
 
         <COMPOSITE>
-            <C ID="0"> S[0-9] </C>
+            <C ID="0"> S[0-4] </C>
+            <C ID="3"> S[5-9] </C>
             <C ID="1"> V[0]   </C>
             <C ID="2"> V[10]  </C>
         </COMPOSITE>
 
-        <DOMAIN> C[0] </DOMAIN>
+        <DOMAIN> C[0,3] </DOMAIN>
     </GEOMETRY>
 
     <EXPANSIONS>
-        <E COMPOSITE="C[0]" FIELDS="u" TYPE="MODIFIED" NUMMODES="4"/>
+        <E COMPOSITE="C[0]" FIELDS="u,v" TYPE="MODIFIED" NUMMODES="4"/>
+        <E COMPOSITE="C[3]" FIELDS="u,v" TYPE="MODIFIED" NUMMODES="7"/>
     </EXPANSIONS>
 
     <CONDITIONS>
@@ -52,6 +54,7 @@
         </PARAMETERS>
         <VARIABLES>
             <V ID="0">u</V>
+            <V ID="1">v</V>
         </VARIABLES>
     </CONDITIONS>
 </NEKTAR>
