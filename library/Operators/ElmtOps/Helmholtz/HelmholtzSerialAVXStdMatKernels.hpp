@@ -137,10 +137,10 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
                 }
                 for (unsigned int k = 0; k < dimension; ++k)
                 {
-                    sum[d * ncoord + k] = metric[0] * dfptr[ndf * e + k];
+                    sum[d * dimension + k] = metric[0] * dfptr[ndf * e + k];
                     for (unsigned int l = 1; l < ncoord; ++l)
                     {
-                        sum[d * ncoord + k].fma(
+                        sum[d * dimension + k].fma(
                             metric[l], dfptr[ndf * e + l * dimension + k]);
                     }
                 }

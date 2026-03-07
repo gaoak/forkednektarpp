@@ -146,7 +146,7 @@ protected:
         if (m_bwd.size() == 0)
         {
             m_bwd   = MemoryRegion<TData>(nelmtTot * m_nqTot);
-            m_deriv = MemoryRegion<TData>(m_coordDim * nelmtTot * m_nqTot);
+            m_deriv = MemoryRegion<TData>(m_dimension * nelmtTot * m_nqTot);
         }
 
         // Get workspace pointer.
@@ -155,6 +155,11 @@ protected:
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
+
+        // Set Kernel parameters.
+        const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+        const unsigned int gridSize =
+            (nelmt * m_nqTot * nhomo + blockSize - 1u) / blockSize;
 
         // Loop over components.
         const auto adveloffset = m_nqTot * nelmt;
@@ -191,15 +196,17 @@ protected:
             // factor and Jacobian and add advection.
             if (m_isDeformed)
             {
-                ApplyMetricKernel<ExecSpace, true>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
+                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (ApplyMetricKernel<true>), gridSize, blockSize, 0, m_nqTot,
+                    m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
                     derivoffset, adveloffset, diffCoeffPtr, m_jacptr, m_dfptr,
                     advptr, derivptr, derivptr, bwdptr, this->m_lambda);
             }
             else
             {
-                ApplyMetricKernel<ExecSpace, false>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
+                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (ApplyMetricKernel<false>), gridSize, blockSize, 0, m_nqTot,
+                    m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
                     derivoffset, adveloffset, diffCoeffPtr, m_jacptr, m_dfptr,
                     advptr, derivptr, derivptr, bwdptr, this->m_lambda);
             }

@@ -87,6 +87,8 @@ TEST_LINADVDIFFREACTION(linadvdiffreaction_seg, Seg, 1.0E-12)
 
 TEST_LINADVDIFFREACTION(linadvdiffreaction_seg_sem, SegSEM, 1.0E-12)
 
+// TEST_LINADVDIFFREACTION(linadvdiffreaction_seg_3d, Seg3D, 1.0E-12)
+
 TEST_LINADVDIFFREACTION3DH2(linadvdiffreaction_seg_sem_3dh2, SegSEM, 1.0E-12)
 
 TEST_LINADVDIFFREACTION(linadvdiffreaction_quad, Quad, 1.0E-12)
@@ -98,6 +100,8 @@ TEST_LINADVDIFFREACTION(linadvdiffreaction_quad_sem, QuadSEM, 1.0E-12)
 TEST_LINADVDIFFREACTION(linadvdiffreaction_quad_varp, QuadVarP, 1.0E-12)
 
 TEST_LINADVDIFFREACTION(linadvdiffreaction_tri, Tri, 1.0E-12)
+
+// TEST_LINADVDIFFREACTION(linadvdiffreaction_tri_3d, Tri3D, 1.0E-12)
 
 TEST_LINADVDIFFREACTION3DH1(linadvdiffreaction_tri_3dh1, Tri, 1.0E-12)
 

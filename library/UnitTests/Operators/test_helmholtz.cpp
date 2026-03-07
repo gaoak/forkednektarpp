@@ -87,6 +87,8 @@ TEST_HELMHOLTZ(helmholtz_seg, Seg, 1.0E-12)
 
 TEST_HELMHOLTZ(helmholtz_seg_sem, SegSEM, 1.0E-12)
 
+// TEST_HELMHOLTZ(helmholtz_seg_3d, Seg3D, 1.0E-12)
+
 TEST_HELMHOLTZ3DH2(helmholtz_seg_sem_3dh2, SegSEM, 1.0E-12)
 
 TEST_HELMHOLTZ(helmholtz_quad, Quad, 1.0E-12)
@@ -98,6 +100,8 @@ TEST_HELMHOLTZ(helmholtz_quad_varp, QuadVarP, 1.0E-12)
 TEST_HELMHOLTZ3DH1(helmholtz_quad_3dh1, Quad, 1.0E-12)
 
 TEST_HELMHOLTZ(helmholtz_tri, Tri, 1.0E-12)
+
+// TEST_HELMHOLTZ(helmholtz_tri_3d, Tri3D, 1.0E-12)
 
 TEST_HELMHOLTZ3DH1(helmholtz_tri_3dh1, Tri, 1.0E-12)
 
