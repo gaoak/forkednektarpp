@@ -824,16 +824,17 @@ template <typename Implementation, bool DEFORMED, typename TthreadBlock,
           typename TData>
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
-    PhysDeriv1DKernelLauncher(const unsigned int ncoord, const unsigned int nq0,
-                              const size_t nelmt, const unsigned int outoffset,
+    PhysDeriv1DKernelLauncher(NonTemplated1DPhysSizeParameters sizeParam1D,
+                              const size_t nelmt, const size_t outoffset,
                               const TData *__restrict__ D0,
                               const TData *__restrict__ df,
                               const TData *__restrict__ in,
                               TData *__restrict__ out,
                               const TthreadBlock &threadBlock)
 {
-    PhysDeriv1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, nelmt, outoffset, D0, df,
-                                         in, out, threadBlock);
+    PhysDeriv1DSumFacTOPKernel<DEFORMED>(sizeParam1D.ncoord(),
+                                         sizeParam1D.nq0(), nelmt, outoffset,
+                                         D0, df, in, out, threadBlock);
 }
 
 // Size based template version.
@@ -845,12 +846,12 @@ unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)*/
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
-    PhysDeriv1DKernelLauncher(const size_t nelmt, const unsigned int outoffset,
-                              const TData *__restrict__ D0,
-                              const TData *__restrict__ df,
-                              const TData *__restrict__ in,
-                              TData *__restrict__ out,
-                              const TthreadBlock &threadBlock)
+    PhysDeriv1DKernelLauncher(
+        [[maybe_unused]] Templated1DPhysSizeParameters<ncoord, nq0>,
+        const size_t nelmt, const size_t outoffset,
+        const TData *__restrict__ D0, const TData *__restrict__ df,
+        const TData *__restrict__ in, TData *__restrict__ out,
+        const TthreadBlock &threadBlock)
 {
     PhysDeriv1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, nelmt, outoffset, D0, df,
                                          in, out, threadBlock);
@@ -861,14 +862,17 @@ template <typename Implementation, bool DEFORMED, unsigned int DIR, bool APPEND,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
-    PhysDerivDir1DKernelLauncher(
-        const unsigned int ncoord, const unsigned int nq0, const size_t nelmt,
-        const unsigned int outoffset, const TData *__restrict__ D0,
-        const TData *__restrict__ df, const TData *__restrict__ in,
-        TData *__restrict__ out, const TthreadBlock &threadBlock)
+    PhysDerivDir1DKernelLauncher(NonTemplated1DPhysSizeParameters sizeParam1D,
+                                 const size_t nelmt,
+                                 const TData *__restrict__ D0,
+                                 const TData *__restrict__ df,
+                                 const TData *__restrict__ in,
+                                 TData *__restrict__ out,
+                                 const TthreadBlock &threadBlock)
 {
     PhysDerivDir1DSumFacTOPKernel<DEFORMED, DIR, APPEND>(
-        ncoord, nq0, nelmt, outoffset, D0, df, in, out, threadBlock);
+        sizeParam1D.ncoord(), sizeParam1D.nq0(), nelmt, D0, df, in, out,
+        threadBlock);
 }
 
 // Size based template version.
@@ -880,15 +884,14 @@ unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)*/
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
-    PhysDeriv1DKernelLauncher(const size_t nelmt, const unsigned int outoffset,
-                              const TData *__restrict__ D0,
-                              const TData *__restrict__ df,
-                              const TData *__restrict__ in,
-                              TData *__restrict__ out,
-                              const TthreadBlock &threadBlock)
+    PhysDeriv1DKernelLauncher(
+        [[maybe_unused]] Templated1DPhysSizeParameters<ncoord, nq0>,
+        const size_t nelmt, const TData *__restrict__ D0,
+        const TData *__restrict__ df, const TData *__restrict__ in,
+        TData *__restrict__ out, const TthreadBlock &threadBlock)
 {
-    PhysDeriv1DSumFacTOPKernel<DEFORMED, DIR, APPEND>(
-        ncoord, nq0, nelmt, outoffset, D0, df, in, out, threadBlock);
+    PhysDerivDir1DSumFacTOPKernel<DEFORMED, DIR, APPEND>(
+        ncoord, nq0, nelmt, D0, df, in, out, threadBlock);
 }
 
 // Non-size based version.
@@ -897,8 +900,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     PhysDeriv2DKernelLauncher(
-        const unsigned int ncoord, const unsigned int nq0,
-        const unsigned int nq1, const size_t nelmt,
+        NonTemplated2DPhysSizeParameters sizeParam2D, const size_t nelmt,
         const unsigned int outoffset, const TData *__restrict__ D0,
         const TData *__restrict__ D1, const TData *__restrict__ f0,
         const TData *__restrict__ f1, const TData *__restrict__ df,
@@ -908,8 +910,8 @@ NEK_DEVICE_KERNEL
     FETCH_SHARED_MEMORY(shmemptr);
 
     PhysDeriv2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-        ncoord, nq0, nq1, nelmt, outoffset, D0, D1, f0, f1, df, in, out,
-        shmemptr, threadBlock);
+        sizeParam2D.ncoord(), sizeParam2D.nq0(), sizeParam2D.nq1(), nelmt,
+        outoffset, D0, D1, f0, f1, df, in, out, shmemptr, threadBlock);
 }
 
 // Size based template version.
@@ -922,15 +924,14 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
-    PhysDeriv2DKernelLauncher(const size_t nelmt, const unsigned int outoffset,
-                              const TData *__restrict__ D0,
-                              const TData *__restrict__ D1,
-                              const TData *__restrict__ f0,
-                              const TData *__restrict__ f1,
-                              const TData *__restrict__ df,
-                              const TData *__restrict__ in,
-                              TData *__restrict__ out, unsigned char *shmemptr,
-                              const TthreadBlock &threadBlock)
+    PhysDeriv2DKernelLauncher(
+        [[maybe_unused]] Templated2DPhysSizeParameters<ncoord, nq0, nq1>,
+        const size_t nelmt, const unsigned int outoffset,
+        const TData *__restrict__ D0, const TData *__restrict__ D1,
+        const TData *__restrict__ f0, const TData *__restrict__ f1,
+        const TData *__restrict__ df, const TData *__restrict__ in,
+        TData *__restrict__ out, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
@@ -946,8 +947,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     PhysDerivDir2DKernelLauncher(
-        const unsigned int ncoord, const unsigned int nq0,
-        const unsigned int nq1, const size_t nelmt,
+        NonTemplated2DPhysSizeParameters sizeParam2D, const size_t nelmt,
         const TData *__restrict__ D0, const TData *__restrict__ D1,
         const TData *__restrict__ f0, const TData *__restrict__ f1,
         const TData *__restrict__ df, const TData *__restrict__ in,
@@ -957,8 +957,8 @@ NEK_DEVICE_KERNEL
     FETCH_SHARED_MEMORY(shmemptr);
 
     PhysDerivDir2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED, DIR, APPEND>(
-        ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out, shmemptr,
-        threadBlock);
+        sizeParam2D.ncoord(), sizeParam2D.nq0(), sizeParam2D.nq1(), nelmt, D0,
+        D1, f0, f1, df, in, out, shmemptr, threadBlock);
 }
 
 // Size based template version.
@@ -970,7 +970,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL 
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
  /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
-PhysDerivDir2DKernelLauncher(const size_t nelmt, const TData *__restrict__ D0,
+PhysDerivDir2DKernelLauncher(
+        [[maybe_unused]] Templated2DPhysSizeParameters<ncoord, nq0, nq1>,
+const size_t nelmt, const TData *__restrict__ D0,
                              const TData *__restrict__ D1,
                              const TData *__restrict__ f0,
                              const TData *__restrict__ f1,
@@ -991,20 +993,21 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     PhysDeriv3DKernelLauncher(
-        const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-        const size_t nelmt, const unsigned int outoffset,
-        const TData *__restrict__ D0, const TData *__restrict__ D1,
-        const TData *__restrict__ D2, const TData *__restrict__ f0,
-        const TData *__restrict__ f1, const TData *__restrict__ f1m,
-        const TData *__restrict__ f2, const TData *__restrict__ df,
-        const TData *__restrict__ in, TData *__restrict__ out,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+        NonTemplated3DPhysSizeParameters sizeParam3D, const size_t nelmt,
+        const unsigned int outoffset, const TData *__restrict__ D0,
+        const TData *__restrict__ D1, const TData *__restrict__ D2,
+        const TData *__restrict__ f0, const TData *__restrict__ f1,
+        const TData *__restrict__ f1m, const TData *__restrict__ f2,
+        const TData *__restrict__ df, const TData *__restrict__ in,
+        TData *__restrict__ out, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
     PhysDeriv3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-        nq0, nq1, nq2, nelmt, outoffset, D0, D1, D2, f0, f1, f1m, f2, df, in,
-        out, shmemptr, threadBlock);
+        sizeParam3D.nq0(), sizeParam3D.nq1(), sizeParam3D.nq2(), nelmt,
+        outoffset, D0, D1, D2, f0, f1, f1m, f2, df, in, out, shmemptr,
+        threadBlock);
 }
 
 // Size based template version.
@@ -1019,6 +1022,7 @@ NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
     PhysDeriv3DKernelLauncher(
+        [[maybe_unused]] Templated3DPhysSizeParameters<nq0, nq1, nq2>,
         const size_t nelmt, const unsigned int outoffset,
         const TData *__restrict__ D0, const TData *__restrict__ D1,
         const TData *__restrict__ D2, const TData *__restrict__ f0,
@@ -1041,20 +1045,19 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     PhysDerivDir3DKernelLauncher(
-        const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-        const size_t nelmt, const TData *__restrict__ D0,
-        const TData *__restrict__ D1, const TData *__restrict__ D2,
-        const TData *__restrict__ f0, const TData *__restrict__ f1,
-        const TData *__restrict__ f1m, const TData *__restrict__ f2,
-        const TData *__restrict__ df, const TData *__restrict__ in,
-        TData *__restrict__ out, unsigned char *shmemptr,
-        const TthreadBlock &threadBlock)
+        NonTemplated3DPhysSizeParameters sizeParam3D, const size_t nelmt,
+        const TData *__restrict__ D0, const TData *__restrict__ D1,
+        const TData *__restrict__ D2, const TData *__restrict__ f0,
+        const TData *__restrict__ f1, const TData *__restrict__ f1m,
+        const TData *__restrict__ f2, const TData *__restrict__ df,
+        const TData *__restrict__ in, TData *__restrict__ out,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
     PhysDerivDir3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED, DIR, APPEND>(
-        nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in, out,
-        shmemptr, threadBlock);
+        sizeParam3D.nq0(), sizeParam3D.nq1(), sizeParam3D.nq2(), nelmt, D0, D1,
+        D2, f0, f1, f1m, f2, df, in, out, shmemptr, threadBlock);
 }
 
 // Size based template version.
@@ -1065,6 +1068,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     PhysDerivDir3DKernelLauncher(
+        [[maybe_unused]] Templated3DPhysSizeParameters<nq0, nq1, nq2>,
         const size_t nelmt, const TData *__restrict__ D0,
         const TData *__restrict__ D1, const TData *__restrict__ D2,
         const TData *__restrict__ f0, const TData *__restrict__ f1,
@@ -1079,7 +1083,6 @@ NEK_DEVICE_KERNEL
         nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in, out,
         shmemptr, threadBlock);
 }
-
 #endif
 
 } // namespace Nektar::Operators::detail

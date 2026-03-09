@@ -227,14 +227,17 @@ template <typename Implementation, bool DEFORMED, typename TthreadBlock,
           typename TData>
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
-    Divergence1DKernelLauncher(
-        const unsigned int ncoord, const unsigned int nq0, const size_t nelmt,
-        const size_t inoffset, const TData *__restrict__ D0,
-        const TData *__restrict__ df, const TData *__restrict__ in,
-        TData *__restrict__ out, const TthreadBlock &threadBlock)
+    Divergence1DKernelLauncher(NonTemplated1DPhysSizeParameters sizeParam1D,
+                               const size_t nelmt, const size_t inoffset,
+                               const TData *__restrict__ D0,
+                               const TData *__restrict__ df,
+                               const TData *__restrict__ in,
+                               TData *__restrict__ out,
+                               const TthreadBlock &threadBlock)
 {
-    Divergence1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, nelmt, inoffset, D0, df,
-                                          in, out, threadBlock);
+    Divergence1DSumFacTOPKernel<DEFORMED>(sizeParam1D.ncoord(),
+                                          sizeParam1D.nq0(), nelmt, inoffset,
+                                          D0, df, in, out, threadBlock);
 }
 
 // Size based template version.
@@ -246,10 +249,12 @@ template <typename Implementation,
 NEK_DEVICE_KERNEL 
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
  /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
-Divergence1DKernelLauncher(const size_t nelmt, const size_t inoffset, const TData *__restrict__ D0,
+Divergence1DKernelLauncher(
+        [[maybe_unused]] Templated1DPhysSizeParameters<ncoord, nq0>,
+const size_t nelmt, const size_t inoffset, const TData *__restrict__ D0,
                              const TData *__restrict__ df,
                              const TData *__restrict__ in,
-                             TData *__restrict__ out,  const TthreadBlock &threadBlock)
+                             TData *__restrict__ out, const TthreadBlock &threadBlock)
 {
     Divergence1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, nelmt, inoffset, D0, df,
                                           in, out, threadBlock);
@@ -261,19 +266,18 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     Divergence2DKernelLauncher(
-        const unsigned int ncoord, const unsigned int nq0,
-        const unsigned int nq1, const size_t nelmt, const size_t inoffset,
-        const TData *__restrict__ D0, const TData *__restrict__ D1,
-        const TData *__restrict__ f0, const TData *__restrict__ f1,
-        const TData *__restrict__ df, const TData *__restrict__ in,
-        TData *__restrict__ out, unsigned char *shmemptr,
-        const TthreadBlock &threadBlock)
+        NonTemplated2DPhysSizeParameters sizeParam2D, const size_t nelmt,
+        const size_t inoffset, const TData *__restrict__ D0,
+        const TData *__restrict__ D1, const TData *__restrict__ f0,
+        const TData *__restrict__ f1, const TData *__restrict__ df,
+        const TData *__restrict__ in, TData *__restrict__ out,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
     Divergence2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-        ncoord, nq0, nq1, nelmt, inoffset, D0, D1, f0, f1, df, in, out,
-        shmemptr, threadBlock);
+        sizeParam2D.ncoord(), sizeParam2D.nq0(), sizeParam2D.nq1(), nelmt,
+        inoffset, D0, D1, f0, f1, df, in, out, shmemptr, threadBlock);
 }
 
 // Size based template version.
@@ -285,7 +289,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL 
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
  /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
-Divergence2DKernelLauncher(const size_t nelmt, const size_t inoffset, const TData *__restrict__ D0,
+Divergence2DKernelLauncher(
+        [[maybe_unused]] Templated2DPhysSizeParameters<ncoord, nq0, nq1>,
+        const size_t nelmt, const size_t inoffset, const TData *__restrict__ D0,
                              const TData *__restrict__ D1,
                              const TData *__restrict__ f0,
                              const TData *__restrict__ f1,
@@ -306,8 +312,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     Divergence3DKernelLauncher(
-        const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-        const size_t nelmt, const size_t inoffset, const TData *__restrict__ D0,
+        NonTemplated3DPhysSizeParameters sizeParam3D, const size_t nelmt,
+        const size_t inoffset, const TData *__restrict__ D0,
         const TData *__restrict__ D1, const TData *__restrict__ D2,
         const TData *__restrict__ f0, const TData *__restrict__ f1,
         const TData *__restrict__ f1m, const TData *__restrict__ f2,
@@ -318,8 +324,9 @@ NEK_DEVICE_KERNEL
     FETCH_SHARED_MEMORY(shmemptr);
 
     Divergence3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-        nq0, nq1, nq2, nelmt, inoffset, D0, D1, D2, f0, f1, f1m, f2, df, in,
-        out, shmemptr, threadBlock);
+        sizeParam3D.nq0(), sizeParam3D.nq1(), sizeParam3D.nq2(), nelmt,
+        inoffset, D0, D1, D2, f0, f1, f1m, f2, df, in, out, shmemptr,
+        threadBlock);
 }
 
 // Size based template version.
@@ -329,6 +336,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     Divergence3DKernelLauncher(
+        [[maybe_unused]] Templated3DPhysSizeParameters<nq0, nq1, nq2>,
         const size_t nelmt, const size_t inoffset, const TData *__restrict__ D0,
         const TData *__restrict__ D1, const TData *__restrict__ D2,
         const TData *__restrict__ f0, const TData *__restrict__ f1,
@@ -343,7 +351,6 @@ NEK_DEVICE_KERNEL
         nq0, nq1, nq2, nelmt, inoffset, D0, D1, D2, f0, f1, f1m, f2, df, in,
         out, shmemptr, threadBlock);
 }
-
 #endif
 
 } // namespace Nektar::Operators::detail
