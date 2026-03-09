@@ -280,60 +280,23 @@ protected:
     void Operator1D(BlockAccessor<TData, FieldState::Phys> &inblock,
                     BlockAccessor<TData, FieldState::Phys> &outblock)
     {
-        // Shape size.
-        const auto nm0 = m_nm[0];
-        const auto nq0 = m_nq[0];
-
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
-        // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-
-        // Set Kernel parameters.
-        const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
-        const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
-        const unsigned int shmemsize =
-            sizeof(TData) * BwdTransSharedMemorySize<Implementation>(nq0, nm0);
-        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
-
-        // Loop over components.
-        for (unsigned int n = 0;
-             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
-        {
-            // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
-
-            // BwdTrans kernel.
-            DEVICE_1DGRID_KERNEL_LAUNCHER(
-                BwdTrans1DKernelLauncher<Implementation>, gridsize, blocksize,
-                shmemsize, 0, nm0, nq0, nelmt, m_B[0], inptr, outptr);
-
-            // Reshape back, if necessary.
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(), outptr);
-
-            // Increment pointer.
-            inptr += inblock.CompSize();
-            outptr += outblock.CompSize();
-        }
-
-        // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        Operator1D<>(inblock, outblock,
+                     NonTemplated1DSizeParameters(m_nm[0], m_nq[0]));
     }
 
     // Size based template version.
     template <unsigned int nm0, unsigned int nq0>
     void Operator1D(BlockAccessor<TData, FieldState::Phys> &inblock,
                     BlockAccessor<TData, FieldState::Phys> &outblock)
+    {
+        Operator1D<>(inblock, outblock, Templated1DSizeParameters<nm0, nq0>());
+    }
+
+    template <typename SizeParameter1D>
+    NEK_FORCE_INLINE void Operator1D(
+        BlockAccessor<TData, FieldState::Phys> &inblock,
+        BlockAccessor<TData, FieldState::Phys> &outblock,
+        SizeParameter1D sizeParam1D)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
@@ -345,10 +308,12 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
-        const unsigned int blocksize = GetDeviceBlockSize<Implementation>(nq0);
-        const unsigned int gridsize  = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(sizeParam1D.nq0());
+        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
         const unsigned int shmemsize =
-            sizeof(TData) * BwdTransSharedMemorySize<Implementation>(nq0, nm0);
+            sizeof(TData) * BwdTransSharedMemorySize<Implementation>(
+                                sizeParam1D.nq0(), sizeParam1D.nm0());
         GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
         // Loop over components.
@@ -362,8 +327,8 @@ protected:
 
             // BwdTrans kernel.
             DEVICE_1DGRID_KERNEL_LAUNCHER(
-                (BwdTrans1DKernelLauncher<Implementation, nm0, nq0>), gridsize,
-                blocksize, shmemsize, 0, nelmt, m_B[0], inptr, outptr);
+                (BwdTrans1DKernelLauncher<Implementation>), gridsize, blocksize,
+                shmemsize, 0, sizeParam1D, nelmt, m_B[0], inptr, outptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -385,13 +350,33 @@ protected:
     void Operator2D(BlockAccessor<TData, FieldState::Phys> &inblock,
                     BlockAccessor<TData, FieldState::Phys> &outblock)
     {
-        // Shape size.
-        const auto nm0 = m_nm[0];
-        const auto nm1 = m_nm[1];
+        const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(
+            LibUtilities::Quad, m_nm[0], m_nm[1]);
 
-        const auto nq0 = m_nq[0];
-        const auto nq1 = m_nq[1];
+        Operator2D<>(inblock, outblock,
+                     NonTemplated2DSizeParameters(m_nm[0], m_nm[1], nmTot,
+                                                  m_nq[0], m_nq[1]));
+    }
 
+    // Size based template version.
+    template <unsigned int nm0, unsigned int nm1, unsigned int nq0,
+              unsigned int nq1>
+    void Operator2D(BlockAccessor<TData, FieldState::Phys> &inblock,
+                    BlockAccessor<TData, FieldState::Phys> &outblock)
+    {
+        constexpr unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(LibUtilities::Quad, nm0, nm1);
+
+        Operator2D<>(inblock, outblock,
+                     Templated2DSizeParameters<nm0, nm1, nmTot, nq0, nq1>());
+    }
+
+    template <typename SizeParameter2D>
+    NEK_FORCE_INLINE void Operator2D(
+        BlockAccessor<TData, FieldState::Phys> &inblock,
+        BlockAccessor<TData, FieldState::Phys> &outblock,
+        SizeParameter2D sizeParam2D)
+    {
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
@@ -403,7 +388,8 @@ protected:
         {
             if (m_wsp.size() == 0)
             {
-                m_wsp = SetWorkspace(LibUtilities::Quad, nelmt, nm0, nm1, 0);
+                m_wsp = SetWorkspace(LibUtilities::Quad, nelmt,
+                                     sizeParam2D.nm0(), sizeParam2D.nm1(), 0);
             }
         }
 
@@ -418,15 +404,14 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
-        const unsigned int nmTot =
-            LibUtilities::GetNumberOfCoefficients(LibUtilities::Quad, nm0, nm1);
         const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(nmTot);
+            GetDeviceBlockSize<Implementation>(sizeParam2D.nmTot());
         const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
         const unsigned int shmemsize =
             sizeof(TData) *
             BwdTransSharedMemorySize<LibUtilities::Quad, Implementation>(
-                nq0, nq1, nm0, nm1);
+                sizeParam2D.nq0(), sizeParam2D.nq1(), sizeParam2D.nm0(),
+                sizeParam2D.nm1());
         GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
         // Loop over components.
@@ -441,83 +426,8 @@ protected:
             // BwdTrans kernel.
             DEVICE_1DGRID_KERNEL_LAUNCHER(
                 (BwdTrans2DKernelLauncher<LibUtilities::Quad, Implementation>),
-                gridsize, blocksize, shmemsize, 0, nm0, nm1, nmTot, nq0, nq1,
-                nelmt, false, m_B[0], m_B[1], nodToMod, inptr, outptr, wspptr);
-
-            // Reshape back, if necessary.
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(), outptr);
-
-            // Increment pointer.
-            inptr += inblock.CompSize();
-            outptr += outblock.CompSize();
-        }
-
-        // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
-    }
-
-    // Size based template version.
-    template <unsigned int nm0, unsigned int nm1, unsigned int nq0,
-              unsigned int nq1>
-    void Operator2D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, FieldState::Phys> &outblock)
-    {
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
-        // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        // Set workspace.
-        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
-        {
-            if (m_wsp.size() == 0)
-            {
-                m_wsp = SetWorkspace(LibUtilities::Quad, nelmt, nm0, nm1, 0);
-            }
-        }
-
-        // Get workspace pointer.
-        auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
-                          ? m_wsp.template GetPtr<MemSpace, WriteOnly>()
-                          : nullptr;
-
-        const TData *nodToMod = nullptr;
-
-        // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-
-        // Set Kernel parameters.
-        const unsigned int nmTot =
-            LibUtilities::GetNumberOfCoefficients(LibUtilities::Quad, nm0, nm1);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(nmTot);
-        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
-        const unsigned int shmemsize =
-            sizeof(TData) *
-            BwdTransSharedMemorySize<LibUtilities::Quad, Implementation>(
-                nq0, nq1, nm0, nm1);
-        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
-
-        // Loop over components.
-        for (unsigned int n = 0;
-             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
-        {
-            // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
-
-            // BwdTrans kernel.
-            DEVICE_1DGRID_KERNEL_LAUNCHER(
-                (BwdTrans2DKernelLauncher<LibUtilities::Quad, Implementation,
-                                          nm0, nm1, nmTot, nq0, nq1>),
-                gridsize, blocksize, shmemsize, 0, nelmt, false, m_B[0], m_B[1],
-                nodToMod, inptr, outptr, wspptr);
+                gridsize, blocksize, shmemsize, 0, sizeParam2D, nelmt, false,
+                m_B[0], m_B[1], nodToMod, inptr, outptr, wspptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -539,15 +449,35 @@ protected:
     void Operator3D(BlockAccessor<TData, FieldState::Phys> &inblock,
                     BlockAccessor<TData, FieldState::Phys> &outblock)
     {
-        // Shape size.
-        const auto nm0 = m_nm[0];
-        const auto nm1 = m_nm[1];
-        const auto nm2 = m_nm[2];
+        const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(
+            LibUtilities::Hex, m_nm[0], m_nm[1], m_nm[2]);
 
-        const auto nq0 = m_nq[0];
-        const auto nq1 = m_nq[1];
-        const auto nq2 = m_nq[2];
+        Operator3D<>(inblock, outblock,
+                     NonTemplated3DSizeParameters(m_nm[0], m_nm[1], m_nm[2],
+                                                  nmTot, m_nq[0], m_nq[1],
+                                                  m_nq[2]));
+    }
 
+    // Size based template version.
+    template <unsigned int nm0, unsigned int nm1, unsigned int nm2,
+              unsigned int nq0, unsigned int nq1, unsigned int nq2>
+    void Operator3D(BlockAccessor<TData, FieldState::Phys> &inblock,
+                    BlockAccessor<TData, FieldState::Phys> &outblock)
+    {
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(
+            LibUtilities::Hex, nm0, nm1, nm2);
+
+        Operator3D<>(
+            inblock, outblock,
+            Templated3DSizeParameters<nm0, nm1, nm2, nmTot, nq0, nq1, nq2>());
+    }
+
+    template <typename SizeParameter3D>
+    NEK_FORCE_INLINE void Operator3D(
+        BlockAccessor<TData, FieldState::Phys> &inblock,
+        BlockAccessor<TData, FieldState::Phys> &outblock,
+        SizeParameter3D sizeParam3D)
+    {
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
@@ -559,7 +489,9 @@ protected:
         {
             if (m_wsp.size() == 0)
             {
-                m_wsp = SetWorkspace(LibUtilities::Hex, nelmt, nm0, nm1, nm2);
+                m_wsp =
+                    SetWorkspace(LibUtilities::Hex, nelmt, sizeParam3D.nm0(),
+                                 sizeParam3D.nm1(), sizeParam3D.nm2());
             }
         }
 
@@ -574,15 +506,14 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
-        const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(
-            LibUtilities::Hex, nm0, nm1, nm2);
         const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(nmTot);
+            GetDeviceBlockSize<Implementation>(sizeParam3D.nmTot());
         const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
         const unsigned int shmemsize =
             sizeof(TData) *
             BwdTransSharedMemorySize<LibUtilities::Hex, Implementation>(
-                nq0, nq1, nq2, nm0, nm1, nm2);
+                sizeParam3D.nq0(), sizeParam3D.nq1(), sizeParam3D.nq2(),
+                sizeParam3D.nm0(), sizeParam3D.nm1(), sizeParam3D.nm2());
         GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
         // Loop over components.
@@ -596,84 +527,9 @@ protected:
             // BwdTrans kernel.
             DEVICE_1DGRID_KERNEL_LAUNCHER(
                 (BwdTrans3DKernelLauncher<LibUtilities::Hex, Implementation>),
-                gridsize, blocksize, shmemsize, 0, nm0, nm1, nm2, nmTot, nq0,
-                nq1, nq2, nelmt, false, nullptr, nullptr, m_B[0], m_B[1],
-                m_B[2], nodToMod, inptr, outptr, wspptr);
-
-            // Reshape back, if necessary.
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(), outptr);
-
-            // Increment pointer.
-            inptr += inblock.CompSize();
-            outptr += outblock.CompSize();
-        }
-
-        // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
-    }
-
-    // Size based template version.
-    template <unsigned int nm0, unsigned int nm1, unsigned int nm2,
-              unsigned int nq0, unsigned int nq1, unsigned int nq2>
-    void Operator3D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, FieldState::Phys> &outblock)
-    {
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
-        // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        // Set workspace.
-        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
-        {
-            if (m_wsp.size() == 0)
-            {
-                m_wsp = SetWorkspace(LibUtilities::Hex, nelmt, nm0, nm1, nm2);
-            }
-        }
-
-        // Get workspace pointer.
-        auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
-                          ? m_wsp.template GetPtr<MemSpace, WriteOnly>()
-                          : nullptr;
-
-        const TData *nodToMod = nullptr;
-
-        // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-
-        // Set Kernel parameters.
-        const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(
-            LibUtilities::Hex, nm0, nm1, nm2);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(nmTot);
-        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
-        const unsigned int shmemsize =
-            sizeof(TData) *
-            BwdTransSharedMemorySize<LibUtilities::Hex, Implementation>(
-                nq0, nq1, nq2, nm0, nm1, nm2);
-        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
-
-        // Loop over components.
-        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
-        {
-            // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
-
-            // BwdTrans kernel.
-            DEVICE_1DGRID_KERNEL_LAUNCHER(
-                (BwdTrans3DKernelLauncher<LibUtilities::Hex, Implementation,
-                                          nm0, nm1, nm2, nmTot, nq0, nq1, nq2>),
-                gridsize, blocksize, shmemsize, 0, nelmt, false, nullptr,
-                nullptr, m_B[0], m_B[1], m_B[2], nodToMod, inptr, outptr,
-                wspptr);
+                gridsize, blocksize, shmemsize, 0, sizeParam3D, nelmt, false,
+                nullptr, nullptr, m_B[0], m_B[1], m_B[2], nodToMod, inptr,
+                outptr, wspptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,

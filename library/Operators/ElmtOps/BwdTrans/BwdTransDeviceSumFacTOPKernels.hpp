@@ -837,7 +837,7 @@ NEK_DEVICE_INLINE static void BwdTrans3DSumFacTOPKernel(
 template <typename Implementation, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
-    BwdTrans1DKernelLauncher(const unsigned int nm0, const unsigned int nq0,
+    BwdTrans1DKernelLauncher(const NonTemplated1DSizeParameters sizeParam1D,
                              const size_t nelmt,
                              const TData *__restrict__ basis0,
                              const TData *__restrict__ in,
@@ -846,8 +846,8 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    BwdTrans1DSumFacTOPKernel(nm0, nq0, nelmt, basis0, in, out, shmemptr,
-                              threadBlock);
+    BwdTrans1DSumFacTOPKernel(sizeParam1D.nm0(), sizeParam1D.nq0(), nelmt,
+                              basis0, in, out, shmemptr, threadBlock);
 }
 
 // Size based template version.
@@ -857,13 +857,11 @@ template <
     unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)>
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
-    __LAUNCH_BOUNDS__(maxThreadPerBlock)
-        BwdTrans1DKernelLauncher(const size_t nelmt,
-                                 const TData *__restrict__ basis0,
-                                 const TData *__restrict__ in,
-                                 TData *__restrict__ out,
-                                 unsigned char *shmemptr,
-                                 const TthreadBlock &threadBlock)
+    __LAUNCH_BOUNDS__(maxThreadPerBlock) BwdTrans1DKernelLauncher(
+        [[maybe_unused]] const Templated1DSizeParameters<nm0, nq0> sizeParam1D,
+        const size_t nelmt, const TData *__restrict__ basis0,
+        const TData *__restrict__ in, TData *__restrict__ out,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
@@ -876,20 +874,22 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
-    BwdTrans2DKernelLauncher(
-        const unsigned int nm0, const unsigned int nm1,
-        const unsigned int nmTot, const unsigned int nq0,
-        const unsigned int nq1, const size_t nelmt, const bool isModified,
-        const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-        const TData *__restrict__ nodToMod, const TData *__restrict__ in,
-        TData *__restrict__ out, TData *__restrict__ wsp,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+    BwdTrans2DKernelLauncher(const NonTemplated2DSizeParameters sizeParam2D,
+                             const size_t nelmt, const bool isModified,
+                             const TData *__restrict__ basis0,
+                             const TData *__restrict__ basis1,
+                             const TData *__restrict__ nodToMod,
+                             const TData *__restrict__ in,
+                             TData *__restrict__ out, TData *__restrict__ wsp,
+                             unsigned char *shmemptr,
+                             const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    BwdTrans2DSumFacTOPKernel<SHAPE_TYPE>(nm0, nm1, nmTot, nq0, nq1, nelmt,
-                                          isModified, basis0, basis1, nodToMod,
-                                          in, out, wsp, shmemptr, threadBlock);
+    BwdTrans2DSumFacTOPKernel<SHAPE_TYPE>(
+        sizeParam2D.nm0(), sizeParam2D.nm1(), sizeParam2D.nmTot(),
+        sizeParam2D.nq0(), sizeParam2D.nq1(), nelmt, isModified, basis0, basis1,
+        nodToMod, in, out, wsp, shmemptr, threadBlock);
 }
 
 // Size based template version.
@@ -902,6 +902,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     __LAUNCH_BOUNDS__(maxThreadPerBlock) BwdTrans2DKernelLauncher(
+        [[maybe_unused]] const Templated2DSizeParameters<nm0, nm1, nmTot, nq0,
+                                                         nq1>
+            sizeParam2D,
         const size_t nelmt, const bool isModified,
         const TData *__restrict__ basis0, const TData *__restrict__ basis1,
         const TData *__restrict__ nodToMod, const TData *__restrict__ in,
@@ -921,9 +924,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     BwdTrans3DKernelLauncher(
-        const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-        const unsigned int nmTot, const unsigned int nq0,
-        const unsigned int nq1, const unsigned int nq2, const size_t nelmt,
+        const NonTemplated3DSizeParameters sizeParam3D, const size_t nelmt,
         const bool isModified, const unsigned int *index0,
         const unsigned int *index1, const TData *__restrict__ basis0,
         const TData *__restrict__ basis1, const TData *__restrict__ basis2,
@@ -934,8 +935,10 @@ NEK_DEVICE_KERNEL
     FETCH_SHARED_MEMORY(shmemptr);
 
     BwdTrans3DSumFacTOPKernel<SHAPE_TYPE>(
-        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
-        basis0, basis1, basis2, nodToMod, in, out, wsp, shmemptr, threadBlock);
+        sizeParam3D.nm0(), sizeParam3D.nm1(), sizeParam3D.nm2(),
+        sizeParam3D.nmTot(), sizeParam3D.nq0(), sizeParam3D.nq1(),
+        sizeParam3D.nq2(), nelmt, isModified, index0, index1, basis0, basis1,
+        basis2, nodToMod, in, out, wsp, shmemptr, threadBlock);
 }
 
 // Size based template version.
@@ -948,6 +951,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     __LAUNCH_BOUNDS__(maxThreadPerBlock) BwdTrans3DKernelLauncher(
+        [[maybe_unused]] const Templated3DSizeParameters<nm0, nm1, nm2, nmTot,
+                                                         nq0, nq1, nq2>
+            sizeParam3D,
         const size_t nelmt, const bool isModified, const unsigned int *index0,
         const unsigned int *index1, const TData *__restrict__ basis0,
         const TData *__restrict__ basis1, const TData *__restrict__ basis2,

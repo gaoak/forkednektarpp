@@ -253,6 +253,21 @@ static unsigned int GetVectorWidth(const std::string &execName)
     }
 }
 
+// NEK_HOSTDEVICE_INLINE
+// Used to define a device function (e.g. a function launched
+// from a kernel function and executing on the device). All
+// device functions must be prefixed by the NEK_DEVICE_INLINE
+// decorator.
+#if defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)
+#define NEK_HOSTDEVICE_INLINE __host__ __device__ __forceinline__
+#elif defined(NEKTAR_ENABLE_HIP) && defined(DEVICE_COMPILE_ONLY)
+#define NEK_HOSTDEVICE_INLINE __host__ __device__ __forceinline__
+#elif defined(NEKTAR_ENABLE_SYCL)
+#define NEK_HOSTDEVICE_INLINE NEK_FORCE_INLINE
+#else
+#define NEK_HOSTDEVICE_INLINE NEK_FORCE_INLINE
+#endif
+
 // NEK_DEVICE_INLINE
 // Used to define a device function (e.g. a function launched
 // from a kernel function and executing on the device). All

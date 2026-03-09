@@ -618,8 +618,8 @@ template <typename Implementation, bool DEFORMED, typename TthreadBlock,
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     IProductWRTDerivBase1DKernelLauncher(
-        const unsigned int ncoord, const unsigned int nm0,
-        const unsigned int nq0, const size_t nelmt, const unsigned int inoffset,
+        NonTemplated1DSizeParameters sizeParam1D, const unsigned int ncoord,
+        const size_t nelmt, const unsigned int inoffset,
         const TData *__restrict__ dbasis0, const TData *__restrict__ w0,
         const TData *__restrict__ df, const TData *__restrict__ jac,
         const TData *__restrict__ in, TData *__restrict__ out,
@@ -629,8 +629,8 @@ NEK_DEVICE_KERNEL
     FETCH_SHARED_MEMORY(shmemptr);
 
     IProductWRTDerivBase1DSumFacTOPKernel<DEFORMED>(
-        ncoord, nm0, nq0, nelmt, inoffset, dbasis0, w0, df, jac, in, out, wsp,
-        shmemptr, threadBlock);
+        ncoord, sizeParam1D.nm0(), sizeParam1D.nq0(), nelmt, inoffset, dbasis0,
+        w0, df, jac, in, out, wsp, shmemptr, threadBlock);
 }
 
 // Size based template version.
@@ -641,6 +641,7 @@ template <
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     __LAUNCH_BOUNDS__(maxThreadPerBlock) IProductWRTDerivBase1DKernelLauncher(
+        [[maybe_unused]] Templated1DSizeParameters<nm0, nq0> sizeParam1D,
         const unsigned int ncoord, const size_t nelmt,
         const unsigned int inoffset, const TData *__restrict__ dbasis0,
         const TData *__restrict__ w0, const TData *__restrict__ df,
@@ -661,10 +662,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     IProductWRTDerivBase2DKernelLauncher(
-        const unsigned int ncoord, const unsigned int nm0,
-        const unsigned int nm1, const unsigned int nmTot,
-        const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
-        const unsigned int inoffset, const bool isModified,
+        NonTemplated2DSizeParameters sizeParam2D, const unsigned int ncoord,
+        const size_t nelmt, const unsigned int inoffset, const bool isModified,
         const unsigned int *__restrict__ index0,
         const TData *__restrict__ basis0, const TData *__restrict__ basis1,
         const TData *__restrict__ D0, const TData *__restrict__ D1,
@@ -678,9 +677,10 @@ NEK_DEVICE_KERNEL
     FETCH_SHARED_MEMORY(shmemptr);
 
     IProductWRTDerivBase2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-        ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, inoffset, isModified, index0,
-        basis0, basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, in, out, wsp,
-        shmemptr, threadBlock);
+        ncoord, sizeParam2D.nm0(), sizeParam2D.nm1(), sizeParam2D.nmTot(),
+        sizeParam2D.nq0(), sizeParam2D.nq1(), nelmt, inoffset, isModified,
+        index0, basis0, basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, in,
+        out, wsp, shmemptr, threadBlock);
 }
 
 // Size based template version.
@@ -693,6 +693,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     __LAUNCH_BOUNDS__(maxThreadPerBlock) IProductWRTDerivBase2DKernelLauncher(
+        [[maybe_unused]] Templated2DSizeParameters<nm0, nm1, nmTot, nq0, nq1>
+            sizeParam2D,
         const unsigned int ncoord, const size_t nelmt,
         const unsigned int inoffset, const bool isModified,
         const unsigned int *__restrict__ index0,
@@ -719,9 +721,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     IProductWRTDerivBase3DKernelLauncher(
-        const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-        const unsigned int nmTot, const unsigned int nq0,
-        const unsigned int nq1, const unsigned int nq2, const size_t nelmt,
+        NonTemplated3DSizeParameters sizeParam3D, const size_t nelmt,
         const unsigned int inoffset, const bool isModified,
         const unsigned int *__restrict__ index0,
         const unsigned int *__restrict__ index1,
@@ -741,10 +741,11 @@ NEK_DEVICE_KERNEL
     FETCH_SHARED_MEMORY(shmemptr);
 
     IProductWRTDerivBase3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, inoffset, isModified,
-        index0, index1, index2, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2,
-        f0, f1, f1m, f2, nodToMod, df, jac, in, out, wsp, shmemptr,
-        threadBlock);
+        sizeParam3D.nm0(), sizeParam3D.nm1(), sizeParam3D.nm2(),
+        sizeParam3D.nmTot(), sizeParam3D.nq0(), sizeParam3D.nq1(),
+        sizeParam3D.nq2(), nelmt, inoffset, isModified, index0, index1, index2,
+        basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2,
+        nodToMod, df, jac, in, out, wsp, shmemptr, threadBlock);
 }
 
 // Size based template version.
@@ -757,6 +758,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     __LAUNCH_BOUNDS__(maxThreadPerBlock) IProductWRTDerivBase3DKernelLauncher(
+        [[maybe_unused]] Templated3DSizeParameters<nm0, nm1, nm2, nmTot, nq0,
+                                                   nq1, nq2>,
         const size_t nelmt, const unsigned int inoffset, const bool isModified,
         const unsigned int *__restrict__ index0,
         const unsigned int *__restrict__ index1,

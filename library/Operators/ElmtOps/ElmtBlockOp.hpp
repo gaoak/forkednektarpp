@@ -155,4 +155,312 @@ NEK_FORCE_INLINE static constexpr unsigned int GetDeviceGridSize(
     }
 }
 
+struct NonTemplated1DPhysSizeParameters
+{
+    NonTemplated1DPhysSizeParameters(const unsigned int ncoord,
+                                     const unsigned int nq0)
+        : m_ncoord(ncoord), m_nq0(nq0)
+    {
+    }
+
+    NEK_HOSTDEVICE_INLINE unsigned int ncoord(void) const
+    {
+        return m_ncoord;
+    }
+    NEK_HOSTDEVICE_INLINE unsigned int nq0(void) const
+    {
+        return m_nq0;
+    }
+
+private:
+    unsigned int m_ncoord;
+    unsigned int m_nq0;
+};
+
+template <unsigned int tncoord, unsigned int tnq0>
+struct Templated1DPhysSizeParameters
+{
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int ncoord(void)
+    {
+        return tncoord;
+    }
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nq0(void)
+    {
+        return tnq0;
+    }
+};
+
+struct NonTemplated2DPhysSizeParameters
+{
+    NonTemplated2DPhysSizeParameters(const unsigned int ncoord,
+                                     const unsigned int nq0,
+                                     const unsigned int nq1)
+        : m_ncoord(ncoord), m_nq0(nq0), m_nq1(nq1)
+    {
+    }
+
+    NEK_HOSTDEVICE_INLINE unsigned int ncoord(void) const
+    {
+        return m_ncoord;
+    }
+    NEK_HOSTDEVICE_INLINE unsigned int nq0(void) const
+    {
+        return m_nq0;
+    }
+    NEK_HOSTDEVICE_INLINE unsigned int nq1(void) const
+    {
+        return m_nq1;
+    }
+
+private:
+    unsigned int m_ncoord;
+    unsigned int m_nq0;
+    unsigned int m_nq1;
+};
+
+template <unsigned int tncoord, unsigned int tnq0, unsigned int tnq1>
+struct Templated2DPhysSizeParameters
+{
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int ncoord(void)
+    {
+        return tncoord;
+    }
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nq0(void)
+    {
+        return tnq0;
+    }
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nq1(void)
+    {
+        return tnq1;
+    }
+};
+
+struct NonTemplated3DPhysSizeParameters
+{
+    NonTemplated3DPhysSizeParameters(const unsigned int nq0,
+                                     const unsigned int nq1,
+                                     const unsigned int nq2)
+        : m_nq0(nq0), m_nq1(nq1), m_nq2(nq2)
+    {
+    }
+
+    NEK_HOSTDEVICE_INLINE unsigned int nq0(void) const
+    {
+        return m_nq0;
+    }
+    NEK_HOSTDEVICE_INLINE unsigned int nq1(void) const
+    {
+        return m_nq1;
+    }
+    NEK_HOSTDEVICE_INLINE unsigned int nq2(void) const
+    {
+        return m_nq2;
+    }
+
+private:
+    unsigned int m_nq0;
+    unsigned int m_nq1;
+    unsigned int m_nq2;
+};
+
+template <unsigned int tnq0, unsigned int tnq1, unsigned int tnq2>
+struct Templated3DPhysSizeParameters
+{
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nq0(void)
+    {
+        return tnq0;
+    }
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nq1(void)
+    {
+        return tnq1;
+    }
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nq2(void)
+    {
+        return tnq2;
+    }
+};
+
+struct NonTemplated1DSizeParameters
+{
+    NonTemplated1DSizeParameters(const unsigned int nm0, const unsigned int nq0)
+        : m_nm0(nm0), m_nq0(nq0)
+    {
+    }
+
+    NEK_HOSTDEVICE_INLINE unsigned int nm0(void) const
+    {
+        return m_nm0;
+    }
+    NEK_HOSTDEVICE_INLINE unsigned int nq0(void) const
+    {
+        return m_nq0;
+    }
+
+private:
+    unsigned int m_nm0;
+    unsigned int m_nq0;
+};
+
+template <unsigned int tnm0, unsigned int tnq0> struct Templated1DSizeParameters
+{
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nm0(void)
+    {
+        return tnm0;
+    }
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nq0(void)
+    {
+        return tnq0;
+    }
+};
+
+struct NonTemplated2DSizeParameters
+{
+    NonTemplated2DSizeParameters(const unsigned int nm0, const unsigned int nm1,
+                                 const unsigned int nmTot,
+                                 const unsigned int nq0, const unsigned int nq1)
+        : m_nm0(nm0), m_nm1(nm1), m_nmTot(nmTot), m_nq0(nq0), m_nq1(nq1)
+    {
+    }
+
+    NEK_HOSTDEVICE_INLINE unsigned int nm0(void) const
+    {
+        return m_nm0;
+    }
+    NEK_HOSTDEVICE_INLINE unsigned int nm1(void) const
+    {
+        return m_nm1;
+    }
+    NEK_HOSTDEVICE_INLINE unsigned int nmTot(void) const
+    {
+        return m_nmTot;
+    }
+    NEK_HOSTDEVICE_INLINE unsigned int nq0(void) const
+    {
+        return m_nq0;
+    }
+    NEK_HOSTDEVICE_INLINE unsigned int nq1(void) const
+    {
+        return m_nq1;
+    }
+
+private:
+    unsigned int m_nm0;
+    unsigned int m_nm1;
+    unsigned int m_nmTot;
+    unsigned int m_nq0;
+    unsigned int m_nq1;
+};
+
+template <unsigned int tnm0, unsigned int tnm1, unsigned int tnmTot,
+          unsigned int tnq0, unsigned int tnq1>
+struct Templated2DSizeParameters
+{
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nm0(void)
+    {
+        return tnm0;
+    }
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nm1(void)
+    {
+        return tnm1;
+    }
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nmTot(void)
+    {
+        return tnmTot;
+    }
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nq0(void)
+    {
+        return tnq0;
+    }
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nq1(void)
+    {
+        return tnq1;
+    }
+};
+
+struct NonTemplated3DSizeParameters
+{
+    NonTemplated3DSizeParameters(const unsigned int nm0, const unsigned int nm1,
+                                 const unsigned int nm2,
+                                 const unsigned int nmTot,
+                                 const unsigned int nq0, const unsigned int nq1,
+                                 const unsigned int nq2)
+        : m_nm0(nm0), m_nm1(nm1), m_nm2(nm2), m_nmTot(nmTot), m_nq0(nq0),
+          m_nq1(nq1), m_nq2(nq2)
+    {
+    }
+
+    NEK_HOSTDEVICE_INLINE unsigned int nm0(void) const
+    {
+        return m_nm0;
+    }
+    NEK_HOSTDEVICE_INLINE unsigned int nm1(void) const
+    {
+        return m_nm1;
+    }
+    NEK_HOSTDEVICE_INLINE unsigned int nm2(void) const
+    {
+        return m_nm2;
+    }
+    NEK_HOSTDEVICE_INLINE unsigned int nmTot(void) const
+    {
+        return m_nmTot;
+    }
+    NEK_HOSTDEVICE_INLINE unsigned int nq0(void) const
+    {
+        return m_nq0;
+    }
+    NEK_HOSTDEVICE_INLINE unsigned int nq1(void) const
+    {
+        return m_nq1;
+    }
+    NEK_HOSTDEVICE_INLINE unsigned int nq2(void) const
+    {
+        return m_nq2;
+    }
+
+private:
+    unsigned int m_nm0;
+    unsigned int m_nm1;
+    unsigned int m_nm2;
+    unsigned int m_nmTot;
+    unsigned int m_nq0;
+    unsigned int m_nq1;
+    unsigned int m_nq2;
+};
+
+template <unsigned int tnm0, unsigned int tnm1, unsigned int tnm2,
+          unsigned int tnmTot, unsigned int tnq0, unsigned int tnq1,
+          unsigned int tnq2>
+struct Templated3DSizeParameters
+{
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nm0(void)
+    {
+        return tnm0;
+    }
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nm1(void)
+    {
+        return tnm1;
+    }
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nm2(void)
+    {
+        return tnm2;
+    }
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nmTot(void)
+    {
+        return tnmTot;
+    }
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nq0(void)
+    {
+        return tnq0;
+    }
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nq1(void)
+    {
+        return tnq1;
+    }
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nq2(void)
+    {
+        return tnq2;
+    }
+};
+
 } // namespace Nektar::Operators
