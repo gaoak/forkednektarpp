@@ -38,7 +38,7 @@ using namespace std;
 
 namespace Nektar::MultiRegions
 {
-std::string GlobalLinSysIterative::IteratSolverlookupIds[4] = {
+std::string GlobalLinSysIterative::IteratSolverlookupIds[5] = {
     LibUtilities::SessionReader::RegisterEnumValue(
         "LinSysIterSolver", "ConjugateGradient",
         MultiRegions::eConjugateGradient),
@@ -49,6 +49,8 @@ std::string GlobalLinSysIterative::IteratSolverlookupIds[4] = {
                                                    MultiRegions::eGMRES),
     LibUtilities::SessionReader::RegisterEnumValue(
         "LinSysIterSolver", "GMRESLoc", MultiRegions::eGMRESLoc),
+    LibUtilities::SessionReader::RegisterEnumValue(
+        "LinSysIterSolver", "EvsDirect", MultiRegions::eDirectEigenValues),
 };
 
 std::string GlobalLinSysIterative::IteratSolverdef =
@@ -100,8 +102,8 @@ GlobalLinSysIterative::GlobalLinSysIterative(
             "to suppress this warning.");
     }
 
-    if (m_isAconjugate && m_linSysIterSolver.compare("GMRES") == 0 &&
-        m_linSysIterSolver.compare("GMRESLoc") == 0)
+    if (m_isAconjugate && !m_linSysIterSolver.compare("GMRES") &&
+        !m_linSysIterSolver.compare("GMRESLoc"))
     {
         WARNINGL0(false, "To use A-conjugate projection, the matrix "
                          "should be symmetric positive definite.");

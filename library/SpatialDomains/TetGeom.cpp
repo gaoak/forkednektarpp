@@ -127,7 +127,7 @@ void TetGeom::SetUpLocalEdges()
         errstrm << " must be the same as local edge 0 (eid="
                 << m_faces[1]->GetEid(0);
         errstrm << ") on face " << m_faces[1]->GetGlobalID();
-        ASSERTL0(false, errstrm.str());
+        NEKERROR(ErrorUtil::efatal, errstrm.str());
     }
 
     int faceConnected;
@@ -151,7 +151,7 @@ void TetGeom::SetUpLocalEdges()
                        "adjacent face. Faces ";
             errstrm << (m_faces[0])->GetGlobalID() << ", "
                     << (m_faces[faceConnected])->GetGlobalID();
-            ASSERTL0(false, errstrm.str());
+            NEKERROR(ErrorUtil::efatal, errstrm.str());
         }
         else if (check > 1)
         {
@@ -159,7 +159,7 @@ void TetGeom::SetUpLocalEdges()
             errstrm << "Connected faces share more than one edge. Faces ";
             errstrm << (m_faces[0])->GetGlobalID() << ", "
                     << (m_faces[faceConnected])->GetGlobalID();
-            ASSERTL0(false, errstrm.str());
+            NEKERROR(ErrorUtil::efatal, errstrm.str());
         }
     }
 
@@ -182,7 +182,7 @@ void TetGeom::SetUpLocalEdges()
         errstrm << "Connected faces do not share an edge. Faces ";
         errstrm << (m_faces[1])->GetGlobalID() << ", "
                 << (m_faces[3])->GetGlobalID();
-        ASSERTL0(false, errstrm.str());
+        NEKERROR(ErrorUtil::efatal, errstrm.str());
     }
     else if (check > 1)
     {
@@ -190,7 +190,7 @@ void TetGeom::SetUpLocalEdges()
         errstrm << "Connected faces share more than one edge. Faces ";
         errstrm << (m_faces[1])->GetGlobalID() << ", "
                 << (m_faces[3])->GetGlobalID();
-        ASSERTL0(false, errstrm.str());
+        NEKERROR(ErrorUtil::efatal, errstrm.str());
     }
     // Set up vertical edges: face(1) through face(3)
     for (faceConnected = 1; faceConnected < 3; faceConnected++)
@@ -216,7 +216,7 @@ void TetGeom::SetUpLocalEdges()
             errstrm << "Connected faces do not share an edge. Faces ";
             errstrm << (m_faces[faceConnected])->GetGlobalID() << ", "
                     << (m_faces[faceConnected + 1])->GetGlobalID();
-            ASSERTL0(false, errstrm.str());
+            NEKERROR(ErrorUtil::efatal, errstrm.str());
         }
         else if (check > 1)
         {
@@ -224,7 +224,7 @@ void TetGeom::SetUpLocalEdges()
             errstrm << "Connected faces share more than one edge. Faces ";
             errstrm << (m_faces[faceConnected])->GetGlobalID() << ", "
                     << (m_faces[faceConnected + 1])->GetGlobalID();
-            ASSERTL0(false, errstrm.str());
+            NEKERROR(ErrorUtil::efatal, errstrm.str());
         }
     }
 }
@@ -251,7 +251,7 @@ void TetGeom::SetUpLocalVertices()
         errstrm << "Connected edges do not share a vertex. Edges ";
         errstrm << m_edges[0]->GetGlobalID() << ", "
                 << m_edges[1]->GetGlobalID();
-        ASSERTL0(false, errstrm.str());
+        NEKERROR(ErrorUtil::efatal, errstrm.str());
     }
 
     // set up the other bottom vertices (i.e. vertex 2)
@@ -271,7 +271,7 @@ void TetGeom::SetUpLocalVertices()
             errstrm << "Connected edges do not share a vertex. Edges ";
             errstrm << m_edges[i]->GetGlobalID() << ", "
                     << m_edges[i - 1]->GetGlobalID();
-            ASSERTL0(false, errstrm.str());
+            NEKERROR(ErrorUtil::efatal, errstrm.str());
         }
     }
 
@@ -303,7 +303,7 @@ void TetGeom::SetUpLocalVertices()
         errstrm << "Connected edges do not share a vertex. Edges ";
         errstrm << m_edges[3]->GetGlobalID() << ", "
                 << m_edges[2]->GetGlobalID();
-        ASSERTL0(false, errstrm.str());
+        NEKERROR(ErrorUtil::efatal, errstrm.str());
     }
 }
 
@@ -330,7 +330,8 @@ void TetGeom::SetUpEdgeOrientation()
         }
         else
         {
-            ASSERTL0(false, "Could not find matching vertex for the edge");
+            NEKERROR(ErrorUtil::efatal,
+                     "Could not find matching vertex for the edge");
         }
     }
 }
@@ -393,15 +394,13 @@ void TetGeom::SetUpFaceOrientation()
 
         baseVertex = m_faces[f]->GetVid(0);
 
-        // We are going to construct the vectors representing the A and B axis
-        // of every face. These vectors will be constructed as a
-        // vector-representation
-        // of the edges of the face. However, for both coordinate directions, we
-        // can
-        // represent the vectors by two different edges. That's why we need to
-        // make sure that
-        // we pick the edge to which the baseVertex of the
-        // Geometry2D-representation of the face
+        // We are going to construct the vectors representing the A
+        // and B axis of every face. These vectors will be constructed
+        // as a vector-representation of the edges of the
+        // face. However, for both coordinate directions, we can
+        // represent the vectors by two different edges. That's why we
+        // need to make sure that we pick the edge to which the
+        // baseVertex of the Geometry2D-representation of the face
         // belongs...
 
         // Compute the length of edges on a base-face
@@ -437,7 +436,8 @@ void TetGeom::SetUpFaceOrientation()
         }
         else
         {
-            ASSERTL0(false, "Could not find matching vertex for the face");
+            NEKERROR(ErrorUtil::efatal,
+                     "Could not find matching vertex for the face");
         }
 
         // Now, construct the edge-vectors of the local coordinates of
@@ -492,8 +492,11 @@ void TetGeom::SetUpFaceOrientation()
             norm = fabs(dotproduct2) / elementBaxis_length / faceBaxis_length;
 
             // check that both these axis are indeed parallel
-            ASSERTL1(fabs(norm - 1.0) < NekConstants::kNekZeroTol,
-                     "These vectors should be parallel");
+            if (fabs(norm - 1.0) >= NekConstants::kNekZeroTol)
+            {
+                NEKERROR(ErrorUtil::ewarning,
+                         "These vectors should be parallel");
+            }
 
             // if the inner product is negative, both B-axis point
             // in reverse direction
@@ -518,8 +521,11 @@ void TetGeom::SetUpFaceOrientation()
             norm = fabs(dotproduct1) / elementAaxis_length / faceBaxis_length;
 
             // check that both these axis are indeed parallel
-            ASSERTL1(fabs(norm - 1.0) < NekConstants::kNekZeroTol,
-                     "These vectors should be parallel");
+            if (fabs(norm - 1.0) >= NekConstants::kNekZeroTol)
+            {
+                NEKERROR(ErrorUtil::ewarning,
+                         "These vectors should be parallel");
+            }
 
             // if the result is negative, both axis point in reverse
             // directions
@@ -538,8 +544,11 @@ void TetGeom::SetUpFaceOrientation()
             norm = fabs(dotproduct2) / elementBaxis_length / faceAaxis_length;
 
             // check that both these axis are indeed parallel
-            ASSERTL1(fabs(norm - 1.0) < NekConstants::kNekZeroTol,
-                     "These vectors should be parallel");
+            if (fabs(norm - 1.0) >= NekConstants::kNekZeroTol)
+            {
+                NEKERROR(ErrorUtil::ewarning,
+                         "These vectors should be parallel");
+            }
 
             if (dotproduct2 < 0.0)
             {

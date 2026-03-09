@@ -736,6 +736,14 @@ void DisContField3DHomogeneous1D::v_EvaluateBoundaryConditions(
     }
 }
 
+void DisContField3DHomogeneous1D::v_SetBCsToHomogeneous(void)
+{
+    for (int n = 0; n < m_planes.size(); ++n)
+    {
+        m_planes[n]->SetBCsToHomogeneous();
+    }
+}
+
 const Array<OneD, const MultiRegions::ExpListSharedPtr> &
 DisContField3DHomogeneous1D::v_GetBndCondExpansions(void)
 {

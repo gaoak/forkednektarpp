@@ -265,10 +265,6 @@ void NodalPrismElec::NodalPointReorder3d()
                     iFace_0354.push_back(index);
                 }
             }
-            else
-            {
-                interiorVolumePoints.push_back(index);
-            }
         }
     }
 
@@ -301,6 +297,25 @@ void NodalPrismElec::NodalPointReorder3d()
             std::swap(iFace_0354[i * (npts - 2) + j],
                       iFace_0354[j * (npts - 2) + i]);
         }
+    }
+
+    // set up interior modes, currently going fastest in x-z plane not x-y plane
+
+    // end triangular points and vertices + edges of next layer
+    size_t index = npts * (npts + 1) / 2 + 3 * (npts - 1);
+
+    for (size_t k = 0; k < npts - 2; k++)
+    {
+        size_t index1 = index;
+        for (size_t j = 0; j < npts - 2; j++)
+        {
+            for (size_t i = 0; i < npts - 3 - k; i++)
+            {
+                interiorVolumePoints.push_back(index1++);
+            }
+            index1 += npts * (npts + 1) / 2 - (npts - 3 - k);
+        }
+        index += npts - 3 - k;
     }
 
     for (size_t n = 0; n < vertex.size(); ++n)

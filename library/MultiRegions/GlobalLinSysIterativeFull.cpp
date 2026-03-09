@@ -67,7 +67,8 @@ GlobalLinSysIterativeFull::GlobalLinSysIterativeFull(
     const GlobalLinSysKey &pKey, const std::weak_ptr<ExpList> &pExp,
     const std::shared_ptr<AssemblyMap> &pLocToGloMap)
     : GlobalLinSys(pKey, pExp, pLocToGloMap),
-      GlobalLinSysIterative(pKey, pExp, pLocToGloMap)
+      GlobalLinSysIterative(pKey, pExp, pLocToGloMap),
+      m_locToGloMap(pLocToGloMap)
 {
     ASSERTL1(m_linSysKey.GetGlobalSysSolnType() == eIterativeFull,
              "This routine should only be used when using an Iterative "
@@ -198,6 +199,9 @@ void GlobalLinSysIterativeFull::v_DoMatrixMultiply(
     }
     else
     {
+        ASSERTL1(pInput.size() >= asmMap->GetNumGlobalCoeffs(),
+                 "Input array is not of suffiicent length "
+                 "to support GlobalToLocal Call");
         InputLoc  = Array<OneD, NekDouble>(ncoeffs);
         OutputLoc = Array<OneD, NekDouble>(ncoeffs);
 
@@ -241,15 +245,9 @@ void GlobalLinSysIterativeFull::v_UniqueMap()
     m_map = m_locToGloMap.lock()->GetGlobalToUniversalMapUnique();
 }
 
-/**
- *
- */
-void GlobalLinSysIterativeFull::v_SolveLinearSystem(
-    const int nGlobal, const Array<OneD, const NekDouble> &pInput,
-    Array<OneD, NekDouble> &pOutput, const AssemblyMapSharedPtr &plocToGloMap,
-    const int nDir)
+void GlobalLinSysIterativeFull::Initialise(
+    const int nGlobal, const AssemblyMapSharedPtr &plocToGloMap, const int nDir)
 {
-
     if (!m_linsol)
     {
         LibUtilities::CommSharedPtr vRowComm =
@@ -343,6 +341,17 @@ void GlobalLinSysIterativeFull::v_SolveLinearSystem(
         m_precon = CreatePrecon(plocToGloMap);
         m_precon->BuildPreconditioner();
     }
+}
+
+/**
+ *
+ */
+void GlobalLinSysIterativeFull::v_SolveLinearSystem(
+    const int nGlobal, const Array<OneD, const NekDouble> &pInput,
+    Array<OneD, NekDouble> &pOutput, const AssemblyMapSharedPtr &plocToGloMap,
+    const int nDir)
+{
+    Initialise(nGlobal, plocToGloMap, nDir);
 
     m_linsol->SetRhsMagnitude(m_isAbsoluteTolerance ? 1.0 : m_rhs_magnitude);
 
@@ -366,6 +375,7 @@ void GlobalLinSysIterativeFull::v_SolveLinearSystem(
         {
             Array<OneD, NekDouble> gloIn(nGlobal);
             Array<OneD, NekDouble> gloOut(nGlobal, 0.0);
+
             plocToGloMap->Assemble(pInput, gloIn);
             m_linsol->SolveSystem(nGlobal, gloIn, gloOut, nDir);
             plocToGloMap->GlobalToLocal(gloOut, pOutput);

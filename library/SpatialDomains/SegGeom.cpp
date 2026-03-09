@@ -182,7 +182,10 @@ LibUtilities::ShapeType SegGeom::v_GetShapeType() const
 NekDouble SegGeom::v_GetCoord(const int i,
                               const Array<OneD, const NekDouble> &Lcoord)
 {
-    ASSERTL1(m_state == ePtsFilled, "Geometry is not in physical space");
+    if (m_state != ePtsFilled)
+    {
+        NEKERROR(ErrorUtil::ewarning, "Geometry is not in physical space");
+    }
 
     Array<OneD, NekDouble> tmp(m_xmap->GetTotPoints());
     m_xmap->BwdTrans(m_coeffs[i], tmp);
@@ -223,7 +226,7 @@ StdRegions::Orientation SegGeom::GetEdgeOrientation(const SegGeom &edge1,
         std::ostringstream errstrm;
         errstrm << "Connected edges do not share a vertex. Edges ";
         errstrm << edge1.GetGlobalID() << ", " << edge2.GetGlobalID();
-        ASSERTL0(false, errstrm.str());
+        NEKERROR(ErrorUtil::efatal, errstrm.str());
     }
 
     return returnval;
@@ -503,7 +506,7 @@ NekDouble SegGeom::v_FindDistance(const Array<OneD, const NekDouble> &xs,
     }
     else
     {
-        ASSERTL0(false, "Geometry type unknown")
+        NEKERROR(ErrorUtil::efatal, "Geometry type unknown");
     }
 
     return -1.0;

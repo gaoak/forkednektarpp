@@ -173,6 +173,36 @@ public:
     {
     }
 
+    // set up mapping from point ordering (vert,edge,face int) to
+    // increasing point ordering in cartesizan type format
+    LIB_UTILITIES_EXPORT static void CartesianOrdering(const int nq,
+                                                       Array<OneD, int> &sorted)
+    {
+        sorted        = Array<OneD, int>(nq * (nq + 1) / 2, -1);
+        int cnt       = 0;
+        sorted[cnt++] = 0;               /* vertex 0  */
+        for (int i = 0; i < nq - 2; ++i) // edge 0
+        {
+            sorted[cnt++] = 3 + i;
+        }
+        sorted[cnt++] = 1; // vertex 1
+        int cnt1      = 0;
+        for (int j = 0; j < nq - 2; ++j)
+        {
+            // edge 2 (counter-clockwise ordering)
+            sorted[cnt++] = 3 + 2 * (nq - 2) + nq - 3 - j;
+            for (int i = 0; i < nq - 3 - j; ++i) // face 0
+            {
+                sorted[cnt++] = 3 + 3 * (nq - 2) + cnt1++;
+            }
+            sorted[cnt++] = 3 + (nq - 2) + j; // edge 1
+        }
+        sorted[cnt++] = 2; /* vertex 2  */
+
+        ASSERTL1(cnt == nq * (nq + 1) / 2,
+                 "No of sorted points not the same as number in expansion");
+    }
+
 protected:
     /// Mapping from the \f$ (i,j) \f$ indexing of the basis to a continuous
     /// ordering.
@@ -221,6 +251,65 @@ public:
     {
     }
 
+    // set up mapping from point ordering (vert,edge,face int) to
+    // increasing point ordering in cartesizan type format
+    LIB_UTILITIES_EXPORT static void CartesianOrdering(const int nq,
+                                                       Array<OneD, int> &sorted)
+    {
+        sorted        = Array<OneD, int>(nq * (nq + 1) * (nq + 2) / 6, -1);
+        int cnt       = 0;
+        sorted[cnt++] = 0;               /* vertex 0  */
+        for (int i = 0; i < nq - 2; ++i) // edge 0
+        {
+            sorted[cnt++] = 4 + i;
+        }
+        sorted[cnt++] = 1; // vertex 1
+        int cnt1      = 0;
+        for (int j = 0; j < nq - 2; ++j)
+        {
+            sorted[cnt++] = 4 + 2 * (nq - 2) + nq - 3 -
+                            j; // edge 2 (counter-clockwise ordering)
+            for (int i = 0; i < nq - 3 - j; ++i) // face 0
+            {
+                sorted[cnt++] = 4 + 6 * (nq - 2) + cnt1++;
+            }
+            sorted[cnt++] = 4 + (nq - 2) + j; // edge 1
+        }
+        sorted[cnt++] = 2; /* vertex 2  */
+
+        cnt1     = 0;
+        int cnt2 = 0;
+        int cnt3 = 0;
+        int cint = 0;
+        for (int k = 0; k < nq - 2; ++k)
+        {
+            sorted[cnt++] = 4 + 3 * (nq - 2) + k; // edge 3
+            for (int i = 0; i < nq - 3 - k; ++i)  // face 1
+            {
+                sorted[cnt++] =
+                    4 + 6 * (nq - 2) + (nq - 3) * (nq - 2) / 2 + cnt1++;
+            }
+            sorted[cnt++] = 4 + 4 * (nq - 2) + k; // edge 4
+
+            for (int j = 0; j < nq - 3 - k; ++j)
+            {
+                sorted[cnt++] = 4 + 6 * (nq - 2) + 3 * (nq - 3) * (nq - 2) / 2 +
+                                cnt3++;                  // face 3
+                for (int i = 0; i < nq - 4 - k - j; ++i) /* int */
+                {
+                    sorted[cnt++] =
+                        4 + 6 * (nq - 2) + 4 * (nq - 3) * (nq - 2) / 2 + cint++;
+                }
+                sorted[cnt++] = 4 + 6 * (nq - 2) + 2 * (nq - 3) * (nq - 2) / 2 +
+                                cnt2++; // face 2
+            }
+            sorted[cnt++] = 4 + 5 * (nq - 2) + k; // edge 5
+        }
+        sorted[cnt++] = 3; /* vertex 3  */
+        ASSERTL1(cnt == nq * (nq + 1) * (nq + 2) / 6,
+                 "No of sorted points not the same as number in expansion");
+    }
+
 protected:
     /// Mapping from the \f$ (i,j,k) \f$ indexing of the basis to a continuous
     /// ordering.
@@ -267,6 +356,86 @@ public:
 
     LIB_UTILITIES_EXPORT ~NodalUtilPrism() override
     {
+    }
+
+    // set up mapping from point ordering (vert,edge,face int) to
+    // increasing point ordering in cartesizan type format
+    LIB_UTILITIES_EXPORT static void CartesianOrdering(const int nq,
+                                                       Array<OneD, int> &sorted)
+    {
+        sorted        = Array<OneD, int>(nq * nq * (nq + 11) / 2, -1);
+        int cnt       = 0;
+        sorted[cnt++] = 0;               /* vertex 0  */
+        for (int i = 0; i < nq - 2; ++i) // edge 0
+        {
+            sorted[cnt++] = 6 + i;
+        }
+        sorted[cnt++] = 1; // vertex 1
+        int cnt1      = 0;
+        for (int j = 0; j < nq - 2; ++j)
+        {
+            sorted[cnt++] = 6 + 3 * (nq - 2) + nq - 3 -
+                            j; // edge 3 (counter-clockwise ordering)
+            for (int i = 0; i < nq - 2; ++i) // face 0
+            {
+                sorted[cnt++] = 6 + 9 * (nq - 2) + cnt1++;
+            }
+            sorted[cnt++] = 6 + (nq - 2) + j; // edge 1
+        }
+        sorted[cnt++] = 3;               /* vertex 3  */
+        for (int i = 0; i < nq - 2; ++i) // edge 2 (counter-clockwise ordering)
+        {
+            sorted[cnt++] = 6 + 2 * (nq - 2) + nq - 3 - i;
+        }
+        sorted[cnt++] = 2; /* vertex 2  */
+
+        cnt1     = 0;
+        int cnt2 = 0;
+        int cnt3 = 0;
+        int cnt4 = 0;
+        int cint = 0;
+        for (int k = 0; k < nq - 2; ++k)
+        {
+            sorted[cnt++] = 6 + 4 * (nq - 2) + k; // edge 4
+            for (int i = 0; i < nq - 3 - k; ++i)  // face 1
+            {
+                sorted[cnt++] = 6 + 9 * (nq - 2) + (nq - 2) * (nq - 2) + cnt1++;
+            }
+            sorted[cnt++] = 6 + 5 * (nq - 2) + k; // edge 5
+
+            for (int j = 0; j < nq - 2; ++j)
+            {
+                sorted[cnt++] = 6 + 9 * (nq - 2) + 2 * (nq - 3) * (nq - 2) / 2 +
+                                2 * (nq - 2) * (nq - 2) + cnt4++; // face 4
+
+                for (int i = 0; i < nq - 3 - k; ++i) /* int */
+                {
+                    sorted[cnt++] = 6 + 9 * (nq - 2) +
+                                    2 * (nq - 3) * (nq - 2) / 2 +
+                                    3 * (nq - 2) * (nq - 2) + cint++;
+                }
+                sorted[cnt++] = 6 + 9 * (nq - 2) + (nq - 3) * (nq - 2) / 2 +
+                                (nq - 2) * (nq - 2) + cnt2++; // face 2
+            }
+
+            sorted[cnt++] = 6 + 7 * (nq - 2) + k; // edge 7
+            for (int i = 0; i < nq - 3 - k; ++i)  // face 3
+            {
+                sorted[cnt++] = 6 + 9 * (nq - 2) + (nq - 3) * (nq - 2) / 2 +
+                                2 * (nq - 2) * (nq - 2) + cnt3++;
+            }
+            sorted[cnt++] = 6 + 6 * (nq - 2) + k; // edge 6
+        }
+
+        sorted[cnt++] = 4;               /* vertex 4  */
+        for (int j = 0; j < nq - 2; ++j) // edge 8
+        {
+            sorted[cnt++] = 6 + 8 * (nq - 2) + j;
+        }
+        sorted[cnt++] = 5; /* vertex 5  */
+
+        ASSERTL1(cnt == nq * nq * (nq + 1) / 2,
+                 "No of sorted points not the same as number in expansion");
     }
 
 protected:

@@ -232,13 +232,6 @@ public:
         v_GetTracePhysMap(edge, outarray);
     }
 
-    inline void ReOrientTracePhysMap(const StdRegions::Orientation orient,
-                                     Array<OneD, int> &idmap, const int nq0,
-                                     const int nq1, bool Forwards = true)
-    {
-        v_ReOrientTracePhysMap(orient, idmap, nq0, nq1, Forwards);
-    }
-
     inline void ReOrientTracePhysVals(const StdRegions::Orientation orient,
                                       const Array<OneD, const NekDouble> &in,
                                       Array<OneD, NekDouble> &out,
@@ -441,10 +434,6 @@ protected:
         const NekDouble *inarray, Array<OneD, NekDouble> &outarray);
 
     virtual void v_GetTracePhysMap(const int edge, Array<OneD, int> &outarray);
-
-    virtual void v_ReOrientTracePhysMap(const StdRegions::Orientation orient,
-                                        Array<OneD, int> &idmap, const int nq0,
-                                        const int nq1, bool Forwards);
 
     virtual void v_ReOrientTracePhysVals(const StdRegions::Orientation orient,
                                          const Array<OneD, const NekDouble> &in,

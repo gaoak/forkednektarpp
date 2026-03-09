@@ -554,4 +554,38 @@ void StdExpansion2D::v_PhysInterp(std::shared_ptr<StdExpansion> fromExp,
                                m_base[1]->GetPointsKey(), toData);
     }
 }
+
+void StdExpansion2D::v_ReOrientTracePhysMap(
+    const StdRegions::Orientation orient, Array<OneD, int> &idmap,
+    const int nq0, [[maybe_unused]] const int nq1,
+    [[maybe_unused]] bool Forwards)
+{
+    if (idmap.size() != nq0)
+    {
+        idmap = Array<OneD, int>(nq0);
+    }
+    switch (orient)
+    {
+        case StdRegions::eForwards:
+            // Fwd
+            for (int i = 0; i < nq0; ++i)
+            {
+                idmap[i] = i;
+            }
+            break;
+        case StdRegions::eBackwards:
+        {
+            // Bwd
+            for (int i = 0; i < nq0; ++i)
+            {
+                idmap[i] = nq0 - 1 - i;
+            }
+        }
+        break;
+        default:
+            ASSERTL0(false, "Unknown orientation");
+            break;
+    }
+}
+
 } // namespace Nektar::StdRegions

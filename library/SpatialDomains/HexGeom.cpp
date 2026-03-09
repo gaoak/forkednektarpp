@@ -227,7 +227,7 @@ void HexGeom::SetUpLocalEdges()
             errstrm << "Connected faces do not share an edge. Faces ";
             errstrm << (m_faces[0])->GetGlobalID() << ", "
                     << (m_faces[f])->GetGlobalID();
-            ASSERTL0(false, errstrm.str());
+            NEKERROR(ErrorUtil::efatal, errstrm.str());
         }
         else if (check > 1)
         {
@@ -235,7 +235,7 @@ void HexGeom::SetUpLocalEdges()
             errstrm << "Connected faces share more than one edge. Faces ";
             errstrm << (m_faces[0])->GetGlobalID() << ", "
                     << (m_faces[f])->GetGlobalID();
-            ASSERTL0(false, errstrm.str());
+            NEKERROR(ErrorUtil::efatal, errstrm.str());
         }
     }
 
@@ -258,7 +258,7 @@ void HexGeom::SetUpLocalEdges()
         errstrm << "Connected faces do not share an edge. Faces ";
         errstrm << (m_faces[1])->GetGlobalID() << ", "
                 << (m_faces[4])->GetGlobalID();
-        ASSERTL0(false, errstrm.str());
+        NEKERROR(ErrorUtil::efatal, errstrm.str());
     }
     else if (check > 1)
     {
@@ -266,7 +266,7 @@ void HexGeom::SetUpLocalEdges()
         errstrm << "Connected faces share more than one edge. Faces ";
         errstrm << (m_faces[1])->GetGlobalID() << ", "
                 << (m_faces[4])->GetGlobalID();
-        ASSERTL0(false, errstrm.str());
+        NEKERROR(ErrorUtil::efatal, errstrm.str());
     }
     for (f = 1; f < 4; f++)
     {
@@ -290,7 +290,7 @@ void HexGeom::SetUpLocalEdges()
             errstrm << "Connected faces do not share an edge. Faces ";
             errstrm << (m_faces[f])->GetGlobalID() << ", "
                     << (m_faces[f + 1])->GetGlobalID();
-            ASSERTL0(false, errstrm.str());
+            NEKERROR(ErrorUtil::efatal, errstrm.str());
         }
         else if (check > 1)
         {
@@ -298,7 +298,7 @@ void HexGeom::SetUpLocalEdges()
             errstrm << "Connected faces share more than one edge. Faces ";
             errstrm << (m_faces[f])->GetGlobalID() << ", "
                     << (m_faces[f + 1])->GetGlobalID();
-            ASSERTL0(false, errstrm.str());
+            NEKERROR(ErrorUtil::efatal, errstrm.str());
         }
     }
 
@@ -325,7 +325,7 @@ void HexGeom::SetUpLocalEdges()
             errstrm << "Connected faces do not share an edge. Faces ";
             errstrm << (m_faces[5])->GetGlobalID() << ", "
                     << (m_faces[f])->GetGlobalID();
-            ASSERTL0(false, errstrm.str());
+            NEKERROR(ErrorUtil::efatal, errstrm.str());
         }
         else if (check > 1)
         {
@@ -333,7 +333,7 @@ void HexGeom::SetUpLocalEdges()
             errstrm << "Connected faces share more than one edge. Faces ";
             errstrm << (m_faces[5])->GetGlobalID() << ", "
                     << (m_faces[f])->GetGlobalID();
-            ASSERTL0(false, errstrm.str());
+            NEKERROR(ErrorUtil::efatal, errstrm.str());
         }
     }
 }
@@ -359,7 +359,7 @@ void HexGeom::SetUpLocalVertices()
         errstrm << "Connected edges do not share a vertex. Edges ";
         errstrm << m_edges[0]->GetGlobalID() << ", "
                 << m_edges[1]->GetGlobalID();
-        ASSERTL0(false, errstrm.str());
+        NEKERROR(ErrorUtil::efatal, errstrm.str());
     }
 
     // set up the other bottom vertices (i.e. vertex 2,3)
@@ -380,7 +380,7 @@ void HexGeom::SetUpLocalVertices()
             errstrm << "Connected edges do not share a vertex. Edges ";
             errstrm << m_edges[i]->GetGlobalID() << ", "
                     << m_edges[i - 1]->GetGlobalID();
-            ASSERTL0(false, errstrm.str());
+            NEKERROR(ErrorUtil::efatal, errstrm.str());
         }
     }
 
@@ -404,7 +404,7 @@ void HexGeom::SetUpLocalVertices()
         errstrm << "Connected edges do not share a vertex. Edges ";
         errstrm << m_edges[8]->GetGlobalID() << ", "
                 << m_edges[9]->GetGlobalID();
-        ASSERTL0(false, errstrm.str());
+        NEKERROR(ErrorUtil::efatal, errstrm.str());
     }
 
     // set up the other top vertices (i.e. vertex 6,7)
@@ -424,7 +424,7 @@ void HexGeom::SetUpLocalVertices()
             errstrm << "Connected edges do not share a vertex. Edges ";
             errstrm << m_edges[i]->GetGlobalID() << ", "
                     << m_edges[i - 1]->GetGlobalID();
-            ASSERTL0(false, errstrm.str());
+            NEKERROR(ErrorUtil::efatal, errstrm.str());
         }
     }
 }
@@ -537,7 +537,8 @@ void HexGeom::SetUpFaceOrientation()
         }
         else
         {
-            ASSERTL0(false, "Could not find matching vertex for the face");
+            NEKERROR(ErrorUtil::efatal,
+                     "Could not find matching vertex for the face");
         }
 
         // Now, construct the edge-vectors of the local coordinates of
@@ -592,8 +593,11 @@ void HexGeom::SetUpFaceOrientation()
             norm = fabs(dotproduct2) / elementBaxis_length / faceBaxis_length;
 
             // check that both these axis are indeed parallel
-            ASSERTL1(fabs(norm - 1.0) < NekConstants::kNekZeroTol,
-                     "These vectors should be parallel");
+            if (fabs(norm - 1.0) >= NekConstants::kNekZeroTol)
+            {
+                NEKERROR(ErrorUtil::ewarning,
+                         "These vectors should be parallel");
+            }
 
             // if the inner product is negative, both B-axis point
             // in reverse direction
@@ -618,8 +622,11 @@ void HexGeom::SetUpFaceOrientation()
             norm = fabs(dotproduct1) / elementAaxis_length / faceBaxis_length;
 
             // check that both these axis are indeed parallel
-            ASSERTL1(fabs(norm - 1.0) < NekConstants::kNekZeroTol,
-                     "These vectors should be parallel");
+            if (fabs(norm - 1.0) >= NekConstants::kNekZeroTol)
+            {
+                NEKERROR(ErrorUtil::ewarning,
+                         "These vectors should be parallel");
+            }
 
             // if the result is negative, both axis point in reverse
             // directions
@@ -638,8 +645,11 @@ void HexGeom::SetUpFaceOrientation()
             norm = fabs(dotproduct2) / elementBaxis_length / faceAaxis_length;
 
             // check that both these axis are indeed parallel
-            ASSERTL1(fabs(norm - 1.0) < NekConstants::kNekZeroTol,
-                     "These vectors should be parallel");
+            if (fabs(norm - 1.0) >= NekConstants::kNekZeroTol)
+            {
+                NEKERROR(ErrorUtil::ewarning,
+                         "These vectors should be parallel");
+            }
 
             if (dotproduct2 < 0.0)
             {
@@ -677,7 +687,8 @@ void HexGeom::SetUpEdgeOrientation()
         }
         else
         {
-            ASSERTL0(false, "Could not find matching vertex for the edge");
+            NEKERROR(ErrorUtil::efatal,
+                     "Could not find matching vertex for the edge");
         }
     }
 }

@@ -32,6 +32,10 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <LibUtilities/Foundations/InterpCoeff.h>
+#include <LibUtilities/Foundations/ManagerAccess.h>
+#include <StdRegions/StdNodalTriExp.h>
+#include <StdRegions/StdSegExp.h> // for StdSegExp, etc
 #include <StdRegions/StdTriExp.h>
 
 using namespace std;
@@ -1304,7 +1308,7 @@ DNekMatSharedPtr StdTriExp::v_GenMatrix(const StdMatrixKey &mkey)
                 }
             }
 
-            for (int i = 0; i < neq; ++i)
+            for (int i = 0; i < neq - 1; ++i)
             {
                 LocCoordToLocCollapsed(coords[i], coll);
 
@@ -1321,8 +1325,265 @@ DNekMatSharedPtr StdTriExp::v_GenMatrix(const StdMatrixKey &mkey)
                                  Mat->GetRawPtr() + j * nq0 * neq + i, neq);
                 }
             }
+
+            // evaluate top vertex as average of all interpolation
+            // along collapsed coordinates at singular vertex
+            coll[1] = 1.0;
+            I[1]    = m_base[1]->GetI(coll + 1);
+
+            // interpolate first coordinate direction
+            for (int j = 0; j < nq1; ++j)
+            {
+                NekDouble fac = (I[1]->GetPtr())[j] / ((NekDouble)nq0);
+
+                Vmath::Fill(nq0, fac,
+                            Mat->GetRawPtr() + j * nq0 * neq + neq - 1, neq);
+            }
+
             break;
         }
+        case ePhysInterpToGLL:
+        {
+            int nq0, nq1, nq;
+
+            nq0 = m_base[0]->GetNumPoints();
+            nq1 = m_base[1]->GetNumPoints();
+
+            // take definition from key
+            if (mkey.ConstFactorExists(eFactorConst))
+            {
+                nq = (int)mkey.GetConstFactor(eFactorConst);
+            }
+            else
+            {
+                nq = max(nq0, nq1);
+            }
+
+            int neq = LibUtilities::StdTriData::getNumberOfCoefficients(nq, nq);
+            Array<OneD, NekDouble> coords(2);
+            Array<OneD, NekDouble> coll(2);
+            Array<OneD, DNekMatSharedPtr> I(2);
+            Array<OneD, NekDouble> tmp(nq0);
+
+            Mat = MemoryManager<DNekMat>::AllocateSharedPtr(neq, nq0 * nq1);
+
+            const LibUtilities::PointsKey key(nq, LibUtilities::eNodalTriElec);
+
+            Array<OneD, const NekDouble> x, y;
+            LibUtilities::PointsManager()[key]->GetPoints(x, y);
+
+            // set up nodal points in a similar mannger to equispaced
+            // points startign at bottom and working upwards left to
+            // right
+
+            int row = 0;
+            // First Vertex
+            coords[0] = x[0];
+            coords[1] = y[0];
+            LocCoordToLocCollapsed(coords, coll);
+
+            I[0] = m_base[0]->GetI(coll);
+            I[1] = m_base[1]->GetI(coll + 1);
+
+            // interpolate first coordinate direction
+            for (int j = 0; j < nq1; ++j)
+            {
+                NekDouble fac = (I[1]->GetPtr())[j];
+                Vmath::Smul(nq0, fac, I[0]->GetPtr(), 1, tmp, 1);
+
+                Vmath::Vcopy(nq0, &tmp[0], 1,
+                             Mat->GetRawPtr() + j * nq0 * neq + row, neq);
+            }
+            row++;
+
+            // First edge
+            for (int i = 0; i < nq - 2; ++i)
+            {
+                coords[0] = x[3 + i];
+                coords[1] = y[3 + i];
+                LocCoordToLocCollapsed(coords, coll);
+
+                I[0] = m_base[0]->GetI(coll);
+                I[1] = m_base[1]->GetI(coll + 1);
+
+                // interpolate first coordinate direction
+                for (int j = 0; j < nq1; ++j)
+                {
+                    NekDouble fac = (I[1]->GetPtr())[j];
+                    Vmath::Smul(nq0, fac, I[0]->GetPtr(), 1, tmp, 1);
+
+                    Vmath::Vcopy(nq0, &tmp[0], 1,
+                                 Mat->GetRawPtr() + j * nq0 * neq + row, neq);
+                }
+                row++;
+            }
+
+            // Second Vertex
+            coords[0] = x[1];
+            coords[1] = y[1];
+            LocCoordToLocCollapsed(coords, coll);
+
+            I[0] = m_base[0]->GetI(coll);
+            I[1] = m_base[1]->GetI(coll + 1);
+
+            // interpolate first coordinate direction
+            for (int j = 0; j < nq1; ++j)
+            {
+                NekDouble fac = (I[1]->GetPtr())[j];
+                Vmath::Smul(nq0, fac, I[0]->GetPtr(), 1, tmp, 1);
+
+                Vmath::Vcopy(nq0, &tmp[0], 1,
+                             Mat->GetRawPtr() + j * nq0 * neq + row, neq);
+            }
+            row++;
+
+            int cnt = 0;
+            // other  edges and interior
+            for (int i = 0; i < nq - 2; ++i)
+            {
+
+                // edge 3 (reversing counter-clockwise ordering)
+                coords[0] = x[3 * (nq - 1) - i - 1];
+                coords[1] = y[3 * (nq - 1) - i - 1];
+                // coords[0] = x[3 + 2*(nq-2)+i]; coords[1] = y[3 + 2*(nq-2)+i];
+                LocCoordToLocCollapsed(coords, coll);
+
+                I[0] = m_base[0]->GetI(coll);
+                I[1] = m_base[1]->GetI(coll + 1);
+
+                // interpolate first coordinate direction
+                for (int j = 0; j < nq1; ++j)
+                {
+                    NekDouble fac = (I[1]->GetPtr())[j];
+                    Vmath::Smul(nq0, fac, I[0]->GetPtr(), 1, tmp, 1);
+
+                    Vmath::Vcopy(nq0, &tmp[0], 1,
+                                 Mat->GetRawPtr() + j * nq0 * neq + row, neq);
+                }
+                row++;
+
+                for (int j = 0; j < nq - 3 - i; ++j)
+                {
+                    coords[0] = x[3 * (nq - 1) + cnt];
+                    coords[1] = y[3 * (nq - 1) + cnt];
+                    LocCoordToLocCollapsed(coords, coll);
+
+                    I[0] = m_base[0]->GetI(coll);
+                    I[1] = m_base[1]->GetI(coll + 1);
+
+                    // interpolate first coordinate direction
+                    for (int j = 0; j < nq1; ++j)
+                    {
+                        NekDouble fac = (I[1]->GetPtr())[j];
+                        Vmath::Smul(nq0, fac, I[0]->GetPtr(), 1, tmp, 1);
+
+                        Vmath::Vcopy(nq0, &tmp[0], 1,
+                                     Mat->GetRawPtr() + j * nq0 * neq + row,
+                                     neq);
+                    }
+                    row++;
+                    cnt++;
+                }
+
+                // edge 2
+                coords[0] = x[3 + (nq - 2) + i];
+                coords[1] = y[3 + (nq - 2) + i];
+                LocCoordToLocCollapsed(coords, coll);
+
+                I[0] = m_base[0]->GetI(coll);
+                I[1] = m_base[1]->GetI(coll + 1);
+
+                // interpolate first coordinate direction
+                for (int j = 0; j < nq1; ++j)
+                {
+                    NekDouble fac = (I[1]->GetPtr())[j];
+                    Vmath::Smul(nq0, fac, I[0]->GetPtr(), 1, tmp, 1);
+
+                    Vmath::Vcopy(nq0, &tmp[0], 1,
+                                 Mat->GetRawPtr() + j * nq0 * neq + row, neq);
+                }
+                row++;
+            }
+
+            // evaluate top vertex as average of all interpolation
+            // along collapsed coordinates at singular vertex
+            coll[1] = 1.0;
+            I[1]    = m_base[1]->GetI(coll + 1);
+
+            // interpolate first coordinate direction
+            for (int j = 0; j < nq1; ++j)
+            {
+                NekDouble fac = (I[1]->GetPtr())[j] / ((NekDouble)nq0);
+
+                Vmath::Fill(nq0, fac,
+                            Mat->GetRawPtr() + j * nq0 * neq + neq - 1, neq);
+            }
+
+            break;
+        }
+        case eEquiSpacedToPhys:
+        {
+            int nm0 = m_base[0]->GetNumPoints();
+            int nm1 = m_base[1]->GetNumPoints();
+            int neq;
+
+            // take definition from key
+            if (mkey.ConstFactorExists(eFactorConst))
+            {
+                neq = (int)mkey.GetConstFactor(eFactorConst);
+            }
+            else
+            {
+                neq = max(nm0, nm1);
+            }
+
+            // set up an exansion with the same number of modes as neq;
+            LibUtilities::BasisKey ba(m_base[0]->GetBasisType(), neq,
+                                      m_base[0]->GetPointsKey());
+            LibUtilities::BasisKey bb(m_base[1]->GetBasisType(), neq,
+                                      m_base[1]->GetPointsKey());
+
+            StdTriExp Exp2D(ba, bb);
+            int ncoeffs = Exp2D.GetNcoeffs();
+
+            // Get hold of equispaced to coeff matrix
+            ConstFactorMap cmap;
+            cmap[eFactorConst] = neq;
+            StdMatrixKey Ikey(eEquiSpacedToCoeffs, DetShapeType(), *this, cmap);
+            DNekMatSharedPtr intmat = Exp2D.GetStdMatrix(Ikey);
+
+            int nqtot = GetTotPoints();
+
+            // generate a matrix
+            Mat = MemoryManager<DNekMat>::AllocateSharedPtr(nqtot, ncoeffs);
+            NekDouble *ptr = Mat->GetRawPtr();
+
+            Array<OneD, NekDouble> qmode(nqtot);
+
+            // Get first mode at quadrature points
+            Exp2D.FillMode(0, qmode);
+
+            // first part of matrix-matrix multiply intiailising out matrix
+            for (int j = 0; j < ncoeffs; ++j)
+            {
+                NekDouble val = (*intmat)(0, j);
+                Vmath::Smul(nqtot, val, qmode.data(), 1, ptr + j * nqtot, 1);
+            }
+
+            for (int i = 1; i < ncoeffs; ++i)
+            {
+                // Get mode at quadrature points
+                Exp2D.FillMode(i, qmode);
+
+                for (int j = 0; j < ncoeffs; ++j)
+                {
+                    NekDouble val = (*intmat)(i, j);
+                    Vmath::Svtvp(nqtot, val, qmode.data(), 1, ptr + j * nqtot,
+                                 1, ptr + j * nqtot, 1);
+                }
+            }
+        }
+        break;
         default:
         {
             Mat = StdExpansion::CreateGeneralMatrix(mkey);

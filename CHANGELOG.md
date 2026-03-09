@@ -29,6 +29,7 @@ v5.10.0
 - Update GMRES with improved restart capabilities (LGMRES) (!2402)
 - Tidy v_FwdTrans, v_Integral, v_GetStdExp, v_GetLinStdExp virtual functions (!!2384)
 - Remove AdvectionFR, DiffusionLFR, and DiffusioLFRNS (!2425)
+- Fix NoCollection IProductWRTDerivBase for embedded case (!2454)
 
 **IncNavierStokesSolver**
 - Added an option to process Reynolds Stress fields at a higher polynomial order (!2303)
@@ -104,6 +105,7 @@ v5.8.0
 - Remove deprecated version of v_SetCoeffsToOrientation functions (!1954)
 - Fix issue with Dirichlet BCs when using variable P (!1972)
 - Patch for implicit-function error in scotch-6.0.4 (!1938)
+- LOR preconditioner added, to be used with GMRES and IterativeFull (!1888)
 - Tidy virtual inheritance in NodalTriExp (!1979)
 - Fix partial overload virtual function in AssemblyMap, StdRegions, and LocalRegions (!1978)
 - Fix partial overload virtual function v_PhysEvaluate (!1980)
@@ -145,6 +147,11 @@ v5.8.0
 - Add high-order pyramid and prism support from gmsh (!1956)
 - Industrial Pipeline Mesh Curving and CAD-Mesh link Reconstruction for all type of elements (!2057)
 
+**IncNavierStokesSolver**
+- LOR preconditioner for IncNS solver, mainly used for Pressure preconditioning (!1888)
+  
+**Miscellaneous**
+- Added LinMeshGraph executable for splitting meshes using user specified splits (!1888) 
 **Python**
 - Transition bindings to use pybind11 (!1950)
 
@@ -169,6 +176,9 @@ v5.7.0
 - Fix fieldconvert filter incorrect boundary values (!1789)
 - Fix numerical precision issues with filters OutputStartTime (!1789)
 - Fix AdaptiveSFD for MPI (!1821)
+- Fix deadlock by scotch with multi-threading support (!1853)
+- Fix IterativeStaticCond when using absolute tolerance (!1850)
+- Replaced ASSERTL0 with NEKERROR(efatal) and ASSERTL1 with NEKERROR(ewarning) (!1843)
 - Fix interpolation on manifold (!1840)
 - Fix IterativeStaticCond when using absolute tolerance (!1850)
 - Fix deadlock by scotch with multi-threading support (!1853)
@@ -453,12 +463,10 @@ v5.4.0
 - Corrected workspace size in triangle BwdTrans (!1610)
 - Reactivate Reactivate Movement_fixed_3D_stacked_cylinders_curved_hdf5_par test except on ARM MacOS (!1536)
 - Updated the PETSc version to v3.19.3 for THIRDPARTY_USE_PETSC, enabled local PETSc version usage (!1618)
-
 - Rename communicator in LinearAlgebra (!1612)
 - Add IProductWRTDerivBase operator for 3DH1D problems (!1483)
 - Full support of mixed-order elements in DG (!1606)
 - Refactoring collections for allowing variable output size inside the collections' operators, introduced PhysInterp1DScaled in Collections (!1620)
-
 - Use default keyword for destructor in Driver (!1624)
 - Add additional test for SDC time-integration(!1621)
 - Fix to compiler flags for MSVC (!1604)

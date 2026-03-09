@@ -1040,15 +1040,6 @@ void Expansion::v_GetTracePhysMap([[maybe_unused]] const int edge,
              "Method does not exist for this shape or library");
 }
 
-void Expansion::v_ReOrientTracePhysMap(
-    [[maybe_unused]] const StdRegions::Orientation orient,
-    [[maybe_unused]] Array<OneD, int> &idmap, [[maybe_unused]] const int nq0,
-    [[maybe_unused]] const int nq1, [[maybe_unused]] bool Forwards)
-{
-    NEKERROR(ErrorUtil::efatal,
-             "Method does not exist for this shape or library");
-}
-
 void Expansion::v_ReOrientTracePhysVals(
     [[maybe_unused]] const StdRegions::Orientation orient,
     [[maybe_unused]] const Array<OneD, const NekDouble> &in,

@@ -36,6 +36,7 @@
 #include <cstdlib>
 
 #include <LibUtilities/BasicUtils/SessionReader.h>
+#include <LibUtilities/BasicUtils/Timer.h>
 #include <LibUtilities/Communication/Comm.h>
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
 #include <MultiRegions/ContField.h>
@@ -210,12 +211,25 @@ int main(int argc, char *argv[])
         Fce->SetPhys(fce);
         //----------------------------------------------
 
+        // Timer info for the HelmSolv
+        Nektar::LibUtilities::Timer timer;
+        NekDouble CPUtime;
+        timer.Start();
         //----------------------------------------------
         // Helmholtz solution taking physical forcing after setting
         // initial condition to zero
         Vmath::Zero(Exp->GetNcoeffs(), Exp->UpdateCoeffs(), 1);
         Exp->HelmSolve(Fce->GetPhys(), Exp->UpdateCoeffs(), factors, varcoeffs);
         //----------------------------------------------
+        timer.Stop();
+        if (vSession->GetComm()->GetRank() == 0)
+        {
+            CPUtime = timer.Elapsed().count();
+            cout << "-------------------------------------------" << endl;
+            cout << "Total Computation Time = " << CPUtime << "s" << endl;
+            cout << "-------------------------------------------" << endl;
+        }
+
         Timing("Helmholtz Solve ..");
 
 #ifdef TIMING

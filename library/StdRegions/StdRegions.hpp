@@ -133,7 +133,12 @@ enum MatrixType
     eInterpGauss,
     eGaussDG,
     ePhysInterpToEquiSpaced,
+    ePhysInterpToGLL,
+    eCoeffsToEquiSpaced,
     eEquiSpacedToCoeffs,
+    eCoeffsToGLL,
+    eGLLToCoeffs,
+    eEquiSpacedToPhys,
     eNormDerivOnTrace,
     SIZE_MatrixType
 };
@@ -191,7 +196,12 @@ const char *const MatrixTypeMap[] = {
     "InterpGauss",
     "GaussDG",
     "PhysInterpToEquiSpaced",
+    "PhysInterpToGLL",
+    "CoeffsToEquiSpaced",
     "EquiSpacedToCoeffs",
+    "CoeffsToGLL",
+    "GLLToCoeffs",
+    "EquiSpacedToPhys",
     "NormDerivOnTrace"};
 
 enum VarCoeffType

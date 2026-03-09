@@ -28,7 +28,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Unit tests for LibUtilities
+// Description: Unit tests for StdRegions
 //
 ///////////////////////////////////////////////////////////////////////////////
 

@@ -254,6 +254,7 @@ with the approach: for example \texttt{IterativeStaticCond} or
 \item \textbf{GMRESDeltaDirection} specifies number of vector to carry between
   GMRES restart cycle to improve convergence of restarted GMRES (LGMRES). Recommended
   number of GMRESDeltaDirection is between 1 and 3 (Default is 0). 
+\item \textbf{EvsDirect} does not solve the linear system but computes the preconditioned matrix $M^{-1}A$ and the eigenvalues via \verb!lapack::Dgeev!. Both are written into Matrix.txt" and "Eigenvalues.txt", respectively, inside the current working directory. Note that this method is only tested for a \textbf{Full} matrix system and is not working in parallel, hence, only for problem sizes. See the table below for Preconditioner options.
 \end{itemize} 
 
 \subsubsection{Preconditioner options}
@@ -276,6 +277,7 @@ and dimension-dependent:
     \inltt{Jacobi}                            & 2/3D & All  \\
     \inltt{LowEnergyBlock}                    & 3D   & CG  \\
     \inltt{Block}                             & 2/3D & All \\
+    \inltt{LOR}                               & 2/3D & CG \\
     \midrule
     \inltt{FullLinearSpaceWithDiagonal}       & All  & CG  \\
     \inltt{FullLinearSpaceWithLowEnergyBlock} & 2/3D & CG  \\

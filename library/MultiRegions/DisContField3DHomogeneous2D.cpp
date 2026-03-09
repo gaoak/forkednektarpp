@@ -357,6 +357,17 @@ void DisContField3DHomogeneous2D::v_EvaluateBoundaryConditions(
     }
 }
 
+void DisContField3DHomogeneous2D::v_SetBCsToHomogeneous(void)
+{
+    for (int n = 0; n < m_nz; ++n)
+    {
+        for (int m = 0; m < m_ny; ++m)
+        {
+            m_lines[m + (n * m_ny)]->SetBCsToHomogeneous();
+        }
+    }
+}
+
 const Array<OneD, const std::shared_ptr<ExpList>> &DisContField3DHomogeneous2D::
     v_GetBndCondExpansions(void)
 {

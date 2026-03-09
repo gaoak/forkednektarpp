@@ -508,7 +508,7 @@ NekDouble Geometry2D::v_FindDistance(const Array<OneD, const NekDouble> &xs,
     }
     else
     {
-        ASSERTL0(false, "Geometry type unknown")
+        NEKERROR(ErrorUtil::efatal, "Geometry type unknown");
     }
 
     return -1.0;

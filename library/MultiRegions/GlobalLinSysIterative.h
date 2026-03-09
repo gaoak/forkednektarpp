@@ -61,6 +61,13 @@ public:
         v_DoMatrixMultiply(pInput, pOutput);
     }
 
+    void DoPreconditionerFlag(const Array<OneD, NekDouble> &pInput,
+                              Array<OneD, NekDouble> &pOutput,
+                              const bool &isLocal = false)
+    {
+        m_precon->DoPreconditioner(pInput, pOutput, isLocal);
+    }
+
 protected:
     /// Global to universal unique map
     Array<OneD, int> m_map;
@@ -131,13 +138,6 @@ private:
                               const bool isAconjugate);
 
     int ResetKnownSolutionsToLatestOne();
-
-    void DoPreconditionerFlag(const Array<OneD, NekDouble> &pInput,
-                              Array<OneD, NekDouble> &pOutput,
-                              const bool &isLocal = false)
-    {
-        m_precon->DoPreconditioner(pInput, pOutput, isLocal);
-    }
 
     void DoMatrixMultiplyFlag(const Array<OneD, NekDouble> &pInput,
                               Array<OneD, NekDouble> &pOutput,

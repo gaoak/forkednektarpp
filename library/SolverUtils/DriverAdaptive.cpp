@@ -341,7 +341,7 @@ void DriverAdaptive::v_Execute(std::ostream &out)
 
         // Write new expansion section to the session reader and re-read graph.
         ReplaceExpansion(fields, deltaP);
-        m_graph->ReadExpansionInfo();
+        m_graph->ReadExpansionInfo(m_session->GetElement("NEKTAR/EXPANSIONS"));
 
         // Reset GlobalLinSys Manager to avoid using too much memory
         //

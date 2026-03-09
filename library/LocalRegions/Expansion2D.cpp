@@ -2390,39 +2390,6 @@ void Expansion2D::v_SetUpPhysNormals(const int edge)
     v_ComputeTraceNormal(edge);
 }
 
-void Expansion2D::v_ReOrientTracePhysMap(const StdRegions::Orientation orient,
-                                         Array<OneD, int> &idmap, const int nq0,
-                                         [[maybe_unused]] const int nq1,
-                                         [[maybe_unused]] bool Forwards)
-{
-    if (idmap.size() != nq0)
-    {
-        idmap = Array<OneD, int>(nq0);
-    }
-    switch (orient)
-    {
-        case StdRegions::eForwards:
-            // Fwd
-            for (int i = 0; i < nq0; ++i)
-            {
-                idmap[i] = i;
-            }
-            break;
-        case StdRegions::eBackwards:
-        {
-            // Bwd
-            for (int i = 0; i < nq0; ++i)
-            {
-                idmap[i] = nq0 - 1 - i;
-            }
-        }
-        break;
-        default:
-            ASSERTL0(false, "Unknown orientation");
-            break;
-    }
-}
-
 void Expansion2D::v_ReOrientTracePhysVals(
     const StdRegions::Orientation orient,
     const Array<OneD, const NekDouble> &in, Array<OneD, NekDouble> &out,

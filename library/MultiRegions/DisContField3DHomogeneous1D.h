@@ -200,6 +200,8 @@ protected:
         const NekDouble x2_in = NekConstants::kNekUnsetDouble,
         const NekDouble x3_in = NekConstants::kNekUnsetDouble) override;
 
+    void v_SetBCsToHomogeneous(void) override;
+
     const Array<OneD, const MultiRegions::ExpListSharedPtr> &v_GetBndCondExpansions(
         void) override;
 

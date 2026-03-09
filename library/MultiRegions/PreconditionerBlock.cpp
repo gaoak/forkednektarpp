@@ -814,6 +814,8 @@ void PreconditionerBlock::v_DoPreconditioner(
     const Array<OneD, NekDouble> &pInput, Array<OneD, NekDouble> &pOutput,
     const bool &isLocal)
 {
+    ASSERTL0(!isLocal, "PreconditionerBlock is only set up for global iterative"
+                       " solves");
     // Get assembly map and solver type
     auto asmMap = m_locToGloMap.lock();
 

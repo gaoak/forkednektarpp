@@ -78,7 +78,6 @@ GlobalLinSysDirectFull::GlobalLinSysDirectFull(
     : GlobalLinSys(pLinSysKey, pExp, pLocToGloMap),
       GlobalLinSysDirect(pLinSysKey, pExp, pLocToGloMap)
 {
-
     ASSERTL1(m_linSysKey.GetGlobalSysSolnType() == eDirectFullMatrix,
              "This routine should only be used when using a Full Direct"
              " matrix solve");

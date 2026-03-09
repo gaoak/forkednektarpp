@@ -81,7 +81,10 @@ TriGeom::TriGeom(const int id, std::array<SegGeom *, kNedges> edges,
                        : StdRegions::eBackwards;
 
     m_coordim = edges[0]->GetVertex(0)->GetCoordim();
-    ASSERTL0(m_coordim > 1, "Cannot call function with dim == 1");
+    if (m_coordim <= 1)
+    {
+        NEKERROR(ErrorUtil::efatal, "Cannot call function with dim == 1");
+    }
 }
 
 TriGeom::TriGeom(const TriGeom &in) : Geometry2D(in)
@@ -190,7 +193,10 @@ int TriGeom::v_AllLeftCheck(const Array<OneD, const NekDouble> &gloCoord)
 NekDouble TriGeom::v_GetCoord(const int i,
                               const Array<OneD, const NekDouble> &Lcoord)
 {
-    ASSERTL1(m_state == ePtsFilled, "Geometry is not in physical space");
+    if (m_state != ePtsFilled)
+    {
+        NEKERROR(ErrorUtil::ewarning, "Geometry is not in physical space");
+    }
 
     Array<OneD, NekDouble> tmp(m_xmap->GetTotPoints());
     m_xmap->BwdTrans(m_coeffs[i], tmp);
@@ -303,8 +309,7 @@ StdRegions::Orientation TriGeom::GetFaceOrientation(
                 break;
         }
     }
-
-    ASSERTL0(false, "Unable to determine triangle orientation");
+    NEKERROR(ErrorUtil::efatal, "Unable to determine triangle orientation");
     return StdRegions::eNoOrientation;
 }
 
@@ -576,8 +581,8 @@ void TriGeom::v_FillGeom()
         }
         else
         {
-            ASSERTL0(false, "Only 1D/2D points distributions "
-                            "supported.");
+            NEKERROR(ErrorUtil::efatal, "Only 1D/2D points distributions "
+                                        "supported.");
         }
     }
 

@@ -1067,6 +1067,13 @@ public:
         return v_PhysEvaluateBasis(coords, mode);
     }
 
+    inline void ReOrientTracePhysMap(const StdRegions::Orientation orient,
+                                     Array<OneD, int> &idmap, const int nq0,
+                                     const int nq1, bool Forwards = true)
+    {
+        v_ReOrientTracePhysMap(orient, idmap, nq0, nq1, Forwards);
+    }
+
     /**
      * \brief Convert local cartesian coordinate \a xi into local
      * collapsed coordinates \a eta
@@ -1206,6 +1213,14 @@ public:
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray, int npset = -1);
 
+    STD_REGIONS_EXPORT void PhysInterpToGLL(
+        const Array<OneD, const NekDouble> &inarray,
+        Array<OneD, NekDouble> &outarray, int npset = -1);
+
+    void PhysInterpToPoints(const Array<OneD, const NekDouble> &inarray,
+                            Array<OneD, NekDouble> &outarray, int npset,
+                            MatrixType distrib);
+
     /** \brief This function provides the connectivity of
      *   local simplices (triangles or tets) to connect the
      *   equispaced data points provided by
@@ -1231,6 +1246,10 @@ public:
      */
     STD_REGIONS_EXPORT void EquiSpacedToCoeffs(
         const Array<OneD, const NekDouble> &inarray,
+        Array<OneD, NekDouble> &outarray);
+
+    STD_REGIONS_EXPORT void EquiSpacedToPhys(
+        const int nequi, const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray);
 
     template <class T> std::shared_ptr<T> as()
@@ -1788,6 +1807,11 @@ protected:
 
     STD_REGIONS_EXPORT virtual void v_GetSimplexEquiSpacedConnectivity(
         Array<OneD, int> &conn, bool standard = true);
+
+    STD_REGIONS_EXPORT virtual void v_ReOrientTracePhysMap(
+        [[maybe_unused]] const StdRegions::Orientation orient,
+        [[maybe_unused]] Array<OneD, int> &idmap, const int nq0,
+        [[maybe_unused]] const int nq1, bool Forwards);
 };
 
 typedef std::shared_ptr<StdExpansion> StdExpansionSharedPtr;

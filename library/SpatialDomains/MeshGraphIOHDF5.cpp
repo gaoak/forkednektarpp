@@ -68,7 +68,7 @@ void MeshGraphIOHDF5::v_ReadGeometry(bool fillGraph)
     ReadComposites();
     ReadDomain();
 
-    m_meshGraph->ReadExpansionInfo();
+    m_meshGraph->ReadExpansionInfo(m_session->GetElement("NEKTAR/EXPANSIONS"));
 
     // Close up shop.
     m_mesh->Close();
@@ -229,6 +229,9 @@ void MeshGraphIOHDF5::v_PartitionMesh(
     LibUtilities::H5::PListSharedPtr parallelProps = H5::PList::Default();
     m_readPL                                       = H5::PList::Default();
 
+    /// TODO: collective I/O seems unstable for various partitioning choices on
+    /// hybrid meshes.
+#if 0
     if (commMesh->GetSize() > 1)
     {
         // Use MPI/O to access the file
@@ -238,6 +241,7 @@ void MeshGraphIOHDF5::v_PartitionMesh(
         m_readPL = H5::PList::DatasetXfer();
         m_readPL->SetDxMpioCollective();
     }
+#endif
 
     m_file = H5::File::Open(m_hdf5Name, H5F_ACC_RDONLY, parallelProps);
 

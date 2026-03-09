@@ -781,8 +781,12 @@ void MeshPartition::PartitionGraph(int nParts, bool overlapping)
     // add vertices that correspond to the neighbouring elements.
     if (overlapping)
     {
-        ASSERTL0(!m_parallel, "Overlapping partitioning not supported in "
-                              "parallel execution");
+        if (m_parallel)
+        {
+            NEKERROR(ErrorUtil::efatal,
+                     "Overlapping partitioning not supported in "
+                     "parallel execution");
+        }
 
         for (boost::tie(vertit, vertit_end) = boost::vertices(m_graph);
              vertit != vertit_end; ++vertit)
@@ -838,7 +842,10 @@ void MeshPartition::GetElementIDs(const int procid,
 
     auto it = m_localPartition.find(procid);
 
-    ASSERTL0(it != m_localPartition.end(), "Unable to find local partition");
+    if (it == m_localPartition.end())
+    {
+        NEKERROR(ErrorUtil::efatal, "Unable to find local partition");
+    }
 
     elmtid = m_localPartition[procid];
 }

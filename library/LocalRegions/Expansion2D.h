@@ -157,10 +157,6 @@ protected:
     DNekMatSharedPtr v_BuildVertexMatrix(
         const DNekScalMatSharedPtr &r_bnd) override;
 
-    void v_ReOrientTracePhysMap(const StdRegions::Orientation orient,
-                                Array<OneD, int> &idmap, const int nq0,
-                                const int nq1, bool Forwards) override;
-
     void v_ReOrientTracePhysVals(const StdRegions::Orientation orient,
                                  const Array<OneD, const NekDouble> &in,
                                  Array<OneD, NekDouble> &out, const int nq0,

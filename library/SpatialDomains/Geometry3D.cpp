@@ -438,7 +438,10 @@ NekDouble Geometry3D::v_GetLocCoords(const Array<OneD, const NekDouble> &coords,
 NekDouble Geometry3D::v_GetCoord(const int i,
                                  const Array<OneD, const NekDouble> &Lcoord)
 {
-    ASSERTL1(m_state == ePtsFilled, "Geometry is not in physical space");
+    if (m_state != ePtsFilled)
+    {
+        NEKERROR(ErrorUtil::ewarning, "Geometry is not in physical space");
+    }
 
     Array<OneD, NekDouble> tmp(m_xmap->GetTotPoints());
     m_xmap->BwdTrans(m_coeffs[i], tmp);

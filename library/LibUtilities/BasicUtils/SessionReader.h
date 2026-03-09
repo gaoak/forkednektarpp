@@ -293,6 +293,10 @@ public:
     LIB_UTILITIES_EXPORT const std::string &GetGlobalSysSolnInfo(
         const std::string &variable, const std::string &property) const;
 
+    LIB_UTILITIES_EXPORT void SetGlobalSysSolnInfo(const std::string &variable,
+                                                   const std::string &property,
+                                                   const std::string &value);
+
     /* ------ TIME INTEGRATION INFORMATION ----- */
     LIB_UTILITIES_EXPORT bool DefinesTimeIntScheme() const;
     LIB_UTILITIES_EXPORT const TimeIntScheme &GetTimeIntScheme() const;

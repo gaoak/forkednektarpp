@@ -912,6 +912,8 @@ first order accurate for example with TimeIntegrationScheme as
 BDFImplicit Order 1 but using a second order RungeKutta, Variant SSP,
 Order 2 for greater stability in the substep.
 
+\subsection{GlobalSysSoln}
+
 \item \inltt{GlobalSysSoln}: sets the approach we use to solve the the linear
 systems of the type $Ax=b$ appearing in the solution steps, such as the Poisson
 equation for the pressure, or the velocity Helmholtz equation in the splitting-scheme. It can be globally set in section \inltt{SOLVERINFO} as:
@@ -963,12 +965,23 @@ Default values are \inltt{DirectMultiLevelStaticCond} in serial and \inltt{Itera
 </GLOBALSYSSOLNINFO>
 \end{lstlisting}
 
-In case the relative error is tracked, where \inltt{PROPERTY="AbsoluteTolerance" VALUE="False"}(default setting), attention must be given on setting the \inltt{IterativeSolverTolerance}. As a guideline for setting the tolerances, some trial runs are necessary. In more detail, the flag \inltt{-v} needs to be used and read the information provided by the solver. When the Conjugate Gradient solver is used, the tolerance, the arithmetic error and the right-hand side magnitude(rhs\_mag) is printed at every time-step. Then, the rhs\_mag needs to be multiplied by the arithmetic error printed to express the stopping criteria for the Conjugate Gradient solver. If the order of this product is too large, then the tolerance needs to be reduced. The tolerance can reach values up to $1e-15$ depending on the problem size, mesh and configuration.
+In case the relative error is tracked, where \inltt{PROPERTY="AbsoluteTolerance" VALUE="False"} (default setting), attention must be given on setting the \inltt{IterativeSolverTolerance}. As a guideline for setting the tolerances, some trial runs are necessary. In more detail, the flag \inltt{-v} needs to be used and read the information provided by the solver. When the Conjugate Gradient solver is used, the tolerance, the arithmetic error and the right-hand side magnitude(\inltt{rhs\_mag}) is printed at every time-step. Then, the \inltt{rhs\_mag} needs to be multiplied by the arithmetic error printed to express the stopping criteria for the Conjugate Gradient solver. If the order of this product is too large, then the tolerance needs to be reduced. The tolerance can reach values up to $1e-15$ depending on the problem size, mesh and configuration.
 
 \begin{notebox}
 To use the solvers and preconditioners that utilize the Xxt library, \emph{Nektar++} needs to be compiled with MPI support. Similarly for PETSc, the setting \inltt{NEKTAR\_USE\_PETSC} needs to be activated upon configuring the compilation.
 \end{notebox}
 
+A new preconditioner called Low-Order Refined (\inltt{LOR}) preconditioning is an option when seeking efficient pressure preconditioning.  LOR  maintains bounded iteration counts with an increasing problem size, which becomes optimal for large 3D problems, where \inltt{Diagonal} preconditioning often results in excessive iteration counts.
+To use the LOR preconditioning in your simulations, specify the following in \inltt{GLOBALSYSSOLNINFO}:
+\begin{lstlisting}[style=XMLStyle]
+  <I PROPERTY="GlobalSysSoln"             VALUE="IterativeFull" />
+  <I PROPERTY="Preconditioner"            VALUE="LOR" />
+  <I PROPERTY="LinSysIterSolver"          VALUE="GMRES" />
+\end{lstlisting}
+To use LOR preconditioner with a mesh with prisms, apply the \inltt{ReorderPrisms} module in \inltt{NekMesh} to the original mesh before running the simulation.
+Also, it is strongly suggested to enable \inltt{NEKTAR\_USE\_PETSC} in your configuration to use various AMG (Algebraic Multigrid) routines to solve the LOR space. Refer to the developers guide for further details and settings for LOR.
+
+LOR preconditioning is currently an experimental feature and may require additional fine-tuning for specific applications. It is memory-intensive, so ensure your computational resources are sufficient for the problem size. A reliable range to apply this method is 10,000 to 100,000 Degrees of Freedom (DOF) per MPI rank, which helps maintain performance and stability. 
 \end{itemize}
 
 

@@ -56,11 +56,12 @@ enum BasisType
     eGLL_Lagrange,   //!< Lagrange for SEM basis \f$ h_p(z_i) \f$
     eGauss_Lagrange, //!< Lagrange Polynomials using the Gauss points \f$
                      //!< h_p(z_i) \f$
-    eLegendre,  //!< Legendre Polynomials \f$ L_p(z_i) = P^{0,0}_p(z_i)\f$. Same
-                //!< as Ortho_A
-    eChebyshev, //!< Chebyshev Polynomials \f$ T_p(z_i) =
-                //!< P^{-1/2,-1/2}_p(z_i)\f$
-    eMonomial,  //!< Monomial polynomials \f$ L_p(z_i) = z_i^{p}\f$
+    eLegendre,       //!< Legendre Polynomials \f$ L_p(z_i) =
+                     //! P^{0,0}_p(z_i)\f$. Same
+                     //!< as Ortho_A
+    eChebyshev,      //!< Chebyshev Polynomials \f$ T_p(z_i) =
+                     //!< P^{-1/2,-1/2}_p(z_i)\f$
+    eMonomial,       //!< Monomial polynomials \f$ L_p(z_i) = z_i^{p}\f$
     eFourierSingleMode, //!< Fourier ModifiedExpansion with just the first mode
                         //!< \f$ \exp(i \pi  z_i)\f$
     eFourierHalfModeRe, //!< Fourier Modified expansions with just the real part

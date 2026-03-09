@@ -671,7 +671,6 @@ DisContField::DisContField(const DisContField &In,
                            const bool DeclareCoeffPhysArrays)
     : ExpList(In, DeclareCoeffPhysArrays)
 {
-
     m_trace = NullExpListSharedPtr;
 
     // Set up boundary conditions for this variable.
@@ -746,8 +745,8 @@ DisContField::DisContField(const DisContField &In,
         {
             m_globalBndMat       = In.m_globalBndMat;
             m_trace              = In.m_trace;
-            m_traceMap           = In.m_traceMap;
             m_locElmtTrace       = In.m_locElmtTrace;
+            m_traceMap           = In.m_traceMap;
             m_interfaceMap       = In.m_interfaceMap;
             m_locTraceToTraceMap = In.m_locTraceToTraceMap;
             m_periodicVerts      = In.m_periodicVerts;
@@ -4114,6 +4113,102 @@ void DisContField::v_EvaluateBoundaryConditions(const NekDouble time,
                     NEKERROR(ErrorUtil::efatal,
                              "This type of BC not implemented yet");
                 }
+            }
+        }
+    }
+}
+
+void DisContField::v_SetBCsToHomogeneous(void)
+{
+    int i;
+    int npoints;
+
+    MultiRegions::ExpListSharedPtr locExpList;
+
+    for (i = 0; i < m_bndCondExpansions.size(); ++i)
+    {
+        locExpList = m_bndCondExpansions[i];
+
+        npoints = locExpList->GetNpoints();
+
+        // treat 1D expansions separately since we only
+        // require an evaluation at a point rather than
+        // any projections or inner products that are not
+        // available in a PointExp
+        if (m_expType == e1D)
+        {
+            NEKERROR(ErrorUtil::efatal,
+                     "Function needs setting up for 1D boundary expansion");
+        }
+        else // 2D and 3D versions
+        {
+            if (m_bndConditions[i]->GetBoundaryConditionType() ==
+                SpatialDomains::eDirichlet)
+            {
+                SpatialDomains::DirichletBCShPtr bcPtr =
+                    std::static_pointer_cast<
+                        SpatialDomains::DirichletBoundaryCondition>(
+                        m_bndConditions[i]);
+
+                Array<OneD, NekDouble> valuesExp(npoints, 0.0);
+                bcPtr->m_filename = "";
+                bcPtr->m_expr     = "0.0";
+
+                bcPtr->m_dirichletCondition =
+                    std::make_shared<LibUtilities::Equation>(
+                        m_session->GetInterpreter(), bcPtr->m_expr);
+
+                Vmath::Zero(locExpList->GetNcoeffs(),
+                            locExpList->UpdateCoeffs(), 1);
+                Vmath::Zero(locExpList->GetNpoints(), locExpList->UpdatePhys(),
+                            1);
+            }
+            else if (m_bndConditions[i]->GetBoundaryConditionType() ==
+                     SpatialDomains::eNeumann)
+            {
+                SpatialDomains::NeumannBCShPtr bcPtr = std::static_pointer_cast<
+                    SpatialDomains::NeumannBoundaryCondition>(
+                    m_bndConditions[i]);
+
+                bcPtr->m_filename = "";
+                std::string eqn   = "0.0";
+
+                bcPtr->m_neumannCondition =
+                    std::make_shared<LibUtilities::Equation>(
+                        m_session->GetInterpreter(), eqn);
+
+                Vmath::Zero(locExpList->GetNcoeffs(),
+                            locExpList->UpdateCoeffs(), 1);
+                Vmath::Zero(locExpList->GetNpoints(), locExpList->UpdatePhys(),
+                            1);
+            }
+            else if (m_bndConditions[i]->GetBoundaryConditionType() ==
+                     SpatialDomains::eRobin)
+            {
+                SpatialDomains::RobinBCShPtr bcPtr = std::static_pointer_cast<
+                    SpatialDomains::RobinBoundaryCondition>(m_bndConditions[i]);
+
+                bcPtr->m_filename = "";
+                std::string eqn   = "0.0";
+
+                bcPtr->m_robinFunction =
+                    std::make_shared<LibUtilities::Equation>(
+                        m_session->GetInterpreter(), eqn);
+
+                Vmath::Zero(locExpList->GetNcoeffs(),
+                            locExpList->UpdateCoeffs(), 1);
+                Vmath::Zero(locExpList->GetNpoints(), locExpList->UpdatePhys(),
+                            1);
+            }
+            else if (m_bndConditions[i]->GetBoundaryConditionType() ==
+                     SpatialDomains::ePeriodic)
+            {
+                continue;
+            }
+            else
+            {
+                NEKERROR(ErrorUtil::efatal,
+                         "This type of BC not implemented yet");
             }
         }
     }

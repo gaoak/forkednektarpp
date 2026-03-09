@@ -2,6 +2,8 @@
      COMPONENT demos DEPENDS MultiRegions SOURCES Helmholtz1D.cpp)
  ADD_NEKTAR_EXECUTABLE(Helmholtz2D
      COMPONENT demos DEPENDS MultiRegions SOURCES Helmholtz2D.cpp)
+ ADD_NEKTAR_EXECUTABLE(Helmholtz2D_LinMesh
+     COMPONENT demos DEPENDS MultiRegions SOURCES Helmholtz2D_LinMesh.cpp)
  ADD_NEKTAR_EXECUTABLE(Helmholtz3D
      COMPONENT demos DEPENDS MultiRegions SOURCES Helmholtz3D.cpp)
  ADD_NEKTAR_EXECUTABLE(Helmholtz3DHomo1D
@@ -51,6 +53,7 @@ ADD_NEKTAR_TEST(Helmholtz1D_CG_P8_RBC)
 ADD_NEKTAR_TEST(Helmholtz1D_HDG_P8)
 ADD_NEKTAR_TEST(Helmholtz1D_HDG_P8_RBC)
 
+ADD_NEKTAR_TEST(Helmholtz2D_CG_P7_LinExp)
 ADD_NEKTAR_TEST(Helmholtz2D_CG_P7_Modes)
 ADD_NEKTAR_TEST(Helmholtz2D_CG_P7_Nodes)
 ADD_NEKTAR_TEST(Helmholtz2D_CG_P7_Modes_AllBCs_sc)
@@ -64,6 +67,8 @@ ADD_NEKTAR_TEST(Helmholtz2D_CG_P7_PreconDiagonal)
 ADD_NEKTAR_TEST(Helmholtz2D_HDG_P7_Modes)
 ADD_NEKTAR_TEST(Helmholtz2D_HDG_P7_Modes_AllBCs)
 ADD_NEKTAR_TEST(Helmholtz2D_CG_varP_Modes)
+ADD_NEKTAR_TEST(Helmholtz2D_Tri8_PreconditionerLOR_P8)
+ADD_NEKTAR_TEST(Helmholtz2D_Quad16_PreconditionerLOR_P6)
 
 ADD_NEKTAR_TEST(Helmholtz3D_CG_Hex LENGTHY)
 ADD_NEKTAR_TEST(Helmholtz3D_CG_Hex_Heterogeneous)
@@ -87,6 +92,11 @@ ADD_NEKTAR_TEST(Helmholtz3D_HDG_Prism)
 ADD_NEKTAR_TEST(Helmholtz3D_HDG_Hex_AllBCs LENGTHY)
 ADD_NEKTAR_TEST(Helmholtz3D_HDG_Tet)
 ADD_NEKTAR_TEST(VarP_DirichletBC)
+
+IF (NOT MSVC)
+    ADD_NEKTAR_TEST(Helmholtz3D_Tet_PreconditionerLOR_P8)
+    ADD_NEKTAR_TEST(Helmholtz3D_Prism_PreconditionerLOR_P6)
+ENDIF()
 
 ADD_NEKTAR_TEST(LinearAdvDiffReact2D_P7_Modes)
 ADD_NEKTAR_TEST(LinearAdvDiffReact2D_P7_Modes_GMRES)

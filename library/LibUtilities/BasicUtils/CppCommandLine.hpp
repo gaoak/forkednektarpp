@@ -32,6 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <string>
 #include <vector>
 
 #ifndef NEKTAR_LIBUTILITIES_BASICUTILS_CPPCOMMANDLINE_HPP

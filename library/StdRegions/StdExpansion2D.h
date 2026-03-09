@@ -203,6 +203,10 @@ protected:
         const Array<OneD, const NekDouble> &fromData,
         Array<OneD, NekDouble> &toData, bool Transpose) override;
 
+    STD_REGIONS_EXPORT void v_ReOrientTracePhysMap(
+        const StdRegions::Orientation orient, Array<OneD, int> &idmap,
+        const int nq0, const int nq1, bool Forwards) override;
+
     int v_GetShapeDimension() const final
     {
         return 2;

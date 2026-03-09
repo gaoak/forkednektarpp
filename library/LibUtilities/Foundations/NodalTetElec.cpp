@@ -356,7 +356,7 @@ void NodalTetElec::NodalPointReorder3d()
         }
     }
 
-    // bubble sort edge 3 (counterclockwise numbering)
+    // bubble sort edge 4
     iend = istart + nEdgeInteriorPoints;
     for (size_t i = istart; i < iend; i++)
     {
@@ -385,7 +385,7 @@ void NodalTetElec::NodalPointReorder3d()
         }
     }
 
-    // bubble sort edge 5 (counterclockwise numbering)
+    // bubble sort edge 5
     iend = istart + nEdgeInteriorPoints;
     for (size_t i = istart; i < iend; i++)
     {
@@ -414,7 +414,7 @@ void NodalTetElec::NodalPointReorder3d()
         }
     }
 
-    // bubble sort edge 6 (counterclockwise numbering)
+    // bubble sort edge 6
     iend = istart + nEdgeInteriorPoints;
     for (size_t i = istart; i < iend; i++)
     {
@@ -646,6 +646,73 @@ void NodalTetElec::NodalPointReorder3d()
         }
         offset += npl;
         npl--;
+    }
+
+    // bubble sort interior (tensor numbering)
+    istart = iend;
+    iend   = nAllPoints;
+    repeat = true;
+    while (repeat) // Sort z
+    {
+        repeat = false;
+        for (int i = istart; i < iend - 1; i++)
+        {
+            if (m_points[2][i] > m_points[2][i + 1])
+            {
+                std::swap(m_points[0][i + 1], m_points[0][i]);
+                std::swap(m_points[1][i + 1], m_points[1][i]);
+                std::swap(m_points[2][i + 1], m_points[2][i]);
+                repeat = true;
+            }
+        }
+    }
+
+    offset   = 0;
+    int nplz = GetNumPoints() - 4;
+    int npp  = nplz * (nplz + 1) / 2;
+    while (npp > 1)
+    {
+        repeat = true;
+        while (repeat) // sort y
+        {
+            repeat = false;
+            for (int i = offset + istart; i < offset + istart + npp - 1; i++)
+            {
+                if (m_points[1][i] > m_points[1][i + 1])
+                {
+                    std::swap(m_points[0][i + 1], m_points[0][i]);
+                    std::swap(m_points[1][i + 1], m_points[1][i]);
+                    std::swap(m_points[2][i + 1], m_points[2][i]);
+                    repeat = true;
+                }
+            }
+        }
+
+        npl = nplz;
+        while (npl > 1)
+        {
+            repeat = true;
+            while (repeat) // sort x
+            {
+                repeat = false;
+                for (int i = offset + istart; i < offset + istart + npl - 1;
+                     i++)
+                {
+                    if (m_points[0][i] > m_points[0][i + 1])
+                    {
+                        std::swap(m_points[0][i + 1], m_points[0][i]);
+                        std::swap(m_points[1][i + 1], m_points[1][i]);
+                        std::swap(m_points[2][i + 1], m_points[2][i]);
+                        repeat = true;
+                    }
+                }
+            }
+            offset += npl;
+            npl--;
+        }
+        offset++;
+        nplz--;
+        npp = nplz * (nplz + 1) / 2;
     }
 }
 

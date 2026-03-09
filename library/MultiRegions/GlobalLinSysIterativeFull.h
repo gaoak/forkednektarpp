@@ -66,6 +66,9 @@ public:
 
     MULTI_REGIONS_EXPORT ~GlobalLinSysIterativeFull() override = default;
 
+    void Initialise(const int nGlobal, const AssemblyMapSharedPtr &plocToGloMap,
+                    const int nDir);
+
 protected:
     /// Solve the linear system for given input and output vectors
     /// using a specified local to global map.

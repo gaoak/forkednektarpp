@@ -176,6 +176,8 @@ void IncNavierStokes::v_InitObject(bool DeclareField)
         m_aeroForces      = Array<OneD, NekDouble>(6, 0.0);
     }
 
+    m_aeroForces = Array<OneD, NekDouble>(6, 0.0);
+
     // Forcing terms
     m_forcing = SolverUtils::Forcing::Load(m_session, shared_from_this(),
                                            m_fields, v_GetForceDimension());

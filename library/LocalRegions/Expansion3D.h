@@ -89,10 +89,6 @@ public:
 
     inline SpatialDomains::Geometry3D *GetGeom3D() const;
 
-    LOCAL_REGIONS_EXPORT void v_ReOrientTracePhysMap(
-        const StdRegions::Orientation orient, Array<OneD, int> &idmap,
-        const int nq0, const int nq1, bool Forwards) override;
-
     LOCAL_REGIONS_EXPORT void v_ReOrientTracePhysVals(
         const StdRegions::Orientation orient,
         const Array<OneD, const NekDouble> &in, Array<OneD, NekDouble> &out,

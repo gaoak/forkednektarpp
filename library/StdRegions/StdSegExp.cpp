@@ -33,6 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <LibUtilities/Foundations/InterpCoeff.h>
+#include <LibUtilities/Foundations/ManagerAccess.h> // for PointsManager, etc
 #include <StdRegions/StdSegExp.h>
 
 using namespace std;
@@ -687,24 +688,63 @@ DNekMatSharedPtr StdSegExp::v_GenMatrix(const StdMatrixKey &mkey)
     {
         case ePhysInterpToEquiSpaced:
         {
-            int nq = m_base[0]->GetNumPoints();
+            int nq0 = m_base[0]->GetNumPoints();
+            int nq;
 
             // take definition from key
             if (mkey.ConstFactorExists(eFactorConst))
             {
                 nq = (int)mkey.GetConstFactor(eFactorConst);
             }
+            else
+            {
+                nq = nq0;
+            }
 
             int neq = LibUtilities::StdSegData::getNumberOfCoefficients(nq);
             Array<OneD, NekDouble> coords(1);
             DNekMatSharedPtr I;
-            Mat = MemoryManager<DNekMat>::AllocateSharedPtr(neq, nq);
+            Mat = MemoryManager<DNekMat>::AllocateSharedPtr(neq, nq0);
 
             for (int i = 0; i < neq; ++i)
             {
                 coords[0] = -1.0 + 2 * i / (NekDouble)(neq - 1);
                 I         = m_base[0]->GetI(coords);
-                Vmath::Vcopy(nq, I->GetRawPtr(), 1, Mat->GetRawPtr() + i, neq);
+                Vmath::Vcopy(nq0, I->GetRawPtr(), 1, Mat->GetRawPtr() + i, neq);
+            }
+        }
+        break;
+        case ePhysInterpToGLL:
+        {
+            int nq0 = m_base[0]->GetNumPoints();
+            int nq;
+
+            // take definition from key
+            if (mkey.ConstFactorExists(eFactorConst))
+            {
+                nq = (int)mkey.GetConstFactor(eFactorConst);
+            }
+            else
+            {
+                nq = nq0;
+            }
+
+            int neq = LibUtilities::StdSegData::getNumberOfCoefficients(nq);
+            Array<OneD, NekDouble> coords(1);
+            DNekMatSharedPtr I;
+            Mat = MemoryManager<DNekMat>::AllocateSharedPtr(neq, nq0);
+
+            const LibUtilities::PointsKey key(
+                neq, LibUtilities::eGaussLobattoLegendre);
+
+            Array<OneD, const NekDouble> z;
+            LibUtilities::PointsManager()[key]->GetPoints(z);
+
+            for (int i = 0; i < neq; ++i)
+            {
+                coords[0] = z[i];
+                I         = m_base[0]->GetI(coords);
+                Vmath::Vcopy(nq0, I->GetRawPtr(), 1, Mat->GetRawPtr() + i, neq);
             }
         }
         break;

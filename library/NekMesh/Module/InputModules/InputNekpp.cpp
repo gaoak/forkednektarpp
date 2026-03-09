@@ -32,6 +32,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <LibUtilities/BasicUtils/CppCommandLine.hpp>
 #include <iostream>
 #include <string>
 using namespace std;
@@ -53,8 +54,12 @@ ModuleKey InputNekpp::className = GetModuleFactory().RegisterCreatorFunction(
  */
 InputNekpp::InputNekpp(MeshSharedPtr m) : InputModule(m)
 {
-    m_config["processall"] =
-        ConfigOption(true, "0", "Process edges, faces as well as composites");
+    m_config["processall"] = ConfigOption(
+        true, "0",
+        "Process verts, edges, faces and eleements as well as composites");
+    m_config["prismreorder"] = ConfigOption(
+        true, "0",
+        "Reorder prisns to align vertices and faces along lines of prisms");
 }
 
 InputNekpp::~InputNekpp()
@@ -75,13 +80,15 @@ void InputNekpp::Process()
     LibUtilities::CommSharedPtr pComm =
         m_mesh->m_comm ? m_mesh->m_comm : LibUtilities::CommSharedPtr();
 
-    char *prgname[] = {(char *)"NekMesh", nullptr};
+    LibUtilities::CppCommandLine cmd({"NekMesh"});
     LibUtilities::SessionReaderSharedPtr pSession =
-        LibUtilities::SessionReader::CreateInstance(1, prgname, filename);
+        LibUtilities::SessionReader::CreateInstance(cmd.GetArgc(),
+                                                    cmd.GetArgv(), filename);
+
     SpatialDomains::MeshGraphSharedPtr graph =
         SpatialDomains::MeshGraphIO::Read(pSession);
-
     auto comm = pSession->GetComm();
+
     if (comm->GetType().find("MPI") != std::string::npos)
     {
         m_mesh->m_comm = comm;
@@ -238,7 +245,7 @@ void InputNekpp::Process()
         // compIt->second is a GeometryVector
         for (auto &geomIt : compIt.second->m_geomVec)
         {
-            ElmtConfig conf(geomIt->GetShapeType(), 1, true, true, false);
+            ElmtConfig conf(geomIt->GetShapeType(), 1, true, true, true);
 
             // Get hold of geometry
             vector<NodeSharedPtr> nodeList;
@@ -301,8 +308,15 @@ void InputNekpp::Process()
 
     if (m_config["processall"].beenSet)
     {
+        ProcessVertices();
         ProcessEdges();
         ProcessFaces();
+        ProcessElements();
+    }
+    else if (m_config["prismreorder"].beenSet)
+    {
+        map<int, pair<FaceSharedPtr, vector<int>>> perFaces;
+        ReorderPrisms(perFaces);
     }
     else
     {

@@ -314,6 +314,9 @@ protected:
         const NekDouble x2_in = NekConstants::kNekUnsetDouble,
         const NekDouble x3_in = NekConstants::kNekUnsetDouble) override;
 
+    /// Set boundary conditions to be homogeneous
+    void v_SetBCsToHomogeneous(void) override;
+
     /// Solve the Helmholtz equation.
     GlobalLinSysKey v_HelmSolve(const Array<OneD, const NekDouble> &inarray,
                                 Array<OneD, NekDouble> &outarray,

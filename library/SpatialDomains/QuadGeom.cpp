@@ -84,7 +84,10 @@ QuadGeom::QuadGeom(const int id, std::array<SegGeom *, kNedges> edges,
     }
 
     m_coordim = edges[0]->GetVertex(0)->GetCoordim();
-    ASSERTL0(m_coordim > 1, "Cannot call function with dim == 1");
+    if (m_coordim <= 1)
+    {
+        NEKERROR(ErrorUtil::efatal, "Cannot call function with dim == 1");
+    }
 }
 
 QuadGeom::QuadGeom(const QuadGeom &in) : Geometry2D(in)
@@ -211,7 +214,10 @@ void QuadGeom::SetUpXmap()
 NekDouble QuadGeom::v_GetCoord(const int i,
                                const Array<OneD, const NekDouble> &Lcoord)
 {
-    ASSERTL1(m_state == ePtsFilled, "Geometry is not in physical space");
+    if (m_state != ePtsFilled)
+    {
+        NEKERROR(ErrorUtil::efatal, "Geometry is not in physical space");
+    }
 
     Array<OneD, NekDouble> tmp(m_xmap->GetTotPoints());
     m_xmap->BwdTrans(m_coeffs[i], tmp);
@@ -336,8 +342,7 @@ StdRegions::Orientation QuadGeom::GetFaceOrientation(
                 break;
         }
     }
-
-    ASSERTL0(false, "unable to determine face orientation");
+    NEKERROR(ErrorUtil::efatal, "unable to determine face orientation");
     return StdRegions::eDir1FwdDir1_Dir2FwdDir2;
 }
 

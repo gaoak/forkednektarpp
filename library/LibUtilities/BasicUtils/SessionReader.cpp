@@ -1204,6 +1204,27 @@ const std::string &SessionReader::GetGlobalSysSolnInfo(
 }
 
 /**
+ *
+ */
+void SessionReader::SetGlobalSysSolnInfo(const std::string &pVariable,
+                                         const std::string &pProperty,
+                                         const std::string &pValue)
+{
+
+    std::string vProperty = boost::to_upper_copy(pProperty);
+
+    auto iter = GetGloSysSolnList().find(pVariable);
+    if (iter == GetGloSysSolnList().end())
+    {
+        (GetGloSysSolnList()[pVariable])[vProperty] = pValue;
+    }
+    else
+    {
+        iter->second[vProperty] = pValue;
+    }
+}
+
+/**
  * @brief Returns true if the TIMEINTEGRATIONSCHEME section is defined
  * in the session file.
  */

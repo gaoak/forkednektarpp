@@ -947,28 +947,26 @@ int AssemblyMapCG::CreateGraph(
         {
             if (localVerts[j + localVertOffset] == -1)
             {
-                break;
+                continue;
             }
             // associate to other vertices
-            for (k = 0; k < nVerts; k++)
+            for (k = j + 1; k < nVerts; k++)
             {
                 if (localVerts[k + localVertOffset] == -1)
                 {
-                    break;
+                    continue;
                 }
-                if (k != j)
-                {
-                    boost::add_edge((size_t)localVerts[j + localVertOffset],
-                                    (size_t)localVerts[k + localVertOffset],
-                                    boostGraphObj);
-                }
+
+                boost::add_edge((size_t)localVerts[j + localVertOffset],
+                                (size_t)localVerts[k + localVertOffset],
+                                boostGraphObj);
             }
             // associate to other edges
             for (k = 0; k < nEdges; k++)
             {
                 if (localEdges[k + localEdgeOffset] == -1)
                 {
-                    break;
+                    continue;
                 }
                 boost::add_edge((size_t)localVerts[j + localVertOffset],
                                 (size_t)localEdges[k + localEdgeOffset],
@@ -979,7 +977,7 @@ int AssemblyMapCG::CreateGraph(
             {
                 if (localFaces[k + localFaceOffset] == -1)
                 {
-                    break;
+                    continue;
                 }
                 boost::add_edge((size_t)localVerts[j + localVertOffset],
                                 (size_t)localFaces[k + localFaceOffset],
@@ -992,31 +990,17 @@ int AssemblyMapCG::CreateGraph(
         {
             if (localEdges[j + localEdgeOffset] == -1)
             {
-                break;
+                continue;
             }
             // Associate to other edges
-            for (k = 0; k < nEdges; k++)
+            for (k = j + 1; k < nEdges; k++)
             {
                 if (localEdges[k + localEdgeOffset] == -1)
                 {
-                    break;
-                }
-                if (k != j)
-                {
-                    boost::add_edge((size_t)localEdges[j + localEdgeOffset],
-                                    (size_t)localEdges[k + localEdgeOffset],
-                                    boostGraphObj);
-                }
-            }
-            // Associate to vertices
-            for (k = 0; k < nVerts; k++)
-            {
-                if (localVerts[k + localVertOffset] == -1)
-                {
-                    break;
+                    continue;
                 }
                 boost::add_edge((size_t)localEdges[j + localEdgeOffset],
-                                (size_t)localVerts[k + localVertOffset],
+                                (size_t)localEdges[k + localEdgeOffset],
                                 boostGraphObj);
             }
             // Associate to faces
@@ -1024,7 +1008,7 @@ int AssemblyMapCG::CreateGraph(
             {
                 if (localFaces[k + localFaceOffset] == -1)
                 {
-                    break;
+                    continue;
                 }
                 boost::add_edge((size_t)localEdges[j + localEdgeOffset],
                                 (size_t)localFaces[k + localFaceOffset],
@@ -1037,42 +1021,17 @@ int AssemblyMapCG::CreateGraph(
         {
             if (localFaces[j + localFaceOffset] == -1)
             {
-                break;
+                continue;
             }
             // Associate to other faces
-            for (k = 0; k < nFaces; k++)
+            for (k = j + 1; k < nFaces; k++)
             {
                 if (localFaces[k + localFaceOffset] == -1)
                 {
-                    break;
-                }
-                if (k != j)
-                {
-                    boost::add_edge((size_t)localFaces[j + localFaceOffset],
-                                    (size_t)localFaces[k + localFaceOffset],
-                                    boostGraphObj);
-                }
-            }
-            // Associate to vertices
-            for (k = 0; k < nVerts; k++)
-            {
-                if (localVerts[k + localVertOffset] == -1)
-                {
-                    break;
+                    continue;
                 }
                 boost::add_edge((size_t)localFaces[j + localFaceOffset],
-                                (size_t)localVerts[k + localVertOffset],
-                                boostGraphObj);
-            }
-            // Associate to edges
-            for (k = 0; k < nEdges; k++)
-            {
-                if (localEdges[k + localEdgeOffset] == -1)
-                {
-                    break;
-                }
-                boost::add_edge((size_t)localFaces[j + localFaceOffset],
-                                (size_t)localEdges[k + localEdgeOffset],
+                                (size_t)localFaces[k + localFaceOffset],
                                 boostGraphObj);
             }
         }

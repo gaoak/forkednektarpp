@@ -150,9 +150,12 @@ bool operator==(const GeomFactors &lhs, const GeomFactors &rhs)
 DerivStorage GeomFactors::ComputeDeriv(
     const LibUtilities::PointsKeyVector &keyTgt) const
 {
-    ASSERTL1(keyTgt.size() == m_expDim,
-             "Dimension of target point distribution does not match "
-             "expansion dimension.");
+    if (keyTgt.size() != m_expDim)
+    {
+        NEKERROR(ErrorUtil::ewarning,
+                 "Dimension of target point distribution does not match "
+                 "expansion dimension.");
+    }
 
     int i = 0, j = 0;
     int nqtot_map      = 1;
@@ -245,9 +248,12 @@ DerivStorage GeomFactors::ComputeDeriv(
 Array<OneD, NekDouble> GeomFactors::ComputeJac(
     const LibUtilities::PointsKeyVector &keyTgt) const
 {
-    ASSERTL1(keyTgt.size() == m_expDim,
-             "Dimension of target point distribution does not match "
-             "expansion dimension.");
+    if (keyTgt.size() != m_expDim)
+    {
+        NEKERROR(ErrorUtil::ewarning,
+                 "Dimension of target point distribution does not match "
+                 "expansion dimension.");
+    }
 
     // A point always has a unit jacobian
     if (m_expDim == 0)
@@ -328,9 +334,12 @@ Array<OneD, NekDouble> GeomFactors::ComputeJac(
 Array<TwoD, NekDouble> GeomFactors::ComputeGmat(
     const LibUtilities::PointsKeyVector &keyTgt) const
 {
-    ASSERTL1(keyTgt.size() == m_expDim,
-             "Dimension of target point distribution does not match "
-             "expansion dimension.");
+    if (keyTgt.size() != m_expDim)
+    {
+        NEKERROR(ErrorUtil::ewarning,
+                 "Dimension of target point distribution does not match "
+                 "expansion dimension.");
+    }
 
     int i = 0, j = 0, k = 0, l = 0;
     int ptsTgt = 1;
@@ -392,9 +401,12 @@ Array<TwoD, NekDouble> GeomFactors::ComputeGmat(
 Array<TwoD, NekDouble> GeomFactors::ComputeDerivFactors(
     const LibUtilities::PointsKeyVector &keyTgt) const
 {
-    ASSERTL1(keyTgt.size() == m_expDim,
-             "Dimension of target point distribution does not match "
-             "expansion dimension.");
+    if (keyTgt.size() != m_expDim)
+    {
+        NEKERROR(ErrorUtil::ewarning,
+                 "Dimension of target point distribution does not match "
+                 "expansion dimension.");
+    }
 
     int i = 0, j = 0, k = 0, l = 0;
     int ptsTgt = 1;
@@ -470,9 +482,12 @@ void GeomFactors::ComputeMovingFrames(
     const Array<OneD, const NekDouble> &factors,
     Array<OneD, Array<OneD, NekDouble>> &movingframes)
 {
-    ASSERTL1(keyTgt.size() == m_expDim,
-             "Dimension of target point distribution does not match "
-             "expansion dimension.");
+    if (keyTgt.size() != m_expDim)
+    {
+        NEKERROR(ErrorUtil::ewarning,
+                 "Dimension of target point distribution does not match "
+                 "expansion dimension.");
+    }
 
     int i = 0, k = 0;
     int ptsTgt = 1;
@@ -660,9 +675,12 @@ void GeomFactors::Interp(const LibUtilities::PointsKeyVector &src_points,
                          const LibUtilities::PointsKeyVector &tgt_points,
                          Array<OneD, NekDouble> &tgt) const
 {
-    ASSERTL1(src_points.size() == tgt_points.size(),
-             "Dimension of target point distribution does not match "
-             "expansion dimension.");
+    if (src_points.size() != tgt_points.size())
+    {
+        NEKERROR(ErrorUtil::ewarning,
+                 "Dimension of target point distribution does not match "
+                 "expansion dimension.");
+    }
 
     switch (m_expDim)
     {
@@ -691,9 +709,12 @@ void GeomFactors::Interp(const LibUtilities::PointsKeyVector &src_points,
 void GeomFactors::Adjoint(const Array<TwoD, const NekDouble> &src,
                           Array<TwoD, NekDouble> &tgt) const
 {
-    ASSERTL1(src.size() == tgt.size(),
-             "Source matrix is of different size to destination"
-             "matrix for computing adjoint.");
+    if (src.size() != tgt.size())
+    {
+        NEKERROR(ErrorUtil::ewarning,
+                 "Source matrix is of different size to destination"
+                 "matrix for computing adjoint.");
+    }
 
     int n = src[0].size();
     switch (m_expDim)
@@ -804,7 +825,10 @@ void GeomFactors::ComputePrincipleDirection(
             NekDouble radius, xc = 0.0, yc = 0.0, xdis, ydis;
             NekDouble la, lb;
 
-            ASSERTL1(factors.size() >= 4, "factors is too short.");
+            if (factors.size() < 4)
+            {
+                NEKERROR(ErrorUtil::ewarning, "factors is too short.");
+            }
 
             la = factors[0];
             lb = factors[1];
@@ -904,11 +928,16 @@ void GeomFactors::ComputePrincipleDirection(
 void GeomFactors::VectorNormalise(Array<OneD, Array<OneD, NekDouble>> &array)
 {
     int ndim = array.size();
-    ASSERTL0(ndim > 0, "Number of components must be > 0.");
+    if (ndim <= 0)
+    {
+        NEKERROR(ErrorUtil::efatal, "Number of components must be > 0.");
+    }
     for (int i = 1; i < ndim; ++i)
     {
-        ASSERTL0(array[i].size() == array[0].size(),
-                 "Array size mismatch in coordinates.");
+        if (array[i].size() != array[0].size())
+        {
+            NEKERROR(ErrorUtil::efatal, "Array size mismatch in coordinates.");
+        }
     }
 
     int nq = array[0].size();
@@ -943,9 +972,21 @@ void GeomFactors::VectorCrossProd(
     const Array<OneD, const Array<OneD, NekDouble>> &v2,
     Array<OneD, Array<OneD, NekDouble>> &v3)
 {
-    ASSERTL0(v1.size() == 3, "Input 1 has dimension not equal to 3.");
-    ASSERTL0(v2.size() == 3, "Input 2 has dimension not equal to 3.");
-    ASSERTL0(v3.size() == 3, "Output vector has dimension not equal to 3.");
+    if (v1.size() != 3)
+    {
+        NEKERROR(ErrorUtil::efatal, "Input 1 has dimension not equal to 3.");
+    }
+
+    if (v2.size() != 3)
+    {
+        NEKERROR(ErrorUtil::efatal, "Input 2 has dimension not equal to 3.");
+    }
+
+    if (v3.size() != 3)
+    {
+        NEKERROR(ErrorUtil::efatal,
+                 "Output vector has dimension not equal to 3.");
+    }
 
     int nq = v1[0].size();
     Array<OneD, NekDouble> temp(nq);

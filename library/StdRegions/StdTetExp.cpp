@@ -33,6 +33,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <LibUtilities/Foundations/ManagerAccess.h>
+#include <LibUtilities/Foundations/NodalUtil.h>
 #include <StdRegions/StdTetExp.h>
 
 using namespace std;
@@ -1736,6 +1738,73 @@ DNekMatSharedPtr StdTetExp::v_GenMatrix(const StdMatrixKey &mkey)
                     }
                 }
             }
+        }
+        break;
+        case ePhysInterpToGLL:
+        {
+            int nq0 = m_base[0]->GetNumPoints();
+            int nq1 = m_base[1]->GetNumPoints();
+            int nq2 = m_base[2]->GetNumPoints();
+            int nq;
+
+            // take definition from key
+            if (mkey.ConstFactorExists(eFactorConst))
+            {
+                nq = (int)mkey.GetConstFactor(eFactorConst);
+            }
+            else
+            {
+                nq = max(nq0, max(nq1, nq2));
+            }
+
+            int neq =
+                LibUtilities::StdTetData::getNumberOfCoefficients(nq, nq, nq);
+            Array<OneD, NekDouble> coords(3);
+            Array<OneD, NekDouble> coll(3);
+            Array<OneD, DNekMatSharedPtr> I(3);
+            Array<OneD, NekDouble> tmp(nq0);
+
+            Mat =
+                MemoryManager<DNekMat>::AllocateSharedPtr(neq, nq0 * nq1 * nq2);
+
+            const LibUtilities::PointsKey key(nq, LibUtilities::eNodalTetElec);
+
+            Array<OneD, const NekDouble> x, y, z;
+            LibUtilities::PointsManager()[key]->GetPoints(x, y, z);
+
+            Array<OneD, int> sorted;
+            LibUtilities::NodalUtilTetrahedron::CartesianOrdering(nq, sorted);
+
+            for (int i = 0; i < neq; ++i)
+            {
+                coords[0] = x[sorted[i]];
+                coords[1] = y[sorted[i]];
+                coords[2] = z[sorted[i]];
+
+                LocCoordToLocCollapsed(coords, coll);
+
+                I[0] = m_base[0]->GetI(coll);
+                I[1] = m_base[1]->GetI(coll + 1);
+                I[2] = m_base[2]->GetI(coll + 2);
+
+                // interpolate first coordinate direction
+                NekDouble fac;
+                for (int k = 0; k < nq2; ++k)
+                {
+                    for (int j = 0; j < nq1; ++j)
+                    {
+
+                        fac = (I[1]->GetPtr())[j] * (I[2]->GetPtr())[k];
+                        Vmath::Smul(nq0, fac, I[0]->GetPtr(), 1, tmp, 1);
+
+                        Vmath::Vcopy(nq0, &tmp[0], 1,
+                                     Mat->GetRawPtr() + k * nq0 * nq1 * neq +
+                                         j * nq0 * neq + i,
+                                     neq);
+                    }
+                }
+            }
+            // need to set up test?
         }
         break;
         default:

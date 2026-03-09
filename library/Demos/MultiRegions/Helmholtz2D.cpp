@@ -36,6 +36,7 @@
 #include <cstdlib>
 
 #include <LibUtilities/BasicUtils/SessionReader.h>
+#include <LibUtilities/BasicUtils/Timer.h>
 #include <LibUtilities/Communication/Comm.h>
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
 #include <MultiRegions/ContField.h>
@@ -54,8 +55,6 @@ using namespace Nektar;
 #else
 #define Timing(s) /* Nothing */
 #endif
-
-int NoCaseStringCompare(const string &s1, const string &s2);
 
 int main(int argc, char *argv[])
 {
@@ -236,12 +235,25 @@ int main(int argc, char *argv[])
         //----------------------------------------------
         Timing("Define forcing ..");
 
+        // Timer info for the HelmSolv
+        Nektar::LibUtilities::Timer timer;
+        NekDouble CPUtime;
+        timer.Start();
         //----------------------------------------------
         // Helmholtz solution taking physical forcing after setting
         // initial condition to zero
         Vmath::Zero(Exp->GetNcoeffs(), Exp->UpdateCoeffs(), 1);
         Exp->HelmSolve(Fce->GetPhys(), Exp->UpdateCoeffs(), factors, varcoeffs);
         //----------------------------------------------
+        timer.Stop();
+        if (vSession->GetComm()->GetRank() == 0)
+        {
+            CPUtime = timer.Elapsed().count();
+            cout << "-------------------------------------------" << endl;
+            cout << "Total Computation Time = " << CPUtime << "s" << endl;
+            cout << "-------------------------------------------" << endl;
+        }
+
         Timing("Helmholtz Solve ..");
 
 #ifdef TIMING
@@ -315,41 +327,4 @@ int main(int argc, char *argv[])
     vSession->Finalise();
 
     return 0;
-}
-
-/**
- * Performs a case-insensitive string comparison (from web).
- * @param   s1          First string to compare.
- * @param   s2          Second string to compare.
- * @returns             0 if the strings match.
- */
-int NoCaseStringCompare(const string &s1, const string &s2)
-{
-    string::const_iterator it1 = s1.begin();
-    string::const_iterator it2 = s2.begin();
-
-    // stop when either string's end has been reached
-    while ((it1 != s1.end()) && (it2 != s2.end()))
-    {
-        if (::toupper(*it1) != ::toupper(*it2)) // letters differ?
-        {
-            // return -1 to indicate smaller than, 1 otherwise
-            return (::toupper(*it1) < ::toupper(*it2)) ? -1 : 1;
-        }
-
-        // proceed to the next character in each string
-        ++it1;
-        ++it2;
-    }
-
-    size_t size1 = s1.size();
-    size_t size2 = s2.size(); // cache lengths
-
-    // return -1,0 or 1 according to strings' lengths
-    if (size1 == size2)
-    {
-        return 0;
-    }
-
-    return (size1 < size2) ? -1 : 1;
 }

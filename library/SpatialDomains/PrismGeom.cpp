@@ -213,7 +213,7 @@ void PrismGeom::SetUpLocalEdges()
             errstrm << "Connected faces do not share an edge. Faces ";
             errstrm << (m_faces[0])->GetGlobalID() << ", "
                     << (m_faces[f])->GetGlobalID();
-            ASSERTL0(false, errstrm.str());
+            NEKERROR(ErrorUtil::efatal, errstrm.str());
         }
         else if (check > 1)
         {
@@ -221,7 +221,7 @@ void PrismGeom::SetUpLocalEdges()
             errstrm << "Connected faces share more than one edge. Faces ";
             errstrm << (m_faces[0])->GetGlobalID() << ", "
                     << (m_faces[f])->GetGlobalID();
-            ASSERTL0(false, errstrm.str());
+            NEKERROR(ErrorUtil::efatal, errstrm.str());
         }
     }
 
@@ -244,7 +244,7 @@ void PrismGeom::SetUpLocalEdges()
         errstrm << "Connected faces do not share an edge. Faces ";
         errstrm << (m_faces[1])->GetGlobalID() << ", "
                 << (m_faces[4])->GetGlobalID();
-        ASSERTL0(false, errstrm.str());
+        NEKERROR(ErrorUtil::efatal, errstrm.str());
     }
     else if (check > 1)
     {
@@ -252,7 +252,7 @@ void PrismGeom::SetUpLocalEdges()
         errstrm << "Connected faces share more than one edge. Faces ";
         errstrm << (m_faces[1])->GetGlobalID() << ", "
                 << (m_faces[4])->GetGlobalID();
-        ASSERTL0(false, errstrm.str());
+        NEKERROR(ErrorUtil::efatal, errstrm.str());
     }
     // Set up vertical edges: face(1) through face(4)
     for (f = 1; f < 4; f++)
@@ -277,7 +277,7 @@ void PrismGeom::SetUpLocalEdges()
             errstrm << "Connected faces do not share an edge. Faces ";
             errstrm << (m_faces[f])->GetGlobalID() << ", "
                     << (m_faces[f + 1])->GetGlobalID();
-            ASSERTL0(false, errstrm.str());
+            NEKERROR(ErrorUtil::efatal, errstrm.str());
         }
         else if (check > 1)
         {
@@ -285,7 +285,7 @@ void PrismGeom::SetUpLocalEdges()
             errstrm << "Connected faces share more than one edge. Faces ";
             errstrm << (m_faces[f])->GetGlobalID() << ", "
                     << (m_faces[f + 1])->GetGlobalID();
-            ASSERTL0(false, errstrm.str());
+            NEKERROR(ErrorUtil::efatal, errstrm.str());
         }
     }
 
@@ -309,7 +309,7 @@ void PrismGeom::SetUpLocalEdges()
         errstrm << "Connected faces do not share an edge. Faces ";
         errstrm << (m_faces[1])->GetGlobalID() << ", "
                 << (m_faces[3])->GetGlobalID();
-        ASSERTL0(false, errstrm.str());
+        NEKERROR(ErrorUtil::efatal, errstrm.str());
     }
     else if (check > 1)
     {
@@ -317,7 +317,7 @@ void PrismGeom::SetUpLocalEdges()
         errstrm << "Connected faces share more than one edge. Faces ";
         errstrm << (m_faces[1])->GetGlobalID() << ", "
                 << (m_faces[3])->GetGlobalID();
-        ASSERTL0(false, errstrm.str());
+        NEKERROR(ErrorUtil::efatal, errstrm.str());
     }
 }
 
@@ -343,7 +343,7 @@ void PrismGeom::SetUpLocalVertices()
         errstrm << "Connected edges do not share a vertex. Edges ";
         errstrm << m_edges[0]->GetGlobalID() << ", "
                 << m_edges[1]->GetGlobalID();
-        ASSERTL0(false, errstrm.str());
+        NEKERROR(ErrorUtil::efatal, errstrm.str());
     }
 
     // set up the other bottom vertices (i.e. vertex 2,3)
@@ -363,7 +363,7 @@ void PrismGeom::SetUpLocalVertices()
             errstrm << "Connected edges do not share a vertex. Edges ";
             errstrm << m_edges[i]->GetGlobalID() << ", "
                     << m_edges[i - 1]->GetGlobalID();
-            ASSERTL0(false, errstrm.str());
+            NEKERROR(ErrorUtil::efatal, errstrm.str());
         }
     }
 
@@ -386,7 +386,7 @@ void PrismGeom::SetUpLocalVertices()
         std::ostringstream errstrm;
         errstrm << "Connected edges do not share a vertex. Edges ";
         errstrm << m_edges[8]->GetGlobalID();
-        ASSERTL0(false, errstrm.str());
+        NEKERROR(ErrorUtil::efatal, errstrm.str());
     }
 }
 
@@ -413,7 +413,8 @@ void PrismGeom::SetUpEdgeOrientation()
         }
         else
         {
-            ASSERTL0(false, "Could not find matching vertex for the edge");
+            NEKERROR(ErrorUtil::efatal,
+                     "Could not find matching vertex for the edge");
         }
     }
 }
@@ -443,7 +444,7 @@ void PrismGeom::SetUpFaceOrientation()
     // Geometry2D
     unsigned int baseVertex;
 
-    // The lenght of the vectors above
+    // The length of the vectors above
     NekDouble elementAaxis_length;
     NekDouble elementBaxis_length;
     NekDouble faceAaxis_length;
@@ -524,7 +525,8 @@ void PrismGeom::SetUpFaceOrientation()
             }
             else
             {
-                ASSERTL0(false, "Could not find matching vertex for the face");
+                NEKERROR(ErrorUtil::efatal,
+                         "Could not find matching vertex for the face");
             }
         }
         else
@@ -571,7 +573,8 @@ void PrismGeom::SetUpFaceOrientation()
             }
             else
             {
-                ASSERTL0(false, "Could not find matching vertex for the face");
+                NEKERROR(ErrorUtil::efatal,
+                         "Could not find matching vertex for the face");
             }
         }
         // Now, construct the edge-vectors of the local coordinates of
@@ -622,11 +625,13 @@ void PrismGeom::SetUpFaceOrientation()
             {
                 dotproduct2 += elementBaxis[i] * faceBaxis[i];
             }
-
-            ASSERTL1(fabs(fabs(dotproduct2 / elementBaxis_length /
-                               faceBaxis_length) -
-                          1.0) < NekConstants::kNekZeroTol,
-                     "These vectors should be parallel");
+            if (fabs(
+                    fabs(dotproduct2 / elementBaxis_length / faceBaxis_length) -
+                    1.0) >= NekConstants::kNekZeroTol)
+            {
+                NEKERROR(ErrorUtil::ewarning,
+                         "These vectors should be parallel");
+            }
 
             // if the inner product is negative, both B-axis point
             // in reverse direction
@@ -649,10 +654,13 @@ void PrismGeom::SetUpFaceOrientation()
             }
 
             // check that both these axis are indeed parallel
-            ASSERTL1(fabs(fabs(dotproduct1) / elementAaxis_length /
-                              faceBaxis_length -
-                          1.0) < NekConstants::kNekZeroTol,
-                     "These vectors should be parallel");
+            if (fabs(fabs(dotproduct1) / elementAaxis_length /
+                         faceBaxis_length -
+                     1.0) >= NekConstants::kNekZeroTol)
+            {
+                NEKERROR(ErrorUtil::ewarning,
+                         "These vectors should be parallel");
+            }
 
             // if the result is negative, both axis point in reverse
             // directions
@@ -668,10 +676,13 @@ void PrismGeom::SetUpFaceOrientation()
                 dotproduct2 += elementBaxis[i] * faceAaxis[i];
             }
 
-            ASSERTL1(fabs(fabs(dotproduct2) / elementBaxis_length /
-                              faceAaxis_length -
-                          1.0) < NekConstants::kNekZeroTol,
-                     "These vectors should be parallel");
+            if (fabs(fabs(dotproduct2) / elementBaxis_length /
+                         faceAaxis_length -
+                     1.0) >= NekConstants::kNekZeroTol)
+            {
+                NEKERROR(ErrorUtil::ewarning,
+                         "These vectors should be parallel");
+            }
 
             if (dotproduct2 < 0.0)
             {

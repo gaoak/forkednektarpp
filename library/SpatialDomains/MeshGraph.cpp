@@ -39,6 +39,8 @@
 #include <SpatialDomains/MeshGraph.h>
 #include <StdRegions/StdPrismExp.h>
 #include <StdRegions/StdPyrExp.h>
+#include <StdRegions/StdQuadExp.h>
+#include <StdRegions/StdSegExp.h>
 #include <StdRegions/StdTetExp.h>
 #include <StdRegions/StdTriExp.h>
 
@@ -132,7 +134,7 @@ void MeshGraph::SetPartition(SpatialDomains::MeshGraphSharedPtr graph)
 
 void MeshGraph::FillGraph()
 {
-    ReadExpansionInfo();
+    ReadExpansionInfo(m_session->GetElement("NEKTAR/EXPANSIONS"));
 
     switch (m_meshDimension)
     {
@@ -223,7 +225,7 @@ void MeshGraph::FillBoundingBoxTree()
             }
             break;
         default:
-            ASSERTL0(false, "Unknown dim");
+            NEKERROR(ErrorUtil::efatal, "Unknown dim");
     }
 }
 
@@ -348,7 +350,8 @@ bool MeshGraph::CheckRange(Geometry2D &geom)
 
         if (coordim > 2)
         {
-            // exclude elements outside z range if all vertices not in region
+            // exclude elements outside z range if all vertices not in
+            // region
             if (m_domainRange->m_doZrange)
             {
                 int ncnt_low = 0;
@@ -592,10 +595,13 @@ void MeshGraph::GetCompositeList(const std::string &compositeStr,
     bool parseGood =
         ParseUtils::GenerateSeqVector(compositeStr.c_str(), seqVector);
 
-    ASSERTL0(
-        parseGood && !seqVector.empty(),
-        (std::string("Unable to read composite index range: ") + compositeStr)
-            .c_str());
+    if (!parseGood && seqVector.empty())
+    {
+        NEKERROR(ErrorUtil::efatal,
+                 (std::string("Unable to read composite index range: ") +
+                  compositeStr)
+                     .c_str());
+    }
 
     std::vector<unsigned int> addedVector; // Vector of those composites already
                                            // added to compositeVector;
@@ -617,8 +623,10 @@ void MeshGraph::GetCompositeList(const std::string &compositeStr,
             }
 
             addedVector.push_back(*iter);
-            ASSERTL0(m_meshComposites.find(*iter) != m_meshComposites.end(),
-                     "Composite not found.");
+            if (m_meshComposites.find(*iter) == m_meshComposites.end())
+            {
+                NEKERROR(ErrorUtil::efatal, "Composite not found.");
+            }
             CompositeSharedPtr composite = m_meshComposites.find(*iter)->second;
 
             if (composite)
@@ -649,22 +657,20 @@ const ExpansionInfoMap &MeshGraph::GetExpansionInfo(const std::string variable)
     {
         if (m_expansionMapShPtrMap.count("DefaultVar") == 0)
         {
-            NEKERROR(
-                ErrorUtil::efatal,
-                (std::string(
-                     "Unable to find expansion vector definition for field: ") +
-                 variable)
-                    .c_str());
+            NEKERROR(ErrorUtil::efatal,
+                     (std::string("Unable to find expansion vector "
+                                  "definition for field: ") +
+                      variable)
+                         .c_str());
         }
         returnval = m_expansionMapShPtrMap.find("DefaultVar")->second;
         m_expansionMapShPtrMap[variable] = returnval;
 
-        NEKERROR(
-            ErrorUtil::ewarning,
-            (std::string(
-                 "Using Default variable expansion definition for field: ") +
-             variable)
-                .c_str());
+        NEKERROR(ErrorUtil::ewarning,
+                 (std::string("Using Default variable expansion definition "
+                              "for field: ") +
+                  variable)
+                     .c_str());
     }
 
     return *returnval;
@@ -1464,8 +1470,9 @@ void MeshGraph::SetExpansionInfo(
                 }
                 break;
                 default:
-                    ASSERTL0(false, "Need to set up for pyramid and prism 3D "
-                                    "ExpansionInfo");
+                    NEKERROR(ErrorUtil::efatal,
+                             "Need to set up for pyramid and prism 3D "
+                             "ExpansionInfo");
                     break;
             }
 
@@ -1782,7 +1789,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 break;
                 default:
                 {
-                    ASSERTL0(false,
+                    NEKERROR(ErrorUtil::efatal,
                              "Expansion not defined in switch for this shape");
                 }
                 break;
@@ -1953,7 +1960,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 break;
                 default:
                 {
-                    ASSERTL0(false,
+                    NEKERROR(ErrorUtil::efatal,
                              "Expansion not defined in switch  for this shape");
                 }
                 break;
@@ -2072,7 +2079,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 break;
                 default:
                 {
-                    ASSERTL0(false,
+                    NEKERROR(ErrorUtil::efatal,
                              "Expansion not defined in switch  for this shape");
                 }
                 break;
@@ -2119,7 +2126,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 break;
                 default:
                 {
-                    ASSERTL0(false,
+                    NEKERROR(ErrorUtil::efatal,
                              "Expansion not defined in switch  for this shape");
                 }
                 break;
@@ -2163,7 +2170,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 break;
                 default:
                 {
-                    ASSERTL0(false,
+                    NEKERROR(ErrorUtil::efatal,
                              "Expansion not defined in switch  for this shape");
                 }
                 break;
@@ -2207,7 +2214,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 break;
                 default:
                 {
-                    ASSERTL0(false,
+                    NEKERROR(ErrorUtil::efatal,
                              "Expansion not defined in switch  for this shape");
                 }
                 break;
@@ -2251,7 +2258,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 break;
                 default:
                 {
-                    ASSERTL0(false,
+                    NEKERROR(ErrorUtil::efatal,
                              "Expansion not defined in switch  for this shape");
                 }
                 break;
@@ -2295,7 +2302,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 break;
                 default:
                 {
-                    ASSERTL0(false,
+                    NEKERROR(ErrorUtil::efatal,
                              "Expansion not defined in switch  for this shape");
                 }
                 break;
@@ -2339,7 +2346,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 break;
                 default:
                 {
-                    ASSERTL0(false,
+                    NEKERROR(ErrorUtil::efatal,
                              "Expansion not defined in switch  for this shape");
                 }
                 break;
@@ -2368,7 +2375,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 break;
                 default:
                 {
-                    ASSERTL0(false,
+                    NEKERROR(ErrorUtil::efatal,
                              "Expansion not defined in switch  for this shape");
                 }
                 break;
@@ -2397,7 +2404,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 break;
                 default:
                 {
-                    ASSERTL0(false,
+                    NEKERROR(ErrorUtil::efatal,
                              "Expansion not defined in switch  for this shape");
                 }
                 break;
@@ -2426,7 +2433,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 break;
                 default:
                 {
-                    ASSERTL0(false,
+                    NEKERROR(ErrorUtil::efatal,
                              "Expansion not defined in switch  for this shape");
                 }
                 break;
@@ -2436,7 +2443,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
 
         default:
         {
-            ASSERTL0(false, "Expansion type not defined");
+            NEKERROR(ErrorUtil::efatal, "Expansion type not defined");
         }
         break;
     }
@@ -2460,13 +2467,15 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionTypeHomo(
     {
         case LibUtilities::eSegment:
         {
-            ASSERTL0(false, "Homogeneous expansion not defined for this shape");
+            NEKERROR(ErrorUtil::efatal,
+                     "Homogeneous expansion not defined for this shape");
         }
         break;
 
         case LibUtilities::eQuadrilateral:
         {
-            ASSERTL0(false, "Homogeneous expansion not defined for this shape");
+            NEKERROR(ErrorUtil::efatal,
+                     "Homogeneous expansion not defined for this shape");
         }
         break;
 
@@ -2526,8 +2535,9 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionTypeHomo(
 
                 default:
                 {
-                    ASSERTL0(false, "Homogeneous expansion can be of Fourier "
-                                    "or Chebyshev type only");
+                    NEKERROR(ErrorUtil::efatal,
+                             "Homogeneous expansion can be of Fourier or "
+                             "Chebyshev type only");
                 }
                 break;
             }
@@ -2586,8 +2596,9 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionTypeHomo(
 
                 default:
                 {
-                    ASSERTL0(false, "Homogeneous expansion can be of Fourier "
-                                    "or Chebyshev type only");
+                    NEKERROR(ErrorUtil::efatal,
+                             "Homogeneous expansion can be of Fourier "
+                             "or Chebyshev type only");
                 }
                 break;
             }
@@ -2646,8 +2657,9 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionTypeHomo(
 
                 default:
                 {
-                    ASSERTL0(false, "Homogeneous expansion can be of Fourier "
-                                    "or Chebyshev type only");
+                    NEKERROR(ErrorUtil::efatal,
+                             "Homogeneous expansion can be of Fourier "
+                             "or Chebyshev type only");
                 }
                 break;
             }
@@ -2656,18 +2668,21 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionTypeHomo(
 
         case LibUtilities::eTriangle:
         {
-            ASSERTL0(false, "Homogeneous expansion not defined for this shape");
+            NEKERROR(ErrorUtil::efatal,
+                     "Homogeneous expansion not defined for this shape");
         }
         break;
 
         case LibUtilities::eTetrahedron:
         {
-            ASSERTL0(false, "Homogeneous expansion not defined for this shape");
+            NEKERROR(ErrorUtil::efatal,
+                     "Homogeneous expansion not defined for this shape");
         }
         break;
 
         default:
-            ASSERTL0(false, "Expansion not defined in switch  for this shape");
+            NEKERROR(ErrorUtil::efatal,
+                     "Expansion not defined in switch  for this shape");
             break;
     }
 
@@ -2730,7 +2745,8 @@ std::string MeshGraph::GetCompositeString(CompositeSharedPtr comp)
         return "";
     }
 
-    // Create a map that gets around the issue of mapping faces -> F and edges
+    // Create a map that gets around the issue of mapping faces -> F and
+    // edges
     // -> E inside the tag.
     std::map<LibUtilities::ShapeType, std::pair<std::string, std::string>>
         compMap;
@@ -2855,8 +2871,8 @@ void MeshGraph::SetRefinementInfo(ExpansionInfoMapShPtr &expansionMap)
                     // the region.
                     if (region->first == pRefinement->first)
                     {
-                        // The geomVecIter corresponds the geometry information
-                        // of the composite to be refined.
+                        // The geomVecIter corresponds the geometry
+                        // information of the composite to be refined.
                         PRefinementElmts(expansionMap, region->second,
                                          *geomVecIter);
                     }
@@ -2913,12 +2929,19 @@ void MeshGraph::ReadRefinementInfo()
                 std::string coord1String = c1Str;
                 bool valid =
                     ParseUtils::GenerateVector(coord1String, coord1Vector);
-                ASSERTL0(valid, "Unable to correctly parse the axes "
-                                "values for COORDINATE1");
+                if (!valid)
+                {
+                    NEKERROR(ErrorUtil::efatal,
+                             "Unable to correctly parse the axes "
+                             "values for COORDINATE1");
+                }
 
-                ASSERTL0(coord1Vector.size() == m_spaceDimension,
-                         "Number of coordinates do not match the space "
-                         "dimension for COORDINATE1");
+                if (coord1Vector.size() != m_spaceDimension)
+                {
+                    NEKERROR(ErrorUtil::efatal,
+                             "Number of coordinates do not match the space "
+                             "dimension for COORDINATE1");
+                }
 
                 // Refinement Type
                 const char *rType = refinement->Attribute("TYPE");
@@ -2936,17 +2959,28 @@ void MeshGraph::ReadRefinementInfo()
                     std::string coord2String = c2Str;
                     valid =
                         ParseUtils::GenerateVector(coord2String, coord2Vector);
-                    ASSERTL0(valid, "Unable to correctly parse the axes "
-                                    "values for COORDINATE2");
-                    ASSERTL0(coord2Vector.size() == m_spaceDimension,
-                             "Number of coordinates do not match the space "
-                             "dimension for COORDINATE2");
+                    if (!valid)
+                    {
+                        NEKERROR(ErrorUtil::efatal,
+                                 "Unable to correctly parse the axes "
+                                 "values for COORDINATE2");
+                    }
 
-                    // The STANDARD TYPE approach only accepts meshes that have
-                    // the same dimension as the space dimension.
-                    ASSERTL0(
-                        m_spaceDimension == m_meshDimension,
-                        "The mesh dimension must match the space dimension");
+                    if (coord2Vector.size() != m_spaceDimension)
+                    {
+                        NEKERROR(ErrorUtil::efatal,
+                                 "Number of coordinates do not match the space "
+                                 "dimension for COORDINATE2");
+                    }
+
+                    // The STANDARD TYPE approach only accepts meshes that
+                    // have the same dimension as the space dimension.
+                    if (m_spaceDimension != m_meshDimension)
+                    {
+                        NEKERROR(ErrorUtil::efatal,
+                                 "The mesh dimension must match the space "
+                                 "dimension");
+                    }
                 }
                 else if (strcmp(rType, "SPHERE") == 0)
                 {
@@ -3065,10 +3099,9 @@ void MeshGraph::ReadRefinementInfo()
     }
 }
 
-void MeshGraph::ReadExpansionInfo()
+void MeshGraph::ReadExpansionInfo(TiXmlElement *expansionTypes)
 {
     // Find the Expansions tag
-    TiXmlElement *expansionTypes = m_session->GetElement("NEKTAR/EXPANSIONS");
     LibUtilities::SessionReader::GetXMLElementTimeLevel(
         expansionTypes, m_session->GetTimeLevel());
 
@@ -3136,8 +3169,12 @@ void MeshGraph::ReadExpansionInfo()
                     std::string fieldStr = fStr;
                     bool valid = ParseUtils::GenerateVector(fieldStr.c_str(),
                                                             fieldStrings);
-                    ASSERTL0(valid, "Unable to correctly parse the field "
-                                    "string in ExpansionTypes.");
+                    if (!valid)
+                    {
+                        NEKERROR(ErrorUtil::efatal,
+                                 "Unable to correctly parse the field "
+                                 "string in ExpansionTypes.");
+                    }
 
                     // see if field exists
                     if (m_expansionMapShPtrMap.count(fieldStrings[0]))
@@ -3158,9 +3195,10 @@ void MeshGraph::ReadExpansionInfo()
                         if (vars.size() && std::count(vars.begin(), vars.end(),
                                                       fieldStrings[i]) == 0)
                         {
-                            ASSERTL0(false, "Variable '" + fieldStrings[i] +
-                                                "' defined in EXPANSIONS is not"
-                                                " defined in VARIABLES.");
+                            NEKERROR(ErrorUtil::efatal,
+                                     "Variable '" + fieldStrings[i] +
+                                         "' defined in EXPANSIONS is not"
+                                         " defined in VARIABLES.");
                         }
 
                         if (m_expansionMapShPtrMap.count(fieldStrings[i]) == 0)
@@ -3195,7 +3233,7 @@ void MeshGraph::ReadExpansionInfo()
                                 }
                                 else
                                 {
-                                    ASSERTL0(false,
+                                    NEKERROR(ErrorUtil::efatal,
                                              "Expansion vector for "
                                              "variable '" +
                                                  fieldStrings[i] +
@@ -3270,7 +3308,10 @@ void MeshGraph::ReadExpansionInfo()
                     const std::string *expStr =
                         std::find(begStr, endStr, typeStr);
 
-                    ASSERTL0(expStr != endStr, "Invalid expansion type.");
+                    if (expStr == endStr)
+                    {
+                        NEKERROR(ErrorUtil::efatal, "Invalid expansion type.");
+                    }
                     expansion_type = (ExpansionType)(expStr - begStr);
 
                     /// \todo solvers break the pattern 'instantiate
@@ -3467,9 +3508,8 @@ void MeshGraph::ReadExpansionInfo()
             }
 
             // Check if all the domain has been defined for the existing
-            // fields excluding DefaultVar. Fill the absent composites
-            // of a field if the DefaultVar is defined for that
-            // composite
+            // fields excluding DefaultVar. Fill the absent composites of a
+            // field if the DefaultVar is defined for that composite
             for (auto f = fieldDomainCompList.begin();
                  f != fieldDomainCompList.end(); ++f)
             {

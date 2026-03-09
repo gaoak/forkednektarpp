@@ -232,6 +232,12 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
         ADD_NEKTAR_TEST(ScaleReynoldsShearFilter_ThermalChannel3DH1D)
     ENDIF()
 
+    IF (NOT MSVC)
+        ADD_NEKTAR_TEST(Tet_Kovasnay_PreconditionerLOR_all)
+        ADD_NEKTAR_TEST(Tet_Kovasnay_PreconditionerLOR_pressure)
+        ADD_NEKTAR_TEST(Prism_channel_PreconditionerLOR)
+    ENDIF()
+
     IF(NEKTAR_USE_SCOTCH)
         # This tests exhibits sensitivity to the choice of DirectStaticCond vs.
         # DirectMultiLevelStaticCond.
@@ -317,6 +323,9 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
             ADD_NEKTAR_TEST(Tet_hdf5_multilevel_partition)
             IF(NEKTAR_USE_SCOTCH)
                 ADD_NEKTAR_TEST(ChannelFlow3D)
+            ENDIF()
+            IF(NEKTAR_USE_PETSC)
+                ADD_NEKTAR_TEST(Tet_prism_channel_PreconditionerLOR_hdf5)
             ENDIF()
         ENDIF(NEKTAR_USE_HDF5)
     ENDIF(NEKTAR_USE_MPI)

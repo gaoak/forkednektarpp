@@ -52,7 +52,7 @@ ProcessExtractSurf::ProcessExtractSurf(MeshSharedPtr m) : ProcessModule(m)
     m_config["surf"] = ConfigOption(
         false, "NotSet", "Tag identifying surface/composite to process.");
     m_config["detectbnd"] =
-        ConfigOption(false, "-1", "Tag to detect on boundary composites");
+        ConfigOption(false, "-1", "Tag to detect boundary composites");
 }
 
 ProcessExtractSurf::~ProcessExtractSurf()

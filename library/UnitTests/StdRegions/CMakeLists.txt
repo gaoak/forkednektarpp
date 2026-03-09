@@ -1,6 +1,8 @@
 SET(StdRegionsUnitTestsSources
     main.cpp
     TestLocCollapsedCoords.cpp
+    TestEquiSpaced.cpp
+    TestGLLSpaced.cpp
 )
 
 ADD_DEFINITIONS(-DENABLE_NEKTAR_EXCEPTIONS)

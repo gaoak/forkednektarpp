@@ -97,8 +97,6 @@ template <typename T> using GeomMap = std::map<int, unique_ptr_objpool<T>>;
 
 // Point geom type defs
 typedef unique_ptr_objpool<PointGeom> PointGeomUniquePtr;
-typedef std::shared_ptr<PointGeom>
-    PointGeomSharedPtr; // @TODO: Remove once fixed curves
 
 // Geometry typedefs
 typedef unique_ptr_objpool<SegGeom> SegGeomUniquePtr;
@@ -233,19 +231,26 @@ template <typename T> class GeomMapView
 public:
     class Iterator
     {
+        using value_type = std::pair<int, T *>;
         typename GeomMap<T>::const_iterator m_it;
+        mutable value_type m_cache;
 
     public:
-        using value_type = std::pair<int, T *>;
-
         explicit Iterator(typename GeomMap<T>::const_iterator it) : m_it(it)
         {
         }
 
-        value_type operator*() const
+        const value_type &operator*() const
         {
-            return {m_it->first, m_it->second.get()};
+            m_cache = {m_it->first, m_it->second.get()};
+            return m_cache;
         }
+        const value_type *operator->() const
+        {
+            m_cache = {m_it->first, m_it->second.get()};
+            return &m_cache;
+        }
+
         Iterator &operator++()
         {
             ++m_it;
@@ -256,6 +261,46 @@ public:
             return m_it != other.m_it;
         }
         bool operator==(const Iterator &other) const
+        {
+            return m_it == other.m_it;
+        }
+    };
+
+    class ReverseIterator
+    {
+        using value_type = std::pair<int, T *>;
+        typename GeomMap<T>::const_reverse_iterator m_it;
+        mutable value_type m_cache;
+
+    public:
+        explicit ReverseIterator(typename GeomMap<T>::const_reverse_iterator it)
+            : m_it(it)
+        {
+        }
+
+        const value_type &operator*() const
+        {
+            m_cache = {m_it->first, m_it->second.get()};
+            return m_cache;
+        }
+        const value_type *operator->() const
+        {
+            m_cache = {m_it->first, m_it->second.get()};
+            return &m_cache;
+        }
+
+        ReverseIterator &operator++()
+        {
+            ++m_it;
+            return *this;
+        }
+
+        bool operator!=(const ReverseIterator &other) const
+        {
+            return m_it != other.m_it;
+        }
+
+        bool operator==(const ReverseIterator &other) const
         {
             return m_it == other.m_it;
         }
@@ -272,6 +317,15 @@ public:
     Iterator end() const
     {
         return Iterator(m_map.end());
+    }
+
+    ReverseIterator rbegin() const
+    {
+        return ReverseIterator(m_map.rbegin());
+    }
+    ReverseIterator rend() const
+    {
+        return ReverseIterator(m_map.rend());
     }
 
     std::size_t size() const
@@ -316,7 +370,7 @@ public:
         PointGeom *p);
 
     ////////////////////
-    SPATIAL_DOMAINS_EXPORT void ReadExpansionInfo();
+    SPATIAL_DOMAINS_EXPORT void ReadExpansionInfo(TiXmlElement *expansionTypes);
 
     /// Read refinement info.
     SPATIAL_DOMAINS_EXPORT void ReadRefinementInfo();
@@ -367,9 +421,10 @@ public:
     /* ---- Composites and Domain ---- */
     CompositeSharedPtr GetComposite(int whichComposite)
     {
-        ASSERTL0(m_meshComposites.find(whichComposite) !=
-                     m_meshComposites.end(),
-                 "Composite not found.");
+        if (m_meshComposites.find(whichComposite) == m_meshComposites.end())
+        {
+            NEKERROR(ErrorUtil::efatal, "Composite not found.");
+        }
         return m_meshComposites.find(whichComposite)->second;
     }
 
@@ -447,6 +502,11 @@ public:
                                  ExpansionInfoMapShPtr &exp);
 
     inline void SetSession(LibUtilities::SessionReaderSharedPtr pSession);
+
+    inline LibUtilities::SessionReaderSharedPtr GetSession()
+    {
+        return m_session;
+    }
 
     /// Sets the basis key for all expansions of the given shape.
     SPATIAL_DOMAINS_EXPORT void SetBasisKey(LibUtilities::ShapeType shape,
@@ -800,13 +860,34 @@ public:
         return m_movement;
     }
 
-    void Clear();
+    SPATIAL_DOMAINS_EXPORT void Clear();
 
-    void PopulateFaceToElMap(Geometry3D *element, int kNfaces);
+    SPATIAL_DOMAINS_EXPORT void PopulateFaceToElMap(Geometry3D *element,
+                                                    int kNfaces);
+
+    bool GetMeshPartitioned()
+    {
+        return m_meshPartitioned;
+    }
 
     void SetMeshPartitioned(bool meshPartitioned)
     {
         m_meshPartitioned = meshPartitioned;
+    }
+
+    int GetPartitionNumber()
+    {
+        return m_partition;
+    }
+
+    void SetPartitionNumber(int partition)
+    {
+        m_partition = partition;
+    }
+
+    ExpansionInfoMapShPtrMap &GetExpansionInfoMap()
+    {
+        return m_expansionMapShPtrMap;
     }
 
 private:
@@ -897,8 +978,8 @@ void MeshGraph::SetExpansionInfo(const std::string variable,
 {
     if (m_expansionMapShPtrMap.count(variable) != 0)
     {
-        ASSERTL0(
-            false,
+        NEKERROR(
+            ErrorUtil::efatal,
             (std::string("ExpansionInfo field is already set for variable ") +
              variable)
                 .c_str());

@@ -327,6 +327,7 @@ void PreconditionerJacobi::v_DoPreconditioner(
                          ? asmMap->GetNumLocalCoeffs()
                          : asmMap->GetNumLocalBndCoeffs();
 
+        // new sol = 1/diag b
         Array<OneD, NekDouble> wk1(nLocal);
         asmMap->Assemble(pInput, wk);
         Vmath::Vmul(nNonDir, wk.data() + nDir, 1, m_diagonals.data(), 1,
@@ -341,9 +342,11 @@ void PreconditionerJacobi::v_DoPreconditioner(
             std::dynamic_pointer_cast<GlobalLinSysIterative>(m_linsys.lock())
                 ->DoMatrixMultiply(pOutput, wk1);
 
+            // b - Ax
             Vmath::Vsub(nLocal, pInput, 1, wk1, 1, wk1, 1);
 
             asmMap->Assemble(wk1, pOutput);
+            // new sol = 1/diag (b-Ax) + old sol
             Vmath::Vvtvp(nNonDir, pOutput.data() + nDir, 1, m_diagonals.data(),
                          1, wk.data() + nDir, 1, wk.data() + nDir, 1);
         }
@@ -353,13 +356,15 @@ void PreconditionerJacobi::v_DoPreconditioner(
     else
     {
         Array<OneD, NekDouble> wk1(nGlobal);
+
+        // x^k = 1/diag b
         Vmath::Vmul(nNonDir, pInput.data(), 1, m_diagonals.data(), 1,
                     wk.data() + nDir, 1);
         Vmath::Zero(nDir, wk, 1);
 
         for (int n = 1; n < m_niter; ++n)
         {
-            // do Ax operator
+            // do Ax^k operator
             std::dynamic_pointer_cast<GlobalLinSysIterative>(m_linsys.lock())
                 ->DoMatrixMultiply(wk, wk1);
 
@@ -367,7 +372,7 @@ void PreconditionerJacobi::v_DoPreconditioner(
             Vmath::Vsub(nNonDir, pInput.data(), 1, wk1.data() + nDir, 1,
                         wk1.data() + nDir, 1);
 
-            // new sol = 1/diag (b-Ax) + old sol
+            // x^{k+1} = 1/diag (b-Ax^k) + x^k
             Vmath::Vvtvp(nNonDir, wk1.data() + nDir, 1, m_diagonals.data(), 1,
                          wk.data() + nDir, 1, wk.data() + nDir, 1);
         }
