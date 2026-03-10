@@ -555,9 +555,8 @@ NEK_DEVICE_INLINE static void Helmholtz1DSumFacTOPKernel(
     const TData *__restrict__ D0, const TData *__restrict__ w0,
     const TData *__restrict__ df, const TData *__restrict__ jac,
     const TData *__restrict__ coeff, const TData *__restrict__ in,
-    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
-    const TData lambda, unsigned char *__restrict__ shmemptr,
-    const TthreadBlock &threadBlock)
+    TData *__restrict__ out, const TData lambda,
+    unsigned char *__restrict__ shmemptr, const TthreadBlock &threadBlock)
 {
     const unsigned int ndf     = ncoord;
     const unsigned int dfsize  = DEFORMED ? nq0 : 1u;
@@ -595,15 +594,14 @@ NEK_DEVICE_INLINE static void Helmholtz2DSumFacTOPKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const size_t nelmt, const bool isModified,
-    [[maybe_unused]] const unsigned int *__restrict__ index0,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ D0, const TData *__restrict__ D1,
-    const TData *__restrict__ w0, const TData *__restrict__ w1,
-    const TData *__restrict__ f0, const TData *__restrict__ f1,
-    const TData *__restrict__ nodToMod, const TData *__restrict__ df,
-    const TData *__restrict__ jac, const TData *__restrict__ coeff,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    [[maybe_unused]] TData *__restrict__ wsp, const TData lambda,
+    const unsigned int *__restrict__ index0, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ f0,
+    const TData *__restrict__ f1, const TData *__restrict__ nodToMod,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ coeff, const TData *__restrict__ in,
+    TData *__restrict__ out, const TData lambda,
     unsigned char *__restrict__ shmemptr, const TthreadBlock &threadBlock)
 {
     const unsigned int ndf     = 2 * ncoord;
@@ -738,22 +736,20 @@ NEK_DEVICE_INLINE static void Helmholtz3DSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const size_t nelmt, const bool isModified,
-    [[maybe_unused]] const unsigned int *__restrict__ index0,
-    [[maybe_unused]] const unsigned int *__restrict__ index1,
-    [[maybe_unused]] const unsigned int *__restrict__ index2,
-    [[maybe_unused]] const unsigned int *__restrict__ index3,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ basis2, const TData *__restrict__ D0,
-    const TData *__restrict__ D1, const TData *__restrict__ D2,
-    const TData *__restrict__ w0, const TData *__restrict__ w1,
-    const TData *__restrict__ w2, const TData *__restrict__ f0,
-    const TData *__restrict__ f1, const TData *__restrict__ f1m,
-    const TData *__restrict__ f2, const TData *__restrict__ nodToMod,
-    const TData *__restrict__ df, const TData *__restrict__ jac,
-    const TData *__restrict__ coeff, const TData *__restrict__ in,
-    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
-    const TData lambda, unsigned char *__restrict__ shmemptr,
-    const TthreadBlock &threadBlock)
+    const unsigned int *__restrict__ index0,
+    const unsigned int *__restrict__ index1,
+    const unsigned int *__restrict__ index2,
+    const unsigned int *__restrict__ index3, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ D2, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ f0, const TData *__restrict__ f1,
+    const TData *__restrict__ f1m, const TData *__restrict__ f2,
+    const TData *__restrict__ nodToMod, const TData *__restrict__ df,
+    const TData *__restrict__ jac, const TData *__restrict__ coeff,
+    const TData *__restrict__ in, TData *__restrict__ out, const TData lambda,
+    unsigned char *__restrict__ shmemptr, const TthreadBlock &threadBlock)
 {
     constexpr unsigned int ndf = 9u;
     const unsigned int nqTot   = nq0 * nq1 * nq2;
@@ -967,14 +963,14 @@ NEK_DEVICE_KERNEL
         const TData *__restrict__ w0, const TData *__restrict__ df,
         const TData *__restrict__ jac, const TData *__restrict__ coeff,
         const TData *__restrict__ in, TData *__restrict__ out,
-        TData *__restrict__ wsp, const TData lambda, unsigned char *shmemptr,
-        const TthreadBlock &threadBlock)
+        [[maybe_unused]] TData *__restrict__ wsp, const TData lambda,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
     Helmholtz1DSumFacTOPKernel<DEFORMED>(
         ncoord, sizeParam1D.nm0(), sizeParam1D.nq0(), nelmt, basis0, D0, w0, df,
-        jac, coeff, in, out, wsp, lambda, shmemptr, threadBlock);
+        jac, coeff, in, out, lambda, shmemptr, threadBlock);
 }
 
 // Size based template version.
@@ -991,14 +987,14 @@ NEK_DEVICE_KERNEL
         const TData *__restrict__ w0, const TData *__restrict__ df,
         const TData *__restrict__ jac, const TData *__restrict__ coeff,
         const TData *__restrict__ in, TData *__restrict__ out,
-        TData *__restrict__ wsp, const TData lambda, unsigned char *shmemptr,
-        const TthreadBlock &threadBlock)
+        [[maybe_unused]] TData *__restrict__ wsp, const TData lambda,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
     Helmholtz1DSumFacTOPKernel<DEFORMED>(ncoord, nm0, nq0, nelmt, basis0, D0,
-                                         w0, df, jac, coeff, in, out, wsp,
-                                         lambda, shmemptr, threadBlock);
+                                         w0, df, jac, coeff, in, out, lambda,
+                                         shmemptr, threadBlock);
 }
 
 // Non-size based version.
@@ -1017,15 +1013,15 @@ NEK_DEVICE_KERNEL
         const TData *__restrict__ nodToMod, const TData *__restrict__ df,
         const TData *__restrict__ jac, const TData *__restrict__ coeff,
         const TData *__restrict__ in, TData *__restrict__ out,
-        TData *__restrict__ wsp, const TData lambda, unsigned char *shmemptr,
-        const TthreadBlock &threadBlock)
+        [[maybe_unused]] TData *__restrict__ wsp, const TData lambda,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
     Helmholtz2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
         ncoord, sizeParam2D.nm0(), sizeParam2D.nm1(), sizeParam2D.nmTot(),
         sizeParam2D.nq0(), sizeParam2D.nq1(), nelmt, isModified, index0, basis0,
-        basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, coeff, in, out, wsp,
+        basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, coeff, in, out,
         lambda, shmemptr, threadBlock);
 }
 
@@ -1051,14 +1047,14 @@ NEK_DEVICE_KERNEL
         const TData *__restrict__ nodToMod, const TData *__restrict__ df,
         const TData *__restrict__ jac, const TData *__restrict__ coeff,
         const TData *__restrict__ in, TData *__restrict__ out,
-        TData *__restrict__ wsp, const TData lambda, unsigned char *shmemptr,
-        const TthreadBlock &threadBlock)
+        [[maybe_unused]] TData *__restrict__ wsp, const TData lambda,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
     Helmholtz2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
         ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
-        basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, coeff, in, out, wsp,
+        basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, coeff, in, out,
         lambda, shmemptr, threadBlock);
 }
 
@@ -1082,8 +1078,9 @@ NEK_DEVICE_KERNEL
         const TData *__restrict__ f2, const TData *__restrict__ nodToMod,
         const TData *__restrict__ df, const TData *__restrict__ jac,
         const TData *__restrict__ coeff, const TData *__restrict__ in,
-        TData *__restrict__ out, TData *__restrict__ wsp, const TData lambda,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+        TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
+        const TData lambda, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
@@ -1092,7 +1089,7 @@ NEK_DEVICE_KERNEL
         sizeParam3D.nmTot(), sizeParam3D.nq0(), sizeParam3D.nq1(),
         sizeParam3D.nq2(), nelmt, isModified, index0, index1, index2, index3,
         basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2,
-        nodToMod, df, jac, coeff, in, out, wsp, lambda, shmemptr, threadBlock);
+        nodToMod, df, jac, coeff, in, out, lambda, shmemptr, threadBlock);
 }
 
 // Size based template version.
@@ -1122,15 +1119,16 @@ NEK_DEVICE_KERNEL
         const TData *__restrict__ f2, const TData *__restrict__ nodToMod,
         const TData *__restrict__ df, const TData *__restrict__ jac,
         const TData *__restrict__ coeff, const TData *__restrict__ in,
-        TData *__restrict__ out, TData *__restrict__ wsp, const TData lambda,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+        TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
+        const TData lambda, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
     Helmholtz3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         index2, index3, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1,
-        f1m, f2, nodToMod, df, jac, coeff, in, out, wsp, lambda, shmemptr,
+        f1m, f2, nodToMod, df, jac, coeff, in, out, lambda, shmemptr,
         threadBlock);
 }
 #endif

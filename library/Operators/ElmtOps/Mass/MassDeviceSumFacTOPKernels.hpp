@@ -125,8 +125,7 @@ NEK_DEVICE_INLINE static void Mass1DSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nq0, const size_t nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ wsp,
-    [[maybe_unused]] unsigned char *__restrict__ shmemptr,
+    TData *__restrict__ out, unsigned char *__restrict__ shmemptr,
     const TthreadBlock &threadBlock)
 {
     const unsigned int jacsize = DEFORMED ? nq0 : 1u;
@@ -169,15 +168,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
 NEK_DEVICE_INLINE static void Mass2DSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
-    const bool isModified,
-    [[maybe_unused]] const unsigned int *__restrict__ index0,
+    const bool isModified, const unsigned int *__restrict__ index0,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ nodToMod, const TData *__restrict__ jac,
     const TData *__restrict__ in, TData *__restrict__ out,
-    [[maybe_unused]] TData *__restrict__ wsp,
-    [[maybe_unused]] unsigned char *__restrict__ shmemptr,
-    const TthreadBlock &threadBlock)
+    unsigned char *__restrict__ shmemptr, const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot   = nq0 * nq1;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
@@ -301,17 +297,15 @@ NEK_DEVICE_INLINE static void Mass3DSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const size_t nelmt, const bool isModified,
-    [[maybe_unused]] const unsigned int *__restrict__ index0,
-    [[maybe_unused]] const unsigned int *__restrict__ index1,
-    [[maybe_unused]] const unsigned int *__restrict__ index2,
-    [[maybe_unused]] const unsigned int *__restrict__ index3,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ basis2, const TData *__restrict__ w0,
-    const TData *__restrict__ w1, const TData *__restrict__ w2,
-    const TData *__restrict__ nodToMod, const TData *__restrict__ jac,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    [[maybe_unused]] TData *__restrict__ wsp,
-    [[maybe_unused]] unsigned char *__restrict__ shmemptr,
+    const unsigned int *__restrict__ index0,
+    const unsigned int *__restrict__ index1,
+    const unsigned int *__restrict__ index2,
+    const unsigned int *__restrict__ index3, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    const TData *__restrict__ w2, const TData *__restrict__ nodToMod,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, unsigned char *__restrict__ shmemptr,
     const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot   = nq0 * nq1 * nq2;
@@ -513,13 +507,14 @@ NEK_DEVICE_KERNEL
                          const TData *__restrict__ w0,
                          const TData *__restrict__ jac,
                          const TData *__restrict__ in, TData *__restrict__ out,
-                         TData *__restrict__ wsp, unsigned char *shmemptr,
+                         [[maybe_unused]] TData *__restrict__ wsp,
+                         unsigned char *shmemptr,
                          const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
     Mass1DSumFacTOPKernel<DEFORMED>(sizeParam1D.nm0(), sizeParam1D.nq0(), nelmt,
-                                    basis0, w0, jac, in, out, wsp, shmemptr,
+                                    basis0, w0, jac, in, out, shmemptr,
                                     threadBlock);
 }
 
@@ -535,13 +530,13 @@ NEK_DEVICE_KERNEL
         const size_t nelmt, const TData *__restrict__ basis0,
         const TData *__restrict__ w0, const TData *__restrict__ jac,
         const TData *__restrict__ in, TData *__restrict__ out,
-        TData *__restrict__ wsp, unsigned char *shmemptr,
+        [[maybe_unused]] TData *__restrict__ wsp, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
     Mass1DSumFacTOPKernel<DEFORMED>(nm0, nq0, nelmt, basis0, w0, jac, in, out,
-                                    wsp, shmemptr, threadBlock);
+                                    shmemptr, threadBlock);
 }
 
 // Non-size based version.
@@ -556,7 +551,7 @@ NEK_DEVICE_KERNEL
         const TData *__restrict__ w0, const TData *__restrict__ w1,
         const TData *__restrict__ nodToMod, const TData *__restrict__ jac,
         const TData *__restrict__ in, TData *__restrict__ out,
-        TData *__restrict__ wsp, unsigned char *shmemptr,
+        [[maybe_unused]] TData *__restrict__ wsp, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
@@ -564,7 +559,7 @@ NEK_DEVICE_KERNEL
     Mass2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
         sizeParam2D.nm0(), sizeParam2D.nm1(), sizeParam2D.nmTot(),
         sizeParam2D.nq0(), sizeParam2D.nq1(), nelmt, isModified, index0, basis0,
-        basis1, w0, w1, nodToMod, jac, in, out, wsp, shmemptr, threadBlock);
+        basis1, w0, w1, nodToMod, jac, in, out, shmemptr, threadBlock);
 }
 
 // Size based template version.
@@ -585,14 +580,14 @@ NEK_DEVICE_KERNEL
         const TData *__restrict__ w0, const TData *__restrict__ w1,
         const TData *__restrict__ nodToMod, const TData *__restrict__ jac,
         const TData *__restrict__ in, TData *__restrict__ out,
-        TData *__restrict__ wsp, unsigned char *shmemptr,
+        [[maybe_unused]] TData *__restrict__ wsp, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
     Mass2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
         nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
-        w0, w1, nodToMod, jac, in, out, wsp, shmemptr, threadBlock);
+        w0, w1, nodToMod, jac, in, out, shmemptr, threadBlock);
 }
 
 // Non-size based version.
@@ -611,7 +606,7 @@ NEK_DEVICE_KERNEL
         const TData *__restrict__ w1, const TData *__restrict__ w2,
         const TData *__restrict__ nodToMod, const TData *__restrict__ jac,
         const TData *__restrict__ in, TData *__restrict__ out,
-        TData *__restrict__ wsp, unsigned char *shmemptr,
+        [[maybe_unused]] TData *__restrict__ wsp, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
@@ -620,8 +615,8 @@ NEK_DEVICE_KERNEL
         sizeParam3D.nm0(), sizeParam3D.nm1(), sizeParam3D.nm2(),
         sizeParam3D.nmTot(), sizeParam3D.nq0(), sizeParam3D.nq1(),
         sizeParam3D.nq2(), nelmt, isModified, index0, index1, index2, index3,
-        basis0, basis1, basis2, w0, w1, w2, nodToMod, jac, in, out, wsp,
-        shmemptr, threadBlock);
+        basis0, basis1, basis2, w0, w1, w2, nodToMod, jac, in, out, shmemptr,
+        threadBlock);
 }
 
 // Size based template version.
@@ -647,7 +642,7 @@ NEK_DEVICE_KERNEL
         const TData *__restrict__ w1, const TData *__restrict__ w2,
         const TData *__restrict__ nodToMod, const TData *__restrict__ jac,
         const TData *__restrict__ in, TData *__restrict__ out,
-        TData *__restrict__ wsp, unsigned char *shmemptr,
+        [[maybe_unused]] TData *__restrict__ wsp, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
@@ -655,7 +650,7 @@ NEK_DEVICE_KERNEL
     Mass3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         index2, index3, basis0, basis1, basis2, w0, w1, w2, nodToMod, jac, in,
-        out, wsp, shmemptr, threadBlock);
+        out, shmemptr, threadBlock);
 }
 #endif
 

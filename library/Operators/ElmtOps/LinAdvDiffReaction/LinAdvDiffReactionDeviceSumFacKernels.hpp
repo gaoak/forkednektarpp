@@ -153,17 +153,15 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
 NEK_DEVICE_INLINE static void LinAdvDiffReaction2DSumFacKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const size_t nelmt, const bool isModified,
-    [[maybe_unused]] const unsigned int *__restrict__ index0,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ D0, const TData *__restrict__ D1,
-    const TData *__restrict__ w0, const TData *__restrict__ w1,
-    const TData *__restrict__ f0, const TData *__restrict__ f1,
-    const TData *__restrict__ nodToMod, const TData *__restrict__ df,
-    const TData *__restrict__ jac, const TData *__restrict__ coeff,
-    const TData *__restrict__ advVel0, const TData *__restrict__ advVel1,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    [[maybe_unused]] TData *__restrict__ wsp, const TData lambda,
+    const size_t nelmt, const bool isModified, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ f0,
+    const TData *__restrict__ f1, const TData *__restrict__ nodToMod,
+    const TData *__restrict__ df, const TData *__restrict__ jac,
+    const TData *__restrict__ coeff, const TData *__restrict__ advVel0,
+    const TData *__restrict__ advVel1, const TData *__restrict__ in,
+    TData *__restrict__ out, TData *__restrict__ wsp, const TData lambda,
     unsigned char *__restrict__ shmemptr, const TthreadBlock &threadBlock)
 {
     const unsigned int ndf     = 2 * ncoord;
@@ -289,10 +287,6 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction3DSumFacKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const size_t nelmt, const bool isModified,
-    [[maybe_unused]] const unsigned int *__restrict__ index0,
-    [[maybe_unused]] const unsigned int *__restrict__ index1,
-    [[maybe_unused]] const unsigned int *__restrict__ index2,
-    [[maybe_unused]] const unsigned int *__restrict__ index3,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ D2,
@@ -304,7 +298,7 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction3DSumFacKernel(
     const TData *__restrict__ coeff, const TData *__restrict__ advVel0,
     const TData *__restrict__ advVel1, const TData *__restrict__ advVel2,
     const TData *__restrict__ in, TData *__restrict__ out,
-    [[maybe_unused]] TData *__restrict__ wsp, const TData lambda,
+    TData *__restrict__ wsp, const TData lambda,
     unsigned char *__restrict__ shmemptr, const TthreadBlock &threadBlock)
 {
     constexpr unsigned int ndf = 9u;
@@ -614,7 +608,7 @@ NEK_DEVICE_KERNEL
     LinAdvDiffReaction2DKernelLauncher(
         const NonTemplated2DSizeParameters sizeParam2D,
         const unsigned int ncoord, const size_t nelmt, const bool isModified,
-        const unsigned int *__restrict__ index0,
+        [[maybe_unused]] const unsigned int *__restrict__ index0,
         const TData *__restrict__ basis0, const TData *__restrict__ basis1,
         const TData *__restrict__ D0, const TData *__restrict__ D1,
         const TData *__restrict__ w0, const TData *__restrict__ w1,
@@ -630,9 +624,9 @@ NEK_DEVICE_KERNEL
 
     LinAdvDiffReaction2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
         ncoord, sizeParam2D.nm0(), sizeParam2D.nm1(), sizeParam2D.nmTot(),
-        sizeParam2D.nq0(), sizeParam2D.nq1(), nelmt, isModified, index0, basis0,
-        basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, coeff, advVel0,
-        advVel1, in, out, wsp, lambda, shmemptr, threadBlock);
+        sizeParam2D.nq0(), sizeParam2D.nq1(), nelmt, isModified, basis0, basis1,
+        D0, D1, w0, w1, f0, f1, nodToMod, df, jac, coeff, advVel0, advVel1, in,
+        out, wsp, lambda, shmemptr, threadBlock);
 }
 
 // Size based template version.
@@ -649,7 +643,7 @@ NEK_DEVICE_KERNEL
                                                          nq1>
             sizeParam2D,
         const unsigned int ncoord, const size_t nelmt, const bool isModified,
-        const unsigned int *__restrict__ index0,
+        [[maybe_unused]] const unsigned int *__restrict__ index0,
         const TData *__restrict__ basis0, const TData *__restrict__ basis1,
         const TData *__restrict__ D0, const TData *__restrict__ D1,
         const TData *__restrict__ w0, const TData *__restrict__ w1,
@@ -664,9 +658,9 @@ NEK_DEVICE_KERNEL
     FETCH_SHARED_MEMORY(shmemptr);
 
     LinAdvDiffReaction2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
-        ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
-        basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, coeff, advVel0,
-        advVel1, in, out, wsp, lambda, shmemptr, threadBlock);
+        ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0, basis1,
+        D0, D1, w0, w1, f0, f1, nodToMod, df, jac, coeff, advVel0, advVel1, in,
+        out, wsp, lambda, shmemptr, threadBlock);
 }
 
 // Non-size based version.
@@ -676,10 +670,11 @@ NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
     LinAdvDiffReaction3DKernelLauncher(
         const NonTemplated3DSizeParameters sizeParam3D, const size_t nelmt,
-        const bool isModified, const unsigned int *__restrict__ index0,
-        const unsigned int *__restrict__ index1,
-        const unsigned int *__restrict__ index2,
-        const unsigned int *__restrict__ index3,
+        const bool isModified,
+        [[maybe_unused]] const unsigned int *__restrict__ index0,
+        [[maybe_unused]] const unsigned int *__restrict__ index1,
+        [[maybe_unused]] const unsigned int *__restrict__ index2,
+        [[maybe_unused]] const unsigned int *__restrict__ index3,
         const TData *__restrict__ basis0, const TData *__restrict__ basis1,
         const TData *__restrict__ basis2, const TData *__restrict__ D0,
         const TData *__restrict__ D1, const TData *__restrict__ D2,
@@ -699,10 +694,9 @@ NEK_DEVICE_KERNEL
     LinAdvDiffReaction3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
         sizeParam3D.nm0(), sizeParam3D.nm1(), sizeParam3D.nm2(),
         sizeParam3D.nmTot(), sizeParam3D.nq0(), sizeParam3D.nq1(),
-        sizeParam3D.nq2(), nelmt, isModified, index0, index1, index2, index3,
-        basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2,
-        nodToMod, df, jac, coeff, advVel0, advVel1, advVel2, in, out, wsp,
-        lambda, shmemptr, threadBlock);
+        sizeParam3D.nq2(), nelmt, isModified, basis0, basis1, basis2, D0, D1,
+        D2, w0, w1, w2, f0, f1, f1m, f2, nodToMod, df, jac, coeff, advVel0,
+        advVel1, advVel2, in, out, wsp, lambda, shmemptr, threadBlock);
 }
 
 // Size based template version.
@@ -719,10 +713,10 @@ NEK_DEVICE_KERNEL
                                                          nq0, nq1, nq2>
             sizeParam3D,
         const size_t nelmt, const bool isModified,
-        const unsigned int *__restrict__ index0,
-        const unsigned int *__restrict__ index1,
-        const unsigned int *__restrict__ index2,
-        const unsigned int *__restrict__ index3,
+        [[maybe_unused]] const unsigned int *__restrict__ index0,
+        [[maybe_unused]] const unsigned int *__restrict__ index1,
+        [[maybe_unused]] const unsigned int *__restrict__ index2,
+        [[maybe_unused]] const unsigned int *__restrict__ index3,
         const TData *__restrict__ basis0, const TData *__restrict__ basis1,
         const TData *__restrict__ basis2, const TData *__restrict__ D0,
         const TData *__restrict__ D1, const TData *__restrict__ D2,
@@ -740,10 +734,10 @@ NEK_DEVICE_KERNEL
     FETCH_SHARED_MEMORY(shmemptr);
 
     LinAdvDiffReaction3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
-        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
-        index2, index3, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1,
-        f1m, f2, nodToMod, df, jac, coeff, advVel0, advVel1, advVel2, in, out,
-        wsp, lambda, shmemptr, threadBlock);
+        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0, basis1,
+        basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, nodToMod, df, jac,
+        coeff, advVel0, advVel1, advVel2, in, out, wsp, lambda, shmemptr,
+        threadBlock);
 }
 
 #endif
