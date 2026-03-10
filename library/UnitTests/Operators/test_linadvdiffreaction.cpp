@@ -103,7 +103,7 @@ TEST_LINADVDIFFREACTION(linadvdiffreaction_quad_varp, QuadVarP, 1.0E-12)
 
 TEST_LINADVDIFFREACTION(linadvdiffreaction_tri, Tri, 1.0E-12)
 
-// TEST_LINADVDIFFREACTION(linadvdiffreaction_tri_3d, Tri3D, 1.0E-12)
+TEST_LINADVDIFFREACTION(linadvdiffreaction_tri_3d, Tri3D, 1.0E-12)
 
 TEST_LINADVDIFFREACTION3DH1(linadvdiffreaction_tri_3dh1, Tri, 1.0E-12)
 

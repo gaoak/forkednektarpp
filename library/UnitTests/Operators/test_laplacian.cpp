@@ -105,7 +105,7 @@ TEST_LAPLACIAN3DH1(laplacian_quad_3dh1, Quad, 1.0E-12)
 
 TEST_LAPLACIAN(laplacian_tri, Tri, 1.0E-12)
 
-// TEST_LAPLACIAN(laplacian_tri_3d, Tri3D, 1.0E-12)
+TEST_LAPLACIAN(laplacian_tri_3d, Tri3D, 1.0E-12)
 
 TEST_LAPLACIAN3DH1(laplacian_tri_3dh1, Tri, 1.0E-12)
 
