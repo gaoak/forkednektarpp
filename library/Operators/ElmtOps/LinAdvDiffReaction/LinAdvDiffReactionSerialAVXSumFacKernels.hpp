@@ -44,16 +44,25 @@ namespace Nektar::Operators::detail
 
 template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void AddAdvectionSegKernel(
-    const unsigned int nq0, const simd_type *advVel_ptr,
-    const simd_type *df_ptr, simd_type *deriv0, simd_type *out,
-    const typename simd_type::scalarType scale)
+    const unsigned int ncoord, const unsigned int nq0,
+    const simd_type *advVel0_ptr, const simd_type *advVel1_ptr,
+    const simd_type *advVel2_ptr, const simd_type *df_ptr, simd_type *deriv0,
+    simd_type *out, const typename simd_type::scalarType scale)
 {
-    simd_type vx, df0, d0;
+    simd_type vx, vy, vz, df0, df1, df2, d0;
 
     // Precompute Laplacian metrics.
     if constexpr (!DEFORMED)
     {
         df0 = df_ptr[0];
+        if (ncoord > 1)
+        {
+            df1 = df_ptr[1];
+        }
+        if (ncoord > 2)
+        {
+            df2 = df_ptr[2];
+        }
     }
 
     // Apply metrics on all quad points.
@@ -66,7 +75,15 @@ NEK_FORCE_INLINE static void AddAdvectionSegKernel(
         }
 
         // Get advection velocity.
-        vx = advVel_ptr[i];
+        vx = advVel0_ptr[i];
+        if (ncoord > 1)
+        {
+            vy = advVel1_ptr[i];
+        }
+        if (ncoord > 2)
+        {
+            vz = advVel2_ptr[i];
+        }
 
         // Get derivatives.
         d0 = deriv0[i];
@@ -75,6 +92,15 @@ NEK_FORCE_INLINE static void AddAdvectionSegKernel(
         simd_type adv = df0 * d0;
         adv *= vx;
 
+        if (ncoord > 1)
+        {
+            adv.fma(df1, d0);
+        }
+        if (ncoord > 2)
+        {
+            adv.fma(df2, d0);
+        }
+
         adv.fma(out[i], simd_type(scale));
         out[i] = adv;
     }
@@ -82,15 +108,15 @@ NEK_FORCE_INLINE static void AddAdvectionSegKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void AddAdvection2DKernel(
-    const unsigned int nq0, const unsigned int nq1,
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     [[maybe_unused]] const simd_type *hfac0,
     [[maybe_unused]] const simd_type *hfac1, const simd_type *advVel0_ptr,
-    const simd_type *advVel1_ptr, const simd_type *df_ptr, simd_type *deriv0,
-    simd_type *deriv1, simd_type *out,
-    const typename simd_type::scalarType scale)
+    const simd_type *advVel1_ptr, const simd_type *advVel2_ptr,
+    const simd_type *df_ptr, simd_type *deriv0, simd_type *deriv1,
+    simd_type *out, const typename simd_type::scalarType scale)
 {
-    constexpr auto ndf = 4;
-    simd_type vx, vy, df0, df1, df2, df3, d0, d1, h0, h1;
+    const auto ndf = 2 * ncoord;
+    simd_type vx, vy, vz, df0, df1, df2, df3, df4, df5, d0, d1, h0, h1;
 
     // Precompute Laplacian metrics.
     if constexpr (!DEFORMED)
@@ -99,6 +125,11 @@ NEK_FORCE_INLINE static void AddAdvection2DKernel(
         df1 = df_ptr[1];
         df2 = df_ptr[2];
         df3 = df_ptr[3];
+        if (ncoord)
+        {
+            df4 = df_ptr[4];
+            df5 = df_ptr[5];
+        }
     }
 
     // Apply metrics on all quad points.
@@ -120,11 +151,20 @@ NEK_FORCE_INLINE static void AddAdvection2DKernel(
                 df1 = df_ptr[cnt * ndf + 1];
                 df2 = df_ptr[cnt * ndf + 2];
                 df3 = df_ptr[cnt * ndf + 3];
+                if (ncoord == 3)
+                {
+                    df4 = df_ptr[cnt * ndf + 4];
+                    df5 = df_ptr[cnt * ndf + 5];
+                }
             }
 
             // Get advection velocity.
             vx = advVel0_ptr[cnt];
             vy = advVel1_ptr[cnt];
+            if (ncoord == 3)
+            {
+                vz = advVel2_ptr[cnt];
+            }
 
             // Get derivatives.
             d0 = deriv0[cnt];
@@ -147,6 +187,14 @@ NEK_FORCE_INLINE static void AddAdvection2DKernel(
             dy.fma(df3, d1);
 
             adv.fma(vy, dy);
+
+            if (ncoord == 3)
+            {
+                simd_type dz = df4 * d0;
+                dz.fma(df5, d1);
+
+                adv.fma(vz, dz);
+            }
 
             adv.fma(out[cnt], simd_type(scale));
             out[cnt] = adv;

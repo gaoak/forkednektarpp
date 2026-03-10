@@ -627,10 +627,10 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJQuadKernel(
                 dtmp0.fma(df4, d02);
                 dtmp1 = df0 * d01;
                 dtmp1.fma(df2, d11);
-                dtmp1.fma(df3, d12);
+                dtmp1.fma(df4, d12);
                 dtmp2 = df0 * d02;
                 dtmp2.fma(df2, d12);
-                dtmp2.fma(df3, d22);
+                dtmp2.fma(df4, d22);
                 dtmp3 = df1 * d00;
                 dtmp3.fma(df3, d01);
                 dtmp3.fma(df5, d02);
@@ -672,6 +672,11 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJQuadKernel(
                     df1 = df_ptr[cnt * ndf + 1];
                     df2 = df_ptr[cnt * ndf + 2];
                     df3 = df_ptr[cnt * ndf + 3];
+                    if (ncoord == 3)
+                    {
+                        df4 = df_ptr[cnt * ndf + 4];
+                        df5 = df_ptr[cnt * ndf + 5];
+                    }
                 }
 
                 if (!isConstVarDiff)
@@ -730,10 +735,10 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJQuadKernel(
                         dtmp0.fma(df4, d02);
                         dtmp1 = df0 * d01;
                         dtmp1.fma(df2, d11);
-                        dtmp1.fma(df3, d12);
+                        dtmp1.fma(df4, d12);
                         dtmp2 = df0 * d02;
                         dtmp2.fma(df2, d12);
-                        dtmp2.fma(df3, d22);
+                        dtmp2.fma(df4, d22);
                         dtmp3 = df1 * d00;
                         dtmp3.fma(df3, d01);
                         dtmp3.fma(df5, d02);

@@ -48,8 +48,10 @@ namespace Nektar::Operators::detail
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 template <typename TData>
 NEK_DEVICE_INLINE static void AddAdvection1DKernel(
-    const unsigned int ilane, const unsigned int nq0,
-    const TData *__restrict__ advVel0, const TData *__restrict__ deriv0,
+    const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
+    const TData *__restrict__ advVel0, const TData *__restrict__ advVel1,
+    const TData *__restrict__ advVel2, const TData *__restrict__ deriv0,
+    const TData *__restrict__ deriv1, const TData *__restrict__ deriv2,
     TData *__restrict__ out, const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
@@ -57,28 +59,42 @@ NEK_DEVICE_INLINE static void AddAdvection1DKernel(
     // calculate advection term
     for (unsigned int i = 0u; i < nq0; ++i)
     {
-        out[warpsize * i + ilane] =
-            scale * out[warpsize * i + ilane] +
+        TData tmp =
             advVel0[warpsize * i + ilane] * deriv0[warpsize * i + ilane];
+        if (ncoord > 1)
+        {
+            tmp += advVel1[warpsize * i + ilane] * deriv1[warpsize * i + ilane];
+        }
+        if (ncoord > 2)
+        {
+            tmp += advVel2[warpsize * i + ilane] * deriv2[warpsize * i + ilane];
+        }
+        out[warpsize * i + ilane] = scale * out[warpsize * i + ilane] + tmp;
     }
 }
 
 template <typename TData>
 NEK_DEVICE_INLINE static void AddAdvection2DKernel(
-    const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
-    const TData *__restrict__ advVel0, const TData *__restrict__ advVel1,
+    const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
+    const unsigned int nq1, const TData *__restrict__ advVel0,
+    const TData *__restrict__ advVel1, const TData *__restrict__ advVel2,
     const TData *__restrict__ deriv0, const TData *__restrict__ deriv1,
-    TData *__restrict__ out, const TData scale)
+    const TData *__restrict__ deriv2, TData *__restrict__ out,
+    const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     // calculate advection term
     for (unsigned int i = 0u; i < nq0 * nq1; ++i)
     {
-        out[warpsize * i + ilane] =
-            scale * out[warpsize * i + ilane] +
+        TData tmp =
             advVel0[warpsize * i + ilane] * deriv0[warpsize * i + ilane] +
             advVel1[warpsize * i + ilane] * deriv1[warpsize * i + ilane];
+        if (ncoord == 3)
+        {
+            tmp += advVel2[warpsize * i + ilane] * deriv2[warpsize * i + ilane];
+        }
+        out[warpsize * i + ilane] = scale * out[warpsize * i + ilane] + tmp;
     }
 }
 
@@ -111,6 +127,7 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction1DSumFacKernel(
     const TData *__restrict__ D0, const TData *__restrict__ w0,
     const TData *__restrict__ df, const TData *__restrict__ jac,
     const TData *__restrict__ coeff, const TData *__restrict__ advVel0,
+    const TData *__restrict__ advVel1, const TData *__restrict__ advVel2,
     const TData *__restrict__ in, TData *__restrict__ out,
     TData *__restrict__ wsp, const TData lambda,
     [[maybe_unused]] unsigned char *__restrict__ shmemptr,
@@ -137,7 +154,9 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction1DSumFacKernel(
         BwdTransSegSumFacKernel(ilane, nm0, nq0, basis0, inptr, bwd);
         PhysDeriv1DSumFacKernel<DEFORMED>(ilane, ncoord, nq0, nelmt * nq0, D0,
                                           dfptr, bwd, deriv);
-        AddAdvection1DKernel(ilane, nq0, advVel0, deriv, bwd, lambda);
+        AddAdvection1DKernel(ilane, ncoord, nq0, advVel0, advVel1, advVel2,
+                             deriv, deriv + nq0 * nelmt,
+                             deriv + 2 * nq0 * nelmt, bwd, lambda);
         ApplyMetric1DSumFacKernel<DEFORMED>(ilane, ncoord, nq0, nelmt * nq0, w0,
                                             dfptr, jacptr, coeff, deriv, deriv,
                                             bwd, (TData)1.0);
@@ -160,8 +179,9 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction2DSumFacKernel(
     const TData *__restrict__ f1, const TData *__restrict__ nodToMod,
     const TData *__restrict__ df, const TData *__restrict__ jac,
     const TData *__restrict__ coeff, const TData *__restrict__ advVel0,
-    const TData *__restrict__ advVel1, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp, const TData lambda,
+    const TData *__restrict__ advVel1, const TData *__restrict__ advVel2,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, const TData lambda,
     unsigned char *__restrict__ shmemptr, const TthreadBlock &threadBlock)
 {
     const unsigned int ndf     = 2 * ncoord;
@@ -241,8 +261,9 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction2DSumFacKernel(
         PhysDeriv2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, ncoord, nq0, nq1, nelmt * nqTot, D0, D1, s_f0, s_f1, dfptr,
             bwd, deriv);
-        AddAdvection2DKernel(ilane, nq0, nq1, advVel0, advVel1, deriv0, deriv1,
-                             bwd, lambda);
+        AddAdvection2DKernel(ilane, ncoord, nq0, nq1, advVel0, advVel1, advVel2,
+                             deriv, deriv + nqTot * nelmt,
+                             deriv + 2 * nqTot * nelmt, bwd, lambda);
         ApplyMetric2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, ncoord, nq0, nq1, nelmt * nqTot, w0, w1, s_f0, s_f1, dfptr,
             jacptr, coeff, deriv, deriv0, deriv1, bwd, (TData)1.0);
@@ -565,7 +586,8 @@ NEK_DEVICE_KERNEL
         const TData *__restrict__ basis0, const TData *__restrict__ D0,
         const TData *__restrict__ w0, const TData *__restrict__ df,
         const TData *__restrict__ jac, const TData *__restrict__ coeff,
-        const TData *__restrict__ advVel0, const TData *__restrict__ in,
+        const TData *__restrict__ advVel0, const TData *__restrict__ advVel1,
+        const TData *__restrict__ advVel2, const TData *__restrict__ in,
         TData *__restrict__ out, TData *__restrict__ wsp, const TData lambda,
         unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
@@ -573,7 +595,8 @@ NEK_DEVICE_KERNEL
 
     LinAdvDiffReaction1DSumFacKernel<DEFORMED>(
         ncoord, sizeParam1D.nm0(), sizeParam1D.nq0(), nelmt, basis0, D0, w0, df,
-        jac, coeff, advVel0, in, out, wsp, lambda, shmemptr, threadBlock);
+        jac, coeff, advVel0, advVel1, advVel2, in, out, wsp, lambda, shmemptr,
+        threadBlock);
 }
 
 // Size based template version.
@@ -589,15 +612,16 @@ NEK_DEVICE_KERNEL
         const TData *__restrict__ basis0, const TData *__restrict__ D0,
         const TData *__restrict__ w0, const TData *__restrict__ df,
         const TData *__restrict__ jac, const TData *__restrict__ coeff,
-        const TData *__restrict__ advVel0, const TData *__restrict__ in,
+        const TData *__restrict__ advVel0, const TData *__restrict__ advVel1,
+        const TData *__restrict__ advVel2, const TData *__restrict__ in,
         TData *__restrict__ out, TData *__restrict__ wsp, const TData lambda,
         unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
     LinAdvDiffReaction1DSumFacKernel<DEFORMED>(
-        ncoord, nm0, nq0, nelmt, basis0, D0, w0, df, jac, coeff, advVel0, in,
-        out, wsp, lambda, shmemptr, threadBlock);
+        ncoord, nm0, nq0, nelmt, basis0, D0, w0, df, jac, coeff, advVel0,
+        advVel1, advVel2, in, out, wsp, lambda, shmemptr, threadBlock);
 }
 
 // Non-size based version.
@@ -616,17 +640,17 @@ NEK_DEVICE_KERNEL
         const TData *__restrict__ nodToMod, const TData *__restrict__ df,
         const TData *__restrict__ jac, const TData *__restrict__ coeff,
         const TData *__restrict__ advVel0, const TData *__restrict__ advVel1,
-        const TData *__restrict__ in, TData *__restrict__ out,
-        TData *__restrict__ wsp, const TData lambda, unsigned char *shmemptr,
-        const TthreadBlock &threadBlock)
+        const TData *__restrict__ advVel2, const TData *__restrict__ in,
+        TData *__restrict__ out, TData *__restrict__ wsp, const TData lambda,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
     LinAdvDiffReaction2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
         ncoord, sizeParam2D.nm0(), sizeParam2D.nm1(), sizeParam2D.nmTot(),
         sizeParam2D.nq0(), sizeParam2D.nq1(), nelmt, isModified, basis0, basis1,
-        D0, D1, w0, w1, f0, f1, nodToMod, df, jac, coeff, advVel0, advVel1, in,
-        out, wsp, lambda, shmemptr, threadBlock);
+        D0, D1, w0, w1, f0, f1, nodToMod, df, jac, coeff, advVel0, advVel1,
+        advVel2, in, out, wsp, lambda, shmemptr, threadBlock);
 }
 
 // Size based template version.
@@ -651,16 +675,16 @@ NEK_DEVICE_KERNEL
         const TData *__restrict__ nodToMod, const TData *__restrict__ df,
         const TData *__restrict__ jac, const TData *__restrict__ coeff,
         const TData *__restrict__ advVel0, const TData *__restrict__ advVel1,
-        const TData *__restrict__ in, TData *__restrict__ out,
-        TData *__restrict__ wsp, const TData lambda, unsigned char *shmemptr,
-        const TthreadBlock &threadBlock)
+        const TData *__restrict__ advVel2, const TData *__restrict__ in,
+        TData *__restrict__ out, TData *__restrict__ wsp, const TData lambda,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
     LinAdvDiffReaction2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
         ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0, basis1,
-        D0, D1, w0, w1, f0, f1, nodToMod, df, jac, coeff, advVel0, advVel1, in,
-        out, wsp, lambda, shmemptr, threadBlock);
+        D0, D1, w0, w1, f0, f1, nodToMod, df, jac, coeff, advVel0, advVel1,
+        advVel2, in, out, wsp, lambda, shmemptr, threadBlock);
 }
 
 // Non-size based version.
