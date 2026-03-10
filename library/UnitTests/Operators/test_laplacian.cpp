@@ -95,7 +95,7 @@ TEST_LAPLACIAN3DH2(laplacian_seg_sem_3dh2, SegSEM, 1.0E-12)
 
 TEST_LAPLACIAN(laplacian_quad, Quad, 1.0E-12)
 
-// TEST_LAPLACIAN(laplacian_quad_3d, Quad3D, 1.0E-12)
+TEST_LAPLACIAN(laplacian_quad_3d, Quad3D, 1.0E-12)
 
 TEST_LAPLACIAN(laplacian_quad_sem, QuadSEM, 1.0E-12)
 

@@ -350,6 +350,8 @@ protected:
             dfSize *= nqTot;
         }
 
+        const auto nelmt = inblock.GetNumElementsWithPadding();
+
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -368,6 +370,7 @@ protected:
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Loop over components.
+        auto advVelOffset = nelmt * nq0;
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
@@ -397,7 +400,11 @@ protected:
 
                 // Step 3: Add Advect solution to  this->m_lambda * bwd.
                 AddAdvectionSegKernel<DEFORMED>(
-                    nq0, reinterpret_cast<const simd_t *>(advVelPtr),
+                    m_coordDim, nq0,
+                    reinterpret_cast<const simd_t *>(advVelPtr),
+                    reinterpret_cast<const simd_t *>(advVelPtr + advVelOffset),
+                    reinterpret_cast<const simd_t *>(advVelPtr +
+                                                     2 * advVelOffset),
                     reinterpret_cast<const simd_t *>(dfptr), deriv0.data(),
                     bwd.data(), this->m_lambda);
 
@@ -545,9 +552,11 @@ protected:
 
                 // Step 3: Evaluate advection term and add to bwd * lambda.
                 AddAdvection2DKernel<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, m_f[0], m_f[1],
+                    m_coordDim, nq0, nq1, m_f[0], m_f[1],
                     reinterpret_cast<const simd_t *>(advVelPtr),
                     reinterpret_cast<const simd_t *>(advVelPtr + advVelOffset),
+                    reinterpret_cast<const simd_t *>(advVelPtr +
+                                                     2 * advVelOffset),
                     reinterpret_cast<const simd_t *>(dfptr), deriv0.data(),
                     deriv1.data(), bwd.data(), this->m_lambda);
 

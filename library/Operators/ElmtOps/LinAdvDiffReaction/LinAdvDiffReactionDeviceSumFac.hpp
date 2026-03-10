@@ -460,7 +460,8 @@ protected:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Initialize advVel pointers.
-        auto advVelptr = m_advVel;
+        auto advVelptr  = m_advVel;
+        auto advVelSize = nelmt * sizeParam1D.nq0();
 
         // Set workspace.
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
@@ -504,7 +505,9 @@ protected:
                 (LinAdvDiffReaction1DKernelLauncher<Implementation, DEFORMED>),
                 gridsize, blocksize, shmemsize, 0, sizeParam1D, m_coordDim,
                 nelmt, m_B[0], m_D[0], m_W[0], m_dfptr, m_jacptr, diffCoeffPtr,
-                advVelptr, inptr, outptr, wspptr, this->m_lambda);
+                advVelptr, advVelptr + advVelSize, advVelptr + 2 * advVelSize,
+
+                inptr, outptr, wspptr, this->m_lambda);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -620,8 +623,9 @@ protected:
                 gridsize, blocksize, shmemsize, 0, sizeParam2D, m_coordDim,
                 nelmt, m_isModified, m_index[0], m_B[0], m_B[1], m_D[0], m_D[1],
                 m_W[0], m_W[1], m_f[0], m_f[1], m_nodToMod, m_dfptr, m_jacptr,
-                diffCoeffPtr, advVelptr, advVelptr + advVelSize, inptr, outptr,
-                wspptr, this->m_lambda);
+                diffCoeffPtr, advVelptr, advVelptr + advVelSize,
+                advVelptr + 2 * advVelSize, inptr, outptr, wspptr,
+                this->m_lambda);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
