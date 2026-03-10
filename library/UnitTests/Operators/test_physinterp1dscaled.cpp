@@ -98,6 +98,8 @@ TEST_PHYSINTERP1DSCALED(physinterp1d_seg_3d, Seg3D, 1.0E-12)
 
 TEST_PHYSINTERP1DSCALED(physinterp1d_quad, Quad, 1.0E-12)
 
+TEST_PHYSINTERP1DSCALED(physinterp1d_quad_3d, Quad3D, 1.0E-12)
+
 TEST_PHYSINTERP1DSCALED3DH1(physinterp1d_quad_3dh1, Quad, 1.0E-12)
 
 TEST_PHYSINTERP1DSCALED(physinterp1d_quad_varp, QuadVarP, 1.0E-12)

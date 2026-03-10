@@ -259,14 +259,14 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacTOPKernel(
                             diffCoeff[3] * df[4];
                 metric[1] = diffCoeff[0] * df[1] + diffCoeff[1] * df[3] +
                             diffCoeff[3] * df[5];
-                metric[2] = diffCoeff[0] * df[0] + diffCoeff[1] * df[2] +
-                            diffCoeff[3] * df[4];
+                metric[2] = diffCoeff[1] * df[0] + diffCoeff[2] * df[2] +
+                            diffCoeff[4] * df[4];
                 metric[3] = diffCoeff[1] * df[1] + diffCoeff[2] * df[3] +
                             diffCoeff[4] * df[5];
-                metric[4] = diffCoeff[1] * df[0] + diffCoeff[2] * df[2] +
-                            diffCoeff[4] * df[4];
-                metric[5] = diffCoeff[1] * df[1] + diffCoeff[2] * df[3] +
-                            diffCoeff[4] * df[5];
+                metric[4] = diffCoeff[3] * df[0] + diffCoeff[4] * df[2] +
+                            diffCoeff[5] * df[4];
+                metric[5] = diffCoeff[3] * df[1] + diffCoeff[4] * df[3] +
+                            diffCoeff[5] * df[5];
             }
 
             localBarrier(threadBlock);
@@ -302,18 +302,18 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacTOPKernel(
                     metric[1] = diffCoeff[0] * df[1 * dfsize + dfindex] +
                                 diffCoeff[1] * df[3 * dfsize + dfindex] +
                                 diffCoeff[3] * df[5 * dfsize + dfindex];
-                    metric[2] = diffCoeff[0] * df[dfindex] +
-                                diffCoeff[1] * df[2 * dfsize + dfindex] +
-                                diffCoeff[2] * df[4 * dfsize + dfindex];
+                    metric[2] = diffCoeff[1] * df[dfindex] +
+                                diffCoeff[2] * df[2 * dfsize + dfindex] +
+                                diffCoeff[4] * df[4 * dfsize + dfindex];
                     metric[3] = diffCoeff[1] * df[1 * dfsize + dfindex] +
                                 diffCoeff[2] * df[3 * dfsize + dfindex] +
                                 diffCoeff[4] * df[5 * dfsize + dfindex];
-                    metric[4] = diffCoeff[1] * df[dfindex] +
-                                diffCoeff[2] * df[2 * dfsize + dfindex] +
-                                diffCoeff[4] * df[4 * dfsize + dfindex];
-                    metric[5] = diffCoeff[1] * df[1 * dfsize + dfindex] +
-                                diffCoeff[2] * df[3 * dfsize + dfindex] +
-                                diffCoeff[4] * df[5 * dfsize + dfindex];
+                    metric[4] = diffCoeff[3] * df[dfindex] +
+                                diffCoeff[4] * df[2 * dfsize + dfindex] +
+                                diffCoeff[5] * df[4 * dfsize + dfindex];
+                    metric[5] = diffCoeff[3] * df[1 * dfsize + dfindex] +
+                                diffCoeff[4] * df[3 * dfsize + dfindex] +
+                                diffCoeff[5] * df[5 * dfsize + dfindex];
                 }
             }
         }

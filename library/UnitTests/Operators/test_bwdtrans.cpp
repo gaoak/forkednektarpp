@@ -95,6 +95,8 @@ TEST_BWDTRANS3DH2(bwdtrans_seg_sem_3dh2, SegSEM, 1.0E-12)
 
 TEST_BWDTRANS(bwdtrans_quad, Quad, 1.0E-12)
 
+TEST_BWDTRANS(bwdtrans_quad_3d, Quad3D, 1.0E-12)
+
 TEST_BWDTRANS3DH1(bwdtrans_quad_3dh1, Quad, 1.0E-12)
 
 TEST_BWDTRANS(bwdtrans_quad_sem, QuadSEM, 1.0E-12)
