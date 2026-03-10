@@ -516,7 +516,7 @@ NEK_DEVICE_INLINE static void BwdTrans2DSumFacKernel(
     const bool isModified, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ nodToMod,
     const TData *__restrict__ in, TData *__restrict__ out,
-    [[maybe_unused]] TData *__restrict__ wsp,
+    TData *__restrict__ wsp,
     [[maybe_unused]] unsigned char *__restrict__ shmemptr,
     const TthreadBlock &threadBlock)
 {
@@ -561,12 +561,10 @@ NEK_DEVICE_INLINE static void BwdTrans3DSumFacKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const size_t nelmt, const bool isModified,
-    [[maybe_unused]] const unsigned int *__restrict__ index0,
-    [[maybe_unused]] const unsigned int *__restrict__ index1,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ nodToMod,
     const TData *__restrict__ in, TData *__restrict__ out,
-    [[maybe_unused]] TData *__restrict__ wsp,
+    TData *__restrict__ wsp,
     [[maybe_unused]] unsigned char *__restrict__ shmemptr,
     const TthreadBlock &threadBlock)
 {
@@ -734,20 +732,21 @@ NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
     BwdTrans3DKernelLauncher(
         const NonTemplated3DSizeParameters sizeParam3D, const size_t nelmt,
-        const bool isModified, const unsigned int *index0,
-        const unsigned int *index1, const TData *__restrict__ basis0,
-        const TData *__restrict__ basis1, const TData *__restrict__ basis2,
-        const TData *__restrict__ nodToMod, const TData *__restrict__ in,
-        TData *__restrict__ out, TData *__restrict__ wsp,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+        const bool isModified, [[maybe_unused]] const unsigned int *index0,
+        [[maybe_unused]] const unsigned int *index1,
+        const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+        const TData *__restrict__ basis2, const TData *__restrict__ nodToMod,
+        const TData *__restrict__ in, TData *__restrict__ out,
+        TData *__restrict__ wsp, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
     BwdTrans3DSumFacKernel<SHAPE_TYPE>(
         sizeParam3D.nm0(), sizeParam3D.nm1(), sizeParam3D.nm2(),
         sizeParam3D.nmTot(), sizeParam3D.nq0(), sizeParam3D.nq1(),
-        sizeParam3D.nq2(), nelmt, isModified, index0, index1, basis0, basis1,
-        basis2, nodToMod, in, out, wsp, shmemptr, threadBlock);
+        sizeParam3D.nq2(), nelmt, isModified, basis0, basis1, basis2, nodToMod,
+        in, out, wsp, shmemptr, threadBlock);
 }
 
 // Size based template version.
@@ -763,18 +762,20 @@ NEK_DEVICE_KERNEL
         [[maybe_unused]] const Templated3DSizeParameters<nm0, nm1, nm2, nmTot,
                                                          nq0, nq1, nq2>
             sizeParam3D,
-        const size_t nelmt, const bool isModified, const unsigned int *index0,
-        const unsigned int *index1, const TData *__restrict__ basis0,
-        const TData *__restrict__ basis1, const TData *__restrict__ basis2,
-        const TData *__restrict__ nodToMod, const TData *__restrict__ in,
-        TData *__restrict__ out, TData *__restrict__ wsp,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+        const size_t nelmt, const bool isModified,
+        [[maybe_unused]] const unsigned int *index0,
+        [[maybe_unused]] const unsigned int *index1,
+        const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+        const TData *__restrict__ basis2, const TData *__restrict__ nodToMod,
+        const TData *__restrict__ in, TData *__restrict__ out,
+        TData *__restrict__ wsp, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
     BwdTrans3DSumFacKernel<SHAPE_TYPE>(
-        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
-        basis0, basis1, basis2, nodToMod, in, out, wsp, shmemptr, threadBlock);
+        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0, basis1,
+        basis2, nodToMod, in, out, wsp, shmemptr, threadBlock);
 }
 
 #endif
