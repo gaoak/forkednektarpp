@@ -95,6 +95,8 @@ TEST_IPWRTDERIVBASE(ipwrtderivbase_seg_3d, Seg3D, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_quad, Quad, 1.0E-12)
 
+TEST_IPWRTDERIVBASE(ipwrtderivbase_quad_3d, Quad3D, 1.0E-12)
+
 TEST_IPWRTDERIVBASE3DH1(ipwrtderivbase_quad_3dh1, Quad, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_quad_sem, QuadSEM, 1.0E-12)

@@ -95,6 +95,8 @@ TEST_IPWRTBASE3DH2(ipwrtbase_seg_sem_3dh2, SegSEM, 1.0E-12)
 
 TEST_IPWRTBASE(ipwrtbase_quad, Quad, 1.0E-12)
 
+TEST_IPWRTBASE(ipwrtbase_quad_3d, Quad3D, 1.0E-12)
+
 TEST_IPWRTBASE3DH1(ipwrtbase_quad_3dh1, Quad, 1.0E-12)
 
 TEST_IPWRTBASE(ipwrtbase_quad_sem, QuadSEM, 1.0E-12)

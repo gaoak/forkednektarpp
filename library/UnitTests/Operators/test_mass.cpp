@@ -95,6 +95,8 @@ TEST_MASS3DH2(mass_seg_sem_3dh2, SegSEM, 1.0E-12)
 
 TEST_MASS(mass_quad, Quad, 1.0E-12)
 
+TEST_MASS(mass_quad_3d, Quad3D, 1.0E-12)
+
 TEST_MASS3DH1(mass_quad_3dh1, Quad, 1.0E-12)
 
 TEST_MASS(mass_quad_sem, QuadSEM, 1.0E-12)

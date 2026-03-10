@@ -247,18 +247,18 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacKernel(
                 metric[1] = diffCoeff[0] * df[1 * warpsize + ilane] +
                             diffCoeff[1] * df[3 * warpsize + ilane] +
                             diffCoeff[3] * df[5 * warpsize + ilane];
-                metric[2] = diffCoeff[0] * df[ilane] +
-                            diffCoeff[1] * df[2 * warpsize + ilane] +
-                            diffCoeff[3] * df[4 * warpsize + ilane];
+                metric[2] = diffCoeff[1] * df[ilane] +
+                            diffCoeff[2] * df[2 * warpsize + ilane] +
+                            diffCoeff[4] * df[4 * warpsize + ilane];
                 metric[3] = diffCoeff[1] * df[1 * warpsize + ilane] +
                             diffCoeff[2] * df[3 * warpsize + ilane] +
                             diffCoeff[4] * df[5 * warpsize + ilane];
-                metric[4] = diffCoeff[1] * df[ilane] +
-                            diffCoeff[2] * df[2 * warpsize + ilane] +
-                            diffCoeff[4] * df[4 * warpsize + ilane];
-                metric[5] = diffCoeff[1] * df[1 * warpsize + ilane] +
-                            diffCoeff[2] * df[3 * warpsize + ilane] +
-                            diffCoeff[4] * df[5 * warpsize + ilane];
+                metric[4] = diffCoeff[3] * df[ilane] +
+                            diffCoeff[4] * df[2 * warpsize + ilane] +
+                            diffCoeff[5] * df[4 * warpsize + ilane];
+                metric[5] = diffCoeff[3] * df[1 * warpsize + ilane] +
+                            diffCoeff[4] * df[3 * warpsize + ilane] +
+                            diffCoeff[5] * df[5 * warpsize + ilane];
             }
         }
     }
@@ -294,18 +294,18 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacKernel(
                         metric[1] = diffCoeff[0] * df[1 * warpsize + dfindex] +
                                     diffCoeff[1] * df[3 * warpsize + dfindex] +
                                     diffCoeff[3] * df[5 * warpsize + dfindex];
-                        metric[2] = diffCoeff[0] * df[dfindex] +
-                                    diffCoeff[1] * df[2 * warpsize + dfindex] +
-                                    diffCoeff[3] * df[4 * warpsize + dfindex];
+                        metric[2] = diffCoeff[1] * df[dfindex] +
+                                    diffCoeff[2] * df[2 * warpsize + dfindex] +
+                                    diffCoeff[4] * df[4 * warpsize + dfindex];
                         metric[3] = diffCoeff[1] * df[1 * warpsize + dfindex] +
                                     diffCoeff[2] * df[3 * warpsize + dfindex] +
                                     diffCoeff[4] * df[5 * warpsize + dfindex];
-                        metric[4] = diffCoeff[1] * df[dfindex] +
-                                    diffCoeff[2] * df[2 * warpsize + dfindex] +
-                                    diffCoeff[4] * df[4 * warpsize + dfindex];
-                        metric[5] = diffCoeff[1] * df[1 * warpsize + dfindex] +
-                                    diffCoeff[2] * df[3 * warpsize + dfindex] +
-                                    diffCoeff[4] * df[5 * warpsize + dfindex];
+                        metric[4] = diffCoeff[3] * df[dfindex] +
+                                    diffCoeff[4] * df[2 * warpsize + dfindex] +
+                                    diffCoeff[5] * df[4 * warpsize + dfindex];
+                        metric[5] = diffCoeff[3] * df[1 * warpsize + dfindex] +
+                                    diffCoeff[4] * df[3 * warpsize + dfindex] +
+                                    diffCoeff[5] * df[5 * warpsize + dfindex];
                     }
                 }
             }
