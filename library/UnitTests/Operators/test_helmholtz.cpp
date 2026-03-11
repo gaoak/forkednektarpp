@@ -103,7 +103,7 @@ TEST_HELMHOLTZ3DH1(helmholtz_quad_3dh1, Quad, 1.0E-12)
 
 TEST_HELMHOLTZ(helmholtz_tri, Tri, 1.0E-12)
 
-// TEST_HELMHOLTZ(helmholtz_tri_3d, Tri3D, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_tri_3d, Tri3D, 1.0E-12)
 
 TEST_HELMHOLTZ3DH1(helmholtz_tri_3dh1, Tri, 1.0E-12)
 

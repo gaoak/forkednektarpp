@@ -434,8 +434,9 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTriKernel(
 
                 if (ncoord == 3)
                 {
-                    metric00.fma(df4, df4);
-                    metric01.fma(df4, df5);
+                    simd_type tmp2 = h1 * (df4 + h0 * df5); // M_10
+                    metric00.fma(tmp2, tmp2);
+                    metric01.fma(tmp, df5);
                     metric11.fma(df5, df5);
                 }
             }
@@ -475,15 +476,16 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTriKernel(
                 }
                 else
                 {
-                    dtmp0 = metric00 * d00;
+                    simd_type tmp2 = h1 * (df4 + h0 * df5); // M_10
+                    dtmp0          = metric00 * d00;
                     dtmp0.fma(tmp, d01);
-                    dtmp0.fma(df4, d02);
+                    dtmp0.fma(tmp2, d02);
                     dtmp1 = metric00 * d01;
-                    dtmp1.fma(metric00, d11);
-                    dtmp1.fma(df3, d12);
+                    dtmp1.fma(tmp, d11);
+                    dtmp1.fma(tmp2, d12);
                     dtmp2 = metric00 * d02;
                     dtmp2.fma(tmp, d12);
-                    dtmp2.fma(df3, d22);
+                    dtmp2.fma(tmp2, d22);
                     dtmp3 = df1 * d00;
                     dtmp3.fma(df3, d01);
                     dtmp3.fma(df5, d02);
@@ -496,7 +498,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTriKernel(
 
                     metric00 = metric00 * dtmp0;
                     metric00.fma(tmp, dtmp1);
-                    metric00.fma(df4, dtmp2);
+                    metric00.fma(tmp2, dtmp2);
                     metric01 = df1 * dtmp0;
                     metric01.fma(df3, dtmp1);
                     metric01.fma(df5, dtmp2);
