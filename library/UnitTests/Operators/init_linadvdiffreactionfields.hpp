@@ -82,15 +82,15 @@ public:
                        : 10.0;
 
         // Set up diffusion coefficient.
-        const auto coordDim      = this->fixt_explist->GetCoordim(0);
-        const auto diffCoeffSize = coordDim * (coordDim + 1) / 2;
+        m_coordDim               = this->fixt_explist->GetCoordim(0);
+        const auto diffCoeffSize = m_coordDim * (m_coordDim + 1) / 2;
         m_diffCoeff.resize(diffCoeffSize);
 
-        if (coordDim == 1)
+        if (m_coordDim == 1)
         {
             m_diffCoeff[0] = 1.0; // D00
         }
-        else if (coordDim == 2)
+        else if (m_coordDim == 2)
         {
             m_diffCoeff[0] = 1.0; // D00
             m_diffCoeff[2] = 1.0; // D11
@@ -105,10 +105,9 @@ public:
         // Set advection velocity
         size_t nphys = this->fixt_explist->GetTotPoints() /
                        this->fixt_in->GetNumHomoModes();
-        m_dim = this->fixt_explist->GetCoordim(0);
-        m_vel = Array<OneD, TData>(nphys * m_dim, 0.0);
+        m_vel = Array<OneD, TData>(nphys * m_coordDim, 0.0);
         Array<OneD, TData> tmp;
-        for (unsigned int d = 1; d < m_dim; ++d)
+        for (unsigned int d = 1; d < m_coordDim; ++d)
         {
             Vmath::Fill(nphys, d + 1.0, tmp = m_vel + d * nphys, 1);
             // Vmath::Fill(nphys, 0.0, tmp = m_vel + d * nphys, 1);
@@ -165,7 +164,7 @@ public:
                     // Restrict varcoeffs to size of element
                     StdRegions::VarCoeffMap varcoeffs;
 
-                    for (unsigned int d = 0; d < m_dim; ++d)
+                    for (unsigned int d = 0; d < m_coordDim; ++d)
                     {
                         varcoeffs[velCoeffType[d]] =
                             m_vel + d * nphys + physoffset;
@@ -189,7 +188,7 @@ public:
     }
 
 private:
-    unsigned int m_dim;
+    unsigned int m_coordDim;
     TData m_lambda;
     std::vector<TData> m_diffCoeff;
     Array<OneD, TData> m_vel;

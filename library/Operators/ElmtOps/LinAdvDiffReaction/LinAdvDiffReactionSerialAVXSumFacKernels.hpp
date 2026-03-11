@@ -72,6 +72,14 @@ NEK_FORCE_INLINE static void AddAdvectionSegKernel(
         if constexpr (DEFORMED)
         {
             df0 = df_ptr[i];
+            if (ncoord > 1)
+            {
+                df1 = df_ptr[i * ncoord + 1];
+            }
+            if (ncoord > 2)
+            {
+                df2 = df_ptr[i * ncoord + 2];
+            }
         }
 
         // Get advection velocity.
@@ -94,11 +102,13 @@ NEK_FORCE_INLINE static void AddAdvectionSegKernel(
 
         if (ncoord > 1)
         {
-            adv.fma(df1, d0);
+            simd_type tmp = df1 * d0;
+            adv.fma(vy, tmp);
         }
         if (ncoord > 2)
         {
-            adv.fma(df2, d0);
+            simd_type tmp = df2 * d0;
+            adv.fma(vz, tmp);
         }
 
         adv.fma(out[i], simd_type(scale));

@@ -81,18 +81,18 @@ public:
     void SetTestCase()
     {
         // Set initial conditions.
-        auto coordim   = this->fixt_explist->GetShapeDimension();
+        auto dim       = this->fixt_explist->GetShapeDimension();
         auto totpoints = this->fixt_explist->GetTotPoints();
         Array<OneD, TData> x(totpoints);
         Array<OneD, TData> y(totpoints);
         Array<OneD, TData> z(totpoints);
         this->fixt_explist->GetCoords(x, y, z);
-        if (coordim == 1)
+        if (dim == 1)
         {
             Vmath::Fill(totpoints, 1.0, y, 1);
             Vmath::Fill(totpoints, 1.0, z, 1);
         }
-        else if (coordim == 2)
+        else if (dim == 2)
         {
             Vmath::Fill(totpoints, 1.0, z, 1);
         }
@@ -161,17 +161,17 @@ public:
     {
         // Calculate expected result from Nektar++
         const unsigned int numComp = this->fixt_in->GetNumComponents();
-        const unsigned int coordim = this->fixt_explist->GetShapeDimension();
+        const unsigned int dim     = this->fixt_explist->GetShapeDimension();
         const size_t nphys         = this->fixt_explist->GetTotPoints();
         Array<OneD, TData> inphys  = this->fixt_in->ToArray();
         Array<OneD, TData> outphys(nphys, 0.0);
         Array<OneD, TData> outderiv(nphys);
 
-        ASSERTL0(numComp >= coordim,
+        ASSERTL0(numComp >= dim,
                  "Need more components than dimensions for this test");
 
         // Calculate derivative
-        for (unsigned int i = 0; i < coordim; ++i)
+        for (unsigned int i = 0; i < dim; ++i)
         {
             this->fixt_explist->PhysDeriv(i, inphys + i * nphys, outderiv);
             Vmath::Vadd(nphys, outphys, 1, outderiv, 1, outphys, 1);

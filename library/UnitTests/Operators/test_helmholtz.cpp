@@ -87,7 +87,7 @@ TEST_HELMHOLTZ(helmholtz_seg, Seg, 1.0E-12)
 
 TEST_HELMHOLTZ(helmholtz_seg_sem, SegSEM, 1.0E-12)
 
-// TEST_HELMHOLTZ(helmholtz_seg_3d, Seg3D, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_seg_3d, Seg3D, 1.0E-12)
 
 TEST_HELMHOLTZ3DH2(helmholtz_seg_sem_3dh2, SegSEM, 1.0E-12)
 

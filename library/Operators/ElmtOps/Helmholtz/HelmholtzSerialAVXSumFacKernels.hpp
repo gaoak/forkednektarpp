@@ -135,8 +135,8 @@ NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
                 tmp1.fma(d11, df1);
                 tmp1.fma(d12, df2);
                 simd_type tmp2 = d02 * df0;
-                tmp1.fma(d12, df1);
-                tmp1.fma(d22, df2);
+                tmp2.fma(d12, df1);
+                tmp2.fma(d22, df2);
                 metric00 = tmp0 * df0;
                 metric00.fma(tmp1, df1);
                 metric00.fma(tmp2, df2);
@@ -168,7 +168,6 @@ NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
                 }
                 else
                 {
-                    metric00 = df0 * df0 * d00;
                     if (ncoord == 1)
                     {
                         df0      = df_ptr[i * ndf];
@@ -197,8 +196,8 @@ NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
                         tmp1.fma(d11, df1);
                         tmp1.fma(d12, df2);
                         simd_type tmp2 = d02 * df0;
-                        tmp1.fma(d12, df1);
-                        tmp1.fma(d22, df2);
+                        tmp2.fma(d12, df1);
+                        tmp2.fma(d22, df2);
                         metric00 = tmp0 * df0;
                         metric00.fma(tmp1, df1);
                         metric00.fma(tmp2, df2);
@@ -210,16 +209,58 @@ NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
         }
         else
         {
-            // Precompute Laplacian metricsp
-            df0 = df_ptr[0];
-
+            // Precompute Laplacian metrics
             if (isConstVarDiff)
             {
-                metric00 = df0 * df0 * d00;
+                if (ncoord == 1)
+                {
+                    df0      = df_ptr[0];
+                    metric00 = df0 * df0 * d00;
+                }
+                else if (ncoord == 2)
+                {
+                    df0            = df_ptr[0];
+                    df1            = df_ptr[1];
+                    simd_type tmp0 = d00 * df0;
+                    tmp0.fma(d01, df1);
+                    simd_type tmp1 = d01 * df0;
+                    tmp1.fma(d11, df1);
+                    metric00 = tmp0 * df0;
+                    metric00.fma(tmp1, df1);
+                }
+                else if (ncoord == 3)
+                {
+                    df0            = df_ptr[0];
+                    df1            = df_ptr[1];
+                    df2            = df_ptr[2];
+                    simd_type tmp0 = d00 * df0;
+                    tmp0.fma(d01, df1);
+                    tmp0.fma(d02, df2);
+                    simd_type tmp1 = d01 * df0;
+                    tmp1.fma(d11, df1);
+                    tmp1.fma(d12, df2);
+                    simd_type tmp2 = d02 * df0;
+                    tmp2.fma(d12, df1);
+                    tmp2.fma(d22, df2);
+                    metric00 = tmp0 * df0;
+                    metric00.fma(tmp1, df1);
+                    metric00.fma(tmp2, df2);
+                }
             }
             else if (isConstVarDiff)
             {
+                df0      = df_ptr[0];
                 metric00 = df0 * df0;
+                if (ncoord > 1)
+                {
+                    df1 = df_ptr[1];
+                    metric00.fma(df1, df1);
+                }
+                if (ncoord > 2)
+                {
+                    df2 = df_ptr[2];
+                    metric00.fma(df2, df2);
+                }
             }
 
             for (unsigned int i = 0; i < nqTot; ++i)
@@ -272,8 +313,8 @@ NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
                     tmp1.fma(d11, df1);
                     tmp1.fma(d12, df2);
                     simd_type tmp2 = d02 * df0;
-                    tmp1.fma(d12, df1);
-                    tmp1.fma(d22, df2);
+                    tmp2.fma(d12, df1);
+                    tmp2.fma(d22, df2);
                     metric00 = tmp0 * df0;
                     metric00.fma(tmp1, df1);
                     metric00.fma(tmp2, df2);
@@ -320,8 +361,8 @@ NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
                     tmp1.fma(d11, df1);
                     tmp1.fma(d12, df2);
                     simd_type tmp2 = d02 * df0;
-                    tmp1.fma(d12, df1);
-                    tmp1.fma(d22, df2);
+                    tmp2.fma(d12, df1);
+                    tmp2.fma(d22, df2);
                     metric00 = tmp0 * df0;
                     metric00.fma(tmp1, df1);
                     metric00.fma(tmp2, df2);

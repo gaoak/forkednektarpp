@@ -75,6 +75,7 @@ public:
         }
 
         // Set up diffusion coefficient.
+        const auto dim           = this->fixt_explist->GetShapeDimension();
         const auto coordDim      = this->fixt_explist->GetCoordim(0);
         const auto diffCoeffSize = coordDim * (coordDim + 1) / 2;
         m_diffCoeff.resize(diffCoeffSize);
@@ -86,14 +87,31 @@ public:
         }
         else if (coordDim == 2)
         {
-            m_diffCoeff[0] = 2.0; // D00
-            m_diffCoeff[2] = 3.0; // D11
+            if (dim == 1)
+            {
+                m_diffCoeff[0] = 1.0; // D00
+                m_diffCoeff[2] = 1.0; // D11
+            }
+            else
+            {
+                m_diffCoeff[0] = 2.0; // D00
+                m_diffCoeff[2] = 3.0; // D11
+            }
         }
         else
         {
-            m_diffCoeff[0] = 2.0; // D00
-            m_diffCoeff[2] = 3.0; // D11
-            m_diffCoeff[5] = 4.0; // D22
+            if (dim == 1)
+            {
+                m_diffCoeff[0] = 1.0; // D00
+                m_diffCoeff[2] = 1.0; // D11
+                m_diffCoeff[5] = 1.0; // D22
+            }
+            else
+            {
+                m_diffCoeff[0] = 2.0; // D00
+                m_diffCoeff[2] = 3.0; // D11
+                m_diffCoeff[5] = 4.0; // D22
+            }
         }
 
         // Compute expected solution.

@@ -87,7 +87,7 @@ TEST_LINADVDIFFREACTION(linadvdiffreaction_seg, Seg, 1.0E-12)
 
 TEST_LINADVDIFFREACTION(linadvdiffreaction_seg_sem, SegSEM, 1.0E-12)
 
-// TEST_LINADVDIFFREACTION(linadvdiffreaction_seg_3d, Seg3D, 1.0E-12)
+TEST_LINADVDIFFREACTION(linadvdiffreaction_seg_3d, Seg3D, 1.0E-12)
 
 TEST_LINADVDIFFREACTION3DH2(linadvdiffreaction_seg_sem_3dh2, SegSEM, 1.0E-12)
 
