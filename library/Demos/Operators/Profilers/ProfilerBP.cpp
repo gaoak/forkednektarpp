@@ -83,8 +83,8 @@
  *
  *      Examples:
  *
- *      # So far We can only launch serial run on GPUs:
- *          ./ProfilerBP mesh.xml --opExecSpace=Serial --opImpl=StdMat
+ *      # So far We can only launch one GPU:
+ *          ./ProfilerBP mesh.xml --opExecSpace=Device --opImpl=StdMat
  *          -P BP=1 -P Ntest=100 -P order=5 -verbose
  *
  *      # To squeeze all the performance of CPU, typically we launch as many

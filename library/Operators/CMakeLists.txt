@@ -403,6 +403,96 @@ ENDMACRO()
 
 
 # Macro for each operator.
+MACRO(ADD_BLOCK_OPERATOR dir)
+
+    # Extract operator name form directory if it exists.
+    IF(IS_DIRECTORY ${dir})
+        GET_FILENAME_COMPONENT(name "${dir}" NAME)
+    ELSE()
+        CONTINUE()
+    ENDIF()
+
+    SET(NAME_HEADERS ${name}_HEADERS)
+    SET(NAME_SOURCES ${name}_SOURCES)
+    SET(OPERATOR ${name})
+
+    # These operator have an additional argument for the FieldState
+    # which requires two delcarations.
+    SET(CONFIG_FILE_TRACE Common/BlockOperatorFactoryDec.cpp.in)
+
+
+    # Loop through each possible execution space.
+    FOREACH (ExecSpace IN LISTS ExecSpaces)
+    
+        # Set file extension.
+        SET(HEADER_EXT hpp)
+        IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+            SET(SOURCE_EXT cu)
+        ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+            SET(SOURCE_EXT hip)
+        ELSE()
+            SET(SOURCE_EXT cpp)
+        ENDIF()
+
+        # Set execution space.
+        IF("${ExecSpace}" STREQUAL "Serial")
+            SET(EXEC_MEM_SPACE_TAG NektarSpaces::Serial)
+        ELSEIF("${ExecSpace}" STREQUAL "AVX")
+            SET(EXEC_MEM_SPACE_TAG NektarSpaces::AVX)
+        ELSEIF("${ExecSpace}" STREQUAL "Device")
+            SET(EXEC_MEM_SPACE_TAG NektarSpaces::Device)
+        ENDIF()
+    
+        # Loop through each possible data type.
+        FOREACH (TData IN LISTS DataTypes)
+            # Reset for this (ExecSpace, TData)
+            UNSET(IMPL_HEADER)  
+            # Set up the name used for the .cpp declaration file.
+            SET(FactoryDeclName "Block${name}${ExecSpace}${TData}.${SOURCE_EXT}")
+            # Found a Serial/AVX header.
+            IF((EXISTS "${dir}/${name}SerialAVX.hpp") AND
+                ("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX"))
+                FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                    "${dir}/${name}SerialAVX.hpp")
+                SET(IMPL_HEADER "#include \"${include_file}\"")
+                MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
+            # Found a Device header.
+            ELSEIF(EXISTS "${dir}/${name}Device.hpp" AND ("${ExecSpace}" STREQUAL "Device"))
+                FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                    "${dir}/${name}Device.hpp")
+                SET(IMPL_HEADER "#include \"${include_file}\"")
+                MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
+            ENDIF()
+
+            # If no header was found, skip this combination.
+            IF(NOT DEFINED IMPL_HEADER)
+                CONTINUE()
+            ENDIF()
+
+            # Create the cpp file from the implementation file.
+            CONFIGURE_FILE(${CONFIG_FILE_TRACE} ${FactoryDeclName})
+
+            # Add this specific implementation to the operator's
+            # source and header files.
+            SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
+            SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
+            SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
+        ENDFOREACH()
+    ENDFOREACH()
+
+    # Add this operator's implemenations to the global operator source
+    # and header files.
+    SET(OPERATORS_HEADERS
+        ${OPERATORS_HEADERS}
+        ${${NAME_HEADERS}}
+        )
+    SET(OPERATORS_SOURCES
+        ${OPERATORS_SOURCES}
+        ${${NAME_SOURCES}}
+        )
+ENDMACRO()
+
+# Macro for each operator.
 MACRO(ADD_TIME_OPERATOR dir)
 
     # Extract operator name form directory if it exists.
@@ -565,6 +655,7 @@ SET(OPERATORS_HEADERS
     Common/LocalToGlobalDataWarehouse.hpp
     Common/ModeIndexDataWarehouse.hpp
     Common/StdMatDataWarehouse.hpp
+    Common/TraceDataWarehouse.hpp
     Field/Block.hpp
     ElmtOps/ElmtBlockOp.hpp
     Math/Math.hpp
@@ -583,6 +674,7 @@ SET(OPERATORS_SOURCES
     Common/LocalToGlobalDataWarehouse.cpp
     Common/ModeIndexDataWarehouse.cpp
     Common/StdMatDataWarehouse.cpp
+    Common/TraceDataWarehouse.cpp
     Field/Block.cpp
     NekBlas/blas.cpp
     NekBlas/blasHandle.cpp
@@ -594,7 +686,7 @@ SET(GROUP_SOURCES ${OPERATORS_SOURCES})
 
 # Loop through all of the directories which contain operators and add
 # their source and header files.
-FILE(GLOB children AddTraceIntegral  BndCondOps/*  ElmtOps/*  GlobalLinSysOps/LinearSystems/* GlobalLinSysOps/LinearSolvers/* PreconOps/*)
+FILE(GLOB children AddTraceIntegral  BndCondOps/*  ElmtOps/*  GlobalLinSysOps/LinearSystems/* GlobalLinSysOps/LinearSolvers/* PreconOps/* GetFwdBwdTracePhys)
 
 FOREACH(child ${children})
    MESSAGE("Child : " "${child}")
@@ -606,6 +698,13 @@ ENDFOREACH()
 FILE(GLOB children ElmtOps/*)
 FOREACH(child ${children})
     ADD_ELMT_OPERATOR(${child})
+ENDFOREACH()
+
+# Loop through all of the directories which contain block operators and add
+# their source and header files.
+FILE(GLOB children GetFwdBwdTracePhys)
+FOREACH(child ${children})
+    ADD_BLOCK_OPERATOR(${child})
 ENDFOREACH()
 
 # Set compilation for Riemann solvers
