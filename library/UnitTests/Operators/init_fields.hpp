@@ -214,6 +214,10 @@ public:
         {
             delete this->fixt_out;
         }
+        if (this->fixt_out_2)
+        {
+            delete this->fixt_out_2;
+        }
         if (this->fixt_expected)
         {
             delete this->fixt_expected;
@@ -560,6 +564,7 @@ protected:
     std::string meshName                  = "";
     Field<TData, stateIn> *fixt_in        = nullptr;
     Field<TData, stateOut> *fixt_out      = nullptr;
+    Field<TData, stateIn> *fixt_out_2     = nullptr;
     Field<TData, stateOut> *fixt_expected = nullptr;
     std::shared_ptr<MultiRegions::ExpList> fixt_explist;
     LibUtilities::SessionReaderSharedPtr session;

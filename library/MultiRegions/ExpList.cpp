@@ -74,6 +74,7 @@
 #include "Operators/Common/LocalToGlobalDataWarehouse.hpp"
 #include "Operators/Common/ModeIndexDataWarehouse.hpp"
 #include "Operators/Common/StdMatDataWarehouse.hpp"
+#include "Operators/Common/TraceDataWarehouse.hpp"
 
 using namespace std;
 
@@ -1897,6 +1898,9 @@ void ExpList::SetDataWarehouse(void)
             vExpList);
     m_dataWarehouse
         ->RegisterDataCreatorClass<Nektar::Operators::LocalToGlobalDataCreator>(
+            vExpList);
+    m_dataWarehouse
+        ->RegisterDataCreatorClass<Nektar::Operators::TraceEssentialCreator>(
             vExpList);
 }
 

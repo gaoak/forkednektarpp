@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////////////////////////
 //
-// File: ProfilerElmtOps.cpp
+// File: ProfilerTraceOps.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "ProfilerElmtOps.hpp"
+#include "ProfilerTraceOps.hpp"
 
 #if defined(NEKTAR_ENABLE_MAGMA)
 #include "magma_v2.h"
@@ -64,9 +64,6 @@
  *      --opExecSpace=Serial
  *              specify the execution space. Possible values are: Serial, AVX,
  *              and Device
- *      --opImpl=StdMat
- *              specify the implementation. Possible values are: StdMat, SumFac,
- *              and SumFacTOP
  *      -P Ntest=100
  *              number of repeated runs for each operator. Usually a operator
  *              takes very short time to finish, so we need to repeat it many
@@ -83,18 +80,18 @@
  *      Examples:
  *
  *      # So far We can only launch one GPU:
- *          ./ProfilerElmtOps mesh.xml --opExecSpace=Device --opImpl=StdMat
- *          -P Ntest=100 -P order=5 -verbose
+ *          ./ProfilerTraceOps mesh.xml --opExecSpace=Device -P Ntest=100 -P
+ * order=5 -verbose
  *
  *      # To squeeze all the performance of CPU, typically we launch as many
  *      # processes as the number of cores on a machine:
- *          mpirun -np 12 ./ProfilerElmtOps mesh.xml --opExecSpace=Serial
- *          --opImpl=StdMat -P Ntest=200 -P order=3
+ *          mpirun -np 12 ./ProfilerTraceOps mesh.xml --opExecSpace=Serial -P
+ * Ntest=200 -P order=3
  *
  *      # Launch likwid and use 18 processes per socket(CPU package), MEM_DP
  *      # tells likwid to measure memory and flops performance, This is
  *      # usually for a roofline analysis:
- *          likwid-mpirun -nperdomain S:18 -m -g MEM_DP ./ProfilerElmtOps
+ *          likwid-mpirun -nperdomain S:18 -m -g MEM_DP ./ProfilerTraceOps
  *          --opExecSpace=Serial --opImpl=StdMat
  * mesh.xml
  *
@@ -134,12 +131,10 @@ int main(int argc, char *argv[])
     }
 
     // Create a ExpList from the graph(mesh).
-    auto explist = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
-        session, graph, true, "DefaultVar", Collections::eNoCollection);
+    auto explist = MemoryManager<MultiRegions::DisContField>::AllocateSharedPtr(
+        session, graph, "DefaultVar", true, true, Collections::eNoCollection);
 
     explist->SetDataWarehouse();
-
-    auto nDim = explist->GetGraph()->GetSpaceDimension();
 
     // Print GPU properties.
     if (session->GetComm()->GetRank() == 0 &&
@@ -151,38 +146,15 @@ int main(int argc, char *argv[])
     // You can add/remove the operators to be profiled as you like.
     // Benchmark-double
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-    LaunchProfiler<BwdTransOp<double>, FieldState::Coeff, FieldState::Phys,
-                   double>(explist, Ntest, 1, 1, Ncomp);
-    LaunchProfiler<IProductWRTBaseOp<double>, FieldState::Phys,
-                   FieldState::Coeff, double>(explist, Ntest, 1, 1, Ncomp);
-    LaunchProfiler<PhysDerivOp<double>, FieldState::Phys, FieldState::Phys,
-                   double>(explist, Ntest, 1, nDim, Ncomp);
-    LaunchProfiler<IProductWRTDerivBaseOp<double>, FieldState::Phys,
-                   FieldState::Coeff, double>(explist, Ntest, nDim, 1, Ncomp);
-    LaunchProfiler<HelmholtzOp<double>, FieldState::Coeff, FieldState::Coeff,
-                   double>(explist, Ntest, 1, 1, Ncomp);
-    LaunchProfiler<MassOp<double>, FieldState::Coeff, FieldState::Coeff,
-                   double>(explist, Ntest, 1, 1, Ncomp);
-    LaunchProfiler<LinAdvDiffReactionOp<double>, FieldState::Coeff,
-                   FieldState::Coeff, double>(explist, Ntest, 1, 1, Ncomp);
+    LaunchProfiler<GetFwdBwdTracePhysOp<double>, FieldState::Phys,
+                   FieldState::Phys, double>(explist, Ntest, 1, 1, Ncomp);
 #endif
 
     // Benchmark-float
 #if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
-    LaunchProfiler<BwdTransOp<float>, FieldState::Coeff, FieldState::Phys,
-                   float>(explist, Ntest, 1, 1, Ncomp);
-    LaunchProfiler<IProductWRTBaseOp<float>, FieldState::Phys,
-                   FieldState::Coeff, float>(explist, Ntest, 1, 1, Ncomp);
-    LaunchProfiler<PhysDerivOp<float>, FieldState::Phys, FieldState::Phys,
-                   float>(explist, Ntest, 1, nDim, Ncomp);
-    LaunchProfiler<IProductWRTDerivBaseOp<float>, FieldState::Phys,
-                   FieldState::Coeff, float>(explist, Ntest, nDim, 1, Ncomp);
-    LaunchProfiler<HelmholtzOp<float>, FieldState::Coeff, FieldState::Coeff,
-                   float>(explist, Ntest, 1, 1, Ncomp);
-    LaunchProfiler<MassOp<float>, FieldState::Coeff, FieldState::Coeff, float>(
-        explist, Ntest, 1, 1, Ncomp);
-    LaunchProfiler<LinAdvDiffReactionOp<float>, FieldState::Coeff,
-                   FieldState::Coeff, float>(explist, Ntest, 1, 1, Ncomp);
+    // Benchmark-float
+    LaunchProfiler<GetFwdBwdTracePhysOp<float>, FieldState::Phys,
+                   FieldState::Phys, float>(explist, Ntest, 1, 1, Ncomp);
 #endif
 
     LIKWID_MARKER_CLOSE;

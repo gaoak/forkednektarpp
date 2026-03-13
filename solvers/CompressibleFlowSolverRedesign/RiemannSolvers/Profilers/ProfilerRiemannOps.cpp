@@ -77,9 +77,9 @@
  *
  *      Examples:
  *
- *      # So far We can only launch serial run on GPUs:
- *          ./ProfilerRiemannOps mesh.xml --opExecSpace=Serial --solverinfo
- * Method=HLLC -P Ntest=100 -P order=5 -verbose
+ *      # So far We can only launch one GPU:
+ *          ./ProfilerRiemannOps mesh.xml --opExecSpace=Device --solverinfo
+ *          Method=HLLC -P Ntest=100 -P order=5 -verbose
  *
  *      # To squeeze all the performance of CPU, typically we launch as many
  *      # processes as the number of cores on a machine:

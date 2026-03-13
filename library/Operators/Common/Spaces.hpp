@@ -108,8 +108,6 @@
 #include <hip/hip_cooperative_groups.h>
 #endif
 
-using default_fp_type = double;
-
 template <bool B, typename TData> struct data_type_if
 {
     typedef TData type;

@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////////////////////////
 //
-// File: ProfilerRiemannOps.hpp
+// File: ProfilerTraceOps.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -37,6 +37,7 @@
 #include <iostream>
 
 #include <Operators/Field/Field.hpp>
+#include <Operators/GetFwdBwdTracePhys/GetFwdBwdTracePhysOp.hpp>
 #include <Operators/LoopExecution/LoopExecution.hpp>
 #include <Operators/Math/MathKernels.hpp>
 #include <Operators/Utils/UtilsKernels.hpp>
@@ -46,8 +47,6 @@
 #include <MultiRegions/DisContField.h>
 #include <MultiRegions/ExpList.h>
 #include <SpatialDomains/MeshGraphIO.h>
-
-#include "../CompressibleSolverOp.hpp"
 
 // Add likwid support
 #ifdef LIKWID_PERFMON
@@ -67,95 +66,28 @@ using namespace Nektar;
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 
-// Helpers: flatten/unflatten component-major
-template <typename TData>
-static Array<OneD, TData> FlattenCompMajor(
-    const Array<OneD, Array<OneD, TData>> &a, unsigned int ncomp, size_t npts)
-{
-    Array<OneD, TData> flat(ncomp * npts, 0.0);
-    for (unsigned int c = 0; c < ncomp; ++c)
-    {
-        for (size_t i = 0; i < npts; ++i)
-        {
-            flat[c * npts + i] = a[c][i];
-        }
-    }
-    return flat;
-}
-
-template <typename TData>
-static void UnflattenCompMajor(const Array<OneD, TData> &flat,
-                               Array<OneD, Array<OneD, TData>> &a,
-                               unsigned int ncomp, size_t npts)
-{
-    for (unsigned int c = 0; c < ncomp; ++c)
-    {
-        for (size_t i = 0; i < npts; ++i)
-        {
-            a[c][i] = flat[c * npts + i];
-        }
-    }
-}
-
 /// Compute the expected results of certain operator from the expList
-void GetExpectedResults(unsigned int spaceDim, size_t npts,
-                        const Array<OneD, Array<OneD, double>> &normals,
-                        Array<OneD, Array<OneD, double>> &fwd,
-                        Array<OneD, Array<OneD, double>> &bwd,
-                        Array<OneD, Array<OneD, double>> &flxRef,
-                        double gamma = 1.4)
+void GetExpectedResults(const std::string &opName,
+                        const MultiRegions::ExpListSharedPtr &expList,
+                        const unsigned int nComp, const unsigned int nIn,
+                        const unsigned int nOut,
+                        const Array<OneD, double> &inArr,
+                        Array<OneD, double> &fwdArr,
+                        Array<OneD, double> &bwdArr)
 {
-    const unsigned int nFields = spaceDim + 2;
-
-    const double rho = 0.9;
-    const double p   = 1.0;
-    double u[3]      = {1.0, 2.0, 3.0};
-
-    for (size_t i = 0; i < npts; ++i)
+    if (opName == "GetFwdBwdTracePhys")
     {
-        // density
-        fwd[0][i] = rho;
-        bwd[0][i] = rho;
-
-        // momentum
-        double mom[3] = {0, 0, 0};
-        for (unsigned int d = 0; d < spaceDim; ++d)
+        Array<OneD, Array<OneD, double>> inArrays(nIn);
+        Array<OneD, Array<OneD, double>> fwdArrays(nOut);
+        Array<OneD, Array<OneD, double>> bwdArrays(nOut);
+        for (unsigned int d = 0; d < nIn; d++)
         {
-            mom[d]        = rho * u[d];
-            fwd[1 + d][i] = mom[d];
-            bwd[1 + d][i] = mom[d];
+            inArrays[d]  = inArr + d * inArr.size() / nIn / nComp;
+            fwdArrays[d] = fwdArr + d * fwdArr.size() / nOut / nComp;
+            bwdArrays[d] = bwdArr + d * bwdArr.size() / nOut / nComp;
+            expList->ExpList::GetFwdBwdTracePhys(inArrays[d], fwdArrays[d],
+                                                 bwdArrays[d]);
         }
-
-        // energy
-        const double rhoe = p / (gamma - 1.0);
-        double kin        = 0.0;
-        for (unsigned int d = 0; d < spaceDim; ++d)
-        {
-            kin += 0.5 * mom[d] * mom[d] / rho;
-        }
-        const double E      = rhoe + kin;
-        fwd[nFields - 1][i] = E;
-        bwd[nFields - 1][i] = E;
-
-        // normal velocity u_n = u dot n
-        double un = 0.0;
-        for (unsigned int d = 0; d < spaceDim; ++d)
-        {
-            un += u[d] * normals[d][i];
-        }
-
-        // reference flux F·n
-        // mass flux is rho * u_n
-        flxRef[0][i] = rho * un; // mass
-
-        // momentum flux is rho * u * u_n + p * n
-        for (unsigned int k = 0; k < spaceDim; ++k)
-        {
-            flxRef[1 + k][i] = mom[k] * un + p * normals[k][i];
-        }
-
-        // energy flux is (E + p) * u_n
-        flxRef[nFields - 1][i] = (E + p) * un;
     }
 }
 
@@ -309,10 +241,11 @@ void PrintBlockInfo(const MultiRegions::ExpListSharedPtr &expList,
 
 /// Print the profiler results, computed from the elapsed time and the total
 /// number of dofs.
-template <typename TData, FieldState TState>
+template <typename TData, FieldState TStateIn, FieldState TStateOut>
 void PrintProfileResult(
     const CommSharedPtr comm, std::vector<double> &rankElapsed,
-    const std::vector<BlockAttributes<TState>> &traceblockAttr)
+    const std::vector<BlockAttributes<TStateIn>> &inblockAttr,
+    const std::vector<BlockAttributes<TStateOut>> &outblockAttr)
 {
     // Collect elapsed time and compute the max, min, and average.
     unsigned int nrank  = comm->GetSize();
@@ -320,10 +253,13 @@ void PrintProfileResult(
     auto rankNumOutDofs = std::vector<size_t>(1, 0);
 
     // Collect total information for each rank.
-    for (unsigned int i = 0; i < traceblockAttr.size(); ++i)
+    for (unsigned int i = 0; i < inblockAttr.size(); ++i)
     {
-        rankNumInDofs[0] += traceblockAttr[i].CompSize();
-        rankNumOutDofs[0] += traceblockAttr[i].CompSize();
+        rankNumInDofs[0] += inblockAttr[i].CompSize();
+    }
+    for (unsigned int i = 0; i < outblockAttr.size(); ++i)
+    {
+        rankNumOutDofs[0] += outblockAttr[i].CompSize();
     }
 
     auto allRankElapsed    = comm->Gather(0, rankElapsed);
@@ -373,9 +309,10 @@ void PrintProfileResult(
 
 // Different operator may have different input/output attributes (FieldState,
 // or number of components). We must provided all these information.
-template <class Op, FieldState state, typename TData>
+template <class Op, FieldState stateIn, FieldState stateOut, typename TData>
 void LaunchProfiler(MultiRegions::ExpListSharedPtr const &expList,
-                    const unsigned int Ntest, const std::string &method = "",
+                    const unsigned int Ntest, const unsigned int nIn = 1,
+                    const unsigned int nOut = 1, const unsigned int nComp = 1,
                     const unsigned int nHomo = 1)
 {
     // Timer.
@@ -386,81 +323,84 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr const &expList,
     // Get communicator.
     auto comm = expList->GetComm();
 
-    const unsigned int spaceDim = expList->GetExp(0)->GetShapeDimension();
-    const size_t npts           = expList->GetTrace()->GetTotPoints();
-    const unsigned int nFields  = (spaceDim + 2) * nHomo;
-
-    std::vector<std::string> nVariabels;
-    for (unsigned int i = 0; i < nFields; ++i)
-    {
-        nVariabels.push_back("DefaultVar" + std::to_string(i));
-    }
-
     // Create operator.
-    auto oper =
-        CompressibleSolverOp<TData>::Create(expList, nVariabels, method, "");
+    auto oper = Op::Create(expList, session->GetVariables());
 
     // Set operator name tag.
     std::string execName = Op::GetOpExecSpace(session);
-    std::string opName   = method;
+    std::string opName   = oper->name;
     std::string dataType = (std::is_same_v<TData, double>) ? "Double" : "Float";
     auto tag             = opName + execName + dataType;
 
-    // normals: unit along normalDir
-    Array<OneD, Array<OneD, double>> normals(spaceDim);
-    for (unsigned int d = 0; d < spaceDim; ++d)
-    {
-        normals[d] = Array<OneD, double>(npts, 0.0);
-    }
-    for (size_t i = 0; i < npts; ++i)
-    {
-        normals[0][i] = 1.0;
-    }
-
-    // arrays
-    Array<OneD, Array<OneD, double>> fwd(nFields), bwd(nFields), flx(nFields),
-        flxRef(nFields);
-    for (unsigned int c = 0; c < nFields; ++c)
-    {
-        fwd[c]    = Array<OneD, double>(npts, 0.0);
-        bwd[c]    = Array<OneD, double>(npts, 0.0);
-        flx[c]    = Array<OneD, double>(npts, 0.0);
-        flxRef[c] = Array<OneD, double>(npts, 0.0);
-    }
-
-    // Get expected results by constant Euler state and reference physical flux
-    GetExpectedResults(spaceDim, npts, normals, fwd, bwd, flxRef);
-
     // Create block attributes.
-    auto traceblockAttr = GetBlockAttributes<TData, state>(expList->GetTrace());
+    auto inblockAttr = GetBlockAttributes<TData, stateIn>(expList);
+    auto outblockAttr =
+        GetBlockAttributes<TData, stateOut>(expList->GetTrace());
 
     // Create fields.
-    auto fwdField =
-        Field<TData, state>("f_fwd", traceblockAttr, nFields, nHomo);
+    auto in = Field<TData, stateIn>("f_in", inblockAttr, nIn * nComp, nHomo);
 
-    auto bwdField =
-        Field<TData, state>("f_bwd", traceblockAttr, nFields, nHomo);
+    auto fwd =
+        Field<TData, stateOut>("f_fwd", outblockAttr, nOut * nComp, nHomo);
 
-    auto fluxField =
-        Field<TData, state>("f_flux", traceblockAttr, nFields, nHomo);
+    auto bwd =
+        Field<TData, stateOut>("f_bwd", outblockAttr, nOut * nComp, nHomo);
+    // Initialize the in field to random non-zeros: 1 2 3 4 ...
+    for (size_t i = 0; i < in.GetBlocks().size(); ++i)
+    {
+        auto inptr = in.GetBlocks()[i]
+                         .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        for (unsigned int n = 0; n < nIn * nComp; n++)
+        {
+            for (size_t j = 0; j < in.GetBlocks()[i].CompSize(); ++j)
+            {
+                inptr[j] = (j + (n + 1.0)) / in.GetBlocks()[i].CompSize();
+            }
+            inptr += in.GetBlocks()[i].CompSize();
+        }
+    }
 
-    auto normalsField =
-        Field<TData, state>("traceNormals", traceblockAttr, spaceDim, nHomo);
+    // Initialize the out field to zero.
+    fwd.template Initialize<NektarSpaces::HostSpace>(0.0);
+    bwd.template Initialize<NektarSpaces::HostSpace>(0.0);
 
-    fwdField.template CopyArray<NektarSpaces::HostSpace>(
-        FlattenCompMajor(fwd, nFields, npts));
-    bwdField.template CopyArray<NektarSpaces::HostSpace>(
-        FlattenCompMajor(bwd, nFields, npts));
-    normalsField.template CopyArray<NektarSpaces::HostSpace>(
-        FlattenCompMajor(normals, spaceDim, npts));
+    // Create input and output Array for explist.
+    Array<OneD, double> inArr  = in.template ToArray<double>();
+    Array<OneD, double> fwdArr = fwd.template ToArray<double>();
+    Array<OneD, double> bwdArr = bwd.template ToArray<double>();
 
-    oper->SetTraceNormals(normalsField);
+    // Get expected results from expList.
+    GetExpectedResults(opName, expList, nComp, nIn, nOut, inArr, fwdArr,
+                       bwdArr);
+
+    // Reshape.
+    auto interleaveWidth = (execName == "Device")
+                               ? NektarSpaces::GetVectorWidth<TData>(execName)
+                               : 1;
+
+    for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
+    {
+        auto &inblock = in.GetBlocks()[blk];
+        TData *inptr =
+            inblock.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+        for (unsigned int component = 0; component < in.GetNumComponents();
+             component++)
+        {
+            ReshapeStorage<NektarSpaces::Serial>(
+                interleaveWidth, inblock.GetInterleaveWidth(),
+                inblock.GetNumElementsWithPadding() * in.GetNumHomoModes(),
+                inblock.GetNumData(),
+                inptr + component * inblock.CompSize() * in.GetNumHomoModes());
+        }
+
+        inblock.template SetInterleaveWidth<TData>(interleaveWidth);
+    }
 
     // Warm-up : fill the cache and memory, and let core temperature/freq
     // stabilized.
     for (unsigned int i = 0; i < Ntest / 2; ++i)
     {
-        oper->Apply(fwdField, bwdField, fluxField);
+        oper->Apply(in, fwd, bwd);
     }
     comm->Block();
 
@@ -475,7 +415,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr const &expList,
 
     for (unsigned int i = 0; i < Ntest; ++i)
     {
-        oper->Apply(fwdField, bwdField, fluxField);
+        oper->Apply(in, fwd, bwd);
     }
 
     nekDeviceSynchronize();
@@ -489,44 +429,74 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr const &expList,
     // Print block information and get the total number of dofs.
     if (comm->GetRank() == 0)
     {
-        std::cout << "Input field: " << nFields << " components" << std::endl;
+        std::cout << "Input field: " << nComp * nIn << " components"
+                  << std::endl;
     }
-    PrintBlockInfo(expList, traceblockAttr, rankL1Error);
+    PrintBlockInfo(expList, inblockAttr, rankL1Error);
 
     // First check if the output is all zeros.
     TData L2 = 0.0;
-    l2norm<NektarSpaces::Serial>(fluxField, &L2);
+    l2norm<NektarSpaces::Serial>(fwd, &L2);
     if (L2 < 1e-9)
     {
         std::cout << "Warning: output does not change!"
                   << "Device may not be invoked!" << std::endl;
     }
 
+    // Reshape to scalar
+    for (unsigned int blk = 0; blk < fwd.GetBlocks().size(); ++blk)
+    {
+        auto &fwdblock = fwd.GetBlocks()[blk];
+        auto &bwdblock = bwd.GetBlocks()[blk];
+        TData *fwdptr =
+            fwdblock.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+        TData *bwdptr =
+            bwdblock.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+        for (unsigned int component = 0; component < fwd.GetNumComponents();
+             component++)
+        {
+            ReshapeStorage<NektarSpaces::Serial>(
+                1, fwdblock.GetInterleaveWidth(),
+                fwdblock.GetNumElementsWithPadding() * fwd.GetNumHomoModes(),
+                fwdblock.GetNumData(),
+                fwdptr +
+                    component * fwdblock.CompSize() * fwd.GetNumHomoModes());
+            ReshapeStorage<NektarSpaces::Serial>(
+                1, bwdblock.GetInterleaveWidth(),
+                bwdblock.GetNumElementsWithPadding() * fwd.GetNumHomoModes(),
+                bwdblock.GetNumData(),
+                bwdptr +
+                    component * fwdblock.CompSize() * fwd.GetNumHomoModes());
+        }
+
+        fwdblock.template SetInterleaveWidth<TData>(1);
+        bwdblock.template SetInterleaveWidth<TData>(1);
+    }
+
     // Then check if results match with expected
     // If we compare float results with double results, then it is
     // reasonable to have some mismatched values (e.g., > 1e-4)
-    Array<OneD, double> tmpArr  = fluxField.template ToArray<double>();
-    Array<OneD, double> fluxArr = FlattenCompMajor(flxRef, nFields, npts);
+    Array<OneD, double> tmpArr = fwd.template ToArray<double>();
     for (size_t i = 0, cnt = 0; i < tmpArr.size(); ++i)
     {
         // Print out first 100 mismatched values.
-        if (abs(tmpArr[i] - fluxArr[i]) >
-                1e-4 * std::sqrt(L2 / tmpArr.size()) &&
+        if (abs(tmpArr[i] - fwdArr[i]) > 1e-4 * std::sqrt(L2 / tmpArr.size()) &&
             cnt < 100)
         {
             std::cout << "i=" << i << " computed result = " << tmpArr[i]
-                      << " expected result = " << fluxArr[i] << std::endl;
+                      << " expected result = " << fwdArr[i] << std::endl;
             ++cnt;
         }
-        rankL1Error[0] += abs(tmpArr[i] - fluxArr[i]);
+        rankL1Error[0] += abs(tmpArr[i] - fwdArr[i]);
     }
 
     // Print block information and get the total number of dofs.
     if (comm->GetRank() == 0)
     {
-        std::cout << "Output field: " << nFields << " components" << std::endl;
+        std::cout << "Output field: " << nComp * nOut << " components"
+                  << std::endl;
     }
-    PrintBlockInfo(expList->GetTrace(), traceblockAttr, rankL1Error);
+    PrintBlockInfo(expList->GetTrace(), outblockAttr, rankL1Error);
 
     if (comm->GetRank() == 0)
     {
@@ -538,5 +508,5 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr const &expList,
 
     // Collect elapsed time and compute the max, min, and average.
     auto rankElapsed = std::vector<double>(1, timer.TimePerTest(Ntest));
-    PrintProfileResult<TData>(comm, rankElapsed, traceblockAttr);
+    PrintProfileResult<TData>(comm, rankElapsed, inblockAttr, outblockAttr);
 }
