@@ -36,6 +36,7 @@
 
 #include "Operators/Common/MemoryAlloc.hpp"
 #include "Operators/Common/Spaces.hpp"
+#include "Operators/Utils/UtilsDeviceKernelsHelper.hpp"
 
 namespace Nektar
 {
@@ -165,24 +166,27 @@ NEK_DEVICE_KERNEL static void DivideByJacobianKernel(
 }
 
 template <typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL static void interleaveKernel(
-    const unsigned int interleaveWidth, const size_t numElmtGroups,
-    const unsigned int npts, TData *buffer, TData *inout,
-    const TthreadBlock &threadBlock)
+NEK_DEVICE_INLINE static void interleave(const unsigned int interleaveWidth,
+                                         const size_t numElmtGroups,
+                                         const unsigned int npts,
+                                         TData *__restrict__ inout,
+                                         unsigned char *shmem,
+                                         const TthreadBlock &threadBlock)
 {
+    TData *shmemptr = (TData *)shmem;
+
     const unsigned int idx0   = getLocalIdx(threadBlock);
     const unsigned int stride = getLocalRange(threadBlock);
 
     for (size_t e = getBlockIdx(threadBlock); e < numElmtGroups;
          e += getBlockRange(threadBlock))
     {
-        TData *bufferptr = buffer + npts * interleaveWidth * e;
-        TData *inoutptr  = inout + npts * interleaveWidth * e;
+        TData *inoutptr = inout + npts * interleaveWidth * e;
 
         for (unsigned int idx = idx0; idx < npts * interleaveWidth;
              idx += stride)
         {
-            bufferptr[idx] = inoutptr[idx];
+            shmemptr[idx] = inoutptr[idx];
         }
 
         localBarrier(threadBlock);
@@ -190,9 +194,158 @@ NEK_DEVICE_KERNEL static void interleaveKernel(
         for (unsigned int idx = idx0; idx < npts * interleaveWidth;
              idx += stride)
         {
-            unsigned int vecElem = idx % interleaveWidth;
-            unsigned int iElem   = idx / interleaveWidth;
-            inoutptr[idx]        = bufferptr[vecElem * npts + iElem];
+            unsigned int iElem = idx % interleaveWidth;
+            unsigned int iPts  = idx / interleaveWidth;
+            inoutptr[idx]      = shmemptr[iElem * npts + iPts];
+        }
+    }
+}
+
+template <typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL static void interleaveKernel(
+    const unsigned int interleaveWidth, const size_t numElmtGroups,
+    const unsigned int npts, TData *__restrict__ inout, unsigned char *shmem,
+    const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmem);
+
+    interleave(interleaveWidth, numElmtGroups, npts, inout, shmem, threadBlock);
+}
+
+template <typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL static void interleaveKernel(const size_t numElmtGroups,
+                                               const unsigned int npts,
+                                               TData *__restrict__ inout,
+                                               unsigned char *shmem,
+                                               const TthreadBlock &threadBlock)
+{
+    static constexpr unsigned int interleaveWidth =
+        NektarSpaces::Device::warpSize;
+
+    FETCH_SHARED_MEMORY(shmem);
+
+    interleave(interleaveWidth, numElmtGroups, npts, inout, shmem, threadBlock);
+}
+
+template <typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void interleave(
+    const unsigned int interleaveWidth, const size_t numElmtGroups,
+    const unsigned int npts, TData *__restrict__ inout, TData *__restrict__ wsp,
+    unsigned char *shmem, const TthreadBlock &threadBlock)
+{
+    TData *shmemptr = (TData *)shmem;
+
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+
+    for (size_t e = getBlockIdx(threadBlock); e < numElmtGroups;
+         e += getBlockRange(threadBlock))
+    {
+        TData *inoutptr = inout + npts * interleaveWidth * e;
+        TData *wspptr   = wsp + npts * interleaveWidth * e;
+        for (unsigned int s = 0;
+             s < (npts + interleaveWidth - 1u) / interleaveWidth; ++s)
+        {
+            for (unsigned int idx = idx0;
+                 idx < interleaveWidth * interleaveWidth; idx += stride)
+            {
+                unsigned int iElem = idx / interleaveWidth;
+                unsigned int iPts  = idx % interleaveWidth;
+                if (s * interleaveWidth + iPts < npts)
+                {
+                    shmemptr[idx] = inoutptr[iElem * npts + iPts];
+                }
+            }
+
+            localBarrier(threadBlock);
+
+            for (unsigned int idx = idx0;
+                 idx < interleaveWidth * interleaveWidth; idx += stride)
+            {
+                unsigned int iElem = idx % interleaveWidth;
+                unsigned int iPts  = idx / interleaveWidth;
+                if (s * interleaveWidth + iPts < npts)
+                {
+                    wspptr[idx] = shmemptr[iElem * interleaveWidth + iPts];
+                }
+            }
+
+            localBarrier(threadBlock);
+
+            inoutptr += interleaveWidth;
+            wspptr += interleaveWidth * interleaveWidth;
+        }
+
+        inoutptr = inout + npts * interleaveWidth * e;
+        wspptr   = wsp + npts * interleaveWidth * e;
+        for (unsigned int idx = idx0; idx < npts * interleaveWidth;
+             idx += stride)
+        {
+            inoutptr[idx] = wspptr[idx];
+        }
+    }
+}
+
+template <typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL static void interleaveKernel(
+    const unsigned int interleaveWidth, const size_t numElmtGroups,
+    const unsigned int npts, TData *__restrict__ inout, TData *__restrict__ wsp,
+    unsigned char *shmem, const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmem);
+
+    interleave(interleaveWidth, numElmtGroups, npts, inout, wsp, shmem,
+               threadBlock);
+}
+
+template <typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL static void interleaveKernel(const size_t numElmtGroups,
+                                               const unsigned int npts,
+                                               TData *__restrict__ inout,
+                                               TData *__restrict__ wsp,
+                                               unsigned char *shmem,
+                                               const TthreadBlock &threadBlock)
+{
+    static constexpr unsigned int interleaveWidth =
+        NektarSpaces::Device::warpSize;
+
+    FETCH_SHARED_MEMORY(shmem);
+
+    interleave(interleaveWidth, numElmtGroups, npts, inout, wsp, shmem,
+               threadBlock);
+}
+
+template <typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void deInterleave(const unsigned int interleaveWidth,
+                                           const size_t numElmtGroups,
+                                           const unsigned int npts,
+                                           TData *inout, unsigned char *shmem,
+                                           const TthreadBlock &threadBlock)
+{
+    TData *shmemptr = (TData *)shmem;
+
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+
+    for (size_t e = getBlockIdx(threadBlock); e < numElmtGroups;
+         e += getBlockRange(threadBlock))
+    {
+        TData *inoutptr = inout + npts * interleaveWidth * e;
+
+        for (unsigned int idx = idx0; idx < npts * interleaveWidth;
+             idx += stride)
+        {
+            shmemptr[idx] = inoutptr[idx];
+        }
+
+        localBarrier(threadBlock);
+
+        for (unsigned int idx = idx0; idx < npts * interleaveWidth;
+             idx += stride)
+        {
+            unsigned int iPts  = idx % npts;
+            unsigned int iElem = idx / npts;
+            inoutptr[idx]      = shmemptr[iPts * interleaveWidth + iElem];
         }
     }
 }
@@ -200,34 +353,113 @@ NEK_DEVICE_KERNEL static void interleaveKernel(
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void deInterleaveKernel(
     const unsigned int interleaveWidth, const size_t numElmtGroups,
-    const unsigned int npts, TData *buffer, TData *inout,
+    const unsigned int npts, TData *inout, unsigned char *shmem,
     const TthreadBlock &threadBlock)
 {
+    FETCH_SHARED_MEMORY(shmem);
+
+    deInterleave(interleaveWidth, numElmtGroups, npts, inout, shmem,
+                 threadBlock);
+}
+
+template <typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL static void deInterleaveKernel(
+    const size_t numElmtGroups, const unsigned int npts, TData *inout,
+    unsigned char *shmem, const TthreadBlock &threadBlock)
+{
+    static constexpr unsigned int interleaveWidth =
+        NektarSpaces::Device::warpSize;
+
+    FETCH_SHARED_MEMORY(shmem);
+
+    deInterleave(interleaveWidth, numElmtGroups, npts, inout, shmem,
+                 threadBlock);
+}
+
+template <typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void deInterleave(
+    const unsigned int interleaveWidth, const size_t numElmtGroups,
+    const unsigned int npts, TData *__restrict__ inout, TData *__restrict__ wsp,
+    unsigned char *shmem, const TthreadBlock &threadBlock)
+{
+    TData *shmemptr = (TData *)shmem;
+
     const unsigned int idx0   = getLocalIdx(threadBlock);
     const unsigned int stride = getLocalRange(threadBlock);
 
     for (size_t e = getBlockIdx(threadBlock); e < numElmtGroups;
          e += getBlockRange(threadBlock))
     {
-        TData *bufferptr = buffer + npts * interleaveWidth * e;
-        TData *inoutptr  = inout + npts * interleaveWidth * e;
-
-        for (unsigned int idx = idx0; idx < npts * interleaveWidth;
-             idx += stride)
+        TData *inoutptr = inout + npts * interleaveWidth * e;
+        TData *wspptr   = wsp + npts * interleaveWidth * e;
+        for (unsigned int s = 0;
+             s < (npts + interleaveWidth - 1u) / interleaveWidth; ++s)
         {
-            bufferptr[idx] = inoutptr[idx];
+            for (unsigned int idx = idx0;
+                 idx < interleaveWidth * interleaveWidth; idx += stride)
+            {
+                unsigned int iPts = idx / interleaveWidth;
+                if (s * interleaveWidth + iPts < npts)
+                {
+                    shmemptr[idx] = inoutptr[idx];
+                }
+            }
+
+            localBarrier(threadBlock);
+
+            for (unsigned int idx = idx0;
+                 idx < interleaveWidth * interleaveWidth; idx += stride)
+            {
+                unsigned int iPts  = idx % interleaveWidth;
+                unsigned int iElem = idx / interleaveWidth;
+                if (s * interleaveWidth + iPts < npts)
+                {
+                    wspptr[iElem * npts + iPts] =
+                        shmemptr[iPts * interleaveWidth + iElem];
+                }
+            }
+
+            localBarrier(threadBlock);
+
+            inoutptr += interleaveWidth * interleaveWidth;
+            wspptr += interleaveWidth;
         }
 
-        localBarrier(threadBlock);
-
+        inoutptr = inout + npts * interleaveWidth * e;
+        wspptr   = wsp + npts * interleaveWidth * e;
         for (unsigned int idx = idx0; idx < npts * interleaveWidth;
              idx += stride)
         {
-            unsigned int vecElem = idx / npts;
-            unsigned int iElem   = idx % npts;
-            inoutptr[idx]        = bufferptr[iElem * interleaveWidth + vecElem];
+            inoutptr[idx] = wspptr[idx];
         }
     }
+}
+
+template <typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL static void deInterleaveKernel(
+    const unsigned int interleaveWidth, const size_t numElmtGroups,
+    const unsigned int npts, TData *__restrict__ inout, TData *__restrict__ wsp,
+    unsigned char *shmem, const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmem);
+
+    deInterleave(interleaveWidth, numElmtGroups, npts, inout, wsp, shmem,
+                 threadBlock);
+}
+
+template <typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL static void deInterleaveKernel(
+    const size_t numElmtGroups, const unsigned int npts,
+    TData *__restrict__ inout, TData *__restrict__ wsp, unsigned char *shmem,
+    const TthreadBlock &threadBlock)
+{
+    static constexpr unsigned int interleaveWidth =
+        NektarSpaces::Device::warpSize;
+
+    FETCH_SHARED_MEMORY(shmem);
+
+    deInterleave(interleaveWidth, numElmtGroups, npts, inout, wsp, shmem,
+                 threadBlock);
 }
 
 template <typename ExecSpace, typename TData>
@@ -238,15 +470,52 @@ interleave(const unsigned int interleaveWidth, const size_t numElmtGroups,
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = numElmtGroups;
-    const size_t bufferSize =
-        sizeof(TData) * interleaveWidth * numElmtGroups * npts;
 
-    TData *buffer;
-    deviceMalloc(&buffer, bufferSize);
-    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(interleaveKernel<>, gridSize,
-                                          blockSize, 0, interleaveWidth,
-                                          numElmtGroups, npts, buffer, inout);
-    deviceFree(buffer, bufferSize);
+    const unsigned int shmemsize =
+        sizeof(TData) * interleaveWidth * std::min(interleaveWidth, npts);
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
+    if (npts <= interleaveWidth)
+    {
+        if (interleaveWidth == NektarSpaces::Device::warpSize)
+        {
+            DEVICE_1DGRID_KERNEL_LAUNCHER(interleaveKernel<>, gridSize,
+                                          blockSize, shmemsize, 0,
+                                          numElmtGroups, npts, inout);
+        }
+        else
+        {
+            DEVICE_1DGRID_KERNEL_LAUNCHER(
+                interleaveKernel<>, gridSize, blockSize, shmemsize, 0,
+                interleaveWidth, numElmtGroups, npts, inout);
+        }
+    }
+    else
+    {
+        const size_t bufferSize =
+            sizeof(TData) * interleaveWidth * numElmtGroups * npts;
+
+        if (internalInterleaveDeviceBufferSize < bufferSize)
+        {
+            deviceFree(internalInterleaveDeviceBuffer, bufferSize);
+            deviceMalloc(&internalInterleaveDeviceBuffer, bufferSize);
+            internalInterleaveDeviceBufferSize = bufferSize;
+        }
+        if (interleaveWidth == NektarSpaces::Device::warpSize)
+        {
+            DEVICE_1DGRID_KERNEL_LAUNCHER(
+                interleaveKernel<>, gridSize, blockSize, shmemsize, 0,
+                numElmtGroups, npts, inout,
+                (TData *)internalInterleaveDeviceBuffer);
+        }
+        else
+        {
+            DEVICE_1DGRID_KERNEL_LAUNCHER(
+                interleaveKernel<>, gridSize, blockSize, shmemsize, 0,
+                interleaveWidth, numElmtGroups, npts, inout,
+                (TData *)internalInterleaveDeviceBuffer);
+        }
+    }
 }
 
 template <typename ExecSpace, typename TData>
@@ -257,15 +526,52 @@ deInterleave(const unsigned int interleaveWidth, size_t numElmtGroups,
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = numElmtGroups;
-    const size_t bufferSize =
-        sizeof(TData) * interleaveWidth * numElmtGroups * npts;
 
-    TData *buffer;
-    deviceMalloc(&buffer, bufferSize);
-    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(deInterleaveKernel<>, gridSize,
-                                          blockSize, 0, interleaveWidth,
-                                          numElmtGroups, npts, buffer, inout);
-    deviceFree(buffer, bufferSize);
+    const unsigned int shmemsize =
+        sizeof(TData) * interleaveWidth * std::min(interleaveWidth, npts);
+    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+
+    if (npts <= interleaveWidth)
+    {
+        if (interleaveWidth == NektarSpaces::Device::warpSize)
+        {
+            DEVICE_1DGRID_KERNEL_LAUNCHER(deInterleaveKernel<>, gridSize,
+                                          blockSize, shmemsize, 0,
+                                          numElmtGroups, npts, inout);
+        }
+        else
+        {
+            DEVICE_1DGRID_KERNEL_LAUNCHER(
+                deInterleaveKernel<>, gridSize, blockSize, shmemsize, 0,
+                interleaveWidth, numElmtGroups, npts, inout);
+        }
+    }
+    else
+    {
+        const size_t bufferSize =
+            sizeof(TData) * interleaveWidth * numElmtGroups * npts;
+
+        if (internalInterleaveDeviceBufferSize < bufferSize)
+        {
+            deviceFree(internalInterleaveDeviceBuffer, bufferSize);
+            deviceMalloc(&internalInterleaveDeviceBuffer, bufferSize);
+            internalInterleaveDeviceBufferSize = bufferSize;
+        }
+        if (interleaveWidth == NektarSpaces::Device::warpSize)
+        {
+            DEVICE_1DGRID_KERNEL_LAUNCHER(
+                deInterleaveKernel<>, gridSize, blockSize, shmemsize, 0,
+                numElmtGroups, npts, inout,
+                (TData *)internalInterleaveDeviceBuffer);
+        }
+        else
+        {
+            DEVICE_1DGRID_KERNEL_LAUNCHER(
+                deInterleaveKernel<>, gridSize, blockSize, shmemsize, 0,
+                interleaveWidth, numElmtGroups, npts, inout,
+                (TData *)internalInterleaveDeviceBuffer);
+        }
+    }
 }
 
 template <typename ExecSpace, bool DEFORMED, typename TData>
