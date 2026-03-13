@@ -155,14 +155,14 @@ public:
     }
 
 protected:
-    LibUtilities::ShapeType m_shapeType;
     static constexpr unsigned int m_implInterleaveWidth = 1;
+
+    LibUtilities::ShapeType m_shapeType;
     unsigned int m_nqTot;
     unsigned int m_nTraces;
     unsigned int m_dimension;
     unsigned int m_tracePts = 0;
     MemoryRegion<unsigned int> m_nqOffset;
-    MemoryRegion<TData> m_wsp;
     MemoryRegion<size_t> m_traceBlockOffset;
     MemoryRegion<size_t> m_traceTotOffset;
     MemoryRegion<size_t> m_traceBlockSize;
@@ -185,7 +185,7 @@ protected:
     const TData *m_interpEndPtI1;
     const unsigned int *m_interpEndPtI1Offset;
 
-    void v_Apply(BlockAccessor<TData, FieldState::Phys> &phyBlock,
+    void v_Apply(BlockAccessor<TData, FieldState::Phys> &physBlock,
                  Field<TData, FieldState::Phys> &fwd,
                  Field<TData, FieldState::Phys> &bwd) override
     {
@@ -194,12 +194,12 @@ protected:
         {
             case 2:
             {
-                Operator2D(phyBlock, fwd, bwd);
+                Operator2D(physBlock, fwd, bwd);
                 break;
             }
             case 3:
             {
-                Operator3D(phyBlock, fwd, bwd);
+                Operator3D(physBlock, fwd, bwd);
                 break;
             }
             default:
@@ -207,12 +207,12 @@ protected:
         }
     }
 
-    void Operator2D(BlockAccessor<TData, FieldState::Phys> &phyBlock,
+    void Operator2D(BlockAccessor<TData, FieldState::Phys> &physBlock,
                     Field<TData, FieldState::Phys> &fwd,
                     Field<TData, FieldState::Phys> &bwd)
     {
         // Initialize pointers.
-        auto phyptr = phyBlock.template GetPtr<MemSpace, ReadOnly>();
+        auto physptr = physBlock.template GetPtr<MemSpace, ReadOnly>();
 
         const auto nTraceBlk = fwd.GetBlocks().size();
         auto &fwdBlock       = fwd.GetBlocks()[0];
@@ -221,6 +221,7 @@ protected:
         auto bwdptr          = bwdBlock.template GetPtr<MemSpace, WriteOnly>();
         size_t traceSize     = fwd.GetBlocks()[0].CompSize();
 
+        // Synchronize memory for all blocks.
         for (unsigned int traceBlk = 1; traceBlk < nTraceBlk; ++traceBlk)
         {
             traceSize += fwd.GetBlocks()[traceBlk].CompSize();
@@ -231,7 +232,7 @@ protected:
         }
 
         // Get interleave parameter.
-        const auto interleaveWidth = phyBlock.GetInterleaveWidth();
+        const auto interleaveWidth = physBlock.GetInterleaveWidth();
         const auto width_ratio     = (interleaveWidth == 1)
                                          ? 1
                                          : interleaveWidth / m_implInterleaveWidth;
@@ -249,17 +250,17 @@ protected:
             m_traceBlockSize.template GetPtr<MemSpace, ReadOnly>();
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < phyBlock.GetNumComponents(); ++nc)
+        for (unsigned int nc = 0; nc < physBlock.GetNumComponents(); ++nc)
         {
             unsigned int el = 0; // element index
-            for (size_t e = 0; e < phyBlock.GetNumElements(); ++e)
+            for (size_t e = 0; e < physBlock.GetNumElements(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
                                               interleaveWidth, chunkSize,
-                                              m_nqTot, (TData *)phyptr);
+                                              m_nqTot, (TData *)physptr);
                 }
 
                 for (size_t traceId = 0; traceId < m_nTraces; ++traceId)
@@ -267,9 +268,9 @@ protected:
                     if (this->m_fwdOnly)
                     {
                         GetFwdBwdTracePhys2DKernel<true, TData>(
-                            el, phyBlock.GetNumElements(),
-                            phyBlock.GetNumElementsWithPadding(), nTraceBlk,
-                            phyBlock.GetNumComponents(), nc, traceBlockSizePtr,
+                            el, physBlock.GetNumElements(),
+                            physBlock.GetNumElementsWithPadding(), nTraceBlk,
+                            physBlock.GetNumComponents(), nc, traceBlockSizePtr,
                             traceBlockOffsetPtr, traceTotOffsetPtr, traceId,
                             m_tracePts, nqOffsetPtr[traceId], m_nTraces,
                             m_locTracePhysToElmtMaps, m_orientationMaps,
@@ -278,14 +279,14 @@ protected:
                             m_interpPoints, m_interpTypes, m_quadRange,
                             m_interpTrace, m_interpTraceI0,
                             m_interpTraceI0Offset, m_interpEndPtI0,
-                            m_interpEndPtI0Offset, phyptr, fwdptr, bwdptr);
+                            m_interpEndPtI0Offset, physptr, fwdptr, bwdptr);
                     }
                     else
                     {
                         GetFwdBwdTracePhys2DKernel<false, TData>(
-                            el, phyBlock.GetNumElements(),
-                            phyBlock.GetNumElementsWithPadding(), nTraceBlk,
-                            phyBlock.GetNumComponents(), nc, traceBlockSizePtr,
+                            el, physBlock.GetNumElements(),
+                            physBlock.GetNumElementsWithPadding(), nTraceBlk,
+                            physBlock.GetNumComponents(), nc, traceBlockSizePtr,
                             traceBlockOffsetPtr, traceTotOffsetPtr, traceId,
                             m_tracePts, nqOffsetPtr[traceId], m_nTraces,
                             m_locTracePhysToElmtMaps, m_orientationMaps,
@@ -294,7 +295,7 @@ protected:
                             m_interpPoints, m_interpTypes, m_quadRange,
                             m_interpTrace, m_interpTraceI0,
                             m_interpTraceI0Offset, m_interpEndPtI0,
-                            m_interpEndPtI0Offset, phyptr, fwdptr, bwdptr);
+                            m_interpEndPtI0Offset, physptr, fwdptr, bwdptr);
                     }
                 }
 
@@ -303,15 +304,17 @@ protected:
                 {
                     ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        m_nqTot, (TData *)phyptr - (width_ratio - 1) * m_nqTot);
+                        m_nqTot,
+                        (TData *)physptr - (width_ratio - 1) * m_nqTot);
                 }
 
                 el += m_implInterleaveWidth;
-                phyptr += m_nqTot * m_implInterleaveWidth;
+                physptr += m_nqTot * m_implInterleaveWidth;
             }
 
             // Increment pointers.
-            phyptr += phyBlock.CompSize() - phyBlock.GetNumElements() * m_nqTot;
+            physptr +=
+                physBlock.CompSize() - physBlock.GetNumElements() * m_nqTot;
         }
 
         // Set trace block to phys block interleave.
@@ -325,12 +328,12 @@ protected:
         }
     }
 
-    void Operator3D(BlockAccessor<TData, FieldState::Phys> &phyBlock,
+    void Operator3D(BlockAccessor<TData, FieldState::Phys> &physBlock,
                     Field<TData, FieldState::Phys> &fwd,
                     Field<TData, FieldState::Phys> &bwd)
     {
         // Initialize pointers.
-        auto phyptr = phyBlock.template GetPtr<MemSpace, ReadOnly>();
+        auto physptr = physBlock.template GetPtr<MemSpace, ReadOnly>();
 
         const auto nTraceBlk = fwd.GetBlocks().size();
         auto &fwdBlock       = fwd.GetBlocks()[0];
@@ -339,6 +342,7 @@ protected:
         auto bwdptr          = bwdBlock.template GetPtr<MemSpace, WriteOnly>();
         size_t traceSize     = fwd.GetBlocks()[0].CompSize();
 
+        // Synchronize memory for all blocks.
         for (unsigned int traceBlk = 1; traceBlk < nTraceBlk; ++traceBlk)
         {
             traceSize += fwd.GetBlocks()[traceBlk].CompSize();
@@ -349,19 +353,16 @@ protected:
         }
 
         // Get interleave parameter.
-        const auto interleaveWidth = phyBlock.GetInterleaveWidth();
+        const auto interleaveWidth = physBlock.GetInterleaveWidth();
         const auto width_ratio     = (interleaveWidth == 1)
                                          ? 1
                                          : interleaveWidth / m_implInterleaveWidth;
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Set to new interleave width.
-        phyBlock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        physBlock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
-        auto wspSize = m_tracePts;
-        m_wsp        = MemoryRegion<TData>(wspSize);
-        // Get workspace pointer.
-        auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
+        auto wsp = std::vector<TData>(m_tracePts);
 
         auto nqOffsetPtr = m_nqOffset.template GetPtr<MemSpace, ReadOnly>();
 
@@ -375,17 +376,17 @@ protected:
             m_traceBlockSize.template GetPtr<MemSpace, ReadOnly>();
 
         // Loop over components.
-        for (unsigned int nc = 0; nc < phyBlock.GetNumComponents(); ++nc)
+        for (unsigned int nc = 0; nc < physBlock.GetNumComponents(); ++nc)
         {
             unsigned int el = 0; // element index
-            for (size_t e = 0; e < phyBlock.GetNumElements(); ++e)
+            for (size_t e = 0; e < physBlock.GetNumElements(); ++e)
             {
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
                                               interleaveWidth, chunkSize,
-                                              m_nqTot, (TData *)phyptr);
+                                              m_nqTot, (TData *)physptr);
                 }
 
                 for (size_t traceId = 0; traceId < m_nTraces; ++traceId)
@@ -393,9 +394,9 @@ protected:
                     if (this->m_fwdOnly)
                     {
                         GetFwdBwdTracePhys3DKernel<true, TData>(
-                            el, phyBlock.GetNumElements(),
-                            phyBlock.GetNumElementsWithPadding(), nTraceBlk,
-                            phyBlock.GetNumComponents(), nc, traceBlockSizePtr,
+                            el, physBlock.GetNumElements(),
+                            physBlock.GetNumElementsWithPadding(), nTraceBlk,
+                            physBlock.GetNumComponents(), nc, traceBlockSizePtr,
                             traceBlockOffsetPtr, traceTotOffsetPtr, traceId,
                             m_tracePts, nqOffsetPtr[traceId], m_nTraces,
                             m_locTracePhysToElmtMaps, m_orientationMaps,
@@ -406,15 +407,15 @@ protected:
                             m_interpTraceI0Offset, m_interpTraceI1,
                             m_interpTraceI1Offset, m_interpEndPtI0,
                             m_interpEndPtI0Offset, m_interpEndPtI1,
-                            m_interpEndPtI1Offset, wspptr, phyptr, fwdptr,
+                            m_interpEndPtI1Offset, wsp.data(), physptr, fwdptr,
                             bwdptr);
                     }
                     else
                     {
                         GetFwdBwdTracePhys3DKernel<false, TData>(
-                            el, phyBlock.GetNumElements(),
-                            phyBlock.GetNumElementsWithPadding(), nTraceBlk,
-                            phyBlock.GetNumComponents(), nc, traceBlockSizePtr,
+                            el, physBlock.GetNumElements(),
+                            physBlock.GetNumElementsWithPadding(), nTraceBlk,
+                            physBlock.GetNumComponents(), nc, traceBlockSizePtr,
                             traceBlockOffsetPtr, traceTotOffsetPtr, traceId,
                             m_tracePts, nqOffsetPtr[traceId], m_nTraces,
                             m_locTracePhysToElmtMaps, m_orientationMaps,
@@ -425,7 +426,7 @@ protected:
                             m_interpTraceI0Offset, m_interpTraceI1,
                             m_interpTraceI1Offset, m_interpEndPtI0,
                             m_interpEndPtI0Offset, m_interpEndPtI1,
-                            m_interpEndPtI1Offset, wspptr, phyptr, fwdptr,
+                            m_interpEndPtI1Offset, wsp.data(), physptr, fwdptr,
                             bwdptr);
                     }
                 }
@@ -435,15 +436,17 @@ protected:
                 {
                     ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        m_nqTot, (TData *)phyptr - (width_ratio - 1) * m_nqTot);
+                        m_nqTot,
+                        (TData *)physptr - (width_ratio - 1) * m_nqTot);
                 }
 
                 el += m_implInterleaveWidth;
-                phyptr += m_nqTot * m_implInterleaveWidth;
+                physptr += m_nqTot * m_implInterleaveWidth;
             }
 
             // Increment pointers.
-            phyptr += phyBlock.CompSize() - phyBlock.GetNumElements() * m_nqTot;
+            physptr +=
+                physBlock.CompSize() - physBlock.GetNumElements() * m_nqTot;
         }
 
         // Set trace block to phys block interleave.
