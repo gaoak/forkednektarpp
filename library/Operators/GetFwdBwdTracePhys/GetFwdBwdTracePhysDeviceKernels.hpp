@@ -638,7 +638,6 @@ NEK_DEVICE_KERNEL void GetFwdBwdTracePhys2DKernelLauncher(
     const TData *__restrict__ phyptr, TData *__restrict__ fwdptr,
     TData *__restrict__ bwdptr, const TthreadBlock &threadBlock)
 {
-
     GetFwdBwdTracePhys2DKernel<FwdOnly>(
         nqTot, nelmt, tracePts, nTraces, nqOffsetPtr, nTraceBlk, nComps, nc,
         traceBlockSizePtr, traceBlockOffsetPtr, traceTotOffsetPtr,
@@ -680,7 +679,6 @@ NEK_DEVICE_KERNEL void GetFwdBwdTracePhys3DKernelLauncher(
     TData *__restrict__ fwdptr, TData *__restrict__ bwdptr,
     const TthreadBlock &threadBlock)
 {
-
     GetFwdBwdTracePhys3DKernel<FwdOnly>(
         nqTot, nelmt, tracePts, nTraces, nqOffsetPtr, nTraceBlk, nComps, nc,
         traceBlockSizePtr, traceBlockOffsetPtr, traceTotOffsetPtr,
