@@ -46,8 +46,10 @@ void NeuBndCondKernel(const size_t bndExpSize, const size_t *mapPtr,
                       const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
-        0u, bndExpSize,
-        NEKTAR_LAMBDA(const size_t i) { outptr[mapPtr[i]] += inptr[i]; });
+        0u, bndExpSize, NEKTAR_LAMBDA(const size_t i) {
+            Nektar::atomic_add<ExecSpace, NektarSpaces::GlobalScope>(
+                outptr + mapPtr[i], inptr[i]);
+        });
 }
 
 template <typename ExecSpace, typename TData>
@@ -56,7 +58,8 @@ void NeuBndCondKernel(const size_t bndExpSize, const TData *signPtr,
 {
     Nektar::parallel_for<ExecSpace>(
         0u, bndExpSize, NEKTAR_LAMBDA(const size_t i) {
-            outptr[mapPtr[i]] += signPtr[i] * inptr[i];
+            Nektar::atomic_add<ExecSpace, NektarSpaces::GlobalScope>(
+                outptr + mapPtr[i], signPtr[i] * inptr[i]);
         });
 }
 

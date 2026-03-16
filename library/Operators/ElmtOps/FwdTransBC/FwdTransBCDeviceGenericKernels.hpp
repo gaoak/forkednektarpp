@@ -192,9 +192,6 @@ NEK_DEVICE_INLINE static void FwdTransBCQuadSumFacTOPKernel(
         wsp1[i + 2 * nq0 + nq1] = in[i * nq0];
     }
 
-    // synchronize threads.
-    localBarrier(threadBlock);
-
     // Zero wsp2
     for (unsigned int i = idx0; i < nqTot; i += stride)
     {

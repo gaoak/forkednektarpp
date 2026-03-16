@@ -192,13 +192,17 @@ private:
 
 TEST(Helmholtz1D_Seg, "run/Helmholtz1D_P8.xml")
 
-TEST(Helmholtz1D_Multicomponent, "run/Helmholtz1D_multicomponent.xml")
+TEST(Helmholtz1D_3C, "run/Helmholtz1D_3C.xml")
 
 TEST(Helmholtz2D_Tri_Quad, "run/Helmholtz2D_varP.xml")
 
 TEST(Helmholtz2D_AllBCs, "run/Helmholtz2D_P7_AllBCs.xml")
 
+TEST(Helmholtz2D_3C, "run/Helmholtz2D_3C.xml")
+
 TEST(Helmholtz3D_Hex, "run/Helmholtz3D_Hex_Heterogeneous.xml")
+
+TEST(Helmholtz3D_Hex_3C, "run/Helmholtz3D_Hex_3C.xml")
 
 TEST(Helmholtz3D_Prism, "run/Helmholtz3D_Prism_VarP.xml")
 

@@ -39,6 +39,7 @@ using namespace std;
 #include "ProcessPointDataToFld.h"
 #include <LibUtilities/BasicUtils/CsvIO.h>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
+#include <cmath>
 
 namespace Nektar::FieldUtils
 {
@@ -130,7 +131,7 @@ void ProcessPointDataToFld::v_Process(po::variables_map &vm)
         {
             for (int j = 0; j < nFields; ++j)
             {
-                if ((boost::math::isnan)(pts[j + dim][i]))
+                if (std::isnan(pts[j + dim][i]))
                 {
                     pts[j + dim][i] = defvalue;
                 }

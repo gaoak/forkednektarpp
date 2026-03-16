@@ -47,7 +47,8 @@ NEK_FORCE_INLINE static void UpdateConjGradSearchDirection(
 
     for (unsigned int blk = 0; blk < out.GetBlocks().size(); ++blk)
     {
-        auto size = out.GetBlocks()[blk].CompSize();
+        auto size = out.GetBlocks()[blk].CompSize() * out.GetNumComponents() *
+                    out.GetNumHomoModes();
         auto wptr = w.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto sptr = s.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto pptr = p.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>();

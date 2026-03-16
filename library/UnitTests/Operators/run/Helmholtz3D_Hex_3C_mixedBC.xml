@@ -154,52 +154,89 @@
     </GEOMETRY>
 
     <EXPANSIONS>
-        <E COMPOSITE="C[0]"
-            BASISTYPE="Modified_A,Modified_A,Modified_A"
-            NUMMODES="4,6,8"
-            POINTSTYPE="GaussLobattoLegendre,GaussLobattoLegendre,GaussLobattoLegendre"
-            NUMPOINTS="5,7,9"
-            FIELDS="u" />
+        <E COMPOSITE="C[0]" NUMMODES="6" TYPE="MODIFIED" FIELDS="u,v,w" />
     </EXPANSIONS>
 
     <CONDITIONS>
         <SOLVERINFO>
             <I PROPERTY="GLOBALSYSSOLN"    VALUE="IterativeFull" />
-            <I PROPERTY="LinSysIterSolver" VALUE="ConjugateGradient"/>
+            <I PROPERTY="LinSysIterSolver" VALUE="ConjugateGradientLoc"/>
             <I PROPERTY="Preconditioner"   VALUE="Diagonal"/>
             <I PROPERTY="Projection"       VALUE="Continuous"/>
         </SOLVERINFO>
 
         <TIMEINTEGRATIONSCHEME>
             <METHOD> BDFImplicit </METHOD>
-            <ORDER> 1 </ORDER>
+            <ORDER> 3 </ORDER>
         </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
+            <P> Lambda    = 1 </P>
             <P> IterativeSolverTolerance = 1e-14 </P>
+            <P> A = PI/2 </P>
+            <P> B = PI/4 </P>
+            <P> C = PI/8 </P>
             <P> TimeStep = 1e-4 </P>
         </PARAMETERS>
 
         <VARIABLES>
             <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> w </V>
         </VARIABLES>
 
         <BOUNDARYREGIONS>
-            <B ID="0"> C[1-6] </B>
+            <B ID="0"> C[1] </B>
+            <B ID="1"> C[2] </B>
+            <B ID="2"> C[3] </B>
+            <B ID="3"> C[4] </B>
+            <B ID="4"> C[5] </B>
+            <B ID="5"> C[6] </B>
         </BOUNDARYREGIONS>
 
         <BOUNDARYCONDITIONS>
             <REGION REF="0">
-                <D VAR="u" VALUE="sin(PI/2*x)*sin(PI/2*y)*sin(PI/2*z)" />
+                <N VAR="u" VALUE="-sin(A*x)*cos(A*y)*sin(A*z)*A" />
+                <N VAR="v" VALUE="-sin(B*x)*cos(B*y)*sin(B*z)*B" />
+                <D VAR="w" VALUE="sin(C*x)*sin(C*y)*sin(C*z)" />
+            </REGION>
+            <REGION REF="1">
+                <D VAR="u" VALUE="sin(A*x)*sin(A*y)*sin(A*z)" />
+                <N VAR="v" VALUE="-sin(B*x)*cos(B*y)*sin(B*z)*B" />
+                <D VAR="w" VALUE="sin(C*x)*sin(C*y)*sin(C*z)" />
+            </REGION>
+            <REGION REF="2">
+                <N VAR="u" VALUE="-sin(A*x)*cos(A*y)*sin(A*z)*A" />
+                <N VAR="v" VALUE="-sin(B*x)*cos(B*y)*sin(B*z)*B" />
+                <N VAR="w" VALUE="-sin(C*x)*cos(C*y)*sin(C*z)*C" />
+            </REGION>
+            <REGION REF="3">
+                <D VAR="u" VALUE="sin(A*x)*sin(A*y)*sin(A*z)" />
+                <N VAR="v" VALUE="-sin(B*x)*cos(B*y)*sin(B*z)*B" />
+                <N VAR="w" VALUE="-sin(C*x)*cos(C*y)*sin(C*z)*C" />
+            </REGION>
+            <REGION REF="4">
+                <D VAR="u" VALUE="sin(A*x)*sin(A*y)*sin(A*z)" />
+                <N VAR="v" VALUE="-sin(B*x)*cos(B*y)*sin(B*z)*B" />
+                <D VAR="w" VALUE="sin(C*x)*sin(C*y)*sin(C*z)" />
+            </REGION>
+            <REGION REF="5">
+                <N VAR="u" VALUE="-sin(A*x)*cos(A*y)*sin(A*z)*A" />
+                <N VAR="v" VALUE="-sin(B*x)*cos(B*y)*sin(B*z)*B" />
+                <D VAR="w" VALUE="sin(C*x)*sin(C*y)*sin(C*z)" />
             </REGION>
         </BOUNDARYCONDITIONS>
 
         <FUNCTION NAME="Forcing">
-            <E VAR="u" VALUE="-(3*PI*PI/4)*sin(PI/2*x)*sin(PI/2*y)*sin(PI/2*z)*exp(-t)" />
+            <E VAR="u" VALUE="-(Lambda + 3*A*A)*sin(A*x)*sin(A*y)*sin(A*z)*exp(-t)" />
+            <E VAR="v" VALUE="-(Lambda + 3*B*B)*sin(B*x)*sin(B*y)*sin(B*z)*exp(-2*t)" />
+            <E VAR="w" VALUE="-(Lambda + 3*C*C)*sin(C*x)*sin(C*y)*sin(C*z)*exp(-3*t)" />
         </FUNCTION>
 
         <FUNCTION NAME="ExactSolution">
-            <E VAR="u" VALUE="sin(PI/2*x)*sin(PI/2*y)*sin(PI/2*z)" />
+            <E VAR="u" VALUE="sin(A*x)*sin(A*y)*sin(A*z)" />
+            <E VAR="v" VALUE="sin(B*x)*sin(B*y)*sin(B*z)" />
+            <E VAR="w" VALUE="sin(C*x)*sin(C*y)*sin(C*z)" />
         </FUNCTION>
     </CONDITIONS>
 </NEKTAR>

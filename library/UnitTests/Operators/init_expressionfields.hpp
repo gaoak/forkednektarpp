@@ -207,7 +207,7 @@ TEST(Helmholtz3D_Pyr, "run/Helmholtz3D_Pyr_VarP.xml")
 
 TEST(Helmholtz3D_Tet, "run/Helmholtz3D_Tet_VarP.xml")
 
-TEST(Helmholtz3D_3C, "run/Helmholtz3D_Hex_multicomponent.xml")
+TEST(Helmholtz3D_3C, "run/Helmholtz3D_Hex_3C.xml")
 
 TEST(Seg_3C_Evars, "run/segment_multicomponent_evars.xml")
 

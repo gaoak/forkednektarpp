@@ -61,9 +61,19 @@ public:
                 ExpressionOp, ExpressionBlockOp>(expansionList, components,
                                                  execStr, implStr);
 
+        // Default component mask, true for all components
+        std::vector<bool> cmask;
+        for (unsigned int i = 0; i < components.size(); ++i)
+        {
+            cmask.push_back(true);
+        }
+
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < op->m_blockOp.size(); ++blk)
         {
+            // Default component mask
+            op->m_blockOp[blk]->SetComponentMask(cmask);
+
             // Default time set to 0.0
             op->m_blockOp[blk]->SetTime(0.0);
 
@@ -131,6 +141,15 @@ public:
         auto variableList = expression->GetVlist();
         boost::split(vars, variableList, boost::is_any_of(", "));
         return vars.size();
+    }
+
+    void SetComponentMask(const std::vector<bool> &cmask)
+    {
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < m_blockOp.size(); ++blk)
+        {
+            this->m_blockOp[blk]->SetComponentMask(cmask);
+        }
     }
 
 protected:

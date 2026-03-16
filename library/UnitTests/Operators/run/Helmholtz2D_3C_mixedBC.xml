@@ -225,8 +225,8 @@
     </GEOMETRY>
 
     <EXPANSIONS>
-        <E COMPOSITE="C[0]" NUMMODES="7" FIELDS="u" TYPE="MODIFIED" />
-        <E COMPOSITE="C[1]" NUMMODES="7" FIELDS="u" TYPE="MODIFIED" />
+        <E COMPOSITE="C[0]" NUMMODES="7" FIELDS="u,v,w" TYPE="MODIFIED" />
+        <E COMPOSITE="C[1]" NUMMODES="7" FIELDS="u,v,w" TYPE="MODIFIED" />
     </EXPANSIONS>
 
     <CONDITIONS>
@@ -244,12 +244,18 @@
         </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
+            <P> Lambda    = 10 </P>
             <P> IterativeSolverTolerance = 1e-14 </P>
+            <P> A = PI/2 </P>
+            <P> B = PI/4 </P>
+            <P> C = PI/8 </P>
             <P> TimeStep = 1e-4 </P>
         </PARAMETERS>
 
         <VARIABLES>
             <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> w </V>
         </VARIABLES>
 
         <BOUNDARYREGIONS>
@@ -266,44 +272,62 @@
 
         <BOUNDARYCONDITIONS>
             <REGION REF="0">
-                <D VAR="u" VALUE="sin(PI*x)*sin(PI*y)-1" />
+                <D VAR="u" VALUE="sin(A*x)*sin(A*y)-1" />
+                <D VAR="v" VALUE="sin(B*x)*sin(B*y)-1" />
+                <D VAR="w" VALUE="sin(C*x)*sin(C*y)-1" />
             </REGION>
             <REGION REF="1">
-                <R VAR="u" VALUE="sin(PI*x)*sin(PI*y)-1-PI*sin(PI*x)*cos(PI*y)"
-                    PRIMCOEFF="1" />
+                <D VAR="u" VALUE="sin(A*x)*sin(A*y)-1" />
+                <N VAR="v" VALUE="B*cos(B*x)*sin(B*y)" />
+                <N VAR="w" VALUE="C*cos(C*x)*sin(C*y)" />
             </REGION>
             <REGION REF="2">
-                <D VAR="u" VALUE="sin(PI*x)*sin(PI*y)-1" />
+                <N VAR="u" VALUE="A*cos(A*x)*sin(A*y)" />
+                <D VAR="v" VALUE="sin(B*x)*sin(B*y)-1" />
+                <D VAR="w" VALUE="sin(C*x)*sin(C*y)-1" />
             </REGION>
             <REGION REF="3">
-                <N VAR="u"
-                    VALUE="(5/sqrt(61))*PI*cos(PI*x)*sin(PI*y)-(6/sqrt(61))*PI*sin(PI*x)*cos(PI*y)" />
+                <N VAR="u" VALUE="(5/sqrt(61))*A*cos(A*x)*sin(A*y)-(6/sqrt(61))*A*sin(A*x)*cos(A*y)" />
+                <N VAR="v" VALUE="(5/sqrt(61))*B*cos(B*x)*sin(B*y)-(6/sqrt(61))*B*sin(B*x)*cos(B*y)" />
+                <N VAR="w" VALUE="(5/sqrt(61))*C*cos(C*x)*sin(C*y)-(6/sqrt(61))*C*sin(C*x)*cos(C*y)" />
             </REGION>
             <REGION REF="4">
-                <D VAR="u" VALUE="sin(PI*x)*sin(PI*y)-1" />
+                <D VAR="u" VALUE="sin(A*x)*sin(A*y)-1" />
+                <D VAR="v" VALUE="sin(B*x)*sin(B*y)-1" />
+                <D VAR="w" VALUE="sin(C*x)*sin(C*y)-1" />
             </REGION>
             <REGION REF="5">
-                <N VAR="u" VALUE="PI*cos(PI*x)*sin(PI*y)" />
+                <N VAR="u" VALUE="A*cos(A*x)*sin(A*y)" />
+                <D VAR="v" VALUE="sin(B*x)*sin(B*y)-1" />
+                <N VAR="w" VALUE="C*cos(C*x)*sin(C*y)" />
             </REGION>
             <REGION REF="6">
-                <D VAR="u" VALUE="sin(PI*x)*sin(PI*y)-1" />
+                <D VAR="u" VALUE="sin(A*x)*sin(A*y)-1" />
+                <D VAR="v" VALUE="sin(B*x)*sin(B*y)-1" />
+                <N VAR="w" VALUE="C*cos(C*x)*sin(C*y)" />
             </REGION>
             <REGION REF="7">
-                <R VAR="u"
-                    VALUE="sin(PI*x)*sin(PI*y) -1+ (5/sqrt(61))*PI*cos(PI*x)*sin(PI*y)+(6/sqrt(61))*PI*sin(PI*x)*cos(PI*y)"
-                    PRIMCOEFF="1" />
+                <N VAR="u" VALUE="A*cos(A*x)*sin(A*y)" />
+                <N VAR="v" VALUE="B*cos(B*x)*sin(B*y)" />
+                <D VAR="w" VALUE="sin(C*x)*sin(C*y)-1" />
             </REGION>
             <REGION REF="8">
-                <D VAR="u" VALUE="sin(PI*x)*sin(PI*y)-1" />
+                <D VAR="u" VALUE="sin(A*x)*sin(A*y)-1" />
+                <N VAR="v" VALUE="B*cos(B*x)*sin(B*y)" />
+                <D VAR="w" VALUE="sin(C*x)*sin(C*y)-1" />
             </REGION>
         </BOUNDARYCONDITIONS>
 
         <FUNCTION NAME="Forcing">
-            <E VAR="u" VALUE="- 2*PI*PI*sin(PI*x)*sin(PI*y)*exp(-t)" />
+            <E VAR="u" VALUE="-Lambda*(sin(A*x)*sin(A*y)-1) - 2*A*A*sin(A*x)*sin(A*y)*exp(-t)" />
+            <E VAR="v" VALUE="-Lambda*(sin(B*x)*sin(B*y)-1) - 2*B*B*sin(B*x)*sin(B*y)*exp(-t)" />
+            <E VAR="w" VALUE="-Lambda*(sin(C*x)*sin(C*y)-1) - 2*C*C*sin(C*x)*sin(C*y)*exp(-t)" />
         </FUNCTION>
 
         <FUNCTION NAME="ExactSolution">
-            <E VAR="u" VALUE="sin(PI*x)*sin(PI*y)-1" />
+            <E VAR="u" VALUE="sin(A*x)*sin(A*y)-1" />
+            <E VAR="v" VALUE="sin(B*x)*sin(B*y)-1" />
+            <E VAR="w" VALUE="sin(C*x)*sin(C*y)-1" />
         </FUNCTION>
 
     </CONDITIONS>

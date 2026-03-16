@@ -194,6 +194,77 @@ BOOST_FIXTURE_TEST_CASE(daxpykernel, MathField<double>)
     }
 }
 
+BOOST_AUTO_TEST_CASE(ddot_padded_multicomponent)
+{
+    const std::vector<BlockAttributes<FieldState::Coeff>> blockAttr = {
+        {3, 4, 2, 1}};
+    Field<double, FieldState::Coeff> x("x", blockAttr, {"u", "v", "w"}, 1);
+    Field<double, FieldState::Coeff> y("y", blockAttr, {"u", "v", "w"}, 1);
+
+    x.template Initialize<NektarSpaces::HostSpace>(100.0);
+    y.template Initialize<NektarSpaces::HostSpace>(-100.0);
+
+    auto &block   = x.GetBlocks()[0];
+    auto realSize = block.GetNumElements() * block.GetNumData();
+    auto stride   = block.CompSize();
+    auto *xptr    = block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+    auto *yptr =
+        y.GetBlocks()[0].template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
+    double expected = 0.0;
+    for (unsigned int c = 0; c < x.GetNumComponents(); ++c)
+    {
+        for (size_t i = 0; i < realSize; ++i)
+        {
+            xptr[c * stride + i] = 10.0 * c + i + 1.0;
+            yptr[c * stride + i] = 1.0 - 0.5 * i + c;
+            expected += xptr[c * stride + i] * yptr[c * stride + i];
+        }
+    }
+
+    Math math;
+    BOOST_TEST(std::abs(math.ddot(x, y) - expected) < 1.0E-12);
+}
+
+BOOST_AUTO_TEST_CASE(masked_ddot_padded_multicomponent)
+{
+    const std::vector<BlockAttributes<FieldState::Coeff>> blockAttr = {
+        {3, 4, 2, 1}};
+    Field<std::uint8_t, FieldState::Coeff> mask("mask", blockAttr,
+                                                {"u", "v", "w"}, 1);
+    Field<double, FieldState::Coeff> x("x", blockAttr, {"u", "v", "w"}, 1);
+    Field<double, FieldState::Coeff> y("y", blockAttr, {"u", "v", "w"}, 1);
+
+    mask.template Initialize<NektarSpaces::HostSpace>(0);
+    x.template Initialize<NektarSpaces::HostSpace>(100.0);
+    y.template Initialize<NektarSpaces::HostSpace>(-100.0);
+
+    auto &block   = x.GetBlocks()[0];
+    auto realSize = block.GetNumElements() * block.GetNumData();
+    auto stride   = block.CompSize();
+    auto *mptr    = mask.GetBlocks()[0]
+                     .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+    auto *xptr = block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+    auto *yptr =
+        y.GetBlocks()[0].template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
+    double expected = 0.0;
+    for (unsigned int c = 0; c < x.GetNumComponents(); ++c)
+    {
+        for (size_t i = 0; i < realSize; ++i)
+        {
+            mptr[c * stride + i] = ((i + c) % 2 == 0) ? 1 : 0;
+            xptr[c * stride + i] = 10.0 * c + i + 1.0;
+            yptr[c * stride + i] = 1.0 - 0.5 * i + c;
+            expected += mptr[c * stride + i] * xptr[c * stride + i] *
+                        yptr[c * stride + i];
+        }
+    }
+
+    Math math;
+    BOOST_TEST(std::abs(math.ddot(mask, x, y) - expected) < 1.0E-12);
+}
+
 BOOST_FIXTURE_TEST_CASE(sum, MathField<double>)
 {
     Configure();

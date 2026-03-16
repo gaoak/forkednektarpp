@@ -181,6 +181,11 @@ public:
             m_interiorMapptr =
                 this->m_dataWarehouse->template GetData<MemSpace>(
                     InteriorMapKey<TData>(block_idx, m_implInterleaveWidth));
+
+            // Fetch inverse interior mass matrix for 2D elements
+            m_massint = this->m_dataWarehouse->template GetData<MemSpace>(
+                StdMatKey<TData>(basisKeys, m_shapeType, eInvMassInteriorStdMat,
+                                 nodalType));
         }
 
         // Fetch inverse interior mass matrix for each basis
@@ -194,9 +199,6 @@ public:
                     StdMatKey<TData>(bkeys, LibUtilities::eSegment,
                                      eInvMassInteriorStdMat, nodalType)));
         }
-        m_massint =
-            this->m_dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
-                basisKeys, m_shapeType, eInvMassInteriorStdMat, nodalType));
 
         // Fetch NodalToModal Matrix if required.
         if (m_shapeType == LibUtilities::NodalTri)
@@ -264,8 +266,6 @@ protected:
     const unsigned int *m_traceElmtMapptr;
     const int *m_traceElmtSignptr;
     const unsigned int *m_interiorMapptr;
-    const TData *m_massint;
-    std::vector<const TData *> m_massint_seg;
 
     MemoryRegion<TData> m_dinvmass;
     MemoryRegion<TData> m_wsp1;
@@ -279,6 +279,8 @@ protected:
     std::vector<unsigned int> m_nq;
     std::vector<const TData *> m_B;
     std::vector<const TData *> m_W;
+    std::vector<const TData *> m_massint_seg;
+    const TData *m_massint;
     const TData *m_interp1to0;
     const TData *m_nodToMod;
     const TData *m_nodToModTrans;

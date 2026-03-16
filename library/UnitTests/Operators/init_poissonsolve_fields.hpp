@@ -57,86 +57,105 @@ public:
     void SetTestCase()
     {
         // Set initial conditions.
-        Array<OneD, TData> x(this->fixt_explist->GetTotPoints());
-        Array<OneD, TData> y(this->fixt_explist->GetTotPoints());
-        Array<OneD, TData> z(this->fixt_explist->GetTotPoints());
-        Array<OneD, TData> fce(this->fixt_explist->GetTotPoints());
+        const unsigned int numComp = this->fixt_in->GetNumComponents() *
+                                     this->fixt_in->GetNumHomoModes();
+        const size_t nphys = this->fixt_explist->GetTotPoints();
+        m_coordDim         = this->fixt_explist->GetCoordim(0);
+
+        Array<OneD, TData> x(nphys);
+        Array<OneD, TData> y(nphys);
+        Array<OneD, TData> z(nphys);
+        Array<OneD, TData> fce(numComp * nphys, 0.0);
         this->fixt_explist->GetCoords(x, y, z);
 
         if (this->session->DefinesFunction("Forcing"))
         {
-            auto func = this->session->GetFunction("Forcing", 0);
-            func->Evaluate(x, y, z, fce);
+            for (unsigned int n = 0; n < numComp; ++n)
+            {
+                auto func = this->session->GetFunction(
+                    "Forcing", n % this->session->GetVariables().size());
+                Array<OneD, TData> fceVar = fce + n * nphys;
+                func->Evaluate(x, y, z, fceVar);
+            }
         }
 
-        auto xptr = x.data(), yptr = y.data(), zptr = z.data(),
-             fceptr = fce.data();
         for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
              ++blk)
         {
             auto &block = this->fixt_in->GetBlocks()[blk];
             auto inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-            for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
+            for (unsigned int n = 0; n < numComp; ++n)
             {
-                for (unsigned int phys = 0; phys < block.GetNumData();
-                     ++phys, ++cnt)
+                auto xptr   = x.data();
+                auto yptr   = y.data();
+                auto zptr   = z.data();
+                auto fceptr = fce.data() + n * nphys;
+
+                for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
                 {
-                    if (this->session->DefinesFunction("Forcing"))
+                    for (unsigned int phys = 0; phys < block.GetNumData();
+                         ++phys, ++cnt)
                     {
-                        inptr[cnt] = *(fceptr++);
-                    }
-                    else
-                    {
-                        inptr[cnt] = 1.0;
-                        if (this->fixt_explist->GetCoordim(0) == 1)
+                        if (this->session->DefinesFunction("Forcing"))
                         {
-                            for (unsigned int n = 1; n < 4; n++)
-                            {
-                                inptr[cnt] += n * std::pow(*xptr, n);
-                            }
-                            xptr++;
-                        }
-                        else if (this->fixt_explist->GetCoordim(0) == 2)
-                        {
-                            for (unsigned int n = 1; n < 4; n++)
-                            {
-                                inptr[cnt] +=
-                                    n * std::pow(*xptr, n) * std::pow(*yptr, n);
-                            }
-                            xptr++;
-                            yptr++;
+                            inptr[cnt] = *(fceptr++);
                         }
                         else
                         {
-                            for (unsigned int n = 1; n < 4; n++)
+                            inptr[cnt] = 1.0 + n;
+                            if (m_coordDim == 1)
                             {
-                                inptr[cnt] += n * std::pow(*xptr, n) *
-                                              std::pow(*yptr, n) *
-                                              std::pow(*zptr, n);
+                                for (unsigned int p = 1; p < 4; ++p)
+                                {
+                                    inptr[cnt] +=
+                                        (n + 1) * p * std::pow(*xptr, p);
+                                }
+                                xptr++;
                             }
-                            xptr++;
-                            yptr++;
-                            zptr++;
+                            else if (m_coordDim == 2)
+                            {
+                                for (unsigned int p = 1; p < 4; ++p)
+                                {
+                                    inptr[cnt] += (n + 1) * p *
+                                                  std::pow(*xptr, p) *
+                                                  std::pow(*yptr, p);
+                                }
+                                xptr++;
+                                yptr++;
+                            }
+                            else
+                            {
+                                for (unsigned int p = 1; p < 4; ++p)
+                                {
+                                    inptr[cnt] +=
+                                        (n + 1) * p * std::pow(*xptr, p) *
+                                        std::pow(*yptr, p) * std::pow(*zptr, p);
+                                }
+                                xptr++;
+                                yptr++;
+                                zptr++;
+                            }
                         }
                     }
                 }
+
+                inptr += block.CompSize();
             }
         }
 
         this->fixt_out->template Initialize<NektarSpaces::HostSpace>(0.0);
 
         // Set up diffusion coefficient.
-        const auto coordDim      = this->fixt_explist->GetCoordim(0);
-        const auto diffCoeffSize = coordDim * (coordDim + 1) / 2;
+        const auto diffCoeffSize = m_coordDim * (m_coordDim + 1) / 2;
         m_diffCoeff.resize(diffCoeffSize);
 
         // Set up (isotropic) diffusion coefficient.
-        if (coordDim == 1)
+        if (m_coordDim == 1)
         {
             m_diffCoeff[0] = 1.0; // D00
         }
-        else if (coordDim == 2)
+        else if (m_coordDim == 2)
         {
             m_diffCoeff[0] = 2.0; // D00
             m_diffCoeff[2] = 3.0; // D11
@@ -170,25 +189,29 @@ public:
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++.
+        const unsigned int numComp = this->fixt_in->GetNumComponents() *
+                                     this->fixt_in->GetNumHomoModes();
+        const size_t nphys    = this->fixt_explist->GetTotPoints();
+        const size_t ncoeffs  = this->fixt_explist->GetNcoeffs();
+        const auto &variables = this->session->GetVariables();
+
+        // Setup input/output arrays
         Array<OneD, TData> inphys = this->fixt_in->ToArray();
-        Array<OneD, TData> outcoeffs(this->fixt_explist->GetNcoeffs(), 0.0);
+        Array<OneD, TData> outcoeffs(numComp * ncoeffs, 0.0);
+
+        // Set lambda as constant coefficient
+        StdRegions::ConstFactorMap factors;
+        factors[StdRegions::eFactorLambda] = 0.0;
 
         // Set up diffusion coefficient.
-        StdRegions::FactorMap factors;
-        if (this->fixt_explist->GetCoordim(0) == 1)
+        if (m_coordDim == 2)
         {
-            factors[StdRegions::eFactorLambda] = 0.0;
-        }
-        else if (this->fixt_explist->GetCoordim(0) == 2)
-        {
-            factors[StdRegions::eFactorLambda]   = 0.0;
             factors[StdRegions::eFactorCoeffD00] = m_diffCoeff[0];
             factors[StdRegions::eFactorCoeffD01] = m_diffCoeff[1];
             factors[StdRegions::eFactorCoeffD11] = m_diffCoeff[2];
         }
-        else
+        else if (m_coordDim == 3)
         {
-            factors[StdRegions::eFactorLambda]   = 0.0;
             factors[StdRegions::eFactorCoeffD00] = m_diffCoeff[0];
             factors[StdRegions::eFactorCoeffD01] = m_diffCoeff[1];
             factors[StdRegions::eFactorCoeffD11] = m_diffCoeff[2];
@@ -197,12 +220,26 @@ public:
             factors[StdRegions::eFactorCoeffD22] = m_diffCoeff[5];
         }
 
-        this->fixt_explist->HelmSolve(inphys, outcoeffs, factors);
+        // Solve each component separately
+        auto graph = SpatialDomains::MeshGraphIO::Read(this->session);
+        for (unsigned int n = 0; n < numComp; ++n)
+        {
+            auto expListVar =
+                MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
+                    this->session, graph, variables[n % variables.size()], true,
+                    false, Collections::eNoCollection);
+            Array<OneD, TData> inphysVar    = inphys + n * nphys;
+            Array<OneD, TData> outcoeffsVar = outcoeffs + n * ncoeffs;
+            expListVar->HelmSolve(inphysVar, outcoeffsVar, factors);
+        }
+
+        // Copy solution back
         this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
             outcoeffs);
     }
 
 protected:
+    unsigned int m_coordDim;
     std::vector<TData> m_diffCoeff;
 };
 
@@ -238,16 +275,18 @@ protected:
     TESTDOUBLE(type, filename)
 // clang-format on
 
-TEST(Poisson1D_Seg, "run/Poisson1D_P8.xml")
+TEST(Poisson1D_Seg, "run/Helmholtz1D_P8.xml")
 
-TEST(Poisson2D_Tri_Quad, "run/Poisson2D_varP.xml")
+TEST(Poisson2D_Tri_Quad, "run/Helmholtz2D_varP.xml")
+TEST(Poisson2D_Tri_Quad_3C, "run/Helmholtz2D_3C.xml")
 
-TEST(Poisson2D_AllBCs, "run/Poisson2D_P7_AllBCs.xml")
+TEST(Poisson2D_AllBCs, "run/Helmholtz2D_P7_AllBCs.xml")
 
-TEST(Poisson3D_Hex, "run/Poisson3D_Hex_Heterogeneous.xml")
+TEST(Poisson3D_Hex, "run/Helmholtz3D_Hex_Heterogeneous.xml")
+TEST(Poisson3D_Hex_3C, "run/Helmholtz3D_Hex_3C.xml")
 
-TEST(Poisson3D_Prism, "run/Poisson3D_Prism_VarP.xml")
+TEST(Poisson3D_Prism, "run/Helmholtz3D_Prism_VarP.xml")
 
-TEST(Poisson3D_Pyr, "run/Poisson3D_Pyr_VarP.xml")
+TEST(Poisson3D_Pyr, "run/Helmholtz3D_Pyr_VarP.xml")
 
-TEST(Poisson3D_Tet, "run/Poisson3D_Tet_VarP.xml")
+TEST(Poisson3D_Tet, "run/Helmholtz3D_Tet_VarP.xml")

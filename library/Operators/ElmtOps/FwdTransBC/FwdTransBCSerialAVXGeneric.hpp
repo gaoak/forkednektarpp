@@ -89,10 +89,7 @@ public:
                 ? exp->GetNodalPointsKey().GetPointsType()
                 : LibUtilities::eNoPointsType;
 
-        m_isNodal       = nodalType != LibUtilities::eNoPointsType;
-        m_interpEdgeTo0 = (m_shapeType == LibUtilities::Tri) &&
-                          (exp->GetBasis(1)->GetPointsType() !=
-                           LibUtilities::eGaussLobattoLegendre);
+        m_isNodal = nodalType != LibUtilities::eNoPointsType;
 
         ASSERTL0(m_shapeType != LibUtilities::NodalTri,
                  "The shape type NodalTri is not implemented for the "
@@ -251,7 +248,6 @@ protected:
     bool m_isModified;
     bool m_isCollocation;
     bool m_isNodal;
-    bool m_interpEdgeTo0;
     unsigned int m_dimension;
     unsigned int m_coordDim;
     unsigned int m_nmTot;
@@ -603,8 +599,8 @@ protected:
                         reinterpret_cast<const simd_t *>(m_massint_seg[0]),
                         reinterpret_cast<const simd_t *>(m_massint_seg[1]),
                         reinterpret_cast<const simd_t *>(m_jacTraceptr),
-                        m_interpEdgeTo0, m_traceElmtMapptr, m_traceElmtSignptr,
-                        m_nmTotInt, m_interiorMapptr,
+                        m_traceElmtMapptr, m_traceElmtSignptr, m_nmTotInt,
+                        m_interiorMapptr,
                         reinterpret_cast<const simd_t *>(m_massint),
                         reinterpret_cast<const simd_t *>(dmatptr),
                         reinterpret_cast<const simd_t *>(m_jacptr),

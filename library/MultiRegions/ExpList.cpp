@@ -1019,10 +1019,7 @@ ExpList::ExpList(
     SetupCoeffPhys(DeclareCoeffPhysArrays);
 
     // Set up collections
-    if (m_expType != e0D)
-    {
-        CreateCollections(ImpType);
-    }
+    CreateCollections(ImpType);
 
     // Setup element to expansion ID maps for the trace elements
     // Loop in reverse order so that in case where using a
@@ -1179,10 +1176,7 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
     SetupCoeffPhys(DeclareCoeffPhysArrays);
 
     // Set up collections
-    if (m_expType != e0D)
-    {
-        CreateCollections(ImpType);
-    }
+    CreateCollections(ImpType);
 }
 
 /**
@@ -1553,10 +1547,7 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
     // Set up m_coeffs, m_phys and offset arrays.
     SetupCoeffPhys(DeclareCoeffPhysArrays);
 
-    if (m_expType != e0D)
-    {
-        CreateCollections(ImpType);
-    }
+    CreateCollections(ImpType);
 }
 
 /**
@@ -5917,7 +5908,33 @@ void ExpList::CreateCollections(Collections::ImplementationType ImpType)
 
     vector<LocalRegions::ExpansionSharedPtr> collExp;
     LocalRegions::ExpansionSharedPtr exp = (*m_exp)[0];
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(exp);
+    Collections::OperatorImpMap impTypes;
+
+    // Handle 0D case
+    if (exp->DetShapeType() == LibUtilities::Point)
+    {
+        // Add first expansion to collection
+        collExp.push_back((*m_exp)[0]);
+
+        // Add all other expansions to collection
+        for (int i = 1; i < (*m_exp).size(); i++)
+        {
+            exp = (*m_exp)[i];
+            collExp.push_back(exp);
+        }
+
+        // Create NoCollection impTypes
+        for (int it = 0; it < Collections::SIZE_OperatorType; ++it)
+        {
+            impTypes[static_cast<Collections::OperatorType>(it)] =
+                Collections::eNoImpType;
+        }
+
+        m_collections.push_back(Collections::Collection(collExp, impTypes));
+        return;
+    }
+
+    impTypes = colOpt.GetOperatorImpMap(exp);
 
     // add the first element to the collection - initialization
     collExp.push_back(exp);

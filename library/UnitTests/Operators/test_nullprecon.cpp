@@ -59,7 +59,7 @@ BOOST_AUTO_TEST_SUITE(TestNullPrecon)
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_NULLPRECON(nullprecon_seg, Helmholtz1D_Seg, 1.0E-15)
 
-TEST_NULLPRECON(nullprecon_multicomponent, Helmholtz1D_Multicomponent, 1.0E-12)
+TEST_NULLPRECON(nullprecon_3c, Helmholtz1D_3C, 1.0E-12)
 
 TEST_NULLPRECON(nullprecon_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-15)
 
