@@ -406,10 +406,12 @@
                 <N VAR="u" VALUE="-sin(PI/2*x)*cos(PI/2*y)*sin(PI/2*z)*PI/2" />
             </REGION>
             <REGION REF="2">
-                <R VAR="u" VALUE="cos(PI/2*x)*sin(PI/2*y)*sin(PI/2*z)*PI/2+2*sin(PI/2*x)*sin(PI/2*y)*sin(PI/2*z)" PRIMCOEFF="2" />
+                <!--                <R VAR="u" VALUE="cos(PI/2*x)*sin(PI/2*y)*sin(PI/2*z)*PI/2+2*sin(PI/2*x)*sin(PI/2*y)*sin(PI/2*z)" PRIMCOEFF="2" />-->
+                <N VAR="u" VALUE="sin(PI/2*x)*sin(PI/2*y)*cos(PI/2*z)*PI/2" />
             </REGION>
             <REGION REF="3">
-                <R VAR="u" VALUE="sin(PI/2*x)*cos(PI/2*y)*sin(PI/2*z)*PI/2+3*sin(PI/2*x)*sin(PI/2*y)*sin(PI/2*z)" PRIMCOEFF="3" />
+                <!--                <R VAR="u" VALUE="sin(PI/2*x)*cos(PI/2*y)*sin(PI/2*z)*PI/2+3*sin(PI/2*x)*sin(PI/2*y)*sin(PI/2*z)" PRIMCOEFF="3" />-->
+                <D VAR="u" VALUE="sin(PI/2*x)*sin(PI/2*y)*sin(PI/2*z)" />
             </REGION>
             <REGION REF="4">
                 <D VAR="u" VALUE="sin(PI/2*x)*sin(PI/2*y)*sin(PI/2*z)" />

@@ -911,16 +911,24 @@ void ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr   = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
-        auto size   = block.GetNumElements() * block.GetNumData() *
-                    x.GetNumComponents() * x.GetNumHomoModes();
+        auto size   = block.GetNumElements() * block.GetNumData();
+        auto stride = block.CompSize();
+        auto ncomp  = x.GetNumComponents() * x.GetNumHomoModes();
 
-        if (blk == 0)
+        for (unsigned int n = 0; n < ncomp; ++n)
         {
-            ddotKernel<ExecSpace, true>(size, xptr, yptr, out);
-        }
-        else
-        {
-            ddotKernel<ExecSpace, false>(size, xptr, yptr, out);
+            auto doInit = (blk == 0 && n == 0);
+            if (doInit)
+            {
+                ddotKernel<ExecSpace, true>(size, xptr, yptr, out);
+            }
+            else
+            {
+                ddotKernel<ExecSpace, false>(size, xptr, yptr, out);
+            }
+
+            xptr += stride;
+            yptr += stride;
         }
     }
 }
@@ -973,16 +981,25 @@ void ddot(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr   = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
-        auto size   = block.GetNumElements() * block.GetNumData() *
-                    x.GetNumComponents() * x.GetNumHomoModes();
+        auto size   = block.GetNumElements() * block.GetNumData();
+        auto stride = block.CompSize();
+        auto ncomp  = x.GetNumComponents() * x.GetNumHomoModes();
 
-        if (blk == 0)
+        for (unsigned int n = 0; n < ncomp; ++n)
         {
-            ddotKernel<ExecSpace, true>(size, maskptr, xptr, yptr, out);
-        }
-        else
-        {
-            ddotKernel<ExecSpace, false>(size, maskptr, xptr, yptr, out);
+            auto doInit = (blk == 0 && n == 0);
+            if (doInit)
+            {
+                ddotKernel<ExecSpace, true>(size, maskptr, xptr, yptr, out);
+            }
+            else
+            {
+                ddotKernel<ExecSpace, false>(size, maskptr, xptr, yptr, out);
+            }
+
+            maskptr += stride;
+            xptr += stride;
+            yptr += stride;
         }
     }
 }

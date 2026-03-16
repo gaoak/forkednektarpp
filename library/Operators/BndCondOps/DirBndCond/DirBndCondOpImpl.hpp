@@ -36,9 +36,11 @@
 
 #include <MultiRegions/ContField.h>
 
+#include "Operators/BndCondOps/DirBndCond/DirBndCondKernels.hpp"
 #include "Operators/BndCondOps/DirBndCond/DirBndCondOp.hpp"
 
-#include "Operators/BndCondOps/DirBndCond/DirBndCondKernels.hpp"
+#include "Operators/ElmtOps/Expression/ExpressionOp.hpp"
+#include "Operators/ElmtOps/FwdTransBC/FwdTransBCOp.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 using namespace Nektar;
@@ -56,40 +58,163 @@ public:
                      const std::vector<std::string> &components)
         : DirBndCondOp<TData>(expansionList, components)
     {
-        auto contfield = std::dynamic_pointer_cast<MultiRegions::ContField>(
-            this->m_expansionList);
-        auto &bndCondExpansions = contfield->GetBndCondExpansions();
-        auto &bndConditions     = contfield->GetBndConditions();
-        auto assmbMap           = contfield->GetLocalToGlobalMap();
-        auto &sign              = assmbMap->GetBndCondCoeffsToLocalCoeffsSign();
-        auto &map               = assmbMap->GetBndCondCoeffsToLocalCoeffsMap();
-        auto &parallelDirBndSign = assmbMap->GetParallelDirBndSign();
-        m_signChange             = assmbMap->GetSignChange();
+        auto session       = this->m_expansionList->GetSession();
+        auto graph         = this->m_expansionList->GetGraph();
+        unsigned int nhomo = 1;
+        session->LoadParameter("HomModesZ", nhomo, 1);
+        unsigned int nComp = components.size();
 
-        // Compute number boundary coefficients
-        for (size_t i = 0; i < bndCondExpansions.size(); ++i)
+        // Create boundary conditions
+        const SpatialDomains::BoundaryConditions bcs(session, graph);
+        const SpatialDomains::BoundaryRegionCollection &bregions =
+            bcs.GetBoundaryRegions();
+        const SpatialDomains::BoundaryConditionCollection &bconditions =
+            bcs.GetBoundaryConditions();
+
+        // Create counters and temporary variables for BC Fields and Operators
+        size_t nDirBCs   = 0;
+        size_t nTotalBCs = 0;
+        std::vector<size_t> dirBCID;
+        std::vector<std::vector<bool>> isDirichletByRegion;
+        std::vector<size_t> numBcExpCoeffs;
+        SpatialDomains::BoundaryConditionShPtr bc;
+        MultiRegions::ExpListSharedPtr bcExpList;
+
+        // Loop all boundary regions to create Fields and Operators
+        for (auto &it : bregions)
         {
-            if (bndConditions[i]->GetBoundaryConditionType() ==
-                SpatialDomains::eDirichlet)
+            auto regionId       = it.first;
+            auto collectionIter = bconditions.find(regionId);
+
+            ASSERTL1(collectionIter != bconditions.end(),
+                     "Unable to locate collection " + std::to_string(regionId));
+
+            const SpatialDomains::BoundaryConditionMapShPtr bndCondMap =
+                (*collectionIter).second;
+
+            // Note use just the first component as we are just looking for the
+            // boundary expansion list
+            auto conditionMapIter = bndCondMap->find(components[0]);
+
+            ASSERTL1(conditionMapIter != bndCondMap->end(),
+                     "Unable to locate condition map.");
+
+            // Get BoundaryCondition(SharedPtr)
+            bc = (*conditionMapIter).second;
+
+            // Create boundary condition expansion
+            bcExpList = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
+                session, *(it.second), graph, true, components[0], false,
+                bc->GetComm(), Collections::eNoImpType);
+
+            // Set data warehouse for redesign operators
+            bcExpList->SetDataWarehouse();
+
+            // Save number of coefficients
+            numBcExpCoeffs.push_back(bcExpList->GetNcoeffs());
+
+            // Count total number of boundary conditions
+            nTotalBCs++;
+
+            // Check if any component has a Dirichlet-type condition
+            bool hasDirichletCondition = false;
+            for (int nc = 0; nc < nComp; nc++)
             {
-                m_nBndCoeff += bndCondExpansions[i]->GetNcoeffs();
+                // Get BoundaryCondition and check if it is Dirichlet
+                auto cndMapIter  = bndCondMap->find(components[nc]);
+                bc               = (*cndMapIter).second;
+                bool isDirichlet = (bool)std::dynamic_pointer_cast<
+                    SpatialDomains::DirichletBoundaryCondition>(bc);
+
+                // Save if component has a Dirichlet condition
+                m_isDirichlet.push_back(isDirichlet);
+
+                // Check if any component has a Dirichlet condition
+                hasDirichletCondition = hasDirichletCondition || isDirichlet;
+            }
+
+            isDirichletByRegion.push_back(m_isDirichlet);
+
+            // Skip, if no Dirichletn condition in this boundary region
+            if (!hasDirichletCondition)
+            {
+                m_isDirichlet.clear();
+                continue;
+            }
+
+            // Create fields for evaluating BCs into
+            auto blocks_phys =
+                GetBlockAttributes<TData, FieldState::Phys>(bcExpList);
+            this->m_wsp_phys.push_back(Field<TData, FieldState::Phys>(
+                "Dirichlet BC phys", blocks_phys, nComp, nhomo));
+            auto blocks_coeffs =
+                GetBlockAttributes<TData, FieldState::Coeff>(bcExpList);
+            this->m_wsp_coeffs.push_back(Field<TData, FieldState::Coeff>(
+                "Dirichlet BC coeff", blocks_coeffs, nComp, nhomo));
+
+            // Initialize memory regions
+            this->m_wsp_phys.back().template Initialize<MemSpace>(0.0);
+            this->m_wsp_coeffs.back().template Initialize<MemSpace>(0.0);
+
+            // Create operators for this boundary condition
+            this->m_expressionOps.push_back(ExpressionOp<TData>::Create(
+                bcExpList, components, "Serial", "Generic"));
+            this->m_expressionOps.back()->SetComponentMask(m_isDirichlet);
+            m_isDirichlet.clear();
+
+            this->m_fwdTransBCOps.push_back(FwdTransBCOp<TData>::Create(
+                bcExpList, components, ExecSpace::name, "Generic"));
+
+            // Gather equations for each field/component
+            std::vector<LibUtilities::EquationSharedPtr> listOfEquations;
+            for (int nc = 0; nc < nComp; nc++)
+            {
+                // Get map for each field
+                auto cndMapIter = bndCondMap->find(components[nc]);
+
+                // Get BoundaryCondition and extract equation
+                bc = (*cndMapIter).second;
+                listOfEquations.push_back(bc->GetEquation());
+            }
+
+            // Set boundary conditions for each component in this boundary
+            // region
+            this->m_expressionOps.back()->SetExpressions(listOfEquations);
+
+            // Count number of Dirichlet BCs
+            dirBCID.push_back(nTotalBCs - 1);
+            nDirBCs++;
+        }
+
+        // Compute number of boundary coefficients.
+        // Also get padding size for each BC
+        for (size_t i = 0; i < nDirBCs; ++i)
+        {
+            auto &bndBlocks = this->m_wsp_coeffs[i].GetBlocks();
+
+            for (unsigned int blk = 0; blk < bndBlocks.size(); ++blk)
+            {
+                const auto &block = bndBlocks[blk];
+                const auto ncoeff = block.GetNumData();
+                const auto nelmt  = block.GetNumElements();
+                m_numBndCoeffCompSize += nelmt * ncoeff;
             }
         }
 
-        // Return if no Dirichlet boundary condition.
-        if (m_nBndCoeff == 0)
+        // Return if no Dirichlet boundary coefficients.
+        if (m_numBndCoeffCompSize == 0)
         {
             return;
         }
 
         // Compute block bound.
-        auto blockAttr =
-            GetBlockAttributes<TData, FieldState::Coeff>(expansionList);
-        std::vector<size_t> blockBound(blockAttr.size());
+        auto domainBlocks =
+            GetBlockAttributes<TData, FieldState::Coeff>(this->m_expansionList);
+        std::vector<size_t> blockBound(domainBlocks.size());
         size_t bound = 0;
-        for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
+        for (unsigned int blk = 0; blk < domainBlocks.size(); ++blk)
         {
-            const auto &block = blockAttr[blk];
+            const auto &block = domainBlocks[blk];
             const auto ncoeff = block.GetNumData();
             const auto nelmt  = block.GetNumElements();
             bound += nelmt * ncoeff;
@@ -97,222 +222,358 @@ public:
         }
 
         // Collecting boundary coefficients.
-        std::vector<TData> bndcoeff(m_nBndCoeff);
-        std::vector<size_t> index(m_nBndCoeff);
+        // and index map (map for one component only)
+        std::vector<TData> bndcoeff(nComp * m_numBndCoeffCompSize);
+        std::vector<size_t> index(m_numBndCoeffCompSize);
+        std::vector<std::vector<size_t>> dirIndexByComp(nComp);
         size_t bndcnt = 0, cnt = 0;
-        for (size_t i = 0; i < bndCondExpansions.size(); ++i)
+        size_t iDir = 0;
+        for (size_t i = 0; i < nTotalBCs; ++i)
         {
-            auto nBndExpCoeff = bndCondExpansions[i]->GetNcoeffs();
+            // Get number of coefficients for this BC
+            auto nBndExpCoeff = numBcExpCoeffs[i];
 
-            if (bndConditions[i]->GetBoundaryConditionType() ==
-                SpatialDomains::eDirichlet)
+            // Process Dirichlet boundary conditions
+            auto isDirichlet =
+                std::find(dirBCID.begin(), dirBCID.end(), i) != dirBCID.end();
+            if (isDirichlet)
             {
-                auto &bndExpCoeff = bndCondExpansions[i]->GetCoeffs();
-                std::copy(bndExpCoeff.data(), bndExpCoeff.data() + nBndExpCoeff,
-                          bndcoeff.data() + bndcnt);
+                // Evaluate Dirichlet BCs and put into vector
+                m_expressionOps[iDir]->Apply(m_wsp_phys[iDir],
+                                             m_wsp_phys[iDir]);
+                m_fwdTransBCOps[iDir]->Apply(m_wsp_phys[iDir],
+                                             m_wsp_coeffs[iDir]);
+
+                // Concatenate vector of all boundary coefficients (ToVector
+                // removes padding)
+                std::vector<TData> tmp =
+                    m_wsp_coeffs[iDir].template ToVector<TData>();
+
+                // Sort vector in boundary-region major to be consistent with
+                // map layout
+                ASSERTL1(tmp.size() == nComp * nBndExpCoeff,
+                         "Unexpected boundary coefficient vector size.");
+                for (size_t nc = 0; nc < nComp; ++nc)
+                {
+                    std::copy(tmp.begin() + nc * nBndExpCoeff,
+                              tmp.begin() + (nc + 1) * nBndExpCoeff,
+                              bndcoeff.begin() + nc * m_numBndCoeffCompSize +
+                                  bndcnt);
+                }
+
+                // Gather index
                 for (unsigned int j = 0; j < nBndExpCoeff; ++j)
                 {
                     index[bndcnt + j] = cnt + j;
                 }
+                for (size_t nc = 0; nc < nComp; ++nc)
+                {
+                    if (isDirichletByRegion[i][nc])
+                    {
+                        for (unsigned int j = 0; j < nBndExpCoeff; ++j)
+                        {
+                            dirIndexByComp[nc].push_back(bndcnt + j);
+                        }
+                    }
+                }
                 bndcnt += nBndExpCoeff;
+
+                // Increment Dirichlet boundaries
+                iDir++;
             }
             cnt += nBndExpCoeff;
         }
 
-        // Sort boundary coefficients by increasing order of "map[index[i]]".
-        std::vector<std::tuple<size_t, size_t, double>> mapReordered;
-        for (size_t i = 0; i < m_nBndCoeff; i++)
-        {
-            mapReordered.push_back(
-                std::make_tuple(i, map[index[i]], bndcoeff[i]));
-        }
-        std::sort(std::begin(mapReordered), std::end(mapReordered),
-                  [](std::tuple<size_t, size_t, double> const &t1,
-                     std::tuple<size_t, size_t, double> const &t2) {
-                      return std::tie(std::get<1>(t1), std::get<0>(t1)) <
-                             std::tie(std::get<1>(t2), std::get<0>(t2));
-                  });
+        ASSERTL1(bndcnt == m_numBndCoeffCompSize,
+                 "The component size does not match the number of coefficients "
+                 "for all Dirichlet boundaries.")
 
-        // local dir dofs.
-        m_localDirSize = assmbMap->GetCopyLocalDirDofs().size();
-        std::vector<std::tuple<size_t, size_t, double>> locReordered(
-            m_localDirSize);
-        if (m_localDirSize > 0)
+        m_map.clear();
+        m_sign.clear();
+        m_bndCoeff.clear();
+        m_parDirBndSign.clear();
+        m_parDirOffsets.assign(domainBlocks.size(),
+                               std::vector<size_t>(nComp, 0));
+        m_parDirCounts.assign(domainBlocks.size(),
+                              std::vector<size_t>(nComp, 0));
+        m_locid0.resize(domainBlocks.size());
+        m_locid1.resize(domainBlocks.size());
+        m_locsign.resize(domainBlocks.size());
+        for (unsigned int blk = 0; blk < domainBlocks.size(); ++blk)
         {
-            size_t cnt = 0;
-            for (auto &it : assmbMap->GetCopyLocalDirDofs())
+            m_locid0[blk].resize(domainBlocks.size());
+            m_locid1[blk].resize(domainBlocks.size());
+            m_locsign[blk].resize(domainBlocks.size());
+        }
+        m_locOffsets.assign(
+            domainBlocks.size(),
+            std::vector<std::vector<size_t>>(domainBlocks.size(),
+                                             std::vector<size_t>(nComp, 0)));
+        m_locCounts.assign(
+            domainBlocks.size(),
+            std::vector<std::vector<size_t>>(domainBlocks.size(),
+                                             std::vector<size_t>(nComp, 0)));
+        m_nParDirBndSignSize.resize(nComp, 0);
+        m_localDirSize.resize(nComp, 0);
+        m_signChange.resize(nComp, false);
+        m_compOffsets.assign(domainBlocks.size(),
+                             std::vector<size_t>(nComp, 0));
+        m_compCounts.assign(domainBlocks.size(), std::vector<size_t>(nComp, 0));
+        m_anySignChange = false;
+
+        std::vector<std::vector<size_t>> mapBlockByBlk(domainBlocks.size());
+        std::vector<std::vector<TData>> signBlockByBlk(domainBlocks.size());
+        std::vector<std::vector<TData>> bndCoeffBlockByBlk(domainBlocks.size());
+        std::vector<std::vector<int>> parDirBlockByBlk(domainBlocks.size());
+        std::vector<std::vector<std::vector<size_t>>> locid0BlockByPair(
+            domainBlocks.size(),
+            std::vector<std::vector<size_t>>(domainBlocks.size()));
+        std::vector<std::vector<std::vector<size_t>>> locid1BlockByPair(
+            domainBlocks.size(),
+            std::vector<std::vector<size_t>>(domainBlocks.size()));
+        std::vector<std::vector<std::vector<TData>>> locsignBlockByPair(
+            domainBlocks.size(),
+            std::vector<std::vector<TData>>(domainBlocks.size()));
+
+        for (size_t nc = 0; nc < nComp; ++nc)
+        {
+            MultiRegions::ContField compfield(session, graph, components[nc],
+                                              true, false,
+                                              Collections::eNoCollection);
+            auto &assmbMap = compfield.GetLocalToGlobalMap();
+            auto &sign     = assmbMap->GetBndCondCoeffsToLocalCoeffsSign();
+            auto &map      = assmbMap->GetBndCondCoeffsToLocalCoeffsMap();
+            auto &parallelDirBndSign = assmbMap->GetParallelDirBndSign();
+            m_signChange[nc]         = assmbMap->GetSignChange();
+
+            std::vector<std::tuple<size_t, size_t, double>> mapReordered;
+            mapReordered.reserve(dirIndexByComp[nc].size());
+            for (size_t idx : dirIndexByComp[nc])
             {
-                locReordered[cnt] = it;
-                cnt++;
+                mapReordered.push_back(std::make_tuple(
+                    idx, map[index[idx]],
+                    bndcoeff[idx + nc * m_numBndCoeffCompSize]));
             }
-            std::sort(std::begin(locReordered), std::end(locReordered),
+            std::sort(mapReordered.begin(), mapReordered.end(),
                       [](std::tuple<size_t, size_t, double> const &t1,
                          std::tuple<size_t, size_t, double> const &t2) {
                           return std::tie(std::get<1>(t1), std::get<0>(t1)) <
                                  std::tie(std::get<1>(t2), std::get<0>(t2));
                       });
-        }
 
-        // Parallel dir sign.
-        m_nParDirBndSignSize = parallelDirBndSign.size();
-        std::vector<int> parDirBndSignReordered(m_nParDirBndSignSize);
-        if (m_nParDirBndSignSize > 0)
-        {
-            size_t cnt = 0;
-            for (auto &it : parallelDirBndSign)
+            std::vector<std::vector<size_t>> blockIndices(domainBlocks.size());
+            size_t cursor = 0;
+            for (unsigned int blk = 0; blk < domainBlocks.size(); ++blk)
             {
-                parDirBndSignReordered[cnt] = it;
-                cnt++;
+                while (cursor < mapReordered.size() &&
+                       std::get<1>(mapReordered[cursor]) < blockBound[blk])
+                {
+                    blockIndices[blk].push_back(cursor);
+                    cursor++;
+                }
             }
-            std::sort(std::begin(parDirBndSignReordered),
-                      std::end(parDirBndSignReordered),
-                      [](const size_t t1, const size_t t2) { return t1 < t2; });
+
+            for (unsigned int blk = 0; blk < domainBlocks.size(); ++blk)
+            {
+                const size_t offset     = (blk == 0) ? 0 : blockBound[blk - 1];
+                const size_t compOffset = mapBlockByBlk[blk].size();
+                const size_t compCount  = blockIndices[blk].size();
+                m_compOffsets[blk][nc]  = compOffset;
+                m_compCounts[blk][nc]   = compCount;
+
+                mapBlockByBlk[blk].reserve(compOffset + compCount);
+                signBlockByBlk[blk].reserve(compOffset + compCount);
+                bndCoeffBlockByBlk[blk].reserve(compOffset + compCount);
+
+                for (size_t idx : blockIndices[blk])
+                {
+                    mapBlockByBlk[blk].push_back(
+                        std::get<1>(mapReordered[idx]) - offset);
+                    signBlockByBlk[blk].push_back(
+                        m_signChange[nc]
+                            ? sign[index[std::get<0>(mapReordered[idx])]]
+                            : static_cast<TData>(1));
+                    bndCoeffBlockByBlk[blk].push_back(
+                        std::get<2>(mapReordered[idx]));
+                }
+            }
+            m_anySignChange = m_anySignChange || m_signChange[nc];
+
+            // local dir dofs.
+            m_localDirSize[nc] = assmbMap->GetCopyLocalDirDofs().size();
+            std::vector<std::tuple<size_t, size_t, double>> locReordered(
+                m_localDirSize[nc]);
+            if (m_localDirSize[nc] > 0)
+            {
+                cnt = 0;
+                for (auto &it : assmbMap->GetCopyLocalDirDofs())
+                {
+                    locReordered[cnt] = it;
+                    cnt++;
+                }
+                std::sort(std::begin(locReordered), std::end(locReordered),
+                          [](std::tuple<size_t, size_t, double> const &t1,
+                             std::tuple<size_t, size_t, double> const &t2) {
+                              return std::tie(std::get<1>(t1),
+                                              std::get<0>(t1)) <
+                                     std::tie(std::get<1>(t2), std::get<0>(t2));
+                          });
+            }
+
+            if (m_localDirSize[nc] > 0)
+            {
+                std::vector<size_t> nLocCoeffBlock(domainBlocks.size(), 0);
+                std::vector<std::vector<size_t>> locid0Block(
+                    domainBlocks.size());
+                std::vector<std::vector<size_t>> locid1Block(
+                    domainBlocks.size());
+                std::vector<std::vector<TData>> locsignBlock(
+                    domainBlocks.size());
+                unsigned int blk0 = 0, blk1 = 0;
+                size_t offset0 = 0, offset1 = 0;
+                unsigned int i = 0;
+                while (blk1 < domainBlocks.size())
+                {
+                    if (i == m_localDirSize[nc] ||
+                        std::get<1>(locReordered[i]) >= blockBound[blk1])
+                    {
+                        for (size_t blk0 = 0; blk0 < domainBlocks.size();
+                             ++blk0)
+                        {
+                            const size_t compOffset =
+                                locid0BlockByPair[blk1][blk0].size();
+                            const size_t compCount = locid0Block[blk0].size();
+                            m_locOffsets[blk1][blk0][nc] = compOffset;
+                            m_locCounts[blk1][blk0][nc]  = compCount;
+
+                            auto &dst0 = locid0BlockByPair[blk1][blk0];
+                            auto &dst1 = locid1BlockByPair[blk1][blk0];
+                            auto &dsts = locsignBlockByPair[blk1][blk0];
+                            dst0.insert(dst0.end(), locid0Block[blk0].begin(),
+                                        locid0Block[blk0].end());
+                            dst1.insert(dst1.end(), locid1Block[blk0].begin(),
+                                        locid1Block[blk0].end());
+                            dsts.insert(dsts.end(), locsignBlock[blk0].begin(),
+                                        locsignBlock[blk0].end());
+                            locid0Block[blk0].clear();
+                            locid1Block[blk0].clear();
+                            locsignBlock[blk0].clear();
+                            nLocCoeffBlock[blk0] = 0;
+                        }
+                        offset1 = blockBound[blk1];
+                        blk1++;
+                    }
+                    else if (std::get<0>(locReordered[i]) >= blockBound[blk0])
+                    {
+                        offset0 = blockBound[blk0];
+                        blk0++;
+                    }
+                    else
+                    {
+                        locid0Block[blk0].push_back(
+                            std::get<0>(locReordered[i]) - offset0);
+                        locid1Block[blk0].push_back(
+                            std::get<1>(locReordered[i]) - offset1);
+                        locsignBlock[blk0].push_back(
+                            std::get<2>(locReordered[i]));
+                        nLocCoeffBlock[blk0]++;
+                        offset0 = 0;
+                        blk0    = 0;
+                        i++;
+                    }
+                }
+            }
+
+            // Parallel dir sign.
+            m_nParDirBndSignSize[nc] = parallelDirBndSign.size();
+            std::vector<int> parDirBndSignReordered(m_nParDirBndSignSize[nc]);
+            if (m_nParDirBndSignSize[nc] > 0)
+            {
+                cnt = 0;
+                for (auto &it : parallelDirBndSign)
+                {
+                    parDirBndSignReordered[cnt] = it;
+                    cnt++;
+                }
+                std::sort(
+                    std::begin(parDirBndSignReordered),
+                    std::end(parDirBndSignReordered),
+                    [](const size_t t1, const size_t t2) { return t1 < t2; });
+            }
+
+            if (m_nParDirBndSignSize[nc] > 0)
+            {
+                std::vector<int> parDirBndSignBlock;
+                unsigned int i = 0, blk = 0, offset = 0;
+                while (blk < domainBlocks.size())
+                {
+                    if (i == m_nParDirBndSignSize[nc] ||
+                        parDirBndSignReordered[i] >= blockBound[blk])
+                    {
+                        const size_t compOffset  = parDirBlockByBlk[blk].size();
+                        const size_t compCount   = parDirBndSignBlock.size();
+                        m_parDirOffsets[blk][nc] = compOffset;
+                        m_parDirCounts[blk][nc]  = compCount;
+
+                        auto &dst = parDirBlockByBlk[blk];
+                        dst.insert(dst.end(), parDirBndSignBlock.begin(),
+                                   parDirBndSignBlock.end());
+                        parDirBndSignBlock.clear();
+                        offset = blockBound[blk];
+                        blk++;
+                    }
+                    else
+                    {
+                        parDirBndSignBlock.push_back(parDirBndSignReordered[i] -
+                                                     offset);
+                        i++;
+                    }
+                }
+            }
         }
 
-        // Split bndcoeff per block.
-        std::vector<TData> bndCoeffBlock;
-        std::vector<size_t> mapBlock;
-        std::vector<TData> signBlock;
-        unsigned int blk = 0;
-        size_t i = 0, offset = 0, nbndCoeffBlock = 0;
-        while (blk < blockAttr.size())
+        m_map.reserve(domainBlocks.size());
+        m_bndCoeff.reserve(domainBlocks.size());
+        if (m_anySignChange)
         {
-            if (i == m_nBndCoeff ||
-                std::get<1>(mapReordered[i]) >= blockBound[blk])
+            m_sign.reserve(domainBlocks.size());
+        }
+        m_parDirBndSign.reserve(domainBlocks.size());
+        for (unsigned int blk = 0; blk < domainBlocks.size(); ++blk)
+        {
+            ASSERTL1(mapBlockByBlk[blk].size() ==
+                         bndCoeffBlockByBlk[blk].size(),
+                     "Mismatch between map and boundary coefficient sizes.");
+            m_map.push_back(
+                MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
+                    mapBlockByBlk[blk]));
+            m_bndCoeff.push_back(
+                MemoryRegion<TData>::template FromVector<MemSpace, TData>(
+                    bndCoeffBlockByBlk[blk]));
+            if (m_anySignChange)
             {
-                m_nBndCoeffBlock.push_back(nbndCoeffBlock);
-                m_bndCoeff.push_back(
+                m_sign.push_back(
                     MemoryRegion<TData>::template FromVector<MemSpace, TData>(
-                        bndCoeffBlock));
-                m_map.push_back(
+                        signBlockByBlk[blk]));
+            }
+            m_parDirBndSign.push_back(
+                MemoryRegion<int>::template FromVector<MemSpace, int>(
+                    parDirBlockByBlk[blk]));
+        }
+
+        for (unsigned int blk1 = 0; blk1 < domainBlocks.size(); ++blk1)
+        {
+            for (unsigned int blk0 = 0; blk0 < domainBlocks.size(); ++blk0)
+            {
+                m_locid0[blk1][blk0] =
                     MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
-                        mapBlock));
-                if (m_signChange)
-                {
-                    m_sign.push_back(MemoryRegion<TData>::template FromVector<
-                                     MemSpace, TData>(signBlock));
-                }
-                nbndCoeffBlock = 0;
-                bndCoeffBlock.clear();
-                mapBlock.clear();
-                signBlock.clear();
-                offset = blockBound[blk];
-                blk++;
-            }
-            else
-            {
-                bndCoeffBlock.push_back(std::get<2>(mapReordered[i]));
-                mapBlock.push_back(std::get<1>(mapReordered[i]) - offset);
-                if (m_signChange)
-                {
-                    signBlock.push_back(
-                        sign[index[std::get<0>(mapReordered[i])]]);
-                }
-                nbndCoeffBlock++;
-                i++;
-            }
-        }
-
-        // Split locReordered per block.
-        if (m_localDirSize > 0)
-        {
-            std::vector<size_t> nLocCoeffBlock(blockAttr.size(), 0);
-            std::vector<std::vector<size_t>> locid0Block(blockAttr.size());
-            std::vector<std::vector<size_t>> locid1Block(blockAttr.size());
-            std::vector<std::vector<TData>> locsignBlock(blockAttr.size());
-            m_nLocCoeffBlock =
-                std::vector<std::vector<size_t>>(blockAttr.size());
-            m_locid0 = std::vector<std::vector<MemoryRegion<size_t>>>(
-                blockAttr.size());
-            m_locid1 = std::vector<std::vector<MemoryRegion<size_t>>>(
-                blockAttr.size());
-            m_locsign =
-                std::vector<std::vector<MemoryRegion<TData>>>(blockAttr.size());
-            unsigned int blk0 = 0, blk1 = 0;
-            size_t i = 0, offset0 = 0, offset1 = 0;
-            while (blk1 < blockAttr.size())
-            {
-                if (i == m_localDirSize ||
-                    std::get<1>(locReordered[i]) >= blockBound[blk1])
-                {
-                    for (auto &nloc : nLocCoeffBlock)
-                    {
-                        m_nLocCoeffBlock[blk1].push_back(nloc);
-                        nloc = 0;
-                    }
-                    for (auto &locid0 : locid0Block)
-                    {
-                        m_locid0[blk1].push_back(
-                            MemoryRegion<size_t>::template FromVector<MemSpace,
-                                                                      size_t>(
-                                locid0));
-                        locid0.clear();
-                    }
-                    for (auto &locid1 : locid1Block)
-                    {
-                        m_locid1[blk1].push_back(
-                            MemoryRegion<size_t>::template FromVector<MemSpace,
-                                                                      size_t>(
-                                locid1));
-                        locid1.clear();
-                    }
-                    for (auto &locsign : locsignBlock)
-                    {
-                        m_locsign[blk1].push_back(
-                            MemoryRegion<TData>::template FromVector<MemSpace,
-                                                                     TData>(
-                                locsign));
-                        locsign.clear();
-                    }
-                    offset1 = blockBound[blk1];
-                    blk1++;
-                }
-                else if (std::get<0>(locReordered[i]) >= blockBound[blk0])
-                {
-                    offset0 = blockBound[blk0];
-                    blk0++;
-                }
-                else
-                {
-                    locid0Block[blk0].push_back(std::get<0>(locReordered[i]) -
-                                                offset0);
-                    locid1Block[blk0].push_back(std::get<1>(locReordered[i]) -
-                                                offset1);
-                    locsignBlock[blk0].push_back(std::get<2>(locReordered[i]));
-                    nLocCoeffBlock[blk0]++;
-                    offset0 = 0;
-                    blk0    = 0;
-                    i++;
-                }
-            }
-        }
-
-        // Split parDirBndSignReordered per block.
-        if (m_nParDirBndSignSize > 0)
-        {
-            std::vector<int> parDirBndSignBlock;
-            int i = 0, blk = 0, offset = 0, nParDirBndSignBlock = 0;
-            while (blk < blockAttr.size())
-            {
-                if (i == m_nParDirBndSignSize ||
-                    parDirBndSignReordered[i] >= blockBound[blk])
-                {
-                    m_nParDirBndSignBlock.push_back(nParDirBndSignBlock);
-                    m_parDirBndSign.push_back(
-                        MemoryRegion<int>::template FromVector<MemSpace, int>(
-                            parDirBndSignBlock));
-                    nParDirBndSignBlock = 0;
-                    parDirBndSignBlock.clear();
-                    offset = blockBound[blk];
-                    blk++;
-                }
-                else
-                {
-                    parDirBndSignBlock.push_back(parDirBndSignReordered[i] -
-                                                 offset);
-                    nParDirBndSignBlock++;
-                    i++;
-                }
+                        locid0BlockByPair[blk1][blk0]);
+                m_locid1[blk1][blk0] =
+                    MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
+                        locid1BlockByPair[blk1][blk0]);
+                m_locsign[blk1][blk0] =
+                    MemoryRegion<TData>::template FromVector<MemSpace, TData>(
+                        locsignBlockByPair[blk1][blk0]);
             }
         }
     }
@@ -330,97 +591,128 @@ public:
     }
 
 protected:
+    bool m_anySignChange         = false;
+    size_t m_numBndCoeffCompSize = 0;
+    std::vector<bool> m_signChange;
+    std::vector<bool> m_isDirichlet;
+
+    std::vector<Field<TData, FieldState::Phys>> m_wsp_phys;
+    std::vector<Field<TData, FieldState::Coeff>> m_wsp_coeffs;
+    std::vector<std::shared_ptr<ExpressionOp<TData>>> m_expressionOps;
+    std::vector<std::shared_ptr<FwdTransBCOp<TData>>> m_fwdTransBCOps;
+
     std::vector<MemoryRegion<size_t>> m_map;
     std::vector<MemoryRegion<TData>> m_sign;
     std::vector<MemoryRegion<TData>> m_bndCoeff;
-    std::vector<size_t> m_nBndCoeffBlock;
+    std::vector<std::vector<size_t>> m_compOffsets;
+    std::vector<std::vector<size_t>> m_compCounts;
+
+    std::vector<size_t> m_nParDirBndSignSize;
+    std::vector<size_t> m_localDirSize;
+
     std::vector<MemoryRegion<int>> m_parDirBndSign;
-    std::vector<size_t> m_nParDirBndSignBlock;
+    std::vector<std::vector<size_t>> m_parDirOffsets;
+    std::vector<std::vector<size_t>> m_parDirCounts;
     std::vector<std::vector<MemoryRegion<size_t>>> m_locid0;
     std::vector<std::vector<MemoryRegion<size_t>>> m_locid1;
     std::vector<std::vector<MemoryRegion<TData>>> m_locsign;
-    std::vector<std::vector<size_t>> m_nLocCoeffBlock;
-
-    size_t m_nBndCoeff          = 0;
-    size_t m_nParDirBndSignSize = 0;
-    size_t m_localDirSize       = 0;
-    bool m_signChange;
+    std::vector<std::vector<std::vector<size_t>>> m_locOffsets;
+    std::vector<std::vector<std::vector<size_t>>> m_locCounts;
 
     void v_Apply(Field<TData, FieldState::Coeff> &inout) override
     {
         // Return if no Dirichlet boundary condition.
-        if (m_nBndCoeff == 0)
+        if (m_numBndCoeffCompSize == 0)
         {
             return;
         }
 
-        ASSERTL0(inout.GetNumComponents() == 1,
-                 "Not yet set up for multiple components");
-
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
         {
-            auto nbndCoeffBlk = m_nBndCoeffBlock[blk];
-
-            if (nbndCoeffBlk == 0)
-            {
-                continue;
-            }
-
             auto &inoutBlk = inout.GetBlocks()[blk];
 
             // Initialize pointers.
             auto inoutPtr = inoutBlk.template GetPtr<MemSpace, ReadWrite>();
-            auto mapPtr   = m_map[blk].template GetPtr<MemSpace, ReadOnly>();
-            auto bndcoeffPtr =
-                m_bndCoeff[blk].template GetPtr<MemSpace, ReadOnly>();
-            const TData *signPtr =
-                m_signChange ? m_sign[blk].template GetPtr<MemSpace, ReadOnly>()
-                             : nullptr;
 
             // if block is interlaced deInterleave block since currently mapping
-            auto inoutWidth = inoutBlk.GetInterleaveWidth();
+            // set up assuming serial alignment
+            auto inoutWidth  = inoutBlk.GetInterleaveWidth();
+            unsigned blksize = inoutBlk.CompSize();
             if (inoutWidth != 1)
             {
-                deInterleave<ExecSpace>(inoutWidth,
-                                        inoutBlk.GetNumElementsWithPadding() /
-                                            inoutWidth,
-                                        inoutBlk.GetNumData(), inoutPtr);
+                for (unsigned nc = 0; nc < inout.GetNumComponents(); ++nc)
+                {
+                    deInterleave<ExecSpace>(
+                        inoutWidth,
+                        inoutBlk.GetNumElementsWithPadding() / inoutWidth,
+                        inoutBlk.GetNumData(), inoutPtr + nc * blksize);
+                }
                 inoutBlk.template SetInterleaveWidth<TData>(1);
             }
 
+            auto mapPtrBlock = m_map[blk].template GetPtr<MemSpace, ReadOnly>();
+            auto bndcoeffPtrBlock =
+                m_bndCoeff[blk].template GetPtr<MemSpace, ReadOnly>();
+            const TData *signPtrBlock =
+                m_anySignChange
+                    ? m_sign[blk].template GetPtr<MemSpace, ReadOnly>()
+                    : nullptr;
+
             // Add Dirichlet boundary conditions.
-            if (m_signChange)
+            for (unsigned nc = 0; nc < inout.GetNumComponents(); ++nc)
             {
-                DirBndCondKernel<ExecSpace>(nbndCoeffBlk, signPtr, mapPtr,
-                                            bndcoeffPtr, inoutPtr);
-            }
-            else
-            {
-                DirBndCondKernel<ExecSpace>(nbndCoeffBlk, mapPtr, bndcoeffPtr,
-                                            inoutPtr);
+                auto nbndCoeffBlk = m_compCounts[blk][nc];
+                if (nbndCoeffBlk == 0)
+                {
+                    continue;
+                }
+
+                const size_t offset = m_compOffsets[blk][nc];
+                auto mapPtr         = mapPtrBlock + offset;
+                auto bndcoeffPtr    = bndcoeffPtrBlock + offset;
+                const TData *signPtr =
+                    m_signChange[nc] ? signPtrBlock + offset : nullptr;
+
+                if (m_signChange[nc])
+                {
+                    DirBndCondKernel<ExecSpace>(nbndCoeffBlk, signPtr, mapPtr,
+                                                bndcoeffPtr,
+                                                inoutPtr + nc * blksize);
+                }
+                else
+                {
+                    DirBndCondKernel<ExecSpace>(nbndCoeffBlk, mapPtr,
+                                                bndcoeffPtr,
+                                                inoutPtr + nc * blksize);
+                }
             }
         }
 
-        if (m_nParDirBndSignSize > 0)
+        for (unsigned nc = 0; nc < inout.GetNumComponents(); ++nc)
         {
+            if (m_nParDirBndSignSize[nc] == 0)
+            {
+                continue;
+            }
+
             for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
             {
-                auto nParDirBndSignBlock = m_nParDirBndSignBlock[blk];
-
+                auto nParDirBndSignBlock = m_parDirCounts[blk][nc];
                 if (nParDirBndSignBlock == 0)
                 {
                     continue;
                 }
 
-                // Initialize pointers.
                 auto inoutptr = inout.GetBlocks()[blk]
                                     .template GetPtr<MemSpace, ReadWrite>();
                 auto parDirBndSignPtr =
-                    m_parDirBndSign[blk].template GetPtr<MemSpace, ReadOnly>();
-
+                    m_parDirBndSign[blk].template GetPtr<MemSpace, ReadOnly>() +
+                    m_parDirOffsets[blk][nc];
+                auto blksize = inout.GetBlocks()[blk].CompSize();
                 ParallelDirBndSignKernel<ExecSpace>(nParDirBndSignBlock,
-                                                    parDirBndSignPtr, inoutptr);
+                                                    parDirBndSignPtr,
+                                                    inoutptr + nc * blksize);
             }
         }
 
@@ -438,59 +730,75 @@ protected:
             inout.template CopyArray<MemSpace, NekDouble>(inoutarr);
         }
 
-        if (m_nParDirBndSignSize > 0)
+        for (unsigned nc = 0; nc < inout.GetNumComponents(); ++nc)
         {
+            if (m_nParDirBndSignSize[nc] == 0)
+            {
+                continue;
+            }
+
             for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
             {
-                auto nParDirBndSignBlock = m_nParDirBndSignBlock[blk];
-
+                auto nParDirBndSignBlock = m_parDirCounts[blk][nc];
                 if (nParDirBndSignBlock == 0)
                 {
                     continue;
                 }
 
-                // Initialize pointers.
                 auto inoutptr = inout.GetBlocks()[blk]
                                     .template GetPtr<MemSpace, ReadWrite>();
                 auto parDirBndSignPtr =
-                    m_parDirBndSign[blk].template GetPtr<MemSpace, ReadOnly>();
+                    m_parDirBndSign[blk].template GetPtr<MemSpace, ReadOnly>() +
+                    m_parDirOffsets[blk][nc];
 
+                auto blksize = inout.GetBlocks()[blk].CompSize();
                 ParallelDirBndSignKernel<ExecSpace>(nParDirBndSignBlock,
-                                                    parDirBndSignPtr, inoutptr);
+                                                    parDirBndSignPtr,
+                                                    inoutptr + nc * blksize);
             }
         }
 
-        if (m_localDirSize > 0)
+        for (unsigned nc = 0; nc < inout.GetNumComponents(); ++nc)
         {
+            if (m_localDirSize[nc] == 0)
+            {
+                continue;
+            }
+
             for (unsigned int blk1 = 0; blk1 < inout.GetBlocks().size(); ++blk1)
             {
-                // Initialize pointers.
                 auto inptr = inout.GetBlocks()[blk1]
                                  .template GetPtr<MemSpace, ReadOnly>();
+                auto blksize1 = inout.GetBlocks()[blk1].CompSize();
                 for (unsigned int blk0 = 0; blk0 < inout.GetBlocks().size();
                      ++blk0)
                 {
-                    auto nLocCoeffBlock = m_nLocCoeffBlock[blk1][blk0];
-
+                    auto nLocCoeffBlock = m_locCounts[blk1][blk0][nc];
                     if (nLocCoeffBlock == 0)
                     {
                         continue;
                     }
 
-                    // Initialize pointers.
                     auto outptr = inout.GetBlocks()[blk0]
                                       .template GetPtr<MemSpace, WriteOnly>();
-                    auto locid0Ptr = m_locid0[blk1][blk0]
-                                         .template GetPtr<MemSpace, ReadOnly>();
-                    auto locid1Ptr = m_locid1[blk1][blk0]
-                                         .template GetPtr<MemSpace, ReadOnly>();
+                    const size_t offset = m_locOffsets[blk1][blk0][nc];
+                    auto locid0Ptr =
+                        m_locid0[blk1][blk0]
+                            .template GetPtr<MemSpace, ReadOnly>() +
+                        offset;
+                    auto locid1Ptr =
+                        m_locid1[blk1][blk0]
+                            .template GetPtr<MemSpace, ReadOnly>() +
+                        offset;
                     auto locsignPtr =
                         m_locsign[blk1][blk0]
-                            .template GetPtr<MemSpace, ReadOnly>();
+                            .template GetPtr<MemSpace, ReadOnly>() +
+                        offset;
 
-                    LocalDirBndCondKernel<ExecSpace>(nLocCoeffBlock, locid0Ptr,
-                                                     locid1Ptr, locsignPtr,
-                                                     inptr, outptr);
+                    auto blksize0 = inout.GetBlocks()[blk0].CompSize();
+                    LocalDirBndCondKernel<ExecSpace>(
+                        nLocCoeffBlock, locid0Ptr, locid1Ptr, locsignPtr,
+                        inptr + nc * blksize1, outptr + nc * blksize0);
                 }
             }
         }

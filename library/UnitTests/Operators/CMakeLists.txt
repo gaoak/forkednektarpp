@@ -58,6 +58,8 @@ ADD_NEKTAR_EXECUTABLE(test_dirichlet
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_dirichlet.cpp)
 ADD_NEKTAR_EXECUTABLE(test_neumann
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_neumann.cpp)
+#ADD_NEKTAR_EXECUTABLE(test_robin
+#    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_robin.cpp)
 ADD_NEKTAR_EXECUTABLE(test_runge_kutta
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_runge_kutta.cpp)
 ADD_NEKTAR_EXECUTABLE(test_adams_bashforth
@@ -189,7 +191,8 @@ SET_UNIT_TEST(Math_serial test_math Serial none FALSE)
 SET_UNIT_TEST(Parallel_reduce_serial test_parallel_reduce Serial none FALSE)
 SET_UNIT_TEST(AssmbScatr_serial test_assmbscatr Serial none FALSE)
 SET_UNIT_TEST(Dirichlet_serial test_dirichlet Serial none FALSE)
-SET_UNIT_TEST(Neumann_serial test_neumann Serial none FALSE)
+SET_UNIT_TEST(Neumann_serial test_neumann Serial SumFac FALSE)
+#SET_UNIT_TEST(Robin_serial test_robin Serial none FALSE)
 SET_UNIT_TEST(RungeKutta_serial test_runge_kutta Serial none FALSE)
 SET_UNIT_TEST(AdamsBashforth_serial test_adams_bashforth Serial none FALSE)
 SET_UNIT_TEST(DIRK_serial test_dirk Serial none FALSE)
@@ -261,7 +264,7 @@ IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(Parallel_reduce_avx test_parallel_reduce AVX none FALSE)
     SET_UNIT_TEST(AssmbScatr_avx test_assmbscatr AVX none FALSE)
     SET_UNIT_TEST(Dirichlet_avx  test_dirichlet AVX none FALSE)
-    SET_UNIT_TEST(Neumann_avx test_neumann AVX none FALSE)
+    SET_UNIT_TEST(Neumann_avx test_neumann AVX SumFac FALSE)
     SET_UNIT_TEST(RungeKutta_avx test_runge_kutta AVX none FALSE)
     SET_UNIT_TEST(AdamsBashforth_avx test_adams_bashforth AVX none FALSE)
     SET_UNIT_TEST(DIRK_avx test_dirk AVX none FALSE)
@@ -285,8 +288,8 @@ ENDIF()
 # AVX generic
 IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(MultiplyByElmtInvMass_avx_generic test_multiplybyelmtinvmass AVX Generic FALSE)
-    # SET_UNIT_TEST(Expression_avx_generic test_expression AVX Generic FALSE)
     SET_UNIT_TEST(FwdTransBC_avx_generic test_fwdtransbc AVX Generic FALSE)
+    # SET_UNIT_TEST(Expression_avx_generic test_expression AVX Generic FALSE)
 ENDIF()
 
 # AVX StdMat
@@ -336,7 +339,7 @@ IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(Parallel_reduce_device test_parallel_reduce Device none FALSE)
     SET_UNIT_TEST(AssmbScatr_device test_assmbscatr Device none FALSE)
     SET_UNIT_TEST(Dirichlet_device test_dirichlet Device none FALSE)
-    SET_UNIT_TEST(Neumann_device test_neumann Device none FALSE)
+    SET_UNIT_TEST(Neumann_device test_neumann Device SumFac FALSE)
     SET_UNIT_TEST(RungeKutta_device test_runge_kutta Device none FALSE)
     SET_UNIT_TEST(AdamsBashforth_device test_adams_bashforth Device none FALSE)
     SET_UNIT_TEST(DIRK_device test_dirk Device none FALSE)
@@ -362,8 +365,8 @@ ENDIF()
 # Device generic
 IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(MultiplyByElmtInvMass_device_generic test_multiplybyelmtinvmass Device Generic FALSE)
-     SET_UNIT_TEST(Expression_device_generic test_expression Device Generic FALSE)
     SET_UNIT_TEST(FwdTransBC_device_generic test_fwdtransbc Device Generic FALSE)
+    SET_UNIT_TEST(Expression_device_generic test_expression Device Generic FALSE)
 ENDIF()
 
 # Device StdMat

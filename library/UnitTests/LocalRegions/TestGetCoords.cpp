@@ -246,9 +246,6 @@ BOOST_AUTO_TEST_CASE(TestPointExpThatIsStdRegion)
     double epsilon = 1.0e-8;
     BOOST_CHECK_CLOSE(c0, -1.0, epsilon);
     BOOST_CHECK_CLOSE(c0_arr[0], -1.0, epsilon);
-
-    // Get GeomFactors and check it's a nullptr for pointExp
-    BOOST_CHECK_EQUAL(pointExp->GetGeomFactors(), nullptr);
 }
 
 } // namespace Nektar::HexExpTests

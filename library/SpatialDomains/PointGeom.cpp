@@ -218,13 +218,16 @@ bool operator!=(const PointGeom *x, const PointGeom &y)
 GeomFactorsUniquePtr PointGeom::v_GenGeomFactors(
     [[maybe_unused]] LibUtilities::PointsKeyVector &keyTgt)
 {
-    if (!m_setupState)
-    {
-        m_xmap = MemoryManager<StdRegions::StdPointExp>::AllocateSharedPtr();
-        SetUpCoeffs(m_xmap->GetNcoeffs());
-        m_setupState = true;
-    }
-    return GeomFactorsUniquePtr();
+    m_xmap = MemoryManager<StdRegions::StdPointExp>::AllocateSharedPtr();
+    SetUpCoeffs(m_xmap->GetNcoeffs());
+
+    // Points are always regular
+    GeomType Gtype = eRegular;
+
+    m_setupState = true;
+
+    return ObjPoolManager<GeomFactors>::AllocateUniquePtr(
+        Gtype, m_coordim, m_xmap, m_coeffs, keyTgt);
 }
 
 } // namespace Nektar::SpatialDomains

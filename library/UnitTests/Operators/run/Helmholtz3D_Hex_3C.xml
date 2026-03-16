@@ -158,6 +158,7 @@
     </EXPANSIONS>
 
     <CONDITIONS>
+
         <SOLVERINFO>
             <I PROPERTY="GLOBALSYSSOLN"    VALUE="IterativeFull" />
             <I PROPERTY="LinSysIterSolver" VALUE="ConjugateGradientLoc"/>
@@ -186,7 +187,12 @@
         </VARIABLES>
 
         <BOUNDARYREGIONS>
-            <B ID="0"> C[1-6] </B>
+            <B ID="0"> C[1] </B>
+            <B ID="1"> C[2] </B>
+            <B ID="2"> C[3] </B>
+            <B ID="3"> C[4] </B>
+            <B ID="4"> C[5] </B>
+            <B ID="5"> C[6] </B>
         </BOUNDARYREGIONS>
 
         <BOUNDARYCONDITIONS>
@@ -194,6 +200,31 @@
                 <D VAR="u" VALUE="sin(A*x)*sin(A*y)*sin(A*z)" />
                 <D VAR="v" VALUE="sin(B*x)*sin(B*y)*sin(B*z)" />
                 <D VAR="w" VALUE="sin(C*x)*sin(C*y)*sin(C*z)" />
+            </REGION>
+            <REGION REF="1">
+                <N VAR="u" VALUE="-sin(A*x)*cos(A*y)*sin(A*z)*A" />
+                <N VAR="v" VALUE="-sin(B*x)*cos(B*y)*sin(B*z)*B" />
+                <N VAR="w" VALUE="-sin(C*x)*cos(C*y)*sin(C*z)*C" />
+            </REGION>
+            <REGION REF="2">
+                <N VAR="u" VALUE="-sin(A*x)*cos(A*y)*sin(A*z)*A" />
+                <N VAR="v" VALUE="-sin(B*x)*cos(B*y)*sin(B*z)*B" />
+                <N VAR="w" VALUE="-sin(C*x)*cos(C*y)*sin(C*z)*C" />
+            </REGION>
+            <REGION REF="3">
+                <D VAR="u" VALUE="sin(A*x)*sin(A*y)*sin(A*z)" />
+                <D VAR="v" VALUE="sin(B*x)*sin(B*y)*sin(B*z)" />
+                <D VAR="w" VALUE="sin(C*x)*sin(C*y)*sin(C*z)" />
+            </REGION>
+            <REGION REF="4">
+                <D VAR="u" VALUE="sin(A*x)*sin(A*y)*sin(A*z)" />
+                <D VAR="v" VALUE="sin(B*x)*sin(B*y)*sin(B*z)" />
+                <D VAR="w" VALUE="sin(C*x)*sin(C*y)*sin(C*z)" />
+            </REGION>
+            <REGION REF="5">
+                <N VAR="u" VALUE="-sin(A*x)*cos(A*y)*sin(A*z)*A" />
+                <N VAR="v" VALUE="-sin(B*x)*cos(B*y)*sin(B*z)*B" />
+                <N VAR="w" VALUE="-sin(C*x)*cos(C*y)*sin(C*z)*C" />
             </REGION>
         </BOUNDARYCONDITIONS>
 

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: init_dirichletfields.hpp
+// File: init_robinfields.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,19 +34,18 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/BndCondOps/DirBndCond/DirBndCondOp.hpp"
+#include "Operators/BndCondOps/RobBndCond/RobBndCondOp.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
 template <typename TData>
-class DirichletField
-    : public InitFields<TData, FieldState::Coeff, FieldState::Coeff,
-                        MultiRegions::ContField>
+class RobinField : public InitFields<TData, FieldState::Coeff,
+                                     FieldState::Coeff, MultiRegions::ContField>
 {
 public:
-    DirichletField()
+    RobinField()
         : InitFields<TData, FieldState::Coeff, FieldState::Coeff,
                      MultiRegions::ContField>()
     {
@@ -55,7 +54,9 @@ public:
     void SetTestCase()
     {
         // Set initial conditions.
+        this->fixt_in->template Initialize<NektarSpaces::HostSpace>(1.0);
         this->fixt_out->template Initialize<NektarSpaces::HostSpace>(0.0);
+        this->fixt_expected->template Initialize<NektarSpaces::HostSpace>(0.0);
 
         // Compute expected solution.
         ExpectedSolution();
@@ -63,9 +64,9 @@ public:
 
     void RunTestCase()
     {
-        auto op = DirBndCondOp<TData>::Create(this->fixt_explist,
+        auto op = RobBndCondOp<TData>::Create(this->fixt_explist,
                                               this->session->GetVariables());
-        op->Apply(*this->fixt_out);
+        op->Apply(*this->fixt_in, *this->fixt_out);
     }
 
     void ExpectedSolution()
@@ -85,9 +86,12 @@ public:
                      std::to_string(ncomp) + " and Nfields = " +
                      std::to_string(nvars) + ", respectively.")
 
-        // Impose Dirichlet BCs for each component
+        auto incoeffs = this->fixt_in->template ToArray<NekDouble>();
+
+        // Impose Robin BCs for each component
         double time = 0.0;
-        Array<OneD, double> tmp;
+        Array<OneD, double> tmpIn;
+        Array<OneD, double> tmpOut;
         for (unsigned int nc = 0; nc < ncomp; ++nc)
         {
             // Setup dedicated explist for each variable to evaluate correct BCs
@@ -96,9 +100,10 @@ public:
                                             variables[nc], true, false,
                                             Collections::eNoCollection);
 
-            // Update BC for this variable and impose
+            // Fill boundary expansions and impose
             bcfield.EvaluateBoundaryConditions(time);
-            bcfield.ImposeDirichletConditions(tmp = outcoeffs + nc * ncoeffs);
+            // TODO impose (local/elemental) robin mass matrix
+            bcfield.ImposeRobinConditions(tmpOut = outcoeffs + nc * ncoeffs);
         }
         this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
             outcoeffs);
@@ -108,7 +113,7 @@ public:
 // clang-format off
 #if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
 #define TESTFLOAT(type, filename)                                              \
-    class type##float : public DirichletField<float>                           \
+    class type##float : public RobinField<float>                               \
     {                                                                          \
     public:                                                                    \
         type##float()                                                          \
@@ -121,7 +126,7 @@ public:
 #endif
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 #define TESTDOUBLE(type, filename)                                             \
-    class type : public DirichletField<double>                                 \
+    class type : public RobinField<double>                                     \
     {                                                                          \
     public:                                                                    \
         type()                                                                 \
@@ -137,36 +142,4 @@ public:
     TESTDOUBLE(type, filename)
 // clang-format on
 
-TEST(Helmholtz1D_Seg, "run/Helmholtz1D_P8.xml")
-
-TEST(Helmholtz1D_Seg_3C, "run/Helmholtz1D_3C.xml")
-
-TEST(Helmholtz1D_Seg_3C_mixedBC, "run/Helmholtz1D_3C_mixedBC.xml")
-
-TEST(Helmholtz2D_Quad, "run/Helmholtz2D_Quad.xml")
-
-TEST(Helmholtz2D_Quad_3C, "run/Helmholtz2D_Quad_3C.xml")
-
-TEST(Helmholtz2D_Tri, "run/Helmholtz2D_Tri.xml")
-
-TEST(Helmholtz2D_Tri_3C, "run/Helmholtz2D_Tri_3C.xml")
-
-TEST(Helmholtz2D_Tri_Quad, "run/Helmholtz2D_P7_AllBCs.xml")
-
-TEST(Helmholtz2D_Tri_Quad_3C, "run/Helmholtz2D_3C.xml")
-
-TEST(Helmholtz2D_Tri_Quad_3C_mixedBC, "run/Helmholtz2D_3C_mixedBC.xml")
-
-TEST(Helmholtz3D_Hex, "run/Helmholtz3D_Hex_Heterogeneous.xml")
-
-TEST(Helmholtz3D_Prism, "run/Helmholtz3D_Prism_VarP.xml")
-
-TEST(Helmholtz3D_Pyr, "run/Helmholtz3D_Pyr_VarP.xml")
-
-TEST(Helmholtz3D_Tet, "run/Helmholtz3D_Tet_VarP.xml")
-
-TEST(Helmholtz3D_Hex_AllBCs, "run/Helmholtz3D_Hex_AllBCs_P6.xml")
-
-TEST(Helmholtz3D_Hex_3C, "run/Helmholtz3D_Hex_3C.xml")
-
-TEST(Helmholtz3D_Hex_3C_mixedBC, "run/Helmholtz3D_Hex_3C_mixedBC.xml")
+TEST(Helmholtz2D_Tri_Quad_AllBCs, "run/Helmholtz2D_P7_AllBCs.xml")

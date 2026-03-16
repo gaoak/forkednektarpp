@@ -93,6 +93,10 @@ protected:
                  "Number of expressions must match number of components in "
                  "input and output Field when calling Apply().")
 
+        ASSERTL1(this->m_expressions.size() == this->m_cmask.size(),
+                 "Number of expressions must match size of component mask when "
+                 "calling Apply().")
+
         const auto nelmt = inblock.GetNumElements();
         const auto compSize =
             inblock.GetNumData() * inblock.GetNumElementsWithPadding();
@@ -131,44 +135,52 @@ protected:
                     (TData *)outptr);
             }
 
-            // Evaluate expression.
-            auto coordptr = this->m_coordptr;
-            for (size_t e = 0, cnt = 0; e < nelmt; e++)
+            // Check component mask
+            if (this->m_cmask[nc])
             {
-                // Kernel operation.
-                unsigned int nev;
-                TData fce = 0.0;
-                for (unsigned int pt = 0; pt < this->m_nqTot; ++pt, ++cnt)
+                // Evaluate expression.
+                auto coordptr = this->m_coordptr;
+                for (size_t e = 0, cnt = 0; e < nelmt; e++)
                 {
-                    // Gather fielddata
-                    // Note we set y and z coordinate only if the coordinate
-                    // dimension is large enough otherwise they default to zero
-                    // This is relevant for example for boundary elements where
-                    // the domain uses one more dimension than the boundary
-                    fielddata[0] = *(coordptr);
-                    fielddata[1] = this->m_coordDim > 1 ? *(coordptr + 1) : 0.0;
-                    fielddata[2] = this->m_coordDim > 2 ? *(coordptr + 2) : 0.0;
-                    fielddata[3] = this->m_time;
-
-                    // Add EVARS, if required
-                    // Note we assume that inblock holds all fields as
-                    // components
-                    nev = 0;
-                    for (unsigned i = 4; i < this->m_numEvars[nc]; i++, nev++)
+                    // Kernel operation.
+                    unsigned int nev;
+                    TData fce = 0.0;
+                    for (unsigned int pt = 0; pt < this->m_nqTot; ++pt, ++cnt)
                     {
-                        fielddata[i] = *(inptr + nev * compSize + cnt);
+                        // Gather fielddata
+                        // Note we set y and z coordinate only if the coordinate
+                        // dimension is large enough otherwise they default to
+                        // zero This is relevant for example for boundary
+                        // elements where the domain uses one more dimension
+                        // than the boundary
+                        fielddata[0] = *(coordptr);
+                        fielddata[1] =
+                            this->m_coordDim > 1 ? *(coordptr + 1) : 0.0;
+                        fielddata[2] =
+                            this->m_coordDim > 2 ? *(coordptr + 2) : 0.0;
+                        fielddata[3] = this->m_time;
+
+                        // Add EVARS, if required
+                        // Note we assume that inblock holds all fields as
+                        // components
+                        nev = 0;
+                        for (unsigned i = 4; i < this->m_numEvars[nc];
+                             i++, nev++)
+                        {
+                            fielddata[i] = *(inptr + nev * compSize + cnt);
+                        }
+
+                        // Evaluate the function assuming fixed input of x, y
+                        // and z coordinate.
+                        fce = this->m_expressions[n]->Evaluate(fielddata);
+
+                        // Add fce to outptr.
+                        outptr[cnt] = (this->m_append)
+                                          ? outptr[cnt] + this->m_scale * fce
+                                          : this->m_scale * fce;
+
+                        coordptr += this->m_coordDim;
                     }
-
-                    // Evaluate the function assuming fixed input of x, y and z
-                    // coordinate.
-                    fce = this->m_expressions[n]->Evaluate(fielddata);
-
-                    // Add fce to outptr.
-                    outptr[cnt] = (this->m_append)
-                                      ? outptr[cnt] + this->m_scale * fce
-                                      : this->m_scale * fce;
-
-                    coordptr += this->m_coordDim;
                 }
             }
 

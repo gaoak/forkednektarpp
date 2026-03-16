@@ -180,10 +180,9 @@ NEK_FORCE_INLINE static void FwdTransBCTriKernel(
     const unsigned int nq1, const bool isModified, const simd_type *basis0,
     const simd_type *basis1, const simd_type *w0, const simd_type *w1,
     const simd_type *interp1to0, const unsigned int offset_seg,
-    const simd_type *invintmass0, const simd_type *invintmass1,
-    const simd_type *tJac, const bool interpTo0, const unsigned int *tMap,
-    const int *tSign, const unsigned int nmTotInt, const unsigned int *iMap,
-    [[maybe_unused]] const simd_type *invintmass,
+    const simd_type *invintmass0, const simd_type *tJac,
+    const unsigned int *tMap, const int *tSign, const unsigned int nmTotInt,
+    const unsigned int *iMap, [[maybe_unused]] const simd_type *invintmass,
     [[maybe_unused]] const simd_type *dmat, const simd_type *jac,
     const simd_type *in, simd_type *out, simd_type *wsp1, simd_type *wsp2,
     simd_type *wsp3, simd_type *wsp4)
@@ -192,36 +191,21 @@ NEK_FORCE_INLINE static void FwdTransBCTriKernel(
     const unsigned int nqTot     = nq0 * nq1;
     const unsigned int nmEdgeTot = nm0 + 2 * nm1;
     /// Step 1: Extract edge modes
-    if (interpTo0)
+    simd_type tmp, tmp2;
+    for (unsigned int i = 0; i < nq0; i++)
     {
-        simd_type tmp, tmp2;
-        for (unsigned int i = 0; i < nq0; i++)
+        // Interpolate basis1 to basis0 for edge1 and edge2
+        tmp  = 0.0;
+        tmp2 = 0.0;
+        for (unsigned int j = 0u; j < nq1; j++)
         {
-            // Interpolate basis1 to basis0 for edge1 and edge2
-            tmp  = 0.0;
-            tmp2 = 0.0;
-            for (unsigned int j = 0u; j < nq1; j++)
-            {
-                tmp += in[nq0 - 1 + j * nq0] * interp1to0[i * nq1 + j];
-                tmp2 += in[j * nq0] * interp1to0[i * nq1 + j];
-            }
+            tmp += in[nq0 - 1 + j * nq0] * interp1to0[i * nq1 + j];
+            tmp2 += in[j * nq0] * interp1to0[i * nq1 + j];
+        }
 
-            wsp1[i]           = in[i];
-            wsp1[i + nq0]     = tmp;
-            wsp1[i + 2 * nq0] = tmp2;
-        }
-    }
-    else
-    {
-        for (unsigned int i = 0; i < nq0; i++)
-        {
-            wsp1[i] = in[i];
-        }
-        for (unsigned int i = 0; i < nq1; i++)
-        {
-            wsp1[i + nq0]       = in[nq0 - 1 + i * nq0];
-            wsp1[i + nq0 + nq1] = in[i * nq0];
-        }
+        wsp1[i]           = in[i];
+        wsp1[i + nq0]     = tmp;
+        wsp1[i + 2 * nq0] = tmp2;
     }
 
     // Zero wsp2
@@ -235,24 +219,12 @@ NEK_FORCE_INLINE static void FwdTransBCTriKernel(
     FwdTransBCSegKernel<ExecSpace, false>(nm0, nq0, basis0, w0, offset_seg,
                                           invintmass0, tJac, wsp1, wsp2, wsp3,
                                           wsp4);
-    if (interpTo0)
-    {
-        FwdTransBCSegKernel<ExecSpace, false>(nm0, nq0, basis0, w0, offset_seg,
-                                              invintmass0, tJac + 1, wsp1 + nq0,
-                                              wsp2 + nm0, wsp3, wsp4);
-        FwdTransBCSegKernel<ExecSpace, false>(
-            nm0, nq0, basis0, w0, offset_seg, invintmass0, tJac + 2,
-            wsp1 + 2 * nq0, wsp2 + nm0 + nm1, wsp3, wsp4);
-    }
-    else
-    {
-        FwdTransBCSegKernel<ExecSpace, false>(nm1, nq1, basis1, w1, offset_seg,
-                                              invintmass1, tJac + 1, wsp1 + nq0,
-                                              wsp2 + nm0, wsp3, wsp4);
-        FwdTransBCSegKernel<ExecSpace, false>(
-            nm1, nq1, basis1, w1, offset_seg, invintmass1, tJac + 2,
-            wsp1 + nq0 + nq1, wsp2 + nm0 + nm1, wsp3, wsp4);
-    }
+    FwdTransBCSegKernel<ExecSpace, false>(nm0, nq0, basis0, w0, offset_seg,
+                                          invintmass0, tJac + 1, wsp1 + nq0,
+                                          wsp2 + nm0, wsp3, wsp4);
+    FwdTransBCSegKernel<ExecSpace, false>(nm0, nq0, basis0, w0, offset_seg,
+                                          invintmass0, tJac + 2, wsp1 + 2 * nq0,
+                                          wsp2 + nm0 + nm1, wsp3, wsp4);
 
     // Map edge modes (without vertex contribution) back into face
     for (unsigned int j = 0u; j < nmEdgeTot; j++)
@@ -321,12 +293,12 @@ NEK_FORCE_INLINE static void FwdTransBC2DKernel(
     const simd_type *basis0, const simd_type *basis1, const simd_type *w0,
     const simd_type *w1, [[maybe_unused]] const simd_type *interp1to0,
     const unsigned int offset_seg, const simd_type *invintmass0,
-    const simd_type *invintmass1, const simd_type *tJac,
-    [[maybe_unused]] const bool interpTo0, const unsigned int *tMap,
-    const int *tSign, const unsigned int nmTotInt, const unsigned int *iMap,
-    const simd_type *invintmass, const simd_type *dmat, const simd_type *jac,
-    const simd_type *in, simd_type *out, simd_type *wsp1, simd_type *wsp2,
-    simd_type *wsp3, simd_type *wsp4)
+    [[maybe_unused]] const simd_type *invintmass1, const simd_type *tJac,
+    const unsigned int *tMap, const int *tSign, const unsigned int nmTotInt,
+    const unsigned int *iMap, const simd_type *invintmass,
+    const simd_type *dmat, const simd_type *jac, const simd_type *in,
+    simd_type *out, simd_type *wsp1, simd_type *wsp2, simd_type *wsp3,
+    simd_type *wsp4)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
@@ -339,9 +311,8 @@ NEK_FORCE_INLINE static void FwdTransBC2DKernel(
     {
         FwdTransBCTriKernel<ExecSpace, DEFORMED>(
             nm0, nm1, nq0, nq1, isModified, basis0, basis1, w0, w1, interp1to0,
-            offset_seg, invintmass0, invintmass1, tJac, interpTo0, tMap, tSign,
-            nmTotInt, iMap, invintmass, dmat, jac, in, out, wsp1, wsp2, wsp3,
-            wsp4);
+            offset_seg, invintmass0, tJac, tMap, tSign, nmTotInt, iMap,
+            invintmass, dmat, jac, in, out, wsp1, wsp2, wsp3, wsp4);
     }
     // else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
     // {

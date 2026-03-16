@@ -110,10 +110,17 @@ public:
             auto &block = m_mask.GetBlocks()[blk];
             auto ptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-            for (unsigned i = 0; i < block.CompSize(); ++i)
+
+            // The scalar local-to-global mask is identical for each component.
+            for (unsigned n = 0;
+                 n < block.GetNumComponents() * m_mask.GetNumHomoModes(); ++n)
             {
-                ptr[i] = maskptr[cnt++];
+                for (unsigned i = 0; i < block.CompSize(); ++i)
+                {
+                    ptr[n * block.CompSize() + i] = maskptr[cnt + i];
+                }
             }
+            cnt += block.CompSize();
         }
     }
 

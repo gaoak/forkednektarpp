@@ -223,94 +223,130 @@ BOOST_AUTO_TEST_SUITE(TestHelmSolve)
 TEST_HELMSOLVE_RICH(helmsolve_rich_seg, Helmholtz1D_Seg, 1.0E-12)
 
 TEST_HELMSOLVE_CG(helmsolve_cg_seg, Helmholtz1D_Seg, 1.0E-12)
+TEST_HELMSOLVE_CG(helmsolve_cg_seg_3c, Helmholtz1D_Seg_3C, 1.0E-12)
 
 TEST_HELMSOLVE_CG(helmsolve_cg_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
+TEST_HELMSOLVE_CG(helmsolve_cg_tri_quad_3c, Helmholtz2D_Tri_Quad_3C, 1.0E-10)
 
 TEST_HELMSOLVE_CG(helmsolve_cg_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
 
 TEST_HELMSOLVE_CG(helmsolve_cg_hex, Helmholtz3D_Hex, 1.0E-10)
+TEST_HELMSOLVE_CG(helmsolve_cg_hex_3c, Helmholtz3D_Hex_3C, 1.0E-10)
 
 TEST_HELMSOLVE_CG(helmsolve_cg_tet, Helmholtz3D_Tet, 1.0E-10)
 
 TEST_HELMSOLVE_PCG(helmsolve_pipe_cg_seg, Helmholtz1D_Seg, 1.0E-12)
+TEST_HELMSOLVE_PCG(helmsolve_pipe_cg_seg_3c, Helmholtz1D_Seg_3C, 1.0E-11)
 
 TEST_HELMSOLVE_PCG(helmsolve_pipe_cg_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
+TEST_HELMSOLVE_PCG(helmsolve_pipe_cg_tri_quad_3c, Helmholtz2D_Tri_Quad_3C,
+                   1.0E-10)
 
 TEST_HELMSOLVE_PCG(helmsolve_pipe_cg_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
 
 TEST_HELMSOLVE_PCG(helmsolve_pipe_cg_hex, Helmholtz3D_Hex, 1.0E-10)
+TEST_HELMSOLVE_PCG(helmsolve_pipe_cg_hex_3c, Helmholtz3D_Hex_3C, 1.0E-10)
 
 TEST_HELMSOLVE_PCG(helmsolve_pipe_cg_tet, Helmholtz3D_Tet, 1.0E-10)
 
 TEST_HELMSOLVE_PCG2(helmsolve_pipe_cg2_seg, Helmholtz1D_Seg, 1.0E-12)
+TEST_HELMSOLVE_PCG2(helmsolve_pipe_cg2_seg_3c, Helmholtz1D_Seg_3C, 1.0E-11)
 
 TEST_HELMSOLVE_PCG2(helmsolve_pipe_cg2_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
+TEST_HELMSOLVE_PCG2(helmsolve_pipe_cg2_tri_quad_3c, Helmholtz2D_Tri_Quad_3C,
+                    1.0E-10)
 
 TEST_HELMSOLVE_PCG2(helmsolve_pipe_cg2_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
 
 TEST_HELMSOLVE_PCG2(helmsolve_pipe_cg2_hex, Helmholtz3D_Hex, 1.0E-10)
+TEST_HELMSOLVE_PCG2(helmsolve_pipe_cg2_hex_3c, Helmholtz3D_Hex_3C, 1.0E-10)
 
 TEST_HELMSOLVE_PCG2(helmsolve_pipe_cg2_tet, Helmholtz3D_Tet, 1.0E-10)
 
 TEST_HELMSOLVE_CR(helmsolve_cr_seg, Helmholtz1D_Seg, 1.0E-12)
+TEST_HELMSOLVE_CR(helmsolve_cr_seg_3c, Helmholtz1D_Seg_3C, 1.0E-12)
 
 TEST_HELMSOLVE_CR(helmsolve_cr_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
+TEST_HELMSOLVE_CR(helmsolve_cr_tri_quad_3c, Helmholtz2D_Tri_Quad_3C, 1.0E-10)
 
 TEST_HELMSOLVE_CR(helmsolve_cr_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
 
 TEST_HELMSOLVE_CR(helmsolve_cr_hex, Helmholtz3D_Hex, 1.0E-10)
+TEST_HELMSOLVE_CR(helmsolve_cr_hex_3c, Helmholtz3D_Hex_3C, 1.0E-10)
 
 TEST_HELMSOLVE_CR(helmsolve_cr_tet, Helmholtz3D_Tet, 1.0E-10)
 
 TEST_HELMSOLVE_PCR(helmsolve_pipe_cr_seg, Helmholtz1D_Seg, 1.0E-12)
+TEST_HELMSOLVE_PCR(helmsolve_pipe_cr_seg_3c, Helmholtz1D_Seg_3C, 1.0E-11)
 
 TEST_HELMSOLVE_PCR(helmsolve_pipe_cr_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
+TEST_HELMSOLVE_PCR(helmsolve_pipe_cr_tri_quad_3c, Helmholtz2D_Tri_Quad_3C,
+                   1.0E-10)
 
 TEST_HELMSOLVE_PCR(helmsolve_pipe_cr_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
 
 TEST_HELMSOLVE_PCR(helmsolve_pipe_cr_hex, Helmholtz3D_Hex, 1.0E-10)
+TEST_HELMSOLVE_PCR(helmsolve_pipe_cr_hex_3c, Helmholtz3D_Hex_3C, 1.0E-10)
 
 TEST_HELMSOLVE_PCR(helmsolve_pipe_cr_tet, Helmholtz3D_Tet, 1.0E-10)
 
 TEST_HELMSOLVE_MINRES(helmsolve_minres_seg, Helmholtz1D_Seg, 1.0E-12)
+TEST_HELMSOLVE_MINRES(helmsolve_minres_seg_3c, Helmholtz1D_Seg_3C, 1.0E-12)
 
 TEST_HELMSOLVE_MINRES(helmsolve_minres_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
+TEST_HELMSOLVE_MINRES(helmsolve_minres_tri_quad_3c, Helmholtz2D_Tri_Quad_3C,
+                      1.0E-10)
 
 TEST_HELMSOLVE_MINRES(helmsolve_minres_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
 
 TEST_HELMSOLVE_MINRES(helmsolve_minres_hex, Helmholtz3D_Hex, 1.0E-10)
+TEST_HELMSOLVE_MINRES(helmsolve_minres_hex_3c, Helmholtz3D_Hex_3C, 1.0E-10)
 
 TEST_HELMSOLVE_MINRES(helmsolve_minres_tet, Helmholtz3D_Tet, 1.0E-10)
 
 TEST_HELMSOLVE_GMRES(helmsolve_gmres_seg, Helmholtz1D_Seg, 1.0E-12)
+TEST_HELMSOLVE_GMRES(helmsolve_gmres_seg_3c, Helmholtz1D_Seg_3C, 1.0E-12)
 
 TEST_HELMSOLVE_GMRES(helmsolve_gmres_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
+TEST_HELMSOLVE_GMRES(helmsolve_gmres_tri_quad_3c, Helmholtz2D_Tri_Quad_3C,
+                     1.0E-10)
 
 TEST_HELMSOLVE_GMRES(helmsolve_gmres_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
 
 TEST_HELMSOLVE_GMRES(helmsolve_gmres_hex, Helmholtz3D_Hex, 1.0E-10)
+TEST_HELMSOLVE_GMRES(helmsolve_gmres_hex_3c, Helmholtz3D_Hex_3C, 5.0E-10)
 
 TEST_HELMSOLVE_GMRES(helmsolve_gmres_tet, Helmholtz3D_Tet, 1.0E-10)
 
 TEST_HELMSOLVE_GMRES2(helmsolve_gmres_left_precon_seg, Helmholtz1D_Seg, 1.0E-12)
+TEST_HELMSOLVE_GMRES2(helmsolve_gmres_left_precon_seg_3c, Helmholtz1D_Seg_3C,
+                      1.0E-12)
 
 TEST_HELMSOLVE_GMRES2(helmsolve_gmres_left_precon_tri_quad,
                       Helmholtz2D_Tri_Quad, 1.0E-10)
+TEST_HELMSOLVE_GMRES2(helmsolve_gmres_left_precon_tri_quad_3c,
+                      Helmholtz2D_Tri_Quad_3C, 1.0E-10)
 
 TEST_HELMSOLVE_GMRES2(helmsolve_gmres_left_precon_all_bcs, Helmholtz2D_AllBCs,
                       1.0E-10)
 
 TEST_HELMSOLVE_GMRES2(helmsolve_gmres_left_precon_hex, Helmholtz3D_Hex, 1.0E-10)
+TEST_HELMSOLVE_GMRES2(helmsolve_gmres_left_precon_hex_3c, Helmholtz3D_Hex_3C,
+                      5.0E-10)
 
 TEST_HELMSOLVE_GMRES2(helmsolve_gmres_left_precon_tet, Helmholtz3D_Tet, 1.0E-10)
 
 TEST_HELMSOLVE_FGMRES(helmsolve_fgmres_seg, Helmholtz1D_Seg, 1.0E-12)
+TEST_HELMSOLVE_FGMRES(helmsolve_fgmres_seg_3c, Helmholtz1D_Seg_3C, 1.0E-12)
 
 TEST_HELMSOLVE_FGMRES(helmsolve_fgmres_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
+TEST_HELMSOLVE_FGMRES(helmsolve_fgmres_tri_quad_3c, Helmholtz2D_Tri_Quad_3C,
+                      1.0E-10)
 
 TEST_HELMSOLVE_FGMRES(helmsolve_fgmres_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
 
 TEST_HELMSOLVE_FGMRES(helmsolve_fgmres_hex, Helmholtz3D_Hex, 1.0E-10)
+TEST_HELMSOLVE_FGMRES(helmsolve_fgmres_hex_3c, Helmholtz3D_Hex_3C, 5.0E-10)
 
 TEST_HELMSOLVE_FGMRES(helmsolve_fgmres_tet, Helmholtz3D_Tet, 1.0E-10)
 #endif

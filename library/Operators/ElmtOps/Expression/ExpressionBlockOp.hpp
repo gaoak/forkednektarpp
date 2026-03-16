@@ -84,9 +84,15 @@ public:
         this->m_numEvars = numEvars;
     }
 
+    void SetComponentMask(const std::vector<bool> &cmask)
+    {
+        this->m_cmask = cmask;
+    }
+
 protected:
     std::vector<LibUtilities::EquationSharedPtr> m_expressions;
     std::vector<unsigned int> m_numEvars;
+    std::vector<bool> m_cmask;
 
     TData m_time  = 0.0;
     TData m_scale = 1.0;

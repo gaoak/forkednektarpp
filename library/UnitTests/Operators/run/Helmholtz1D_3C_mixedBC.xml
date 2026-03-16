@@ -3,7 +3,7 @@
 <NEKTAR xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="http://www.nektar.info/schema/nektar.xsd">
 
-    <GEOMETRY DIM="1" SPACE="1">
+    <GEOMETRY DIM="1" SPACE="2">
 
         <VERTEX>
             <V ID="0"> 0.1 1.0 0.0 </V>
@@ -33,8 +33,8 @@
     </GEOMETRY>
 
     <EXPANSIONS>
-        <E COMPOSITE="C[0]" NUMMODES="8" FIELDS="u" TYPE="MODIFIED" />
-        <E COMPOSITE="C[3]" NUMMODES="8" FIELDS="u" TYPE="MODIFIED" />
+        <E COMPOSITE="C[0]" NUMMODES="8" FIELDS="u,v,w" TYPE="MODIFIED" />
+        <E COMPOSITE="C[3]" NUMMODES="8" FIELDS="u,v,w" TYPE="MODIFIED" />
     </EXPANSIONS>
 
     <CONDITIONS>
@@ -48,16 +48,22 @@
 
         <TIMEINTEGRATIONSCHEME>
             <METHOD> BDFImplicit </METHOD>
-            <ORDER> 1 </ORDER>
+            <ORDER> 3 </ORDER>
         </TIMEINTEGRATIONSCHEME>
 
         <PARAMETERS>
+            <P> Lambda    = 10 </P>
             <P> IterativeSolverTolerance = 1e-14 </P>
+            <P> A = PI/2 </P>
+            <P> B = PI/4 </P>
+            <P> C = PI/8 </P>
             <P> TimeStep = 1e-4 </P>
         </PARAMETERS>
 
         <VARIABLES>
             <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> w </V>
         </VARIABLES>
 
         <BOUNDARYREGIONS>
@@ -67,22 +73,29 @@
 
         <BOUNDARYCONDITIONS>
             <REGION REF="0">
-                <D VAR="u" VALUE="cos(PI*x)" />
+                <D VAR="u" VALUE="sin(A*x)" />
+                <N VAR="v" VALUE="B*cos(B*x)" />
+                <D VAR="w" VALUE="sin(C*x)" />
             </REGION>
             <REGION REF="1">
-                <N VAR="u" VALUE="-PI*sin(PI*x)" />
+                <N VAR="u" VALUE="A*cos(A*x)" />
+                <N VAR="v" VALUE="B*cos(B*x)" />
+                <D VAR="w" VALUE="sin(C*x)" />
             </REGION>
         </BOUNDARYCONDITIONS>
 
         <FUNCTION NAME="Forcing">
-            <E VAR="u" VALUE="-(PI*PI)*cos(PI*x)*exp(-t)" />
+            <E VAR="u" VALUE="-(Lambda + 3*A*A)*sin(A*x)*exp(-t)" />
+            <E VAR="v" VALUE="-(Lambda + 3*B*B)*sin(B*x)*exp(-2*t)" />
+            <E VAR="w" VALUE="-(Lambda + 3*C*C)*sin(C*x)*exp(-3*t)" />
         </FUNCTION>
 
         <FUNCTION NAME="ExactSolution">
-            <E VAR="u" VALUE="cos(PI*x)" />
+            <E VAR="u" VALUE="sin(A*x)" />
+            <E VAR="v" VALUE="sin(B*x)" />
+            <E VAR="w" VALUE="sin(C*x)" />
         </FUNCTION>
 
     </CONDITIONS>
 
 </NEKTAR>
-

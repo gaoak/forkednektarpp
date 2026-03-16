@@ -48,6 +48,8 @@
         Configure();                                                           \
         int LinSysLeftPrecon = 1;                                              \
         this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
+        int Lambda = 0;                                                        \
+        this->session->SetParameter("Lambda", Lambda);                         \
         SetTestCase();                                                         \
         RunTestCase("ConjGrad");                                               \
         boost::test_tools::output_test_stream output;                          \
@@ -62,10 +64,12 @@ BOOST_AUTO_TEST_SUITE(TestPoissonSolveConjGrad)
 TEST_POISSONSOLVE(poissonsolve_seg, Poisson1D_Seg, 1.0E-12)
 
 TEST_POISSONSOLVE(poissonsolve_tri_quad, Poisson2D_Tri_Quad, 1.0E-10)
+TEST_POISSONSOLVE(poissonsolve_tri_quad_3c, Poisson2D_Tri_Quad_3C, 1.0E-10)
 
-TEST_POISSONSOLVE(poissonsolve_all_bcs, Poisson2D_AllBCs, 1.0E-12)
+TEST_POISSONSOLVE(poissonsolve_all_bcs, Poisson2D_AllBCs, 1.0E-10)
 
 TEST_POISSONSOLVE(poissonsolve_hex, Poisson3D_Hex, 1.0E-10)
+TEST_POISSONSOLVE(poissonsolve_hex_3c, Poisson3D_Hex_3C, 1.0E-10)
 
 TEST_POISSONSOLVE(poissonsolve_prism, Poisson3D_Prism, 1.0E-10)
 

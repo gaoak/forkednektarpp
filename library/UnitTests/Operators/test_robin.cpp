@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_fwdtransbc.cpp
+// File: test_robin.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,15 +32,15 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestFwdTransBC
+#define BOOST_TEST_MODULE TestRobin
 
-#include "init_fwdtransbcfields.hpp"
+#include "init_robinfields.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
 
-#define TEST_FWDTRANSBC(test_name, test, tol)                                  \
+#define TEST_ROBIN(test_name, test, tol)                                       \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         std::cout << std::string("Run: ") + std::string(#test_name)            \
@@ -54,30 +54,10 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestFwdTransBC)
+BOOST_AUTO_TEST_SUITE(TestRobin)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-TEST_FWDTRANSBC(fwdtransbc_seg, Seg, 1.0E-12)
-
-TEST_FWDTRANSBC(fwdtransbc_seg_sem, SegSEM, 1.0E-12)
-
-// TEST_FWDTRANSBC3DH2(fwdtransbc_seg_sem_3dh2, SegSEM, 1.0E-12)
-
-TEST_FWDTRANSBC(fwdtransbc_quad, Quad, 1.0E-12)
-
-TEST_FWDTRANSBC(fwdtransbc_quad_sem, QuadSEM, 1.0E-12)
-
-TEST_FWDTRANSBC(fwdtransbc_quad_varp, QuadVarP, 1.0E-12)
-
-TEST_FWDTRANSBC(fwdtransbc_tri, Tri, 1.0E-12)
-
-TEST_FWDTRANSBC(fwdtransbc_tri_varp, TriVarP, 1.0E-12)
-
-// TEST_FWDTRANSBC(fwdtransbc_tri_nodal, TriNodal, 1.0E-12)
-
-TEST_FWDTRANSBC(fwdtransbc_square_all_elements, SquareAllElements, 1.0E-12)
-
-/// This Operator is not implemented for 3D geometries
+TEST_ROBIN(robin2d_tri_quad_allbcs, Helmholtz2D_Tri_Quad_AllBCs, 1.0E-12)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()
