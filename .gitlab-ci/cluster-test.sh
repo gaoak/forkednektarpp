@@ -3,6 +3,7 @@
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:nvidia_a40:1
 #SBATCH --nodes=1
+#SBATCH --ntasks=12
 #SBATCH --mem=64GB
 #SBATCH --time=4:00:00
 #SBATCH --job-name=nektar-cluster-test
