@@ -66,16 +66,23 @@ public:
 
     ~DeviceLocalToGlobalKey() override = default;
 
-    DeviceLocalToGlobalKey(bool zeroDir, unsigned width = 1)
-        : m_zeroDir(zeroDir), m_width(width)
+    DeviceLocalToGlobalKey(bool zeroDir,
+                           const std::vector<std::string> &components,
+                           unsigned width = 1)
+        : m_zeroDir(zeroDir), m_width(width), m_components(components)
     {
         hash_combine(m_hash, m_zeroDir, m_width, typeid(value_type).name(),
                      "DeviceLocalToGlobalKey");
+        for (const auto &component : m_components)
+        {
+            hash_combine(m_hash, component);
+        }
     }
 
 private:
     bool m_zeroDir;
     unsigned m_width;
+    std::vector<std::string> m_components;
 };
 
 template <typename TPadding>
@@ -95,16 +102,23 @@ public:
 
     ~DeviceLocalToGlobalNumAssembleKey() override = default;
 
-    DeviceLocalToGlobalNumAssembleKey(bool zeroDir, unsigned width)
-        : m_zeroDir(zeroDir), m_width(width)
+    DeviceLocalToGlobalNumAssembleKey(
+        bool zeroDir, const std::vector<std::string> &components,
+        unsigned width)
+        : m_zeroDir(zeroDir), m_width(width), m_components(components)
     {
         hash_combine(m_hash, m_zeroDir, m_width, typeid(value_type).name(),
                      "DeviceLocalToGlobaNumAssemblelKey");
+        for (const auto &component : m_components)
+        {
+            hash_combine(m_hash, component);
+        }
     }
 
 private:
     bool m_zeroDir;
     unsigned m_width;
+    std::vector<std::string> m_components;
 };
 
 template <typename TPadding> class DeviceLocalToGlobalIndexKey : public BaseKey
@@ -123,16 +137,23 @@ public:
 
     ~DeviceLocalToGlobalIndexKey() override = default;
 
-    DeviceLocalToGlobalIndexKey(bool zeroDir, unsigned width)
-        : m_zeroDir(zeroDir), m_width(width)
+    DeviceLocalToGlobalIndexKey(bool zeroDir,
+                                const std::vector<std::string> &components,
+                                unsigned width)
+        : m_zeroDir(zeroDir), m_width(width), m_components(components)
     {
         hash_combine(m_hash, m_zeroDir, m_width, typeid(value_type).name(),
                      "DeviceLocalToGlobaIndexlKey");
+        for (const auto &component : m_components)
+        {
+            hash_combine(m_hash, component);
+        }
     }
 
 private:
     bool m_zeroDir;
     unsigned m_width;
+    std::vector<std::string> m_components;
 };
 
 template <typename TPadding>
@@ -152,16 +173,23 @@ public:
 
     ~DeviceLocalToGlobalIndexOffsetKey() override = default;
 
-    DeviceLocalToGlobalIndexOffsetKey(bool zeroDir, unsigned width)
-        : m_zeroDir(zeroDir), m_width(width)
+    DeviceLocalToGlobalIndexOffsetKey(
+        bool zeroDir, const std::vector<std::string> &components,
+        unsigned width)
+        : m_zeroDir(zeroDir), m_width(width), m_components(components)
     {
         hash_combine(m_hash, m_zeroDir, m_width, typeid(value_type).name(),
                      "DeviceLocalToGlobaIndexOffsetlKey");
+        for (const auto &component : m_components)
+        {
+            hash_combine(m_hash, component);
+        }
     }
 
 private:
     bool m_zeroDir;
     unsigned m_width;
+    std::vector<std::string> m_components;
 };
 
 template <typename TPadding> class DeviceLocalToGlobalSignKey : public BaseKey
@@ -182,17 +210,24 @@ public:
     ~DeviceLocalToGlobalSignKey() override = default;
 
     DeviceLocalToGlobalSignKey(bool zeroDir, bool signChange,
+                               const std::vector<std::string> &components,
                                unsigned width = 1)
-        : m_zeroDir(zeroDir), m_signChange(signChange), m_width(width)
+        : m_zeroDir(zeroDir), m_signChange(signChange), m_width(width),
+          m_components(components)
     {
         hash_combine(m_hash, m_zeroDir, m_signChange, m_width,
                      typeid(value_type).name(), "DeviceLocalToGlobalSignKey");
+        for (const auto &component : m_components)
+        {
+            hash_combine(m_hash, component);
+        }
     }
 
 private:
     bool m_zeroDir;
     bool m_signChange;
     unsigned m_width;
+    std::vector<std::string> m_components;
 };
 
 template <typename TPadding> class DeviceBndLocalToGlobalKey : public BaseKey
@@ -211,14 +246,19 @@ public:
 
     ~DeviceBndLocalToGlobalKey() override = default;
 
-    DeviceBndLocalToGlobalKey(unsigned numComp) : m_numComp(numComp)
+    DeviceBndLocalToGlobalKey(const std::vector<std::string> &components)
+        : m_components(components)
     {
-        hash_combine(m_hash, m_numComp, typeid(value_type).name(),
+        hash_combine(m_hash, typeid(value_type).name(),
                      "DeviceBndLocalToGlobalKey");
+        for (const auto &component : m_components)
+        {
+            hash_combine(m_hash, component);
+        }
     }
 
 private:
-    unsigned m_numComp;
+    std::vector<std::string> m_components;
 };
 
 template <typename TPadding>
@@ -238,14 +278,20 @@ public:
 
     ~DeviceBndLocalToGlobalNumAssembleKey() override = default;
 
-    DeviceBndLocalToGlobalNumAssembleKey(unsigned numComp) : m_numComp(numComp)
+    DeviceBndLocalToGlobalNumAssembleKey(
+        const std::vector<std::string> &components)
+        : m_components(components)
     {
-        hash_combine(m_hash, m_numComp, typeid(value_type).name(),
+        hash_combine(m_hash, typeid(value_type).name(),
                      "DeviceBndLocalToGlobaNumAssemblelKey");
+        for (const auto &component : m_components)
+        {
+            hash_combine(m_hash, component);
+        }
     }
 
 private:
-    unsigned m_numComp;
+    std::vector<std::string> m_components;
 };
 
 template <typename TPadding>
@@ -265,14 +311,20 @@ public:
 
     ~DeviceBndLocalToGlobalNumBndValsKey() override = default;
 
-    DeviceBndLocalToGlobalNumBndValsKey(unsigned numComp) : m_numComp(numComp)
+    DeviceBndLocalToGlobalNumBndValsKey(
+        const std::vector<std::string> &components)
+        : m_components(components)
     {
-        hash_combine(m_hash, m_numComp, typeid(value_type).name(),
+        hash_combine(m_hash, typeid(value_type).name(),
                      "DeviceBndLocalToGlobaNumBndValslKey");
+        for (const auto &component : m_components)
+        {
+            hash_combine(m_hash, component);
+        }
     }
 
 private:
-    unsigned m_numComp;
+    std::vector<std::string> m_components;
 };
 
 template <typename TPadding>
@@ -292,14 +344,19 @@ public:
 
     ~DeviceBndLocalToGlobalIndexKey() override = default;
 
-    DeviceBndLocalToGlobalIndexKey(unsigned numComp) : m_numComp(numComp)
+    DeviceBndLocalToGlobalIndexKey(const std::vector<std::string> &components)
+        : m_components(components)
     {
-        hash_combine(m_hash, m_numComp, typeid(value_type).name(),
+        hash_combine(m_hash, typeid(value_type).name(),
                      "DeviceBndLocalToGlobaIndexlKey");
+        for (const auto &component : m_components)
+        {
+            hash_combine(m_hash, component);
+        }
     }
 
 private:
-    unsigned m_numComp;
+    std::vector<std::string> m_components;
 };
 
 template <typename TPadding>
@@ -319,14 +376,19 @@ public:
 
     ~DeviceBndLocalToGlobalOffsetKey() override = default;
 
-    DeviceBndLocalToGlobalOffsetKey(unsigned numComp) : m_numComp(numComp)
+    DeviceBndLocalToGlobalOffsetKey(const std::vector<std::string> &components)
+        : m_components(components)
     {
-        hash_combine(m_hash, m_numComp, typeid(value_type).name(),
+        hash_combine(m_hash, typeid(value_type).name(),
                      "DeviceBndLocalToGlobaOffsetlKey");
+        for (const auto &component : m_components)
+        {
+            hash_combine(m_hash, component);
+        }
     }
 
 private:
-    unsigned m_numComp;
+    std::vector<std::string> m_components;
 };
 
 template <typename TPadding>
@@ -347,15 +409,20 @@ public:
 
     ~DeviceBndLocalToGlobalAssembleOrderKey() override = default;
 
-    DeviceBndLocalToGlobalAssembleOrderKey(unsigned numComp)
-        : m_numComp(numComp)
+    DeviceBndLocalToGlobalAssembleOrderKey(
+        const std::vector<std::string> &components)
+        : m_components(components)
     {
-        hash_combine(m_hash, m_numComp, typeid(value_type).name(),
+        hash_combine(m_hash, typeid(value_type).name(),
                      "DeviceBndLocalToGlobaAssembleOrderlKey");
+        for (const auto &component : m_components)
+        {
+            hash_combine(m_hash, component);
+        }
     }
 
 private:
-    unsigned m_numComp;
+    std::vector<std::string> m_components;
 };
 
 template <typename TPadding>
@@ -375,16 +442,22 @@ public:
 
     ~DeviceBndLocalToGlobalSignKey() override = default;
 
-    DeviceBndLocalToGlobalSignKey(bool zeroDir, bool signChange)
-        : m_zeroDir(zeroDir), m_signChange(signChange)
+    DeviceBndLocalToGlobalSignKey(bool zeroDir, bool signChange,
+                                  const std::vector<std::string> &components)
+        : m_zeroDir(zeroDir), m_signChange(signChange), m_components(components)
     {
         hash_combine(m_hash, m_zeroDir, m_signChange, typeid(value_type).name(),
                      "DeviceLocalToGlobalSignKey");
+        for (const auto &component : m_components)
+        {
+            hash_combine(m_hash, component);
+        }
     }
 
 private:
     bool m_zeroDir;
     bool m_signChange;
+    std::vector<std::string> m_components;
 };
 
 template <typename TPadding> class LocalToGlobalMaskKey : public BaseKey
@@ -396,18 +469,26 @@ template <typename TPadding> class LocalToGlobalMaskKey : public BaseKey
 
     friend class LocalToGlobalDatareator;
 
+    friend class LocalToGlobalDataCreator;
+
 public:
     using creator = LocalToGlobalDataCreator;
     typedef std::uint8_t value_type;
 
     ~LocalToGlobalMaskKey() override = default;
 
-    LocalToGlobalMaskKey()
+    LocalToGlobalMaskKey(const std::vector<std::string> &components)
+        : m_components(components)
     {
         hash_combine(m_hash, typeid(value_type).name(), "LocalToGlobalMaskKey");
+        for (const auto &component : m_components)
+        {
+            hash_combine(m_hash, component);
+        }
     }
 
 private:
+    std::vector<std::string> m_components;
 };
 
 class LocalToGlobalDataCreator : public DataCreatorClass
@@ -418,7 +499,8 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList)
         : m_expansionList(expansionList){};
 
-    void InitAssemblyMap(void);
+    std::vector<MultiRegions::AssemblyMapCGSharedPtr> &GetAssemblyMap(
+        const std::vector<std::string> &components);
 
     template <typename MemSpace, typename TPadding>
     MemoryRegion<typename DeviceLocalToGlobalKey<TPadding>::value_type> Create(
@@ -478,15 +560,18 @@ public:
         [[maybe_unused]] const LocalToGlobalMaskKey<TPadding> &LocToGloKey);
 
     template <typename TPadding>
-    void FillSignArray(std::vector<unsigned> &index, bool zeroDir,
-                       bool signChange, int *out);
+    void FillSignArray(
+        std::vector<unsigned> &index,
+        const std::vector<MultiRegions::AssemblyMapCGSharedPtr> &loc2glo,
+        bool zeroDir, bool signChange, int *out);
 
     inline static const std::string m_name = "LocalToGlobalCreator";
 
 private:
-    bool m_init = true;
     MultiRegions::ExpListSharedPtr m_expansionList;
-    std::vector<MultiRegions::AssemblyMapCGSharedPtr> m_assemblyMap;
+    std::unordered_map<size_t,
+                       std::vector<MultiRegions::AssemblyMapCGSharedPtr>>
+        m_assemblyMaps;
 };
 
 } // namespace Nektar::Operators

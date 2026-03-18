@@ -110,27 +110,28 @@ protected:
         m_numAssemblyComps = numComp;
 
         // setup GS info of values interior to device
-        auto GSNumAssmbKey =
-            DeviceLocalToGlobalNumAssembleKey<TData>(ZERODIR, m_device_width);
+        auto GSNumAssmbKey = DeviceLocalToGlobalNumAssembleKey<TData>(
+            ZERODIR, this->m_components, m_device_width);
         m_gsNumAssmb =
             this->m_dataWarehouse->template GetData<MemSpace>(GSNumAssmbKey);
 
-        auto GSIndexKey =
-            DeviceLocalToGlobalIndexKey<TData>(ZERODIR, m_device_width);
+        auto GSIndexKey = DeviceLocalToGlobalIndexKey<TData>(
+            ZERODIR, this->m_components, m_device_width);
         m_gsIndex =
             this->m_dataWarehouse->template GetData<MemSpace>(GSIndexKey);
 
-        auto GSOffsetKey =
-            DeviceLocalToGlobalIndexOffsetKey<TData>(ZERODIR, m_device_width);
+        auto GSOffsetKey = DeviceLocalToGlobalIndexOffsetKey<TData>(
+            ZERODIR, this->m_components, m_device_width);
         m_gsOffset =
             this->m_dataWarehouse->template GetData<MemSpace>(GSOffsetKey);
 
         // set up sign change array
         m_gsSign = this->m_dataWarehouse->template GetData<MemSpace>(
-            DeviceLocalToGlobalSignKey<TData>(ZERODIR, SIGNCHANGE,
-                                              m_device_width));
+            DeviceLocalToGlobalSignKey<TData>(
+                ZERODIR, SIGNCHANGE, this->m_components, m_device_width));
 
-        auto GSInfoKey = DeviceLocalToGlobalKey<TData>(ZERODIR, m_device_width);
+        auto GSInfoKey = DeviceLocalToGlobalKey<TData>(
+            ZERODIR, this->m_components, m_device_width);
         // get a copy of the host to evaluate number of GIDs to assemble
         auto hostGSInfo =
             this->m_dataWarehouse->template GetData<NektarSpaces::HostSpace>(
@@ -165,35 +166,39 @@ protected:
 
             // setup GS info of values interior to device
             auto GSBndNumAssmbKey =
-                DeviceBndLocalToGlobalNumAssembleKey<TData>(numComp);
+                DeviceBndLocalToGlobalNumAssembleKey<TData>(this->m_components);
             m_gsBndNumAssmb = this->m_dataWarehouse->template GetData<MemSpace>(
                 GSBndNumAssmbKey);
 
             auto GSNumBndValsKey =
-                DeviceBndLocalToGlobalNumBndValsKey<TData>(numComp);
+                DeviceBndLocalToGlobalNumBndValsKey<TData>(this->m_components);
             m_gsNumBndVals = this->m_dataWarehouse->template GetData<MemSpace>(
                 GSNumBndValsKey);
 
-            auto GSBndIndexKey = DeviceBndLocalToGlobalIndexKey<TData>(numComp);
+            auto GSBndIndexKey =
+                DeviceBndLocalToGlobalIndexKey<TData>(this->m_components);
             m_gsBndIndex = this->m_dataWarehouse->template GetData<MemSpace>(
                 GSBndIndexKey);
 
             auto GSBndOffsetKey =
-                DeviceBndLocalToGlobalOffsetKey<TData>(numComp);
+                DeviceBndLocalToGlobalOffsetKey<TData>(this->m_components);
             m_gsBndOffset = this->m_dataWarehouse->template GetData<MemSpace>(
                 GSBndOffsetKey);
 
             auto GSBndAssembleOrderKey =
-                DeviceBndLocalToGlobalAssembleOrderKey<TData>(numComp);
+                DeviceBndLocalToGlobalAssembleOrderKey<TData>(
+                    this->m_components);
             m_gsBndAssOrder = this->m_dataWarehouse->template GetData<MemSpace>(
                 GSBndAssembleOrderKey);
 
             // set up bnd sign change array
             m_gsBndSign = this->m_dataWarehouse->template GetData<MemSpace>(
-                DeviceBndLocalToGlobalSignKey<TData>(ZERODIR, SIGNCHANGE));
+                DeviceBndLocalToGlobalSignKey<TData>(ZERODIR, SIGNCHANGE,
+                                                     this->m_components));
 
             // setup GS info of values for parallal boundary of device
-            auto GSBndInfoKey = DeviceBndLocalToGlobalKey<TData>(numComp);
+            auto GSBndInfoKey =
+                DeviceBndLocalToGlobalKey<TData>(this->m_components);
 
             // get a copy of the host to evaluate  number of GiDs to assemble
             auto hostGSBndInfo =
