@@ -103,7 +103,7 @@ public:
         // Fill mask.
         auto maskptr =
             this->m_dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-                LocalToGlobalMaskKey<TData>());
+                LocalToGlobalMaskKey<TData>(this->m_components));
         unsigned cnt = 0;
         for (unsigned blk = 0; blk < m_mask.GetBlocks().size(); ++blk)
         {
