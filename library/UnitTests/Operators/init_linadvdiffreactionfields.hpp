@@ -119,13 +119,19 @@ public:
 
     void RunTestCase()
     {
+        auto advelblockAttr =
+            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
+        auto vel = Field<TData, FieldState::Phys>("vel", advelblockAttr,
+                                                  m_coordDim, 1);
+        vel.template CopyArray<NektarSpaces::HostSpace>(m_vel);
+
         auto LinADR = LinAdvDiffReactionOp<TData>::Create(
             this->fixt_explist, this->session->GetVariables());
 
         // seem to have the negative definitio of lambda implemented currently
         LinADR->SetLambda(-1.0 * m_lambda);
         LinADR->SetDiffCoeff(m_diffCoeff);
-        LinADR->SetAdvVel(m_vel);
+        LinADR->SetAdvVel(vel);
         LinADR->Apply(*this->fixt_in, *this->fixt_out);
     }
 

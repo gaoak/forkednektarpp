@@ -72,9 +72,15 @@ public:
 
     void RunTestCase()
     {
+        auto advelblockAttr =
+            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
+        auto vel = Field<TData, FieldState::Phys>("vel", advelblockAttr,
+                                                  m_coordDim, 1);
+        vel.template CopyArray<NektarSpaces::HostSpace>(m_vel);
+
         auto op = AdvectionOp<TData>::Create(this->fixt_explist,
                                              this->session->GetVariables());
-        op->SetAdvVel(m_vel);
+        op->SetAdvVel(vel);
         op->Apply(*this->fixt_in, *this->fixt_out);
     }
 

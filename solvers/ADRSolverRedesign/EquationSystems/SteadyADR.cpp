@@ -242,6 +242,12 @@ void SteadyADR::InitialiseOperators()
 
     if (m_session->GetSolverInfo("EQTYPE") == "SteadyADR")
     {
+        unsigned int coordDim = m_fields[0]->GetCoordim(0);
+        auto advelblockAttr =
+            GetBlockAttributes<double, FieldState::Phys>(m_fields[0]);
+        auto vel =
+            Field<double, FieldState::Phys>("vel", advelblockAttr, coordDim, 1);
+        vel.template CopyArray<NektarSpaces::HostSpace>(m_AdVel);
         double lambda;
         m_session->LoadParameter("lambda", lambda, 0.0);
         auto linearADRSolveOp = LinearADRSolveOp<double>::Create(
@@ -249,7 +255,7 @@ void SteadyADR::InitialiseOperators()
         linearADRSolveOp->SetLinearSolver(m_linearSolverOp);
         linearADRSolveOp->SetLambda(lambda);
         linearADRSolveOp->SetDiffCoeff(m_diffCoeff);
-        linearADRSolveOp->SetAdvVel(m_AdVel);
+        linearADRSolveOp->SetAdvVel(vel);
         linearADRSolveOp->SetPrecon(m_preconOp);
         linearADRSolveOp->UpdatePrecon();
         m_linearSystemOp = linearADRSolveOp;

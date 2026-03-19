@@ -386,9 +386,11 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
         diffCoeff[0] = 1.0; // D00
         diffCoeff[2] = 1.0; // D11
         diffCoeff[5] = 1.0; // D22
-        Array<OneD, double> vel(expList->GetCoordim(0) *
-                                    (size_t)expList->GetNpoints(),
-                                1.0); // prevent overflow
+        auto velblockAttr =
+            GetBlockAttributes<TData, FieldState::Phys>(expList);
+        auto vel = Field<TData, FieldState::Phys>("f_out", velblockAttr,
+                                                  expList->GetCoordim(0), 1);
+        vel.template Initialize<NektarSpaces::HostSpace>(1.0);
         std::dynamic_pointer_cast<LinAdvDiffReactionOp<TData>>(oper)->SetLambda(
             -1.0);
         std::dynamic_pointer_cast<LinAdvDiffReactionOp<TData>>(oper)

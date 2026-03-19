@@ -211,6 +211,12 @@ public:
 
     void RunTestCase(const std::string &method)
     {
+        auto advelblockAttr =
+            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
+        auto vel = Field<TData, FieldState::Phys>("vel", advelblockAttr,
+                                                  m_coordDim, 1);
+        vel.template CopyArray<NektarSpaces::HostSpace>(m_vel);
+
         auto op = LinearADRSolveOp<TData>::Create(
             this->fixt_explist, this->session->GetVariables());
         auto precon = PreconOp<TData>::Create(
@@ -219,7 +225,7 @@ public:
             this->fixt_explist, this->session->GetVariables(), method);
         op->SetLambda(m_lambda);
         op->SetDiffCoeff(m_diffCoeff);
-        op->SetAdvVel(m_vel);
+        op->SetAdvVel(vel);
         op->SetLinearSolver(linsolve);
         op->SetPrecon(precon);
         op->UpdatePrecon();
