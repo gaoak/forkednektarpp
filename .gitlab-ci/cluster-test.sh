@@ -3,7 +3,7 @@
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:nvidia_a40:1
 #SBATCH --nodes=1
-#SBATCH --ntasks=12
+#SBATCH --ntasks-per-gpu=12 
 #SBATCH --mem=64GB
 #SBATCH --time=4:00:00
 #SBATCH --job-name=nektar-cluster-test
@@ -155,10 +155,16 @@ ${command} &>> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
 error_code=$?
 if (( $error_code )); then 
     echo "JOB FAILED" >> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
+
+    # Clean-up build directory
+    rm -rf "$rootdir/${CI_PIPELINE_ID}/${JOBNAME}/nektar"
     trigger_gate
     exit $error_code
 fi
 
-cd ../
+echo "JOB SUCCEEDED" >> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
 
+# Clean-up build directory
+rm -rf "$rootdir/${CI_PIPELINE_ID}/${JOBNAME}/nektar"
 trigger_gate
+exit $error_code
