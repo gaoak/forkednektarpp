@@ -137,7 +137,7 @@ protected:
         m_ADROp->SetDiffCoeff(diffCoeff);
     }
 
-    void v_SetAdvVel(const Array<OneD, NekDouble> &Vel) override
+    void v_SetAdvVel(Field<TData, FieldState::Phys> &Vel) override
     {
         m_ADROp->SetAdvVel(Vel);
     }

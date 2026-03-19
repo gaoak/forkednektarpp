@@ -67,7 +67,7 @@ public:
         v_SetDiffCoeff(diffCoeff);
     }
 
-    void SetAdvVel(const Array<OneD, NekDouble> &Vel)
+    void SetAdvVel(Field<TData, FieldState::Phys> &Vel)
     {
         v_SetAdvVel(Vel);
     }
@@ -85,7 +85,7 @@ protected:
 
     virtual void v_SetDiffCoeff(std::vector<TData> &diffCoeff) = 0;
 
-    virtual void v_SetAdvVel(const Array<OneD, NekDouble> &Vel) = 0;
+    virtual void v_SetAdvVel(Field<TData, FieldState::Phys> &Vel) = 0;
 };
 
 } // namespace Nektar::Operators

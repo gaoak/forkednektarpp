@@ -345,9 +345,15 @@ void UnsteadyADR::InitialiseOperators()
         m_fields[0], m_session->GetVariables());
 
     // Configure UnsteadyADRSolve
+    unsigned int coordDim = m_fields[0]->GetCoordim(0);
+    auto advelblockAttr =
+        GetBlockAttributes<double, FieldState::Phys>(m_fields[0]);
+    auto vel =
+        Field<double, FieldState::Phys>("vel", advelblockAttr, coordDim, 1);
+    vel.template CopyArray<NektarSpaces::HostSpace>(m_AdVel);
     m_linearADRSolveOp->SetLinearSolver(m_linearSolverOp);
     m_linearADRSolveOp->SetDiffCoeff(m_diffCoeff);
-    m_linearADRSolveOp->SetAdvVel(m_AdVel);
+    m_linearADRSolveOp->SetAdvVel(vel);
 
     // Check if forcing is defined
     if (m_session->DefinesFunction("BodyForce"))

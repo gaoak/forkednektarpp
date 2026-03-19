@@ -82,9 +82,14 @@ public:
         m_isSetDiffCoeff = true;
     }
 
-    void SetAdvVel(const Array<OneD, NekDouble> &Vel)
+    void SetAdvVel(Field<TData, FieldState::Phys> &Vel)
     {
-        v_SetAdvVel(Vel);
+        m_advVel = std::move(Vel);
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
+        {
+            this->m_blockOp[blk]->SetAdvVel(this->m_advVel.GetBlocks()[blk]);
+        }
         m_isSetAdvVel = true;
     }
 
@@ -142,8 +147,6 @@ protected:
             this->m_blockOp[blk]->Apply(inblock, outblock);
         }
     }
-
-    virtual void v_SetAdvVel(const Array<OneD, NekDouble> &Vel) = 0;
 };
 
 } // namespace Nektar::Operators
