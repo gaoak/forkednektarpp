@@ -154,7 +154,7 @@
     </GEOMETRY>
 
     <EXPANSIONS>
-        <E COMPOSITE="C[0]" NUMMODES="6" TYPE="MODIFIED" FIELDS="u,v,w" />
+        <E COMPOSITE="C[0]" NUMMODES="4" TYPE="MODIFIED" FIELDS="u,v,w" />
     </EXPANSIONS>
 
     <CONDITIONS>

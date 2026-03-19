@@ -181,14 +181,17 @@ include:
   script:
     - export JOBNAME=$(echo $CI_JOB_NAME | rev | cut -d- -f3- | rev)
     - export LOGFILE=${CI_PIPELINE_ID}/${JOBNAME}/outfile.log
-    - if [ "$(ssh $CLUSTER_USERNAME@$CLUSTER_HOSTNAME  "grep \"JOB FAILED\" ${LOGFILE}")" != "" ]; 
+    - if [ "$(ssh $CLUSTER_USERNAME@$CLUSTER_HOSTNAME  "grep \"JOB SUCCEEDED\" ${LOGFILE}")" != "" ]; 
+      then exit_code=0;
+      elif [ "$(ssh $CLUSTER_USERNAME@$CLUSTER_HOSTNAME  "grep \"JOB FAILED\" ${LOGFILE}")" != "" ]; 
       then exit_code=1;
       elif [ "$(ssh $CLUSTER_USERNAME@$CLUSTER_HOSTNAME  "grep \"tests FAILED\" ${LOGFILE}")" != "" ]; 
       then exit_code=1;
-      else exit_code=0;
+      else exit_code=1;
       fi
     - ssh $CLUSTER_USERNAME@$CLUSTER_HOSTNAME " cat ${LOGFILE}"
     - ssh $CLUSTER_USERNAME@$CLUSTER_HOSTNAME " rm -rf ${CI_PIPELINE_ID}/${JOBNAME}/nektar"
+    - ssh $CLUSTER_USERNAME@$CLUSTER_HOSTNAME "source /etc/profile; module load apptainer; apptainer cache clean -f -D 2"
     - exit $exit_code;
   tags:
     - cluster
