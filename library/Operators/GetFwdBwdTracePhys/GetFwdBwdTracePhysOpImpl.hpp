@@ -81,6 +81,12 @@ public:
             auto &phyBlock = phys.GetBlocks()[blk];
             this->m_blockOp[blk]->Apply(phyBlock, fwd, bwd);
         }
+
+        if (!this->m_fwdOnly)
+        {
+            this->m_DirBCOp->Apply(bwd);
+            this->m_PerBCOp->Apply(fwd, bwd);
+        }
     }
 };
 

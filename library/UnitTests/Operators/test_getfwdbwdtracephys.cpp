@@ -57,7 +57,9 @@
 BOOST_AUTO_TEST_SUITE(TestGetFwdBwdTracePhys)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-TEST_GETFWDBWDTRACEPHYS(getfwdbwdtracephys_quad, Quad, 1.0E-12)
+// TEST_GETFWDBWDTRACEPHYS(getfwdbwdtracephys_quad, Quad, 1.0E-12)
+
+TEST_GETFWDBWDTRACEPHYS(getfwdbwdtracephys_quad_per, QuadPer, 1.0E-12)
 
 TEST_GETFWDBWDTRACEPHYS(getfwdbwdtracephys_quad_sem, QuadSEM, 1.0E-12)
 

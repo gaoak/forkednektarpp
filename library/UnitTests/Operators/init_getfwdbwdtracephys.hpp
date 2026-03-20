@@ -120,7 +120,7 @@ public:
     {
         auto TraceOp = GetFwdBwdTracePhysOp<TData>::Create(
             this->fixt_explist, this->session->GetVariables());
-        TraceOp->Apply(*this->fixt_in, *this->fixt_out, *this->fixt_out_2);
+        TraceOp->Apply(*this->fixt_in, *this->fixt_out_2, *this->fixt_out);
     }
 
     void ExpectedSolution()
@@ -144,7 +144,7 @@ public:
                 inFwd + i * nphys, tmpFwd = Fwd + i * nTracePointsTot,
                 tmpBwd = Bwd + i * nTracePointsTot);
         }
-        this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(Fwd);
+        this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(Bwd);
     }
 };
 
@@ -187,6 +187,8 @@ TEST(SegSEM, "run/line_sem.xml")
 TEST(Seg3D, "run/segment_3D.xml")
 
 TEST(Quad, "run/square.xml")
+
+TEST(QuadPer, "run/square_per.xml")
 
 TEST(Quad3D, "run/square_3D.xml")
 

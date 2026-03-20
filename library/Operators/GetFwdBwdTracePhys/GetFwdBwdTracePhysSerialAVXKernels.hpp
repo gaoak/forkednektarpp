@@ -35,24 +35,16 @@
 #pragma once
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 
-// The dimension and shape kernels. NOTE: They are NOT duplicate
-// templated version based on the array size like the
-// operators. HOWEVER, they are forced to be INLINED. The inlining is
-// critical so that when used in the templated version of the operator
-// that loop unrolling occurs.
-using namespace Nektar::MultiRegions;
+#include "MultiRegions/AssemblyMap/LocTraceToTraceMap.h"
 
 namespace Nektar::Operators::detail
 {
 template <bool FwdOnly, typename TData>
 NEK_FORCE_INLINE static void GetFwdBwdTracePhys2DKernel(
     const size_t el, const size_t nelmt, const size_t elmtTot,
-    const unsigned int nTraceBlk, const unsigned int nComps,
-    const unsigned int nc, const size_t *traceBlockSizePtr,
-    const size_t *traceBlockOffsetPtr, const size_t *traceTotOffsetPtr,
-    const unsigned int traceId, const unsigned int tracePts,
-    const unsigned int nqTraceOffset, const unsigned int nTraces,
-    const unsigned int *locTracePhysToElmtMapsPtr,
+    const unsigned int nc, const unsigned int traceId,
+    const unsigned int tracePts, const unsigned int nqTraceOffset,
+    const unsigned int nTraces, const unsigned int *locTracePhysToElmtMapsPtr,
     const unsigned int *orientationMapsPtr,
     const size_t *orientationMapsOffsetPtr,
     const size_t *locToTracePhysOffsetPtr,
@@ -82,20 +74,7 @@ NEK_FORCE_INLINE static void GetFwdBwdTracePhys2DKernel(
         const unsigned int dir = isLeft ? 0u : 1u;
         unsigned int typeId    = interpTraceIndexPtr[key];
 
-        size_t tracePhysOffset = locToTracePhysOffsetPtr[key];
-
-        // Find which block
-        unsigned int traceBlk = 0;
-        while (traceBlk < nTraceBlk &&
-               !(tracePhysOffset >= traceBlockOffsetPtr[traceBlk] &&
-                 tracePhysOffset < traceBlockOffsetPtr[traceBlk + 1]))
-        {
-            traceBlk++;
-        }
-
-        auto offset = tracePhysOffset - traceBlockOffsetPtr[traceBlk] +
-                      nc * traceBlockSizePtr[traceBlk] +
-                      nComps * traceTotOffsetPtr[traceBlk];
+        size_t offset = locToTracePhysOffsetPtr[nc * nTraces * elmtTot + key];
 
         auto *Fwdptr  = fwdptr + offset;
         TData *dstPtr = nullptr;
@@ -202,12 +181,9 @@ NEK_FORCE_INLINE static void GetFwdBwdTracePhys2DKernel(
 template <bool FwdOnly, typename TData>
 NEK_FORCE_INLINE static void GetFwdBwdTracePhys3DKernel(
     const size_t el, const size_t nelmt, const size_t elmtTot,
-    const unsigned int nTraceBlk, const unsigned int nComps,
-    const unsigned int nc, const size_t *traceBlockSizePtr,
-    const size_t *traceBlockOffsetPtr, const size_t *traceTotOffsetPtr,
-    const unsigned int traceId, const unsigned int tracePts,
-    const unsigned int nqTraceOffset, const unsigned int nTraces,
-    const unsigned int *locTracePhysToElmtMapsPtr,
+    const unsigned int nc, const unsigned int traceId,
+    const unsigned int tracePts, const unsigned int nqTraceOffset,
+    const unsigned int nTraces, const unsigned int *locTracePhysToElmtMapsPtr,
     const unsigned int *orientationMapsPtr,
     const size_t *orientationMapsOffsetPtr,
     const size_t *locToTracePhysOffsetPtr,
@@ -239,20 +215,7 @@ NEK_FORCE_INLINE static void GetFwdBwdTracePhys3DKernel(
         const unsigned int dir = isLeft ? 0u : 1u;
         unsigned int typeId    = interpTraceIndexPtr[key];
 
-        size_t tracePhysOffset = locToTracePhysOffsetPtr[key];
-
-        // Find which block
-        unsigned int traceBlk = 0;
-        while (traceBlk < nTraceBlk &&
-               !(tracePhysOffset >= traceBlockOffsetPtr[traceBlk] &&
-                 tracePhysOffset < traceBlockOffsetPtr[traceBlk + 1]))
-        {
-            traceBlk++;
-        }
-
-        auto offset = tracePhysOffset - traceBlockOffsetPtr[traceBlk] +
-                      nc * traceBlockSizePtr[traceBlk] +
-                      nComps * traceTotOffsetPtr[traceBlk];
+        size_t offset = locToTracePhysOffsetPtr[nc * nTraces * elmtTot + key];
 
         auto *Fwdptr  = fwdptr + offset;
         TData *dstPtr = nullptr;
