@@ -39,8 +39,6 @@
 
 #include "Operators/Utils/UtilsKernels.hpp"
 
-using namespace Nektar::MultiRegions;
-
 namespace Nektar::Operators::detail
 {
 
@@ -83,11 +81,6 @@ public:
             this->m_dataWarehouse->template GetData<MemSpace>(
                 OrientationMapsOffsetKey<TData>(block_idx,
                                                 m_implInterleaveWidth));
-
-        m_locToTracePhysOffset =
-            this->m_dataWarehouse->template GetData<MemSpace>(
-                LocToTracePhysOffsetKey<TData>(block_idx,
-                                               m_implInterleaveWidth));
 
         m_isLocTraceLeftAdjacent =
             this->m_dataWarehouse->template GetData<MemSpace>(
@@ -165,13 +158,10 @@ protected:
     unsigned int m_tracePts = 0;
     MemoryRegion<unsigned int> m_nqOffset;
     MemoryRegion<TData> m_wsp;
-    MemoryRegion<size_t> m_traceBlockOffset;
-    MemoryRegion<size_t> m_traceTotOffset;
-    MemoryRegion<size_t> m_traceBlockSize;
+    MemoryRegion<size_t> m_locToTracePhysOffset;
     const unsigned int *m_locTracePhysToElmtMaps;
     const unsigned int *m_orientationMaps;
     const size_t *m_orientationMapsOffset;
-    const size_t *m_locToTracePhysOffset;
     const bool *m_isLocTraceLeftAdjacent;
     const unsigned int *m_interpTraceIndex;
     const unsigned int *m_interpPoints;
@@ -245,14 +235,8 @@ protected:
 
         auto nqOffsetPtr = m_nqOffset.template GetPtr<MemSpace, ReadOnly>();
 
-        auto traceBlockOffsetPtr =
-            m_traceBlockOffset.template GetPtr<MemSpace, ReadOnly>();
-
-        auto traceTotOffsetPtr =
-            m_traceTotOffset.template GetPtr<MemSpace, ReadOnly>();
-
-        auto traceBlockSizePtr =
-            m_traceBlockSize.template GetPtr<MemSpace, ReadOnly>();
+        auto locToTracePhysOffsetPtr =
+            m_locToTracePhysOffset.template GetPtr<MemSpace, ReadOnly>();
 
         // Loop over components.
         for (unsigned int nc = 0; nc < physBlock.GetNumComponents(); ++nc)
@@ -267,13 +251,12 @@ protected:
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (GetFwdBwdTracePhys2DKernelLauncher<true>), gridSize,
                     blockSize, 0, m_nqTot, nelmt, m_tracePts, m_nTraces,
-                    nqOffsetPtr, nTraceBlk, physBlock.GetNumComponents(), nc,
-                    traceBlockSizePtr, traceBlockOffsetPtr, traceTotOffsetPtr,
-                    m_locTracePhysToElmtMaps, m_orientationMaps,
-                    m_orientationMapsOffset, m_locToTracePhysOffset,
-                    m_isLocTraceLeftAdjacent, m_interpTraceIndex,
-                    m_interpPoints, m_interpTypes, m_quadRange, m_interpTrace,
-                    m_interpTraceI0, m_interpTraceI0Offset, m_interpEndPtI0,
+                    nqOffsetPtr, nc, m_locTracePhysToElmtMaps,
+                    m_orientationMaps, m_orientationMapsOffset,
+                    locToTracePhysOffsetPtr, m_isLocTraceLeftAdjacent,
+                    m_interpTraceIndex, m_interpPoints, m_interpTypes,
+                    m_quadRange, m_interpTrace, m_interpTraceI0,
+                    m_interpTraceI0Offset, m_interpEndPtI0,
                     m_interpEndPtI0Offset, physptr, fwdptr, bwdptr);
             }
             else
@@ -281,13 +264,12 @@ protected:
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (GetFwdBwdTracePhys2DKernelLauncher<false>), gridSize,
                     blockSize, 0, m_nqTot, nelmt, m_tracePts, m_nTraces,
-                    nqOffsetPtr, nTraceBlk, physBlock.GetNumComponents(), nc,
-                    traceBlockSizePtr, traceBlockOffsetPtr, traceTotOffsetPtr,
-                    m_locTracePhysToElmtMaps, m_orientationMaps,
-                    m_orientationMapsOffset, m_locToTracePhysOffset,
-                    m_isLocTraceLeftAdjacent, m_interpTraceIndex,
-                    m_interpPoints, m_interpTypes, m_quadRange, m_interpTrace,
-                    m_interpTraceI0, m_interpTraceI0Offset, m_interpEndPtI0,
+                    nqOffsetPtr, nc, m_locTracePhysToElmtMaps,
+                    m_orientationMaps, m_orientationMapsOffset,
+                    locToTracePhysOffsetPtr, m_isLocTraceLeftAdjacent,
+                    m_interpTraceIndex, m_interpPoints, m_interpTypes,
+                    m_quadRange, m_interpTrace, m_interpTraceI0,
+                    m_interpTraceI0Offset, m_interpEndPtI0,
                     m_interpEndPtI0Offset, physptr, fwdptr, bwdptr);
             }
 
@@ -357,14 +339,8 @@ protected:
 
         auto nqOffsetPtr = m_nqOffset.template GetPtr<MemSpace, ReadOnly>();
 
-        auto traceBlockOffsetPtr =
-            m_traceBlockOffset.template GetPtr<MemSpace, ReadOnly>();
-
-        auto traceTotOffsetPtr =
-            m_traceTotOffset.template GetPtr<MemSpace, ReadOnly>();
-
-        auto traceBlockSizePtr =
-            m_traceBlockSize.template GetPtr<MemSpace, ReadOnly>();
+        auto locToTracePhysOffsetPtr =
+            m_locToTracePhysOffset.template GetPtr<MemSpace, ReadOnly>();
 
         // Loop over components.
         for (unsigned int nc = 0; nc < physBlock.GetNumComponents(); ++nc)
@@ -379,13 +355,12 @@ protected:
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (GetFwdBwdTracePhys3DKernelLauncher<true>), gridSize,
                     blockSize, 0, m_nqTot, nelmt, m_tracePts, m_nTraces,
-                    nqOffsetPtr, nTraceBlk, physBlock.GetNumComponents(), nc,
-                    traceBlockSizePtr, traceBlockOffsetPtr, traceTotOffsetPtr,
-                    m_locTracePhysToElmtMaps, m_orientationMaps,
-                    m_orientationMapsOffset, m_locToTracePhysOffset,
-                    m_isLocTraceLeftAdjacent, m_interpTraceIndex,
-                    m_interpPoints, m_interpTypes, m_quadRange, m_interpTrace,
-                    m_interpTraceI0, m_interpTraceI0Offset, m_interpTraceI1,
+                    nqOffsetPtr, nc, m_locTracePhysToElmtMaps,
+                    m_orientationMaps, m_orientationMapsOffset,
+                    locToTracePhysOffsetPtr, m_isLocTraceLeftAdjacent,
+                    m_interpTraceIndex, m_interpPoints, m_interpTypes,
+                    m_quadRange, m_interpTrace, m_interpTraceI0,
+                    m_interpTraceI0Offset, m_interpTraceI1,
                     m_interpTraceI1Offset, m_interpEndPtI0,
                     m_interpEndPtI0Offset, m_interpEndPtI1,
                     m_interpEndPtI1Offset, wspptr, physptr, fwdptr, bwdptr);
@@ -395,13 +370,12 @@ protected:
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (GetFwdBwdTracePhys3DKernelLauncher<false>), gridSize,
                     blockSize, 0, m_nqTot, nelmt, m_tracePts, m_nTraces,
-                    nqOffsetPtr, nTraceBlk, physBlock.GetNumComponents(), nc,
-                    traceBlockSizePtr, traceBlockOffsetPtr, traceTotOffsetPtr,
-                    m_locTracePhysToElmtMaps, m_orientationMaps,
-                    m_orientationMapsOffset, m_locToTracePhysOffset,
-                    m_isLocTraceLeftAdjacent, m_interpTraceIndex,
-                    m_interpPoints, m_interpTypes, m_quadRange, m_interpTrace,
-                    m_interpTraceI0, m_interpTraceI0Offset, m_interpTraceI1,
+                    nqOffsetPtr, nc, m_locTracePhysToElmtMaps,
+                    m_orientationMaps, m_orientationMapsOffset,
+                    locToTracePhysOffsetPtr, m_isLocTraceLeftAdjacent,
+                    m_interpTraceIndex, m_interpPoints, m_interpTypes,
+                    m_quadRange, m_interpTrace, m_interpTraceI0,
+                    m_interpTraceI0Offset, m_interpTraceI1,
                     m_interpTraceI1Offset, m_interpEndPtI0,
                     m_interpEndPtI0Offset, m_interpEndPtI1,
                     m_interpEndPtI1Offset, wspptr, physptr, fwdptr, bwdptr);
@@ -427,22 +401,10 @@ protected:
         }
     }
 
-    void v_SetTraceBlockOffset(std::vector<size_t> offset) override
+    void v_SetTracePhysOffset(std::vector<size_t> offset) override
     {
-        this->m_traceBlockOffset =
+        this->m_locToTracePhysOffset =
             MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(offset);
-    }
-
-    void v_SetTraceTotOffset(std::vector<size_t> offset) override
-    {
-        this->m_traceTotOffset =
-            MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(offset);
-    }
-
-    void v_SetTraceBlockSize(std::vector<size_t> size) override
-    {
-        this->m_traceBlockSize =
-            MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(size);
     }
 };
 

@@ -153,6 +153,16 @@ public:
 
     bool IsLeftAdjacentTrace(const int n, const int e);
 
+    MULTI_REGIONS_EXPORT std::vector<int> &GetPeriodicFwdCopy()
+    {
+        return m_periodicFwdCopy;
+    }
+
+    MULTI_REGIONS_EXPORT std::vector<int> &GetPeriodicBwdCopy()
+    {
+        return m_periodicBwdCopy;
+    }
+
 protected:
     /// An array which contains the information about the boundary
     /// condition structure definition on the different boundary regions.

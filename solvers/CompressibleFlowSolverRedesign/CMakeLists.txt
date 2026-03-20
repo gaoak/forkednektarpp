@@ -103,9 +103,6 @@ IF(NEKTAR_BUILD_REDESIGN)
             ${${NAME_SOURCES}}
             )
 
-        # add operators manually 
-        LINK_LIBRARIES(Operators)
-
         # Make list visible to subdirectories
         SET(RIEMANN_FACTORY_SOURCES "${OPERATORS_SOURCES}" CACHE INTERNAL "Generated Riemann factory sources")
 

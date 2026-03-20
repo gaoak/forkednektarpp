@@ -38,6 +38,9 @@
 
 #include "Operators/GetFwdBwdTracePhys/GetFwdBwdTracePhysBlockOp.hpp"
 
+#include "Operators/BndCondOps/DGDirBndCond/DGDirBndCondOp.hpp"
+#include "Operators/BndCondOps/DGPerBndCond/DGPerBndCondOp.hpp"
+
 namespace Nektar::Operators
 {
 
@@ -85,6 +88,8 @@ public:
 
         auto blocks =
             GetBlockAttributes<TData, FieldState::Phys>(expansionList);
+        auto traceBlocks = GetBlockAttributes<TData, FieldState::Phys>(
+            expansionList->GetTrace());
 
         // Loop over the blocks.
         for (unsigned int block_idx = 0; block_idx < blocks.size(); block_idx++)
@@ -93,12 +98,48 @@ public:
                                      .GetExpVector()[0]
                                      ->GetElmtId();
             const auto exp = expansionList->GetExp(exp_idx);
+
             op->m_blockOp.push_back(GetFwdBwdTracePhysBlockOp<TData>::Create(
                 block_idx, exp, expansionList->GetDataWarehouseSharedPtr(),
                 execStr0));
-            op->m_blockOp[block_idx]->SetTraceBlockOffset(traceBlockOffset);
-            op->m_blockOp[block_idx]->SetTraceTotOffset(traceTotOffset);
-            op->m_blockOp[block_idx]->SetTraceBlockSize(traceBlockSize);
+
+            auto interleaveWidth =
+                (execStr0 == "Device")
+                    ? NektarSpaces::GetVectorWidth<TData>(execStr0)
+                    : 1;
+            auto locToTracePhysOffset =
+                expansionList->GetDataWarehouseSharedPtr()
+                    ->template GetData<NektarSpaces::HostSpace>(
+                        LocToTracePhysOffsetKey<TData>(block_idx,
+                                                       interleaveWidth));
+            auto nComps    = components.size();
+            auto nTraceBlk = traceBlocks.size();
+            auto nTraces   = exp->GetNtraces();
+            auto nelmt     = blocks[block_idx].GetNumElementsWithPadding();
+            auto totTrace  = nTraces * nelmt;
+            std::vector<size_t> tracePhysOffset(nComps * totTrace);
+            for (unsigned int i = 0; i < totTrace; ++i)
+            {
+                auto offset = locToTracePhysOffset[i];
+
+                // Find offset in which block
+                unsigned int traceBlk = 0;
+                while (traceBlk < nTraceBlk &&
+                       !(offset >= traceBlockOffset[traceBlk] &&
+                         offset < traceBlockOffset[traceBlk + 1]))
+                {
+                    traceBlk++;
+                }
+
+                for (unsigned int nc = 0; nc < nComps; ++nc)
+                {
+                    tracePhysOffset[nc * totTrace + i] =
+                        offset - traceBlockOffset[traceBlk] +
+                        nc * traceBlockSize[traceBlk] +
+                        nComps * traceTotOffset[traceBlk];
+                }
+            }
+            op->m_blockOp[block_idx]->SetTracePhysOffset(tracePhysOffset);
         }
 
         return op;
@@ -122,6 +163,7 @@ public:
 
     void SetFwdOnly(bool fwdOnly)
     {
+        m_fwdOnly = fwdOnly;
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < m_blockOp.size(); ++blk)
         {
@@ -131,11 +173,17 @@ public:
 
 protected:
     std::vector<std::shared_ptr<GetFwdBwdTracePhysBlockOp<TData>>> m_blockOp;
+    std::shared_ptr<DGDirBndCondOp<TData>> m_DirBCOp;
+    std::shared_ptr<DGPerBndCondOp<TData>> m_PerBCOp;
+
+    bool m_fwdOnly = false;
 
     GetFwdBwdTracePhysOp(const MultiRegions::ExpListSharedPtr &expansionList,
                          const std::vector<std::string> &components)
         : Operator<TData>(expansionList, components)
     {
+        m_DirBCOp = DGDirBndCondOp<TData>::Create(expansionList, components);
+        m_PerBCOp = DGPerBndCondOp<TData>::Create(expansionList, components);
     }
 
     ~GetFwdBwdTracePhysOp() override = default;

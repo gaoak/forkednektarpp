@@ -37,7 +37,6 @@
 
 #include "MultiRegions/AssemblyMap/LocTraceToTraceMap.h"
 
-using namespace Nektar::MultiRegions;
 namespace Nektar::Operators::detail
 {
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
@@ -45,10 +44,7 @@ template <bool FwdOnly, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void GetFwdBwdTracePhys2DKernel(
     const unsigned int nqTot, const size_t nelmt, const unsigned int tracePts,
     const unsigned int nTraces, const unsigned int *__restrict__ nqOffsetPtr,
-    const unsigned int nTraceBlk, const unsigned int nComps,
-    const unsigned int nc, const size_t *__restrict__ traceBlockSizePtr,
-    const size_t *__restrict__ traceBlockOffsetPtr,
-    const size_t *__restrict__ traceTotOffsetPtr,
+    const unsigned int nc,
     const unsigned int *__restrict__ locTracePhysToElmtMapsPtr,
     const unsigned int *__restrict__ orientationMapsPtr,
     const size_t *__restrict__ orientationMapsOffsetPtr,
@@ -90,20 +86,7 @@ NEK_DEVICE_INLINE static void GetFwdBwdTracePhys2DKernel(
             const unsigned int dir = isLeft ? 0u : 1u;
             unsigned int typeId    = interpTraceIndexPtr[key];
 
-            size_t tracePhysOffset = locToTracePhysOffsetPtr[key];
-
-            // Find which block
-            unsigned int traceBlk = 0;
-            while (traceBlk < nTraceBlk &&
-                   !(tracePhysOffset >= traceBlockOffsetPtr[traceBlk] &&
-                     tracePhysOffset < traceBlockOffsetPtr[traceBlk + 1]))
-            {
-                traceBlk++;
-            }
-
-            auto offset = tracePhysOffset - traceBlockOffsetPtr[traceBlk] +
-                          nc * traceBlockSizePtr[traceBlk] +
-                          nComps * traceTotOffsetPtr[traceBlk];
+            size_t offset = locToTracePhysOffsetPtr[nc * nTraces * nelmt + key];
 
             TData *Fwdptr = fwdptr + offset;
 
@@ -221,10 +204,7 @@ template <bool FwdOnly, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void GetFwdBwdTracePhys3DKernel(
     const unsigned int nqTot, const size_t nelmt, const unsigned int tracePts,
     const unsigned int nTraces, const unsigned int *__restrict__ nqOffsetPtr,
-    const size_t nTraceBlk, const unsigned int nComps, const unsigned int nc,
-    const size_t *__restrict__ traceBlockSizePtr,
-    const size_t *__restrict__ traceBlockOffsetPtr,
-    const size_t *__restrict__ traceTotOffsetPtr,
+    const unsigned int nc,
     const unsigned int *__restrict__ locTracePhysToElmtMapsPtr,
     const unsigned int *__restrict__ orientationMapsPtr,
     const size_t *__restrict__ orientationMapsOffsetPtr,
@@ -271,20 +251,7 @@ NEK_DEVICE_INLINE static void GetFwdBwdTracePhys3DKernel(
             const unsigned int dir = isLeft ? 0u : 1u;
             unsigned int typeId    = interpTraceIndexPtr[key];
 
-            size_t tracePhysOffset = locToTracePhysOffsetPtr[key];
-
-            // Find which block
-            unsigned int traceBlk = 0;
-            while (traceBlk < nTraceBlk &&
-                   !(tracePhysOffset >= traceBlockOffsetPtr[traceBlk] &&
-                     tracePhysOffset < traceBlockOffsetPtr[traceBlk + 1]))
-            {
-                traceBlk++;
-            }
-
-            auto offset = tracePhysOffset - traceBlockOffsetPtr[traceBlk] +
-                          nc * traceBlockSizePtr[traceBlk] +
-                          nComps * traceTotOffsetPtr[traceBlk];
+            size_t offset = locToTracePhysOffsetPtr[nc * nTraces * nelmt + key];
 
             TData *Fwdptr = fwdptr + offset;
 
@@ -617,10 +584,7 @@ template <bool FwdOnly, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL void GetFwdBwdTracePhys2DKernelLauncher(
     const unsigned int nqTot, const size_t nelmt, const unsigned int tracePts,
     const unsigned int nTraces, const unsigned int *__restrict__ nqOffsetPtr,
-    const unsigned int nTraceBlk, const unsigned int nComps,
-    const unsigned int nc, const size_t *__restrict__ traceBlockSizePtr,
-    const size_t *__restrict__ traceBlockOffsetPtr,
-    const size_t *__restrict__ traceTotOffsetPtr,
+    const unsigned int nc,
     const unsigned int *__restrict__ locTracePhysToElmtMapsPtr,
     const unsigned int *__restrict__ orientationMapsPtr,
     const size_t *__restrict__ orientationMapsOffsetPtr,
@@ -639,8 +603,7 @@ NEK_DEVICE_KERNEL void GetFwdBwdTracePhys2DKernelLauncher(
     TData *__restrict__ bwdptr, const TthreadBlock &threadBlock)
 {
     GetFwdBwdTracePhys2DKernel<FwdOnly>(
-        nqTot, nelmt, tracePts, nTraces, nqOffsetPtr, nTraceBlk, nComps, nc,
-        traceBlockSizePtr, traceBlockOffsetPtr, traceTotOffsetPtr,
+        nqTot, nelmt, tracePts, nTraces, nqOffsetPtr, nc,
         locTracePhysToElmtMapsPtr, orientationMapsPtr, orientationMapsOffsetPtr,
         locToTracePhysOffsetPtr, isLocTraceLeftAdjacentPtr, interpTraceIndexPtr,
         interpPointsPtr, interpTypesPtr, quadRangePtr, interpTracePtr,
@@ -653,10 +616,7 @@ template <bool FwdOnly, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL void GetFwdBwdTracePhys3DKernelLauncher(
     const unsigned int nqTot, const size_t nelmt, const unsigned int tracePts,
     const unsigned int nTraces, const unsigned int *__restrict__ nqOffsetPtr,
-    const unsigned int nTraceBlk, const unsigned int nComps,
-    const unsigned int nc, const size_t *__restrict__ traceBlockSizePtr,
-    const size_t *__restrict__ traceBlockOffsetPtr,
-    const size_t *__restrict__ traceTotOffsetPtr,
+    const unsigned int nc,
     const unsigned int *__restrict__ locTracePhysToElmtMapsPtr,
     const unsigned int *__restrict__ orientationMapsPtr,
     const size_t *__restrict__ orientationMapsOffsetPtr,
@@ -680,8 +640,7 @@ NEK_DEVICE_KERNEL void GetFwdBwdTracePhys3DKernelLauncher(
     const TthreadBlock &threadBlock)
 {
     GetFwdBwdTracePhys3DKernel<FwdOnly>(
-        nqTot, nelmt, tracePts, nTraces, nqOffsetPtr, nTraceBlk, nComps, nc,
-        traceBlockSizePtr, traceBlockOffsetPtr, traceTotOffsetPtr,
+        nqTot, nelmt, tracePts, nTraces, nqOffsetPtr, nc,
         locTracePhysToElmtMapsPtr, orientationMapsPtr, orientationMapsOffsetPtr,
         locToTracePhysOffsetPtr, isLocTraceLeftAdjacentPtr, interpTraceIndexPtr,
         interpPointsPtr, interpTypesPtr, quadRangePtr, interpTracePtr,

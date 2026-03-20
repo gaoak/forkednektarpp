@@ -71,19 +71,9 @@ public:
         this->v_Apply(phyBlock, fwd, bwd);
     }
 
-    void SetTraceBlockOffset(std::vector<size_t> offset)
+    void SetTracePhysOffset(std::vector<size_t> offset)
     {
-        v_SetTraceBlockOffset(offset);
-    }
-
-    void SetTraceTotOffset(std::vector<size_t> offset)
-    {
-        v_SetTraceTotOffset(offset);
-    }
-
-    void SetTraceBlockSize(std::vector<size_t> size)
-    {
-        v_SetTraceBlockSize(size);
+        v_SetTracePhysOffset(offset);
     }
 
     void SetFwdOnly(bool fwdOnly)
@@ -105,9 +95,7 @@ protected:
                          Field<TData, FieldState::Phys> &fwd,
                          Field<TData, FieldState::Phys> &bwd) = 0;
 
-    virtual void v_SetTraceBlockOffset(std::vector<size_t> offset) = 0;
-    virtual void v_SetTraceTotOffset(std::vector<size_t> offset)   = 0;
-    virtual void v_SetTraceBlockSize(std::vector<size_t> size)     = 0;
+    virtual void v_SetTracePhysOffset(std::vector<size_t> offset) = 0;
 };
 
 } // namespace Nektar::Operators
