@@ -98,6 +98,11 @@ public:
 
     LIB_UTILITIES_EXPORT inline void Finalise();
 
+    LIB_UTILITIES_EXPORT inline bool IsGPUAware(void)
+    {
+        return m_gpu_aware;
+    }
+
     /// Returns number of processes
     LIB_UTILITIES_EXPORT inline int GetSize() const;
     LIB_UTILITIES_EXPORT inline int GetRank();
