@@ -88,6 +88,7 @@ protected:
     const unsigned *m_gsBndOffset   = nullptr;
     const unsigned *m_gsBndAssOrder = nullptr;
     const int *m_gsBndSign          = nullptr;
+    LibUtilities::CommSharedPtr m_rowComm;
 
     /// number of internal device  dofs ot assemble.
     unsigned m_nGids;
@@ -139,11 +140,10 @@ protected:
 
         m_nGids = hostGSInfo[0];
 
-        auto vCommRow =
+        m_rowComm =
             this->m_expansionList->GetSession()->GetComm()->GetRowComm();
-        m_isParallel = (vCommRow->GetSize() > 1) ? true : false;
+        m_isParallel = (m_rowComm->GetSize() > 1) ? true : false;
 
-#if defined(NEKTAR_USE_MPI)
         if (m_isParallel)
         {
             auto contfield = std::dynamic_pointer_cast<MultiRegions::ContField>(
@@ -161,7 +161,7 @@ protected:
                 tmp[i] = globalToUniMap[i];
             }
             m_assmbCommCG =
-                std::make_unique<MultiRegions::AssemblyCommCG<TData>>(vCommRow,
+                std::make_unique<MultiRegions::AssemblyCommCG<TData>>(m_rowComm,
                                                                       tmp);
 
             // setup GS info of values interior to device
@@ -210,24 +210,41 @@ protected:
             auto nbuf = m_assmbCommCG->GetSREntries().size() * numComp;
 
             m_send_buffer = MemoryRegion<TData>(nbuf, ePinned);
-            m_send_buffer.template Initialize<NektarSpaces::HostSpace>(0);
-
-            auto sendPtr =
-                m_send_buffer
-                    .template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-
             m_recv_buffer = MemoryRegion<TData>(nbuf, ePinned);
-            m_recv_buffer.template Initialize<NektarSpaces::HostSpace>(0);
 
-            auto recvPtr =
-                m_recv_buffer
-                    .template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-
-            // this now seems dangerous since we are now resetting explist
-            // communicator!
-            m_assmbCommCG->InitSendRecvComms(nbuf, sendPtr, recvPtr, numComp);
+            // Assign pointer for future communication requests. Pointers are
+            // used here directly, without memory syncronisation by accessing
+            // the private member variables. Memory synchronisation will only be
+            // required when BeginComm() and and EndComm() are called.
+            TData *send_buffer_ptr, *recv_buffer_ptr;
+            if (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace> &&
+                m_rowComm->IsGPUAware())
+            {
+                m_send_buffer.template Initialize<NektarSpaces::DeviceSpace>(
+                    0.0);
+                m_recv_buffer.template Initialize<NektarSpaces::DeviceSpace>(
+                    0.0);
+                send_buffer_ptr =
+                    (TData *)m_send_buffer
+                        .template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+                recv_buffer_ptr =
+                    (TData *)m_recv_buffer
+                        .template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+            }
+            else
+            {
+                m_send_buffer.template Initialize<NektarSpaces::HostSpace>(0.0);
+                m_recv_buffer.template Initialize<NektarSpaces::HostSpace>(0.0);
+                send_buffer_ptr =
+                    (TData *)m_send_buffer
+                        .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+                recv_buffer_ptr =
+                    (TData *)m_recv_buffer
+                        .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            }
+            m_assmbCommCG->InitSendRecvComms(nbuf, send_buffer_ptr,
+                                             recv_buffer_ptr, numComp);
         }
-#endif
     }
 
     void v_Apply(Field<TData, FieldState::Coeff> &in,
@@ -302,8 +319,16 @@ protected:
                 m_nBndGids, m_gsBndNumAssmb, m_gsNumBndVals, m_gsBndIndex,
                 m_gsBndOffset, m_gsBndSign, inoutPtr, sendPtr);
 
-            // Get Pointer to ensure data on host
-            m_send_buffer.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            // Synchronize memory, if necessary.
+            if (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace> &&
+                !m_rowComm->IsGPUAware())
+            {
+                // Data must be copied to the host without GPU-aware MPI before
+                // communication. No memory copy is require otherwise.
+                m_send_buffer
+                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            }
+
             // start  comms
             m_assmbCommCG->BeginComm();
         }
@@ -313,9 +338,24 @@ protected:
 
         if (m_isParallel)
         {
+            // Synchronize memory, if necessary.
+            if (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace> &&
+                m_rowComm->IsGPUAware())
+            {
+                // Data is received on the device with GPU-aware MPI.
+                m_recv_buffer
+                    .template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>();
+            }
+            else
+            {
+                // Data is received on the host without GPU-aware MPI.
+                m_recv_buffer
+                    .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+            }
+
             // finish comms and syncronize
             m_assmbCommCG->EndComm();
-            // Get Pointer to ensure data on device or host as required
+
             auto recvPtr = m_recv_buffer.template GetPtr<MemSpace, ReadOnly>();
 
             //  assemble data into boundary send buffer
