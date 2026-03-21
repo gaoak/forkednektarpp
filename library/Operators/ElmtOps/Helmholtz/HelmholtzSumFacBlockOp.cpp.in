@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTDerivBaseDeviceSumFac@Shape@.cpp
+// File: Helmholtz@ExecSpace@@Impl@@Shape@.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -33,19 +33,16 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+// clang-format off
 #include "Common/SwitchLevel2Defs.h"
-// Update this include file to the appropriate operator class definition if
-// using for another operator
-#include "ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseDeviceSumFac.hpp"
+@IMPL_HEADER@
 
 namespace Nektar::Operators::detail
 {
-// clang-format off
-
 template <>
-void IProductWRTDerivBaseBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::SumFac,
+void HelmholtzBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::@Impl@,
                                       @TData@>::@Shape@Block
-                (BlockAccessor<@TData@, FieldState::Phys> &inblock, 
+                (BlockAccessor<@TData@, FieldState::Coeff> &inblock, 
                  BlockAccessor<@TData@, FieldState::Coeff> &outblock)
 {
     // The following will use predefined code found in the Operators/Common
@@ -60,8 +57,6 @@ void IProductWRTDerivBaseBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::SumFa
     
 #define SHAPE_TYPE_@Shape@
 #include "@CMAKE_CURRENT_BINARY_DIR@/BlockOpSwitchCode@Shape@.h"
-
 }
-// clang-format on
-
 } // namespace Nektar::Operators::detail
+// clang-format on

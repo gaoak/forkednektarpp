@@ -1,8 +1,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysDerivSerialAVXSumFac@Shape@.cpp
+// File: BwdTrans@ExecSpace@@Impl@@Shape@.cpp
 //
-// For more informatioxn, please see: http://www.nektar.info
+// For more information, please see: http://www.nektar.info
 //
 // The MIT License
 //
@@ -29,24 +29,20 @@
 // DEALINGS IN THE SOFTWARE.
 //
 // Description: Cmake configuration for boilerplate code to generate block
-// operator code wrapped in a 1 level switch statement with Coord as
-// templates too
+// operator code wrapped in a 2 level switch statement
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Common/SwitchLevel1Defs.h"
-// Update this include file to the appropriate operator class definition if
-// using for another operator
-#include "ElmtOps/PhysDeriv/PhysDerivSerialAVXSumFac.hpp"
+// clang-format off
+#include "Common/SwitchLevel2Defs.h"
+@IMPL_HEADER@
 
 namespace Nektar::Operators::detail
 {
-// clang-format off
-
 template <>
-void PhysDerivBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::SumFac,
+void BwdTransBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::@Impl@,
                                       @TData@>::@Shape@Block
-                (BlockAccessor<@TData@, FieldState::Phys> &inblock, 
+                (BlockAccessor<@TData@, FieldState::Coeff> &inblock, 
                  BlockAccessor<@TData@, FieldState::Phys> &outblock)
 {
     // The following will use predefined code found in the Operators/Common
@@ -60,9 +56,7 @@ void PhysDerivBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::SumFac,
     // option in the compile line.
     
 #define SHAPE_TYPE_@Shape@
-#include "@CMAKE_CURRENT_BINARY_DIR@/BlockOpSwitch1DCoordsCode@Shape@.h"
-
+#include "@CMAKE_CURRENT_BINARY_DIR@/BlockOpSwitchCode@Shape@.h"
 }
-// clang-format on
-
 } // namespace Nektar::Operators::detail
+// clang-format on
