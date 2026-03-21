@@ -1,8 +1,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTDerivBaseDeviceSumFacTOP@Shape@.cpp
+// File: PhysInterp1DScaled@ExecSpace@@Impl@@Shape@.cpp
 //
-// For more informatioxn, please see: http://www.nektar.info
+// For more information, please see: http://www.nektar.info
 //
 // The MIT License
 //
@@ -33,20 +33,17 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+// clang-format off
 #include "Common/SwitchLevel2Defs.h"
-// Update this include file to the appropriate operator class definition if
-// using for another operator
-#include "ElmtOps/IProductWRTBase/IProductWRTBaseDeviceSumFac.hpp"
+@IMPL_HEADER@
 
 namespace Nektar::Operators::detail
 {
-// clang-format off
-
 template <>
-void IProductWRTBaseBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::SumFacTOP,
+void PhysInterp1DScaledBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::@Impl@,
                                       @TData@>::@Shape@Block
                 (BlockAccessor<@TData@, FieldState::Phys> &inblock, 
-                 BlockAccessor<@TData@, FieldState::Coeff> &outblock)
+                 BlockAccessor<@TData@, FieldState::Phys> &outblock)
 {
     // The following will use predefined code found in the Operators/Common
     // directory to import boost_pp code to make wrapper code to call
@@ -59,9 +56,7 @@ void IProductWRTBaseBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::SumFacTOP,
     // option in the compile line.
     
 #define SHAPE_TYPE_@Shape@
-#include "@CMAKE_CURRENT_BINARY_DIR@/BlockOpSwitchCode@Shape@.h"
-
+#include "@CMAKE_CURRENT_BINARY_DIR@/BlockOpSwitchPhysInterp1D@Shape@.h"
 }
-// clang-format on
-
 } // namespace Nektar::Operators::detail
+// clang-format on
