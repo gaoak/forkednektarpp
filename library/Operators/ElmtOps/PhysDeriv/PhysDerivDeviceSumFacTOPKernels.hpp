@@ -66,8 +66,8 @@ inline constexpr unsigned int PhysDerivSharedMemorySize(const unsigned int nq0,
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void PhysDeriv1DSumFacTOPKernel(
     const unsigned int ncoord, const unsigned int nq0, const size_t outoffset,
-    const TData *__restrict__ D0, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
     const TthreadBlock &threadBlock)
 {
     const unsigned int dfsize = DEFORMED ? nq0 : 1u;
@@ -101,8 +101,8 @@ template <bool DEFORMED, unsigned int DIR, bool APPEND, typename TthreadBlock,
           typename TData>
 NEK_DEVICE_INLINE static void PhysDerivDir1DSumFacTOPKernel(
     [[maybe_unused]] const unsigned int ncoord, const unsigned int nq0,
-    const TData *__restrict__ D0, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
     const TthreadBlock &threadBlock)
 {
     const unsigned int dfsize = DEFORMED ? nq0 : 1u;
@@ -138,8 +138,8 @@ NEK_DEVICE_INLINE static void PhysDerivDir1DSumFacTOPKernel(
 
 template <bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void SumDerivTensor1DSumFacTOPKernel(
-    const unsigned int nq0, const TData *__restrict__ D0,
-    const TData *__restrict__ in0, TData *__restrict__ out,
+    const unsigned int nq0, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT in0, TData *NEK_RESTRICT out,
     const TthreadBlock &threadBlock)
 {
     const unsigned int idx0   = getLocalIdx(threadBlock);
@@ -173,10 +173,10 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void PhysDeriv2DSumFacTOPKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
-    const size_t outoffset, const TData *__restrict__ D0,
-    const TData *__restrict__ D1, const TData *__restrict__ f0,
-    const TData *__restrict__ f1, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out,
+    const size_t outoffset, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
+    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
     const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot  = nq0 * nq1;
@@ -235,10 +235,10 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
           bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void PhysDerivDir2DSumFacTOPKernel(
     [[maybe_unused]] const unsigned int ncoord, const unsigned int nq0,
-    const unsigned int nq1, const TData *__restrict__ D0,
-    const TData *__restrict__ D1, const TData *__restrict__ f0,
-    const TData *__restrict__ f1, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out,
+    const unsigned int nq1, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
+    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
     const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot  = nq0 * nq1;
@@ -326,9 +326,9 @@ NEK_DEVICE_INLINE static void PhysDerivDir2DSumFacTOPKernel(
 template <bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void SumDerivTensor2DSumFacTOPKernel(
     const unsigned int nq0, const unsigned int nq1,
-    const TData *__restrict__ D0, const TData *__restrict__ D1,
-    const TData *__restrict__ in0, const TData *__restrict__ in1,
-    TData *__restrict__ out, const TthreadBlock &threadBlock)
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+    const TData *NEK_RESTRICT in0, const TData *NEK_RESTRICT in1,
+    TData *NEK_RESTRICT out, const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot = nq0 * nq1;
 
@@ -374,12 +374,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void PhysDeriv3DSumFacTOPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const size_t outoffset, const TData *__restrict__ D0,
-    const TData *__restrict__ D1, const TData *__restrict__ D2,
-    const TData *__restrict__ f0, const TData *__restrict__ f1,
-    const TData *__restrict__ f1m, const TData *__restrict__ f2,
-    const TData *__restrict__ df, const TData *__restrict__ in,
-    TData *__restrict__ out, const TthreadBlock &threadBlock)
+    const size_t outoffset, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot  = nq0 * nq1 * nq2;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
@@ -462,11 +462,11 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
           bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void PhysDerivDir3DSumFacTOPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const TData *__restrict__ D0, const TData *__restrict__ D1,
-    const TData *__restrict__ D2, const TData *__restrict__ f0,
-    const TData *__restrict__ f1, const TData *__restrict__ f1m,
-    const TData *__restrict__ f2, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+    const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
+    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
+    const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
     const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot  = nq0 * nq1 * nq2;
@@ -552,10 +552,10 @@ NEK_DEVICE_INLINE static void PhysDerivDir3DSumFacTOPKernel(
 template <bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void SumDerivTensor3DSumFacTOPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const TData *__restrict__ D0, const TData *__restrict__ D1,
-    const TData *__restrict__ D2, const TData *__restrict__ in0,
-    const TData *__restrict__ in1, const TData *__restrict__ in2,
-    TData *__restrict__ out, const TthreadBlock &threadBlock)
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+    const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT in0,
+    const TData *NEK_RESTRICT in1, const TData *NEK_RESTRICT in2,
+    TData *NEK_RESTRICT out, const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
@@ -609,9 +609,9 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DSumFacTOPKernel(
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void PhysDeriv1DSumFacTOPKernel(
     const unsigned int ncoord, const unsigned int nq0, const size_t nelmt,
-    const unsigned int outoffset, const TData *__restrict__ D0,
-    const TData *__restrict__ df, const TData *__restrict__ in,
-    TData *__restrict__ out, const TthreadBlock &threadBlock)
+    const unsigned int outoffset, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, const TthreadBlock &threadBlock)
 {
     const unsigned int ndf    = ncoord;
     const unsigned int dfsize = DEFORMED ? nq0 : 1u;
@@ -632,9 +632,9 @@ template <bool DEFORMED, typename TthreadBlock, unsigned int DIR, bool APPEND,
           typename TData>
 NEK_DEVICE_INLINE static void PhysDerivDir1DSumFacTOPKernel(
     const unsigned int ncoord, const unsigned int nq0, const size_t nelmt,
-    const unsigned int outoffset, const TData *__restrict__ D0,
-    const TData *__restrict__ df, const TData *__restrict__ in,
-    TData *__restrict__ out, const TthreadBlock &threadBlock)
+    const unsigned int outoffset, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, const TthreadBlock &threadBlock)
 {
     const unsigned int ndf    = ncoord;
     const unsigned int dfsize = DEFORMED ? nq0 : 1u;
@@ -656,10 +656,10 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
 NEK_DEVICE_INLINE static void PhysDeriv2DSumFacTOPKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const size_t nelmt, const unsigned int outoffset,
-    const TData *__restrict__ D0, const TData *__restrict__ D1,
-    const TData *__restrict__ f0, const TData *__restrict__ f1,
-    const TData *__restrict__ df, const TData *__restrict__ in,
-    TData *__restrict__ out, unsigned char *__restrict__ shmemptr,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, unsigned char *NEK_RESTRICT shmemptr,
     const TthreadBlock &threadBlock)
 {
     const unsigned int ndf    = 2 * ncoord;
@@ -697,10 +697,10 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
           bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void PhysDerivDir2DSumFacTOPKernel(
     const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
-    const TData *__restrict__ D0, const TData *__restrict__ D1,
-    const TData *__restrict__ f0, const TData *__restrict__ f1,
-    const TData *__restrict__ df, const TData *__restrict__ in,
-    TData *__restrict__ out, unsigned char *__restrict__ shmemptr,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, unsigned char *NEK_RESTRICT shmemptr,
     const TthreadBlock &threadBlock)
 {
     const unsigned int ndf    = 4u;
@@ -738,12 +738,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
 NEK_DEVICE_INLINE static void PhysDeriv3DSumFacTOPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const size_t nelmt, const unsigned int outoffset,
-    const TData *__restrict__ D0, const TData *__restrict__ D1,
-    const TData *__restrict__ D2, const TData *__restrict__ f0,
-    const TData *__restrict__ f1, const TData *__restrict__ f1m,
-    const TData *__restrict__ f2, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    unsigned char *__restrict__ shmemptr, const TthreadBlock &threadBlock)
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+    const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
+    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
+    const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    unsigned char *NEK_RESTRICT shmemptr, const TthreadBlock &threadBlock)
 {
     constexpr unsigned int ndf = 9u;
     const unsigned int nqTot   = nq0 * nq1 * nq2;
@@ -780,12 +780,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
           bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void PhysDerivDir3DSumFacTOPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const size_t nelmt, const TData *__restrict__ D0,
-    const TData *__restrict__ D1, const TData *__restrict__ D2,
-    const TData *__restrict__ f0, const TData *__restrict__ f1,
-    const TData *__restrict__ f1m, const TData *__restrict__ f2,
-    const TData *__restrict__ df, const TData *__restrict__ in,
-    TData *__restrict__ out, unsigned char *__restrict__ shmemptr,
+    const size_t nelmt, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, unsigned char *NEK_RESTRICT shmemptr,
     const TthreadBlock &threadBlock)
 {
     constexpr unsigned int ndf = 9u;
@@ -826,10 +826,10 @@ NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     PhysDeriv1DKernelLauncher(NonTemplated1DPhysSizeParameters sizeParam1D,
                               const size_t nelmt, const size_t outoffset,
-                              const TData *__restrict__ D0,
-                              const TData *__restrict__ df,
-                              const TData *__restrict__ in,
-                              TData *__restrict__ out,
+                              const TData *NEK_RESTRICT D0,
+                              const TData *NEK_RESTRICT df,
+                              const TData *NEK_RESTRICT in,
+                              TData *NEK_RESTRICT out,
                               const TthreadBlock &threadBlock)
 {
     PhysDeriv1DSumFacTOPKernel<DEFORMED>(sizeParam1D.ncoord(),
@@ -849,8 +849,8 @@ NEK_DEVICE_KERNEL
     PhysDeriv1DKernelLauncher(
         [[maybe_unused]] Templated1DPhysSizeParameters<ncoord, nq0>,
         const size_t nelmt, const size_t outoffset,
-        const TData *__restrict__ D0, const TData *__restrict__ df,
-        const TData *__restrict__ in, TData *__restrict__ out,
+        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
         const TthreadBlock &threadBlock)
 {
     PhysDeriv1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, nelmt, outoffset, D0, df,
@@ -864,10 +864,10 @@ NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     PhysDerivDir1DKernelLauncher(NonTemplated1DPhysSizeParameters sizeParam1D,
                                  const size_t nelmt,
-                                 const TData *__restrict__ D0,
-                                 const TData *__restrict__ df,
-                                 const TData *__restrict__ in,
-                                 TData *__restrict__ out,
+                                 const TData *NEK_RESTRICT D0,
+                                 const TData *NEK_RESTRICT df,
+                                 const TData *NEK_RESTRICT in,
+                                 TData *NEK_RESTRICT out,
                                  const TthreadBlock &threadBlock)
 {
     PhysDerivDir1DSumFacTOPKernel<DEFORMED, DIR, APPEND>(
@@ -886,9 +886,9 @@ NEK_DEVICE_KERNEL
     /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
     PhysDeriv1DKernelLauncher(
         [[maybe_unused]] Templated1DPhysSizeParameters<ncoord, nq0>,
-        const size_t nelmt, const TData *__restrict__ D0,
-        const TData *__restrict__ df, const TData *__restrict__ in,
-        TData *__restrict__ out, const TthreadBlock &threadBlock)
+        const size_t nelmt, const TData *NEK_RESTRICT D0,
+        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, const TthreadBlock &threadBlock)
 {
     PhysDerivDir1DSumFacTOPKernel<DEFORMED, DIR, APPEND>(
         ncoord, nq0, nelmt, D0, df, in, out, threadBlock);
@@ -901,10 +901,10 @@ NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     PhysDeriv2DKernelLauncher(
         NonTemplated2DPhysSizeParameters sizeParam2D, const size_t nelmt,
-        const unsigned int outoffset, const TData *__restrict__ D0,
-        const TData *__restrict__ D1, const TData *__restrict__ f0,
-        const TData *__restrict__ f1, const TData *__restrict__ df,
-        const TData *__restrict__ in, TData *__restrict__ out,
+        const unsigned int outoffset, const TData *NEK_RESTRICT D0,
+        const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
+        const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
         unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
@@ -927,10 +927,10 @@ NEK_DEVICE_KERNEL
     PhysDeriv2DKernelLauncher(
         [[maybe_unused]] Templated2DPhysSizeParameters<ncoord, nq0, nq1>,
         const size_t nelmt, const unsigned int outoffset,
-        const TData *__restrict__ D0, const TData *__restrict__ D1,
-        const TData *__restrict__ f0, const TData *__restrict__ f1,
-        const TData *__restrict__ df, const TData *__restrict__ in,
-        TData *__restrict__ out, unsigned char *shmemptr,
+        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+        const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
@@ -948,10 +948,10 @@ NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     PhysDerivDir2DKernelLauncher(
         NonTemplated2DPhysSizeParameters sizeParam2D, const size_t nelmt,
-        const TData *__restrict__ D0, const TData *__restrict__ D1,
-        const TData *__restrict__ f0, const TData *__restrict__ f1,
-        const TData *__restrict__ df, const TData *__restrict__ in,
-        TData *__restrict__ out, unsigned char *shmemptr,
+        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+        const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
@@ -972,13 +972,13 @@ NEK_DEVICE_KERNEL
  /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
 PhysDerivDir2DKernelLauncher(
         [[maybe_unused]] Templated2DPhysSizeParameters<ncoord, nq0, nq1>,
-const size_t nelmt, const TData *__restrict__ D0,
-                             const TData *__restrict__ D1,
-                             const TData *__restrict__ f0,
-                             const TData *__restrict__ f1,
-                             const TData *__restrict__ df,
-                             const TData *__restrict__ in,
-                             TData *__restrict__ out, unsigned char* shmemptr, const TthreadBlock &threadBlock)
+const size_t nelmt, const TData *NEK_RESTRICT D0,
+                             const TData *NEK_RESTRICT D1,
+                             const TData *NEK_RESTRICT f0,
+                             const TData *NEK_RESTRICT f1,
+                             const TData *NEK_RESTRICT df,
+                             const TData *NEK_RESTRICT in,
+                             TData *NEK_RESTRICT out, unsigned char* shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
@@ -994,12 +994,12 @@ NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     PhysDeriv3DKernelLauncher(
         NonTemplated3DPhysSizeParameters sizeParam3D, const size_t nelmt,
-        const unsigned int outoffset, const TData *__restrict__ D0,
-        const TData *__restrict__ D1, const TData *__restrict__ D2,
-        const TData *__restrict__ f0, const TData *__restrict__ f1,
-        const TData *__restrict__ f1m, const TData *__restrict__ f2,
-        const TData *__restrict__ df, const TData *__restrict__ in,
-        TData *__restrict__ out, unsigned char *shmemptr,
+        const unsigned int outoffset, const TData *NEK_RESTRICT D0,
+        const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
+        const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+        const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
+        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
@@ -1024,11 +1024,11 @@ NEK_DEVICE_KERNEL
     PhysDeriv3DKernelLauncher(
         [[maybe_unused]] Templated3DPhysSizeParameters<nq0, nq1, nq2>,
         const size_t nelmt, const unsigned int outoffset,
-        const TData *__restrict__ D0, const TData *__restrict__ D1,
-        const TData *__restrict__ D2, const TData *__restrict__ f0,
-        const TData *__restrict__ f1, const TData *__restrict__ f1m,
-        const TData *__restrict__ f2, const TData *__restrict__ df,
-        const TData *__restrict__ in, TData *__restrict__ out,
+        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+        const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
+        const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
+        const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
         unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
@@ -1046,11 +1046,11 @@ NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     PhysDerivDir3DKernelLauncher(
         NonTemplated3DPhysSizeParameters sizeParam3D, const size_t nelmt,
-        const TData *__restrict__ D0, const TData *__restrict__ D1,
-        const TData *__restrict__ D2, const TData *__restrict__ f0,
-        const TData *__restrict__ f1, const TData *__restrict__ f1m,
-        const TData *__restrict__ f2, const TData *__restrict__ df,
-        const TData *__restrict__ in, TData *__restrict__ out,
+        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+        const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
+        const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
+        const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
         unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
@@ -1069,12 +1069,12 @@ NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     PhysDerivDir3DKernelLauncher(
         [[maybe_unused]] Templated3DPhysSizeParameters<nq0, nq1, nq2>,
-        const size_t nelmt, const TData *__restrict__ D0,
-        const TData *__restrict__ D1, const TData *__restrict__ D2,
-        const TData *__restrict__ f0, const TData *__restrict__ f1,
-        const TData *__restrict__ f1m, const TData *__restrict__ f2,
-        const TData *__restrict__ df, const TData *__restrict__ in,
-        TData *__restrict__ out, unsigned char *shmemptr,
+        const size_t nelmt, const TData *NEK_RESTRICT D0,
+        const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
+        const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+        const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
+        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);

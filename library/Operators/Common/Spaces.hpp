@@ -251,11 +251,21 @@ static unsigned int GetVectorWidth(const std::string &execName)
     }
 }
 
+// NEK_RESTRICT
+#if defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)
+#define NEK_RESTRICT __restrict__
+#elif defined(NEKTAR_ENABLE_HIP) && defined(DEVICE_COMPILE_ONLY)
+#define NEK_RESTRICT __restrict__
+#elif defined(NEKTAR_ENABLE_SYCL)
+#define NEK_RESTRICT __restrict__
+#else
+#define NEK_RESTRICT __restrict__
+#endif
+
 // NEK_HOSTDEVICE_INLINE
-// Used to define a device function (e.g. a function launched
-// from a kernel function and executing on the device). All
-// device functions must be prefixed by the NEK_DEVICE_INLINE
-// decorator.
+// Used to define a generic function that can be used on both the
+// host or the dvice . All generic functions must be prefixed by the
+// NEK_HOSTDEVICE_INLINE decorator.
 #if defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)
 #define NEK_HOSTDEVICE_INLINE __host__ __device__ __forceinline__
 #elif defined(NEKTAR_ENABLE_HIP) && defined(DEVICE_COMPILE_ONLY)
@@ -281,7 +291,7 @@ static unsigned int GetVectorWidth(const std::string &execName)
 #define NEK_DEVICE_INLINE NEK_FORCE_INLINE
 #endif
 
-// NEK_KERNEL_KERNEL
+// NEK_DEVICE_KERNEL
 // Used to define a kernel function (e.g. a function launched
 // from the host and executing on the device). All kernel
 // functions must be prefixed by the NEK_DEVICE_KERNEL decorator.

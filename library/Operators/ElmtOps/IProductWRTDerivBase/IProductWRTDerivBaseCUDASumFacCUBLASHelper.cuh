@@ -42,9 +42,9 @@ template <typename ExecSpace, typename TData>
 void ApplyDerivWithJac(const unsigned int dim, const unsigned int coordDim,
                        const size_t nelmt, const unsigned int nqTot,
                        const unsigned int nmTot, const size_t blocksize,
-                       const unsigned int ndf, const TData *__restrict__ in,
-                       const TData *__restrict__ deriv,
-                       const TData *__restrict__ jac, TData *out,
+                       const unsigned int ndf, const TData *NEK_RESTRICT in,
+                       const TData *NEK_RESTRICT deriv,
+                       const TData *NEK_RESTRICT jac, TData *out,
                        const bool isDeformed)
 {
     if (isDeformed)
@@ -92,8 +92,8 @@ template <typename ExecSpace, typename TData>
 void ApplyDeriv(const unsigned int dim, const unsigned int coordDim,
                 const size_t nelmt, const unsigned int nqTot,
                 const unsigned int nmTot, const size_t blocksize,
-                const unsigned int ndf, const TData *__restrict__ in,
-                const TData *__restrict__ deriv, TData *out,
+                const unsigned int ndf, const TData *NEK_RESTRICT in,
+                const TData *NEK_RESTRICT deriv, TData *out,
                 const bool isDeformed)
 {
     if (isDeformed)
@@ -133,9 +133,9 @@ void ApplyDeriv(const unsigned int dim, const unsigned int coordDim,
 
 template <typename ExecSpace, typename TData>
 void ApplyFactorTri(const size_t nelmt, const unsigned int nqTot,
-                    const unsigned int nq0, const TData *__restrict__ f0,
-                    const TData *__restrict__ f1, TData *__restrict__ in0,
-                    const TData *__restrict__ in1)
+                    const unsigned int nq0, const TData *NEK_RESTRICT f0,
+                    const TData *NEK_RESTRICT f1, TData *NEK_RESTRICT in0,
+                    const TData *NEK_RESTRICT in1)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nelmt * nqTot, NEKTAR_LAMBDA(const size_t idx) {
@@ -149,9 +149,9 @@ void ApplyFactorTri(const size_t nelmt, const unsigned int nqTot,
 template <typename ExecSpace, typename TData>
 void ApplyFactorPrism(const size_t nelmt, const unsigned int nqTot,
                       const unsigned int nq0, const unsigned int nq1,
-                      const TData *__restrict__ f0,
-                      const TData *__restrict__ f3, TData *__restrict__ in0,
-                      const TData *__restrict__ in1)
+                      const TData *NEK_RESTRICT f0,
+                      const TData *NEK_RESTRICT f3, TData *NEK_RESTRICT in0,
+                      const TData *NEK_RESTRICT in1)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nelmt * nqTot, NEKTAR_LAMBDA(const size_t idx) {
@@ -165,9 +165,9 @@ void ApplyFactorPrism(const size_t nelmt, const unsigned int nqTot,
 template <typename ExecSpace, typename TData>
 void ApplyFactorPyr(const size_t nelmt, const unsigned int nqTot,
                     const unsigned int nq0, const unsigned int nq1,
-                    const TData *__restrict__ f0, const TData *__restrict__ f1,
-                    const TData *__restrict__ f3, TData *__restrict__ in0,
-                    TData *__restrict__ in1, const TData *__restrict__ in2)
+                    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+                    const TData *NEK_RESTRICT f3, TData *NEK_RESTRICT in0,
+                    TData *NEK_RESTRICT in1, const TData *NEK_RESTRICT in2)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nelmt * nqTot, NEKTAR_LAMBDA(const size_t idx) {
@@ -184,10 +184,10 @@ void ApplyFactorPyr(const size_t nelmt, const unsigned int nqTot,
 template <typename ExecSpace, typename TData>
 void ApplyFactorTet(const size_t nelmt, const unsigned int nqTot,
                     const unsigned int nq0, const unsigned int nq1,
-                    const TData *__restrict__ f0, const TData *__restrict__ f1,
-                    const TData *__restrict__ f2, const TData *__restrict__ f3,
-                    TData *__restrict__ in0, TData *__restrict__ in1,
-                    TData *__restrict__ in2)
+                    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+                    const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT f3,
+                    TData *NEK_RESTRICT in0, TData *NEK_RESTRICT in1,
+                    TData *NEK_RESTRICT in2)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nelmt * nqTot, NEKTAR_LAMBDA(const size_t idx) {

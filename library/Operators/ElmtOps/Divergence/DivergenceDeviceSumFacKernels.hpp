@@ -92,9 +92,9 @@ inline constexpr unsigned int DivergenceSharedMemorySize(const unsigned int nq0,
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void Divergence1DSumFacKernel(
     const unsigned int ncoord, const unsigned int nq0, const size_t nelmt,
-    [[maybe_unused]] const unsigned int inoffset, const TData *__restrict__ D0,
-    const TData *__restrict__ df, const TData *__restrict__ in,
-    TData *__restrict__ out, const TthreadBlock &threadBlock)
+    [[maybe_unused]] const unsigned int inoffset, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, const TthreadBlock &threadBlock)
 {
     const unsigned int ndf    = ncoord;
     const unsigned int dfsize = DEFORMED ? nq0 : 1u;
@@ -119,11 +119,11 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void Divergence2DSumFacKernel(
     const unsigned ncoord, const unsigned int nq0, const unsigned int nq1,
-    const size_t nelmt, const size_t inoffset, const TData *__restrict__ D0,
-    const TData *__restrict__ D1, const TData *__restrict__ f0,
-    const TData *__restrict__ f1, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    unsigned char *__restrict__ shmemptr, const TthreadBlock &threadBlock)
+    const size_t nelmt, const size_t inoffset, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
+    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    unsigned char *NEK_RESTRICT shmemptr, const TthreadBlock &threadBlock)
 {
     const unsigned int ndf    = 2 * ncoord;
     const unsigned int nqTot  = nq0 * nq1;
@@ -179,12 +179,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void Divergence3DSumFacKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const size_t nelmt, const size_t inoffset, const TData *__restrict__ D0,
-    const TData *__restrict__ D1, const TData *__restrict__ D2,
-    const TData *__restrict__ f0, const TData *__restrict__ f1,
-    const TData *__restrict__ f1m, const TData *__restrict__ f2,
-    const TData *__restrict__ df, const TData *__restrict__ in,
-    TData *__restrict__ out, unsigned char *__restrict__ shmemptr,
+    const size_t nelmt, const size_t inoffset, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, unsigned char *NEK_RESTRICT shmemptr,
     const TthreadBlock &threadBlock)
 {
     constexpr unsigned int ndf = 9u;
@@ -298,10 +298,10 @@ NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
     Divergence1DKernelLauncher(NonTemplated1DPhysSizeParameters sizeParam1D,
                                const size_t nelmt, const size_t inoffset,
-                               const TData *__restrict__ D0,
-                               const TData *__restrict__ df,
-                               const TData *__restrict__ in,
-                               TData *__restrict__ out,
+                               const TData *NEK_RESTRICT D0,
+                               const TData *NEK_RESTRICT df,
+                               const TData *NEK_RESTRICT in,
+                               TData *NEK_RESTRICT out,
                                const TthreadBlock &threadBlock)
 {
     Divergence1DSumFacKernel<DEFORMED>(sizeParam1D.ncoord(), sizeParam1D.nq0(),
@@ -320,10 +320,10 @@ NEK_DEVICE_KERNEL
  /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
 Divergence1DKernelLauncher(
         [[maybe_unused]] Templated1DPhysSizeParameters<ncoord, nq0>,
-const size_t nelmt, const size_t inoffset, const TData *__restrict__ D0,
-                             const TData *__restrict__ df,
-                             const TData *__restrict__ in,
-                             TData *__restrict__ out, const TthreadBlock &threadBlock)
+const size_t nelmt, const size_t inoffset, const TData *NEK_RESTRICT D0,
+                             const TData *NEK_RESTRICT df,
+                             const TData *NEK_RESTRICT in,
+                             TData *NEK_RESTRICT out, const TthreadBlock &threadBlock)
 {
     Divergence1DSumFacKernel<DEFORMED>(ncoord, nq0, nelmt, inoffset, D0, df, in,
                                        out, threadBlock);
@@ -336,10 +336,10 @@ NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
     Divergence2DKernelLauncher(
         NonTemplated2DPhysSizeParameters sizeParam2D, const size_t nelmt,
-        const size_t inoffset, const TData *__restrict__ D0,
-        const TData *__restrict__ D1, const TData *__restrict__ f0,
-        const TData *__restrict__ f1, const TData *__restrict__ df,
-        const TData *__restrict__ in, TData *__restrict__ out,
+        const size_t inoffset, const TData *NEK_RESTRICT D0,
+        const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
+        const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
         unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
@@ -360,13 +360,13 @@ NEK_DEVICE_KERNEL
  /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
 Divergence2DKernelLauncher(
         [[maybe_unused]] Templated2DPhysSizeParameters<ncoord, nq0, nq1>,
-        const size_t nelmt, const size_t inoffset, const TData *__restrict__ D0,
-                             const TData *__restrict__ D1,
-                             const TData *__restrict__ f0,
-                             const TData *__restrict__ f1,
-                             const TData *__restrict__ df,
-                             const TData *__restrict__ in,
-                             TData *__restrict__ out, unsigned char* shmemptr, const TthreadBlock &threadBlock)
+        const size_t nelmt, const size_t inoffset, const TData *NEK_RESTRICT D0,
+                             const TData *NEK_RESTRICT D1,
+                             const TData *NEK_RESTRICT f0,
+                             const TData *NEK_RESTRICT f1,
+                             const TData *NEK_RESTRICT df,
+                             const TData *NEK_RESTRICT in,
+                             TData *NEK_RESTRICT out, unsigned char* shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
@@ -382,12 +382,12 @@ NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
     Divergence3DKernelLauncher(
         NonTemplated3DPhysSizeParameters sizeParam3D, const size_t nelmt,
-        const size_t inoffset, const TData *__restrict__ D0,
-        const TData *__restrict__ D1, const TData *__restrict__ D2,
-        const TData *__restrict__ f0, const TData *__restrict__ f1,
-        const TData *__restrict__ f1m, const TData *__restrict__ f2,
-        const TData *__restrict__ df, const TData *__restrict__ in,
-        TData *__restrict__ out, unsigned char *shmemptr,
+        const size_t inoffset, const TData *NEK_RESTRICT D0,
+        const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
+        const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+        const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
+        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
@@ -406,12 +406,12 @@ NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
     Divergence3DKernelLauncher(
         [[maybe_unused]] Templated3DPhysSizeParameters<nq0, nq1, nq2>,
-        const size_t nelmt, const size_t inoffset, const TData *__restrict__ D0,
-        const TData *__restrict__ D1, const TData *__restrict__ D2,
-        const TData *__restrict__ f0, const TData *__restrict__ f1,
-        const TData *__restrict__ f1m, const TData *__restrict__ f2,
-        const TData *__restrict__ df, const TData *__restrict__ in,
-        TData *__restrict__ out, unsigned char *shmemptr,
+        const size_t nelmt, const size_t inoffset, const TData *NEK_RESTRICT D0,
+        const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
+        const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+        const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
+        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);

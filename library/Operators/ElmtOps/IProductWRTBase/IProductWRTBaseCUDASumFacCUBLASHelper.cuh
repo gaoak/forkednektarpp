@@ -42,8 +42,8 @@ namespace Nektar::Operators::detail
 
 template <typename ExecSpace, typename TData>
 void ApplyJacobian(const size_t nelmt, const unsigned int nqTot,
-                   const TData *__restrict__ jac, const TData *__restrict__ in,
-                   TData *__restrict__ out, const bool isDeformed)
+                   const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+                   TData *NEK_RESTRICT out, const bool isDeformed)
 {
     // Multiply by jacobian.
     if (isDeformed)
@@ -65,9 +65,9 @@ void ApplyJacobian(const size_t nelmt, const unsigned int nqTot,
 template <typename ExecSpace, typename TData>
 void IProductWRTBaseSegSumFacKernel(const unsigned int nq0,
                                     const unsigned int nm0, const size_t nelmt,
-                                    const TData *__restrict__ b0,
-                                    const TData *__restrict__ w0,
-                                    const TData *__restrict__ jac,
+                                    const TData *NEK_RESTRICT b0,
+                                    const TData *NEK_RESTRICT w0,
+                                    const TData *NEK_RESTRICT jac,
                                     const TData *in, TData *out, TData *wsp,
                                     const bool isDeformed)
 {
@@ -102,9 +102,9 @@ template <typename ExecSpace, typename TData>
 void IProductWRTBaseQuadSumFacKernel(
     const unsigned int nq0, const unsigned int nm0, const unsigned int nq1,
     const unsigned int nm1, const unsigned int nqTot, const unsigned int nmTot,
-    const size_t nelmt, const TData *__restrict__ b0,
-    const TData *__restrict__ b1, const TData *__restrict__ w0,
-    const TData *__restrict__ w1, const TData *__restrict__ jac,
+    const size_t nelmt, const TData *NEK_RESTRICT b0,
+    const TData *NEK_RESTRICT b1, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT jac,
     const TData *in, TData *out, TData *wsp, const bool isDeformed)
 {
     // Multiply by Jacobian and weights.
@@ -162,9 +162,9 @@ template <typename ExecSpace, typename TData>
 void IProductWRTBaseTriSumFacKernel(
     const unsigned int nq0, const unsigned int nm0, const unsigned int nq1,
     const unsigned int nm1, const unsigned int nqTot, const unsigned int nmTot,
-    const size_t nelmt, const TData *__restrict__ b0,
-    const TData *__restrict__ b1, const TData *__restrict__ w0,
-    const TData *__restrict__ w1, const TData *__restrict__ jac,
+    const size_t nelmt, const TData *NEK_RESTRICT b0,
+    const TData *NEK_RESTRICT b1, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT jac,
     const TData *in, TData *out, TData *wsp, const bool isDeformed,
     const bool isModified, std::vector<cudaStream_t> &streams)
 {
@@ -232,10 +232,10 @@ void IProductWRTBaseHexSumFacKernel(
     const unsigned int nq0, const unsigned int nm0, const unsigned int nq1,
     const unsigned int nm1, const unsigned int nq2, const unsigned int nm2,
     const unsigned int nqTot, const unsigned int nmTot, const size_t nelmt,
-    const TData *__restrict__ b0, const TData *__restrict__ b1,
-    const TData *__restrict__ b2, const TData *__restrict__ w0,
-    const TData *__restrict__ w1, const TData *__restrict__ w2,
-    const TData *__restrict__ jac, const TData *in, TData *out, TData *wsp,
+    const TData *NEK_RESTRICT b0, const TData *NEK_RESTRICT b1,
+    const TData *NEK_RESTRICT b2, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
+    const TData *NEK_RESTRICT jac, const TData *in, TData *out, TData *wsp,
     const bool isDeformed)
 {
     // Multiply by Jacobian and weights.
@@ -293,10 +293,10 @@ void IProductWRTBasePrismSumFacKernel(
     const unsigned int nq0, const unsigned int nm0, const unsigned int nq1,
     const unsigned int nm1, const unsigned int nq2, const unsigned int nm2,
     const unsigned int nqTot, const unsigned int nmTot, const size_t nelmt,
-    const TData *__restrict__ b0, const TData *__restrict__ b1,
-    const TData *__restrict__ b2, const TData *__restrict__ w0,
-    const TData *__restrict__ w1, const TData *__restrict__ w2,
-    const TData *__restrict__ jac, const TData *in, TData *out, TData *wsp,
+    const TData *NEK_RESTRICT b0, const TData *NEK_RESTRICT b1,
+    const TData *NEK_RESTRICT b2, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
+    const TData *NEK_RESTRICT jac, const TData *in, TData *out, TData *wsp,
     const bool isDeformed, const bool isModified,
     std::vector<cudaStream_t> &streams)
 {
@@ -393,10 +393,10 @@ void IProductWRTBasePyrSumFacKernel(
     const unsigned int nq0, const unsigned int nm0, const unsigned int nq1,
     const unsigned int nm1, const unsigned int nq2, const unsigned int nm2,
     const unsigned int nqTot, const unsigned int nmTot, const size_t nelmt,
-    const TData *__restrict__ b0, const TData *__restrict__ b1,
-    const TData *__restrict__ b2, const TData *__restrict__ w0,
-    const TData *__restrict__ w1, const TData *__restrict__ w2,
-    const TData *__restrict__ jac, const TData *in, TData *out, TData *wsp,
+    const TData *NEK_RESTRICT b0, const TData *NEK_RESTRICT b1,
+    const TData *NEK_RESTRICT b2, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
+    const TData *NEK_RESTRICT jac, const TData *in, TData *out, TData *wsp,
     const bool isDeformed, const bool isModified,
     const std::vector<cudaStream_t> streams)
 {
@@ -522,10 +522,10 @@ void IProductWRTBaseTetSumFacKernel(
     const unsigned int nq0, const unsigned int nm0, const unsigned int nq1,
     const unsigned int nm1, const unsigned int nq2, const unsigned int nm2,
     const unsigned int nqTot, const unsigned int nmTot, const size_t nelmt,
-    const TData *__restrict__ b0, const TData *__restrict__ b1,
-    const TData *__restrict__ b2, const TData *__restrict__ w0,
-    const TData *__restrict__ w1, const TData *__restrict__ w2,
-    const TData *__restrict__ jac, const TData *in, TData *out, TData *wsp,
+    const TData *NEK_RESTRICT b0, const TData *NEK_RESTRICT b1,
+    const TData *NEK_RESTRICT b2, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
+    const TData *NEK_RESTRICT jac, const TData *in, TData *out, TData *wsp,
     const bool isDeformed, const bool isModified,
     const std::vector<cudaStream_t> streams)
 {

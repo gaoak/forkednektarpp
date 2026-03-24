@@ -137,9 +137,9 @@ inline unsigned int IProductWRTBaseSharedMemorySize(
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nq0,
-    const TData *__restrict__ basis0, const TData *__restrict__ w0,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const TData scale)
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
@@ -179,8 +179,8 @@ NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacTOPKernel(
 template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nq0,
-    const TData *__restrict__ basis0, const TData *__restrict__ in,
-    TData *__restrict__ out, const TData scale)
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
@@ -213,10 +213,10 @@ template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ w0, const TData *__restrict__ w1,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp, const TData scale)
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
@@ -271,9 +271,9 @@ template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp, const TData scale)
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    TData *NEK_RESTRICT wsp, const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
@@ -320,10 +320,10 @@ template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1, const bool isModified,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ w0, const TData *__restrict__ w1,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp, const TData scale)
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
@@ -415,9 +415,9 @@ template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1, const bool isModified,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp, const TData scale)
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    TData *NEK_RESTRICT wsp, const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
@@ -490,12 +490,12 @@ template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const TData *__restrict__ basis0,
-    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
-    const TData *__restrict__ w0, const TData *__restrict__ w1,
-    const TData *__restrict__ w2, const TData *__restrict__ jac,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale)
+    const unsigned int nq2, const TData *NEK_RESTRICT basis0,
+    const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT basis2,
+    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+    const TData *NEK_RESTRICT w2, const TData *NEK_RESTRICT jac,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1, const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
@@ -573,10 +573,10 @@ template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const TData *__restrict__ basis0,
-    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale)
+    const unsigned int nq2, const TData *NEK_RESTRICT basis0,
+    const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT basis2,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1, const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
@@ -645,11 +645,11 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ basis2, const TData *__restrict__ w0,
-    const TData *__restrict__ w1, const TData *__restrict__ w2,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+    const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
+    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1,
     const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
@@ -822,9 +822,9 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ basis2, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+    const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1,
     const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
@@ -969,11 +969,11 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ basis2, const TData *__restrict__ w0,
-    const TData *__restrict__ w1, const TData *__restrict__ w2,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+    const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
+    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1,
     const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
@@ -1118,9 +1118,9 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ basis2, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+    const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1,
     const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
@@ -1240,11 +1240,11 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ basis2, const TData *__restrict__ w0,
-    const TData *__restrict__ w1, const TData *__restrict__ w2,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+    const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
+    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1,
     const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
@@ -1420,9 +1420,9 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacTOPKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const bool isModified,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ basis2, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp0, TData *__restrict__ wsp1,
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+    const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1,
     const TData scale)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
@@ -1568,8 +1568,8 @@ template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
           typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nq0,
-    const TData *__restrict__ basis0, const TData *__restrict__ in,
-    TData *__restrict__ out, const TData scale, const TthreadBlock &threadBlock)
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, const TData scale, const TthreadBlock &threadBlock)
 {
     const unsigned int idx0   = getLocalIdx(threadBlock);
     const unsigned int stride = getLocalRange(threadBlock);
@@ -1606,9 +1606,9 @@ template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
 NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacTOPKernel(
     const unsigned int nm0, [[maybe_unused]] const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    [[maybe_unused]] const unsigned int nqTot, const TData *__restrict__ basis0,
-    const TData *__restrict__ basis1, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp, const TData scale,
+    [[maybe_unused]] const unsigned int nqTot, const TData *NEK_RESTRICT basis0,
+    const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, const TData scale,
     const TthreadBlock &threadBlock)
 {
     const unsigned int idx0   = getLocalIdx(threadBlock);
@@ -1668,9 +1668,9 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacTOPKernel(
     const unsigned int nm0, [[maybe_unused]] const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nqTot, const bool isModified,
-    const unsigned int *__restrict__ pindex, const TData *__restrict__ basis0,
-    const TData *__restrict__ basis1, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp, const TData scale,
+    const unsigned int *NEK_RESTRICT pindex, const TData *NEK_RESTRICT basis0,
+    const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, const TData scale,
     const TthreadBlock &threadBlock)
 {
     const unsigned int idx0   = getLocalIdx(threadBlock);
@@ -1753,10 +1753,10 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1,
     [[maybe_unused]] const unsigned int nm2, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    [[maybe_unused]] const unsigned int nqTot, const TData *__restrict__ basis0,
-    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale,
+    [[maybe_unused]] const unsigned int nqTot, const TData *NEK_RESTRICT basis0,
+    const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT basis2,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1, const TData scale,
     const TthreadBlock &threadBlock)
 {
     const unsigned int idx0   = getLocalIdx(threadBlock);
@@ -1836,12 +1836,12 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nqTot, const bool isModified,
-    const unsigned int *__restrict__ pindex1,
-    const unsigned int *__restrict__ pindex2,
-    const unsigned int *__restrict__ qindex2, const TData *__restrict__ basis0,
-    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale,
+    const unsigned int *NEK_RESTRICT pindex1,
+    const unsigned int *NEK_RESTRICT pindex2,
+    const unsigned int *NEK_RESTRICT qindex2, const TData *NEK_RESTRICT basis0,
+    const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT basis2,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1, const TData scale,
     const TthreadBlock &threadBlock)
 {
     const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
@@ -2032,12 +2032,12 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nqTot, const bool isModified,
-    const unsigned int *__restrict__ pindex,
-    const unsigned int *__restrict__ qindex,
-    const unsigned int *__restrict__ rindex, const TData *__restrict__ basis0,
-    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale,
+    const unsigned int *NEK_RESTRICT pindex,
+    const unsigned int *NEK_RESTRICT qindex,
+    const unsigned int *NEK_RESTRICT rindex, const TData *NEK_RESTRICT basis0,
+    const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT basis2,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1, const TData scale,
     const TthreadBlock &threadBlock)
 {
     const unsigned int idx0   = getLocalIdx(threadBlock);
@@ -2181,11 +2181,11 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nqTot, const bool isModified,
-    const unsigned int *__restrict__ pindex,
-    const unsigned int *__restrict__ qindex, const TData *__restrict__ basis0,
-    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp0, TData *__restrict__ wsp1, const TData scale,
+    const unsigned int *NEK_RESTRICT pindex,
+    const unsigned int *NEK_RESTRICT qindex, const TData *NEK_RESTRICT basis0,
+    const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT basis2,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1, const TData scale,
     const TthreadBlock &threadBlock)
 {
     const unsigned int idx0   = getLocalIdx(threadBlock);
@@ -2290,10 +2290,10 @@ template <bool SCALE, bool APPEND, bool DEFORMED, typename TthreadBlock,
           typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBase1DSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nq0, const size_t nelmt,
-    const TData *__restrict__ basis0, const TData *__restrict__ w0,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const TData scale,
-    unsigned char *__restrict__ shmemptr, const TthreadBlock &threadBlock)
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, const TData scale,
+    unsigned char *NEK_RESTRICT shmemptr, const TthreadBlock &threadBlock)
 {
     const unsigned int jacsize = DEFORMED ? nq0 : 1u;
 
@@ -2334,12 +2334,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
 NEK_DEVICE_INLINE static void IProductWRTBase2DSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
-    const bool isModified, const unsigned int *__restrict__ index0,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ w0, const TData *__restrict__ w1,
-    const TData *__restrict__ nodToMod, const TData *__restrict__ jac,
-    const TData *__restrict__ in, TData *__restrict__ out, const TData scale,
-    unsigned char *__restrict__ shmemptr, const TthreadBlock &threadBlock)
+    const bool isModified, const unsigned int *NEK_RESTRICT index0,
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+    const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT jac,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out, const TData scale,
+    unsigned char *NEK_RESTRICT shmemptr, const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot   = nq0 * nq1;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
@@ -2435,15 +2435,15 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const size_t nelmt, const bool isModified,
-    const unsigned int *__restrict__ index0,
-    const unsigned int *__restrict__ index1,
-    const unsigned int *__restrict__ index2, const TData *__restrict__ basis0,
-    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
-    const TData *__restrict__ w0, const TData *__restrict__ w1,
-    const TData *__restrict__ w2, const TData *__restrict__ nodToMod,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const TData scale,
-    unsigned char *__restrict__ shmemptr, const TthreadBlock &threadBlock)
+    const unsigned int *NEK_RESTRICT index0,
+    const unsigned int *NEK_RESTRICT index1,
+    const unsigned int *NEK_RESTRICT index2, const TData *NEK_RESTRICT basis0,
+    const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT basis2,
+    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+    const TData *NEK_RESTRICT w2, const TData *NEK_RESTRICT nodToMod,
+    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, const TData scale,
+    unsigned char *NEK_RESTRICT shmemptr, const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot   = nq0 * nq1 * nq2;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
@@ -2597,9 +2597,9 @@ NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     IProductWRTBase1DKernelLauncher(
         NonTemplated1DSizeParameters sizeParam1D, const size_t nelmt,
-        const TData *__restrict__ basis0, const TData *__restrict__ w0,
-        const TData *__restrict__ jac, const TData *__restrict__ in,
-        TData *__restrict__ out, const TData scale, unsigned char *shmemptr,
+        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT w0,
+        const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, const TData scale, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
@@ -2618,9 +2618,9 @@ NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     __LAUNCH_BOUNDS__(maxThreadPerBlock) IProductWRTBase1DKernelLauncher(
         [[maybe_unused]] Templated1DSizeParameters<nm0, nq0> sizeParam1D,
-        const size_t nelmt, const TData *__restrict__ basis0,
-        const TData *__restrict__ w0, const TData *__restrict__ jac,
-        const TData *__restrict__ in, TData *__restrict__ out,
+        const size_t nelmt, const TData *NEK_RESTRICT basis0,
+        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT jac,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
         const TData scale, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
@@ -2639,12 +2639,12 @@ NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     IProductWRTBase2DKernelLauncher(
         NonTemplated2DSizeParameters sizeParam2D, const size_t nelmt,
-        const bool isModified, const unsigned int *__restrict__ index0,
-        const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-        const TData *__restrict__ w0, const TData *__restrict__ w1,
-        const TData *__restrict__ nodToMod, const TData *__restrict__ jac,
-        const TData *__restrict__ in, TData *__restrict__ out,
-        [[maybe_unused]] TData *__restrict__ wsp, const TData scale,
+        const bool isModified, const unsigned int *NEK_RESTRICT index0,
+        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT jac,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData scale,
         unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
@@ -2668,12 +2668,12 @@ NEK_DEVICE_KERNEL
         [[maybe_unused]] Templated2DSizeParameters<nm0, nm1, nmTot, nq0, nq1>
             sizeParam2D,
         const size_t nelmt, const bool isModified,
-        const unsigned int *__restrict__ index0,
-        const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-        const TData *__restrict__ w0, const TData *__restrict__ w1,
-        const TData *__restrict__ nodToMod, const TData *__restrict__ jac,
-        const TData *__restrict__ in, TData *__restrict__ out,
-        [[maybe_unused]] TData *__restrict__ wsp, const TData scale,
+        const unsigned int *NEK_RESTRICT index0,
+        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT jac,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData scale,
         unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
@@ -2691,15 +2691,15 @@ NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     IProductWRTBase3DKernelLauncher(
         NonTemplated3DSizeParameters sizeParam3D, const size_t nelmt,
-        const bool isModified, const unsigned int *__restrict__ index0,
-        const unsigned int *__restrict__ index1,
-        const unsigned int *__restrict__ index2,
-        const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-        const TData *__restrict__ basis2, const TData *__restrict__ w0,
-        const TData *__restrict__ w1, const TData *__restrict__ w2,
-        const TData *__restrict__ nodToMod, const TData *__restrict__ jac,
-        const TData *__restrict__ in, TData *__restrict__ out,
-        [[maybe_unused]] TData *__restrict__ wsp, const TData scale,
+        const bool isModified, const unsigned int *NEK_RESTRICT index0,
+        const unsigned int *NEK_RESTRICT index1,
+        const unsigned int *NEK_RESTRICT index2,
+        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+        const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT w0,
+        const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
+        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT jac,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData scale,
         unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
@@ -2727,15 +2727,15 @@ NEK_DEVICE_KERNEL
                                                    nq1, nq2>
             sizeParam3D,
         const size_t nelmt, const bool isModified,
-        const unsigned int *__restrict__ index0,
-        const unsigned int *__restrict__ index1,
-        const unsigned int *__restrict__ index2,
-        const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-        const TData *__restrict__ basis2, const TData *__restrict__ w0,
-        const TData *__restrict__ w1, const TData *__restrict__ w2,
-        const TData *__restrict__ nodToMod, const TData *__restrict__ jac,
-        const TData *__restrict__ in, TData *__restrict__ out,
-        [[maybe_unused]] TData *__restrict__ wsp, const TData scale,
+        const unsigned int *NEK_RESTRICT index0,
+        const unsigned int *NEK_RESTRICT index1,
+        const unsigned int *NEK_RESTRICT index2,
+        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+        const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT w0,
+        const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
+        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT jac,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData scale,
         unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);

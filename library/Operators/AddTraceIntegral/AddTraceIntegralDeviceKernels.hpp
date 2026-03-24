@@ -42,10 +42,10 @@ namespace Nektar::Operators::detail
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void AddTraceIntegralKernel(
-    const size_t nsize, const size_t *__restrict__ traceCoeffsToElmtMapPtr,
-    const int *__restrict__ traceCoeffsToElmtSignPtr,
-    const size_t *__restrict__ traceCoeffsToElmtTracePtr,
-    const TData *__restrict__ tracePtr, TData *__restrict__ outptr,
+    const size_t nsize, const size_t *NEK_RESTRICT traceCoeffsToElmtMapPtr,
+    const int *NEK_RESTRICT traceCoeffsToElmtSignPtr,
+    const size_t *NEK_RESTRICT traceCoeffsToElmtTracePtr,
+    const TData *NEK_RESTRICT tracePtr, TData *NEK_RESTRICT outptr,
     const TthreadBlock &threadBlock)
 {
     const size_t idx0   = getGlobalIdx(threadBlock);

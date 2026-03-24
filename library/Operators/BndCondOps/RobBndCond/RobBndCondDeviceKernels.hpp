@@ -42,9 +42,9 @@ namespace Nektar::Operators::detail
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void RobBndCond1DKernel(
-    const size_t nsize, const size_t *__restrict__ offsetPtr,
-    const TData *__restrict__ matPtr, const size_t *__restrict__ mapPtr,
-    const TData *__restrict__ incoeffPtr, TData *__restrict__ coeffPtr,
+    const size_t nsize, const size_t *NEK_RESTRICT offsetPtr,
+    const TData *NEK_RESTRICT matPtr, const size_t *NEK_RESTRICT mapPtr,
+    const TData *NEK_RESTRICT incoeffPtr, TData *NEK_RESTRICT coeffPtr,
     const TthreadBlock &threadBlock)
 {
     size_t idx0   = getGlobalIdx(threadBlock);
@@ -63,13 +63,13 @@ NEK_DEVICE_KERNEL static void RobBndCond1DKernel(
 
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void RobBndCond2DKernel(
-    const size_t nsize, const unsigned int *__restrict__ ncoeffPtr,
-    const size_t *__restrict__ offsetPtr,
-    const size_t *__restrict__ matOffsetPtr,
-    const size_t *__restrict__ mapOffsetPtr, const TData *__restrict__ matPtr,
-    const size_t *__restrict__ mapPtr, const int *__restrict__ signPtr,
-    const TData *__restrict__ incoeffPtr, TData *__restrict__ coeffPtr,
-    unsigned char *__restrict__ shmemptr, const TthreadBlock &threadBlock)
+    const size_t nsize, const unsigned int *NEK_RESTRICT ncoeffPtr,
+    const size_t *NEK_RESTRICT offsetPtr,
+    const size_t *NEK_RESTRICT matOffsetPtr,
+    const size_t *NEK_RESTRICT mapOffsetPtr, const TData *NEK_RESTRICT matPtr,
+    const size_t *NEK_RESTRICT mapPtr, const int *NEK_RESTRICT signPtr,
+    const TData *NEK_RESTRICT incoeffPtr, TData *NEK_RESTRICT coeffPtr,
+    unsigned char *NEK_RESTRICT shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
