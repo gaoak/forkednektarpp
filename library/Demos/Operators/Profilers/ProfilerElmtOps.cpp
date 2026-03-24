@@ -76,6 +76,9 @@
  *              the order of the polynomial expansions. If provided, it will
  *              override the expansion definition in the mesh file. This gives
  *              a convenient way to profile different orders by same mesh file.
+ *      -I operators=BwdTrans,PhysDeriv,...
+ *              specify the operators for the benchmark. If not specified, all
+ *              ElmtOp will be benchmarked.
  *      -verbose
  *              print out more information. Not recommended if you launch many
  *              processes.
@@ -120,9 +123,11 @@ int main(int argc, char *argv[])
 
     // Load parameters (from the command lines).
     int Ntest, order, Ncomp;
+    std::string Operators;
     session->LoadParameter("Ntest", Ntest, 100);
     session->LoadParameter("order", order, 0);
     session->LoadParameter("Ncomp", Ncomp, 1);
+    session->LoadSolverInfo("operators", Operators, "");
 
     // Set the order of the polynomial expansion if provided
     // we keep the point distribution the same and make
@@ -148,41 +153,169 @@ int main(int argc, char *argv[])
         PrintDeviceProperties();
     }
 
-    // You can add/remove the operators to be profiled as you like.
+    std::vector<std::string> Operators0;
+
+    if (Operators.empty())
+    {
+        Operators0 = {
+            "BwdTrans",
+            "IProductWRTBase",
+            "IProductWRTDerivBase",
+            "PhysInterp1DScaled",
+            "Advection",
+            "PhysDeriv",
+            "Divergence",
+            "Mass",
+            "Laplacian",
+            "Helmholtz",
+            "LinAdvDiffReaction",
+        };
+    }
+    else
+    {
+        std::stringstream ss(Operators);
+        std::string item;
+        while (std::getline(ss, item, ','))
+        {
+            // trim spaces
+            item.erase(0, item.find_first_not_of(" \t"));
+            item.erase(item.find_last_not_of(" \t") + 1);
+            if (!item.empty())
+            {
+                Operators0.push_back(item);
+            }
+        }
+    }
+
     // Benchmark-double
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-    LaunchProfiler<BwdTransOp<double>, FieldState::Coeff, FieldState::Phys,
-                   double>(explist, Ntest, 1, 1, Ncomp);
-    LaunchProfiler<IProductWRTBaseOp<double>, FieldState::Phys,
-                   FieldState::Coeff, double>(explist, Ntest, 1, 1, Ncomp);
-    LaunchProfiler<PhysDerivOp<double>, FieldState::Phys, FieldState::Phys,
-                   double>(explist, Ntest, 1, nDim, Ncomp);
-    LaunchProfiler<IProductWRTDerivBaseOp<double>, FieldState::Phys,
-                   FieldState::Coeff, double>(explist, Ntest, nDim, 1, Ncomp);
-    LaunchProfiler<HelmholtzOp<double>, FieldState::Coeff, FieldState::Coeff,
-                   double>(explist, Ntest, 1, 1, Ncomp);
-    LaunchProfiler<MassOp<double>, FieldState::Coeff, FieldState::Coeff,
-                   double>(explist, Ntest, 1, 1, Ncomp);
-    LaunchProfiler<LinAdvDiffReactionOp<double>, FieldState::Coeff,
-                   FieldState::Coeff, double>(explist, Ntest, 1, 1, Ncomp);
+    for (auto &Operator : Operators0)
+    {
+        if (Operator == "BwdTrans")
+        {
+            LaunchProfiler<BwdTransOp, FieldState::Coeff, FieldState::Phys,
+                           double>(explist, Ntest, 1, 1, Ncomp);
+        }
+        else if (Operator == "IProductWRTBase")
+        {
+            LaunchProfiler<IProductWRTBaseOp, FieldState::Phys,
+                           FieldState::Coeff, double>(explist, Ntest, 1, 1,
+                                                      Ncomp);
+        }
+        else if (Operator == "IProductWRTDerivBase")
+        {
+            LaunchProfiler<IProductWRTDerivBaseOp, FieldState::Phys,
+                           FieldState::Coeff, double>(explist, Ntest, nDim, 1,
+                                                      Ncomp);
+        }
+        /*else if (Operator == "PhysInterp1DScaled")
+        {
+            LaunchProfiler<PhysInterp1DScaledOp, FieldState::Phys,
+                           FieldState::Phys, double>(explist, Ntest, 1, 1,
+                                                      Ncomp);
+        }*/
+        else if (Operator == "Advection")
+        {
+            LaunchProfiler<AdvectionOp, FieldState::Phys, FieldState::Phys,
+                           double>(explist, Ntest, 1, 1, Ncomp);
+        }
+        else if (Operator == "PhysDeriv")
+        {
+            LaunchProfiler<PhysDerivOp, FieldState::Phys, FieldState::Phys,
+                           double>(explist, Ntest, 1, nDim, Ncomp);
+        }
+        else if (Operator == "Divergence")
+        {
+            LaunchProfiler<DivergenceOp, FieldState::Phys, FieldState::Phys,
+                           double>(explist, Ntest, nDim, 1, Ncomp);
+        }
+        else if (Operator == "Mass")
+        {
+            LaunchProfiler<MassOp, FieldState::Coeff, FieldState::Coeff,
+                           double>(explist, Ntest, 1, 1, Ncomp);
+        }
+        else if (Operator == "Laplacian")
+        {
+            LaunchProfiler<LaplacianOp, FieldState::Coeff, FieldState::Coeff,
+                           double>(explist, Ntest, 1, 1, Ncomp);
+        }
+        else if (Operator == "Helmholtz")
+        {
+            LaunchProfiler<HelmholtzOp, FieldState::Coeff, FieldState::Coeff,
+                           double>(explist, Ntest, 1, 1, Ncomp);
+        }
+        else if (Operator == "LinAdvDiffReaction")
+        {
+            LaunchProfiler<LinAdvDiffReactionOp, FieldState::Coeff,
+                           FieldState::Coeff, double>(explist, Ntest, 1, 1,
+                                                      Ncomp);
+        }
+    }
 #endif
-
-    // Benchmark-float
 #if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
-    LaunchProfiler<BwdTransOp<float>, FieldState::Coeff, FieldState::Phys,
-                   float>(explist, Ntest, 1, 1, Ncomp);
-    LaunchProfiler<IProductWRTBaseOp<float>, FieldState::Phys,
-                   FieldState::Coeff, float>(explist, Ntest, 1, 1, Ncomp);
-    LaunchProfiler<PhysDerivOp<float>, FieldState::Phys, FieldState::Phys,
-                   float>(explist, Ntest, 1, nDim, Ncomp);
-    LaunchProfiler<IProductWRTDerivBaseOp<float>, FieldState::Phys,
-                   FieldState::Coeff, float>(explist, Ntest, nDim, 1, Ncomp);
-    LaunchProfiler<HelmholtzOp<float>, FieldState::Coeff, FieldState::Coeff,
-                   float>(explist, Ntest, 1, 1, Ncomp);
-    LaunchProfiler<MassOp<float>, FieldState::Coeff, FieldState::Coeff, float>(
-        explist, Ntest, 1, 1, Ncomp);
-    LaunchProfiler<LinAdvDiffReactionOp<float>, FieldState::Coeff,
-                   FieldState::Coeff, float>(explist, Ntest, 1, 1, Ncomp);
+    // Benchmark-float
+    for (auto &Operator : Operators0)
+    {
+        if (Operator == "BwdTrans")
+        {
+            LaunchProfiler<BwdTransOp, FieldState::Coeff, FieldState::Phys,
+                           float>(explist, Ntest, 1, 1, Ncomp);
+        }
+        else if (Operator == "IProductWRTBase")
+        {
+            LaunchProfiler<IProductWRTBaseOp, FieldState::Phys,
+                           FieldState::Coeff, float>(explist, Ntest, 1, 1,
+                                                     Ncomp);
+        }
+        else if (Operator == "IProductWRTDerivBase")
+        {
+            LaunchProfiler<IProductWRTDerivBaseOp, FieldState::Phys,
+                           FieldState::Coeff, float>(explist, Ntest, nDim, 1,
+                                                     Ncomp);
+        }
+        /*else if (Operator == "PhysInterp1DScaled")
+        {
+            LaunchProfiler<PhysInterp1DScaledOp, FieldState::Phys,
+                           FieldState::Phys, float>(explist, Ntest, 1, 1,
+                                                      Ncomp);
+        }*/
+        else if (Operator == "Advection")
+        {
+            LaunchProfiler<AdvectionOp, FieldState::Phys, FieldState::Phys,
+                           float>(explist, Ntest, 1, 1, Ncomp);
+        }
+        else if (Operator == "PhysDeriv")
+        {
+            LaunchProfiler<PhysDerivOp, FieldState::Phys, FieldState::Phys,
+                           float>(explist, Ntest, 1, nDim, Ncomp);
+        }
+        else if (Operator == "Divergence")
+        {
+            LaunchProfiler<DivergenceOp, FieldState::Phys, FieldState::Phys,
+                           float>(explist, Ntest, nDim, 1, Ncomp);
+        }
+        else if (Operator == "Mass")
+        {
+            LaunchProfiler<MassOp, FieldState::Coeff, FieldState::Coeff, float>(
+                explist, Ntest, 1, 1, Ncomp);
+        }
+        else if (Operator == "Laplacian")
+        {
+            LaunchProfiler<LaplacianOp, FieldState::Coeff, FieldState::Coeff,
+                           float>(explist, Ntest, 1, 1, Ncomp);
+        }
+        else if (Operator == "Helmholtz")
+        {
+            LaunchProfiler<HelmholtzOp, FieldState::Coeff, FieldState::Coeff,
+                           float>(explist, Ntest, 1, 1, Ncomp);
+        }
+        else if (Operator == "LinAdvDiffReaction")
+        {
+            LaunchProfiler<LinAdvDiffReactionOp, FieldState::Coeff,
+                           FieldState::Coeff, float>(explist, Ntest, 1, 1,
+                                                     Ncomp);
+        }
+    }
 #endif
 
     LIKWID_MARKER_CLOSE;
