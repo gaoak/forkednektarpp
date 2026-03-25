@@ -627,7 +627,7 @@ SET(OPERATORS_HEADERS
     Common/BlockOperator.hpp
     Common/Operator.hpp
     Common/DeviceProperties.hpp
-    Common/MemoryAlloc.hpp
+    Common/Memory/MemoryAlloc.hpp
     Common/BasisDataWarehouse.hpp
     Common/GeometricDataWarehouse.hpp
     Common/LocalToGlobalDataWarehouse.hpp
@@ -890,7 +890,7 @@ ENDIF()
 IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-       Common/MemoryAlloc.cu
+       Common/Memory/MemoryAlloc.cu
     )
 
     SET(OPERATORS_DEPENDS
@@ -900,7 +900,7 @@ IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
 ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-       Common/MemoryAlloc.hip
+       Common/Memory/MemoryAlloc.hip
     )
 
     SET(OPERATORS_DEPENDS

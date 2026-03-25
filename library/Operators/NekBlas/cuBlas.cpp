@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/Common/MemoryAlloc.hpp"
+#include "Operators/Common/Memory/MemoryAlloc.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 
 template <typename THandle, typename TData>
