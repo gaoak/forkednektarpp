@@ -41,7 +41,7 @@
 #include <cstddef>
 #include <limits>
 
-#include "Operators/Common/MemoryAlloc.hpp"
+#include "Operators/Common/Memory/MemoryAlloc.hpp"
 #include "Operators/Common/Spaces.hpp"
 
 namespace Nektar
