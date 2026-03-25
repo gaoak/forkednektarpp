@@ -87,7 +87,7 @@ void ApplyDerivFactor(const unsigned int coordDim, const unsigned int dim,
 template <typename ExecSpace, typename TData>
 void PhysDerivSegKernel(const unsigned int coordDim, const unsigned int dim,
                         const unsigned int nq0, const size_t nelmt,
-                        const size_t outblocksize, const TData *__restrict__ d0,
+                        const size_t outblocksize, const TData *NEK_RESTRICT d0,
                         const TData *deriv, const TData *in, TData *out,
                         TData *wsp, const bool isDeformed)
 {
@@ -106,9 +106,9 @@ void PhysDerivQuadKernel(const unsigned int coordDim, const unsigned int dim,
                          const unsigned int nq0, const unsigned int nq1,
                          const unsigned int nqTot, const size_t nelmt,
                          const size_t outblocksize,
-                         const TData *__restrict__ d0,
-                         const TData *__restrict__ d1,
-                         const TData *__restrict__ deriv, const TData *in,
+                         const TData *NEK_RESTRICT d0,
+                         const TData *NEK_RESTRICT d1,
+                         const TData *NEK_RESTRICT deriv, const TData *in,
                          TData *out, TData *wsp, const bool isDeformed)
 {
     // Fetch handle.
@@ -129,11 +129,11 @@ template <typename ExecSpace, typename TData>
 void PhysDerivTriKernel(const unsigned int coordDim, const unsigned int dim,
                         const unsigned int nq0, const unsigned int nq1,
                         const unsigned int nqTot, const size_t nelmt,
-                        const size_t outblocksize, const TData *__restrict__ d0,
-                        const TData *__restrict__ d1,
-                        const TData *__restrict__ f0,
-                        const TData *__restrict__ f1,
-                        const TData *__restrict__ deriv, const TData *in,
+                        const size_t outblocksize, const TData *NEK_RESTRICT d0,
+                        const TData *NEK_RESTRICT d1,
+                        const TData *NEK_RESTRICT f0,
+                        const TData *NEK_RESTRICT f1,
+                        const TData *NEK_RESTRICT deriv, const TData *in,
                         TData *out, TData *wsp, const bool isDeformed)
 {
     // Fetch handle.
@@ -165,10 +165,10 @@ void PhysDerivHexKernel(const unsigned int coordDim, const unsigned int dim,
                         const unsigned int nq0, const unsigned int nq1,
                         const unsigned int nq2, const unsigned int nqTot,
                         const size_t nelmt, const size_t outblocksize,
-                        const TData *__restrict__ d0,
-                        const TData *__restrict__ d1,
-                        const TData *__restrict__ d2,
-                        const TData *__restrict__ deriv, const TData *in,
+                        const TData *NEK_RESTRICT d0,
+                        const TData *NEK_RESTRICT d1,
+                        const TData *NEK_RESTRICT d2,
+                        const TData *NEK_RESTRICT deriv, const TData *in,
                         TData *out, TData *wsp, const bool isDeformed)
 {
     // Fetch handle.
@@ -196,10 +196,10 @@ template <typename ExecSpace, typename TData>
 void PhysDerivPrismKernel(
     const unsigned int coordDim, const unsigned int dim, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nq2, const unsigned int nqTot,
-    const size_t nelmt, const size_t outblocksize, const TData *__restrict__ d0,
-    const TData *__restrict__ d1, const TData *__restrict__ d2,
-    const TData *__restrict__ f0, const TData *__restrict__ f3,
-    const TData *__restrict__ deriv, const TData *in, TData *out, TData *wsp,
+    const size_t nelmt, const size_t outblocksize, const TData *NEK_RESTRICT d0,
+    const TData *NEK_RESTRICT d1, const TData *NEK_RESTRICT d2,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f3,
+    const TData *NEK_RESTRICT deriv, const TData *in, TData *out, TData *wsp,
     const bool isDeformed)
 {
     // Fetch handle.
@@ -242,10 +242,10 @@ template <typename ExecSpace, typename TData>
 void PhysDerivPyrKernel(
     const unsigned int coordDim, const unsigned int dim, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nq2, const unsigned int nqTot,
-    const size_t nelmt, const size_t outblocksize, const TData *__restrict__ d0,
-    const TData *__restrict__ d1, const TData *__restrict__ d2,
-    const TData *__restrict__ f0, const TData *__restrict__ f1,
-    const TData *__restrict__ f3, const TData *__restrict__ deriv,
+    const size_t nelmt, const size_t outblocksize, const TData *NEK_RESTRICT d0,
+    const TData *NEK_RESTRICT d1, const TData *NEK_RESTRICT d2,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT f3, const TData *NEK_RESTRICT deriv,
     const TData *in, TData *out, TData *wsp, const bool isDeformed)
 {
     // Fetch handle.
@@ -286,11 +286,11 @@ template <typename ExecSpace, typename TData>
 void PhysDerivTetKernel(
     const unsigned int coordDim, const unsigned int dim, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nq2, const unsigned int nqTot,
-    const size_t nelmt, const size_t outblocksize, const TData *__restrict__ d0,
-    const TData *__restrict__ d1, const TData *__restrict__ d2,
-    const TData *__restrict__ f0, const TData *__restrict__ f1,
-    const TData *__restrict__ f2, const TData *__restrict__ f3,
-    const TData *__restrict__ deriv, const TData *in, TData *out, TData *wsp,
+    const size_t nelmt, const size_t outblocksize, const TData *NEK_RESTRICT d0,
+    const TData *NEK_RESTRICT d1, const TData *NEK_RESTRICT d2,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT f3,
+    const TData *NEK_RESTRICT deriv, const TData *in, TData *out, TData *wsp,
     const bool isDeformed)
 {
     // Fetch handle.

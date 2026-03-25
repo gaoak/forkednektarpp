@@ -60,10 +60,10 @@ inline unsigned int FwdTransBCSharedMemorySize(
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void FwdTransBCSegSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nq0,
-    const TData *__restrict__ basis0, const TData *__restrict__ w0,
-    const unsigned int offset_seg, const TData *__restrict__ invintmass,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp1, TData *__restrict__ wsp2,
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT w0,
+    const unsigned int offset_seg, const TData *NEK_RESTRICT invintmass,
+    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp1, TData *NEK_RESTRICT wsp2,
     const TthreadBlock &threadBlock)
 {
     const unsigned int idx0   = getLocalIdx(threadBlock);
@@ -161,16 +161,16 @@ template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void FwdTransBCQuadSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ w0, const TData *__restrict__ w1,
-    const unsigned int offset_seg, const TData *__restrict__ invintmass0,
-    const TData *__restrict__ invintmass1, const TData *__restrict__ tJac,
-    const unsigned int *__restrict__ tMap, const int *__restrict__ tSign,
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+    const unsigned int offset_seg, const TData *NEK_RESTRICT invintmass0,
+    const TData *NEK_RESTRICT invintmass1, const TData *NEK_RESTRICT tJac,
+    const unsigned int *NEK_RESTRICT tMap, const int *NEK_RESTRICT tSign,
     const unsigned int nmTotInt, const unsigned int *iMap,
-    const TData *__restrict__ invintmass, const TData *__restrict__ dmat,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp1, TData *__restrict__ wsp2,
-    TData *__restrict__ wsp3, TData *__restrict__ wsp4,
+    const TData *NEK_RESTRICT invintmass, const TData *NEK_RESTRICT dmat,
+    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp1, TData *NEK_RESTRICT wsp2,
+    TData *NEK_RESTRICT wsp3, TData *NEK_RESTRICT wsp4,
     const TthreadBlock &threadBlock)
 {
     const unsigned int idx0   = getLocalIdx(threadBlock);
@@ -343,17 +343,17 @@ template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void FwdTransBCTriSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const bool isModified,
-    const unsigned int *__restrict__ index0, const TData *__restrict__ basis0,
-    const TData *__restrict__ basis1, const TData *__restrict__ w0,
-    const TData *__restrict__ w1, const TData *__restrict__ interp1to0,
-    const unsigned int offset_seg, const TData *__restrict__ invintmass0,
-    const TData *__restrict__ tJac, const unsigned int *__restrict__ tMap,
-    const int *__restrict__ tSign, const unsigned int nmTotInt,
-    const unsigned int *iMap, const TData *__restrict__ invintmass,
-    const TData *__restrict__ dmat, const TData *__restrict__ jac,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ wsp1, TData *__restrict__ wsp2,
-    TData *__restrict__ wsp3, TData *__restrict__ wsp4,
+    const unsigned int *NEK_RESTRICT index0, const TData *NEK_RESTRICT basis0,
+    const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT interp1to0,
+    const unsigned int offset_seg, const TData *NEK_RESTRICT invintmass0,
+    const TData *NEK_RESTRICT tJac, const unsigned int *NEK_RESTRICT tMap,
+    const int *NEK_RESTRICT tSign, const unsigned int nmTotInt,
+    const unsigned int *iMap, const TData *NEK_RESTRICT invintmass,
+    const TData *NEK_RESTRICT dmat, const TData *NEK_RESTRICT jac,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    TData *NEK_RESTRICT wsp1, TData *NEK_RESTRICT wsp2,
+    TData *NEK_RESTRICT wsp3, TData *NEK_RESTRICT wsp4,
     const TthreadBlock &threadBlock)
 {
     const unsigned int idx0   = getLocalIdx(threadBlock);
@@ -530,11 +530,11 @@ NEK_DEVICE_INLINE static void FwdTransBCTriSumFacTOPKernel(
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void FwdTransBC1DKernel(
     const unsigned int nm0, const unsigned int nq0, const size_t nelmt,
-    const TData *__restrict__ basis0, const TData *__restrict__ w0,
-    const unsigned int offset_seg, const TData *__restrict__ invintmass,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp1, TData *__restrict__ wsp2,
-    [[maybe_unused]] unsigned char *__restrict__ shmemptr,
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT w0,
+    const unsigned int offset_seg, const TData *NEK_RESTRICT invintmass,
+    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp1, TData *NEK_RESTRICT wsp2,
+    [[maybe_unused]] unsigned char *NEK_RESTRICT shmemptr,
     const TthreadBlock &threadBlock)
 {
     const unsigned int jacsize = DEFORMED ? nq0 : 1u;
@@ -566,19 +566,19 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
 NEK_DEVICE_INLINE static void FwdTransBC2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
-    const bool isModified, const unsigned int *__restrict__ index0,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ w0, const TData *__restrict__ w1,
-    const TData *__restrict__ interp1to0, const unsigned int offset_seg,
-    const TData *__restrict__ invintmass0,
-    const TData *__restrict__ invintmass1, const TData *__restrict__ tJac,
-    const unsigned int *__restrict__ tMap, const int *__restrict__ tSign,
+    const bool isModified, const unsigned int *NEK_RESTRICT index0,
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+    const TData *NEK_RESTRICT interp1to0, const unsigned int offset_seg,
+    const TData *NEK_RESTRICT invintmass0,
+    const TData *NEK_RESTRICT invintmass1, const TData *NEK_RESTRICT tJac,
+    const unsigned int *NEK_RESTRICT tMap, const int *NEK_RESTRICT tSign,
     const unsigned int nmTotInt, const unsigned int *iMap,
-    const TData *__restrict__ invintmass, const TData *__restrict__ dmat,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp1, TData *__restrict__ wsp2,
-    TData *__restrict__ wsp3, TData *__restrict__ wsp4,
-    [[maybe_unused]] unsigned char *__restrict__ shmemptr,
+    const TData *NEK_RESTRICT invintmass, const TData *NEK_RESTRICT dmat,
+    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp1, TData *NEK_RESTRICT wsp2,
+    TData *NEK_RESTRICT wsp3, TData *NEK_RESTRICT wsp4,
+    [[maybe_unused]] unsigned char *NEK_RESTRICT shmemptr,
     const TthreadBlock &threadBlock)
 {
     // Get shared memory TODO use shmem
@@ -641,10 +641,10 @@ NEK_DEVICE_INLINE static void FwdTransBC2DKernel(
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL void FwdTransBC1DKernelLauncher(
     const unsigned int nm0, const unsigned int nq0, const size_t nelmt,
-    const TData *__restrict__ basis0, const TData *__restrict__ w0,
-    const unsigned int offset_seg, const TData *__restrict__ invintmass,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp1, TData *__restrict__ wsp2,
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT w0,
+    const unsigned int offset_seg, const TData *NEK_RESTRICT invintmass,
+    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp1, TData *NEK_RESTRICT wsp2,
     unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
@@ -660,18 +660,18 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
 NEK_DEVICE_KERNEL void FwdTransBC2DKernelLauncher(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
-    const bool isModified, const unsigned int *__restrict__ index0,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ w0, const TData *__restrict__ w1,
-    const TData *__restrict__ interp1to0, const unsigned int offsetSeg,
-    const TData *__restrict__ invintmass0,
-    const TData *__restrict__ invintmass1, const TData *__restrict__ tJac,
-    const unsigned int *__restrict__ tMap, const int *__restrict__ tSign,
+    const bool isModified, const unsigned int *NEK_RESTRICT index0,
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+    const TData *NEK_RESTRICT interp1to0, const unsigned int offsetSeg,
+    const TData *NEK_RESTRICT invintmass0,
+    const TData *NEK_RESTRICT invintmass1, const TData *NEK_RESTRICT tJac,
+    const unsigned int *NEK_RESTRICT tMap, const int *NEK_RESTRICT tSign,
     const unsigned int nmTotInt, const unsigned int *iMap,
-    const TData *__restrict__ invintmass, const TData *__restrict__ dmat,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ wsp1, TData *__restrict__ wsp2,
-    TData *__restrict__ wsp3, TData *__restrict__ wsp4, unsigned char *shmemptr,
+    const TData *NEK_RESTRICT invintmass, const TData *NEK_RESTRICT dmat,
+    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp1, TData *NEK_RESTRICT wsp2,
+    TData *NEK_RESTRICT wsp3, TData *NEK_RESTRICT wsp4, unsigned char *shmemptr,
     const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);

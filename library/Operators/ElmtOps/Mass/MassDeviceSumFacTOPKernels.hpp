@@ -123,9 +123,9 @@ inline unsigned int MassSharedMemorySize(
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void Mass1DSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nq0, const size_t nelmt,
-    const TData *__restrict__ basis0, const TData *__restrict__ w0,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, unsigned char *__restrict__ shmemptr,
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, unsigned char *NEK_RESTRICT shmemptr,
     const TthreadBlock &threadBlock)
 {
     const unsigned int jacsize = DEFORMED ? nq0 : 1u;
@@ -168,12 +168,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
 NEK_DEVICE_INLINE static void Mass2DSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
-    const bool isModified, const unsigned int *__restrict__ index0,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ w0, const TData *__restrict__ w1,
-    const TData *__restrict__ nodToMod, const TData *__restrict__ jac,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    unsigned char *__restrict__ shmemptr, const TthreadBlock &threadBlock)
+    const bool isModified, const unsigned int *NEK_RESTRICT index0,
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+    const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT jac,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    unsigned char *NEK_RESTRICT shmemptr, const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot   = nq0 * nq1;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
@@ -297,15 +297,15 @@ NEK_DEVICE_INLINE static void Mass3DSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const size_t nelmt, const bool isModified,
-    const unsigned int *__restrict__ index0,
-    const unsigned int *__restrict__ index1,
-    const unsigned int *__restrict__ index2,
-    const unsigned int *__restrict__ index3, const TData *__restrict__ basis0,
-    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
-    const TData *__restrict__ w0, const TData *__restrict__ w1,
-    const TData *__restrict__ w2, const TData *__restrict__ nodToMod,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, unsigned char *__restrict__ shmemptr,
+    const unsigned int *NEK_RESTRICT index0,
+    const unsigned int *NEK_RESTRICT index1,
+    const unsigned int *NEK_RESTRICT index2,
+    const unsigned int *NEK_RESTRICT index3, const TData *NEK_RESTRICT basis0,
+    const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT basis2,
+    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+    const TData *NEK_RESTRICT w2, const TData *NEK_RESTRICT nodToMod,
+    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, unsigned char *NEK_RESTRICT shmemptr,
     const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot   = nq0 * nq1 * nq2;
@@ -503,11 +503,11 @@ template <typename Implementation, bool DEFORMED, typename TthreadBlock,
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     Mass1DKernelLauncher(NonTemplated1DSizeParameters sizeParam1D,
-                         const size_t nelmt, const TData *__restrict__ basis0,
-                         const TData *__restrict__ w0,
-                         const TData *__restrict__ jac,
-                         const TData *__restrict__ in, TData *__restrict__ out,
-                         [[maybe_unused]] TData *__restrict__ wsp,
+                         const size_t nelmt, const TData *NEK_RESTRICT basis0,
+                         const TData *NEK_RESTRICT w0,
+                         const TData *NEK_RESTRICT jac,
+                         const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+                         [[maybe_unused]] TData *NEK_RESTRICT wsp,
                          unsigned char *shmemptr,
                          const TthreadBlock &threadBlock)
 {
@@ -527,10 +527,10 @@ NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     __LAUNCH_BOUNDS__(maxThreadPerBlock) Mass1DKernelLauncher(
         [[maybe_unused]] Templated1DSizeParameters<nm0, nq0> sizeParam1D,
-        const size_t nelmt, const TData *__restrict__ basis0,
-        const TData *__restrict__ w0, const TData *__restrict__ jac,
-        const TData *__restrict__ in, TData *__restrict__ out,
-        [[maybe_unused]] TData *__restrict__ wsp, unsigned char *shmemptr,
+        const size_t nelmt, const TData *NEK_RESTRICT basis0,
+        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT jac,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
@@ -546,12 +546,12 @@ NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     Mass2DKernelLauncher(
         NonTemplated2DSizeParameters sizeParam2D, const size_t nelmt,
-        const bool isModified, const unsigned int *__restrict__ index0,
-        const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-        const TData *__restrict__ w0, const TData *__restrict__ w1,
-        const TData *__restrict__ nodToMod, const TData *__restrict__ jac,
-        const TData *__restrict__ in, TData *__restrict__ out,
-        [[maybe_unused]] TData *__restrict__ wsp, unsigned char *shmemptr,
+        const bool isModified, const unsigned int *NEK_RESTRICT index0,
+        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT jac,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
@@ -575,12 +575,12 @@ NEK_DEVICE_KERNEL
         [[maybe_unused]] Templated2DSizeParameters<nm0, nm1, nmTot, nq0, nq1>
             sizeParam2D,
         const size_t nelmt, const bool isModified,
-        const unsigned int *__restrict__ index0,
-        const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-        const TData *__restrict__ w0, const TData *__restrict__ w1,
-        const TData *__restrict__ nodToMod, const TData *__restrict__ jac,
-        const TData *__restrict__ in, TData *__restrict__ out,
-        [[maybe_unused]] TData *__restrict__ wsp, unsigned char *shmemptr,
+        const unsigned int *NEK_RESTRICT index0,
+        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT jac,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
@@ -597,16 +597,16 @@ NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     Mass3DKernelLauncher(
         NonTemplated3DSizeParameters sizeParam3D, const size_t nelmt,
-        const bool isModified, const unsigned int *__restrict__ index0,
-        const unsigned int *__restrict__ index1,
-        const unsigned int *__restrict__ index2,
-        const unsigned int *__restrict__ index3,
-        const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-        const TData *__restrict__ basis2, const TData *__restrict__ w0,
-        const TData *__restrict__ w1, const TData *__restrict__ w2,
-        const TData *__restrict__ nodToMod, const TData *__restrict__ jac,
-        const TData *__restrict__ in, TData *__restrict__ out,
-        [[maybe_unused]] TData *__restrict__ wsp, unsigned char *shmemptr,
+        const bool isModified, const unsigned int *NEK_RESTRICT index0,
+        const unsigned int *NEK_RESTRICT index1,
+        const unsigned int *NEK_RESTRICT index2,
+        const unsigned int *NEK_RESTRICT index3,
+        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+        const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT w0,
+        const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
+        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT jac,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
@@ -633,16 +633,16 @@ NEK_DEVICE_KERNEL
                                                    nq1, nq2>
             sizeParam3D,
         const size_t nelmt, const bool isModified,
-        const unsigned int *__restrict__ index0,
-        const unsigned int *__restrict__ index1,
-        const unsigned int *__restrict__ index2,
-        const unsigned int *__restrict__ index3,
-        const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-        const TData *__restrict__ basis2, const TData *__restrict__ w0,
-        const TData *__restrict__ w1, const TData *__restrict__ w2,
-        const TData *__restrict__ nodToMod, const TData *__restrict__ jac,
-        const TData *__restrict__ in, TData *__restrict__ out,
-        [[maybe_unused]] TData *__restrict__ wsp, unsigned char *shmemptr,
+        const unsigned int *NEK_RESTRICT index0,
+        const unsigned int *NEK_RESTRICT index1,
+        const unsigned int *NEK_RESTRICT index2,
+        const unsigned int *NEK_RESTRICT index3,
+        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+        const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT w0,
+        const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
+        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT jac,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);

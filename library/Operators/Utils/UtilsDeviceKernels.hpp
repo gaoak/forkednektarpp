@@ -45,9 +45,9 @@ namespace Nektar
 template <bool APPEND = false, bool TRANSPOSE = false, typename TData>
 NEK_DEVICE_INLINE static void MatVecKernel(const unsigned int ilane,
                                            const unsigned int nmTot,
-                                           const TData *__restrict__ nodToMod,
-                                           const TData *__restrict__ in,
-                                           TData *__restrict__ out)
+                                           const TData *NEK_RESTRICT nodToMod,
+                                           const TData *NEK_RESTRICT in,
+                                           TData *NEK_RESTRICT out)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
@@ -81,8 +81,8 @@ NEK_DEVICE_INLINE static void MatVecKernel(const unsigned int ilane,
 template <bool APPEND = false, bool TRANSPOSE = false, typename TthreadBlock,
           typename TData>
 NEK_DEVICE_INLINE static void MatVecSumFacTOPKernel(
-    const unsigned int nmTot, const TData *__restrict__ nodToMod,
-    const TData *__restrict__ in, TData *__restrict__ out,
+    const unsigned int nmTot, const TData *NEK_RESTRICT nodToMod,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
     const TthreadBlock &threadBlock)
 {
     const unsigned int idx0   = getLocalIdx(threadBlock);
@@ -169,7 +169,7 @@ template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void interleave(const unsigned int interleaveWidth,
                                          const size_t numElmtGroups,
                                          const unsigned int npts,
-                                         TData *__restrict__ inout,
+                                         TData *NEK_RESTRICT inout,
                                          unsigned char *shmem,
                                          const TthreadBlock &threadBlock)
 {
@@ -204,7 +204,7 @@ NEK_DEVICE_INLINE static void interleave(const unsigned int interleaveWidth,
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void interleaveKernel(
     const unsigned int interleaveWidth, const size_t numElmtGroups,
-    const unsigned int npts, TData *__restrict__ inout, unsigned char *shmem,
+    const unsigned int npts, TData *NEK_RESTRICT inout, unsigned char *shmem,
     const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmem);
@@ -215,7 +215,7 @@ NEK_DEVICE_KERNEL static void interleaveKernel(
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void interleaveKernel(const size_t numElmtGroups,
                                                const unsigned int npts,
-                                               TData *__restrict__ inout,
+                                               TData *NEK_RESTRICT inout,
                                                unsigned char *shmem,
                                                const TthreadBlock &threadBlock)
 {
@@ -230,7 +230,7 @@ NEK_DEVICE_KERNEL static void interleaveKernel(const size_t numElmtGroups,
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void interleave(
     const unsigned int interleaveWidth, const size_t numElmtGroups,
-    const unsigned int npts, TData *__restrict__ inout, TData *__restrict__ wsp,
+    const unsigned int npts, TData *NEK_RESTRICT inout, TData *NEK_RESTRICT wsp,
     unsigned char *shmem, const TthreadBlock &threadBlock)
 {
     TData *shmemptr = (TData *)shmem;
@@ -289,7 +289,7 @@ NEK_DEVICE_INLINE static void interleave(
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void interleaveKernel(
     const unsigned int interleaveWidth, const size_t numElmtGroups,
-    const unsigned int npts, TData *__restrict__ inout, TData *__restrict__ wsp,
+    const unsigned int npts, TData *NEK_RESTRICT inout, TData *NEK_RESTRICT wsp,
     unsigned char *shmem, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmem);
@@ -301,8 +301,8 @@ NEK_DEVICE_KERNEL static void interleaveKernel(
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void interleaveKernel(const size_t numElmtGroups,
                                                const unsigned int npts,
-                                               TData *__restrict__ inout,
-                                               TData *__restrict__ wsp,
+                                               TData *NEK_RESTRICT inout,
+                                               TData *NEK_RESTRICT wsp,
                                                unsigned char *shmem,
                                                const TthreadBlock &threadBlock)
 {
@@ -379,7 +379,7 @@ NEK_DEVICE_KERNEL static void deInterleaveKernel(
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void deInterleave(
     const unsigned int interleaveWidth, const size_t numElmtGroups,
-    const unsigned int npts, TData *__restrict__ inout, TData *__restrict__ wsp,
+    const unsigned int npts, TData *NEK_RESTRICT inout, TData *NEK_RESTRICT wsp,
     unsigned char *shmem, const TthreadBlock &threadBlock)
 {
     TData *shmemptr = (TData *)shmem;
@@ -438,7 +438,7 @@ NEK_DEVICE_INLINE static void deInterleave(
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void deInterleaveKernel(
     const unsigned int interleaveWidth, const size_t numElmtGroups,
-    const unsigned int npts, TData *__restrict__ inout, TData *__restrict__ wsp,
+    const unsigned int npts, TData *NEK_RESTRICT inout, TData *NEK_RESTRICT wsp,
     unsigned char *shmem, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmem);
@@ -450,7 +450,7 @@ NEK_DEVICE_KERNEL static void deInterleaveKernel(
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void deInterleaveKernel(
     const size_t numElmtGroups, const unsigned int npts,
-    TData *__restrict__ inout, TData *__restrict__ wsp, unsigned char *shmem,
+    TData *NEK_RESTRICT inout, TData *NEK_RESTRICT wsp, unsigned char *shmem,
     const TthreadBlock &threadBlock)
 {
     static constexpr unsigned int interleaveWidth =
