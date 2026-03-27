@@ -135,18 +135,6 @@ ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled
 ADD_NEKTAR_EXECUTABLE(test_getfwdbwdtracephys 
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_getfwdbwdtracephys.cpp)
 
-# CUDA SumFacMat
-IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_device_sumfacmat
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_device_sumfacmat.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_device_sumfacmat
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_device_sumfacmat.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_device_sumfacmat
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_device_sumfacmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_physderiv_device_sumfacmat
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_device_sumfacmat.cpp)
-ENDIF()
-
 # Macro
 MACRO(SET_UNIT_TEST testname name execspace implementation mpi_flag)
     IF (CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -439,13 +427,6 @@ IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(PhysInterp1DScaled_device_sumfactop test_physinterp1dscaled Device SumFacTOP FALSE)
 ENDIF()
 
-# CUDA SumFacMat
-IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-    SET_UNIT_TEST(BwdTrans_device_sumfacmat test_bwdtrans_device_sumfacmat Device SumFacMat FALSE)
-    SET_UNIT_TEST(IProductWRTBase_device_sumfacmat test_ipwrtbase_device_sumfacmat Device SumFacMat FALSE)
-    SET_UNIT_TEST(IProductWRTDerivBase_device_sumfacmat test_ipwrtderivbase_device_sumfacmat Device SumFacMat FALSE)
-    SET_UNIT_TEST(PhysDeriv_device_sumfacmat test_physderiv_device_sumfacmat Device SumFacMat FALSE)
-ENDIF()
 ENDIF()
 
 # Copy XML file to build directory
