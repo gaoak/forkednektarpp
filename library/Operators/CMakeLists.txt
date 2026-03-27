@@ -16,11 +16,7 @@ IF(NEKTAR_ENABLE_DEVICE)
 ENDIF()
 
 # Set implementation types.
-IF(NEKTAR_ENABLE_MAGMA)
-    SET(ElmtOpImpl StdMat SumFac SumFacTOP Generic)
-ELSE()
-    SET(ElmtOpImpl StdMat SumFac SumFacTOP SumFacMat Generic)
-ENDIF()
+SET(ElmtOpImpl StdMat SumFac SumFacTOP Generic)
 
 # Shape types for seperate code compilation.
 SET(Shapes Seg Tri NodalTri Quad Hex Pyr Prism NodalPrism Tet NodalTet)
@@ -176,9 +172,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
 
             # These combinations do/should not exist.
             IF(("${ExecSpace}" STREQUAL "Serial" AND "${Impl}" STREQUAL "SumFacTOP") OR
-               ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "SumFacTOP") OR
-               ("${ExecSpace}" STREQUAL "Serial" AND "${Impl}" STREQUAL "SumFacMat") OR
-               ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "SumFacMat"))
+               ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "SumFacTOP"))
                 CONTINUE()
             ENDIF()
 
@@ -320,16 +314,6 @@ MACRO(ADD_ELMT_OPERATOR dir)
                         ENDFOREACH()
                     ENDIF()
                     MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
-
-                # ----------------- ADDED FOR CUBLAS IMPLEMENTATION -----------------#
-                # Found a CUDA SumFacCUBLAS header.
-                ELSEIF((EXISTS "${dir}/${name}CUDASumFacCUBLAS.cuh") AND (NEKTAR_ENABLE_DEVICE STREQUAL "CUDA") AND
-                    ("${ExecSpace}" STREQUAL "Device") AND ("${Impl}" STREQUAL "SumFacMat"))
-                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                        "${dir}/${name}CUDASumFacCUBLAS.cuh")
-                    SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
-                # -------------------------------------------------------------------#
 
                 # Found a generic header.
                 ELSEIF(EXISTS "${dir}/${name}DeviceGeneric.hpp" AND ("${ExecSpace}" STREQUAL "Device") AND ("${Impl}" STREQUAL "Generic"))
