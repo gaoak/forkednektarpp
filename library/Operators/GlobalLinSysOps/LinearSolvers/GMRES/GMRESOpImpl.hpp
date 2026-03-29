@@ -110,7 +110,7 @@ public:
         // Allocate array storage.
         if (!m_isModifiedGramSchmidt)
         {
-            m_vExchange = MemoryRegion<TData>(m_LinSysMaxStorage, ePinned);
+            m_vExchange = MemoryRegion<TData>(m_LinSysMaxStorage, eHostPinned);
         }
 
         m_truncted = (m_KrylovMaxHessMatBand > 0);

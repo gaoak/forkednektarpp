@@ -109,9 +109,12 @@ NekGemmGroupedBatched(THandle handle, std::string transposeA,
     TData const **Adev;
     TData const **Bdev;
     TData **Cdev;
-    Nektar::deviceMalloc(&Adev, sizeof(TData *) * batchSize);
-    Nektar::deviceMalloc(&Bdev, sizeof(TData *) * batchSize);
-    Nektar::deviceMalloc(&Cdev, sizeof(TData *) * batchSize);
+    Nektar::deviceMalloc(&Adev, sizeof(TData *) * batchSize,
+                         Nektar::eDeviceMemoryPool);
+    Nektar::deviceMalloc(&Bdev, sizeof(TData *) * batchSize,
+                         Nektar::eDeviceMemoryPool);
+    Nektar::deviceMalloc(&Cdev, sizeof(TData *) * batchSize,
+                         Nektar::eDeviceMemoryPool);
 
     Nektar::deviceMemcpy<Nektar::HostToDevice>(Adev, Aarray,
                                                sizeof(TData *) * batchSize);
@@ -135,9 +138,12 @@ NekGemmGroupedBatched(THandle handle, std::string transposeA,
             groupSize.data()));
     }
 
-    Nektar::deviceFree(Adev, sizeof(TData *) * batchSize);
-    Nektar::deviceFree(Bdev, sizeof(TData *) * batchSize);
-    Nektar::deviceFree(Cdev, sizeof(TData *) * batchSize);
+    Nektar::deviceFree(Adev, sizeof(TData *) * batchSize,
+                       Nektar::eDeviceMemoryPool);
+    Nektar::deviceFree(Bdev, sizeof(TData *) * batchSize,
+                       Nektar::eDeviceMemoryPool);
+    Nektar::deviceFree(Cdev, sizeof(TData *) * batchSize,
+                       Nektar::eDeviceMemoryPool);
 }
 
 template <typename THandle, typename TData>

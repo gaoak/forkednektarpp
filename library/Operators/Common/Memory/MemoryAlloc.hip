@@ -38,6 +38,8 @@
 namespace Nektar
 {
 
+bool isSetDeviceMemoryPool = false;
+
 template <typename TData>
 __global__ void deviceFillKernel(TData *dst, const TData val, const size_t size)
 {

@@ -76,7 +76,7 @@ public:
               "PipeConjGrad2 p",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
-          m_vExchange(MemoryRegion<TData>(2, ePinned))
+          m_vExchange(MemoryRegion<TData>(2, eHostPinned))
     {
         this->template SetLinearSolver<ExecSpace>();
 

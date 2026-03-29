@@ -80,7 +80,7 @@ public:
               "BICGSTABROp rtilde",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
-          m_vExchange(MemoryRegion<TData>(4, ePinned))
+          m_vExchange(MemoryRegion<TData>(4, eHostPinned))
     {
         this->template SetLinearSolver<ExecSpace>();
 

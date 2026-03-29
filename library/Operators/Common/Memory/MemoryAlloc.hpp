@@ -40,6 +40,12 @@
 namespace Nektar
 {
 
+#if defined(NEKTAR_ENABLE_CUDA)
+extern bool isSetDeviceMemoryPool;
+#elif defined(NEKTAR_ENABLE_HIP)
+extern bool isSetDeviceMemoryPool;
+#endif
+
 // MemoryCopy
 struct HostToHost
 {
@@ -57,9 +63,36 @@ struct DeviceToDevice
 // Memory allocation type
 enum MemAllocType
 {
-    ePageable,
-    ePinned
+    eHostPageable,
+    eHostPinned,
+    eDeviceMemoryPool,
+    eHostPinnedDeviceMemoryPool
 };
+
+static inline void SetDeviceMemoryPool(void)
+{
+#if defined(NEKTAR_ENABLE_CUDA)
+    if (!isSetDeviceMemoryPool)
+    {
+        auto device = nekGetDevice();
+        cudaMemPool_t mempool;
+        CHECK_HIPCUDA_ERROR(cudaDeviceGetDefaultMemPool(&mempool, device));
+        uint64_t threshold = UINT64_MAX;
+        CHECK_HIPCUDA_ERROR(cudaMemPoolSetAttribute(
+            mempool, cudaMemPoolAttrReleaseThreshold, &threshold));
+    }
+#elif defined(NEKTAR_ENABLE_HIP)
+    if (!isSetDeviceMemoryPool)
+    {
+        auto device = nekGetDevice();
+        hipMemPool_t mempool;
+        CHECK_HIPCUDA_ERROR(hipDeviceGetDefaultMemPool(&mempool, device));
+        uint64_t threshold = UINT64_MAX;
+        CHECK_HIPCUDA_ERROR(hipMemPoolSetAttribute(
+            mempool, hipMemPoolAttrReleaseThreshold, &threshold));
+    }
+#endif
+}
 
 template <typename TData>
 void deviceFillKernelLauncher(TData *dst, const TData val, const size_t size);
@@ -123,18 +156,44 @@ inline void hostMallocPinned(TData **src, const size_t size)
 }
 
 template <typename TData>
-inline void deviceMalloc(TData **src, const size_t size)
+inline void deviceMalloc(
+    TData **src, const size_t size,
+    [[maybe_unused]] const MemAllocType memAllocType = eHostPageable)
 {
     if (size > 0)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
-        GetDeviceProperties::CheckGlobalMemoryUsage(size);
-        CHECK_HIPCUDA_ERROR(cudaMalloc((void **)src, size));
-        GetDeviceProperties::TotalGlobalMemory() -= size;
+        // Note: Do not use DeviceMemoryPool for MPI communication buffer.
+        if (memAllocType == eDeviceMemoryPool ||
+            memAllocType == eHostPinnedDeviceMemoryPool)
+        {
+            SetDeviceMemoryPool();
+            GetDeviceProperties::CheckGlobalMemoryUsage(size);
+            CHECK_HIPCUDA_ERROR(cudaMallocAsync((void **)src, size, 0));
+            GetDeviceProperties::TotalGlobalMemory() -= size;
+        }
+        else
+        {
+            GetDeviceProperties::CheckGlobalMemoryUsage(size);
+            CHECK_HIPCUDA_ERROR(cudaMalloc((void **)src, size));
+            GetDeviceProperties::TotalGlobalMemory() -= size;
+        }
 #elif defined(NEKTAR_ENABLE_HIP)
-        GetDeviceProperties::CheckGlobalMemoryUsage(size);
-        CHECK_HIPCUDA_ERROR(hipMalloc((void **)src, size));
-        GetDeviceProperties::TotalGlobalMemory() -= size;
+        // Note: Do not use DeviceMemoryPool for MPI communication buffer.
+        if (memAllocType == eDeviceMemoryPool ||
+            memAllocType == eHostPinnedDeviceMemoryPool)
+        {
+            SetDeviceMemoryPool();
+            GetDeviceProperties::CheckGlobalMemoryUsage(size);
+            CHECK_HIPCUDA_ERROR(hipMallocAsync((void **)src, size, 0));
+            GetDeviceProperties::TotalGlobalMemory() -= size;
+        }
+        else
+        {
+            GetDeviceProperties::CheckGlobalMemoryUsage(size);
+            CHECK_HIPCUDA_ERROR(hipMalloc((void **)src, size));
+            GetDeviceProperties::TotalGlobalMemory() -= size;
+        }
 #elif defined(NEKTAR_ENABLE_SYCL)
         GetDeviceProperties::CheckGlobalMemoryUsage(size);
         sycl::queue &Q = SYCLQueue::GetInstance();
@@ -182,7 +241,9 @@ template <typename TData> inline void hostFreePinned(TData *src)
 }
 
 template <typename TData>
-inline void deviceFree(TData *src, [[maybe_unused]] const size_t size)
+inline void deviceFree(
+    TData *src, [[maybe_unused]] const size_t size,
+    [[maybe_unused]] const MemAllocType memAllocType = eHostPageable)
 {
     if (src == nullptr)
     {
@@ -190,11 +251,29 @@ inline void deviceFree(TData *src, [[maybe_unused]] const size_t size)
     }
 
 #if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(cudaFree(src));
-    GetDeviceProperties::TotalGlobalMemory() += size;
+    if (memAllocType == eDeviceMemoryPool ||
+        memAllocType == eHostPinnedDeviceMemoryPool)
+    {
+        CHECK_HIPCUDA_ERROR(cudaFreeAsync(src, 0));
+        GetDeviceProperties::TotalGlobalMemory() += size;
+    }
+    else
+    {
+        CHECK_HIPCUDA_ERROR(cudaFree(src));
+        GetDeviceProperties::TotalGlobalMemory() += size;
+    }
 #elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(hipFree(src));
-    GetDeviceProperties::TotalGlobalMemory() += size;
+    if (memAllocType == eDeviceMemoryPool ||
+        memAllocType == eHostPinnedDeviceMemoryPool)
+    {
+        CHECK_HIPCUDA_ERROR(hipFreeAsync(src, 0));
+        GetDeviceProperties::TotalGlobalMemory() += size;
+    }
+    else
+    {
+        CHECK_HIPCUDA_ERROR(hipFree(src));
+        GetDeviceProperties::TotalGlobalMemory() += size;
+    }
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.wait();
@@ -214,9 +293,9 @@ inline void deviceMemset(TData *dst, const int val, const size_t size)
     }
 
 #if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(cudaMemsetAsync((void *)dst, val, size));
+    CHECK_HIPCUDA_ERROR(cudaMemsetAsync((void *)dst, val, size, 0));
 #elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(hipMemsetAsync((void *)dst, val, size));
+    CHECK_HIPCUDA_ERROR(hipMemsetAsync((void *)dst, val, size, 0));
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.memset((void *)dst, val, size);
@@ -246,9 +325,7 @@ inline void deviceFill(TData *dst, const TData val, const size_t size)
 }
 
 template <typename MemCopy, typename TData>
-inline void deviceMemcpy(
-    TData *dst, const TData *src, const size_t size,
-    [[maybe_unused]] const MemAllocType hostMemAllocType = ePageable)
+inline void deviceMemcpy(TData *dst, const TData *src, const size_t size)
 {
     if (size == 0)
     {
@@ -262,29 +339,13 @@ inline void deviceMemcpy(
     else if constexpr (std::is_same_v<MemCopy, DeviceToHost>)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
-        if (hostMemAllocType == ePinned)
-        {
-            CHECK_HIPCUDA_ERROR(
-                cudaMemcpyAsync(dst, src, size, cudaMemcpyDeviceToHost));
-            CHECK_HIPCUDA_ERROR(cudaStreamSynchronize(0));
-        }
-        else
-        {
-            CHECK_HIPCUDA_ERROR(
-                cudaMemcpy(dst, src, size, cudaMemcpyDeviceToHost));
-        }
+        CHECK_HIPCUDA_ERROR(
+            cudaMemcpyAsync(dst, src, size, cudaMemcpyDeviceToHost, 0));
+        CHECK_HIPCUDA_ERROR(cudaStreamSynchronize(0));
 #elif defined(NEKTAR_ENABLE_HIP)
-        if (hostMemAllocType == ePinned)
-        {
-            CHECK_HIPCUDA_ERROR(
-                hipMemcpyAsync(dst, src, size, hipMemcpyDeviceToHost));
-            CHECK_HIPCUDA_ERROR(hipStreamSynchronize(0));
-        }
-        else
-        {
-            CHECK_HIPCUDA_ERROR(
-                hipMemcpy(dst, src, size, hipMemcpyDeviceToHost));
-        }
+        CHECK_HIPCUDA_ERROR(
+            hipMemcpyAsync(dst, src, size, hipMemcpyDeviceToHost, 0));
+        CHECK_HIPCUDA_ERROR(hipStreamSynchronize(0));
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
         Q.memcpy(dst, src, size).wait();
@@ -295,37 +356,17 @@ inline void deviceMemcpy(
     else if constexpr (std::is_same_v<MemCopy, HostToDevice>)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
-        if (hostMemAllocType == ePinned)
-        {
-            CHECK_HIPCUDA_ERROR(
-                cudaMemcpyAsync(dst, src, size, cudaMemcpyHostToDevice));
-        }
-        else
-        {
-            CHECK_HIPCUDA_ERROR(
-                cudaMemcpy(dst, src, size, cudaMemcpyHostToDevice));
-        }
+        CHECK_HIPCUDA_ERROR(
+            cudaMemcpyAsync(dst, src, size, cudaMemcpyHostToDevice, 0));
 #elif defined(NEKTAR_ENABLE_HIP)
-        if (hostMemAllocType == ePinned)
-        {
-            CHECK_HIPCUDA_ERROR(
-                hipMemcpyAsync(dst, src, size, hipMemcpyHostToDevice));
-        }
-        else
-        {
-            CHECK_HIPCUDA_ERROR(
-                hipMemcpy(dst, src, size, hipMemcpyHostToDevice));
-        }
+        CHECK_HIPCUDA_ERROR(
+            hipMemcpyAsync(dst, src, size, hipMemcpyHostToDevice, 0));
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
-        if (hostMemAllocType == ePinned)
-        {
-            Q.memcpy(dst, src, size);
-        }
-        else
-        {
-            Q.memcpy(dst, src, size).wait();
-        }
+        Q.memcpy(dst, src, size);
+#if defined(SYCL_ENABLE_CPU)
+        Q.wait();
+#endif
 #else
         memcpy(dst, src, size);
 #endif
@@ -334,10 +375,10 @@ inline void deviceMemcpy(
     {
 #if defined(NEKTAR_ENABLE_CUDA)
         CHECK_HIPCUDA_ERROR(
-            cudaMemcpyAsync(dst, src, size, cudaMemcpyDeviceToDevice));
+            cudaMemcpyAsync(dst, src, size, cudaMemcpyDeviceToDevice, 0));
 #elif defined(NEKTAR_ENABLE_HIP)
         CHECK_HIPCUDA_ERROR(
-            hipMemcpyAsync(dst, src, size, hipMemcpyDeviceToDevice));
+            hipMemcpyAsync(dst, src, size, hipMemcpyDeviceToDevice, 0));
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
         Q.memcpy(dst, src, size);
