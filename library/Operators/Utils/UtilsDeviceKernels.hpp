@@ -36,7 +36,6 @@
 
 #include "Operators/Common/Memory/MemoryAlloc.hpp"
 #include "Operators/Common/Spaces.hpp"
-#include "Operators/Utils/UtilsDeviceKernelsHelper.hpp"
 
 namespace Nektar
 {
@@ -494,27 +493,22 @@ interleave(const unsigned int interleaveWidth, const size_t numElmtGroups,
     {
         const size_t bufferSize =
             sizeof(TData) * interleaveWidth * numElmtGroups * npts;
-
-        if (internalInterleaveDeviceBufferSize < bufferSize)
-        {
-            deviceFree(internalInterleaveDeviceBuffer, bufferSize);
-            deviceMalloc(&internalInterleaveDeviceBuffer, bufferSize);
-            internalInterleaveDeviceBufferSize = bufferSize;
-        }
+        TData *deviceBuffer;
+        deviceMalloc(&deviceBuffer, bufferSize, eDeviceMemoryPool);
         if (interleaveWidth == NektarSpaces::Device::warpSize)
         {
             DEVICE_1DGRID_KERNEL_LAUNCHER(
                 interleaveKernel<>, gridSize, blockSize, shmemsize, 0,
-                numElmtGroups, npts, inout,
-                (TData *)internalInterleaveDeviceBuffer);
+                numElmtGroups, npts, inout, (TData *)deviceBuffer);
         }
         else
         {
-            DEVICE_1DGRID_KERNEL_LAUNCHER(
-                interleaveKernel<>, gridSize, blockSize, shmemsize, 0,
-                interleaveWidth, numElmtGroups, npts, inout,
-                (TData *)internalInterleaveDeviceBuffer);
+            DEVICE_1DGRID_KERNEL_LAUNCHER(interleaveKernel<>, gridSize,
+                                          blockSize, shmemsize, 0,
+                                          interleaveWidth, numElmtGroups, npts,
+                                          inout, (TData *)deviceBuffer);
         }
+        deviceFree(deviceBuffer, bufferSize, eDeviceMemoryPool);
     }
 }
 
@@ -550,27 +544,22 @@ deInterleave(const unsigned int interleaveWidth, size_t numElmtGroups,
     {
         const size_t bufferSize =
             sizeof(TData) * interleaveWidth * numElmtGroups * npts;
-
-        if (internalInterleaveDeviceBufferSize < bufferSize)
-        {
-            deviceFree(internalInterleaveDeviceBuffer, bufferSize);
-            deviceMalloc(&internalInterleaveDeviceBuffer, bufferSize);
-            internalInterleaveDeviceBufferSize = bufferSize;
-        }
+        TData *deviceBuffer;
+        deviceMalloc(&deviceBuffer, bufferSize, eDeviceMemoryPool);
         if (interleaveWidth == NektarSpaces::Device::warpSize)
         {
             DEVICE_1DGRID_KERNEL_LAUNCHER(
                 deInterleaveKernel<>, gridSize, blockSize, shmemsize, 0,
-                numElmtGroups, npts, inout,
-                (TData *)internalInterleaveDeviceBuffer);
+                numElmtGroups, npts, inout, (TData *)deviceBuffer);
         }
         else
         {
-            DEVICE_1DGRID_KERNEL_LAUNCHER(
-                deInterleaveKernel<>, gridSize, blockSize, shmemsize, 0,
-                interleaveWidth, numElmtGroups, npts, inout,
-                (TData *)internalInterleaveDeviceBuffer);
+            DEVICE_1DGRID_KERNEL_LAUNCHER(deInterleaveKernel<>, gridSize,
+                                          blockSize, shmemsize, 0,
+                                          interleaveWidth, numElmtGroups, npts,
+                                          inout, (TData *)deviceBuffer);
         }
+        deviceFree(deviceBuffer, bufferSize, eDeviceMemoryPool);
     }
 }
 

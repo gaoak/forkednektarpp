@@ -209,8 +209,8 @@ protected:
 
             auto nbuf = m_assmbCommCG->GetSREntries().size() * numComp;
 
-            m_send_buffer = MemoryRegion<TData>(nbuf, ePinned);
-            m_recv_buffer = MemoryRegion<TData>(nbuf, ePinned);
+            m_send_buffer = MemoryRegion<TData>(nbuf, eHostPinned);
+            m_recv_buffer = MemoryRegion<TData>(nbuf, eHostPinned);
 
             // Assign pointer for future communication requests. Pointers are
             // used here directly, without memory syncronisation by accessing

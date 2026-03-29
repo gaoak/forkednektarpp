@@ -80,7 +80,7 @@ public:
               "PipeConjRes p",
               GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
               components, 1)),
-          m_vExchange(MemoryRegion<TData>(3, ePinned))
+          m_vExchange(MemoryRegion<TData>(3, eHostPinned))
     {
         this->template SetLinearSolver<ExecSpace>();
 

@@ -102,7 +102,7 @@ public:
         }
 
         m_vExchange =
-            MemoryRegion<TData>((m_stage + 2) * (m_stage + 1) / 2, ePinned);
+            MemoryRegion<TData>((m_stage + 2) * (m_stage + 1) / 2, eHostPinned);
     }
 
     // className - for OperatorFactory

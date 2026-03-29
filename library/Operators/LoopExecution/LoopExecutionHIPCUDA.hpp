@@ -302,7 +302,7 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
                                                 (TData *)internalDeviceBuffer);
 
     deviceMemcpy<DeviceToHost>(internalHostBuffer, internalDeviceBuffer,
-                               sizeof(TData), ePinned);
+                               sizeof(TData));
 
     out = *(TData *)internalHostBuffer;
 }

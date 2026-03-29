@@ -102,11 +102,12 @@ public:
      *
      * @param name         - name
      * @param size         - size of memory
-     * @param memAllocType - [ePageable, ePinned]
+     * @param memAllocType - [ eHostPageable,  eHostPinned, eDeviceMemoryPool,
+     * eHostPinnedDeviceMemoryPool]
      * @param alignment    - memory alignment
      */
     MemoryRegion(const std::string name, const size_t size,
-                 const MemAllocType &memAllocType = ePageable,
+                 const MemAllocType &memAllocType = eHostPageable,
                  const size_t alignment = NektarSpaces::host_memory_alignment)
     {
         m_instantiated = true;
@@ -128,11 +129,12 @@ public:
      * @brief Constructor methods - create a new memory region.
      *
      * @param size         - size of memory
-     * @param memAllocType - [ePageable, ePinned]
+     * @param memAllocType - [ eHostPageable,  eHostPinned, eDeviceMemoryPool,
+     * eHostPinnedDeviceMemoryPool]
      * @param alignment    - memory alignment
      */
     MemoryRegion(const size_t size,
-                 const MemAllocType &memAllocType = ePageable,
+                 const MemAllocType &memAllocType = eHostPageable,
                  const size_t alignment = NektarSpaces::host_memory_alignment)
         : MemoryRegion<TData>("", size, memAllocType, alignment)
     {
@@ -162,7 +164,7 @@ public:
         rhs.m_size         = 0;
         rhs.m_alignment    = NektarSpaces::host_memory_alignment;
         rhs.m_name         = "";
-        rhs.m_memAllocType = ePageable;
+        rhs.m_memAllocType = eHostPageable;
     }
 
     /**
@@ -173,16 +175,16 @@ public:
     {
         if (m_device && m_device_owned)
         {
-            deviceFree(m_device, m_size * sizeof(TData));
+            deviceFree(m_device, m_size * sizeof(TData), m_memAllocType);
         }
 
         if (m_host && m_host_owned)
         {
-            if (m_memAllocType == ePinned)
+            if (m_memAllocType == eHostPinned)
             {
                 hostFreePinned(m_host);
             }
-            else if (m_memAllocType == ePageable)
+            else if (m_memAllocType == eHostPageable)
             {
                 hostFree(m_host, m_alignment);
             }
@@ -199,7 +201,7 @@ public:
         m_size         = 0;
         m_alignment    = NektarSpaces::host_memory_alignment;
         m_name         = "";
-        m_memAllocType = ePageable;
+        m_memAllocType = eHostPageable;
     }
 
     /**
@@ -242,7 +244,7 @@ public:
         rhs.m_size         = 0;
         rhs.m_alignment    = NektarSpaces::host_memory_alignment;
         rhs.m_name         = "";
-        rhs.m_memAllocType = ePageable;
+        rhs.m_memAllocType = eHostPageable;
 
         return *this;
     }
@@ -305,7 +307,7 @@ public:
                 // Allocate host memory, if not yet allocated.
                 if (!m_host_aligned)
                 {
-                    if (m_memAllocType == ePinned)
+                    if (m_memAllocType == eHostPinned)
                     {
                         // Add extra bytes for alignment provision.
                         size_t aligned_bytes_size =
@@ -324,7 +326,7 @@ public:
                             m_host_aligned = m_host;
                         }
                     }
-                    else if (m_memAllocType == ePageable)
+                    else if (m_memAllocType == eHostPageable)
                     {
                         hostMalloc(&m_host, m_size * sizeof(TData),
                                    m_alignment);
@@ -418,7 +420,8 @@ public:
                 // Allocate device memory, if not yet allocated.
                 if (!m_device)
                 {
-                    deviceMalloc(&m_device, m_size * sizeof(TData));
+                    deviceMalloc(&m_device, m_size * sizeof(TData),
+                                 m_memAllocType);
 
                     // Initialize memory to zero.
                     deviceMemset(m_device, 0, m_size * sizeof(TData));
@@ -473,7 +476,8 @@ public:
      *
      * @param name         - name of the memory region
      * @param array        - std::vector to copy from
-     * @param memAllocType - [ePageable, ePinned]
+     * @param memAllocType - [ eHostPageable,  eHostPinned, eDeviceMemoryPool,
+     * eHostPinnedDeviceMemoryPool]
      * @param alignment    - Memory alignment to use.
      *
      * @return MemoryRegion<TData>
@@ -482,7 +486,7 @@ public:
               class Alloc = std::allocator<TDataIn>>
     static MemoryRegion<TData> FromVector(
         const std::string name, std::vector<TDataIn, Alloc> const &array,
-        const MemAllocType &memAllocType = ePageable,
+        const MemAllocType &memAllocType = eHostPageable,
         const size_t alignment           = NektarSpaces::host_memory_alignment)
     {
         auto mr =
@@ -496,7 +500,8 @@ public:
      *        new MemoryRegion that copies data from a std::vector
      *
      * @param array        - std::vector to copy from
-     * @param memAllocType - [ePageable, ePinned]
+     * @param memAllocType - [ eHostPageable,  eHostPinned, eDeviceMemoryPool,
+     * eHostPinnedDeviceMemoryPool]
      * @param alignment    - Memory alignment to use.
      *
      * @return MemoryRegion<TData>
@@ -505,7 +510,7 @@ public:
               class Alloc = std::allocator<TDataIn>>
     static MemoryRegion<TData> FromVector(
         std::vector<TDataIn, Alloc> const &array,
-        const MemAllocType &memAllocType = ePageable,
+        const MemAllocType &memAllocType = eHostPageable,
         const size_t alignment           = NektarSpaces::host_memory_alignment)
     {
         return MemoryRegion<TData>::template FromVector<MemSpace, TDataIn>(
@@ -519,7 +524,8 @@ public:
      *
      * @param name         - name of the memory region
      * @param array        - Nektar::Array to copy from
-     * @param memAllocType - [ePageable, ePinned]
+     * @param memAllocType - [ eHostPageable,  eHostPinned, eDeviceMemoryPool,
+     * eHostPinnedDeviceMemoryPool]
      * @param alignment    - Memory alignment to use.
      *
      * @return MemoryRegion<TData>
@@ -528,7 +534,7 @@ public:
     static MemoryRegion<TData> FromArray(
         const std::string name,
         Nektar::Array<Nektar::OneD, TDataIn> const &array,
-        const MemAllocType &memAllocType = ePageable,
+        const MemAllocType &memAllocType = eHostPageable,
         const size_t alignment           = NektarSpaces::host_memory_alignment)
     {
         auto mr =
@@ -542,7 +548,8 @@ public:
      *        new MemoryRegion that copies data from an Nektar::Array
      *
      * @param array        - Nektar::Array to copy from
-     * @param memAllocType - [ePageable, ePinned]
+     * @param memAllocType - [ eHostPageable,  eHostPinned, eDeviceMemoryPool,
+     * eHostPinnedDeviceMemoryPool]
      * @param alignment    - Memory alignment to use.
      *
      * @return MemoryRegion<TData>
@@ -550,7 +557,7 @@ public:
     template <typename MemSpace, typename TDataIn>
     static MemoryRegion<TData> FromArray(
         Nektar::Array<Nektar::OneD, TDataIn> const &array,
-        const MemAllocType &memAllocType = ePageable,
+        const MemAllocType &memAllocType = eHostPageable,
         const size_t alignment           = NektarSpaces::host_memory_alignment)
     {
         return MemoryRegion<TData>::template FromArray<MemSpace, TDataIn>(
@@ -580,7 +587,7 @@ public:
             // Allocate host memory, if not yet allocated.
             if (!m_host_aligned)
             {
-                if (m_memAllocType == ePinned)
+                if (m_memAllocType == eHostPinned)
                 {
                     // Add extra bytes for alignment provision.
                     size_t aligned_bytes_size =
@@ -599,7 +606,7 @@ public:
                         m_host_aligned = m_host;
                     }
                 }
-                else if (m_memAllocType == ePageable)
+                else if (m_memAllocType == eHostPageable)
                 {
                     hostMalloc(&m_host, m_size * sizeof(TData), m_alignment);
                     m_host_aligned = m_host;
@@ -641,7 +648,7 @@ public:
             // Allocate device memory, if not yet allocated.
             if (!m_device)
             {
-                deviceMalloc(&m_device, m_size * sizeof(TData));
+                deviceMalloc(&m_device, m_size * sizeof(TData), m_memAllocType);
 
                 // Initialize memory to zero.
                 deviceMemset(m_device, 0, m_size * sizeof(TData));
@@ -887,7 +894,7 @@ private:
             // Allocate host memory, if not yet allocated.
             if (!m_host_aligned)
             {
-                if (m_memAllocType == ePinned)
+                if (m_memAllocType == eHostPinned)
                 {
                     // Add extra bytes for alignment provision.
                     size_t aligned_bytes_size =
@@ -906,7 +913,7 @@ private:
                         m_host_aligned = m_host;
                     }
                 }
-                else if (m_memAllocType == ePageable)
+                else if (m_memAllocType == eHostPageable)
                 {
                     hostMalloc(&m_host, m_size * sizeof(TData), m_alignment);
                     m_host_aligned = m_host;
@@ -938,7 +945,7 @@ private:
             // Allocate device memory, if not yet allocated.
             if (!m_device)
             {
-                deviceMalloc(&m_device, m_size * sizeof(TData));
+                deviceMalloc(&m_device, m_size * sizeof(TData), m_memAllocType);
 
                 // Allocate device memory, if not yet allocated.
                 deviceMemset(m_device, 0, m_size * sizeof(TData));
@@ -984,15 +991,14 @@ private:
             // Allocate device memory, if not yet allocated.
             if (!m_device)
             {
-                deviceMalloc(&m_device, m_size * sizeof(TData));
+                deviceMalloc(&m_device, m_size * sizeof(TData), m_memAllocType);
             }
 
             // Make sure the host data is valid. It might not be.
             if (m_host_valid)
             {
                 deviceMemcpy<HostToDevice>(m_device, m_host_aligned,
-                                           m_size * sizeof(TData),
-                                           m_memAllocType);
+                                           m_size * sizeof(TData));
             }
             else
             {
@@ -1026,7 +1032,7 @@ private:
             // Allocate host memory, if not yet allocated.
             if (!m_host_aligned)
             {
-                if (m_memAllocType == ePinned)
+                if (m_memAllocType == eHostPinned)
                 {
                     // Add extra bytes for alignment provision.
                     size_t aligned_bytes_size =
@@ -1045,7 +1051,7 @@ private:
                         m_host_aligned = m_host;
                     }
                 }
-                else if (m_memAllocType == ePageable)
+                else if (m_memAllocType == eHostPageable)
                 {
                     hostMalloc(&m_host, m_size * sizeof(TData), m_alignment);
                     m_host_aligned = m_host;
@@ -1056,8 +1062,7 @@ private:
             if (m_device_valid)
             {
                 deviceMemcpy<DeviceToHost>(m_host_aligned, m_device,
-                                           m_size * sizeof(TData),
-                                           m_memAllocType);
+                                           m_size * sizeof(TData));
             }
             else
             {
@@ -1138,8 +1143,10 @@ private:
     size_t m_alignment    = NektarSpaces::host_memory_alignment;
 
     std::string m_name{""}; ///< Name to identify the current object.
-    MemAllocType m_memAllocType{ePageable}; ///< Host memory allocation type
-                                            ///< (ePageable, ePinned).
+    MemAllocType m_memAllocType{
+        eHostPageable}; ///< Host memory allocation type
+                        ///< ( eHostPageable,  eHostPinned, eDeviceMemoryPool,
+                        ///< eHostPinnedDeviceMemoryPool).
 };
 
 } // namespace Nektar::Operators

@@ -56,11 +56,11 @@ public:
     {
         if (m_host)
         {
-            if (m_memAllocType == ePageable)
+            if (m_memAllocType == eHostPageable)
             {
                 hostFree(m_host, m_alignment);
             }
-            else if (m_memAllocType == ePinned)
+            else if (m_memAllocType == eHostPinned)
             {
                 hostFreePinned(m_host);
             }
@@ -68,7 +68,7 @@ public:
 
         if (m_device)
         {
-            deviceFree(m_device, this->size());
+            deviceFree(m_device, this->size(), m_memAllocType);
         }
 
         m_instantiated = false;
@@ -84,13 +84,14 @@ public:
      * @param blockAttr      - Block attributes.
      * @param num_components - Number of components.
      * @param num_homo_modes - Number of homogeneous modes.
-     * @param memAllocType   - [ePageable, ePinned].
+     * @param memAllocType   - [ eHostPageable,  eHostPinned, eDeviceMemoryPool,
+     * eHostPinnedDeviceMemoryPool]
      * @param alignment      - Memory alignment to use.
      */
     Field(const std::string name,
           const std::vector<BlockAttributes<TState>> blockAttr,
           const unsigned int num_components, const unsigned int num_homo_modes,
-          const MemAllocType &memAllocType = ePageable,
+          const MemAllocType &memAllocType = eHostPageable,
           const size_t alignment = NektarSpaces::host_memory_alignment)
         : m_instantiated(true), m_name(name), m_component_names(num_components),
           m_num_homo_modes(num_homo_modes), m_memAllocType(memAllocType),
@@ -114,12 +115,13 @@ public:
      * @param blockAttr      - Block attributes.
      * @param num_components - Number of components.
      * @param num_homo_modes - Number of homogeneous modes.
-     * @param memAllocType   - [ePageable, ePinned].
+     * @param memAllocType   - [ eHostPageable,  eHostPinned, eDeviceMemoryPool,
+     * eHostPinnedDeviceMemoryPool]
      * @param alignment      - Memory alignment to use.
      */
     Field(const std::vector<BlockAttributes<TState>> blockAttr,
           const unsigned int num_components, const unsigned int num_homo_modes,
-          const MemAllocType &memAllocType = ePageable,
+          const MemAllocType &memAllocType = eHostPageable,
           const size_t alignment = NektarSpaces::host_memory_alignment)
         : Field<TData, TState>("", blockAttr, num_components, num_homo_modes,
                                memAllocType, alignment)
@@ -133,14 +135,15 @@ public:
      * @param blockAttr      - Block attributes.
      * @param components     - Names of components for vector field.
      * @param num_homo_modes - Number of homogeneous modes.
-     * @param memAllocType   - [ePageable, ePinned].
+     * @param memAllocType   - [ eHostPageable,  eHostPinned, eDeviceMemoryPool,
+     * eHostPinnedDeviceMemoryPool]
      * @param alignment      - Memory alignment to use.
      */
     Field(const std::string name,
           const std::vector<BlockAttributes<TState>> blockAttr,
           const std::vector<std::string> components,
           const unsigned int num_homo_modes,
-          const MemAllocType &memAllocType = ePageable,
+          const MemAllocType &memAllocType = eHostPageable,
           const size_t alignment = NektarSpaces::host_memory_alignment)
         : m_instantiated(true), m_name(name), m_component_names(components),
           m_num_homo_modes(num_homo_modes), m_memAllocType(memAllocType),
@@ -164,13 +167,14 @@ public:
      * @param blockAttr      - Block attributes.
      * @param components     - Names of components for vector field.
      * @param num_homo_modes - Number of homogeneous modes.
-     * @param memAllocType   - [ePageable, ePinned].
+     * @param memAllocType   - [ eHostPageable,  eHostPinned, eDeviceMemoryPool,
+     * eHostPinnedDeviceMemoryPool]
      * @param alignment      - Memory alignment to use.
      */
     Field(const std::vector<BlockAttributes<TState>> blockAttr,
           const std::vector<std::string> components,
           const unsigned int num_homo_modes,
-          const MemAllocType &memAllocType = ePageable,
+          const MemAllocType &memAllocType = eHostPageable,
           const size_t alignment = NektarSpaces::host_memory_alignment)
         : Field<TData, TState>("", blockAttr, components, num_homo_modes,
                                memAllocType, alignment)
@@ -204,7 +208,7 @@ public:
         rhs.m_host           = nullptr;
         rhs.m_device         = nullptr;
         rhs.m_block_accessors.clear();
-        rhs.m_memAllocType = ePageable;
+        rhs.m_memAllocType = eHostPageable;
         rhs.m_alignment    = NektarSpaces::host_memory_alignment;
     }
 
@@ -245,7 +249,7 @@ public:
         rhs.m_host           = nullptr;
         rhs.m_device         = nullptr;
         rhs.m_block_accessors.clear();
-        rhs.m_memAllocType = ePageable;
+        rhs.m_memAllocType = eHostPageable;
         rhs.m_alignment    = NektarSpaces::host_memory_alignment;
         return *this;
     }
@@ -666,12 +670,12 @@ protected:
             // field object.
             if (!field->m_host)
             {
-                if (field->m_memAllocType == ePageable)
+                if (field->m_memAllocType == eHostPageable)
                 {
                     hostMalloc(&field->m_host, field->size() * sizeof(TData),
                                field->m_alignment);
                 }
-                else if (field->m_memAllocType == ePinned)
+                else if (field->m_memAllocType == eHostPinned)
                 {
                     // Add extra bytes for alignment provision
                     size_t aligned_bytes_size =
@@ -704,7 +708,8 @@ protected:
             // the field object.
             if (!field->m_device)
             {
-                deviceMalloc(&field->m_device, field->size() * sizeof(TData));
+                deviceMalloc(&field->m_device, field->size() * sizeof(TData),
+                             field->m_memAllocType);
                 deviceMemset(field->m_device, 0, field->size() * sizeof(TData));
 
                 auto src = field->m_device;
