@@ -116,9 +116,6 @@ protected:
     void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
                  BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
-        const auto nelmtTot =
-            inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes();
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -126,7 +123,7 @@ protected:
         // Allocate storage.
         if (m_deriv.size() == 0)
         {
-            m_deriv = MemoryRegion<TData>(m_coordDim * nelmtTot * m_nqTot);
+            m_deriv = MemoryRegion<TData>(m_coordDim * simd_t::width * m_nqTot);
         }
 
         // Get workspace pointer.
@@ -146,9 +143,7 @@ protected:
         // Loop over components.
         const auto advelsize =
             m_nqTot * inblock.GetNumElmtGroups(m_implInterleaveWidth);
-        const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
-        const auto inoffset_vec =
-            outblock.CompSize() * outblock.GetNumHomoModes() / simd_t::width;
+        const auto derivsize = m_nqTot;
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
@@ -171,14 +166,14 @@ protected:
                 for (unsigned int d = 0; d < m_coordDim; d++)
                 {
                     gemm_kernel(inptr, m_matptr + d * m_nqTot * m_nqTot,
-                                derivptr + d * outoffset);
+                                derivptr + d * m_nqTot * simd_t::width);
                 }
 
                 // Multiply by derivative factor and Advection Velocity.
                 if (m_isDeformed)
                 {
                     MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, true>(
-                        m_nqTot, m_coordDim, m_dimension, 1, inoffset_vec,
+                        m_nqTot, m_coordDim, m_dimension, 1, derivsize,
                         reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(advptr), advelsize,
                         reinterpret_cast<const simd_t *>(derivptr),
@@ -188,7 +183,7 @@ protected:
                 else
                 {
                     MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, false>(
-                        m_nqTot, m_coordDim, m_dimension, 1, inoffset_vec,
+                        m_nqTot, m_coordDim, m_dimension, 1, derivsize,
                         reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(advptr), advelsize,
                         reinterpret_cast<const simd_t *>(derivptr),
@@ -204,7 +199,6 @@ protected:
                         m_nqTot,
                         (TData *)inptr -
                             (width_ratio - 1) * m_nqTot * simd_t::width);
-
                     ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nqTot,
@@ -212,7 +206,7 @@ protected:
                             (width_ratio - 1) * m_nqTot * simd_t::width);
                 }
 
-                // Increment pointer.
+                // Increment pointers.
                 inptr += m_nqTot * simd_t::width;
                 outptr += m_nqTot * simd_t::width;
                 advptr += m_nqTot * simd_t::width;
