@@ -430,11 +430,12 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Get workspace pointer.
+        // Get static workspace pointer.
         auto wspSize = IProductWRTBaseWorkSpaceSize<Implementation>(
             SHAPE_TYPE, nelmt, sizeParam2D.nq0(), sizeParam2D.nq1(),
             sizeParam2D.nm0(), sizeParam2D.nm1());
-        auto wspptr = this->template GetWorkSpace<MemSpace>(wspSize);
+        auto wspptr =
+            BlockOperator<TData>::template GetWorkSpace<MemSpace>(wspSize);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -543,12 +544,13 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Get workspace pointer.
+        // Get static workspace pointer.
         auto wspSize = IProductWRTBaseWorkSpaceSize<Implementation>(
             SHAPE_TYPE, nelmt, sizeParam3D.nq0(), sizeParam3D.nq1(),
             sizeParam3D.nq2(), sizeParam3D.nm0(), sizeParam3D.nm1(),
             sizeParam3D.nm2());
-        auto wspptr = this->template GetWorkSpace<MemSpace>(wspSize);
+        auto wspptr =
+            BlockOperator<TData>::template GetWorkSpace<MemSpace>(wspSize);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
