@@ -104,6 +104,23 @@ public:
         {
             m_nodToMod = (const simd_t *)nullptr;
         }
+
+        // Workspace for kernels - also checks preconditions.
+        if (m_dimension == 2)
+        {
+            unsigned int wsp0Size = 0;
+            BwdTrans2DWorkspace(m_shapeType, m_nm[0], m_nm[1], m_nq[0], m_nq[1],
+                                wsp0Size);
+            m_wsp0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp0Size);
+        }
+        else if (m_dimension == 3)
+        {
+            unsigned int wsp0Size = 0, wsp1Size = 0;
+            BwdTrans3DWorkspace(m_shapeType, m_nm[0], m_nm[1], m_nm[2], m_nq[0],
+                                m_nq[1], m_nq[2], wsp0Size, wsp1Size);
+            m_wsp0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp0Size);
+            m_wsp1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp1Size);
+        }
     }
 
     // className - for BlockOperatorFactory
@@ -132,6 +149,8 @@ protected:
     std::vector<unsigned int> m_nm;
     std::vector<unsigned int> m_nq;
     std::vector<const simd_t *> m_B;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp0;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp1;
     const simd_t *m_nodToMod;
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
     // flag to ensure we only get one warning for alignment otherwise CI system
@@ -277,9 +296,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Workspace for kernels - also checks preconditions.
-        BwdTrans1DWorkspace<SHAPE_TYPE>(nm0, nq0);
-
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
         const auto width_ratio     = (interleaveWidth == 1)
@@ -368,11 +384,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Workspace for kernels - also checks preconditions.
-        unsigned int wsp0Size = 0;
-        BwdTrans2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
-
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
         const auto width_ratio     = (interleaveWidth == 1)
@@ -399,7 +410,7 @@ protected:
                 // BwdTrans kernel.
                 BwdTrans2DKernel<SHAPE_TYPE>(
                     nm0, nm1, nq0, nq1, m_isModified, m_B[0], m_B[1],
-                    m_nodToMod, wsp0.data(),
+                    m_nodToMod, m_wsp0.data(),
                     reinterpret_cast<const simd_t *>(inptr),
                     reinterpret_cast<simd_t *>(outptr));
 
@@ -464,13 +475,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Workspace for kernels - also checks preconditions.
-        unsigned int wsp0Size = 0, wsp1Size = 0;
-        BwdTrans3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
-                                        wsp1Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
-            wsp1(wsp1Size);
-
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
         const auto width_ratio     = (interleaveWidth == 1)
@@ -496,7 +500,7 @@ protected:
                 // BwdTrans kernel.
                 BwdTrans3DKernel<SHAPE_TYPE>(
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, m_B[0], m_B[1],
-                    m_B[2], m_nodToMod, wsp0.data(), wsp1.data(),
+                    m_B[2], m_nodToMod, m_wsp0.data(), m_wsp1.data(),
                     reinterpret_cast<const simd_t *>(inptr),
                     reinterpret_cast<simd_t *>(outptr));
 

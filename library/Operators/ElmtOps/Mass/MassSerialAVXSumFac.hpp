@@ -117,6 +117,37 @@ public:
         // Fetch Jacobian.
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+
+        // Allocate workspace.
+        if (m_dimension == 1)
+        {
+            const auto nqTot = m_nq[0];
+            m_bwd = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+        }
+        else if (m_dimension == 2)
+        {
+            unsigned int wsp0Size = 0;
+            BwdTrans2DWorkspace(m_shapeType, m_nm[0], m_nm[1], m_nq[0], m_nq[1],
+                                wsp0Size);
+            IProduct2DWorkspace(m_shapeType, m_nm[0], m_nm[1], m_nq[0], m_nq[1],
+                                wsp0Size);
+            m_wsp0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp0Size);
+            const auto nqTot = m_nq[0] * m_nq[1];
+            m_bwd = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+        }
+        else if (m_dimension == 3)
+        {
+            unsigned int wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
+            BwdTrans3DWorkspace(m_shapeType, m_nm[0], m_nm[1], m_nm[2], m_nq[0],
+                                m_nq[1], m_nq[2], wsp0Size, wsp1Size);
+            IProduct3DWorkspace(m_shapeType, m_nm[0], m_nm[1], m_nm[2], m_nq[0],
+                                m_nq[1], m_nq[2], wsp0Size, wsp1Size, wsp2Size);
+            m_wsp0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp0Size);
+            m_wsp1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp1Size);
+            m_wsp2 = std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp2Size);
+            const auto nqTot = m_nq[0] * m_nq[1] * m_nq[2];
+            m_bwd = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+        }
     }
 
     // className - for BlockOperatorFactory
@@ -146,6 +177,10 @@ protected:
     std::vector<unsigned int> m_nq;
     std::vector<const simd_t *> m_B;
     std::vector<const simd_t *> m_W;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp0;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp1;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp2;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_bwd;
     const simd_t *m_nodToMod;
     const simd_t *m_nodToModTrans;
     const TData *m_jacptr;
@@ -301,9 +336,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Allocate workspace.
-        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
-
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
         const auto width_ratio     = (interleaveWidth == 1)
@@ -332,11 +364,11 @@ protected:
                 // Step 1: BwdTrans.
                 BwdTrans1DKernel<SHAPE_TYPE>(
                     nm0, nq0, m_B[0], reinterpret_cast<const simd_t *>(inptr),
-                    bwd.data());
+                    m_bwd.data());
 
                 // Step 2: Inner product for mass matrix operation.
                 IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nq0, bwd.data(), m_B[0], m_W[0],
+                    nm0, nq0, m_bwd.data(), m_B[0], m_W[0],
                     reinterpret_cast<const simd_t *>(jacptr),
                     reinterpret_cast<simd_t *>(outptr));
 
@@ -407,13 +439,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Workspace for kernels - also checks preconditions.
-        unsigned int wsp0Size = 0;
-        BwdTrans2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
-        IProduct2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
-
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
         const auto width_ratio     = (interleaveWidth == 1)
@@ -442,14 +467,14 @@ protected:
                 // Step 1: BwdTrans.
                 BwdTrans2DKernel<SHAPE_TYPE>(
                     nm0, nm1, nq0, nq1, m_isModified, m_B[0], m_B[1],
-                    m_nodToMod, wsp0.data(),
-                    reinterpret_cast<const simd_t *>(inptr), bwd.data());
+                    m_nodToMod, m_wsp0.data(),
+                    reinterpret_cast<const simd_t *>(inptr), m_bwd.data());
 
                 // Step 2: Inner product for mass matrix operation.
                 IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nm1, nq0, nq1, m_isModified, bwd.data(), m_B[0],
+                    nm0, nm1, nq0, nq1, m_isModified, m_bwd.data(), m_B[0],
                     m_B[1], m_W[0], m_W[1], m_nodToModTrans,
-                    reinterpret_cast<const simd_t *>(jacptr), wsp0.data(),
+                    reinterpret_cast<const simd_t *>(jacptr), m_wsp0.data(),
                     reinterpret_cast<simd_t *>(outptr));
 
                 // Reshape back, if necessary.
@@ -520,16 +545,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Workspace for kernels - also checks preconditions.
-        unsigned int wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
-        BwdTrans3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
-                                        wsp1Size);
-        IProduct3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
-                                        wsp1Size, wsp2Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
-            wsp1(wsp1Size), wsp2(wsp2Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
-
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
         const auto width_ratio     = (interleaveWidth == 1)
@@ -557,15 +572,15 @@ protected:
                 // Step 1: BwdTrans.
                 BwdTrans3DKernel<SHAPE_TYPE>(
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, m_B[0], m_B[1],
-                    m_B[2], m_nodToMod, wsp0.data(), wsp1.data(),
-                    reinterpret_cast<const simd_t *>(inptr), bwd.data());
+                    m_B[2], m_nodToMod, m_wsp0.data(), m_wsp1.data(),
+                    reinterpret_cast<const simd_t *>(inptr), m_bwd.data());
 
                 // Step 2: Inner product for mass matrix operation.
                 IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwd.data(),
+                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, m_bwd.data(),
                     m_B[0], m_B[1], m_B[2], m_W[0], m_W[1], m_W[2],
                     m_nodToModTrans, reinterpret_cast<const simd_t *>(jacptr),
-                    wsp0.data(), wsp1.data(), wsp2.data(),
+                    m_wsp0.data(), m_wsp1.data(), m_wsp2.data(),
                     reinterpret_cast<simd_t *>(outptr));
 
                 // Reshape back, if necessary.

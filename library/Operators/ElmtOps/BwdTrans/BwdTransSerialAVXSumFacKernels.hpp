@@ -47,17 +47,16 @@ namespace Nektar::Operators::detail
 
 // Workspace - used to dynamically get the workspace size needed for
 // temporary memory.
-template <LibUtilities::ShapeType SHAPE_TYPE>
 NEK_FORCE_INLINE static void BwdTrans1DWorkspace(
+    [[maybe_unused]] LibUtilities::ShapeType SHAPE_TYPE,
     [[maybe_unused]] const unsigned int nm0,
     [[maybe_unused]] const unsigned int nq0)
 
 {
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE>
 NEK_FORCE_INLINE static void BwdTrans2DWorkspace(
-    [[maybe_unused]] const unsigned int nm0,
+    LibUtilities::ShapeType SHAPE_TYPE, [[maybe_unused]] const unsigned int nm0,
     [[maybe_unused]] const unsigned int nm1,
     [[maybe_unused]] const unsigned int nq0,
     [[maybe_unused]] const unsigned int nq1, unsigned int &wsp0Size)
@@ -66,7 +65,7 @@ NEK_FORCE_INLINE static void BwdTrans2DWorkspace(
     {
         wsp0Size = std::max(wsp0Size, nm0 + nm0 * (nm0 + 1) / 2);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
+    else if (SHAPE_TYPE == LibUtilities::eTriangle)
     {
         wsp0Size = std::max(wsp0Size, nm0);
     }
@@ -76,9 +75,8 @@ NEK_FORCE_INLINE static void BwdTrans2DWorkspace(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE>
 NEK_FORCE_INLINE static void BwdTrans3DWorkspace(
-    [[maybe_unused]] const unsigned int nm0,
+    LibUtilities::ShapeType SHAPE_TYPE, [[maybe_unused]] const unsigned int nm0,
     [[maybe_unused]] const unsigned int nm1,
     [[maybe_unused]] const unsigned int nm2,
     [[maybe_unused]] const unsigned int nq0,
@@ -86,18 +84,18 @@ NEK_FORCE_INLINE static void BwdTrans3DWorkspace(
     [[maybe_unused]] const unsigned int nq2, unsigned int &wsp0Size,
     unsigned int &wsp1Size)
 {
-    if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
+    if (SHAPE_TYPE == LibUtilities::eHexahedron)
     {
         wsp0Size = std::max(wsp0Size, nq0 * nm1 * nm2);
         wsp1Size = std::max(wsp1Size, nq0 * nq1 * nm2);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::eNodalTet)
+    else if (SHAPE_TYPE == LibUtilities::eNodalTet)
     {
         wsp0Size =
             std::max(wsp0Size, nm0 * nm1 + nm0 * (nm0 + 1) * (nm0 + 2) / 6);
         wsp1Size = std::max(wsp1Size, nm0);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::eNodalPrism)
+    else if (SHAPE_TYPE == LibUtilities::eNodalPrism)
     {
         wsp0Size = std::max(wsp0Size, nm0 * nm1 + nm0 * nm0 * (nm0 + 1) / 2);
         wsp1Size = std::max(wsp1Size, nm0);

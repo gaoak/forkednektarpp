@@ -148,6 +148,43 @@ public:
             JacobianKey<TData>(block_idx, m_implInterleaveWidth));
         m_dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, false));
+
+        // Workspace for kernels - also checks preconditions.
+        if (m_dimension == 1)
+        {
+            const auto nqTot = m_nq[0];
+            m_bwd    = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+            m_deriv0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+        }
+        else if (m_dimension == 2)
+        {
+            unsigned int wsp0Size = 0;
+            BwdTrans2DWorkspace(m_shapeType, m_nm[0], m_nm[1], m_nq[0], m_nq[1],
+                                wsp0Size);
+            IProduct2DWorkspace(m_shapeType, m_nm[0], m_nm[1], m_nq[0], m_nq[1],
+                                wsp0Size);
+            m_wsp0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp0Size);
+            const auto nqTot = m_nq[0] * m_nq[1];
+            m_bwd    = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+            m_deriv0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+            m_deriv1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+        }
+        else if (m_dimension == 3)
+        {
+            unsigned int wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
+            BwdTrans3DWorkspace(m_shapeType, m_nm[0], m_nm[1], m_nm[2], m_nq[0],
+                                m_nq[1], m_nq[2], wsp0Size, wsp1Size);
+            IProduct3DWorkspace(m_shapeType, m_nm[0], m_nm[1], m_nm[2], m_nq[0],
+                                m_nq[1], m_nq[2], wsp0Size, wsp1Size, wsp2Size);
+            m_wsp0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp0Size);
+            m_wsp1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp1Size);
+            m_wsp2 = std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp2Size);
+            const auto nqTot = m_nq[0] * m_nq[1] * m_nq[2];
+            m_bwd    = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+            m_deriv0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+            m_deriv1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+            m_deriv2 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+        }
     }
 
     // className - for BlockOperatorFactory
@@ -180,6 +217,13 @@ protected:
     std::vector<const simd_t *> m_D;
     std::vector<const simd_t *> m_W;
     std::vector<const simd_t *> m_f;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp0;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp1;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp2;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_bwd;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_deriv0;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_deriv1;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_deriv2;
     std::vector<TData> NullTDataVector;
     TData *m_advVel;
     const simd_t *m_nodToMod;
@@ -358,10 +402,6 @@ protected:
         auto diffCoeffPtr =
             this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
-        // Allocate workspace.
-        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv0(nqTot);
-
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
         const auto width_ratio     = (interleaveWidth == 1)
@@ -393,10 +433,11 @@ protected:
                 // Step 1: BwdTrans.
                 BwdTrans1DKernel<SHAPE_TYPE>(
                     nm0, nq0, m_B[0], reinterpret_cast<const simd_t *>(inptr),
-                    bwd.data());
+                    m_bwd.data());
 
                 // Step 2: Take derivatives in collapsed coordinate space.
-                PhysDerivTensor1DKernel(nq0, bwd.data(), m_D[0], deriv0.data());
+                PhysDerivTensor1DKernel(nq0, m_bwd.data(), m_D[0],
+                                        m_deriv0.data());
 
                 // Step 3: Add Advect solution to  this->m_lambda * bwd.
                 AddAdvectionSegKernel<DEFORMED>(
@@ -405,12 +446,12 @@ protected:
                     reinterpret_cast<const simd_t *>(advVelPtr + advVelOffset),
                     reinterpret_cast<const simd_t *>(advVelPtr +
                                                      2 * advVelOffset),
-                    reinterpret_cast<const simd_t *>(dfptr), deriv0.data(),
-                    bwd.data(), this->m_lambda);
+                    reinterpret_cast<const simd_t *>(dfptr), m_deriv0.data(),
+                    m_bwd.data(), this->m_lambda);
 
                 // Step 4: Inner product for mass matrix operation.
                 IProduct1DKernel<SHAPE_TYPE, true, false, DEFORMED>(
-                    nm0, nq0, bwd.data(), m_B[0], m_W[0],
+                    nm0, nq0, m_bwd.data(), m_B[0], m_W[0],
                     reinterpret_cast<const simd_t *>(jacptr),
                     reinterpret_cast<simd_t *>(outptr));
 
@@ -419,11 +460,11 @@ protected:
                     m_coordDim, nq0, true, diffCoeffPtr, false, NullTDataVector,
                     NullTDataVector, NullTDataVector, NullTDataVector,
                     NullTDataVector, NullTDataVector,
-                    reinterpret_cast<const simd_t *>(dfptr), deriv0.data());
+                    reinterpret_cast<const simd_t *>(dfptr), m_deriv0.data());
 
                 // Step 6: Apply Laplacian metrics & inner product.
                 IProduct1DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                    nm0, nq0, deriv0.data(), m_DB[0], m_W[0],
+                    nm0, nq0, m_deriv0.data(), m_DB[0], m_W[0],
                     reinterpret_cast<const simd_t *>(jacptr),
                     reinterpret_cast<simd_t *>(outptr));
 
@@ -501,17 +542,6 @@ protected:
         auto diffCoeffPtr =
             this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
-        // Workspace for kernels - also checks preconditions.
-        unsigned int wsp0Size = 0;
-        BwdTrans2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
-        IProduct2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv0(nqTot);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv1(nqTot);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> diffderiv0(nqTot);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> diffderiv1(nqTot);
-
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
         const auto width_ratio     = (interleaveWidth == 1)
@@ -543,12 +573,12 @@ protected:
                 // Step 1: BwdTrans.
                 BwdTrans2DKernel<SHAPE_TYPE>(
                     nm0, nm1, nq0, nq1, m_isModified, m_B[0], m_B[1],
-                    m_nodToMod, wsp0.data(),
-                    reinterpret_cast<const simd_t *>(inptr), bwd.data());
+                    m_nodToMod, m_wsp0.data(),
+                    reinterpret_cast<const simd_t *>(inptr), m_bwd.data());
 
                 // Step 2: Get tensor derivative (deriv0, deriv1)
-                PhysDerivTensor2DKernel(nq0, nq1, bwd.data(), m_D[0], m_D[1],
-                                        deriv0.data(), deriv1.data());
+                PhysDerivTensor2DKernel(nq0, nq1, m_bwd.data(), m_D[0], m_D[1],
+                                        m_deriv0.data(), m_deriv1.data());
 
                 // Step 3: Evaluate advection term and add to bwd * lambda.
                 AddAdvection2DKernel<SHAPE_TYPE, DEFORMED>(
@@ -557,8 +587,8 @@ protected:
                     reinterpret_cast<const simd_t *>(advVelPtr + advVelOffset),
                     reinterpret_cast<const simd_t *>(advVelPtr +
                                                      2 * advVelOffset),
-                    reinterpret_cast<const simd_t *>(dfptr), deriv0.data(),
-                    deriv1.data(), bwd.data(), this->m_lambda);
+                    reinterpret_cast<const simd_t *>(dfptr), m_deriv0.data(),
+                    m_deriv1.data(), m_bwd.data(), this->m_lambda);
 
                 // Step 4: Apply diffusion coeff to (diffderiv0, diffderiv1) and
                 // apply WJ
@@ -568,17 +598,17 @@ protected:
                     NullTDataVector, NullTDataVector, NullTDataVector,
                     reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1],
                     reinterpret_cast<const simd_t *>(dfptr), m_f[0], m_f[1],
-                    deriv0.data(), deriv1.data(), bwd.data(), 1.0);
+                    m_deriv0.data(), m_deriv1.data(), m_bwd.data(), 1.0);
 
                 // Step 5: Apply derivative and sum up.
-                SumDerivTensor2DKernel<true>(nq0, nq1, deriv0.data(),
-                                             deriv1.data(), m_D[0], m_D[1],
-                                             bwd.data());
+                SumDerivTensor2DKernel<true>(nq0, nq1, m_deriv0.data(),
+                                             m_deriv1.data(), m_D[0], m_D[1],
+                                             m_bwd.data());
 
                 // Step 6: Inner product without WJ.
                 IProduct2DKernel<SHAPE_TYPE, false, false>(
-                    nm0, nm1, nq0, nq1, m_isModified, bwd.data(), m_B[0],
-                    m_B[1], m_nodToModTrans, wsp0.data(),
+                    nm0, nm1, nq0, nq1, m_isModified, m_bwd.data(), m_B[0],
+                    m_B[1], m_nodToModTrans, m_wsp0.data(),
                     reinterpret_cast<simd_t *>(outptr));
 
                 // Reshape back, if necessary.
@@ -656,22 +686,6 @@ protected:
         auto diffCoeffPtr =
             this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
-        // Workspace for kernels - also checks preconditions.
-        unsigned int wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
-        BwdTrans3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
-                                        wsp1Size);
-        IProduct3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
-                                        wsp1Size, wsp2Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
-            wsp1(wsp1Size), wsp2(wsp2Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> bwd(nqTot);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv0(nqTot);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv1(nqTot);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv2(nqTot);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> diffderiv0(nqTot);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> diffderiv1(nqTot);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> diffderiv2(nqTot);
-
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
         const auto width_ratio     = (interleaveWidth == 1)
@@ -702,13 +716,13 @@ protected:
                 // Step 1: BwdTrans.
                 BwdTrans3DKernel<SHAPE_TYPE>(
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, m_B[0], m_B[1],
-                    m_B[2], m_nodToMod, wsp0.data(), wsp1.data(),
-                    reinterpret_cast<const simd_t *>(inptr), bwd.data());
+                    m_B[2], m_nodToMod, m_wsp0.data(), m_wsp1.data(),
+                    reinterpret_cast<const simd_t *>(inptr), m_bwd.data());
 
                 // Step 2: Get tensor derivative (deriv0, deriv1)
-                PhysDerivTensor3DKernel(nq0, nq1, nq2, bwd.data(), m_D[0],
-                                        m_D[1], m_D[2], deriv0.data(),
-                                        deriv1.data(), deriv2.data());
+                PhysDerivTensor3DKernel(nq0, nq1, nq2, m_bwd.data(), m_D[0],
+                                        m_D[1], m_D[2], m_deriv0.data(),
+                                        m_deriv1.data(), m_deriv2.data());
 
                 // Step 3: Evaluate advection term and add to bwd * lambda.
                 AddAdvection3DKernel<SHAPE_TYPE, DEFORMED>(
@@ -717,8 +731,9 @@ protected:
                     reinterpret_cast<const simd_t *>(advVelPtr + advVelOffset),
                     reinterpret_cast<const simd_t *>(advVelPtr +
                                                      2 * advVelOffset),
-                    reinterpret_cast<const simd_t *>(dfptr), deriv0.data(),
-                    deriv1.data(), deriv2.data(), bwd.data(), this->m_lambda);
+                    reinterpret_cast<const simd_t *>(dfptr), m_deriv0.data(),
+                    m_deriv1.data(), m_deriv2.data(), m_bwd.data(),
+                    this->m_lambda);
 
                 // Step 4: Apply diffusion coeff to (diffderiv0, diffderiv1) and
                 // apply WJ
@@ -728,19 +743,19 @@ protected:
                     NullTDataVector, NullTDataVector,
                     reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1],
                     m_W[2], reinterpret_cast<const simd_t *>(dfptr), m_f[0],
-                    m_f[1], m_f[2], m_f[3], deriv0.data(), deriv1.data(),
-                    deriv2.data(), bwd.data(), 1.0);
+                    m_f[1], m_f[2], m_f[3], m_deriv0.data(), m_deriv1.data(),
+                    m_deriv2.data(), m_bwd.data(), 1.0);
 
                 // Step 5: Apply derivative and sum up.
                 SumDerivTensor3DKernel<true>(
-                    nq0, nq1, nq2, deriv0.data(), deriv1.data(), deriv2.data(),
-                    m_D[0], m_D[1], m_D[2], bwd.data());
+                    nq0, nq1, nq2, m_deriv0.data(), m_deriv1.data(),
+                    m_deriv2.data(), m_D[0], m_D[1], m_D[2], m_bwd.data());
 
                 // Step 6: Inner product without WJ.
                 IProduct3DKernel<SHAPE_TYPE, false, false>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, bwd.data(),
-                    m_B[0], m_B[1], m_B[2], m_nodToModTrans, wsp0.data(),
-                    wsp1.data(), wsp2.data(),
+                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, m_bwd.data(),
+                    m_B[0], m_B[1], m_B[2], m_nodToModTrans, m_wsp0.data(),
+                    m_wsp1.data(), m_wsp2.data(),
                     reinterpret_cast<simd_t *>(outptr));
 
                 // Reshape back, if necessary.

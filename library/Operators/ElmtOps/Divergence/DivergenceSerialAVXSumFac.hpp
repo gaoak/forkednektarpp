@@ -111,6 +111,26 @@ public:
         // Fetch deriv factors data.
         m_dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, false));
+
+        // Allocate workspace
+        if (dimension == 1)
+        {
+            const auto nqTot = m_nq[0];
+            m_wsp0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+        }
+        else if (dimension == 2)
+        {
+            const auto nqTot = m_nq[0] * m_nq[1];
+            m_wsp0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+            m_wsp1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+        }
+        else if (dimension == 3)
+        {
+            const auto nqTot = m_nq[0] * m_nq[1] * m_nq[2];
+            m_wsp0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+            m_wsp1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+            m_wsp2 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+        }
     }
 
     // className - for BlockOperatorFactory
@@ -139,6 +159,9 @@ protected:
     std::vector<unsigned int> m_nq;
     std::vector<const simd_t *> m_D;
     std::vector<const simd_t *> m_f;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp0;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp1;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp2;
     const TData *m_dfptr;
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
     // flag to ensure we only get one warning for alignment otherwise CI system
@@ -408,11 +431,8 @@ protected:
         auto inptr0 = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto inptr1 = inptr0 + compOffset;
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto dfptr  = m_dfptr;
 
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(nqTot),
-            wsp1(nqTot);
-
-        auto dfptr = m_dfptr;
         for (size_t e = 0; e < inblock.GetNumElmtGroups(m_implInterleaveWidth);
              ++e)
         {
@@ -428,26 +448,26 @@ protected:
             }
 
             // du/dx
-            PhysDerivTensor2DKernel(nq0, nq1,
-                                    reinterpret_cast<const simd_t *>(inptr0),
-                                    m_D[0], m_D[1], wsp0.data(), wsp1.data());
+            PhysDerivTensor2DKernel(
+                nq0, nq1, reinterpret_cast<const simd_t *>(inptr0), m_D[0],
+                m_D[1], m_wsp0.data(), m_wsp1.data());
 
             // physical derivative.
             PhysDerivDir2DKernel<SHAPE_TYPE, DEFORMED, 0, false>(
                 nq0, nq1, 2, m_f[0], m_f[1],
-                reinterpret_cast<const simd_t *>(dfptr), wsp0.data(),
-                wsp1.data(), reinterpret_cast<simd_t *>(outptr));
+                reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
+                m_wsp1.data(), reinterpret_cast<simd_t *>(outptr));
 
             // dv/dy
-            PhysDerivTensor2DKernel(nq0, nq1,
-                                    reinterpret_cast<const simd_t *>(inptr1),
-                                    m_D[0], m_D[1], wsp0.data(), wsp1.data());
+            PhysDerivTensor2DKernel(
+                nq0, nq1, reinterpret_cast<const simd_t *>(inptr1), m_D[0],
+                m_D[1], m_wsp0.data(), m_wsp1.data());
 
             //  physical derivative.
             PhysDerivDir2DKernel<SHAPE_TYPE, DEFORMED, 1, true>(
                 nq0, nq1, 2, m_f[0], m_f[1],
-                reinterpret_cast<const simd_t *>(dfptr), wsp0.data(),
-                wsp1.data(), reinterpret_cast<simd_t *>(outptr));
+                reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
+                m_wsp1.data(), reinterpret_cast<simd_t *>(outptr));
 
             // Reshape back, if necessary.
             if (e % width_ratio == width_ratio - 1)
@@ -532,11 +552,7 @@ protected:
         auto inptr1 = inptr0 + compOffset;
         auto inptr2 = inptr1 + compOffset;
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(nqTot),
-            wsp1(nqTot), wsp2(nqTot);
-
-        auto dfptr = m_dfptr;
+        auto dfptr  = m_dfptr;
 
         for (size_t e = 0; e < inblock.GetNumElmtGroups(m_implInterleaveWidth);
              ++e)
@@ -558,36 +574,39 @@ protected:
             // Get the basic derivative.
             PhysDerivTensor3DKernel(
                 nq0, nq1, nq2, reinterpret_cast<const simd_t *>(inptr0), m_D[0],
-                m_D[1], m_D[2], wsp0.data(), wsp1.data(), wsp2.data());
+                m_D[1], m_D[2], m_wsp0.data(), m_wsp1.data(), m_wsp2.data());
 
             // du/dx
             // Calculate physical derivative.
             PhysDerivDir3DKernel<SHAPE_TYPE, DEFORMED, 0, false>(
                 nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
-                reinterpret_cast<const simd_t *>(dfptr), wsp0.data(),
-                wsp1.data(), wsp2.data(), reinterpret_cast<simd_t *>(outptr));
+                reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
+                m_wsp1.data(), m_wsp2.data(),
+                reinterpret_cast<simd_t *>(outptr));
 
             PhysDerivTensor3DKernel(
                 nq0, nq1, nq2, reinterpret_cast<const simd_t *>(inptr1), m_D[0],
-                m_D[1], m_D[2], wsp0.data(), wsp1.data(), wsp2.data());
+                m_D[1], m_D[2], m_wsp0.data(), m_wsp1.data(), m_wsp2.data());
 
             // dv/dy
             // Calculate physical derivative.
             PhysDerivDir3DKernel<SHAPE_TYPE, DEFORMED, 1, true>(
                 nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
-                reinterpret_cast<const simd_t *>(dfptr), wsp0.data(),
-                wsp1.data(), wsp2.data(), reinterpret_cast<simd_t *>(outptr));
+                reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
+                m_wsp1.data(), m_wsp2.data(),
+                reinterpret_cast<simd_t *>(outptr));
 
             PhysDerivTensor3DKernel(
                 nq0, nq1, nq2, reinterpret_cast<const simd_t *>(inptr2), m_D[0],
-                m_D[1], m_D[2], wsp0.data(), wsp1.data(), wsp2.data());
+                m_D[1], m_D[2], m_wsp0.data(), m_wsp1.data(), m_wsp2.data());
 
             // dw/dz
             // Calculate physical derivative.
             PhysDerivDir3DKernel<SHAPE_TYPE, DEFORMED, 2, true>(
                 nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
-                reinterpret_cast<const simd_t *>(dfptr), wsp0.data(),
-                wsp1.data(), wsp2.data(), reinterpret_cast<simd_t *>(outptr));
+                reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
+                m_wsp1.data(), m_wsp2.data(),
+                reinterpret_cast<simd_t *>(outptr));
 
             // Reshape back, if necessary.
             if (e % width_ratio == width_ratio - 1)
