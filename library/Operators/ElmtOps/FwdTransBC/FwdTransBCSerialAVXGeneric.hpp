@@ -221,6 +221,21 @@ public:
             m_nodToMod      = (const simd_t *)nullptr;
             m_nodToModTrans = (const simd_t *)nullptr;
         }
+
+        // Allocate workspace.
+        if (m_dimension == 1)
+        {
+            m_wsp1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(m_nqTot);
+            m_wsp2 = std::vector<simd_t, tinysimd::allocator<simd_t>>(m_nqTot);
+        }
+        else if (m_dimension == 2)
+        {
+            m_wsp1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(m_nqTot);
+            m_wsp2 = std::vector<simd_t, tinysimd::allocator<simd_t>>(m_nqTot);
+            m_wsp3 = std::vector<simd_t, tinysimd::allocator<simd_t>>(m_nqTot);
+            m_wsp4 = std::vector<simd_t, tinysimd::allocator<simd_t>>(
+                std::max(m_nq[0], m_nq[1]));
+        }
     }
 
     // className - for BlockOperatorFactory
@@ -273,6 +288,10 @@ protected:
     std::vector<const simd_t *> m_B;
     std::vector<const simd_t *> m_W;
     std::vector<const simd_t *> m_massint_seg;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp1;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp2;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp3;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp4;
     const simd_t *m_interp1to0;
     const simd_t *m_massint;
     const simd_t *m_nodToMod;
@@ -448,10 +467,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Allocate workspace.
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp1(nqTot);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp2(nqTot);
-
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
         const auto width_ratio     = (interleaveWidth == 1)
@@ -490,8 +505,8 @@ protected:
                         reinterpret_cast<const simd_t *>(m_massint_seg[0]),
                         reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(inptr),
-                        reinterpret_cast<simd_t *>(outptr), wsp1.data(),
-                        wsp2.data());
+                        reinterpret_cast<simd_t *>(outptr), m_wsp1.data(),
+                        m_wsp2.data());
                 }
 
                 // Reshape back, if necessary.
@@ -546,13 +561,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Workspace for kernels - also checks preconditions.
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp1(nqTot);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp2(nqTot);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp3(nqTot);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp4(
-            std::max(nq0, nq1));
-
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
         const auto width_ratio     = (interleaveWidth == 1)
@@ -605,8 +613,8 @@ protected:
                         reinterpret_cast<const simd_t *>(dmatptr),
                         reinterpret_cast<const simd_t *>(m_jacptr),
                         reinterpret_cast<const simd_t *>(inptr),
-                        reinterpret_cast<simd_t *>(outptr), wsp1.data(),
-                        wsp2.data(), wsp3.data(), wsp4.data());
+                        reinterpret_cast<simd_t *>(outptr), m_wsp1.data(),
+                        m_wsp2.data(), m_wsp3.data(), m_wsp4.data());
                 }
 
                 // Reshape back, if necessary.

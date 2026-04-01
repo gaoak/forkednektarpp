@@ -111,6 +111,24 @@ public:
         // Fetch Jacobian.
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+
+        // Workspace for kernels - also checks preconditions.
+        if (m_dimension == 2)
+        {
+            unsigned int wsp0Size = 0;
+            IProduct2DWorkspace(m_shapeType, m_nm[0], m_nm[1], m_nq[0], m_nq[1],
+                                wsp0Size);
+            m_wsp0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp0Size);
+        }
+        else if (m_dimension == 3)
+        {
+            unsigned int wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
+            IProduct3DWorkspace(m_shapeType, m_nm[0], m_nm[1], m_nm[2], m_nq[0],
+                                m_nq[1], m_nq[2], wsp0Size, wsp1Size, wsp2Size);
+            m_wsp0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp0Size);
+            m_wsp1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp1Size);
+            m_wsp2 = std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp2Size);
+        }
     }
 
     // className - for BlockOperatorFactory
@@ -140,6 +158,9 @@ protected:
     std::vector<unsigned int> m_nq;
     std::vector<const simd_t *> m_B;
     std::vector<const simd_t *> m_W;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp0;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp1;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp2;
     const simd_t *m_nodToModTrans;
     const TData *m_jacptr;
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
@@ -403,11 +424,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Workspace for kernels - also checks preconditions.
-        unsigned int wsp0Size = 0;
-        IProduct2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
-
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
         const auto width_ratio     = (interleaveWidth == 1)
@@ -440,7 +456,7 @@ protected:
                         nm0, nm1, nq0, nq1, m_isModified,
                         reinterpret_cast<const simd_t *>(inptr), m_B[0], m_B[1],
                         m_W[0], m_W[1], m_nodToModTrans,
-                        reinterpret_cast<const simd_t *>(jacptr), wsp0.data(),
+                        reinterpret_cast<const simd_t *>(jacptr), m_wsp0.data(),
                         reinterpret_cast<simd_t *>(outptr));
                 }
                 else
@@ -449,7 +465,7 @@ protected:
                         nm0, nm1, nq0, nq1, m_isModified,
                         reinterpret_cast<const simd_t *>(inptr), m_B[0], m_B[1],
                         m_W[0], m_W[1], m_nodToModTrans,
-                        reinterpret_cast<const simd_t *>(jacptr), wsp0.data(),
+                        reinterpret_cast<const simd_t *>(jacptr), m_wsp0.data(),
                         reinterpret_cast<simd_t *>(outptr), this->m_scale);
                 }
 
@@ -521,13 +537,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Workspace for kernels - also checks preconditions.
-        unsigned int wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
-        IProduct3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
-                                        wsp1Size, wsp2Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
-            wsp1(wsp1Size), wsp2(wsp2Size);
-
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
         const auto width_ratio     = (interleaveWidth == 1)
@@ -559,8 +568,8 @@ protected:
                         nm0, nm1, nm2, nq0, nq1, nq2, m_isModified,
                         reinterpret_cast<const simd_t *>(inptr), m_B[0], m_B[1],
                         m_B[2], m_W[0], m_W[1], m_W[2], m_nodToModTrans,
-                        reinterpret_cast<const simd_t *>(jacptr), wsp0.data(),
-                        wsp1.data(), wsp2.data(),
+                        reinterpret_cast<const simd_t *>(jacptr), m_wsp0.data(),
+                        m_wsp1.data(), m_wsp2.data(),
                         reinterpret_cast<simd_t *>(outptr));
                 }
                 else
@@ -569,8 +578,8 @@ protected:
                         nm0, nm1, nm2, nq0, nq1, nq2, m_isModified,
                         reinterpret_cast<const simd_t *>(inptr), m_B[0], m_B[1],
                         m_B[2], m_W[0], m_W[1], m_W[2], m_nodToModTrans,
-                        reinterpret_cast<const simd_t *>(jacptr), wsp0.data(),
-                        wsp1.data(), wsp2.data(),
+                        reinterpret_cast<const simd_t *>(jacptr), m_wsp0.data(),
+                        m_wsp1.data(), m_wsp2.data(),
                         reinterpret_cast<simd_t *>(outptr), this->m_scale);
                 }
 

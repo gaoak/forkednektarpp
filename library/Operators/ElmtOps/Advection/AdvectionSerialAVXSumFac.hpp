@@ -110,6 +110,26 @@ public:
         // Fetch deriv factors data.
         m_dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, false));
+
+        // Allocate workspace
+        if (m_dimension == 1)
+        {
+            const auto nqTot = m_nq[0];
+            m_deriv0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+        }
+        else if (m_dimension == 2)
+        {
+            const auto nqTot = m_nq[0] * m_nq[1];
+            m_deriv0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+            m_deriv1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+        }
+        else if (m_dimension == 3)
+        {
+            const auto nqTot = m_nq[0] * m_nq[1] * m_nq[2];
+            m_deriv0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+            m_deriv1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+            m_deriv2 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+        }
     }
 
     // className - for BlockOperatorFactory
@@ -139,6 +159,9 @@ protected:
     std::vector<unsigned int> m_nq;
     std::vector<const simd_t *> m_D;
     std::vector<const simd_t *> m_f;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_deriv0;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_deriv1;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_deriv2;
     const TData *m_dfptr;
     TData *m_advVel;
 
@@ -310,9 +333,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Allocate workspace.
-        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv0(nqTot);
-
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
         const auto width_ratio     = (interleaveWidth == 1)
@@ -343,7 +363,7 @@ protected:
                 // Get the basic derivative.
                 PhysDerivTensor1DKernel(nq0,
                                         reinterpret_cast<const simd_t *>(inptr),
-                                        m_D[0], deriv0.data());
+                                        m_D[0], m_deriv0.data());
 
                 // Calculate physical derivative.
                 Advection1DKernel<SHAPE_TYPE, DEFORMED>(
@@ -352,7 +372,7 @@ protected:
                     reinterpret_cast<const simd_t *>(advVelPtr + advVelOffset),
                     reinterpret_cast<const simd_t *>(advVelPtr +
                                                      2 * advVelOffset),
-                    deriv0.data(), reinterpret_cast<simd_t *>(outptr));
+                    m_deriv0.data(), reinterpret_cast<simd_t *>(outptr));
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
@@ -418,10 +438,6 @@ protected:
 
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
-        // Allocate workspace
-        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv0(nqTot);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv1(nqTot);
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -456,7 +472,7 @@ protected:
                 // Results written to outvec0, outvec1.
                 PhysDerivTensor2DKernel(
                     nq0, nq1, reinterpret_cast<const simd_t *>(inptr), m_D[0],
-                    m_D[1], deriv0.data(), deriv1.data());
+                    m_D[1], m_deriv0.data(), m_deriv1.data());
 
                 // Calculate physical derivative.
                 Advection2DKernel<SHAPE_TYPE, DEFORMED>(
@@ -466,7 +482,7 @@ protected:
                     reinterpret_cast<const simd_t *>(advVelPtr + advVelOffset),
                     reinterpret_cast<const simd_t *>(advVelPtr +
                                                      2 * advVelOffset),
-                    deriv0.data(), deriv1.data(),
+                    m_deriv0.data(), m_deriv1.data(),
                     reinterpret_cast<simd_t *>(outptr));
 
                 // Reshape back, if necessary.
@@ -531,11 +547,6 @@ protected:
 
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
-        // Allocate workspace
-        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv0(nqTot);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv1(nqTot);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> deriv2(nqTot);
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -569,8 +580,8 @@ protected:
                 // Get the basic derivative.
                 PhysDerivTensor3DKernel(nq0, nq1, nq2,
                                         reinterpret_cast<const simd_t *>(inptr),
-                                        m_D[0], m_D[1], m_D[2], deriv0.data(),
-                                        deriv1.data(), deriv2.data());
+                                        m_D[0], m_D[1], m_D[2], m_deriv0.data(),
+                                        m_deriv1.data(), m_deriv2.data());
 
                 // Calculate physical derivative.
                 Advection3DKernel<SHAPE_TYPE, DEFORMED>(
@@ -580,7 +591,7 @@ protected:
                     reinterpret_cast<const simd_t *>(advVelPtr + advVelOffset),
                     reinterpret_cast<const simd_t *>(advVelPtr +
                                                      2 * advVelOffset),
-                    deriv0.data(), deriv1.data(), deriv2.data(),
+                    m_deriv0.data(), m_deriv1.data(), m_deriv2.data(),
                     reinterpret_cast<simd_t *>(outptr));
 
                 // Reshape back, if necessary.

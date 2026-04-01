@@ -48,8 +48,8 @@ namespace Nektar::Operators::detail
 // Workspace - used to dynamically get the workspace size needed for
 // temporary memory.
 
-template <LibUtilities::ShapeType SHAPE_TYPE>
 NEK_FORCE_INLINE static void IProduct1DWorkspace(
+    [[maybe_unused]] LibUtilities::ShapeType SHAPE_TYPE,
     [[maybe_unused]] const unsigned int nm0,
     [[maybe_unused]] const unsigned int nq0)
 
@@ -58,14 +58,13 @@ NEK_FORCE_INLINE static void IProduct1DWorkspace(
     // None
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE>
 NEK_FORCE_INLINE static void IProduct2DWorkspace(
-    [[maybe_unused]] const unsigned int nm0,
+    LibUtilities::ShapeType SHAPE_TYPE, [[maybe_unused]] const unsigned int nm0,
     [[maybe_unused]] const unsigned int nm1,
     [[maybe_unused]] const unsigned int nq0, const unsigned int nq1,
     unsigned int &wsp0Size)
 {
-    if constexpr (SHAPE_TYPE == LibUtilities::eNodalTri)
+    if (SHAPE_TYPE == LibUtilities::eNodalTri)
     {
         wsp0Size = std::max(wsp0Size, nq1 + nm0 * (nm0 + 1) / 2);
     }
@@ -75,20 +74,19 @@ NEK_FORCE_INLINE static void IProduct2DWorkspace(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE>
 NEK_FORCE_INLINE static void IProduct3DWorkspace(
-    [[maybe_unused]] const unsigned int nm0, const unsigned int nm1,
-    [[maybe_unused]] const unsigned int nm2,
+    LibUtilities::ShapeType SHAPE_TYPE, [[maybe_unused]] const unsigned int nm0,
+    const unsigned int nm1, [[maybe_unused]] const unsigned int nm2,
     [[maybe_unused]] const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, unsigned int &wsp0Size, unsigned int &wsp1Size,
     unsigned int &wsp2Size)
 {
-    if constexpr (SHAPE_TYPE == LibUtilities::eNodalTet)
+    if (SHAPE_TYPE == LibUtilities::eNodalTet)
     {
         wsp0Size =
             std::max(wsp0Size, nq1 * nq2 + nm0 * (nm0 + 1) * (nm0 + 2) / 6);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::eNodalPrism)
+    else if (SHAPE_TYPE == LibUtilities::eNodalPrism)
     {
         wsp0Size = std::max(wsp0Size, nq1 * nq2 + nm0 * nm0 * (nm0 + 1) / 2);
     }

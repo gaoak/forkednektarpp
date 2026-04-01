@@ -147,6 +147,40 @@ public:
             JacobianKey<TData>(block_idx, m_implInterleaveWidth));
         m_dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
             DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, false));
+
+        // Workspace for kernels - also checks preconditions.
+        m_df = std::vector<simd_t, tinysimd::allocator<simd_t>>(m_dimension *
+                                                                m_coordDim);
+        if (m_dimension == 1)
+        {
+            const auto nqTot = m_nq[0];
+            m_tmp0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+        }
+        else if (m_dimension == 2)
+        {
+            unsigned int wsp0Size = 0;
+            IProduct2DWorkspace(m_shapeType, m_nm[0], m_nm[1], m_nq[0], m_nq[1],
+                                wsp0Size);
+            m_wsp0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp0Size);
+            const auto nqTot = m_nq[0] * m_nq[1];
+            m_tmp0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+            m_tmp1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+            m_tmp2 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+        }
+        else
+        {
+            unsigned int wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
+            IProduct3DWorkspace(m_shapeType, m_nm[0], m_nm[1], m_nm[2], m_nq[0],
+                                m_nq[1], m_nq[2], wsp0Size, wsp1Size, wsp2Size);
+            m_wsp0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp0Size);
+            m_wsp1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp1Size);
+            m_wsp2 = std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp2Size);
+            const auto nqTot = m_nq[0] * m_nq[1] * m_nq[2];
+            m_tmp0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+            m_tmp1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+            m_tmp2 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+            m_tmp3 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+        }
     }
 
     // className - for BlockOperatorFactory
@@ -179,6 +213,14 @@ protected:
     std::vector<const simd_t *> m_D;
     std::vector<const simd_t *> m_W;
     std::vector<const simd_t *> m_f;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_df;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp0;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp1;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp2;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_tmp0;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_tmp1;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_tmp2;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_tmp3;
     const simd_t *m_nodToModTrans;
     const TData *m_jacptr;
     const TData *m_dfptr;
@@ -330,10 +372,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Workspace for kernels.
-        std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(m_coordDim);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> tmp0(nq0);
-
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
         const auto width_ratio     = (interleaveWidth == 1)
@@ -366,10 +404,10 @@ protected:
 
                 StdAlignDerivBase1D<DEFORMED>(
                     nq0, m_coordDim, reinterpret_cast<const simd_t *>(dfptr),
-                    df_tmp, inoffset_vec,
-                    reinterpret_cast<const simd_t *>(inptr), tmp0.data());
+                    m_df, inoffset_vec, reinterpret_cast<const simd_t *>(inptr),
+                    m_tmp0.data());
                 IProductSegKernel<false, false, DEFORMED>(
-                    nm0, nq0, tmp0.data(), m_DB[0], m_W[0],
+                    nm0, nq0, m_tmp0.data(), m_DB[0], m_W[0],
                     reinterpret_cast<const simd_t *>(jacptr),
                     reinterpret_cast<simd_t *>(outptr));
 
@@ -454,15 +492,9 @@ protected:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Workspace for kernels.
-        unsigned int wspSize = 0;
-        IProduct2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wspSize);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp(wspSize);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(ndf),
-            tmp0(nqTot), tmp1(nqTot);
         simd_t *tmpPtr[2];
-        tmpPtr[0] = tmp0.data();
-        tmpPtr[1] = tmp1.data();
-        std::vector<simd_t, tinysimd::allocator<simd_t>> tmp2(nqTot);
+        tmpPtr[0] = m_tmp0.data();
+        tmpPtr[1] = m_tmp1.data();
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -496,15 +528,15 @@ protected:
 
                 StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, m_coordDim,
-                    reinterpret_cast<const simd_t *>(dfptr), df_tmp,
-                    inoffset_vec, reinterpret_cast<const simd_t *>(inptr),
-                    tmpPtr, m_f[0], m_f[1],
-                    reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1]);
+                    reinterpret_cast<const simd_t *>(dfptr), m_df, inoffset_vec,
+                    reinterpret_cast<const simd_t *>(inptr), tmpPtr, m_f[0],
+                    m_f[1], reinterpret_cast<const simd_t *>(jacptr), m_W[0],
+                    m_W[1]);
                 SumDerivTensor2DKernel<false>(nq0, nq1, tmpPtr[0], tmpPtr[1],
-                                              m_D[0], m_D[1], tmp2.data());
+                                              m_D[0], m_D[1], m_tmp2.data());
                 IProduct2DKernel<SHAPE_TYPE, false, false>(
-                    nm0, nm1, nq0, nq1, m_isModified, tmp2.data(), m_B[0],
-                    m_B[1], m_nodToModTrans, wsp.data(),
+                    nm0, nm1, nq0, nq1, m_isModified, m_tmp2.data(), m_B[0],
+                    m_B[1], m_nodToModTrans, m_wsp0.data(),
                     reinterpret_cast<simd_t *>(outptr));
 
                 // Reshape back, if necessary.
@@ -588,19 +620,10 @@ protected:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Workspace for kernels.
-        unsigned int wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
-        IProduct3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
-                                        wsp1Size, wsp2Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
-            wsp1(wsp1Size), wsp2(wsp2Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> tmp0(nqTot),
-            tmp1(nqTot), tmp2(nqTot);
         simd_t *tmpPtr[3];
-        tmpPtr[0] = tmp0.data();
-        tmpPtr[1] = tmp1.data();
-        tmpPtr[2] = tmp2.data();
-        std::vector<simd_t, tinysimd::allocator<simd_t>> tmp3(nqTot);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(ndf);
+        tmpPtr[0] = m_tmp0.data();
+        tmpPtr[1] = m_tmp1.data();
+        tmpPtr[2] = m_tmp2.data();
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -630,18 +653,18 @@ protected:
 
                 StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, nq2, reinterpret_cast<const simd_t *>(dfptr),
-                    df_tmp,
+                    m_df,
                     inblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot,
                     m_f[0], m_f[1], m_f[2], m_f[3],
                     reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1],
                     m_W[2], reinterpret_cast<const simd_t *>(inptr), tmpPtr);
                 SumDerivTensor3DKernel<false>(nq0, nq1, nq2, tmpPtr[0],
                                               tmpPtr[1], tmpPtr[2], m_D[0],
-                                              m_D[1], m_D[2], tmp3.data());
+                                              m_D[1], m_D[2], m_tmp3.data());
                 IProduct3DKernel<SHAPE_TYPE, false, false>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, tmp3.data(),
-                    m_B[0], m_B[1], m_B[2], m_nodToModTrans, wsp0.data(),
-                    wsp1.data(), wsp2.data(),
+                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, m_tmp3.data(),
+                    m_B[0], m_B[1], m_B[2], m_nodToModTrans, m_wsp0.data(),
+                    m_wsp1.data(), m_wsp2.data(),
                     reinterpret_cast<simd_t *>(outptr));
 
                 // Reshape back, if necessary.
