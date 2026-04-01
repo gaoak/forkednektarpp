@@ -124,8 +124,8 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
-        // Get workspace.
-        auto derivptr = this->template GetWorkSpace<MemSpace>(
+        // Get static workspace pointer.
+        auto derivptr = BlockOperator<TData>::template GetWorkSpace<MemSpace>(
             m_coordDim * nelmtTot * m_nqTot);
 
         // Loop over components.

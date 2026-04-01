@@ -126,8 +126,8 @@ protected:
                                          : interleaveWidth / m_implInterleaveWidth;
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
-        // Get workspace.
-        auto derivptr = this->template GetWorkSpace<MemSpace>(
+        // Get static workspace pointers.
+        auto derivptr = BlockOperator<TData>::template GetWorkSpace<MemSpace>(
             m_coordDim * simd_t::width * m_nqTot);
 
         // Dispatch kernel.

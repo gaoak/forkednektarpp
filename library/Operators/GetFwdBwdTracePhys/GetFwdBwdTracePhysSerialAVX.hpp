@@ -341,8 +341,9 @@ protected:
         // Set to new interleave width.
         physBlock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
-        // Get workspace.
-        auto wspptr = this->template GetWorkSpace<MemSpace>(m_tracePts);
+        // Get static workspace pointer.
+        auto wspptr =
+            BlockOperator<TData>::template GetWorkSpace<MemSpace>(m_tracePts);
 
         auto nqOffsetPtr = m_nqOffset.template GetPtr<MemSpace, ReadOnly>();
 

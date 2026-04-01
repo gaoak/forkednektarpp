@@ -133,8 +133,8 @@ protected:
         auto diffCoeffPtr =
             this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
-        // Get workspace pointer.
-        auto derivptr = this->template GetWorkSpace<MemSpace>(
+        // Get static workspace pointer.
+        auto derivptr = BlockOperator<TData>::template GetWorkSpace<MemSpace>(
             m_dimension * nelmtTot * m_nqTot);
 
         // Get interleave parameter.

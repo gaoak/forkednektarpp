@@ -328,8 +328,9 @@ protected:
 
         const size_t wspSize = gridSize * blockSize * m_tracePts;
 
-        // Get workspace pointer.
-        auto wspptr = this->template GetWorkSpace<MemSpace>(wspSize);
+        // Get static workspace pointer.
+        auto wspptr =
+            BlockOperator<TData>::template GetWorkSpace<MemSpace>(wspSize);
 
         auto nqOffsetPtr = m_nqOffset.template GetPtr<MemSpace, ReadOnly>();
 

@@ -139,8 +139,8 @@ protected:
         auto diffCoeffPtr =
             this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
-        // Get workspace pointer.
-        auto bwdptr = this->template GetWorkSpace<MemSpace>(
+        // Get static workspace pointer.
+        auto bwdptr = BlockOperator<TData>::template GetWorkSpace<MemSpace>(
             nelmtTot * m_nqTot + m_dimension * nelmtTot * m_nqTot);
         auto derivptr = bwdptr + nelmtTot * m_nqTot;
 

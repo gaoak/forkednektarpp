@@ -100,7 +100,12 @@ protected:
     }
 
     // Static host and device storages are use by all instances of
-    // BlockOperator to avoid repeated allocation and deallocation.
+    // BlockOperator to avoid repeated allocation and deallocation. Repeated
+    // device memory allocation and deallocation can be very innefficient and
+    // cause memory fragmentation while ownership of large device memory blocks
+    // by all instances of BlockOperator is a waste of resources an  can results
+    // in insufficient memory. The current implementation assumes that all
+    // BlockOperator instances execute on the default stream/queue.
     template <typename MemSpace> static TData *GetWorkSpace(const size_t size)
     {
         if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)

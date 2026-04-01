@@ -448,10 +448,11 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Get workspace pointer.
+        // Get static workspace pointer.
         auto wspSize =
             GetWorkSpaceSize(SHAPE_TYPE, nelmt, nq0, 0, 0, nm0, 0, 0);
-        auto wspptr1 = this->template GetWorkSpace<MemSpace>(2 * wspSize);
+        auto wspptr1 =
+            BlockOperator<TData>::template GetWorkSpace<MemSpace>(2 * wspSize);
         auto wspptr2 = wspptr1 + wspSize;
 
         // Get interleave parameter.
@@ -525,10 +526,10 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Get workspace pointer.
+        // Get static workspace pointer.
         auto wspSize =
             GetWorkSpaceSize(SHAPE_TYPE, nelmt, nq0, nq1, 0, nm0, nm1, 0);
-        auto wspptr1 = this->template GetWorkSpace<MemSpace>(
+        auto wspptr1 = BlockOperator<TData>::template GetWorkSpace<MemSpace>(
             3 * wspSize + std::max(nq0, nq1) * nelmt);
         auto wspptr2 = wspptr1 + wspSize;
         auto wspptr3 = wspptr2 + wspSize;
