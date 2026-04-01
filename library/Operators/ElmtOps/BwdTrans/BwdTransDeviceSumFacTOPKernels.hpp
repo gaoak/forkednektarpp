@@ -47,6 +47,42 @@ namespace Nektar::Operators::detail
 template <typename Implementation,
           typename std::enable_if<
               std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
+inline size_t BwdTransWorkSpaceSize(
+    [[maybe_unused]] const LibUtilities::ShapeType shapeType,
+    [[maybe_unused]] const size_t nelmt,
+    [[maybe_unused]] const unsigned int nm0)
+{
+    return 0;
+}
+
+template <typename Implementation,
+          typename std::enable_if<
+              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
+inline size_t BwdTransWorkSpaceSize(
+    [[maybe_unused]] const LibUtilities::ShapeType shapeType,
+    [[maybe_unused]] const size_t nelmt,
+    [[maybe_unused]] const unsigned int nm0,
+    [[maybe_unused]] const unsigned int nm1)
+{
+    return 0;
+}
+
+template <typename Implementation,
+          typename std::enable_if<
+              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
+inline size_t BwdTransWorkSpaceSize(
+    [[maybe_unused]] const LibUtilities::ShapeType shapeType,
+    [[maybe_unused]] const size_t nelmt,
+    [[maybe_unused]] const unsigned int nm0,
+    [[maybe_unused]] const unsigned int nm1,
+    [[maybe_unused]] const unsigned int nm2)
+{
+    return 0;
+}
+
+template <typename Implementation,
+          typename std::enable_if<
+              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
 inline unsigned int BwdTransSharedMemorySize(const unsigned int nq0,
                                              const unsigned int nm0)
 {

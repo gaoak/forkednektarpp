@@ -129,8 +129,6 @@ protected:
     const TData *m_derivmat;
     const TData *m_jacptr;
     const TData *m_dfptr;
-    MemoryRegion<TData> m_bwd;
-    MemoryRegion<TData> m_deriv;
     TData *m_advVel;
 
     void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
@@ -142,24 +140,17 @@ protected:
         auto diffCoeffPtr =
             this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
-        // Allocate storage.
-        if (m_bwd.size() == 0)
-        {
-            m_bwd = MemoryRegion<TData>(simd_t::width * m_nqTot);
-            m_deriv =
-                MemoryRegion<TData>(m_dimension * simd_t::width * m_nqTot);
-        }
-
-        // Get workspace pointer.
-        auto bwdptr   = m_bwd.template GetPtr<MemSpace, WriteOnly>();
-        auto derivptr = m_deriv.template GetPtr<MemSpace, WriteOnly>();
-
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
         const auto width_ratio     = (interleaveWidth == 1)
                                          ? 1
                                          : interleaveWidth / m_implInterleaveWidth;
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+
+        // Get workspace.
+        auto bwdptr = this->template GetWorkSpace<MemSpace>(
+            simd_t::width * m_nqTot + m_dimension * simd_t::width * m_nqTot);
+        auto derivptr = bwdptr + simd_t::width * m_nqTot;
 
         // Dispatch kernel.
         auto bwd_kernel = LibxsmmDispatchWrapper<TData>::dispatch(

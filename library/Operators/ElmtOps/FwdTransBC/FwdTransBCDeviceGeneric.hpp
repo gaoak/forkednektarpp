@@ -268,10 +268,6 @@ protected:
     const unsigned int *m_interiorMapptr;
 
     MemoryRegion<TData> m_dinvmass;
-    MemoryRegion<TData> m_wsp1;
-    MemoryRegion<TData> m_wsp2;
-    MemoryRegion<TData> m_wsp3;
-    MemoryRegion<TData> m_wsp4;
 
     // Extension to use Generic routines
     std::vector<unsigned int> m_nm;
@@ -359,7 +355,7 @@ protected:
         }
     }
 
-    size_t GetWorkspaceSize(const LibUtilities::ShapeType shapeType,
+    size_t GetWorkSpaceSize(const LibUtilities::ShapeType shapeType,
                             const size_t nelmt,
                             [[maybe_unused]] const unsigned int nq0,
                             [[maybe_unused]] const unsigned int nq1,
@@ -392,17 +388,6 @@ protected:
         }
 
         return wspsize;
-    }
-
-    MemoryRegion<TData> SetWorkspace(
-        const LibUtilities::ShapeType shapeType, const size_t nelmt,
-        const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-        const unsigned int nm0, const unsigned int nm1, const unsigned int nm2)
-    {
-        auto wspsize =
-            GetWorkspaceSize(shapeType, nelmt, nq0, nq1, nq2, nm0, nm1, nm2);
-
-        return MemoryRegion<TData>(wspsize);
     }
 
     // Non-size based operator.
@@ -463,19 +448,11 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Set workspace.
-        if (m_wsp1.size() == 0)
-        {
-            m_wsp1 = SetWorkspace(SHAPE_TYPE, nelmt, nq0, 0, 0, nm0, 0, 0);
-        }
-        if (m_wsp2.size() == 0)
-        {
-            m_wsp2 = SetWorkspace(SHAPE_TYPE, nelmt, nq0, 0, 0, nm0, 0, 0);
-        }
-
         // Get workspace pointer.
-        auto wspptr1 = m_wsp1.template GetPtr<MemSpace, WriteOnly>();
-        auto wspptr2 = m_wsp2.template GetPtr<MemSpace, WriteOnly>();
+        auto wspSize =
+            GetWorkSpaceSize(SHAPE_TYPE, nelmt, nq0, 0, 0, nm0, 0, 0);
+        auto wspptr1 = this->template GetWorkSpace<MemSpace>(2 * wspSize);
+        auto wspptr2 = wspptr1 + wspSize;
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -548,30 +525,14 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Set workspace.
-        if (m_wsp1.size() == 0)
-        {
-            m_wsp1 = SetWorkspace(SHAPE_TYPE, nelmt, nq0, nq1, 0, nm0, nm1, 0);
-        }
-        if (m_wsp2.size() == 0)
-        {
-            m_wsp2 = SetWorkspace(SHAPE_TYPE, nelmt, nq0, nq1, 0, nm0, nm1, 0);
-        }
-        if (m_wsp3.size() == 0)
-        {
-            m_wsp3 = SetWorkspace(SHAPE_TYPE, nelmt, nq0, nq1, 0, nm0, nm1, 0);
-        }
-        if (m_wsp4.size() == 0)
-        {
-            m_wsp4 = MemoryRegion<TData>(
-                static_cast<size_t>(std::max(nq0, nq1)) * nelmt);
-        }
-
         // Get workspace pointer.
-        auto wspptr1 = m_wsp1.template GetPtr<MemSpace, WriteOnly>();
-        auto wspptr2 = m_wsp2.template GetPtr<MemSpace, WriteOnly>();
-        auto wspptr3 = m_wsp3.template GetPtr<MemSpace, WriteOnly>();
-        auto wspptr4 = m_wsp4.template GetPtr<MemSpace, WriteOnly>();
+        auto wspSize =
+            GetWorkSpaceSize(SHAPE_TYPE, nelmt, nq0, nq1, 0, nm0, nm1, 0);
+        auto wspptr1 = this->template GetWorkSpace<MemSpace>(
+            3 * wspSize + std::max(nq0, nq1) * nelmt);
+        auto wspptr2 = wspptr1 + wspSize;
+        auto wspptr3 = wspptr2 + wspSize;
+        auto wspptr4 = wspptr3 + wspSize;
 
         // Fetch deformed mass matrix.
         const TData *dmatptr = nullptr;

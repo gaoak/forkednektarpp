@@ -123,7 +123,6 @@ protected:
     const TData *m_ipbmat;
     const TData *m_massmat;
     const TData *m_jacptr;
-    MemoryRegion<TData> m_wsp;
 
     void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
                  BlockAccessor<TData, FieldState::Coeff> &outblock) override
@@ -139,14 +138,8 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Allocate storage.
-        if (m_wsp.size() == 0)
-        {
-            m_wsp = MemoryRegion<TData>(nelmtTot * m_nqTot);
-        }
-
         // Get workspace pointer.
-        auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
+        auto wspptr = this->template GetWorkSpace<MemSpace>(nelmtTot * m_nqTot);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();

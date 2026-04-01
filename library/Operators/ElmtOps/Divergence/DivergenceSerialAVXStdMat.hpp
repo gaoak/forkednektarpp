@@ -128,6 +128,10 @@ protected:
                                          : interleaveWidth / m_implInterleaveWidth;
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
+        // Get workspace.
+        auto wspptr = this->template GetWorkSpace<MemSpace>(
+            m_dimension * simd_t::width * m_nqTot);
+
         // Dispatch kernel.
         auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
             simd_t::width, m_nqTot, m_nqTot, 1.0, 0.0);
@@ -136,9 +140,6 @@ protected:
         const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
 
         auto dfptr = m_dfptr;
-
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp(m_dimension *
-                                                             m_nqTot);
 
         // Loop over element groups.
         for (size_t e = 0; e < inblock.GetNumElmtGroups(m_implInterleaveWidth);
@@ -159,7 +160,7 @@ protected:
             for (unsigned int d = 0; d < m_dimension; d++)
             {
                 gemm_kernel(inptr, m_matptr + d * m_nqTot * m_nqTot,
-                            (TData *)wsp.data() + d * m_nqTot * simd_t::width);
+                            wspptr + d * m_nqTot * simd_t::width);
             }
 
             // Multiply by derivative factor.
@@ -167,14 +168,16 @@ protected:
             {
                 MultiplyByDirDerivFactorKernel<ExecSpace, true, false>(
                     0, m_nqTot, m_coordDim, m_dimension, 1,
-                    reinterpret_cast<const simd_t *>(dfptr), wsp.data(),
+                    reinterpret_cast<const simd_t *>(dfptr),
+                    reinterpret_cast<const simd_t *>(wspptr),
                     reinterpret_cast<simd_t *>(outptr));
             }
             else
             {
                 MultiplyByDirDerivFactorKernel<ExecSpace, false, false>(
                     0, m_nqTot, m_coordDim, m_dimension, 1,
-                    reinterpret_cast<const simd_t *>(dfptr), wsp.data(),
+                    reinterpret_cast<const simd_t *>(dfptr),
+                    reinterpret_cast<const simd_t *>(wspptr),
                     reinterpret_cast<simd_t *>(outptr));
             }
 
@@ -192,9 +195,9 @@ protected:
                 // Perform matrix-matrix multiply.
                 for (unsigned int d = 0; d < m_dimension; d++)
                 {
-                    gemm_kernel(
-                        inptr + c * inoffset, m_matptr + d * m_nqTot * m_nqTot,
-                        (TData *)wsp.data() + d * m_nqTot * simd_t::width);
+                    gemm_kernel(inptr + c * inoffset,
+                                m_matptr + d * m_nqTot * m_nqTot,
+                                wspptr + d * m_nqTot * simd_t::width);
                 }
 
                 // Multiply by derivative factor.
@@ -202,14 +205,16 @@ protected:
                 {
                     MultiplyByDirDerivFactorKernel<ExecSpace, true, true>(
                         c, m_nqTot, m_coordDim, m_dimension, 1,
-                        reinterpret_cast<const simd_t *>(dfptr), wsp.data(),
+                        reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(wspptr),
                         reinterpret_cast<simd_t *>(outptr));
                 }
                 else
                 {
                     MultiplyByDirDerivFactorKernel<ExecSpace, false, true>(
                         c, m_nqTot, m_coordDim, m_dimension, 1,
-                        reinterpret_cast<const simd_t *>(dfptr), wsp.data(),
+                        reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(wspptr),
                         reinterpret_cast<simd_t *>(outptr));
                 }
             }

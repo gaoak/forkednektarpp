@@ -341,7 +341,8 @@ protected:
         // Set to new interleave width.
         physBlock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
-        auto wsp = std::vector<TData>(m_tracePts);
+        // Get workspace.
+        auto wspptr = this->template GetWorkSpace<MemSpace>(m_tracePts);
 
         auto nqOffsetPtr = m_nqOffset.template GetPtr<MemSpace, ReadOnly>();
 
@@ -378,7 +379,7 @@ protected:
                             m_interpTraceI0Offset, m_interpTraceI1,
                             m_interpTraceI1Offset, m_interpEndPtI0,
                             m_interpEndPtI0Offset, m_interpEndPtI1,
-                            m_interpEndPtI1Offset, wsp.data(), physptr, fwdptr,
+                            m_interpEndPtI1Offset, wspptr, physptr, fwdptr,
                             bwdptr);
                     }
                     else
@@ -395,7 +396,7 @@ protected:
                             m_interpTraceI0Offset, m_interpTraceI1,
                             m_interpTraceI1Offset, m_interpEndPtI0,
                             m_interpEndPtI0Offset, m_interpEndPtI1,
-                            m_interpEndPtI1Offset, wsp.data(), physptr, fwdptr,
+                            m_interpEndPtI1Offset, wspptr, physptr, fwdptr,
                             bwdptr);
                     }
                 }

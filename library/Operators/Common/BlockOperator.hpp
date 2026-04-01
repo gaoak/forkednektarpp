@@ -98,6 +98,50 @@ protected:
         : m_block_idx(block_idx), m_exp(exp), m_dataWarehouse(dataWarehouse)
     {
     }
+
+    // Static host and device storages are use by all instances of
+    // BlockOperator to avoid repeated allocation and deallocation.
+    template <typename MemSpace> static TData *GetWorkSpace(const size_t size)
+    {
+        if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+        {
+            SetHostWorkSpace(size);
+            return m_hostWsp;
+        }
+        else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+        {
+            SetDeviceWorkSpace(size);
+            return m_deviceWsp;
+        }
+    }
+
+private:
+    static void SetHostWorkSpace(const size_t size)
+    {
+        if (m_hostWspSize < size)
+        {
+            hostFree(m_hostWsp, NektarSpaces::host_memory_alignment);
+            hostMalloc(&m_hostWsp, sizeof(TData) * size,
+                       NektarSpaces::host_memory_alignment);
+            memset(m_hostWsp, 0, sizeof(TData) * size);
+            m_hostWspSize = size;
+        }
+    }
+
+    static void SetDeviceWorkSpace(const size_t size)
+    {
+        if (m_deviceWspSize < size)
+        {
+            deviceFree(m_deviceWsp, sizeof(TData) * m_deviceWspSize);
+            deviceMalloc(&m_deviceWsp, sizeof(TData) * size);
+            m_deviceWspSize = size;
+        }
+    }
+
+    static inline TData *m_deviceWsp     = nullptr;
+    static inline size_t m_deviceWspSize = 0;
+    static inline TData *m_hostWsp       = nullptr;
+    static inline size_t m_hostWspSize   = 0;
 };
 
 } // namespace Nektar::Operators

@@ -48,6 +48,91 @@ namespace Nektar::Operators::detail
 template <typename Implementation,
           typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
               * = nullptr>
+inline size_t IProductWRTBaseWorkSpaceSize(
+    const LibUtilities::ShapeType shapeType,
+    [[maybe_unused]] const size_t nelmt,
+    [[maybe_unused]] const unsigned int nq0,
+    [[maybe_unused]] const unsigned int nm0)
+{
+    size_t wspsize = 0;
+
+    if (shapeType == LibUtilities::Seg)
+    {
+        wspsize = 0;
+    }
+
+    return wspsize;
+}
+
+template <typename Implementation,
+          typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+              * = nullptr>
+inline size_t IProductWRTBaseWorkSpaceSize(
+    const LibUtilities::ShapeType shapeType, const size_t nelmt,
+    [[maybe_unused]] const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nm0, [[maybe_unused]] const unsigned int nm1)
+{
+    size_t wspsize = 0;
+
+    if (shapeType == LibUtilities::Quad)
+    {
+        wspsize = nq1 * nelmt;
+    }
+    else if (shapeType == LibUtilities::Tri)
+    {
+        wspsize = nq1 * nelmt;
+    }
+    else if (shapeType == LibUtilities::NodalTri)
+    {
+        wspsize = (nq1 + nm0 * (nm0 + 1) / 2) * nelmt;
+    }
+
+    return wspsize;
+}
+
+template <typename Implementation,
+          typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+              * = nullptr>
+inline size_t IProductWRTBaseWorkSpaceSize(
+    const LibUtilities::ShapeType shapeType, const size_t nelmt,
+    [[maybe_unused]] const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const unsigned int nm0,
+    [[maybe_unused]] const unsigned int nm1,
+    [[maybe_unused]] const unsigned int nm2)
+{
+    size_t wspsize = 0;
+
+    if (shapeType == LibUtilities::Hex)
+    {
+        wspsize = (nq1 * nq2 + nq2) * nelmt;
+    }
+    else if (shapeType == LibUtilities::Tet)
+    {
+        wspsize = (nq1 * nq2 + nq2) * nelmt;
+    }
+    else if (shapeType == LibUtilities::NodalTet)
+    {
+        wspsize = (nq1 * nq2 + nq2 + nm0 * (nm0 + 1) * (nm0 + 2) / 6) * nelmt;
+    }
+    else if (shapeType == LibUtilities::Prism)
+    {
+        wspsize = (nq1 * nq2 + nq2) * nelmt;
+    }
+    else if (shapeType == LibUtilities::NodalPrism)
+    {
+        wspsize = (nq1 * nq2 + nq2 + nm0 * (nm0 + 1) * nm0 / 2) * nelmt;
+    }
+    else if (shapeType == LibUtilities::Pyr)
+    {
+        wspsize = (nq1 * nq2 + nq2) * nelmt;
+    }
+
+    return wspsize;
+}
+
+template <typename Implementation,
+          typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+              * = nullptr>
 inline unsigned int IProductWRTBaseSharedMemorySize(
     [[maybe_unused]] const unsigned int nq0,
     [[maybe_unused]] const unsigned int nm0)

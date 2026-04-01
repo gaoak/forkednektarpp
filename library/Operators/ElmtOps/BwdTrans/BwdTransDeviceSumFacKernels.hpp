@@ -47,6 +47,88 @@ namespace Nektar::Operators::detail
 template <typename Implementation,
           typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
               * = nullptr>
+inline size_t BwdTransWorkSpaceSize(const LibUtilities::ShapeType shapeType,
+                                    [[maybe_unused]] const size_t nelmt,
+                                    [[maybe_unused]] const unsigned int nm0)
+{
+    size_t wspsize = 0;
+
+    if (shapeType == LibUtilities::Seg)
+    {
+        wspsize = 0;
+    }
+
+    return wspsize;
+}
+
+template <typename Implementation,
+          typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+              * = nullptr>
+inline size_t BwdTransWorkSpaceSize(const LibUtilities::ShapeType shapeType,
+                                    const size_t nelmt, const unsigned int nm0,
+                                    const unsigned int nm1)
+{
+    size_t wspsize = 0;
+
+    if (shapeType == LibUtilities::Quad)
+    {
+        wspsize = nm1 * nelmt;
+    }
+    else if (shapeType == LibUtilities::Tri)
+    {
+        wspsize = nm0 * nelmt;
+    }
+    else if (shapeType == LibUtilities::NodalTri)
+    {
+        wspsize = (nm0 + nm0 * (nm0 + 1) / 2) * nelmt;
+    }
+
+    return wspsize;
+}
+
+template <typename Implementation,
+          typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+              * = nullptr>
+inline size_t BwdTransWorkSpaceSize(const LibUtilities::ShapeType shapeType,
+                                    const size_t nelmt, const unsigned int nm0,
+                                    const unsigned int nm1,
+                                    const unsigned int nm2)
+{
+    size_t wspsize = 0;
+
+    if (shapeType == LibUtilities::Hex)
+    {
+        wspsize = (nm1 * nm2 + nm2) * nelmt;
+    }
+    else if (shapeType == LibUtilities::Tet)
+    {
+        wspsize = ((2 * nm1 - nm0 + 1) * nm0 / 2 + nm0) * nelmt;
+    }
+    else if (shapeType == LibUtilities::NodalTet)
+    {
+        wspsize = (((2 * nm1 - nm0 + 1) * nm0 / 2 + nm0) +
+                   nm0 * (nm0 + 1) * (nm0 + 2) / 6) *
+                  nelmt;
+    }
+    else if (shapeType == LibUtilities::Prism)
+    {
+        wspsize = (nm0 * nm1 + nm0) * nelmt;
+    }
+    else if (shapeType == LibUtilities::NodalPrism)
+    {
+        wspsize = ((nm0 * nm1 + nm0) + nm0 * nm0 * (nm0 + 1) / 2) * nelmt;
+    }
+    else if (shapeType == LibUtilities::Pyr)
+    {
+        wspsize = (nm0 * nm1 + nm0) * nelmt;
+    }
+
+    return wspsize;
+}
+
+template <typename Implementation,
+          typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+              * = nullptr>
 inline unsigned int BwdTransSharedMemorySize(
     [[maybe_unused]] const unsigned int nq0,
     [[maybe_unused]] const unsigned int nm0)

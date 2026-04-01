@@ -82,8 +82,6 @@ protected:
     std::shared_ptr<RobBndCondOp<TData>> m_robBCOp;
 
     Field<TData, FieldState::Coeff> m_invDiag;
-    MemoryRegion<TData> m_glodiag;
-    MemoryRegion<TData> m_wk;
 
     size_t m_nGlobal;
     size_t m_nDir;

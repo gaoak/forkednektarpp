@@ -128,7 +128,6 @@ protected:
     const TData *m_bwdmat;
     const TData *m_ipbmat;
     const TData *m_jacptr;
-    MemoryRegion<TData> m_wsp;
 
     void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
                  BlockAccessor<TData, FieldState::Coeff> &outblock) override
@@ -136,15 +135,6 @@ protected:
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        // Allocate storage.
-        if (m_wsp.size() == 0)
-        {
-            m_wsp = MemoryRegion<TData>(simd_t::width * m_nqTot);
-        }
-
-        // Get workspace pointer.
-        auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
 
         // Dispatch kernel.
         auto bwd_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
@@ -160,6 +150,10 @@ protected:
                                          ? 1
                                          : interleaveWidth / m_implInterleaveWidth;
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+
+        // Get workspace.
+        auto wspptr =
+            this->template GetWorkSpace<MemSpace>(simd_t::width * m_nqTot);
 
         // Loop over components.
         for (unsigned int n = 0;
