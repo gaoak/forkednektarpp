@@ -119,7 +119,6 @@ protected:
     const TData *m_matptr;
     const TData *m_jacptr;
     const TData *m_dfptr;
-    MemoryRegion<TData> m_wsp;
 
     void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
                  BlockAccessor<TData, FieldState::Coeff> &outblock) override
@@ -130,21 +129,16 @@ protected:
                           ? outblock.template GetPtr<MemSpace, ReadWrite>()
                           : outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Allocate storage.
-        if (m_wsp.size() == 0)
-        {
-            m_wsp = MemoryRegion<TData>(m_dimension * simd_t::width * m_nqTot);
-        }
-
-        // Get workspace pointer.
-        auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
-
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
         const auto width_ratio     = (interleaveWidth == 1)
                                          ? 1
                                          : interleaveWidth / m_implInterleaveWidth;
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+
+        // Get workspace.
+        auto wspptr = this->template GetWorkSpace<MemSpace>(
+            m_dimension * simd_t::width * m_nqTot);
 
         // Dispatch kernel.
         auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(

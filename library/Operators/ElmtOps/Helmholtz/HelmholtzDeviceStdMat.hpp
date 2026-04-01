@@ -122,8 +122,6 @@ protected:
     const TData *m_derivmat;
     const TData *m_jacptr;
     const TData *m_dfptr;
-    MemoryRegion<TData> m_bwd;
-    MemoryRegion<TData> m_deriv;
 
     void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
                  BlockAccessor<TData, FieldState::Coeff> &outblock) override
@@ -141,16 +139,10 @@ protected:
         auto diffCoeffPtr =
             this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
-        // Allocate storage.
-        if (m_bwd.size() == 0)
-        {
-            m_bwd   = MemoryRegion<TData>(nelmtTot * m_nqTot);
-            m_deriv = MemoryRegion<TData>(m_dimension * nelmtTot * m_nqTot);
-        }
-
         // Get workspace pointer.
-        auto bwdptr   = m_bwd.template GetPtr<MemSpace, WriteOnly>();
-        auto derivptr = m_deriv.template GetPtr<MemSpace, WriteOnly>();
+        auto bwdptr = this->template GetWorkSpace<MemSpace>(
+            nelmtTot * m_nqTot + m_dimension * nelmtTot * m_nqTot);
+        auto derivptr = bwdptr + nelmtTot * m_nqTot;
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();

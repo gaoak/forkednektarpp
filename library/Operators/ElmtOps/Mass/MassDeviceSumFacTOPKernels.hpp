@@ -50,6 +50,102 @@ namespace Nektar::Operators::detail
 template <typename Implementation,
           typename std::enable_if<
               std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
+inline size_t MassWorkSpaceSize(const LibUtilities::ShapeType shapeType,
+                                const size_t nelmt, const unsigned int nq0,
+                                [[maybe_unused]] const unsigned int nm0)
+{
+    size_t wspsize = 0;
+
+    if (shapeType == LibUtilities::Seg)
+    {
+        wspsize = nq0 * nelmt;
+    }
+    return wspsize;
+}
+
+template <typename Implementation,
+          typename std::enable_if<
+              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
+inline size_t MassWorkSpaceSize(const LibUtilities::ShapeType shapeType,
+                                const size_t nelmt, const unsigned int nq0,
+                                const unsigned int nq1, const unsigned int nm0,
+                                [[maybe_unused]] const unsigned int nm1)
+{
+    size_t wspsize = 0;
+
+    if (shapeType == LibUtilities::Quad)
+    {
+        wspsize = (nq0 * nq1 + nq1) * nelmt;
+    }
+    else if (shapeType == LibUtilities::Tri)
+    {
+        wspsize = (nq0 * nq1 + std::max(nq1, nm0)) * nelmt;
+    }
+    else if (shapeType == LibUtilities::NodalTri)
+    {
+        wspsize =
+            (nq0 * nq1 + std::max(nq1, nm0) + nm0 * (nm0 + 1) / 2) * nelmt;
+    }
+
+    return wspsize;
+}
+
+template <typename Implementation,
+          typename std::enable_if<
+              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
+inline size_t MassWorkSpaceSize(const LibUtilities::ShapeType shapeType,
+                                const size_t nelmt, const unsigned int nq0,
+                                const unsigned int nq1, const unsigned int nq2,
+                                const unsigned int nm0, const unsigned int nm1,
+                                [[maybe_unused]] const unsigned int nm2)
+{
+    size_t wspsize = 0;
+
+    if (shapeType == LibUtilities::Hex)
+    {
+        wspsize = (nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nelmt;
+    }
+    else if (shapeType == LibUtilities::Tet)
+    {
+        unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+
+        wspsize =
+            (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm01) + std::max(nq2, nm0)) *
+            nelmt;
+    }
+    else if (shapeType == LibUtilities::NodalTet)
+    {
+        unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+
+        wspsize = (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm01) +
+                   std::max(nq2, nm0) + nm0 * (nm0 + 1) * (nm0 + 2) / 6) *
+                  nelmt;
+    }
+    else if (shapeType == LibUtilities::Prism)
+    {
+        wspsize = (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
+                   std::max(nq2, nm0)) *
+                  nelmt;
+    }
+    else if (shapeType == LibUtilities::NodalPrism)
+    {
+        wspsize = (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
+                   std::max(nq2, nm0) + nm0 * (nm0 + 1) * nm0 / 2) *
+                  nelmt;
+    }
+    else if (shapeType == LibUtilities::Pyr)
+    {
+        wspsize = (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
+                   std::max(nq2, nm0)) *
+                  nelmt;
+    }
+
+    return wspsize;
+}
+
+template <typename Implementation,
+          typename std::enable_if<
+              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
 inline unsigned int MassSharedMemorySize(
     const unsigned int nq0, [[maybe_unused]] const unsigned int nm0)
 {

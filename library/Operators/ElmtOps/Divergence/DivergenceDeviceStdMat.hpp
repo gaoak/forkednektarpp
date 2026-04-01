@@ -109,7 +109,6 @@ protected:
     unsigned int m_nqTot;
     const TData *m_matptr;
     const TData *m_dfptr;
-    MemoryRegion<TData> m_tensorderiv;
 
     void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
                  BlockAccessor<TData, FieldState::Phys> &outblock) override
@@ -125,14 +124,9 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Allocate storage.
-        if (m_tensorderiv.size() == 0)
-        {
-            m_tensorderiv = MemoryRegion<TData>(m_dimension * nelmt * m_nqTot);
-        }
-
         // Get workspace pointer.
-        auto derivptr = m_tensorderiv.template GetPtr<MemSpace, WriteOnly>();
+        auto derivptr = this->template GetWorkSpace<MemSpace>(m_dimension *
+                                                              nelmt * m_nqTot);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();

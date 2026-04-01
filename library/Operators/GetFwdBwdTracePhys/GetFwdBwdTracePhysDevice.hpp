@@ -157,7 +157,6 @@ protected:
     unsigned int m_dimension;
     unsigned int m_tracePts = 0;
     MemoryRegion<unsigned int> m_nqOffset;
-    MemoryRegion<TData> m_wsp;
     MemoryRegion<size_t> m_locToTracePhysOffset;
     const unsigned int *m_locTracePhysToElmtMaps;
     const unsigned int *m_orientationMaps;
@@ -329,13 +328,8 @@ protected:
 
         const size_t wspSize = gridSize * blockSize * m_tracePts;
 
-        if (m_wsp.size() == 0)
-        {
-            m_wsp = MemoryRegion<TData>(wspSize);
-        }
-
         // Get workspace pointer.
-        auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
+        auto wspptr = this->template GetWorkSpace<MemSpace>(wspSize);
 
         auto nqOffsetPtr = m_nqOffset.template GetPtr<MemSpace, ReadOnly>();
 

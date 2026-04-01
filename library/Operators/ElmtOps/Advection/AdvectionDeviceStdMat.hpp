@@ -106,7 +106,6 @@ protected:
     const TData *m_matptr;
     const TData *m_dfptr;
     TData *m_advVel;
-    MemoryRegion<TData> m_deriv;
 
     void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
                  BlockAccessor<TData, FieldState::Phys> &outblock) override
@@ -125,14 +124,9 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
-        // Allocate storage.
-        if (m_deriv.size() == 0)
-        {
-            m_deriv = MemoryRegion<TData>(m_coordDim * nelmtTot * m_nqTot);
-        }
-
-        // Get workspace pointer.
-        auto derivptr = m_deriv.template GetPtr<MemSpace, WriteOnly>();
+        // Get workspace.
+        auto derivptr = this->template GetWorkSpace<MemSpace>(
+            m_coordDim * nelmtTot * m_nqTot);
 
         // Loop over components.
         const auto advelsize =

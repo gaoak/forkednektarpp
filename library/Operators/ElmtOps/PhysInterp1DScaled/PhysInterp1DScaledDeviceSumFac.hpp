@@ -99,7 +99,6 @@ protected:
     std::vector<unsigned int> m_nm;
     std::vector<unsigned int> m_nq;
     std::vector<const TData *> m_B;
-    MemoryRegion<TData> m_wsp;
 
     void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
                  BlockAccessor<TData, FieldState::Phys> &outblock) override
@@ -208,42 +207,6 @@ protected:
                 BasisDataKey<TData>(this->m_exp->GetBasis(d)->GetBasisKey(),
                                     eInterp, m_nq[d])));
         }
-    }
-
-    size_t GetWorkspaceSize(const LibUtilities::ShapeType shapeType,
-                            const size_t nelmt,
-                            [[maybe_unused]] const unsigned int nm0,
-                            const unsigned int nm1, const unsigned int nm2)
-    {
-        size_t wspsize = 0;
-
-        if ((shapeType == LibUtilities::Quad) ||
-            (shapeType == LibUtilities::Tri) ||
-            (shapeType == LibUtilities::NodalTri))
-        {
-            wspsize = nm1 * nelmt;
-        }
-        else if ((shapeType == LibUtilities::Hex) ||
-                 (shapeType == LibUtilities::Tet) ||
-                 (shapeType == LibUtilities::NodalTet) ||
-                 (shapeType == LibUtilities::Prism) ||
-                 (shapeType == LibUtilities::NodalPrism) ||
-                 (shapeType == LibUtilities::Pyr))
-        {
-            wspsize = (nm1 * nm2 + nm2) * nelmt;
-        }
-
-        return wspsize;
-    }
-
-    MemoryRegion<TData> SetWorkspace(const LibUtilities::ShapeType shapeType,
-                                     const size_t nelmt, const unsigned int nm0,
-                                     const unsigned int nm1,
-                                     const unsigned int nm2)
-    {
-        auto wspsize = GetWorkspaceSize(shapeType, nelmt, nm0, nm1, nm2);
-
-        return MemoryRegion<TData>(wspsize);
     }
 
     void SegBlock(BlockAccessor<TData, FieldState::Phys> &inblock,
@@ -383,20 +346,10 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Set workspace.
-        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
-        {
-            if (m_wsp.size() == 0)
-            {
-                m_wsp = SetWorkspace(LibUtilities::Quad, nelmt,
-                                     sizeParam2D.nm0(), sizeParam2D.nm1(), 0);
-            }
-        }
-
         // Get workspace pointer.
-        auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
-                          ? m_wsp.template GetPtr<MemSpace, WriteOnly>()
-                          : nullptr;
+        auto wspSize = BwdTransWorkSpaceSize<Implementation>(
+            LibUtilities::Quad, nelmt, sizeParam2D.nm0(), sizeParam2D.nm1());
+        auto wspptr = this->template GetWorkSpace<MemSpace>(wspSize);
 
         const TData *nodToMod = nullptr;
 
@@ -484,21 +437,11 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Set workspace.
-        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
-        {
-            if (m_wsp.size() == 0)
-            {
-                m_wsp =
-                    SetWorkspace(LibUtilities::Hex, nelmt, sizeParam3D.nm0(),
-                                 sizeParam3D.nm1(), sizeParam3D.nm2());
-            }
-        }
-
         // Get workspace pointer.
-        auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
-                          ? m_wsp.template GetPtr<MemSpace, WriteOnly>()
-                          : nullptr;
+        auto wspSize = BwdTransWorkSpaceSize<Implementation>(
+            LibUtilities::Hex, nelmt, sizeParam3D.nm0(), sizeParam3D.nm1(),
+            sizeParam3D.nm2());
+        auto wspptr = this->template GetWorkSpace<MemSpace>(wspSize);
 
         const TData *nodToMod = nullptr;
 

@@ -222,7 +222,6 @@ protected:
     std::vector<const TData *> m_W;
     std::vector<const TData *> m_f;
     std::vector<const unsigned int *> m_index;
-    MemoryRegion<TData> m_wsp;
     const TData *m_nodToMod;
     const TData *m_jacptr;
     const TData *m_dfptr;
@@ -297,75 +296,6 @@ protected:
         }
     }
 
-    size_t GetWorkspaceSize(const LibUtilities::ShapeType shapeType,
-                            const size_t nelmt,
-                            [[maybe_unused]] const unsigned int nq0,
-                            const unsigned int nq1, const unsigned int nq2,
-                            [[maybe_unused]] const unsigned int nm0,
-                            [[maybe_unused]] const unsigned int nm1,
-                            [[maybe_unused]] const unsigned int nm2)
-    {
-        size_t wspsize = 0;
-
-        if (shapeType == LibUtilities::Seg)
-        {
-            wspsize = nq0 * nelmt;
-        }
-        else if (shapeType == LibUtilities::Quad)
-        {
-            wspsize = (3 * nq0 * nq1 + nq1) * nelmt;
-        }
-        else if (shapeType == LibUtilities::Tri)
-        {
-            wspsize = (3 * nq0 * nq1 + nq1) * nelmt;
-        }
-        else if (shapeType == LibUtilities::NodalTri)
-        {
-            wspsize = (3 * nq0 * nq1 + nq1 + nm0 * (nm0 + 1) / 2) * nelmt;
-        }
-        else if (shapeType == LibUtilities::Hex)
-        {
-            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nelmt;
-        }
-        else if (shapeType == LibUtilities::Tet)
-        {
-            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nelmt;
-        }
-        else if (shapeType == LibUtilities::NodalTet)
-        {
-            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2 +
-                       nm0 * (nm0 + 1) * (nm0 + 2) / 6) *
-                      nelmt;
-        }
-        else if (shapeType == LibUtilities::Prism)
-        {
-            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nelmt;
-        }
-        else if (shapeType == LibUtilities::NodalPrism)
-        {
-            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2 +
-                       nm0 * (nm0 + 1) * nm0 / 2) *
-                      nelmt;
-        }
-        else if (shapeType == LibUtilities::Pyr)
-        {
-            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nelmt;
-        }
-
-        return wspsize;
-    }
-
-    MemoryRegion<TData> SetWorkspace(
-        const LibUtilities::ShapeType shapeType, const size_t nelmt,
-        const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-        const unsigned int nm0, const unsigned int nm1, const unsigned int nm2)
-    {
-        auto wspsize =
-            GetWorkspaceSize(shapeType, nelmt, nq0, nq1, nq2, nm0, nm1, nm2);
-
-        return MemoryRegion<TData>(wspsize);
-    }
-
     void SegBlock(BlockAccessor<TData, FieldState::Phys> &inblock,
                   BlockAccessor<TData, FieldState::Coeff> &outblock);
 
@@ -428,20 +358,10 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Set workspace.
-        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
-        {
-            if (m_wsp.size() == 0)
-            {
-                m_wsp = SetWorkspace(SHAPE_TYPE, nelmt, sizeParam1D.nq0(), 0, 0,
-                                     sizeParam1D.nm0(), 0, 0);
-            }
-        }
-
         // Get workspace pointer.
-        auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
-                          ? m_wsp.template GetPtr<MemSpace, WriteOnly>()
-                          : nullptr;
+        auto wspSize = IProductWRTDerivBaseWorkSpaceSize<Implementation>(
+            SHAPE_TYPE, nelmt, sizeParam1D.nq0(), sizeParam1D.nm0());
+        auto wspptr = this->template GetWorkSpace<MemSpace>(wspSize);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -542,21 +462,11 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Set workspace.
-        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
-        {
-            if (m_wsp.size() == 0)
-            {
-                m_wsp = SetWorkspace(SHAPE_TYPE, nelmt, sizeParam2D.nq0(),
-                                     sizeParam2D.nq1(), 0, sizeParam2D.nm0(),
-                                     sizeParam2D.nm1(), 0);
-            }
-        }
-
         // Get workspace pointer.
-        auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
-                          ? m_wsp.template GetPtr<MemSpace, WriteOnly>()
-                          : nullptr;
+        auto wspSize = IProductWRTDerivBaseWorkSpaceSize<Implementation>(
+            SHAPE_TYPE, nelmt, sizeParam2D.nq0(), sizeParam2D.nq1(),
+            sizeParam2D.nm0(), sizeParam2D.nm1());
+        auto wspptr = this->template GetWorkSpace<MemSpace>(wspSize);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -659,22 +569,12 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Set workspace.
-        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
-        {
-            if (m_wsp.size() == 0)
-            {
-                m_wsp = SetWorkspace(SHAPE_TYPE, nelmt, sizeParam3D.nq0(),
-                                     sizeParam3D.nq1(), sizeParam3D.nq2(),
-                                     sizeParam3D.nm0(), sizeParam3D.nm1(),
-                                     sizeParam3D.nm2());
-            }
-        }
-
         // Get workspace pointer.
-        auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
-                          ? m_wsp.template GetPtr<MemSpace, WriteOnly>()
-                          : nullptr;
+        auto wspSize = IProductWRTDerivBaseWorkSpaceSize<Implementation>(
+            SHAPE_TYPE, nelmt, sizeParam3D.nq0(), sizeParam3D.nq1(),
+            sizeParam3D.nq2(), sizeParam3D.nm0(), sizeParam3D.nm1(),
+            sizeParam3D.nm2());
+        auto wspptr = this->template GetWorkSpace<MemSpace>(wspSize);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
