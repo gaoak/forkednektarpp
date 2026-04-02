@@ -86,33 +86,37 @@ public:
                 IsLocTraceLeftAdjacentKey<TData>(block_idx,
                                                  m_implInterleaveWidth));
 
-        m_interpTraceIndex = this->m_dataWarehouse->template GetData<MemSpace>(
-            InterpTraceIndexKey<TData>(block_idx, m_implInterleaveWidth));
+        if (m_dimension >= 2)
+        {
+            m_interpTraceIndex =
+                this->m_dataWarehouse->template GetData<MemSpace>(
+                    InterpTraceIndexKey<TData>(block_idx,
+                                               m_implInterleaveWidth));
+            m_interpPoints = this->m_dataWarehouse->template GetData<MemSpace>(
+                InterpPointsKey<TData>(block_idx));
 
-        m_interpPoints = this->m_dataWarehouse->template GetData<MemSpace>(
-            InterpPointsKey<TData>(block_idx));
+            m_interpTypes = this->m_dataWarehouse->template GetData<MemSpace>(
+                InterpTypesKey<TData>(block_idx));
 
-        m_interpTypes = this->m_dataWarehouse->template GetData<MemSpace>(
-            InterpTypesKey<TData>(block_idx));
+            m_quadRange = this->m_dataWarehouse->template GetData<MemSpace>(
+                QuadRangeKey<TData>(block_idx));
 
-        m_quadRange = this->m_dataWarehouse->template GetData<MemSpace>(
-            QuadRangeKey<TData>(block_idx));
+            m_interpTrace = this->m_dataWarehouse->template GetData<MemSpace>(
+                InterpTraceKey<TData>(block_idx));
 
-        m_interpTrace = this->m_dataWarehouse->template GetData<MemSpace>(
-            InterpTraceKey<TData>(block_idx));
+            m_interpTraceI0 = this->m_dataWarehouse->template GetData<MemSpace>(
+                InterpTraceI0Key<TData>(block_idx));
 
-        m_interpTraceI0 = this->m_dataWarehouse->template GetData<MemSpace>(
-            InterpTraceI0Key<TData>(block_idx));
+            m_interpTraceI0Offset =
+                this->m_dataWarehouse->template GetData<MemSpace>(
+                    InterpTraceI0OffsetKey<TData>(block_idx));
+            m_interpEndPtI0 = this->m_dataWarehouse->template GetData<MemSpace>(
+                InterpEndPtI0Key<TData>(block_idx));
 
-        m_interpTraceI0Offset =
-            this->m_dataWarehouse->template GetData<MemSpace>(
-                InterpTraceI0OffsetKey<TData>(block_idx));
-        m_interpEndPtI0 = this->m_dataWarehouse->template GetData<MemSpace>(
-            InterpEndPtI0Key<TData>(block_idx));
-
-        m_interpEndPtI0Offset =
-            this->m_dataWarehouse->template GetData<MemSpace>(
-                InterpEndPtI0OffsetKey<TData>(block_idx));
+            m_interpEndPtI0Offset =
+                this->m_dataWarehouse->template GetData<MemSpace>(
+                    InterpEndPtI0OffsetKey<TData>(block_idx));
+        }
 
         if (m_dimension == 3)
         {
@@ -181,6 +185,11 @@ protected:
 
         switch (m_dimension)
         {
+            case 1:
+            {
+                Operator1D(physBlock, fwd, bwd);
+                break;
+            }
             case 2:
             {
                 Operator2D(physBlock, fwd, bwd);
@@ -193,6 +202,109 @@ protected:
             }
             default:
                 std::cout << "shapetype not implemented" << std::endl;
+        }
+    }
+
+    void Operator1D(BlockAccessor<TData, FieldState::Phys> &physBlock,
+                    Field<TData, FieldState::Phys> &fwd,
+                    Field<TData, FieldState::Phys> &bwd)
+    {
+        // Initialize pointers.
+        auto physptr = physBlock.template GetPtr<MemSpace, ReadOnly>();
+
+        const auto nTraceBlk = fwd.GetBlocks().size();
+        auto &fwdBlock       = fwd.GetBlocks()[0];
+        auto &bwdBlock       = bwd.GetBlocks()[0];
+        auto fwdptr          = fwdBlock.template GetPtr<MemSpace, WriteOnly>();
+        auto bwdptr          = bwdBlock.template GetPtr<MemSpace, WriteOnly>();
+        size_t traceSize     = fwd.GetBlocks()[0].CompSize();
+
+        // Synchronize memory for all blocks.
+        for (unsigned int traceBlk = 1; traceBlk < nTraceBlk; ++traceBlk)
+        {
+            traceSize += fwd.GetBlocks()[traceBlk].CompSize();
+            auto &fwdBlock = fwd.GetBlocks()[traceBlk];
+            auto &bwdBlock = bwd.GetBlocks()[traceBlk];
+            fwdBlock.template GetPtr<MemSpace, WriteOnly>();
+            bwdBlock.template GetPtr<MemSpace, WriteOnly>();
+        }
+
+        // Get interleave parameter.
+        const auto interleaveWidth = physBlock.GetInterleaveWidth();
+        const auto width_ratio     = (interleaveWidth == 1)
+                                         ? 1
+                                         : interleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+
+        auto nqOffsetPtr = m_nqOffset.template GetPtr<MemSpace, ReadOnly>();
+
+        auto locToTracePhysOffsetPtr =
+            m_locToTracePhysOffset.template GetPtr<MemSpace, ReadOnly>();
+
+        // Loop over components.
+        for (unsigned int nc = 0; nc < physBlock.GetNumComponents(); ++nc)
+        {
+            unsigned int el = 0; // element index
+            for (size_t e = 0; e < physBlock.GetNumElements(); ++e)
+            {
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
+                {
+                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                              interleaveWidth, chunkSize,
+                                              m_nqTot, (TData *)physptr);
+                }
+
+                for (size_t traceId = 0; traceId < m_nTraces; ++traceId)
+                {
+                    if (this->m_fwdOnly)
+                    {
+                        GetFwdBwdTracePhys1DKernel<true, TData>(
+                            el, physBlock.GetNumElements(),
+                            physBlock.GetNumElementsWithPadding(), nc, traceId,
+                            m_tracePts, nqOffsetPtr[traceId], m_nTraces,
+                            m_locTracePhysToElmtMaps, m_orientationMaps,
+                            m_orientationMapsOffset, locToTracePhysOffsetPtr,
+                            m_isLocTraceLeftAdjacent, physptr, fwdptr, bwdptr);
+                    }
+                    else
+                    {
+                        GetFwdBwdTracePhys1DKernel<false, TData>(
+                            el, physBlock.GetNumElements(),
+                            physBlock.GetNumElementsWithPadding(), nc, traceId,
+                            m_tracePts, nqOffsetPtr[traceId], m_nTraces,
+                            m_locTracePhysToElmtMaps, m_orientationMaps,
+                            m_orientationMapsOffset, locToTracePhysOffsetPtr,
+                            m_isLocTraceLeftAdjacent, physptr, fwdptr, bwdptr);
+                    }
+                }
+
+                // Reshape back, if necessary.
+                if (e % width_ratio == width_ratio - 1)
+                {
+                    ReshapeStorage<ExecSpace>(
+                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        m_nqTot,
+                        (TData *)physptr - (width_ratio - 1) * m_nqTot);
+                }
+
+                el += m_implInterleaveWidth;
+                physptr += m_nqTot * m_implInterleaveWidth;
+            }
+
+            // Increment pointers.
+            physptr +=
+                physBlock.CompSize() - physBlock.GetNumElements() * m_nqTot;
+        }
+
+        // Set trace block to phys block interleave.
+        for (unsigned int traceBlk = 0; traceBlk < fwd.GetBlocks().size();
+             ++traceBlk)
+        {
+            auto &fwdBlock = fwd.GetBlocks()[traceBlk];
+            auto &bwdBlock = bwd.GetBlocks()[traceBlk];
+            fwdBlock.template SetInterleaveWidth<TData>(1);
+            bwdBlock.template SetInterleaveWidth<TData>(1);
         }
     }
 

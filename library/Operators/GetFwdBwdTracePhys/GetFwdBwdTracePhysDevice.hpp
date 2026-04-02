@@ -86,34 +86,38 @@ public:
             this->m_dataWarehouse->template GetData<MemSpace>(
                 IsLocTraceLeftAdjacentKey<TData>(block_idx,
                                                  m_implInterleaveWidth));
+        if (m_dimension >= 2)
+        {
+            m_interpTraceIndex =
+                this->m_dataWarehouse->template GetData<MemSpace>(
+                    InterpTraceIndexKey<TData>(block_idx,
+                                               m_implInterleaveWidth));
 
-        m_interpTraceIndex = this->m_dataWarehouse->template GetData<MemSpace>(
-            InterpTraceIndexKey<TData>(block_idx, m_implInterleaveWidth));
+            m_interpPoints = this->m_dataWarehouse->template GetData<MemSpace>(
+                InterpPointsKey<TData>(block_idx));
 
-        m_interpPoints = this->m_dataWarehouse->template GetData<MemSpace>(
-            InterpPointsKey<TData>(block_idx));
+            m_interpTypes = this->m_dataWarehouse->template GetData<MemSpace>(
+                InterpTypesKey<TData>(block_idx));
 
-        m_interpTypes = this->m_dataWarehouse->template GetData<MemSpace>(
-            InterpTypesKey<TData>(block_idx));
+            m_quadRange = this->m_dataWarehouse->template GetData<MemSpace>(
+                QuadRangeKey<TData>(block_idx));
 
-        m_quadRange = this->m_dataWarehouse->template GetData<MemSpace>(
-            QuadRangeKey<TData>(block_idx));
+            m_interpTrace = this->m_dataWarehouse->template GetData<MemSpace>(
+                InterpTraceKey<TData>(block_idx));
 
-        m_interpTrace = this->m_dataWarehouse->template GetData<MemSpace>(
-            InterpTraceKey<TData>(block_idx));
+            m_interpTraceI0 = this->m_dataWarehouse->template GetData<MemSpace>(
+                InterpTraceI0Key<TData>(block_idx));
 
-        m_interpTraceI0 = this->m_dataWarehouse->template GetData<MemSpace>(
-            InterpTraceI0Key<TData>(block_idx));
+            m_interpTraceI0Offset =
+                this->m_dataWarehouse->template GetData<MemSpace>(
+                    InterpTraceI0OffsetKey<TData>(block_idx));
+            m_interpEndPtI0 = this->m_dataWarehouse->template GetData<MemSpace>(
+                InterpEndPtI0Key<TData>(block_idx));
 
-        m_interpTraceI0Offset =
-            this->m_dataWarehouse->template GetData<MemSpace>(
-                InterpTraceI0OffsetKey<TData>(block_idx));
-        m_interpEndPtI0 = this->m_dataWarehouse->template GetData<MemSpace>(
-            InterpEndPtI0Key<TData>(block_idx));
-
-        m_interpEndPtI0Offset =
-            this->m_dataWarehouse->template GetData<MemSpace>(
-                InterpEndPtI0OffsetKey<TData>(block_idx));
+            m_interpEndPtI0Offset =
+                this->m_dataWarehouse->template GetData<MemSpace>(
+                    InterpEndPtI0OffsetKey<TData>(block_idx));
+        }
 
         if (m_dimension == 3)
         {
@@ -183,6 +187,11 @@ protected:
 
         switch (m_dimension)
         {
+            case 1:
+            {
+                Operator1D(physBlock, fwd, bwd);
+                break;
+            }
             case 2:
             {
                 Operator2D(physBlock, fwd, bwd);
@@ -195,6 +204,92 @@ protected:
             }
             default:
                 std::cout << "shapetype not implemented" << std::endl;
+        }
+    }
+
+    void Operator1D(BlockAccessor<TData, FieldState::Phys> &physBlock,
+                    Field<TData, FieldState::Phys> &fwd,
+                    Field<TData, FieldState::Phys> &bwd)
+    {
+        // Get number of elements with padding.
+        const auto nelmt = physBlock.GetNumElementsWithPadding();
+
+        // Initialize pointers.
+        auto physptr = physBlock.template GetPtr<MemSpace, ReadOnly>();
+
+        // Get interleave parameter.
+        const auto interleaveWidth = physBlock.GetInterleaveWidth();
+
+        // Set Kernel parameters.
+        const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+        const unsigned int gridSize  = (nelmt + blockSize - 1u) / blockSize;
+
+        const auto nTraceBlk = fwd.GetBlocks().size();
+        auto &fwdBlock       = fwd.GetBlocks()[0];
+        auto &bwdBlock       = bwd.GetBlocks()[0];
+        auto fwdptr          = fwdBlock.template GetPtr<MemSpace, WriteOnly>();
+        auto bwdptr          = bwdBlock.template GetPtr<MemSpace, WriteOnly>();
+        size_t traceSize     = fwd.GetBlocks()[0].CompSize();
+
+        // Synchronize memory for all blocks.
+        for (unsigned int traceBlk = 1; traceBlk < nTraceBlk; ++traceBlk)
+        {
+            traceSize += fwd.GetBlocks()[traceBlk].CompSize();
+            auto &fwdBlock = fwd.GetBlocks()[traceBlk];
+            auto &bwdBlock = bwd.GetBlocks()[traceBlk];
+            fwdBlock.template GetPtr<MemSpace, WriteOnly>();
+            bwdBlock.template GetPtr<MemSpace, WriteOnly>();
+        }
+
+        auto nqOffsetPtr = m_nqOffset.template GetPtr<MemSpace, ReadOnly>();
+
+        auto locToTracePhysOffsetPtr =
+            m_locToTracePhysOffset.template GetPtr<MemSpace, ReadOnly>();
+
+        // Loop over components.
+        for (unsigned int nc = 0; nc < physBlock.GetNumComponents(); ++nc)
+        {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                      physBlock.GetInterleaveWidth(), nelmt,
+                                      physBlock.GetNumData(), (TData *)physptr);
+
+            if (this->m_fwdOnly)
+            {
+                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (GetFwdBwdTracePhys1DKernel<true>), gridSize, blockSize, 0,
+                    m_nqTot, nelmt, m_tracePts, m_nTraces, nqOffsetPtr, nc,
+                    m_locTracePhysToElmtMaps, m_orientationMaps,
+                    m_orientationMapsOffset, locToTracePhysOffsetPtr,
+                    m_isLocTraceLeftAdjacent, physptr, fwdptr, bwdptr);
+            }
+            else
+            {
+                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (GetFwdBwdTracePhys1DKernel<false>), gridSize, blockSize, 0,
+                    m_nqTot, nelmt, m_tracePts, m_nTraces, nqOffsetPtr, nc,
+                    m_locTracePhysToElmtMaps, m_orientationMaps,
+                    m_orientationMapsOffset, locToTracePhysOffsetPtr,
+                    m_isLocTraceLeftAdjacent, physptr, fwdptr, bwdptr);
+            }
+
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                      nelmt, physBlock.GetNumData(),
+                                      (TData *)physptr);
+
+            // Increment pointers.
+            physptr += physBlock.CompSize();
+        }
+
+        // Set trace block to phys block interleave.
+        for (unsigned int traceBlk = 0; traceBlk < fwd.GetBlocks().size();
+             ++traceBlk)
+        {
+            auto &fwdBlock = fwd.GetBlocks()[traceBlk];
+            auto &bwdBlock = bwd.GetBlocks()[traceBlk];
+            fwdBlock.template SetInterleaveWidth<TData>(1);
+            bwdBlock.template SetInterleaveWidth<TData>(1);
         }
     }
 
@@ -248,27 +343,25 @@ protected:
             if (this->m_fwdOnly)
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (GetFwdBwdTracePhys2DKernelLauncher<true>), gridSize,
-                    blockSize, 0, m_nqTot, nelmt, m_tracePts, m_nTraces,
-                    nqOffsetPtr, nc, m_locTracePhysToElmtMaps,
-                    m_orientationMaps, m_orientationMapsOffset,
-                    locToTracePhysOffsetPtr, m_isLocTraceLeftAdjacent,
-                    m_interpTraceIndex, m_interpPoints, m_interpTypes,
-                    m_quadRange, m_interpTrace, m_interpTraceI0,
-                    m_interpTraceI0Offset, m_interpEndPtI0,
+                    (GetFwdBwdTracePhys2DKernel<true>), gridSize, blockSize, 0,
+                    m_nqTot, nelmt, m_tracePts, m_nTraces, nqOffsetPtr, nc,
+                    m_locTracePhysToElmtMaps, m_orientationMaps,
+                    m_orientationMapsOffset, locToTracePhysOffsetPtr,
+                    m_isLocTraceLeftAdjacent, m_interpTraceIndex,
+                    m_interpPoints, m_interpTypes, m_quadRange, m_interpTrace,
+                    m_interpTraceI0, m_interpTraceI0Offset, m_interpEndPtI0,
                     m_interpEndPtI0Offset, physptr, fwdptr, bwdptr);
             }
             else
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (GetFwdBwdTracePhys2DKernelLauncher<false>), gridSize,
-                    blockSize, 0, m_nqTot, nelmt, m_tracePts, m_nTraces,
-                    nqOffsetPtr, nc, m_locTracePhysToElmtMaps,
-                    m_orientationMaps, m_orientationMapsOffset,
-                    locToTracePhysOffsetPtr, m_isLocTraceLeftAdjacent,
-                    m_interpTraceIndex, m_interpPoints, m_interpTypes,
-                    m_quadRange, m_interpTrace, m_interpTraceI0,
-                    m_interpTraceI0Offset, m_interpEndPtI0,
+                    (GetFwdBwdTracePhys2DKernel<false>), gridSize, blockSize, 0,
+                    m_nqTot, nelmt, m_tracePts, m_nTraces, nqOffsetPtr, nc,
+                    m_locTracePhysToElmtMaps, m_orientationMaps,
+                    m_orientationMapsOffset, locToTracePhysOffsetPtr,
+                    m_isLocTraceLeftAdjacent, m_interpTraceIndex,
+                    m_interpPoints, m_interpTypes, m_quadRange, m_interpTrace,
+                    m_interpTraceI0, m_interpTraceI0Offset, m_interpEndPtI0,
                     m_interpEndPtI0Offset, physptr, fwdptr, bwdptr);
             }
 
@@ -348,14 +441,13 @@ protected:
             if (this->m_fwdOnly)
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (GetFwdBwdTracePhys3DKernelLauncher<true>), gridSize,
-                    blockSize, 0, m_nqTot, nelmt, m_tracePts, m_nTraces,
-                    nqOffsetPtr, nc, m_locTracePhysToElmtMaps,
-                    m_orientationMaps, m_orientationMapsOffset,
-                    locToTracePhysOffsetPtr, m_isLocTraceLeftAdjacent,
-                    m_interpTraceIndex, m_interpPoints, m_interpTypes,
-                    m_quadRange, m_interpTrace, m_interpTraceI0,
-                    m_interpTraceI0Offset, m_interpTraceI1,
+                    (GetFwdBwdTracePhys3DKernel<true>), gridSize, blockSize, 0,
+                    m_nqTot, nelmt, m_tracePts, m_nTraces, nqOffsetPtr, nc,
+                    m_locTracePhysToElmtMaps, m_orientationMaps,
+                    m_orientationMapsOffset, locToTracePhysOffsetPtr,
+                    m_isLocTraceLeftAdjacent, m_interpTraceIndex,
+                    m_interpPoints, m_interpTypes, m_quadRange, m_interpTrace,
+                    m_interpTraceI0, m_interpTraceI0Offset, m_interpTraceI1,
                     m_interpTraceI1Offset, m_interpEndPtI0,
                     m_interpEndPtI0Offset, m_interpEndPtI1,
                     m_interpEndPtI1Offset, wspptr, physptr, fwdptr, bwdptr);
@@ -363,14 +455,13 @@ protected:
             else
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (GetFwdBwdTracePhys3DKernelLauncher<false>), gridSize,
-                    blockSize, 0, m_nqTot, nelmt, m_tracePts, m_nTraces,
-                    nqOffsetPtr, nc, m_locTracePhysToElmtMaps,
-                    m_orientationMaps, m_orientationMapsOffset,
-                    locToTracePhysOffsetPtr, m_isLocTraceLeftAdjacent,
-                    m_interpTraceIndex, m_interpPoints, m_interpTypes,
-                    m_quadRange, m_interpTrace, m_interpTraceI0,
-                    m_interpTraceI0Offset, m_interpTraceI1,
+                    (GetFwdBwdTracePhys3DKernel<false>), gridSize, blockSize, 0,
+                    m_nqTot, nelmt, m_tracePts, m_nTraces, nqOffsetPtr, nc,
+                    m_locTracePhysToElmtMaps, m_orientationMaps,
+                    m_orientationMapsOffset, locToTracePhysOffsetPtr,
+                    m_isLocTraceLeftAdjacent, m_interpTraceIndex,
+                    m_interpPoints, m_interpTypes, m_quadRange, m_interpTrace,
+                    m_interpTraceI0, m_interpTraceI0Offset, m_interpTraceI1,
                     m_interpTraceI1Offset, m_interpEndPtI0,
                     m_interpEndPtI0Offset, m_interpEndPtI1,
                     m_interpEndPtI1Offset, wspptr, physptr, fwdptr, bwdptr);

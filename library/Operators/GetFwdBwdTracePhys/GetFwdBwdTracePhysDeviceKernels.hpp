@@ -41,7 +41,75 @@ namespace Nektar::Operators::detail
 {
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 template <bool FwdOnly, typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void GetFwdBwdTracePhys2DKernel(
+NEK_DEVICE_KERNEL static void GetFwdBwdTracePhys1DKernel(
+    const unsigned int nqTot, const size_t nelmt, const unsigned int tracePts,
+    const unsigned int nTraces, const unsigned int *NEK_RESTRICT nqOffsetPtr,
+    const unsigned int nc,
+    const unsigned int *NEK_RESTRICT locTracePhysToElmtMapsPtr,
+    const unsigned int *NEK_RESTRICT orientationMapsPtr,
+    const size_t *NEK_RESTRICT orientationMapsOffsetPtr,
+    const size_t *NEK_RESTRICT locToTracePhysOffsetPtr,
+    const bool *NEK_RESTRICT isLocTraceLeftAdjacentPtr,
+    const TData *NEK_RESTRICT phyptr, TData *NEK_RESTRICT fwdptr,
+    TData *NEK_RESTRICT bwdptr, const TthreadBlock &threadBlock)
+{
+    constexpr unsigned int warpSize = NektarSpaces::Device::warpSize;
+    size_t el                       = getGlobalIdx(threadBlock);
+    while (el < nelmt)
+    {
+        const size_t ilane  = el % warpSize;
+        const size_t iwarp  = el / warpSize;
+        const TData *Phyptr = phyptr + nqTot * warpSize * iwarp;
+
+        for (size_t traceId = 0; traceId < nTraces; ++traceId)
+        {
+            const size_t key  = traceId * nelmt + el;
+            const auto isLeft = isLocTraceLeftAdjacentPtr[key];
+
+            if constexpr (FwdOnly)
+            {
+                if (!isLeft)
+                {
+                    continue;
+                }
+            }
+
+            size_t offset = locToTracePhysOffsetPtr[nc * nTraces * nelmt + key];
+
+            TData *Fwdptr = fwdptr + offset;
+
+            TData *Bwdptr = nullptr;
+            if constexpr (!FwdOnly)
+            {
+                Bwdptr = bwdptr + offset;
+            }
+
+            // Choose destination pointer once
+            TData *dstPtr = Fwdptr;
+            if constexpr (!FwdOnly)
+            {
+                if (!isLeft)
+                {
+                    dstPtr = Bwdptr;
+                }
+            }
+
+            const size_t orientBase =
+                orientationMapsOffsetPtr[el * nTraces + traceId];
+            const size_t elTraceBase = el * tracePts + nqOffsetPtr[traceId];
+
+            unsigned int orientMapIdx = orientationMapsPtr[orientBase];
+            unsigned int traceMapIdx  = locTracePhysToElmtMapsPtr[elTraceBase];
+            TData tphys = *(Phyptr + traceMapIdx * warpSize + ilane);
+
+            dstPtr[orientMapIdx] = tphys;
+        }
+        el += getGlobalRange(threadBlock);
+    }
+}
+
+template <bool FwdOnly, typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL static void GetFwdBwdTracePhys2DKernel(
     const unsigned int nqTot, const size_t nelmt, const unsigned int tracePts,
     const unsigned int nTraces, const unsigned int *NEK_RESTRICT nqOffsetPtr,
     const unsigned int nc,
@@ -201,7 +269,7 @@ NEK_DEVICE_INLINE static void GetFwdBwdTracePhys2DKernel(
 }
 
 template <bool FwdOnly, typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void GetFwdBwdTracePhys3DKernel(
+NEK_DEVICE_KERNEL static void GetFwdBwdTracePhys3DKernel(
     const unsigned int nqTot, const size_t nelmt, const unsigned int tracePts,
     const unsigned int nTraces, const unsigned int *NEK_RESTRICT nqOffsetPtr,
     const unsigned int nc,
@@ -577,77 +645,6 @@ NEK_DEVICE_INLINE static void GetFwdBwdTracePhys3DKernel(
 
         el += getGlobalRange(threadBlock);
     }
-}
-
-// Non-size based version.
-template <bool FwdOnly, typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL void GetFwdBwdTracePhys2DKernelLauncher(
-    const unsigned int nqTot, const size_t nelmt, const unsigned int tracePts,
-    const unsigned int nTraces, const unsigned int *NEK_RESTRICT nqOffsetPtr,
-    const unsigned int nc,
-    const unsigned int *NEK_RESTRICT locTracePhysToElmtMapsPtr,
-    const unsigned int *NEK_RESTRICT orientationMapsPtr,
-    const size_t *NEK_RESTRICT orientationMapsOffsetPtr,
-    const size_t *NEK_RESTRICT locToTracePhysOffsetPtr,
-    const bool *NEK_RESTRICT isLocTraceLeftAdjacentPtr,
-    const unsigned int *NEK_RESTRICT interpTraceIndexPtr,
-    const unsigned int *NEK_RESTRICT interpPointsPtr,
-    const unsigned int *NEK_RESTRICT interpTypesPtr,
-    const unsigned int *NEK_RESTRICT quadRangePtr,
-    const MultiRegions::InterpLocTraceToTrace *NEK_RESTRICT interpTracePtr,
-    const TData *NEK_RESTRICT interpTraceI0Ptr,
-    const unsigned int *NEK_RESTRICT interpTraceI0OffsetPtr,
-    const TData *NEK_RESTRICT interpEndPtI0Ptr,
-    const unsigned int *NEK_RESTRICT interpEndPtI0OffsetPtr,
-    const TData *NEK_RESTRICT phyptr, TData *NEK_RESTRICT fwdptr,
-    TData *NEK_RESTRICT bwdptr, const TthreadBlock &threadBlock)
-{
-    GetFwdBwdTracePhys2DKernel<FwdOnly>(
-        nqTot, nelmt, tracePts, nTraces, nqOffsetPtr, nc,
-        locTracePhysToElmtMapsPtr, orientationMapsPtr, orientationMapsOffsetPtr,
-        locToTracePhysOffsetPtr, isLocTraceLeftAdjacentPtr, interpTraceIndexPtr,
-        interpPointsPtr, interpTypesPtr, quadRangePtr, interpTracePtr,
-        interpTraceI0Ptr, interpTraceI0OffsetPtr, interpEndPtI0Ptr,
-        interpEndPtI0OffsetPtr, phyptr, fwdptr, bwdptr, threadBlock);
-}
-
-// Non-size based version.
-template <bool FwdOnly, typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL void GetFwdBwdTracePhys3DKernelLauncher(
-    const unsigned int nqTot, const size_t nelmt, const unsigned int tracePts,
-    const unsigned int nTraces, const unsigned int *NEK_RESTRICT nqOffsetPtr,
-    const unsigned int nc,
-    const unsigned int *NEK_RESTRICT locTracePhysToElmtMapsPtr,
-    const unsigned int *NEK_RESTRICT orientationMapsPtr,
-    const size_t *NEK_RESTRICT orientationMapsOffsetPtr,
-    const size_t *NEK_RESTRICT locToTracePhysOffsetPtr,
-    const bool *NEK_RESTRICT isLocTraceLeftAdjacentPtr,
-    const unsigned int *NEK_RESTRICT interpTraceIndexPtr,
-    const unsigned int *NEK_RESTRICT interpPointsPtr,
-    const unsigned int *NEK_RESTRICT interpTypesPtr,
-    const unsigned int *NEK_RESTRICT quadRangePtr,
-    const MultiRegions::InterpLocTraceToTrace *NEK_RESTRICT interpTracePtr,
-    const TData *NEK_RESTRICT interpTraceI0Ptr,
-    const unsigned int *NEK_RESTRICT interpTraceI0OffsetPtr,
-    const TData *NEK_RESTRICT interpTraceI1Ptr,
-    const unsigned int *NEK_RESTRICT interpTraceI1OffsetPtr,
-    const TData *NEK_RESTRICT interpEndPtI0Ptr,
-    const unsigned int *NEK_RESTRICT interpEndPtI0OffsetPtr,
-    const TData *NEK_RESTRICT interpEndPtI1Ptr,
-    const unsigned int *NEK_RESTRICT interpEndPtI1OffsetPtr,
-    TData *NEK_RESTRICT wspptr, const TData *NEK_RESTRICT phyptr,
-    TData *NEK_RESTRICT fwdptr, TData *NEK_RESTRICT bwdptr,
-    const TthreadBlock &threadBlock)
-{
-    GetFwdBwdTracePhys3DKernel<FwdOnly>(
-        nqTot, nelmt, tracePts, nTraces, nqOffsetPtr, nc,
-        locTracePhysToElmtMapsPtr, orientationMapsPtr, orientationMapsOffsetPtr,
-        locToTracePhysOffsetPtr, isLocTraceLeftAdjacentPtr, interpTraceIndexPtr,
-        interpPointsPtr, interpTypesPtr, quadRangePtr, interpTracePtr,
-        interpTraceI0Ptr, interpTraceI0OffsetPtr, interpTraceI1Ptr,
-        interpTraceI1OffsetPtr, interpEndPtI0Ptr, interpEndPtI0OffsetPtr,
-        interpEndPtI1Ptr, interpEndPtI1OffsetPtr, wspptr, phyptr, fwdptr,
-        bwdptr, threadBlock);
 }
 #endif
 } // namespace Nektar::Operators::detail

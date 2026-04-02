@@ -40,6 +40,59 @@
 namespace Nektar::Operators::detail
 {
 template <bool FwdOnly, typename TData>
+NEK_FORCE_INLINE static void GetFwdBwdTracePhys1DKernel(
+    const size_t el, const size_t nelmt, const size_t elmtTot,
+    const unsigned int nc, const unsigned int traceId,
+    const unsigned int tracePts, const unsigned int nqTraceOffset,
+    const unsigned int nTraces, const unsigned int *locTracePhysToElmtMapsPtr,
+    const unsigned int *orientationMapsPtr,
+    const size_t *orientationMapsOffsetPtr,
+    const size_t *locToTracePhysOffsetPtr,
+    const bool *isLocTraceLeftAdjacentPtr, const TData *phyptr, TData *fwdptr,
+    [[maybe_unused]] TData *bwdptr)
+{
+
+    if (el < nelmt)
+    {
+        const size_t key  = traceId * elmtTot + el;
+        const auto isLeft = isLocTraceLeftAdjacentPtr[key];
+
+        if constexpr (FwdOnly)
+        {
+            if (!isLeft)
+            {
+                return;
+            }
+        }
+
+        size_t offset = locToTracePhysOffsetPtr[nc * nTraces * elmtTot + key];
+
+        auto *Fwdptr  = fwdptr + offset;
+        TData *dstPtr = nullptr;
+
+        if constexpr (FwdOnly)
+        {
+            dstPtr = Fwdptr;
+        }
+        else
+        {
+            dstPtr = isLeft ? Fwdptr : (bwdptr + offset);
+        }
+
+        const unsigned int orientBase =
+            orientationMapsOffsetPtr[el * nTraces + traceId];
+        const size_t elTraceBase = el * tracePts + nqTraceOffset;
+
+        unsigned int orientMapIdx = orientationMapsPtr[orientBase];
+        unsigned int traceMapIdx  = locTracePhysToElmtMapsPtr[elTraceBase];
+
+        TData tphys = *(phyptr + traceMapIdx);
+
+        dstPtr[orientMapIdx] = tphys;
+    }
+}
+
+template <bool FwdOnly, typename TData>
 NEK_FORCE_INLINE static void GetFwdBwdTracePhys2DKernel(
     const size_t el, const size_t nelmt, const size_t elmtTot,
     const unsigned int nc, const unsigned int traceId,
