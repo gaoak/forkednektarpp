@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_getfwdbwdtracephys.cpp
+// File: test_advectionweakdg.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,19 +32,17 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestGetFwdBwdTracePhys
+#define BOOST_TEST_MODULE TestAdvectionWeakDG
 
-#include "init_getfwdbwdtracephys.hpp"
+#include "init_advectionweakdg.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
 
-#define TEST_GETFWDBWDTRACEPHYS(test_name, test, tol)                          \
+#define TEST_ADVECTIONWEAKDG(test_name, test, tol)                             \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        std::cout << std::string("Run: ") + std::string(#test_name)            \
-                  << std::endl;                                                \
         Configure();                                                           \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
@@ -54,49 +52,47 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestGetFwdBwdTracePhys)
+BOOST_AUTO_TEST_SUITE(TestAdvectionWeakDG)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-TEST_GETFWDBWDTRACEPHYS(getfwdbwdtracephys_seg, Seg, 1.0E-12)
+// TEST_ADVECTIONWEAKDG(advection_seg, Seg, 1.0E-12)
 
-TEST_GETFWDBWDTRACEPHYS(getfwdbwdtracephys_seg_sem, SegSEM, 1.0E-12)
+// TEST_ADVECTIONWEAKDG(advection_seg_sem, SegSEM, 1.0E-12)
 
-TEST_GETFWDBWDTRACEPHYS(getfwdbwdtracephys_quad, Quad, 1.0E-12)
+TEST_ADVECTIONWEAKDG(advectionweakdg_quad, Quad, 1.0E-4)
 
-TEST_GETFWDBWDTRACEPHYS(getfwdbwdtracephys_quad_sem, QuadSEM, 1.0E-12)
+TEST_ADVECTIONWEAKDG(advectionweakdg_quad_sem, QuadSEM, 1.0E-4)
 
-TEST_GETFWDBWDTRACEPHYS(getfwdbwdtracephys_quad_varp, QuadVarP, 1.0E-12)
+TEST_ADVECTIONWEAKDG(advectionweakdg_quad_varp, QuadVarP, 1.0E-4)
 
-TEST_GETFWDBWDTRACEPHYS(getfwdbwdtracephys_tri, Tri, 1.0E-12)
+TEST_ADVECTIONWEAKDG(advectionweakdg_tri, Tri, 1.0E-4)
 
-TEST_GETFWDBWDTRACEPHYS(getfwdbwdtracephys_tri_varp, TriVarP, 1.0E-12)
+TEST_ADVECTIONWEAKDG(advectionweakdg_tri_varp, TriVarP, 1.0E-4)
 
-TEST_GETFWDBWDTRACEPHYS(getfwdbwdtracephys_square_all_elements,
-                        SquareAllElements, 1.0E-12)
+TEST_ADVECTIONWEAKDG(advectionweakdg_square_all_elements, SquareAllElements,
+                     1.0E-4)
 
-TEST_GETFWDBWDTRACEPHYS(getfwdbwdtracephys_hex, Hex, 1.0E-12)
+TEST_ADVECTIONWEAKDG(advectionweakdg_hex, Hex, 1.0E-4)
 
-TEST_GETFWDBWDTRACEPHYS(getfwdbwdtracephys_hex_sem, HexSEM, 1.0E-12)
+TEST_ADVECTIONWEAKDG(advectionweakdg_hex_sem, HexSEM, 1.0E-4)
 
-TEST_GETFWDBWDTRACEPHYS(getfwdbwdtracephys_hex_varp, HexVarP, 1.0E-12)
+TEST_ADVECTIONWEAKDG(advectionweakdg_hex_varp, HexVarP, 1.0E-4)
 
-TEST_GETFWDBWDTRACEPHYS(getfwdbwdtracephys_prism, Prism, 1.0E-12)
+TEST_ADVECTIONWEAKDG(advectionweakdg_prism, Prism, 1.0E-4)
 
-TEST_GETFWDBWDTRACEPHYS(getfwdbwdtracephys_prism_varp, PrismVarP, 1.0E-12)
+TEST_ADVECTIONWEAKDG(advectionweakdg_prism_varp, PrismVarP, 1.0E-4)
 
-TEST_GETFWDBWDTRACEPHYS(getfwdbwdtracephys_pyr, Pyr, 1.0E-12)
+TEST_ADVECTIONWEAKDG(advectionweakdg_pyr, Pyr, 1.0E-4)
 
-TEST_GETFWDBWDTRACEPHYS(getfwdbwdtracephys_pyr_varp, PyrVarP, 1.0E-12)
+TEST_ADVECTIONWEAKDG(advectionweakdg_pyr_varp, PyrVarP, 1.0E-4)
 
-TEST_GETFWDBWDTRACEPHYS(getfwdbwdtracephys_tet, Tet, 1.0E-12)
+TEST_ADVECTIONWEAKDG(advectionweakdg_tet, Tet, 1.0E-4)
 
-TEST_GETFWDBWDTRACEPHYS(getfwdbwdtracephys_tet_varp, TetVarP, 1.0E-12)
+TEST_ADVECTIONWEAKDG(advectionweakdg_tet_varp, TetVarP, 1.0E-4)
 
-TEST_GETFWDBWDTRACEPHYS(getfwdbwdtracephys_cube_prism_hex, CubePrismHex,
-                        1.0E-12)
+TEST_ADVECTIONWEAKDG(advectionweakdg_cube_prism_hex, CubePrismHex, 1.0E-4)
 
-TEST_GETFWDBWDTRACEPHYS(getfwdbwdtracephys_cube_all_elements, CubeAllElements,
-                        1.0E-12)
+TEST_ADVECTIONWEAKDG(advectionweakdg_cube_all_elements, CubeAllElements, 1.0E-3)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

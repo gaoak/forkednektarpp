@@ -182,8 +182,13 @@ protected:
                          const std::vector<std::string> &components)
         : Operator<TData>(expansionList, components)
     {
-        m_DirBCOp = DGDirBndCondOp<TData>::Create(expansionList, components);
-        m_PerBCOp = DGPerBndCondOp<TData>::Create(expansionList, components);
+        const auto &vars =
+            components.size() ==
+                    expansionList->GetSession()->GetVariables().size()
+                ? components
+                : expansionList->GetSession()->GetVariables();
+        m_DirBCOp = DGDirBndCondOp<TData>::Create(expansionList, vars);
+        m_PerBCOp = DGPerBndCondOp<TData>::Create(expansionList, vars);
     }
 
     ~GetFwdBwdTracePhysOp() override = default;

@@ -184,8 +184,6 @@ TEST(Seg, "run/segment.xml")
 
 TEST(SegSEM, "run/line_sem.xml")
 
-TEST(Seg3D, "run/segment_3D.xml")
-
 TEST(Quad, "run/square.xml")
 
 TEST(Quad3D, "run/square_3D.xml")

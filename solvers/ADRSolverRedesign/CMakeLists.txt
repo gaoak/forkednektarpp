@@ -2,8 +2,13 @@ IF(NEKTAR_BUILD_REDESIGN)
     CMAKE_DEPENDENT_OPTION(NEKTAR_SOLVER_REDESIGN
         "Build the ADR Solver." ON
         "NEKTAR_BUILD_SOLVERS" OFF)
+    
+    IF (NOT NEKTAR_BUILD_SOLVERS)
+        SET(NEKTAR_SOLVER_REDESIGN OFF CACHE INTERNAL "")
+    ENDIF()
 
     IF (NEKTAR_SOLVER_REDESIGN)
+    
         # Default execution spaces.
         SET(ExecSpaces Serial)
 
@@ -45,8 +50,9 @@ IF(NEKTAR_BUILD_REDESIGN)
         ADD_SOLVER_EXECUTABLE(ADRSolverRedesign SOURCES
             ADRSolverRedesign.cpp
             EquationSystems/UnsteadyDiffusion.cpp
-	    EquationSystems/SteadyADR.cpp
-	    EquationSystems/UnsteadyADR.cpp
+            EquationSystems/SteadyADR.cpp
+            EquationSystems/UnsteadyADR.cpp
+            EquationSystems/UnsteadyAdvection.cpp
         )
 
         IF(NEKTAR_BUILD_SOLVER_LIBS)
@@ -84,6 +90,38 @@ IF(NEKTAR_BUILD_REDESIGN)
         # SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvecDiff1D)
         # SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvecDiff2D)
         # SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvecDiff3D)
+
+        # SDC time-integration
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvection2D_ExplicitSDCGaussLobattoLegendre)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvection2D_ExplicitSDCGaussRadauLegendre)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvection2D_ExplicitSDCGaussGaussLegendre)
+
+        # 2D discontinuous advection (weak DG/flux reconstruction)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection2D_ISO_deformed_GLL_LAGRANGE_3x3)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection2D_ISO_deformed_GLL_LAGRANGE_SEM_3x3)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection2D_ISO_deformed_MODIFIED_3x3)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection2D_ISO_regular_GLL_LAGRANGE_3x3)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection2D_ISO_regular_GLL_LAGRANGE_SEM_3x3)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection2D_ISO_regular_MODIFIED_3x3)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection2D_ISO_reg_def_MODIFIED_3x3)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection2D_periodic_deformed_GLL_LAGRANGE_2x2)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection2D_periodic_deformed_GLL_LAGRANGE_SEM_2x2)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection2D_periodic_deformed_MODIFIED_2x2)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection2D_periodic_regular_GLL_LAGRANGE_2x2)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection2D_periodic_regular_GLL_LAGRANGE_SEM_2x2)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection2D_periodic_regular_MODIFIED_2x2)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection2D_periodic_deformed_GLL_LAGRANGE_10x10)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection2D_periodic_deformed_GLL_LAGRANGE_SEM_10x10)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection2D_periodic_deformed_MODIFIED_10x10)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection_m12_DG_periodic)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection2D_ISO_regular_SSPRK2)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection2D_ISO_regular_SSPRK3)
+
+        # 3D discontinous advection
+        # SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection3D_m10_DG_hex_periodic_nodal) # Failing due to memery on device
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection3D_m12_DG_hex_periodic)
+        # face rotation test
+        # SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection3D_DG_prism_varP) # Failing due to workspace size
 
     ENDIF()
 ENDIF(NEKTAR_BUILD_REDESIGN)
