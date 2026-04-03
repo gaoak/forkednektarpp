@@ -103,6 +103,8 @@ public:
      */
     LIB_UTILITIES_EXPORT void SetRandomSeed(unsigned int seed = 123u);
 
+    LIB_UTILITIES_EXPORT std::map<std::string, NekDouble> GetConstants(void);
+
     /**
      * @brief Set constants to be evaluated.
      *
@@ -150,6 +152,8 @@ public:
      * @param name  Name of constant to return.
      */
     LIB_UTILITIES_EXPORT NekDouble GetConstant(std::string const &name);
+
+    LIB_UTILITIES_EXPORT std::map<std::string, NekDouble> GetParameters(void);
 
     /**
      * @brief Set parameter values.

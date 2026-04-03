@@ -90,12 +90,8 @@ public:
 
     void RunTestCase()
     {
-        // Note we enforce execution on the Host for the expression operator
-        // Currently we do not have a method to evaluate expressions on the
-        // device
         auto op = ExpressionOp<TData>::Create(this->fixt_explist,
-                                              this->session->GetVariables(),
-                                              "Serial", "Generic");
+                                              this->session->GetVariables());
         op->SetTime(m_time);
         op->SetScale(m_scale);
         std::vector<LibUtilities::EquationSharedPtr> expressions;

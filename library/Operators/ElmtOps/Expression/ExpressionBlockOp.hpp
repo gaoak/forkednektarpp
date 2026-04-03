@@ -61,7 +61,7 @@ public:
     void SetExpressions(
         const std::vector<LibUtilities::EquationSharedPtr> &exprs)
     {
-        this->m_expressions = exprs;
+        v_SetExpressions(exprs);
     }
 
     void SetTime(const TData &time)
@@ -107,6 +107,9 @@ protected:
     }
 
     ~ExpressionBlockOp() override = default;
+
+    virtual void v_SetExpressions(
+        const std::vector<LibUtilities::EquationSharedPtr> &exprs) = 0;
 };
 
 } // namespace Nektar::Operators

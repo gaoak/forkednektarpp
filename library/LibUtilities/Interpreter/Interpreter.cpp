@@ -190,17 +190,17 @@ public:
 
         // Constant definitions.
         AddConstant("MEANINGLESS", 0.0);
-        AddConstant("E", M_E);                        // Natural logarithm
-        AddConstant("LOG2E", M_LOG2E);                // log_2 e
-        AddConstant("LOG10E", M_LOG10E);              // log_10 e
-        AddConstant("LN2", M_LN2);                    // log_e 2
-        AddConstant("LN10", M_LN10);                  // log_e 10
-        AddConstant("PI", M_PI);                      // pi
-        AddConstant("PI_2", M_PI_2);                  // pi/2
-        AddConstant("PI_4", M_PI_4);                  // pi/4
-        AddConstant("1_PI", M_1_PI);                  // 1/pi
-        AddConstant("2_PI", M_2_PI);                  // 2/pi
-        AddConstant("2_SQRTPI", M_2_SQRTPI);          // 2/sqrt(pi)
+        AddConstant("E", M_E);           // Natural logarithm
+        AddConstant("LOG2E", M_LOG2E);   // log_2 e
+        AddConstant("LOG10E", M_LOG10E); // log_10 e
+        AddConstant("LN2", M_LN2);       // log_e 2
+        AddConstant("LN10", M_LN10);     // log_e 10
+        AddConstant("PI", M_PI);         // pi
+        AddConstant("PI_2", M_PI_2);     // pi/2
+        AddConstant("PI_4", M_PI_4);     // pi/4
+        // AddConstant("1_PI", M_1_PI);                  // 1/pi
+        // AddConstant("2_PI", M_2_PI);                  // 2/pi
+        // AddConstant("2_SQRTPI", M_2_SQRTPI);          // 2/sqrt(pi)
         AddConstant("SQRT2", M_SQRT2);                // sqrt(2)
         AddConstant("SQRT1_2", M_SQRT1_2);            // 1/sqrt(2)
         AddConstant("GAMMA", 0.57721566490153286060); // Euler
@@ -306,6 +306,19 @@ public:
     /**
      * @copydoc Interpreter::AddConstant
      */
+    std::map<std::string, NekDouble> GetConstants(void)
+    {
+        std::map<std::string, NekDouble> constants;
+        for (auto &it : m_constantMapNameToId)
+        {
+            constants[it.first] = m_constant[it.second];
+        }
+        return constants;
+    }
+
+    /**
+     * @copydoc Interpreter::AddConstant
+     */
     int AddConstant(std::string const &name, NekDouble value)
     {
         ConstantMap::const_iterator it = m_constantMapNameToId.find(name);
@@ -370,6 +383,19 @@ public:
             // If parameter is known, change its value.
             m_parameter[it->second] = value;
         }
+    }
+
+    /**
+     * @copydoc Interpreter::GetParameter
+     */
+    std::map<std::string, NekDouble> GetParameters(void)
+    {
+        std::map<std::string, NekDouble> parameters;
+        for (auto &it : m_parameterMapNameToId)
+        {
+            parameters[it.first] = m_parameter[it.second];
+        }
+        return parameters;
     }
 
     /**
@@ -2211,6 +2237,11 @@ int Interpreter::AddConstant(std::string const &name, NekDouble value)
     return m_impl->AddConstant(name, value);
 }
 
+std::map<std::string, NekDouble> Interpreter::GetConstants(void)
+{
+    return m_impl->GetConstants();
+}
+
 NekDouble Interpreter::GetConstant(std::string const &name)
 {
     return m_impl->GetConstant(name);
@@ -2224,6 +2255,11 @@ void Interpreter::SetParameters(std::map<std::string, NekDouble> const &params)
 void Interpreter::SetParameter(std::string const &name, NekDouble value)
 {
     m_impl->SetParameter(name, value);
+}
+
+std::map<std::string, NekDouble> Interpreter::GetParameters(void)
+{
+    return m_impl->GetParameters();
 }
 
 NekDouble Interpreter::GetParameter(std::string const &name)

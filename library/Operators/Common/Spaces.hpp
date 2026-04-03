@@ -51,7 +51,9 @@
 #endif
 
 #if defined(NEKTAR_ENABLE_CUDA)
+#include <cuda.h>
 #include <cuda_runtime.h>
+#include <nvrtc.h>
 #define CHECK_LAST_HIPCUDA_ERROR()                                             \
     {                                                                          \
         cudaError_t err = cudaGetLastError();                                  \
@@ -71,8 +73,38 @@
         std::cerr << cudaGetErrorString(err) << std::endl;                     \
         exit(0);                                                               \
     }
+// Helper to check NVRTC errors
+#define CHECK_NEKRTC_ERROR(err)                                                \
+    {                                                                          \
+        if (err != NVRTC_SUCCESS)                                              \
+        {                                                                      \
+            std::cerr << "CUDA Runtime Error at: " << __FILE__ << ":"          \
+                      << __LINE__ << std::endl;                                \
+            std::cerr << "NVRTC error: " << nvrtcGetErrorString(err)           \
+                      << std::endl;                                            \
+            exit(1);                                                           \
+        }                                                                      \
+    }
+#define nekCtxGetCurrent cuCtxGetCurrent
+#define nekLaunchKernel cuLaunchKernel
+#define nekModuleLoadData cuModuleLoadData
+#define nekModuleGetFunction cuModuleGetFunction
+#define nekModuleUnload cuModuleUnload
+#define NEKdevice CUdevice
+#define NEKmodule CUmodule
+#define NEKfunction CUfunction
+#define NEKcontext CUcontext
+#define nekrtcProgram nvrtcProgram
+#define nekrtcCreateProgram nvrtcCreateProgram
+#define nekrtcDestroyProgram nvrtcDestroyProgram
+#define nekrtcAddNameExpression nvrtcAddNameExpression
+#define nekrtcGetLoweredName nvrtcGetLoweredName
+#define nekrtcCompileProgram nvrtcCompileProgram
+#define nekrtcGetCodeSize nvrtcGetPTXSize
+#define nekrtcGetCode nvrtcGetPTX
 #elif defined(NEKTAR_ENABLE_HIP)
 #include <hip/hip_runtime.h>
+#include <hip/hiprtc.h>
 #define CHECK_LAST_HIPCUDA_ERROR()                                             \
     {                                                                          \
         hipError_t err = hipGetLastError();                                    \
@@ -92,6 +124,35 @@
         std::cerr << hipGetErrorString(err) << std::endl;                      \
         exit(0);                                                               \
     }
+// Helper to check HIPRTC errors
+#define CHECK_NEKRTC_ERROR(err)                                                \
+    {                                                                          \
+        if (err != HIPRTC_SUCCESS)                                             \
+        {                                                                      \
+            std::cerr << "HIP Runtime Error at: " << __FILE__ << ":"           \
+                      << __LINE__ << std::endl;                                \
+            std::cerr << "HIPRTC error: " << hiprtcGetErrorString(err)         \
+                      << std::endl;                                            \
+            exit(1);                                                           \
+        }                                                                      \
+    }
+#define nekCtxGetCurrent hipCtxGetCurrent
+#define nekLaunchKernel hipModuleLaunchKernel
+#define nekModuleLoadData hipModuleLoadData
+#define nekModuleGetFunction hipModuleGetFunction
+#define nekModuleUnload hipModuleUnload
+#define NEKdevice hipDevice_t
+#define NEKmodule hipModule_t
+#define NEKfunction hipFunction_t
+#define NEKcontext hipCtx_t
+#define nekrtcProgram hiprtcProgram
+#define nekrtcCreateProgram hiprtcCreateProgram
+#define nekrtcDestroyProgram hiprtcDestroyProgram
+#define nekrtcAddNameExpression hiprtcAddNameExpression
+#define nekrtcGetLoweredName hiprtcGetLoweredName
+#define nekrtcCompileProgram hiprtcCompileProgram
+#define nekrtcGetCodeSize hiprtcGetCodeSize
+#define nekrtcGetCode hiprtcGetCode
 #elif defined(NEKTAR_ENABLE_SYCL)
 #include "Operators/Common/SYCLQueue.hpp"
 #endif
@@ -107,6 +168,18 @@
 #elif defined(NEKTAR_ENABLE_HIP) && defined(DEVICE_COMPILE_ONLY)
 #include <hip/hip_cooperative_groups.h>
 #endif
+
+template <typename TData> std::string DataTypeToString(void)
+{
+    if constexpr (std::is_same_v<TData, float>)
+    {
+        return "float";
+    }
+    else if constexpr (std::is_same_v<TData, double>)
+    {
+        return "double";
+    }
+}
 
 template <bool B, typename TData> struct data_type_if
 {
@@ -370,7 +443,7 @@ extern unsigned int internalMaxDataSizeByte;
 
 template <typename Tstream>
 [[maybe_unused]] static inline void nekStreamSynchronize(
-    [[maybe_unused]] Tstream &stream)
+    [[maybe_unused]] const Tstream stream)
 {
 #if defined(NEKTAR_ENABLE_CUDA)
     CHECK_HIPCUDA_ERROR(cudaStreamSynchronize(stream));
