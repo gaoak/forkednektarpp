@@ -97,9 +97,8 @@ protected:
                  "Number of expressions must match size of component mask when "
                  "calling Apply().")
 
-        const auto nelmt = inblock.GetNumElements();
-        const auto compSize =
-            inblock.GetNumData() * inblock.GetNumElementsWithPadding();
+        const auto nelmt    = inblock.GetNumElements();
+        const auto compSize = inblock.CompSize();
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -201,6 +200,12 @@ protected:
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+    }
+
+    void v_SetExpressions(
+        const std::vector<LibUtilities::EquationSharedPtr> &exprs) override
+    {
+        this->m_expressions = exprs;
     }
 };
 

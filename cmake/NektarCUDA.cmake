@@ -44,6 +44,7 @@ INCLUDE_DIRECTORIES(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 SET(NEKTAR_CUDA_DEPENDS
   CUDA::cudart
   CUDA::cuda_driver
+  CUDA::nvrtc
   CUDA::cublas
   CUDA::cusparse
   CUDA::cusolver

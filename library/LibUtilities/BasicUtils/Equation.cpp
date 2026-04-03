@@ -241,9 +241,19 @@ void Equation::Evaluate(const std::vector<Array<OneD, const NekDouble>> points,
     }
 }
 
+std::map<std::string, NekDouble> Equation::GetParameters(void)
+{
+    return m_evaluator->GetParameters();
+}
+
 void Equation::SetParameter(const std::string &name, NekDouble value)
 {
     m_evaluator->SetParameter(name, value);
+}
+
+std::map<std::string, NekDouble> Equation::GetConstants(void)
+{
+    return m_evaluator->GetConstants();
 }
 
 void Equation::SetConstants(const std::map<std::string, NekDouble> &constants)
