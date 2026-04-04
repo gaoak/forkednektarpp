@@ -42,7 +42,7 @@
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 #include <MultiRegions/ExpList.h>
 
-#include "Operators/Common/NekDataWarehouse.hpp"
+#include "Operators/Common/DataWarehouse/NekDataWarehouse.hpp"
 
 #include "Operators/Common/OperatorsDeclspec.hpp"
 #include "Operators/Common/Spaces.hpp"

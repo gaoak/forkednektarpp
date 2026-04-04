@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/Common/NekDataWarehouse.hpp"
+#include "Operators/Common/DataWarehouse/NekDataWarehouse.hpp"
 
 // Forward declaration
 namespace Nektar::MultiRegions

@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/Common/StdMatDataWarehouseDef.hpp"
+#include "Operators/Common/DataWarehouse/StdMatDataWarehouseDef.hpp"
 
 namespace Nektar::Operators
 {

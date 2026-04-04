@@ -132,8 +132,9 @@ protected:
                           : outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get static workspace pointer.
-        auto wspptr = BlockOperator<TData>::template GetWorkSpace<MemSpace>(
-            m_dimension * nelmtTot * m_nqTot);
+        auto wspptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                m_dimension * nelmtTot * m_nqTot);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();

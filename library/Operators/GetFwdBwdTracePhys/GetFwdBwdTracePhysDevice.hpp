@@ -423,7 +423,8 @@ protected:
 
         // Get static workspace pointer.
         auto wspptr =
-            BlockOperator<TData>::template GetWorkSpace<MemSpace>(wspSize);
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                wspSize);
 
         auto nqOffsetPtr = m_nqOffset.template GetPtr<MemSpace, ReadOnly>();
 

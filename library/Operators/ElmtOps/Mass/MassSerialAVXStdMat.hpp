@@ -152,8 +152,9 @@ protected:
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Get static workspace pointer.
-        auto wspptr = BlockOperator<TData>::template GetWorkSpace<MemSpace>(
-            simd_t::width * m_nqTot);
+        auto wspptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                simd_t::width * m_nqTot);
 
         // Loop over components.
         for (unsigned int n = 0;

@@ -42,7 +42,7 @@ IF(NEKTAR_BUILD_REDESIGN)
 
         # These operator have an additional argument for the FieldState
         # which requires two delcarations.
-        SET(CONFIG_FILE ${dir}/OperatorFactoryDec.cpp.in)
+        SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/Operators/SolverUtilsOps/RiemannSolvers/RiemannOperatorFactoryDec.cpp.in)
 
         FOREACH (SolverType IN LISTS SolverTypes)
             # Loop through each possible execution space.

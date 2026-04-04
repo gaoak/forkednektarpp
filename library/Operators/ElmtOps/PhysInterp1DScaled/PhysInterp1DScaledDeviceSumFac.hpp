@@ -350,7 +350,8 @@ protected:
         auto wspSize = BwdTransWorkSpaceSize<Implementation>(
             LibUtilities::Quad, nelmt, sizeParam2D.nm0(), sizeParam2D.nm1());
         auto wspptr =
-            BlockOperator<TData>::template GetWorkSpace<MemSpace>(wspSize);
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                wspSize);
 
         const TData *nodToMod = nullptr;
 
@@ -443,7 +444,8 @@ protected:
             LibUtilities::Hex, nelmt, sizeParam3D.nm0(), sizeParam3D.nm1(),
             sizeParam3D.nm2());
         auto wspptr =
-            BlockOperator<TData>::template GetWorkSpace<MemSpace>(wspSize);
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                wspSize);
 
         const TData *nodToMod = nullptr;
 

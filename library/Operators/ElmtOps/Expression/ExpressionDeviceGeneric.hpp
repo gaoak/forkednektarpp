@@ -346,11 +346,9 @@ protected:
         // 4. Output variable.
         for (unsigned int nc = 0; nc < this->m_expressions.size(); nc++)
         {
-            unsigned int cnt = 0;
             if (this->m_cmask[nc])
             {
                 kernel_src += "TData* out" + std::to_string(nc) + ", ";
-                cnt++;
             }
         }
         kernel_src.pop_back();
@@ -388,8 +386,7 @@ protected:
         }
 
         // Define expression.
-        for (unsigned int nc = 0, cnt = 0; nc < this->m_expressions.size();
-             nc++)
+        for (unsigned int nc = 0; nc < this->m_expressions.size(); nc++)
         {
             if (this->m_cmask[nc])
             {
@@ -397,15 +394,14 @@ protected:
                     convertPow(this->m_expressions[nc]->GetExpression());
                 kernel_src += "    if constexpr (APPEND)\n";
                 kernel_src += "    {\n";
-                kernel_src += "        out" + std::to_string(cnt) +
+                kernel_src += "        out" + std::to_string(nc) +
                               "[tid] += scale * (" + expression + ");\n";
                 kernel_src += "    }\n";
                 kernel_src += "    else\n";
                 kernel_src += "    {\n";
-                kernel_src += "        out" + std::to_string(cnt) +
+                kernel_src += "        out" + std::to_string(nc) +
                               "[tid] = scale * (" + expression + ");\n";
                 kernel_src += "    };\n";
-                cnt++;
             }
         }
         kernel_src += "}\n";
@@ -438,9 +434,9 @@ protected:
         CHECK_NEKRTC_ERROR(nekrtcCompileProgram(prog, 1, opts));
 
         // Load module.
-        size_t ptx_size;
-        CHECK_NEKRTC_ERROR(nekrtcGetCodeSize(prog, &ptx_size));
-        std::vector<char> ptx(ptx_size);
+        size_t code_size;
+        CHECK_NEKRTC_ERROR(nekrtcGetCodeSize(prog, &code_size));
+        std::vector<char> ptx(code_size);
         CHECK_NEKRTC_ERROR(nekrtcGetCode(prog, ptx.data()));
         nekModuleLoadData(&m_nekModule, ptx.data());
 

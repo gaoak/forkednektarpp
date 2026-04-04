@@ -36,7 +36,7 @@
 
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 
-#include "Operators/Common/ModeIndexDataWarehouse.hpp"
+#include "Operators/Common/DataWarehouse/ModeIndexDataWarehouse.hpp"
 
 #if defined(_MSC_VER)
 #undef max

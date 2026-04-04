@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/Common/NekDataWarehouse.hpp"
+#include "Operators/Common/DataWarehouse/NekDataWarehouse.hpp"
 #include <LibUtilities/Foundations/Interp.h>
 #include <LibUtilities/Foundations/Points.h>
 #include <MultiRegions/AssemblyMap/LocTraceToTraceMap.h>

@@ -125,8 +125,9 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Get static workspace pointer.
-        auto derivptr = BlockOperator<TData>::template GetWorkSpace<MemSpace>(
-            m_coordDim * nelmtTot * m_nqTot);
+        auto derivptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                m_coordDim * nelmtTot * m_nqTot);
 
         // Loop over components.
         const auto advelsize =

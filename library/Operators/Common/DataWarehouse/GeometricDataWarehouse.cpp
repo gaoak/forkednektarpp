@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <Operators/Common/GeometricDataWarehouseDef.hpp>
+#include <Operators/Common/DataWarehouse/GeometricDataWarehouseDef.hpp>
 
 namespace Nektar::Operators
 {

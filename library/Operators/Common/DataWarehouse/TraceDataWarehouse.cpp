@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <Operators/Common/TraceDataWarehouseDef.hpp>
+#include <Operators/Common/DataWarehouse/TraceDataWarehouseDef.hpp>
 
 namespace Nektar::Operators
 {
