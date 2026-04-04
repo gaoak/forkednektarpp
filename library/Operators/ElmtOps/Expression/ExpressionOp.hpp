@@ -132,7 +132,16 @@ public:
         }
     }
 
-    unsigned int GetNumberEvars(
+    void SetComponentMask(const std::vector<bool> &cmask)
+    {
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < m_blockOp.size(); ++blk)
+        {
+            this->m_blockOp[blk]->SetComponentMask(cmask);
+        }
+    }
+
+    static unsigned int GetNumberEvars(
         const LibUtilities::EquationSharedPtr &expression)
     {
         // Extract the number of expression variables (EVARS).
@@ -141,15 +150,6 @@ public:
         auto variableList = expression->GetVlist();
         boost::split(vars, variableList, boost::is_any_of(", "));
         return vars.size();
-    }
-
-    void SetComponentMask(const std::vector<bool> &cmask)
-    {
-        // Loop over the blocks.
-        for (unsigned int blk = 0; blk < m_blockOp.size(); ++blk)
-        {
-            this->m_blockOp[blk]->SetComponentMask(cmask);
-        }
     }
 
 protected:

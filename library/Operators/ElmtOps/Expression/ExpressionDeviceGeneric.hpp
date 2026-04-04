@@ -35,7 +35,6 @@
 #pragma once
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
-#include <boost/algorithm/string.hpp>
 
 #include "Operators/ElmtOps/Expression/ExpressionBlockOp.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
@@ -115,8 +114,8 @@ protected:
     const TData *m_coordptr;
     NEKmodule m_nekModule;
     NEKcontext m_context;
-    std::vector<NEKfunction> m_kernel_handle1;
-    std::vector<NEKfunction> m_kernel_handle2;
+    NEKfunction m_kernel_handle1;
+    NEKfunction m_kernel_handle2;
 
     void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
                  BlockAccessor<TData, FieldState::Phys> &outblock) override
@@ -151,83 +150,124 @@ protected:
         const unsigned int gridSize  = (compSize + blockSize - 1u) / blockSize;
 
         // Loop over components.
-        unsigned int nc;
-        for (unsigned int n = 0;
-             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
+        for (unsigned int n = 0; n < inblock.GetNumHomoModes(); ++n)
         {
-            // Get component index
-            nc = n / inblock.GetNumHomoModes();
-
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(this->m_implInterleaveWidth,
-                                      interleaveWidth,
-                                      inblock.GetNumElementsWithPadding(),
-                                      inblock.GetNumData(), (TData *)inptr);
-
-            if (this->m_append)
+            for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
             {
                 ReshapeStorage<ExecSpace>(
                     this->m_implInterleaveWidth, interleaveWidth,
-                    outblock.GetNumElementsWithPadding(), outblock.GetNumData(),
-                    (TData *)outptr);
-            }
+                    inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
+                    (TData *)inptr +
+                        (n + nc * inblock.GetNumHomoModes()) * compSize);
 
-            // Check component mask
-            if (this->m_cmask[nc])
-            {
-                unsigned int numEvar = this->m_numEvars[nc];
-                void **args          = new void *[numEvar + 1];
-                args[0]              = (void *)&compSize;
-                args[1]              = (void *)&this->m_scale;
-                args[2]              = (void *)&m_coordptr;
-                args[3]              = (void *)&this->m_time;
-
-                // Set input pointers.
-                void **ptr = new void *[numEvar - 4];
-                for (unsigned int i = 0; i < numEvar - 4; i++)
+                // Check component mask
+                if (this->m_cmask[nc])
                 {
-                    ptr[i]      = (void *)(inptr + i * compSize);
-                    args[4 + i] = &ptr[i];
+                    if (&inblock != &outblock && this->m_append)
+                    {
+                        ReshapeStorage<ExecSpace>(
+                            this->m_implInterleaveWidth, interleaveWidth,
+                            outblock.GetNumElementsWithPadding(),
+                            outblock.GetNumData(),
+                            (TData *)outptr +
+                                (n + nc * outblock.GetNumHomoModes()) *
+                                    compSize);
+                    }
                 }
-                // Set output pointers.
-                args[numEvar]      = (void *)&outptr;
-                auto kernel_handle = (this->m_append) ? m_kernel_handle1[nc]
-                                                      : m_kernel_handle2[nc];
-#if defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
-                SYCLQueue::GetInstance().submit([&](sycl::handler &h) {
-#if defined(__ADAPTIVECPP__)
-                    h.AdaptiveCpp_enqueue_custom_operation(
-                        [=](sycl::interop_handle ih) {
-#else
-                    h.host_task([=](sycl::interop_handle ih) {
-#endif
-                            auto stream = ih.get_native_queue<sycl_backend>();
-                            nekLaunchKernel(kernel_handle, gridSize, 1, 1,
-                                            blockSize, 1, 1, 0, stream, args,
-                                            nullptr);
-                        });
-                });
-#else
-                nekLaunchKernel(kernel_handle, gridSize, 1, 1, blockSize, 1, 1,
-                                0, nullptr, args, nullptr);
-#endif
-                delete[] ptr;
-                delete[] args;
             }
+
+            unsigned int numOutVar = 0;
+            for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
+            {
+                // Check component mask
+                if (this->m_cmask[nc])
+                {
+                    numOutVar++;
+                }
+            }
+
+            // Set input parameters.
+            unsigned int numEvar = this->m_numEvars[0];
+            void **args          = new void *[numEvar + numOutVar];
+            args[0]              = (void *)&compSize;
+            args[1]              = (void *)&this->m_scale;
+            args[2]              = (void *)&m_coordptr;
+            args[3]              = (void *)&this->m_time;
+
+            // Set input pointers.
+            void **ptr = new void *[numEvar + numOutVar - 4];
+            for (unsigned int i = 0; i < numEvar - 4; i++)
+            {
+                ptr[i] = (void *)(inptr + (n + i * inblock.GetNumHomoModes()) *
+                                              compSize);
+                args[4 + i] = &ptr[i];
+            }
+
+            // Set output pointers.
+            for (unsigned int nc = 0, cnt = 0; nc < outblock.GetNumComponents();
+                 ++nc)
+            {
+                // Check component mask
+                if (this->m_cmask[nc])
+                {
+                    ptr[numEvar - 4 + cnt] =
+                        (void *)(outptr +
+                                 (n + nc * outblock.GetNumHomoModes()) *
+                                     compSize);
+                    args[numEvar + cnt] = &ptr[numEvar - 4 + cnt];
+                    cnt++;
+                }
+            }
+
+            // Launch kernel.
+            auto kernel_handle =
+                (this->m_append) ? m_kernel_handle1 : m_kernel_handle2;
+#if defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
+            SYCLQueue::GetInstance().submit([&](sycl::handler &h) {
+#if defined(__ADAPTIVECPP__)
+                h.AdaptiveCpp_enqueue_custom_operation(
+                    [=](sycl::interop_handle ih) {
+#else
+                h.host_task([=](sycl::interop_handle ih) {
+#endif
+                        auto stream = ih.get_native_queue<sycl_backend>();
+                        nekLaunchKernel(kernel_handle, gridSize, 1, 1,
+                                        blockSize, 1, 1, 0, stream, args,
+                                        nullptr);
+                    });
+            });
+#else
+            nekLaunchKernel(kernel_handle, gridSize, 1, 1, blockSize, 1, 1, 0,
+                            nullptr, args, nullptr);
+#endif
+            delete[] ptr;
+            delete[] args;
 
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(interleaveWidth,
-                                      this->m_implInterleaveWidth,
-                                      inblock.GetNumElementsWithPadding(),
-                                      inblock.GetNumData(), (TData *)inptr);
+            for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
+            {
+                ReshapeStorage<ExecSpace>(
+                    interleaveWidth, this->m_implInterleaveWidth,
+                    inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
+                    (TData *)inptr +
+                        (n + nc * inblock.GetNumHomoModes()) * compSize);
 
-            ReshapeStorage<ExecSpace>(interleaveWidth,
-                                      this->m_implInterleaveWidth,
-                                      outblock.GetNumElementsWithPadding(),
-                                      outblock.GetNumData(), (TData *)outptr);
-
-            // Increment pointer.
-            outptr += outblock.CompSize();
+                // Check component mask
+                if (this->m_cmask[nc])
+                {
+                    if (&inblock != &outblock)
+                    {
+                        ReshapeStorage<ExecSpace>(
+                            interleaveWidth, this->m_implInterleaveWidth,
+                            outblock.GetNumElementsWithPadding(),
+                            outblock.GetNumData(),
+                            (TData *)outptr +
+                                (n + nc * outblock.GetNumHomoModes()) *
+                                    compSize);
+                    }
+                }
+            }
         }
 
         // Set output block to input interleave.
@@ -237,12 +277,13 @@ protected:
     void v_SetExpressions(
         const std::vector<LibUtilities::EquationSharedPtr> &exprs) override
     {
+        // Use NVRTC (Nvidia Runtime Compilation) / HIPRTC (HIP Runtime
+        // Compilation) to generate a kernel function from a string expression.
+
         // Clean-up previous expression.
         if (m_isExpressionSet)
         {
             nekModuleUnload(m_nekModule);
-            m_kernel_handle1.clear();
-            m_kernel_handle2.clear();
         }
 
         this->m_expressions = exprs;
@@ -267,7 +308,6 @@ protected:
             }
         }
         // Specify parameters as constant variables.
-        // kernel_src += "#define PI  3.14159265358979323846 \n";
         for (unsigned int nc = 0; nc < this->m_expressions.size(); nc++)
         {
             auto parameters = this->m_expressions[nc]->GetParameters();
@@ -283,75 +323,92 @@ protected:
             }
         }
         kernel_src += "\n";
+        std::string kernel_name = "expression_kernel";
+        auto vnames =
+            ExpressionBlockOp<TData>::GetEvarsNames(this->m_expressions[0]);
+
+        kernel_src += "template<bool APPEND, typename TData>\n";
+        kernel_src += "__global__ void " + kernel_name;
+        // Set-up arguments:
+        kernel_src += "(";
+        // 0. size.
+        kernel_src += "const size_t nsize, ";
+        kernel_src += "const TData scale, ";
+        // 1. Coordinates.
+        kernel_src += "const TData* coordptr, ";
+        // 2. time variable.
+        kernel_src += "const TData t, ";
+        // 3. Pointers.
+        for (unsigned int i = 4; i < vnames.size(); i++)
+        {
+            kernel_src += "const TData* " + vnames[i] + "ptr, ";
+        }
+        // 4. Output variable.
         for (unsigned int nc = 0; nc < this->m_expressions.size(); nc++)
         {
-            std::string kernel_name = "expression_kernel" + std::to_string(nc);
-            std::vector<std::string> vnames;
-            boost::split(vnames, this->m_expressions[nc]->GetVlist(),
-                         boost::is_any_of(", "));
-
-            kernel_src += "template<bool APPEND, typename TData>\n";
-            kernel_src += "__global__ void " + kernel_name;
-            // Set-up arguments:
-            kernel_src += "(";
-            // 0. size.
-            kernel_src += "const size_t nsize, ";
-            kernel_src += "const TData scale, ";
-            // 1. Coordinates.
-            kernel_src += "const TData* coordptr, ";
-            // 2. time variable.
-            kernel_src += "const TData t, ";
-            // 3. Pointers.
-            for (unsigned int i = 4; i < vnames.size(); i++)
+            unsigned int cnt = 0;
+            if (this->m_cmask[nc])
             {
-                kernel_src += "const TData* " + vnames[i] + "ptr, ";
+                kernel_src += "TData* out" + std::to_string(nc) + ", ";
+                cnt++;
             }
-            // 4. Output variable.
-            kernel_src += "TData* out)\n";
-
-            kernel_src += "{\n";
-
-            // Assign local variables:
-            // 1. Thread index.
-            kernel_src += "    const size_t tid = blockIdx.x * blockDim.x + "
-                          "threadIdx.x;\n";
-            kernel_src += "    if (tid >= nsize) return;\n";
-            // 2. Coordinates.
-            if (m_coordDim == 1)
-            {
-                kernel_src += "    const TData x = coordptr[tid];\n";
-            }
-            else if (m_coordDim == 2)
-            {
-                kernel_src += "    const TData x = coordptr[2 * tid];\n";
-                kernel_src += "    const TData y = coordptr[2 * tid + 1];\n";
-            }
-            else if (m_coordDim == 3)
-            {
-                kernel_src += "    const TData x = coordptr[3 * tid];\n";
-                kernel_src += "    const TData y = coordptr[3 * tid + 1];\n";
-                kernel_src += "    const TData z = coordptr[3 * tid + 2];\n";
-            }
-            // 3. Pointers.
-            for (unsigned int i = 4; i < vnames.size(); i++)
-            {
-                kernel_src += "    const TData " + vnames[i] + " = " +
-                              vnames[i] + "ptr[tid];\n";
-            }
-
-            // Define expression.
-            std::string expression =
-                convertPow(this->m_expressions[nc]->GetExpression());
-            kernel_src += "    if constexpr (APPEND)\n";
-            kernel_src += "    {\n";
-            kernel_src += "        out[tid] = scale * (" + expression + ");\n";
-            kernel_src += "    }\n";
-            kernel_src += "    else\n";
-            kernel_src += "    {\n";
-            kernel_src += "        out[tid] += scale * (" + expression + ");\n";
-            kernel_src += "    };\n";
-            kernel_src += "}\n";
         }
+        kernel_src.pop_back();
+        kernel_src.pop_back();
+        kernel_src += ")\n";
+
+        kernel_src += "{\n";
+
+        // Assign local variables:
+        // 1. Thread index.
+        kernel_src += "    const size_t tid = blockIdx.x * blockDim.x + "
+                      "threadIdx.x;\n";
+        kernel_src += "    if (tid >= nsize) return;\n";
+        // 2. Coordinates.
+        if (m_coordDim == 1)
+        {
+            kernel_src += "    const TData x = coordptr[tid];\n";
+        }
+        else if (m_coordDim == 2)
+        {
+            kernel_src += "    const TData x = coordptr[2 * tid];\n";
+            kernel_src += "    const TData y = coordptr[2 * tid + 1];\n";
+        }
+        else if (m_coordDim == 3)
+        {
+            kernel_src += "    const TData x = coordptr[3 * tid];\n";
+            kernel_src += "    const TData y = coordptr[3 * tid + 1];\n";
+            kernel_src += "    const TData z = coordptr[3 * tid + 2];\n";
+        }
+        // 3. Pointers.
+        for (unsigned int i = 4; i < vnames.size(); i++)
+        {
+            kernel_src += "    const TData " + vnames[i] + " = " + vnames[i] +
+                          "ptr[tid];\n";
+        }
+
+        // Define expression.
+        for (unsigned int nc = 0, cnt = 0; nc < this->m_expressions.size();
+             nc++)
+        {
+            if (this->m_cmask[nc])
+            {
+                std::string expression =
+                    convertPow(this->m_expressions[nc]->GetExpression());
+                kernel_src += "    if constexpr (APPEND)\n";
+                kernel_src += "    {\n";
+                kernel_src += "        out" + std::to_string(cnt) +
+                              "[tid] += scale * (" + expression + ");\n";
+                kernel_src += "    }\n";
+                kernel_src += "    else\n";
+                kernel_src += "    {\n";
+                kernel_src += "        out" + std::to_string(cnt) +
+                              "[tid] = scale * (" + expression + ");\n";
+                kernel_src += "    };\n";
+                cnt++;
+            }
+        }
+        kernel_src += "}\n";
 
         // Print kernel
         // std::cout << kernel_src << std::endl;
@@ -369,18 +426,12 @@ protected:
 #endif
 
         // Register specialisation
-        for (unsigned int nc = 0; nc < this->m_expressions.size(); nc++)
-        {
-            std::string kernel_name = "expression_kernel" + std::to_string(nc);
-            std::string name_expr1 =
-                kernel_name + "<true, " + DataTypeToString<TData>() + ">";
-            CHECK_NEKRTC_ERROR(
-                nekrtcAddNameExpression(prog, name_expr1.c_str()));
-            std::string name_expr2 =
-                kernel_name + "<false, " + DataTypeToString<TData>() + ">";
-            CHECK_NEKRTC_ERROR(
-                nekrtcAddNameExpression(prog, name_expr2.c_str()));
-        }
+        std::string name_expr1 =
+            kernel_name + "<true, " + DataTypeToString<TData>() + ">";
+        CHECK_NEKRTC_ERROR(nekrtcAddNameExpression(prog, name_expr1.c_str()));
+        std::string name_expr2 =
+            kernel_name + "<false, " + DataTypeToString<TData>() + ">";
+        CHECK_NEKRTC_ERROR(nekrtcAddNameExpression(prog, name_expr2.c_str()));
 
         // Compile program.
         const char *opts[] = {"--std=c++17"};
@@ -394,28 +445,20 @@ protected:
         nekModuleLoadData(&m_nekModule, ptx.data());
 
         // Retrive mangled name and register function.
-        for (unsigned int nc = 0; nc < this->m_expressions.size(); nc++)
-        {
-            std::string kernel_name = "expression_kernel" + std::to_string(nc);
-            NEKfunction func;
-            const char *mangled_name;
-            std::string name_expr1 =
-                kernel_name + "<true, " + DataTypeToString<TData>() + ">";
-            CHECK_NEKRTC_ERROR(
-                nekrtcGetLoweredName(prog, name_expr1.c_str(), &mangled_name));
-            nekModuleGetFunction(&func, m_nekModule, mangled_name);
-            m_kernel_handle1.push_back(func);
-            std::string name_expr2 =
-                kernel_name + "<false, " + DataTypeToString<TData>() + ">";
-            CHECK_NEKRTC_ERROR(
-                nekrtcGetLoweredName(prog, name_expr2.c_str(), &mangled_name));
-            nekModuleGetFunction(&func, m_nekModule, mangled_name);
-            m_kernel_handle2.push_back(func);
-        }
+        const char *mangled_name;
+        CHECK_NEKRTC_ERROR(
+            nekrtcGetLoweredName(prog, name_expr1.c_str(), &mangled_name));
+        nekModuleGetFunction(&m_kernel_handle1, m_nekModule, mangled_name);
+        CHECK_NEKRTC_ERROR(
+            nekrtcGetLoweredName(prog, name_expr2.c_str(), &mangled_name));
+        nekModuleGetFunction(&m_kernel_handle2, m_nekModule, mangled_name);
         nekrtcDestroyProgram(&prog);
     }
 
     // From Google AI.
+    // To following helper functions are used to convert x^y expressions into
+    // pow(x, y) such that they can be evaluated in kernel functions.
+
     // Finds the matching bracket by scanning in a specific direction
     int findMatching(const std::string &s, int start, int direction)
     {

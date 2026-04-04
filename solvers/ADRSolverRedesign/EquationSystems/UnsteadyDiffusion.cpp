@@ -369,7 +369,7 @@ void UnsteadyDiffusion::InitialiseOperators()
     {
         // Create operator
         m_forcingOp = ExpressionOp<double>::Create(
-            m_fields[0], m_session->GetVariables(), "Serial", "Generic");
+            m_fields[0], m_session->GetVariables(), execName, "Generic");
 
         // Read initial conditions and configure operator
         std::vector<LibUtilities::EquationSharedPtr> forcingEquations;
