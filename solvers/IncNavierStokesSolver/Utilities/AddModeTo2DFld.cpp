@@ -54,8 +54,8 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    scal1 = boost::lexical_cast<double>(argv[argc - 5]);
-    scal2 = boost::lexical_cast<double>(argv[argc - 4]);
+    scal1 = atof(argv[argc - 5]);
+    scal2 = atof(argv[argc - 4]);
 
     //----------------------------------------------
     // Import fieldfile1.

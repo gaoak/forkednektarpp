@@ -791,6 +791,66 @@ void Expansion2D::v_PhysDeriv(const Array<OneD, const NekDouble> &inarray,
     }
 }
 
+void Expansion2D::v_PhysDirectionalDeriv(
+    const Array<OneD, const NekDouble> &inarray,
+    const Array<OneD, const NekDouble> &direction,
+    Array<OneD, NekDouble> &outarray)
+{
+    int nquad0 = m_base[0]->GetNumPoints();
+    int nquad1 = m_base[1]->GetNumPoints();
+    int nqtot  = nquad0 * nquad1;
+
+    const Array<TwoD, const NekDouble> &df = m_geomFactors->GetDerivFactors();
+
+    Array<OneD, NekDouble> diff0(2 * nqtot);
+    Array<OneD, NekDouble> diff1(diff0 + nqtot);
+
+    // diff0 = du/d_xi, diff1 = du/d_eta
+    v_StdPhysDeriv(inarray, diff0, diff1, NullNekDouble1DArray);
+
+    if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed)
+    {
+        Array<OneD, Array<OneD, NekDouble>> tangmat(2);
+
+        // D^v_xi = v_x*d_xi/dx + v_y*d_xi/dy + v_z*d_xi/dz
+        // D^v_eta = v_x*d_eta/dx + v_y*d_eta/dy + v_z*d_eta/dz
+        for (int i = 0; i < 2; ++i)
+        {
+            tangmat[i] = Array<OneD, NekDouble>(nqtot, 0.0);
+            for (int k = 0; k < (m_geom->GetCoordim()); ++k)
+            {
+                Vmath::Vvtvp(nqtot, &df[2 * k + i][0], 1, &direction[k * nqtot],
+                             1, &tangmat[i][0], 1, &tangmat[i][0], 1);
+            }
+        }
+
+        /// D_v = D^v_xi * du/d_xi + D^v_eta * du/d_eta
+        Vmath::Vmul(nqtot, &tangmat[0][0], 1, &diff0[0], 1, &outarray[0], 1);
+        Vmath::Vvtvp(nqtot, &tangmat[1][0], 1, &diff1[0], 1, &outarray[0], 1,
+                     &outarray[0], 1);
+    }
+    else
+    {
+        Array<OneD, Array<OneD, NekDouble>> tangmat(2);
+
+        for (int i = 0; i < 2; ++i)
+        {
+            tangmat[i] = Array<OneD, NekDouble>(nqtot, 0.0);
+            for (int k = 0; k < (m_geom->GetCoordim()); ++k)
+            {
+                Vmath::Svtvp(nqtot, df[2 * k + i][0], &direction[k * nqtot], 1,
+                             &tangmat[i][0], 1, &tangmat[i][0], 1);
+            }
+        }
+
+        /// D_v = D^v_xi * du/d_xi + D^v_eta * du/d_eta
+        Vmath::Vmul(nqtot, &tangmat[0][0], 1, &diff0[0], 1, &outarray[0], 1);
+
+        Vmath::Vvtvp(nqtot, &tangmat[1][0], 1, &diff1[0], 1, &outarray[0], 1,
+                     &outarray[0], 1);
+    }
+}
+
 void Expansion2D::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
                                     Array<OneD, NekDouble> &outarray)
 {

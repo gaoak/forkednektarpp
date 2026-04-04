@@ -166,11 +166,11 @@ void ForcingSyntheticEddy::v_InitObject(
             boxStream >> boxStr;
             if (i < m_spacedim)
             {
-                m_rc[i] = boost::lexical_cast<NekDouble>(boxStr);
+                m_rc[i] = std::stod(boxStr);
             }
             else
             {
-                m_lyz[i - m_spacedim] = boost::lexical_cast<NekDouble>(boxStr);
+                m_lyz[i - m_spacedim] = std::stod(boxStr);
             }
             countVar += 1;
         }
@@ -186,14 +186,14 @@ void ForcingSyntheticEddy::v_InitObject(
     ASSERTL0(elmtInfTurb,
              "Unable to find Sigma tag. in SyntheticTurbulence forcing");
     std::string sigmaStr = elmtInfTurb->GetText();
-    m_sigma              = boost::lexical_cast<NekDouble>(sigmaStr);
+    m_sigma              = std::stod(sigmaStr);
 
     // Read bulk velocity
     elmtInfTurb = pForce->FirstChildElement("BulkVelocity");
     ASSERTL0(elmtInfTurb,
              "Unable to find BulkVelocity tag. in SyntheticTurbulence forcing");
     std::string bVelStr = elmtInfTurb->GetText();
-    m_Ub                = boost::lexical_cast<NekDouble>(bVelStr);
+    m_Ub                = std::stod(bVelStr);
 
     // Read flag to check if the run is a test case
     elmtInfTurb          = pForce->FirstChildElement("TestCase");

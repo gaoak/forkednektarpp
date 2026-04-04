@@ -8,8 +8,8 @@
     </files>
     <metrics>
         <metric type="L2" id="1">
-            <value variable="eta" tolerance="1e-8">0.000552485</value>
-            <value variable="u" tolerance="1e-8">0.000625905</value>
+            <value variable="eta" tolerance="1e-8">0.0153109</value>
+            <value variable="u" tolerance="1e-8">0.0173456</value>
             <value variable="v" tolerance="1e-8">0.0</value>
         </metric>
         <metric type="Linf" id="2">

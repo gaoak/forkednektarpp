@@ -113,6 +113,9 @@ public:
 protected:
     std::vector<bool> m_requireNeg;
 
+    //----------------------------
+    // Differentiation Methods
+    //----------------------------
     LOCAL_REGIONS_EXPORT void v_PhysDeriv(
         const int dir, const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;
@@ -120,6 +123,11 @@ protected:
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &out_d0, Array<OneD, NekDouble> &out_d1,
         Array<OneD, NekDouble> &out_d2 = NullNekDouble1DArray) override;
+    LOCAL_REGIONS_EXPORT void v_PhysDirectionalDeriv(
+        const Array<OneD, const NekDouble> &inarray,
+        const Array<OneD, const NekDouble> &direction,
+        Array<OneD, NekDouble> &out) override;
+
     LOCAL_REGIONS_EXPORT void v_IProductWRTBase(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;

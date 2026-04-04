@@ -42,7 +42,6 @@
 #endif
 
 #include <boost/random/normal_distribution.hpp>
-#include <boost/random/variate_generator.hpp>
 
 #include <MultiRegions/AssemblyMap/AssemblyMapDG.h>
 
@@ -366,7 +365,7 @@ void AcousticSystem::WhiteNoiseBC(
 
     if (m_rng.count(bcRegion) == 0)
     {
-        m_rng[bcRegion] = boost::mt19937(bcRegion);
+        m_rng[bcRegion] = std::mt19937(bcRegion);
     }
 
     ASSERTL0(

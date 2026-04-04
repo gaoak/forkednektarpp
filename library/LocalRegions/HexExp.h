@@ -58,14 +58,6 @@ public:
     LOCAL_REGIONS_EXPORT ~HexExp() override = default;
 
 protected:
-    //-----------------------------
-    // Differentiation Methods
-    //-----------------------------
-    LOCAL_REGIONS_EXPORT void v_PhysDirectionalDeriv(
-        const Array<OneD, const NekDouble> &inarray,
-        const Array<OneD, const NekDouble> &direction,
-        Array<OneD, NekDouble> &out) override;
-
     //---------------------------------------
     // Inner product functions
     //---------------------------------------

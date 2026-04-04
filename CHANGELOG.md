@@ -30,6 +30,7 @@ v5.10.0
 - Tidy v_FwdTrans, v_Integral, v_GetStdExp, v_GetLinStdExp virtual functions (!!2384)
 - Remove AdvectionFR, DiffusionLFR, and DiffusioLFRNS (!2425)
 - Fix NoCollection IProductWRTDerivBase for embedded case (!2454)
+- Tidy PhysDirectionalDeriv implementation in LocalRegions (!2473)
 
 **IncNavierStokesSolver**
 - Added an option to process Reynolds Stress fields at a higher polynomial order (!2303)
@@ -39,6 +40,9 @@ v5.10.0
 **CI**
 - Add PROCESSORS property to tests to enforce correct parallelism (!2445)
 
+
+**AcousticSolver**
+- Use native c++ random number generator instead of boost (!2379)
 
 v5.9.0
 ------

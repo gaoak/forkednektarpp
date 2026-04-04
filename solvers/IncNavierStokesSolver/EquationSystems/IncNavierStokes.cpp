@@ -692,13 +692,13 @@ void IncNavierStokes::SetUpWomersley(const int fldid, const int bndid,
         ASSERTL0(
             parseGood,
             (std::string("Problem reading value of fourier coefficient, ID=") +
-             boost::lexical_cast<std::string>(indx))
+             std::to_string(indx))
                 .c_str());
         ASSERTL1(
             coeffvals.size() == 2,
             (std::string(
                  "Have not read two entries of Fourier coefficicent from ID=" +
-                 boost::lexical_cast<std::string>(indx))
+                 std::to_string(indx))
                  .c_str()));
 
         m_womersleyParams[fldid][bndid]->m_wom_vel.push_back(

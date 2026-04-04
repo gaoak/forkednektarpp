@@ -31,12 +31,12 @@ IF( NEKTAR_SOLVER_SHALLOW_WATER )
         MESSAGE(WARNING, "Solver library build not set up for ShallowWaterSolver - skipping.")
     ENDIF()
 
-    ADD_NEKTAR_PERFORMANCE_TEST(Perf_TestMMFSWEPlane)
+    ADD_NEKTAR_PERFORMANCE_TEST(Perf_MMFSWEPlane)
 
     # MMF Shallow Water
-    ADD_NEKTAR_TEST(TestMMFSWEPlane)
-    ADD_NEKTAR_TEST(TestMMFSWEZonalSphere)
-    ADD_NEKTAR_TEST(TestMMFSWERossbySphere)
+    ADD_NEKTAR_TEST(MMFSWEPlane)
+    ADD_NEKTAR_TEST(MMFSWEZonalSphere)
+    ADD_NEKTAR_TEST(MMFSWERossbySphere)
 
     ADD_NEKTAR_TEST(LinearSWE_StandingWave_WallBC_CG_P4)
     ADD_NEKTAR_TEST(LinearSWE_StandingWave_WallBC_CG_P8)

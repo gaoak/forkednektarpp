@@ -1819,6 +1819,34 @@ void Expansion3D::v_PhysDeriv(const Array<OneD, const NekDouble> &inarray,
     }
 }
 
+void Expansion3D::v_PhysDirectionalDeriv(
+    const Array<OneD, const NekDouble> &inarray,
+    const Array<OneD, const NekDouble> &direction,
+    Array<OneD, NekDouble> &outarray)
+{
+    int shapedim = 3;
+    int nquad0   = m_base[0]->GetNumPoints();
+    int nquad1   = m_base[1]->GetNumPoints();
+    int nquad2   = m_base[2]->GetNumPoints();
+    int ntot     = nquad0 * nquad1 * nquad2;
+
+    Array<TwoD, const NekDouble> df = m_geomFactors->GetDerivFactors();
+    Array<OneD, NekDouble> Diff0    = Array<OneD, NekDouble>(ntot);
+    Array<OneD, NekDouble> Diff1    = Array<OneD, NekDouble>(ntot);
+    Array<OneD, NekDouble> Diff2    = Array<OneD, NekDouble>(ntot);
+
+    v_StdPhysDeriv(inarray, Diff0, Diff1, Diff2);
+
+    Array<OneD, Array<OneD, NekDouble>> dfdir(shapedim);
+    Expansion::ComputeGmatcdotMF(df, direction, dfdir);
+
+    Vmath::Vmul(ntot, &dfdir[0][0], 1, &Diff0[0], 1, &outarray[0], 1);
+    Vmath::Vvtvp(ntot, &dfdir[1][0], 1, &Diff1[0], 1, &outarray[0], 1,
+                 &outarray[0], 1);
+    Vmath::Vvtvp(ntot, &dfdir[2][0], 1, &Diff2[0], 1, &outarray[0], 1,
+                 &outarray[0], 1);
+}
+
 /**
  * \brief Calculate the inner product of inarray with respect to the
  * elements basis.

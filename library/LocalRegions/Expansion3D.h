@@ -137,11 +137,18 @@ protected:
                    Array<OneD, ExpansionSharedPtr> &FaceExp,
                    Array<OneD, Array<OneD, NekDouble>> &faceCoeffs,
                    Array<OneD, NekDouble> &out_d) override;
+    //-----------------------------
+    // Differentiation Methods
+    //-----------------------------
     LOCAL_REGIONS_EXPORT void v_PhysDeriv(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &out_d0, Array<OneD, NekDouble> &out_d1,
         Array<OneD, NekDouble> &out_d2) override;
     using StdExpansion3D::v_PhysDeriv;
+    LOCAL_REGIONS_EXPORT void v_PhysDirectionalDeriv(
+        const Array<OneD, const NekDouble> &inarray,
+        const Array<OneD, const NekDouble> &direction,
+        Array<OneD, NekDouble> &out) override;
 
     LOCAL_REGIONS_EXPORT void v_IProductWRTBase(
         const Array<OneD, const NekDouble> &inarray,

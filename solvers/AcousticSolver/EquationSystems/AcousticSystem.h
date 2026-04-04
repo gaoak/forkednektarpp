@@ -42,8 +42,6 @@
 #define BOOST_ALLOW_DEPRECATED_HEADERS
 #endif
 
-#include <boost/random/mersenne_twister.hpp>
-
 #include <SolverUtils/Advection/Advection.h>
 #include <SolverUtils/AdvectionSystem.h>
 #include <SolverUtils/Core/Coupling.h>
@@ -130,7 +128,7 @@ protected:
     }
 
 private:
-    std::map<int, boost::mt19937> m_rng;
+    std::map<int, std::mt19937> m_rng;
     NekDouble m_whiteNoiseBC_lastUpdate;
     NekDouble m_whiteNoiseBC_p;
 

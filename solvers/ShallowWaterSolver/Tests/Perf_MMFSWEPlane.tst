@@ -2,9 +2,9 @@
 <test runs="20">
     <description>MMF SWE solver, DG, P=4</description>
     <executable>ShallowWaterSolver</executable>
-    <parameters>Perf_TestMMFSWEPlane.xml</parameters>
+    <parameters>Perf_MMFSWEPlane.xml</parameters>
     <files>
-        <file description="Session File">Perf_TestMMFSWEPlane.xml</file>
+        <file description="Session File">Perf_MMFSWEPlane.xml</file>
     </files>
     <metrics>
         <metric type="L2" id="1">

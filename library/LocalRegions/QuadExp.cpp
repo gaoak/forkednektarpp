@@ -64,51 +64,6 @@ QuadExp::QuadExp(const QuadExp &T)
 {
 }
 
-void QuadExp::v_PhysDirectionalDeriv(
-    const Array<OneD, const NekDouble> &inarray,
-    const Array<OneD, const NekDouble> &direction, Array<OneD, NekDouble> &out)
-{
-    int nquad0 = m_base[0]->GetNumPoints();
-    int nquad1 = m_base[1]->GetNumPoints();
-    int nqtot  = nquad0 * nquad1;
-
-    const Array<TwoD, const NekDouble> &df = m_geomFactors->GetDerivFactors();
-
-    Array<OneD, NekDouble> diff0(2 * nqtot);
-    Array<OneD, NekDouble> diff1(diff0 + nqtot);
-
-    v_StdPhysDeriv(inarray, diff0, diff1, NullNekDouble1DArray);
-
-    if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed)
-    {
-        Array<OneD, Array<OneD, NekDouble>> tangmat(2);
-
-        // d/dx_v^s = v_x*ds/dx + v_y*ds/dy + v_z*dx/dz
-        for (int i = 0; i < 2; ++i)
-        {
-            tangmat[i] = Array<OneD, NekDouble>(nqtot, 0.0);
-            for (int k = 0; k < (m_geom->GetCoordim()); ++k)
-            {
-                Vmath::Vvtvp(nqtot, &df[2 * k + i][0], 1, &direction[k * nqtot],
-                             1, &tangmat[i][0], 1, &tangmat[i][0], 1);
-            }
-        }
-
-        /// D_v = d/dx_v^s + d/dx_v^r
-        if (out.size())
-        {
-            Vmath::Vmul(nqtot, &tangmat[0][0], 1, &diff0[0], 1, &out[0], 1);
-            Vmath::Vvtvp(nqtot, &tangmat[1][0], 1, &diff1[0], 1, &out[0], 1,
-                         &out[0], 1);
-        }
-    }
-    else
-    {
-        ASSERTL1(m_geomFactors->GetGtype() == SpatialDomains::eDeformed,
-                 "Wrong route");
-    }
-}
-
 void QuadExp::v_FwdTransBndConstrained(
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray)
