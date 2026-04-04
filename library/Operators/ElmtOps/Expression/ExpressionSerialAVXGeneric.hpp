@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: ExpressionSerialGeneric.hpp
+// File: ExpressionSerialAVXGeneric.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -101,10 +101,15 @@ protected:
         const auto compSize = inblock.CompSize();
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = (this->m_append)
-                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
-                          : outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr = (&inblock != &outblock)
+                         ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                         : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr =
+            (&inblock != &outblock)
+                ? (this->m_append)
+                      ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                      : outblock.template GetPtr<MemSpace, WriteOnly>()
+                : (TData *)inptr;
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -134,6 +139,13 @@ protected:
                     (TData *)outptr);
             }
 
+            // Synchronization barrier to allow SYCL-CPU back-end to reuse
+            // Serial/AVX code.
+            if constexpr (std::is_same_v<ExecSpace, NektarSpaces::Device>)
+            {
+                nekStreamSynchronize(nullptr);
+            }
+
             // Check component mask
             if (this->m_cmask[nc])
             {
@@ -142,7 +154,6 @@ protected:
                 for (size_t e = 0, cnt = 0; e < nelmt; e++)
                 {
                     // Kernel operation.
-                    unsigned int nev;
                     TData fce = 0.0;
                     for (unsigned int pt = 0; pt < this->m_nqTot; ++pt, ++cnt)
                     {
@@ -162,8 +173,7 @@ protected:
                         // Add EVARS, if required
                         // Note we assume that inblock holds all fields as
                         // components
-                        nev = 0;
-                        for (unsigned i = 4; i < this->m_numEvars[nc];
+                        for (unsigned i = 4, nev = 0; i < this->m_numEvars[nc];
                              i++, nev++)
                         {
                             fielddata[i] = *(inptr + nev * compSize + cnt);
@@ -181,6 +191,13 @@ protected:
                         coordptr += this->m_coordDim;
                     }
                 }
+            }
+
+            // Synchronization barrier to allow SYCL-CPU back-end to reuse
+            // Serial/AVX code.
+            if constexpr (std::is_same_v<ExecSpace, NektarSpaces::Device>)
+            {
+                nekStreamSynchronize(nullptr);
             }
 
             // Reshape, if necessary.

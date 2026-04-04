@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: HIPCUDA.hpp
+// File: HIPCUDA_DEVICE_API.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -33,6 +33,13 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
+
+#if defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)
+#include <cooperative_groups.h>
+#include <cooperative_groups/reduce.h>
+#elif defined(NEKTAR_ENABLE_HIP) && defined(DEVICE_COMPILE_ONLY)
+#include <hip/hip_cooperative_groups.h>
+#endif
 
 #if (defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)) ||           \
     (defined(NEKTAR_ENABLE_HIP) && defined(DEVICE_COMPILE_ONLY))

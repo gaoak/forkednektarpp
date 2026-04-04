@@ -40,11 +40,28 @@
 #include "Operators/ElmtOps/Expression/ExpressionBlockOp.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
-#if defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
-#include "Operators/ElmtOps/Expression/ExpressionSerialGeneric.hpp"
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP)
+#if defined(SYCL_ENABLE_CPU) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+#include "Operators/ElmtOps/Expression/ExpressionSerialAVXGeneric.hpp"
+#else
+#if defined(SYCL_ENABLE_CUDA) && defined(__ADAPTIVECPP__)
+#define sycl_backend sycl::backend::cuda
+#elif defined(SYCL_ENABLE_CUDA)
+#define sycl_backend sycl::backend::ext_oneapi_cuda
+#elif defined(SYCL_ENABLE_HIP) && defined(__ADAPTIVECPP__)
+#define sycl_backend sycl::backend::hip
+#elif defined(SYCL_ENABLE_HIP)
+#define sycl_backend sycl::backend::ext_oneapi_hip
+#endif
+
+#if defined(SYCL_ENABLE_CUDA)
+#include "Operators/Common/Backends/CUDA_HOST_API.hpp"
+#elif defined(SYCL_ENABLE_HIP)
+#include "Operators/Common/Backends/HIP_HOST_API.hpp"
+#endif
+
 namespace Nektar::Operators::detail
 {
+
 template <typename ExecSpace, typename Implementation, typename TData>
 class ExpressionBlockOpImpl : public ExpressionBlockOp<TData>
 {
@@ -70,7 +87,6 @@ public:
 
     ~ExpressionBlockOpImpl(void)
     {
-        nekrtcDestroyProgram(&m_prog);
         nekModuleUnload(m_nekModule);
     }
 
@@ -97,7 +113,6 @@ protected:
     unsigned int m_coordDim;
     unsigned int m_nqTot;
     const TData *m_coordptr;
-    nekrtcProgram m_prog;
     NEKmodule m_nekModule;
     NEKcontext m_context;
     std::vector<NEKfunction> m_kernel_handle1;
@@ -115,14 +130,18 @@ protected:
                  "Number of expressions must match size of component mask when "
                  "calling Apply().")
 
-        const auto nelmt    = inblock.GetNumElements();
         const auto compSize = inblock.CompSize();
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = (this->m_append)
-                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
-                          : outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr = (&inblock != &outblock)
+                         ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                         : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr =
+            (&inblock != &outblock)
+                ? (this->m_append)
+                      ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                      : outblock.template GetPtr<MemSpace, WriteOnly>()
+                : (TData *)inptr;
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -171,17 +190,27 @@ protected:
                     args[4 + i] = &ptr[i];
                 }
                 // Set output pointers.
-                args[numEvar] = (void *)&outptr;
-                if (this->m_append)
-                {
-                    nekLaunchKernel(m_kernel_handle1[nc], gridSize, 1, 1,
-                                    blockSize, 1, 1, 0, NULL, args, NULL);
-                }
-                else
-                {
-                    nekLaunchKernel(m_kernel_handle2[nc], gridSize, 1, 1,
-                                    blockSize, 1, 1, 0, NULL, args, NULL);
-                }
+                args[numEvar]      = (void *)&outptr;
+                auto kernel_handle = (this->m_append) ? m_kernel_handle1[nc]
+                                                      : m_kernel_handle2[nc];
+#if defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
+                SYCLQueue::GetInstance().submit([&](sycl::handler &h) {
+#if defined(__ADAPTIVECPP__)
+                    h.AdaptiveCpp_enqueue_custom_operation(
+                        [=](sycl::interop_handle ih) {
+#else
+                    h.host_task([=](sycl::interop_handle ih) {
+#endif
+                            auto stream = ih.get_native_queue<sycl_backend>();
+                            nekLaunchKernel(kernel_handle, gridSize, 1, 1,
+                                            blockSize, 1, 1, 0, stream, args,
+                                            nullptr);
+                        });
+                });
+#else
+                nekLaunchKernel(kernel_handle, gridSize, 1, 1, blockSize, 1, 1,
+                                0, nullptr, args, nullptr);
+#endif
                 delete[] ptr;
                 delete[] args;
             }
@@ -211,7 +240,6 @@ protected:
         // Clean-up previous expression.
         if (m_isExpressionSet)
         {
-            nekrtcDestroyProgram(&m_prog);
             nekModuleUnload(m_nekModule);
             m_kernel_handle1.clear();
             m_kernel_handle2.clear();
@@ -312,7 +340,8 @@ protected:
             }
 
             // Define expression.
-            std::string expression = this->m_expressions[nc]->GetExpression();
+            std::string expression =
+                convertPow(this->m_expressions[nc]->GetExpression());
             kernel_src += "    if constexpr (APPEND)\n";
             kernel_src += "    {\n";
             kernel_src += "        out[tid] = scale * (" + expression + ");\n";
@@ -328,14 +357,15 @@ protected:
         // std::cout << kernel_src << std::endl;
 
         // Create program.
-#if defined(NEKTAR_ENABLE_CUDA)
-        CHECK_NEKRTC_ERROR(nekrtcCreateProgram(&m_prog, kernel_src.c_str(),
-                                               "expression_kernels.cu", 0, NULL,
-                                               NULL));
-#elif defined(NEKTAR_ENABLE_HIP)
-        CHECK_NEKRTC_ERROR(nekrtcCreateProgram(&m_prog, kernel_src.c_str(),
+        nekrtcProgram prog;
+#if defined(NEKTAR_ENABLE_CUDA) || defined(SYCL_ENABLE_CUDA)
+        CHECK_NEKRTC_ERROR(nekrtcCreateProgram(&prog, kernel_src.c_str(),
+                                               "expression_kernels.cu", 0,
+                                               nullptr, nullptr));
+#elif defined(NEKTAR_ENABLE_HIP) || defined(SYCL_ENABLE_HIP)
+        CHECK_NEKRTC_ERROR(nekrtcCreateProgram(&prog, kernel_src.c_str(),
                                                "expression_kernels.hip", 0,
-                                               NULL, NULL));
+                                               nullptr, nullptr));
 #endif
 
         // Register specialisation
@@ -345,22 +375,22 @@ protected:
             std::string name_expr1 =
                 kernel_name + "<true, " + DataTypeToString<TData>() + ">";
             CHECK_NEKRTC_ERROR(
-                nekrtcAddNameExpression(m_prog, name_expr1.c_str()));
+                nekrtcAddNameExpression(prog, name_expr1.c_str()));
             std::string name_expr2 =
                 kernel_name + "<false, " + DataTypeToString<TData>() + ">";
             CHECK_NEKRTC_ERROR(
-                nekrtcAddNameExpression(m_prog, name_expr2.c_str()));
+                nekrtcAddNameExpression(prog, name_expr2.c_str()));
         }
 
         // Compile program.
-        const char *opts[] = {"", ""};
-        CHECK_NEKRTC_ERROR(nekrtcCompileProgram(m_prog, 0, opts));
+        const char *opts[] = {"--std=c++17"};
+        CHECK_NEKRTC_ERROR(nekrtcCompileProgram(prog, 1, opts));
 
         // Load module.
         size_t ptx_size;
-        CHECK_NEKRTC_ERROR(nekrtcGetCodeSize(m_prog, &ptx_size));
+        CHECK_NEKRTC_ERROR(nekrtcGetCodeSize(prog, &ptx_size));
         std::vector<char> ptx(ptx_size);
-        CHECK_NEKRTC_ERROR(nekrtcGetCode(m_prog, ptx.data()));
+        CHECK_NEKRTC_ERROR(nekrtcGetCode(prog, ptx.data()));
         nekModuleLoadData(&m_nekModule, ptx.data());
 
         // Retrive mangled name and register function.
@@ -371,17 +401,82 @@ protected:
             const char *mangled_name;
             std::string name_expr1 =
                 kernel_name + "<true, " + DataTypeToString<TData>() + ">";
-            CHECK_NEKRTC_ERROR(nekrtcGetLoweredName(m_prog, name_expr1.c_str(),
-                                                    &mangled_name));
+            CHECK_NEKRTC_ERROR(
+                nekrtcGetLoweredName(prog, name_expr1.c_str(), &mangled_name));
             nekModuleGetFunction(&func, m_nekModule, mangled_name);
             m_kernel_handle1.push_back(func);
             std::string name_expr2 =
                 kernel_name + "<false, " + DataTypeToString<TData>() + ">";
-            CHECK_NEKRTC_ERROR(nekrtcGetLoweredName(m_prog, name_expr2.c_str(),
-                                                    &mangled_name));
+            CHECK_NEKRTC_ERROR(
+                nekrtcGetLoweredName(prog, name_expr2.c_str(), &mangled_name));
             nekModuleGetFunction(&func, m_nekModule, mangled_name);
             m_kernel_handle2.push_back(func);
         }
+        nekrtcDestroyProgram(&prog);
+    }
+
+    // From Google AI.
+    // Finds the matching bracket by scanning in a specific direction
+    int findMatching(const std::string &s, int start, int direction)
+    {
+        int count = 0;
+        for (int i = start; i >= 0 && i < s.length(); i += direction)
+        {
+            if (s[i] == '(')
+                count += direction;
+            else if (s[i] == ')')
+                count -= direction;
+            if (count == 0)
+                return i;
+        }
+        return start;
+    }
+
+    std::string convertPow(std::string expr)
+    {
+        size_t caret;
+        while ((caret = expr.find('^')) != std::string::npos)
+        {
+            int left_start, right_end;
+
+            // 1. Identify Left Operand (Base)
+            if (expr[caret - 1] == ')')
+            {
+                left_start = findMatching(expr, caret - 1, -1);
+            }
+            else
+            {
+                left_start = caret - 1;
+                while (left_start > 0 && (isalnum(expr[left_start - 1]) ||
+                                          expr[left_start - 1] == '.'))
+                {
+                    left_start--;
+                }
+            }
+            std::string base = expr.substr(left_start, caret - left_start);
+
+            // 2. Identify Right Operand (Exponent)
+            if (expr[caret + 1] == '(')
+            {
+                right_end = findMatching(expr, caret + 1, 1);
+            }
+            else
+            {
+                right_end = caret + 1;
+                while (right_end < expr.length() - 1 &&
+                       (isalnum(expr[right_end + 1]) ||
+                        expr[right_end + 1] == '.'))
+                {
+                    right_end++;
+                }
+            }
+            std::string exponent = expr.substr(caret + 1, right_end - caret);
+
+            // 3. Replace x^y with pow(x, y)
+            std::string replacement = "pow(" + base + ", " + exponent + ")";
+            expr.replace(left_start, (right_end - left_start + 1), replacement);
+        }
+        return expr;
     }
 };
 

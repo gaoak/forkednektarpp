@@ -47,3 +47,26 @@ IF(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
 ENDIF()
 
 INCLUDE(NektarOneMath)
+
+IF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA")
+    FIND_PACKAGE(CUDAToolkit ${CUDA_MIN_VERSION} REQUIRED)
+    SET(NEKTAR_SYCL_DEPENDS ${NEKTAR_SYCL_DEPENDS} CUDA::cudart CUDA::cuda_driver CUDA::nvrtc)
+ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-HIP")
+    IF(WIN32)
+        SET(ROCM_ROOT
+            "$ENV{HIP_PATH}"
+            CACHE PATH
+            "Root directory of the ROCm installation"
+        )
+    ELSE()
+        SET(ROCM_ROOT
+            "/opt/rocm"
+            CACHE PATH
+            "Root directory of the ROCm installation"
+        )
+    ENDIF()
+    LIST(APPEND CMAKE_PREFIX_PATH "${ROCM_ROOT}")
+    FIND_PACKAGE(HIP REQUIRED)
+    FIND_LIBRARY(HIPRTC_LIB hiprtc HINTS ${HIP_PATH}/lib /opt/rocm/lib)
+    SET(NEKTAR_SYCL_DEPENDS ${NEKTAR_SYCL_DEPENDS} hip::host ${HIPRTC_LIB})
+ENDIF()

@@ -894,12 +894,12 @@ ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
 ELSEIF(NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
-      Common/SYCLQueue.hpp
+      Common/Backends/SYCLQueue.hpp
     )
 
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-      Common/SYCLQueue.cpp
+      Common/Backends/SYCLQueue.cpp
     )
 
     SET(OPERATORS_DEPENDS

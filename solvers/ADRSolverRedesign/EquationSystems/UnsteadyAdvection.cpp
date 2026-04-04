@@ -226,8 +226,8 @@ void UnsteadyAdvection::DoProjection(Field<double, FieldState::Phys> &in,
 void UnsteadyAdvection::InitialiseOperators()
 {
     // Initialise Math
-    m_execName = Operator<double>::GetOpExecSpace(m_session);
-    m_math     = Math(m_execName);
+    std::string execName = Operator<double>::GetOpExecSpace(m_session);
+    m_math               = Math(execName);
 
     m_fields[0]->SetDataWarehouse();
     m_fields[0]->GetTrace()->SetDataWarehouse();
@@ -315,9 +315,11 @@ void UnsteadyAdvection::SetInitialConditionsField(
     // Set initial conditions from session file
     if (m_session->DefinesFunction("InitialConditions"))
     {
+        std::string execName = Operator<double>::GetOpExecSpace(m_session);
+
         // Initialise operators
         auto initialOp = ExpressionOp<double>::Create(
-            m_fields[0], m_session->GetVariables(), "Serial", "Generic");
+            m_fields[0], m_session->GetVariables(), execName, "Generic");
 
         // Read initial conditions and configure operator
         std::vector<LibUtilities::EquationSharedPtr> initialConditons;
@@ -330,7 +332,7 @@ void UnsteadyAdvection::SetInitialConditionsField(
         initialOp->SetTime(m_time);
 
         // Set initial conditions defined in session and update coefficients
-        m_math.zero(field, "Serial"); // Use Serial for now as in initialOp.
+        m_math.zero(field);
         initialOp->Apply(field, field);
 
         // Print for initial conditions
