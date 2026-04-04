@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include <boost/algorithm/string.hpp>
+
 #include "LibUtilities/BasicUtils/Equation.h"
 #include "Operators/ElmtOps/ElmtBlockOp.hpp"
 
@@ -110,6 +112,14 @@ protected:
 
     virtual void v_SetExpressions(
         const std::vector<LibUtilities::EquationSharedPtr> &exprs) = 0;
+
+    static std::vector<std::string> GetEvarsNames(
+        const LibUtilities::EquationSharedPtr &expression)
+    {
+        std::vector<std::string> vnames;
+        boost::split(vnames, expression->GetVlist(), boost::is_any_of(", "));
+        return vnames;
+    }
 };
 
 } // namespace Nektar::Operators

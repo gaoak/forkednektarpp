@@ -257,7 +257,7 @@ void UnsteadyAdvection::InitialiseOperators()
 
         // Create operator
         m_expressionOp =
-            ExpressionOp<double>::Create(m_fields[0], vel, "Serial", "Generic");
+            ExpressionOp<double>::Create(m_fields[0], vel, execName, "Generic");
 
         m_getFwdBwdTracePhysOp =
             GetFwdBwdTracePhysOp<double>::Create(m_fields[0], vel);

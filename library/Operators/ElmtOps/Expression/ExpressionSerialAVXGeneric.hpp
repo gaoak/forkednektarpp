@@ -115,28 +115,16 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Loop over components.
-        unsigned int nc;
-        for (unsigned int n = 0;
-             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
+        for (unsigned int n = 0; n < inblock.GetNumHomoModes(); ++n)
         {
-            // Get component index
-            nc = n / inblock.GetNumHomoModes();
-
-            // Pre-allocate vector for point-wise fielddata
-            std::vector<double> fielddata(this->m_numEvars[nc]);
-
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(this->m_implInterleaveWidth,
-                                      interleaveWidth,
-                                      inblock.GetNumElementsWithPadding(),
-                                      inblock.GetNumData(), (TData *)inptr);
-
-            if (this->m_append)
+            for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
             {
                 ReshapeStorage<ExecSpace>(
                     this->m_implInterleaveWidth, interleaveWidth,
-                    outblock.GetNumElementsWithPadding(), outblock.GetNumData(),
-                    (TData *)outptr);
+                    inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
+                    (TData *)inptr +
+                        (n + nc * inblock.GetNumHomoModes()) * compSize);
             }
 
             // Synchronization barrier to allow SYCL-CPU back-end to reuse
@@ -146,73 +134,109 @@ protected:
                 nekStreamSynchronize(nullptr);
             }
 
-            // Check component mask
-            if (this->m_cmask[nc])
+            for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
             {
-                // Evaluate expression.
-                auto coordptr = this->m_coordptr;
-                for (size_t e = 0, cnt = 0; e < nelmt; e++)
+                // Check component mask
+                if (this->m_cmask[nc])
                 {
-                    // Kernel operation.
-                    TData fce = 0.0;
-                    for (unsigned int pt = 0; pt < this->m_nqTot; ++pt, ++cnt)
+                    if (&inblock != &outblock && this->m_append)
                     {
-                        // Gather fielddata
-                        // Note we set y and z coordinate only if the coordinate
-                        // dimension is large enough otherwise they default to
-                        // zero This is relevant for example for boundary
-                        // elements where the domain uses one more dimension
-                        // than the boundary
-                        fielddata[0] = *(coordptr);
-                        fielddata[1] =
-                            this->m_coordDim > 1 ? *(coordptr + 1) : 0.0;
-                        fielddata[2] =
-                            this->m_coordDim > 2 ? *(coordptr + 2) : 0.0;
-                        fielddata[3] = this->m_time;
+                        ReshapeStorage<ExecSpace>(
+                            this->m_implInterleaveWidth, interleaveWidth,
+                            outblock.GetNumElementsWithPadding(),
+                            outblock.GetNumData(),
+                            (TData *)outptr +
+                                (n + nc * outblock.GetNumHomoModes()) *
+                                    compSize);
+                    }
 
-                        // Add EVARS, if required
-                        // Note we assume that inblock holds all fields as
-                        // components
-                        for (unsigned i = 4, nev = 0; i < this->m_numEvars[nc];
-                             i++, nev++)
+                    // Pre-allocate vector for point-wise fielddata
+                    std::vector<double> fielddata(this->m_numEvars[nc]);
+
+                    // Evaluate expression.
+                    auto coordptr = this->m_coordptr;
+                    for (size_t e = 0, cnt = 0; e < nelmt; e++)
+                    {
+                        // Kernel operation.
+                        for (unsigned int pt = 0; pt < this->m_nqTot;
+                             ++pt, ++cnt)
                         {
-                            fielddata[i] = *(inptr + nev * compSize + cnt);
+                            // Gather fielddata
+                            // Note we set y and z coordinate only if the
+                            // coordinate dimension is large enough otherwise
+                            // they default to zero This is relevant for example
+                            // for boundary elements where the domain uses one
+                            // more dimension than the boundary
+                            fielddata[0] = coordptr[0];
+                            fielddata[1] =
+                                this->m_coordDim > 1 ? coordptr[1] : 0.0;
+                            fielddata[2] =
+                                this->m_coordDim > 2 ? coordptr[2] : 0.0;
+                            fielddata[3] = this->m_time;
+
+                            // Add EVARS, if required
+                            // Note we assume that inblock holds all fields as
+                            // components
+                            for (unsigned i = 4, nev = 0;
+                                 i < this->m_numEvars[nc]; i++, nev++)
+                            {
+                                fielddata[i] =
+                                    inptr[(n +
+                                           nev * inblock.GetNumHomoModes()) *
+                                              compSize +
+                                          cnt];
+                            }
+
+                            // Evaluate the function assuming fixed input of x,
+                            // y and z coordinate.
+                            auto fce =
+                                this->m_expressions[nc]->Evaluate(fielddata);
+
+                            // Add fce to outptr.
+                            const size_t ind =
+                                (n + nc * outblock.GetNumHomoModes()) *
+                                    compSize +
+                                cnt;
+                            outptr[ind] =
+                                (this->m_append)
+                                    ? outptr[ind] + this->m_scale * fce
+                                    : this->m_scale * fce;
+
+                            coordptr += this->m_coordDim;
                         }
+                    }
 
-                        // Evaluate the function assuming fixed input of x, y
-                        // and z coordinate.
-                        fce = this->m_expressions[n]->Evaluate(fielddata);
+                    // Synchronization barrier to allow SYCL-CPU back-end to
+                    // reuse Serial/AVX code.
+                    if constexpr (std::is_same_v<ExecSpace,
+                                                 NektarSpaces::Device>)
+                    {
+                        nekStreamSynchronize(nullptr);
+                    }
 
-                        // Add fce to outptr.
-                        outptr[cnt] = (this->m_append)
-                                          ? outptr[cnt] + this->m_scale * fce
-                                          : this->m_scale * fce;
-
-                        coordptr += this->m_coordDim;
+                    // Reshape, if necessary.
+                    if (&inblock != &outblock)
+                    {
+                        ReshapeStorage<ExecSpace>(
+                            interleaveWidth, this->m_implInterleaveWidth,
+                            outblock.GetNumElementsWithPadding(),
+                            outblock.GetNumData(),
+                            (TData *)outptr +
+                                (n + nc * outblock.GetNumHomoModes()) *
+                                    compSize);
                     }
                 }
             }
 
-            // Synchronization barrier to allow SYCL-CPU back-end to reuse
-            // Serial/AVX code.
-            if constexpr (std::is_same_v<ExecSpace, NektarSpaces::Device>)
-            {
-                nekStreamSynchronize(nullptr);
-            }
-
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(interleaveWidth,
-                                      this->m_implInterleaveWidth,
-                                      inblock.GetNumElementsWithPadding(),
-                                      inblock.GetNumData(), (TData *)inptr);
-
-            ReshapeStorage<ExecSpace>(interleaveWidth,
-                                      this->m_implInterleaveWidth,
-                                      outblock.GetNumElementsWithPadding(),
-                                      outblock.GetNumData(), (TData *)outptr);
-
-            // Increment pointer.
-            outptr += outblock.CompSize();
+            for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
+            {
+                ReshapeStorage<ExecSpace>(
+                    interleaveWidth, this->m_implInterleaveWidth,
+                    inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
+                    (TData *)inptr +
+                        (n + nc * inblock.GetNumHomoModes()) * compSize);
+            }
         }
 
         // Set output block to input interleave.
