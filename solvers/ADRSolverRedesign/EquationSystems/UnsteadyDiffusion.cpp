@@ -425,9 +425,11 @@ void UnsteadyDiffusion::SetInitialConditionsField(
     // Set initial conditions from session file
     if (m_session->DefinesFunction("InitialConditions"))
     {
+        std::string execName = Operator<double>::GetOpExecSpace(m_session);
+
         // Initialise operators
         auto initialOp = ExpressionOp<double>::Create(
-            m_fields[0], m_session->GetVariables(), "Serial", "Generic");
+            m_fields[0], m_session->GetVariables(), execName, "Generic");
 
         // Read initial conditions and configure operator
         std::vector<LibUtilities::EquationSharedPtr> initialConditons;
@@ -440,9 +442,8 @@ void UnsteadyDiffusion::SetInitialConditionsField(
         initialOp->SetTime(m_time);
 
         // Set initial conditions defined in session and update coefficients
-        m_math.zero(field, "Serial"); // Use Serial for now as in initialOp.
-        m_math.zero(m_wsp_coeff,
-                    "Serial"); // Use Serial for now as in initialOp
+        m_math.zero(field);
+        m_math.zero(m_wsp_coeff);
         initialOp->Apply(field, field);
 
         // Note we could use the cheaper operators: AvgAssemble or GlobalToLocal

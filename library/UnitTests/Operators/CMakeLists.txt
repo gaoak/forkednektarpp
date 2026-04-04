@@ -287,7 +287,7 @@ ENDIF()
 IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(MultiplyByElmtInvMass_avx_generic test_multiplybyelmtinvmass AVX Generic FALSE)
     SET_UNIT_TEST(FwdTransBC_avx_generic test_fwdtransbc AVX Generic FALSE)
-    # SET_UNIT_TEST(Expression_avx_generic test_expression AVX Generic FALSE)
+    SET_UNIT_TEST(Expression_avx_generic test_expression AVX Generic FALSE)
 ENDIF()
 
 # AVX StdMat
@@ -366,9 +366,7 @@ ENDIF()
 IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(MultiplyByElmtInvMass_device_generic test_multiplybyelmtinvmass Device Generic FALSE)
     SET_UNIT_TEST(FwdTransBC_device_generic test_fwdtransbc Device Generic FALSE)
-    IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA" OR NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
-        SET_UNIT_TEST(Expression_device_generic test_expression Device Generic FALSE)
-    ENDIF()
+    SET_UNIT_TEST(Expression_device_generic test_expression Device Generic FALSE)
 ENDIF()
 
 # Device StdMat

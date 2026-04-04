@@ -50,7 +50,7 @@
 #elif defined(NEKTAR_ENABLE_HIP)
 #include "Operators/NekBlas/hipBlasHandle.hpp"
 #elif defined(NEKTAR_ENABLE_SYCL)
-#include "Operators/Common/SYCLQueue.hpp"
+#include "Operators/Common/Backends/SYCLQueue.hpp"
 #endif
 
 #include "Operators/Common/Spaces.hpp"

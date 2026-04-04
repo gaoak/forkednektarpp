@@ -80,9 +80,6 @@ protected:
     Field<double, FieldState::Phys> m_advectVel;
     Field<double, FieldState::Phys> m_traceAdvectVel;
 
-    // Execution space
-    std::string m_execName;
-
     // Declare math
     Math m_math;
 

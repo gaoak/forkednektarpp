@@ -51,122 +51,16 @@
 #endif
 
 #if defined(NEKTAR_ENABLE_CUDA)
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <nvrtc.h>
-#define CHECK_LAST_HIPCUDA_ERROR()                                             \
-    {                                                                          \
-        cudaError_t err = cudaGetLastError();                                  \
-        if (err != cudaSuccess)                                                \
-        {                                                                      \
-            std::cerr << "CUDA Runtime Error at: " << __FILE__ << ":"          \
-                      << __LINE__ << std::endl;                                \
-            std::cerr << cudaGetErrorString(err) << std::endl;                 \
-            exit(0);                                                           \
-        }                                                                      \
-    }
-#define CHECK_HIPCUDA_ERROR(err)                                               \
-    if (err != cudaSuccess)                                                    \
-    {                                                                          \
-        std::cerr << "CUDA Runtime Error at: " << __FILE__ << ":" << __LINE__  \
-                  << std::endl;                                                \
-        std::cerr << cudaGetErrorString(err) << std::endl;                     \
-        exit(0);                                                               \
-    }
-// Helper to check NVRTC errors
-#define CHECK_NEKRTC_ERROR(err)                                                \
-    {                                                                          \
-        if (err != NVRTC_SUCCESS)                                              \
-        {                                                                      \
-            std::cerr << "CUDA Runtime Error at: " << __FILE__ << ":"          \
-                      << __LINE__ << std::endl;                                \
-            std::cerr << "NVRTC error: " << nvrtcGetErrorString(err)           \
-                      << std::endl;                                            \
-            exit(1);                                                           \
-        }                                                                      \
-    }
-#define nekCtxGetCurrent cuCtxGetCurrent
-#define nekLaunchKernel cuLaunchKernel
-#define nekModuleLoadData cuModuleLoadData
-#define nekModuleGetFunction cuModuleGetFunction
-#define nekModuleUnload cuModuleUnload
-#define NEKdevice CUdevice
-#define NEKmodule CUmodule
-#define NEKfunction CUfunction
-#define NEKcontext CUcontext
-#define nekrtcProgram nvrtcProgram
-#define nekrtcCreateProgram nvrtcCreateProgram
-#define nekrtcDestroyProgram nvrtcDestroyProgram
-#define nekrtcAddNameExpression nvrtcAddNameExpression
-#define nekrtcGetLoweredName nvrtcGetLoweredName
-#define nekrtcCompileProgram nvrtcCompileProgram
-#define nekrtcGetCodeSize nvrtcGetPTXSize
-#define nekrtcGetCode nvrtcGetPTX
+#include "Operators/Common/Backends/CUDA_HOST_API.hpp"
 #elif defined(NEKTAR_ENABLE_HIP)
-#include <hip/hip_runtime.h>
-#include <hip/hiprtc.h>
-#define CHECK_LAST_HIPCUDA_ERROR()                                             \
-    {                                                                          \
-        hipError_t err = hipGetLastError();                                    \
-        if (err != hipSuccess)                                                 \
-        {                                                                      \
-            std::cerr << "HIP Runtime Error at: " << __FILE__ << ":"           \
-                      << __LINE__ << std::endl;                                \
-            std::cerr << hipGetErrorString(err) << std::endl;                  \
-            exit(0);                                                           \
-        }                                                                      \
-    }
-#define CHECK_HIPCUDA_ERROR(err)                                               \
-    if (err != hipSuccess)                                                     \
-    {                                                                          \
-        std::cerr << "HIP Runtime Error at: " << __FILE__ << ":" << __LINE__   \
-                  << std::endl;                                                \
-        std::cerr << hipGetErrorString(err) << std::endl;                      \
-        exit(0);                                                               \
-    }
-// Helper to check HIPRTC errors
-#define CHECK_NEKRTC_ERROR(err)                                                \
-    {                                                                          \
-        if (err != HIPRTC_SUCCESS)                                             \
-        {                                                                      \
-            std::cerr << "HIP Runtime Error at: " << __FILE__ << ":"           \
-                      << __LINE__ << std::endl;                                \
-            std::cerr << "HIPRTC error: " << hiprtcGetErrorString(err)         \
-                      << std::endl;                                            \
-            exit(1);                                                           \
-        }                                                                      \
-    }
-#define nekCtxGetCurrent hipCtxGetCurrent
-#define nekLaunchKernel hipModuleLaunchKernel
-#define nekModuleLoadData hipModuleLoadData
-#define nekModuleGetFunction hipModuleGetFunction
-#define nekModuleUnload hipModuleUnload
-#define NEKdevice hipDevice_t
-#define NEKmodule hipModule_t
-#define NEKfunction hipFunction_t
-#define NEKcontext hipCtx_t
-#define nekrtcProgram hiprtcProgram
-#define nekrtcCreateProgram hiprtcCreateProgram
-#define nekrtcDestroyProgram hiprtcDestroyProgram
-#define nekrtcAddNameExpression hiprtcAddNameExpression
-#define nekrtcGetLoweredName hiprtcGetLoweredName
-#define nekrtcCompileProgram hiprtcCompileProgram
-#define nekrtcGetCodeSize hiprtcGetCodeSize
-#define nekrtcGetCode hiprtcGetCode
+#include "Operators/Common/Backends/HIP_HOST_API.hpp"
 #elif defined(NEKTAR_ENABLE_SYCL)
-#include "Operators/Common/SYCLQueue.hpp"
+#include "Operators/Common/Backends/SYCLQueue.hpp"
 #endif
 
 #if defined(__CUDACC__) || defined(__NEK_HIPCC__) ||                           \
     defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
 #define DEVICE_COMPILE_ONLY
-#endif
-
-#if defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)
-#include <cooperative_groups.h>
-#include <cooperative_groups/reduce.h>
-#elif defined(NEKTAR_ENABLE_HIP) && defined(DEVICE_COMPILE_ONLY)
-#include <hip/hip_cooperative_groups.h>
 #endif
 
 template <typename TData> std::string DataTypeToString(void)
@@ -456,6 +350,6 @@ template <typename Tstream>
 
 } // namespace Nektar
 
-#include "Operators/Common/Backends/DeviceOnHost.hpp"
-#include "Operators/Common/Backends/HIPCUDA.hpp"
-#include "Operators/Common/Backends/SYCL.hpp"
+#include "Operators/Common/Backends/DeviceOnHost_DEVICE_API.hpp"
+#include "Operators/Common/Backends/HIPCUDA_DEVICE_API.hpp"
+#include "Operators/Common/Backends/SYCL_DEVICE_API.hpp"
