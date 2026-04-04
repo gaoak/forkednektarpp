@@ -331,7 +331,8 @@ protected:
         auto wspSize = MassWorkSpaceSize<Implementation>(
             SHAPE_TYPE, nelmt, sizeParam1D.nq0(), sizeParam1D.nm0());
         auto wspptr =
-            BlockOperator<TData>::template GetWorkSpace<MemSpace>(wspSize);
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                wspSize);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -423,7 +424,8 @@ protected:
             SHAPE_TYPE, nelmt, sizeParam2D.nq0(), sizeParam2D.nq1(),
             sizeParam2D.nm0(), sizeParam2D.nm1());
         auto wspptr =
-            BlockOperator<TData>::template GetWorkSpace<MemSpace>(wspSize);
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                wspSize);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -518,7 +520,8 @@ protected:
             sizeParam3D.nq2(), sizeParam3D.nm0(), sizeParam3D.nm1(),
             sizeParam3D.nm2());
         auto wspptr =
-            BlockOperator<TData>::template GetWorkSpace<MemSpace>(wspSize);
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                wspSize);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();

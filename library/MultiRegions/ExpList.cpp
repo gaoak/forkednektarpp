@@ -67,14 +67,14 @@
 #include <MultiRegions/GlobalMatrixKey.h> // for GlobalMatrixKey
 #include <iomanip>
 
-#include "Operators/Common/NekDataWarehouse.hpp"
+#include "Operators/Common/DataWarehouse/NekDataWarehouse.hpp"
 
-#include "Operators/Common/BasisDataWarehouse.hpp"
-#include "Operators/Common/GeometricDataWarehouse.hpp"
-#include "Operators/Common/LocalToGlobalDataWarehouse.hpp"
-#include "Operators/Common/ModeIndexDataWarehouse.hpp"
-#include "Operators/Common/StdMatDataWarehouse.hpp"
-#include "Operators/Common/TraceDataWarehouse.hpp"
+#include "Operators/Common/DataWarehouse/BasisDataWarehouse.hpp"
+#include "Operators/Common/DataWarehouse/GeometricDataWarehouse.hpp"
+#include "Operators/Common/DataWarehouse/LocalToGlobalDataWarehouse.hpp"
+#include "Operators/Common/DataWarehouse/ModeIndexDataWarehouse.hpp"
+#include "Operators/Common/DataWarehouse/StdMatDataWarehouse.hpp"
+#include "Operators/Common/DataWarehouse/TraceDataWarehouse.hpp"
 
 using namespace std;
 

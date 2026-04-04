@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include <Operators/Common/GeometricDataWarehouse.hpp>
+#include <Operators/Common/DataWarehouse/GeometricDataWarehouse.hpp>
 #include <Operators/Field/Block.hpp>
 #include <Operators/Field/Field.hpp>
 

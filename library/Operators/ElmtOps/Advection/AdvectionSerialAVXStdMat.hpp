@@ -127,8 +127,9 @@ protected:
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Get static workspace pointers.
-        auto derivptr = BlockOperator<TData>::template GetWorkSpace<MemSpace>(
-            m_coordDim * simd_t::width * m_nqTot);
+        auto derivptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                m_coordDim * simd_t::width * m_nqTot);
 
         // Dispatch kernel.
         auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(

@@ -44,7 +44,7 @@ MACRO(ADD_OPERATOR dir)
 
     # These operator have an additional argument for the FieldState
     # which requires two delcarations.
-    SET(CONFIG_FILE OperatorFactoryDec.cpp.in)
+    SET(CONFIG_FILE Common/OperatorFactoryDec.cpp.in)
 
     # Loop through each possible execution space.
     FOREACH (ExecSpace IN LISTS ExecSpaces)
@@ -612,12 +612,12 @@ SET(OPERATORS_HEADERS
     Common/Operator.hpp
     Common/DeviceProperties.hpp
     Common/Memory/MemoryAlloc.hpp
-    Common/BasisDataWarehouse.hpp
-    Common/GeometricDataWarehouse.hpp
-    Common/LocalToGlobalDataWarehouse.hpp
-    Common/ModeIndexDataWarehouse.hpp
-    Common/StdMatDataWarehouse.hpp
-    Common/TraceDataWarehouse.hpp
+    Common/DataWarehouse/BasisDataWarehouse.hpp
+    Common/DataWarehouse/GeometricDataWarehouse.hpp
+    Common/DataWarehouse/LocalToGlobalDataWarehouse.hpp
+    Common/DataWarehouse/ModeIndexDataWarehouse.hpp
+    Common/DataWarehouse/StdMatDataWarehouse.hpp
+    Common/DataWarehouse/TraceDataWarehouse.hpp
     Field/Block.hpp
     ElmtOps/ElmtBlockOp.hpp
     Math/Math.hpp
@@ -631,12 +631,12 @@ SET(OPERATORS_SOURCES
     Common/BlockOperator.cpp
     Common/Operator.cpp
     Common/DeviceProperties.cpp
-    Common/BasisDataWarehouse.cpp
-    Common/GeometricDataWarehouse.cpp
-    Common/LocalToGlobalDataWarehouse.cpp
-    Common/ModeIndexDataWarehouse.cpp
-    Common/StdMatDataWarehouse.cpp
-    Common/TraceDataWarehouse.cpp
+    Common/DataWarehouse/BasisDataWarehouse.cpp
+    Common/DataWarehouse/GeometricDataWarehouse.cpp
+    Common/DataWarehouse/LocalToGlobalDataWarehouse.cpp
+    Common/DataWarehouse/ModeIndexDataWarehouse.cpp
+    Common/DataWarehouse/StdMatDataWarehouse.cpp
+    Common/DataWarehouse/TraceDataWarehouse.cpp
     Field/Block.cpp
     NekBlas/blas.cpp
     NekBlas/blasHandle.cpp
@@ -681,7 +681,7 @@ SET(OPERATOR ${name})
 
 # These operator have an additional argument for the FieldState
 # which requires two delcarations.
-SET(CONFIG_FILE ${dir}/OperatorFactoryDec.cpp.in)
+SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/Operators/SolverUtilsOps/RiemannSolvers/RiemannOperatorFactoryDec.cpp.in)
 
 FOREACH (SolverType IN LISTS SolverTypes)
     # Loop through each possible execution space.

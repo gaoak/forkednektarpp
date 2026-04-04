@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/Common/BasisDataWarehouse.hpp"
+#include "Operators/Common/DataWarehouse/BasisDataWarehouse.hpp"
 
 #include <LibUtilities/Foundations/ManagerAccess.h> // for BasisManager, etc
 

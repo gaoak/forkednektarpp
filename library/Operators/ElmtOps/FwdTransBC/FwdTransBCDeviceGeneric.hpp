@@ -355,14 +355,14 @@ protected:
         }
     }
 
-    size_t GetWorkSpaceSize(const LibUtilities::ShapeType shapeType,
-                            const size_t nelmt,
-                            [[maybe_unused]] const unsigned int nq0,
-                            [[maybe_unused]] const unsigned int nq1,
-                            [[maybe_unused]] const unsigned int nq2,
-                            [[maybe_unused]] const unsigned int nm0,
-                            [[maybe_unused]] const unsigned int nm1,
-                            [[maybe_unused]] const unsigned int nm2)
+    size_t GetStaticWorkSpaceSize(const LibUtilities::ShapeType shapeType,
+                                  const size_t nelmt,
+                                  [[maybe_unused]] const unsigned int nq0,
+                                  [[maybe_unused]] const unsigned int nq1,
+                                  [[maybe_unused]] const unsigned int nq2,
+                                  [[maybe_unused]] const unsigned int nm0,
+                                  [[maybe_unused]] const unsigned int nm1,
+                                  [[maybe_unused]] const unsigned int nm2)
     {
         size_t wspsize = 0;
 
@@ -450,9 +450,10 @@ protected:
 
         // Get static workspace pointer.
         auto wspSize =
-            GetWorkSpaceSize(SHAPE_TYPE, nelmt, nq0, 0, 0, nm0, 0, 0);
+            GetStaticWorkSpaceSize(SHAPE_TYPE, nelmt, nq0, 0, 0, nm0, 0, 0);
         auto wspptr1 =
-            BlockOperator<TData>::template GetWorkSpace<MemSpace>(2 * wspSize);
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                2 * wspSize);
         auto wspptr2 = wspptr1 + wspSize;
 
         // Get interleave parameter.
@@ -528,9 +529,10 @@ protected:
 
         // Get static workspace pointer.
         auto wspSize =
-            GetWorkSpaceSize(SHAPE_TYPE, nelmt, nq0, nq1, 0, nm0, nm1, 0);
-        auto wspptr1 = BlockOperator<TData>::template GetWorkSpace<MemSpace>(
-            3 * wspSize + std::max(nq0, nq1) * nelmt);
+            GetStaticWorkSpaceSize(SHAPE_TYPE, nelmt, nq0, nq1, 0, nm0, nm1, 0);
+        auto wspptr1 =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                3 * wspSize + std::max(nq0, nq1) * nelmt);
         auto wspptr2 = wspptr1 + wspSize;
         auto wspptr3 = wspptr2 + wspSize;
         auto wspptr4 = wspptr3 + wspSize;

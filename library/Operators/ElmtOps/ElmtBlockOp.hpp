@@ -36,10 +36,10 @@
 
 #include "Operators/Common/BlockOperator.hpp"
 
-#include "Operators/Common/BasisDataWarehouse.hpp"
-#include "Operators/Common/GeometricDataWarehouse.hpp"
-#include "Operators/Common/ModeIndexDataWarehouse.hpp"
-#include "Operators/Common/StdMatDataWarehouse.hpp"
+#include "Operators/Common/DataWarehouse/BasisDataWarehouse.hpp"
+#include "Operators/Common/DataWarehouse/GeometricDataWarehouse.hpp"
+#include "Operators/Common/DataWarehouse/ModeIndexDataWarehouse.hpp"
+#include "Operators/Common/DataWarehouse/StdMatDataWarehouse.hpp"
 
 namespace Nektar::Operators
 {

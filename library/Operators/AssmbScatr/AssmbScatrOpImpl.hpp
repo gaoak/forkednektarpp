@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/Common/LocalToGlobalDataWarehouse.hpp"
+#include "Operators/Common/DataWarehouse/LocalToGlobalDataWarehouse.hpp"
 
 #include "Operators/AssmbScatr/AssmbScatrOp.hpp"
 

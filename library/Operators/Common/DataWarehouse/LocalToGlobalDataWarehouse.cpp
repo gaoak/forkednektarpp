@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/Common/LocalToGlobalDataWarehouseDef.hpp"
+#include "Operators/Common/DataWarehouse/LocalToGlobalDataWarehouseDef.hpp"
 
 namespace Nektar::Operators
 {

@@ -37,7 +37,7 @@
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <LocalRegions/Expansion.h>
 
-#include "Operators/Common/NekDataWarehouse.hpp"
+#include "Operators/Common/DataWarehouse/NekDataWarehouse.hpp"
 #include "Operators/Field/Block.hpp"
 #include "Operators/Field/Field.hpp"
 
@@ -106,7 +106,8 @@ protected:
     // by all instances of BlockOperator is a waste of resources an  can results
     // in insufficient memory. The current implementation assumes that all
     // BlockOperator instances execute on the default stream/queue.
-    template <typename MemSpace> static TData *GetWorkSpace(const size_t size)
+    template <typename MemSpace>
+    static TData *GetStaticWorkSpace(const size_t size)
     {
         if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
         {

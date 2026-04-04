@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/Common/StdMatDataWarehouse.hpp"
+#include "Operators/Common/DataWarehouse/StdMatDataWarehouse.hpp"
 
 #include <LibUtilities/Foundations/Interp.h>
 #include <StdRegions/StdHexExp.h>

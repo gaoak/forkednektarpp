@@ -455,7 +455,8 @@ protected:
 
         // Get static workspace pointer.
         auto wspptr =
-            BlockOperator<TData>::template GetWorkSpace<MemSpace>(m_tracePts);
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                m_tracePts);
 
         auto nqOffsetPtr = m_nqOffset.template GetPtr<MemSpace, ReadOnly>();
 

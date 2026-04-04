@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/Common/TraceDataWarehouse.hpp"
+#include "Operators/Common/DataWarehouse/TraceDataWarehouse.hpp"
 #include <Operators/Field/Block.hpp>
 #include <Operators/Field/Field.hpp>
 

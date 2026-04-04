@@ -140,8 +140,9 @@ protected:
             this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
         // Get static workspace pointer.
-        auto bwdptr = BlockOperator<TData>::template GetWorkSpace<MemSpace>(
-            nelmtTot * m_nqTot + m_dimension * nelmtTot * m_nqTot);
+        auto bwdptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                nelmtTot * m_nqTot + m_dimension * nelmtTot * m_nqTot);
         auto derivptr = bwdptr + nelmtTot * m_nqTot;
 
         // Get interleave parameter.

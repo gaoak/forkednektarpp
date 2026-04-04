@@ -35,7 +35,7 @@
 #pragma once
 
 #include "Operators/Common/BlockOperator.hpp"
-#include "Operators/Common/TraceDataWarehouse.hpp"
+#include "Operators/Common/DataWarehouse/TraceDataWarehouse.hpp"
 
 namespace Nektar::Operators
 {

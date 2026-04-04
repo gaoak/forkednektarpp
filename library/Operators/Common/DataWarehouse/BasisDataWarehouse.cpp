@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/Common/BasisDataWarehouseDef.hpp"
+#include "Operators/Common/DataWarehouse/BasisDataWarehouseDef.hpp"
 
 namespace Nektar::Operators
 {
