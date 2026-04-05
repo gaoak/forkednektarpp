@@ -77,16 +77,18 @@ public:
         this->m_coordDim  = exp->GetCoordim();
         this->m_nqTot     = exp->GetTotPoints();
 
-        this->m_coordptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            CoordKey<TData>(block_idx, this->m_implInterleaveWidth, false));
-
         // Initialise CUDA/HIP context for JIT.
-        nekCtxGetCurrent(&m_context);
+#if defined(NEKTAR_ENABLE_CUDA) || defined(SYCL_ENABLE_CUDA)
+        cudaFree(0);
+#elif defined(NEKTAR_ENABLE_CUDA) || defined(SYCL_ENABLE_CUDA)
+        hipFree(0);
+#endif
+        CHECK_HIPCUDA_DRIVER_ERROR(nekCtxGetCurrent(&m_context));
     }
 
     ~ExpressionBlockOpImpl(void)
     {
-        nekModuleUnload(m_nekModule);
+        CHECK_HIPCUDA_DRIVER_ERROR(nekModuleUnload(m_nekModule));
     }
 
     // className - for BlockOperatorFactory
@@ -105,17 +107,16 @@ public:
     }
 
 protected:
-    static constexpr unsigned int m_implInterleaveWidth = 1;
-
     bool m_isExpressionSet = false;
     unsigned int m_dimension;
     unsigned int m_coordDim;
     unsigned int m_nqTot;
-    const TData *m_coordptr;
     NEKmodule m_nekModule;
     NEKcontext m_context;
     NEKfunction m_kernel_handle1;
     NEKfunction m_kernel_handle2;
+    NEKfunction m_kernel_handle3;
+    NEKfunction m_kernel_handle4;
 
     void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
                  BlockAccessor<TData, FieldState::Phys> &outblock) override
@@ -143,11 +144,15 @@ protected:
                 : (TData *)inptr;
 
         // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
         const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
         const unsigned int gridSize  = (compSize + blockSize - 1u) / blockSize;
+
+        const auto coordptr = this->m_dataWarehouse->template GetData<MemSpace>(
+            CoordKey<TData>(this->m_block_idx, inInterleaveWidth, false));
 
         // Loop over components.
         for (unsigned int n = 0; n < inblock.GetNumHomoModes(); ++n)
@@ -155,25 +160,14 @@ protected:
             // Reshape, if necessary.
             for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
             {
-                ReshapeStorage<ExecSpace>(
-                    this->m_implInterleaveWidth, interleaveWidth,
-                    inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                    (TData *)inptr +
-                        (n + nc * inblock.GetNumHomoModes()) * compSize);
-
-                // Check component mask
-                if (this->m_cmask[nc])
+                if (&inblock != &outblock && this->m_append)
                 {
-                    if (&inblock != &outblock && this->m_append)
-                    {
-                        ReshapeStorage<ExecSpace>(
-                            this->m_implInterleaveWidth, interleaveWidth,
-                            outblock.GetNumElementsWithPadding(),
-                            outblock.GetNumData(),
-                            (TData *)outptr +
-                                (n + nc * outblock.GetNumHomoModes()) *
-                                    compSize);
-                    }
+                    ReshapeStorage<ExecSpace>(
+                        inInterleaveWidth, outInterleaveWidth,
+                        outblock.GetNumElementsWithPadding(),
+                        outblock.GetNumData(),
+                        (TData *)outptr +
+                            (n + nc * outblock.GetNumHomoModes()) * compSize);
                 }
             }
 
@@ -192,7 +186,7 @@ protected:
             void **args          = new void *[numEvar + numOutVar];
             args[0]              = (void *)&compSize;
             args[1]              = (void *)&this->m_scale;
-            args[2]              = (void *)&m_coordptr;
+            args[2]              = (void *)&coordptr;
             args[3]              = (void *)&this->m_time;
 
             // Set input pointers.
@@ -222,7 +216,10 @@ protected:
 
             // Launch kernel.
             auto kernel_handle =
-                (this->m_append) ? m_kernel_handle1 : m_kernel_handle2;
+                (inInterleaveWidth == 1)
+                    ? (this->m_append) ? m_kernel_handle1 : m_kernel_handle2
+                : (this->m_append) ? m_kernel_handle3
+                                   : m_kernel_handle4;
 #if defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
             SYCLQueue::GetInstance().submit([&](sycl::handler &h) {
 #if defined(__ADAPTIVECPP__)
@@ -237,41 +234,20 @@ protected:
                                         nullptr);
                     });
             });
+#if !defined(__ADAPTIVECPP__)
+            SYCLQueue::GetInstance().wait();
+#endif
 #else
-            nekLaunchKernel(kernel_handle, gridSize, 1, 1, blockSize, 1, 1, 0,
-                            nullptr, args, nullptr);
+            CHECK_HIPCUDA_DRIVER_ERROR(nekLaunchKernel(kernel_handle, gridSize,
+                                                       1, 1, blockSize, 1, 1, 0,
+                                                       nullptr, args, nullptr));
 #endif
             delete[] ptr;
             delete[] args;
-
-            // Reshape, if necessary.
-            for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
-            {
-                ReshapeStorage<ExecSpace>(
-                    interleaveWidth, this->m_implInterleaveWidth,
-                    inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
-                    (TData *)inptr +
-                        (n + nc * inblock.GetNumHomoModes()) * compSize);
-
-                // Check component mask
-                if (this->m_cmask[nc])
-                {
-                    if (&inblock != &outblock)
-                    {
-                        ReshapeStorage<ExecSpace>(
-                            interleaveWidth, this->m_implInterleaveWidth,
-                            outblock.GetNumElementsWithPadding(),
-                            outblock.GetNumData(),
-                            (TData *)outptr +
-                                (n + nc * outblock.GetNumHomoModes()) *
-                                    compSize);
-                    }
-                }
-            }
         }
 
         // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
     }
 
     void v_SetExpressions(
@@ -283,7 +259,7 @@ protected:
         // Clean-up previous expression.
         if (m_isExpressionSet)
         {
-            nekModuleUnload(m_nekModule);
+            CHECK_HIPCUDA_DRIVER_ERROR(nekModuleUnload(m_nekModule));
         }
 
         this->m_expressions = exprs;
@@ -327,7 +303,8 @@ protected:
         auto vnames =
             ExpressionBlockOp<TData>::GetEvarsNames(this->m_expressions[0]);
 
-        kernel_src += "template<bool APPEND, typename TData>\n";
+        kernel_src += "template<bool APPEND, unsigned int INTERLEAVEWIDTH, "
+                      "typename TData>\n";
         kernel_src += "__global__ void " + kernel_name;
         // Set-up arguments:
         kernel_src += "(";
@@ -365,19 +342,59 @@ protected:
         // 2. Coordinates.
         if (m_coordDim == 1)
         {
-            kernel_src += "    const TData x = coordptr[tid];\n";
+            kernel_src += "    TData x;\n";
         }
         else if (m_coordDim == 2)
         {
-            kernel_src += "    const TData x = coordptr[2 * tid];\n";
-            kernel_src += "    const TData y = coordptr[2 * tid + 1];\n";
+            kernel_src += "    TData x, y;\n";
         }
         else if (m_coordDim == 3)
         {
-            kernel_src += "    const TData x = coordptr[3 * tid];\n";
-            kernel_src += "    const TData y = coordptr[3 * tid + 1];\n";
-            kernel_src += "    const TData z = coordptr[3 * tid + 2];\n";
+            kernel_src += "    TData x, y, z;\n";
         }
+        kernel_src += "    if constexpr (INTERLEAVEWIDTH == 1) {\n";
+        if (m_coordDim == 1)
+        {
+            kernel_src += "        x = coordptr[tid];\n";
+        }
+        else if (m_coordDim == 2)
+        {
+            kernel_src += "        x = coordptr[2 * tid];\n";
+            kernel_src += "        y = coordptr[2 * tid + 1];\n";
+        }
+        else if (m_coordDim == 3)
+        {
+            kernel_src += "        x = coordptr[3 * tid];\n";
+            kernel_src += "        y = coordptr[3 * tid + 1];\n";
+            kernel_src += "        z = coordptr[3 * tid + 2];\n";
+        }
+        kernel_src += "    } else if constexpr (INTERLEAVEWIDTH != 1) {\n";
+        kernel_src += "        const size_t ilane = tid % INTERLEAVEWIDTH;\n";
+        kernel_src += "        const size_t iwarp = tid / INTERLEAVEWIDTH;\n";
+        if (m_coordDim == 1)
+        {
+            kernel_src +=
+                "        x = coordptr[iwarp * INTERLEAVEWIDTH + ilane];\n";
+        }
+        else if (m_coordDim == 2)
+        {
+            kernel_src +=
+                "        x = coordptr[iwarp * 2 * INTERLEAVEWIDTH + ilane];\n";
+            kernel_src += "        y = coordptr[iwarp * 2 * INTERLEAVEWIDTH + "
+                          "INTERLEAVEWIDTH + ilane];\n";
+        }
+        else if (m_coordDim == 3)
+        {
+            kernel_src +=
+                "        x = coordptr[iwarp * 3 * INTERLEAVEWIDTH + ilane];\n";
+            kernel_src += "        y = coordptr[iwarp * 3 * INTERLEAVEWIDTH + "
+                          "INTERLEAVEWIDTH + ilane];\n";
+            kernel_src +=
+                "        z = coordptr[iwarp * 3 * INTERLEAVEWIDTH + 2 * "
+                "INTERLEAVEWIDTH + ilane];\n";
+        }
+        kernel_src += "    } \n";
+        kernel_src += "\n";
         // 3. Pointers.
         for (unsigned int i = 4; i < vnames.size(); i++)
         {
@@ -423,11 +440,21 @@ protected:
 
         // Register specialisation
         std::string name_expr1 =
-            kernel_name + "<true, " + DataTypeToString<TData>() + ">";
+            kernel_name + "<true, 1, " + DataTypeToString<TData>() + ">";
         CHECK_NEKRTC_ERROR(nekrtcAddNameExpression(prog, name_expr1.c_str()));
         std::string name_expr2 =
-            kernel_name + "<false, " + DataTypeToString<TData>() + ">";
+            kernel_name + "<false, 1 ," + DataTypeToString<TData>() + ">";
         CHECK_NEKRTC_ERROR(nekrtcAddNameExpression(prog, name_expr2.c_str()));
+        std::string name_expr3 =
+            kernel_name + "<true, " +
+            std::to_string(NektarSpaces::Device::warpSize) + ", " +
+            DataTypeToString<TData>() + ">";
+        CHECK_NEKRTC_ERROR(nekrtcAddNameExpression(prog, name_expr3.c_str()));
+        std::string name_expr4 =
+            kernel_name + "<false, " +
+            std::to_string(NektarSpaces::Device::warpSize) + ", " +
+            DataTypeToString<TData>() + ">";
+        CHECK_NEKRTC_ERROR(nekrtcAddNameExpression(prog, name_expr4.c_str()));
 
         // Compile program.
         const char *opts[] = {"--std=c++17"};
@@ -436,19 +463,30 @@ protected:
         // Load module.
         size_t code_size;
         CHECK_NEKRTC_ERROR(nekrtcGetCodeSize(prog, &code_size));
-        std::vector<char> ptx(code_size);
-        CHECK_NEKRTC_ERROR(nekrtcGetCode(prog, ptx.data()));
-        nekModuleLoadData(&m_nekModule, ptx.data());
+        std::vector<char> code(code_size);
+        CHECK_NEKRTC_ERROR(nekrtcGetCode(prog, code.data()));
+        CHECK_HIPCUDA_DRIVER_ERROR(
+            nekModuleLoadData(&m_nekModule, code.data()));
 
         // Retrive mangled name and register function.
         const char *mangled_name;
         CHECK_NEKRTC_ERROR(
             nekrtcGetLoweredName(prog, name_expr1.c_str(), &mangled_name));
-        nekModuleGetFunction(&m_kernel_handle1, m_nekModule, mangled_name);
+        CHECK_HIPCUDA_DRIVER_ERROR(
+            nekModuleGetFunction(&m_kernel_handle1, m_nekModule, mangled_name));
         CHECK_NEKRTC_ERROR(
             nekrtcGetLoweredName(prog, name_expr2.c_str(), &mangled_name));
-        nekModuleGetFunction(&m_kernel_handle2, m_nekModule, mangled_name);
-        nekrtcDestroyProgram(&prog);
+        CHECK_HIPCUDA_DRIVER_ERROR(
+            nekModuleGetFunction(&m_kernel_handle2, m_nekModule, mangled_name));
+        CHECK_NEKRTC_ERROR(
+            nekrtcGetLoweredName(prog, name_expr3.c_str(), &mangled_name));
+        CHECK_HIPCUDA_DRIVER_ERROR(
+            nekModuleGetFunction(&m_kernel_handle3, m_nekModule, mangled_name));
+        CHECK_NEKRTC_ERROR(
+            nekrtcGetLoweredName(prog, name_expr4.c_str(), &mangled_name));
+        CHECK_HIPCUDA_DRIVER_ERROR(
+            nekModuleGetFunction(&m_kernel_handle4, m_nekModule, mangled_name));
+        CHECK_NEKRTC_ERROR(nekrtcDestroyProgram(&prog));
     }
 
     // From Google AI.

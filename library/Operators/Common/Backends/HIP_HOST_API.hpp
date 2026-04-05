@@ -55,6 +55,15 @@
         std::cerr << hipGetErrorString(err) << std::endl;                      \
         exit(0);                                                               \
     }
+// Helper to check HIP driver errors
+#define CHECK_HIPCUDA_DRIVER_ERROR(err)                                        \
+    if (err != hipSuccess)                                                     \
+    {                                                                          \
+        std::cerr << "HIP Driver API Error at: " << __FILE__ << ":"            \
+                  << __LINE__ << std::endl;                                    \
+        std::cerr << hipGetErrorString(err) << std::endl;                      \
+        exit(0);                                                               \
+    }
 // Helper to check HIPRTC errors
 #define CHECK_NEKRTC_ERROR(err)                                                \
     {                                                                          \

@@ -56,6 +56,18 @@
         std::cerr << cudaGetErrorString(err) << std::endl;                     \
         exit(0);                                                               \
     }
+// Helper to check CUDA driver errors
+#define CHECK_HIPCUDA_DRIVER_ERROR(err)                                        \
+    {                                                                          \
+        if (err != CUDA_SUCCESS)                                               \
+        {                                                                      \
+            const char *errStr;                                                \
+            cuGetErrorString(err, &errStr);                                    \
+            fprintf(stderr, "CUDA Driver API Error: %s %s %d\n", errStr,       \
+                    __FILE__, __LINE__);                                       \
+            exit(1);                                                           \
+        }                                                                      \
+    }
 // Helper to check NVRTC errors
 #define CHECK_NEKRTC_ERROR(err)                                                \
     {                                                                          \
