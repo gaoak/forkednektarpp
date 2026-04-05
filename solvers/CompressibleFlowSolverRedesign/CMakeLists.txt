@@ -110,7 +110,133 @@ IF(NEKTAR_BUILD_REDESIGN)
           ADD_SUBDIRECTORY(RiemannSolvers/UnitTests)
         ENDIF()
 
+        # Macro for each operator.
+        MACRO(ADD_OPERATOR dir)
+
+            IF(IS_DIRECTORY ${dir})
+                GET_FILENAME_COMPONENT(name "${dir}" NAME)
+            ELSE()
+                CONTINUE()
+            ENDIF()
+
+            SET(NAME_HEADERS ${name}_HEADERS)
+            SET(NAME_SOURCES ${name}_SOURCES)
+            SET(OPERATOR ${name})
+
+            # These operator have an additional argument for the FieldState
+            # which requires two delcarations.
+            SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/Operators/Common/OperatorFactoryDec.cpp.in)
+
+            # Loop through each possible execution space.
+            FOREACH (ExecSpace IN LISTS ExecSpaces)
+            
+                # Set file extension.
+                SET(HEADER_EXT hpp)
+                IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+                    SET(SOURCE_EXT cu)
+                ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+                    SET(SOURCE_EXT hip)
+                ELSE()
+                    SET(SOURCE_EXT cpp)
+                ENDIF()
+
+                # Loop through each possible data type.
+                FOREACH (TData IN LISTS DataTypes)
+                    # Set up the name used for the .cpp declaration file.
+                    SET(FactoryDeclName ${name}${ExecSpace}${TData}.${SOURCE_EXT})
+
+                    # Get the source and header files for this operator,
+                    # execution space, and implementation.
+                    SET(CURRENT_HEADERS ${name}_${ExecSpace}_HEADERS)
+                    SET(CURRENT_SOURCES ${name}_${ExecSpace}_SOURCES)
+                        
+                    # Get the headers matching the name and execution space
+                    FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+                        ${dir}/${name}${ExecSpace}*.hpp)
+
+                    # Found a impl header.
+                    IF(EXISTS "${dir}/${name}OpImpl.hpp")
+                        FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                            "${dir}/${name}OpImpl.hpp")
+                        SET(IMPL_HEADER "#include \"${include_file}\"")
+                    # No implementation, skip.
+                    ELSE()
+                        CONTINUE() # This avoid creating a *.cpp file
+                    ENDIF()
+
+                    # Create the cpp file from the implementation file.
+                    CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
+
+                    # Add the respective cpp file.
+                    SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
+                    SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
+                    SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
+
+                ENDFOREACH()
+            ENDFOREACH()
+
+            # Add this operator's implemenations to the global operator source
+            # and header files.
+            SET(OPERATORS_HEADERS
+                ${OPERATORS_HEADERS}
+                ${${NAME_HEADERS}}
+                )
+            SET(OPERATORS_SOURCES
+                ${OPERATORS_SOURCES}
+                ${${NAME_SOURCES}}
+                )
+        ENDMACRO()
+
+        # Loop through all of the directories which contain operators and add
+        # their source and header files.
+        FILE(GLOB children Advection/*)
+
+        FOREACH(child ${children})
+        MESSAGE("Child : " "${child}")
+            ADD_OPERATOR(${child})
+        ENDFOREACH()
+
         ADD_SUBDIRECTORY(RiemannSolvers/Profilers)
 
-    ENDIF(NEKTAR_SOLVER_COMPRESSIBLE_FLOW_RE)
+        # Macro
+        MACRO(SET_ALL_SOLVER_TEST solver session)
+            FOREACH (ExecSpace IN LISTS ExecSpaces)
+                # Add SumFac test for all execution spaces
+                SET(Implementation SumFac)
+                ADD_TEST(
+                        NAME ${solver}_${session}_${ExecSpace}_${Implementation}
+                        COMMAND Tester ${CMAKE_CURRENT_SOURCE_DIR}/Tests/${session}.tst -v
+                        --opExecSpace=${ExecSpace} --opImpl=${Implementation})
+
+                # Check if Device or not and set implementation for available algorithm
+                IF( ("${ExecSpace}" STREQUAL "Serial") OR ("${ExecSpace}" STREQUAL "AVX") )
+                    SET(Implementation StdMat)
+                ELSEIF( ("${ExecSpace}" STREQUAL "Device") )
+                    SET(Implementation SumFacTOP)
+                ENDIF()
+
+                # Add test for either Serial/AVX + StdMat or Device + SumFacTOP
+                ADD_TEST(
+                        NAME ${solver}_${session}_${ExecSpace}_${Implementation}
+                        COMMAND Tester ${CMAKE_CURRENT_SOURCE_DIR}/Tests/${session}.tst -v
+                        --opExecSpace=${ExecSpace} --opImpl=${Implementation})
+            ENDFOREACH ()
+        ENDMACRO()
+
+    ADD_SOLVER_EXECUTABLE(CompressibleFlowSolverRedesign SOURCES
+        CompressibleFlowSolverRedesign.cpp
+        EquationSystems/EulerCFE.cpp
+        ${OPERATORS_SOURCES}
+    )
+
+    SET_ALL_SOLVER_TEST(CompressibleFlowSolverRedesign IsentropicVortex)
+
+    TARGET_INCLUDE_DIRECTORIES(CompressibleFlowSolverRedesign PRIVATE
+    "${CMAKE_SOURCE_DIR}/solvers/CompressibleFlowSolverRedesign")
+
+    IF(NEKTAR_BUILD_SOLVER_LIBS)
+        MESSAGE(WARNING, "Solver library build not set up for RedesignSolver - skipping.")
+    ENDIF()
+
+ENDIF(NEKTAR_SOLVER_COMPRESSIBLE_FLOW_RE)
 ENDIF(NEKTAR_BUILD_REDESIGN)

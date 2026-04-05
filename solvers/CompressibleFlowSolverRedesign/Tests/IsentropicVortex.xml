@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<NEKTAR>
+    <GEOMETRY DIM="2" SPACE="2">
+        <VERTEX COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJxt0lsOgkAMBdBBRfAJKio+GZV9yM51SaxAjDIzTW87PyU9aXPTYIz2irf/ijg06APV0+BDdT/5yNVP93uZ2B+zuVzsHzMvxXyiOs2nzK2Yn6hO81PmtZifqU7zc+b+fu3LNxZGe+RL1vf3Ic+Yl00Mnrv6P39XCV9BfvQ15O/v1T59YwPJY/AC8qNvXY14/uA7Nm+F7yG/AS8hf/8fJo1vHIz20uBHyI9+gvy4/+yqvz/6Rc1P+6+Qvy9F8ErNT27V/OQ3yI9+Z/NW+IN5LfwLKVJPBAAA</VERTEX>
+        <EDGE COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJx1ksdSw0AUBIUNtgGTLJJMsME4kHP+///iwPTBXbW6dG31PGlnV1X1/6xUyw/rVmHdLqwrrVdF3rMm4jt6L74rT75X8OuF+Q3Nkd/UHL6vefxW4X3beh9+R/P4XX2H3nv6Dn4QtuVrfZ/e+5rHH2hf9DtUDn+k/dLjWDl8ox70HSqHPwnpx35Pw1r+LHT/85De9BhpHj8OfR4XyuEvQ86JHhPl8Fch50ffqXL4Wci5st952Mgvwlr+OuS86XGjefxtyD3Q4045/H3I/dDjQTn8Y8i90fdJOfxzyH2y35dwJP8aNvJv4Vg93jWP/wi5f3p8Kof/Cvkv6PGtHP4n5H+h769y+D/E3A8L</EDGE>
+        <ELEMENT>
+            <Q COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJx1kslOAlEUBUFRJhEERBAcAAcmwQkV+P//clO18CT2ppJO6nW9e7tQ+PsU4RE8jvcleAJP//HKsAKr4XluDdbhWXh+rwHPYTM8z/X7LXgB29ErO7Abnv12X8JeeHbafQX74XmO3QN4HZ7zsHsIR/AGem+7b+FdeHbZfQ/H4TlfuydwGp7zt/sBPobnPe1+gs9wBp233XO4CM952L2Eq/Dcs90vcB2e+7N7A1/Dc752v8F3+AHds92fcBuee7D7C36H5/9g9w/chee+7N7DQ3i/xDgMjAAA</Q>
+        </ELEMENT>
+        <COMPOSITE>
+            <C ID="401"> E[3,18,29,40,51] </C>
+            <C ID="402"> E[14,25,36,47,58] </C>
+            <C ID="403"> E[50,53,55,57,59] </C>
+            <C ID="404"> E[0,4,7,10,13] </C>
+            <C ID="601"> Q[0-24] </C>
+        </COMPOSITE>
+        <DOMAIN>
+            <D ID="0"> C[601] </D>
+        </DOMAIN>
+    </GEOMETRY>
+    <Metadata>
+        <Provenance>
+            <GitBranch>refs/heads/fix/Rotating_mesh</GitBranch>
+            <GitSHA1>44c4cd92ed6351e714dcb0bdeaafd97895eac703</GitSHA1>
+            <Hostname>typhoon</Hostname>
+            <NektarVersion>5.9.0</NektarVersion>
+            <Timestamp>23-Jan-2026 20:09:34</Timestamp>
+        </Provenance>
+        <NekMeshCommandLine>-m peralign:surf1=401:surf2=402:dir=x -m peralign:surf1=403:surf2=404:dir=y Isentropic_vortex.msh Isentropic_vortex.xml </NekMeshCommandLine>
+    </Metadata>
+
+    <EXPANSIONS>
+        <E COMPOSITE="C[601]" NUMMODES="4" FIELDS="rho,rhou,rhov,E" TYPE="MODIFIED" />
+    </EXPANSIONS>
+
+    <CONDITIONS>
+
+        <PARAMETERS>
+            <P> Gamma           = 1.4               </P>
+
+            <P> TimeStep        = 0.001             </P>
+            <P> T               = 0.1               </P>
+            <P> NumSteps        = T/TimeStep        </P>
+
+            <P> Beta = 5.0 </P>
+            <P> U0   = 1.0 </P>
+            <P> V0   = 0.5 </P>
+            <P> X0   = 5.0 </P>
+            <P> Y0   = 0.0 </P>
+            <!-- constant factor -->
+            <P> fac = 1/(16*Gamma*PI^2) </P>
+
+        </PARAMETERS>
+
+        <SOLVERINFO>
+            <I PROPERTY="EQType"                VALUE="EulerCFE"            />
+            <I PROPERTY="Projection"            VALUE="DisContinuous"       />
+            <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
+            <I PROPERTY="UpwindType"            VALUE="LaxFriedrichs"       />
+        </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 4 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
+
+        <VARIABLES>
+            <V ID="0"> rho  </V>
+            <V ID="1"> rhou </V>
+            <V ID="2"> rhov </V>
+            <V ID="3"> E    </V>
+        </VARIABLES>
+
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[401] </B>
+            <B ID="1"> C[402] </B>
+            <B ID="2"> C[403] </B>
+            <B ID="3"> C[404] </B>
+
+        </BOUNDARYREGIONS>
+
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <P VAR="rho" VALUE="[1]" />
+                <P VAR="rhou" VALUE="[1]" />
+                <P VAR="rhov" VALUE="[1]" />
+                <P VAR="E" VALUE="[1]" />
+            </REGION>
+            <REGION REF="1">
+                <P VAR="rho" VALUE="[0]" />
+                <P VAR="rhou" VALUE="[0]" />
+                <P VAR="rhov" VALUE="[0]" />
+                <P VAR="E" VALUE="[0]" />
+            </REGION>
+            <REGION REF="2">
+                <P VAR="rho" VALUE="[3]" />
+                <P VAR="rhou" VALUE="[3]" />
+                <P VAR="rhov" VALUE="[3]" />
+                <P VAR="E" VALUE="[3]" />
+            </REGION>
+            <REGION REF="3">
+                <P VAR="rho" VALUE="[2]" />
+                <P VAR="rhou" VALUE="[2]" />
+                <P VAR="rhov" VALUE="[2]" />
+                <P VAR="E" VALUE="[2]" />
+            </REGION>
+
+        </BOUNDARYCONDITIONS>
+
+        <FUNCTION NAME="InitialConditions">
+
+            <E VAR="rho"
+                VALUE="
+                (1 - (Gamma-1)*(Beta*exp(1 - ((x-X0)^2 + (y-Y0)^2)))^2 * fac)^(1/(Gamma-1))
+                " />
+
+            <E VAR="rhou"
+                VALUE="
+                (1 - (Gamma-1)*(Beta*exp(1 - ((x-X0)^2 + (y-Y0)^2)))^2 * fac)^(1/(Gamma-1))
+                *
+                (U0 - (Beta*exp(1 - ((x-X0)^2 + (y-Y0)^2)))*(y-Y0)/(2*PI))
+                " />
+
+            <E VAR="rhov"
+                VALUE="
+                (1 - (Gamma-1)*(Beta*exp(1 - ((x-X0)^2 + (y-Y0)^2)))^2 * fac)^(1/(Gamma-1))
+                *
+                ( V0 + (Beta*exp(1 - ((x-X0)^2 + (y-Y0)^2)))*(x-X0)/(2*PI) )
+                " />
+
+            <E VAR="E"
+                VALUE="
+                ((1 - (Gamma-1)*(Beta*exp(1 - ((x-X0)^2 + (y-Y0)^2)))^2 * fac)^(Gamma/(Gamma-1)))/(Gamma-1)
+                + 0.5
+                * (1 - (Gamma-1)*(Beta*exp(1 - ((x-X0)^2 + (y-Y0)^2)))^2 * fac)^(1/(Gamma-1))
+                * (
+                ( U0 - (Beta*exp(1 - ((x-X0)^2 + (y-Y0)^2)))*(y-Y0)/(2*PI) )^2
+                + ( V0 + (Beta*exp(1 - ((x-X0)^2 + (y-Y0)^2)))*(x-X0)/(2*PI) )^2
+                )
+                " />
+
+        </FUNCTION>
+
+        <FUNCTION NAME="ExactSolution">
+
+            <E VAR="rho"
+                VALUE="
+                (1 - (Gamma-1)*(Beta*exp(1 - ((x-5.1)^2 + (y-0.05)^2)))^2 * fac)^(1/(Gamma-1))
+                " />
+
+            <E VAR="rhou"
+                VALUE="
+                (1 - (Gamma-1)*(Beta*exp(1 - ((x-5.1)^2 + (y-0.05)^2)))^2 * fac)^(1/(Gamma-1))
+                *
+                ( U0 - (Beta*exp(1 - ((x-5.1)^2 + (y-0.05)^2)))*(y-0.05)/(2*PI) )
+                " />
+
+            <E VAR="rhov"
+                VALUE="
+                (1 - (Gamma-1)*(Beta*exp(1 - ((x-5.1)^2 + (y-0.05)^2)))^2 * fac)^(1/(Gamma-1))
+                *
+                ( V0 + (Beta*exp(1 - ((x-5.1)^2 + (y-0.05)^2)))*(x-5.1)/(2*PI) )
+                " />
+
+            <E VAR="E"
+                VALUE="
+                ((1 - (Gamma-1)*(Beta*exp(1 - ((x-5.1)^2 + (y-0.05)^2)))^2 * fac)^(Gamma/(Gamma-1)))/(Gamma-1)
+                + 0.5
+                * (1 - (Gamma-1)*(Beta*exp(1 - ((x-5.1)^2 + (y-0.05)^2)))^2 * fac)^(1/(Gamma-1))
+                * (
+                ( U0 - (Beta*exp(1 - ((x-5.1)^2 + (y-0.05)^2)))*(y-0.05)/(2*PI) )^2
+                + ( V0 + (Beta*exp(1 - ((x-5.1)^2 + (y-0.05)^2)))*(x-5.1)/(2*PI) )^2
+                )
+                " />
+        </FUNCTION>
+    </CONDITIONS>
+</NEKTAR>

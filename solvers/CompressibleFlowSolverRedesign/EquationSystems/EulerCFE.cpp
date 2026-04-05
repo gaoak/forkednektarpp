@@ -1,6 +1,6 @@
 /////////////////////////////////////////////////////////////////////////////
 //
-// File: UnsteadyAdvection.cpp
+// File: EulerCFE.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,35 +28,36 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Unsteady linear advection solve routines
+// Description: Euler equations in consƒervative variables without artificial
+// diffusion
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "Operators/TimeOps/TimeOp.hpp"
 
-#include <ADRSolverRedesign/EquationSystems/UnsteadyAdvection.h>
+#include <CompressibleFlowSolverRedesign/EquationSystems/EulerCFE.h>
 #include <LibUtilities/BasicUtils/Timer.h>
 
 namespace Nektar
 {
 using namespace Operators;
 
-std::string UnsteadyAdvection::className =
+std::string EulerCFE::className =
     SolverUtils::GetEquationSystemFactory().RegisterCreatorFunction(
-        "UnsteadyAdvection", UnsteadyAdvection::create,
-        "Unsteady Advection equation.");
+        "EulerCFE", EulerCFE::create,
+        "Euler equations in conservative variables.");
 
-UnsteadyAdvection::UnsteadyAdvection(
-    const LibUtilities::SessionReaderSharedPtr &pSession,
-    const SpatialDomains::MeshGraphSharedPtr &pGraph)
+EulerCFE::EulerCFE(const LibUtilities::SessionReaderSharedPtr &pSession,
+                   const SpatialDomains::MeshGraphSharedPtr &pGraph)
     : EquationSystem(pSession, pGraph), m_nVariables(1)
 {
 }
 
 /**
- * @brief Initialisation object for the unsteady linear advection equation.
+ * @brief Initialisation object for the Euler equations in conservative
+ * variables.
  */
-void UnsteadyAdvection::v_InitObject(bool DeclareFields)
+void EulerCFE::v_InitObject(bool DeclareFields)
 {
     // Call to the initialisation object of EquationSystem
     EquationSystem::v_InitObject(DeclareFields);
@@ -64,7 +65,13 @@ void UnsteadyAdvection::v_InitObject(bool DeclareFields)
     // Load output/verbose parameters
     m_session->LoadParameter("IO_InfoSteps", m_infosteps, 0);
 
-    // Initialise boundary conditions
+    ASSERTL0(m_session->DefinesSolverInfo("UPWINDTYPE"),
+             "No UPWINDTYPE defined in session.");
+
+    // Loading parameters from session file
+    InitialiseParameters();
+
+    // Initialise general boundary conditions
     SetBoundaryConditions(m_time);
 
     // Get variable strings and number of variables
@@ -73,8 +80,8 @@ void UnsteadyAdvection::v_InitObject(bool DeclareFields)
     m_ndim       = m_fields[0]->GetExp(0)->GetCoordim();
 
     m_timeOp = TimeOp<double>::Create(m_fields[0], m_variables);
-    m_timeOp->DefineExplicitRhs(&UnsteadyAdvection::DoAdvection, this);
-    m_timeOp->DefineProjection(&UnsteadyAdvection::DoProjection, this);
+    m_timeOp->DefineExplicitRhs(&EulerCFE::DoAdvection, this);
+    m_timeOp->DefineProjection(&EulerCFE::DoProjection, this);
 
     // Create and initialise all operators
     InitialiseOperators();
@@ -82,17 +89,17 @@ void UnsteadyAdvection::v_InitObject(bool DeclareFields)
 }
 
 /**
- * @brief Explicit solution of the unsteady advection problem.
+ * @brief Explicit solution of Euler equations.
  * Using a standalone time stepping loop.
  */
-void UnsteadyAdvection::v_DoSolve()
+void EulerCFE::v_DoSolve()
 {
     // Initialise counters
     LibUtilities::Timer timer;
     double cpuTime = 0.0;
 
     // Set InitialConditions
-    SetInitialConditionsField(m_in);
+    SetInitialConditionsField(m_in); // Set initial conditions in m_in
 
     // Time-stepping loop
     while (m_timeOp->GetStep() < m_steps ||
@@ -148,7 +155,7 @@ void UnsteadyAdvection::v_DoSolve()
     }
 }
 
-void UnsteadyAdvection::v_GenerateSummary(SummaryList &s)
+void EulerCFE::v_GenerateSummary(SummaryList &s)
 {
     SessionSummary(s);
 
@@ -190,10 +197,10 @@ void UnsteadyAdvection::v_GenerateSummary(SummaryList &s)
  *  param in: = u^{n+1}
  *  param out: = param in
  */
-void UnsteadyAdvection::DoAdvection(Field<double, FieldState::Phys> &in,
-                                    Field<double, FieldState::Phys> &out,
-                                    [[maybe_unused]] const double &time,
-                                    [[maybe_unused]] const double &dt)
+void EulerCFE::DoAdvection(Field<double, FieldState::Phys> &in,
+                           Field<double, FieldState::Phys> &out,
+                           [[maybe_unused]] const double &time,
+                           const double &dt)
 {
     // Solve advection problem
     m_advectionWeakDGOp->Apply(in, out);
@@ -203,15 +210,15 @@ void UnsteadyAdvection::DoAdvection(Field<double, FieldState::Phys> &in,
 }
 
 /**
- * @brief Compute the projection for the unsteady advection problem.
+ * @brief Compute the projection for Euler equations.
  *
  * @param in    Given fields.
  * @param out   DG-projected fields.
  * @param time  Time.
  */
-void UnsteadyAdvection::DoProjection(Field<double, FieldState::Phys> &in,
-                                     Field<double, FieldState::Phys> &out,
-                                     const double time)
+void EulerCFE::DoProjection(Field<double, FieldState::Phys> &in,
+                            Field<double, FieldState::Phys> &out,
+                            const double time)
 {
     // Update time-varying boundary conditions
     SetBoundaryConditions(time);
@@ -223,7 +230,7 @@ void UnsteadyAdvection::DoProjection(Field<double, FieldState::Phys> &in,
 /*
  *  Create and initialise all operators for this solver
  */
-void UnsteadyAdvection::InitialiseOperators()
+void EulerCFE::InitialiseOperators()
 {
     // Initialise Math
     std::string execName = Operator<double>::GetOpExecSpace(m_session);
@@ -235,43 +242,14 @@ void UnsteadyAdvection::InitialiseOperators()
     // Create operators
     m_advectionWeakDGOp =
         AdvectionWeakDGOp<double>::Create(m_fields[0], m_variables);
+    std::string riemannMethod = m_session->GetSolverInfo("UpwindType");
+    m_riemannSolverOp         = CompressibleSolverOp<double>::Create(
+        m_fields[0], m_variables, riemannMethod, execName);
     m_volumeFluxOp = VolumeFluxOp<double>::Create(m_fields[0], m_variables);
-    m_riemannSolverOp =
-        RiemannSolverOp<double>::Create(m_fields[0], m_variables);
 
     // Set volume flux and Riemann solver for advection operator
     m_advectionWeakDGOp->SetVolumeFluxOp(m_volumeFluxOp);
     m_advectionWeakDGOp->SetRiemannSolver(m_riemannSolverOp);
-
-    // Check if forcing is defined
-    if (m_session->DefinesFunction("AdvectionVelocity"))
-    {
-        // Define Velocity fields
-        std::vector<std::string> vel;
-        vel.push_back("Vx");
-        vel.push_back("Vy");
-        vel.push_back("Vz");
-
-        // Resize the advection velocities
-        vel.resize(m_ndim);
-
-        // Create operator
-        m_expressionOp =
-            ExpressionOp<double>::Create(m_fields[0], vel, execName, "Generic");
-
-        m_getFwdBwdTracePhysOp =
-            GetFwdBwdTracePhysOp<double>::Create(m_fields[0], vel);
-        m_getFwdBwdTracePhysOp->SetFwdOnly(true);
-
-        // Read initial conditions and configure operator
-        std::vector<LibUtilities::EquationSharedPtr> velEquations;
-        for (int i = 0; i < m_ndim; ++i)
-        {
-            velEquations.push_back(
-                m_session->GetFunction("AdvectionVelocity", vel[i]));
-        }
-        m_expressionOp->SetExpressions(velEquations);
-    }
 }
 
 /*
@@ -281,7 +259,7 @@ void UnsteadyAdvection::InitialiseOperators()
  *  conditions applied.
  *  m_out is a FieldState::Phys workspace initialised to zero
  */
-void UnsteadyAdvection::InitialiseFields()
+void EulerCFE::InitialiseFields()
 {
     // Create blocks.
     auto blocks_in = GetBlockAttributes<double, FieldState::Phys>(m_fields[0]);
@@ -292,19 +270,11 @@ void UnsteadyAdvection::InitialiseFields()
     unsigned int numHomoModes = 1;
     m_in = Field<double, FieldState::Phys>("solution", blocks_in, m_nVariables,
                                            numHomoModes);
-    m_advectVel      = Field<double, FieldState::Phys>("advectVel", blocks_in,
-                                                  m_ndim, numHomoModes);
-    m_traceAdvectVel = Field<double, FieldState::Phys>(
-        "traceAdvectVel", blocks_trace, m_ndim, numHomoModes);
-
     // Initialise fields
     m_math.zero(m_in);
-    m_math.zero(m_advectVel);
-    m_math.zero(m_traceAdvectVel);
 }
 
-void UnsteadyAdvection::SetInitialConditionsField(
-    Field<double, FieldState::Phys> &field)
+void EulerCFE::SetInitialConditionsField(Field<double, FieldState::Phys> &field)
 {
     // Print to log/console
     if (m_session->GetComm()->GetRank() == 0)
@@ -335,7 +305,6 @@ void UnsteadyAdvection::SetInitialConditionsField(
         m_math.zero(field);
         initialOp->Apply(field, field);
 
-        // Print for initial conditions
         if (m_session->GetComm()->GetRank() == 0)
         {
             for (int i = 0; i < m_nVariables; ++i)
@@ -360,23 +329,36 @@ void UnsteadyAdvection::SetInitialConditionsField(
             }
         }
     }
+}
 
-    // Evaluate and add AdvectionVelocity function, if defined
-    if (m_session->DefinesFunction("AdvectionVelocity"))
-    {
-        // Evaluate velocity expression
-        m_expressionOp->Apply(m_advectVel, m_advectVel);
+/**
+ * @brief Load CFS parameters from the session file.
+ */
+void EulerCFE::InitialiseParameters()
+{
+    // Get gamma parameter from session file.
+    m_session->LoadParameter("Gamma", m_gamma, 1.4);
 
-        // Extract trace advection velocity for upwind solver
-        m_getFwdBwdTracePhysOp->Apply(m_advectVel, m_traceAdvectVel,
-                                      m_traceAdvectVel);
-    }
-
-    // Set trace advection velocity for upwind solver
-    m_riemannSolverOp->SetTraceAdvVel(m_traceAdvectVel);
-
-    // Set advection velocity
-    m_volumeFluxOp->SetAdvectVel(m_advectVel);
+    // // Shock capture
+    // m_session->LoadSolverInfo("ShockCaptureType", m_shockCaptureType, "Off");
+    //
+    // // Check if the shock capture type is supported
+    // std::string err_msg = "Warning, ShockCaptureType = " + m_shockCaptureType
+    // +
+    //                       " is not supported by this solver";
+    // Load parameters for exponential filtering
+    // m_session->MatchSolverInfo("ExponentialFiltering", "True",
+    // m_useFiltering,
+    //                            false);
+    // if (m_useFiltering)
+    // {
+    //     m_session->LoadParameter("FilterAlpha", m_filterAlpha, 36);
+    //     m_session->LoadParameter("FilterExponent", m_filterExponent, 16);
+    //     m_session->LoadParameter("FilterCutoff", m_filterCutoff, 0);
+    // }
+    // // Load CFL for local time-stepping (for steady state)
+    // m_session->MatchSolverInfo("LocalTimeStep", "True", m_useLocalTimeStep,
+    //                            false);
 }
 
 } // namespace Nektar
