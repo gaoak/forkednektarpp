@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: FwdTransBCDeviceGeneric.hpp
+// File: FwdTransBCDevice.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/FwdTransBC/FwdTransBCBlockOp.hpp"
-#include "Operators/ElmtOps/FwdTransBC/FwdTransBCDeviceGenericKernels.hpp"
+#include "Operators/BndCondOps/FwdTransBC/FwdTransBCBlockOp.hpp"
+#include "Operators/BndCondOps/FwdTransBC/FwdTransBCDeviceKernels.hpp"
 
 #include "Operators/Math/MathKernels.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
@@ -44,7 +44,7 @@
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, typename Implementation, typename TData>
+template <typename ExecSpace, typename TData>
 class FwdTransBCBlockOpImpl : public FwdTransBCBlockOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -232,14 +232,12 @@ public:
     static std::string className;
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
-    static std::unique_ptr<
-        ElmtBlockOp<FieldState::Phys, FieldState::Coeff, TData>>
-    Instantiate(const unsigned int block_idx,
-                const LocalRegions::ExpansionSharedPtr &exp,
-                NekDataWarehouseSharedPtr dataWarehouse)
+    static std::unique_ptr<BlockOperator<TData>> Instantiate(
+        const unsigned int block_idx,
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
     {
-        return std::make_unique<
-            FwdTransBCBlockOpImpl<ExecSpace, Implementation, TData>>(
+        return std::make_unique<FwdTransBCBlockOpImpl<ExecSpace, TData>>(
             block_idx, exp, dataWarehouse);
     }
 

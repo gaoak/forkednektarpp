@@ -34,23 +34,22 @@
 
 #pragma once
 
+#include "Operators/Common/BlockOperator.hpp"
 #include "Operators/ElmtOps/ElmtBlockOp.hpp"
 
 namespace Nektar::Operators
 {
 
-template <typename TData>
-class FwdTransBCBlockOp
-    : public ElmtBlockOp<FieldState::Phys, FieldState::Coeff, TData>
+template <typename TData> class FwdTransBCBlockOp : public BlockOperator<TData>
 {
 public:
+    ~FwdTransBCBlockOp() override = default;
+
     static std::shared_ptr<FwdTransBCBlockOp<TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
-        std::string implStr)
+        NekDataWarehouseSharedPtr dataWarehouse, const std::string &execStr)
     {
-
         // Enforce serial execution as AVX is not currently implemented.
         std::string execstr = execStr;
         if (execStr == "AVX")
@@ -58,12 +57,23 @@ public:
             execstr = "Serial";
         }
 
-        return ElmtBlockOp<FieldState::Phys, FieldState::Coeff, TData>::
-            template Create<FwdTransBCBlockOp>(block_idx, exp, dataWarehouse,
-                                               execstr, implStr);
+        return BlockOperator<TData>::template Create<FwdTransBCBlockOp>(
+            block_idx, exp, dataWarehouse, execstr);
     }
 
     static inline const std::string name = "BlockFwdTransBC";
+
+    void Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
+               BlockAccessor<TData, FieldState::Coeff> &outblock)
+    {
+        this->v_Apply(inblock, outblock);
+    }
+
+    void operator()(BlockAccessor<TData, FieldState::Phys> &inblock,
+                    BlockAccessor<TData, FieldState::Coeff> &outblock)
+    {
+        this->v_Apply(inblock, outblock);
+    }
 
     void SetInvMassMatrix(std::vector<TData> &dmat)
     {
@@ -74,12 +84,12 @@ protected:
     FwdTransBCBlockOp(const unsigned int block_idx,
                       const LocalRegions::ExpansionSharedPtr &exp,
                       NekDataWarehouseSharedPtr dataWarehouse)
-        : ElmtBlockOp<FieldState::Phys, FieldState::Coeff, TData>(
-              block_idx, exp, dataWarehouse)
+        : BlockOperator<TData>(block_idx, exp, dataWarehouse)
     {
     }
 
-    ~FwdTransBCBlockOp() override = default;
+    virtual void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
+                         BlockAccessor<TData, FieldState::Coeff> &outblock) = 0;
 
     virtual void v_SetInvMassMatrix(std::vector<TData> &dmat) = 0;
 };

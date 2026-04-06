@@ -648,7 +648,7 @@ SET(GROUP_SOURCES ${OPERATORS_SOURCES})
 
 # Loop through all of the directories which contain operators and add
 # their source and header files.
-FILE(GLOB children AddTraceIntegral  BndCondOps/*  ElmtOps/*  GlobalLinSysOps/LinearSystems/* GlobalLinSysOps/LinearSolvers/* PreconOps/* GetFwdBwdTracePhys SolverUtilsOps/Advection/*)
+FILE(GLOB children AddTraceIntegral BndCondOps/* ElmtOps/* GlobalLinSysOps/LinearSystems/* GlobalLinSysOps/LinearSolvers/* PreconOps/* GetFwdBwdTracePhys SolverUtilsOps/Advection/*)
 
 FOREACH(child ${children})
    MESSAGE("Child : " "${child}")
@@ -664,7 +664,7 @@ ENDFOREACH()
 
 # Loop through all of the directories which contain block operators and add
 # their source and header files.
-FILE(GLOB children GetFwdBwdTracePhys)
+FILE(GLOB children GetFwdBwdTracePhys BndCondOps/FwdTransBC)
 FOREACH(child ${children})
     ADD_BLOCK_OPERATOR(${child})
 ENDFOREACH()

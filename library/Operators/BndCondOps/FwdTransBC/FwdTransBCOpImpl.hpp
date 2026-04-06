@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/FwdTransBC/FwdTransBCOp.hpp"
+#include "Operators/BndCondOps/FwdTransBC/FwdTransBCOp.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -59,6 +59,19 @@ public:
     {
         return std::make_unique<FwdTransBCOpImpl<ExecSpace, TData>>(
             expansionList, components);
+    }
+
+    void v_Apply(Field<TData, FieldState::Phys> &in,
+                 Field<TData, FieldState::Coeff> &out) override
+    {
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
+        {
+            // Block dependent.
+            auto &inblock  = in.GetBlocks()[blk];
+            auto &outblock = out.GetBlocks()[blk];
+            this->m_blockOp[blk]->Apply(inblock, outblock);
+        }
     }
 };
 

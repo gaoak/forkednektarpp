@@ -368,8 +368,8 @@ void UnsteadyDiffusion::InitialiseOperators()
     if (m_session->DefinesFunction("BodyForce"))
     {
         // Create operator
-        m_forcingOp = ExpressionOp<double>::Create(
-            m_fields[0], m_session->GetVariables(), execName, "Generic");
+        m_forcingOp = ExpressionOp<double>::Create(m_fields[0],
+                                                   m_session->GetVariables());
 
         // Read initial conditions and configure operator
         std::vector<LibUtilities::EquationSharedPtr> forcingEquations;
@@ -425,11 +425,9 @@ void UnsteadyDiffusion::SetInitialConditionsField(
     // Set initial conditions from session file
     if (m_session->DefinesFunction("InitialConditions"))
     {
-        std::string execName = Operator<double>::GetOpExecSpace(m_session);
-
         // Initialise operators
         auto initialOp = ExpressionOp<double>::Create(
-            m_fields[0], m_session->GetVariables(), execName, "Generic");
+            m_fields[0], m_session->GetVariables());
 
         // Read initial conditions and configure operator
         std::vector<LibUtilities::EquationSharedPtr> initialConditons;

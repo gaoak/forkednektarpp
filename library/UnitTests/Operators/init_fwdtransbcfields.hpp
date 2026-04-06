@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/ElmtOps/FwdTransBC/FwdTransBCOp.hpp"
+#include "Operators/BndCondOps/FwdTransBC/FwdTransBCOp.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: FwdTransBCSerialAVXGeneric.hpp
+// File: FwdTransBCSerialAVX.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -37,8 +37,8 @@
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 #include <boost/intrusive/pointer_traits.hpp>
 
-#include "Operators/ElmtOps/FwdTransBC/FwdTransBCBlockOp.hpp"
-#include "Operators/ElmtOps/FwdTransBC/FwdTransBCSerialAVXGenericKernels.hpp"
+#include "Operators/BndCondOps/FwdTransBC/FwdTransBCBlockOp.hpp"
+#include "Operators/BndCondOps/FwdTransBC/FwdTransBCSerialAVXKernels.hpp"
 
 #include "Operators/Math/MathKernels.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
@@ -47,7 +47,7 @@
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, typename Implementation, typename TData>
+template <typename ExecSpace, typename TData>
 class FwdTransBCBlockOpImpl : public FwdTransBCBlockOp<TData>
 {
     using simd_t =
@@ -242,14 +242,12 @@ public:
     static std::string className;
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
-    static std::unique_ptr<
-        ElmtBlockOp<FieldState::Phys, FieldState::Coeff, TData>>
-    Instantiate(const unsigned int block_idx,
-                const LocalRegions::ExpansionSharedPtr &exp,
-                NekDataWarehouseSharedPtr dataWarehouse)
+    static std::unique_ptr<BlockOperator<TData>> Instantiate(
+        const unsigned int block_idx,
+        const LocalRegions::ExpansionSharedPtr &exp,
+        NekDataWarehouseSharedPtr dataWarehouse)
     {
-        return std::make_unique<
-            FwdTransBCBlockOpImpl<ExecSpace, Implementation, TData>>(
+        return std::make_unique<FwdTransBCBlockOpImpl<ExecSpace, TData>>(
             block_idx, exp, dataWarehouse);
     }
 

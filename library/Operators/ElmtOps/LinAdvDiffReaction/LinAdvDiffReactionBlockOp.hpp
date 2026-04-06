@@ -47,7 +47,7 @@ public:
     static std::shared_ptr<LinAdvDiffReactionBlockOp<TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
+        NekDataWarehouseSharedPtr dataWarehouse, const std::string &execStr,
         std::string implStr)
     {
         return ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>::

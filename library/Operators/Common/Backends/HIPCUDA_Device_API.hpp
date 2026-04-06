@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: HIPCUDA_DEVICE_API.hpp
+// File: HIPCUDA_Device_API.hpp
 //
 // For more information, please see: http://www.nektar.info
 //

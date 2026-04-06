@@ -50,7 +50,7 @@ public:
     static std::shared_ptr<ExpressionBlockOp<TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
+        NekDataWarehouseSharedPtr dataWarehouse, const std::string &execStr,
         std::string implStr)
     {
         return ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>::

@@ -156,8 +156,8 @@ public:
             this->m_wsp_coeffs.back().template Initialize<MemSpace>(0.0);
 
             // Create operators for this boundary condition
-            this->m_expressionOps.push_back(ExpressionOp<TData>::Create(
-                bcExpList, components, "Serial", "Generic"));
+            this->m_expressionOps.push_back(
+                ExpressionOp<TData>::Create(bcExpList, components, "Serial"));
             this->m_expressionOps.back()->SetComponentMask(m_isNeumann);
             m_isNeumann.clear();
 
