@@ -92,7 +92,7 @@ public:
         m_addTraceIntegralOp = AddTraceIntegralOp<TData>::Create(
             expansionList, components, ExecSpace::name);
         m_multiplyByElmtInvMassOp = MultiplyByElmtInvMassOp<TData>::Create(
-            expansionList, components, ExecSpace::name, "Generic");
+            expansionList, components, ExecSpace::name);
     }
 
     // className - for OperatorFactory

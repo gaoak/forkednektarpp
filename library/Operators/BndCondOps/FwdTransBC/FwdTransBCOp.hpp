@@ -35,48 +35,55 @@
 #pragma once
 
 #include "LocalRegions/MatrixKey.h"
-#include "Operators/ElmtOps/ElmtOp.hpp"
+#include "Operators/Common/Operator.hpp"
 
-#include "Operators/ElmtOps/FwdTransBC/FwdTransBCBlockOp.hpp"
+#include "Operators/BndCondOps/FwdTransBC/FwdTransBCBlockOp.hpp"
 
 namespace Nektar::Operators
 {
 
 // FwdTransBC base class
 // Defines the apply operator to enforce apply parameter types
-template <typename TData>
-class FwdTransBCOp : public ElmtOp<FieldState::Phys, FieldState::Coeff, TData>
+template <typename TData> class FwdTransBCOp : public Operator<TData>
 {
-    friend class ElmtOp<FieldState::Phys, FieldState::Coeff, TData>;
-
 public:
     static std::shared_ptr<FwdTransBCOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components,
-        const std::string &execStr = "", const std::string &implStr = "")
+        const std::string &execStr = "")
     {
-        auto op =
-            ElmtOp<FieldState::Phys, FieldState::Coeff, TData>::template Create<
-                FwdTransBCOp, FwdTransBCBlockOp>(expansionList, components,
-                                                 execStr, implStr);
+        auto session = expansionList->GetSession();
 
-        /// Fetch inverse interior mass matrices
-        // Loop over the blocks.
+        std::string execStr0 =
+            (execStr == "")
+                ? session->GetCmdLineArgument<std::string>("opExecSpace")
+                : execStr;
+
+        auto op = Operator<TData>::template Create<FwdTransBCOp>(
+            expansionList, components, execStr0);
+
         auto blockAttr =
             GetBlockAttributes<TData, FieldState::Coeff>(expansionList);
 
-        for (unsigned int blk = 0; blk < op->m_blockOp.size(); ++blk)
+        // Loop over the blocks.
+        for (unsigned int block_idx = 0; block_idx < blockAttr.size();
+             block_idx++)
         {
-            std::vector<TData> dmat;
-            const auto exp_idx = GetCollection(expansionList, blk)
+            const auto exp_idx = GetCollection(expansionList, block_idx)
                                      .GetExpVector()[0]
                                      ->GetElmtId();
-            const auto exp   = expansionList->GetExp(exp_idx);
+            const auto exp = expansionList->GetExp(exp_idx);
+            op->m_blockOp.push_back(FwdTransBCBlockOp<TData>::Create(
+                block_idx, exp, expansionList->GetDataWarehouseSharedPtr(),
+                execStr0));
+
+            std::vector<TData> dmat;
             const auto nmInt = exp->GetNcoeffs() - exp->NumBndryCoeffs();
             const auto deformed =
                 exp->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed;
-            const auto nelmt     = blockAttr[blk].GetNumElements();
-            const auto nelmtPad  = blockAttr[blk].GetNumElementsWithPadding();
+            const auto nelmt = blockAttr[block_idx].GetNumElements();
+            const auto nelmtPad =
+                blockAttr[block_idx].GetNumElementsWithPadding();
             const auto shapeType = exp->DetShapeType();
 
             if (deformed)
@@ -99,7 +106,7 @@ public:
                 }
             }
 
-            op->m_blockOp[blk]->SetInvMassMatrix(dmat);
+            op->m_blockOp[block_idx]->SetInvMassMatrix(dmat);
         }
 
         return op;
@@ -107,37 +114,31 @@ public:
 
     static inline const std::string name = "FwdTransBC";
 
+    void Apply(Field<TData, FieldState::Phys> &in,
+               Field<TData, FieldState::Coeff> &out)
+    {
+        v_Apply(in, out);
+    }
+
+    void operator()(Field<TData, FieldState::Phys> &in,
+                    Field<TData, FieldState::Coeff> &out)
+    {
+        v_Apply(in, out);
+    }
+
 protected:
     std::vector<std::shared_ptr<FwdTransBCBlockOp<TData>>> m_blockOp;
 
     FwdTransBCOp(const MultiRegions::ExpListSharedPtr &expansionList,
                  const std::vector<std::string> &components)
-        : ElmtOp<FieldState::Phys, FieldState::Coeff, TData>(expansionList,
-                                                             components)
+        : Operator<TData>(expansionList, components)
     {
     }
 
     ~FwdTransBCOp() override = default;
 
-    void v_Apply(Field<TData, FieldState::Phys> &in,
-                 Field<TData, FieldState::Coeff> &out) override
-    {
-        ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
-                 "Number of input and output components differ");
-
-        ASSERTL1(in.GetNumHomoModes() == out.GetNumHomoModes(),
-                 "Number of input and output homogeneous modes differ");
-
-        // Loop over the blocks.
-        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
-        {
-            // Block dependent.
-            auto &inblock  = in.GetBlocks()[blk];
-            auto &outblock = out.GetBlocks()[blk];
-
-            this->m_blockOp[blk]->Apply(inblock, outblock);
-        }
-    }
+    virtual void v_Apply(Field<TData, FieldState::Phys> &in,
+                         Field<TData, FieldState::Coeff> &out) = 0;
 };
 
 } // namespace Nektar::Operators

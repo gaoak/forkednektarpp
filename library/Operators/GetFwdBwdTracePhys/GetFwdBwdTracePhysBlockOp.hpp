@@ -49,10 +49,10 @@ public:
     static std::shared_ptr<GetFwdBwdTracePhysBlockOp<TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse, std::string execStr)
+        NekDataWarehouseSharedPtr dataWarehouse, const std::string &execStr)
     {
         return BlockOperator<TData>::template Create<GetFwdBwdTracePhysBlockOp>(
-            block_idx, exp, dataWarehouse, execStr, "");
+            block_idx, exp, dataWarehouse, execStr);
     }
 
     static inline const std::string name = "BlockGetFwdBwdTracePhys";

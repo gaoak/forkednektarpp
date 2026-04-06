@@ -51,9 +51,9 @@
 #endif
 
 #if defined(NEKTAR_ENABLE_CUDA)
-#include "Operators/Common/Backends/CUDA_HOST_API.hpp"
+#include "Operators/Common/Backends/CUDA_Host_API.hpp"
 #elif defined(NEKTAR_ENABLE_HIP)
-#include "Operators/Common/Backends/HIP_HOST_API.hpp"
+#include "Operators/Common/Backends/HIP_Host_API.hpp"
 #elif defined(NEKTAR_ENABLE_SYCL)
 #include "Operators/Common/Backends/SYCLQueue.hpp"
 #endif
@@ -350,6 +350,6 @@ template <typename Tstream>
 
 } // namespace Nektar
 
-#include "Operators/Common/Backends/DeviceOnHost_DEVICE_API.hpp"
-#include "Operators/Common/Backends/HIPCUDA_DEVICE_API.hpp"
-#include "Operators/Common/Backends/SYCL_DEVICE_API.hpp"
+#include "Operators/Common/Backends/DeviceOnHost_Device_API.hpp"
+#include "Operators/Common/Backends/HIPCUDA_Device_API.hpp"
+#include "Operators/Common/Backends/SYCL_Device_API.hpp"

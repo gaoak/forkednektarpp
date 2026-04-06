@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: FwdTransBCSerialAVXGenericKernels.hpp
+// File: FwdTransBCSerialAVXKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //

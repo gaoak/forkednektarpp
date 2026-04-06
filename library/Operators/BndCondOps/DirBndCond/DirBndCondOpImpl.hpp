@@ -38,9 +38,9 @@
 
 #include "Operators/BndCondOps/DirBndCond/DirBndCondKernels.hpp"
 #include "Operators/BndCondOps/DirBndCond/DirBndCondOp.hpp"
+#include "Operators/BndCondOps/FwdTransBC/FwdTransBCOp.hpp"
 
 #include "Operators/ElmtOps/Expression/ExpressionOp.hpp"
-#include "Operators/ElmtOps/FwdTransBC/FwdTransBCOp.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 using namespace Nektar;
@@ -157,13 +157,13 @@ public:
             this->m_wsp_coeffs.back().template Initialize<MemSpace>(0.0);
 
             // Create operators for this boundary condition
-            this->m_expressionOps.push_back(ExpressionOp<TData>::Create(
-                bcExpList, components, "Serial", "Generic"));
+            this->m_expressionOps.push_back(
+                ExpressionOp<TData>::Create(bcExpList, components, "Serial"));
             this->m_expressionOps.back()->SetComponentMask(m_isDirichlet);
             m_isDirichlet.clear();
 
             this->m_fwdTransBCOps.push_back(FwdTransBCOp<TData>::Create(
-                bcExpList, components, ExecSpace::name, "Generic"));
+                bcExpList, components, ExecSpace::name));
 
             // Gather equations for each field/component
             std::vector<LibUtilities::EquationSharedPtr> listOfEquations;

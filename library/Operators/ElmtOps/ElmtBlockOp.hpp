@@ -75,11 +75,32 @@ public:
     static std::shared_ptr<TOperator<TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
+        NekDataWarehouseSharedPtr dataWarehouse, const std::string &execStr,
         std::string implStr)
     {
-        return BlockOperator<TData>::template Create<TOperator>(
-            block_idx, exp, dataWarehouse, execStr, implStr);
+        std::string requestedKey = TOperator<TData>::name + execStr + implStr;
+
+        BlockOperatorFactory<TData> &factory = GetBlockOperatorFactory<TData>();
+
+        // No suitible operator was found.
+        if (!factory.ModuleExists(requestedKey))
+        {
+            // See if there is a Generic implementation.
+            auto requestedKey0 = requestedKey;
+            requestedKey       = TOperator<TData>::name + execStr + "Generic";
+
+            if (!factory.ModuleExists(requestedKey))
+            {
+                std::stringstream msg;
+                msg << "No such operator: " << requestedKey0 << std::endl;
+                factory.PrintAvailableClasses(msg);
+                NEKERROR(ErrorUtil::efatal, msg.str());
+            }
+        }
+
+        return std::static_pointer_cast<TOperator<TData>>(
+            factory.CreateInstance(requestedKey, block_idx, exp,
+                                   dataWarehouse));
     }
 
     void Apply(BlockAccessor<TData, TFieldIn> &inblock,

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DeviceOnHost_DEVICE_API.hpp
+// File: DeviceOnHost_Device_API.hpp
 //
 // For more information, please see: http://www.nektar.info
 //

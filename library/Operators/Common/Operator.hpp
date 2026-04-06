@@ -79,7 +79,7 @@ public:
     template <template <typename> typename TOperator>
     static std::shared_ptr<TOperator<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::vector<std::string> components, const std::string execStr)
+        const std::vector<std::string> components, const std::string &execStr)
     {
         auto session = expansionList->GetSession();
 

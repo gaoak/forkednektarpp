@@ -66,10 +66,9 @@ public:
     static std::shared_ptr<TOperator<TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse, std::string execStr,
-        std::string implStr)
+        NekDataWarehouseSharedPtr dataWarehouse, const std::string &execStr)
     {
-        std::string requestedKey = TOperator<TData>::name + execStr + implStr;
+        std::string requestedKey = TOperator<TData>::name + execStr;
 
         BlockOperatorFactory<TData> &factory = GetBlockOperatorFactory<TData>();
 

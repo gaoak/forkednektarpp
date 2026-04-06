@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: FwdTransBCDeviceGenericKernels.hpp
+// File: FwdTransBCDeviceKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: SYCL_DEVICE_API.hpp
+// File: SYCL_Device_API.hpp
 //
 // For more information, please see: http://www.nektar.info
 //

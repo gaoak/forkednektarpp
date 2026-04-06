@@ -256,8 +256,7 @@ void UnsteadyAdvection::InitialiseOperators()
         vel.resize(m_ndim);
 
         // Create operator
-        m_expressionOp =
-            ExpressionOp<double>::Create(m_fields[0], vel, execName, "Generic");
+        m_expressionOp = ExpressionOp<double>::Create(m_fields[0], vel);
 
         m_getFwdBwdTracePhysOp =
             GetFwdBwdTracePhysOp<double>::Create(m_fields[0], vel);
@@ -315,11 +314,9 @@ void UnsteadyAdvection::SetInitialConditionsField(
     // Set initial conditions from session file
     if (m_session->DefinesFunction("InitialConditions"))
     {
-        std::string execName = Operator<double>::GetOpExecSpace(m_session);
-
         // Initialise operators
         auto initialOp = ExpressionOp<double>::Create(
-            m_fields[0], m_session->GetVariables(), execName, "Generic");
+            m_fields[0], m_session->GetVariables());
 
         // Read initial conditions and configure operator
         std::vector<LibUtilities::EquationSharedPtr> initialConditons;
