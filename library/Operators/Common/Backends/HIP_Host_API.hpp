@@ -76,7 +76,6 @@
             exit(1);                                                           \
         }                                                                      \
     }
-#define nekCtxGetCurrent hipCtxGetCurrent
 #define nekLaunchKernel hipModuleLaunchKernel
 #define nekModuleLoadData hipModuleLoadData
 #define nekModuleGetFunction hipModuleGetFunction
@@ -84,7 +83,6 @@
 #define NEKdevice hipDevice_t
 #define NEKmodule hipModule_t
 #define NEKfunction hipFunction_t
-#define NEKcontext hipCtx_t
 #define nekrtcProgram hiprtcProgram
 #define nekrtcCreateProgram hiprtcCreateProgram
 #define nekrtcDestroyProgram hiprtcDestroyProgram
