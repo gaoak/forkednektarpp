@@ -50,15 +50,8 @@ public:
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse, const std::string &execStr)
     {
-        // Enforce serial execution as AVX is not currently implemented.
-        std::string execstr = execStr;
-        if (execStr == "AVX")
-        {
-            execstr = "Serial";
-        }
-
         return BlockOperator<TData>::template Create<FwdTransBCBlockOp>(
-            block_idx, exp, dataWarehouse, execstr);
+            block_idx, exp, dataWarehouse, execStr);
     }
 
     static inline const std::string name = "BlockFwdTransBC";
