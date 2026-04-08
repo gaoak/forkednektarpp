@@ -34,8 +34,6 @@
 
 #pragma once
 
-#include <LibUtilities/SimdLib/tinysimd.hpp>
-
 #include "Operators/ElmtOps/Expression/ExpressionBlockOp.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
@@ -83,7 +81,6 @@ public:
 #elif defined(NEKTAR_ENABLE_CUDA) || defined(SYCL_ENABLE_CUDA)
         hipFree(0);
 #endif
-        CHECK_HIPCUDA_DRIVER_ERROR(nekCtxGetCurrent(&m_context));
     }
 
     ~ExpressionBlockOpImpl(void)
@@ -112,7 +109,6 @@ protected:
     unsigned int m_coordDim;
     unsigned int m_nqTot;
     NEKmodule m_nekModule;
-    NEKcontext m_context;
     NEKfunction m_kernel_handle1;
     NEKfunction m_kernel_handle2;
     NEKfunction m_kernel_handle3;

@@ -80,7 +80,6 @@
             exit(1);                                                           \
         }                                                                      \
     }
-#define nekCtxGetCurrent cuCtxGetCurrent
 #define nekLaunchKernel cuLaunchKernel
 #define nekModuleLoadData cuModuleLoadData
 #define nekModuleGetFunction cuModuleGetFunction
@@ -88,7 +87,6 @@
 #define NEKdevice CUdevice
 #define NEKmodule CUmodule
 #define NEKfunction CUfunction
-#define NEKcontext CUcontext
 #define nekrtcProgram nvrtcProgram
 #define nekrtcCreateProgram nvrtcCreateProgram
 #define nekrtcDestroyProgram nvrtcDestroyProgram
