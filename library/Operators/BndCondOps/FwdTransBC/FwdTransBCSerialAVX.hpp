@@ -252,9 +252,7 @@ public:
     }
 
 protected:
-    // Do not use AVX for this operator. Require logic for multiplying interior
-    // mass matrix with AVX.
-    static constexpr unsigned int m_implInterleaveWidth = 1;
+    static constexpr unsigned int m_implInterleaveWidth = simd_t::width;
 
     LibUtilities::ShapeType m_shapeType;
     bool m_isDeformed;
@@ -647,6 +645,15 @@ protected:
     {
         this->m_dinvmass =
             MemoryRegion<TData>::template FromVector<MemSpace, TData>(invmass);
+        auto dmatptr = this->m_dinvmass.template GetPtr<MemSpace, ReadWrite>();
+
+        if (this->m_dinvmass.size())
+        {
+            ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, 1,
+                this->m_dinvmass.size() / (m_nmTotInt * m_nmTotInt),
+                m_nmTotInt * m_nmTotInt, (TData *)dmatptr);
+        }
     }
 };
 
