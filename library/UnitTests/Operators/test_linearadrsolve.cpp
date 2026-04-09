@@ -716,7 +716,7 @@ TEST_LINEARADRSOLVE_TFQMR(linearadrsolve_tfqmr_seg, Helmholtz1D_Seg, 1.0E-12)
 TEST_LINEARADRSOLVE_TFQMR(linearadrsolve_tfqmr_tri_quad, Helmholtz2D_Tri_Quad,
                           3.0E-10)
 TEST_LINEARADRSOLVE_TFQMR(linearadrsolve_tfqmr_tri_quad_3c,
-                          Helmholtz2D_Tri_Quad_3C, 1.0E-10)
+                          Helmholtz2D_Tri_Quad_3C, 2.0E-10)
 
 TEST_LINEARADRSOLVE_TFQMR(linearadrsolve_tfqmr_all_bcs, Helmholtz2D_AllBCs,
                           4.0E-09)

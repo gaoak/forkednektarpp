@@ -208,7 +208,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacKernel(
     }
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
+template <bool SCALE, bool APPEND, typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nq0,
     const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT in,
@@ -299,7 +299,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacKernel(
     }
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
+template <bool SCALE, bool APPEND, typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1,
@@ -443,7 +443,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacKernel(
     }
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
+template <bool SCALE, bool APPEND, typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nq0, const unsigned int nq1, const bool isModified,
@@ -601,7 +601,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacKernel(
     }
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
+template <bool SCALE, bool APPEND, typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
@@ -849,7 +849,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
     }
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
+template <bool SCALE, bool APPEND, typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
@@ -1145,7 +1145,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
     }
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
+template <bool SCALE, bool APPEND, typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
@@ -1447,7 +1447,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
     }
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
+template <bool SCALE, bool APPEND, typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,

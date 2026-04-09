@@ -62,8 +62,9 @@ NEK_DEVICE_INLINE static void FwdTransBCSegSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nq0,
     const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT w0,
     const unsigned int offset_seg, const TData *NEK_RESTRICT invintmass,
-    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp1, TData *NEK_RESTRICT wsp2,
+    [[maybe_unused]] const TData *NEK_RESTRICT jac,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    TData *NEK_RESTRICT wsp1, TData *NEK_RESTRICT wsp2,
     const TthreadBlock &threadBlock)
 {
     const unsigned int idx0   = getLocalIdx(threadBlock);
@@ -98,7 +99,7 @@ NEK_DEVICE_INLINE static void FwdTransBCSegSumFacTOPKernel(
         }
         else
         {
-            wsp2[i] *= jac[0] * w0[i];
+            wsp2[i] *= w0[i];
         }
     }
 
@@ -107,8 +108,8 @@ NEK_DEVICE_INLINE static void FwdTransBCSegSumFacTOPKernel(
 
     // Do IProduct to complete Mass matrix
     // use negative scale to subtract from Dirichlet condition
-    IProductWRTBaseSegSumFacTOPKernel<true, false, DEFORMED>(
-        nm0, nq0, basis0, wsp2, wsp1, (TData)-1.0, threadBlock);
+    IProductWRTBaseSegSumFacTOPKernel<true, false>(nm0, nq0, basis0, wsp2, wsp1,
+                                                   (TData)-1.0, threadBlock);
 
     /// Step 2: Evaluate IProd of Dirichlet condition and
     /// Step 3: Subtract vertex contribution from Dirichlet condition
@@ -121,15 +122,15 @@ NEK_DEVICE_INLINE static void FwdTransBCSegSumFacTOPKernel(
         }
         else
         {
-            wsp2[i] = in[i] * jac[0] * w0[i];
+            wsp2[i] = in[i] * w0[i];
         }
     }
 
     // synchronize threads.
     localBarrier(threadBlock);
 
-    IProductWRTBaseSegSumFacTOPKernel<false, true, DEFORMED>(
-        nm0, nq0, basis0, wsp2, wsp1, (TData)1.0, threadBlock);
+    IProductWRTBaseSegSumFacTOPKernel<false, true>(nm0, nq0, basis0, wsp2, wsp1,
+                                                   (TData)1.0, threadBlock);
 
     // Step 4: Project edge interior modes onto boundary
     // Matrix vector product with interior mass matrix
@@ -149,7 +150,7 @@ NEK_DEVICE_INLINE static void FwdTransBCSegSumFacTOPKernel(
         }
         else
         {
-            out[i + offset_seg] = tmp / jac[0];
+            out[i + offset_seg] = tmp;
         }
     }
 
@@ -168,8 +169,9 @@ NEK_DEVICE_INLINE static void FwdTransBCQuadSumFacTOPKernel(
     const unsigned int *NEK_RESTRICT tMap, const int *NEK_RESTRICT tSign,
     const unsigned int nmTotInt, const unsigned int *iMap,
     const TData *NEK_RESTRICT invintmass, const TData *NEK_RESTRICT dmat,
-    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp1, TData *NEK_RESTRICT wsp2,
+    [[maybe_unused]] const TData *NEK_RESTRICT jac,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    TData *NEK_RESTRICT wsp1, TData *NEK_RESTRICT wsp2,
     TData *NEK_RESTRICT wsp3, TData *NEK_RESTRICT wsp4,
     const TthreadBlock &threadBlock)
 {
@@ -244,7 +246,7 @@ NEK_DEVICE_INLINE static void FwdTransBCQuadSumFacTOPKernel(
         }
         else
         {
-            wsp1[idx] *= jac[0] * w0[i] * w1[j];
+            wsp1[idx] *= w0[i] * w1[j];
         }
     }
 
@@ -252,7 +254,7 @@ NEK_DEVICE_INLINE static void FwdTransBCQuadSumFacTOPKernel(
     localBarrier(threadBlock);
 
     // Complete mass matrix with IProduct
-    IProductWRTBaseQuadSumFacTOPKernel<true, false, DEFORMED>(
+    IProductWRTBaseQuadSumFacTOPKernel<true, false>(
         nm0, nm1, nmTot, nq0, nq1, nqTot, basis0, basis1, wsp1, wsp2, wsp3,
         (TData)-1.0, threadBlock);
 
@@ -269,14 +271,14 @@ NEK_DEVICE_INLINE static void FwdTransBCQuadSumFacTOPKernel(
         }
         else
         {
-            wsp1[idx] = in[idx] * jac[0] * w0[i] * w1[j];
+            wsp1[idx] = in[idx] * w0[i] * w1[j];
         }
     }
 
     // synchronize threads.
     localBarrier(threadBlock);
 
-    IProductWRTBaseQuadSumFacTOPKernel<false, true, DEFORMED>(
+    IProductWRTBaseQuadSumFacTOPKernel<false, true>(
         nm0, nm1, nmTot, nq0, nq1, nqTot, basis0, basis1, wsp1, wsp2, wsp3,
         (TData)1.0, threadBlock);
 
@@ -311,15 +313,7 @@ NEK_DEVICE_INLINE static void FwdTransBCQuadSumFacTOPKernel(
                 tmp = tmp + wsp1[j] * invintmass[i * nmTotInt + j];
             }
 
-            // Divide by Jacobian
-            if constexpr (DEFORMED)
-            {
-                wsp2[i] = tmp / jac[i];
-            }
-            else
-            {
-                wsp2[i] = tmp / jac[0];
-            }
+            wsp2[i] = tmp;
         }
 
         // synchronize threads.
@@ -350,7 +344,8 @@ NEK_DEVICE_INLINE static void FwdTransBCTriSumFacTOPKernel(
     const TData *NEK_RESTRICT tJac, const unsigned int *NEK_RESTRICT tMap,
     const int *NEK_RESTRICT tSign, const unsigned int nmTotInt,
     const unsigned int *iMap, const TData *NEK_RESTRICT invintmass,
-    const TData *NEK_RESTRICT dmat, const TData *NEK_RESTRICT jac,
+    const TData *NEK_RESTRICT dmat,
+    [[maybe_unused]] const TData *NEK_RESTRICT jac,
     const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
     TData *NEK_RESTRICT wsp1, TData *NEK_RESTRICT wsp2,
     TData *NEK_RESTRICT wsp3, TData *NEK_RESTRICT wsp4,
@@ -433,7 +428,7 @@ NEK_DEVICE_INLINE static void FwdTransBCTriSumFacTOPKernel(
         }
         else
         {
-            wsp1[idx] *= jac[0] * w0[i] * w1[j];
+            wsp1[idx] *= w0[i] * w1[j];
         }
     }
 
@@ -441,7 +436,7 @@ NEK_DEVICE_INLINE static void FwdTransBCTriSumFacTOPKernel(
     localBarrier(threadBlock);
 
     // Complete mass matrix with IProduct
-    IProductWRTBaseTriSumFacTOPKernel<true, false, DEFORMED>(
+    IProductWRTBaseTriSumFacTOPKernel<true, false>(
         nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, basis0, basis1,
         wsp1, wsp2, wsp3, (TData)-1.0, threadBlock);
 
@@ -458,14 +453,14 @@ NEK_DEVICE_INLINE static void FwdTransBCTriSumFacTOPKernel(
         }
         else
         {
-            wsp1[idx] = in[idx] * jac[0] * w0[i] * w1[j];
+            wsp1[idx] = in[idx] * w0[i] * w1[j];
         }
     }
 
     // synchronize threads.
     localBarrier(threadBlock);
 
-    IProductWRTBaseTriSumFacTOPKernel<false, true, DEFORMED>(
+    IProductWRTBaseTriSumFacTOPKernel<false, true>(
         nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, basis0, basis1,
         wsp1, wsp2, wsp3, (TData)1.0, threadBlock);
 
@@ -499,15 +494,7 @@ NEK_DEVICE_INLINE static void FwdTransBCTriSumFacTOPKernel(
                 tmp = tmp + wsp1[j] * invintmass[i * nmTotInt + j];
             }
 
-            // Divide by Jacobian
-            if constexpr (DEFORMED)
-            {
-                wsp2[i] = tmp / jac[i];
-            }
-            else
-            {
-                wsp2[i] = tmp / jac[0];
-            }
+            wsp2[i] = tmp;
         }
 
         // synchronize threads.
