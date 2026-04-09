@@ -153,7 +153,7 @@ NEK_DEVICE_INLINE static void PhysDerivDir1DSumFacKernel(
     }
 }
 
-template <bool APPEND, bool DEFORMED, typename TData>
+template <bool APPEND, typename TData>
 NEK_DEVICE_INLINE static void SumDerivTensor1DKernel(
     const unsigned int ilane, const unsigned int nq0,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT in0,
@@ -302,7 +302,7 @@ NEK_DEVICE_INLINE static void PhysDerivDir2DSumFacKernel(
     }
 }
 
-template <bool APPEND, bool DEFORMED, typename TData>
+template <bool APPEND, typename TData>
 NEK_DEVICE_INLINE static void SumDerivTensor2DKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
@@ -532,7 +532,7 @@ NEK_DEVICE_INLINE static void PhysDerivDir3DSumFacKernel(
     }
 }
 
-template <bool APPEND, bool DEFORMED, typename TData>
+template <bool APPEND, typename TData>
 NEK_DEVICE_INLINE static void SumDerivTensor3DKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const TData *NEK_RESTRICT D0,

@@ -136,7 +136,7 @@ NEK_DEVICE_INLINE static void PhysDerivDir1DSumFacTOPKernel(
     localBarrier(threadBlock);
 }
 
-template <bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
+template <bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void SumDerivTensor1DSumFacTOPKernel(
     const unsigned int nq0, const TData *NEK_RESTRICT D0,
     const TData *NEK_RESTRICT in0, TData *NEK_RESTRICT out,
@@ -323,7 +323,7 @@ NEK_DEVICE_INLINE static void PhysDerivDir2DSumFacTOPKernel(
     localBarrier(threadBlock);
 }
 
-template <bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
+template <bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void SumDerivTensor2DSumFacTOPKernel(
     const unsigned int nq0, const unsigned int nq1,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
@@ -549,7 +549,7 @@ NEK_DEVICE_INLINE static void PhysDerivDir3DSumFacTOPKernel(
     localBarrier(threadBlock);
 }
 
-template <bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
+template <bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void SumDerivTensor3DSumFacTOPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,

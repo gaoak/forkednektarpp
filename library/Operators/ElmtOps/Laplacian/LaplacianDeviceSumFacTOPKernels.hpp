@@ -614,9 +614,9 @@ NEK_DEVICE_INLINE static void Laplacian1DSumFacTOPKernel(
         ApplyMetric1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, nq0, w0, dfptr,
                                                jacptr, coeff, deriv, deriv,
                                                threadBlock);
-        SumDerivTensor1DSumFacTOPKernel<false, DEFORMED>(nq0, D0, deriv, bwd,
-                                                         threadBlock);
-        IProductWRTBaseSegSumFacTOPKernel<false, false, DEFORMED>(
+        SumDerivTensor1DSumFacTOPKernel<false>(nq0, D0, deriv, bwd,
+                                               threadBlock);
+        IProductWRTBaseSegSumFacTOPKernel<false, false>(
             nm0, nq0, basis0, bwd, outptr, (TData)1.0, threadBlock);
 
         e += getBlockRange(threadBlock);
@@ -736,23 +736,23 @@ NEK_DEVICE_INLINE static void Laplacian2DSumFacTOPKernel(
                 ncoord, nq0, nq1, nqTot, w0, w1, f0, f1, dfptr, jacptr, coeff,
                 deriv, deriv0, deriv1, metric, threadBlock);
         }
-        SumDerivTensor2DSumFacTOPKernel<false, DEFORMED>(
-            nq0, nq1, D0, D1, deriv0, deriv1, bwd, threadBlock);
+        SumDerivTensor2DSumFacTOPKernel<false>(nq0, nq1, D0, D1, deriv0, deriv1,
+                                               bwd, threadBlock);
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
-            IProductWRTBaseQuadSumFacTOPKernel<false, false, DEFORMED>(
+            IProductWRTBaseQuadSumFacTOPKernel<false, false>(
                 nm0, nm1, nmTot, nq0, nq1, nqTot, s_basis0, s_basis1, bwd,
                 outptr, s_wsp0, (TData)1.0, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
-            IProductWRTBaseTriSumFacTOPKernel<false, false, DEFORMED>(
+            IProductWRTBaseTriSumFacTOPKernel<false, false>(
                 nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
                 s_basis1, bwd, outptr, s_wsp0, (TData)1.0, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
         {
-            IProductWRTBaseTriSumFacTOPKernel<false, false, DEFORMED>(
+            IProductWRTBaseTriSumFacTOPKernel<false, false>(
                 nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
                 s_basis1, bwd, tmp, s_wsp0, (TData)1.0, threadBlock);
 
@@ -929,25 +929,25 @@ NEK_DEVICE_INLINE static void Laplacian3DSumFacTOPKernel(
                 jacptr, coeff, deriv, deriv0, deriv1, deriv2, metric,
                 threadBlock);
         }
-        SumDerivTensor3DSumFacTOPKernel<false, DEFORMED>(
-            nq0, nq1, nq2, D0, D1, D2, deriv0, deriv1, deriv2, bwd,
-            threadBlock);
+        SumDerivTensor3DSumFacTOPKernel<false>(nq0, nq1, nq2, D0, D1, D2,
+                                               deriv0, deriv1, deriv2, bwd,
+                                               threadBlock);
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            IProductWRTBaseHexSumFacTOPKernel<false, false, DEFORMED>(
+            IProductWRTBaseHexSumFacTOPKernel<false, false>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, s_basis0, s_basis1,
                 s_basis2, bwd, outptr, s_wsp0, s_wsp1, (TData)1.0, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
-            IProductWRTBaseTetSumFacTOPKernel<false, false, DEFORMED>(
+            IProductWRTBaseTetSumFacTOPKernel<false, false>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
                 index1, index2, s_basis0, s_basis1, s_basis2, bwd, outptr,
                 s_wsp1, s_wsp0, (TData)1.0, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
         {
-            IProductWRTBaseTetSumFacTOPKernel<false, false, DEFORMED>(
+            IProductWRTBaseTetSumFacTOPKernel<false, false>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
                 index1, index2, s_basis0, s_basis1, s_basis2, bwd, tmp, s_wsp1,
                 s_wsp0, (TData)1.0, threadBlock);
@@ -958,14 +958,14 @@ NEK_DEVICE_INLINE static void Laplacian3DSumFacTOPKernel(
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
-            IProductWRTBasePrismSumFacTOPKernel<false, false, DEFORMED>(
+            IProductWRTBasePrismSumFacTOPKernel<false, false>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
                 index1, index2, s_basis0, s_basis1, s_basis2, bwd, outptr,
                 s_wsp1, s_wsp0, (TData)1.0, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
         {
-            IProductWRTBasePrismSumFacTOPKernel<false, false, DEFORMED>(
+            IProductWRTBasePrismSumFacTOPKernel<false, false>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
                 index1, index2, s_basis0, s_basis1, s_basis2, bwd, tmp, s_wsp1,
                 s_wsp0, (TData)1.0, threadBlock);
@@ -976,7 +976,7 @@ NEK_DEVICE_INLINE static void Laplacian3DSumFacTOPKernel(
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            IProductWRTBasePyrSumFacTOPKernel<false, false, DEFORMED>(
+            IProductWRTBasePyrSumFacTOPKernel<false, false>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
                 index1, s_basis0, s_basis1, s_basis2, bwd, outptr, s_wsp1,
                 s_wsp0, (TData)1.0, threadBlock);

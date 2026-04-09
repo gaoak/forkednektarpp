@@ -395,8 +395,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase1DSumFacKernel(
         TData *outptr      = out + nm0 * warpsize * iwarp;
         StdAlignDerivBase1DSumFacKernel<DEFORMED>(
             ilane, ncoord, nq0, inoffset, w0, dfptr, jacptr, inptr, deriv);
-        IProductWRTBaseSegSumFacKernel<false, false, DEFORMED>(
-            ilane, nm0, nq0, dbasis0, deriv, outptr, (TData)1.0);
+        IProductWRTBaseSegSumFacKernel<false, false>(ilane, nm0, nq0, dbasis0,
+                                                     deriv, outptr, (TData)1.0);
         e += getGlobalRange(threadBlock);
     }
 }
@@ -466,19 +466,19 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DSumFacKernel(
         StdAlignDerivBase2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, ncoord, nq0, nq1, inoffset, w0, w1, s_f0, s_f1, dfptr,
             jacptr, inptr, deriv0, deriv1);
-        SumDerivTensor2DKernel<false, DEFORMED>(ilane, nq0, nq1, D0, D1, deriv0,
-                                                deriv1, deriv);
+        SumDerivTensor2DKernel<false>(ilane, nq0, nq1, D0, D1, deriv0, deriv1,
+                                      deriv);
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
             TData *wsp0 = wsp + 3 * nqTot * nelmt + nq1 * warpsize * iwarp;
-            IProductWRTBaseQuadSumFacKernel<false, false, DEFORMED>(
+            IProductWRTBaseQuadSumFacKernel<false, false>(
                 ilane, nm0, nm1, nq0, nq1, basis0, basis1, deriv, outptr, wsp0,
                 (TData)1.0);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
             TData *wsp0 = wsp + 3 * nqTot * nelmt + nq1 * warpsize * iwarp;
-            IProductWRTBaseTriSumFacKernel<false, false, DEFORMED>(
+            IProductWRTBaseTriSumFacKernel<false, false>(
                 ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, deriv,
                 outptr, wsp0, (TData)1.0);
         }
@@ -487,7 +487,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DSumFacKernel(
             TData *out1ptr = wsp + 3 * nqTot * nelmt + nmTot * warpsize * iwarp;
             TData *wsp0 =
                 wsp + (nmTot + 3 * nqTot) * nelmt + nq1 * warpsize * iwarp;
-            IProductWRTBaseTriSumFacKernel<false, false, DEFORMED>(
+            IProductWRTBaseTriSumFacKernel<false, false>(
                 ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, deriv,
                 out1ptr, wsp0, (TData)1.0);
 
@@ -618,15 +618,15 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacKernel(
         StdAlignDerivBase3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, nq0, nq1, nq2, inoffset, w0, w1, w2, s_f0, s_f1, s_f1m, s_f2,
             dfptr, jacptr, inptr, deriv0, deriv1, deriv2);
-        SumDerivTensor3DKernel<false, DEFORMED>(
-            ilane, nq0, nq1, nq2, D0, D1, D2, deriv0, deriv1, deriv2, deriv);
+        SumDerivTensor3DKernel<false>(ilane, nq0, nq1, nq2, D0, D1, D2, deriv0,
+                                      deriv1, deriv2, deriv);
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
             TData *wsp0 =
                 wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
             TData *wsp1 =
                 wsp + (4 * nqTot + nq1 * nq2) * nelmt + nq2 * warpsize * iwarp;
-            IProductWRTBaseHexSumFacKernel<false, false, DEFORMED>(
+            IProductWRTBaseHexSumFacKernel<false, false>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, basis0, basis1, basis2,
                 deriv, outptr, wsp0, wsp1, (TData)1.0);
         }
@@ -636,7 +636,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacKernel(
                 wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
             TData *wsp1 =
                 wsp + (4 * nqTot + nq1 * nq2) * nelmt + nq2 * warpsize * iwarp;
-            IProductWRTBaseTetSumFacKernel<false, false, DEFORMED>(
+            IProductWRTBaseTetSumFacKernel<false, false>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
                 basis2, deriv, outptr, wsp0, wsp1, (TData)1.0);
         }
@@ -647,7 +647,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacKernel(
                           nq1 * nq2 * warpsize * iwarp;
             TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2 + nmTot) * nelmt +
                           nq2 * warpsize * iwarp;
-            IProductWRTBaseTetSumFacKernel<false, false, DEFORMED>(
+            IProductWRTBaseTetSumFacKernel<false, false>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
                 basis2, deriv, out1ptr, wsp0, wsp1, (TData)1.0);
 
@@ -660,7 +660,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacKernel(
                 wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
             TData *wsp1 =
                 wsp + (4 * nqTot + nq1 * nq2) * nelmt + nq2 * warpsize * iwarp;
-            IProductWRTBasePrismSumFacKernel<false, false, DEFORMED>(
+            IProductWRTBasePrismSumFacKernel<false, false>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
                 basis2, deriv, outptr, wsp0, wsp1, (TData)1.0);
         }
@@ -671,7 +671,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacKernel(
                           nq1 * nq2 * warpsize * iwarp;
             TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2 + nmTot) * nelmt +
                           nq2 * warpsize * iwarp;
-            IProductWRTBasePrismSumFacKernel<false, false, DEFORMED>(
+            IProductWRTBasePrismSumFacKernel<false, false>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
                 basis2, deriv, out1ptr, wsp0, wsp1, (TData)1.0);
 
@@ -684,7 +684,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacKernel(
                 wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
             TData *wsp1 =
                 wsp + (4 * nqTot + nq1 * nq2) * nelmt + nq2 * warpsize * iwarp;
-            IProductWRTBasePyrSumFacKernel<false, false, DEFORMED>(
+            IProductWRTBasePyrSumFacKernel<false, false>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
                 basis2, deriv, outptr, wsp0, wsp1, (TData)1.0);
         }
