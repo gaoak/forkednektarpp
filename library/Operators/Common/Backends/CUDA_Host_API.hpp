@@ -95,3 +95,79 @@
 #define nekrtcCompileProgram nvrtcCompileProgram
 #define nekrtcGetCodeSize nvrtcGetPTXSize
 #define nekrtcGetCode nvrtcGetPTX
+
+template <unsigned int ndim> class hipcudaBlock
+{
+};
+
+// Kernel launcher on a one-dimensional GPU grid with shared memory provision.
+// KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL. The last two
+// arguments of the KERNEL function MUST be of type unsigned char * and
+// hipcudaBlock<1>. The shared memory size must be specified in bytes. The
+// shared memory is declared as unsigned char* type. The shmemptr must then cast
+// to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
+#define DEVICE_1DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
+                                      STREAM, ...)                             \
+    {                                                                          \
+        unsigned char *shmemptr = nullptr;                                     \
+        KERNEL<<<GRIDSIZE, BLOCKSIZE, SHMEMSIZE, STREAM>>>(                    \
+            __VA_ARGS__, shmemptr, hipcudaBlock<1>());                         \
+        CHECK_LAST_HIPCUDA_ERROR();                                            \
+    }
+
+// Kernel launcher on a two-dimensional GPU grid with shared memory provision.
+// KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL. The last two
+// arguments of the KERNEL function MUST be of type unsigned char * and
+// hipcudaBlock<2>. The shared memory size must be specified in bytes. The
+// shared memory is declared as unsigned char* type. The shmemptr must then cast
+// to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
+#define DEVICE_2DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
+                                      STREAM, ...)                             \
+    {                                                                          \
+        unsigned char *shmemptr = nullptr;                                     \
+        KERNEL<<<GRIDSIZE, BLOCKSIZE, SHMEMSIZE, STREAM>>>(                    \
+            __VA_ARGS__, shmemptr, hipcudaBlock<2>());                         \
+        CHECK_LAST_HIPCUDA_ERROR();                                            \
+    }
+
+// Kernel launcher on a three-dimensional GPU grid with shared memory provision.
+// KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL. The last two
+// arguments of the KERNEL function MUST be of type unsigned char * and
+// hipcudaBlock<3>. The shared memory size must be specified in bytes. The
+// shared memory is declared as unsigned char* type. The shmemptr must then cast
+// to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
+#define DEVICE_3DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
+                                      STREAM, ...)                             \
+    {                                                                          \
+        unsigned char *shmemptr = nullptr;                                     \
+        KERNEL<<<GRIDSIZE, BLOCKSIZE, SHMEMSIZE, STREAM>>>(                    \
+            __VA_ARGS__, shmemptr, hipcudaBlock<3>());                         \
+        CHECK_LAST_HIPCUDA_ERROR();                                            \
+    }
+
+// Kernel launcher on a one-dimensional GPU grid without shared memory
+// provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
+// The last argument of the KERNEL function MUST be of type hipcudaBlock<1>.
+#define DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
+                                              STREAM, ...)                     \
+    KERNEL<<<GRIDSIZE, BLOCKSIZE, 0, STREAM>>>(__VA_ARGS__,                    \
+                                               hipcudaBlock<1>());             \
+    CHECK_LAST_HIPCUDA_ERROR();
+
+// Kernel launcher on a two-dimensional GPU grid without shared memory
+// provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
+// The last argument of the KERNEL function MUST be of type hipcudaBlock<2>.
+#define DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
+                                              STREAM, ...)                     \
+    KERNEL<<<GRIDSIZE, BLOCKSIZE, 0, STREAM>>>(__VA_ARGS__,                    \
+                                               hipcudaBlock<2>());             \
+    CHECK_LAST_HIPCUDA_ERROR();
+
+// Kernel launcher on a three-dimensional GPU grid without shared memory
+// provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
+// The last argument of the KERNEL function MUST be of type hipcudaBlock<3>.
+#define DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
+                                              STREAM, ...)                     \
+    KERNEL<<<GRIDSIZE, BLOCKSIZE, 0, STREAM>>>(__VA_ARGS__,                    \
+                                               hipcudaBlock<3>());             \
+    CHECK_LAST_HIPCUDA_ERROR();

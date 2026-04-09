@@ -572,8 +572,10 @@ protected:
             auto jacTraceptr = m_jacTraceptr;
 
             // Fetch deformed mass matrix.
-            auto dmatptr =
-                this->m_dinvmass.template GetPtr<MemSpace, ReadOnly>();
+            auto massintptr =
+                (DEFORMED)
+                    ? this->m_dinvmass.template GetPtr<MemSpace, ReadOnly>()
+                    : (const TData *)m_massint;
 
             // Loop over element groups.
             for (size_t e = 0;
@@ -605,8 +607,7 @@ protected:
                         reinterpret_cast<const simd_t *>(m_jacTraceptr),
                         m_traceElmtMapptr, m_traceElmtSignptr, m_nmTotInt,
                         m_interiorMapptr,
-                        reinterpret_cast<const simd_t *>(m_massint),
-                        reinterpret_cast<const simd_t *>(dmatptr),
+                        reinterpret_cast<const simd_t *>(massintptr),
                         reinterpret_cast<const simd_t *>(m_jacptr),
                         reinterpret_cast<const simd_t *>(inptr),
                         reinterpret_cast<simd_t *>(outptr), m_wsp1.data(),
@@ -633,7 +634,10 @@ protected:
                 outptr += nmTot * simd_t::width;
                 jacptr += jacSize * simd_t::width;
                 jacTraceptr += m_numEdges * simd_t::width;
-                dmatptr += m_nmTotInt * m_nmTotInt * simd_t::width;
+                if constexpr (DEFORMED)
+                {
+                    massintptr += m_nmTotInt * m_nmTotInt * simd_t::width;
+                }
             }
         }
 

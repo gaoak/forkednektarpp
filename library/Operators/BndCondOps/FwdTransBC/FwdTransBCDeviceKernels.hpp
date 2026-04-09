@@ -168,7 +168,7 @@ NEK_DEVICE_INLINE static void FwdTransBCQuadSumFacTOPKernel(
     const TData *NEK_RESTRICT invintmass1, const TData *NEK_RESTRICT tJac,
     const unsigned int *NEK_RESTRICT tMap, const int *NEK_RESTRICT tSign,
     const unsigned int nmTotInt, const unsigned int *iMap,
-    const TData *NEK_RESTRICT invintmass, const TData *NEK_RESTRICT dmat,
+    const TData *NEK_RESTRICT invintmass,
     [[maybe_unused]] const TData *NEK_RESTRICT jac,
     const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
     TData *NEK_RESTRICT wsp1, TData *NEK_RESTRICT wsp2,
@@ -298,8 +298,8 @@ NEK_DEVICE_INLINE static void FwdTransBCQuadSumFacTOPKernel(
     // Projection ie matrix vector product with inverse interior mass
     if constexpr (DEFORMED)
     {
-        Nektar::MatVecSumFacTOPKernel<false, false>(nmTotInt, dmat, wsp1, wsp2,
-                                                    threadBlock);
+        Nektar::MatVecSumFacTOPKernel<false, false>(nmTotInt, invintmass, wsp1,
+                                                    wsp2, threadBlock);
         // Note localBarrier inside MatVecSumFacTOPKernel
     }
     else
@@ -344,7 +344,6 @@ NEK_DEVICE_INLINE static void FwdTransBCTriSumFacTOPKernel(
     const TData *NEK_RESTRICT tJac, const unsigned int *NEK_RESTRICT tMap,
     const int *NEK_RESTRICT tSign, const unsigned int nmTotInt,
     const unsigned int *iMap, const TData *NEK_RESTRICT invintmass,
-    const TData *NEK_RESTRICT dmat,
     [[maybe_unused]] const TData *NEK_RESTRICT jac,
     const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
     TData *NEK_RESTRICT wsp1, TData *NEK_RESTRICT wsp2,
@@ -480,8 +479,8 @@ NEK_DEVICE_INLINE static void FwdTransBCTriSumFacTOPKernel(
     // Projection ie matrix vector product with inverse interior mass
     if constexpr (DEFORMED)
     {
-        Nektar::MatVecSumFacTOPKernel<false, false>(nmTotInt, dmat, wsp1, wsp2,
-                                                    threadBlock);
+        Nektar::MatVecSumFacTOPKernel<false, false>(nmTotInt, invintmass, wsp1,
+                                                    wsp2, threadBlock);
         // Note localBarrier inside MatVecSumFacTOPKernel
     }
     else
@@ -561,9 +560,9 @@ NEK_DEVICE_INLINE static void FwdTransBC2DKernel(
     const TData *NEK_RESTRICT invintmass1, const TData *NEK_RESTRICT tJac,
     const unsigned int *NEK_RESTRICT tMap, const int *NEK_RESTRICT tSign,
     const unsigned int nmTotInt, const unsigned int *iMap,
-    const TData *NEK_RESTRICT invintmass, const TData *NEK_RESTRICT dmat,
-    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp1, TData *NEK_RESTRICT wsp2,
+    const TData *NEK_RESTRICT invintmass, const TData *NEK_RESTRICT jac,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    TData *NEK_RESTRICT wsp1, TData *NEK_RESTRICT wsp2,
     TData *NEK_RESTRICT wsp3, TData *NEK_RESTRICT wsp4,
     [[maybe_unused]] unsigned char *NEK_RESTRICT shmemptr,
     const TthreadBlock &threadBlock)
@@ -591,7 +590,8 @@ NEK_DEVICE_INLINE static void FwdTransBC2DKernel(
         const unsigned int *tmapptr      = tMap;
         const int *tsignptr              = tSign;
         const unsigned int *imapptr      = iMap;
-        const TData *dmatptr             = dmat + nmTotInt * nmTotInt * e;
+        const TData *massintptr =
+            (DEFORMED) ? invintmass + nmTotInt * nmTotInt * e : invintmass;
 
         const TData *jacptr = jac + jacsize * e;
         const TData *inptr  = in + nqTot * e;
@@ -606,16 +606,16 @@ NEK_DEVICE_INLINE static void FwdTransBC2DKernel(
             FwdTransBCQuadSumFacTOPKernel<DEFORMED>(
                 nm0, nm1, nmTot, nq0, nq1, basis0, basis1, w0, w1, offset_seg,
                 invintmass0, invintmass1, tjacptr, tmapptr, tsignptr, nmTotInt,
-                imapptr, invintmass, dmatptr, jacptr, inptr, outptr, wspptr1,
-                wspptr2, wspptr3, wspptr4, threadBlock);
+                imapptr, invintmass, jacptr, inptr, outptr, wspptr1, wspptr2,
+                wspptr3, wspptr4, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
             FwdTransBCTriSumFacTOPKernel<DEFORMED>(
                 nm0, nm1, nmTot, nq0, nq1, isModified, index0, basis0, basis1,
                 w0, w1, interp1to0, offset_seg, invintmass0, tjacptr, tmapptr,
-                tsignptr, nmTotInt, imapptr, invintmass, dmatptr, jacptr, inptr,
-                outptr, wspptr1, wspptr2, wspptr3, wspptr4, threadBlock);
+                tsignptr, nmTotInt, imapptr, massintptr, jacptr, inptr, outptr,
+                wspptr1, wspptr2, wspptr3, wspptr4, threadBlock);
         }
 
         // Increment to next element
@@ -655,9 +655,9 @@ NEK_DEVICE_KERNEL void FwdTransBC2DKernelLauncher(
     const TData *NEK_RESTRICT invintmass1, const TData *NEK_RESTRICT tJac,
     const unsigned int *NEK_RESTRICT tMap, const int *NEK_RESTRICT tSign,
     const unsigned int nmTotInt, const unsigned int *iMap,
-    const TData *NEK_RESTRICT invintmass, const TData *NEK_RESTRICT dmat,
-    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp1, TData *NEK_RESTRICT wsp2,
+    const TData *NEK_RESTRICT invintmass, const TData *NEK_RESTRICT jac,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    TData *NEK_RESTRICT wsp1, TData *NEK_RESTRICT wsp2,
     TData *NEK_RESTRICT wsp3, TData *NEK_RESTRICT wsp4, unsigned char *shmemptr,
     const TthreadBlock &threadBlock)
 {
@@ -666,8 +666,8 @@ NEK_DEVICE_KERNEL void FwdTransBC2DKernelLauncher(
     FwdTransBC2DKernel<SHAPE_TYPE, DEFORMED>(
         nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
         w0, w1, interp1to0, offsetSeg, invintmass0, invintmass1, tJac, tMap,
-        tSign, nmTotInt, iMap, invintmass, dmat, jac, in, out, wsp1, wsp2, wsp3,
-        wsp4, shmemptr, threadBlock);
+        tSign, nmTotInt, iMap, invintmass, jac, in, out, wsp1, wsp2, wsp3, wsp4,
+        shmemptr, threadBlock);
 }
 
 } // namespace Nektar::Operators::detail

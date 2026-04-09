@@ -55,7 +55,9 @@
 #elif defined(NEKTAR_ENABLE_HIP)
 #include "Operators/Common/Backends/HIP_Host_API.hpp"
 #elif defined(NEKTAR_ENABLE_SYCL)
-#include "Operators/Common/Backends/SYCLQueue.hpp"
+#include "Operators/Common/Backends/SYCL_Host_API.hpp"
+#else
+#include "Operators/Common/Backends/DeviceOnHost_Host_API.hpp"
 #endif
 
 #if defined(__CUDACC__) || defined(__NEK_HIPCC__) ||                           \
@@ -74,6 +76,18 @@ template <typename TData> std::string DataTypeToString(void)
         return "double";
     }
 }
+
+// const_if metafunction return "const T" type if B = true and "T" type
+// otherwise.
+template <bool B, typename TData = void> struct const_if
+{
+    typedef TData type;
+};
+
+template <class TData> struct const_if<true, TData>
+{
+    typedef const TData type;
+};
 
 template <bool B, typename TData> struct data_type_if
 {
