@@ -536,11 +536,9 @@ protected:
         auto wspptr4 = wspptr3 + wspSize;
 
         // Fetch deformed mass matrix.
-        const TData *dmatptr = nullptr;
-        if constexpr (DEFORMED)
-        {
-            dmatptr = this->m_dinvmass.template GetPtr<MemSpace, ReadOnly>();
-        }
+        const TData *massintptr =
+            (DEFORMED) ? this->m_dinvmass.template GetPtr<MemSpace, ReadOnly>()
+                       : m_massint;
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -578,8 +576,8 @@ protected:
                     m_W[0], m_W[1], m_interp1to0, m_offset_seg,
                     m_massint_seg[0], m_massint_seg[1], m_jacTraceptr,
                     m_traceElmtMapptr, m_traceElmtSignptr, m_nmTotInt,
-                    m_interiorMapptr, m_massint, dmatptr, m_jacptr, inptr,
-                    outptr, wspptr1, wspptr2, wspptr3, wspptr4);
+                    m_interiorMapptr, massintptr, m_jacptr, inptr, outptr,
+                    wspptr1, wspptr2, wspptr3, wspptr4);
             }
 
             // Reshape back, if necessary.

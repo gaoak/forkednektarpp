@@ -91,8 +91,8 @@ NEK_FORCE_INLINE static void FwdTransBCSegKernel(
     // Divide by Jacobian.
     if constexpr (DEFORMED)
     {
-        DivideByJacobian<ExecSpace, DEFORMED, simd_type>(
-            1, nmInt, jac, out + offset_seg, out + offset_seg);
+        DivideByJacobian<ExecSpace, DEFORMED>(1, nmInt, jac, out + offset_seg,
+                                              out + offset_seg);
     }
 }
 
@@ -105,7 +105,6 @@ NEK_FORCE_INLINE static void FwdTransBCQuadKernel(
     [[maybe_unused]] const simd_type *tJac, const unsigned int *tMap,
     const int *tSign, const unsigned int nmTotInt, const unsigned int *iMap,
     [[maybe_unused]] const simd_type *invintmass,
-    [[maybe_unused]] const simd_type *dmat,
     [[maybe_unused]] const simd_type *jac, const simd_type *in, simd_type *out,
     simd_type *wsp1, simd_type *wsp2, simd_type *wsp3, simd_type *wsp4)
 {
@@ -159,28 +158,28 @@ NEK_FORCE_INLINE static void FwdTransBCQuadKernel(
     // Complete mass matrix with IProduct
     if constexpr (DEFORMED)
     {
-        IProductQuadKernel<true, false, DEFORMED, simd_type>(
-            nm0, nm1, nq0, nq1, wsp1, basis0, basis1, w0, w1, jac, wsp3, wsp2,
-            -1.0);
+        IProductQuadKernel<true, false, DEFORMED>(nm0, nm1, nq0, nq1, wsp1,
+                                                  basis0, basis1, w0, w1, jac,
+                                                  wsp3, wsp2, -1.0);
 
         /// Step 3: Evaluate IProd of Dirichlet condition and
         /// Step 4: Subtract vertex contribution from Dirichlet condition
-        IProductQuadKernel<false, true, DEFORMED, simd_type>(
-            nm0, nm1, nq0, nq1, in, basis0, basis1, w0, w1, jac, wsp3, wsp2,
-            1.0);
+        IProductQuadKernel<false, true, DEFORMED>(nm0, nm1, nq0, nq1, in,
+                                                  basis0, basis1, w0, w1, jac,
+                                                  wsp3, wsp2, 1.0);
     }
     else
     {
         simd_type tmp = 1.0;
-        IProductQuadKernel<true, false, DEFORMED, simd_type>(
-            nm0, nm1, nq0, nq1, wsp1, basis0, basis1, w0, w1, &tmp, wsp3, wsp2,
-            -1.0);
+        IProductQuadKernel<true, false, DEFORMED>(nm0, nm1, nq0, nq1, wsp1,
+                                                  basis0, basis1, w0, w1, &tmp,
+                                                  wsp3, wsp2, -1.0);
 
         /// Step 3: Evaluate IProd of Dirichlet condition and
         /// Step 4: Subtract vertex contribution from Dirichlet condition
-        IProductQuadKernel<false, true, DEFORMED, simd_type>(
-            nm0, nm1, nq0, nq1, in, basis0, basis1, w0, w1, &tmp, wsp3, wsp2,
-            1.0);
+        IProductQuadKernel<false, true, DEFORMED>(nm0, nm1, nq0, nq1, in,
+                                                  basis0, basis1, w0, w1, &tmp,
+                                                  wsp3, wsp2, 1.0);
     }
 
     /// Step 4: Project face/interior modes onto boundary
@@ -191,14 +190,7 @@ NEK_FORCE_INLINE static void FwdTransBCQuadKernel(
     }
 
     // Projection ie matrix vector product with inverse interior mass
-    if constexpr (DEFORMED)
-    {
-        MatVecKernel(nmTotInt, dmat, wsp1, wsp2);
-    }
-    else
-    {
-        MatVecKernel(nmTotInt, invintmass, wsp1, wsp2);
-    }
+    MatVecKernel(nmTotInt, invintmass, wsp1, wsp2);
 
     // Map to volume
     for (unsigned int j = 0u; j < nmTotInt; j++)
@@ -216,7 +208,6 @@ NEK_FORCE_INLINE static void FwdTransBCTriKernel(
     const simd_type *invintmass0, [[maybe_unused]] const simd_type *tJac,
     const unsigned int *tMap, const int *tSign, const unsigned int nmTotInt,
     const unsigned int *iMap, [[maybe_unused]] const simd_type *invintmass,
-    [[maybe_unused]] const simd_type *dmat,
     [[maybe_unused]] const simd_type *jac, const simd_type *in, simd_type *out,
     simd_type *wsp1, simd_type *wsp2, simd_type *wsp3, simd_type *wsp4)
 {
@@ -305,14 +296,7 @@ NEK_FORCE_INLINE static void FwdTransBCTriKernel(
     }
 
     // Projection ie matrix vector product with inverse interior mass
-    if constexpr (DEFORMED)
-    {
-        MatVecKernel(nmTotInt, dmat, wsp1, wsp2);
-    }
-    else
-    {
-        MatVecKernel(nmTotInt, invintmass, wsp1, wsp2);
-    }
+    MatVecKernel(nmTotInt, invintmass, wsp1, wsp2);
 
     // Map to volume
     for (unsigned int j = 0u; j < nmTotInt; j++)
@@ -343,31 +327,30 @@ NEK_FORCE_INLINE static void FwdTransBC2DKernel(
     const unsigned int offset_seg, const simd_type *invintmass0,
     [[maybe_unused]] const simd_type *invintmass1, const simd_type *tJac,
     const unsigned int *tMap, const int *tSign, const unsigned int nmTotInt,
-    const unsigned int *iMap, const simd_type *invintmass,
-    const simd_type *dmat, const simd_type *jac, const simd_type *in,
-    simd_type *out, simd_type *wsp1, simd_type *wsp2, simd_type *wsp3,
-    simd_type *wsp4)
+    const unsigned int *iMap, const simd_type *invintmass, const simd_type *jac,
+    const simd_type *in, simd_type *out, simd_type *wsp1, simd_type *wsp2,
+    simd_type *wsp3, simd_type *wsp4)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
         FwdTransBCQuadKernel<ExecSpace, DEFORMED>(
             nm0, nm1, nq0, nq1, basis0, basis1, w0, w1, offset_seg, invintmass0,
-            invintmass1, tJac, tMap, tSign, nmTotInt, iMap, invintmass, dmat,
-            jac, in, out, wsp1, wsp2, wsp3, wsp4);
+            invintmass1, tJac, tMap, tSign, nmTotInt, iMap, invintmass, jac, in,
+            out, wsp1, wsp2, wsp3, wsp4);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
     {
         FwdTransBCTriKernel<ExecSpace, DEFORMED>(
             nm0, nm1, nq0, nq1, isModified, basis0, basis1, w0, w1, interp1to0,
             offset_seg, invintmass0, tJac, tMap, tSign, nmTotInt, iMap,
-            invintmass, dmat, jac, in, out, wsp1, wsp2, wsp3, wsp4);
+            invintmass, jac, in, out, wsp1, wsp2, wsp3, wsp4);
     }
     // else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
     // {
     //     const auto nmTot  = nm0 * (nm0 + 1) / 2;
     //     simd_type *outtmp = wsp0 + nq1;
     //
-    //     FwdTransBCTriKernel<SCALE, APPEND, simd_type>(
+    //     FwdTransBCTriKernel<SCALE, APPEND>(
     //         nm0, nm1, nq0, nq1, isModified, in, B0, B1, wsp0, outtmp, scale);
     //     MatVecKernel(nmTot, NtoMTrans, outtmp, out);
     // }

@@ -64,18 +64,6 @@ struct ReadWrite
 {
 };
 
-// const_if metafunction return "const T" type if B = true and "T" type
-// otherwise.
-template <bool B, typename TData = void> struct const_if
-{
-    typedef TData type;
-};
-
-template <class TData> struct const_if<true, TData>
-{
-    typedef const TData type;
-};
-
 namespace Nektar::Operators
 {
 
