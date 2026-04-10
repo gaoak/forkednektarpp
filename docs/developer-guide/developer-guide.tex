@@ -2,9 +2,13 @@
 
 \DeclareOldFontCommand{\bf}{\normalfont\bfseries}{\mathbf}
 
+% TikZ-based matrices with dashed lines (tex4ht compatible alternative to nicematrix)
 \usepackage{tikz,tikz-3dplot}
+\usetikzlibrary{matrix, positioning, fit, calc}
+\tikzset{dashedline/.style={densely dashed, dash phase=3pt}}
 \usepackage{subcaption}
 \usepackage{algorithm2e}
+\usepackage{tabularx}
 \usepackage{makeidx}
 \usepackage{multirow}
 \usepackage{hyperref}
@@ -14,7 +18,7 @@
     filecolor=magenta,      
     urlcolor=cyan,
 }
- 
+
 \urlstyle{same}
  
  \makeindex
@@ -39,6 +43,64 @@
 \usepackage{standalone}
 \usepackage{rotating}
 
+\definecolor{myblue}{RGB}{31,119,180}
+\definecolor{mygreen}{RGB}{44,160,44}
+\definecolor{myred}{RGB}{214,39,40}
+\definecolor{myorange}{RGB}{255,127,14}
+\definecolor{mypurple}{RGB}{128,0,128} % Added for the purple dot
+\definecolor{mypink}{RGB}{255,105,180}  % Added for the pink dot and arrows
+
+\tikzset{
+    dot/.style={circle, draw=black, fill=black, thick, minimum size=6pt, inner sep=0pt},
+    colordot/.style={circle, draw=black, fill=#1, thick, minimum size=6pt, inner sep=0pt},
+    mat/.style={
+        matrix of nodes,
+        left delimiter={[},
+        right delimiter={]},
+        nodes={minimum size=6pt, inner sep=0pt},
+        row sep=3pt,
+        column sep=5pt
+    },
+    mat-temp/.style={
+        matrix of nodes,
+        nodes={minimum size=6pt, inner sep=0pt},
+        row sep=3pt,
+        column sep=5pt,
+        opacity=0
+    },
+    arrowstyle/.style={
+        draw=mypink,
+        line width=1pt,
+        -latex,
+        bend angle=30
+    },
+    dashedarrowstyle/.style={
+        draw=mypink,
+        line width=0.7pt,
+        -latex,
+        bend angle=30,
+        dashed
+    },
+    thickarrowstyle/.style={
+        draw=mypink,
+        line width=2pt,
+        -latex,
+        bend angle=30
+    },
+    thicklinepink/.style={
+        draw=mypink,
+        line width=2pt,
+        -latex,
+        bend angle=30
+    },
+    thicklinepurple/.style={
+        draw=mypurple,
+        line width=2pt,
+        -latex,
+        bend angle=30
+    }
+
+}
 \title{A Programmer's Guide to Nektar++}
 
 %\makeatletter\@addtoreset{chapter}{part}\makeatother%
