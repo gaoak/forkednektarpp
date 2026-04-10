@@ -96,6 +96,7 @@
 #define nekrtcGetCodeSize nvrtcGetPTXSize
 #define nekrtcGetCode nvrtcGetPTX
 
+#if defined(NEKTAR_ENABLE_CUDA)
 template <unsigned int ndim> class hipcudaBlock
 {
 };
@@ -171,3 +172,4 @@ template <unsigned int ndim> class hipcudaBlock
     KERNEL<<<GRIDSIZE, BLOCKSIZE, 0, STREAM>>>(__VA_ARGS__,                    \
                                                hipcudaBlock<3>());             \
     CHECK_LAST_HIPCUDA_ERROR();
+#endif

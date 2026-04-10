@@ -225,9 +225,9 @@ protected:
                 h.host_task([=](sycl::interop_handle ih) {
 #endif
                         auto stream = ih.get_native_queue<sycl_backend>();
-                        nekLaunchKernel(kernel_handle, gridSize, 1, 1,
-                                        blockSize, 1, 1, 0, stream, args,
-                                        nullptr);
+                        CHECK_HIPCUDA_DRIVER_ERROR(nekLaunchKernel(
+                            kernel_handle, gridSize, 1, 1, blockSize, 1, 1, 0,
+                            stream, args, nullptr));
                     });
             });
 #if !defined(__ADAPTIVECPP__)
