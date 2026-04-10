@@ -34,6 +34,7 @@
 
 #pragma once
 
+#if defined(NEKTAR_ENABLE_DEVICEONHOST)
 template <unsigned int ndim> class deviceOnHostBlock
 {
 };
@@ -124,3 +125,4 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
     nektar_unused(GRIDSIZE);                                                   \
     nektar_unused(BLOCKSIZE);                                                  \
     KERNEL(__VA_ARGS__, deviceOnHostBlock<3>());
+#endif

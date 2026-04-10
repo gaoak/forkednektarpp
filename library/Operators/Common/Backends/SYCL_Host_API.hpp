@@ -34,6 +34,7 @@
 
 #pragma once
 
+#if defined(NEKTAR_ENABLE_SYCL)
 #include "Operators/Common/Backends/SYCLQueue.hpp"
 
 // Kernel launcher on a one-dimensional GPU grid with shared memory provision.
@@ -185,3 +186,4 @@
                 });                                                            \
         });                                                                    \
     }
+#endif

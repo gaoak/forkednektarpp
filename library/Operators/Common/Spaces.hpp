@@ -56,7 +56,7 @@
 #include "Operators/Common/Backends/HIP_Host_API.hpp"
 #elif defined(NEKTAR_ENABLE_SYCL)
 #include "Operators/Common/Backends/SYCL_Host_API.hpp"
-#else
+#elif defined(NEKTAR_ENABLE_DEVICEONHOST)
 #include "Operators/Common/Backends/DeviceOnHost_Host_API.hpp"
 #endif
 
