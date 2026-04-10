@@ -103,6 +103,7 @@ void UnsteadyDiffusion::v_DoSolve()
 
         // Do time integration
         m_timeOp->Apply(m_in);
+        m_time = m_timeOp->GetTime();
 
         // Get CPU time
         timer.Stop();
@@ -122,6 +123,10 @@ void UnsteadyDiffusion::v_DoSolve()
             cpuTime = 0;
         }
     }
+
+    // Keep EquationSystem time consistent with the time integrator state for
+    // exact-solution evaluation and output metadata.
+    m_time = m_timeOp->GetTime();
 
     // TODO : Remove the below code, when updated with Redesign solverUtils
     //  ----------------------------------------------------------------------
@@ -251,6 +256,10 @@ void UnsteadyDiffusion::DoReaction(Field<double, FieldState::Phys> &in,
         m_forcingOp->SetTime(time);
         m_forcingOp->SetScale(dt);
         m_forcingOp->Apply(in, out);
+    }
+    else
+    {
+        m_math.zero(out);
     }
 }
 

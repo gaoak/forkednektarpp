@@ -181,14 +181,15 @@
 
     <CONDITIONS>
         <PARAMETERS>
+            <P> IterativeSolverTolerance = 1e-10    </P>
             <P> epsilon          = 0.6            </P>
             <P> lambda           = 0.81           </P>
             <P> D00              = 0.4            </P>
             <P> D11              = 0.5            </P>
             <P> D22              = 0.7            </P>
-            <P> Vx               = 0.8            </P>
-            <P> Vy               = 0.6            </P>
-            <P> Vz               = 0.7            </P>
+            <P> advx             = 0.8            </P>
+            <P> advy             = 0.6            </P>
+            <P> advz             = 0.7            </P>
         </PARAMETERS>
 
         <SOLVERINFO>
@@ -217,9 +218,15 @@
             <E VAR="u" VALUE="(x-1)*(x+1)*(y-1)*(y+1)*(z-1)*(z+1)" />
         </FUNCTION>
 
+        <FUNCTION NAME="AdvectionVelocity">
+            <E VAR="Vx" VALUE="advx" />
+            <E VAR="Vy" VALUE="advy" />
+            <E VAR="Vz" VALUE="advz" />
+        </FUNCTION>
+
         <!-- Body force to enforce reaction term -->
         <FUNCTION NAME="BodyForce">
-            <E VAR="u" EVARS="u" VALUE="2*(y+1)*(y-1)*(z+1)*(z-1)*epsilon*D00 + 2*(x+1)*(x-1)*(z+1)*(z-1)*epsilon*D11 + 2*(y+1)*(y-1)*(x+1)*(x-1)*epsilon*D22 - Vx*2*x*(y+1)*(y-1)*(z+1)*(z-1) - Vy*2*y*(x+1)*(x-1)*(z+1)*(z-1) - Vz*2*z*(y+1)*(y-1)*(x+1)*(x-1) - lambda*(x-1)*(x+1)*(y-1)*(y+1)*(z-1)*(z+1)" />
+            <E VAR="u" EVARS="u" VALUE="2*(y+1)*(y-1)*(z+1)*(z-1)*epsilon*D00 + 2*(x+1)*(x-1)*(z+1)*(z-1)*epsilon*D11 + 2*(y+1)*(y-1)*(x+1)*(x-1)*epsilon*D22 - advx*2*x*(y+1)*(y-1)*(z+1)*(z-1) - advy*2*y*(x+1)*(x-1)*(z+1)*(z-1) - advz*2*z*(y+1)*(y-1)*(x+1)*(x-1) - lambda*(x-1)*(x+1)*(y-1)*(y+1)*(z-1)*(z+1)" />
         </FUNCTION>
     </CONDITIONS>
 

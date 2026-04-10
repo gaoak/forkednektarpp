@@ -74,6 +74,9 @@ void SteadyADR::v_InitObject(bool DeclareFields)
     m_variables  = m_session->GetVariables();
     m_nVariables = m_variables.size();
 
+    // Create and initialise all fields
+    InitialiseFields();
+
     // Set up diffusion Coeff.
     SetDiffusionCoeff();
 
@@ -85,9 +88,6 @@ void SteadyADR::v_InitObject(bool DeclareFields)
 
     // Create and initialise all operators
     InitialiseOperators();
-
-    // Create and initialise all fields
-    InitialiseFields();
 }
 
 /**
@@ -242,12 +242,6 @@ void SteadyADR::InitialiseOperators()
 
     if (m_session->GetSolverInfo("EQTYPE") == "SteadyADR")
     {
-        unsigned int coordDim = m_fields[0]->GetCoordim(0);
-        auto advelblockAttr =
-            GetBlockAttributes<double, FieldState::Phys>(m_fields[0]);
-        auto vel =
-            Field<double, FieldState::Phys>("vel", advelblockAttr, coordDim, 1);
-        vel.template CopyArray<NektarSpaces::HostSpace>(m_AdVel);
         double lambda;
         m_session->LoadParameter("lambda", lambda, 0.0);
         auto linearADRSolveOp = LinearADRSolveOp<double>::Create(
@@ -255,7 +249,7 @@ void SteadyADR::InitialiseOperators()
         linearADRSolveOp->SetLinearSolver(m_linearSolverOp);
         linearADRSolveOp->SetLambda(lambda);
         linearADRSolveOp->SetDiffCoeff(m_diffCoeff);
-        linearADRSolveOp->SetAdvVel(vel);
+        linearADRSolveOp->SetAdvVel(m_advectionVelocity);
         linearADRSolveOp->SetPrecon(m_preconOp);
         linearADRSolveOp->UpdatePrecon();
         m_linearSystemOp = linearADRSolveOp;
@@ -317,13 +311,16 @@ void SteadyADR::InitialiseFields()
         GetBlockAttributes<double, FieldState::Coeff>(m_fields[0]);
 
     // Create fields.
-    unsigned int nhomo = m_npointsZ; // Note read in EquationSystem.cpp
+    unsigned int nhomo    = m_npointsZ; // Note read in EquationSystem.cpp
+    unsigned int coordDim = m_fields[0]->GetCoordim(0);
 
     m_wsp_fce = Field<double, FieldState::Phys>("m_wsp_fce", block_attr_phys,
                                                 m_nVariables, nhomo);
 
     m_wsp_coeff = Field<double, FieldState::Coeff>(
         "m_wsp_coeff", block_attr_coeff, m_nVariables, nhomo);
+    m_advectionVelocity = Field<double, FieldState::Phys>(
+        "advVel", block_attr_phys, coordDim, nhomo);
 
     // Initialise fields
     m_math.zero(m_wsp_fce);
@@ -335,78 +332,42 @@ void SteadyADR::InitialiseFields()
  */
 void SteadyADR::SetAdvectionVel()
 {
-    unsigned int nhomo    = m_npointsZ; // Note read in EquationSystem.cpp
-    unsigned int coordDim = m_fields[0]->GetCoordim(0);
-    double Vx;
 
-    // Set advection velocity
-    size_t nphys = m_fields[0]->GetTotPoints() / nhomo;
-    std::cout << std::endl;
-    std::cout << "nphys = " << nphys << " , coordDim = " << coordDim
-              << std::endl;
-
-    // Get the advection velocity
-    m_AdVel = Array<OneD, double>(nphys * coordDim);
-
-    if (m_session->DefinesFunction("BaseFlow"))
+    // Read advection velocity from session
+    if (m_session->DefinesFunction("AdvectionVelocity"))
     {
+        unsigned int coordDim = m_fields[0]->GetCoordim(0);
+
         // Reads the Session File Vecoity defined as function
         std::vector<std::string> vel;
         vel.push_back("Vx");
         vel.push_back("Vy");
         vel.push_back("Vz");
-
-        // Resize the advection velocities vector to dimension of the problem
         vel.resize(coordDim);
 
-        // Get Advection Velocity from Session file
-        // A Temp variable, tmp of type Array<OneD, Array<OneD, NekDouble>>
-        // tmp reads from Session, with Legacy routnie
-        Array<OneD, Array<OneD, NekDouble>> tmp =
-            Array<OneD, Array<OneD, NekDouble>>(coordDim);
-        GetFunction("BaseFlow")->Evaluate(vel, tmp);
+        // Initialise operators
+        auto expressionOp = ExpressionOp<double>::Create(m_fields[0], vel);
 
-        // Rewrite into m_AdVel of type Array<OneD, double>
-        // Since, the Redeisgn expects adevection velocity of that type
-        size_t count = 0;
-        for (unsigned int i = 0; i < coordDim; i++)
+        // Read advection velocity expressions and configure operator
+        std::vector<LibUtilities::EquationSharedPtr> advectionVelocities;
+        for (unsigned int i = 0; i < coordDim; ++i)
         {
-            for (size_t j = 0; j < nphys; j++)
-            {
-                m_AdVel[count] = tmp[i][j];
-                count += 1;
-            }
+            advectionVelocities.push_back(
+                m_session->GetFunction("AdvectionVelocity", vel[i]));
         }
+        expressionOp->SetExpressions(advectionVelocities);
+        expressionOp->SetTime(m_time);
+
+        // Initialise m_advectionVelocity, evaluate all expressions and
+        // transform to array
+        m_math.zero(m_advectionVelocity);
+        expressionOp->Apply(m_advectionVelocity, m_advectionVelocity);
     }
     else
     {
-        // Reads the Session File velocity defined as paramter for a constant
-        // value
-
-        // For the first dimension
-        m_session->LoadParameter("Vx", Vx, 0.0);
-        for (size_t i = 0; i < nphys; i++)
-        {
-            m_AdVel[i] = Vx;
-        }
-        if (coordDim >= 2)
-        {
-            // For the second dimension
-            m_session->LoadParameter("Vy", Vx, 0.0);
-            for (size_t i = nphys; i < nphys * 2; i++)
-            {
-                m_AdVel[i] = Vx;
-            }
-        }
-        if (coordDim == 3)
-        {
-            // For the third dimension
-            m_session->LoadParameter("Vz", Vx, 0.0);
-            for (size_t i = 2 * nphys; i < nphys * 3; i++)
-            {
-                m_AdVel[i] = Vx;
-            }
-        }
+        NEKERROR(
+            ErrorUtil::efatal,
+            "Function 'AdvectionVelocity' was not defined in session file.")
     }
 }
 
