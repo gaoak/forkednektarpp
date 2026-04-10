@@ -55,11 +55,12 @@
 
     <CONDITIONS>
         <PARAMETERS>
+            <P> IterativeSolverTolerance = 1e-10     </P>
             <P> epsilon        = 0.45              </P>
             <P> D00            = 0.65              </P>
             <P> D11            = 0.5               </P>
-            <P> Vx             = 0.6               </P>
-            <P> Vy             = 0.5               </P>
+            <P> advx           = 0.6               </P>
+            <P> advy           = 0.5               </P>
         </PARAMETERS>
 
         <SOLVERINFO>
@@ -88,9 +89,14 @@
             <E VAR="u" VALUE="x^3 + y^3" />
         </FUNCTION>
 
+        <FUNCTION NAME="AdvectionVelocity">
+            <E VAR="Vx" VALUE="advx" />
+            <E VAR="Vy" VALUE="advy" />
+        </FUNCTION>
+
         <!-- Body force to enforce reaction term -->
         <FUNCTION NAME="BodyForce">
-            <E VAR="u" EVARS="u" VALUE="6*x*epsilon*D00 + 6*y*epsilon*D11 - 3*Vx*(x^2) - 3*Vy*(y^2)" />
+            <E VAR="u" EVARS="u" VALUE="6*x*epsilon*D00 + 6*y*epsilon*D11 - 3*advx*(x^2) - 3*advy*(y^2)" />
         </FUNCTION>
     </CONDITIONS>
 

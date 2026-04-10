@@ -49,7 +49,7 @@
         <PARAMETERS>
             <P> epsilon        = 0.2           </P>
             <P> lambda         = 0.6           </P>
-            <P> Vx             = 0.5           </P>
+            <P> advx             = 0.5           </P>
         </PARAMETERS>
 
         <SOLVERINFO>
@@ -82,9 +82,13 @@
             <E VAR="u" VALUE="x^2" />
         </FUNCTION>
 
+        <FUNCTION NAME="AdvectionVelocity">
+            <E VAR="Vx" VALUE="advx" />
+        </FUNCTION>
+
         <!-- Body force to enforce reaction term -->
         <FUNCTION NAME="BodyForce">
-            <E VAR="u" EVARS="u" VALUE="2*epsilon - 2*Vx*x - lambda*(x^2)" />
+            <E VAR="u" EVARS="u" VALUE="2*epsilon - 2*advx*x - lambda*(x^2)" />
         </FUNCTION>
     </CONDITIONS>
 

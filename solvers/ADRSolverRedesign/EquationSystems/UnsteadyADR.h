@@ -36,10 +36,12 @@
 #pragma once
 
 #include "Operators/Math/Math.hpp"
+#include <Operators/ElmtOps/Advection/AdvectionOp.hpp>
 #include <Operators/ElmtOps/BwdTrans/BwdTransOp.hpp>
 #include <Operators/ElmtOps/Expression/ExpressionOp.hpp>
 #include <Operators/Field/Field.hpp>
 #include <Operators/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp>
+#include <Operators/GlobalLinSysOps/LinearSystems/HelmSolve/HelmSolveOp.hpp>
 #include <Operators/GlobalLinSysOps/LinearSystems/LinearADRSolve/LinearADRSolveOp.hpp>
 #include <SolverUtils/EquationSystem.h>
 
@@ -71,17 +73,17 @@ protected:
     // Diffusion coefficient
     double m_epsilon;
     std::vector<double> m_diffCoeff;
-    Array<OneD, double> m_AdVel;
 
     // Time stepping coefficient
     double m_lambda;
+    bool m_explicitAdvection = true;
 
     // Save variable strings and number for verbose output and looping
     std::vector<std::string> m_variables;
     unsigned int m_nVariables;
 
     // Setup workspaces
-    Field<double, FieldState::Phys> m_in;
+    Field<double, FieldState::Phys> m_in, m_wsp_phys, m_advectionVelocity;
     Field<double, FieldState::Coeff> m_wsp_coeff;
 
     // Declare math
@@ -91,7 +93,9 @@ protected:
     std::shared_ptr<TimeOp<double>> m_timeOp;
 
     // Initialise operators
+    std::shared_ptr<AdvectionOp<double>> m_advectionOp;
     std::shared_ptr<BwdTransOp<double>> m_bwdTransOp;
+    std::shared_ptr<HelmSolveOp<double>> m_helmSolveOp;
     std::shared_ptr<LinearADRSolveOp<double>> m_linearADRSolveOp;
     std::shared_ptr<LinearSolverOp<double>> m_linearSolverOp;
     std::map<double, std::shared_ptr<PreconOp<double>>> m_preconOp;
@@ -109,13 +113,13 @@ protected:
 
     void v_GenerateSummary(SummaryList &s) override;
 
-    void DoLinearADR(Field<double, FieldState::Phys> &inout,
+    void DoDiffusion(Field<double, FieldState::Phys> &inout,
                      Field<double, FieldState::Phys> &out,
                      [[maybe_unused]] const double &time, const double &lambda);
 
-    void DoReaction(Field<double, FieldState::Phys> &in,
-                    Field<double, FieldState::Phys> &out, const double &time,
-                    const double &dt);
+    void DoExplicitRhs(Field<double, FieldState::Phys> &in,
+                       Field<double, FieldState::Phys> &out, const double &time,
+                       const double &dt);
 
     void DoProjection(Field<double, FieldState::Phys> &in,
                       Field<double, FieldState::Phys> &out, const double time);

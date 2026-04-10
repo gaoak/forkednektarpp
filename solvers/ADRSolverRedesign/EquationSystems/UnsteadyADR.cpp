@@ -42,8 +42,8 @@ namespace Nektar
 using namespace Operators;
 
 std::string UnsteadyADR::className =
-    GetEquationSystemFactory().RegisterCreatorFunction("UnsteadyADRRedesign",
-                                                       UnsteadyADR::create);
+    GetEquationSystemFactory().RegisterCreatorFunction(
+        "UnsteadyAdvectionDiffusion", UnsteadyADR::create);
 
 UnsteadyADR::UnsteadyADR(const LibUtilities::SessionReaderSharedPtr &pSession,
                          const SpatialDomains::MeshGraphSharedPtr &pGraph)
@@ -64,24 +64,26 @@ void UnsteadyADR::v_InitObject(bool DeclareFields)
     // Get variable strings and number of variables
     m_variables  = m_session->GetVariables();
     m_nVariables = m_variables.size();
+    m_session->MatchSolverInfo("ADVECTIONADVANCEMENT", "Explicit",
+                               m_explicitAdvection, true);
 
     // Initialise Time-stepping operator
     m_timeOp = TimeOp<double>::Create(m_fields[0], m_session->GetVariables());
-    m_timeOp->DefineImplicit(&UnsteadyADR::DoLinearADR, this);
-    m_timeOp->DefineExplicitRhs(&UnsteadyADR::DoReaction, this);
+    m_timeOp->DefineImplicit(&UnsteadyADR::DoDiffusion, this);
+    m_timeOp->DefineExplicitRhs(&UnsteadyADR::DoExplicitRhs, this);
     m_timeOp->DefineProjection(&UnsteadyADR::DoProjection, this);
+
+    // Create and initialise all fields
+    InitialiseFields();
 
     // Set up diffusion Coeff.
     SetDiffusionCoeff();
 
-    // Set Advection Vecloity
+    // Set Advection Velocity
     SetAdvectionVel();
 
     // Create and initialise all operators
     InitialiseOperators();
-
-    // Create and initialise all fields
-    InitialiseFields();
 }
 
 /**
@@ -104,6 +106,7 @@ void UnsteadyADR::v_DoSolve()
 
         // Do time integration
         m_timeOp->Apply(m_in);
+        m_time = m_timeOp->GetTime();
 
         // Get CPU time
         timer.Stop();
@@ -123,6 +126,10 @@ void UnsteadyADR::v_DoSolve()
             cpuTime = 0;
         }
     }
+
+    // Keep EquationSystem time consistent with the time integrator state for
+    // exact-solution evaluation and output metadata.
+    m_time = m_timeOp->GetTime();
 
     // TODO : Remove the below code, when updated with Redesign solverUtils
     //  ----------------------------------------------------------------------
@@ -159,6 +166,8 @@ void UnsteadyADR::v_GenerateSummary(SummaryList &s)
                    m_session->GetTimeIntScheme().method);
     AddSummaryItem(s, "Integration Order",
                    std::to_string(m_session->GetTimeIntScheme().order));
+    AddSummaryItem(s, "Advect. advancement",
+                   m_explicitAdvection ? "explicit" : "implicit");
 
     std::stringstream ss;
     ss << R"(
@@ -180,7 +189,7 @@ void UnsteadyADR::v_GenerateSummary(SummaryList &s)
     AddSummaryItem(s, "Redesign disclaimer", ss.str());
 }
 
-void UnsteadyADR::DoLinearADR(
+void UnsteadyADR::DoDiffusion(
     Field<double, FieldState::Phys> &in,
     [[maybe_unused]] Field<double, FieldState::Phys> &out,
     [[maybe_unused]] const double &time, const double &dt_inv_gamma)
@@ -188,28 +197,58 @@ void UnsteadyADR::DoLinearADR(
     // Update \lambda = \gamma / \Delta t
     m_lambda = 1.0 / dt_inv_gamma;
 
-    // Update LinearADRSolve
-    m_linearADRSolveOp->SetLambda(m_lambda);
-    if (m_preconOp.find(dt_inv_gamma) == m_preconOp.end())
+    if (m_explicitAdvection)
     {
-        // Configure and cache preconditioner
-        m_preconOp.insert(
-            {dt_inv_gamma,
-             PreconOp<double>::Create(m_fields[0], m_session->GetVariables())});
-        m_linearADRSolveOp->SetPrecon(m_preconOp[dt_inv_gamma]);
-        m_linearADRSolveOp->UpdatePrecon();
+        // Update HelmSolve
+        m_helmSolveOp->SetLambda(m_lambda);
+        if (m_preconOp.find(dt_inv_gamma) == m_preconOp.end())
+        {
+            // Configure and cache preconditioner
+            m_preconOp.insert(
+                {dt_inv_gamma, PreconOp<double>::Create(
+                                   m_fields[0], m_session->GetVariables())});
+            m_helmSolveOp->SetPrecon(m_preconOp[dt_inv_gamma]);
+            m_helmSolveOp->UpdatePrecon();
+        }
+        else
+        {
+            // Re-use preconditioner
+            m_helmSolveOp->SetPrecon(m_preconOp[dt_inv_gamma]);
+        }
     }
     else
     {
-        // Re-use preconditioner
-        m_linearADRSolveOp->SetPrecon(m_preconOp[dt_inv_gamma]);
+        // Update LinearADRSolve
+        m_linearADRSolveOp->SetLambda(m_lambda);
+        if (m_preconOp.find(dt_inv_gamma) == m_preconOp.end())
+        {
+            // Configure and cache preconditioner
+            m_preconOp.insert(
+                {dt_inv_gamma, PreconOp<double>::Create(
+                                   m_fields[0], m_session->GetVariables())});
+            m_linearADRSolveOp->SetPrecon(m_preconOp[dt_inv_gamma]);
+            m_linearADRSolveOp->UpdatePrecon();
+        }
+        else
+        {
+            // Re-use preconditioner
+            m_linearADRSolveOp->SetPrecon(m_preconOp[dt_inv_gamma]);
+        }
     }
 
     // Multiply by negative lambda
     m_math.mul(-m_lambda, in, out);
 
-    // Solve LinearADR problem
-    m_linearADRSolveOp->Apply(out, m_wsp_coeff);
+    if (m_explicitAdvection)
+    {
+        // Solve diffusion problem
+        m_helmSolveOp->Apply(out, m_wsp_coeff);
+    }
+    else
+    {
+        // Solve implicit ADR problem
+        m_linearADRSolveOp->Apply(out, m_wsp_coeff);
+    }
 
     // Transform to physical space
     m_bwdTransOp->Apply(m_wsp_coeff, out);
@@ -224,17 +263,28 @@ void UnsteadyADR::DoLinearADR(
  *  Upon output
  *  param out: = \kappa u^{n}
  */
-void UnsteadyADR::DoReaction(Field<double, FieldState::Phys> &in,
-                             Field<double, FieldState::Phys> &out,
-                             const double &time, const double &dt)
+void UnsteadyADR::DoExplicitRhs(Field<double, FieldState::Phys> &in,
+                                Field<double, FieldState::Phys> &out,
+                                const double &time, const double &dt)
 {
-    // Evaluate and add forcing function, if defined
+    // Start with the forcing term, if defined.
     if (m_session->DefinesFunction("BodyForce"))
     {
-        // Set forcing operator and evaluate
         m_forcingOp->SetTime(time);
         m_forcingOp->SetScale(dt);
         m_forcingOp->Apply(in, out);
+    }
+    else
+    {
+        m_math.zero(out);
+    }
+
+    if (m_explicitAdvection)
+    {
+        // Add the explicit advection contribution with the legacy IMEX sign
+        // convention: rhs = forcing - a.grad(u).
+        m_advectionOp->Apply(in, m_wsp_phys);
+        m_math.daxpy(-dt, m_wsp_phys, out, out);
     }
 }
 
@@ -336,24 +386,37 @@ void UnsteadyADR::InitialiseOperators()
     std::string execName = Operator<double>::GetOpExecSpace(m_session);
     m_math               = Math(execName);
 
-    // Create LinearADRSolve, preconditioner, and linear system operators
-    m_linearSolverOp =
-        LinearSolverOp<double>::Create(m_fields[0], m_session->GetVariables());
+    // Create linear-system and transform operators.
     m_bwdTransOp =
         BwdTransOp<double>::Create(m_fields[0], m_session->GetVariables());
-    m_linearADRSolveOp = LinearADRSolveOp<double>::Create(
-        m_fields[0], m_session->GetVariables());
 
-    // Configure UnsteadyADRSolve
-    unsigned int coordDim = m_fields[0]->GetCoordim(0);
-    auto advelblockAttr =
-        GetBlockAttributes<double, FieldState::Phys>(m_fields[0]);
-    auto vel =
-        Field<double, FieldState::Phys>("vel", advelblockAttr, coordDim, 1);
-    vel.template CopyArray<NektarSpaces::HostSpace>(m_AdVel);
-    m_linearADRSolveOp->SetLinearSolver(m_linearSolverOp);
-    m_linearADRSolveOp->SetDiffCoeff(m_diffCoeff);
-    m_linearADRSolveOp->SetAdvVel(vel);
+    if (m_explicitAdvection)
+    {
+        m_advectionOp =
+            AdvectionOp<double>::Create(m_fields[0], m_session->GetVariables());
+        m_advectionOp->SetAdvVel(m_advectionVelocity);
+        // After splitting advection into the explicit IMEX rhs, the implicit
+        // solve is a symmetric Helmholtz problem. Use ConjGrad here rather
+        // than inheriting the ADR-session GMRES setting.
+        m_linearSolverOp = LinearSolverOp<double>::Create(
+            m_fields[0], m_session->GetVariables(), "ConjGrad");
+        m_helmSolveOp =
+            HelmSolveOp<double>::Create(m_fields[0], m_session->GetVariables());
+        m_helmSolveOp->SetLinearSolver(m_linearSolverOp);
+        m_helmSolveOp->SetDiffCoeff(m_diffCoeff);
+    }
+    else
+    {
+        // Mirror the legacy implicit-advection option by solving the full ADR
+        // operator in the implicit stage, using the session-configured solver.
+        m_linearSolverOp = LinearSolverOp<double>::Create(
+            m_fields[0], m_session->GetVariables());
+        m_linearADRSolveOp = LinearADRSolveOp<double>::Create(
+            m_fields[0], m_session->GetVariables());
+        m_linearADRSolveOp->SetLinearSolver(m_linearSolverOp);
+        m_linearADRSolveOp->SetDiffCoeff(m_diffCoeff);
+        m_linearADRSolveOp->SetAdvVel(m_advectionVelocity);
+    }
 
     // Check if forcing is defined
     if (m_session->DefinesFunction("BodyForce"))
@@ -378,8 +441,10 @@ void UnsteadyADR::InitialiseOperators()
         FwdTransOp<double>::Create(m_fields[0], m_session->GetVariables());
     auto preconOp =
         PreconOp<double>::Create(m_fields[0], m_session->GetVariables());
-    auto linsolverOp =
-        LinearSolverOp<double>::Create(m_fields[0], m_session->GetVariables());
+    // The projection solve is a mass-matrix problem, so use ConjGrad
+    // regardless of the ADR system solver configured in the session.
+    auto linsolverOp = LinearSolverOp<double>::Create(
+        m_fields[0], m_session->GetVariables(), "ConjGrad");
     m_fwdTransOp->SetLinearSolver(linsolverOp);
     m_fwdTransOp->SetPrecon(preconOp);
     m_fwdTransOp->UpdatePrecon();
@@ -397,11 +462,16 @@ void UnsteadyADR::InitialiseFields()
         GetBlockAttributes<double, FieldState::Coeff>(m_fields[0]);
 
     // Create fields.
-    unsigned int nhomo = m_npointsZ; // Note read in EquationSystem.cpp
+    unsigned int nhomo    = m_npointsZ; // Note read in EquationSystem.cpp
+    unsigned int coordDim = m_fields[0]->GetCoordim(0);
     m_in        = Field<double, FieldState::Phys>("solution", block_attr_phys,
                                            m_nVariables, nhomo);
+    m_wsp_phys  = Field<double, FieldState::Phys>("m_wsp_phys", block_attr_phys,
+                                                 m_nVariables, nhomo);
     m_wsp_coeff = Field<double, FieldState::Coeff>(
         "m_wsp_coeff", block_attr_coeff, m_nVariables, nhomo);
+    m_advectionVelocity = Field<double, FieldState::Phys>(
+        "advVel", block_attr_phys, coordDim, nhomo);
 }
 
 /*
@@ -409,78 +479,42 @@ void UnsteadyADR::InitialiseFields()
  */
 void UnsteadyADR::SetAdvectionVel()
 {
-    unsigned int nhomo    = m_npointsZ; // Note read in EquationSystem.cpp
-    unsigned int coordDim = m_fields[0]->GetCoordim(0);
-    double Vx;
 
-    // Set advection velocity
-    size_t nphys = m_fields[0]->GetTotPoints() / nhomo;
-    std::cout << std::endl;
-    std::cout << "nphys = " << nphys << " , coordDim = " << coordDim
-              << std::endl;
-
-    // Get the advection velocity
-    m_AdVel = Array<OneD, double>(nphys * coordDim);
-
-    if (m_session->DefinesFunction("BaseFlow"))
+    // Read advection velocity from session
+    if (m_session->DefinesFunction("AdvectionVelocity"))
     {
+        unsigned int coordDim = m_fields[0]->GetCoordim(0);
+
         // Reads the Session File Vecoity defined as function
         std::vector<std::string> vel;
         vel.push_back("Vx");
         vel.push_back("Vy");
         vel.push_back("Vz");
-
-        // Resize the advection velocities vector to dimension of the problem
         vel.resize(coordDim);
 
-        // Get Advection Velocity from Session file
-        // A Temp variable, tmp of type Array<OneD, Array<OneD, NekDouble>>
-        // tmp reads from Session, with Legacy routnie
-        Array<OneD, Array<OneD, NekDouble>> tmp =
-            Array<OneD, Array<OneD, NekDouble>>(coordDim);
-        GetFunction("BaseFlow")->Evaluate(vel, tmp);
+        // Initialise operators
+        auto expressionOp = ExpressionOp<double>::Create(m_fields[0], vel);
 
-        // Rewrite into m_AdVel of type Array<OneD, double>
-        // Since, the Redeisgn expects adevection velocity of that type
-        size_t count = 0;
-        for (unsigned int i = 0; i < coordDim; i++)
+        // Read advection velocity expressions and configure operator
+        std::vector<LibUtilities::EquationSharedPtr> advectionVelocities;
+        for (unsigned int i = 0; i < coordDim; ++i)
         {
-            for (size_t j = 0; j < nphys; j++)
-            {
-                m_AdVel[count] = tmp[i][j];
-                count += 1;
-            }
+            advectionVelocities.push_back(
+                m_session->GetFunction("AdvectionVelocity", vel[i]));
         }
+        expressionOp->SetExpressions(advectionVelocities);
+        expressionOp->SetTime(m_time);
+
+        // Initialise m_advectionVelocity, evaluate all expressions and
+        // transform to array
+        m_math.zero(m_advectionVelocity);
+        expressionOp->Apply(m_advectionVelocity, m_advectionVelocity);
     }
     else
     {
-        // Reads the Session File velocity defined as paramter for a constant
-        // value
-
-        // For the first dimension
-        m_session->LoadParameter("Vx", Vx, 0.0);
-        for (size_t i = 0; i < nphys; i++)
-        {
-            m_AdVel[i] = Vx;
-        }
-        if (coordDim >= 2)
-        {
-            // For the second dimension
-            m_session->LoadParameter("Vy", Vx, 0.0);
-            for (size_t i = nphys; i < nphys * 2; i++)
-            {
-                m_AdVel[i] = Vx;
-            }
-        }
-        if (coordDim == 3)
-        {
-            // For the third dimension
-            m_session->LoadParameter("Vz", Vx, 0.0);
-            for (size_t i = 2 * nphys; i < nphys * 3; i++)
-            {
-                m_AdVel[i] = Vx;
-            }
-        }
+        NEKERROR(
+            ErrorUtil::efatal,
+            "Function 'AdvectionVelocity' was not defined in session file.")
     }
 }
 

@@ -50,24 +50,40 @@
     </GEOMETRY>
 
     <EXPANSIONS>
-        <E COMPOSITE="C[0]" NUMMODES="10" TYPE="MODIFIED" FIELDS="u" />
+        <E COMPOSITE="C[0]" NUMMODES="8" FIELDS="u" TYPE="MODIFIED" />
     </EXPANSIONS>
+
+    <FORCING>
+        <FORCE TYPE="Body">
+            <BODYFORCE> BodyForce </BODYFORCE>
+        </FORCE>
+    </FORCING>
 
     <CONDITIONS>
         <PARAMETERS>
-            <P> epsilon        = 0.45              </P>
-            <P> D00            = 0.65              </P>
-            <P> D11            = 0.5               </P>
-            <P> V0             = 0.6               </P>
-            <P> V1             = 0.5               </P>
+            <P> TimeStep       = 0.0001             </P>
+            <P> NumSteps       = 100                </P>
+            <P> FinTime        = NumSteps*TimeStep  </P>
+            <P> epsilon        = 0.5                </P>
+            <P> advx           = 0.5                </P>
+            <P> advy           = 0.5                </P>
+            <P> A              = PI                 </P>
+            <P> B              = PI                 </P>
         </PARAMETERS>
 
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
+
         <SOLVERINFO>
-            <I PROPERTY="EQTYPE"                VALUE="SteadyADR" />
+            <I PROPERTY="EQTYPE"                VALUE="UnsteadyAdvectionDiffusion" />
             <I PROPERTY="Projection"            VALUE="Continuous" />
             <I PROPERTY="GLOBALSYSSOLN"         VALUE="IterativeFull" />
             <I PROPERTY="Preconditioner"        VALUE="Diagonal" />
-            <I PROPERTY="LinSysIterSolver"      VALUE="GMRES"   />
+            <I PROPERTY="LinSysIterSolver"      VALUE="GMRES" />
+            <I PROPERTY="DiffusionAdvancement"  VALUE="Implicit" />
+            <I PROPERTY="AdvectionAdvancement"  VALUE="Explicit" />
         </SOLVERINFO>
 
         <VARIABLES>
@@ -75,34 +91,35 @@
         </VARIABLES>
 
         <BOUNDARYREGIONS>
-            <B ID="0"> C[1-4] </B>
+            <B ID="0"> C[1-2] </B>
+            <B ID="1"> C[3-4] </B>
         </BOUNDARYREGIONS>
 
         <BOUNDARYCONDITIONS>
             <REGION REF="0">
-                <D VAR="u" VALUE="x^3 + y^3" />
+                <D VAR="u" VALUE="sin(A*x)*sin(B*y)"/>
+            </REGION>
+            <REGION REF="1">
+                <D VAR="u" VALUE="sin(A*x)*sin(B*y)"/>
             </REGION>
         </BOUNDARYCONDITIONS>
 
         <FUNCTION NAME="ExactSolution">
-            <E VAR="u" VALUE="x^3 + y^3" />
+            <E VAR="u" VALUE="sin(A*x)*sin(B*y)*exp(-t)"/>
         </FUNCTION>
 
-        <FUNCTION NAME="BaseFlow">
-            <E VAR="Vx" VALUE="V0" />
-            <E VAR="Vy" VALUE="V1" />
+        <FUNCTION NAME="InitialConditions">
+            <E VAR="u" VALUE="sin(A*x)*sin(B*y)"/>
         </FUNCTION>
 
-        <!-- Body force to enforce reaction term -->
         <FUNCTION NAME="BodyForce">
-            <E VAR="u" EVARS="u" VALUE="6*x*epsilon*D00 + 6*y*epsilon*D11 - 3*V0*(x^2) - 3*V1*(y^2)" />
+            <E VAR="u" VALUE="advx*A*cos(A*x)*sin(B*y)*exp(-t) + advy*B*sin(A*x)*cos(B*y)*exp(-t) + ((A*A + B*B)*epsilon-1)*sin(A*x)*sin(B*y)*exp(-t)" />
+        </FUNCTION>
+
+        <FUNCTION NAME="AdvectionVelocity">
+            <E VAR="Vx" VALUE="advx" />
+            <E VAR="Vy" VALUE="advy" />
         </FUNCTION>
     </CONDITIONS>
-
-    <FORCING>
-        <FORCE TYPE="Body">
-            <BODYFORCE> BodyForce </BODYFORCE>
-        </FORCE>
-    </FORCING>
 
 </NEKTAR>

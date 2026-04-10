@@ -71,15 +71,13 @@ protected:
     // Diffusion coefficient
     double m_epsilon;
     std::vector<double> m_diffCoeff;
-    // Variables for the Advection, Diffusion, Reaction Solver
-    Array<OneD, double> m_AdVel; // Advection Veclocity
 
     // Save variable strings and number for verbose output and looping
     std::vector<std::string> m_variables;
     unsigned int m_nVariables;
 
     // Setup workspaces
-    Field<double, FieldState::Phys> m_wsp_fce;
+    Field<double, FieldState::Phys> m_wsp_fce, m_advectionVelocity;
     Field<double, FieldState::Coeff> m_wsp_coeff;
 
     // Declare math

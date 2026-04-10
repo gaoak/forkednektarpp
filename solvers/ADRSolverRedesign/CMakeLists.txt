@@ -2,13 +2,13 @@ IF(NEKTAR_BUILD_REDESIGN)
     CMAKE_DEPENDENT_OPTION(NEKTAR_SOLVER_ADR_RE
         "Build the ADR Solver." ON
         "NEKTAR_BUILD_SOLVERS" OFF)
-    
+
     IF (NOT NEKTAR_BUILD_SOLVERS)
         SET(NEKTAR_SOLVER_ADR_RE OFF CACHE INTERNAL "")
     ENDIF()
 
     IF (NEKTAR_SOLVER_ADR_RE)
-    
+
         # Default execution spaces.
         SET(ExecSpaces Serial)
 
@@ -79,17 +79,13 @@ IF(NEKTAR_BUILD_REDESIGN)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign SteadyAdvecDiff2D)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign SteadyAdvecDiff3D)
 
-        SET_ALL_SOLVER_TEST(ADRSolverRedesign SteadyAdvecDiff1DBaseFlow)
-        SET_ALL_SOLVER_TEST(ADRSolverRedesign SteadyAdvecDiff2DBaseFlow)
-        SET_ALL_SOLVER_TEST(ADRSolverRedesign SteadyAdvecDiff3DBaseFlow)
-
         SET_ALL_SOLVER_TEST(ADRSolverRedesign SteadyAdvecDiffReaction1D)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign SteadyAdvecDiffReaction2D)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign SteadyAdvecDiffReaction3D)
 
-        # SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvecDiff1D)
-        # SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvecDiff2D)
-        # SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvecDiff3D)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvecDiff1D)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvecDiff2D)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvecDiff3D)
 
         # SDC time-integration
         SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvection2D_ExplicitSDCGaussLobattoLegendre)

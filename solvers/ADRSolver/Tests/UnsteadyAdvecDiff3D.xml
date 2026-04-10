@@ -115,9 +115,9 @@
             <P> advx           = 0.5                </P>
             <P> advy           = 0.5                </P>
             <P> advz           = 0.5                </P>
-            <P> A              = PI                </P>
-            <P> B              = PI                </P>
-            <P> C              = PI                </P>
+            <P> A              = PI                 </P>
+            <P> B              = PI                 </P>
+            <P> C              = PI                 </P>
         </PARAMETERS>
 
         <TIMEINTEGRATIONSCHEME>
@@ -128,11 +128,11 @@
         <SOLVERINFO>
             <I PROPERTY="EQTYPE"                VALUE="UnsteadyAdvectionDiffusion" />
             <I PROPERTY="Projection"            VALUE="Continuous" />
-            <I PROPERTY="GLOBALSYSSOLN"         VALUE="IterativeFull" />
-            <I PROPERTY="Preconditioner"        VALUE="Diagonal" />
-            <I PROPERTY="LinSysIterSolver"      VALUE="GMRES" />
-            <I PROPERTY="DiffusionAdvancement"  VALUE="Implicit" />
             <I PROPERTY="AdvectionAdvancement"  VALUE="Explicit" />
+            <I PROPERTY="DiffusionAdvancement"  VALUE="Implicit" />
+            <I PROPERTY="GLOBALSYSSOLN"         VALUE="IterativeFull" />
+            <I PROPERTY="LinSysIterSolver"      VALUE="GMRES" />
+            <I PROPERTY="Preconditioner"        VALUE="Diagonal" />
         </SOLVERINFO>
 
         <VARIABLES>
@@ -171,5 +171,4 @@
             <E VAR="Vz" VALUE="advz" />
         </FUNCTION>
     </CONDITIONS>
-
 </NEKTAR>
