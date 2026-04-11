@@ -95,11 +95,11 @@ NEK_DEVICE_INLINE static void FwdTransBCSegSumFacTOPKernel(
     {
         if constexpr (DEFORMED)
         {
-            wsp2[i] *= jac[i] * w0[i];
+            wsp2[i] = (in[i] - wsp2[i]) * jac[i] * w0[i];
         }
         else
         {
-            wsp2[i] *= w0[i];
+            wsp2[i] = (in[i] - wsp2[i]) * w0[i];
         }
     }
 
@@ -108,29 +108,8 @@ NEK_DEVICE_INLINE static void FwdTransBCSegSumFacTOPKernel(
 
     // Do IProduct to complete Mass matrix
     // use negative scale to subtract from Dirichlet condition
-    IProductWRTBaseSegSumFacTOPKernel<true, false>(nm0, nq0, basis0, wsp2, wsp1,
-                                                   (TData)-1.0, threadBlock);
-
-    /// Step 2: Evaluate IProd of Dirichlet condition and
-    /// Step 3: Subtract vertex contribution from Dirichlet condition
-    // Apply Jacobian and quadrature weights for IProduct
-    for (unsigned int i = idx0; i < nq0; i += stride)
-    {
-        if constexpr (DEFORMED)
-        {
-            wsp2[i] = in[i] * jac[i] * w0[i];
-        }
-        else
-        {
-            wsp2[i] = in[i] * w0[i];
-        }
-    }
-
-    // synchronize threads.
-    localBarrier(threadBlock);
-
-    IProductWRTBaseSegSumFacTOPKernel<false, true>(nm0, nq0, basis0, wsp2, wsp1,
-                                                   (TData)1.0, threadBlock);
+    IProductWRTBaseSegSumFacTOPKernel<false, false>(
+        nm0, nq0, basis0, wsp2, wsp1, (TData)1.0, threadBlock);
 
     // Step 4: Project edge interior modes onto boundary
     // Matrix vector product with interior mass matrix
@@ -143,15 +122,7 @@ NEK_DEVICE_INLINE static void FwdTransBCSegSumFacTOPKernel(
             tmp = tmp + wsp1[j + offset_seg] * invintmass[i * nmInt + j];
         }
 
-        // Divide by Jacobian
-        if constexpr (DEFORMED)
-        {
-            out[i + offset_seg] = tmp / jac[i];
-        }
-        else
-        {
-            out[i + offset_seg] = tmp;
-        }
+        out[i + offset_seg] = tmp;
     }
 
     // synchronize threads.
@@ -242,11 +213,11 @@ NEK_DEVICE_INLINE static void FwdTransBCQuadSumFacTOPKernel(
         const unsigned int j = idx / nq0;
         if constexpr (DEFORMED)
         {
-            wsp1[idx] *= jac[idx] * w0[i] * w1[j];
+            wsp1[idx] = (in[idx] - wsp1[idx]) * jac[idx] * w0[i] * w1[j];
         }
         else
         {
-            wsp1[idx] *= w0[i] * w1[j];
+            wsp1[idx] = (in[idx] - wsp1[idx]) * w0[i] * w1[j];
         }
     }
 
@@ -254,35 +225,11 @@ NEK_DEVICE_INLINE static void FwdTransBCQuadSumFacTOPKernel(
     localBarrier(threadBlock);
 
     // Complete mass matrix with IProduct
-    IProductWRTBaseQuadSumFacTOPKernel<true, false>(
-        nm0, nm1, nmTot, nq0, nq1, nqTot, basis0, basis1, wsp1, wsp2, wsp3,
-        (TData)-1.0, threadBlock);
-
-    /// Step 3: Evaluate IProd of Dirichlet condition and
-    /// Step 4: Subtract vertex contribution from Dirichlet condition
-    // Apply jacobian and quadrature weights
-    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
-    {
-        const unsigned int i = idx % nq0;
-        const unsigned int j = idx / nq0;
-        if constexpr (DEFORMED)
-        {
-            wsp1[idx] = in[idx] * jac[idx] * w0[i] * w1[j];
-        }
-        else
-        {
-            wsp1[idx] = in[idx] * w0[i] * w1[j];
-        }
-    }
-
-    // synchronize threads.
-    localBarrier(threadBlock);
-
-    IProductWRTBaseQuadSumFacTOPKernel<false, true>(
+    IProductWRTBaseQuadSumFacTOPKernel<false, false>(
         nm0, nm1, nmTot, nq0, nq1, nqTot, basis0, basis1, wsp1, wsp2, wsp3,
         (TData)1.0, threadBlock);
 
-    /// Step 4: Project face/interior modes onto boundary
+    /// Step 3: Project face/interior modes onto boundary
     // Map to interior coeffs
     if (idx0 == 0)
     {
@@ -296,29 +243,8 @@ NEK_DEVICE_INLINE static void FwdTransBCQuadSumFacTOPKernel(
     localBarrier(threadBlock);
 
     // Projection ie matrix vector product with inverse interior mass
-    if constexpr (DEFORMED)
-    {
-        Nektar::MatVecSumFacTOPKernel<false, false>(nmTotInt, invintmass, wsp1,
-                                                    wsp2, threadBlock);
-        // Note localBarrier inside MatVecSumFacTOPKernel
-    }
-    else
-    {
-        TData tmp;
-        for (unsigned int i = idx0; i < nmTotInt; i += stride)
-        {
-            tmp = 0.0;
-            for (unsigned int j = 0u; j < nmTotInt; j++)
-            {
-                tmp = tmp + wsp1[j] * invintmass[i * nmTotInt + j];
-            }
-
-            wsp2[i] = tmp;
-        }
-
-        // synchronize threads.
-        localBarrier(threadBlock);
-    }
+    Nektar::MatVecSumFacTOPKernel<false, false>(nmTotInt, invintmass, wsp1,
+                                                wsp2, threadBlock);
 
     // Map to volume
     if (idx0 == 0)
@@ -423,11 +349,11 @@ NEK_DEVICE_INLINE static void FwdTransBCTriSumFacTOPKernel(
         const unsigned int j = idx / nq0;
         if constexpr (DEFORMED)
         {
-            wsp1[idx] *= jac[idx] * w0[i] * w1[j];
+            wsp1[idx] = (in[idx] - wsp1[idx]) * jac[idx] * w0[i] * w1[j];
         }
         else
         {
-            wsp1[idx] *= w0[i] * w1[j];
+            wsp1[idx] = (in[idx] - wsp1[idx]) * w0[i] * w1[j];
         }
     }
 
@@ -435,35 +361,11 @@ NEK_DEVICE_INLINE static void FwdTransBCTriSumFacTOPKernel(
     localBarrier(threadBlock);
 
     // Complete mass matrix with IProduct
-    IProductWRTBaseTriSumFacTOPKernel<true, false>(
-        nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, basis0, basis1,
-        wsp1, wsp2, wsp3, (TData)-1.0, threadBlock);
-
-    /// Step 3: Evaluate IProd of Dirichlet condition and
-    /// Step 4: Subtract vertex contribution from Dirichlet condition
-    // Apply jacobian and quadrature weights
-    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
-    {
-        const unsigned int i = idx % nq0;
-        const unsigned int j = idx / nq0;
-        if constexpr (DEFORMED)
-        {
-            wsp1[idx] = in[idx] * jac[idx] * w0[i] * w1[j];
-        }
-        else
-        {
-            wsp1[idx] = in[idx] * w0[i] * w1[j];
-        }
-    }
-
-    // synchronize threads.
-    localBarrier(threadBlock);
-
-    IProductWRTBaseTriSumFacTOPKernel<false, true>(
+    IProductWRTBaseTriSumFacTOPKernel<false, false>(
         nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, basis0, basis1,
         wsp1, wsp2, wsp3, (TData)1.0, threadBlock);
 
-    /// Step 4: Project face/interior modes onto boundary
+    /// Step 3: Project face/interior modes onto boundary
     // Map to interior coeffs
     if (idx0 == 0)
     {
@@ -477,28 +379,8 @@ NEK_DEVICE_INLINE static void FwdTransBCTriSumFacTOPKernel(
     localBarrier(threadBlock);
 
     // Projection ie matrix vector product with inverse interior mass
-    if constexpr (DEFORMED)
-    {
-        Nektar::MatVecSumFacTOPKernel<false, false>(nmTotInt, invintmass, wsp1,
-                                                    wsp2, threadBlock);
-        // Note localBarrier inside MatVecSumFacTOPKernel
-    }
-    else
-    {
-        for (unsigned int i = idx0; i < nmTotInt; i += stride)
-        {
-            tmp = 0.0;
-            for (unsigned int j = 0u; j < nmTotInt; j++)
-            {
-                tmp = tmp + wsp1[j] * invintmass[i * nmTotInt + j];
-            }
-
-            wsp2[i] = tmp;
-        }
-
-        // synchronize threads.
-        localBarrier(threadBlock);
-    }
+    Nektar::MatVecSumFacTOPKernel<false, false>(nmTotInt, invintmass, wsp1,
+                                                wsp2, threadBlock);
 
     // Map to volume
     if (idx0 == 0)
