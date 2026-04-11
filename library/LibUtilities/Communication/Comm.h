@@ -464,6 +464,9 @@ void Comm::Send(int pProc, Operators::MemoryRegion<T> &pData)
 {
     if (m_gpu_aware)
     {
+        // Synchronize stream before communication.
+        nekStreamSynchronize(nullptr);
+
         v_Send(pData.template GetPtr<MemSpace, ReadOnly>(), pData.size(),
                CommDataTypeTraits<T>::GetDataType(), pProc);
     }
@@ -535,6 +538,9 @@ void Comm::SendRecv(int pSendProc, Operators::MemoryRegion<T> &pSendData,
 {
     if (m_gpu_aware)
     {
+        // Synchronize stream before communication.
+        nekStreamSynchronize(nullptr);
+
         v_SendRecv(pSendData.template GetPtr<MemSpace, ReadOnly>(),
                    pSendData.size(), CommDataTypeTraits<T>::GetDataType(),
                    pSendProc, pRecvData.template GetPtr<MemSpace, WriteOnly>(),
@@ -597,6 +603,9 @@ void Comm::AllReduce(Operators::MemoryRegion<T> &pData, enum ReduceOperator pOp)
 {
     if (m_gpu_aware)
     {
+        // Synchronize stream before communication.
+        nekStreamSynchronize(nullptr);
+
         v_AllReduce(pData.template GetPtr<MemSpace, ReadWrite>(), pData.size(),
                     CommDataTypeTraits<T>::GetDataType(), pOp);
     }
@@ -616,6 +625,9 @@ void Comm::AllReduceBegin(Operators::MemoryRegion<T> &pData,
 {
     if (m_gpu_aware)
     {
+        // Synchronize stream before communication.
+        nekStreamSynchronize(nullptr);
+
         v_AllReduceBegin(pData.template GetPtr<MemSpace, ReadWrite>(),
                          pData.size(), CommDataTypeTraits<T>::GetDataType(),
                          pOp, request);
@@ -687,6 +699,9 @@ void Comm::AlltoAll(Operators::MemoryRegion<T> &pSendData,
 
     if (m_gpu_aware)
     {
+        // Synchronize stream before communication.
+        nekStreamSynchronize(nullptr);
+
         v_AlltoAll(pSendData.template GetPtr<MemSpace, ReadOnly>(), count,
                    CommDataTypeTraits<T>::GetDataType(),
                    pRecvData.template GetPtr<MemSpace, WriteOnly>(), count,
@@ -745,6 +760,9 @@ void Comm::AlltoAllv(Operators::MemoryRegion<T> &pSendData,
 {
     if (m_gpu_aware)
     {
+        // Synchronize stream before communication.
+        nekStreamSynchronize(nullptr);
+
         v_AlltoAllv(pSendData.template GetPtr<MemSpace, ReadOnly>(),
                     pSendDataSizeMap.template GetPtr<MemSpace, ReadOnly>(),
                     pSendDataOffsetMap.template GetPtr<MemSpace, ReadOnly>(),
@@ -811,6 +829,9 @@ void Comm::AllGather(Operators::MemoryRegion<T> &pSendData,
 
     if (m_gpu_aware)
     {
+        // Synchronize stream before communication.
+        nekStreamSynchronize(nullptr);
+
         v_AllGather(pSendData.template GetPtr<MemSpace, ReadOnly>(), sendSize,
                     CommDataTypeTraits<T>::GetDataType(),
                     pRecvData.template GetPtr<MemSpace, WriteOnly>(), recvSize,
@@ -867,6 +888,9 @@ void Comm::AllGatherv(Operators::MemoryRegion<T> &pSendData,
 
     if (m_gpu_aware)
     {
+        // Synchronize stream before communication.
+        nekStreamSynchronize(nullptr);
+
         v_AllGatherv(pSendData.template GetPtr<MemSpace, ReadOnly>(), sendSize,
                      CommDataTypeTraits<T>::GetDataType(),
                      pRecvData.template GetPtr<MemSpace, WriteOnly>(),
@@ -921,6 +945,9 @@ void Comm::AllGatherv(Operators::MemoryRegion<T> &pRecvData,
 {
     if (m_gpu_aware)
     {
+        // Synchronize stream before communication.
+        nekStreamSynchronize(nullptr);
+
         v_AllGatherv(pRecvData.template GetPtr<MemSpace, ReadWrite>(),
                      pRecvDataSizeMap.template GetPtr<MemSpace, ReadOnly>(),
                      pRecvDataOffsetMap.template GetPtr<MemSpace, ReadOnly>(),
@@ -966,8 +993,10 @@ void Comm::Bcast(Operators::MemoryRegion<T> &pData, int pRoot)
         // Synchronize memory on the root process.
         if (GetRank() == pRoot)
         {
+            nekStreamSynchronize(nullptr);
             pData.template GetPtr<MemSpace, ReadOnly>();
         }
+
         v_Bcast(pData.template GetPtr<MemSpace, WriteOnly>(), pData.size(),
                 CommDataTypeTraits<T>::GetDataType(), pRoot);
     }
@@ -1029,6 +1058,12 @@ Operators::MemoryRegion<T> Comm::Gather(const int rootProc,
 
     if (m_gpu_aware)
     {
+        // Synchronize stream before communication.
+        if (!amRoot)
+        {
+            nekStreamSynchronize(nullptr);
+        }
+
         void *recvbuf =
             amRoot ? ans.template GetPtr<MemSpace, WriteOnly>() : nullptr;
         v_Gather(val.template GetPtr<MemSpace, ReadOnly>(), nEl,
@@ -1093,6 +1128,12 @@ Operators::MemoryRegion<T> Comm::Scatter(const int rootProc,
 
     if (m_gpu_aware)
     {
+        // Synchronize stream before communication.
+        if (amRoot)
+        {
+            nekStreamSynchronize(nullptr);
+        }
+
         const void *sendbuf =
             amRoot ? pData.template GetPtr<MemSpace, ReadOnly>() : nullptr;
         v_Scatter(sendbuf, nEl, CommDataTypeTraits<T>::GetDataType(),
@@ -1161,6 +1202,9 @@ void Comm::DistGraphCreateAdjacent(Operators::MemoryRegion<T> &sources,
 
     if (m_gpu_aware)
     {
+        // Synchronize stream before communication.
+        nekStreamSynchronize(nullptr);
+
         v_DistGraphCreateAdjacent(
             indegree, sources.template GetPtr<MemSpace, ReadOnly>(),
             sourceweights.template GetPtr<MemSpace, ReadOnly>(), reorder);
@@ -1228,6 +1272,9 @@ void Comm::NeighborAlltoAllv(Operators::MemoryRegion<T> &pSendData,
 {
     if (m_gpu_aware)
     {
+        // Synchronize stream before communication.
+        nekStreamSynchronize(nullptr);
+
         v_NeighborAlltoAllv(
             pSendData.template GetPtr<MemSpace, ReadOnly>(),
             pSendDataSizeMap.template GetPtr<MemSpace, ReadOnly>(),

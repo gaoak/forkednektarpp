@@ -328,6 +328,12 @@ protected:
                 m_send_buffer
                     .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
             }
+            else if (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace> &&
+                     m_rowComm->IsGPUAware())
+            {
+                // Synchronize stream before communication.
+                nekStreamSynchronize(nullptr);
+            }
 
             // start  comms
             m_assmbCommCG->BeginComm();
