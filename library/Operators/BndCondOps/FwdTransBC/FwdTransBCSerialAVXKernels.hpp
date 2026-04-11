@@ -61,39 +61,27 @@ NEK_FORCE_INLINE static void FwdTransBCSegKernel(
     // Step 1: Evaluate vertex contributions.
     BwdTransSegKernel(nm0, nq0, basis0, out, wsp2);
 
-    // Note negative scale to substract this from Dirichlet
-    // condition
+    // Subtract vertex contribution from Dirichlet condition
+    for (unsigned int i = 0; i < nq0; i++)
+    {
+        wsp2[i] = in[i] - wsp2[i];
+    }
+
+    // Complete mass matrix with IProduct
     if constexpr (DEFORMED)
     {
-        IProductSegKernel<true, false, DEFORMED>(nm0, nq0, wsp2, basis0, w0,
-                                                 jac, wsp1, -1.0);
-
-        // Step 2: Evaluate IProd of Dirichlet condition and
-        // Step 3: Subtract vertex contribution from Dirichlet condition
-        IProductSegKernel<false, true, DEFORMED>(nm0, nq0, in, basis0, w0, jac,
-                                                 wsp1, 1.0);
+        IProductSegKernel<false, false, DEFORMED>(nm0, nq0, wsp2, basis0, w0,
+                                                  jac, wsp1, 1.0);
     }
     else
     {
         simd_type tmp = 1.0;
-        IProductSegKernel<true, false, DEFORMED>(nm0, nq0, wsp2, basis0, w0,
-                                                 &tmp, wsp1, -1.0);
-
-        // Step 2: Evaluate IProd of Dirichlet condition and
-        // Step 3: Subtract vertex contribution from Dirichlet condition
-        IProductSegKernel<false, true, DEFORMED>(nm0, nq0, in, basis0, w0, &tmp,
-                                                 wsp1, 1.0);
+        IProductSegKernel<false, false, DEFORMED>(nm0, nq0, wsp2, basis0, w0,
+                                                  &tmp, wsp1, 1.0);
     }
 
-    // Step 4: Project edge interior modes onto boundary
+    // Step 3: Project edge interior modes onto boundary
     MatVecKernel(nmInt, invintmass, wsp1 + offset_seg, out + offset_seg);
-
-    // Divide by Jacobian.
-    if constexpr (DEFORMED)
-    {
-        DivideByJacobian<ExecSpace, DEFORMED>(1, nmInt, jac, out + offset_seg,
-                                              out + offset_seg);
-    }
 }
 
 template <typename ExecSpace, bool DEFORMED, typename simd_type>
@@ -125,7 +113,7 @@ NEK_FORCE_INLINE static void FwdTransBCQuadKernel(
     }
 
     // Zero wsp2
-    for (unsigned int i = 0; i < nqTot; i++)
+    for (unsigned int i = 0; i < nmEdgeTot; i++)
     {
         wsp2[i] = 0.0;
     }
@@ -155,34 +143,28 @@ NEK_FORCE_INLINE static void FwdTransBCQuadKernel(
     /// Step 2: Evaluate edge contributions via mass matrix
     BwdTransQuadKernel(nm0, nm1, nq0, nq1, basis0, basis1, wsp2, out, wsp1);
 
+    // Subtract vertex contribution from Dirichlet condition
+    for (unsigned int i = 0; i < nqTot; i++)
+    {
+        wsp1[i] = in[i] - wsp1[i];
+    }
+
     // Complete mass matrix with IProduct
     if constexpr (DEFORMED)
     {
-        IProductQuadKernel<true, false, DEFORMED>(nm0, nm1, nq0, nq1, wsp1,
-                                                  basis0, basis1, w0, w1, jac,
-                                                  wsp3, wsp2, -1.0);
-
-        /// Step 3: Evaluate IProd of Dirichlet condition and
-        /// Step 4: Subtract vertex contribution from Dirichlet condition
-        IProductQuadKernel<false, true, DEFORMED>(nm0, nm1, nq0, nq1, in,
-                                                  basis0, basis1, w0, w1, jac,
-                                                  wsp3, wsp2, 1.0);
+        IProductQuadKernel<false, false, DEFORMED>(nm0, nm1, nq0, nq1, wsp1,
+                                                   basis0, basis1, w0, w1, jac,
+                                                   wsp3, wsp2, 1.0);
     }
     else
     {
         simd_type tmp = 1.0;
-        IProductQuadKernel<true, false, DEFORMED>(nm0, nm1, nq0, nq1, wsp1,
-                                                  basis0, basis1, w0, w1, &tmp,
-                                                  wsp3, wsp2, -1.0);
-
-        /// Step 3: Evaluate IProd of Dirichlet condition and
-        /// Step 4: Subtract vertex contribution from Dirichlet condition
-        IProductQuadKernel<false, true, DEFORMED>(nm0, nm1, nq0, nq1, in,
-                                                  basis0, basis1, w0, w1, &tmp,
-                                                  wsp3, wsp2, 1.0);
+        IProductQuadKernel<false, false, DEFORMED>(nm0, nm1, nq0, nq1, wsp1,
+                                                   basis0, basis1, w0, w1, &tmp,
+                                                   wsp3, wsp2, 1.0);
     }
 
-    /// Step 4: Project face/interior modes onto boundary
+    /// Step 3: Project face/interior modes onto boundary
     // Map to interior coeffs
     for (unsigned int j = 0u; j < nmTotInt; j++)
     {
@@ -233,7 +215,7 @@ NEK_FORCE_INLINE static void FwdTransBCTriKernel(
     }
 
     // Zero wsp2
-    for (unsigned int i = 0; i < nqTot; i++)
+    for (unsigned int i = 0; i < nmEdgeTot; i++)
     {
         wsp2[i] = 0.0;
     }
@@ -261,34 +243,28 @@ NEK_FORCE_INLINE static void FwdTransBCTriKernel(
     BwdTransTriKernel(nm0, nm1, nq0, nq1, isModified, basis0, basis1, wsp2, out,
                       wsp1);
 
+    // Subtract vertex contribution from Dirichlet condition
+    for (unsigned int i = 0; i < nqTot; i++)
+    {
+        wsp1[i] = in[i] - wsp1[i];
+    }
+
     // Complete mass matrix with IProduct
     if constexpr (DEFORMED)
     {
-        IProductTriKernel<true, false, DEFORMED>(nm0, nm1, nq0, nq1, isModified,
-                                                 wsp1, basis0, basis1, w0, w1,
-                                                 jac, wsp3, wsp2, -1.0);
-
-        /// Step 3: Evaluate IProd of Dirichlet condition and
-        /// Step 4: Subtract vertex contribution from Dirichlet condition
-        IProductTriKernel<false, true, DEFORMED>(nm0, nm1, nq0, nq1, isModified,
-                                                 in, basis0, basis1, w0, w1,
-                                                 jac, wsp3, wsp2, 1.0);
+        IProductTriKernel<false, false, DEFORMED>(
+            nm0, nm1, nq0, nq1, isModified, wsp1, basis0, basis1, w0, w1, jac,
+            wsp3, wsp2, 1.0);
     }
     else
     {
         simd_type tmp = 1.0;
-        IProductTriKernel<true, false, DEFORMED>(nm0, nm1, nq0, nq1, isModified,
-                                                 wsp1, basis0, basis1, w0, w1,
-                                                 &tmp, wsp3, wsp2, -1.0);
-
-        /// Step 3: Evaluate IProd of Dirichlet condition and
-        /// Step 4: Subtract vertex contribution from Dirichlet condition
-        IProductTriKernel<false, true, DEFORMED>(nm0, nm1, nq0, nq1, isModified,
-                                                 in, basis0, basis1, w0, w1,
-                                                 &tmp, wsp3, wsp2, 1.0);
+        IProductTriKernel<false, false, DEFORMED>(
+            nm0, nm1, nq0, nq1, isModified, wsp1, basis0, basis1, w0, w1, &tmp,
+            wsp3, wsp2, 1.0);
     }
 
-    /// Step 4: Project face/interior modes onto boundary
+    /// Step 3: Project face/interior modes onto boundary
     // Map to interior coeffs
     for (unsigned int j = 0u; j < nmTotInt; j++)
     {
