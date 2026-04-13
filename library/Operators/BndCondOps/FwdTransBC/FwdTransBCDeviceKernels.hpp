@@ -46,15 +46,29 @@ namespace Nektar::Operators::detail
 inline unsigned int FwdTransBCSharedMemorySize(
     [[maybe_unused]] const unsigned int nm0, const unsigned int nq0)
 {
-    return nq0;
+    return 2 * nq0;
 }
 
 inline unsigned int FwdTransBCSharedMemorySize(
+    const LibUtilities::ShapeType shapeType,
     [[maybe_unused]] const unsigned int nm0,
     [[maybe_unused]] const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1)
 {
-    return nq0 * nq1;
+    if (shapeType == LibUtilities::Quad)
+    {
+        return 3 * nq0 * nq1 + std::max(nq0, nq1);
+    }
+    else if (shapeType == LibUtilities::Tri)
+    {
+        return 3 * nq0 * nq1 + std::max(nq0, nq1);
+    }
+    else if (shapeType == LibUtilities::NodalTri)
+    {
+        return 0;
+    }
+
+    return 0;
 }
 
 template <bool DEFORMED, typename TthreadBlock, typename TData>
@@ -401,13 +415,15 @@ NEK_DEVICE_INLINE static void FwdTransBC1DKernel(
     const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT w0,
     const unsigned int offset_seg, const TData *NEK_RESTRICT invintmass,
     const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp1, TData *NEK_RESTRICT wsp2,
+    TData *NEK_RESTRICT out,
     [[maybe_unused]] unsigned char *NEK_RESTRICT shmemptr,
     const TthreadBlock &threadBlock)
 {
     const unsigned int jacsize = DEFORMED ? nq0 : 1u;
 
-    // TData *bwd = (TData *)shmemptr;
+    // Get shared memory
+    TData *s_wsp1 = (TData *)shmemptr;
+    TData *s_wsp2 = s_wsp1 + nq0;
 
     // Per Element
     size_t e = getBlockIdx(threadBlock);
@@ -417,12 +433,10 @@ NEK_DEVICE_INLINE static void FwdTransBC1DKernel(
         const TData *jacptr = jac + jacsize * e;
         const TData *inptr  = in + nq0 * e;
         TData *outptr       = out + nm0 * e;
-        TData *wspptr1      = wsp1 + nq0 * e;
-        TData *wspptr2      = wsp2 + nq0 * e;
 
         FwdTransBCSegSumFacTOPKernel<DEFORMED>(
             nm0, nq0, basis0, w0, offset_seg, invintmass, jacptr, inptr, outptr,
-            wspptr1, wspptr2, threadBlock);
+            s_wsp1, s_wsp2, threadBlock);
 
         // Increment to next element
         e += getBlockRange(threadBlock);
@@ -444,17 +458,19 @@ NEK_DEVICE_INLINE static void FwdTransBC2DKernel(
     const unsigned int nmTotInt, const unsigned int *iMap,
     const TData *NEK_RESTRICT invintmass, const TData *NEK_RESTRICT jac,
     const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-    TData *NEK_RESTRICT wsp1, TData *NEK_RESTRICT wsp2,
-    TData *NEK_RESTRICT wsp3, TData *NEK_RESTRICT wsp4,
     [[maybe_unused]] unsigned char *NEK_RESTRICT shmemptr,
     const TthreadBlock &threadBlock)
 {
-    // Get shared memory TODO use shmem
-    // TData *bwd = (TData *)shmemptr;
-
     const unsigned int nqTot   = nq0 * nq1;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
-    unsigned int nEdges        = 0;
+
+    // Get shared memory
+    TData *s_wsp1 = (TData *)shmemptr;
+    TData *s_wsp2 = s_wsp1 + nqTot;
+    TData *s_wsp3 = s_wsp2 + nqTot;
+    TData *s_wsp4 = s_wsp3 + nqTot;
+
+    unsigned int nEdges = 0;
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
         nEdges = 4;
@@ -464,32 +480,27 @@ NEK_DEVICE_INLINE static void FwdTransBC2DKernel(
         nEdges = 3;
     }
 
+    const unsigned int *tmapptr = tMap;
+    const int *tsignptr         = tSign;
+    const unsigned int *imapptr = iMap;
+
     size_t e = getBlockIdx(threadBlock);
     while (e < nelmt)
     {
-        const unsigned int edgeWspStride = nq0 > nq1 ? nq0 : nq1;
-        const TData *tjacptr             = tJac + nEdges * e;
-        const unsigned int *tmapptr      = tMap;
-        const int *tsignptr              = tSign;
-        const unsigned int *imapptr      = iMap;
+        const TData *tjacptr = tJac + nEdges * e;
         const TData *massintptr =
             (DEFORMED) ? invintmass + nmTotInt * nmTotInt * e : invintmass;
-
         const TData *jacptr = jac + jacsize * e;
         const TData *inptr  = in + nqTot * e;
         TData *outptr       = out + nmTot * e;
-        TData *wspptr1      = wsp1 + nqTot * e;
-        TData *wspptr2      = wsp2 + nqTot * e;
-        TData *wspptr3      = wsp3 + nqTot * e;
-        TData *wspptr4      = wsp4 + edgeWspStride * e;
 
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
             FwdTransBCQuadSumFacTOPKernel<DEFORMED>(
                 nm0, nm1, nmTot, nq0, nq1, basis0, basis1, w0, w1, offset_seg,
                 invintmass0, invintmass1, tjacptr, tmapptr, tsignptr, nmTotInt,
-                imapptr, invintmass, jacptr, inptr, outptr, wspptr1, wspptr2,
-                wspptr3, wspptr4, threadBlock);
+                imapptr, invintmass, jacptr, inptr, outptr, s_wsp1, s_wsp2,
+                s_wsp3, s_wsp4, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
@@ -497,14 +508,13 @@ NEK_DEVICE_INLINE static void FwdTransBC2DKernel(
                 nm0, nm1, nmTot, nq0, nq1, isModified, index0, basis0, basis1,
                 w0, w1, interp1to0, offset_seg, invintmass0, tjacptr, tmapptr,
                 tsignptr, nmTotInt, imapptr, massintptr, jacptr, inptr, outptr,
-                wspptr1, wspptr2, wspptr3, wspptr4, threadBlock);
+                s_wsp1, s_wsp2, s_wsp3, s_wsp4, threadBlock);
         }
 
         // Increment to next element
         e += getBlockRange(threadBlock);
     }
 }
-#endif
 
 // Kernel Launchers.
 template <bool DEFORMED, typename TthreadBlock, typename TData>
@@ -513,13 +523,13 @@ NEK_DEVICE_KERNEL void FwdTransBC1DKernelLauncher(
     const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT w0,
     const unsigned int offset_seg, const TData *NEK_RESTRICT invintmass,
     const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp1, TData *NEK_RESTRICT wsp2,
-    unsigned char *shmemptr, const TthreadBlock &threadBlock)
+    TData *NEK_RESTRICT out, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
     FwdTransBC1DKernel<DEFORMED>(nm0, nq0, nelmt, basis0, w0, offset_seg,
-                                 invintmass, jac, in, out, wsp1, wsp2, shmemptr,
+                                 invintmass, jac, in, out, shmemptr,
                                  threadBlock);
 }
 
@@ -539,17 +549,15 @@ NEK_DEVICE_KERNEL void FwdTransBC2DKernelLauncher(
     const unsigned int nmTotInt, const unsigned int *iMap,
     const TData *NEK_RESTRICT invintmass, const TData *NEK_RESTRICT jac,
     const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-    TData *NEK_RESTRICT wsp1, TData *NEK_RESTRICT wsp2,
-    TData *NEK_RESTRICT wsp3, TData *NEK_RESTRICT wsp4, unsigned char *shmemptr,
-    const TthreadBlock &threadBlock)
+    unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
     FwdTransBC2DKernel<SHAPE_TYPE, DEFORMED>(
         nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
         w0, w1, interp1to0, offsetSeg, invintmass0, invintmass1, tJac, tMap,
-        tSign, nmTotInt, iMap, invintmass, jac, in, out, wsp1, wsp2, wsp3, wsp4,
-        shmemptr, threadBlock);
+        tSign, nmTotInt, iMap, invintmass, jac, in, out, shmemptr, threadBlock);
 }
+#endif
 
 } // namespace Nektar::Operators::detail

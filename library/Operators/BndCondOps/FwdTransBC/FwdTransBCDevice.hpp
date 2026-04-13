@@ -353,41 +353,6 @@ protected:
         }
     }
 
-    size_t GetStaticWorkSpaceSize(const LibUtilities::ShapeType shapeType,
-                                  const size_t nelmt,
-                                  [[maybe_unused]] const unsigned int nq0,
-                                  [[maybe_unused]] const unsigned int nq1,
-                                  [[maybe_unused]] const unsigned int nq2,
-                                  [[maybe_unused]] const unsigned int nm0,
-                                  [[maybe_unused]] const unsigned int nm1,
-                                  [[maybe_unused]] const unsigned int nm2)
-    {
-        size_t wspsize = 0;
-
-        if (shapeType == LibUtilities::Point)
-        {
-            wspsize = 0;
-        }
-        else if (shapeType == LibUtilities::Seg)
-        {
-            wspsize = nq0 * nelmt;
-        }
-        else if (shapeType == LibUtilities::Quad)
-        {
-            wspsize = nq0 * nq1 * nelmt;
-        }
-        else if (shapeType == LibUtilities::Tri)
-        {
-            wspsize = nq0 * nq1 * nelmt;
-        }
-        else if (shapeType == LibUtilities::NodalTri)
-        {
-            wspsize = (nq1 + nm0 * (nm0 + 1) / 2) * nelmt;
-        }
-
-        return wspsize;
-    }
-
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE>
     void Operator0D(BlockAccessor<TData, FieldState::Phys> &inblock,
@@ -446,14 +411,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Get static workspace pointer.
-        auto wspSize =
-            GetStaticWorkSpaceSize(SHAPE_TYPE, nelmt, nq0, 0, 0, nm0, 0, 0);
-        auto wspptr1 =
-            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                2 * wspSize);
-        auto wspptr2 = wspptr1 + wspSize;
-
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
@@ -485,8 +442,7 @@ protected:
                 DEVICE_1DGRID_KERNEL_LAUNCHER(
                     (FwdTransBC1DKernelLauncher<DEFORMED>), gridsize, blocksize,
                     shmemsize, 0, nm0, nq0, nelmt, m_B[0], m_W[0], m_offset_seg,
-                    m_massint_seg[0], m_jacptr, inptr, outptr, wspptr1,
-                    wspptr2);
+                    m_massint_seg[0], m_jacptr, inptr, outptr);
             }
 
             // Reshape back, if necessary.
@@ -525,16 +481,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Get static workspace pointer.
-        auto wspSize =
-            GetStaticWorkSpaceSize(SHAPE_TYPE, nelmt, nq0, nq1, 0, nm0, nm1, 0);
-        auto wspptr1 =
-            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                3 * wspSize + std::max(nq0, nq1) * nelmt);
-        auto wspptr2 = wspptr1 + wspSize;
-        auto wspptr3 = wspptr2 + wspSize;
-        auto wspptr4 = wspptr3 + wspSize;
-
         // Fetch deformed mass matrix.
         const TData *massintptr =
             (DEFORMED) ? this->m_dinvmass.template GetPtr<MemSpace, ReadOnly>()
@@ -549,7 +495,8 @@ protected:
         const unsigned int blocksize = GetDeviceBlockSize<SumFacTOP>(nqTot);
         const unsigned int gridsize  = GetDeviceGridSize<SumFacTOP>(nelmt);
         const unsigned int shmemsize =
-            sizeof(TData) * FwdTransBCSharedMemorySize(nm0, nm1, nq0, nq1);
+            sizeof(TData) *
+            FwdTransBCSharedMemorySize(SHAPE_TYPE, nm0, nm1, nq0, nq1);
         GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
 
         // Loop over components.
@@ -576,8 +523,7 @@ protected:
                     m_W[0], m_W[1], m_interp1to0, m_offset_seg,
                     m_massint_seg[0], m_massint_seg[1], m_jacTraceptr,
                     m_traceElmtMapptr, m_traceElmtSignptr, m_nmTotInt,
-                    m_interiorMapptr, massintptr, m_jacptr, inptr, outptr,
-                    wspptr1, wspptr2, wspptr3, wspptr4);
+                    m_interiorMapptr, massintptr, m_jacptr, inptr, outptr);
             }
 
             // Reshape back, if necessary.
