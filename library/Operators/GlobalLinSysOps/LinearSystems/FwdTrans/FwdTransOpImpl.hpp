@@ -39,7 +39,6 @@
 #include "Operators/BndCondOps/DirBndCond/DirBndCondOp.hpp"
 #include "Operators/BndCondOps/RobBndCond/RobBndCondOp.hpp"
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
-#include "Operators/ElmtOps/Mass/MassOp.hpp"
 #include "Operators/Math/Math.hpp"
 
 namespace Nektar::Operators::detail
@@ -53,23 +52,15 @@ class FwdTransOpImpl : public FwdTransOp<TData>
 public:
     FwdTransOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                    const std::vector<std::string> &components)
-        : FwdTransOp<TData>(expansionList, components),
-          m_rhs(Field<TData, FieldState::Coeff>(
-              "FwdTrans RHS",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
-              components, 1)),
-          m_tmp(Field<TData, FieldState::Coeff>(
-              "FwdTrans TMP",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
-              components, 1))
+        : FwdTransOp<TData>(expansionList, components)
     {
-        m_MassOp  = MassOp<TData>::Create(this->m_expansionList, components,
-                                          ExecSpace::name);
-        m_DirBCOp = DirBndCondOp<TData>::Create(this->m_expansionList,
-                                                components, ExecSpace::name);
-        m_RobBCOp = RobBndCondOp<TData>::Create(this->m_expansionList,
-                                                components, ExecSpace::name);
-        m_IProdOp = IProductWRTBaseOp<TData>::Create(
+        this->m_ElmtOp = MassOp<TData>::Create(this->m_expansionList,
+                                               components, ExecSpace::name);
+        m_DirBCOp      = DirBndCondOp<TData>::Create(this->m_expansionList,
+                                                     components, ExecSpace::name);
+        m_RobBCOp      = RobBndCondOp<TData>::Create(this->m_expansionList,
+                                                     components, ExecSpace::name);
+        m_IProdOp      = IProductWRTBaseOp<TData>::Create(
             this->m_expansionList, components, ExecSpace::name);
     }
 
@@ -86,53 +77,31 @@ public:
     }
 
 protected:
-    std::shared_ptr<LinearSolverOp<TData>> m_LinSolverOp;
     std::shared_ptr<DirBndCondOp<TData>> m_DirBCOp;
     std::shared_ptr<IProductWRTBaseOp<TData>> m_IProdOp;
-    std::shared_ptr<MassOp<TData>> m_MassOp;
     std::shared_ptr<RobBndCondOp<TData>> m_RobBCOp;
-
-    Field<TData, FieldState::Coeff> m_rhs;
-    Field<TData, FieldState::Coeff> m_tmp;
 
     void v_Apply(Field<TData, FieldState::Phys> &in,
                  Field<TData, FieldState::Coeff> &out) override
     {
         // IProductWRT of RHS.
-        m_IProdOp->Apply(in, m_rhs);
+        m_IProdOp->Apply(in, this->m_rhs);
 
         // Handle Dirichlet BCs.
         m_DirBCOp->Apply(out);
 
         // Apply Mass operator.
-        m_MassOp->Apply(out, m_tmp);
+        this->m_ElmtOp->Apply(out, this->m_tmp);
 
         // Handle Robin BCs.
-        m_RobBCOp->Apply(out, m_tmp);
+        m_RobBCOp->Apply(out, this->m_tmp);
 
         // Solve linear system.
-        sub<ExecSpace>(m_rhs, m_tmp, m_rhs);
-        m_LinSolverOp->Apply(m_rhs, m_tmp);
+        sub<ExecSpace>(this->m_rhs, this->m_tmp, this->m_rhs);
+        this->m_LinSolverOp->Apply(this->m_rhs, this->m_tmp);
 
         // Add Dirichlet BCs.
-        add<ExecSpace>(out, m_tmp, out);
-    }
-
-    void v_SetLinearSolver(
-        const std::shared_ptr<LinearSolverOp<TData>> &linsolve) override
-    {
-        m_LinSolverOp = linsolve;
-        m_LinSolverOp->SetLHS(m_MassOp);
-    }
-
-    void v_SetPrecon(const std::shared_ptr<PreconOp<TData>> &precon) override
-    {
-        m_LinSolverOp->SetPrecon(precon);
-    }
-
-    void v_UpdatePrecon(void) override
-    {
-        m_LinSolverOp->UpdatePrecon();
+        add<ExecSpace>(out, this->m_tmp, out);
     }
 };
 

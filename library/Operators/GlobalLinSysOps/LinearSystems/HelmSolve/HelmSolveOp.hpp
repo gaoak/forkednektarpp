@@ -38,6 +38,8 @@
 #include "Operators/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp"
 #include "Operators/PreconOps/PreconOp.hpp"
 
+#include "Operators/ElmtOps/Helmholtz/HelmholtzOp.hpp"
+
 namespace Nektar::Operators
 {
 
@@ -59,12 +61,14 @@ public:
 
     void SetLambda(const TData &lambda)
     {
-        v_SetLambda(lambda);
+        std::dynamic_pointer_cast<HelmholtzOp<TData>>(this->m_ElmtOp)
+            ->SetLambda(lambda);
     }
 
     void SetDiffCoeff(std::vector<TData> &diffCoeff)
     {
-        v_SetDiffCoeff(diffCoeff);
+        std::dynamic_pointer_cast<HelmholtzOp<TData>>(this->m_ElmtOp)
+            ->SetDiffCoeff(diffCoeff);
     }
 
 protected:
@@ -75,10 +79,6 @@ protected:
     }
 
     ~HelmSolveOp() override = default;
-
-    virtual void v_SetLambda(const TData &lambda) = 0;
-
-    virtual void v_SetDiffCoeff(std::vector<TData> &diffCoeff) = 0;
 };
 
 } // namespace Nektar::Operators

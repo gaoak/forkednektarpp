@@ -38,6 +38,8 @@
 #include "Operators/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp"
 #include "Operators/PreconOps/PreconOp.hpp"
 
+#include "Operators/ElmtOps/Mass/MassOp.hpp"
+
 namespace Nektar::Operators
 {
 

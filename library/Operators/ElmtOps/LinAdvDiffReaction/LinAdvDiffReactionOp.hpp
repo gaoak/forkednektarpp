@@ -82,13 +82,12 @@ public:
         m_isSetDiffCoeff = true;
     }
 
-    void SetAdvVel(Field<TData, FieldState::Phys> &Vel)
+    void SetAdvVel(Field<TData, FieldState::Phys> &advVel)
     {
-        m_advVel = std::move(Vel);
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
         {
-            this->m_blockOp[blk]->SetAdvVel(this->m_advVel.GetBlocks()[blk]);
+            this->m_blockOp[blk]->SetAdvVel(advVel.GetBlocks()[blk]);
         }
         m_isSetAdvVel = true;
     }
@@ -98,7 +97,6 @@ protected:
     bool m_isSetDiffCoeff    = false;
     bool m_isSetVarDiffCoeff = false;
     bool m_isSetAdvVel       = false;
-    Field<TData, FieldState::Phys> m_advVel;
     std::vector<std::shared_ptr<LinAdvDiffReactionBlockOp<TData>>> m_blockOp;
 
     LinAdvDiffReactionOp(const MultiRegions::ExpListSharedPtr &expansionList,
@@ -134,7 +132,7 @@ protected:
                  "before calling Apply().");
 
         ASSERTL1(m_isSetAdvVel,
-                 "m_advVel has not been set."
+                 "Advection velocity has not been set."
                  "Set the value with SetAdvVel() before calling Apply().");
 
         // Loop over the blocks.
