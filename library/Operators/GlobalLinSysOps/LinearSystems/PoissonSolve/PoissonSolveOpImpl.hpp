@@ -40,8 +40,6 @@
 #include "Operators/BndCondOps/NeuBndCond/NeuBndCondOp.hpp"
 #include "Operators/BndCondOps/RobBndCond/RobBndCondOp.hpp"
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
-#include "Operators/ElmtOps/Laplacian/LaplacianOp.hpp"
-#include "Operators/ElmtOps/Mass/MassOp.hpp"
 #include "Operators/Math/MathKernels.hpp"
 
 namespace Nektar::Operators::detail
@@ -55,27 +53,19 @@ class PoissonSolveOpImpl : public PoissonSolveOp<TData>
 public:
     PoissonSolveOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                        const std::vector<std::string> &components)
-        : PoissonSolveOp<TData>(expansionList, components),
-          m_rhs(Field<TData, FieldState::Coeff>(
-              "PoissonSolve RHS",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
-              components, 1)),
-          m_tmp(Field<TData, FieldState::Coeff>(
-              "PoissonSolve TMP",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
-              components, 1))
+        : PoissonSolveOp<TData>(expansionList, components)
     {
+        this->m_ElmtOp = LaplacianOp<TData>::Create(
+            this->m_expansionList, components, ExecSpace::name);
         m_IProdOp = IProductWRTBaseOp<TData>::Create(
             this->m_expansionList, components, ExecSpace::name);
         m_IProdOp->SetScale(-1.0);
-        m_DirBCOp     = DirBndCondOp<TData>::Create(this->m_expansionList,
-                                                    components, ExecSpace::name);
-        m_NeuBCOp     = NeuBndCondOp<TData>::Create(this->m_expansionList,
-                                                    components, ExecSpace::name);
-        m_RobBCOp     = RobBndCondOp<TData>::Create(this->m_expansionList,
-                                                    components, ExecSpace::name);
-        m_LaplacianOp = LaplacianOp<TData>::Create(this->m_expansionList,
-                                                   components, ExecSpace::name);
+        m_DirBCOp = DirBndCondOp<TData>::Create(this->m_expansionList,
+                                                components, ExecSpace::name);
+        m_NeuBCOp = NeuBndCondOp<TData>::Create(this->m_expansionList,
+                                                components, ExecSpace::name);
+        m_RobBCOp = RobBndCondOp<TData>::Create(this->m_expansionList,
+                                                components, ExecSpace::name);
     }
 
     // className - for OperatorFactory
@@ -91,62 +81,35 @@ public:
     }
 
 protected:
-    std::shared_ptr<LinearSolverOp<TData>> m_LinSolverOp;
     std::shared_ptr<DirBndCondOp<TData>> m_DirBCOp;
-    std::shared_ptr<LaplacianOp<TData>> m_LaplacianOp;
     std::shared_ptr<IProductWRTBaseOp<TData>> m_IProdOp;
     std::shared_ptr<NeuBndCondOp<TData>> m_NeuBCOp;
     std::shared_ptr<RobBndCondOp<TData>> m_RobBCOp;
-
-    Field<TData, FieldState::Coeff> m_rhs;
-    Field<TData, FieldState::Coeff> m_tmp;
 
     void v_Apply(Field<TData, FieldState::Phys> &in,
                  Field<TData, FieldState::Coeff> &out) override
     {
         // IProductWRT of RHS.
-        m_IProdOp->Apply(in, m_rhs);
+        m_IProdOp->Apply(in, this->m_rhs);
 
         // Handle Neumann BCs on RHS.
-        m_NeuBCOp->Apply(m_rhs);
+        m_NeuBCOp->Apply(this->m_rhs);
 
         // Handle Dirichlet BCs.
         m_DirBCOp->Apply(out);
 
         // Apply Laplacian operator.
-        m_LaplacianOp->Apply(out, m_tmp);
+        this->m_ElmtOp->Apply(out, this->m_tmp);
 
         // Handle Robin BCs.
-        m_RobBCOp->Apply(out, m_tmp);
+        m_RobBCOp->Apply(out, this->m_tmp);
 
         // Solve linear system.
-        sub<ExecSpace>(m_rhs, m_tmp, m_rhs);
-        m_LinSolverOp->Apply(m_rhs, m_tmp);
+        sub<ExecSpace>(this->m_rhs, this->m_tmp, this->m_rhs);
+        this->m_LinSolverOp->Apply(this->m_rhs, this->m_tmp);
 
         // Add Dirichlet BCs.
-        add<ExecSpace>(out, m_tmp, out);
-    }
-
-    void v_SetDiffCoeff(std::vector<TData> &diffCoeff) override
-    {
-        m_LaplacianOp->SetDiffCoeff(diffCoeff);
-    }
-
-    void v_SetLinearSolver(
-        const std::shared_ptr<LinearSolverOp<TData>> &linsolve) override
-    {
-        m_LinSolverOp = linsolve;
-        m_LinSolverOp->SetLHS(m_LaplacianOp);
-    }
-
-    void v_SetPrecon(const std::shared_ptr<PreconOp<TData>> &precon) override
-    {
-        m_LinSolverOp->SetPrecon(precon);
-    }
-
-    void v_UpdatePrecon(void) override
-    {
-        m_LinSolverOp->UpdatePrecon();
+        add<ExecSpace>(out, this->m_tmp, out);
     }
 };
 

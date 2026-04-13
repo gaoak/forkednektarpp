@@ -38,6 +38,8 @@
 #include "Operators/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp"
 #include "Operators/PreconOps/PreconOp.hpp"
 
+#include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionOp.hpp"
+
 namespace Nektar::Operators
 {
 
@@ -59,17 +61,20 @@ public:
 
     void SetLambda(const TData &lambda)
     {
-        v_SetLambda(lambda);
+        std::dynamic_pointer_cast<LinAdvDiffReactionOp<TData>>(this->m_ElmtOp)
+            ->SetLambda(lambda);
     }
 
     void SetDiffCoeff(std::vector<TData> &diffCoeff)
     {
-        v_SetDiffCoeff(diffCoeff);
+        std::dynamic_pointer_cast<LinAdvDiffReactionOp<TData>>(this->m_ElmtOp)
+            ->SetDiffCoeff(diffCoeff);
     }
 
     void SetAdvVel(Field<TData, FieldState::Phys> &Vel)
     {
-        v_SetAdvVel(Vel);
+        std::dynamic_pointer_cast<LinAdvDiffReactionOp<TData>>(this->m_ElmtOp)
+            ->SetAdvVel(Vel);
     }
 
 protected:
@@ -80,12 +85,6 @@ protected:
     }
 
     ~LinearADRSolveOp() override = default;
-
-    virtual void v_SetLambda(const TData &lambda) = 0;
-
-    virtual void v_SetDiffCoeff(std::vector<TData> &diffCoeff) = 0;
-
-    virtual void v_SetAdvVel(Field<TData, FieldState::Phys> &Vel) = 0;
 };
 
 } // namespace Nektar::Operators

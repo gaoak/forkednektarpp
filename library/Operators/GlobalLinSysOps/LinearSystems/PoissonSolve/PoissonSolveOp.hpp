@@ -38,6 +38,8 @@
 #include "Operators/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp"
 #include "Operators/PreconOps/PreconOp.hpp"
 
+#include "Operators/ElmtOps/Laplacian/LaplacianOp.hpp"
+
 namespace Nektar::Operators
 {
 
@@ -59,7 +61,8 @@ public:
 
     void SetDiffCoeff(std::vector<TData> &diffCoeff)
     {
-        v_SetDiffCoeff(diffCoeff);
+        std::dynamic_pointer_cast<LaplacianOp<TData>>(this->m_ElmtOp)
+            ->SetDiffCoeff(diffCoeff);
     }
 
 protected:
@@ -70,8 +73,6 @@ protected:
     }
 
     ~PoissonSolveOp() override = default;
-
-    virtual void v_SetDiffCoeff(std::vector<TData> &diffCoeff) = 0;
 };
 
 } // namespace Nektar::Operators

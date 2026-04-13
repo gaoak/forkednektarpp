@@ -35,6 +35,7 @@
 #pragma once
 
 #include "Operators/Common/Operator.hpp"
+#include "Operators/ElmtOps/ElmtOp.hpp"
 
 namespace Nektar::Operators
 {
@@ -57,23 +58,38 @@ public:
 
     void SetLinearSolver(const std::shared_ptr<LinearSolverOp<TData>> &linsolve)
     {
-        v_SetLinearSolver(linsolve);
+        m_LinSolverOp = linsolve;
+        m_LinSolverOp->SetLHS(m_ElmtOp);
     }
 
     void SetPrecon(const std::shared_ptr<PreconOp<TData>> &precon)
     {
-        v_SetPrecon(precon);
+        m_LinSolverOp->SetPrecon(precon);
     }
 
     void UpdatePrecon(void)
     {
-        v_UpdatePrecon();
+        m_LinSolverOp->UpdatePrecon();
     }
 
 protected:
+    std::shared_ptr<LinearSolverOp<TData>> m_LinSolverOp;
+    std::shared_ptr<ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>>
+        m_ElmtOp;
+    Field<TData, FieldState::Coeff> m_rhs;
+    Field<TData, FieldState::Coeff> m_tmp;
+
     LinearSystemOp(const MultiRegions::ExpListSharedPtr &expansionList,
                    const std::vector<std::string> &components)
-        : Operator<TData>(expansionList, components)
+        : Operator<TData>(expansionList, components),
+          m_rhs(Field<TData, FieldState::Coeff>(
+              "LinearSystem RHS",
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              components, 1)),
+          m_tmp(Field<TData, FieldState::Coeff>(
+              "LinearSystem TMP",
+              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              components, 1))
     {
     }
 
@@ -81,14 +97,6 @@ protected:
 
     virtual void v_Apply(Field<TData, FieldState::Phys> &in,
                          Field<TData, FieldState::Coeff> &out) = 0;
-
-    virtual void v_SetLinearSolver(
-        const std::shared_ptr<LinearSolverOp<TData>> &linsolve) = 0;
-
-    virtual void v_SetPrecon(
-        const std::shared_ptr<PreconOp<TData>> &precon) = 0;
-
-    virtual void v_UpdatePrecon(void) = 0;
 };
 
 } // namespace Nektar::Operators
