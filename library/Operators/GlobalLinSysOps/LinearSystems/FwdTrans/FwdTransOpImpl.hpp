@@ -36,9 +36,6 @@
 
 #include "Operators/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp"
 
-#include "Operators/BndCondOps/DirBndCond/DirBndCondOp.hpp"
-#include "Operators/BndCondOps/RobBndCond/RobBndCondOp.hpp"
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
 #include "Operators/Math/Math.hpp"
 
 namespace Nektar::Operators::detail
@@ -54,13 +51,13 @@ public:
                    const std::vector<std::string> &components)
         : FwdTransOp<TData>(expansionList, components)
     {
-        this->m_ElmtOp = MassOp<TData>::Create(this->m_expansionList,
-                                               components, ExecSpace::name);
-        m_DirBCOp      = DirBndCondOp<TData>::Create(this->m_expansionList,
-                                                     components, ExecSpace::name);
-        m_RobBCOp      = RobBndCondOp<TData>::Create(this->m_expansionList,
-                                                     components, ExecSpace::name);
-        m_IProdOp      = IProductWRTBaseOp<TData>::Create(
+        this->m_ElmtOp  = MassOp<TData>::Create(this->m_expansionList,
+                                                components, ExecSpace::name);
+        this->m_IProdOp = IProductWRTBaseOp<TData>::Create(
+            this->m_expansionList, components, ExecSpace::name);
+        this->m_DirBCOp = DirBndCondOp<TData>::Create(
+            this->m_expansionList, components, ExecSpace::name);
+        this->m_RobBCOp = RobBndCondOp<TData>::Create(
             this->m_expansionList, components, ExecSpace::name);
     }
 
@@ -77,24 +74,20 @@ public:
     }
 
 protected:
-    std::shared_ptr<DirBndCondOp<TData>> m_DirBCOp;
-    std::shared_ptr<IProductWRTBaseOp<TData>> m_IProdOp;
-    std::shared_ptr<RobBndCondOp<TData>> m_RobBCOp;
-
     void v_Apply(Field<TData, FieldState::Phys> &in,
                  Field<TData, FieldState::Coeff> &out) override
     {
         // IProductWRT of RHS.
-        m_IProdOp->Apply(in, this->m_rhs);
+        this->m_IProdOp->Apply(in, this->m_rhs);
 
         // Handle Dirichlet BCs.
-        m_DirBCOp->Apply(out);
+        this->m_DirBCOp->Apply(out);
 
         // Apply Mass operator.
         this->m_ElmtOp->Apply(out, this->m_tmp);
 
         // Handle Robin BCs.
-        m_RobBCOp->Apply(out, this->m_tmp);
+        this->m_RobBCOp->Apply(out, this->m_tmp);
 
         // Solve linear system.
         sub<ExecSpace>(this->m_rhs, this->m_tmp, this->m_rhs);

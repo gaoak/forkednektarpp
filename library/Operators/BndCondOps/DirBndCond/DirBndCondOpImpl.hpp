@@ -72,9 +72,6 @@ public:
             bcs.GetBoundaryConditions();
 
         // Create counters and temporary variables for BC Fields and Operators
-        size_t nDirBCs   = 0;
-        size_t nTotalBCs = 0;
-        std::vector<size_t> dirBCID;
         std::vector<std::vector<bool>> isDirichletByRegion;
         std::vector<size_t> numBcExpCoeffs;
         SpatialDomains::BoundaryConditionShPtr bc;
@@ -113,32 +110,29 @@ public:
             // Save number of coefficients
             numBcExpCoeffs.push_back(bcExpList->GetNcoeffs());
 
-            // Count total number of boundary conditions
-            nTotalBCs++;
-
             // Check if any component has a Dirichlet-type condition
             bool hasDirichletCondition = false;
-            for (int nc = 0; nc < nComp; nc++)
+            std::vector<bool> isDirichlet(nComp);
+            for (unsigned int nc = 0; nc < nComp; nc++)
             {
                 // Get BoundaryCondition and check if it is Dirichlet
-                auto cndMapIter  = bndCondMap->find(components[nc]);
-                bc               = (*cndMapIter).second;
-                bool isDirichlet = (bool)std::dynamic_pointer_cast<
+                auto cndMapIter = bndCondMap->find(components[nc]);
+                bc              = (*cndMapIter).second;
+                bool tmp        = (bool)std::dynamic_pointer_cast<
                     SpatialDomains::DirichletBoundaryCondition>(bc);
 
                 // Save if component has a Dirichlet condition
-                m_isDirichlet.push_back(isDirichlet);
+                isDirichlet[nc] = tmp;
 
                 // Check if any component has a Dirichlet condition
-                hasDirichletCondition = hasDirichletCondition || isDirichlet;
+                hasDirichletCondition = hasDirichletCondition || tmp;
             }
 
-            isDirichletByRegion.push_back(m_isDirichlet);
+            isDirichletByRegion.push_back(isDirichlet);
 
             // Skip, if no Dirichletn condition in this boundary region
             if (!hasDirichletCondition)
             {
-                m_isDirichlet.clear();
                 continue;
             }
 
@@ -152,6 +146,14 @@ public:
             this->m_wsp_coeffs.push_back(Field<TData, FieldState::Coeff>(
                 "Dirichlet BC coeff", blocks_coeffs, nComp, nhomo));
 
+            // Compute number of boundary coefficients.
+            for (unsigned int blk = 0; blk < blocks_coeffs.size(); ++blk)
+            {
+                const auto ncoeff = blocks_coeffs[blk].GetNumData();
+                const auto nelmt  = blocks_coeffs[blk].GetNumElements();
+                m_numBndCoeffCompSize += nelmt * ncoeff;
+            }
+
             // Initialize memory regions
             this->m_wsp_phys.back().template Initialize<MemSpace>(0.0);
             this->m_wsp_coeffs.back().template Initialize<MemSpace>(0.0);
@@ -159,15 +161,14 @@ public:
             // Create operators for this boundary condition
             this->m_expressionOps.push_back(
                 ExpressionOp<TData>::Create(bcExpList, components, "Serial"));
-            this->m_expressionOps.back()->SetComponentMask(m_isDirichlet);
-            m_isDirichlet.clear();
+            this->m_expressionOps.back()->SetComponentMask(isDirichlet);
 
             this->m_fwdTransBCOps.push_back(FwdTransBCOp<TData>::Create(
                 bcExpList, components, ExecSpace::name));
 
             // Gather equations for each field/component
             std::vector<LibUtilities::EquationSharedPtr> listOfEquations;
-            for (int nc = 0; nc < nComp; nc++)
+            for (unsigned int nc = 0; nc < nComp; nc++)
             {
                 // Get map for each field
                 auto cndMapIter = bndCondMap->find(components[nc]);
@@ -180,25 +181,6 @@ public:
             // Set boundary conditions for each component in this boundary
             // region
             this->m_expressionOps.back()->SetExpressions(listOfEquations);
-
-            // Count number of Dirichlet BCs
-            dirBCID.push_back(nTotalBCs - 1);
-            nDirBCs++;
-        }
-
-        // Compute number of boundary coefficients.
-        // Also get padding size for each BC
-        for (size_t i = 0; i < nDirBCs; ++i)
-        {
-            auto &bndBlocks = this->m_wsp_coeffs[i].GetBlocks();
-
-            for (unsigned int blk = 0; blk < bndBlocks.size(); ++blk)
-            {
-                const auto &block = bndBlocks[blk];
-                const auto ncoeff = block.GetNumData();
-                const auto nelmt  = block.GetNumElements();
-                m_numBndCoeffCompSize += nelmt * ncoeff;
-            }
         }
 
         // Return if no Dirichlet boundary coefficients.
@@ -227,16 +209,15 @@ public:
         std::vector<size_t> index(m_numBndCoeffCompSize);
         std::vector<std::vector<size_t>> dirIndexByComp(nComp);
         size_t bndcnt = 0, cnt = 0;
-        size_t iDir = 0;
-        for (size_t i = 0; i < nTotalBCs; ++i)
+        for (unsigned int i = 0, iDir = 0; i < bregions.size(); ++i)
         {
             // Get number of coefficients for this BC
             auto nBndExpCoeff = numBcExpCoeffs[i];
 
             // Process Dirichlet boundary conditions
-            auto isDirichlet =
-                std::find(dirBCID.begin(), dirBCID.end(), i) != dirBCID.end();
-            if (isDirichlet)
+            if (std::any_of(isDirichletByRegion[i].begin(),
+                            isDirichletByRegion[i].end(),
+                            [=](bool i) { return i == 1; }))
             {
                 // Evaluate Dirichlet BCs and put into vector
                 m_expressionOps[iDir]->Apply(m_wsp_phys[iDir],
@@ -253,7 +234,7 @@ public:
                 // map layout
                 ASSERTL1(tmp.size() == nComp * nBndExpCoeff,
                          "Unexpected boundary coefficient vector size.");
-                for (size_t nc = 0; nc < nComp; ++nc)
+                for (unsigned int nc = 0; nc < nComp; ++nc)
                 {
                     std::copy(tmp.begin() + nc * nBndExpCoeff,
                               tmp.begin() + (nc + 1) * nBndExpCoeff,
@@ -262,15 +243,15 @@ public:
                 }
 
                 // Gather index
-                for (unsigned int j = 0; j < nBndExpCoeff; ++j)
+                for (size_t j = 0; j < nBndExpCoeff; ++j)
                 {
                     index[bndcnt + j] = cnt + j;
                 }
-                for (size_t nc = 0; nc < nComp; ++nc)
+                for (unsigned int nc = 0; nc < nComp; ++nc)
                 {
                     if (isDirichletByRegion[i][nc])
                     {
-                        for (unsigned int j = 0; j < nBndExpCoeff; ++j)
+                        for (size_t j = 0; j < nBndExpCoeff; ++j)
                         {
                             dirIndexByComp[nc].push_back(bndcnt + j);
                         }
@@ -335,7 +316,7 @@ public:
             domainBlocks.size(),
             std::vector<std::vector<TData>>(domainBlocks.size()));
 
-        for (size_t nc = 0; nc < nComp; ++nc)
+        for (unsigned int nc = 0; nc < nComp; ++nc)
         {
             MultiRegions::ContField compfield(session, graph, components[nc],
                                               true, false,
@@ -594,7 +575,6 @@ protected:
     bool m_anySignChange         = false;
     size_t m_numBndCoeffCompSize = 0;
     std::vector<bool> m_signChange;
-    std::vector<bool> m_isDirichlet;
 
     std::vector<Field<TData, FieldState::Phys>> m_wsp_phys;
     std::vector<Field<TData, FieldState::Coeff>> m_wsp_coeffs;

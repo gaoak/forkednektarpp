@@ -73,9 +73,6 @@ public:
             bcs.GetBoundaryConditions();
 
         // Create counters and temporary variables for BC Fields and Operators
-        size_t nNeuBCs   = 0;
-        size_t nTotalBCs = 0;
-        std::vector<size_t> neuBCID;
         std::vector<std::vector<bool>> isNeumannByRegion;
         std::vector<size_t> numBcExpCoeffs;
         SpatialDomains::BoundaryConditionShPtr bc;
@@ -112,32 +109,29 @@ public:
             // Save number of coefficients
             numBcExpCoeffs.push_back(bcExpList->GetNcoeffs());
 
-            // Count total number of boundary conditions
-            nTotalBCs++;
-
             // Check if any component has a Neumann-type condition
             bool hasNeumanCondition = false;
-            for (int nc = 0; nc < nComp; nc++)
+            std::vector<bool> isNeumann(nComp);
+            for (unsigned int nc = 0; nc < nComp; nc++)
             {
                 // Get BoundaryCondition and check if it is Neumann
                 auto cndMapIter = bndCondMap->find(components[nc]);
                 bc              = (*cndMapIter).second;
-                bool isNeumann  = (bool)std::dynamic_pointer_cast<
+                bool tmp        = (bool)std::dynamic_pointer_cast<
                     SpatialDomains::NeumannBoundaryCondition>(bc);
 
                 // Save if component has a Neumann condition
-                m_isNeumann.push_back(isNeumann);
+                isNeumann[nc] = tmp;
 
                 // Check if any component has a Neumann condition
-                hasNeumanCondition = hasNeumanCondition || isNeumann;
+                hasNeumanCondition = hasNeumanCondition || tmp;
             }
 
-            isNeumannByRegion.push_back(m_isNeumann);
+            isNeumannByRegion.push_back(isNeumann);
 
             // Skip, if no Neumann condition in this boundary region
             if (!hasNeumanCondition)
             {
-                m_isNeumann.clear();
                 continue;
             }
 
@@ -151,6 +145,14 @@ public:
             this->m_wsp_coeffs.push_back(Field<TData, FieldState::Coeff>(
                 "Neumann BC coeff", blocks_coeffs, nComp, nhomo));
 
+            // Compute number of boundary coefficients.
+            for (unsigned int blk = 0; blk < blocks_coeffs.size(); ++blk)
+            {
+                const auto ncoeff = blocks_coeffs[blk].GetNumData();
+                const auto nelmt  = blocks_coeffs[blk].GetNumElements();
+                m_numBndCoeffCompSize += nelmt * ncoeff;
+            }
+
             // Initialize memory regions
             this->m_wsp_phys.back().template Initialize<MemSpace>(0.0);
             this->m_wsp_coeffs.back().template Initialize<MemSpace>(0.0);
@@ -158,8 +160,7 @@ public:
             // Create operators for this boundary condition
             this->m_expressionOps.push_back(
                 ExpressionOp<TData>::Create(bcExpList, components, "Serial"));
-            this->m_expressionOps.back()->SetComponentMask(m_isNeumann);
-            m_isNeumann.clear();
+            this->m_expressionOps.back()->SetComponentMask(isNeumann);
 
             // Note we do a copy for 0D (points)
             if (bcExpList->GetShapeDimension() != 0)
@@ -170,7 +171,7 @@ public:
 
             // Gather equations for each field/component
             std::vector<LibUtilities::EquationSharedPtr> listOfEquations;
-            for (int nc = 0; nc < nComp; nc++)
+            for (unsigned int nc = 0; nc < nComp; nc++)
             {
                 // Get map for each field
                 auto cndMapIter = bndCondMap->find(components[nc]);
@@ -183,25 +184,6 @@ public:
             // Set boundary conditions for each component in this boundary
             // region
             this->m_expressionOps.back()->SetExpressions(listOfEquations);
-
-            // Count number of Neumann BCs
-            neuBCID.push_back(nTotalBCs - 1);
-            nNeuBCs++;
-        }
-
-        // Compute number of boundary coefficients.
-        // Also get padding size for each BC
-        for (size_t i = 0; i < nNeuBCs; ++i)
-        {
-            auto &bndBlocks = this->m_wsp_coeffs[i].GetBlocks();
-
-            for (unsigned int blk = 0; blk < bndBlocks.size(); ++blk)
-            {
-                const auto &block = bndBlocks[blk];
-                const auto ncoeff = block.GetNumData();
-                const auto nelmt  = block.GetNumElements();
-                m_numBndCoeffCompSize += nelmt * ncoeff;
-            }
         }
 
         // Return if no Neumann boundary coefficients.
@@ -230,16 +212,15 @@ public:
         std::vector<size_t> index(m_numBndCoeffCompSize);
         std::vector<std::vector<size_t>> neuIndexByComp(nComp);
         size_t bndcnt = 0, cnt = 0;
-        size_t iNeu = 0;
-        for (size_t i = 0; i < nTotalBCs; ++i)
+        for (unsigned int i = 0, iNeu = 0; i < bregions.size(); ++i)
         {
             // Get number of coefficients for this BC
             auto nBndExpCoeff = numBcExpCoeffs[i];
 
             // Process Neumann boundary conditions
-            auto isNeumann =
-                std::find(neuBCID.begin(), neuBCID.end(), i) != neuBCID.end();
-            if (isNeumann)
+            if (std::any_of(isNeumannByRegion[i].begin(),
+                            isNeumannByRegion[i].end(),
+                            [=](bool i) { return i == 1; }))
             {
                 // Evaluate Neumann BC string
                 m_expressionOps[iNeu]->Apply(m_wsp_phys[iNeu],
@@ -275,7 +256,7 @@ public:
                     m_wsp_coeffs[iNeu].template ToVector<TData>();
                 ASSERTL1(tmp.size() == nComp * nBndExpCoeff,
                          "Unexpected boundary coefficient vector size.");
-                for (size_t nc = 0; nc < nComp; ++nc)
+                for (unsigned int nc = 0; nc < nComp; ++nc)
                 {
                     std::copy(tmp.begin() + nc * nBndExpCoeff,
                               tmp.begin() + (nc + 1) * nBndExpCoeff,
@@ -284,15 +265,15 @@ public:
                 }
 
                 // Gather index
-                for (unsigned int j = 0; j < nBndExpCoeff; ++j)
+                for (size_t j = 0; j < nBndExpCoeff; ++j)
                 {
                     index[bndcnt + j] = cnt + j;
                 }
-                for (size_t nc = 0; nc < nComp; ++nc)
+                for (unsigned int nc = 0; nc < nComp; ++nc)
                 {
                     if (isNeumannByRegion[i][nc])
                     {
-                        for (unsigned int j = 0; j < nBndExpCoeff; ++j)
+                        for (size_t j = 0; j < nBndExpCoeff; ++j)
                         {
                             neuIndexByComp[nc].push_back(bndcnt + j);
                         }
@@ -323,7 +304,7 @@ public:
         std::vector<std::vector<TData>> signBlockByBlk(domainBlocks.size());
         std::vector<std::vector<TData>> bndCoeffBlockByBlk(domainBlocks.size());
 
-        for (size_t nc = 0; nc < nComp; ++nc)
+        for (unsigned int nc = 0; nc < nComp; ++nc)
         {
             MultiRegions::ContField compfield(session, graph, components[nc],
                                               true, false,
@@ -429,7 +410,6 @@ protected:
     bool m_anySignChange         = false;
     size_t m_numBndCoeffCompSize = 0;
     std::vector<bool> m_signChange;
-    std::vector<bool> m_isNeumann;
 
     std::vector<Field<TData, FieldState::Phys>> m_wsp_phys;
     std::vector<Field<TData, FieldState::Coeff>> m_wsp_coeffs;
