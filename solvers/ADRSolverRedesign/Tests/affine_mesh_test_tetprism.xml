@@ -1,0 +1,104 @@
+<?xml version='1.0' encoding='utf-8'?>
+<NEKTAR>
+    <GEOMETRY DIM="3" SPACE="3">
+        <VERTEX COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJx9kk1OAkEQhR+KCvgHiIgi/uAd2GldQhccYC7ACVzOkhWJx+AApk1cuTaEcAsWHIAZUt2hX2aqNy+Tr+pV1VQB+2/tWCsmBw5U87ifUfrNcYfKp8uP7C2cV8+rZj5wZOYDx3F/wj4nxEldTUnz/z33Fa+e101/oGH6A6emP3Cm+vv2lb2VTDY7Df/n3OTARXH9kH9p8qyvmDud79V/t0wOtFUpL9S5MjnQUU3nyXiWrNzn305D/rXJgS71x/VvTA70inmIu4375/uWO+Ul9y392J/vU+6Jsw6UlNynPCgvuR95LPYP/Inm5z09x/PzfmWovGR/8kL+nL8F5OTVagAA</VERTEX>
+        <EDGE COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJx1lVdXU0EURiPJBWOEEIMGo8EgAmIXVEQFVEBAuoAI9i52lGL587yc/ZC9VublW2efM9/MnTsllaptB6QNdeKGVG1LS2kZcXwS+ZBvVD/qm+r4HZQfPCuOzyFx/HKKmddhjc/8msWZR4ti6vOKmV+rfOAF+cCP6DvIF8WpbwvNKX9UHJ9j4viU1J/5tqs/639cMetYVj38hDjre1I+8Ir6wzs0f/qdCk2UryrGp1P18NOh7A/+d5di5nVG9fBucfx75APvDc0rfzY0I96nevLnxPE/rzr4Bfmyfy8q5rsuieNzWeOSvxKaVf6qOD79oZwb2oA45/1aaFr566GJ+I3QgvigOP43xfEbCvV5vSXOObotzjm4E+rzPSxO/UhoTvlRxYxzV/25L+6FpsXvi3OPjMkHPq7+8AnNE/4gNBGf1Ly5p6YUM8606uEPxfGfkQ98NrSk/FxoUXxe9eQXxPFfVB18Sb7sw0eK+a5lcXxWNC751dCC8o/F8VkL5V7n3n8izv2xrjrOy0ZoWfmn8iH/TDH74nko7wPvxwtxzstL1XGvvAqtKP9aPuTfKGb/vhVnvu/EeZ/eqw7+QTH33sdQ1of37JNi7s9N1eP3WfXwL+Ksw1fF1H8LrYbyH7+HlpX/oZj99TOU95Z12hLnP/wS59z81ri809vyhe8oZp/vyp93fU8x5+WP6vH7q3r4P/Fq6H/F1O8DizYtMgAA</EDGE>
+        <FACE>
+            <T COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJyFlVdPVFEURlHBGSsqoIIMRUEcxDIqigUYdcSu2Mau2HsLxkbUxMQHH4z+ZF++9cBKJs7Lyj3ft/fZ+9xz9zQ1zf8tCBfqmV9zuKiBr+U/vhatN4uLw0KDfEvCovxwqXwFEb0oUv8y5SMPdRTkI9/ycEW4Uj70VWFrg7jV8jkfeqvW10hvkw+9I2zXPsStlc/50Ikn7zo9U3ebdJ7Zlzzrw86wS3Wgd4cbVA9xJfnYt0s68eTtCXtD7kWn9D7lJy9x/fKxT1F6t0gd9Mt+Ja07L76N4aZwQHWhbw4HlY+4knzUOyCdePIOhVvCsvKik3dYeYnb2qDOsvRh+aiD7418Q1onflC+kXCb6i5L396gD+JK8rHfjnBnyHc5Ip18xJOXuEoDX6t01sk7pGf2JS/zjffBva9I59y4t7vCgtbpe3fInOyXvidkjvE90feodO49/e0NmVMV+faFzIk++caa5v/oh7r3a516+f86ID86/1cHpfN/Ql+HpFMvfY0rbky+CeVDJ35SdRXlr4bMSfqlr8Napx/m/BH50Zn/R+WnH/quhcy3CfmOhe3SiZ9SfZPSj6uucflOhMzfakjfJ6XTD32fUlxNvtPKh078mbBH6/R9NuS9Tcl3LuyVTvz5sEPr1Dcdck6cB31fkE4/9H1RcTX5LikfOvGXQ86BfunrinTy0lddcdPyXVU+dOKvhfTHvSDfda0TT/03Qs7J53FTOudBfbcUV5Pvdsg5cR5833ek0xfxdxVXl29G+dCJvxdy/uxDP/dD5gv3nH4eSOfekv9hOKp17vGjkLlWl/445PvmnlXDJ9J5b9z/pyFzhffLd/IsHJdO/IuQe8b75l68CXmPnOdMOBtyTvTLuXxUH89V15zqeCnfV9VFHPt8Uz3sS57vIf28Dl+FP0L6ehe+DX+G9Pc+pO9f4Yfwc/gp/B1+Cefk+6O6ZuX7q3rISx3/AApgYtYA</T>
+            <Q COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJxd0s1TwWEUxfFWZrLVtMUSG61YNHZZpk2EQshbFJWXsNBkYjD9zRa+Z3NsPot77/P83PP0zk6/Aj5gAIvYt3oQH7GMA5s7t74SvuETVjCEVRxa/QLr+Iwjm7u0vhp+YMO+K2z9X1aPYgtfcGxzEetr4gTb2MEYaq8zq8ftvB5+21zC+ro4x1fUfpJ2z9LqV3ae8l+h9pLGd1SuP6h3kLI+vZNfVL7XqJyU6xq154z16Z38Wd8NKiflurH/kbW+T9yi8pvird2/s3rOzlNee5u7sz7lf0Dlp73d2z3/Vs/beQs8AucjLvsA</Q>
+        </FACE>
+        <ELEMENT>
+            <R COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJxd0KcSAlEQRFEUHrseQ84oJBaLRFFFkdPukllyDp+M4I7pZ46aN9MdC/1fGzvYxTD2MI59HOAQIzjCBI5xglN00MUkeujjDKM4xxQucIkr+c/m02j51vJfXu7LoOXZyL1l2ZdF62uLAVZwhzm0/vZ4wCoe5T7r84RnrOEFC3jFG96xjg8s4hNf+MaGzJcwwI/sb8q89WV5vrK/hZbnB+KIISkA</R>
+            <A COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJxd1MVSQ1EQAFHc3d3dgxPc3d0lQOD/f4BN94Jhc6rIXBm5LyPj/18mZmF2+H8O5mIe5od1WoCFYb37FmExlmBpiC/DcqzAynCfKqwO69zX+9ZgLdZhPZpPAzZiEzaj+bWE/VrDOvNvw3bswE60Hl3YjT3Yi9arL+zXH+LNewAHcSicb72HcQRHcQyt53i4n/Hub58mMIHmab3to/WeROs7hfbZOiZCvHnb/2mcQftq3s6H58/iHNo/58T6uJ/1cJ19n0ffywIm0bwXcQmXcSXcNxninfNVdD7X0PzXcQOdQ/uyiVu4jc6363dwN6yzP3u4jwd4iL4L73mEx3iCrSF+P8Sfou/nDM/xAi/R93CF13iDt9iBd2G/+xDv3D7gIz6F8323z/iCr/iGvpv3cD/j3d93/IEptL6e73fB+fkM532h3wvnJxXi7Yvv6RvTaH3ts98V58g+/eAv+l1wjtLhd+v9ByQzJWwA</A>
+        </ELEMENT>
+        <COMPOSITE>
+            <C ID="1"> F[3,10,20,30,40,48,52,57,66,72,80,90,98,102,0,8,38,34,47,43,11,19,64,70,88,84,97,93,60,56,107,111,115,119,123,125-127,130,133,137,141,143-144,106,118,122,110,131,136,140,129] </C>
+            <C ID="2"> A[0-41] </C>
+            <C ID="3"> R[42-55] </C>
+        </COMPOSITE>
+        <DOMAIN>
+            <D ID="0"> C[2] </D>
+            <D ID="1"> C[3] </D>
+        </DOMAIN>
+    </GEOMETRY>
+    <Metadata>
+        <Provenance>
+            <GitBranch>refs/heads/feature/UnsteadyADR_redesign</GitBranch>
+            <GitSHA1>1c26ae306e14d93db77c0ef1f29d1543c74246c1</GitSHA1>
+            <Hostname>workstation</Hostname>
+            <NektarVersion>5.9.0</NektarVersion>
+            <Timestamp>31-Mar-2026 15:12:25</Timestamp>
+        </Provenance>
+        <NekMeshCommandLine>/tmp/cubeTetPrism2_mesh.msh solvers/ADRSolverRedesign/Tests/cubeTetPrism2_mesh.xml </NekMeshCommandLine>
+    </Metadata>
+    <EXPANSIONS>
+        <E COMPOSITE="C[2]" NUMMODES="4" TYPE="MODIFIED" FIELDS="u,v,w" />
+        <E COMPOSITE="C[3]" NUMMODES="4" TYPE="MODIFIED" FIELDS="u,v,w" />
+    </EXPANSIONS>
+    <FORCING>
+        <FORCE TYPE="Body">
+            <BODYFORCE> BodyForce </BODYFORCE>
+        </FORCE>
+    </FORCING>
+    <CONDITIONS>
+        <PARAMETERS>
+            <P> TimeStep       = 0.0001             </P>
+            <P> NumSteps       = 1                  </P>
+            <P> IO_InfoSteps   = 1                  </P>
+            <P> FinTime        = NumSteps*TimeStep  </P>
+            <P> epsilon        = 0.5                </P>
+            <P> IterativeSolverTolerance = 1e-14    </P>
+            <P> advx           = 0.5                </P>
+            <P> advy           = 0.5                </P>
+            <P> advz           = 0.5                </P>
+        </PARAMETERS>
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
+        <SOLVERINFO>
+            <I PROPERTY="EQTYPE" VALUE="UnsteadyAdvectionDiffusion" />
+            <I PROPERTY="Projection" VALUE="Continuous" />
+            <I PROPERTY="GLOBALSYSSOLN" VALUE="IterativeFull" />
+            <I PROPERTY="Preconditioner" VALUE="Diagonal" />
+            <I PROPERTY="LinSysIterSolver" VALUE="GMRES" />
+            <I PROPERTY="DiffusionAdvancement" VALUE="Implicit" />
+            <I PROPERTY="AdvectionAdvancement" VALUE="Explicit" />
+        </SOLVERINFO>
+        <VARIABLES>
+            <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> w </V>
+        </VARIABLES>
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[1] </B>
+        </BOUNDARYREGIONS>
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <D VAR="u" VALUE="x+y+z" />
+                <D VAR="v" VALUE="0.5*(x+y+z)" />
+                <D VAR="w" VALUE="-0.25*(x+y+z)" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+        <FUNCTION NAME="ExactSolution">
+            <E VAR="u" VALUE="x+y+z" />
+            <E VAR="v" VALUE="0.5*(x+y+z)" />
+            <E VAR="w" VALUE="-0.25*(x+y+z)" />
+        </FUNCTION>
+        <FUNCTION NAME="InitialConditions">
+            <E VAR="u" VALUE="x+y+z" />
+            <E VAR="v" VALUE="0.5*(x+y+z)" />
+            <E VAR="w" VALUE="-0.25*(x+y+z)" />
+        </FUNCTION>
+        <FUNCTION NAME="BodyForce">
+            <E VAR="u" VALUE="advx+advy+advz" />
+            <E VAR="v" VALUE="0.5*(advx+advy+advz)" />
+            <E VAR="w" VALUE="-0.25*(advx+advy+advz)" />
+        </FUNCTION>
+        <FUNCTION NAME="AdvectionVelocity">
+            <E VAR="Vx" VALUE="advx" />
+            <E VAR="Vy" VALUE="advy" />
+            <E VAR="Vz" VALUE="advz" />
+        </FUNCTION>
+    </CONDITIONS>
+</NEKTAR>

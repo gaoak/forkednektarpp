@@ -223,6 +223,9 @@ public:
         }
 
         // Allocate workspace.
+        // Quad boundary transforms first pack all four edges into wsp1, so
+        // the workspace must cover both face quadrature points and the
+        // concatenated edge data.
         if (m_dimension == 1)
         {
             m_wsp1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(m_nqTot);
@@ -230,7 +233,9 @@ public:
         }
         else if (m_dimension == 2)
         {
-            m_wsp1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(m_nqTot);
+            const auto edgePhysSize = 2 * m_nq[0] + 2 * m_nq[1];
+            m_wsp1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(
+                std::max(m_nqTot, edgePhysSize));
             m_wsp2 = std::vector<simd_t, tinysimd::allocator<simd_t>>(m_nqTot);
             m_wsp3 = std::vector<simd_t, tinysimd::allocator<simd_t>>(m_nqTot);
             m_wsp4 = std::vector<simd_t, tinysimd::allocator<simd_t>>(

@@ -717,18 +717,19 @@ protected:
         }
 
         // TODO: Universal assembly on device.
+        // This gather is also required in serial to resolve duplicated local
+        // Dirichlet boundary coefficients before copy-local-dir processing,
+        // mirroring ContField::v_ImposeDirichletConditions().
         auto contfield = std::dynamic_pointer_cast<MultiRegions::ContField>(
             this->m_expansionList);
-        if (contfield->GetSession()->GetComm()->GetRowComm()->GetSize() > 1)
-        {
-            // Copy the data from the input field.
-            auto inoutarr = inout.template ToArray<NekDouble>();
 
-            contfield->GetLocalToGlobalMap()->UniversalAbsMaxBnd(inoutarr);
+        // Copy the data from the input field.
+        auto inoutarr = inout.template ToArray<NekDouble>();
 
-            // Copy the data to the output field.
-            inout.template CopyArray<MemSpace, NekDouble>(inoutarr);
-        }
+        contfield->GetLocalToGlobalMap()->UniversalAbsMaxBnd(inoutarr);
+
+        // Copy the data to the output field.
+        inout.template CopyArray<MemSpace, NekDouble>(inoutarr);
 
         for (unsigned nc = 0; nc < inout.GetNumComponents(); ++nc)
         {
