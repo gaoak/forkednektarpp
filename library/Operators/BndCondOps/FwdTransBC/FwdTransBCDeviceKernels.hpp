@@ -57,7 +57,8 @@ inline unsigned int FwdTransBCSharedMemorySize(
 {
     if (shapeType == LibUtilities::Quad)
     {
-        return 3 * nq0 * nq1 + std::max(nq0, nq1);
+        return 2 * nq0 * nq1 + std::max(nq0 * nq1, 2 * nq0 + 2 * nq1) +
+               std::max(nq0, nq1);
     }
     else if (shapeType == LibUtilities::Tri)
     {
@@ -180,7 +181,7 @@ NEK_DEVICE_INLINE static void FwdTransBCQuadSumFacTOPKernel(
     }
 
     // Zero wsp2
-    for (unsigned int i = idx0; i < nqTot; i += stride)
+    for (unsigned int i = idx0; i < nmEdgeTot; i += stride)
     {
         wsp2[i] = 0.0;
     }
@@ -320,7 +321,7 @@ NEK_DEVICE_INLINE static void FwdTransBCTriSumFacTOPKernel(
     localBarrier(threadBlock);
 
     // Zero wsp2
-    for (unsigned int i = idx0; i < nqTot; i += stride)
+    for (unsigned int i = idx0; i < nmEdgeTot; i += stride)
     {
         wsp2[i] = 0.0;
     }
@@ -421,10 +422,6 @@ NEK_DEVICE_INLINE static void FwdTransBC1DKernel(
 {
     const unsigned int jacsize = DEFORMED ? nq0 : 1u;
 
-    // Get shared memory
-    TData *s_wsp1 = (TData *)shmemptr;
-    TData *s_wsp2 = s_wsp1 + nq0;
-
     // Per Element
     size_t e = getBlockIdx(threadBlock);
 
@@ -433,6 +430,10 @@ NEK_DEVICE_INLINE static void FwdTransBC1DKernel(
         const TData *jacptr = jac + jacsize * e;
         const TData *inptr  = in + nq0 * e;
         TData *outptr       = out + nm0 * e;
+
+        // Get shared memory
+        TData *s_wsp1 = (TData *)shmemptr;
+        TData *s_wsp2 = s_wsp1 + nq0;
 
         FwdTransBCSegSumFacTOPKernel<DEFORMED>(
             nm0, nq0, basis0, w0, offset_seg, invintmass, jacptr, inptr, outptr,
@@ -464,12 +465,6 @@ NEK_DEVICE_INLINE static void FwdTransBC2DKernel(
     const unsigned int nqTot   = nq0 * nq1;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
-    // Get shared memory
-    TData *s_wsp1 = (TData *)shmemptr;
-    TData *s_wsp2 = s_wsp1 + nqTot;
-    TData *s_wsp3 = s_wsp2 + nqTot;
-    TData *s_wsp4 = s_wsp3 + nqTot;
-
     unsigned int nEdges = 0;
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
@@ -496,6 +491,12 @@ NEK_DEVICE_INLINE static void FwdTransBC2DKernel(
 
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
+            // Get shared memory
+            TData *s_wsp1 = (TData *)shmemptr;
+            TData *s_wsp2 = s_wsp1 + std::max(nqTot, 2 * nq0 + 2 * nq1);
+            TData *s_wsp3 = s_wsp2 + nqTot;
+            TData *s_wsp4 = s_wsp3 + nqTot;
+
             FwdTransBCQuadSumFacTOPKernel<DEFORMED>(
                 nm0, nm1, nmTot, nq0, nq1, basis0, basis1, w0, w1, offset_seg,
                 invintmass0, invintmass1, tjacptr, tmapptr, tsignptr, nmTotInt,
@@ -504,6 +505,12 @@ NEK_DEVICE_INLINE static void FwdTransBC2DKernel(
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
+            // Get shared memory
+            TData *s_wsp1 = (TData *)shmemptr;
+            TData *s_wsp2 = s_wsp1 + nqTot;
+            TData *s_wsp3 = s_wsp2 + nqTot;
+            TData *s_wsp4 = s_wsp3 + nqTot;
+
             FwdTransBCTriSumFacTOPKernel<DEFORMED>(
                 nm0, nm1, nmTot, nq0, nq1, isModified, index0, basis0, basis1,
                 w0, w1, interp1to0, offset_seg, invintmass0, tjacptr, tmapptr,

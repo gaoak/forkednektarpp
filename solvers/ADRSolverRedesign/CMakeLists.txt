@@ -87,6 +87,19 @@ IF(NEKTAR_BUILD_REDESIGN)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvecDiff2D)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvecDiff3D)
 
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvecDiff1D_3C)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvecDiff2D_3C)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvecDiff3D_3C)
+
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign affine_mesh_test_hex)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign affine_mesh_test_tet)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign affine_mesh_test_prism)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign affine_mesh_test_tetprism)
+
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvecDiff3D_Tet_3C)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvecDiff3D_Prism_3C)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvecDiff3D_TetPrism_3C)
+
         # SDC time-integration
         SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvection2D_ExplicitSDCGaussLobattoLegendre)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvection2D_ExplicitSDCGaussRadauLegendre)
