@@ -35,7 +35,14 @@
 #pragma once
 
 #include "Operators/Common/Operator.hpp"
+
+#include "Operators/BndCondOps/DirBndCond/DirBndCondOp.hpp"
+#include "Operators/BndCondOps/NeuBndCond/NeuBndCondOp.hpp"
+#include "Operators/BndCondOps/RobBndCond/RobBndCondOp.hpp"
 #include "Operators/ElmtOps/ElmtOp.hpp"
+#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
+#include "Operators/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp"
+#include "Operators/PreconOps/PreconOp.hpp"
 
 namespace Nektar::Operators
 {
@@ -76,6 +83,11 @@ protected:
     std::shared_ptr<LinearSolverOp<TData>> m_LinSolverOp;
     std::shared_ptr<ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>>
         m_ElmtOp;
+    std::shared_ptr<DirBndCondOp<TData>> m_DirBCOp;
+    std::shared_ptr<IProductWRTBaseOp<TData>> m_IProdOp;
+    std::shared_ptr<NeuBndCondOp<TData>> m_NeuBCOp;
+    std::shared_ptr<RobBndCondOp<TData>> m_RobBCOp;
+
     Field<TData, FieldState::Coeff> m_rhs;
     Field<TData, FieldState::Coeff> m_tmp;
 

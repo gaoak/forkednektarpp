@@ -206,12 +206,9 @@ NEK_DEVICE_INLINE static void FwdTransBCQuadSumFacTOPKernel(
         wsp1 + 2 * nq0 + nq1, wsp2 + 2 * nm0 + nm1, wsp3, wsp4, threadBlock);
 
     // Map edge modes (without vertex contribution) back into face
-    if (idx0 == 0)
+    for (unsigned int j = idx0; j < nmEdgeTot; j += stride)
     {
-        for (unsigned int j = 0u; j < nmEdgeTot; j++)
-        {
-            out[tMap[j]] = tSign[j] * wsp2[j];
-        }
+        out[tMap[j]] = tSign[j] * wsp2[j];
     }
 
     // synchronize threads.
@@ -246,12 +243,9 @@ NEK_DEVICE_INLINE static void FwdTransBCQuadSumFacTOPKernel(
 
     /// Step 3: Project face/interior modes onto boundary
     // Map to interior coeffs
-    if (idx0 == 0)
+    for (unsigned int j = idx0; j < nmTotInt; j += stride)
     {
-        for (unsigned int j = 0u; j < nmTotInt; j++)
-        {
-            wsp1[j] = wsp2[iMap[j]];
-        }
+        wsp1[j] = wsp2[iMap[j]];
     }
 
     // synchronize threads.
@@ -262,12 +256,9 @@ NEK_DEVICE_INLINE static void FwdTransBCQuadSumFacTOPKernel(
                                                 wsp2, threadBlock);
 
     // Map to volume
-    if (idx0 == 0)
+    for (unsigned int j = idx0; j < nmTotInt; j += stride)
     {
-        for (unsigned int j = 0u; j < nmTotInt; j++)
-        {
-            out[iMap[j]] = wsp2[j];
-        }
+        out[iMap[j]] = wsp2[j];
     }
 
     // synchronize threads.
@@ -337,17 +328,21 @@ NEK_DEVICE_INLINE static void FwdTransBCTriSumFacTOPKernel(
     FwdTransBCSegSumFacTOPKernel<false>(nm0, nq0, basis0, w0, offset_seg,
                                         invintmass0, tJac + 1, wsp1 + nq0,
                                         wsp2 + nm0, wsp3, wsp4, threadBlock);
+
+    // Map edge modes (without vertex contribution) back into face
+    for (unsigned int j = idx0; j < 2 * nm0; j += stride)
+    {
+        out[tMap[j]] = tSign[j] * wsp2[j];
+    }
+
     FwdTransBCSegSumFacTOPKernel<false>(
         nm0, nq0, basis0, w0, offset_seg, invintmass0, tJac + 2,
         wsp1 + nq0 + nq0, wsp2 + nm0 + nm1, wsp3, wsp4, threadBlock);
 
     // Map edge modes (without vertex contribution) back into face
-    if (idx0 == 0)
+    for (unsigned int j = idx0; j < nm0; j += stride)
     {
-        for (unsigned int j = 0u; j < nmEdgeTot; j++)
-        {
-            out[tMap[j]] = tSign[j] * wsp2[j];
-        }
+        out[tMap[j + nm0 + nm1]] = tSign[j + nm0 + nm1] * wsp2[j + nm0 + nm1];
     }
 
     // synchronize threads.
@@ -382,12 +377,9 @@ NEK_DEVICE_INLINE static void FwdTransBCTriSumFacTOPKernel(
 
     /// Step 3: Project face/interior modes onto boundary
     // Map to interior coeffs
-    if (idx0 == 0)
+    for (unsigned int j = idx0; j < nmTotInt; j += stride)
     {
-        for (unsigned int j = 0u; j < nmTotInt; j++)
-        {
-            wsp1[j] = wsp2[iMap[j]];
-        }
+        wsp1[j] = wsp2[iMap[j]];
     }
 
     // synchronize threads.
@@ -398,12 +390,9 @@ NEK_DEVICE_INLINE static void FwdTransBCTriSumFacTOPKernel(
                                                 wsp2, threadBlock);
 
     // Map to volume
-    if (idx0 == 0)
+    for (unsigned int j = idx0; j < nmTotInt; j += stride)
     {
-        for (unsigned int j = 0u; j < nmTotInt; j++)
-        {
-            out[iMap[j]] = wsp2[j];
-        }
+        out[iMap[j]] = wsp2[j];
     }
 
     // synchronize threads.
