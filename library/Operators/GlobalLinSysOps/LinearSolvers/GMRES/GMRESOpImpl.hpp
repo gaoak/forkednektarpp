@@ -79,7 +79,7 @@ public:
         this->m_LinSysMaxStorage =
             session->DefinesParameter("LinSysMaxStorage")
                 ? session->GetParameter("LinSysMaxStorage")
-                : 50;
+                : 100;
         // LGMRES parameter
         // Reference:
         // Baker, Allison H., Elizabeth R. Jessup, and Thomas Manteuffel. "A
