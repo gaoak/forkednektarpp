@@ -88,7 +88,7 @@ NEK_DEVICE_INLINE static void FwdTransBCSegSumFacTOPKernel(
     // Get size of interior DoF
     // Note nmBndSeg is correct for modified and GLL_Lagrange basis
     const unsigned int nmBndSeg = 2;
-    unsigned int nmInt          = nm0 - nmBndSeg;
+    const unsigned int nmInt    = nm0 - nmBndSeg;
 
     /// Step 1: Evaluate vertex contriubtion
     /// i.e set vertex modes and evaluate mass matrix

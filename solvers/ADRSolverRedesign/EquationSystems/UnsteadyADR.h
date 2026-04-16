@@ -41,8 +41,7 @@
 #include <Operators/ElmtOps/Expression/ExpressionOp.hpp>
 #include <Operators/Field/Field.hpp>
 #include <Operators/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp>
-#include <Operators/GlobalLinSysOps/LinearSystems/HelmSolve/HelmSolveOp.hpp>
-#include <Operators/GlobalLinSysOps/LinearSystems/LinearADRSolve/LinearADRSolveOp.hpp>
+#include <Operators/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp>
 #include <SolverUtils/EquationSystem.h>
 
 namespace Nektar
@@ -67,7 +66,8 @@ public:
     }
 
     /// Name of class
-    static std::string className;
+    static std::string className1;
+    static std::string className2;
 
 protected:
     // Diffusion coefficient
@@ -95,8 +95,7 @@ protected:
     // Initialise operators
     std::shared_ptr<AdvectionOp<double>> m_advectionOp;
     std::shared_ptr<BwdTransOp<double>> m_bwdTransOp;
-    std::shared_ptr<HelmSolveOp<double>> m_helmSolveOp;
-    std::shared_ptr<LinearADRSolveOp<double>> m_linearADRSolveOp;
+    std::shared_ptr<LinearSystemOp<double>> m_linearSystemOp;
     std::shared_ptr<LinearSolverOp<double>> m_linearSolverOp;
     std::map<double, std::shared_ptr<PreconOp<double>>> m_preconOp;
     std::shared_ptr<ExpressionOp<double>> m_forcingOp;
@@ -113,9 +112,9 @@ protected:
 
     void v_GenerateSummary(SummaryList &s) override;
 
-    void DoDiffusion(Field<double, FieldState::Phys> &inout,
-                     Field<double, FieldState::Phys> &out,
-                     [[maybe_unused]] const double &time, const double &lambda);
+    void DoImplicit(Field<double, FieldState::Phys> &inout,
+                    Field<double, FieldState::Phys> &out,
+                    [[maybe_unused]] const double &time, const double &lambda);
 
     void DoExplicitRhs(Field<double, FieldState::Phys> &in,
                        Field<double, FieldState::Phys> &out, const double &time,

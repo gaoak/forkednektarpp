@@ -49,7 +49,6 @@ IF(NEKTAR_BUILD_REDESIGN)
 
         ADD_SOLVER_EXECUTABLE(ADRSolverRedesign SOURCES
             ADRSolverRedesign.cpp
-            EquationSystems/UnsteadyDiffusion.cpp
             EquationSystems/SteadyADR.cpp
             EquationSystems/UnsteadyADR.cpp
             EquationSystems/UnsteadyAdvection.cpp
