@@ -423,6 +423,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
     auto tag             = opName + execName + implName + dataType;
 
     // Check if addition configure is required.
+    Field<TData, FieldState::Phys> vel;
     if constexpr (std::is_same_v<Op<TData>, PhysInterp1DScaledOp<TData>>)
     {
         oper->SetScaleFactor(2.0);
@@ -431,8 +432,8 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
     {
         auto velblockAttr =
             GetBlockAttributes<TData, FieldState::Phys>(expList);
-        auto vel = Field<TData, FieldState::Phys>("f_out", velblockAttr,
-                                                  expList->GetCoordim(0), 1);
+        vel = Field<TData, FieldState::Phys>("f_out", velblockAttr,
+                                             expList->GetCoordim(0), 1);
         vel.template Initialize<NektarSpaces::HostSpace>(1.0);
         oper->SetAdvVel(vel);
     }
@@ -461,8 +462,8 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
         diffCoeff[5] = 1.0; // D22
         auto velblockAttr =
             GetBlockAttributes<TData, FieldState::Phys>(expList);
-        auto vel = Field<TData, FieldState::Phys>("f_out", velblockAttr,
-                                                  expList->GetCoordim(0), 1);
+        vel = Field<TData, FieldState::Phys>("f_out", velblockAttr,
+                                             expList->GetCoordim(0), 1);
         vel.template Initialize<NektarSpaces::HostSpace>(1.0);
         oper->SetLambda(-1.0);
         oper->SetDiffCoeff(diffCoeff);
