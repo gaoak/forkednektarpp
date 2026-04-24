@@ -634,6 +634,7 @@ public:
         {
             data.push_back(std::string(rdata[i]));
         }
+        free(rdata);
     }
 
 protected:

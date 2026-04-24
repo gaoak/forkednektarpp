@@ -1117,6 +1117,12 @@ void EquationSystem::v_SetInitialConditions(
         }
     }
 
+    // Update time in field info if required
+    if (m_fieldMetaDataMap.find("Time") != m_fieldMetaDataMap.end())
+    {
+        m_fieldMetaDataMap["Time"] = boost::lexical_cast<std::string>(m_time);
+    }
+
     if (dumpInitialConditions && m_checksteps && m_nchk == 0 &&
         !m_comm->IsParallelInTime())
     {
@@ -1364,12 +1370,6 @@ void EquationSystem::WriteFld(const std::string &outname,
             FieldDef[i]->m_fields.push_back(variables[j]);
             field->AppendFieldData(FieldDef[i], FieldData[i], fieldcoeffs[j]);
         }
-    }
-
-    // Update time in field info if required
-    if (m_fieldMetaDataMap.find("Time") != m_fieldMetaDataMap.end())
-    {
-        m_fieldMetaDataMap["Time"] = boost::lexical_cast<std::string>(m_time);
     }
 
     // Update step in field info if required

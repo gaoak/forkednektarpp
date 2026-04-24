@@ -88,7 +88,7 @@ void DriverParareal::v_Execute([[maybe_unused]] std::ostream &out)
     m_nsteps[m_coarseLevel] /= m_numChunks * m_numWindowsPIT;
 
     // Pre-solve for one time-step to initialize preconditioner.
-    UpdateSolution(m_coarseLevel, m_time, 1, 0, 0);
+    UpdateSolution(m_coarseLevel, m_time0, 1, 0, 0);
 
     // Start iteration windows.
     m_comm->GetTimeComm()->Block();
@@ -97,7 +97,8 @@ void DriverParareal::v_Execute([[maybe_unused]] std::ostream &out)
     {
         timer.Start();
         // Initialize time for the current window.
-        m_time = (w * m_numChunks) * m_chunkTime + m_chunkRank * m_chunkTime;
+        m_time = m_time0 + (w * m_numChunks) * m_chunkTime +
+                 m_chunkRank * m_chunkTime;
 
         // Print window number.
         PrintHeader((boost::format("WINDOWS #%1%") % (w + 1)).str(), '*');

@@ -72,7 +72,7 @@ public:
         const std::shared_ptr<EquationSystem> &pEquation,
         const std::map<std::string, std::string> &pParams);
 
-    SOLVER_UTILS_EXPORT ~FilterAeroForces() override;
+    SOLVER_UTILS_EXPORT ~FilterAeroForces() override = default;
 
     SOLVER_UTILS_EXPORT void GetForces(
         const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,

@@ -90,10 +90,6 @@ FilterThresholdMax::FilterThresholdMax(
     m_fld = LibUtilities::FieldIO::CreateDefault(pSession);
 }
 
-FilterThresholdMax::~FilterThresholdMax()
-{
-}
-
 void FilterThresholdMax::v_Initialise(
     const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
     [[maybe_unused]] const NekDouble &time)

@@ -428,6 +428,12 @@ public:
         return m_traceNormals;
     }
 
+    SOLVER_UTILS_EXPORT LibUtilities::FieldMetaDataMap &GetFieldMetaDataMap(
+        void)
+    {
+        return m_fieldMetaDataMap;
+    }
+
     SOLVER_UTILS_EXPORT void SetTime(const NekDouble time)
     {
         m_time = time;

@@ -2190,7 +2190,11 @@ reference area $R$ is taken to be the homogeneous plane.
 Optionally, the \inltt{IO\_FlowSteps} parameter can be defined. If set to a
 non-zero integer, this produces a file \inltt{session.prs} which records the
 value of $\alpha$ used in the flowrate correction, every \inltt{IO\_FlowSteps}
-steps.
+steps. By default, the value of $\alpha$ is printed with six significant
+digits (including digits before and after the decimal point). To increase the
+number of digits after decimal points, we can define the 
+\inltt{IO\_FlowStepsPrecision = 10} to increase the number of decimal points 
+to 10 (or more).
 
 \section{Examples}
 \label{s:incns:examples}

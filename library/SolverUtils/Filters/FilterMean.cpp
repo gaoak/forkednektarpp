@@ -63,10 +63,6 @@ FilterMean::FilterMean(const LibUtilities::SessionReaderSharedPtr &pSession,
     pSession->LoadParameter("LZ", m_homogeneousLength, 0.0);
 }
 
-FilterMean::~FilterMean()
-{
-}
-
 void FilterMean::v_Initialise(
     const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
     [[maybe_unused]] const NekDouble &time)

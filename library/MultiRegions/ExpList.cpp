@@ -2722,7 +2722,7 @@ void ExpList::GeneralMatrixOp(const GlobalMatrixKey &gkey,
             {
                 varcoeffs = StdRegions::RestrictCoeffMap(
                     gkey.GetVarCoeffs(), m_phys_offset[cnt],
-                    m_collections[i].GetInputSize(opType, false));
+                    m_collections[i].GetPhysSize(opType));
                 cnt += m_collections[i].GetNumElmt(opType);
             }
             m_collections[i].UpdateVarcoeffs(opType, varcoeffs);

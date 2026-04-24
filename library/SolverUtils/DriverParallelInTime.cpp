@@ -292,6 +292,7 @@ void DriverParallelInTime::InitialiseEqSystem(bool turnoff_output)
     }
 
     // Initialize time stepping parameters.
+    m_time0    = m_EqSys[0]->GetTime();
     m_timestep = Array<OneD, NekDouble>(m_nTimeLevel);
     m_nsteps   = Array<OneD, size_t>(m_nTimeLevel);
     m_npts     = Array<OneD, size_t>(m_nTimeLevel);

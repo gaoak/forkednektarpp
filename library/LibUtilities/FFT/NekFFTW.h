@@ -43,8 +43,6 @@
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
 
-#include <fftw3.h>
-
 namespace Nektar
 {
 template <typename Dim, typename DataType> class Array;
@@ -83,8 +81,8 @@ protected:
 
     Array<OneD, NekDouble> m_wsp; // Workspace area for transforms
 
-    fftw_plan m_plan_backward; // plan to execute a backward FFT in FFTW
-    fftw_plan m_plan_forward;  // plan to execute a forward FFT in FFTW
+    void *m_plan_backward; // plan to execute a backward FFT in FFTW
+    void *m_plan_forward;  // plan to execute a forward FFT in FFTW
 
     void v_FFTFwdTrans(Array<OneD, NekDouble> &inarray,
                        Array<OneD, NekDouble> &outarray) override;

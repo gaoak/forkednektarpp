@@ -55,6 +55,7 @@ AssemblyMapDG::AssemblyMapDG() : m_numDirichletBndPhys(0)
 
 AssemblyMapDG::~AssemblyMapDG()
 {
+    Gs::Finalise(m_bndGsh);
 }
 
 AssemblyMapDG::AssemblyMapDG(

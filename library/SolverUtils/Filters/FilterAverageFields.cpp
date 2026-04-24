@@ -36,6 +36,11 @@
 
 namespace Nektar::SolverUtils
 {
+std::string FilterAverageFields::cmdSetStartFilterFileNum =
+    LibUtilities::SessionReader::RegisterCmdLineArgument(
+        "set-filter-averagefield-start-number", "",
+        "Set the starting number of the average field filter file number.");
+
 std::string FilterAverageFields::className =
     GetFilterFactory().RegisterCreatorFunction("AverageFields",
                                                FilterAverageFields::create);
@@ -58,8 +63,19 @@ FilterAverageFields::FilterAverageFields(
     }
 }
 
-FilterAverageFields::~FilterAverageFields()
+void FilterAverageFields::v_Initialise(
+    const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
+    const NekDouble &time)
 {
+    // Initialise output arrays
+    FilterFieldConvert::v_Initialise(pFields, time);
+
+    if (m_session->DefinesCmdLineArgument(
+            "set-filter-averagefield-start-number"))
+    {
+        m_outputIndex = std::stoi(m_session->GetCmdLineArgument<std::string>(
+            "set-filter-averagefield-start-number"));
+    }
 }
 
 void FilterAverageFields::v_ProcessSample(

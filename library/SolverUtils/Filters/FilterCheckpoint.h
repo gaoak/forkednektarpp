@@ -55,6 +55,8 @@ public:
         return p;
     }
 
+    static std::string cmdSetStartFilterFileNum;
+
     /// Name of the class
     static std::string className;
 
@@ -62,7 +64,7 @@ public:
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const std::shared_ptr<EquationSystem> &pEquation,
         const ParamMap &pParams);
-    SOLVER_UTILS_EXPORT ~FilterCheckpoint() override;
+    SOLVER_UTILS_EXPORT ~FilterCheckpoint() override = default;
 
 protected:
     void v_Initialise(

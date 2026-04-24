@@ -32,6 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <fftw3.h>
+
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/BasicUtils/VmathArray.hpp>
 #include <LibUtilities/FFT/NekFFTW.h>
@@ -69,8 +71,8 @@ NekFFTW::NekFFTW(int N) : NektarFFT(N)
 // Destructor
 NekFFTW::~NekFFTW()
 {
-    fftw_destroy_plan(m_plan_forward);
-    fftw_destroy_plan(m_plan_backward);
+    fftw_destroy_plan((fftw_plan)m_plan_forward);
+    fftw_destroy_plan((fftw_plan)m_plan_backward);
 }
 
 // Forward transformation
@@ -78,7 +80,7 @@ void NekFFTW::v_FFTFwdTrans(Array<OneD, NekDouble> &inarray,
                             Array<OneD, NekDouble> &outarray)
 {
     // FFTW_R2HC
-    fftw_execute_r2r(m_plan_forward, inarray.data(), m_wsp.data());
+    fftw_execute_r2r((fftw_plan)m_plan_forward, inarray.data(), m_wsp.data());
 
     // Reshuffle
     int halfN = m_N / 2;
@@ -112,7 +114,7 @@ void NekFFTW::v_FFTBwdTrans(Array<OneD, NekDouble> &inarray,
     }
 
     // FFTW_HC2R
-    fftw_execute_r2r(m_plan_backward, m_wsp.data(), outarray.data());
+    fftw_execute_r2r((fftw_plan)m_plan_backward, m_wsp.data(), outarray.data());
 }
 
 } // namespace Nektar::LibUtilities

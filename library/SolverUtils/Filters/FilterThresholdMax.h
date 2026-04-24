@@ -64,7 +64,7 @@ public:
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const std::shared_ptr<EquationSystem> &pEquation,
         const ParamMap &pParams);
-    SOLVER_UTILS_EXPORT ~FilterThresholdMax() override;
+    SOLVER_UTILS_EXPORT ~FilterThresholdMax() override = default;
 
 protected:
     /// Initialises the filter.

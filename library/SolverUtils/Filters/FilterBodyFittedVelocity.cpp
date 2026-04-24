@@ -47,6 +47,12 @@ using std::endl;
 
 namespace Nektar::SolverUtils
 {
+std::string FilterBodyFittedVelocity::cmdSetStartFilterFileNum =
+    LibUtilities::SessionReader::RegisterCmdLineArgument(
+        "set-filter-bodyfittedvelocity-start-number", "",
+        "Set the starting number of the body fitted velocity filter file "
+        "number.");
+
 std::string FilterBodyFittedVelocity::className =
     GetFilterFactory().RegisterCreatorFunction(
         "BodyFittedVelocity", FilterBodyFittedVelocity::create);
@@ -119,16 +125,19 @@ FilterBodyFittedVelocity::FilterBodyFittedVelocity(
     m_initialized = m_restartFile != "";
 }
 
-FilterBodyFittedVelocity::~FilterBodyFittedVelocity()
-{
-}
-
 void FilterBodyFittedVelocity::v_Initialise(
     const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
     const NekDouble &time)
 {
     // Initialise output arrays
     FilterFieldConvert::v_Initialise(pFields, time);
+
+    if (m_session->DefinesCmdLineArgument(
+            "set-filter-bodyfittedvelocity-start-number"))
+    {
+        m_outputIndex = std::stoi(m_session->GetCmdLineArgument<std::string>(
+            "set-filter-bodyfittedvelocity-start-number"));
+    }
 
     // Generate the body-fitted coordinate system and distance field
     // bfcsDir[i][j][k]

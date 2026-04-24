@@ -89,6 +89,30 @@ Partition the \inlsh{Hdf5}-format mesh in parallel to avoid one single thread ru
 \hangindent=1.5cm
 Set the starting number of the checkpoint file. This overwrites the checkpoint number in the file-type initial condition.
 
+\lstinline[style=BashInputStyle]{--set-filter-averagefield-start-number [int]}\\
+\hangindent=1.5cm
+Set the starting number of the average field filter file. Default is 0.
+
+\lstinline[style=BashInputStyle]{--set-filter-bodyfittedvelocityfield-start-number [int]}\\
+\hangindent=1.5cm
+Set the starting number of the body fitted velocity field filter file. Default is 0.
+
+\lstinline[style=BashInputStyle]{--set-filter-checkpoint-start-number [int]}\\
+\hangindent=1.5cm
+Set the starting number of the checkpoint filter file. Default is 0.
+
+\lstinline[style=BashInputStyle]{--set-filter-historypoints-start-number [int]}\\
+\hangindent=1.5cm
+Set the starting number of the history point filter file. Default is 0.
+
+\lstinline[style=BashInputStyle]{--set-filter-maxminfield-start-number [int]}\\
+\hangindent=1.5cm
+Set the starting number of the max/min field filter file. Default is 0.
+
+\lstinline[style=BashInputStyle]{--set-filter-movingaverage-start-number [int]}\\
+\hangindent=1.5cm
+Set the starting number of the moving average filter file. Default is 0.
+
 \lstinline[style=BashInputStyle]{--set-start-time [float]}\\
 \hangindent=1.5cm
 Set the starting time of the simulation. This overwrites the time in the file-type initial condition.

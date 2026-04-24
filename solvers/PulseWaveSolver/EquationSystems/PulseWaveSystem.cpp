@@ -2006,12 +2006,6 @@ void PulseWaveSystem::WriteVessels(const std::string &outname)
         }
     }
 
-    // Update time in field info if required
-    if (m_fieldMetaDataMap.find("Time") != m_fieldMetaDataMap.end())
-    {
-        m_fieldMetaDataMap["Time"] = boost::lexical_cast<std::string>(m_time);
-    }
-
     m_fld->Write(outname, FieldDef, FieldData, m_fieldMetaDataMap);
 }
 

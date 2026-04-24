@@ -43,6 +43,11 @@ using namespace std;
 
 namespace Nektar::SolverUtils
 {
+std::string FilterHistoryPoints::cmdSetStartFilterFileNum =
+    LibUtilities::SessionReader::RegisterCmdLineArgument(
+        "set-filter-historypoints-start-number", "",
+        "Set the starting number of the history points filter file number.");
+
 std::string FilterHistoryPoints::className =
     GetFilterFactory().RegisterCreatorFunction("HistoryPoints",
                                                FilterHistoryPoints::create);
@@ -210,13 +215,6 @@ FilterHistoryPoints::FilterHistoryPoints(
     {
         ASSERTL0(false, "Missing parameter 'Points'.");
     }
-}
-
-/**
- *
- */
-FilterHistoryPoints::~FilterHistoryPoints()
-{
 }
 
 bool FilterHistoryPoints::GetPoint(Array<OneD, NekDouble> gloCoord, int I)
@@ -449,6 +447,13 @@ void FilterHistoryPoints::v_Initialise(
     if (m_updateOnInitialise)
     {
         v_Update(pFields, time);
+    }
+
+    if (m_session->DefinesCmdLineArgument(
+            "set-filter-historypoints-start-number"))
+    {
+        m_index = std::stoi(m_session->GetCmdLineArgument<std::string>(
+            "set-filter-historypoints-start-number"));
     }
 }
 

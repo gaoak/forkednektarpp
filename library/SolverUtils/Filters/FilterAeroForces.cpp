@@ -211,13 +211,6 @@ FilterAeroForces::FilterAeroForces(
 /**
  *
  */
-FilterAeroForces::~FilterAeroForces()
-{
-}
-
-/**
- *
- */
 void FilterAeroForces::v_Initialise(
     const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
     [[maybe_unused]] const NekDouble &time)

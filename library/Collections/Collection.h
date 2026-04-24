@@ -104,14 +104,24 @@ public:
         return m_collExp;
     }
 
-    inline int GetInputSize(const OperatorType &op, bool defaultIn = true)
+    inline int GetInputSize(const OperatorType &op)
     {
-        return m_ops[op]->GetInputSize(defaultIn);
+        return m_ops[op]->GetInputSize();
     }
 
-    inline int GetOutputSize(const OperatorType &op, bool defaultOut = true)
+    inline int GetOutputSize(const OperatorType &op)
     {
-        return m_ops[op]->GetOutputSize(defaultOut);
+        return m_ops[op]->GetOutputSize();
+    }
+
+    inline int GetPhysSize(const OperatorType &op)
+    {
+        return m_ops[op]->GetPhysSize();
+    }
+
+    inline int GetCoeffSize(const OperatorType &op)
+    {
+        return m_ops[op]->GetCoeffSize();
     }
 
     /// Return the number of elements in collection attached to @param op

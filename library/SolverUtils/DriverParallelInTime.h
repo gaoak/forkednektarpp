@@ -127,6 +127,7 @@ protected:
 
     /// Local time.
     NekDouble m_time;
+    NekDouble m_time0;
 
     /// Number of time chunks.
     size_t m_numChunks;

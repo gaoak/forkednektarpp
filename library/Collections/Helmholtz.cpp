@@ -67,13 +67,11 @@ protected:
     Helmholtz_Helper()
     {
         // expect input to be number of elements by the number of coefficients
-        m_inputSize      = m_numElmt * m_stdExp->GetNcoeffs();
-        m_inputSizeOther = m_numElmt * m_stdExp->GetTotPoints();
+        m_inputSize = m_numElmt * m_stdExp->GetNcoeffs();
 
         // expect output to be number of elements by the number of coefficients
         // computation is from coeff space to coeff space
-        m_outputSize      = m_inputSize;
-        m_outputSizeOther = m_inputSizeOther;
+        m_outputSize = m_inputSize;
     }
 };
 

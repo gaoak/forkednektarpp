@@ -92,7 +92,7 @@ void DriverPFASST::v_Execute([[maybe_unused]] std::ostream &out)
         PrintHeader((boost::format("WINDOWS #%1%") % (w + 1)).str(), '*');
 
         // Compute initial guess for coarse solver.
-        m_time = (w * m_numChunks) * m_chunkTime;
+        m_time = m_time0 + (w * m_numChunks) * m_chunkTime;
         ResidualEval(m_time, m_nTimeLevel - 1, 0);
         PropagateQuadratureSolutionAndResidual(m_nTimeLevel - 1, 0);
         for (size_t k = 0; k < m_chunkRank; k++)

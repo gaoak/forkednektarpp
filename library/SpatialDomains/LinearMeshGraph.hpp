@@ -426,14 +426,13 @@ SpatialDomains::MeshGraphSharedPtr LinearMeshGraph::CreateLinearGraph(
     LinMeshSetUp2DGeom(nsplit, FceEdgOffset, CoeffMap2D, voffset, UseGLL,
                        useSimplex);
 
-    //     //--------------------------------------------------------
-    //     // Set up 3D elements
-    //     //--------------------------------------------------------
+    //--------------------------------------------------------
+    // Set up 3D elements
+    //--------------------------------------------------------
     std::map<int, std::map<int, int>> CoeffMap3D;
     if (m_meshDimension == 3)
     {
         LinMeshSetUpTetGeom(nsplit, FceEdgOffset, CoeffMap3D, UseGLL);
-
         LinMeshSetUpPrismGeom(nsplit, FceEdgOffset, CoeffMap3D, UseGLL);
     }
 
@@ -555,7 +554,7 @@ void LinearMeshGraph::AddSplitEdge(int nsplit, int vid0, int vid1,
         }
 
         SegGeomUniquePtr edge = ObjPoolManager<SegGeom>::AllocateUniquePtr(
-            edgeid, m_spaceDimension, vert);
+            edgid, m_spaceDimension, vert);
 
         m_linMesh->AddGeom(edgid, std::move(edge));
     }
@@ -2341,9 +2340,9 @@ void LinearMeshGraph::LinMeshSetUpPrismGeom(
                     if (j < nsplit - 1)
                     {
                         int newtriid = elmtid * faceoffset + maxfaceid + fcnt++;
-
                         std::array<SegGeom *, 3> edges;
                         std::array<SegGeom *, 3> edgessort;
+
                         edgessort[0] = m_linMesh->GetSegGeom(E_eidx(k, 0, i));
                         edgessort[1] = m_linMesh->GetSegGeom(E_eidxz(k, 0, i));
                         edgessort[2] = m_linMesh->GetSegGeom(E_eidz(k, 0, i));

@@ -67,7 +67,7 @@ public:
     SOLVER_UTILS_EXPORT Filter(
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const std::shared_ptr<EquationSystem> &pEquation);
-    SOLVER_UTILS_EXPORT virtual ~Filter();
+    SOLVER_UTILS_EXPORT virtual ~Filter() = default;
 
     SOLVER_UTILS_EXPORT inline void Initialise(
         const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,

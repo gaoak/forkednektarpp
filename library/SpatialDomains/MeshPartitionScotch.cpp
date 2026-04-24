@@ -263,23 +263,20 @@ int MeshPartitionScotch::PartGraph2(
     double kbalval)
 {
     // Scotch graph object to interface with libScotch
-    SCOTCH_Graph *grafdat = SCOTCH_graphAlloc();
-    ASSERTL0(grafdat != nullptr,
-             "Failed to allocate Scotch graph for partitioning.");
-
+    SCOTCH_Graph grafdat;
     SCOTCH_Strat stradat;
     SCOTCH_Num baseval;
     SCOTCH_Num vertnbr;
     int o;
 
-    ASSERTL0(SCOTCH_graphInit(grafdat) == 0,
+    ASSERTL0(SCOTCH_graphInit(&grafdat) == 0,
              "Failed to initialise Scotch graph for partitioning.");
 
     baseval = *numflag;
     vertnbr = *n;
 
     o = 1; // Assume something will go wrong
-    if (SCOTCH_graphBuild(grafdat, baseval, vertnbr, xadj, xadj + 1, vwgt,
+    if (SCOTCH_graphBuild(&grafdat, baseval, vertnbr, xadj, xadj + 1, vwgt,
                           nullptr, xadj[vertnbr] - baseval, adjncy,
                           adjwgt) == 0)
     {
@@ -287,12 +284,12 @@ int MeshPartitionScotch::PartGraph2(
         SCOTCH_stratGraphMapBuild(&stradat, flagval, *nparts, kbalval);
 #ifdef SCOTCH_DEBUG_ALL
         // TRICK: next instruction called only if graph is consistent
-        if (SCOTCH_graphCheck(grafdat) == 0)
+        if (SCOTCH_graphCheck(&grafdat) == 0)
 #endif /* SCOTCH_DEBUG_ALL */
-            o = SCOTCH_graphPart(grafdat, *nparts, &stradat, part);
+            o = SCOTCH_graphPart(&grafdat, *nparts, &stradat, part);
         SCOTCH_stratExit(&stradat);
     }
-    SCOTCH_graphExit(grafdat);
+    SCOTCH_graphExit(&grafdat);
 
     if (o != 0)
     {

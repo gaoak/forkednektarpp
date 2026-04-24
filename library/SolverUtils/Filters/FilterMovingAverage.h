@@ -57,6 +57,8 @@ public:
         return p;
     }
 
+    static std::string cmdSetStartFilterFileNum;
+
     /// Name of the class
     static std::string className;
 
@@ -64,14 +66,17 @@ public:
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const std::shared_ptr<EquationSystem> &pEquation,
         const ParamMap &pParams);
-    SOLVER_UTILS_EXPORT ~FilterMovingAverage() override;
+    SOLVER_UTILS_EXPORT ~FilterMovingAverage() override = default;
 
 protected:
-    void v_ProcessSample(
+    SOLVER_UTILS_EXPORT void v_Initialise(
+        const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
+        const NekDouble &time) override;
+    SOLVER_UTILS_EXPORT void v_ProcessSample(
         const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
         std::vector<Array<OneD, NekDouble>> &fieldcoeffs,
         const NekDouble &time) override;
-    std::string v_GetFileSuffix() override
+    SOLVER_UTILS_EXPORT std::string v_GetFileSuffix() override
     {
         return "_movAvg";
     }

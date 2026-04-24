@@ -78,13 +78,6 @@ FilterEnergy1D::FilterEnergy1D(
 }
 
 /**
- * @brief Destructor.
- */
-FilterEnergy1D::~FilterEnergy1D()
-{
-}
-
-/**
  * @brief Initialize filter.
  */
 void FilterEnergy1D::v_Initialise(

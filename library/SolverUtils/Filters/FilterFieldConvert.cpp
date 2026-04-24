@@ -68,6 +68,18 @@ FilterFieldConvert::FilterFieldConvert(
         m_outputStartTime = equ.Evaluate();
     }
 
+    // OutputFrequency
+    it = pParams.find("OutputFrequency");
+    if (it == pParams.end())
+    {
+        m_outputFrequency = m_session->GetParameter("NumSteps");
+    }
+    else
+    {
+        LibUtilities::Equation equ(m_session->GetInterpreter(), it->second);
+        m_outputFrequency = round(equ.Evaluate());
+    }
+
     // Restart file
     it = pParams.find("RestartFile");
     if (it == pParams.end())
@@ -87,18 +99,6 @@ FilterFieldConvert::FilterFieldConvert(
             outname << it->second << ".fld";
             m_restartFile = outname.str();
         }
-    }
-
-    // OutputFrequency
-    it = pParams.find("OutputFrequency");
-    if (it == pParams.end())
-    {
-        m_outputFrequency = m_session->GetParameter("NumSteps");
-    }
-    else
-    {
-        LibUtilities::Equation equ(m_session->GetInterpreter(), it->second);
-        m_outputFrequency = round(equ.Evaluate());
     }
 
     // The base class can use SampleFrequency = OutputFrequency
@@ -317,10 +317,6 @@ FilterFieldConvert::FilterFieldConvert(
         }
     }
     m_vm.insert(std::make_pair("force-output", po::variable_value()));
-}
-
-FilterFieldConvert::~FilterFieldConvert()
-{
 }
 
 void FilterFieldConvert::v_Initialise(

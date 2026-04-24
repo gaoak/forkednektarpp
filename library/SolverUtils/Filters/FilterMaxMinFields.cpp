@@ -37,6 +37,11 @@
 
 namespace Nektar::SolverUtils
 {
+std::string FilterMaxMinFields::cmdSetStartFilterFileNum =
+    LibUtilities::SessionReader::RegisterCmdLineArgument(
+        "set-filter-maxminfield-start-number", "",
+        "Set the starting number of the max/min field filter file number.");
+
 std::string FilterMaxMinFields::className =
     GetFilterFactory().RegisterCreatorFunction("MaxMinFields",
                                                FilterMaxMinFields::create);
@@ -80,16 +85,19 @@ FilterMaxMinFields::FilterMaxMinFields(
     m_problemType = eCompressible;
 }
 
-FilterMaxMinFields::~FilterMaxMinFields()
-{
-}
-
 void FilterMaxMinFields::v_Initialise(
     const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
     const NekDouble &time)
 {
     // Initialise output arrays
     FilterFieldConvert::v_Initialise(pFields, time);
+
+    if (m_session->DefinesCmdLineArgument(
+            "set-filter-maxminfield-start-number"))
+    {
+        m_outputIndex = std::stoi(m_session->GetCmdLineArgument<std::string>(
+            "set-filter-maxminfield-start-number"));
+    }
 
     // Allocate storage
     int nf;

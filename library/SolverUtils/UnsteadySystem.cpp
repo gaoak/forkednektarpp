@@ -353,6 +353,13 @@ void UnsteadySystem::v_DoSolve()
         intTime += elapsed;
         cpuTime += elapsed;
 
+        // Update time in field info if required
+        if (m_fieldMetaDataMap.find("Time") != m_fieldMetaDataMap.end())
+        {
+            m_fieldMetaDataMap["Time"] =
+                boost::lexical_cast<std::string>(m_time);
+        }
+
         // Write out status information.
         v_PrintStatusInformation(step, cpuTime);
         if (m_infosteps &&

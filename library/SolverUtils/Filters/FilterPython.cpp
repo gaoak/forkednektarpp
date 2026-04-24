@@ -190,10 +190,6 @@ FilterPython::FilterPython(const LibUtilities::SessionReaderSharedPtr &pSession,
     }
 }
 
-FilterPython::~FilterPython()
-{
-}
-
 void FilterPython::v_Initialise(
     const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
     const NekDouble &time)

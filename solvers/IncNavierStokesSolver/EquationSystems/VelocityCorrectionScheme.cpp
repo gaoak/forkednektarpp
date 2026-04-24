@@ -145,6 +145,8 @@ void VelocityCorrectionScheme::v_InitObject(bool DeclareField)
     // Set up bits for flowrate.
     m_session->LoadParameter("Flowrate", m_flowrate, 0.0);
     m_session->LoadParameter("IO_FlowSteps", m_flowrateSteps, 0);
+    m_session->LoadParameter("IO_FlowStepsPrecision", m_flowrateStepsPrecision,
+                             6);
 }
 
 void VelocityCorrectionScheme::SetUpExtrapolation()
@@ -544,8 +546,12 @@ bool VelocityCorrectionScheme::v_PostIntegrate(int step)
     {
         if (m_comm->GetRank() == 0 && (step + 1) % m_flowrateSteps == 0)
         {
-            m_flowrateStream << std::setw(8) << step << std::setw(16) << m_time
-                             << std::setw(16) << m_alpha << std::endl;
+            m_flowrateStream
+                << std::setw(8) << step
+                << std::setw(m_flowrateStepsPrecision + 10) << m_time
+                << std::setw(m_flowrateStepsPrecision + 10) << std::fixed
+                << std::setprecision(m_flowrateStepsPrecision) << m_alpha
+                << std::endl;
         }
     }
 

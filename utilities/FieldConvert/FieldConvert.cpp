@@ -657,10 +657,10 @@ int main(int argc, char *argv[])
         cout << "Total CPU Time: " << setw(8) << left << ss.str() << endl;
     }
 
-    if (MPInprocs > 1)
+    if (f->m_comm)
     {
-        MPIComm->GetSpaceComm()->Block();
-        MPIComm->GetSpaceComm()->Finalise();
+        f->m_comm->Block();
+        f->m_comm->Finalise();
     }
 
     return 0;

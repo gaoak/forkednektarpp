@@ -64,6 +64,8 @@ public:
         return p;
     }
 
+    static std::string cmdSetStartFilterFileNum;
+
     /// Name of the class
     static std::string className;
 
@@ -71,7 +73,7 @@ public:
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const std::shared_ptr<EquationSystem> &pEquation,
         const ParamMap &pParams);
-    SOLVER_UTILS_EXPORT ~FilterMaxMinFields() override;
+    SOLVER_UTILS_EXPORT ~FilterMaxMinFields() override = default;
 
 protected:
     bool m_isMax;
@@ -79,24 +81,24 @@ protected:
     std::vector<Array<OneD, NekDouble>> m_curFieldsPhys;
     std::vector<Array<OneD, NekDouble>> m_outFieldsPhys;
 
-    void v_Initialise(
+    SOLVER_UTILS_EXPORT void v_Initialise(
         const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
         const NekDouble &time) override;
-    void v_FillVariablesName(
+    SOLVER_UTILS_EXPORT void v_FillVariablesName(
         const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields)
         override
     {
         FilterFieldConvert::v_FillVariablesName(pFields);
     }
-    void v_ProcessSample(
+    SOLVER_UTILS_EXPORT void v_ProcessSample(
         const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
         std::vector<Array<OneD, NekDouble>> &fieldcoeffs,
         const NekDouble &time) override;
-    void v_PrepareOutput(
+    SOLVER_UTILS_EXPORT void v_PrepareOutput(
         const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
         const NekDouble &time) override;
-    NekDouble v_GetScale() override;
-    std::string v_GetFileSuffix() override
+    SOLVER_UTILS_EXPORT NekDouble v_GetScale() override;
+    SOLVER_UTILS_EXPORT std::string v_GetFileSuffix() override
     {
         if (m_isMax)
         {

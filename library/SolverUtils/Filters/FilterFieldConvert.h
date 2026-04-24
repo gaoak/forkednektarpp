@@ -67,7 +67,7 @@ public:
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const std::shared_ptr<EquationSystem> &pEquation,
         const ParamMap &pParams);
-    SOLVER_UTILS_EXPORT ~FilterFieldConvert() override;
+    SOLVER_UTILS_EXPORT ~FilterFieldConvert() override = default;
 
 protected:
     SOLVER_UTILS_EXPORT void v_Initialise(

@@ -731,6 +731,12 @@ void CompressibleFlowSystem::v_SetInitialConditions(
         }
     }
 
+    // Update time in field info if required
+    if (m_fieldMetaDataMap.find("Time") != m_fieldMetaDataMap.end())
+    {
+        m_fieldMetaDataMap["Time"] = boost::lexical_cast<std::string>(m_time);
+    }
+
     if (dumpInitialConditions && m_nchk == 0 && m_checksteps &&
         !m_comm->IsParallelInTime())
     {

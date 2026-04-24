@@ -222,6 +222,13 @@ void FileSolution::v_DoInitialise(bool dumpInitialConditions)
     m_time = m_solutionFile->GetStartTime();
     SetBoundaryConditions(m_time);
     UpdateField(m_time);
+
+    // Update time in field info if required
+    if (m_fieldMetaDataMap.find("Time") != m_fieldMetaDataMap.end())
+    {
+        m_fieldMetaDataMap["Time"] = boost::lexical_cast<std::string>(m_time);
+    }
+
     if (dumpInitialConditions && m_checksteps && m_nchk == 0)
     {
         Checkpoint_Output(m_nchk);

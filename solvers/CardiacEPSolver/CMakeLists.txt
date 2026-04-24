@@ -142,8 +142,9 @@ IF( NEKTAR_SOLVER_CARDIAC_EP )
         # Create separate library. No need to pass source files, as the executable's
         # LIBRARY_SOURCES objects will be reused
         ADD_SOLVER_LIBRARY(CardiacEPSolver HEADERS ${CardiacEPSolverHeaders}
-                            DEPENDS SolverUtils)
+                            DEPENDS SolverUtils ${FFTW_LIBRARY})
     ENDIF()
 
     ADD_SUBDIRECTORY(Utilities)
+    TARGET_LINK_LIBRARIES(CardiacEPSolver LINK_PRIVATE ${FFTW_LIBRARY})
 ENDIF( NEKTAR_SOLVER_CARDIAC_EP )

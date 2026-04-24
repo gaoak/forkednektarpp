@@ -3,7 +3,7 @@
     <description>3D channel flow, Tetrahedral+Prism elements, P=2, LOR preconditioner</description>
     <executable>IncNavierStokesSolver</executable>
     <parameters>Tet_prism_channel_PreconditionerLOR_hdf5.xml</parameters>
-    <processes>3</processes>
+    <processes>4</processes>
     <files>
         <file description="Session File">Tet_prism_channel_PreconditionerLOR_hdf5.xml</file>
         <file description="Session File">Tet_prism_channel_PreconditionerLOR_hdf5.nekg</file>

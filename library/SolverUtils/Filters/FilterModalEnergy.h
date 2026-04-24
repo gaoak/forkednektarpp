@@ -69,7 +69,7 @@ public:
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const std::shared_ptr<EquationSystem> &pEquation,
         const ParamMap &pParams);
-    SOLVER_UTILS_EXPORT ~FilterModalEnergy() override;
+    SOLVER_UTILS_EXPORT ~FilterModalEnergy() override = default;
 
 protected:
     void v_Initialise(

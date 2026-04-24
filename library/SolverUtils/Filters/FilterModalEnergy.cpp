@@ -98,13 +98,6 @@ FilterModalEnergy::FilterModalEnergy(
 }
 
 /**
- *  Destructor.
- */
-FilterModalEnergy::~FilterModalEnergy()
-{
-}
-
-/**
  *  Initialize the parallel communication and the output stream.
  */
 void FilterModalEnergy::v_Initialise(

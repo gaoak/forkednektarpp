@@ -196,20 +196,33 @@ public:
      * Return the input size for this collection.
      * Optionally return the size for the opposite (Phys or Coeff) space.
      */
-    inline unsigned int GetInputSize(bool defaultIn = true)
+    inline unsigned int GetInputSize(void)
     {
-        return (m_inputSizeOther && !defaultIn) ? m_inputSizeOther
-                                                : m_inputSize;
+        return m_inputSize;
     }
 
     /*
      * Return the output size for this collection.
-     * Optionally return the size for the opposite (Phys or Coeff) space.
      */
-    inline unsigned int GetOutputSize(bool defaultOut = true)
+    inline unsigned int GetOutputSize(void)
     {
-        return (m_outputSizeOther && !defaultOut) ? m_outputSizeOther
-                                                  : m_outputSize;
+        return m_outputSize;
+    }
+
+    /*
+     * Return the phys size for this collection.
+     */
+    inline unsigned int GetPhysSize(void)
+    {
+        return m_numElmt * m_stdExp->GetTotPoints();
+    }
+
+    /*
+     * Return the coeff size for this collection.
+     */
+    inline unsigned int GetCoeffSize(void)
+    {
+        return m_numElmt * m_stdExp->GetNcoeffs();
     }
 
 protected:
@@ -225,10 +238,6 @@ protected:
     /// number of modes or quadrature points  that are taken as output from an
     /// operator
     unsigned int m_outputSize;
-    /// Number of modes or quadrature points, opposite to m_inputSize
-    unsigned int m_inputSizeOther;
-    /// Number of modes or quadrature points, opposite to m_outputSize
-    unsigned int m_outputSizeOther;
 };
 
 /// Shared pointer to an Operator object

@@ -67,13 +67,8 @@ struct Field
     {
     }
 
-    FIELD_UTILS_EXPORT ~Field()
-    {
-        if (m_comm)
-        {
-            m_comm->Finalise();
-        }
-    }
+    FIELD_UTILS_EXPORT ~Field() = default;
+
     bool m_verbose;
     std::vector<LibUtilities::FieldDefinitionsSharedPtr> m_fielddef;
     std::vector<std::vector<double>> m_data;
@@ -90,7 +85,7 @@ struct Field
 
     bool m_useFFT;
 
-    LibUtilities::CommSharedPtr m_comm;
+    LibUtilities::CommSharedPtr m_comm = nullptr;
     LibUtilities::CommSharedPtr m_defComm;
     LibUtilities::CommSharedPtr m_partComm;
     int m_nParts = 1;

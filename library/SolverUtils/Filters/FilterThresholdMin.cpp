@@ -96,13 +96,6 @@ FilterThresholdMin::FilterThresholdMin(
 /**
  *
  */
-FilterThresholdMin::~FilterThresholdMin()
-{
-}
-
-/**
- *
- */
 void FilterThresholdMin::v_Initialise(
     const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
     [[maybe_unused]] const NekDouble &time)

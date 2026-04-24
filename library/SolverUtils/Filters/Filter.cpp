@@ -48,10 +48,6 @@ Filter::Filter(const LibUtilities::SessionReaderSharedPtr &pSession,
 {
 }
 
-Filter::~Filter()
-{
-}
-
 std::string Filter::v_SetupOutput(const std::string ext,
                                   const ParamMap &pParams)
 {
@@ -109,6 +105,7 @@ std::string Filter::v_SetupOutput(const std::string ext,
     // return the output file name
     return LibUtilities::PortablePath(specPath);
 }
+
 std::string Filter::v_SetupOutput(const std::string ext,
                                   const std::string inname)
 {

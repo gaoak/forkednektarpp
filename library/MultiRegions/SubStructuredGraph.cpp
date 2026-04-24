@@ -799,15 +799,13 @@ void MultiLevelBisectionReordering(
         //
 
         // Pass the adjaceny graph into Scotch.
-        SCOTCH_Graph *scGraph = SCOTCH_graphAlloc();
-        ASSERTL0(scGraph != nullptr,
-                 "Failed to allocate Scotch graph for substructuring.");
+        SCOTCH_Graph scGraph;
 
-        ASSERTL0(SCOTCH_graphInit(scGraph) == 0,
+        ASSERTL0(SCOTCH_graphInit(&scGraph) == 0,
                  "Failed to initialise Scotch graph for substructuring.");
 
         SCOTCH_CALL(SCOTCH_graphBuild,
-                    (scGraph, 0, nNonPartition, &xadj[0], &xadj[1], nullptr,
+                    (&scGraph, 0, nNonPartition, &xadj[0], &xadj[1], nullptr,
                      nullptr, xadj[nNonPartition], &adjncy[0], nullptr));
 
         // This horrible looking string defines the Scotch graph
@@ -864,12 +862,12 @@ void MultiLevelBisectionReordering(
         Array<OneD, int> rangtab(nNonPartition + 1);
         int cblknbr = 0;
         SCOTCH_CALL(SCOTCH_graphOrder,
-                    (scGraph, &strat, &iperm_tmp[0], &perm_tmp[0], &cblknbr,
+                    (&scGraph, &strat, &iperm_tmp[0], &perm_tmp[0], &cblknbr,
                      &rangtab[0], &treetab[0]));
 
         // We're now done with Scotch: clean up the created structures.
-        SCOTCH_graphExit(scGraph);
         SCOTCH_stratExit(&strat);
+        SCOTCH_graphExit(&scGraph);
 
         //
         // Step 3: create a MultiLevelBisectedGraph by reading the

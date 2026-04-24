@@ -36,6 +36,11 @@
 
 namespace Nektar::SolverUtils
 {
+std::string FilterCheckpoint::cmdSetStartFilterFileNum =
+    LibUtilities::SessionReader::RegisterCmdLineArgument(
+        "set-filter-checkpoint-start-number", "",
+        "Set the starting number of the check point filter file number.");
+
 std::string FilterCheckpoint::className =
     GetFilterFactory().RegisterCreatorFunction("Checkpoint",
                                                FilterCheckpoint::create);
@@ -70,10 +75,6 @@ FilterCheckpoint::FilterCheckpoint(
     m_fld = LibUtilities::FieldIO::CreateDefault(pSession);
 }
 
-FilterCheckpoint::~FilterCheckpoint()
-{
-}
-
 void FilterCheckpoint::v_Initialise(
     [[maybe_unused]] const Array<OneD, const MultiRegions::ExpListSharedPtr>
         &pFields,
@@ -81,6 +82,20 @@ void FilterCheckpoint::v_Initialise(
 {
     m_index       = 0;
     m_outputIndex = 0;
+
+    // Load information for outputIndex
+    auto equationSys = m_equ.lock();
+    if (equationSys->GetFieldMetaDataMap().count("FilterFileNum"))
+    {
+        m_outputIndex =
+            atoi(equationSys->GetFieldMetaDataMap()["FilterFileNum"].c_str());
+    }
+
+    if (m_session->DefinesCmdLineArgument("set-filter-checkpoint-start-number"))
+    {
+        m_outputIndex = std::stoi(m_session->GetCmdLineArgument<std::string>(
+            "set-filter-checkpoint-start-number"));
+    }
 
     if (m_updateOnInitialise)
     {
@@ -123,7 +138,11 @@ void FilterCheckpoint::v_Update(
                                         pFields[j]->UpdateCoeffs());
         }
     }
-    m_fld->Write(vOutputFilename, FieldDef, FieldData);
+    auto equationSys = m_equ.lock();
+    LibUtilities::FieldMetaDataMap fieldMetaDataMap(
+        equationSys->GetFieldMetaDataMap());
+    fieldMetaDataMap["FilterFileNum"] = std::to_string(m_outputIndex);
+    m_fld->Write(vOutputFilename, FieldDef, FieldData, fieldMetaDataMap);
     m_outputIndex++;
 }
 

@@ -626,6 +626,9 @@ public:
      */
     template <typename T> void AddGeom(int id, unique_ptr_objpool<T> geom)
     {
+        ASSERTL2(geom->GetGlobalID() == id,
+                 "Mismatch between geometry ID and global ID");
+
         if constexpr (std::is_same_v<T, PointGeom>)
         {
             m_pointGeoms.insert(std::make_pair(id, std::move(geom)));

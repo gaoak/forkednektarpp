@@ -10,12 +10,24 @@ OPTION(NEKTAR_USE_FFTW
     "Use FFTW routines for performing the Fast Fourier Transform." OFF)
 
 IF (NEKTAR_USE_FFTW)
+    # Use static linkage to avoid issue with MKL
+    SET(ORIG_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
+
+    # Define static suffixes based on the platform
+    IF(WIN32)
+        SET(CMAKE_FIND_LIBRARY_SUFFIXES ".lib")
+    ELSE()
+        SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+    ENDIF()
+
     # Set some common FFTW search paths for the library.
     SET(FFTW_SEARCH_PATHS $ENV{LD_LIBRARY_PATH} $ENV{FFTW_HOME}/lib)
     FIND_LIBRARY(FFTW_LIBRARY NAMES fftw3 fftw3f PATHS ${FFTW_SEARCH_PATHS})
 
     FIND_PATH(FFTW_INCLUDE_DIR NAMES fftw3.h CACHE FILEPATH 
         "FFTW include directory.")
+
+    SET(CMAKE_FIND_LIBRARY_SUFFIXES ${ORIG_SUFFIXES})
 
     IF (FFTW_LIBRARY AND FFTW_INCLUDE_DIR)
         SET(BUILD_FFTW OFF)
@@ -49,12 +61,9 @@ IF (NEKTAR_USE_FFTW)
                 --disable-dependency-tracking
         )
 
-        SET(FFTW_LIBRARY fftw3 CACHE FILEPATH
-            "FFTW library" FORCE)
-        SET(FFTW_INCLUDE_DIR ${TPDIST}/include CACHE FILEPATH
-            "FFTW include" FORCE)
+        THIRDPARTY_LIBRARY(FFTW_LIBRARY STATIC fftw3 DESCRIPTION "FFTW Library")
 
-        MESSAGE(STATUS "Build FFTW: ${TPDIST}/lib/lib${FFTW_LIBRARY}.so")
+        MESSAGE(STATUS "Build FFTW: ${TPDIST}/lib/${FFTW_LIBRARY}")
         SET(FFTW_CONFIG_INCLUDE_DIR ${TPINC})
     ELSE ()
         ADD_CUSTOM_TARGET(fftw-3.2.2 ALL)

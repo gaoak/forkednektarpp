@@ -37,6 +37,11 @@
 
 namespace Nektar::SolverUtils
 {
+std::string FilterMovingAverage::cmdSetStartFilterFileNum =
+    LibUtilities::SessionReader::RegisterCmdLineArgument(
+        "set-filter-movingaverage-start-number", "",
+        "Set the starting number of the moving average filter file number.");
+
 std::string FilterMovingAverage::className =
     GetFilterFactory().RegisterCreatorFunction("MovingAverage",
                                                FilterMovingAverage::create);
@@ -96,8 +101,19 @@ FilterMovingAverage::FilterMovingAverage(
     ASSERTL0(m_alpha > 0 && m_alpha < 1, "Alpha out of bounds.");
 }
 
-FilterMovingAverage::~FilterMovingAverage()
+void FilterMovingAverage::v_Initialise(
+    const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
+    const NekDouble &time)
 {
+    // Initialise output arrays
+    FilterFieldConvert::v_Initialise(pFields, time);
+
+    if (m_session->DefinesCmdLineArgument(
+            "set-filter-movingaverage-start-number"))
+    {
+        m_outputIndex = std::stoi(m_session->GetCmdLineArgument<std::string>(
+            "set-filter-movingaverage-start-number"));
+    }
 }
 
 void FilterMovingAverage::v_ProcessSample(

@@ -28,21 +28,31 @@ v5.10.0
 - Remove Vmath SIMD (!2365) 
 - Update GMRES with improved restart capabilities (LGMRES) (!2402)
 - Tidy v_FwdTrans, v_Integral, v_GetStdExp, v_GetLinStdExp virtual functions (!!2384)
+- Add missing meta data to checkpoint filter (!2412)
 - Remove AdvectionFR, DiffusionLFR, and DiffusioLFRNS (!2425)
 - Fix NoCollection IProductWRTDerivBase for embedded case (!2454)
 - Tidy PhysDirectionalDeriv implementation in LocalRegions (!2473)
+- Fix LOR preconditioner in parallel (!2514)
+- Fix memory leak with Scotch graph initialization (!2518)
+- Fix memory leak with GS in AssemblyMapDG initialization (!2519)
+- Use static linkage for FFTW to avoid problem with MKL (!2474)
+- Fix unitialized variables in Collection and DriverParareal (!2521)
+- Remove MPI Finalize from Field destructor in FieldUtils (!2522)
 
 **IncNavierStokesSolver**
 - Added an option to process Reynolds Stress fields at a higher polynomial order (!2303)
 - Remove Vmath SIMD (!2365) 
 - Fix non-zero Dirichlet BCs with flow rate for inc NS Solver (!2399)
+- Added an option to modify the number of decimal point print out in a constant-rate setup (!2491)
 
 **CI**
 - Add PROCESSORS property to tests to enforce correct parallelism (!2445)
 
-
 **AcousticSolver**
 - Use native c++ random number generator instead of boost (!2379)
+
+**ADRSolver**
+- Renable Movement_fixed_3D_stacked_cylinders_curved_hdf5_par unit test (!2523)
 
 v5.9.0
 ------
@@ -109,7 +119,7 @@ v5.8.0
 - Remove deprecated version of v_SetCoeffsToOrientation functions (!1954)
 - Fix issue with Dirichlet BCs when using variable P (!1972)
 - Patch for implicit-function error in scotch-6.0.4 (!1938)
-- LOR preconditioner added, to be used with GMRES and IterativeFull (!1888)
+- LOR preconditioner added, can be used with wither conjugate gradient or GMRES (!1888)
 - Tidy virtual inheritance in NodalTriExp (!1979)
 - Fix partial overload virtual function in AssemblyMap, StdRegions, and LocalRegions (!1978)
 - Fix partial overload virtual function v_PhysEvaluate (!1980)

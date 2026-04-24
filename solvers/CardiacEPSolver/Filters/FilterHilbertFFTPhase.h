@@ -38,7 +38,6 @@
 
 #include <CardiacEPSolver/CellModels/CellModel.h>
 #include <SolverUtils/Filters/Filter.h>
-#include <fftw3.h>
 
 namespace Nektar
 {
@@ -107,8 +106,8 @@ private:
     Array<OneD, NekDouble> h;
     Array<OneD, NekDouble> overlap_phase;
 
-    fftw_plan plan_forward;
-    fftw_plan plan_backward;
+    void *plan_forward;
+    void *plan_backward;
 };
 } // namespace Nektar
 

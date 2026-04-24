@@ -35,6 +35,8 @@
 
 #include <CardiacEPSolver/Filters/FilterHilbertFFTPhase.h>
 
+#include <fftw3.h>
+
 namespace Nektar
 {
 std::string FilterHilbertFFTPhase::className =
@@ -178,7 +180,7 @@ void FilterHilbertFFTPhase::v_Update(
         }
 
         // Do Hilbert Transform:
-        fftw_execute(plan_forward);
+        fftw_execute((fftw_plan)plan_forward);
         // Rearrange out: imag->real, -real->imag
         double tmp_fcoef;
         for (int i = 1; i < m_window / 2; ++i)
@@ -193,7 +195,7 @@ void FilterHilbertFFTPhase::v_Update(
         }
         std::fill_n(&fcoef[0], npoints, 0.0);
         std::fill_n(&fcoef[(m_window / 2) * npoints], npoints, 0.0);
-        fftw_execute(plan_backward);
+        fftw_execute((fftw_plan)plan_backward);
 
         // Output batch
         Array<OneD, NekDouble> phase_coeff(pFields[0]->GetNcoeffs());
