@@ -285,7 +285,8 @@ protected:
         // Set Kernel parameters.
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam1D.nq0());
-        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
+        const unsigned int gridsize =
+            GetDeviceGridSize<Implementation>(nelmt, blocksize, 0);
 
         // Loop over components.
         const auto inoffset = outblock.CompSize() * outblock.GetNumHomoModes();
@@ -358,14 +359,14 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
-        const unsigned int blocksize = GetDeviceBlockSize<Implementation>(
-            sizeParam2D.nq0() * sizeParam2D.nq1());
-        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
         const unsigned int shmemsize =
             sizeof(TData) *
             DivergenceSharedMemorySize<SHAPE_TYPE, Implementation>(
                 sizeParam2D.nq0(), sizeParam2D.nq1());
-        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+        const unsigned int blocksize = GetDeviceBlockSize<Implementation>(
+            sizeParam2D.nq0() * sizeParam2D.nq1());
+        const unsigned int gridsize =
+            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
         // Loop over components.
         const auto inoffset = outblock.CompSize();
@@ -438,14 +439,14 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
-        const unsigned int blocksize = GetDeviceBlockSize<Implementation>(
-            sizeParam3D.nq0() * sizeParam3D.nq1() * sizeParam3D.nq2());
-        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
         const unsigned int shmemsize =
             sizeof(TData) *
             DivergenceSharedMemorySize<SHAPE_TYPE, Implementation>(
                 sizeParam3D.nq0(), sizeParam3D.nq1(), sizeParam3D.nq2());
-        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+        const unsigned int blocksize = GetDeviceBlockSize<Implementation>(
+            sizeParam3D.nq0() * sizeParam3D.nq1() * sizeParam3D.nq2());
+        const unsigned int gridsize =
+            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
         // Loop over components.
         const auto inoffset = outblock.CompSize();
