@@ -42,7 +42,11 @@ std::unordered_map<unsigned int, hipDeviceProp_t> GetDeviceProperties::prop;
 std::unordered_map<unsigned int, size_t>
     GetDeviceProperties::m_sharedMemoryPerBlock;
 std::unordered_map<unsigned int, size_t>
+    GetDeviceProperties::m_sharedMemoryPerMultiprocessor;
+std::unordered_map<unsigned int, size_t>
     GetDeviceProperties::m_totalGlobalMemory;
 std::unordered_map<unsigned int, unsigned int>
     GetDeviceProperties::m_numMultiProcessors;
+std::unordered_map<unsigned int, size_t>
+    GetDeviceProperties::m_maxThreadsPerMultiprocessor;
 #endif

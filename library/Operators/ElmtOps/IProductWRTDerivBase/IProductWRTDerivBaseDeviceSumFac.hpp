@@ -369,14 +369,14 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(sizeParam1D.nq0());
-        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
         const unsigned int shmemsize =
             sizeof(TData) *
             IProductWRTDerivBaseSharedMemorySize<Implementation>(
                 sizeParam1D.nq0(), sizeParam1D.nm0());
-        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(sizeParam1D.nq0());
+        const unsigned int gridsize =
+            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
         // Loop over components.
         const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
@@ -476,15 +476,15 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(sizeParam2D.nmTot());
-        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
         const unsigned int shmemsize =
             sizeof(TData) *
             IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
                 sizeParam2D.nq0(), sizeParam2D.nq1(), sizeParam2D.nm0(),
                 sizeParam2D.nm1());
-        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(sizeParam2D.nmTot());
+        const unsigned int gridsize =
+            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
         // Loop over components.
         const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
@@ -586,15 +586,15 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(sizeParam3D.nmTot());
-        const unsigned int gridsize = GetDeviceGridSize<Implementation>(nelmt);
         const unsigned int shmemsize =
             sizeof(TData) *
             IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
                 sizeParam3D.nq0(), sizeParam3D.nq1(), sizeParam3D.nq2(),
                 sizeParam3D.nm0(), sizeParam3D.nm1(), sizeParam3D.nm2());
-        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(sizeParam3D.nmTot());
+        const unsigned int gridsize =
+            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
         // Loop over components.
         const auto inoffset = inblock.CompSize();

@@ -415,11 +415,11 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
-        const unsigned int blocksize = GetDeviceBlockSize<SumFacTOP>(nq0);
-        const unsigned int gridsize  = GetDeviceGridSize<SumFacTOP>(nelmt);
         const unsigned int shmemsize =
             sizeof(TData) * FwdTransBCSharedMemorySize(nm0, nq0);
-        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+        const unsigned int blocksize = GetDeviceBlockSize<SumFacTOP>(nq0);
+        const unsigned int gridsize =
+            GetDeviceGridSize<SumFacTOP>(nelmt, blocksize, shmemsize);
 
         // Loop over components.
         for (unsigned int nc = 0;
@@ -492,12 +492,12 @@ protected:
         // Set Kernel parameters.
         const unsigned int nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
-        const unsigned int blocksize = GetDeviceBlockSize<SumFacTOP>(nqTot);
-        const unsigned int gridsize  = GetDeviceGridSize<SumFacTOP>(nelmt);
         const unsigned int shmemsize =
             sizeof(TData) *
             FwdTransBCSharedMemorySize(SHAPE_TYPE, nm0, nm1, nq0, nq1);
-        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+        const unsigned int blocksize = GetDeviceBlockSize<SumFacTOP>(nqTot);
+        const unsigned int gridsize =
+            GetDeviceGridSize<SumFacTOP>(nelmt, blocksize, shmemsize);
 
         // Loop over components.
         for (unsigned int nc = 0;

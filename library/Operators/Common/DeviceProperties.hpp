@@ -37,6 +37,7 @@
 #include <Operators/Common/Spaces.hpp>
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
+#include <limits>
 #include <unordered_map>
 
 #if defined(NEKTAR_ENABLE_CUDA)
@@ -49,6 +50,14 @@ public:
         CHECK_HIPCUDA_ERROR(cudaGetDevice(&id));
         FetchDeviceProperties(id);
         return prop[id].sharedMemPerBlock;
+    }
+
+    static const size_t &SharedMemoryPerMultiprocessor(void)
+    {
+        int id = -1;
+        CHECK_HIPCUDA_ERROR(cudaGetDevice(&id));
+        FetchDeviceProperties(id);
+        return prop[id].sharedMemPerMultiprocessor;
     }
 
     static size_t &TotalGlobalMemory(void)
@@ -65,6 +74,14 @@ public:
         CHECK_HIPCUDA_ERROR(cudaGetDevice(&id));
         FetchDeviceProperties(id);
         return prop[id].multiProcessorCount;
+    }
+
+    static const int &MaxThreadsPerMultiprocessor(void)
+    {
+        int id = -1;
+        CHECK_HIPCUDA_ERROR(cudaGetDevice(&id));
+        FetchDeviceProperties(id);
+        return prop[id].maxThreadsPerMultiProcessor;
     }
 
     static void CheckSharedMemoryUsage(const size_t shmemsize)
@@ -127,6 +144,11 @@ private:
     printf("  Peak Memory Bandwidth (GB/s): %f\n",
            2.0 * prop.memoryClockRate * (prop.memoryBusWidth / 8) / 1.0e6);
 #endif
+    printf("  Max Threads per Block: %d\n", prop.maxThreadsPerBlock);
+    printf("  Max Threads per Multiprocessor: %d\n",
+           prop.maxThreadsPerMultiProcessor);
+    printf("  Registers per Block: %d\n", prop.regsPerBlock);
+    printf("  Registers per Multiprocessor: %d\n", prop.regsPerMultiprocessor);
     printf("  Number of multiprocessors: %d\n", prop.multiProcessorCount);
 }
 
@@ -140,6 +162,14 @@ public:
         CHECK_HIPCUDA_ERROR(hipGetDevice(&id));
         FetchDeviceProperties(id);
         return prop[id].sharedMemPerBlock;
+    }
+
+    static const size_t &SharedMemoryPerMultiprocessor(void)
+    {
+        int id = -1;
+        CHECK_HIPCUDA_ERROR(hipGetDevice(&id));
+        FetchDeviceProperties(id);
+        return prop[id].sharedMemPerMultiprocessor;
     }
 
     static size_t &TotalGlobalMemory(void)
@@ -156,6 +186,14 @@ public:
         CHECK_HIPCUDA_ERROR(hipGetDevice(&id));
         FetchDeviceProperties(id);
         return prop[id].multiProcessorCount;
+    }
+
+    static const int &MaxThreadsPerMultiprocessor(void)
+    {
+        int id = -1;
+        CHECK_HIPCUDA_ERROR(hipGetDevice(&id));
+        FetchDeviceProperties(id);
+        return prop[id].maxThreadsPerMultiProcessor;
     }
 
     static void CheckSharedMemoryUsage(const size_t shmemsize)
@@ -207,6 +245,11 @@ private:
            prop.sharedMemPerMultiprocessor);
     printf("  Peak Memory Bandwidth (GB/s): %f\n",
            2.0 * prop.memoryClockRate * (prop.memoryBusWidth / 8) / 1.0e6);
+    printf("  Max Threads per Block: %d\n", prop.maxThreadsPerBlock);
+    printf("  Max Threads per Multiprocessor: %d\n",
+           prop.maxThreadsPerMultiProcessor);
+    printf("  Registers per Block: %d\n", prop.regsPerBlock);
+    printf("  Registers per Multiprocessor: %d\n", prop.regsPerMultiprocessor);
     printf("  Number of multiprocessors: %d\n", prop.multiProcessorCount);
 }
 
@@ -220,6 +263,12 @@ public:
         return m_sharedMemoryPerBlock[0];
     }
 
+    static const size_t &SharedMemoryPerMultiprocessor(void)
+    {
+        FetchDeviceProperties(0);
+        return m_sharedMemoryPerMultiprocessor[0];
+    }
+
     static size_t &TotalGlobalMemory(void)
     {
         FetchDeviceProperties(0);
@@ -230,6 +279,12 @@ public:
     {
         FetchDeviceProperties(0);
         return m_numMultiProcessors[0];
+    }
+
+    static const size_t &MaxThreadsPerMultiprocessor(void)
+    {
+        FetchDeviceProperties(0);
+        return m_maxThreadsPerMultiprocessor[0];
     }
 
     static void CheckSharedMemoryUsage(const size_t shmemsize)
@@ -253,8 +308,12 @@ public:
 
 private:
     static std::unordered_map<unsigned int, size_t> m_sharedMemoryPerBlock;
+    static std::unordered_map<unsigned int, size_t>
+        m_sharedMemoryPerMultiprocessor;
     static std::unordered_map<unsigned int, size_t> m_totalGlobalMemory;
     static std::unordered_map<unsigned int, unsigned int> m_numMultiProcessors;
+    static std::unordered_map<unsigned int, size_t>
+        m_maxThreadsPerMultiprocessor;
 
     static void FetchDeviceProperties(const unsigned int id)
     {
@@ -266,8 +325,12 @@ private:
                 id, device.get_info<sycl::info::device::global_mem_size>());
             m_sharedMemoryPerBlock.emplace(
                 id, device.get_info<sycl::info::device::local_mem_size>());
+            m_sharedMemoryPerMultiprocessor.emplace(
+                id, device.get_info<sycl::info::device::local_mem_size>());
             m_numMultiProcessors.emplace(
                 id, device.get_info<sycl::info::device::max_compute_units>());
+            m_maxThreadsPerMultiprocessor.emplace(
+                id, device.get_info<sycl::info::device::max_work_group_size>());
         }
     }
 };
@@ -333,6 +396,11 @@ public:
         return std::numeric_limits<size_t>::max();
     }
 
+    static size_t SharedMemoryPerMultiprocessor(void)
+    {
+        return std::numeric_limits<size_t>::max();
+    }
+
     static size_t TotalGlobalMemory(void)
     {
         return std::numeric_limits<size_t>::max();
@@ -341,6 +409,11 @@ public:
     static int NumMultiProcessors(void)
     {
         return 0;
+    }
+
+    static size_t MaxThreadsPerMultiprocessor(void)
+    {
+        return std::numeric_limits<size_t>::max();
     }
 
     static void CheckSharedMemoryUsage([[maybe_unused]] const size_t shmemsize)
