@@ -2,7 +2,7 @@
 <test>
     <description>2D Advection-Diffusion-Reaction</description>
     <executable>ADRSolver</executable>
-    <parameters>SteadyAdvDiffReact2D_modal.xml</parameters>
+    <parameters> -P Lambda=1.0 SteadyAdvDiffReact2D_modal.xml</parameters>
     <files>
         <file description="Session File">SteadyAdvDiffReact2D_modal.xml</file>
     </files>

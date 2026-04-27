@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: TestData.h
+// File: TestFile.h
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,14 +32,15 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef NEKTAR_TESTER_TESTDATA
-#define NEKTAR_TESTER_TESTDATA
+#ifndef NEKTAR_TESTER_TESTFILE
+#define NEKTAR_TESTER_TESTFILE
 
 #include <boost/program_options.hpp>
 
 #include <string>
 #include <vector>
 
+#include <TestData.h>
 #include <tinyxml.h>
 
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
@@ -48,64 +49,33 @@ namespace po = boost::program_options;
 
 namespace Nektar
 {
-struct DependentFile
-{
-    std::string m_description;
-    std::string m_filename;
-};
-
-enum CommandType
-{
-    eNone,
-    eSequential,
-    eParallel
-};
-
-struct Command
-{
-    fs::path m_executable;
-    std::string m_parameters;
-    unsigned int m_processes;
-    bool m_pythonTest;
-    CommandType m_commandType;
-};
 
 /**
  * @brief The TestData class is responsible for parsing a test XML file and
  * storing the data.
  */
 
-class TestData
+class TestFile
 {
 public:
-    TestData(TiXmlElement *pElmt, po::variables_map &pVm);
-    TestData(const TestData &pSrc);
+    TestFile(const fs::path &pFilename, po::variables_map &pVm);
+    TestFile(const TestFile &pSrc);
 
-    const std::string &GetDescription() const;
-    const Command &GetCommand(unsigned int pId) const;
-    unsigned int GetNumCommands() const;
+    void Parse(TiXmlDocument *pDoc);
 
-    std::string GetMetricType(unsigned int pId) const;
-    unsigned int GetNumMetrics() const;
-    TiXmlElement *GetMetric(unsigned int pId);
-    unsigned int GetMetricId(unsigned int pId);
+    void SaveFile();
 
-    DependentFile GetDependentFile(unsigned int pId) const;
-    unsigned int GetNumDependentFiles() const;
-
-    unsigned int GetNumRuns() const;
+    std::vector<TestData *> GetTests()
+    {
+        return m_tests;
+    }
 
 private:
     po::variables_map m_cmdoptions;
-    std::string m_description;
-    std::vector<Command> m_commands;
-    std::vector<TiXmlElement *> m_metrics;
-    std::vector<DependentFile> m_files;
-    /// @brief The number of times to run the test.
-    unsigned int m_runs;
+    TiXmlDocument *m_doc;
 
-    void Parse(TiXmlElement *pElmt);
-    Command ParseCommand(TiXmlElement *pElmt) const;
+    /// Vector of one or more tests to run.
+    std::vector<TestData *> m_tests;
 };
 } // namespace Nektar
 

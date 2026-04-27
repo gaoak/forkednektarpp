@@ -15,6 +15,7 @@ SET(TESTER_SOURCES
   MetricRegex.cpp
   MetricNoWarning.cpp
   TestData.cpp
+  TestFile.cpp
   ${CMAKE_BINARY_DIR}/tests/Tester.cpp
   sha1.cpp
 )
@@ -32,6 +33,7 @@ SET(TESTER_HEADERS
   MetricRegex.h
   MetricNoWarning.h
   TestData.h
+  TestFile.h
   Tester.h
   sha1.h
 )

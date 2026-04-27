@@ -241,7 +241,7 @@
     <CONDITIONS>
 
         <PARAMETERS>
-            <P> Lambda    = 1 </P>
+            <P> Lambda    = 0 </P>
         </PARAMETERS>
 
         <SOLVERINFO>

@@ -55,19 +55,10 @@ namespace Nektar
  * @param pVm
  */
 
-TestData::TestData(const fs::path &pFilename, po::variables_map &pVm)
+TestData::TestData(TiXmlElement *pElmt, po::variables_map &pVm)
     : m_cmdoptions(pVm)
 {
-    // Process test file format.
-    m_doc = new TiXmlDocument(pFilename.string().c_str());
-
-    bool loadOkay = m_doc->LoadFile();
-
-    ASSERTL0(loadOkay,
-             "Failed to load test definition file: " + pFilename.string() +
-                 "\n" + string(m_doc->ErrorDesc()));
-
-    Parse(m_doc);
+    Parse(pElmt);
 }
 
 TestData::TestData(const TestData &pSrc)
@@ -213,12 +204,9 @@ Command TestData::ParseCommand(TiXmlElement *elmt) const
 }
 
 /// Parse the test file and populate member variables for the test.
-void TestData::Parse(TiXmlDocument *pDoc)
+void TestData::Parse(TiXmlElement *testElement)
 {
-    TiXmlHandle handle(pDoc);
-    TiXmlElement *testElement, *tmp, *metrics, *files;
-    testElement = handle.FirstChildElement("test").Element();
-    ASSERTL0(testElement, "Cannot find 'test' root element.");
+    TiXmlElement *tmp, *metrics, *files;
 
     // Find the desired number of test runs
     unsigned int runs = 1;
@@ -292,10 +280,5 @@ void TestData::Parse(TiXmlDocument *pDoc)
             tmp = tmp->NextSiblingElement("file");
         }
     }
-}
-
-void TestData::SaveFile()
-{
-    m_doc->SaveFile();
 }
 } // namespace Nektar
