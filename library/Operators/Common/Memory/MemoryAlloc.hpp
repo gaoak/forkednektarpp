@@ -97,27 +97,6 @@ static inline void SetDeviceMemoryPool(void)
 template <typename TData>
 void deviceFillKernelLauncher(TData *dst, const TData val, const size_t size);
 
-inline static unsigned int nekGetDeviceCount(void)
-{
-    //  Current design assumes one MPI rank per device architecture. The number
-    //  of GPU devices is limited by the number of MPI ranks.
-    int num_rank = 1;
-#if defined(NEKTAR_USE_MPI)
-    MPI_Comm_size(MPI_COMM_WORLD, &num_rank);
-#endif
-
-    int num_device = 1;
-#if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(cudaGetDeviceCount(&num_device));
-#elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(hipGetDeviceCount(&num_device));
-#elif defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP) ||                 \
-    defined(SYCL_ENABLE_INTEL)
-    num_device = sycl::device::get_devices(sycl::info::device_type::gpu).size();
-#endif
-    return std::min(num_rank, num_device);
-}
-
 template <typename TData>
 inline void hostMalloc(TData **src, const size_t size,
                        [[maybe_unused]] const size_t alignment)

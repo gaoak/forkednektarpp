@@ -93,6 +93,13 @@ SET(CommunicationSources ${CommunicationSources}
 ./Communication/CommMpi.cpp)
 ENDIF(NEKTAR_USE_MPI)
 
+IF (NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
+    SET(CommunicationHeaders ${CommunicationHeaders}
+    ../Operators/Common/Backends/SYCLQueue.hpp)
+    SET(CommunicationSources ${CommunicationSources}
+    ../Operators/Common/Backends/SYCLQueue.cpp)
+ENDIF()
+
 IF ( NEKTAR_USE_CWIPI )
 SET(CommunicationHeaders ${CommunicationHeaders}
 ./Communication/CommCwipi.h)

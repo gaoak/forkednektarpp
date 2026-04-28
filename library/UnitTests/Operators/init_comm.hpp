@@ -145,11 +145,6 @@ public:
                                       : "Serial";
 
         m_comm = GetCommFactory().CreateInstance(vCommModule, 0, 0);
-
-        auto rank        = m_comm->GetRank();
-        auto num_device  = nekGetDeviceCount();
-        auto device_rank = rank % num_device;
-        nekSetDevice(device_rank);
     }
 
 protected:

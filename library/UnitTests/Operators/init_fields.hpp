@@ -275,14 +275,6 @@ public:
             free(argv[i]);
         }
         delete[] argv;
-
-        if (this->session->GetComm())
-        {
-            auto rank        = this->session->GetComm()->GetRank();
-            auto num_device  = nekGetDeviceCount();
-            auto device_rank = rank % num_device;
-            nekSetDevice(device_rank);
-        }
     }
 
     void SetExpList(void)
