@@ -172,14 +172,6 @@ public:
         }
         delete[] argv;
 
-        if (this->session->GetComm())
-        {
-            auto rank        = this->session->GetComm()->GetRank();
-            auto num_device  = nekGetDeviceCount();
-            auto device_rank = rank % num_device;
-            nekSetDevice(device_rank);
-        }
-
         this->fixt_explist =
             MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
                 this->session, graph, true, "u", Collections::eNoCollection);

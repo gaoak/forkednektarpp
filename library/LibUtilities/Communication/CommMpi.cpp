@@ -72,6 +72,26 @@ CommMpi::CommMpi(int narg, char *arg[]) : Comm(narg, arg)
         }
         // store bool to indicate that Nektar++ is in charge of finalizing MPI.
         m_controls_mpi = true;
+
+#if defined(NEKTAR_BUILD_REDESIGN)
+        // Bind local MPI rank to GPU.
+        MPI_Comm local_comm;
+        int local_rank, local_size;
+
+        // Split MPI_COMM_WORLD based on shared memory access (effectively per
+        // node).
+        MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0,
+                            MPI_INFO_NULL, &local_comm);
+
+        // Get the rank and size in the new local communicator.
+        MPI_Comm_rank(local_comm, &local_rank);
+        MPI_Comm_size(local_comm, &local_size);
+
+        // Use round-Robin distribution.
+        auto num_device  = nekGetNumDevice();
+        auto device_rank = local_rank % num_device;
+        nekSetDevice(device_rank);
+#endif
     }
     else
     {

@@ -338,6 +338,20 @@ extern unsigned int internalMaxDataSizeByte;
 #endif
 }
 
+[[maybe_unused]] static inline unsigned int nekGetNumDevice()
+{
+    int num_device = 1;
+#if defined(NEKTAR_ENABLE_CUDA)
+    CHECK_HIPCUDA_ERROR(cudaGetDeviceCount(&num_device));
+#elif defined(NEKTAR_ENABLE_HIP)
+    CHECK_HIPCUDA_ERROR(hipGetDeviceCount(&num_device));
+#elif defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP) ||                 \
+    defined(SYCL_ENABLE_INTEL)
+    num_device = sycl::device::get_devices(sycl::info::device_type::gpu).size();
+#endif
+    return num_device;
+}
+
 [[maybe_unused]] static inline void nekDeviceSynchronize(void)
 {
 #if defined(NEKTAR_ENABLE_CUDA)
