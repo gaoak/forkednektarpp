@@ -125,11 +125,12 @@ MemoryRegion<TData> BasisDataCreator::Create(
                         }
                     }
                     break;
-                    default:
-                    {
-                        Vmath::Vcopy(ndata, basis->GetW().data(), 1,
-                                     wTmp.data(), 1);
-                    }
+                }
+                default:
+                {
+                    Vmath::Vcopy(ndata, basis->GetW().data(), 1, wTmp.data(),
+                                 1);
+                    break;
                 }
             }
 
@@ -195,13 +196,8 @@ MemoryRegion<TData> BasisDataCreator::Create(
                     tmpI[i + j * npFrom] = I[j + i * npTo];
                 }
             }
-            // copy back into original matrix
-            for (int i = 0; i < npFrom * npTo; ++i)
-            {
-                I[i] = tmpI[i];
-            }
 
-            return MemoryRegion<TData>::template FromArray<MemSpace>(I);
+            return MemoryRegion<TData>::template FromArray<MemSpace>(tmpI);
         }
         break;
         case eHalfMultOnePlusZero:

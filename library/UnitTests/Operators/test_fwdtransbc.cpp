@@ -38,7 +38,6 @@
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
-#include <memory>
 
 #define TEST_FWDTRANSBC(test_name, test, tol)                                  \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
@@ -57,27 +56,29 @@
 BOOST_AUTO_TEST_SUITE(TestFwdTransBC)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-TEST_FWDTRANSBC(fwdtransbc_seg, Seg, 1.0E-12)
+TEST_FWDTRANSBC(fwdtransbc_seg, Helmholtz1D_Seg, 1.0E-12)
 
-TEST_FWDTRANSBC(fwdtransbc_seg_sem, SegSEM, 1.0E-12)
+TEST_FWDTRANSBC(fwdtransbc_seg_3c, Helmholtz1D_Seg_3C, 1.0E-12)
 
-// TEST_FWDTRANSBC3DH2(fwdtransbc_seg_sem_3dh2, SegSEM, 1.0E-12)
+TEST_FWDTRANSBC(fwdtransbc_tri, Helmholtz2D_Tri, 1.0E-10)
 
-TEST_FWDTRANSBC(fwdtransbc_quad, Quad, 1.0E-12)
+TEST_FWDTRANSBC(fwdtransbc_quad, Helmholtz2D_Quad, 1.0E-10)
 
-TEST_FWDTRANSBC(fwdtransbc_quad_sem, QuadSEM, 1.0E-12)
+TEST_FWDTRANSBC(fwdtransbc_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
 
-TEST_FWDTRANSBC(fwdtransbc_quad_varp, QuadVarP, 1.0E-12)
+TEST_FWDTRANSBC(fwdtransbc_tri_quad_3c, Helmholtz2D_Tri_Quad_3C, 1.0E-10)
 
-TEST_FWDTRANSBC(fwdtransbc_tri, Tri, 1.0E-12)
+TEST_FWDTRANSBC(fwdtransbc_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
 
-TEST_FWDTRANSBC(fwdtransbc_tri_varp, TriVarP, 1.0E-12)
+TEST_FWDTRANSBC(fwdtransbc_hex, Helmholtz3D_Hex, 5.0E-08)
 
-// TEST_FWDTRANSBC(fwdtransbc_tri_nodal, TriNodal, 1.0E-12)
+TEST_FWDTRANSBC(fwdtransbc_hex_3c, Helmholtz3D_Hex_3C, 6.0E-08)
 
-TEST_FWDTRANSBC(fwdtransbc_square_all_elements, SquareAllElements, 1.0E-12)
+TEST_FWDTRANSBC(fwdtransbc_prism, Helmholtz3D_Prism, 1.0E-08)
 
-/// This Operator is not implemented for 3D geometries
+TEST_FWDTRANSBC(fwdtransbc_pyr, Helmholtz3D_Pyr, 1.0E-08)
+
+TEST_FWDTRANSBC(fwdtransbc_tet, Helmholtz3D_Tet, 5.0E-08)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()
