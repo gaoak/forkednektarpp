@@ -74,12 +74,12 @@ public:
         : m_basisKey(basisKey), m_basisDataType(basisDataType), m_npts(npts),
           m_toPointsType(toPointsType)
     {
-        hash_combine(m_hash, m_basisKey.GetNumModes(),
-                     m_basisKey.GetBasisType(),
-                     m_basisKey.GetPointsKey().GetNumPoints(),
-                     m_basisKey.GetPointsKey().GetPointsType(),
-                     m_basisKey.GetPointsKey().GetFactor(), m_basisDataType,
-                     m_toPointsType, typeid(value_type).name(), "BasisKey");
+        hash_combine(
+            m_hash, m_basisKey.GetNumModes(), m_basisKey.GetBasisType(),
+            m_basisKey.GetPointsKey().GetNumPoints(),
+            m_basisKey.GetPointsKey().GetPointsType(),
+            m_basisKey.GetPointsKey().GetFactor(), m_basisDataType, m_npts,
+            m_toPointsType, typeid(value_type).name(), "BasisKey");
     }
 
 private:

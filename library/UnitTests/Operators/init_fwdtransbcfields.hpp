@@ -36,6 +36,11 @@
 
 #include "Operators/BndCondOps/FwdTransBC/FwdTransBCOp.hpp"
 
+#include <SpatialDomains/Conditions.h>
+
+#include <cmath>
+#include <cstdlib>
+
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
@@ -49,30 +54,28 @@ public:
     {
     }
 
+    void SetFixture(const unsigned int nhomo) override
+    {
+        const auto &components = this->session->GetVariables();
+        auto inblockAttr       = GetBoundaryBlockAttributes<FieldState::Phys>();
+        auto outblockAttr = GetBoundaryBlockAttributes<FieldState::Coeff>();
+
+        auto f_in       = Field<TData, FieldState::Phys>("f_in", inblockAttr,
+                                                   components, nhomo);
+        auto f_out      = Field<TData, FieldState::Coeff>("f_out", outblockAttr,
+                                                     components, nhomo);
+        auto f_expected = Field<TData, FieldState::Coeff>(
+            "f_expected", outblockAttr, components, nhomo);
+        this->fixt_in  = new Field<TData, FieldState::Phys>(std::move(f_in));
+        this->fixt_out = new Field<TData, FieldState::Coeff>(std::move(f_out));
+        this->fixt_expected =
+            new Field<TData, FieldState::Coeff>(std::move(f_expected));
+    }
+
     void SetTestCase()
     {
-        // Set initial conditions.
-        for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
-             ++blk)
-        {
-            auto &block = this->fixt_in->GetBlocks()[blk];
-            auto inptr =
-                block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-            for (unsigned int n = 0; n < this->fixt_in->GetNumComponents() *
-                                             this->fixt_in->GetNumHomoModes();
-                 ++n)
-            {
-                for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
-                {
-                    for (unsigned int phys = 0; phys < block.GetNumData();
-                         ++phys, ++cnt)
-                    {
-                        inptr[cnt] = phys + n;
-                    }
-                }
-                inptr += block.CompSize();
-            }
-        }
+        this->fixt_in->template CopyVector<NektarSpaces::HostSpace>(
+            GetBoundaryPhysValues());
 
         this->fixt_out->template Initialize<NektarSpaces::HostSpace>(0.0);
 
@@ -82,27 +85,220 @@ public:
 
     void RunTestCase()
     {
-        auto op = FwdTransBCOp<TData>::Create(this->fixt_explist,
-                                              this->session->GetVariables());
-        op->Apply(*this->fixt_in, *this->fixt_out);
+        const auto &components = this->session->GetVariables();
+        const auto nComp       = components.size();
+        const auto boundaryExp = GetBoundaryConditionExpansions();
+        const auto totalPhys   = GetTotalBoundaryPoints(boundaryExp);
+        const auto totalCoeffs = GetTotalBoundaryCoeffs(boundaryExp);
+        auto inPhys            = this->fixt_in->template ToArray<TData>();
+        std::vector<TData> result(totalCoeffs * nComp, 0.0);
+        size_t physOffset  = 0;
+        size_t coeffOffset = 0;
+
+        for (const auto &expList : boundaryExp)
+        {
+            expList->SetDataWarehouse();
+
+            auto physBlocks =
+                GetBlockAttributes<TData, FieldState::Phys>(expList);
+            auto coeffBlocks =
+                GetBlockAttributes<TData, FieldState::Coeff>(expList);
+            Field<TData, FieldState::Phys> in("boundary phys", physBlocks,
+                                              nComp, 1);
+            Field<TData, FieldState::Coeff> out("boundary coeff", coeffBlocks,
+                                                nComp, 1);
+
+            const auto nphys   = expList->GetTotPoints();
+            const auto ncoeffs = expList->GetNcoeffs();
+            Array<OneD, TData> localIn(nComp * nphys, 0.0);
+
+            for (unsigned int i = 0; i < nComp; ++i)
+            {
+                std::copy(inPhys.data() + i * totalPhys + physOffset,
+                          inPhys.data() + i * totalPhys + physOffset + nphys,
+                          localIn.data() + i * nphys);
+            }
+
+            in.template CopyArray<NektarSpaces::HostSpace>(localIn);
+            out.template Initialize<NektarSpaces::HostSpace>(0.0);
+
+            auto op = FwdTransBCOp<TData>::Create(expList, components);
+            op->Apply(in, out);
+
+            const auto outVec = out.template ToVector<TData>();
+            for (unsigned int i = 0; i < nComp; ++i)
+            {
+                std::copy(outVec.begin() + i * ncoeffs,
+                          outVec.begin() + (i + 1) * ncoeffs,
+                          result.begin() + i * totalCoeffs + coeffOffset);
+            }
+
+            physOffset += nphys;
+            coeffOffset += ncoeffs;
+        }
+
+        this->fixt_out->template CopyVector<NektarSpaces::HostSpace>(result);
     }
 
     void ExpectedSolution()
     {
-        // Calculate expected result from Nektar++.
-        const unsigned int numComp = this->fixt_in->GetNumComponents();
-        const size_t ncoeffs       = this->fixt_explist->GetNcoeffs();
-        const size_t nphys         = this->fixt_explist->GetTotPoints();
-        Array<OneD, TData> inphys  = this->fixt_in->ToArray();
-        Array<OneD, TData> outcoeffs(numComp * ncoeffs);
-        Array<OneD, TData> tmp;
-        for (unsigned int i = 0; i < numComp; ++i)
+        const auto &components = this->session->GetVariables();
+        const auto nComp       = components.size();
+        const auto boundaryExp = GetBoundaryConditionExpansions();
+        const auto totalPhys   = GetTotalBoundaryPoints(boundaryExp);
+        const auto totalCoeffs = GetTotalBoundaryCoeffs(boundaryExp);
+        auto inPhys            = this->fixt_in->template ToArray<NekDouble>();
+        Array<OneD, NekDouble> result(totalCoeffs * nComp, 0.0);
+        size_t physOffset  = 0;
+        size_t coeffOffset = 0;
+
+        for (const auto &expList : boundaryExp)
         {
-            this->fixt_explist->FwdTransBndConstrained(
-                inphys + i * nphys, tmp = outcoeffs + i * ncoeffs);
+            const auto nphys   = expList->GetTotPoints();
+            const auto ncoeffs = expList->GetNcoeffs();
+            Array<OneD, NekDouble> tmp;
+
+            for (unsigned int i = 0; i < nComp; ++i)
+            {
+                if (expList->GetExpType() == MultiRegions::e0D)
+                {
+                    std::copy(inPhys.data() + i * totalPhys + physOffset,
+                              inPhys.data() + i * totalPhys + physOffset +
+                                  ncoeffs,
+                              result.data() + i * totalCoeffs + coeffOffset);
+                }
+                else
+                {
+                    expList->FwdTransBndConstrained(
+                        inPhys + i * totalPhys + physOffset,
+                        tmp = result + i * totalCoeffs + coeffOffset);
+                }
+            }
+
+            physOffset += nphys;
+            coeffOffset += ncoeffs;
         }
+
         this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
-            outcoeffs);
+            result);
+    }
+
+private:
+    std::shared_ptr<MultiRegions::ContField> CreateBoundaryField(
+        const std::string &variable) const
+    {
+        auto graph = SpatialDomains::MeshGraphIO::Read(this->session);
+        auto bcfield =
+            MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
+                this->session, graph, variable, true, false,
+                Collections::eNoCollection);
+        bcfield->EvaluateBoundaryConditions(0.0);
+
+        return bcfield;
+    }
+
+    std::vector<MultiRegions::ExpListSharedPtr> GetBoundaryConditionExpansions()
+        const
+    {
+        auto bcfield = CreateBoundaryField(this->session->GetVariables()[0]);
+        const auto &bndExp = bcfield->GetBndCondExpansions();
+
+        std::vector<MultiRegions::ExpListSharedPtr> result;
+        result.reserve(bndExp.size());
+        for (size_t i = 0; i < bndExp.size(); ++i)
+        {
+            result.push_back(bndExp[i]);
+        }
+
+        return result;
+    }
+
+    std::vector<TData> GetBoundaryPhysValues() const
+    {
+        const auto &components = this->session->GetVariables();
+        const auto nComp       = components.size();
+        const auto boundaryExp = GetBoundaryConditionExpansions();
+        const auto totalPhys   = GetTotalBoundaryPoints(boundaryExp);
+        const auto expType     = this->fixt_explist->GetExpType();
+        std::vector<TData> result(totalPhys * nComp, 0.0);
+
+        for (unsigned int i = 0; i < nComp; ++i)
+        {
+            auto bcfield       = CreateBoundaryField(components[i]);
+            const auto &bndExp = bcfield->GetBndCondExpansions();
+            size_t physOffset  = 0;
+
+            for (size_t j = 0; j < bndExp.size(); ++j)
+            {
+                const auto &expList = bndExp[j];
+                const auto nphys    = expList->GetTotPoints();
+
+                if (expType == MultiRegions::e1D)
+                {
+                    const auto &coeffs = expList->GetCoeffs();
+                    std::copy(coeffs.begin(), coeffs.begin() + nphys,
+                              result.begin() + i * totalPhys + physOffset);
+                }
+                else
+                {
+                    const auto &phys = expList->GetPhys();
+                    std::copy(phys.begin(), phys.begin() + nphys,
+                              result.begin() + i * totalPhys + physOffset);
+                }
+
+                physOffset += nphys;
+            }
+        }
+
+        return result;
+    }
+
+    size_t GetTotalBoundaryPoints(
+        const std::vector<MultiRegions::ExpListSharedPtr> &boundaryExp) const
+    {
+        size_t totalPhys = 0;
+        for (const auto &expList : boundaryExp)
+        {
+            totalPhys += expList->GetTotPoints();
+        }
+
+        return totalPhys;
+    }
+
+    size_t GetTotalBoundaryCoeffs(
+        const std::vector<MultiRegions::ExpListSharedPtr> &boundaryExp) const
+    {
+        size_t totalCoeffs = 0;
+        for (const auto &expList : boundaryExp)
+        {
+            totalCoeffs += expList->GetNcoeffs();
+        }
+
+        return totalCoeffs;
+    }
+
+    template <FieldState TState>
+    std::vector<BlockAttributes<TState>> GetBoundaryBlockAttributes() const
+    {
+        const auto boundaryExp = GetBoundaryConditionExpansions();
+        std::vector<BlockAttributes<TState>> blockAttr;
+        size_t nBlocks = 0;
+        for (const auto &expList : boundaryExp)
+        {
+            nBlocks += GetBlockAttributes<TData, TState>(expList).size();
+        }
+
+        blockAttr.reserve(nBlocks);
+        for (const auto &expList : boundaryExp)
+        {
+            auto bcBlockAttr = GetBlockAttributes<TData, TState>(expList);
+            for (const auto &attr : bcBlockAttr)
+            {
+                blockAttr.emplace_back(attr);
+            }
+        }
+
+        return blockAttr;
     }
 };
 
@@ -138,20 +334,15 @@ public:
     TESTDOUBLE(type, filename)
 // clang-format on
 
-TEST(Seg, "run/segment.xml")
-
-TEST(SegSEM, "run/line_sem.xml")
-
-TEST(Quad, "run/square.xml")
-
-TEST(QuadVarP, "run/square_varp.xml")
-
-TEST(QuadSEM, "run/square_sem.xml")
-
-TEST(Tri, "run/tri.xml")
-
-TEST(TriVarP, "run/tri_varp.xml")
-
-TEST(TriNodal, "run/tri_nodal.xml")
-
-TEST(SquareAllElements, "run/square_all_elements.xml")
+TEST(Helmholtz1D_Seg, "run/Helmholtz1D_P8.xml")
+TEST(Helmholtz1D_Seg_3C, "run/Helmholtz1D_3C_mixedBC.xml")
+TEST(Helmholtz2D_Tri, "run/Helmholtz2D_Tri.xml")
+TEST(Helmholtz2D_Quad, "run/Helmholtz2D_Quad.xml")
+TEST(Helmholtz2D_Tri_Quad, "run/Helmholtz2D_varP.xml")
+TEST(Helmholtz2D_Tri_Quad_3C, "run/Helmholtz2D_3C.xml")
+TEST(Helmholtz2D_AllBCs, "run/Helmholtz2D_P7_AllBCs.xml")
+TEST(Helmholtz3D_Hex, "run/Helmholtz3D_Hex_Heterogeneous.xml")
+TEST(Helmholtz3D_Hex_3C, "run/Helmholtz3D_Hex_3C.xml")
+TEST(Helmholtz3D_Prism, "run/Helmholtz3D_Prism_VarP.xml")
+TEST(Helmholtz3D_Pyr, "run/Helmholtz3D_Pyr_VarP.xml")
+TEST(Helmholtz3D_Tet, "run/Helmholtz3D_Tet_VarP.xml")
