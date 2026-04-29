@@ -32,7 +32,10 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <iostream>
 
 #include "Operators/AssmbScatr/AssmbScatrOp.hpp"
@@ -73,9 +76,10 @@ template <typename TData, FieldState TStateIn, FieldState TStateOut>
 void PrintProfileResult(
     const CommSharedPtr comm, const MultiRegions::ContFieldSharedPtr &expList,
     std::vector<double> &rankElapsed,
-    const std::vector<BlockAttributes<TStateIn>> &inblockAttr,
-    const std::vector<BlockAttributes<TStateOut>> &outblockAttr,
-    const unsigned int Ntest, const unsigned int totalIterations)
+    const std::vector<BlockAttributes<TStateIn>> &inBlockAttr,
+    const std::vector<BlockAttributes<TStateOut>> &outBlockAttr,
+    const unsigned int nTests, const unsigned int totalIterations,
+    const unsigned int numComponents)
 {
     // Collect elapsed time and compute the max, min, and average.
     unsigned int nrank       = comm->GetSize();
@@ -83,16 +87,28 @@ void PrintProfileResult(
     auto rankNumOutDofs      = std::vector<size_t>(1, 0);
     auto rankTotalIterations = std::vector<unsigned int>(1, totalIterations);
 
-    size_t globalDOFs   = expList->GetLocalToGlobalMap()->GetNumGlobalCoeffs();
-    auto rankGlobalDOFs = std::vector<size_t>(1, globalDOFs);
-    // Collect total information for each rank.
-    for (unsigned int i = 0; i < inblockAttr.size(); ++i)
+    auto locToGloMap  = expList->GetLocalToGlobalMap();
+    auto uniqueMap    = locToGloMap->GetGlobalToUniversalMapUnique();
+    size_t globalDOFs = 0;
+    for (int i = 0; i < uniqueMap.size(); ++i)
     {
-        rankNumInDofs[0] += inblockAttr[i].CompSize();
+        if (uniqueMap[i] > 0)
+        {
+            globalDOFs++;
+        }
     }
-    for (unsigned int i = 0; i < outblockAttr.size(); ++i)
+    globalDOFs *= numComponents;
+    comm->AllReduce(globalDOFs, Nektar::LibUtilities::ReduceSum);
+    auto rankGlobalDOFs = std::vector<size_t>(1, globalDOFs);
+
+    // Collect total information for each rank.
+    for (unsigned int i = 0; i < inBlockAttr.size(); ++i)
     {
-        rankNumOutDofs[0] += outblockAttr[i].CompSize();
+        rankNumInDofs[0] += inBlockAttr[i].CompSize() * numComponents;
+    }
+    for (unsigned int i = 0; i < outBlockAttr.size(); ++i)
+    {
+        rankNumOutDofs[0] += outBlockAttr[i].CompSize() * numComponents;
     }
 
     auto allRankElapsed     = comm->Gather(0, rankElapsed);
@@ -106,10 +122,11 @@ void PrintProfileResult(
         double minElapsed = Vmath::Vmin(nrank, allRankElapsed.data(), 1);
         double aveElapsed =
             Vmath::Vsum(nrank, allRankElapsed.data(), 1) / nrank;
+        unsigned int globalTotalIterations =
+            Vmath::Vmax(nrank, allTotalIterations.data(), 1);
 
         size_t totInDofs        = 0;
         size_t totOutDofs       = 0;
-        size_t totGlobalDOFs    = 0;
         double inThroughput     = 0.0;
         double outThroughput    = 0.0;
         double globalThroughput = 0.0;
@@ -117,20 +134,19 @@ void PrintProfileResult(
         {
             totInDofs += allRankNumInDofs[rank];
             totOutDofs += allRankNumOutDofs[rank];
-            totGlobalDOFs += rankGlobalDOFs[rank];
             inThroughput += allRankNumInDofs[rank] * allTotalIterations[rank];
             outThroughput += allRankNumOutDofs[rank] * allTotalIterations[rank];
-            globalThroughput += rankGlobalDOFs[rank] * allTotalIterations[rank];
         }
 
         // The throughput is calculated as the total number of dofs divided by
         // the time per iteration. The time per iteration is the maximum elapsed
         // time per solve divided by the average number of iterations per solve.
         // Formula: (totInDofs * globalTotalIterations) / (maxElapsedPerSolve *
-        // Ntest * nrank)
-        inThroughput     = (double)inThroughput / (maxElapsed * Ntest);
-        outThroughput    = (double)outThroughput / (maxElapsed * Ntest);
-        globalThroughput = (double)globalThroughput / (maxElapsed * Ntest);
+        // Ntest)
+        inThroughput     = (double)inThroughput / (maxElapsed * nTests);
+        outThroughput    = (double)outThroughput / (maxElapsed * nTests);
+        globalThroughput = (double)(rankGlobalDOFs[0] * globalTotalIterations) /
+                           (maxElapsed * nTests);
 
         // Print the summary :
         std::cout << "Max time per test (s): " << maxElapsed << std::endl;
@@ -138,7 +154,7 @@ void PrintProfileResult(
         std::cout << "Average time per test (s): " << aveElapsed << std::endl;
         std::cout << "Total ndof (input/output): " << totInDofs << " "
                   << totOutDofs << std::endl;
-        std::cout << "Global DOFs: " << totGlobalDOFs << std::endl;
+        std::cout << "Global DOFs: " << globalDOFs << std::endl;
         std::cout << "Throughput (ndof/s): " << inThroughput << " "
                   << outThroughput << std::endl;
         std::cout << "Global Throughput (ndof/s): " << globalThroughput
@@ -153,9 +169,101 @@ void PrintProfileResult(
     comm->Block();
 }
 
-template <typename TData>
+template <typename TData, FieldState TState>
+void FillFieldWithRandomValues(Field<TData, TState> &field)
+{
+    srand(0);
+
+    auto &blocks           = field.GetBlocks();
+    const auto numStorages = field.GetNumComponents() * field.GetNumHomoModes();
+    for (size_t i = 0; i < blocks.size(); ++i)
+    {
+        auto ptr =
+            blocks[i].template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        const auto compSize = blocks[i].CompSize();
+        for (unsigned int storage = 0; storage < numStorages; ++storage)
+        {
+            auto storagePtr = ptr + storage * compSize;
+            for (size_t j = 0; j < compSize; ++j)
+            {
+                storagePtr[j] =
+                    ((static_cast<double>(rand()) / RAND_MAX) * 2.0 - 1.0);
+            }
+        }
+    }
+}
+
+template <typename TData, FieldState TState>
+void PrintFieldDifference(const CommSharedPtr &comm,
+                          Field<TData, TState> &field,
+                          Field<TData, TState> &reference)
+{
+    auto &fieldBlocks     = field.GetBlocks();
+    auto &referenceBlocks = reference.GetBlocks();
+    ASSERTL0(fieldBlocks.size() == referenceBlocks.size(),
+             "ProfilerBP verification requires matching block counts.");
+    ASSERTL0(field.GetNumComponents() == reference.GetNumComponents(),
+             "ProfilerBP verification requires matching component counts.");
+    ASSERTL0(field.GetNumHomoModes() == reference.GetNumHomoModes(),
+             "ProfilerBP verification requires matching homogeneous modes.");
+    const auto numStorages = field.GetNumComponents() * field.GetNumHomoModes();
+    double totalDiff       = 0.0;
+    double totalMaxDiff    = 0.0;
+    size_t count           = 0;
+
+    for (size_t i = 0; i < fieldBlocks.size(); ++i)
+    {
+        auto fieldPtr =
+            fieldBlocks[i].template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        auto referencePtr =
+            referenceBlocks[i]
+                .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        const auto compSize = fieldBlocks[i].CompSize();
+
+        for (unsigned int storage = 0; storage < numStorages; ++storage)
+        {
+            auto fieldStoragePtr     = fieldPtr + storage * compSize;
+            auto referenceStoragePtr = referencePtr + storage * compSize;
+            for (size_t j = 0; j < compSize; ++j)
+            {
+                double diff = std::abs((double)fieldStoragePtr[j] -
+                                       (double)referenceStoragePtr[j]);
+                totalDiff += diff;
+                totalMaxDiff = std::max(totalMaxDiff, diff);
+                count++;
+            }
+        }
+    }
+
+    std::vector<double> allDiff(1, totalDiff);
+    std::vector<double> allMaxDiff(1, totalMaxDiff);
+    std::vector<size_t> allCount(1, count);
+
+    auto gatheredDiff    = comm->Gather(0, allDiff);
+    auto gatheredMaxDiff = comm->Gather(0, allMaxDiff);
+    auto gatheredCount   = comm->Gather(0, allCount);
+
+    if (comm->GetRank() == 0)
+    {
+        double globalDiff =
+            Vmath::Vsum(comm->GetSize(), gatheredDiff.data(), 1);
+        double globalMaxDiff =
+            Vmath::Vmax(comm->GetSize(), gatheredMaxDiff.data(), 1);
+        size_t globalCount = 0;
+        for (auto c : gatheredCount)
+        {
+            globalCount += c;
+        }
+
+        std::cout << "L1 error: " << globalDiff / globalCount << std::endl;
+        std::cout << "Linf error: " << globalMaxDiff << std::endl;
+    }
+}
+
+template <FieldState TStateIn, FieldState TStateOut, typename TData>
 void LaunchProfiler(const MultiRegions::ContFieldSharedPtr &expList,
-                    const unsigned int Ntest, const int BP)
+
+                    const unsigned int nTests, const int bp)
 {
     // Timer.
     Timer timer;
@@ -166,12 +274,12 @@ void LaunchProfiler(const MultiRegions::ContFieldSharedPtr &expList,
     // Initialize operators.
     std::shared_ptr<ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>> elmtOp;
     std::string opName;
-    if (BP == 1)
+    if (bp == 1)
     {
         elmtOp = MassOp<TData>::Create(expList, session->GetVariables());
         opName = "Mass";
     }
-    else if (BP == 3)
+    else if (bp == 3)
     {
         std::vector<double> diffCoeff(6);
         diffCoeff[0] = 1.0; // D00
@@ -181,6 +289,11 @@ void LaunchProfiler(const MultiRegions::ContFieldSharedPtr &expList,
         std::dynamic_pointer_cast<HelmholtzOp<TData>>(elmtOp)->SetDiffCoeff(
             diffCoeff);
         opName = "Helmholtz";
+    }
+    else
+    {
+        NEKERROR(ErrorUtil::efatal,
+                 "ProfilerBP only supports BP=1 (Mass) and BP=3 (Helmholtz).");
     }
 
     auto assembOp =
@@ -199,37 +312,24 @@ void LaunchProfiler(const MultiRegions::ContFieldSharedPtr &expList,
         ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>::GetOpImpl(
             opName, execName, session);
     std::string dataType = (std::is_same_v<TData, double>) ? "Double" : "Float";
-    auto tag = "BP" + std::to_string(BP) + execName + implName + dataType;
+    auto tag = "BP" + std::to_string(bp) + execName + implName + dataType;
 
     // Create block attributes.
-    auto blockAttr = GetBlockAttributes<TData, FieldState::Coeff>(expList);
+    auto inBlockAttr  = GetBlockAttributes<TData, TStateIn>(expList);
+    auto outBlockAttr = GetBlockAttributes<TData, TStateOut>(expList);
 
     // Create fields.
-    auto fIn         = Field<TData, FieldState::Coeff>("f_in", blockAttr,
+    auto fIn         = Field<TData, FieldState::Coeff>("f_in", inBlockAttr,
                                                session->GetVariables(), 1);
-    auto fOut        = Field<TData, FieldState::Coeff>("f_out", blockAttr,
+    auto fOut        = Field<TData, FieldState::Coeff>("f_out", outBlockAttr,
                                                 session->GetVariables(), 1);
     auto fOutCorrect = Field<TData, FieldState::Coeff>(
-        "f_out_correct", blockAttr, session->GetVariables(), 1);
+        "f_out_correct", outBlockAttr, session->GetVariables(), 1);
     auto fOutCorrectAssemb = Field<TData, FieldState::Coeff>(
-        "f_out_correct_assemb", blockAttr, session->GetVariables(), 1);
+        "f_out_correct_assemb", outBlockAttr, session->GetVariables(), 1);
 
     // Set random output.
-    srand(0);
-    auto &blockOut = fOutCorrect.GetBlocks();
-    for (size_t i = 0; i < blockOut.size(); ++i)
-    {
-        auto outPtr =
-            blockOut[i].template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (unsigned int n = 0; n < session->GetVariables().size(); n++)
-        {
-            for (size_t j = 0; j < blockOut[i].CompSize(); ++j)
-            {
-                outPtr[j] =
-                    ((static_cast<double>(rand()) / RAND_MAX) * 2.0 - 1.0);
-            }
-        }
-    }
+    FillFieldWithRandomValues(fOutCorrect);
 
     // Ensure C0 continuity.
     assembOp->Apply(fOutCorrect, fOutCorrectAssemb);
@@ -238,7 +338,7 @@ void LaunchProfiler(const MultiRegions::ContFieldSharedPtr &expList,
     elmtOp->Apply(fOutCorrectAssemb, fIn);
 
     // Warm up solves.
-    for (unsigned int i = 0; i < Ntest / 2; ++i)
+    for (unsigned int i = 0; i < nTests / 2; ++i)
     {
         conjGradOp->Apply(fIn, fOut);
     }
@@ -250,7 +350,7 @@ void LaunchProfiler(const MultiRegions::ContFieldSharedPtr &expList,
     LIKWID_MARKER_START(tag.c_str());
 
     unsigned int totalIterations = 0;
-    for (unsigned int i = 0; i < Ntest; ++i)
+    for (unsigned int i = 0; i < nTests; ++i)
     {
         conjGradOp->Apply(fIn, fOut);
         totalIterations += conjGradOp->GetNiterations();
@@ -263,56 +363,7 @@ void LaunchProfiler(const MultiRegions::ContFieldSharedPtr &expList,
     comm->Block();
 
     // Verification
-    {
-        auto &blockOut        = fOut.GetBlocks();
-        auto &blockOutCorrect = fOutCorrectAssemb.GetBlocks();
-        double totalDiff      = 0.0;
-        double totalMaxDiff   = 0.0;
-        size_t count          = 0;
-
-        for (size_t i = 0; i < blockOut.size(); ++i)
-        {
-            auto outPtr =
-                blockOut[i]
-                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-            auto correctPtr =
-                blockOutCorrect[i]
-                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-
-            for (size_t j = 0; j < blockOut[i].CompSize(); ++j)
-            {
-                double diff =
-                    std::abs((double)outPtr[j] - (double)correctPtr[j]);
-                totalDiff += diff;
-                totalMaxDiff = std::max(totalMaxDiff, diff);
-                count++;
-            }
-        }
-
-        std::vector<double> allDiff(1, totalDiff);
-        std::vector<double> allMaxDiff(1, totalMaxDiff);
-        std::vector<size_t> allCount(1, count);
-
-        auto gatheredDiff    = comm->Gather(0, allDiff);
-        auto gatheredMaxDiff = comm->Gather(0, allMaxDiff);
-        auto gatheredCount   = comm->Gather(0, allCount);
-
-        if (comm->GetRank() == 0)
-        {
-            double globalDiff =
-                Vmath::Vsum(comm->GetSize(), gatheredDiff.data(), 1);
-            double globalMaxDiff =
-                Vmath::Vmax(comm->GetSize(), gatheredMaxDiff.data(), 1);
-            size_t globalCount = 0;
-            for (auto c : gatheredCount)
-            {
-                globalCount += c;
-            }
-
-            std::cout << "L1 error: " << globalDiff / globalCount << std::endl;
-            std::cout << "Linf error: " << globalMaxDiff << std::endl;
-        }
-    }
+    PrintFieldDifference(comm, fOut, fOutCorrectAssemb);
 
     if (comm->GetRank() == 0)
     {
@@ -323,8 +374,9 @@ void LaunchProfiler(const MultiRegions::ContFieldSharedPtr &expList,
     }
 
     // Collect elapsed time per test (average duration of one solve).
-    auto rankElapsed = std::vector<double>(1, timer.TimePerTest(Ntest));
+    auto rankElapsed = std::vector<double>(1, timer.TimePerTest(nTests));
 
-    PrintProfileResult<TData>(comm, expList, rankElapsed, blockAttr, blockAttr,
-                              Ntest, totalIterations);
+    PrintProfileResult<TData>(comm, expList, rankElapsed, inBlockAttr,
+                              outBlockAttr, nTests, totalIterations,
+                              fIn.GetNumComponents());
 }
