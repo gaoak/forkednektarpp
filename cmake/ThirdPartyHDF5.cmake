@@ -34,6 +34,9 @@ IF (NEKTAR_USE_HDF5)
 
     IF(THIRDPARTY_BUILD_HDF5)
         INCLUDE(ExternalProject)
+        THIRDPARTY_LIBRARY(HDF5_LIBRARIES SHARED hdf5
+            DESCRIPTION "HDF5 library")
+
         EXTERNALPROJECT_ADD(
             hdf5-1.12.3
             PREFIX ${TPSRC}
@@ -45,6 +48,7 @@ IF (NEKTAR_USE_HDF5)
             BINARY_DIR ${TPBUILD}/hdf5-1.12.3 
             TMP_DIR ${TPBUILD}/hdf5-1.12.3-tmp
             INSTALL_DIR ${TPDIST}
+            BUILD_BYPRODUCTS ${FFTW_LIBRARY}
             CONFIGURE_COMMAND ${CMAKE_COMMAND}
                 -G ${CMAKE_GENERATOR}
                 -DCMAKE_C_COMPILER:FILEPATH=${CMAKE_C_COMPILER}
@@ -58,8 +62,6 @@ IF (NEKTAR_USE_HDF5)
                 ${TPSRC}/hdf5-1.12.3
             )
 
-        THIRDPARTY_LIBRARY(HDF5_LIBRARIES SHARED hdf5
-            DESCRIPTION "HDF5 library")
         SET(HDF5_INCLUDE_DIRS ${TPDIST}/include CACHE FILEPATH
             "HDF5 include directory" FORCE)
 

@@ -66,7 +66,9 @@ IF( NEKTAR_USE_CGNS )
 	   	SET(NEED_MPI "OFF")
         MESSAGE(STATUS "Build CGNS")
     ENDIF()
-
+	THIRDPARTY_LIBRARY(CGNS_LIBRARY SHARED cgns
+            DESCRIPTION "CGNS library")
+        
 	EXTERNALPROJECT_ADD(
 	    libcgns-4.4
 	    PREFIX ${TPSRC}
@@ -79,6 +81,7 @@ IF( NEKTAR_USE_CGNS )
        	    TMP_DIR ${TPBUILD}/cgns-4.4-tmp
        	    INSTALL_DIR ${TPDIST}
             PATCH_COMMAND ${PATCH} -p1 < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/cgns-hdf5-prefer-parallel.patch
+            BUILD_BYPRODUCTS ${CGNS_LIBRARY}
        	    CONFIGURE_COMMAND ${CMAKE_COMMAND} 
             -G ${CMAKE_GENERATOR}
             -DCMAKE_INSTALL_PREFIX:PATH=${TPDIST} 
@@ -90,9 +93,6 @@ IF( NEKTAR_USE_CGNS )
              ${TPSRC}/cgns-4.4
              )
 
-	THIRDPARTY_LIBRARY(CGNS_LIBRARY SHARED cgns
-            DESCRIPTION "CGNS library")
-        
         INCLUDE_DIRECTORIES(SYSTEM NekMesh ${TPDIST}/include)
         ADD_DEPENDENCIES(thirdparty libcgns-4.4)
     ELSE()

@@ -49,6 +49,7 @@ v5.10.0
 **CI**
 - Add PROCESSORS property to tests to enforce correct parallelism (!2445)
 - Allow multiple tests per `.tst` file (!2509)
+- Enable use of ninja for build system (!2511)
 
 **AcousticSolver**
 - Use native c++ random number generator instead of boost (!2379)

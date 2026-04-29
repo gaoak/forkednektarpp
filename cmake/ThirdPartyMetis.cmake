@@ -29,6 +29,8 @@ IF (NEKTAR_USE_METIS)
         "NEKTAR_USE_METIS" OFF)
 
     IF (THIRDPARTY_BUILD_METIS)
+        THIRDPARTY_LIBRARY(METIS_LIBRARY STATIC metis DESCRIPTION "Metis library")
+
         EXTERNALPROJECT_ADD(
             metis-5.1.0
             PREFIX ${TPSRC}
@@ -40,6 +42,7 @@ IF (NEKTAR_USE_METIS)
             BINARY_DIR ${TPBUILD}/metis-5.1.0
             TMP_DIR ${TPBUILD}/metis-5.1.0-tmp
             INSTALL_DIR ${TPDIST}
+            BUILD_BYPRODUCTS ${METIS_LIBRARY}
             CONFIGURE_COMMAND ${CMAKE_COMMAND}
                 -G ${CMAKE_GENERATOR}
                 -DCMAKE_C_COMPILER:FILEPATH=${CMAKE_C_COMPILER}
@@ -73,7 +76,6 @@ IF (NEKTAR_USE_METIS)
             )
         ENDIF ()
 
-        THIRDPARTY_LIBRARY(METIS_LIBRARY STATIC metis DESCRIPTION "Metis library")
         MARK_AS_ADVANCED(METIS_LIBRARY)
         MESSAGE(STATUS "Build Metis: ${METIS_LIBRARY}")
         SET(METIS_CONFIG_INCLUDE_DIR ${TPINC})

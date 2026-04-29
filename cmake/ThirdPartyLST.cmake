@@ -17,6 +17,9 @@ IF(NEKTAR_USE_LST)
                 "Could not find a Fortran compiler to build LST library")
     ENDIF()
 
+    THIRDPARTY_LIBRARY(LST_LIBRARY
+        SHARED lst DESCRIPTION "Linear stability analysis library")
+
     EXTERNALPROJECT_ADD(
         lst-0.1
         URL                ${TPURL}/lst_v1.6.zip
@@ -28,6 +31,7 @@ IF(NEKTAR_USE_LST)
         BINARY_DIR         ${TPBUILD}/lst-0.1
         TMP_DIR            ${TPBUILD}/lst-0.1-tmp
         INSTALL_DIR        ${TPDIST}
+        BUILD_BYPRODUCTS   ${LST_LIBRARY}
         
         CONFIGURE_COMMAND ${CMAKE_COMMAND} 
         -G ${CMAKE_GENERATOR}
@@ -36,9 +40,6 @@ IF(NEKTAR_USE_LST)
         -DCMAKE_INSTALL_LIBDIR:PATH=${TPDIST}/lib
         -DCMAKE_INSTALL_INCDIR:PATH=${TPDIST}/include
         ${TPSRC}/lst-0.1)
-
-    THIRDPARTY_LIBRARY(LST_LIBRARY
-        SHARED lst DESCRIPTION "Linear stability analysis library")
 
     INCLUDE_DIRECTORIES(${TPDIST}/include)
     ADD_DEPENDENCIES(thirdparty lst-0.1)

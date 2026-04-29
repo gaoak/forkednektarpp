@@ -159,6 +159,15 @@ IF (THIRDPARTY_BUILD_BOOST)
         SET(BOOST_URL "${TPURL}/boost_1_82_0.tar.bz2")
     ENDIF()
 
+    # Set up CMake variables
+    FOREACH(BOOSTLIB ${NEEDED_BOOST_LIBS})
+        STRING(TOUPPER ${BOOSTLIB} BOOSTLIB_UPPER)
+        THIRDPARTY_LIBRARY(Boost_${BOOSTLIB_UPPER}_LIBRARY
+            SHARED boost_${BOOSTLIB} DESCRIPTION "Boost ${BOOSTLIB} library")
+        MARK_AS_ADVANCED(Boost_${BOOSTLIB_UPPER}_LIBRARY)
+        LIST(APPEND Boost_LIBRARIES ${Boost_${BOOSTLIB_UPPER}_LIBRARY})
+    ENDFOREACH()
+
     IF (NOT WIN32)
         EXTERNALPROJECT_ADD(
             boost
@@ -172,6 +181,7 @@ IF (THIRDPARTY_BUILD_BOOST)
             TMP_DIR ${TPBUILD}/boost-tmp
             INSTALL_DIR ${TPDIST}
             CONFIGURE_COMMAND ./bootstrap.sh
+            BUILD_BYPRODUCTS ${Boost_LIBRARIES}
             BUILD_COMMAND NO_BZIP2=1 ./b2
                 variant=release
                 link=shared
@@ -203,6 +213,7 @@ IF (THIRDPARTY_BUILD_BOOST)
             TMP_DIR ${TPBUILD}/boost-tmp
             INSTALL_DIR ${TPDIST}
             CONFIGURE_COMMAND call bootstrap.bat
+            BUILD_BYPRODUCTS ${Boost_LIBRARIES}
             BUILD_COMMAND b2 variant=release
                 toolset=${TOOLSET_CMDLINE}
                 address-model=${ADDRESS_MODEL}
@@ -243,15 +254,6 @@ IF (THIRDPARTY_BUILD_BOOST)
     IF (THIRDPARTY_BUILD_ZLIB)
         ADD_DEPENDENCIES(boost zlib-1.2.9)
     ENDIF(THIRDPARTY_BUILD_ZLIB)
-
-    # Set up CMake variables
-    FOREACH(BOOSTLIB ${NEEDED_BOOST_LIBS})
-        STRING(TOUPPER ${BOOSTLIB} BOOSTLIB_UPPER)
-        THIRDPARTY_LIBRARY(Boost_${BOOSTLIB_UPPER}_LIBRARY
-            SHARED boost_${BOOSTLIB} DESCRIPTION "Boost ${BOOSTLIB} library")
-        MARK_AS_ADVANCED(Boost_${BOOSTLIB_UPPER}_LIBRARY)
-        LIST(APPEND Boost_LIBRARIES ${Boost_${BOOSTLIB_UPPER}_LIBRARY})
-    ENDFOREACH()
 
     SET(Boost_INCLUDE_DIRS ${TPSRC}/dist/include)
     SET(Boost_CONFIG_INCLUDE_DIR ${TPINC})

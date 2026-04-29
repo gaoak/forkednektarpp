@@ -31,6 +31,8 @@ IF(NEKTAR_USE_MESHGEN)
         ENDIF()
         MARK_AS_ADVANCED(PATCH)
 
+        THIRDPARTY_LIBRARY(TETGEN_LIBRARY STATIC tetgen DESCRIPTION "Tetgen library")
+
         EXTERNALPROJECT_ADD(
             tetgen-1.5
             PREFIX ${TPSRC}
@@ -43,6 +45,7 @@ IF(NEKTAR_USE_MESHGEN)
             TMP_DIR ${TPBUILD}/tetgen-1.5-tmp
             INSTALL_DIR ${TPDIST}
             PATCH_COMMAND ${PATCH} -p1 < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/tetgen-snprintf.patch
+            BUILD_BYPRODUCTS ${TETGEN_LIBRARY}
             CONFIGURE_COMMAND ${CMAKE_COMMAND}
             -G ${CMAKE_GENERATOR}
             -DCMAKE_C_COMPILER:FILEPATH=${CMAKE_C_COMPILER}
@@ -50,8 +53,6 @@ IF(NEKTAR_USE_MESHGEN)
             -DCMAKE_INSTALL_PREFIX:PATH=${TPDIST}
             ${TPSRC}/tetgen-1.5
             )
-        THIRDPARTY_LIBRARY(TETGEN_LIBRARY STATIC tetgen
-            DESCRIPTION "Tetgen library")
         SET(TETGEN_INCLUDE_DIR ${TPDIST}/include CACHE FILEPATH
             "TetGen include" FORCE)
         ADD_DEFINITIONS(-DTETGEN_HAS_DEINITIALIZE)

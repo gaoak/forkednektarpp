@@ -82,6 +82,17 @@ IF (NEKTAR_USE_SCOTCH)
         ENDIF()
         MARK_AS_ADVANCED(PATCH)
 
+        THIRDPARTY_LIBRARY(SCOTCH_LIBRARY STATIC scotch
+            DESCRIPTION "Scotch library")
+        THIRDPARTY_LIBRARY(SCOTCHERR_LIBRARY STATIC scotcherr
+            DESCRIPTION "Scotch error library")
+        THIRDPARTY_LIBRARY(PTSCOTCH_LIBRARY STATIC ptscotch;scotch
+            DESCRIPTION "PT-Scotch library")
+        THIRDPARTY_LIBRARY(PTSCOTCHERR_LIBRARY STATIC ptscotcherr
+            DESCRIPTION "PT-Scotch error library")
+
+        find_program(MAKE_EXECUTABLE NAMES gmake make mingw32-make REQUIRED)
+
         INCLUDE(ExternalProject)
         EXTERNALPROJECT_ADD(
             scotch-6.0.4
@@ -99,7 +110,8 @@ IF (NEKTAR_USE_SCOTCH)
                 ${SCOTCH_SRC}/Make.inc/${SCOTCH_MAKE}
                 ${SCOTCH_SRC}/Makefile.inc
             PATCH_COMMAND ${PATCH} -p0 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/scotch-6_0_4-implicit-function.patch
-            BUILD_COMMAND $(MAKE) -C ${SCOTCH_SRC}
+            BUILD_BYPRODUCTS ${SCOTCHERR_LIBRARY} ${PTSCOTCH_LIBRARY} ${PTSCOTCHERR_LIBRARY}
+            BUILD_COMMAND ${MAKE_EXECUTABLE} -C ${SCOTCH_SRC}
                 "CFLAGS=-I${TPDIST}/include ${SCOTCH_CFLAGS}"
                 "LDFLAGS=-L${TPDIST}/lib ${SCOTCH_LDFLAGS}"
                 "CLIBFLAGS=-fPIC"
@@ -107,7 +119,7 @@ IF (NEKTAR_USE_SCOTCH)
                 "CCD=${SCOTCH_C_COMPILER}"
                 "YACC=bison -pscotchyy -y -b y -Wno-yacc"
                 ${SCOTCH_BUILD_TARGET}
-            INSTALL_COMMAND $(MAKE) -C ${SCOTCH_SRC}
+            INSTALL_COMMAND ${MAKE_EXECUTABLE} -C ${SCOTCH_SRC}
                 prefix=${TPDIST} install
         )
 
@@ -127,14 +139,6 @@ IF (NEKTAR_USE_SCOTCH)
                 DEPENDEES patch)
         ENDIF()
 
-        THIRDPARTY_LIBRARY(SCOTCH_LIBRARY STATIC scotch
-            DESCRIPTION "Scotch library")
-        THIRDPARTY_LIBRARY(SCOTCHERR_LIBRARY STATIC scotcherr
-            DESCRIPTION "Scotch error library")
-        THIRDPARTY_LIBRARY(PTSCOTCH_LIBRARY STATIC ptscotch;scotch
-            DESCRIPTION "PT-Scotch library")
-        THIRDPARTY_LIBRARY(PTSCOTCHERR_LIBRARY STATIC ptscotcherr
-            DESCRIPTION "PT-Scotch error library")
         SET(SCOTCH_INCLUDE_DIR ${TPDIST}/include CACHE FILEPATH
             "Scotch include directory" FORCE)
         SET(SCOTCH_LIBRARY_DIR ${TPDIST}/lib CACHE FILEPATH

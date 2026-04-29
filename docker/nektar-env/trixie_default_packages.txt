@@ -7,4 +7,5 @@ libboost-system-dev
 liblapack-dev
 libscotch-dev
 libtinyxml-dev
+ninja-build
 zlib1g-dev

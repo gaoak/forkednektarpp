@@ -31,6 +31,8 @@ IF (NEKTAR_USE_ARPACK)
     IF(THIRDPARTY_BUILD_ARPACK)
     	INCLUDE(ExternalProject)
 
+        THIRDPARTY_LIBRARY(ARPACK_LIBRARY SHARED arpack DESCRIPTION "ARPACK library")
+
     	EXTERNALPROJECT_ADD(
             arpack-ng-1.0
             PREFIX ${TPSRC}
@@ -42,6 +44,7 @@ IF (NEKTAR_USE_ARPACK)
             BINARY_DIR ${TPBUILD}/arpack-ng-1.0
             TMP_DIR ${TPBUILD}/arpack-ng-1.0-tmp
             INSTALL_DIR ${TPDIST}
+            BUILD_BYPRODUCTS ${ARPACK_LIBRARY}
             CONFIGURE_COMMAND ${CMAKE_COMMAND}
                 -G ${CMAKE_GENERATOR}
                 -DCMAKE_Fortran_COMPILER:FILEPATH=${CMAKE_Fortran_COMPILER}
@@ -50,8 +53,6 @@ IF (NEKTAR_USE_ARPACK)
                 -DBUILD_SHARED_LIBS:STRING=ON
                 ${TPSRC}/arpack-ng-1.0
             )
-
-        THIRDPARTY_LIBRARY(ARPACK_LIBRARY SHARED arpack DESCRIPTION "ARPACK library")
 
         INCLUDE_DIRECTORIES(${TPDIST}/include)
 

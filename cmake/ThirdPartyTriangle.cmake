@@ -22,6 +22,8 @@ IF(NEKTAR_USE_MESHGEN)
 
     IF (THIRDPARTY_BUILD_TRIANGLE)
         INCLUDE(ExternalProject)
+        THIRDPARTY_LIBRARY(TRIANGLE_LIBRARY STATIC triangle
+            DESCRIPTION "Triangle library")
         EXTERNALPROJECT_ADD(
             triangle-1.6
             PREFIX ${TPSRC}
@@ -33,6 +35,7 @@ IF(NEKTAR_USE_MESHGEN)
             BINARY_DIR ${TPBUILD}/triangle-1.6
             TMP_DIR ${TPBUILD}/triangle-1.6-tmp
             INSTALL_DIR ${TPDIST}
+            BUILD_BYPRODUCTS ${TRIANGLE_LIBRARY}
             CONFIGURE_COMMAND ${CMAKE_COMMAND}
                 -G ${CMAKE_GENERATOR}
                 -DCMAKE_C_COMPILER:FILEPATH=${CMAKE_C_COMPILER}
@@ -40,8 +43,6 @@ IF(NEKTAR_USE_MESHGEN)
                 -DCMAKE_INSTALL_PREFIX:PATH=${TPDIST}
                 ${TPSRC}/triangle-1.6
             )
-        THIRDPARTY_LIBRARY(TRIANGLE_LIBRARY STATIC triangle
-            DESCRIPTION "Triangle library")
         SET(TRIANGLE_INCLUDE_DIR ${TPDIST}/include CACHE FILEPATH
             "Triangle include" FORCE)
         MESSAGE(STATUS "Build Triangle: ${TRIANGLE_LIBRARY}")

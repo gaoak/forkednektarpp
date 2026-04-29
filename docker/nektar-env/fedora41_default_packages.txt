@@ -9,6 +9,7 @@ gcc-gfortran
 lapack-devel
 libXmu-devel
 make
+ninja-build
 patch
 tinyxml-devel
 zlib-devel

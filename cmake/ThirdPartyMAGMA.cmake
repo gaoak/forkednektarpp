@@ -22,6 +22,7 @@ IF(${BUILD_LIBMAGMA})
         SET(MAGMA_ENABLE_HIP ON)
         EXECUTE_PROCESS(COMMAND echo -e "BACKEND=hip\nFORT=false\nGPU_TARGET=${NEKTAR_DEVICE_ARCH}" OUTPUT_FILE "${TPBUILD}/LIBMAGMA_CONFIG/make.inc")
     ENDIF()
+    THIRDPARTY_LIBRARY(LIBMAGMA_LIBRARY SHARED magma DESCRIPTION "LIBMAGMA library")
     EXTERNALPROJECT_ADD(
             libmagma
             PREFIX ${TPSRC}
@@ -32,6 +33,7 @@ IF(${BUILD_LIBMAGMA})
             BINARY_DIR ${TPBUILD}/libmagma
             TMP_DIR ${TPBUILD}/libmagma-tmp
             INSTALL_DIR ${TPDIST}
+            BUILD_BYPRODUCTS ${LIBMAGMA_LIBRARY}
             CONFIGURE_COMMAND cp ${TPBUILD}/LIBMAGMA_CONFIG/make.inc ${TPSRC}/libmagma/ && $(MAKE) -C ${TPSRC}/libmagma generate
             BUILD_COMMAND cmake ${TPSRC}/libmagma
                     -B ${TPBUILD}/libmagma
@@ -43,7 +45,6 @@ IF(${BUILD_LIBMAGMA})
                     -DCMAKE_INSTALL_PREFIX:PATH=${TPDIST}
     )
 
-    THIRDPARTY_LIBRARY(LIBMAGMA_LIBRARY SHARED magma DESCRIPTION "LIBMAGMA library")
     SET(LIBMAGMA_INCLUDE_DIR ${TPDIST}/include CACHE FILEPATH "libmagma include" FORCE)
     MESSAGE(STATUS "Build libmagma: ${LIBMAGMA_LIBRARY}")
 ELSE()

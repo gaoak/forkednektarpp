@@ -55,6 +55,7 @@ ELSE()
 
     IF(THIRDPARTY_BUILD_BLAS_LAPACK)
         INCLUDE(ExternalProject)
+        THIRDPARTY_LIBRARY(BLAS_LAPACK SHARED blas lapack DESCRIPTION "BLAS and LAPACK libraries")
 
         EXTERNALPROJECT_ADD(
             lapack-3.7.1
@@ -67,6 +68,7 @@ ELSE()
             BINARY_DIR ${TPBUILD}/lapack-3.7.1
             TMP_DIR ${TPBUILD}/lapack-3.7.1-tmp
             INSTALL_DIR ${TPDIST}
+            BUILD_BYPRODUCTS ${BLAS_LAPACK}
             CONFIGURE_COMMAND ${CMAKE_COMMAND}
             -G ${CMAKE_GENERATOR}
             -DCMAKE_Fortran_COMPILER:FILEPATH=${CMAKE_Fortran_COMPILER}
@@ -77,7 +79,6 @@ ELSE()
             ${TPSRC}/lapack-3.7.1
             )
 
-        THIRDPARTY_LIBRARY(BLAS_LAPACK SHARED blas lapack DESCRIPTION "BLAS and LAPACK libraries")
         MESSAGE(STATUS "Build BLAS/LAPACK: ${BLAS_LAPACK}")
 
         ADD_DEPENDENCIES(thirdparty lapack-3.7.1)

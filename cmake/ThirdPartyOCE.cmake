@@ -65,6 +65,8 @@ IF(NEKTAR_USE_MESHGEN)
             MESSAGE(SEND_ERROR "Cannot currently use OpenCascade with Nektar++ on Windows")
         ENDIF()
 
+        THIRDPARTY_LIBRARY(OCC_LIBRARIES SHARED ${OCC_LIB_LIST} DESCRIPTION "OpenCascade libs")
+
         EXTERNALPROJECT_ADD(
             oce-0.18.3
             PREFIX ${TPSRC}
@@ -75,6 +77,7 @@ IF(NEKTAR_USE_MESHGEN)
             DOWNLOAD_DIR ${TPSRC}
             SOURCE_DIR ${TPSRC}/oce-0.18.3
             INSTALL_DIR ${TPBUILD}/oce-0.18.3/dist
+            BUILD_BYPRODUCTS ${OCC_LIBRARIES}
             CONFIGURE_COMMAND ${CMAKE_COMMAND}
                 -G ${CMAKE_GENERATOR}
                 -DCMAKE_C_COMPILER:FILEPATH=${CMAKE_C_COMPILER}
@@ -92,7 +95,6 @@ IF(NEKTAR_USE_MESHGEN)
                 DEPENDEES install)
         ENDIF()
 
-        THIRDPARTY_LIBRARY(OCC_LIBRARIES SHARED ${OCC_LIB_LIST} DESCRIPTION "OpenCascade libs")
         SET(OCC_INCLUDE_DIR ${TPDIST}/include/oce CACHE FILEPATH "OCC include" FORCE)
         MESSAGE(STATUS "Build OpenCascade community edition: ${TPDIST}/lib")
     ELSE()

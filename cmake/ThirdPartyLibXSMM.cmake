@@ -23,6 +23,9 @@ OPTION(THIRDPARTY_BUILD_LIBXSMM
 IF (THIRDPARTY_BUILD_LIBXSMM)
     INCLUDE(ExternalProject)
 
+    THIRDPARTY_LIBRARY(LIBXSMM_LIBRARY STATIC xsmm DESCRIPTION "libxsmm library")
+
+    FIND_PROGRAM(MAKE_EXE NAMES make gmake nmake)
     EXTERNALPROJECT_ADD(
             libxsmm-1.17
             PREFIX ${TPSRC}
@@ -34,12 +37,12 @@ IF (THIRDPARTY_BUILD_LIBXSMM)
             BINARY_DIR ${TPBUILD}/libxsmm-1.17
             TMP_DIR ${TPBUILD}/libxsmm-1.17-tmp
             INSTALL_DIR ${TPDIST}
+            BUILD_BYPRODUCTS ${LIBXSMM_LIBRARY}
             CONFIGURE_COMMAND ""
-            BUILD_COMMAND $(MAKE) --silent RPM_OPT_FLAGS=-Wno-deprecated-declarations -C <SOURCE_DIR>
-            INSTALL_COMMAND $(MAKE) RPM_OPT_FLAGS=-Wno-deprecated-declarations -C <SOURCE_DIR> PREFIX=<INSTALL_DIR> install
+            BUILD_COMMAND ${MAKE_EXE} --silent RPM_OPT_FLAGS=-Wno-deprecated-declarations -C <SOURCE_DIR>
+            INSTALL_COMMAND ${MAKE_EXE} RPM_OPT_FLAGS=-Wno-deprecated-declarations -C <SOURCE_DIR> PREFIX=<INSTALL_DIR> install
     )
 
-    THIRDPARTY_LIBRARY(LIBXSMM_LIBRARY STATIC xsmm DESCRIPTION "libxsmm library")
     SET(LIBXSMM_INCLUDE_DIR ${TPDIST}/include CACHE FILEPATH
             "libxsmm include" FORCE)
     MESSAGE(STATUS "Build libxsmm: ${LIBXSMM_LIBRARY}")

@@ -41,6 +41,8 @@ IF (NEKTAR_USE_FFTW)
 
     IF (THIRDPARTY_BUILD_FFTW)
         INCLUDE(ExternalProject)
+        THIRDPARTY_LIBRARY(FFTW_LIBRARY STATIC fftw3 DESCRIPTION "FFTW library")
+
         EXTERNALPROJECT_ADD(
             fftw-3.2.2
             URL ${TPURL}/fftw-3.2.2.tar.gz
@@ -51,6 +53,7 @@ IF (NEKTAR_USE_FFTW)
             BINARY_DIR ${TPBUILD}/fftw-3.2.2
             TMP_DIR ${TPBUILD}/fftw-3.2.2-tmp
             INSTALL_DIR ${TPDIST}
+            BUILD_BYPRODUCTS ${FFTW_LIBRARY}
             CONFIGURE_COMMAND
                 CC=${CMAKE_C_COMPILER}
                 ${TPSRC}/fftw-3.2.2/configure
@@ -61,7 +64,8 @@ IF (NEKTAR_USE_FFTW)
                 --disable-dependency-tracking
         )
 
-        THIRDPARTY_LIBRARY(FFTW_LIBRARY STATIC fftw3 DESCRIPTION "FFTW Library")
+        SET(FFTW_INCLUDE_DIR ${TPDIST}/include CACHE FILEPATH
+            "FFTW include" FORCE)
 
         MESSAGE(STATUS "Build FFTW: ${TPDIST}/lib/${FFTW_LIBRARY}")
         SET(FFTW_CONFIG_INCLUDE_DIR ${TPINC})

@@ -94,6 +94,9 @@ IF (NEKTAR_USE_PETSC)
             SET(PETSC_Fortran_COMPILER "0")
         ENDIF()
 
+        THIRDPARTY_LIBRARY(PETSC_LIBRARIES SHARED petsc
+            DESCRIPTION "PETSc library")
+
         EXTERNALPROJECT_ADD(
             petsc-3.19.3
             DEPENDS ${PETSC_DEPS}
@@ -106,6 +109,7 @@ IF (NEKTAR_USE_PETSC)
             BINARY_DIR ${TPBUILD}/petsc-3.19.3
             URL https://www.nektar.info/thirdparty/petsc-3.19.3.tar.gz 
             URL_MD5 "b493f0c19c067994ce7e9b5f4d13216c"
+            BUILD_BYPRODUCTS ${PETSC_LIBRARIES}
             CONFIGURE_COMMAND
                 OMPI_FC=${CMAKE_Fortran_COMPILER}
                 OMPI_CC=${CMAKE_C_COMPILER}
@@ -136,8 +140,6 @@ IF (NEKTAR_USE_PETSC)
 
         MESSAGE("TPDist: ${TPDIST}")
         MESSAGE("TPBuild: ${TPBUILD}")
-        THIRDPARTY_LIBRARY(PETSC_LIBRARIES SHARED petsc
-            DESCRIPTION "PETSc library")
         SET(PETSC_INCLUDE_DIRS ${TPDIST}/include CACHE FILEPATH
             "PETSc includes" FORCE)
         MESSAGE(STATUS "Build PETSc: ${PETSC_LIBRARIES}")

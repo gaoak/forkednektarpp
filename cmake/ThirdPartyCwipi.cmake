@@ -37,6 +37,9 @@ IF ( NEKTAR_USE_CWIPI )
             MESSAGE(ERROR "NEKTAR_USE_MPI not set")
         ENDIF()
 
+        THIRDPARTY_LIBRARY(CWIPI_LIBRARY SHARED cwp
+            DESCRIPTION "CWIPI main library")
+
         EXTERNALPROJECT_ADD(
             cwipi-0.11.1
             URL ${TPURL}/cwipi-0.11.1.tgz
@@ -47,6 +50,7 @@ IF ( NEKTAR_USE_CWIPI )
             BINARY_DIR ${TPBUILD}/cwipi-0.11.1
             TMP_DIR ${TPBUILD}/cwipi-0.11.1-tmp
             INSTALL_DIR ${TPDIST}
+            BUILD_BYPRODUCTS ${CWIPI_LIBRARY}
             PATCH_COMMAND patch -p1 < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/cwipi-disable-warnings.patch
             COMMAND patch -p1 < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/cwipi-disable-fortran.patch
             CONFIGURE_COMMAND
@@ -59,9 +63,6 @@ IF ( NEKTAR_USE_CWIPI )
                     -DCMAKE_INSTALL_PREFIX=${TPDIST}
                     ${TPSRC}/cwipi-0.11.1
         )
-
-        THIRDPARTY_LIBRARY(CWIPI_LIBRARY SHARED cwp
-            DESCRIPTION "CWIPI main library")
 
         SET(CWIPI_INCLUDE_DIR ${TPDIST}/include CACHE FILEPATH
             "CWIPI include" FORCE)
