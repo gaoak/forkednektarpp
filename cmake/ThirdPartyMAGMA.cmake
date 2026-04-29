@@ -23,6 +23,7 @@ IF(${BUILD_LIBMAGMA})
         EXECUTE_PROCESS(COMMAND echo -e "BACKEND=hip\nFORT=false\nGPU_TARGET=${NEKTAR_DEVICE_ARCH}" OUTPUT_FILE "${TPBUILD}/LIBMAGMA_CONFIG/make.inc")
     ENDIF()
     THIRDPARTY_LIBRARY(LIBMAGMA_LIBRARY SHARED magma DESCRIPTION "LIBMAGMA library")
+    FIND_PROGRAM(MAKE_EXE NAMES make gmake nmake)
     EXTERNALPROJECT_ADD(
             libmagma
             PREFIX ${TPSRC}
@@ -34,7 +35,7 @@ IF(${BUILD_LIBMAGMA})
             TMP_DIR ${TPBUILD}/libmagma-tmp
             INSTALL_DIR ${TPDIST}
             BUILD_BYPRODUCTS ${LIBMAGMA_LIBRARY}
-            CONFIGURE_COMMAND cp ${TPBUILD}/LIBMAGMA_CONFIG/make.inc ${TPSRC}/libmagma/ && $(MAKE) -C ${TPSRC}/libmagma generate
+            CONFIGURE_COMMAND cp ${TPBUILD}/LIBMAGMA_CONFIG/make.inc ${TPSRC}/libmagma/ && ${MAKE_EXE} -C ${TPSRC}/libmagma generate
             BUILD_COMMAND cmake ${TPSRC}/libmagma
                     -B ${TPBUILD}/libmagma
                     -DMAGMA_ENABLE_CUDA=${MAGMA_ENABLE_CUDA}
