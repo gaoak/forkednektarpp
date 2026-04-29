@@ -120,9 +120,9 @@ int main(int argc, char *argv[])
     auto graph   = SpatialDomains::MeshGraphIO::Read(session);
 
     // Load parameters (from the command lines).
-    int BP, Ntest, order;
-    session->LoadParameter("BP", BP, 1);
-    session->LoadParameter("Ntest", Ntest, 100);
+    int bp, nTests, order;
+    session->LoadParameter("BP", bp, 1);
+    session->LoadParameter("Ntest", nTests, 100);
     session->LoadParameter("order", order, 0);
 
     // Set the order of the polynomial expansion if provided
@@ -149,12 +149,14 @@ int main(int argc, char *argv[])
 
     // Benchmark-double
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-    LaunchProfiler<double>(expList, Ntest, BP);
+    LaunchProfiler<FieldState::Coeff, FieldState::Coeff, double>(expList,
+                                                                 nTests, bp);
 #endif
 
     // Benchmark-float
 #if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
-    LaunchProfiler<float>(expList, Ntest, BP);
+    LaunchProfiler<FieldState::Coeff, FieldState::Coeff, float>(expList, nTests,
+                                                                bp);
 #endif
 
     LIKWID_MARKER_CLOSE;
