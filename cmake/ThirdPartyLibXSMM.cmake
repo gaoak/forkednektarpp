@@ -25,7 +25,7 @@ IF (THIRDPARTY_BUILD_LIBXSMM)
 
     THIRDPARTY_LIBRARY(LIBXSMM_LIBRARY STATIC xsmm DESCRIPTION "libxsmm library")
 
-    FIND_PROGRAM(MAKE_EXE NAMES make gmake nmake)
+    FIND_PROGRAM(MAKE_EXECUTABLE NAMES gmake make mingw32-make REQUIRED)
     EXTERNALPROJECT_ADD(
             libxsmm-1.17
             PREFIX ${TPSRC}
@@ -39,8 +39,8 @@ IF (THIRDPARTY_BUILD_LIBXSMM)
             INSTALL_DIR ${TPDIST}
             BUILD_BYPRODUCTS ${LIBXSMM_LIBRARY}
             CONFIGURE_COMMAND ""
-            BUILD_COMMAND ${MAKE_EXE} --silent RPM_OPT_FLAGS=-Wno-deprecated-declarations -C <SOURCE_DIR>
-            INSTALL_COMMAND ${MAKE_EXE} RPM_OPT_FLAGS=-Wno-deprecated-declarations -C <SOURCE_DIR> PREFIX=<INSTALL_DIR> install
+            BUILD_COMMAND ${MAKE_EXECUTABLE} --silent RPM_OPT_FLAGS=-Wno-deprecated-declarations -C <SOURCE_DIR>
+            INSTALL_COMMAND ${MAKE_EXECUTABLE} RPM_OPT_FLAGS=-Wno-deprecated-declarations -C <SOURCE_DIR> PREFIX=<INSTALL_DIR> install
     )
 
     SET(LIBXSMM_INCLUDE_DIR ${TPDIST}/include CACHE FILEPATH

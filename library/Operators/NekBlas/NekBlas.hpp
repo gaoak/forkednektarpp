@@ -43,7 +43,7 @@
 #include "Operators/NekBlas/xsmmHandle.hpp"
 #endif
 
-#if defined(NEKTAR_ENABLE_MAGMA)
+#if defined(NEKTAR_USE_MAGMA)
 #include "Operators/NekBlas/magmaHandle.hpp"
 #elif defined(NEKTAR_ENABLE_CUDA)
 #include "Operators/NekBlas/cuBlasHandle.hpp"
@@ -79,7 +79,7 @@ public:
 };
 #endif
 
-#if defined(NEKTAR_ENABLE_MAGMA)
+#if defined(NEKTAR_USE_MAGMA)
 template <> class NekHandle<NektarSpaces::Device>
 {
 public:
@@ -139,7 +139,7 @@ typename std::enable_if<std::is_same_v<THandle, xsmmHandle_t>, void>::type NekGe
     const TData *b, const int ldb, const TData beta, TData *c, const int ldc);
 #endif
 template <typename THandle, typename TData>
-#if defined(NEKTAR_ENABLE_MAGMA)
+#if defined(NEKTAR_USE_MAGMA)
 typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type
 #elif defined(NEKTAR_ENABLE_CUDA)
 typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type
@@ -183,7 +183,7 @@ NekGemmStridedBatched(THandle handle, std::string transposeA,
                       const int batchSize);
 #endif
 template <typename THandle, typename TData>
-#if defined(NEKTAR_ENABLE_MAGMA)
+#if defined(NEKTAR_USE_MAGMA)
 typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type
 #elif defined(NEKTAR_ENABLE_CUDA)
 typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type
@@ -232,7 +232,7 @@ NekGemmGroupedBatched(THandle, std::string transposeA, std::string transposeB,
                       const int *ldc, const int batchSize);
 #endif
 template <typename THandle, typename TData>
-#if defined(NEKTAR_ENABLE_MAGMA)
+#if defined(NEKTAR_USE_MAGMA)
 typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type
 #elif defined(NEKTAR_ENABLE_CUDA)
 typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type
@@ -273,7 +273,7 @@ typename std::enable_if<std::is_same_v<THandle, xsmmHandle_t>, void>::type NekGe
     const int incx, const TData beta, TData *y, const int incy);
 #endif
 template <typename THandle, typename TData>
-#if defined(NEKTAR_ENABLE_MAGMA)
+#if defined(NEKTAR_USE_MAGMA)
 typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type
 #elif defined(NEKTAR_ENABLE_CUDA)
 typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type
@@ -314,7 +314,7 @@ NekGemvStridedBatched(THandle handle, std::string transpose, const int M,
                       const int batchSize);
 #endif
 template <typename THandle, typename TData>
-#if defined(NEKTAR_ENABLE_MAGMA)
+#if defined(NEKTAR_USE_MAGMA)
 typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type
 #elif defined(NEKTAR_ENABLE_CUDA)
 typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type

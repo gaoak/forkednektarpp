@@ -319,16 +319,10 @@ IF (NEKTAR_BUILD_REDESIGN)
         ADD_DEFINITIONS(-DNEKTAR_ENABLE_CUDA)
         ADD_DEFINITIONS(-DNEKTAR_ENABLE_DEVICE)
         INCLUDE(NektarCUDA)
-        IF (NEKTAR_ENABLE_MAGMA)
-            INCLUDE (ThirdPartyMAGMA)
-        ENDIF()
     ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
         ADD_DEFINITIONS(-DNEKTAR_ENABLE_HIP)
         ADD_DEFINITIONS(-DNEKTAR_ENABLE_DEVICE)
         INCLUDE(NektarHIP)
-        IF (NEKTAR_ENABLE_MAGMA)
-            INCLUDE (ThirdPartyMAGMA)
-        ENDIF()
     ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CPU" OR # NOTE: Private back-ends, used for development purpose only
             NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR 
             NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-HIP" OR 
@@ -365,6 +359,7 @@ ENDIF()
 ADD_CUSTOM_TARGET(thirdparty)
 
 # Need to find MPI first, as other packages depend on the compiler wrappers
+INCLUDE (ThirdPartyMAGMA)
 INCLUDE (ThirdPartyMPI)
 INCLUDE (ThirdPartyTinyxml)
 INCLUDE (ThirdPartyMetis)
