@@ -401,6 +401,10 @@ ENDIF()
 
 INCLUDE (ThirdPartyPETSc)
 
+IF(THIRDPARTY_BUILD_PETSC AND THIRDPARTY_BUILD_BLAS_LAPACK)
+    MESSAGE(FATAL_ERROR " Can't build ThirdParty PETSc with ThirdParty BlasLapack")
+ENDIF()
+
 SET(Boost_USE_STATIC_LIBS OFF)
 IF( WIN32 )
     # The auto-linking feature has problems with USE_STATIC_LIBS off, so we use

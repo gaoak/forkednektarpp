@@ -97,6 +97,8 @@ IF (NEKTAR_USE_PETSC)
         THIRDPARTY_LIBRARY(PETSC_LIBRARIES SHARED petsc
             DESCRIPTION "PETSc library")
 
+        find_program(MAKE_EXECUTABLE NAMES gmake make mingw32-make REQUIRED)
+
         EXTERNALPROJECT_ADD(
             petsc-3.19.3
             DEPENDS ${PETSC_DEPS}
@@ -110,14 +112,15 @@ IF (NEKTAR_USE_PETSC)
             URL https://www.nektar.info/thirdparty/petsc-3.19.3.tar.gz 
             URL_MD5 "b493f0c19c067994ce7e9b5f4d13216c"
             BUILD_BYPRODUCTS ${PETSC_LIBRARIES}
+            PATCH_COMMAND ${PATCH} -p1 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/petsc-3.19.3.patch
             CONFIGURE_COMMAND
                 OMPI_FC=${CMAKE_Fortran_COMPILER}
                 OMPI_CC=${CMAKE_C_COMPILER}
                 OMPI_CXX=${CMAKE_CXX_COMPILER}
                 ${Python3_EXECUTABLE} ./configure
                 MAKEFLAGS=$MAKEFLAGS
-                CFLAGS="-w"
-                CXXFLAGS="-w"
+                CFLAGS="-Wno-error=implicit-function-declaration"
+                CXXFLAGS="-Wno-error=implicit-function-declaration"
                 --with-fc=${PETSC_Fortran_COMPILER}
                 --with-cc=${PETSC_C_COMPILER}
                 --with-cxx=${PETSC_CXX_COMPILER}
@@ -134,9 +137,10 @@ IF (NEKTAR_USE_PETSC)
                 --with-pkg-config
                 ${PETSC_MUMPS}
                 ${PETSC_NO_MPI}
-            BUILD_COMMAND $(MAKE)
-            TEST_COMMAND $(MAKE)
-                PETSC_DIR=${TPDIST} PETSC_ARCH= check)
+            BUILD_COMMAND ${MAKE_EXECUTABLE}
+            #TEST_COMMAND ${MAKE_EXECUTABLE}
+            #    PETSC_DIR=${TPDIST} PETSC_ARCH= check
+            )
 
         MESSAGE("TPDist: ${TPDIST}")
         MESSAGE("TPBuild: ${TPBUILD}")

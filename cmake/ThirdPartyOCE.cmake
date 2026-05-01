@@ -52,6 +52,8 @@ IF(NEKTAR_USE_MESHGEN)
         SET(FIND_OCC_QUIET OFF)
         INCLUDE(FindOCC)
     ELSE()
+        LIST(APPEND OCC_LIB_LIST TKIGES TKSTEPBase TKSTEPAttr TKSTEP209 TKSTEP TKXDESTEP TKSTL)
+
         SET(BUILD_OCE ON)
     ENDIF()
 
@@ -67,6 +69,14 @@ IF(NEKTAR_USE_MESHGEN)
 
         THIRDPARTY_LIBRARY(OCC_LIBRARIES SHARED ${OCC_LIB_LIST} DESCRIPTION "OpenCascade libs")
 
+        UNSET(PATCH CACHE)
+        FIND_PROGRAM(PATCH patch)
+        IF(NOT PATCH)
+            MESSAGE(FATAL_ERROR
+                "'patch' tool for modifying files not found. Cannot build boost-numpy.")
+        ENDIF()
+        MARK_AS_ADVANCED(PATCH)
+
         EXTERNALPROJECT_ADD(
             oce-0.18.3
             PREFIX ${TPSRC}
@@ -78,6 +88,7 @@ IF(NEKTAR_USE_MESHGEN)
             SOURCE_DIR ${TPSRC}/oce-0.18.3
             INSTALL_DIR ${TPBUILD}/oce-0.18.3/dist
             BUILD_BYPRODUCTS ${OCC_LIBRARIES}
+            PATCH_COMMAND ${PATCH} -p1 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/oce-0.18.3.patch
             CONFIGURE_COMMAND ${CMAKE_COMMAND}
                 -G ${CMAKE_GENERATOR}
                 -DCMAKE_C_COMPILER:FILEPATH=${CMAKE_C_COMPILER}

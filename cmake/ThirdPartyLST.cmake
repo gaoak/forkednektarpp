@@ -21,15 +21,15 @@ IF(NEKTAR_USE_LST)
         SHARED lst DESCRIPTION "Linear stability analysis library")
 
     EXTERNALPROJECT_ADD(
-        lst-0.1
+        lst-1.6
         URL                ${TPURL}/lst_v1.6.zip
         URL_MD5            5820c5c37016f036b0ecffe289b2f761
         PREFIX             ${TPSRC}
         STAMP_DIR          ${TPBUILD}/stamp
         DOWNLOAD_DIR       ${TPSRC}
-        SOURCE_DIR         ${TPSRC}/lst-0.1
-        BINARY_DIR         ${TPBUILD}/lst-0.1
-        TMP_DIR            ${TPBUILD}/lst-0.1-tmp
+        SOURCE_DIR         ${TPSRC}/lst-1.6
+        BINARY_DIR         ${TPBUILD}/lst-1.6
+        TMP_DIR            ${TPBUILD}/lst-1.6-tmp
         INSTALL_DIR        ${TPDIST}
         BUILD_BYPRODUCTS   ${LST_LIBRARY}
         
@@ -39,10 +39,10 @@ IF(NEKTAR_USE_LST)
         -DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER}
         -DCMAKE_INSTALL_LIBDIR:PATH=${TPDIST}/lib
         -DCMAKE_INSTALL_INCDIR:PATH=${TPDIST}/include
-        ${TPSRC}/lst-0.1)
+        ${TPSRC}/lst-1.6)
 
     INCLUDE_DIRECTORIES(${TPDIST}/include)
-    ADD_DEPENDENCIES(thirdparty lst-0.1)
+    ADD_DEPENDENCIES(thirdparty lst-1.6)
 
     MARK_AS_ADVANCED(LST_LIBRARY)
     MESSAGE(STATUS "Build LST: ${LST_LIBRARY}")

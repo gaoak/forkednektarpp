@@ -54,6 +54,9 @@ IF (NEKTAR_USE_FFTW)
             TMP_DIR ${TPBUILD}/fftw-3.2.2-tmp
             INSTALL_DIR ${TPDIST}
             BUILD_BYPRODUCTS ${FFTW_LIBRARY}
+	    PATCH_COMMAND
+	        cp ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/config.guess . &&
+	        cp ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/config.sub .
             CONFIGURE_COMMAND
                 CC=${CMAKE_C_COMPILER}
                 ${TPSRC}/fftw-3.2.2/configure

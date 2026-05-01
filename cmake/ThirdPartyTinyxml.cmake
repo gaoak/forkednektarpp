@@ -52,6 +52,7 @@ IF (THIRDPARTY_BUILD_TINYXML)
                 -DCMAKE_CXX_COMPILER:FILEPATH=${CMAKE_CXX_COMPILER}
                 -DCMAKE_INSTALL_PREFIX:PATH=${TPDIST}
                 -DCMAKE_CXX_FLAGS:STRING=-DTIXML_USE_STL
+                -DCMAKE_POSITION_INDEPENDENT_CODE=ON 
                 ${TPSRC}/tinyxml-2.6.2
             )
     ELSE()
@@ -74,6 +75,7 @@ IF (THIRDPARTY_BUILD_TINYXML)
                 -DCMAKE_CXX_COMPILER:FILEPATH=${CMAKE_CXX_COMPILER}
                 -DCMAKE_INSTALL_PREFIX:PATH=${TPDIST}
                 -DCMAKE_CXX_FLAGS:STRING=-DTIXML_USE_STL
+                -DCMAKE_POSITION_INDEPENDENT_CODE=ON 
                 ${TPSRC}/tinyxml-2.6.2
             )
     ENDIF()

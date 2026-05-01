@@ -39,6 +39,7 @@ v5.10.0
 - Fix unitialized variables in Collection and DriverParareal (!2521)
 - Remove MPI Finalize from Field destructor in FieldUtils (!2522)
 - Enforce command-in-line override of parameters in expression (!2525)
+- Fix ThirdParty build for Arpack, FFTW, LST, OCE, PETSc, TinyXML, VTK (!2530)
 
 **IncNavierStokesSolver**
 - Added an option to process Reynolds Stress fields at a higher polynomial order (!2303)

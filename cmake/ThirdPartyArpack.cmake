@@ -48,6 +48,7 @@ IF (NEKTAR_USE_ARPACK)
             CONFIGURE_COMMAND ${CMAKE_COMMAND}
                 -G ${CMAKE_GENERATOR}
                 -DCMAKE_Fortran_COMPILER:FILEPATH=${CMAKE_Fortran_COMPILER}
+                -DCMAKE_Fortran_FLAGS="-fallow-argument-mismatch"
                 -DCMAKE_INSTALL_PREFIX:PATH=${TPDIST}
                 -DCMAKE_INSTALL_LIBDIR:PATH=${TPDIST}/lib
                 -DBUILD_SHARED_LIBS:STRING=ON

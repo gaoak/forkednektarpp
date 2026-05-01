@@ -259,16 +259,21 @@ IF (NEKTAR_USE_CGNS)
 ENDIF (NEKTAR_USE_CGNS)
 
 IF (NEKTAR_USE_VTK)
-    IF (VTK_MAJOR_VERSION LESS 6)
-        TARGET_LINK_LIBRARIES(libNekMesh LINK_PUBLIC vtkCommon vtkIO vtkGraphics)
-    ELSEIF (VTK_MAJOR_VERSION  GREATER_EQUAL 9)
-        TARGET_LINK_LIBRARIES(libNekMesh LINK_PUBLIC VTK::CommonCore VTK::IOLegacy VTK::IOXML)
-        vtk_module_autoinit(
-            TARGETS libNekMesh
-            MODULES VTK::CommonCore VTK::IOLegacy VTK::IOXML)
-    ELSE ()
-	    TARGET_LINK_LIBRARIES(libNekMesh LINK_PUBLIC vtkCommonCore vtkIOLegacy vtkIOXML)
-    ENDIF ()
+    IF (THIRDPARTY_BUILD_VTK)
+        TARGET_LINK_LIBRARIES(libNekMesh LINK_PRIVATE ${VTK_LIBRARIES})
+        ADD_DEPENDENCIES(libNekMesh vtk-9.3.0)
+    ELSE()
+        IF (VTK_MAJOR_VERSION LESS 6)
+            TARGET_LINK_LIBRARIES(libNekMesh LINK_PUBLIC vtkCommon vtkIO vtkGraphics)
+        ELSEIF (VTK_MAJOR_VERSION  GREATER_EQUAL 9)
+            TARGET_LINK_LIBRARIES(libNekMesh LINK_PUBLIC VTK::CommonCore VTK::IOLegacy VTK::IOXML)
+            vtk_module_autoinit(
+                TARGETS libNekMesh
+                MODULES VTK::CommonCore VTK::IOLegacy VTK::IOXML)
+        ELSE ()
+                TARGET_LINK_LIBRARIES(libNekMesh LINK_PUBLIC vtkCommonCore vtkIOLegacy vtkIOXML)
+        ENDIF ()
+    ENDIF()
 ENDIF (NEKTAR_USE_VTK)
 
 IF (NEKTAR_BUILD_PYTHON)
