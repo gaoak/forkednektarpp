@@ -206,6 +206,7 @@ include:
   stage: quality-checks
   variables:
     WARNING_REGEX: '.*warning[: ].*'
+    IGNORE_REGEX: '(ThirdParty|AdaptiveCpp|jobserver unavailable)'
     GIT_STRATEGY: none
   before_script:
     - 'command -v ssh-agent >/dev/null || ( apt-get update -y && apt-get install openssh-client wget gnupg -y )'
@@ -221,10 +222,10 @@ include:
     - chmod 644 ~/.ssh/known_hosts
   script:
     - export JOBNAME=$(echo $CI_JOB_NAME | rev | cut -d- -f2- | rev)
-    - export LOGFILE=${CI_PIPELINE_ID}/${JOBNAME}/outfile.log
-    - if [ $(ssh $CLUSTER_USERNAME@$CLUSTER_HOSTNAME "grep -Ev '(ThirdParty|AdaptiveCpp)' ${LOGFILE} | grep -c \"$WARNING_REGEX\"") -ne 0 ];
+    - export LOG_FILE=${CI_PIPELINE_ID}/${JOBNAME}/outfile.log
+    - if [ $(ssh $CLUSTER_USERNAME@$CLUSTER_HOSTNAME "grep -Ev \"$IGNORE_REGEX\" ${LOG_FILE} | grep -c \"$WARNING_REGEX\"") -ne 0 ];
       then
-      ssh $CLUSTER_USERNAME@$CLUSTER_HOSTNAME "grep -Ev '(ThirdParty|AdaptiveCpp)' ${LOGFILE} | grep --colour=always -A 1 -B 1 -0 \"$WARNING_REGEX\"";
+      ssh $CLUSTER_USERNAME@$CLUSTER_HOSTNAME "grep -Ev \"$IGNORE_REGEX\" ${LOG_FILE} | grep --colour=always -A 1 -B 1 -0 \"$WARNING_REGEX\"";
         exit 1;
       fi
     - ssh $CLUSTER_USERNAME@$CLUSTER_HOSTNAME " rm -rf ${CI_PIPELINE_ID}/${JOBNAME}"
@@ -239,12 +240,13 @@ include:
   stage: quality-checks
   variables:
     WARNING_REGEX: '.*warning[: ].*'
+    IGNORE_REGEX: '(ThirdParty|AdaptiveCpp|jobserver unavailable)'
     GIT_STRATEGY: none
   script:
     - export OS=$(echo $CI_JOB_NAME | cut -d- -f 2)
     - export BUILD_TYPE=$(echo $CI_JOB_NAME | cut -d- -f 3)
     - export LOG_FILE="log/${OS}_${BUILD_TYPE}.log"
-    - if [ $(grep -c "$WARNING_REGEX" $LOG_FILE) -ne 0 ];
+    - if [ $(grep -Ev "$IGNORE_REGEX" $LOG_FILE | grep -c "$WARNING_REGEX") -ne 0 ];
       then
       grep --colour=always -A 1 -B 1 -0 "$WARNING_REGEX" $LOG_FILE;
         exit 1;

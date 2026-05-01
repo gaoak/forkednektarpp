@@ -34,7 +34,7 @@
 
 #include "ProfilerElmtOps.hpp"
 
-#if defined(NEKTAR_ENABLE_MAGMA)
+#if defined(NEKTAR_USE_MAGMA)
 #include "magma_v2.h"
 #endif
 
@@ -110,7 +110,7 @@
  */
 int main(int argc, char *argv[])
 {
-#ifdef NEKTAR_ENABLE_MAGMA
+#ifdef NEKTAR_USE_MAGMA
     magma_init();
 #endif
 
@@ -322,7 +322,7 @@ int main(int argc, char *argv[])
 
     session->Finalise();
 
-#ifdef NEKTAR_ENABLE_MAGMA
+#ifdef NEKTAR_USE_MAGMA
     magma_finalize();
 #endif
 }

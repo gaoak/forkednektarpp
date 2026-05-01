@@ -34,7 +34,7 @@
 
 #pragma once
 
-#if defined(NEKTAR_ENABLE_MAGMA)
+#if defined(NEKTAR_USE_MAGMA)
 #include "magma_v2.h"
 #endif
 
@@ -104,7 +104,7 @@ struct GlobalConfiguration
         [[maybe_unused]] char **argv =
             boost::unit_test::framework::master_test_suite().argv;
 
-#ifdef NEKTAR_ENABLE_MAGMA
+#ifdef NEKTAR_USE_MAGMA
         magma_init();
 #endif
 #ifdef NEKTAR_USE_MPI
@@ -155,7 +155,7 @@ struct GlobalConfiguration
 #ifdef NEKTAR_USE_MPI
         MPI_Finalize();
 #endif
-#ifdef NEKTAR_ENABLE_MAGMA
+#ifdef NEKTAR_USE_MAGMA
         magma_finalize();
 #endif
     }
