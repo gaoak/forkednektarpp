@@ -161,7 +161,7 @@ protected:
     /// Coordinate dimension
     int m_coordDim;
     /// Vector of all points in the zone
-    std::vector<PointGeomUniquePtr> m_verts;
+    std::vector<PointGeom *> m_verts;
     /// Vector of all curves in the zone
     std::vector<Curve *> m_curves;
     /// Vector of all points in the zone at initialisation

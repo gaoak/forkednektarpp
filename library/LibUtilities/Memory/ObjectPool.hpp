@@ -69,6 +69,7 @@ public:
 
     static void Deallocate(DataType *ptr)
     {
+        ptr->~DataType();
         return m_alloc.deallocate(ptr);
     }
 
