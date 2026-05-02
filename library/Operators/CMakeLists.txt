@@ -935,10 +935,16 @@ ADD_NEKTAR_LIBRARY(Operators
     SUMMARY "Nektar++ Operators library"
     DESCRIPTION "This library provides classes related to operators for Nektar++.")
 
+#ONEMATH
+IF(NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-HIP")
+    TARGET_LINK_LIBRARIES(Operators LINK_PUBLIC ${ONEMATH_LIBRARY})
+    ADD_DEPENDENCIES(Operators onemath-v0.9)
+ENDIF()
+
 #MAGMA
 IF(NEKTAR_USE_MAGMA)
     TARGET_LINK_LIBRARIES(Operators LINK_PUBLIC ${MAGMA_LIBRARY})
-    ADD_DEPENDENCIES(Operators libmagma)
+    ADD_DEPENDENCIES(Operators magma-v2.10.0)
 ENDIF()
 
 #LIBXSMM

@@ -304,9 +304,6 @@ IF (NEKTAR_BUILD_REDESIGN)
 
     IF (NEKTAR_ENABLE_SIMD)
         ADD_DEFINITIONS(-DNEKTAR_ENABLE_SIMD)
-        IF(_SYSTEM_PROCESSOR STREQUAL "x86_64")
-            INCLUDE (ThirdPartyLibXSMM)
-        ENDIF()
     ENDIF()
 
     SET(NEKTAR_ENABLE_DEVICE OFF CACHE STRING "")
@@ -359,6 +356,9 @@ ENDIF()
 ADD_CUSTOM_TARGET(thirdparty)
 
 # Need to find MPI first, as other packages depend on the compiler wrappers
+
+INCLUDE (ThirdPartyLibXSMM)
+INCLUDE (ThirdPartyOneMath)
 INCLUDE (ThirdPartyMAGMA)
 INCLUDE (ThirdPartyMPI)
 INCLUDE (ThirdPartyTinyxml)
