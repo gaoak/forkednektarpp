@@ -44,10 +44,10 @@ IF(NEKTAR_USE_MESHGEN)
             BINARY_DIR ${TPBUILD}/tetgen-1.5
             TMP_DIR ${TPBUILD}/tetgen-1.5-tmp
             INSTALL_DIR ${TPDIST}
-            PATCH_COMMAND ${PATCH} -p1 < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/tetgen-snprintf.patch
             BUILD_BYPRODUCTS ${TETGEN_LIBRARY}
+            PATCH_COMMAND ${PATCH} -p1 < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/tetgen-snprintf.patch
             CONFIGURE_COMMAND ${CMAKE_COMMAND}
-            -G ${CMAKE_GENERATOR}
+            ${NEKTAR_EXTERNAL_PROJECT_CMAKE_GENERATOR_ARGS}
             -DCMAKE_C_COMPILER:FILEPATH=${CMAKE_C_COMPILER}
             -DCMAKE_CXX_COMPILER:FILEPATH=${CMAKE_CXX_COMPILER}
             -DCMAKE_INSTALL_PREFIX:PATH=${TPDIST}

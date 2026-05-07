@@ -60,8 +60,11 @@ IF ( NEKTAR_USE_CWIPI )
                 CXX=${MPI_CXX_COMPILER}
                 FC=${MPI_Fortran_COMPILER}
                 ${CMAKE_COMMAND}
+                    ${NEKTAR_EXTERNAL_PROJECT_CMAKE_GENERATOR_ARGS}
                     -DCMAKE_INSTALL_PREFIX=${TPDIST}
                     ${TPSRC}/cwipi-0.11.1
+           BUILD_COMMAND ${CMAKE_MAKE_PROGRAM}
+           INSTALL_COMMAND ${CMAKE_MAKE_PROGRAM} install
         )
 
         SET(CWIPI_INCLUDE_DIR ${TPDIST}/include CACHE FILEPATH

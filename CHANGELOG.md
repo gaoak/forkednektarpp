@@ -41,6 +41,7 @@ v5.10.0
 - Enforce command-in-line override of parameters in expression (!2525)
 - Fix ThirdParty build for Arpack, FFTW, LST, OCE, PETSc, TinyXML, VTK (!2530)
 - Fix memory leak in ObjectPool (!2513)
+- Fix 3rdparty compilation with ninja/unix makefiles/macos/win (!2537) 
 
 **IncNavierStokesSolver**
 - Added an option to process Reynolds Stress fields at a higher polynomial order (!2303)

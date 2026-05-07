@@ -102,8 +102,9 @@ IF (THIRDPARTY_BUILD_BOOST)
     ENDFOREACH()
 
     IF (NOT WIN32)
-        # We need -fPIC for 64-bit builds
-        IF( CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64" )
+        # Build PIC-enabled libraries for non-Windows 64-bit targets,
+        # including arm64/aarch64.
+        IF (CMAKE_SIZEOF_VOID_P EQUAL 8)
             SET(BOOST_FLAGS cxxflags=-fPIC cflags=-fPIC linkflags=-fPIC)
         ENDIF ()
     ENDIF()
@@ -128,6 +129,8 @@ IF (THIRDPARTY_BUILD_BOOST)
             SET(TOOLSET_VERSION 14.1) # Visual Studio 2017
         ELSEIF (MSVC_VERSION GREATER 1919 AND MSVC_VERSION LESS 1930)
             SET(TOOLSET_VERSION 14.2) # Visual Studio 2019
+        ELSEIF (MSVC_VERSION GREATER 1929 AND MSVC_VERSION LESS 1940)
+            SET(TOOLSET_VERSION 14.3) # Visual Studio 2022
         ENDIF()
     ELSEIF(CMAKE_CXX_COMPILER_ID STREQUAL "Cray")
         SET(TOOLSET cray)
@@ -150,38 +153,58 @@ IF (THIRDPARTY_BUILD_BOOST)
         SET(TOOLSET_CMDLINE ${TOOLSET}-${TOOLSET_VERSION})
     ENDIF()
 
+    UNSET(BOOST_URL_MD5)
     IF (BOOST_MIN_VERSION STREQUAL "1.60.0")
         SET(BOOST_URL "${TPURL}/boost_1_71_0.tar.bz2")
+        SET(BOOST_BUILD_VERSION "1.71.0")
         SET(BOOST_URL_MD5 "4cdf9b5c2dc01fb2b7b733d5af30e558")
     ELSEIF(BOOST_MIN_VERSION STREQUAL "1.76.0")
         SET(BOOST_URL "${TPURL}/boost_1_76_0.tar.bz2")
+        SET(BOOST_BUILD_VERSION "1.76.0")
+        SET(BOOST_URL_MD5 "33334dd7f862e8ac9fe1cc7c6584fb6d")
     ELSEIF(BOOST_MIN_VERSION STREQUAL "1.82.0")
         SET(BOOST_URL "${TPURL}/boost_1_82_0.tar.bz2")
+        SET(BOOST_BUILD_VERSION "1.82.0")
+        SET(BOOST_URL_MD5 "b45dac8b54b58c087bfbed260dbfc03a")
     ENDIF()
 
-    # Set up CMake variables
+    UNSET(BOOST_BYPRODUCTS)
     FOREACH(BOOSTLIB ${NEEDED_BOOST_LIBS})
-        STRING(TOUPPER ${BOOSTLIB} BOOSTLIB_UPPER)
-        THIRDPARTY_LIBRARY(Boost_${BOOSTLIB_UPPER}_LIBRARY
-            SHARED boost_${BOOSTLIB} DESCRIPTION "Boost ${BOOSTLIB} library")
-        MARK_AS_ADVANCED(Boost_${BOOSTLIB_UPPER}_LIBRARY)
-        LIST(APPEND Boost_LIBRARIES ${Boost_${BOOSTLIB_UPPER}_LIBRARY})
+        LIST(APPEND BOOST_BYPRODUCTS
+            "${TPDIST}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}boost_${BOOSTLIB}${CMAKE_SHARED_LIBRARY_SUFFIX}"
+            "${TPDIST}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}boost_${BOOSTLIB}${CMAKE_SHARED_LIBRARY_SUFFIX}.${BOOST_BUILD_VERSION}")
     ENDFOREACH()
+
+    SET(BOOST_EXTERNALPROJECT_ARGS
+        PREFIX ${TPSRC}
+        URL ${BOOST_URL}
+        URL_MD5 ${BOOST_URL_MD5}
+        STAMP_DIR ${TPBUILD}/stamp
+        DOWNLOAD_DIR ${TPSRC}
+        SOURCE_DIR ${TPBUILD}/boost
+        BINARY_DIR ${TPBUILD}/boost
+        TMP_DIR ${TPBUILD}/boost-tmp
+        INSTALL_DIR ${TPDIST}
+    )
+
+    UNSET(PATCH CACHE)
+    FIND_PROGRAM(PATCH patch)
+    IF(NOT PATCH)
+        MESSAGE(FATAL_ERROR
+            "'patch' tool for modifying files not found. Cannot build boost-numpy.")
+    ENDIF()
+    MARK_AS_ADVANCED(PATCH)
+
+    IF (BOOST_MIN_VERSION STREQUAL "1.60.0")
+       LIST(APPEND BOOST_EXTERNALPROJECT_ARGS PATCH_COMMAND ${PATCH} -p0 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/boost-1.71.0.patch)
+    ENDIF()
 
     IF (NOT WIN32)
         EXTERNALPROJECT_ADD(
             boost
-            PREFIX ${TPSRC}
-            URL ${BOOST_URL}
-            URL_MD5 ${BOOST_URL_MD5}
-            STAMP_DIR ${TPBUILD}/stamp
-            DOWNLOAD_DIR ${TPSRC}
-            SOURCE_DIR ${TPBUILD}/boost
-            BINARY_DIR ${TPBUILD}/boost
-            TMP_DIR ${TPBUILD}/boost-tmp
-            INSTALL_DIR ${TPDIST}
+            ${BOOST_EXTERNALPROJECT_ARGS}
             CONFIGURE_COMMAND ./bootstrap.sh
-            BUILD_BYPRODUCTS ${Boost_LIBRARIES}
+            BUILD_BYPRODUCTS ${BOOST_BYPRODUCTS}
             BUILD_COMMAND NO_BZIP2=1 ./b2
                 variant=release
                 link=shared
@@ -203,17 +226,9 @@ IF (THIRDPARTY_BUILD_BOOST)
                 MESSAGE(STATUS "Windows MSVC build - address model is: ${ADDRESS_MODEL}")
         EXTERNALPROJECT_ADD(
             boost
-            PREFIX ${TPSRC}
-            URL ${BOOST_URL}
-            URL_MD5 ${BOOST_URL_MD5}
-            STAMP_DIR ${TPBUILD}/stamp
-            DOWNLOAD_DIR ${TPSRC}
-            SOURCE_DIR ${TPBUILD}/boost
-            BINARY_DIR ${TPBUILD}/boost
-            TMP_DIR ${TPBUILD}/boost-tmp
-            INSTALL_DIR ${TPDIST}
+            ${BOOST_EXTERNALPROJECT_ARGS}
             CONFIGURE_COMMAND call bootstrap.bat
-            BUILD_BYPRODUCTS ${Boost_LIBRARIES}
+            BUILD_BYPRODUCTS ${BOOST_BYPRODUCTS}
             BUILD_COMMAND b2 variant=release
                 toolset=${TOOLSET_CMDLINE}
                 address-model=${ADDRESS_MODEL}
@@ -238,13 +253,19 @@ IF (THIRDPARTY_BUILD_BOOST)
             DEPENDEES download)
     ENDIF (APPLE)
 
-    # Write to jamfile to use appropriate toolset.
-    SET(cmd_string "using ${TOOLSET} : ${TOOLSET_VERSION}")
-    SET(cmd_string "${cmd_string} : ${CMAKE_CXX_COMPILER} $<SEMICOLON>")
+    # Write a deterministic toolchain file for the Boost bootstrap.
+    SET(cmd_string "using ${TOOLSET}")
+    IF (NOT TOOLSET_VERSION STREQUAL "")
+        STRING(APPEND cmd_string " : ${TOOLSET_VERSION}")
+    ENDIF()
+    STRING(APPEND cmd_string " : ${CMAKE_CXX_COMPILER} ;\n")
+    SET(BOOST_USER_CONFIG_JAM "${TPBUILD}/boost-user-config.jam")
+    FILE(GENERATE OUTPUT "${BOOST_USER_CONFIG_JAM}" CONTENT "${cmd_string}")
 
     IF (UNIX)
         EXTERNALPROJECT_ADD_STEP(boost conf-project-conf
-            COMMAND cmake -E echo "${cmd_string}" >
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${BOOST_USER_CONFIG_JAM}
                 ${TPBUILD}/boost/tools/build/src/user-config.jam
             DEPENDERS build
             DEPENDEES configure)
@@ -255,9 +276,18 @@ IF (THIRDPARTY_BUILD_BOOST)
         ADD_DEPENDENCIES(boost zlib-1.2.9)
     ENDIF(THIRDPARTY_BUILD_ZLIB)
 
-    SET(Boost_INCLUDE_DIRS ${TPSRC}/dist/include)
+    # Set up CMake variables
+    FOREACH(BOOSTLIB ${NEEDED_BOOST_LIBS})
+        STRING(TOUPPER ${BOOSTLIB} BOOSTLIB_UPPER)
+        THIRDPARTY_LIBRARY(Boost_${BOOSTLIB_UPPER}_LIBRARY
+            SHARED boost_${BOOSTLIB} DESCRIPTION "Boost ${BOOSTLIB} library")
+        MARK_AS_ADVANCED(Boost_${BOOSTLIB_UPPER}_LIBRARY)
+        LIST(APPEND Boost_LIBRARIES ${Boost_${BOOSTLIB_UPPER}_LIBRARY})
+    ENDFOREACH()
+
+    SET(Boost_INCLUDE_DIRS ${TPDIST}/include)
     SET(Boost_CONFIG_INCLUDE_DIR ${TPINC})
-    SET(Boost_LIBRARY_DIRS ${TPSRC}/dist/lib)
+    SET(Boost_LIBRARY_DIRS ${TPDIST}/lib)
     SET(Boost_CONFIG_LIBRARY_DIR ${TPLIB})
 
     INCLUDE_DIRECTORIES(SYSTEM ${TPDIST}/include)

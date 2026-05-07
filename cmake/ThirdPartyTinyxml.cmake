@@ -26,11 +26,9 @@ OPTION(THIRDPARTY_BUILD_TINYXML
 IF (THIRDPARTY_BUILD_TINYXML)
     INCLUDE(ExternalProject)
 
-    THIRDPARTY_LIBRARY(TINYXML_LIBRARY STATIC tinyxml DESCRIPTION "TinyXML library")
+    find_program(PATCH patch)
 
-    find_program(HAS_PATCH patch)
-
-    IF(HAS_PATCH)
+    IF(PATCH)
         EXTERNALPROJECT_ADD(
             tinyxml-2.6.2
             PREFIX ${TPSRC}
@@ -42,18 +40,21 @@ IF (THIRDPARTY_BUILD_TINYXML)
             BINARY_DIR ${TPBUILD}/tinyxml-2.6.2
             TMP_DIR ${TPBUILD}/tinyxml-2.6.2-tmp
             INSTALL_DIR ${TPDIST}
-            PATCH_COMMAND patch -d ${TPSRC}/tinyxml-2.6.2 -o tmp < ${CMAKE_SOURCE_DIR}/cmake/scripts/tinyxml.patch
+            PATCH_COMMAND ${PATCH} -d ${TPSRC}/tinyxml-2.6.2 -o tmp < ${CMAKE_SOURCE_DIR}/cmake/scripts/tinyxml.patch
             COMMAND ${CMAKE_COMMAND} -E copy ${TPSRC}/tinyxml-2.6.2/tmp ${TPSRC}/tinyxml-2.6.2/tinyxmlparser.cpp
             COMMAND ${CMAKE_COMMAND} -E remove ${TPSRC}/tinyxml-2.6.2/tmp
-            BUILD_BYPRODUCTS ${TINYXML_LIBRARY}
             CONFIGURE_COMMAND ${CMAKE_COMMAND}
-                -G ${CMAKE_GENERATOR}
+                ${NEKTAR_EXTERNAL_PROJECT_CMAKE_GENERATOR_ARGS}
                 -DCMAKE_C_COMPILER:FILEPATH=${CMAKE_C_COMPILER}
                 -DCMAKE_CXX_COMPILER:FILEPATH=${CMAKE_CXX_COMPILER}
                 -DCMAKE_INSTALL_PREFIX:PATH=${TPDIST}
                 -DCMAKE_CXX_FLAGS:STRING=-DTIXML_USE_STL
                 -DCMAKE_POSITION_INDEPENDENT_CODE=ON 
                 ${TPSRC}/tinyxml-2.6.2
+            BUILD_BYPRODUCTS
+                ${TPDIST}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}tinyxml${CMAKE_STATIC_LIBRARY_SUFFIX}
+                ${TPDIST}/include/tinystr.h
+                ${TPDIST}/include/tinyxml.h
             )
     ELSE()
         MESSAGE(STATUS "patch utility not found, cannot apply patch to tinyxml, Nektar++ will still function")
@@ -68,9 +69,12 @@ IF (THIRDPARTY_BUILD_TINYXML)
             BINARY_DIR ${TPBUILD}/tinyxml-2.6.2
             TMP_DIR ${TPBUILD}/tinyxml-2.6.2-tmp
             INSTALL_DIR ${TPDIST}
-            BUILD_BYPRODUCTS ${TINYXML_LIBRARY}
+            BUILD_BYPRODUCTS
+                ${TPDIST}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}tinyxml${CMAKE_STATIC_LIBRARY_SUFFIX}
+                ${TPDIST}/include/tinystr.h
+                ${TPDIST}/include/tinyxml.h
             CONFIGURE_COMMAND ${CMAKE_COMMAND}
-                -G ${CMAKE_GENERATOR}
+                ${NEKTAR_EXTERNAL_PROJECT_CMAKE_GENERATOR_ARGS}
                 -DCMAKE_C_COMPILER:FILEPATH=${CMAKE_C_COMPILER}
                 -DCMAKE_CXX_COMPILER:FILEPATH=${CMAKE_CXX_COMPILER}
                 -DCMAKE_INSTALL_PREFIX:PATH=${TPDIST}
@@ -80,6 +84,7 @@ IF (THIRDPARTY_BUILD_TINYXML)
             )
     ENDIF()
 
+    THIRDPARTY_LIBRARY(TINYXML_LIBRARY STATIC tinyxml DESCRIPTION "TinyXML library")
     SET(TINYXML_INCLUDE_DIR ${TPDIST}/include CACHE FILEPATH
         "TinyXML include" FORCE)
     MESSAGE(STATUS "Build TinyXML: ${TINYXML_LIBRARY}")

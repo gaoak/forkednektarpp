@@ -46,11 +46,11 @@ IF (NEKTAR_USE_SCOTCH)
         SET(SCOTCH_SRC ${TPBUILD}/scotch-6.0.4/src)
 
         IF (APPLE)
-            SET(SCOTCH_MAKE Makefile.inc.i686_mac_darwin8)
+            SET(SCOTCH_MAKE Makefile.inc.i686_mac_darwin10)
             SET(SCOTCH_LDFLAGS "")
             SET(SCOTCH_CFLAGS "-w -O3 -Drestrict=__restrict -DCOMMON_PTHREAD -DCOMMON_RANDOM_FIXED_SEED -DCOMMON_TIMING_OLD -DSCOTCH_RENAME -DCOMMON_PTHREAD_BARRIER")
         ELSE ()
-            IF (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+            IF (CMAKE_SIZEOF_VOID_P EQUAL 8)
                 SET(SCOTCH_MAKE Makefile.inc.x86-64_pc_linux2)
                 SET(SCOTCH_CFLAGS "-w -O3 -DCOMMON_FILE_COMPRESS_GZ -DCOMMON_PTHREAD -DCOMMON_RANDOM_FIXED_SEED -DSCOTCH_RENAME -Drestrict=__restrict -DIDXSIZE64")
             ELSE ()
@@ -82,16 +82,21 @@ IF (NEKTAR_USE_SCOTCH)
         ENDIF()
         MARK_AS_ADVANCED(PATCH)
 
-        THIRDPARTY_LIBRARY(SCOTCH_LIBRARY STATIC scotch
-            DESCRIPTION "Scotch library")
-        THIRDPARTY_LIBRARY(SCOTCHERR_LIBRARY STATIC scotcherr
-            DESCRIPTION "Scotch error library")
-        THIRDPARTY_LIBRARY(PTSCOTCH_LIBRARY STATIC ptscotch;scotch
-            DESCRIPTION "PT-Scotch library")
-        THIRDPARTY_LIBRARY(PTSCOTCHERR_LIBRARY STATIC ptscotcherr
-            DESCRIPTION "PT-Scotch error library")
+        FIND_PROGRAM(SCOTCH_MAKE_EXECUTABLE NAMES gmake make mingw32-make REQUIRED)
+        MARK_AS_ADVANCED(SCOTCH_MAKE_EXECUTABLE)
 
-        find_program(MAKE_EXECUTABLE NAMES gmake make mingw32-make REQUIRED)
+        SET(SCOTCH_BUILD_BYPRODUCTS
+            ${TPDIST}/include/scotch.h
+            ${TPDIST}/include/scotchf.h
+            ${TPDIST}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}scotch${CMAKE_STATIC_LIBRARY_SUFFIX}
+            ${TPDIST}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}scotcherr${CMAKE_STATIC_LIBRARY_SUFFIX}
+        )
+        IF (NEKTAR_USE_MPI)
+            LIST(APPEND SCOTCH_BUILD_BYPRODUCTS
+                ${TPDIST}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}ptscotch${CMAKE_STATIC_LIBRARY_SUFFIX}
+                ${TPDIST}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}ptscotcherr${CMAKE_STATIC_LIBRARY_SUFFIX}
+            )
+        ENDIF()
 
         INCLUDE(ExternalProject)
         EXTERNALPROJECT_ADD(
@@ -105,13 +110,13 @@ IF (NEKTAR_USE_SCOTCH)
             BINARY_DIR ${TPBUILD}/scotch-6.0.4
             TMP_DIR ${TPBUILD}/scotch-6.0.4-tmp
             INSTALL_DIR ${TPDIST}
+            BUILD_BYPRODUCTS ${SCOTCH_BUILD_BYPRODUCTS}
             CONFIGURE_COMMAND rm -f ${SCOTCH_SRC}/Makefile.inc
-            COMMAND ln -s
+            COMMAND ${CMAKE_COMMAND} -E create_symlink
                 ${SCOTCH_SRC}/Make.inc/${SCOTCH_MAKE}
                 ${SCOTCH_SRC}/Makefile.inc
-            PATCH_COMMAND ${PATCH} -p0 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/scotch-6_0_4-implicit-function.patch
-            BUILD_BYPRODUCTS ${SCOTCHERR_LIBRARY} ${PTSCOTCH_LIBRARY} ${PTSCOTCHERR_LIBRARY}
-            BUILD_COMMAND ${MAKE_EXECUTABLE} -C ${SCOTCH_SRC}
+            COMMAND ${PATCH} -p0 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/scotch-6_0_4-implicit-function.patch
+            BUILD_COMMAND ${SCOTCH_MAKE_EXECUTABLE} -C ${SCOTCH_SRC}
                 "CFLAGS=-I${TPDIST}/include ${SCOTCH_CFLAGS}"
                 "LDFLAGS=-L${TPDIST}/lib ${SCOTCH_LDFLAGS}"
                 "CLIBFLAGS=-fPIC"
@@ -119,13 +124,15 @@ IF (NEKTAR_USE_SCOTCH)
                 "CCD=${SCOTCH_C_COMPILER}"
                 "YACC=bison -pscotchyy -y -b y -Wno-yacc"
                 ${SCOTCH_BUILD_TARGET}
-            INSTALL_COMMAND ${MAKE_EXECUTABLE} -C ${SCOTCH_SRC}
+            INSTALL_COMMAND ${SCOTCH_MAKE_EXECUTABLE} -C ${SCOTCH_SRC}
                 prefix=${TPDIST} install
         )
 
-        EXEC_PROGRAM( flex
-            ARGS --version
+        EXECUTE_PROCESS(
+            COMMAND ${FLEX} --version
             OUTPUT_VARIABLE FLEX_VERSION
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET
         )
 
         # PATCH USED TO SOLVE COMPILATION ERROR (undefined reference to `scotchyywrap') 
@@ -139,6 +146,14 @@ IF (NEKTAR_USE_SCOTCH)
                 DEPENDEES patch)
         ENDIF()
 
+        THIRDPARTY_LIBRARY(SCOTCH_LIBRARY STATIC scotch
+            DESCRIPTION "Scotch library")
+        THIRDPARTY_LIBRARY(SCOTCHERR_LIBRARY STATIC scotcherr
+            DESCRIPTION "Scotch error library")
+        THIRDPARTY_LIBRARY(PTSCOTCH_LIBRARY STATIC ptscotch;scotch
+            DESCRIPTION "PT-Scotch library")
+        THIRDPARTY_LIBRARY(PTSCOTCHERR_LIBRARY STATIC ptscotcherr
+            DESCRIPTION "PT-Scotch error library")
         SET(SCOTCH_INCLUDE_DIR ${TPDIST}/include CACHE FILEPATH
             "Scotch include directory" FORCE)
         SET(SCOTCH_LIBRARY_DIR ${TPDIST}/lib CACHE FILEPATH

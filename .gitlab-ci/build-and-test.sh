@@ -25,6 +25,7 @@ echo "  - NUM_CPUS                : $NUM_CPUS"
 echo "  - OS_VERSION              : $OS_VERSION"
 echo "  - PYTHON_EXECUTABLE       : $PYTHON_EXECUTABLE"
 echo "  - USE_NINJA               : $USE_NINJA"
+echo "  - BUILD_DIR               : $BUILD_DIR"
 
 # Use ninja for builds: defaults to true
 if [[ $USE_NINJA == "true" ]]; then
@@ -164,7 +165,11 @@ if [[ $PYTHON_EXECUTABLE != "" ]]; then
     CMAKEARGS+=("-DPython3_EXECUTABLE=${PYTHON_EXECUTABLE}")
 fi
 
-rm -rf build && mkdir -p build && (cd build && cmake "${CMAKEARGS[@]}" ..)
+# Clean setup of build directory
+if [[ $BUILD_DIR == "" ]]; then
+    BUILD_DIR=build
+fi
+rm -rf $BUILD_DIR && mkdir -p $BUILD_DIR && (cd $BUILD_DIR && cmake "${CMAKEARGS[@]}" ..)
 
 if [[ $DISABLE_MCA != "" ]]; then
     export OMPI_MCA_btl_base_warn_component_unused=0
@@ -173,12 +178,12 @@ fi
 if [[ $EXPORT_COMPILE_COMMANDS != "" ]]; then
     # If we are just exporting compile commands for clang-tidy, just build any
     # third-party dependencies that we need.
-    $MAKE_EXEC -C build -j $NUM_CPUS thirdparty 2>&1
+    $MAKE_EXEC -C $BUILD_DIR -j $NUM_CPUS thirdparty 2>&1
     exit_code=$?
 else
     # Otherwise build and test the code.
-    $MAKE_EXEC -C build -j $NUM_CPUS all 2>&1 && $MAKE_EXEC -C build -j $NUM_CPUS install && \
-        (cd build && ctest -j $TEST_JOBS --output-on-failure)
+    $MAKE_EXEC -C $BUILD_DIR -j $NUM_CPUS all 2>&1 && $MAKE_EXEC -C $BUILD_DIR -j $NUM_CPUS install && \
+        (cd $BUILD_DIR && ctest -j $TEST_JOBS --output-on-failure)
     exit_code=$?
 
     # Build coverage
@@ -194,6 +199,6 @@ else
 fi
 
 if [[ $exit_code -ne 0 ]]; then
-    [[ $OS_VERSION != "macos" ]] && rm -rf build/dist
+    [[ $OS_VERSION != "macos" ]] && rm -rf $BUILD_DIR/dist
     exit $exit_code
 fi

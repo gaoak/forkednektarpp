@@ -46,7 +46,7 @@ IF (NEKTAR_USE_ARPACK)
             INSTALL_DIR ${TPDIST}
             BUILD_BYPRODUCTS ${ARPACK_LIBRARY}
             CONFIGURE_COMMAND ${CMAKE_COMMAND}
-                -G ${CMAKE_GENERATOR}
+                ${NEKTAR_EXTERNAL_PROJECT_CMAKE_GENERATOR_ARGS}
                 -DCMAKE_Fortran_COMPILER:FILEPATH=${CMAKE_Fortran_COMPILER}
                 -DCMAKE_Fortran_FLAGS="-fallow-argument-mismatch"
                 -DCMAKE_INSTALL_PREFIX:PATH=${TPDIST}
@@ -64,5 +64,4 @@ IF (NEKTAR_USE_ARPACK)
 
     ADD_DEPENDENCIES(thirdparty arpack-ng-1.0)
 ENDIF()
-
 

@@ -80,10 +80,10 @@ IF( NEKTAR_USE_CGNS )
        	    BINARY_DIR ${TPBUILD}/cgns-4.4
        	    TMP_DIR ${TPBUILD}/cgns-4.4-tmp
        	    INSTALL_DIR ${TPDIST}
-            PATCH_COMMAND ${PATCH} -p1 < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/cgns-hdf5-prefer-parallel.patch
             BUILD_BYPRODUCTS ${CGNS_LIBRARY}
+            PATCH_COMMAND ${PATCH} -p1 < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/cgns-hdf5-prefer-parallel.patch
        	    CONFIGURE_COMMAND ${CMAKE_COMMAND} 
-            -G ${CMAKE_GENERATOR}
+            ${NEKTAR_EXTERNAL_PROJECT_CMAKE_GENERATOR_ARGS}
             -DCMAKE_INSTALL_PREFIX:PATH=${TPDIST} 
             -DCMAKE_C_FLAGS=${WARNING_FLAGS}
             -DBUILD_SHARED_LIBS:BOOL=ON
@@ -106,5 +106,4 @@ IF( NEKTAR_USE_CGNS )
     MARK_AS_ADVANCED(CGNS_DIR)
     MARK_AS_ADVANCED(CGNS_INCLUDE_DIR)
 ENDIF( NEKTAR_USE_CGNS )
-
 
