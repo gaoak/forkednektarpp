@@ -141,7 +141,7 @@ include:
 .cluster-submit-template: &cluster-submit-template
   <<: *execution-conditions
   stage: cluster-submit
-  image: ubuntu
+  image: ubuntu:24.04
   before_script:
     - 'command -v ssh-agent >/dev/null || ( apt-get update -y && apt-get install openssh-client wget gnupg -y )'
     ## Run ssh-agent
@@ -166,7 +166,7 @@ include:
 .cluster-post-process-template: &cluster-post-process-template
   <<: *execution-conditions
   stage: cluster-post-process
-  image: ubuntu
+  image: ubuntu:24.04
   when: manual 
   before_script:
     - 'command -v ssh-agent >/dev/null || ( apt-get update -y && apt-get install openssh-client wget gnupg -y )'
@@ -202,7 +202,7 @@ include:
 
 .cluster-compiler-warning-template: &cluster-compiler-warning-template
   <<: *execution-conditions
-  image: ubuntu
+  image: ubuntu:24.04
   stage: quality-checks
   variables:
     WARNING_REGEX: '.*warning[: ].*'
@@ -947,7 +947,12 @@ ubuntu-noble-full-cuda-cluster-submit:
   needs: []
   variables:
     BUILD_DEVICE: CUDA
-    APPTAINER_FLAGS: "--nv --mount type=bind,src=/apps,dst=/apps"
+    APPTAINER_FLAGS: "--cleanenv --nv --mount type=bind,src=/apps,dst=/apps \
+                      --bind /etc/profile.d/modules.sh:/etc/profile.d/modules.sh \
+                      --bind /usr/share/modules:/usr/share/modules \
+                      --bind /usr/lib/x86_64-linux-gnu/modulecmd.tcl:/usr/lib/x86_64-linux-gnu/modulecmd.tcl \
+                      --env MODULEPATH=/apps/modules/ \
+                      --env MODULES_CMD=/usr/share/modules/libexec/modulecmd.tcl"
 
 ubuntu-noble-full-acpp-cuda-cluster-submit:
   <<: *cluster-submit-template
@@ -956,7 +961,12 @@ ubuntu-noble-full-acpp-cuda-cluster-submit:
     DISABLE_CWIPI: true
     BUILD_CXX: acpp
     BUILD_DEVICE: SYCL-CUDA
-    APPTAINER_FLAGS: "--nv --mount type=bind,src=/apps,dst=/apps"
+    APPTAINER_FLAGS: "--cleanenv --nv --mount type=bind,src=/apps,dst=/apps \
+                      --bind /etc/profile.d/modules.sh:/etc/profile.d/modules.sh \
+                      --bind /usr/share/modules:/usr/share/modules \
+                      --bind /usr/lib/x86_64-linux-gnu/modulecmd.tcl:/usr/lib/x86_64-linux-gnu/modulecmd.tcl \
+                      --env MODULEPATH=/apps/modules/ \
+                      --env MODULES_CMD=/usr/share/modules/libexec/modulecmd.tcl"
 
 ##################################################
 ############# CLUSTER POST-PROCESS ###############
