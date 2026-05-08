@@ -316,14 +316,27 @@ public:
             domainBlocks.size(),
             std::vector<std::vector<TData>>(domainBlocks.size()));
 
+        auto expContField = std::dynamic_pointer_cast<MultiRegions::ContField>(
+            this->m_expansionList);
+
         for (unsigned int nc = 0; nc < nComp; ++nc)
         {
-            MultiRegions::ContField compfield(session, graph, components[nc],
-                                              true, false,
-                                              Collections::eNoCollection);
-            auto &assmbMap = compfield.GetLocalToGlobalMap();
-            auto &sign     = assmbMap->GetBndCondCoeffsToLocalCoeffsSign();
-            auto &map      = assmbMap->GetBndCondCoeffsToLocalCoeffsMap();
+            MultiRegions::AssemblyMapCGSharedPtr assmbMap;
+            if (expContField &&
+                expContField->GetLocalToGlobalMap()->GetVariable() ==
+                    components[nc])
+            {
+                assmbMap = expContField->GetLocalToGlobalMap();
+            }
+            else
+            {
+                MultiRegions::ContField compfield(session, graph,
+                                                  components[nc], true, false,
+                                                  Collections::eNoCollection);
+                assmbMap = compfield.GetLocalToGlobalMap();
+            }
+            auto &sign = assmbMap->GetBndCondCoeffsToLocalCoeffsSign();
+            auto &map  = assmbMap->GetBndCondCoeffsToLocalCoeffsMap();
             auto &parallelDirBndSign = assmbMap->GetParallelDirBndSign();
             m_signChange[nc]         = assmbMap->GetSignChange();
 

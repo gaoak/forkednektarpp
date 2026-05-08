@@ -70,10 +70,12 @@ TEST_FWDTRANS(fwdtrans_hex, Helmholtz3D_Hex, 5.0E-08)
 TEST_FWDTRANS(fwdtrans_hex_3c, Helmholtz3D_Hex_3C, 6.0E-08)
 
 TEST_FWDTRANS(fwdtrans_prism, Helmholtz3D_Prism, 1.0E-08)
+TEST_FWDTRANS(fwdtrans_prism_3c, Helmholtz3D_Prism_3C, 1.0E-08)
 
 TEST_FWDTRANS(fwdtrans_pyr, Helmholtz3D_Pyr, 1.0E-08)
 
 TEST_FWDTRANS(fwdtrans_tet, Helmholtz3D_Tet, 5.0E-08)
+TEST_FWDTRANS(fwdtrans_tet_3c, Helmholtz3D_Tet_3C, 5.0E-08)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

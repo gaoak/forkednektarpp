@@ -304,12 +304,25 @@ public:
         std::vector<std::vector<TData>> signBlockByBlk(domainBlocks.size());
         std::vector<std::vector<TData>> bndCoeffBlockByBlk(domainBlocks.size());
 
+        auto expContField = std::dynamic_pointer_cast<MultiRegions::ContField>(
+            this->m_expansionList);
+
         for (unsigned int nc = 0; nc < nComp; ++nc)
         {
-            MultiRegions::ContField compfield(session, graph, components[nc],
-                                              true, false,
-                                              Collections::eNoCollection);
-            auto &assmbMap   = compfield.GetLocalToGlobalMap();
+            MultiRegions::AssemblyMapCGSharedPtr assmbMap;
+            if (expContField &&
+                expContField->GetLocalToGlobalMap()->GetVariable() ==
+                    components[nc])
+            {
+                assmbMap = expContField->GetLocalToGlobalMap();
+            }
+            else
+            {
+                MultiRegions::ContField compfield(session, graph,
+                                                  components[nc], true, false,
+                                                  Collections::eNoCollection);
+                assmbMap = compfield.GetLocalToGlobalMap();
+            }
             auto &sign       = assmbMap->GetBndCondCoeffsToLocalCoeffsSign();
             auto &map        = assmbMap->GetBndCondCoeffsToLocalCoeffsMap();
             m_signChange[nc] = assmbMap->GetSignChange();

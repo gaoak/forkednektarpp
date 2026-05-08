@@ -242,7 +242,9 @@ TEST(Helmholtz3D_Hex, "run/Helmholtz3D_Hex_Heterogeneous.xml")
 TEST(Helmholtz3D_Hex_3C, "run/Helmholtz3D_Hex_3C.xml")
 
 TEST(Helmholtz3D_Prism, "run/Helmholtz3D_Prism_VarP.xml")
+TEST(Helmholtz3D_Prism_3C, "run/Helmholtz3D_Prism_3C.xml")
 
 TEST(Helmholtz3D_Pyr, "run/Helmholtz3D_Pyr_VarP.xml")
 
 TEST(Helmholtz3D_Tet, "run/Helmholtz3D_Tet_VarP.xml")
+TEST(Helmholtz3D_Tet_3C, "run/Helmholtz3D_Tet_3C.xml")

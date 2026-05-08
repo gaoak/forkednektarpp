@@ -81,10 +81,13 @@ TEST_DIRICHLET(dirichlet2d_tri_quad_3c_mixedbc, Helmholtz2D_Tri_Quad_3C_mixedBC,
 TEST_DIRICHLET(dirichlet3d_hex, Helmholtz3D_Hex, 1.0E-12)
 
 TEST_DIRICHLET(dirichlet3d_prism, Helmholtz3D_Prism, 1.0E-12)
+TEST_DIRICHLET(dirichlet3d_couette_prism, CouetteFlow3D_Prism, 1.0E-12)
 
 TEST_DIRICHLET(dirichlet3d_pyr, Helmholtz3D_Pyr, 1.0E-12)
 
 TEST_DIRICHLET(dirichlet3d_tet, Helmholtz3D_Tet, 1.0E-12)
+TEST_DIRICHLET(dirichlet3d_uniform_tet, UniformFlow3D_Tet, 1.0E-12)
+TEST_DIRICHLET(dirichlet3d_channel_tet, ChannelFlow3D_Tet, 1.0E-12)
 
 TEST_DIRICHLET(dirichlet3d_hex_allbcs, Helmholtz3D_Hex_AllBCs, 1.0E-12)
 
