@@ -26,23 +26,25 @@ IF (NEKTAR_ENABLE_SIMD AND _SYSTEM_PROCESSOR STREQUAL "x86_64")
 
         THIRDPARTY_LIBRARY(LIBXSMM_LIBRARY STATIC xsmm DESCRIPTION "libxsmm library")
 
-        FIND_PROGRAM(MAKE_EXECUTABLE NAMES gmake make mingw32-make REQUIRED)
-        EXTERNALPROJECT_ADD(
-                libxsmm-1.17
-                PREFIX ${TPSRC}
-                URL https://github.com/libxsmm/libxsmm/archive/refs/tags/1.17.tar.gz
-                URL_MD5 bef3b02f8837b0eed1ea334045da0524
-                STAMP_DIR ${TPBUILD}/stamp
-                DOWNLOAD_DIR ${TPSRC}
-                SOURCE_DIR ${TPSRC}/libxsmm-1.17
-                BINARY_DIR ${TPBUILD}/libxsmm-1.17
-                TMP_DIR ${TPBUILD}/libxsmm-1.17-tmp
-                INSTALL_DIR ${TPDIST}
-                BUILD_BYPRODUCTS ${LIBXSMM_LIBRARY}
-                CONFIGURE_COMMAND ""
-                BUILD_COMMAND ${MAKE_EXECUTABLE} --silent RPM_OPT_FLAGS=-Wno-deprecated-declarations -C <SOURCE_DIR>
-                INSTALL_COMMAND ${MAKE_EXECUTABLE} RPM_OPT_FLAGS=-Wno-deprecated-declarations -C <SOURCE_DIR> PREFIX=<INSTALL_DIR> install
-        )
+    FIND_PROGRAM(LIBXSMM_MAKE_EXECUTABLE NAMES gmake make mingw32-make REQUIRED)
+    MARK_AS_ADVANCED(LIBXSMM_MAKE_EXECUTABLE)
+
+    EXTERNALPROJECT_ADD(
+            libxsmm-1.17
+            PREFIX ${TPSRC}
+            URL https://github.com/libxsmm/libxsmm/archive/refs/tags/1.17.tar.gz
+            URL_MD5 bef3b02f8837b0eed1ea334045da0524
+            STAMP_DIR ${TPBUILD}/stamp
+            DOWNLOAD_DIR ${TPSRC}
+            SOURCE_DIR ${TPSRC}/libxsmm-1.17
+            BINARY_DIR ${TPBUILD}/libxsmm-1.17
+            TMP_DIR ${TPBUILD}/libxsmm-1.17-tmp
+            INSTALL_DIR ${TPDIST}
+            BUILD_BYPRODUCTS ${LIBXSMM_LIBRARY}
+            CONFIGURE_COMMAND ""
+            BUILD_COMMAND ${LIBXSMM_MAKE_EXECUTABLE} --silent RPM_OPT_FLAGS=-Wno-deprecated-declarations -C <SOURCE_DIR>
+            INSTALL_COMMAND ${LIBXSMM_MAKE_EXECUTABLE} RPM_OPT_FLAGS=-Wno-deprecated-declarations -C <SOURCE_DIR> PREFIX=<INSTALL_DIR> install
+    )
 
         SET(LIBXSMM_INCLUDE_DIR ${TPDIST}/include CACHE FILEPATH
                 "libxsmm include" FORCE)
