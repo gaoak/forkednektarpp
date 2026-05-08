@@ -69,8 +69,18 @@ std::vector<MultiRegions::AssemblyMapCGSharedPtr> &LocalToGlobalDataCreator::
     }
     else
     {
+        auto expContField = std::dynamic_pointer_cast<MultiRegions::ContField>(
+            this->m_expansionList);
+
         for (const auto &component : components)
         {
+            if (expContField &&
+                expContField->GetLocalToGlobalMap()->GetVariable() == component)
+            {
+                assemblyMap.push_back(expContField->GetLocalToGlobalMap());
+                continue;
+            }
+
             auto contfield =
                 MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
                     session, graph, component, true, false,

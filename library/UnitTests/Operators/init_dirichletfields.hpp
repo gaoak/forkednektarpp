@@ -160,10 +160,13 @@ TEST(Helmholtz2D_Tri_Quad_3C_mixedBC, "run/Helmholtz2D_3C_mixedBC.xml")
 TEST(Helmholtz3D_Hex, "run/Helmholtz3D_Hex_Heterogeneous.xml")
 
 TEST(Helmholtz3D_Prism, "run/Helmholtz3D_Prism_VarP.xml")
+TEST(CouetteFlow3D_Prism, "run/CouetteFlow3D_Prism.xml")
 
 TEST(Helmholtz3D_Pyr, "run/Helmholtz3D_Pyr_VarP.xml")
 
 TEST(Helmholtz3D_Tet, "run/Helmholtz3D_Tet_VarP.xml")
+TEST(UniformFlow3D_Tet, "run/UniformFlow3D_Tet.xml")
+TEST(ChannelFlow3D_Tet, "run/ChannelFlow3D_Tet.xml")
 
 TEST(Helmholtz3D_Hex_AllBCs, "run/Helmholtz3D_Hex_AllBCs_P6.xml")
 
