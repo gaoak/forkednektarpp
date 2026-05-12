@@ -16,6 +16,7 @@
 # PhysDeriv              Nodepend - Seg, Quad, etc
 # Advection              Nodepend - Seg, Quad, etc
 # Divergence             Nodepend - Seg, Quad, etc
+# CurlCurl               Nodepend - Seg, Quad, etc
 # PhysInterp1D           Nodepend - Seg, Quad, etc
 # Expression             Nodepend - Helmholtz1D_Seg, etc.
 
@@ -130,6 +131,8 @@ ADD_NEKTAR_EXECUTABLE(test_advection
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_advection.cpp)
 ADD_NEKTAR_EXECUTABLE(test_divergence
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_divergence.cpp)
+ADD_NEKTAR_EXECUTABLE(test_curlcurl
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_curlcurl.cpp)
 ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled.cpp)
 ADD_NEKTAR_EXECUTABLE(test_getfwdbwdtracephys 
@@ -229,6 +232,7 @@ SET_UNIT_TEST(NullPrecon_serial_stdmat test_nullprecon Serial StdMat FALSE)
 SET_UNIT_TEST(PhysDeriv_serial_stdmat test_physderiv Serial StdMat FALSE)
 SET_UNIT_TEST(Advection_serial_stdmat test_advection Serial StdMat FALSE)
 SET_UNIT_TEST(Divergence_serial_stdmat test_divergence Serial StdMat FALSE)
+SET_UNIT_TEST(CurlCurl_serial_stdmat test_curlcurl Serial StdMat FALSE)
 SET_UNIT_TEST(PhysInterp1DScaled_serial_stdmat test_physinterp1dscaled Serial StdMat FALSE)
 SET_UNIT_TEST(AdvectionWeakDG_serial_stdmat test_advectionweakdg Serial StdMat FALSE)
 
@@ -250,6 +254,7 @@ SET_UNIT_TEST(NullPrecon_serial_sumfac test_nullprecon Serial SumFac FALSE)
 SET_UNIT_TEST(PhysDeriv_serial_sumfac test_physderiv Serial SumFac FALSE)
 SET_UNIT_TEST(Advection_serial_sumfac test_advection Serial SumFac FALSE)
 SET_UNIT_TEST(Divergence_serial_sumfac test_divergence Serial SumFac FALSE)
+SET_UNIT_TEST(CurlCurl_serial_sumfac test_curlcurl Serial SumFac FALSE)
 SET_UNIT_TEST(PhysInterp1DScaled_serial_sumfac test_physinterp1dscaled Serial SumFac FALSE)
 SET_UNIT_TEST(AdvectionWeakDG_serial_sumfac test_advectionweakdg Serial SumFac FALSE)
 IF (NEKTAR_USE_MPI)
@@ -308,6 +313,7 @@ IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(PhysDeriv_avx_stdmat test_physderiv AVX StdMat FALSE)
     SET_UNIT_TEST(Advection_avx_stdmat test_advection AVX StdMat FALSE)
     SET_UNIT_TEST(Divergence_avx_stdmat test_divergence AVX StdMat FALSE)
+    SET_UNIT_TEST(CurlCurl_avx_stdmat test_curlcurl AVX StdMat FALSE)
     SET_UNIT_TEST(PhysInterp1DScaled_avx_stdmat test_physinterp1dscaled Serial StdMat FALSE)
     SET_UNIT_TEST(AdvectionWeakDG_avx_stdmat test_advectionweakdg AVX StdMat FALSE)
 ENDIF()
@@ -330,6 +336,7 @@ IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(PhysDeriv_avx_sumfac test_physderiv AVX SumFac FALSE)
     SET_UNIT_TEST(Advection_avx_sumfac test_advection AVX SumFac FALSE)
     SET_UNIT_TEST(Divergence_avx_sumfac test_divergence AVX SumFac FALSE)
+    SET_UNIT_TEST(CurlCurl_avx_sumfac test_curlcurl AVX SumFac FALSE)
     SET_UNIT_TEST(PhysInterp1DScaled_avx_sumfac test_physinterp1dscaled AVX SumFac FALSE)
     SET_UNIT_TEST(AdvectionWeakDG_avx_sumfac test_advectionweakdg AVX SumFac FALSE)
 ENDIF()
@@ -388,6 +395,7 @@ IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(PhysDeriv_device_stdmat test_physderiv Device StdMat FALSE)
     SET_UNIT_TEST(Advection_device_stdmat test_advection Device StdMat FALSE)
     SET_UNIT_TEST(Divergence_device_stdmat test_divergence Device StdMat FALSE)
+    SET_UNIT_TEST(CurlCurl_device_stdmat test_curlcurl Device StdMat FALSE)
     SET_UNIT_TEST(PhysInterp1DScaled_device_stdmat test_physinterp1dscaled Device StdMat FALSE)
     SET_UNIT_TEST(AdvectionWeakDG_device_stdmat test_advectionweakdg Device StdMat FALSE)
 ENDIF()
@@ -410,6 +418,7 @@ IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(PhysDeriv_device_sumfac test_physderiv Device SumFac FALSE)
     SET_UNIT_TEST(Advection_device_sumfac test_advection Device SumFac FALSE)
     SET_UNIT_TEST(Divergence_device_sumfac test_divergence Device SumFac FALSE)
+    SET_UNIT_TEST(CurlCurl_device_sumfac test_curlcurl Device SumFac FALSE)
     SET_UNIT_TEST(PhysInterp1DScaled_device_sumfac test_physinterp1dscaled Device SumFac FALSE)
     SET_UNIT_TEST(AdvectionWeakDG_device_sumfac test_advectionweakdg Device SumFac FALSE)
 ENDIF()
@@ -433,6 +442,7 @@ IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(PhysDeriv_device_sumfactop test_physderiv Device SumFacTOP FALSE)
     SET_UNIT_TEST(Advection_device_sumfactop test_advection Device SumFacTOP FALSE)
     SET_UNIT_TEST(Divergence_device_sumfactop test_divergence Device SumFacTOP FALSE)
+    SET_UNIT_TEST(CurlCurl_device_sumfactop test_curlcurl Device SumFacTOP FALSE)
     SET_UNIT_TEST(PhysInterp1DScaled_device_sumfactop test_physinterp1dscaled Device SumFacTOP FALSE)
     SET_UNIT_TEST(AdvectionWeakDG_device_sumfactop test_advectionweakdg Device SumFacTOP FALSE)
 ENDIF()
