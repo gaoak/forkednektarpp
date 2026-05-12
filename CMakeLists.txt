@@ -262,8 +262,13 @@ CMAKE_DEPENDENT_OPTION(NEKTAR_BUILD_SOLVER_LIBS
     "NEKTAR_BUILD_SOLVERS" OFF)
 
 OPTION(NEKTAR_TEST_ALL "Include full set of regression tests to this build." OFF)
+OPTION(NEKTAR_TEST_DEBUG "Include set of debugging tests to this build." OFF)
 OPTION(NEKTAR_TEST_USE_HOSTFILE "Use a hostfile to explicitly specify number of
 slots." OFF)
+
+IF (NEKTAR_TEST_DEBUG)
+    ADD_DEFINITIONS(-DNEKTAR_TEST_DEBUG)
+ENDIF()
 
 OPTION(NEKTAR_ERROR_ON_WARNINGS "Use -Werror to make warnings stop compilation." OFF)
 MARK_AS_ADVANCED(NEKTAR_ERROR_ON_WARNINGS)
