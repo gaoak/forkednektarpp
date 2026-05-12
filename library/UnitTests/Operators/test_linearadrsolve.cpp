@@ -477,67 +477,70 @@ MatrixDiagnostics DiagnoseMatrix(const DNekMatSharedPtr &matrix)
 BOOST_AUTO_TEST_SUITE(TestLinearADRSolve)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-TEST_LINEARADRSOLVE_CGS(linearadrsolve_cgs_seg, Helmholtz1D_Seg, 4.0E-12)
-
-TEST_LINEARADRSOLVE_CGS(linearadrsolve_cgs_tri_quad, Helmholtz2D_Tri_Quad,
-                        2.0E-09)
+TEST_LINEARADRSOLVE_CGS(linearadrsolve_cgs_seg_3c, Helmholtz1D_Seg_3C, 4.0E-12)
 TEST_LINEARADRSOLVE_CGS(linearadrsolve_cgs_tri_quad_3c, Helmholtz2D_Tri_Quad_3C,
                         2.0E-09)
-
 TEST_LINEARADRSOLVE_CGS(linearadrsolve_cgs_all_bcs, Helmholtz2D_AllBCs, 4.0E-10)
-
-TEST_LINEARADRSOLVE_CGS(linearadrsolve_cgs_hex, Helmholtz3D_Hex, 1.0E-10)
 TEST_LINEARADRSOLVE_CGS(linearadrsolve_cgs_hex_3c, Helmholtz3D_Hex_3C, 7.0E-08)
-
+#if defined(NEKTAR_TEST_DEBUG)
+TEST_LINEARADRSOLVE_CGS(linearadrsolve_cgs_seg, Helmholtz1D_Seg, 4.0E-12)
+TEST_LINEARADRSOLVE_CGS(linearadrsolve_cgs_tri_quad, Helmholtz2D_Tri_Quad,
+                        2.0E-09)
+TEST_LINEARADRSOLVE_CGS(linearadrsolve_cgs_hex, Helmholtz3D_Hex, 1.0E-10)
 TEST_LINEARADRSOLVE_CGS(linearadrsolve_cgs_tet, Helmholtz3D_Tet, 1.0E-10)
+#endif
 
-TEST_LINEARADRSOLVE_CGS2(linearadrsolve_cgs_left_precon_seg, Helmholtz1D_Seg,
-                         4.0E-12)
-
-TEST_LINEARADRSOLVE_CGS2(linearadrsolve_cgs_left_precon_tri_quad,
-                         Helmholtz2D_Tri_Quad, 2.0E-09)
+TEST_LINEARADRSOLVE_CGS2(linearadrsolve_cgs_left_precon_seg_3c,
+                         Helmholtz1D_Seg_3C, 4.0E-12)
 TEST_LINEARADRSOLVE_CGS2(linearadrsolve_cgs_left_precon_tri_quad_3c,
                          Helmholtz2D_Tri_Quad_3C, 2.0E-09)
-
 TEST_LINEARADRSOLVE_CGS2(linearadrsolve_cgs_left_precon_all_bcs,
                          Helmholtz2D_AllBCs, 2.0E-09)
-
-TEST_LINEARADRSOLVE_CGS2(linearadrsolve_cgs_left_precon_hex, Helmholtz3D_Hex,
-                         4.0E-10)
 TEST_LINEARADRSOLVE_CGS2(linearadrsolve_cgs_left_precon_hex_3c,
                          Helmholtz3D_Hex_3C, 7.0E-08)
-
+#if defined(NEKTAR_TEST_DEBUG)
+TEST_LINEARADRSOLVE_CGS2(linearadrsolve_cgs_left_precon_seg, Helmholtz1D_Seg,
+                         4.0E-12)
+TEST_LINEARADRSOLVE_CGS2(linearadrsolve_cgs_left_precon_tri_quad,
+                         Helmholtz2D_Tri_Quad, 2.0E-09)
+TEST_LINEARADRSOLVE_CGS2(linearadrsolve_cgs_left_precon_hex, Helmholtz3D_Hex,
+                         4.0E-10)
 TEST_LINEARADRSOLVE_CGS2(linearadrsolve_cgs_left_precon_tet, Helmholtz3D_Tet,
                          1.0E-10)
+#endif
 
-TEST_LINEARADRSOLVE_GCR(linearadrsolve_gcr_seg, Helmholtz1D_Seg, 4.0E-12)
-
-TEST_LINEARADRSOLVE_GCR(linearadrsolve_gcr_tri_quad, Helmholtz2D_Tri_Quad,
-                        2.0E-09)
+TEST_LINEARADRSOLVE_GCR(linearadrsolve_gcr_seg_3c, Helmholtz1D_Seg_3C, 4.0E-12)
 TEST_LINEARADRSOLVE_GCR(linearadrsolve_gcr_tri_quad_3c, Helmholtz2D_Tri_Quad_3C,
                         2.0E-09)
-
 TEST_LINEARADRSOLVE_GCR(linearadrsolve_gcr_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
-
+// TEST_LINEARADRSOLVE_GCR(linearadrsolve_gcr_hex_3c,
+// Helmholtz3D_Hex_3C, 1.0E-10)
+#if defined(NEKTAR_TEST_DEBUG)
+TEST_LINEARADRSOLVE_GCR(linearadrsolve_gcr_seg, Helmholtz1D_Seg, 4.0E-12)
+TEST_LINEARADRSOLVE_GCR(linearadrsolve_gcr_tri_quad, Helmholtz2D_Tri_Quad,
+                        2.0E-09)
 // TEST_LINEARADRSOLVE_GCR(linearadrsolve_gcr_hex, Helmholtz3D_Hex, 1.0E-10)
-
 TEST_LINEARADRSOLVE_GCR(linearadrsolve_gcr_tet, Helmholtz3D_Tet, 1.0E-10)
+#endif
 
-TEST_LINEARADRSOLVE_BICGSTAB(linearadrsolve_bicgstab_seg, Helmholtz1D_Seg,
+TEST_LINEARADRSOLVE_BICGSTAB(linearadrsolve_bicgstab_seg_3c, Helmholtz1D_Seg_3C,
                              4.0E-12)
-
-TEST_LINEARADRSOLVE_BICGSTAB(linearadrsolve_bicgstab_tri_quad,
-                             Helmholtz2D_Tri_Quad, 2.0E-09)
 TEST_LINEARADRSOLVE_BICGSTAB(linearadrsolve_bicgstab_tri_quad_3c,
                              Helmholtz2D_Tri_Quad_3C, 2.0E-09)
-
 TEST_LINEARADRSOLVE_BICGSTAB(linearadrsolve_bicgstab_all_bcs,
                              Helmholtz2D_AllBCs, 4.0E-10)
-
-TEST_LINEARADRSOLVE_BICGSTAB(linearadrsolve_bicgstab_hex, Helmholtz3D_Hex,
-                             1.0E-10)
 TEST_LINEARADRSOLVE_BICGSTAB(linearadrsolve_bicgstab_hex_3c, Helmholtz3D_Hex_3C,
                              2.0E-09)
+#if defined(NEKTAR_TEST_DEBUG)
+TEST_LINEARADRSOLVE_BICGSTAB(linearadrsolve_bicgstab_seg, Helmholtz1D_Seg,
+                             4.0E-12)
+TEST_LINEARADRSOLVE_BICGSTAB(linearadrsolve_bicgstab_tri_quad,
+                             Helmholtz2D_Tri_Quad, 2.0E-09)
+TEST_LINEARADRSOLVE_BICGSTAB(linearadrsolve_bicgstab_hex, Helmholtz3D_Hex,
+                             1.0E-10)
+TEST_LINEARADRSOLVE_BICGSTAB(linearadrsolve_bicgstab_tet, Helmholtz3D_Tet,
+                             1.0E-10)
+#endif
 
 BOOST_FIXTURE_TEST_CASE(linearadrsolve_hex_3c_single_matrix_diagnostics,
                         Helmholtz3D_Hex_3C_Single)
@@ -569,217 +572,223 @@ BOOST_FIXTURE_TEST_CASE(linearadrsolve_hex_3c_single_matrix_diagnostics,
     BOOST_TEST(std::isfinite(diffusiveDiagnostics.conditionEstimateF));
 }
 
-TEST_LINEARADRSOLVE_BICGSTAB(linearadrsolve_bicgstab_tet, Helmholtz3D_Tet,
-                             1.0E-10)
-
-TEST_LINEARADRSOLVE_BICGSTAB2(linearadrsolve_bicgstab_left_precon_seg,
-                              Helmholtz1D_Seg, 4.0E-12)
-
-TEST_LINEARADRSOLVE_BICGSTAB2(linearadrsolve_bicgstab_left_precon_tri_quad,
-                              Helmholtz2D_Tri_Quad, 2.0E-09)
+TEST_LINEARADRSOLVE_BICGSTAB2(linearadrsolve_bicgstab_left_precon_seg_3c,
+                              Helmholtz1D_Seg_3C, 4.0E-12)
 TEST_LINEARADRSOLVE_BICGSTAB2(linearadrsolve_bicgstab_left_precon_tri_quad_3c,
                               Helmholtz2D_Tri_Quad_3C, 2.0E-09)
-
 TEST_LINEARADRSOLVE_BICGSTAB2(linearadrsolve_bicgstab_left_precon_all_bcs,
                               Helmholtz2D_AllBCs, 4.0E-10)
-
-TEST_LINEARADRSOLVE_BICGSTAB2(linearadrsolve_bicgstab_left_precon_hex,
-                              Helmholtz3D_Hex, 1.0E-10)
 TEST_LINEARADRSOLVE_BICGSTAB2(linearadrsolve_bicgstab_left_precon_hex_3c,
                               Helmholtz3D_Hex_3C, 2.0E-09)
-
+#if defined(NEKTAR_TEST_DEBUG)
+TEST_LINEARADRSOLVE_BICGSTAB2(linearadrsolve_bicgstab_left_precon_seg,
+                              Helmholtz1D_Seg, 4.0E-12)
+TEST_LINEARADRSOLVE_BICGSTAB2(linearadrsolve_bicgstab_left_precon_tri_quad,
+                              Helmholtz2D_Tri_Quad, 2.0E-09)
+TEST_LINEARADRSOLVE_BICGSTAB2(linearadrsolve_bicgstab_left_precon_hex,
+                              Helmholtz3D_Hex, 1.0E-10)
 TEST_LINEARADRSOLVE_BICGSTAB2(linearadrsolve_bicgstab_left_precon_tet,
                               Helmholtz3D_Tet, 1.0E-10)
+#endif
 
-TEST_LINEARADRSOLVE_BICGSTABR(linearadrsolve_bicgstabr_seg, Helmholtz1D_Seg,
-                              4.0E-12)
-
-TEST_LINEARADRSOLVE_BICGSTABR(linearadrsolve_bicgstabr_tri_quad,
-                              Helmholtz2D_Tri_Quad, 2.0E-09)
+TEST_LINEARADRSOLVE_BICGSTABR(linearadrsolve_bicgstabr_seg_3c,
+                              Helmholtz1D_Seg_3C, 4.0E-12)
 TEST_LINEARADRSOLVE_BICGSTABR(linearadrsolve_bicgstabr_tri_quad_3c,
                               Helmholtz2D_Tri_Quad_3C, 2.0E-09)
-
 TEST_LINEARADRSOLVE_BICGSTABR(linearadrsolve_bicgstabr_all_bcs,
                               Helmholtz2D_AllBCs, 4.0E-10)
-
-TEST_LINEARADRSOLVE_BICGSTABR(linearadrsolve_bicgstabr_hex, Helmholtz3D_Hex,
-                              1.0E-10)
 TEST_LINEARADRSOLVE_BICGSTABR(linearadrsolve_bicgstabr_hex_3c,
                               Helmholtz3D_Hex_3C, 2.0E-09)
-
+#if defined(NEKTAR_TEST_DEBUG)
+TEST_LINEARADRSOLVE_BICGSTABR(linearadrsolve_bicgstabr_seg, Helmholtz1D_Seg,
+                              4.0E-12)
+TEST_LINEARADRSOLVE_BICGSTABR(linearadrsolve_bicgstabr_tri_quad,
+                              Helmholtz2D_Tri_Quad, 2.0E-09)
+TEST_LINEARADRSOLVE_BICGSTABR(linearadrsolve_bicgstabr_hex, Helmholtz3D_Hex,
+                              1.0E-10)
 TEST_LINEARADRSOLVE_BICGSTABR(linearadrsolve_bicgstabr_tet, Helmholtz3D_Tet,
                               1.0E-10)
+#endif
 
-TEST_LINEARADRSOLVE_BICGSTABR2(linearadrsolve_bicgstabr_left_precon_seg,
-                               Helmholtz1D_Seg, 4.0E-12)
-
-TEST_LINEARADRSOLVE_BICGSTABR2(linearadrsolve_bicgstabr_left_precon_tri_quad,
-                               Helmholtz2D_Tri_Quad, 2.0E-09)
+TEST_LINEARADRSOLVE_BICGSTABR2(linearadrsolve_bicgstabr_left_precon_seg_3c,
+                               Helmholtz1D_Seg_3C, 4.0E-12)
 TEST_LINEARADRSOLVE_BICGSTABR2(linearadrsolve_bicgstabr_left_precon_tri_quad_3c,
                                Helmholtz2D_Tri_Quad_3C, 2.0E-09)
-
 TEST_LINEARADRSOLVE_BICGSTABR2(linearadrsolve_bicgstabr_left_precon_all_bcs,
                                Helmholtz2D_AllBCs, 4.0E-10)
-
-TEST_LINEARADRSOLVE_BICGSTABR2(linearadrsolve_bicgstabr_left_precon_hex,
-                               Helmholtz3D_Hex, 1.0E-10)
 TEST_LINEARADRSOLVE_BICGSTABR2(linearadrsolve_bicgstabr_left_precon_hex_3c,
                                Helmholtz3D_Hex_3C, 2.0E-09)
-
+#if defined(NEKTAR_TEST_DEBUG)
+TEST_LINEARADRSOLVE_BICGSTABR2(linearadrsolve_bicgstabr_left_precon_seg,
+                               Helmholtz1D_Seg, 4.0E-12)
+TEST_LINEARADRSOLVE_BICGSTABR2(linearadrsolve_bicgstabr_left_precon_tri_quad,
+                               Helmholtz2D_Tri_Quad, 2.0E-09)
+TEST_LINEARADRSOLVE_BICGSTABR2(linearadrsolve_bicgstabr_left_precon_hex,
+                               Helmholtz3D_Hex, 1.0E-10)
 TEST_LINEARADRSOLVE_BICGSTABR2(linearadrsolve_bicgstabr_left_precon_tet,
                                Helmholtz3D_Tet, 1.0E-10)
+#endif
 
-TEST_LINEARADRSOLVE_BICGSTABL(linearadrsolve_bicgstabl_seg, Helmholtz1D_Seg,
-                              4.0E-12)
-
-TEST_LINEARADRSOLVE_BICGSTABL(linearadrsolve_bicgstabl_tri_quad,
-                              Helmholtz2D_Tri_Quad, 2.0E-09)
+TEST_LINEARADRSOLVE_BICGSTABL(linearadrsolve_bicgstabl_seg_3c,
+                              Helmholtz1D_Seg_3C, 4.0E-12)
 TEST_LINEARADRSOLVE_BICGSTABL(linearadrsolve_bicgstabl_tri_quad_3c,
                               Helmholtz2D_Tri_Quad_3C, 2.0E-09)
-
 TEST_LINEARADRSOLVE_BICGSTABL(linearadrsolve_bicgstabl_all_bcs,
                               Helmholtz2D_AllBCs, 4.0E-10)
-
-TEST_LINEARADRSOLVE_BICGSTABL(linearadrsolve_bicgstabl_hex, Helmholtz3D_Hex,
-                              1.0E-10)
 TEST_LINEARADRSOLVE_BICGSTABL(linearadrsolve_bicgstabl_hex_3c,
                               Helmholtz3D_Hex_3C, 2.0E-09)
-
+#if defined(NEKTAR_TEST_DEBUG)
+TEST_LINEARADRSOLVE_BICGSTABL(linearadrsolve_bicgstabl_seg, Helmholtz1D_Seg,
+                              4.0E-12)
+TEST_LINEARADRSOLVE_BICGSTABL(linearadrsolve_bicgstabl_tri_quad,
+                              Helmholtz2D_Tri_Quad, 2.0E-09)
+TEST_LINEARADRSOLVE_BICGSTABL(linearadrsolve_bicgstabl_hex, Helmholtz3D_Hex,
+                              1.0E-10)
 TEST_LINEARADRSOLVE_BICGSTABL(linearadrsolve_bicgstabl_tet, Helmholtz3D_Tet,
                               1.0E-10)
+#endif
 
-TEST_LINEARADRSOLVE_BICGSTABL2(linearadrsolve_bicgstabl_left_precon_seg,
-                               Helmholtz1D_Seg, 4.0E-12)
-
-TEST_LINEARADRSOLVE_BICGSTABL2(linearadrsolve_bicgstabl_left_precon_tri_quad,
-                               Helmholtz2D_Tri_Quad, 2.0E-09)
+TEST_LINEARADRSOLVE_BICGSTABL2(linearadrsolve_bicgstabl_left_precon_seg_3c,
+                               Helmholtz1D_Seg_3C, 4.0E-12)
 TEST_LINEARADRSOLVE_BICGSTABL2(linearadrsolve_bicgstabl_left_precon_tri_quad_3c,
                                Helmholtz2D_Tri_Quad_3C, 2.0E-09)
-
 TEST_LINEARADRSOLVE_BICGSTABL2(linearadrsolve_bicgstabl_left_precon_all_bcs,
                                Helmholtz2D_AllBCs, 4.0E-10)
-
-TEST_LINEARADRSOLVE_BICGSTABL2(linearadrsolve_bicgstabl_left_precon_hex,
-                               Helmholtz3D_Hex, 1.0E-10)
 TEST_LINEARADRSOLVE_BICGSTABL2(linearadrsolve_bicgstabl_left_precon_hex_3c,
                                Helmholtz3D_Hex_3C, 2.0E-09)
-
+#if defined(NEKTAR_TEST_DEBUG)
+TEST_LINEARADRSOLVE_BICGSTABL2(linearadrsolve_bicgstabl_left_precon_seg,
+                               Helmholtz1D_Seg, 4.0E-12)
+TEST_LINEARADRSOLVE_BICGSTABL2(linearadrsolve_bicgstabl_left_precon_tri_quad,
+                               Helmholtz2D_Tri_Quad, 2.0E-09)
+TEST_LINEARADRSOLVE_BICGSTABL2(linearadrsolve_bicgstabl_left_precon_hex,
+                               Helmholtz3D_Hex, 1.0E-10)
 TEST_LINEARADRSOLVE_BICGSTABL2(linearadrsolve_bicgstabl_left_precon_tet,
                                Helmholtz3D_Tet, 1.0E-10)
+#endif
 
-TEST_LINEARADRSOLVE_GMRES(linearadrsolve_gmres_seg, Helmholtz1D_Seg, 1.0E-12)
-
-TEST_LINEARADRSOLVE_GMRES(linearadrsolve_gmres_tri_quad, Helmholtz2D_Tri_Quad,
-                          1.0E-10)
+TEST_LINEARADRSOLVE_GMRES(linearadrsolve_gmres_seg_3c, Helmholtz1D_Seg_3C,
+                          1.0E-12)
 TEST_LINEARADRSOLVE_GMRES(linearadrsolve_gmres_tri_quad_3c,
                           Helmholtz2D_Tri_Quad_3C, 1.0E-10)
-
 TEST_LINEARADRSOLVE_GMRES(linearadrsolve_gmres_all_bcs, Helmholtz2D_AllBCs,
                           1.0E-10)
-
-TEST_LINEARADRSOLVE_GMRES(linearadrsolve_gmres_hex, Helmholtz3D_Hex, 1.0E-10)
 TEST_LINEARADRSOLVE_GMRES(linearadrsolve_gmres_hex_3c, Helmholtz3D_Hex_3C,
                           2.0E-09)
-
+#if defined(NEKTAR_TEST_DEBUG)
+TEST_LINEARADRSOLVE_GMRES(linearadrsolve_gmres_seg, Helmholtz1D_Seg, 1.0E-12)
+TEST_LINEARADRSOLVE_GMRES(linearadrsolve_gmres_tri_quad, Helmholtz2D_Tri_Quad,
+                          1.0E-10)
+TEST_LINEARADRSOLVE_GMRES(linearadrsolve_gmres_hex, Helmholtz3D_Hex, 1.0E-10)
 TEST_LINEARADRSOLVE_GMRES(linearadrsolve_gmres_tet, Helmholtz3D_Tet, 1.0E-10)
+#endif
 
 TEST_LINEARADRSOLVE_FGMRES(linearadrsolve_fgmres_all_bcs, Helmholtz2D_AllBCs,
                            1.0E-10)
 TEST_LINEARADRSOLVE_FGMRES(linearadrsolve_fgmres_tri_quad_3c,
                            Helmholtz2D_Tri_Quad_3C, 1.0E-10)
-
-TEST_LINEARADRSOLVE_FGMRES(linearadrsolve_fgmres_hex, Helmholtz3D_Hex, 1.0E-10)
 TEST_LINEARADRSOLVE_FGMRES(linearadrsolve_fgmres_hex_3c, Helmholtz3D_Hex_3C,
                            2.0E-09)
+#if defined(NEKTAR_TEST_DEBUG)
+TEST_LINEARADRSOLVE_FGMRES(linearadrsolve_fgmres_tri_quad, Helmholtz2D_Tri_Quad,
+                           1.0E-10)
+TEST_LINEARADRSOLVE_FGMRES(linearadrsolve_fgmres_hex, Helmholtz3D_Hex, 1.0E-10)
+#endif
 
 TEST_LINEARADRSOLVE_MGMRES(linearadrsolve_mgmres_all_bcs, Helmholtz2D_AllBCs,
                            1.0E-10)
 TEST_LINEARADRSOLVE_MGMRES(linearadrsolve_mgmres_tri_quad_3c,
                            Helmholtz2D_Tri_Quad_3C, 1.0E-10)
-
-TEST_LINEARADRSOLVE_MGMRES(linearadrsolve_mgmres_hex, Helmholtz3D_Hex, 1.0E-10)
 TEST_LINEARADRSOLVE_MGMRES(linearadrsolve_mgmres_hex_3c, Helmholtz3D_Hex_3C,
                            2.0E-09)
+#if defined(NEKTAR_TEST_DEBUG)
+TEST_LINEARADRSOLVE_MGMRES(linearadrsolve_mgmres_tri_quad, Helmholtz2D_Tri_Quad,
+                           1.0E-10)
+TEST_LINEARADRSOLVE_MGMRES(linearadrsolve_mgmres_hex, Helmholtz3D_Hex, 1.0E-10)
+#endif
 
 TEST_LINEARADRSOLVE_MFGMRES(linearadrsolve_mfgmres_all_bcs, Helmholtz2D_AllBCs,
                             1.0E-10)
 TEST_LINEARADRSOLVE_MFGMRES(linearadrsolve_mfgmres_tri_quad_3c,
                             Helmholtz2D_Tri_Quad_3C, 1.0E-10)
-
-TEST_LINEARADRSOLVE_MFGMRES(linearadrsolve_mfgmres_hex, Helmholtz3D_Hex,
-                            1.0E-10)
 TEST_LINEARADRSOLVE_MFGMRES(linearadrsolve_mfgmres_hex_3c, Helmholtz3D_Hex_3C,
                             2.0E-09)
+#if defined(NEKTAR_TEST_DEBUG)
+TEST_LINEARADRSOLVE_MFGMRES(linearadrsolve_mfgmres_tri_quad,
+                            Helmholtz2D_Tri_Quad, 1.0E-10)
+TEST_LINEARADRSOLVE_MFGMRES(linearadrsolve_mfgmres_hex, Helmholtz3D_Hex,
+                            1.0E-10)
+#endif
 
-TEST_LINEARADRSOLVE_TFQMR(linearadrsolve_tfqmr_seg, Helmholtz1D_Seg, 1.0E-12)
-
-TEST_LINEARADRSOLVE_TFQMR(linearadrsolve_tfqmr_tri_quad, Helmholtz2D_Tri_Quad,
-                          3.0E-10)
+TEST_LINEARADRSOLVE_TFQMR(linearadrsolve_tfqmr_seg_3c, Helmholtz1D_Seg_3C,
+                          1.0E-12)
 TEST_LINEARADRSOLVE_TFQMR(linearadrsolve_tfqmr_tri_quad_3c,
                           Helmholtz2D_Tri_Quad_3C, 2.0E-10)
-
 TEST_LINEARADRSOLVE_TFQMR(linearadrsolve_tfqmr_all_bcs, Helmholtz2D_AllBCs,
                           4.0E-09)
-
-TEST_LINEARADRSOLVE_TFQMR(linearadrsolve_tfqmr_hex, Helmholtz3D_Hex, 1.0E-10)
 TEST_LINEARADRSOLVE_TFQMR(linearadrsolve_tfqmr_hex_3c, Helmholtz3D_Hex_3C,
                           2.0E-08)
-
+#if defined(NEKTAR_TEST_DEBUG)
+TEST_LINEARADRSOLVE_TFQMR(linearadrsolve_tfqmr_seg, Helmholtz1D_Seg, 1.0E-12)
+TEST_LINEARADRSOLVE_TFQMR(linearadrsolve_tfqmr_tri_quad, Helmholtz2D_Tri_Quad,
+                          3.0E-10)
+TEST_LINEARADRSOLVE_TFQMR(linearadrsolve_tfqmr_hex, Helmholtz3D_Hex, 1.0E-10)
 TEST_LINEARADRSOLVE_TFQMR(linearadrsolve_tfqmr_tet, Helmholtz3D_Tet, 1.0E-10)
+#endif
 
-TEST_LINEARADRSOLVE_TFQMR2(linearadrsolve_tfqmr_left_precon_seg,
-                           Helmholtz1D_Seg, 1.0E-12)
-
-TEST_LINEARADRSOLVE_TFQMR2(linearadrsolve_tfqmr_left_precon_tri_quad,
-                           Helmholtz2D_Tri_Quad, 2.0E-08)
+TEST_LINEARADRSOLVE_TFQMR2(linearadrsolve_tfqmr_left_precon_seg_3c,
+                           Helmholtz1D_Seg_3C, 1.0E-12)
 TEST_LINEARADRSOLVE_TFQMR2(linearadrsolve_tfqmr_left_precon_tri_quad_3c,
                            Helmholtz2D_Tri_Quad_3C, 2.0E-08)
-
 TEST_LINEARADRSOLVE_TFQMR2(linearadrsolve_tfqmr_left_precon_all_bcs,
                            Helmholtz2D_AllBCs, 4.0E-09)
-
-TEST_LINEARADRSOLVE_TFQMR2(linearadrsolve_tfqmr_left_precon_hex,
-                           Helmholtz3D_Hex, 5.0E-10)
 TEST_LINEARADRSOLVE_TFQMR2(linearadrsolve_tfqmr_left_precon_hex_3c,
                            Helmholtz3D_Hex_3C, 2.0E-08)
-
+#if defined(NEKTAR_TEST_DEBUG)
+TEST_LINEARADRSOLVE_TFQMR2(linearadrsolve_tfqmr_left_precon_seg,
+                           Helmholtz1D_Seg, 1.0E-12)
+TEST_LINEARADRSOLVE_TFQMR2(linearadrsolve_tfqmr_left_precon_tri_quad,
+                           Helmholtz2D_Tri_Quad, 2.0E-08)
+TEST_LINEARADRSOLVE_TFQMR2(linearadrsolve_tfqmr_left_precon_hex,
+                           Helmholtz3D_Hex, 5.0E-10)
 TEST_LINEARADRSOLVE_TFQMR2(linearadrsolve_tfqmr_left_precon_tet,
                            Helmholtz3D_Tet, 1.0E-10)
+#endif
 
-TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_seg, Helmholtz1D_Seg, 1.0E-12)
-
-TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_tri_quad, Helmholtz2D_Tri_Quad,
-                         2.0E-09)
+TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_seg_3c, Helmholtz1D_Seg_3C,
+                         1.0E-12)
 TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_tri_quad_3c,
                          Helmholtz2D_Tri_Quad_3C, 4.0E-09)
-
 TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_all_bcs, Helmholtz2D_AllBCs,
                          5.0E-10)
-
-TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_hex, Helmholtz3D_Hex, 5.0E-10)
 TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_hex_3c, Helmholtz3D_Hex_3C,
                          2.0E-08)
-
+#if defined(NEKTAR_TEST_DEBUG)
+TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_seg, Helmholtz1D_Seg, 1.0E-12)
+TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_tri_quad, Helmholtz2D_Tri_Quad,
+                         2.0E-09)
+TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_hex, Helmholtz3D_Hex, 5.0E-10)
 TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_tet, Helmholtz3D_Tet, 4.0E-08)
+#endif
 
-TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_seg, Helmholtz1D_Seg,
-                          1.0E-12)
-
-TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_tri_quad,
-                          Helmholtz2D_Tri_Quad, 2.0E-09)
+TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_seg_3c,
+                          Helmholtz1D_Seg_3C, 1.0E-12)
 TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_tri_quad_3c,
                           Helmholtz2D_Tri_Quad_3C, 2.0E-09)
-
 TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_all_bcs,
                           Helmholtz2D_AllBCs, 1.0E-09)
-
-TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_hex, Helmholtz3D_Hex,
-                          5.0E-10)
 TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_hex_3c,
                           Helmholtz3D_Hex_3C, 2.0E-09)
-
+#if defined(NEKTAR_TEST_DEBUG)
+TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_seg, Helmholtz1D_Seg,
+                          1.0E-12)
+TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_tri_quad,
+                          Helmholtz2D_Tri_Quad, 2.0E-09)
+TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_hex, Helmholtz3D_Hex,
+                          5.0E-10)
 TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_tet, Helmholtz3D_Tet,
                           5.0E-10)
+#endif
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()
