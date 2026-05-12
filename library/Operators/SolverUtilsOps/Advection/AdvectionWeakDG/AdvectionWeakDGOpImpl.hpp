@@ -174,7 +174,14 @@ protected:
         // Apply inverse mass matrix
         m_multiplyByElmtInvMassOp->Apply(out, m_tmp);
 
-        out.template Copy<MemSpace>(m_tmp);
+        if (this->m_scale == 1.0)
+        {
+            out.template Copy<MemSpace>(m_tmp);
+        }
+        else
+        {
+            mul<ExecSpace>(this->m_scale, m_tmp, out);
+        }
     }
 
     void AdvectTraceFlux(Field<TData, FieldState::Phys> &in,
