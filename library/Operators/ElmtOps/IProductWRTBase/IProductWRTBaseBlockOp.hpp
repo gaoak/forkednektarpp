@@ -57,7 +57,7 @@ public:
 
     static inline const std::string name = "BlockIProductWRTBase";
 
-    void SetScale(TData scale)
+    void SetScale(const TData &scale)
     {
         m_scale = scale;
     }

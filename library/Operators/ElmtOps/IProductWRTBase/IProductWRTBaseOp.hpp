@@ -62,7 +62,7 @@ public:
 
     static inline const std::string name = "IProductWRTBase";
 
-    void SetScale(TData scale)
+    void SetScale(const TData &scale)
     {
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)

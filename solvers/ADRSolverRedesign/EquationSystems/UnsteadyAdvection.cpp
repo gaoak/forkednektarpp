@@ -87,10 +87,6 @@ void UnsteadyAdvection::v_InitObject(bool DeclareFields)
  */
 void UnsteadyAdvection::v_DoSolve()
 {
-    // Initialise counters
-    LibUtilities::Timer timer;
-    double cpuTime = 0.0;
-
     // Set InitialConditions
     SetInitialConditionsField(m_in);
 
@@ -98,14 +94,8 @@ void UnsteadyAdvection::v_DoSolve()
     while (m_timeOp->GetStep() < m_steps ||
            m_timeOp->GetTime() < m_fintime - NekConstants::kNekZeroTol)
     {
-        timer.Start();
-
         // Do time integration
         m_timeOp->Apply(m_in);
-
-        // Get CPU time
-        timer.Stop();
-        cpuTime += timer.TimePerTest(1);
 
         // Verbose print
         if (m_infosteps && !(m_timeOp->GetStep() % m_infosteps))
@@ -114,11 +104,7 @@ void UnsteadyAdvection::v_DoSolve()
                 // << std::scientific
                 << "Steps: " << std::setw(8) << std::left << m_timeOp->GetStep()
                 << " Time: " << std::setw(12) << std::left
-                << m_timeOp->GetTime() << " CPU Time: " << std::setw(8)
-                << std::left << cpuTime << "s" << std::endl;
-
-            // Reset timer
-            cpuTime = 0;
+                << m_timeOp->GetTime() << std::endl;
         }
     }
 
@@ -196,10 +182,8 @@ void UnsteadyAdvection::DoAdvection(Field<double, FieldState::Phys> &in,
                                     [[maybe_unused]] const double &dt)
 {
     // Solve advection problem
+    m_advectionWeakDGOp->SetScale(-dt);
     m_advectionWeakDGOp->Apply(in, out);
-
-    // Negate the RHS and multiply by time-step
-    m_math.mul(-dt, out, out);
 }
 
 /**
@@ -217,7 +201,10 @@ void UnsteadyAdvection::DoProjection(Field<double, FieldState::Phys> &in,
     SetBoundaryConditions(time);
 
     // DG projection
-    m_math.copy(in, out);
+    if (&in != &out)
+    {
+        m_math.copy(in, out);
+    }
 }
 
 /*
