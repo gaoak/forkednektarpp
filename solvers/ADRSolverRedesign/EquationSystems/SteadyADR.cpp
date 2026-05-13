@@ -80,7 +80,7 @@ void SteadyADR::v_InitObject(bool DeclareFields)
     // Set up diffusion Coeff.
     SetDiffusionCoeff();
 
-    // Set Advection Vecloity
+    // Set Advection Velocity
     if (m_session->GetSolverInfo("EQTYPE") == "SteadyADR")
     {
         SetAdvectionVel();
@@ -249,7 +249,7 @@ void SteadyADR::InitialiseOperators()
         linearADRSolveOp->SetLinearSolver(m_linearSolverOp);
         linearADRSolveOp->SetLambda(lambda);
         linearADRSolveOp->SetDiffCoeff(m_diffCoeff);
-        linearADRSolveOp->SetAdvVel(m_advectionVelocity);
+        linearADRSolveOp->SetAdvVel(m_advectionVel);
         linearADRSolveOp->SetPrecon(m_preconOp);
         linearADRSolveOp->UpdatePrecon();
         m_linearSystemOp = linearADRSolveOp;
@@ -311,16 +311,19 @@ void SteadyADR::InitialiseFields()
         GetBlockAttributes<double, FieldState::Coeff>(m_fields[0]);
 
     // Create fields.
-    unsigned int nhomo    = m_npointsZ; // Note read in EquationSystem.cpp
-    unsigned int coordDim = m_fields[0]->GetCoordim(0);
+    unsigned int nhomo = m_npointsZ; // Note read in EquationSystem.cpp
 
     m_wsp_fce = Field<double, FieldState::Phys>("m_wsp_fce", block_attr_phys,
                                                 m_nVariables, nhomo);
 
     m_wsp_coeff = Field<double, FieldState::Coeff>(
         "m_wsp_coeff", block_attr_coeff, m_nVariables, nhomo);
-    m_advectionVelocity = Field<double, FieldState::Phys>(
-        "advVel", block_attr_phys, coordDim, nhomo);
+    if (m_session->GetSolverInfo("EQTYPE") == "SteadyADR")
+    {
+        unsigned int coordDim = m_fields[0]->GetCoordim(0);
+        m_advectionVel        = Field<double, FieldState::Phys>(
+            "advVel", block_attr_phys, coordDim, nhomo);
+    }
 
     // Initialise fields
     m_math.zero(m_wsp_fce);
@@ -338,7 +341,7 @@ void SteadyADR::SetAdvectionVel()
     {
         unsigned int coordDim = m_fields[0]->GetCoordim(0);
 
-        // Reads the Session File Vecoity defined as function
+        // Reads the Session File Velocity defined as function
         std::vector<std::string> vel;
         vel.push_back("Vx");
         vel.push_back("Vy");
@@ -358,10 +361,10 @@ void SteadyADR::SetAdvectionVel()
         expressionOp->SetExpressions(advectionVelocities);
         expressionOp->SetTime(m_time);
 
-        // Initialise m_advectionVelocity, evaluate all expressions and
+        // Initialise m_advectionVel, evaluate all expressions and
         // transform to array
-        m_math.zero(m_advectionVelocity);
-        expressionOp->Apply(m_advectionVelocity, m_advectionVelocity);
+        m_math.zero(m_advectionVel);
+        expressionOp->Apply(m_advectionVel, m_advectionVel);
     }
     else
     {

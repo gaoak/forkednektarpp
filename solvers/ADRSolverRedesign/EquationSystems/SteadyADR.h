@@ -77,7 +77,9 @@ protected:
     unsigned int m_nVariables;
 
     // Setup workspaces
-    Field<double, FieldState::Phys> m_wsp_fce, m_advectionVelocity;
+    Field<double, FieldState::Phys> m_in;
+    Field<double, FieldState::Phys> m_advectionVel;
+    Field<double, FieldState::Phys> m_wsp_fce;
     Field<double, FieldState::Coeff> m_wsp_coeff;
 
     // Declare math

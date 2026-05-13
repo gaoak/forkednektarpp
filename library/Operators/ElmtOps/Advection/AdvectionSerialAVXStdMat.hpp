@@ -172,7 +172,7 @@ protected:
                         reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(advptr), advelsize,
                         reinterpret_cast<const simd_t *>(derivptr),
-                        reinterpret_cast<simd_t *>(outptr));
+                        reinterpret_cast<simd_t *>(outptr), this->m_scale);
                     dfptr += m_coordDim * m_dimension * m_nqTot * simd_t::width;
                 }
                 else
@@ -182,7 +182,7 @@ protected:
                         reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(advptr), advelsize,
                         reinterpret_cast<const simd_t *>(derivptr),
-                        reinterpret_cast<simd_t *>(outptr));
+                        reinterpret_cast<simd_t *>(outptr), this->m_scale);
                     dfptr += m_coordDim * m_dimension * simd_t::width;
                 }
 

@@ -34,17 +34,18 @@
 
 #pragma once
 
-template <typename ExecSpace, bool DEFORMED, typename TData>
+template <typename ExecSpace, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void MultiplyByDerivFactorAndAdvecVelKernel(
     const unsigned int nqTot, const unsigned int ncoord,
     const unsigned int dimension, const size_t nelmt, const size_t inoffset,
-    const TData *dfptr, const TData *advVel, const size_t advelsize,
-    const TData *inptr, TData *outptr)
+    const simd_type *dfptr, const simd_type *advVel, const size_t advelsize,
+    const simd_type *inptr, simd_type *outptr,
+    const typename simd_type::scalarType scale)
 {
     const auto ndf   = ncoord * dimension;
     const auto nsize = nqTot * nelmt;
 
-    TData tmp[3], tmp0;
+    simd_type tmp[3], tmp0;
     if constexpr (DEFORMED)
     {
         for (size_t idx = 0; idx < nsize; idx++)
@@ -61,7 +62,7 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorAndAdvecVelKernel(
                 tmp0.fma(advVel[k * advelsize + idx], tmp[k]);
             }
 
-            outptr[idx] = tmp0;
+            outptr[idx] = scale * tmp0;
         }
     }
     else
@@ -83,7 +84,7 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorAndAdvecVelKernel(
                     tmp0.fma(advVel[k * advelsize + i], tmp[k]);
                 }
 
-                outptr[nqTot * e + i] = tmp0;
+                outptr[nqTot * e + i] = scale * tmp0;
             }
         }
     }

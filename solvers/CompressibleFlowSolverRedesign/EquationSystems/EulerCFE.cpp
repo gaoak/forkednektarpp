@@ -278,7 +278,7 @@ void EulerCFE::SetInitialConditionsField(Field<double, FieldState::Phys> &field)
 
         // Read initial conditions and configure operator
         std::vector<LibUtilities::EquationSharedPtr> initialConditons;
-        for (int i = 0; i < m_nVariables; ++i)
+        for (unsigned int i = 0; i < m_nVariables; ++i)
         {
             initialConditons.push_back(
                 m_session->GetFunction("InitialConditions", i));
@@ -292,7 +292,7 @@ void EulerCFE::SetInitialConditionsField(Field<double, FieldState::Phys> &field)
 
         if (m_session->GetComm()->GetRank() == 0)
         {
-            for (int i = 0; i < m_nVariables; ++i)
+            for (unsigned int i = 0; i < m_nVariables; ++i)
             {
                 std::string varName = m_variables[i];
                 std::cout << "  - Field " << varName << ": "
@@ -303,7 +303,7 @@ void EulerCFE::SetInitialConditionsField(Field<double, FieldState::Phys> &field)
     }
     else
     {
-        for (int i = 0; i < m_nVariables; i++)
+        for (unsigned int i = 0; i < m_nVariables; i++)
         {
             m_math.zero(field);
 

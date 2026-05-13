@@ -112,7 +112,6 @@ void VelocityCorrectionScheme::v_DoSolve()
     while (m_timeOp->GetStep() < m_steps ||
            m_timeOp->GetTime() < m_fintime - NekConstants::kNekZeroTol)
     {
-
         // Do time integration
         m_timeOp->Apply(m_in);
 
@@ -191,7 +190,7 @@ void VelocityCorrectionScheme::v_GenerateSummary(SummaryList &s)
 
 Array<OneD, bool> VelocityCorrectionScheme::v_GetSystemSingularChecks()
 {
-    int nVar = m_session->GetVariables().size();
+    unsigned int nVar = m_session->GetVariables().size();
     Array<OneD, bool> checks(nVar, false);
 
     const auto pressureVar = m_session->GetVariables().back();
@@ -473,7 +472,7 @@ void VelocityCorrectionScheme::InitialiseOperators()
 
         // Read forcing functions for all variables and configure operator
         std::vector<LibUtilities::EquationSharedPtr> forcingEquations;
-        for (int i = 0; i < m_variablesVel.size(); ++i)
+        for (unsigned int i = 0; i < m_variablesVel.size(); ++i)
         {
             forcingEquations.push_back(m_session->GetFunction("BodyForce", i));
         }
@@ -558,7 +557,7 @@ void VelocityCorrectionScheme::SetInitialConditionsField(
         // Read initial conditions and configure operator for velocity and
         // passive scalars
         std::vector<LibUtilities::EquationSharedPtr> initialConditons;
-        for (int i = 0; i < m_variablesFields.size(); ++i)
+        for (unsigned int i = 0; i < m_variablesFields.size(); ++i)
         {
             initialConditons.push_back(
                 m_session->GetFunction("InitialConditions", i));
@@ -578,7 +577,7 @@ void VelocityCorrectionScheme::SetInitialConditionsField(
         /// Set pressure initial conditions
         // Read initial conditions and re-configure operator for pressure
         initialConditons.clear();
-        for (int i = m_variablesFields.size(); i < m_nVariables; ++i)
+        for (unsigned int i = m_variablesFields.size(); i < m_nVariables; ++i)
         {
             initialConditons.push_back(
                 m_session->GetFunction("InitialConditions", i));
@@ -610,7 +609,7 @@ void VelocityCorrectionScheme::SetInitialConditionsField(
         // Print for initial conditions
         if (m_session->GetComm()->GetRank() == 0)
         {
-            for (int i = 0; i < m_nVariables; ++i)
+            for (unsigned int i = 0; i < m_nVariables; ++i)
             {
                 std::string varName = m_variables[i];
                 std::cout << "  - Field " << varName << ": "
@@ -626,7 +625,7 @@ void VelocityCorrectionScheme::SetInitialConditionsField(
         m_math.zero(m_pressure);
         m_math.zero(m_pressure_coeff);
 
-        for (int i = 0; i < m_nVariables; i++)
+        for (unsigned int i = 0; i < m_nVariables; i++)
         {
             if (m_session->GetComm()->GetRank() == 0)
             {

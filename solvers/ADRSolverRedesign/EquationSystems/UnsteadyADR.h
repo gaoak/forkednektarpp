@@ -83,7 +83,9 @@ protected:
     unsigned int m_nVariables;
 
     // Setup workspaces
-    Field<double, FieldState::Phys> m_in, m_wsp_phys, m_advectionVelocity;
+    Field<double, FieldState::Phys> m_in;
+    Field<double, FieldState::Phys> m_advectionVel;
+    Field<double, FieldState::Phys> m_wsp_phys;
     Field<double, FieldState::Coeff> m_wsp_coeff;
 
     // Declare math
@@ -94,11 +96,11 @@ protected:
 
     // Initialise operators
     std::shared_ptr<AdvectionOp<double>> m_advectionOp;
-    std::shared_ptr<BwdTransOp<double>> m_bwdTransOp;
     std::shared_ptr<LinearSystemOp<double>> m_linearSystemOp;
     std::shared_ptr<LinearSolverOp<double>> m_linearSolverOp;
     std::map<double, std::shared_ptr<PreconOp<double>>> m_preconOp;
     std::shared_ptr<ExpressionOp<double>> m_forcingOp;
+    std::shared_ptr<BwdTransOp<double>> m_bwdTransOp;
     std::shared_ptr<FwdTransOp<double>> m_fwdTransOp;
 
     UnsteadyADR(const LibUtilities::SessionReaderSharedPtr &pSession,

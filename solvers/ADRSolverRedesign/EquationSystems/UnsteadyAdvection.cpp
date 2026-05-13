@@ -1,4 +1,4 @@
-/////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 //
 // File: UnsteadyAdvection.cpp
 //
@@ -61,24 +61,26 @@ void UnsteadyAdvection::v_InitObject(bool DeclareFields)
     // Call to the initialisation object of EquationSystem
     EquationSystem::v_InitObject(DeclareFields);
 
-    // Load output/verbose parameters
-    m_session->LoadParameter("IO_InfoSteps", m_infosteps, 0);
-
     // Initialise boundary conditions
     SetBoundaryConditions(m_time);
 
     // Get variable strings and number of variables
     m_variables  = m_session->GetVariables();
     m_nVariables = m_variables.size();
-    m_ndim       = m_fields[0]->GetExp(0)->GetCoordim();
 
+    // Initialise Time-stepping operator
     m_timeOp = TimeOp<double>::Create(m_fields[0], m_variables);
     m_timeOp->DefineExplicitRhs(&UnsteadyAdvection::DoAdvection, this);
     m_timeOp->DefineProjection(&UnsteadyAdvection::DoProjection, this);
 
+    // Create and initialise all fields
+    InitialiseFields();
+
+    // Set Advection Velocity
+    SetAdvectionVel();
+
     // Create and initialise all operators
     InitialiseOperators();
-    InitialiseFields();
 }
 
 /**
@@ -96,6 +98,7 @@ void UnsteadyAdvection::v_DoSolve()
     {
         // Do time integration
         m_timeOp->Apply(m_in);
+        m_time = m_timeOp->GetTime();
 
         // Verbose print
         if (m_infosteps && !(m_timeOp->GetStep() % m_infosteps))
@@ -108,9 +111,13 @@ void UnsteadyAdvection::v_DoSolve()
         }
     }
 
+    // Keep EquationSystem time consistent with the time integrator state for
+    // exact-solution evaluation and output metadata.
     m_time = m_timeOp->GetTime();
 
-    // Write result into m_field for correct output to Fld file and
+    // TODO : Remove the below code, when updated with Redesign solverUtils
+    //  ----------------------------------------------------------------------
+    // Write result into m_fields.m_coeffs for correct output to Fld file and
     // check against exact solution
     Array<OneD, double> out = m_in.ToArray<double>();
     auto size               = 0;
@@ -132,6 +139,7 @@ void UnsteadyAdvection::v_DoSolve()
         // Increment
         size += nPhys;
     }
+    //--------------------------------------------------------------------------
 }
 
 void UnsteadyAdvection::v_GenerateSummary(SummaryList &s)
@@ -181,16 +189,37 @@ void UnsteadyAdvection::DoAdvection(Field<double, FieldState::Phys> &in,
                                     [[maybe_unused]] const double &time,
                                     [[maybe_unused]] const double &dt)
 {
-    // Solve advection problem
-    m_advectionWeakDGOp->SetScale(-dt);
-    m_advectionWeakDGOp->Apply(in, out);
+    // Switch on the projection type (Discontinuous or Continuous)
+    switch (m_projectionType)
+    {
+        // Discontinuous projection
+        case MultiRegions::eDiscontinuous:
+        {
+            // Solve advection problem
+            m_advectionWeakDGOp->SetScale(-dt);
+            m_advectionWeakDGOp->Apply(in, out);
+            break;
+        }
+        // Continuous field
+        case MultiRegions::eGalerkin:
+        {
+            m_advectionCGOp->SetScale(-dt);
+            m_advectionCGOp->Apply(in, out);
+            break;
+        }
+        default:
+        {
+            ASSERTL0(false, "Unsupported projection type.");
+            break;
+        }
+    }
 }
 
 /**
  * @brief Compute the projection for the unsteady advection problem.
  *
  * @param in    Given fields.
- * @param out   DG-projected fields.
+ * @param out   CG-projected fields.
  * @param time  Time.
  */
 void UnsteadyAdvection::DoProjection(Field<double, FieldState::Phys> &in,
@@ -200,10 +229,32 @@ void UnsteadyAdvection::DoProjection(Field<double, FieldState::Phys> &in,
     // Update time-varying boundary conditions
     SetBoundaryConditions(time);
 
-    // DG projection
-    if (&in != &out)
+    // Switch on the projection type (Discontinuous or Continuous)
+    switch (m_projectionType)
     {
-        m_math.copy(in, out);
+        case MultiRegions::eDiscontinuous:
+        {
+            // Discontinuous projection
+            if (&in != &out)
+            {
+                m_math.copy(in, out);
+            }
+            break;
+        }
+        case MultiRegions::eGalerkin:
+        {
+            // Continuous projection
+            // Note we could use the cheaper operators: AvgAssemble or
+            // GlobalToLocal
+            m_fwdTransOp->Apply(in, m_wsp_coeff);
+            m_bwdTransOp->Apply(m_wsp_coeff, out);
+            break;
+        }
+        default:
+        {
+            ASSERTL0(false, "Unsupported projection type.");
+            break;
+        }
     }
 }
 
@@ -217,76 +268,196 @@ void UnsteadyAdvection::InitialiseOperators()
     m_math               = Math(execName);
 
     m_fields[0]->SetDataWarehouse();
-    m_fields[0]->GetTrace()->SetDataWarehouse();
 
-    // Create operators
-    m_advectionWeakDGOp =
-        AdvectionWeakDGOp<double>::Create(m_fields[0], m_variables);
-    m_volumeFluxOp = VolumeFluxOp<double>::Create(m_fields[0], m_variables);
-    m_riemannSolverOp =
-        RiemannSolverOp<double>::Create(m_fields[0], m_variables);
-
-    // Set volume flux and Riemann solver for advection operator
-    m_advectionWeakDGOp->SetVolumeFluxOp(m_volumeFluxOp);
-    m_advectionWeakDGOp->SetRiemannSolver(m_riemannSolverOp);
-
-    // Check if forcing is defined
-    if (m_session->DefinesFunction("AdvectionVelocity"))
+    // Switch on the projection type (Discontinuous or Continuous)
+    switch (m_projectionType)
     {
-        // Define Velocity fields
-        std::vector<std::string> vel;
-        vel.push_back("Vx");
-        vel.push_back("Vy");
-        vel.push_back("Vz");
-
-        // Resize the advection velocities
-        vel.resize(m_ndim);
-
-        // Create operator
-        m_expressionOp = ExpressionOp<double>::Create(m_fields[0], vel);
-
-        m_getFwdBwdTracePhysOp =
-            GetFwdBwdTracePhysOp<double>::Create(m_fields[0], vel);
-        m_getFwdBwdTracePhysOp->SetFwdOnly(true);
-
-        // Read initial conditions and configure operator
-        std::vector<LibUtilities::EquationSharedPtr> velEquations;
-        for (int i = 0; i < m_ndim; ++i)
+        case MultiRegions::eDiscontinuous:
         {
-            velEquations.push_back(
-                m_session->GetFunction("AdvectionVelocity", vel[i]));
+            // Discontinuous projection
+            m_fields[0]->GetTrace()->SetDataWarehouse();
+
+            // Create operators
+            m_advectionWeakDGOp =
+                AdvectionWeakDGOp<double>::Create(m_fields[0], m_variables);
+            m_volumeFluxOp =
+                VolumeFluxOp<double>::Create(m_fields[0], m_variables);
+            m_riemannSolverOp =
+                RiemannSolverOp<double>::Create(m_fields[0], m_variables);
+
+            // Set volume flux and Riemann solver for advection operator
+            m_advectionWeakDGOp->SetVolumeFluxOp(m_volumeFluxOp);
+            m_advectionWeakDGOp->SetRiemannSolver(m_riemannSolverOp);
+
+            // Check if forcing is defined
+            if (m_session->DefinesFunction("AdvectionVelocity"))
+            {
+                unsigned int coordDim = m_fields[0]->GetCoordim(0);
+
+                // Reads the Session File Velocity defined as function
+                std::vector<std::string> vel;
+                vel.push_back("Vx");
+                vel.push_back("Vy");
+                vel.push_back("Vz");
+                vel.resize(coordDim);
+
+                // Create operator
+                m_getFwdBwdTracePhysOp =
+                    GetFwdBwdTracePhysOp<double>::Create(m_fields[0], vel);
+                m_getFwdBwdTracePhysOp->SetFwdOnly(true);
+
+                // Extract trace advection velocity for upwind solver
+                m_getFwdBwdTracePhysOp->Apply(
+                    m_advectionVel, m_traceAdvectionVel, m_traceAdvectionVel);
+            }
+
+            // Set advection velocity
+            m_volumeFluxOp->SetAdvectVel(m_advectionVel);
+
+            // Set trace advection velocity for upwind solver
+            m_riemannSolverOp->SetTraceAdvVel(m_traceAdvectionVel);
+            break;
         }
-        m_expressionOp->SetExpressions(velEquations);
+        case MultiRegions::eGalerkin:
+        {
+            // Continuous projection
+            m_advectionCGOp =
+                AdvectionOp<double>::Create(m_fields[0], m_variables);
+            m_advectionCGOp->SetAdvVel(m_advectionVel);
+
+            m_bwdTransOp = BwdTransOp<double>::Create(
+                m_fields[0], m_session->GetVariables());
+
+            // Initialise forward transform operator to evaluate initial
+            // condition in coefficient space.
+            m_fwdTransOp = FwdTransOp<double>::Create(
+                m_fields[0], m_session->GetVariables());
+            auto preconOp = PreconOp<double>::Create(m_fields[0],
+                                                     m_session->GetVariables());
+            // The projection solve is a mass-matrix problem, so use ConjGrad
+            // regardless of the ADR system solver configured in the session.
+            auto linsolverOp = LinearSolverOp<double>::Create(
+                m_fields[0], m_session->GetVariables(), "ConjGrad");
+            m_fwdTransOp->SetLinearSolver(linsolverOp);
+            m_fwdTransOp->SetPrecon(preconOp);
+            m_fwdTransOp->UpdatePrecon();
+            break;
+        }
+        default:
+        {
+            ASSERTL0(false, "Unsupported projection type.");
+            break;
+        }
     }
 }
 
 /*
  *  Create and initialise Fields.
- *
- *  m_in is created from m_fields->GetPhys() with correct boundary and initial
- *  conditions applied.
- *  m_out is a FieldState::Phys workspace initialised to zero
  */
 void UnsteadyAdvection::InitialiseFields()
 {
-    // Create blocks.
-    auto blocks_in = GetBlockAttributes<double, FieldState::Phys>(m_fields[0]);
-    auto blocks_trace =
-        GetBlockAttributes<double, FieldState::Phys>(m_fields[0]->GetTrace());
-
-    // Create fields.
+    unsigned int coordDim     = m_fields[0]->GetCoordim(0);
     unsigned int numHomoModes = 1;
-    m_in = Field<double, FieldState::Phys>("solution", blocks_in, m_nVariables,
-                                           numHomoModes);
-    m_advectVel      = Field<double, FieldState::Phys>("advectVel", blocks_in,
-                                                  m_ndim, numHomoModes);
-    m_traceAdvectVel = Field<double, FieldState::Phys>(
-        "traceAdvectVel", blocks_trace, m_ndim, numHomoModes);
 
-    // Initialise fields
-    m_math.zero(m_in);
-    m_math.zero(m_advectVel);
-    m_math.zero(m_traceAdvectVel);
+    // Switch on the projection type (Discontinuous or Continuous)
+    switch (m_projectionType)
+    {
+        // Discontinuous projection
+        case MultiRegions::eDiscontinuous:
+        {
+            // Create blocks.
+            auto blocks_in =
+                GetBlockAttributes<double, FieldState::Phys>(m_fields[0]);
+            auto blocks_trace = GetBlockAttributes<double, FieldState::Phys>(
+                m_fields[0]->GetTrace());
+
+            // Create fields.
+            m_in = Field<double, FieldState::Phys>("solution", blocks_in,
+                                                   m_nVariables, numHomoModes);
+            m_advectionVel = Field<double, FieldState::Phys>(
+                "advectionVel", blocks_in, coordDim, numHomoModes);
+            m_traceAdvectionVel = Field<double, FieldState::Phys>(
+                "traceAdvectVel", blocks_trace, coordDim, numHomoModes);
+
+            // Initialise fields
+            m_math.zero(m_in);
+            m_math.zero(m_advectionVel);
+            m_math.zero(m_traceAdvectionVel);
+            break;
+        }
+        // Continuous field
+        case MultiRegions::eGalerkin:
+        {
+            // Create blocks.
+            auto blocks_in =
+                GetBlockAttributes<double, FieldState::Phys>(m_fields[0]);
+            auto blocks_coeff =
+                GetBlockAttributes<double, FieldState::Coeff>(m_fields[0]);
+
+            // Create fields.
+            m_in = Field<double, FieldState::Phys>("solution", blocks_in,
+                                                   m_nVariables, numHomoModes);
+            m_advectionVel = Field<double, FieldState::Phys>(
+                "advectionVel", blocks_in, coordDim, numHomoModes);
+            m_wsp_coeff = Field<double, FieldState::Coeff>(
+                "wsp coeff", blocks_coeff, m_nVariables, numHomoModes);
+
+            // Initialise fields
+            m_math.zero(m_in);
+            m_math.zero(m_advectionVel);
+            m_math.zero(m_wsp_coeff);
+            break;
+        }
+        default:
+        {
+            ASSERTL0(false, "Unsupported projection type.");
+            break;
+        }
+    }
+}
+
+/*
+ *  @brief Sets the Advection Veclocity
+ */
+void UnsteadyAdvection::SetAdvectionVel()
+{
+
+    // Read advection velocity from session
+    if (m_session->DefinesFunction("AdvectionVelocity"))
+    {
+        unsigned int coordDim = m_fields[0]->GetCoordim(0);
+
+        // Reads the Session File Velocity defined as function
+        std::vector<std::string> vel;
+        vel.push_back("Vx");
+        vel.push_back("Vy");
+        vel.push_back("Vz");
+        vel.resize(coordDim);
+
+        // Initialise operators
+        auto expressionOp = ExpressionOp<double>::Create(m_fields[0], vel);
+
+        // Read advection velocity expressions and configure operator
+        std::vector<LibUtilities::EquationSharedPtr> advectionVelocities;
+        for (unsigned int i = 0; i < coordDim; ++i)
+        {
+            advectionVelocities.push_back(
+                m_session->GetFunction("AdvectionVelocity", vel[i]));
+        }
+        expressionOp->SetExpressions(advectionVelocities);
+        expressionOp->SetTime(m_time);
+
+        // Initialise m_advectionVel, evaluate all expressions and
+        // transform to array
+        m_math.zero(m_advectionVel);
+        expressionOp->Apply(m_advectionVel, m_advectionVel);
+    }
+    else
+    {
+        NEKERROR(
+            ErrorUtil::efatal,
+            "Function 'AdvectionVelocity' was not defined in session file.")
+    }
 }
 
 void UnsteadyAdvection::SetInitialConditionsField(
@@ -307,7 +478,7 @@ void UnsteadyAdvection::SetInitialConditionsField(
 
         // Read initial conditions and configure operator
         std::vector<LibUtilities::EquationSharedPtr> initialConditons;
-        for (int i = 0; i < m_nVariables; ++i)
+        for (unsigned int i = 0; i < m_nVariables; ++i)
         {
             initialConditons.push_back(
                 m_session->GetFunction("InitialConditions", i));
@@ -322,7 +493,7 @@ void UnsteadyAdvection::SetInitialConditionsField(
         // Print for initial conditions
         if (m_session->GetComm()->GetRank() == 0)
         {
-            for (int i = 0; i < m_nVariables; ++i)
+            for (unsigned int i = 0; i < m_nVariables; ++i)
             {
                 std::string varName = m_variables[i];
                 std::cout << "  - Field " << varName << ": "
@@ -333,7 +504,7 @@ void UnsteadyAdvection::SetInitialConditionsField(
     }
     else
     {
-        for (int i = 0; i < m_nVariables; i++)
+        for (unsigned int i = 0; i < m_nVariables; i++)
         {
             m_math.zero(field);
 
@@ -344,23 +515,6 @@ void UnsteadyAdvection::SetInitialConditionsField(
             }
         }
     }
-
-    // Evaluate and add AdvectionVelocity function, if defined
-    if (m_session->DefinesFunction("AdvectionVelocity"))
-    {
-        // Evaluate velocity expression
-        m_expressionOp->Apply(m_advectVel, m_advectVel);
-
-        // Extract trace advection velocity for upwind solver
-        m_getFwdBwdTracePhysOp->Apply(m_advectVel, m_traceAdvectVel,
-                                      m_traceAdvectVel);
-    }
-
-    // Set trace advection velocity for upwind solver
-    m_riemannSolverOp->SetTraceAdvVel(m_traceAdvectVel);
-
-    // Set advection velocity
-    m_volumeFluxOp->SetAdvectVel(m_advectVel);
 }
 
 } // namespace Nektar

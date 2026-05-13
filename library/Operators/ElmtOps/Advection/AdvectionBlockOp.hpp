@@ -57,12 +57,19 @@ public:
 
     static inline const std::string name = "BlockAdvection";
 
+    void SetScale(const TData &scale)
+    {
+        m_scale = scale;
+    }
+
     void SetAdvVel(BlockAccessor<TData, FieldState::Phys> &Vel)
     {
         v_SetAdvVel(Vel);
     }
 
 protected:
+    TData m_scale = 1.0;
+
     AdvectionBlockOp(const unsigned int block_idx,
                      const LocalRegions::ExpansionSharedPtr &exp,
                      NekDataWarehouseSharedPtr dataWarehouse)

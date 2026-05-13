@@ -81,15 +81,15 @@ NEK_FORCE_INLINE void PhysDeriv1DKernel(const unsigned int nq0,
         in = out[0][j]; // Load 1x
         if (ndf == 3)
         {
-            tmp       = in * df_tmp[2]; // Store 1x
+            tmp       = in * df_tmp[2];
             out[2][j] = tmp;
         }
         if (ndf >= 2)
         {
-            tmp       = in * df_tmp[1]; // Store 1x
+            tmp       = in * df_tmp[1];
             out[1][j] = tmp;
         }
-        tmp       = in * df_tmp[0]; // Store 1x
+        tmp       = in * df_tmp[0];
         out[0][j] = tmp;
     }
 }
@@ -193,17 +193,17 @@ NEK_FORCE_INLINE void PhysDeriv2DKernel(
             simd_type tmp;
             tmp = d0 * df_tmp[0]; // d0 * df0 + d1 * df1
             tmp.fma(d1, df_tmp[1]);
-            out[0][cnt_ji] = tmp; // Store 1x
+            out[0][cnt_ji] = tmp;
 
             tmp = d0 * df_tmp[2]; // d0 * df2 + d1 * df3
             tmp.fma(d1, df_tmp[3]);
-            out[1][cnt_ji] = tmp; // Store 1x
+            out[1][cnt_ji] = tmp;
 
             if (outdim == 3)
             {
                 tmp = d0 * df_tmp[4]; // d0 * df4 + d1 * df5
                 tmp.fma(d1, df_tmp[5]);
-                out[2][cnt_ji] = tmp; // Store 1x
+                out[2][cnt_ji] = tmp;
             }
         }
     }
@@ -262,11 +262,11 @@ NEK_FORCE_INLINE void PhysDerivDir2DKernel(
             tmp.fma(d1, df_tmp[1]);
             if constexpr (APPEND)
             {
-                out[cnt_ji] += tmp; // Store 1x
+                out[cnt_ji] += tmp;
             }
             else
             {
-                out[cnt_ji] = tmp; // Store 1x
+                out[cnt_ji] = tmp;
             }
         }
     }
@@ -372,17 +372,17 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
                 tmp = d0 * df_tmp[0];
                 tmp.fma(d1, df_tmp[1]);
                 tmp.fma(d2, df_tmp[2]);
-                out_d0[cnt_ijk] = tmp; // Store 1x
+                out_d0[cnt_ijk] = tmp;
 
                 tmp = d0 * df_tmp[3];
                 tmp.fma(d1, df_tmp[4]);
                 tmp.fma(d2, df_tmp[5]);
-                out_d1[cnt_ijk] = tmp; // Store 1x
+                out_d1[cnt_ijk] = tmp;
 
                 tmp = d0 * df_tmp[6];
                 tmp.fma(d1, df_tmp[7]);
                 tmp.fma(d2, df_tmp[8]);
-                out_d2[cnt_ijk] = tmp; // Store 1x
+                out_d2[cnt_ijk] = tmp;
             }
         }
     }

@@ -157,13 +157,15 @@ protected:
             {
                 MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, true>(
                     m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, outoffset,
-                    m_dfptr, advptr, advelsize, derivptr, outptr);
+                    m_dfptr, advptr, advelsize, derivptr, outptr,
+                    this->m_scale);
             }
             else
             {
                 MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, false>(
                     m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, outoffset,
-                    m_dfptr, advptr, advelsize, derivptr, outptr);
+                    m_dfptr, advptr, advelsize, derivptr, outptr,
+                    this->m_scale);
             }
 
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
