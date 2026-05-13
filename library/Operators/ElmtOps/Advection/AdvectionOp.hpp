@@ -61,6 +61,15 @@ public:
 
     static inline const std::string name = "Advection";
 
+    void SetScale(const TData &scale)
+    {
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
+        {
+            this->m_blockOp[blk]->SetScale(scale);
+        }
+    }
+
     void SetAdvVel(Field<TData, FieldState::Phys> &advVel)
     {
         // Loop over the blocks.

@@ -372,7 +372,8 @@ protected:
                     reinterpret_cast<const simd_t *>(advVelPtr + advVelOffset),
                     reinterpret_cast<const simd_t *>(advVelPtr +
                                                      2 * advVelOffset),
-                    m_deriv0.data(), reinterpret_cast<simd_t *>(outptr));
+                    m_deriv0.data(), reinterpret_cast<simd_t *>(outptr),
+                    this->m_scale);
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
@@ -483,7 +484,7 @@ protected:
                     reinterpret_cast<const simd_t *>(advVelPtr +
                                                      2 * advVelOffset),
                     m_deriv0.data(), m_deriv1.data(),
-                    reinterpret_cast<simd_t *>(outptr));
+                    reinterpret_cast<simd_t *>(outptr), this->m_scale);
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
@@ -592,7 +593,7 @@ protected:
                     reinterpret_cast<const simd_t *>(advVelPtr +
                                                      2 * advVelOffset),
                     m_deriv0.data(), m_deriv1.data(), m_deriv2.data(),
-                    reinterpret_cast<simd_t *>(outptr));
+                    reinterpret_cast<simd_t *>(outptr), this->m_scale);
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)

@@ -68,7 +68,7 @@ NEK_DEVICE_INLINE static void Advection1DSumFacTOPKernel(
     const unsigned int ncoord, const unsigned int nq0,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT advVel_ptr, const size_t adVecoffset,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out, const TData scale,
     const TthreadBlock &threadBlock)
 {
     const unsigned int dfsize = DEFORMED ? nq0 : 1u;
@@ -95,7 +95,7 @@ NEK_DEVICE_INLINE static void Advection1DSumFacTOPKernel(
             tmp +=
                 d0 * df[d * dfsize + dfindex] * advVel_ptr[d * adVecoffset + i];
         }
-        out[i] = tmp;
+        out[i] = scale * tmp;
     }
 
     localBarrier(threadBlock);
@@ -109,7 +109,7 @@ NEK_DEVICE_INLINE static void Advection2DSumFacTOPKernel(
     const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
     const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT advVel_ptr,
     const size_t adVecoffset, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, const TthreadBlock &threadBlock)
+    TData *NEK_RESTRICT out, const TData scale, const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot  = nq0 * nq1;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
@@ -165,7 +165,7 @@ NEK_DEVICE_INLINE static void Advection2DSumFacTOPKernel(
             tmp += vz * (d0 * df[4u * dfsize + dfindex] +
                          d1 * df[5u * dfsize + dfindex]);
         }
-        out[idx] = tmp;
+        out[idx] = scale * tmp;
     }
 
     localBarrier(threadBlock);
@@ -180,7 +180,7 @@ NEK_DEVICE_INLINE static void Advection3DSumFacTOPKernel(
     const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
     const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT advVel_ptr, const size_t adVecoffset,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out, const TData scale,
     const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot  = nq0 * nq1 * nq2;
@@ -262,7 +262,7 @@ NEK_DEVICE_INLINE static void Advection3DSumFacTOPKernel(
         tmp += vz * (d0 * df[6u * dfsize + dfindex] +
                      d1 * df[7u * dfsize + dfindex] +
                      d2 * df[8u * dfsize + dfindex]);
-        out[idx] = tmp;
+        out[idx] = scale * tmp;
     }
 
     localBarrier(threadBlock);
@@ -273,7 +273,7 @@ NEK_DEVICE_INLINE static void AdvectionSumFacTOP1DKernel(
     const unsigned int ncoord, const unsigned int nq0, const size_t nelmt,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT advVel_ptr, const size_t adVecoffset,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out, const TData scale,
     const TthreadBlock &threadBlock)
 {
     const unsigned int ndf    = ncoord;
@@ -287,7 +287,7 @@ NEK_DEVICE_INLINE static void AdvectionSumFacTOP1DKernel(
         TData *outptr          = out + nq0 * e;
         const TData *advVelPtr = advVel_ptr + nq0 * e;
         Advection1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, D0, dfptr, advVelPtr,
-                                             adVecoffset, inptr, outptr,
+                                             adVecoffset, inptr, outptr, scale,
                                              threadBlock);
         e += getBlockRange(threadBlock);
     }
@@ -301,7 +301,7 @@ NEK_DEVICE_INLINE static void AdvectionSumFacTOP2DKernel(
     const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
     const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT advVel_ptr, const size_t adVecoffset,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out, const TData scale,
     unsigned char *NEK_RESTRICT shmemptr, const TthreadBlock &threadBlock)
 {
     const unsigned int ndf    = 2 * ncoord;
@@ -330,7 +330,7 @@ NEK_DEVICE_INLINE static void AdvectionSumFacTOP2DKernel(
 
         Advection2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
             ncoord, nq0, nq1, D0, D1, f0, f1, dfptr, advVelPtr, adVecoffset,
-            s_wsp0, outptr, threadBlock);
+            s_wsp0, outptr, scale, threadBlock);
 
         e += getBlockRange(threadBlock);
     }
@@ -346,8 +346,8 @@ NEK_DEVICE_INLINE static void AdvectionSumFacTOP3DKernel(
     const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
     const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT advVel_ptr,
     const size_t adVecoffset, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, unsigned char *NEK_RESTRICT shmemptr,
-    const TthreadBlock &threadBlock)
+    TData *NEK_RESTRICT out, const TData scale,
+    unsigned char *NEK_RESTRICT shmemptr, const TthreadBlock &threadBlock)
 {
     constexpr unsigned int ndf = 9u;
     const unsigned int nqTot   = nq0 * nq1 * nq2;
@@ -375,7 +375,7 @@ NEK_DEVICE_INLINE static void AdvectionSumFacTOP3DKernel(
 
         Advection3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
             nq0, nq1, nq2, D0, D1, D2, f0, f1, f1m, f2, dfptr, advVelPtr,
-            adVecoffset, s_wsp0, outptr, threadBlock);
+            adVecoffset, s_wsp0, outptr, scale, threadBlock);
 
         e += getBlockRange(threadBlock);
     }
@@ -392,12 +392,12 @@ NEK_DEVICE_KERNEL
                               const TData *NEK_RESTRICT advVel_ptr,
                               const size_t adVecoffset,
                               const TData *NEK_RESTRICT in,
-                              TData *NEK_RESTRICT out,
+                              TData *NEK_RESTRICT out, const TData scale,
                               const TthreadBlock &threadBlock)
 {
     AdvectionSumFacTOP1DKernel<DEFORMED>(
         sizeParam1D.ncoord(), sizeParam1D.nq0(), nelmt, D0, df, advVel_ptr,
-        adVecoffset, in, out, threadBlock);
+        adVecoffset, in, out, scale, threadBlock);
 }
 
 // Size based template version.
@@ -415,10 +415,11 @@ NEK_DEVICE_KERNEL
                               const TData *NEK_RESTRICT advVel_ptr, 
                               const size_t adVecoffset, 
                               const TData *NEK_RESTRICT in,
-                              TData *NEK_RESTRICT out, const TthreadBlock &threadBlock)
+                              TData *NEK_RESTRICT out, const TData scale, const TthreadBlock &threadBlock)
 {
     AdvectionSumFacTOP1DKernel<DEFORMED>(ncoord, nq0, nelmt, D0, df, advVel_ptr,
-                                         adVecoffset, in, out, threadBlock);
+                                         adVecoffset, in, out, scale,
+                                         threadBlock);
 }
 
 // Non-size based version.
@@ -432,14 +433,14 @@ NEK_DEVICE_KERNEL
         const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
         const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT advVel_ptr,
         const size_t adVecoffset, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, unsigned char *shmemptr,
+        TData *NEK_RESTRICT out, const TData scale, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
     AdvectionSumFacTOP2DKernel<SHAPE_TYPE, DEFORMED>(
         sizeParam2D.ncoord(), sizeParam2D.nq0(), sizeParam2D.nq1(), nelmt, D0,
-        D1, f0, f1, df, advVel_ptr, adVecoffset, in, out, shmemptr,
+        D1, f0, f1, df, advVel_ptr, adVecoffset, in, out, scale, shmemptr,
         threadBlock);
 }
 
@@ -462,13 +463,13 @@ const size_t nelmt, const TData *NEK_RESTRICT D0,
                               const TData *NEK_RESTRICT advVel_ptr, 
                               const size_t adVecoffset, 
                               const TData *NEK_RESTRICT in,
-                              TData *NEK_RESTRICT out, unsigned char* shmemptr, const TthreadBlock &threadBlock)
+                              TData *NEK_RESTRICT out, const TData scale, unsigned char* shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
     AdvectionSumFacTOP2DKernel<SHAPE_TYPE, DEFORMED>(
         ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, df, advVel_ptr, adVecoffset,
-        in, out, shmemptr, threadBlock);
+        in, out, scale, shmemptr, threadBlock);
 }
 
 // Non-size based version.
@@ -484,14 +485,15 @@ NEK_DEVICE_KERNEL
         const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
         const TData *NEK_RESTRICT advVel_ptr, const size_t adVecoffset,
         const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+        const TData scale, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
     AdvectionSumFacTOP3DKernel<SHAPE_TYPE, DEFORMED>(
         sizeParam3D.nq0(), sizeParam3D.nq1(), sizeParam3D.nq2(), nelmt, D0, D1,
-        D2, f0, f1, f1m, f2, df, advVel_ptr, adVecoffset, in, out, shmemptr,
-        threadBlock);
+        D2, f0, f1, f1m, f2, df, advVel_ptr, adVecoffset, in, out, scale,
+        shmemptr, threadBlock);
 }
 
 // Size based template version.
@@ -511,13 +513,13 @@ NEK_DEVICE_KERNEL
     const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
     const TData *NEK_RESTRICT df,  const TData *NEK_RESTRICT advVel_ptr, 
     const size_t adVecoffset, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, unsigned char*shmemptr, const TthreadBlock &threadBlock)
+    TData *NEK_RESTRICT out, const TData scale, unsigned char*shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
     AdvectionSumFacTOP3DKernel<SHAPE_TYPE, DEFORMED>(
         nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, advVel_ptr,
-        adVecoffset, in, out, shmemptr, threadBlock);
+        adVecoffset, in, out, scale, shmemptr, threadBlock);
 }
 
 #endif

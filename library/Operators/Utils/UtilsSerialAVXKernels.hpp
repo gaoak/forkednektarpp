@@ -53,7 +53,7 @@ NEK_FORCE_INLINE static void MatVecKernel(const unsigned int n,
             i_sum.fma(Mat[cnt], in[j]);
         }
 
-        out[i] = i_sum; // Store 1x
+        out[i] = i_sum;
     }
 }
 

@@ -119,7 +119,8 @@ void UnsteadyADR::v_DoSolve()
             std::cout
                 // << std::scientific
                 << "Steps: " << std::setw(8) << std::left << m_timeOp->GetStep()
-                << " Time: " << std::setw(12) << std::left << std::endl;
+                << " Time: " << std::setw(12) << std::left
+                << m_timeOp->GetTime() << std::endl;
         }
     }
 
@@ -388,7 +389,7 @@ void UnsteadyADR::InitialiseOperators()
         {
             m_advectionOp = AdvectionOp<double>::Create(
                 m_fields[0], m_session->GetVariables());
-            m_advectionOp->SetAdvVel(m_advectionVelocity);
+            m_advectionOp->SetAdvVel(m_advectionVel);
 
             // After splitting advection into the explicit IMEX rhs, the
             // implicit solve is a symmetric Helmholtz problem.
@@ -410,7 +411,7 @@ void UnsteadyADR::InitialiseOperators()
                 m_fields[0], m_session->GetVariables());
             linearADRSolveOp->SetLinearSolver(m_linearSolverOp);
             linearADRSolveOp->SetDiffCoeff(m_diffCoeff);
-            linearADRSolveOp->SetAdvVel(m_advectionVelocity);
+            linearADRSolveOp->SetAdvVel(m_advectionVel);
             m_linearSystemOp = linearADRSolveOp;
         }
     }
@@ -469,7 +470,7 @@ void UnsteadyADR::InitialiseFields()
         unsigned int coordDim = m_fields[0]->GetCoordim(0);
         m_wsp_phys            = Field<double, FieldState::Phys>(
             "m_wsp_phys", block_attr_phys, m_nVariables, nhomo);
-        m_advectionVelocity = Field<double, FieldState::Phys>(
+        m_advectionVel = Field<double, FieldState::Phys>(
             "advVel", block_attr_phys, coordDim, nhomo);
     }
 }
@@ -485,7 +486,7 @@ void UnsteadyADR::SetAdvectionVel()
     {
         unsigned int coordDim = m_fields[0]->GetCoordim(0);
 
-        // Reads the Session File Vecoity defined as function
+        // Reads the Session File Velocity defined as function
         std::vector<std::string> vel;
         vel.push_back("Vx");
         vel.push_back("Vy");
@@ -505,10 +506,10 @@ void UnsteadyADR::SetAdvectionVel()
         expressionOp->SetExpressions(advectionVelocities);
         expressionOp->SetTime(m_time);
 
-        // Initialise m_advectionVelocity, evaluate all expressions and
+        // Initialise m_advectionVel, evaluate all expressions and
         // transform to array
-        m_math.zero(m_advectionVelocity);
-        expressionOp->Apply(m_advectionVelocity, m_advectionVelocity);
+        m_math.zero(m_advectionVel);
+        expressionOp->Apply(m_advectionVel, m_advectionVel);
     }
     else
     {

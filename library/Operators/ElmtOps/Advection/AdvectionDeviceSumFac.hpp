@@ -319,7 +319,7 @@ protected:
             DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                 (Advection1DKernelLauncher<Implementation, DEFORMED>), gridsize,
                 blocksize, 0, sizeParam1D, nelmt, m_D[0], m_dfptr, advVelPtr,
-                advVelOffset, inptr, outptr);
+                advVelOffset, inptr, outptr, this->m_scale);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -407,7 +407,7 @@ protected:
                                            DEFORMED>),
                 gridsize, blocksize, shmemsize, 0, sizeParam2D, nelmt, m_D[0],
                 m_D[1], m_f[0], m_f[1], m_dfptr, advVelPtr, advVelOffset, inptr,
-                outptr);
+                outptr, this->m_scale);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -493,7 +493,7 @@ protected:
                                            DEFORMED>),
                 gridsize, blocksize, shmemsize, 0, sizeParam3D, nelmt, m_D[0],
                 m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3], m_dfptr,
-                advVelPtr, advVelOffset, inptr, outptr);
+                advVelPtr, advVelOffset, inptr, outptr, this->m_scale);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,

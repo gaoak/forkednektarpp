@@ -41,7 +41,8 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorAndAdvecVelKernel(
     const unsigned int nqTot, const unsigned int ncoord,
     const unsigned int dimension, const size_t nelmt, const unsigned int nhomo,
     const size_t inoffset, const TData *dfptr, const TData *advVel,
-    const size_t advelsize, const TData *inptr, TData *outptr)
+    const size_t advelsize, const TData *inptr, TData *outptr,
+    const TData scale)
 {
     const auto ndf   = ncoord * dimension;
     const auto nsize = nqTot * nelmt * nhomo;
@@ -67,7 +68,7 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorAndAdvecVelKernel(
                     tmp0 += advVel[k * advelsize + idx] * tmp[k];
                 }
 
-                outptr[idx] = tmp0;
+                outptr[idx] = scale * tmp0;
             });
     }
     else
@@ -86,7 +87,7 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorAndAdvecVelKernel(
                     }
                     tmp0 += advVel[k * advelsize + idx] * tmp[k];
                 }
-                outptr[idx] = tmp0;
+                outptr[idx] = scale * tmp0;
             });
     }
 }

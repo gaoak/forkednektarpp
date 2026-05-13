@@ -150,9 +150,6 @@ protected:
             "RungeKutta schemes require a DoProjection method. Define with "
             "RungeKuttaOp->DefineProjection().");
 
-        // Ensure solution is in correct space.
-        this->DoProjection(inout, this->m_solutions[0], this->m_time);
-
         // Apply Runge-Kutta scheme.
         Staging<1>(inout);
         UpdateSolution(inout,
@@ -170,10 +167,12 @@ protected:
             GetRungeKuttaTimeCoefficients<Scheme, IntOrder, TData>()[Stage - 1];
 
         // Ensure solution is in correct space.
-        if constexpr (Stage != 1)
+        this->DoProjection(inout, inout,
+                           this->m_time + coeff * this->m_timestep);
+
+        if constexpr (Stage == 1)
         {
-            this->DoProjection(inout, inout,
-                               this->m_time + coeff * this->m_timestep);
+            this->m_solutions[0].template Copy<MemSpace>(inout);
         }
 
         // Compute explicit term.

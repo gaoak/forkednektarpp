@@ -42,7 +42,7 @@ NEK_FORCE_INLINE void Advection1DKernel(
     const unsigned int nq0, const unsigned int ndf, const simd_type *df_ptr,
     const simd_type *advVel0_ptr, [[maybe_unused]] const simd_type *advVel1_ptr,
     [[maybe_unused]] const simd_type *advVel2_ptr, simd_type *deriv0,
-    simd_type *out)
+    simd_type *out, const typename simd_type::scalarType scale)
 {
     simd_type df_tmp[3];
 
@@ -79,18 +79,18 @@ NEK_FORCE_INLINE void Advection1DKernel(
         simd_type in, tmp;
         in = deriv0[j]; // Load 1x
         // Multiply by derivative factor, and Vx
-        tmp = in * df_tmp[0] * advVel0_ptr[j]; // Store 1x
+        tmp = df_tmp[0] * advVel0_ptr[j];
         if (ndf >= 2)
         {
             // Multiply by derivative factor, and Vy
-            tmp += in * df_tmp[1] * advVel1_ptr[j]; // Store 1x
+            tmp.fma(df_tmp[1], advVel1_ptr[j]);
         }
         if (ndf == 3)
         {
             // Multiply by derivative factor, and Vz
-            tmp += in * df_tmp[2] * advVel2_ptr[j]; // Store 1x
+            tmp.fma(df_tmp[2], advVel2_ptr[j]);
         }
-        out[j] = tmp;
+        out[j] = scale * in * tmp;
     }
 }
 
@@ -100,7 +100,8 @@ NEK_FORCE_INLINE void Advection2DKernel(
     [[maybe_unused]] const simd_type *f0, [[maybe_unused]] const simd_type *f1,
     const simd_type *df_ptr, const simd_type *advVel0_ptr,
     const simd_type *advVel1_ptr, [[maybe_unused]] const simd_type *advVel2_ptr,
-    simd_type *deriv0, simd_type *deriv1, simd_type *out)
+    simd_type *deriv0, simd_type *deriv1, simd_type *out,
+    const typename simd_type::scalarType scale)
 {
     auto ndf = 2 * outdim;
     simd_type vx, vy, df_tmp[6];
@@ -162,16 +163,16 @@ NEK_FORCE_INLINE void Advection2DKernel(
             }
 
             // Multiply by derivative factors
-            simd_type tmp;
+            simd_type tmp, tmp0;
             tmp = d0 * df_tmp[0]; // d0 * df0 + d1 * df1
             tmp.fma(d1, df_tmp[1]);
             // Multiply advection vel, Vx
-            out[cnt_ji] = tmp * vx;
+            tmp0 = tmp * vx;
 
             tmp = d0 * df_tmp[2]; // d0 * df2 + d1 * df3
             tmp.fma(d1, df_tmp[3]);
             // Multiply advection vel, Vy
-            out[cnt_ji] += tmp * vy;
+            tmp0.fma(tmp, vy);
 
             if (outdim == 3)
             {
@@ -179,8 +180,9 @@ NEK_FORCE_INLINE void Advection2DKernel(
                 tmp          = d0 * df_tmp[4]; // d0 * df4 + d1 * df5
                 tmp.fma(d1, df_tmp[5]);
                 // Multiply advection vel, Vz
-                out[cnt_ji] = tmp * vz;
+                tmp0.fma(tmp, vz);
             }
+            out[cnt_ji] = tmp0 * scale;
         }
     }
 }
@@ -192,7 +194,8 @@ NEK_FORCE_INLINE void Advection3DKernel(
     [[maybe_unused]] const simd_type *f1m, [[maybe_unused]] const simd_type *f2,
     const simd_type *df_ptr, const simd_type *advVel0_ptr,
     const simd_type *advVel1_ptr, const simd_type *advVel2_ptr,
-    simd_type *deriv0, simd_type *deriv1, simd_type *deriv2, simd_type *out)
+    simd_type *deriv0, simd_type *deriv1, simd_type *deriv2, simd_type *out,
+    const typename simd_type::scalarType scale)
 {
     constexpr auto ndf = 9;
     simd_type vx, vy, vz, df_tmp[ndf];
@@ -288,23 +291,25 @@ NEK_FORCE_INLINE void Advection3DKernel(
                 }
 
                 // Metric for eta_0, xi_1, eta_2
+                simd_type tmp0;
                 tmp = d0 * df_tmp[0];
                 tmp.fma(d1, df_tmp[1]);
                 tmp.fma(d2, df_tmp[2]);
-                // Store 1x, and multiply advection velocity, Vx
-                out[cnt_ijk] = tmp * vx;
+                // Multiply advection velocity, Vx
+                tmp0 = tmp * vx;
 
                 tmp = d0 * df_tmp[3];
                 tmp.fma(d1, df_tmp[4]);
                 tmp.fma(d2, df_tmp[5]);
-                // Store 1x, and multiply advection velocity, Vy
-                out[cnt_ijk] += tmp * vy; // Store 1x
+                // Multiply advection velocity, Vy
+                tmp0.fma(tmp, vy);
 
                 tmp = d0 * df_tmp[6];
                 tmp.fma(d1, df_tmp[7]);
                 tmp.fma(d2, df_tmp[8]);
-                // Store 1x, and multiply advection velocity, Vz
-                out[cnt_ijk] += tmp * vz; // Store 1x
+                // Multiply advection velocity, Vz
+                tmp0.fma(tmp, vz);
+                out[cnt_ijk] = scale * tmp0;
             }
         }
     }

@@ -37,8 +37,11 @@
 
 #include "Operators/GetFwdBwdTracePhys/GetFwdBwdTracePhysOp.hpp"
 #include "Operators/Math/Math.hpp"
+#include <Operators/ElmtOps/Advection/AdvectionOp.hpp>
+#include <Operators/ElmtOps/BwdTrans/BwdTransOp.hpp>
 #include <Operators/ElmtOps/Expression/ExpressionOp.hpp>
 #include <Operators/Field/Field.hpp>
+#include <Operators/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp>
 #include <Operators/SolverUtilsOps/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
 #include <Operators/SolverUtilsOps/Advection/VolumeFluxOp.hpp>
 #include <Operators/SolverUtilsOps/RiemannSolvers/RiemannSolverOp.hpp>
@@ -73,12 +76,12 @@ protected:
     // Save variable strings and number for verbose output and looping
     std::vector<std::string> m_variables;
     unsigned int m_nVariables;
-    unsigned int m_ndim;
 
     // Setup workspaces
     Field<double, FieldState::Phys> m_in;
-    Field<double, FieldState::Phys> m_advectVel;
-    Field<double, FieldState::Phys> m_traceAdvectVel;
+    Field<double, FieldState::Phys> m_advectionVel;
+    Field<double, FieldState::Phys> m_traceAdvectionVel;
+    Field<double, FieldState::Coeff> m_wsp_coeff;
 
     // Declare math
     Math m_math;
@@ -87,12 +90,13 @@ protected:
     std::shared_ptr<TimeOp<double>> m_timeOp;
 
     // Initialise operators
+    std::shared_ptr<AdvectionOp<double>> m_advectionCGOp;
     std::shared_ptr<AdvectionWeakDGOp<double>> m_advectionWeakDGOp;
     std::shared_ptr<VolumeFluxOp<double>> m_volumeFluxOp;
     std::shared_ptr<RiemannSolverOp<double>> m_riemannSolverOp;
     std::shared_ptr<GetFwdBwdTracePhysOp<double>> m_getFwdBwdTracePhysOp;
-    std::shared_ptr<ExpressionOp<double>> m_initialOp;
-    std::shared_ptr<ExpressionOp<double>> m_expressionOp;
+    std::shared_ptr<BwdTransOp<double>> m_bwdTransOp;
+    std::shared_ptr<FwdTransOp<double>> m_fwdTransOp;
 
     UnsteadyAdvection(const LibUtilities::SessionReaderSharedPtr &pSession,
                       const SpatialDomains::MeshGraphSharedPtr &pGraph);
@@ -116,6 +120,8 @@ protected:
     void InitialiseOperators();
 
     void InitialiseFields();
+
+    void SetAdvectionVel();
 
     void SetInitialConditionsField(Field<double, FieldState::Phys> &field);
 };
