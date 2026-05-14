@@ -103,7 +103,7 @@ NEK_DEVICE_INLINE static void FwdTransBCSegSumFacTOPKernel(
     localBarrier(threadBlock);
 
     // Do BwdTrans of vertex modes
-    BwdTransSegSumFacTOPKernel(nm0, nq0, basis0, out, wsp2, threadBlock);
+    BwdTransSegSumFacTOPKernel<false>(nm0, nq0, basis0, out, wsp2, threadBlock);
 
     // Apply Jacobian and quadrature weights for IProduct
     for (unsigned int i = idx0; i < nq0; i += stride)
@@ -215,8 +215,8 @@ NEK_DEVICE_INLINE static void FwdTransBCQuadSumFacTOPKernel(
     localBarrier(threadBlock);
 
     /// Step 2: Evaluate edge contributions via mass matrix
-    BwdTransQuadSumFacTOPKernel(nm0, nm1, nq0, nq1, nqTot, basis0, basis1, out,
-                                wsp1, wsp2, threadBlock);
+    BwdTransQuadSumFacTOPKernel<false>(nm0, nm1, nq0, nq1, nqTot, basis0,
+                                       basis1, out, wsp1, wsp2, threadBlock);
 
     // Apply jacobian and quadrature weights
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -349,8 +349,9 @@ NEK_DEVICE_INLINE static void FwdTransBCTriSumFacTOPKernel(
     localBarrier(threadBlock);
 
     /// Step 2: Evaluate edge contributions via mass matrix
-    BwdTransTriSumFacTOPKernel(nm0, nm1, nq0, nq1, nqTot, isModified, basis0,
-                               basis1, out, wsp1, wsp2, threadBlock);
+    BwdTransTriSumFacTOPKernel<false>(nm0, nm1, nq0, nq1, nqTot, isModified,
+                                      basis0, basis1, out, wsp1, wsp2,
+                                      threadBlock);
 
     // Apply jacobian and quadrature weights
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)

@@ -185,20 +185,20 @@ void StdTriExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
 // Default case
 #undef BWDTRANS_DEF
 #define BWDTRANS_DEF                                                           \
-    BwdTransTriKernel(nmodes0, nmodes1, nquad0, nquad1, isModified,            \
-                      (const vec_t *)base0.data(),                             \
-                      (const vec_t *)base1.data(), wsp0.data(),                \
-                      (const vec_t *)inarray.data(), (vec_t *)outarray.data())
+    BwdTransTriKernel<false>(                                                  \
+        nmodes0, nmodes1, nquad0, nquad1, isModified,                          \
+        (const vec_t *)base0.data(), (const vec_t *)base1.data(), wsp0.data(), \
+        (const vec_t *)inarray.data(), (vec_t *)outarray.data())
 
 // Inner loop case over quarature points
 #undef BWDTRANS_Q
 #define BWDTRANS_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        BwdTransTriKernel(NM(i), NM(i), NQ(i), NQ_M1(i), isModified,           \
-                          (const vec_t *)base0.data(),                         \
-                          (const vec_t *)base1.data(), wsp0.data(),            \
-                          (const vec_t *)inarray.data(),                       \
-                          (vec_t *)outarray.data());                           \
+        BwdTransTriKernel<false>(NM(i), NM(i), NQ(i), NQ_M1(i), isModified,    \
+                                 (const vec_t *)base0.data(),                  \
+                                 (const vec_t *)base1.data(), wsp0.data(),     \
+                                 (const vec_t *)inarray.data(),                \
+                                 (vec_t *)outarray.data());                    \
         break;
 
 // outer loop case over modes

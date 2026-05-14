@@ -414,7 +414,7 @@ protected:
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans1DKernel<SHAPE_TYPE>(
+                BwdTrans1DKernel<SHAPE_TYPE, false>(
                     nm0, nq0, m_B[0], reinterpret_cast<const simd_t *>(inptr),
                     m_bwd.data());
 
@@ -533,7 +533,7 @@ protected:
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans2DKernel<SHAPE_TYPE>(
+                BwdTrans2DKernel<SHAPE_TYPE, false>(
                     nm0, nm1, nq0, nq1, m_isModified, m_B[0], m_B[1],
                     m_nodToMod, m_wsp0.data(),
                     reinterpret_cast<const simd_t *>(inptr), m_bwd.data());
@@ -660,7 +660,7 @@ protected:
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans3DKernel<SHAPE_TYPE>(
+                BwdTrans3DKernel<SHAPE_TYPE, false>(
                     nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, m_B[0], m_B[1],
                     m_B[2], m_nodToMod, m_wsp0.data(), m_wsp1.data(),
                     reinterpret_cast<const simd_t *>(inptr), m_bwd.data());

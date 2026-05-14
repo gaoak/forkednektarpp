@@ -114,7 +114,7 @@ void StdQuadExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
         // Default case
 #undef BWDTRANS_DEF
 #define BWDTRANS_DEF                                                           \
-    BwdTransQuadKernel(                                                        \
+    BwdTransQuadKernel<false>(                                                 \
         nmodes0, nmodes1, nquad0, nquad1, (const vec_t *)base0.data(),         \
         (const vec_t *)base1.data(), wsp0.data(),                              \
         (const vec_t *)inarray.data(), (vec_t *)outarray.data())
@@ -123,7 +123,7 @@ void StdQuadExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
 #undef BWDTRANS_Q
 #define BWDTRANS_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        BwdTransQuadKernel(                                                    \
+        BwdTransQuadKernel<false>(                                             \
             NM(i), NM(i), NQ(i), NQ(i), (const vec_t *)base0.data(),           \
             (const vec_t *)base1.data(), wsp0.data(),                          \
             (const vec_t *)inarray.data(), (vec_t *)outarray.data());          \

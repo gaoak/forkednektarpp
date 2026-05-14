@@ -36,7 +36,7 @@
 
 #include "Operators/LoopExecution/LoopExecution.hpp"
 
-template <typename ExecSpace, bool DEFORMED, typename TData>
+template <typename ExecSpace, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void MultiplyByDerivFactorAndAdvecVelKernel(
     const unsigned int nqTot, const unsigned int ncoord,
     const unsigned int dimension, const size_t nelmt, const unsigned int nhomo,
@@ -68,7 +68,14 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorAndAdvecVelKernel(
                     tmp0 += advVel[k * advelsize + idx] * tmp[k];
                 }
 
-                outptr[idx] = scale * tmp0;
+                if (APPEND)
+                {
+                    outptr[idx] += scale * tmp0;
+                }
+                else
+                {
+                    outptr[idx] = scale * tmp0;
+                }
             });
     }
     else
@@ -87,7 +94,15 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorAndAdvecVelKernel(
                     }
                     tmp0 += advVel[k * advelsize + idx] * tmp[k];
                 }
-                outptr[idx] = scale * tmp0;
+
+                if (APPEND)
+                {
+                    outptr[idx] += scale * tmp0;
+                }
+                else
+                {
+                    outptr[idx] = scale * tmp0;
+                }
             });
     }
 }

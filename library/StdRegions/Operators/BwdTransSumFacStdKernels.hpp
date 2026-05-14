@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-template <typename simd_type>
+template <bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void BwdTransSegKernel(const unsigned int nm0,
                                                const unsigned int nq0,
                                                const simd_type *basis0,
@@ -48,11 +48,18 @@ NEK_FORCE_INLINE static void BwdTransSegKernel(const unsigned int nm0,
             tmp.fma(in[p], basis0[p * nq0 + i]); // Load 2x
         }
 
-        out[i] = tmp; // Store 1x
+        if constexpr (APPEND)
+        {
+            out[i] += tmp; // Store 1x
+        }
+        else
+        {
+            out[i] = tmp; // Store 1x
+        }
     }
 }
 
-template <typename simd_type>
+template <bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void BwdTransTriKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const bool isModified, const simd_type *basis0,
@@ -90,12 +97,19 @@ NEK_FORCE_INLINE static void BwdTransTriKernel(
                 p_sum.fma(in[1] * basis0[nq0 + eta0], basis1[nq1 + eta1]);
             }
 
-            out[eta_idx] = p_sum; // Store 1x
+            if constexpr (APPEND)
+            {
+                out[eta_idx] += p_sum; // Store 1x
+            }
+            else
+            {
+                out[eta_idx] = p_sum; // Store 1x
+            }
         }
     }
 }
 
-template <typename simd_type>
+template <bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void BwdTransQuadKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const simd_type *basis0, const simd_type *basis1,
@@ -125,12 +139,20 @@ NEK_FORCE_INLINE static void BwdTransQuadKernel(
             {
                 tmp.fma(wsp[cnt_iq], basis1[q * nq1 + j]); // Load 2x
             }
-            out[cnt_ij] = tmp; // Store 1x
+
+            if constexpr (APPEND)
+            {
+                out[cnt_ij] += tmp; // Store 1x
+            }
+            else
+            {
+                out[cnt_ij] = tmp; // Store 1x
+            }
         }
     }
 }
 
-template <typename simd_type>
+template <bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void BwdTransHexKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -191,13 +213,20 @@ NEK_FORCE_INLINE static void BwdTransHexKernel(
                     tmp.fma(sum_jir[cnt_jir++], basis2[r * nq2 + k]);
                 }
 
-                out[cnt_kji] = tmp;
+                if constexpr (APPEND)
+                {
+                    out[cnt_kji] += tmp;
+                }
+                else
+                {
+                    out[cnt_kji] = tmp;
+                }
             }
         }
     }
 }
 
-template <typename simd_type>
+template <bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void BwdTransTetKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -302,13 +331,20 @@ NEK_FORCE_INLINE static void BwdTransTetKernel(
                     }
                 }
 
-                out[cnt_kji] = tmp; // Store 1x
+                if constexpr (APPEND)
+                {
+                    out[cnt_kji] += tmp;
+                }
+                else
+                {
+                    out[cnt_kji] = tmp;
+                }
             }
         }
     }
 }
 
-template <typename simd_type>
+template <bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void BwdTransPrismKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -372,13 +408,21 @@ NEK_FORCE_INLINE static void BwdTransPrismKernel(
                         val_kji.fma(basis_2 * basis_1, basis_0 * coef_0q1);
                     }
                 }
-                out[cnt_kji] = val_kji; // Store 1x
+
+                if constexpr (APPEND)
+                {
+                    out[cnt_kji] += val_kji; // Store 1x
+                }
+                else
+                {
+                    out[cnt_kji] = val_kji; // Store 1x
+                }
             }
         }
     }
 }
 
-template <typename simd_type>
+template <bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void BwdTransPyrKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -463,7 +507,14 @@ NEK_FORCE_INLINE static void BwdTransPyrKernel(
                     val_kji.fma(tmp1, inarray1);
                 }
 
-                out[cnt_kji] = val_kji; // Store 1x
+                if constexpr (APPEND)
+                {
+                    out[cnt_kji] += val_kji; // Store 1x
+                }
+                else
+                {
+                    out[cnt_kji] = val_kji; // Store 1x
+                }
             }
         }
     }

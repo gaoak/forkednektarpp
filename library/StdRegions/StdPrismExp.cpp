@@ -219,7 +219,7 @@ void StdPrismExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
     // Default case
 #undef BWDTRANS_DEF
 #define BWDTRANS_DEF                                                           \
-    BwdTransPrismKernel(                                                       \
+    BwdTransPrismKernel<false>(                                                \
         nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2, isModified,         \
         (const vec_t *)base0.data(), (const vec_t *)base1.data(),              \
         (const vec_t *)base2.data(), wsp0.data(), wsp1.data(),                 \
@@ -229,7 +229,7 @@ void StdPrismExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
 #undef BWDTRANS_Q
 #define BWDTRANS_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        BwdTransPrismKernel(                                                   \
+        BwdTransPrismKernel<false>(                                            \
             NM(i), NM(i), NM(i), NQ(i), NQ(i), NQ_M1(i), isModified,           \
             (const vec_t *)base0.data(), (const vec_t *)base1.data(),          \
             (const vec_t *)base2.data(), wsp0.data(), wsp1.data(),             \

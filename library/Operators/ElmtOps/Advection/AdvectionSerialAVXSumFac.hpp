@@ -331,14 +331,19 @@ protected:
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto outptr = (this->m_append)
+                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                          : outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
+        const auto width_ratio =
+            (inInterleaveWidth == 1)
+                ? 1
+                : inInterleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, inInterleaveWidth);
 
         // Loop over components.
         auto advVelOffset = nelmt * nqTot;
@@ -356,8 +361,8 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize, nqTot,
-                                              (TData *)inptr);
+                                              inInterleaveWidth, chunkSize,
+                                              nqTot, (TData *)inptr);
                 }
 
                 // Get the basic derivative.
@@ -366,26 +371,50 @@ protected:
                                         m_D[0], m_deriv0.data());
 
                 // Calculate physical derivative.
-                Advection1DKernel<SHAPE_TYPE, DEFORMED>(
-                    nq0, coordDim, reinterpret_cast<const simd_t *>(dfptr),
-                    reinterpret_cast<const simd_t *>(advVelPtr),
-                    reinterpret_cast<const simd_t *>(advVelPtr + advVelOffset),
-                    reinterpret_cast<const simd_t *>(advVelPtr +
-                                                     2 * advVelOffset),
-                    m_deriv0.data(), reinterpret_cast<simd_t *>(outptr),
-                    this->m_scale);
+                if (this->m_append)
+                {
+                    // Reshape, if necessary.
+                    if (e % width_ratio == 0)
+                    {
+                        ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                                  outInterleaveWidth, chunkSize,
+                                                  nqTot, (TData *)outptr);
+                    }
+
+                    Advection1DKernel<SHAPE_TYPE, true, DEFORMED>(
+                        nq0, coordDim, reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(advVelPtr),
+                        reinterpret_cast<const simd_t *>(advVelPtr +
+                                                         advVelOffset),
+                        reinterpret_cast<const simd_t *>(advVelPtr +
+                                                         2 * advVelOffset),
+                        m_deriv0.data(), reinterpret_cast<simd_t *>(outptr),
+                        this->m_scale);
+                }
+                else
+                {
+                    Advection1DKernel<SHAPE_TYPE, false, DEFORMED>(
+                        nq0, coordDim, reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(advVelPtr),
+                        reinterpret_cast<const simd_t *>(advVelPtr +
+                                                         advVelOffset),
+                        reinterpret_cast<const simd_t *>(advVelPtr +
+                                                         2 * advVelOffset),
+                        m_deriv0.data(), reinterpret_cast<simd_t *>(outptr),
+                        this->m_scale);
+                }
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
                     ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         nqTot,
                         (TData *)inptr -
                             (width_ratio - 1) * nqTot * simd_t::width);
 
                     ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         nqTot,
                         (TData *)outptr -
                             (width_ratio - 1) * nqTot * simd_t::width);
@@ -400,7 +429,7 @@ protected:
         }
 
         // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
     }
 
     // Non-size based operator.
@@ -441,14 +470,19 @@ protected:
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto outptr = (this->m_append)
+                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                          : outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
+        const auto width_ratio =
+            (inInterleaveWidth == 1)
+                ? 1
+                : inInterleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, inInterleaveWidth);
 
         // Loop over components.
         auto advVelOffset = nelmt * nqTot;
@@ -466,8 +500,8 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize, nqTot,
-                                              (TData *)inptr);
+                                              inInterleaveWidth, chunkSize,
+                                              nqTot, (TData *)inptr);
                 }
 
                 // Results written to outvec0, outvec1.
@@ -476,26 +510,51 @@ protected:
                     m_D[1], m_deriv0.data(), m_deriv1.data());
 
                 // Calculate physical derivative.
-                Advection2DKernel<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, coordDim, m_f[0], m_f[1],
-                    reinterpret_cast<const simd_t *>(dfptr),
-                    reinterpret_cast<const simd_t *>(advVelPtr),
-                    reinterpret_cast<const simd_t *>(advVelPtr + advVelOffset),
-                    reinterpret_cast<const simd_t *>(advVelPtr +
-                                                     2 * advVelOffset),
-                    m_deriv0.data(), m_deriv1.data(),
-                    reinterpret_cast<simd_t *>(outptr), this->m_scale);
+                if (this->m_append)
+                {
+                    // Reshape, if necessary.
+                    if (e % width_ratio == 0)
+                    {
+                        ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                                  outInterleaveWidth, chunkSize,
+                                                  nqTot, (TData *)outptr);
+                    }
+
+                    Advection2DKernel<SHAPE_TYPE, true, DEFORMED>(
+                        nq0, nq1, coordDim, m_f[0], m_f[1],
+                        reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(advVelPtr),
+                        reinterpret_cast<const simd_t *>(advVelPtr +
+                                                         advVelOffset),
+                        reinterpret_cast<const simd_t *>(advVelPtr +
+                                                         2 * advVelOffset),
+                        m_deriv0.data(), m_deriv1.data(),
+                        reinterpret_cast<simd_t *>(outptr), this->m_scale);
+                }
+                else
+                {
+                    Advection2DKernel<SHAPE_TYPE, false, DEFORMED>(
+                        nq0, nq1, coordDim, m_f[0], m_f[1],
+                        reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(advVelPtr),
+                        reinterpret_cast<const simd_t *>(advVelPtr +
+                                                         advVelOffset),
+                        reinterpret_cast<const simd_t *>(advVelPtr +
+                                                         2 * advVelOffset),
+                        m_deriv0.data(), m_deriv1.data(),
+                        reinterpret_cast<simd_t *>(outptr), this->m_scale);
+                }
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
                     ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         nqTot,
                         (TData *)inptr -
                             (width_ratio - 1) * nqTot * simd_t::width);
                     ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         nqTot,
                         (TData *)outptr -
                             (width_ratio - 1) * nqTot * simd_t::width);
@@ -510,7 +569,7 @@ protected:
         }
 
         // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
     }
 
     // Non-size based operator.
@@ -550,14 +609,19 @@ protected:
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto outptr = (this->m_append)
+                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                          : outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
+        const auto width_ratio =
+            (inInterleaveWidth == 1)
+                ? 1
+                : inInterleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, inInterleaveWidth);
 
         // Loop over components.
         auto advVelOffset = nelmt * nqTot;
@@ -574,8 +638,8 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize, nqTot,
-                                              (TData *)inptr);
+                                              inInterleaveWidth, chunkSize,
+                                              nqTot, (TData *)inptr);
                 }
 
                 // Get the basic derivative.
@@ -585,27 +649,52 @@ protected:
                                         m_deriv1.data(), m_deriv2.data());
 
                 // Calculate physical derivative.
-                Advection3DKernel<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
-                    reinterpret_cast<const simd_t *>(dfptr),
-                    reinterpret_cast<const simd_t *>(advVelPtr),
-                    reinterpret_cast<const simd_t *>(advVelPtr + advVelOffset),
-                    reinterpret_cast<const simd_t *>(advVelPtr +
-                                                     2 * advVelOffset),
-                    m_deriv0.data(), m_deriv1.data(), m_deriv2.data(),
-                    reinterpret_cast<simd_t *>(outptr), this->m_scale);
+                if (this->m_append)
+                {
+                    // Reshape, if necessary.
+                    if (e % width_ratio == 0)
+                    {
+                        ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                                  outInterleaveWidth, chunkSize,
+                                                  nqTot, (TData *)outptr);
+                    }
+
+                    Advection3DKernel<SHAPE_TYPE, true, DEFORMED>(
+                        nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
+                        reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(advVelPtr),
+                        reinterpret_cast<const simd_t *>(advVelPtr +
+                                                         advVelOffset),
+                        reinterpret_cast<const simd_t *>(advVelPtr +
+                                                         2 * advVelOffset),
+                        m_deriv0.data(), m_deriv1.data(), m_deriv2.data(),
+                        reinterpret_cast<simd_t *>(outptr), this->m_scale);
+                }
+                else
+                {
+                    Advection3DKernel<SHAPE_TYPE, false, DEFORMED>(
+                        nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
+                        reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(advVelPtr),
+                        reinterpret_cast<const simd_t *>(advVelPtr +
+                                                         advVelOffset),
+                        reinterpret_cast<const simd_t *>(advVelPtr +
+                                                         2 * advVelOffset),
+                        m_deriv0.data(), m_deriv1.data(), m_deriv2.data(),
+                        reinterpret_cast<simd_t *>(outptr), this->m_scale);
+                }
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
                     ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         nqTot,
                         (TData *)inptr -
                             (width_ratio - 1) * nqTot * simd_t::width);
 
                     ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         nqTot,
                         (TData *)outptr -
                             (width_ratio - 1) * nqTot * simd_t::width);
@@ -620,7 +709,7 @@ protected:
         }
 
         // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
     }
 };
 

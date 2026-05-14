@@ -149,7 +149,7 @@ inline unsigned int BwdTransSharedMemorySize(
     }
 }
 
-template <typename TthreadBlock, typename TData>
+template <bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BwdTransSegSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nq0,
     const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT in,
@@ -166,13 +166,21 @@ NEK_DEVICE_INLINE static void BwdTransSegSumFacTOPKernel(
         {
             tmp += in[p] * basis0[p * nq0 + i];
         }
-        out[i] = tmp;
+
+        if constexpr (APPEND)
+        {
+            out[i] += tmp;
+        }
+        else
+        {
+            out[i] = tmp;
+        }
     }
 
     localBarrier(threadBlock);
 }
 
-template <typename TthreadBlock, typename TData>
+template <bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BwdTransQuadSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nqTot,
@@ -214,13 +222,21 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacTOPKernel(
         {
             tmp += wsp[cnt_iq] * basis1[q * nq1 + j];
         }
-        out[idx] = tmp;
+
+        if constexpr (APPEND)
+        {
+            out[idx] += tmp;
+        }
+        else
+        {
+            out[idx] = tmp;
+        }
     }
 
     localBarrier(threadBlock);
 }
 
-template <typename TthreadBlock, typename TData>
+template <bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BwdTransTriSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nqTot, const bool isModified,
@@ -269,13 +285,20 @@ NEK_DEVICE_INLINE static void BwdTransTriSumFacTOPKernel(
             tmp += wsp[cnt_jp] * basis0[p * nq0 + i];
         }
 
-        out[idx] = tmp;
+        if constexpr (APPEND)
+        {
+            out[idx] += tmp;
+        }
+        else
+        {
+            out[idx] = tmp;
+        }
     }
 
     localBarrier(threadBlock);
 }
 
-template <typename TthreadBlock, typename TData>
+template <bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BwdTransHexSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -340,13 +363,21 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacTOPKernel(
         {
             tmp += wsp1[cnt_jir] * basis2[r * nq2 + k];
         }
-        out[idx] = tmp;
+
+        if constexpr (APPEND)
+        {
+            out[idx] += tmp;
+        }
+        else
+        {
+            out[idx] = tmp;
+        }
     }
 
     localBarrier(threadBlock);
 }
 
-template <typename TthreadBlock, typename TData>
+template <bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BwdTransTetSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -445,13 +476,20 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacTOPKernel(
             tmp += wsp1[mode_kjp] * basis0[p * nq0 + i];
         }
 
-        out[idx] = tmp;
+        if constexpr (APPEND)
+        {
+            out[idx] += tmp;
+        }
+        else
+        {
+            out[idx] = tmp;
+        }
     }
 
     localBarrier(threadBlock);
 }
 
-template <typename TthreadBlock, typename TData>
+template <bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BwdTransPrismSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -529,13 +567,20 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacTOPKernel(
             tmp += wsp1[mode_kjp] * basis0[p * nq0 + i];
         }
 
-        out[idx] = tmp;
+        if constexpr (APPEND)
+        {
+            out[idx] += tmp;
+        }
+        else
+        {
+            out[idx] = tmp;
+        }
     }
 
     localBarrier(threadBlock);
 }
 
-template <typename TthreadBlock, typename TData>
+template <bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BwdTransPyrSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -622,13 +667,20 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacTOPKernel(
             tmp += wsp1[mode_kjp] * basis0[p * nq0 + i];
         }
 
-        out[idx] = tmp;
+        if constexpr (APPEND)
+        {
+            out[idx] += tmp;
+        }
+        else
+        {
+            out[idx] = tmp;
+        }
     }
 
     localBarrier(threadBlock);
 }
 
-template <typename TthreadBlock, typename TData>
+template <bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BwdTrans1DSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nq0, const size_t nelmt,
     const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT in,
@@ -641,14 +693,14 @@ NEK_DEVICE_INLINE static void BwdTrans1DSumFacTOPKernel(
     {
         const TData *inptr = in + nm0 * e;
         TData *outptr      = out + nq0 * e;
-        BwdTransSegSumFacTOPKernel(nm0, nq0, basis0, inptr, outptr,
-                                   threadBlock);
+        BwdTransSegSumFacTOPKernel<APPEND>(nm0, nq0, basis0, inptr, outptr,
+                                           threadBlock);
         e += getBlockRange(threadBlock);
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, typename TthreadBlock,
-          typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND,
+          typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BwdTrans2DSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
@@ -716,24 +768,24 @@ NEK_DEVICE_INLINE static void BwdTrans2DSumFacTOPKernel(
 
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
-            BwdTransQuadSumFacTOPKernel(nm0, nm1, nq0, nq1, nqTot, s_basis0,
-                                        s_basis1, s_wsp0, outptr, s_wsp1,
-                                        threadBlock);
+            BwdTransQuadSumFacTOPKernel<APPEND>(nm0, nm1, nq0, nq1, nqTot,
+                                                s_basis0, s_basis1, s_wsp0,
+                                                outptr, s_wsp1, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                            SHAPE_TYPE == LibUtilities::NodalTri)
         {
-            BwdTransTriSumFacTOPKernel(nm0, nm1, nq0, nq1, nqTot, isModified,
-                                       s_basis0, s_basis1, s_wsp0, outptr,
-                                       s_wsp1, threadBlock);
+            BwdTransTriSumFacTOPKernel<APPEND>(
+                nm0, nm1, nq0, nq1, nqTot, isModified, s_basis0, s_basis1,
+                s_wsp0, outptr, s_wsp1, threadBlock);
         }
 
         e += getBlockRange(threadBlock);
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, typename TthreadBlock,
-          typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND,
+          typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void BwdTrans3DSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -833,32 +885,32 @@ NEK_DEVICE_INLINE static void BwdTrans3DSumFacTOPKernel(
 
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            BwdTransHexSumFacTOPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
-                                       s_basis0, s_basis1, s_basis2, s_wsp0,
-                                       outptr, s_wsp1, s_wsp2, threadBlock);
+            BwdTransHexSumFacTOPKernel<APPEND>(
+                nm0, nm1, nm2, nq0, nq1, nq2, nqTot, s_basis0, s_basis1,
+                s_basis2, s_wsp0, outptr, s_wsp1, s_wsp2, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                            SHAPE_TYPE == LibUtilities::NodalTet)
         {
-            BwdTransTetSumFacTOPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
-                                       isModified, index0, index1, s_basis0,
-                                       s_basis1, s_basis2, s_wsp0, outptr,
-                                       s_wsp1, s_wsp2, threadBlock);
+            BwdTransTetSumFacTOPKernel<APPEND>(
+                nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, index0, index1,
+                s_basis0, s_basis1, s_basis2, s_wsp0, outptr, s_wsp1, s_wsp2,
+                threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                            SHAPE_TYPE == LibUtilities::NodalPrism)
         {
-            BwdTransPrismSumFacTOPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
-                                         isModified, s_basis0, s_basis1,
-                                         s_basis2, s_wsp0, outptr, s_wsp1,
-                                         s_wsp2, threadBlock);
+            BwdTransPrismSumFacTOPKernel<APPEND>(
+                nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
+                s_basis1, s_basis2, s_wsp0, outptr, s_wsp1, s_wsp2,
+                threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            BwdTransPyrSumFacTOPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
-                                       isModified, s_basis0, s_basis1, s_basis2,
-                                       s_wsp0, outptr, s_wsp1, s_wsp2,
-                                       threadBlock);
+            BwdTransPyrSumFacTOPKernel<APPEND>(
+                nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
+                s_basis1, s_basis2, s_wsp0, outptr, s_wsp1, s_wsp2,
+                threadBlock);
         }
 
         e += getBlockRange(threadBlock);
@@ -866,7 +918,8 @@ NEK_DEVICE_INLINE static void BwdTrans3DSumFacTOPKernel(
 }
 
 // Non-size based version.
-template <typename Implementation, typename TthreadBlock, typename TData>
+template <typename Implementation, bool APPEND, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     BwdTrans1DKernelLauncher(const NonTemplated1DSizeParameters sizeParam1D,
@@ -878,13 +931,14 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    BwdTrans1DSumFacTOPKernel(sizeParam1D.nm0(), sizeParam1D.nq0(), nelmt,
-                              basis0, in, out, shmemptr, threadBlock);
+    BwdTrans1DSumFacTOPKernel<APPEND>(sizeParam1D.nm0(), sizeParam1D.nq0(),
+                                      nelmt, basis0, in, out, shmemptr,
+                                      threadBlock);
 }
 
 // Size based template version.
 template <
-    typename Implementation, unsigned int nm0, unsigned int nq0,
+    typename Implementation, bool APPEND, unsigned int nm0, unsigned int nq0,
     typename TthreadBlock, typename TData,
     unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)>
 NEK_DEVICE_KERNEL
@@ -897,13 +951,13 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    BwdTrans1DSumFacTOPKernel(nm0, nq0, nelmt, basis0, in, out, shmemptr,
-                              threadBlock);
+    BwdTrans1DSumFacTOPKernel<APPEND>(nm0, nq0, nelmt, basis0, in, out,
+                                      shmemptr, threadBlock);
 }
 
 // Non-size based version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TthreadBlock, typename TData>
+          bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     BwdTrans2DKernelLauncher(
@@ -916,7 +970,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    BwdTrans2DSumFacTOPKernel<SHAPE_TYPE>(
+    BwdTrans2DSumFacTOPKernel<SHAPE_TYPE, APPEND>(
         sizeParam2D.nm0(), sizeParam2D.nm1(), sizeParam2D.nmTot(),
         sizeParam2D.nq0(), sizeParam2D.nq1(), nelmt, isModified, basis0, basis1,
         nodToMod, in, out, shmemptr, threadBlock);
@@ -924,7 +978,7 @@ NEK_DEVICE_KERNEL
 
 // Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          unsigned int nm0, unsigned int nm1, unsigned int nmTot,
+          bool APPEND, unsigned int nm0, unsigned int nm1, unsigned int nmTot,
           unsigned int nq0, unsigned int nq1, typename TthreadBlock,
           typename TData,
           unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(
@@ -943,14 +997,14 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    BwdTrans2DSumFacTOPKernel<SHAPE_TYPE>(nm0, nm1, nmTot, nq0, nq1, nelmt,
-                                          isModified, basis0, basis1, nodToMod,
-                                          in, out, shmemptr, threadBlock);
+    BwdTrans2DSumFacTOPKernel<SHAPE_TYPE, APPEND>(
+        nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0, basis1, nodToMod,
+        in, out, shmemptr, threadBlock);
 }
 
 // Non-size based version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TthreadBlock, typename TData>
+          bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     BwdTrans3DKernelLauncher(
@@ -964,7 +1018,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    BwdTrans3DSumFacTOPKernel<SHAPE_TYPE>(
+    BwdTrans3DSumFacTOPKernel<SHAPE_TYPE, APPEND>(
         sizeParam3D.nm0(), sizeParam3D.nm1(), sizeParam3D.nm2(),
         sizeParam3D.nmTot(), sizeParam3D.nq0(), sizeParam3D.nq1(),
         sizeParam3D.nq2(), nelmt, isModified, index0, index1, basis0, basis1,
@@ -973,7 +1027,7 @@ NEK_DEVICE_KERNEL
 
 // Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          unsigned int nm0, unsigned int nm1, unsigned int nm2,
+          bool APPEND, unsigned int nm0, unsigned int nm1, unsigned int nm2,
           unsigned int nmTot, unsigned int nq0, unsigned int nq1,
           unsigned int nq2, typename TthreadBlock, typename TData,
           unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(
@@ -993,7 +1047,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    BwdTrans3DSumFacTOPKernel<SHAPE_TYPE>(
+    BwdTrans3DSumFacTOPKernel<SHAPE_TYPE, APPEND>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
         basis0, basis1, basis2, nodToMod, in, out, shmemptr, threadBlock);
 }

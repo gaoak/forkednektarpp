@@ -59,7 +59,7 @@ NEK_FORCE_INLINE static void FwdTransBCSegKernel(
     out[1] = in[nq0 - 1];
 
     // Step 1: Evaluate vertex contributions.
-    BwdTransSegKernel(nm0, nq0, basis0, out, wsp2);
+    BwdTransSegKernel<false>(nm0, nq0, basis0, out, wsp2);
 
     // Subtract vertex contribution from Dirichlet condition
     for (unsigned int i = 0; i < nq0; i++)
@@ -141,7 +141,8 @@ NEK_FORCE_INLINE static void FwdTransBCQuadKernel(
     }
 
     /// Step 2: Evaluate edge contributions via mass matrix
-    BwdTransQuadKernel(nm0, nm1, nq0, nq1, basis0, basis1, wsp2, out, wsp1);
+    BwdTransQuadKernel<false>(nm0, nm1, nq0, nq1, basis0, basis1, wsp2, out,
+                              wsp1);
 
     // Subtract vertex contribution from Dirichlet condition
     for (unsigned int i = 0; i < nqTot; i++)
@@ -240,8 +241,8 @@ NEK_FORCE_INLINE static void FwdTransBCTriKernel(
     }
 
     /// Step 2: Evaluate edge contributions via mass matrix
-    BwdTransTriKernel(nm0, nm1, nq0, nq1, isModified, basis0, basis1, wsp2, out,
-                      wsp1);
+    BwdTransTriKernel<false>(nm0, nm1, nq0, nq1, isModified, basis0, basis1,
+                             wsp2, out, wsp1);
 
     // Subtract vertex contribution from Dirichlet condition
     for (unsigned int i = 0; i < nqTot; i++)

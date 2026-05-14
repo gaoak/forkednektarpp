@@ -150,17 +150,17 @@ void StdHexExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
         // Default case
 #undef BWDTRANS_DEF
 #define BWDTRANS_DEF                                                           \
-    BwdTransHexKernel(nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,       \
-                      (const vec_t *)base0.data(),                             \
-                      (const vec_t *)base1.data(),                             \
-                      (const vec_t *)base2.data(), wsp0.data(), wsp1.data(),   \
-                      (const vec_t *)inarray.data(), (vec_t *)outarray.data())
+    BwdTransHexKernel<false>(                                                  \
+        nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,                     \
+        (const vec_t *)base0.data(), (const vec_t *)base1.data(),              \
+        (const vec_t *)base2.data(), wsp0.data(), wsp1.data(),                 \
+        (const vec_t *)inarray.data(), (vec_t *)outarray.data())
 
         // Inner loop case over quarature points
 #undef BWDTRANS_Q
 #define BWDTRANS_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        BwdTransHexKernel(                                                     \
+        BwdTransHexKernel<false>(                                              \
             NM(i), NM(i), NM(i), NQ(i), NQ(i), NQ(i),                          \
             (const vec_t *)base0.data(), (const vec_t *)base1.data(),          \
             (const vec_t *)base2.data(), wsp0.data(), wsp1.data(),             \

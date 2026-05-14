@@ -290,8 +290,9 @@ protected:
 
             // BwdTrans kernel.
             DEVICE_1DGRID_KERNEL_LAUNCHER(
-                (BwdTrans1DKernelLauncher<Implementation>), gridsize, blocksize,
-                shmemsize, 0, sizeParam1D, nelmt, m_B[0], inptr, outptr);
+                (BwdTrans1DKernelLauncher<Implementation, false>), gridsize,
+                blocksize, shmemsize, 0, sizeParam1D, nelmt, m_B[0], inptr,
+                outptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -380,7 +381,8 @@ protected:
 
             // BwdTrans kernel.
             DEVICE_1DGRID_KERNEL_LAUNCHER(
-                (BwdTrans2DKernelLauncher<LibUtilities::Quad, Implementation>),
+                (BwdTrans2DKernelLauncher<LibUtilities::Quad, Implementation,
+                                          false>),
                 gridsize, blocksize, shmemsize, 0, sizeParam2D, nelmt, false,
                 m_B[0], m_B[1], nodToMod, inptr, outptr, wspptr);
 
@@ -473,7 +475,8 @@ protected:
 
             // BwdTrans kernel.
             DEVICE_1DGRID_KERNEL_LAUNCHER(
-                (BwdTrans3DKernelLauncher<LibUtilities::Hex, Implementation>),
+                (BwdTrans3DKernelLauncher<LibUtilities::Hex, Implementation,
+                                          false>),
                 gridsize, blocksize, shmemsize, 0, sizeParam3D, nelmt, false,
                 nullptr, nullptr, m_B[0], m_B[1], m_B[2], nodToMod, inptr,
                 outptr, wspptr);

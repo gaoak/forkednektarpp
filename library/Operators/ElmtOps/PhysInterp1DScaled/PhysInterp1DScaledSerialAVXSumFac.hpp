@@ -331,9 +331,9 @@ protected:
                 }
 
                 // PhysInterp1DScaled kernel.
-                BwdTransSegKernel(nm0, nq0, m_B[0],
-                                  reinterpret_cast<const simd_t *>(inptr),
-                                  reinterpret_cast<simd_t *>(outptr));
+                BwdTransSegKernel<false>(
+                    nm0, nq0, m_B[0], reinterpret_cast<const simd_t *>(inptr),
+                    reinterpret_cast<simd_t *>(outptr));
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
@@ -414,10 +414,10 @@ protected:
                 }
 
                 // PhysInterp1DScaled kernel.
-                BwdTransQuadKernel(nm0, nm1, nq0, nq1, m_B[0], m_B[1],
-                                   m_wsp0.data(),
-                                   reinterpret_cast<const simd_t *>(inptr),
-                                   reinterpret_cast<simd_t *>(outptr));
+                BwdTransQuadKernel<false>(
+                    nm0, nm1, nq0, nq1, m_B[0], m_B[1], m_wsp0.data(),
+                    reinterpret_cast<const simd_t *>(inptr),
+                    reinterpret_cast<simd_t *>(outptr));
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
@@ -498,10 +498,11 @@ protected:
                 }
 
                 // PhysInterp1DScaled kernel.
-                BwdTransHexKernel(nm0, nm1, nm2, nq0, nq1, nq2, m_B[0], m_B[1],
-                                  m_B[2], m_wsp0.data(), m_wsp1.data(),
-                                  reinterpret_cast<const simd_t *>(inptr),
-                                  reinterpret_cast<simd_t *>(outptr));
+                BwdTransHexKernel<false>(
+                    nm0, nm1, nm2, nq0, nq1, nq2, m_B[0], m_B[1], m_B[2],
+                    m_wsp0.data(), m_wsp1.data(),
+                    reinterpret_cast<const simd_t *>(inptr),
+                    reinterpret_cast<simd_t *>(outptr));
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)

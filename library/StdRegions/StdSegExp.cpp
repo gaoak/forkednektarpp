@@ -156,16 +156,17 @@ void StdSegExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
         // Default case
 #undef BWDTRANS_DEF
 #define BWDTRANS_DEF                                                           \
-    BwdTransSegKernel(nmodes0, nquad0, (const vec_t *)base0.data(),            \
-                      (const vec_t *)inarray.data(), (vec_t *)outarray.data())
+    BwdTransSegKernel<false>(nmodes0, nquad0, (const vec_t *)base0.data(),     \
+                             (const vec_t *)inarray.data(),                    \
+                             (vec_t *)outarray.data())
 
         // Inner loop case over quarature points
 #undef BWDTRANS_Q
 #define BWDTRANS_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        BwdTransSegKernel(NM(i), NQ(i), (const vec_t *)base0.data(),           \
-                          (const vec_t *)inarray.data(),                       \
-                          (vec_t *)outarray.data());                           \
+        BwdTransSegKernel<false>(NM(i), NQ(i), (const vec_t *)base0.data(),    \
+                                 (const vec_t *)inarray.data(),                \
+                                 (vec_t *)outarray.data());                    \
         break;
 
         // outer loop case over modes

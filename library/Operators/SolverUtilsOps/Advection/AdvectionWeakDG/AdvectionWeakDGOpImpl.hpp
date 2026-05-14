@@ -93,6 +93,8 @@ public:
             expansionList, components, ExecSpace::name);
         m_multiplyByElmtInvMassOp = MultiplyByElmtInvMassOp<TData>::Create(
             expansionList, components, ExecSpace::name);
+
+        m_bwdTransOp->SetAppend(this->m_append);
     }
 
     // className - for OperatorFactory
@@ -161,26 +163,22 @@ protected:
         this->m_volumeFluxOp->Apply(in, m_fluxvector);
 
         // Compute volume term contribution
-        m_iProductWRTDerivBaseOp->Apply(m_fluxvector, out);
+        m_iProductWRTDerivBaseOp->Apply(m_fluxvector, m_tmp);
 
         // Compute numerical flux on element traces
         AdvectTraceFlux(in, m_numflux);
 
-        neg<ExecSpace>(out, out);
+        neg<ExecSpace>(m_tmp, m_tmp);
 
         // Add trace integral contribution
-        m_addTraceIntegralOp->Apply(m_numflux, out);
+        m_addTraceIntegralOp->Apply(m_numflux, m_tmp);
 
         // Apply inverse mass matrix
-        m_multiplyByElmtInvMassOp->Apply(out, m_tmp);
+        m_multiplyByElmtInvMassOp->Apply(m_tmp, out);
 
-        if (this->m_scale == 1.0)
+        if (this->m_scale != 1.0)
         {
-            out.template Copy<MemSpace>(m_tmp);
-        }
-        else
-        {
-            mul<ExecSpace>(this->m_scale, m_tmp, out);
+            mul<ExecSpace>(this->m_scale, out, out);
         }
     }
 

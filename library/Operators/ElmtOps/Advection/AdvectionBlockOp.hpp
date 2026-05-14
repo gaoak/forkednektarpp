@@ -62,6 +62,11 @@ public:
         m_scale = scale;
     }
 
+    void SetAppend(const bool &append)
+    {
+        this->m_append = append;
+    }
+
     void SetAdvVel(BlockAccessor<TData, FieldState::Phys> &Vel)
     {
         v_SetAdvVel(Vel);
@@ -69,6 +74,7 @@ public:
 
 protected:
     TData m_scale = 1.0;
+    bool m_append = false;
 
     AdvectionBlockOp(const unsigned int block_idx,
                      const LocalRegions::ExpansionSharedPtr &exp,

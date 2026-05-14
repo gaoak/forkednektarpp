@@ -57,7 +57,14 @@ public:
 
     static inline const std::string name = "BlockBwdTrans";
 
+    void SetAppend(const bool &append)
+    {
+        this->m_append = append;
+    }
+
 protected:
+    bool m_append = false;
+
     BwdTransBlockOp(const unsigned int block_idx,
                     const LocalRegions::ExpansionSharedPtr &exp,
                     NekDataWarehouseSharedPtr dataWarehouse)
