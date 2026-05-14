@@ -141,7 +141,8 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction1DSumFacTOPKernel(
         const TData *inptr  = in + nm0 * e;
         TData *outptr       = out + nm0 * e;
 
-        BwdTransSegSumFacTOPKernel(nm0, nq0, basis0, inptr, bwd, threadBlock);
+        BwdTransSegSumFacTOPKernel<false>(nm0, nq0, basis0, inptr, bwd,
+                                          threadBlock);
         PhysDeriv1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, nq0, D0, dfptr, bwd,
                                              deriv, threadBlock);
         AddAdvection1DSumFacTOPKernel(ncoord, nq0, advVel0, advVel1, advVel2,
@@ -244,16 +245,16 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction2DSumFacTOPKernel(
 
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
-            BwdTransQuadSumFacTOPKernel(nm0, nm1, nq0, nq1, nqTot, s_basis0,
-                                        s_basis1, tmp, bwd, s_wsp0,
-                                        threadBlock);
+            BwdTransQuadSumFacTOPKernel<false>(nm0, nm1, nq0, nq1, nqTot,
+                                               s_basis0, s_basis1, tmp, bwd,
+                                               s_wsp0, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                            SHAPE_TYPE == LibUtilities::NodalTri)
         {
-            BwdTransTriSumFacTOPKernel(nm0, nm1, nq0, nq1, nqTot, isModified,
-                                       s_basis0, s_basis1, tmp, bwd, s_wsp0,
-                                       threadBlock);
+            BwdTransTriSumFacTOPKernel<false>(nm0, nm1, nq0, nq1, nqTot,
+                                              isModified, s_basis0, s_basis1,
+                                              tmp, bwd, s_wsp0, threadBlock);
         }
 
         PhysDeriv2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
@@ -427,30 +428,30 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction3DSumFacTOPKernel(
 
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            BwdTransHexSumFacTOPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
-                                       s_basis0, s_basis1, s_basis2, tmp, bwd,
-                                       s_wsp0, s_wsp1, threadBlock);
+            BwdTransHexSumFacTOPKernel<false>(
+                nm0, nm1, nm2, nq0, nq1, nq2, nqTot, s_basis0, s_basis1,
+                s_basis2, tmp, bwd, s_wsp0, s_wsp1, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                            SHAPE_TYPE == LibUtilities::NodalTet)
         {
-            BwdTransTetSumFacTOPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
-                                       isModified, index0, index3, s_basis0,
-                                       s_basis1, s_basis2, tmp, bwd, s_wsp0,
-                                       s_wsp1, threadBlock);
+            BwdTransTetSumFacTOPKernel<false>(nm0, nm1, nm2, nq0, nq1, nq2,
+                                              nqTot, isModified, index0, index3,
+                                              s_basis0, s_basis1, s_basis2, tmp,
+                                              bwd, s_wsp0, s_wsp1, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                            SHAPE_TYPE == LibUtilities::NodalPrism)
         {
-            BwdTransPrismSumFacTOPKernel(
+            BwdTransPrismSumFacTOPKernel<false>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
                 s_basis1, s_basis2, tmp, bwd, s_wsp0, s_wsp1, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            BwdTransPyrSumFacTOPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
-                                       isModified, s_basis0, s_basis1, s_basis2,
-                                       tmp, bwd, s_wsp0, s_wsp1, threadBlock);
+            BwdTransPyrSumFacTOPKernel<false>(
+                nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
+                s_basis1, s_basis2, tmp, bwd, s_wsp0, s_wsp1, threadBlock);
         }
         PhysDeriv3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
             nq0, nq1, nq2, nqTot, D0, D1, D2, f0, f1, f1m, f2, dfptr, bwd,

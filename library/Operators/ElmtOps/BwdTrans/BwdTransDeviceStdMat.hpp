@@ -114,29 +114,38 @@ protected:
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto outptr = (this->m_append)
+                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                          : outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
         // Loop over components.
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, inInterleaveWidth,
                                       nelmtTot, inblock.GetNumData(),
                                       (TData *)inptr);
+            if (this->m_append)
+            {
+                ReshapeStorage<ExecSpace>(
+                    m_implInterleaveWidth, outInterleaveWidth, nelmtTot,
+                    outblock.GetNumData(), (TData *)outptr);
+            }
 
             // Perform matrix-matrix multiply.
             NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot, (TData)1.0,
-                    m_matptr, m_nqTot, inptr, m_nmTot, (TData)0.0, outptr,
-                    m_nqTot);
+                    m_matptr, m_nqTot, inptr, m_nmTot, (TData)this->m_append,
+                    outptr, m_nqTot);
 
             // Reshape back, if necessary.
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+            ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
                                       nelmtTot, inblock.GetNumData(),
                                       (TData *)inptr);
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+            ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
                                       nelmtTot, outblock.GetNumData(), outptr);
 
             // Increment pointers.
@@ -145,7 +154,7 @@ protected:
         }
 
         // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
     }
 };
 

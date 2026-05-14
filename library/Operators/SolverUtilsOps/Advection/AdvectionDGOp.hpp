@@ -63,6 +63,11 @@ public:
         this->m_scale = scale;
     }
 
+    void SetAppend(const bool &append)
+    {
+        this->m_append = append;
+    }
+
     void SetAdvectVel(Field<TData, FieldState::Phys> &advectVel)
     {
         this->m_advectVel = std::move(advectVel);
@@ -83,6 +88,7 @@ protected:
     std::shared_ptr<RiemannSolverOp<TData>> m_riemannSolverOp;
     std::shared_ptr<VolumeFluxOp<TData>> m_volumeFluxOp;
     TData m_scale = 1.0;
+    bool m_append = false;
 
     AdvectionDGOp(const MultiRegions::ExpListSharedPtr &expansionList,
                   const std::vector<std::string> &components)

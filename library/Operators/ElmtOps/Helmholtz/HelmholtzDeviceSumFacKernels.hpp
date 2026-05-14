@@ -667,7 +667,7 @@ NEK_DEVICE_INLINE static void Helmholtz1DSumFacKernel(
         TData *outptr      = out + nm0 * warpsize * iwarp;
         TData *bwd         = wsp + nq0 * warpsize * iwarp;
         TData *deriv       = wsp + nq0 * nelmt + nq0 * warpsize * iwarp;
-        BwdTransSegSumFacKernel(ilane, nm0, nq0, basis0, inptr, bwd);
+        BwdTransSegSumFacKernel<false>(ilane, nm0, nq0, basis0, inptr, bwd);
         PhysDeriv1DSumFacKernel<DEFORMED>(ilane, ncoord, nq0, nelmt * nq0, D0,
                                           dfptr, bwd, deriv);
         ApplyMetric1DSumFacKernel<DEFORMED>(ilane, ncoord, nq0, nelmt * nq0, w0,
@@ -747,15 +747,16 @@ NEK_DEVICE_INLINE static void Helmholtz2DSumFacKernel(
         {
             TData *wsp0 =
                 wsp + (1 + ncoord) * nqTot * nelmt + nq1 * warpsize * iwarp;
-            BwdTransQuadSumFacKernel(ilane, nm0, nm1, nq0, nq1, basis0, basis1,
-                                     inptr, bwd, wsp0);
+            BwdTransQuadSumFacKernel<false>(ilane, nm0, nm1, nq0, nq1, basis0,
+                                            basis1, inptr, bwd, wsp0);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
             TData *wsp0 = wsp + (1 + ncoord) * nqTot * nelmt +
                           std::max(nq1, nm0) * warpsize * iwarp;
-            BwdTransTriSumFacKernel(ilane, nm0, nm1, nq0, nq1, isModified,
-                                    basis0, basis1, inptr, bwd, wsp0);
+            BwdTransTriSumFacKernel<false>(ilane, nm0, nm1, nq0, nq1,
+                                           isModified, basis0, basis1, inptr,
+                                           bwd, wsp0);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
         {
@@ -765,8 +766,9 @@ NEK_DEVICE_INLINE static void Helmholtz2DSumFacKernel(
                           std::max(nq1, nm0) * warpsize * iwarp;
 
             MatVecKernel(ilane, nmTot, nodToMod, inptr, in1ptr);
-            BwdTransTriSumFacKernel(ilane, nm0, nm1, nq0, nq1, isModified,
-                                    basis0, basis1, in1ptr, bwd, wsp0);
+            BwdTransTriSumFacKernel<false>(ilane, nm0, nm1, nq0, nq1,
+                                           isModified, basis0, basis1, in1ptr,
+                                           bwd, wsp0);
         }
 
         PhysDeriv2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
@@ -933,8 +935,9 @@ NEK_DEVICE_INLINE static void Helmholtz3DSumFacKernel(
                 wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
             TData *wsp1 =
                 wsp + (4 * nqTot + nq1 * nq2) * nelmt + nq2 * warpsize * iwarp;
-            BwdTransHexSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2, basis0,
-                                    basis1, basis2, inptr, bwd, wsp0, wsp1);
+            BwdTransHexSumFacKernel<false>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
+                                           basis0, basis1, basis2, inptr, bwd,
+                                           wsp0, wsp1);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
@@ -942,9 +945,9 @@ NEK_DEVICE_INLINE static void Helmholtz3DSumFacKernel(
                 wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
             TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2) * nelmt +
                           std::max(nq2, nm0) * warpsize * iwarp;
-            BwdTransTetSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
-                                    isModified, basis0, basis1, basis2, inptr,
-                                    bwd, wsp0, wsp1);
+            BwdTransTetSumFacKernel<false>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
+                                           isModified, basis0, basis1, basis2,
+                                           inptr, bwd, wsp0, wsp1);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
         {
@@ -954,9 +957,9 @@ NEK_DEVICE_INLINE static void Helmholtz3DSumFacKernel(
             TData *wsp1 = wsp + (nmTot + 4 * nqTot + nq1 * nq2) * nelmt +
                           std::max(nq2, nm0) * warpsize * iwarp;
             MatVecKernel(ilane, nmTot, nodToMod, inptr, in1ptr);
-            BwdTransTetSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
-                                    isModified, basis0, basis1, basis2, in1ptr,
-                                    bwd, wsp0, wsp1);
+            BwdTransTetSumFacKernel<false>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
+                                           isModified, basis0, basis1, basis2,
+                                           in1ptr, bwd, wsp0, wsp1);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
@@ -965,9 +968,9 @@ NEK_DEVICE_INLINE static void Helmholtz3DSumFacKernel(
             TData *wsp1 = wsp +
                           (4 * nqTot + std::max(nq1 * nq2, nm0 * nm1)) * nelmt +
                           std::max(nq2, nm0) * warpsize * iwarp;
-            BwdTransPrismSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
-                                      isModified, basis0, basis1, basis2, inptr,
-                                      bwd, wsp0, wsp1);
+            BwdTransPrismSumFacKernel<false>(ilane, nm0, nm1, nm2, nq0, nq1,
+                                             nq2, isModified, basis0, basis1,
+                                             basis2, inptr, bwd, wsp0, wsp1);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
         {
@@ -979,9 +982,9 @@ NEK_DEVICE_INLINE static void Helmholtz3DSumFacKernel(
                 (nmTot + 4 * nqTot + std::max(nq1 * nq2, nm0 * nm1)) * nelmt +
                 std::max(nq2, nm0) * warpsize * iwarp;
             MatVecKernel(ilane, nmTot, nodToMod, inptr, in1ptr);
-            BwdTransPrismSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
-                                      isModified, basis0, basis1, basis2,
-                                      in1ptr, bwd, wsp0, wsp1);
+            BwdTransPrismSumFacKernel<false>(ilane, nm0, nm1, nm2, nq0, nq1,
+                                             nq2, isModified, basis0, basis1,
+                                             basis2, in1ptr, bwd, wsp0, wsp1);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
@@ -990,9 +993,9 @@ NEK_DEVICE_INLINE static void Helmholtz3DSumFacKernel(
             TData *wsp1 = wsp +
                           (4 * nqTot + std::max(nq1 * nq2, nm0 * nm1)) * nelmt +
                           std::max(nq2, nm0) * warpsize * iwarp;
-            BwdTransPyrSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
-                                    isModified, basis0, basis1, basis2, inptr,
-                                    bwd, wsp0, wsp1);
+            BwdTransPyrSumFacKernel<false>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
+                                           isModified, basis0, basis1, basis2,
+                                           inptr, bwd, wsp0, wsp1);
         }
         PhysDeriv3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, nq0, nq1, nq2, nelmt * nqTot, D0, D1, D2, s_f0, s_f1, s_f1m,

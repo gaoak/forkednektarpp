@@ -119,7 +119,7 @@ NEK_FORCE_INLINE void PhysDerivDir1DKernel(const unsigned int nq0,
         // Multiply by derivative factors
         if constexpr (APPEND)
         {
-            out[j] += in[j] * df_tmp;
+            out[j].fma(in[j], df_tmp);
         }
         else
         {

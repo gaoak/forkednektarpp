@@ -63,7 +63,7 @@ inline constexpr unsigned int AdvectionSharedMemorySize(const unsigned int nq0,
     return nq0 * nq1 * nq2;
 }
 
-template <bool DEFORMED, typename TthreadBlock, typename TData>
+template <bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void Advection1DSumFacTOPKernel(
     const unsigned int ncoord, const unsigned int nq0,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
@@ -95,13 +95,21 @@ NEK_DEVICE_INLINE static void Advection1DSumFacTOPKernel(
             tmp +=
                 d0 * df[d * dfsize + dfindex] * advVel_ptr[d * adVecoffset + i];
         }
-        out[i] = scale * tmp;
+
+        if constexpr (APPEND)
+        {
+            out[i] += scale * tmp;
+        }
+        else
+        {
+            out[i] = scale * tmp;
+        }
     }
 
     localBarrier(threadBlock);
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void Advection2DSumFacTOPKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
@@ -165,13 +173,21 @@ NEK_DEVICE_INLINE static void Advection2DSumFacTOPKernel(
             tmp += vz * (d0 * df[4u * dfsize + dfindex] +
                          d1 * df[5u * dfsize + dfindex]);
         }
-        out[idx] = scale * tmp;
+
+        if constexpr (APPEND)
+        {
+            out[idx] += scale * tmp;
+        }
+        else
+        {
+            out[idx] = scale * tmp;
+        }
     }
 
     localBarrier(threadBlock);
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void Advection3DSumFacTOPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -262,13 +278,21 @@ NEK_DEVICE_INLINE static void Advection3DSumFacTOPKernel(
         tmp += vz * (d0 * df[6u * dfsize + dfindex] +
                      d1 * df[7u * dfsize + dfindex] +
                      d2 * df[8u * dfsize + dfindex]);
-        out[idx] = scale * tmp;
+
+        if constexpr (APPEND)
+        {
+            out[idx] += scale * tmp;
+        }
+        else
+        {
+            out[idx] = scale * tmp;
+        }
     }
 
     localBarrier(threadBlock);
 }
 
-template <bool DEFORMED, typename TthreadBlock, typename TData>
+template <bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void AdvectionSumFacTOP1DKernel(
     const unsigned int ncoord, const unsigned int nq0, const size_t nelmt,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
@@ -286,14 +310,14 @@ NEK_DEVICE_INLINE static void AdvectionSumFacTOP1DKernel(
         const TData *inptr     = in + nq0 * e;
         TData *outptr          = out + nq0 * e;
         const TData *advVelPtr = advVel_ptr + nq0 * e;
-        Advection1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, D0, dfptr, advVelPtr,
-                                             adVecoffset, inptr, outptr, scale,
-                                             threadBlock);
+        Advection1DSumFacTOPKernel<APPEND, DEFORMED>(
+            ncoord, nq0, D0, dfptr, advVelPtr, adVecoffset, inptr, outptr,
+            scale, threadBlock);
         e += getBlockRange(threadBlock);
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void AdvectionSumFacTOP2DKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
@@ -328,7 +352,7 @@ NEK_DEVICE_INLINE static void AdvectionSumFacTOP2DKernel(
 
         localBarrier(threadBlock);
 
-        Advection2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+        Advection2DSumFacTOPKernel<SHAPE_TYPE, APPEND, DEFORMED>(
             ncoord, nq0, nq1, D0, D1, f0, f1, dfptr, advVelPtr, adVecoffset,
             s_wsp0, outptr, scale, threadBlock);
 
@@ -336,7 +360,7 @@ NEK_DEVICE_INLINE static void AdvectionSumFacTOP2DKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void AdvectionSumFacTOP3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -373,7 +397,7 @@ NEK_DEVICE_INLINE static void AdvectionSumFacTOP3DKernel(
 
         localBarrier(threadBlock);
 
-        Advection3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+        Advection3DSumFacTOPKernel<SHAPE_TYPE, APPEND, DEFORMED>(
             nq0, nq1, nq2, D0, D1, D2, f0, f1, f1m, f2, dfptr, advVelPtr,
             adVecoffset, s_wsp0, outptr, scale, threadBlock);
 
@@ -382,8 +406,8 @@ NEK_DEVICE_INLINE static void AdvectionSumFacTOP3DKernel(
 }
 
 // Non-size based version.
-template <typename Implementation, bool DEFORMED, typename TthreadBlock,
-          typename TData>
+template <typename Implementation, bool APPEND, bool DEFORMED,
+          typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     Advection1DKernelLauncher(NonTemplated1DPhysSizeParameters sizeParam1D,
@@ -395,14 +419,14 @@ NEK_DEVICE_KERNEL
                               TData *NEK_RESTRICT out, const TData scale,
                               const TthreadBlock &threadBlock)
 {
-    AdvectionSumFacTOP1DKernel<DEFORMED>(
+    AdvectionSumFacTOP1DKernel<APPEND, DEFORMED>(
         sizeParam1D.ncoord(), sizeParam1D.nq0(), nelmt, D0, df, advVel_ptr,
         adVecoffset, in, out, scale, threadBlock);
 }
 
 // Size based template version.
 template <
-    typename Implementation, bool DEFORMED, unsigned int ncoord,
+    typename Implementation, bool APPEND, bool DEFORMED, unsigned int ncoord,
     unsigned int nq0, typename TthreadBlock, typename TData/*,
     unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)*/>
 NEK_DEVICE_KERNEL 
@@ -417,14 +441,14 @@ NEK_DEVICE_KERNEL
                               const TData *NEK_RESTRICT in,
                               TData *NEK_RESTRICT out, const TData scale, const TthreadBlock &threadBlock)
 {
-    AdvectionSumFacTOP1DKernel<DEFORMED>(ncoord, nq0, nelmt, D0, df, advVel_ptr,
-                                         adVecoffset, in, out, scale,
-                                         threadBlock);
+    AdvectionSumFacTOP1DKernel<APPEND, DEFORMED>(ncoord, nq0, nelmt, D0, df,
+                                                 advVel_ptr, adVecoffset, in,
+                                                 out, scale, threadBlock);
 }
 
 // Non-size based version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TthreadBlock, typename TData>
+          bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     Advection2DKernelLauncher(
@@ -438,7 +462,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    AdvectionSumFacTOP2DKernel<SHAPE_TYPE, DEFORMED>(
+    AdvectionSumFacTOP2DKernel<SHAPE_TYPE, APPEND, DEFORMED>(
         sizeParam2D.ncoord(), sizeParam2D.nq0(), sizeParam2D.nq1(), nelmt, D0,
         D1, f0, f1, df, advVel_ptr, adVecoffset, in, out, scale, shmemptr,
         threadBlock);
@@ -446,7 +470,7 @@ NEK_DEVICE_KERNEL
 
 // Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, unsigned int ncoord, unsigned int nq0,
+          bool APPEND, bool DEFORMED, unsigned int ncoord, unsigned int nq0,
           unsigned int nq1, typename TthreadBlock, typename TData/*,
           unsigned int maxThreadPerBlock =
               GetDeviceBlockSize<Implementation>(nq0 *nq1)*/>
@@ -467,14 +491,14 @@ const size_t nelmt, const TData *NEK_RESTRICT D0,
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    AdvectionSumFacTOP2DKernel<SHAPE_TYPE, DEFORMED>(
+    AdvectionSumFacTOP2DKernel<SHAPE_TYPE, APPEND, DEFORMED>(
         ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, df, advVel_ptr, adVecoffset,
         in, out, scale, shmemptr, threadBlock);
 }
 
 // Non-size based version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TthreadBlock, typename TData>
+          bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     Advection3DKernelLauncher(
@@ -490,7 +514,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    AdvectionSumFacTOP3DKernel<SHAPE_TYPE, DEFORMED>(
+    AdvectionSumFacTOP3DKernel<SHAPE_TYPE, APPEND, DEFORMED>(
         sizeParam3D.nq0(), sizeParam3D.nq1(), sizeParam3D.nq2(), nelmt, D0, D1,
         D2, f0, f1, f1m, f2, df, advVel_ptr, adVecoffset, in, out, scale,
         shmemptr, threadBlock);
@@ -498,7 +522,7 @@ NEK_DEVICE_KERNEL
 
 // Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, unsigned int nq0, unsigned int nq1, unsigned int nq2, typename TthreadBlock,
+          bool APPEND, bool DEFORMED, unsigned int nq0, unsigned int nq1, unsigned int nq2, typename TthreadBlock,
           typename TData/*,
           unsigned int maxThreadPerBlock =
               GetDeviceBlockSize<Implementation>(nq0 *nq1 *nq2)*/>
@@ -517,7 +541,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    AdvectionSumFacTOP3DKernel<SHAPE_TYPE, DEFORMED>(
+    AdvectionSumFacTOP3DKernel<SHAPE_TYPE, APPEND, DEFORMED>(
         nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, advVel_ptr,
         adVecoffset, in, out, scale, shmemptr, threadBlock);
 }

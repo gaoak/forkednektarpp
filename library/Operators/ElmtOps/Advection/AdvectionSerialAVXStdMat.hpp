@@ -117,14 +117,19 @@ protected:
     {
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto outptr = (this->m_append)
+                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                          : outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
+        const auto width_ratio =
+            (inInterleaveWidth == 1)
+                ? 1
+                : inInterleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, inInterleaveWidth);
 
         // Get static workspace pointers.
         auto derivptr =
@@ -153,7 +158,7 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize,
+                                              inInterleaveWidth, chunkSize,
                                               m_nqTot, (TData *)inptr);
                 }
 
@@ -167,22 +172,66 @@ protected:
                 // Multiply by derivative factor and Advection Velocity.
                 if (m_isDeformed)
                 {
-                    MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, true>(
-                        m_nqTot, m_coordDim, m_dimension, 1, derivsize,
-                        reinterpret_cast<const simd_t *>(dfptr),
-                        reinterpret_cast<const simd_t *>(advptr), advelsize,
-                        reinterpret_cast<const simd_t *>(derivptr),
-                        reinterpret_cast<simd_t *>(outptr), this->m_scale);
+                    if (this->m_append)
+                    {
+                        // Reshape, if necessary.
+                        if (e % width_ratio == 0)
+                        {
+                            ReshapeStorage<ExecSpace>(
+                                m_implInterleaveWidth, outInterleaveWidth,
+                                chunkSize, m_nqTot, (TData *)outptr);
+                        }
+
+                        MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, true,
+                                                               true>(
+                            m_nqTot, m_coordDim, m_dimension, 1, derivsize,
+                            reinterpret_cast<const simd_t *>(dfptr),
+                            reinterpret_cast<const simd_t *>(advptr), advelsize,
+                            reinterpret_cast<const simd_t *>(derivptr),
+                            reinterpret_cast<simd_t *>(outptr), this->m_scale);
+                    }
+                    else
+                    {
+                        MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, false,
+                                                               true>(
+                            m_nqTot, m_coordDim, m_dimension, 1, derivsize,
+                            reinterpret_cast<const simd_t *>(dfptr),
+                            reinterpret_cast<const simd_t *>(advptr), advelsize,
+                            reinterpret_cast<const simd_t *>(derivptr),
+                            reinterpret_cast<simd_t *>(outptr), this->m_scale);
+                    }
                     dfptr += m_coordDim * m_dimension * m_nqTot * simd_t::width;
                 }
                 else
                 {
-                    MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, false>(
-                        m_nqTot, m_coordDim, m_dimension, 1, derivsize,
-                        reinterpret_cast<const simd_t *>(dfptr),
-                        reinterpret_cast<const simd_t *>(advptr), advelsize,
-                        reinterpret_cast<const simd_t *>(derivptr),
-                        reinterpret_cast<simd_t *>(outptr), this->m_scale);
+                    if (this->m_append)
+                    {
+                        // Reshape, if necessary.
+                        if (e % width_ratio == 0)
+                        {
+                            ReshapeStorage<ExecSpace>(
+                                m_implInterleaveWidth, outInterleaveWidth,
+                                chunkSize, m_nqTot, (TData *)outptr);
+                        }
+
+                        MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, true,
+                                                               false>(
+                            m_nqTot, m_coordDim, m_dimension, 1, derivsize,
+                            reinterpret_cast<const simd_t *>(dfptr),
+                            reinterpret_cast<const simd_t *>(advptr), advelsize,
+                            reinterpret_cast<const simd_t *>(derivptr),
+                            reinterpret_cast<simd_t *>(outptr), this->m_scale);
+                    }
+                    else
+                    {
+                        MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, false,
+                                                               false>(
+                            m_nqTot, m_coordDim, m_dimension, 1, derivsize,
+                            reinterpret_cast<const simd_t *>(dfptr),
+                            reinterpret_cast<const simd_t *>(advptr), advelsize,
+                            reinterpret_cast<const simd_t *>(derivptr),
+                            reinterpret_cast<simd_t *>(outptr), this->m_scale);
+                    }
                     dfptr += m_coordDim * m_dimension * simd_t::width;
                 }
 
@@ -190,12 +239,12 @@ protected:
                 if (e % width_ratio == width_ratio - 1)
                 {
                     ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nqTot,
                         (TData *)inptr -
                             (width_ratio - 1) * m_nqTot * simd_t::width);
                     ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nqTot,
                         (TData *)outptr -
                             (width_ratio - 1) * m_nqTot * simd_t::width);
@@ -209,7 +258,7 @@ protected:
         }
 
         // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
     }
 
     void v_SetAdvVel(BlockAccessor<TData, FieldState::Phys> &advVel) override

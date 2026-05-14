@@ -114,18 +114,23 @@ protected:
     {
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto outptr = (this->m_append)
+                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                          : outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
+        const auto width_ratio =
+            (inInterleaveWidth == 1)
+                ? 1
+                : inInterleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, inInterleaveWidth);
 
         // Dispatch kernel.
         auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-            simd_t::width, m_nqTot, m_nmTot, 1.0, 0.0);
+            simd_t::width, m_nqTot, m_nmTot, 1.0, (TData)this->m_append);
 
         // Loop over components.
         for (unsigned int n = 0;
@@ -139,8 +144,14 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize,
+                                              inInterleaveWidth, chunkSize,
                                               m_nmTot, (TData *)inptr);
+                    if (this->m_append)
+                    {
+                        ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                                  outInterleaveWidth, chunkSize,
+                                                  m_nqTot, (TData *)outptr);
+                    }
                 }
 
                 // Perform matrix-matrix multiply.
@@ -150,12 +161,12 @@ protected:
                 if (e % width_ratio == width_ratio - 1)
                 {
                     ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nmTot,
                         (TData *)inptr -
                             (width_ratio - 1) * m_nmTot * simd_t::width);
                     ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nqTot,
                         (TData *)outptr -
                             (width_ratio - 1) * m_nqTot * simd_t::width);
@@ -168,7 +179,7 @@ protected:
         }
 
         // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
     }
 };
 

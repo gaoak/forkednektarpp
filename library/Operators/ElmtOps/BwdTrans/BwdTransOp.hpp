@@ -61,6 +61,15 @@ public:
 
     static inline const std::string name = "BwdTrans";
 
+    void SetAppend(const bool &append)
+    {
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < m_blockOp.size(); ++blk)
+        {
+            this->m_blockOp[blk]->SetAppend(append);
+        }
+    }
+
 protected:
     std::vector<std::shared_ptr<BwdTransBlockOp<TData>>> m_blockOp;
 

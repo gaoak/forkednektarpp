@@ -294,14 +294,19 @@ protected:
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto outptr = (this->m_append)
+                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                          : outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
+        const auto width_ratio =
+            (inInterleaveWidth == 1)
+                ? 1
+                : inInterleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, inInterleaveWidth);
 
         // Loop over components.
         for (unsigned int n = 0;
@@ -315,25 +320,45 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize, nmTot,
-                                              (TData *)inptr);
+                                              inInterleaveWidth, chunkSize,
+                                              nmTot, (TData *)inptr);
                 }
 
-                // BwdTrans kernel.
-                BwdTrans1DKernel<SHAPE_TYPE>(
-                    nm0, nq0, m_B[0], reinterpret_cast<const simd_t *>(inptr),
-                    reinterpret_cast<simd_t *>(outptr));
+                if (this->m_append)
+                {
+                    // Reshape, if necessary.
+                    if (e % width_ratio == 0)
+                    {
+                        ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                                  outInterleaveWidth, chunkSize,
+                                                  nqTot, (TData *)outptr);
+                    }
+
+                    // BwdTrans kernel.
+                    BwdTrans1DKernel<SHAPE_TYPE, true>(
+                        nm0, nq0, m_B[0],
+                        reinterpret_cast<const simd_t *>(inptr),
+                        reinterpret_cast<simd_t *>(outptr));
+                }
+                else
+                {
+                    // BwdTrans kernel.
+                    BwdTrans1DKernel<SHAPE_TYPE, false>(
+                        nm0, nq0, m_B[0],
+                        reinterpret_cast<const simd_t *>(inptr),
+                        reinterpret_cast<simd_t *>(outptr));
+                }
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
                     ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         nmTot,
                         (TData *)inptr -
                             (width_ratio - 1) * nmTot * simd_t::width);
                     ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         nqTot,
                         (TData *)outptr -
                             (width_ratio - 1) * nqTot * simd_t::width);
@@ -346,7 +371,7 @@ protected:
         }
 
         // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
     }
 
     // Non-size based operator.
@@ -382,14 +407,19 @@ protected:
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto outptr = (this->m_append)
+                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                          : outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
+        const auto width_ratio =
+            (inInterleaveWidth == 1)
+                ? 1
+                : inInterleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, inInterleaveWidth);
 
         // Loop over components.
         for (unsigned int n = 0;
@@ -403,27 +433,47 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize, nmTot,
-                                              (TData *)inptr);
+                                              inInterleaveWidth, chunkSize,
+                                              nmTot, (TData *)inptr);
                 }
 
-                // BwdTrans kernel.
-                BwdTrans2DKernel<SHAPE_TYPE>(
-                    nm0, nm1, nq0, nq1, m_isModified, m_B[0], m_B[1],
-                    m_nodToMod, m_wsp0.data(),
-                    reinterpret_cast<const simd_t *>(inptr),
-                    reinterpret_cast<simd_t *>(outptr));
+                if (this->m_append)
+                {
+                    // Reshape, if necessary.
+                    if (e % width_ratio == 0)
+                    {
+                        ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                                  outInterleaveWidth, chunkSize,
+                                                  nqTot, (TData *)outptr);
+                    }
+
+                    // BwdTrans kernel.
+                    BwdTrans2DKernel<SHAPE_TYPE, true>(
+                        nm0, nm1, nq0, nq1, m_isModified, m_B[0], m_B[1],
+                        m_nodToMod, m_wsp0.data(),
+                        reinterpret_cast<const simd_t *>(inptr),
+                        reinterpret_cast<simd_t *>(outptr));
+                }
+                else
+                {
+                    // BwdTrans kernel.
+                    BwdTrans2DKernel<SHAPE_TYPE, false>(
+                        nm0, nm1, nq0, nq1, m_isModified, m_B[0], m_B[1],
+                        m_nodToMod, m_wsp0.data(),
+                        reinterpret_cast<const simd_t *>(inptr),
+                        reinterpret_cast<simd_t *>(outptr));
+                }
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
                     ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         nmTot,
                         (TData *)inptr -
                             (width_ratio - 1) * nmTot * simd_t::width);
                     ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         nqTot,
                         (TData *)outptr -
                             (width_ratio - 1) * nqTot * simd_t::width);
@@ -436,7 +486,7 @@ protected:
         }
 
         // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
     }
 
     // Non-size based operator.
@@ -473,14 +523,19 @@ protected:
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto outptr = (this->m_append)
+                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                          : outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
+        const auto width_ratio =
+            (inInterleaveWidth == 1)
+                ? 1
+                : inInterleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, inInterleaveWidth);
 
         // Loop over components.
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
@@ -493,27 +548,47 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize, nmTot,
-                                              (TData *)inptr);
+                                              inInterleaveWidth, chunkSize,
+                                              nmTot, (TData *)inptr);
                 }
 
-                // BwdTrans kernel.
-                BwdTrans3DKernel<SHAPE_TYPE>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, m_B[0], m_B[1],
-                    m_B[2], m_nodToMod, m_wsp0.data(), m_wsp1.data(),
-                    reinterpret_cast<const simd_t *>(inptr),
-                    reinterpret_cast<simd_t *>(outptr));
+                if (this->m_append)
+                {
+                    // Reshape, if necessary.
+                    if (e % width_ratio == 0)
+                    {
+                        ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                                  outInterleaveWidth, chunkSize,
+                                                  nqTot, (TData *)outptr);
+                    }
+
+                    // BwdTrans kernel.
+                    BwdTrans3DKernel<SHAPE_TYPE, true>(
+                        nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, m_B[0],
+                        m_B[1], m_B[2], m_nodToMod, m_wsp0.data(),
+                        m_wsp1.data(), reinterpret_cast<const simd_t *>(inptr),
+                        reinterpret_cast<simd_t *>(outptr));
+                }
+                else
+                {
+                    // BwdTrans kernel.
+                    BwdTrans3DKernel<SHAPE_TYPE, false>(
+                        nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, m_B[0],
+                        m_B[1], m_B[2], m_nodToMod, m_wsp0.data(),
+                        m_wsp1.data(), reinterpret_cast<const simd_t *>(inptr),
+                        reinterpret_cast<simd_t *>(outptr));
+                }
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
                     ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         nmTot,
                         (TData *)inptr -
                             (width_ratio - 1) * nmTot * simd_t::width);
                     ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         nqTot,
                         (TData *)outptr -
                             (width_ratio - 1) * nqTot * simd_t::width);
@@ -526,7 +601,7 @@ protected:
         }
 
         // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
     }
 };
 

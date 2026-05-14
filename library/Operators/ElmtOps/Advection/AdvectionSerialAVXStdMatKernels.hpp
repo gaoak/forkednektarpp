@@ -34,7 +34,7 @@
 
 #pragma once
 
-template <typename ExecSpace, bool DEFORMED, typename simd_type>
+template <typename ExecSpace, bool APPEND, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void MultiplyByDerivFactorAndAdvecVelKernel(
     const unsigned int nqTot, const unsigned int ncoord,
     const unsigned int dimension, const size_t nelmt, const size_t inoffset,
@@ -62,7 +62,14 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorAndAdvecVelKernel(
                 tmp0.fma(advVel[k * advelsize + idx], tmp[k]);
             }
 
-            outptr[idx] = scale * tmp0;
+            if constexpr (APPEND)
+            {
+                outptr[idx].fma(scale, tmp0);
+            }
+            else
+            {
+                outptr[idx] = scale * tmp0;
+            }
         }
     }
     else
@@ -84,7 +91,14 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorAndAdvecVelKernel(
                     tmp0.fma(advVel[k * advelsize + i], tmp[k]);
                 }
 
-                outptr[nqTot * e + i] = scale * tmp0;
+                if constexpr (APPEND)
+                {
+                    outptr[nqTot * e + i].fma(scale, tmp0);
+                }
+                else
+                {
+                    outptr[nqTot * e + i] = scale * tmp0;
+                }
             }
         }
     }

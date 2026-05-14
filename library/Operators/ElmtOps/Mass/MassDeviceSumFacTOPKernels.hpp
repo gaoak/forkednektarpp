@@ -237,7 +237,8 @@ NEK_DEVICE_INLINE static void Mass1DSumFacTOPKernel(
         const TData *jacptr = jac + jacsize * e;
         const TData *inptr  = in + nm0 * e;
         TData *outptr       = out + nm0 * e;
-        BwdTransSegSumFacTOPKernel(nm0, nq0, basis0, inptr, bwd, threadBlock);
+        BwdTransSegSumFacTOPKernel<false>(nm0, nq0, basis0, inptr, bwd,
+                                          threadBlock);
 
         for (unsigned int i = idx0; i < nq0; i += stride)
         {
@@ -332,16 +333,16 @@ NEK_DEVICE_INLINE static void Mass2DSumFacTOPKernel(
 
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
-            BwdTransQuadSumFacTOPKernel(nm0, nm1, nq0, nq1, nqTot, s_basis0,
-                                        s_basis1, tmp, bwd, s_wsp0,
-                                        threadBlock);
+            BwdTransQuadSumFacTOPKernel<false>(nm0, nm1, nq0, nq1, nqTot,
+                                               s_basis0, s_basis1, tmp, bwd,
+                                               s_wsp0, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                            SHAPE_TYPE == LibUtilities::NodalTri)
         {
-            BwdTransTriSumFacTOPKernel(nm0, nm1, nq0, nq1, nqTot, isModified,
-                                       s_basis0, s_basis1, tmp, bwd, s_wsp0,
-                                       threadBlock);
+            BwdTransTriSumFacTOPKernel<false>(nm0, nm1, nq0, nq1, nqTot,
+                                              isModified, s_basis0, s_basis1,
+                                              tmp, bwd, s_wsp0, threadBlock);
         }
 
         for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -495,30 +496,30 @@ NEK_DEVICE_INLINE static void Mass3DSumFacTOPKernel(
 
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            BwdTransHexSumFacTOPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
-                                       s_basis0, s_basis1, s_basis2, tmp, bwd,
-                                       s_wsp0, s_wsp1, threadBlock);
+            BwdTransHexSumFacTOPKernel<false>(
+                nm0, nm1, nm2, nq0, nq1, nq2, nqTot, s_basis0, s_basis1,
+                s_basis2, tmp, bwd, s_wsp0, s_wsp1, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                            SHAPE_TYPE == LibUtilities::NodalTet)
         {
-            BwdTransTetSumFacTOPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
-                                       isModified, index0, index3, s_basis0,
-                                       s_basis1, s_basis2, tmp, bwd, s_wsp0,
-                                       s_wsp1, threadBlock);
+            BwdTransTetSumFacTOPKernel<false>(nm0, nm1, nm2, nq0, nq1, nq2,
+                                              nqTot, isModified, index0, index3,
+                                              s_basis0, s_basis1, s_basis2, tmp,
+                                              bwd, s_wsp0, s_wsp1, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                            SHAPE_TYPE == LibUtilities::NodalPrism)
         {
-            BwdTransPrismSumFacTOPKernel(
+            BwdTransPrismSumFacTOPKernel<false>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
                 s_basis1, s_basis2, tmp, bwd, s_wsp0, s_wsp1, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            BwdTransPyrSumFacTOPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
-                                       isModified, s_basis0, s_basis1, s_basis2,
-                                       tmp, bwd, s_wsp0, s_wsp1, threadBlock);
+            BwdTransPyrSumFacTOPKernel<false>(
+                nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
+                s_basis1, s_basis2, tmp, bwd, s_wsp0, s_wsp1, threadBlock);
         }
 
         // Copy to shared memory.

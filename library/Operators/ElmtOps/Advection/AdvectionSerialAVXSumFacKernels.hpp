@@ -37,7 +37,8 @@
 namespace Nektar::Operators::detail
 {
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
+          typename simd_type>
 NEK_FORCE_INLINE void Advection1DKernel(
     const unsigned int nq0, const unsigned int ndf, const simd_type *df_ptr,
     const simd_type *advVel0_ptr, [[maybe_unused]] const simd_type *advVel1_ptr,
@@ -90,11 +91,20 @@ NEK_FORCE_INLINE void Advection1DKernel(
             // Multiply by derivative factor, and Vz
             tmp.fma(df_tmp[2], advVel2_ptr[j]);
         }
-        out[j] = scale * in * tmp;
+
+        if constexpr (APPEND)
+        {
+            out[j] += scale * in * tmp;
+        }
+        else
+        {
+            out[j] = scale * in * tmp;
+        }
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
+          typename simd_type>
 NEK_FORCE_INLINE void Advection2DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int outdim,
     [[maybe_unused]] const simd_type *f0, [[maybe_unused]] const simd_type *f1,
@@ -182,12 +192,21 @@ NEK_FORCE_INLINE void Advection2DKernel(
                 // Multiply advection vel, Vz
                 tmp0.fma(tmp, vz);
             }
-            out[cnt_ji] = tmp0 * scale;
+
+            if constexpr (APPEND)
+            {
+                out[cnt_ji].fma(tmp0, scale);
+            }
+            else
+            {
+                out[cnt_ji] = tmp0 * scale;
+            }
         }
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
+          typename simd_type>
 NEK_FORCE_INLINE void Advection3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     [[maybe_unused]] const simd_type *f0, [[maybe_unused]] const simd_type *f1,
@@ -309,7 +328,15 @@ NEK_FORCE_INLINE void Advection3DKernel(
                 tmp.fma(d2, df_tmp[8]);
                 // Multiply advection velocity, Vz
                 tmp0.fma(tmp, vz);
-                out[cnt_ijk] = scale * tmp0;
+
+                if constexpr (APPEND)
+                {
+                    out[cnt_ijk].fma(scale, tmp0);
+                }
+                else
+                {
+                    out[cnt_ijk] = scale * tmp0;
+                }
             }
         }
     }

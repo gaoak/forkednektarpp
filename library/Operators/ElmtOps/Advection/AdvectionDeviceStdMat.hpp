@@ -122,7 +122,8 @@ protected:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
         // Get static workspace pointer.
         auto derivptr =
@@ -139,7 +140,7 @@ protected:
             auto advptr = this->m_advVel;
 
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, inInterleaveWidth,
                                       nelmtTot, inblock.GetNumData(),
                                       (TData *)inptr);
 
@@ -155,20 +156,54 @@ protected:
             // Multiply by derivative factor.
             if (m_isDeformed)
             {
-                MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, true>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, outoffset,
-                    m_dfptr, advptr, advelsize, derivptr, outptr,
-                    this->m_scale);
+                if (this->m_append)
+                {
+                    // Reshape, if necessary.
+                    ReshapeStorage<ExecSpace>(
+                        m_implInterleaveWidth, outInterleaveWidth, nelmtTot,
+                        outblock.GetNumData(), (TData *)outptr);
+
+                    MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, true,
+                                                           true>(
+                        m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
+                        outoffset, m_dfptr, advptr, advelsize, derivptr, outptr,
+                        this->m_scale);
+                }
+                else
+                {
+                    MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, false,
+                                                           true>(
+                        m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
+                        outoffset, m_dfptr, advptr, advelsize, derivptr, outptr,
+                        this->m_scale);
+                }
             }
             else
             {
-                MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, false>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, outoffset,
-                    m_dfptr, advptr, advelsize, derivptr, outptr,
-                    this->m_scale);
+                if (this->m_append)
+                {
+                    // Reshape, if necessary.
+                    ReshapeStorage<ExecSpace>(
+                        m_implInterleaveWidth, outInterleaveWidth, nelmtTot,
+                        outblock.GetNumData(), (TData *)outptr);
+
+                    MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, true,
+                                                           false>(
+                        m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
+                        outoffset, m_dfptr, advptr, advelsize, derivptr, outptr,
+                        this->m_scale);
+                }
+                else
+                {
+                    MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, false,
+                                                           false>(
+                        m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
+                        outoffset, m_dfptr, advptr, advelsize, derivptr, outptr,
+                        this->m_scale);
+                }
             }
 
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+            ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
                                       nelmtTot, m_nqTot, (TData *)outptr);
 
             // Increment pointer.
@@ -177,7 +212,7 @@ protected:
         }
 
         // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
     }
 
     void v_SetAdvVel(BlockAccessor<TData, FieldState::Phys> &advVel) override

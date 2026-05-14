@@ -202,7 +202,7 @@ NEK_DEVICE_INLINE static void Mass1DSumFacKernel(
         const TData *inptr = in + nm0 * warpsize * iwarp;
         TData *wspptr      = wsp + nq0 * warpsize * iwarp;
         TData *outptr      = out + nm0 * warpsize * iwarp;
-        BwdTransSegSumFacKernel(ilane, nm0, nq0, basis0, inptr, wspptr);
+        BwdTransSegSumFacKernel<false>(ilane, nm0, nq0, basis0, inptr, wspptr);
         IProductWRTBaseSegSumFacKernel<false, false, DEFORMED>(
             ilane, nm0, nq0, basis0, w0, jacptr, wspptr, outptr, (TData)1.0);
         e += getGlobalRange(threadBlock);
@@ -240,8 +240,8 @@ NEK_DEVICE_INLINE static void Mass2DSumFacKernel(
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
             TData *wsp0 = wsp + nqTot * nelmt + nq1 * warpsize * iwarp;
-            BwdTransQuadSumFacKernel(ilane, nm0, nm1, nq0, nq1, basis0, basis1,
-                                     inptr, bwd, wsp0);
+            BwdTransQuadSumFacKernel<false>(ilane, nm0, nm1, nq0, nq1, basis0,
+                                            basis1, inptr, bwd, wsp0);
             IProductWRTBaseQuadSumFacKernel<false, false, DEFORMED>(
                 ilane, nm0, nm1, nq0, nq1, basis0, basis1, w0, w1, jacptr, bwd,
                 outptr, wsp0, (TData)1.0);
@@ -250,8 +250,9 @@ NEK_DEVICE_INLINE static void Mass2DSumFacKernel(
         {
             TData *wsp0 =
                 wsp + nqTot * nelmt + std::max(nq1, nm0) * warpsize * iwarp;
-            BwdTransTriSumFacKernel(ilane, nm0, nm1, nq0, nq1, isModified,
-                                    basis0, basis1, inptr, bwd, wsp0);
+            BwdTransTriSumFacKernel<false>(ilane, nm0, nm1, nq0, nq1,
+                                           isModified, basis0, basis1, inptr,
+                                           bwd, wsp0);
             IProductWRTBaseTriSumFacKernel<false, false, DEFORMED>(
                 ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, w0, w1,
                 jacptr, bwd, outptr, wsp0, (TData)1.0);
@@ -262,8 +263,9 @@ NEK_DEVICE_INLINE static void Mass2DSumFacKernel(
             TData *wsp0  = wsp + (nqTot + nmTot) * nelmt +
                           std::max(nq1, nm0) * warpsize * iwarp;
             MatVecKernel(ilane, nmTot, nodToMod, inptr, modes);
-            BwdTransTriSumFacKernel(ilane, nm0, nm1, nq0, nq1, isModified,
-                                    basis0, basis1, modes, bwd, wsp0);
+            BwdTransTriSumFacKernel<false>(ilane, nm0, nm1, nq0, nq1,
+                                           isModified, basis0, basis1, modes,
+                                           bwd, wsp0);
             IProductWRTBaseTriSumFacKernel<false, false, DEFORMED>(
                 ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, w0, w1,
                 jacptr, bwd, modes, wsp0, (TData)1.0);
@@ -310,8 +312,9 @@ NEK_DEVICE_INLINE static void Mass3DSumFacKernel(
             TData *wsp0 = wsp + nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
             TData *wsp1 =
                 wsp + (nqTot + nq1 * nq2) * nelmt + nq2 * warpsize * iwarp;
-            BwdTransHexSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2, basis0,
-                                    basis1, basis2, inptr, bwd, wsp0, wsp1);
+            BwdTransHexSumFacKernel<false>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
+                                           basis0, basis1, basis2, inptr, bwd,
+                                           wsp0, wsp1);
             IProductWRTBaseHexSumFacKernel<false, false, DEFORMED>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, basis0, basis1, basis2, w0,
                 w1, w2, jacptr, bwd, outptr, wsp0, wsp1, (TData)1.0);
@@ -321,9 +324,9 @@ NEK_DEVICE_INLINE static void Mass3DSumFacKernel(
             TData *wsp0 = wsp + nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
             TData *wsp1 = wsp + (nqTot + nq1 * nq2) * nelmt +
                           std::max(nq2, nm0) * warpsize * iwarp;
-            BwdTransTetSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
-                                    isModified, basis0, basis1, basis2, inptr,
-                                    bwd, wsp0, wsp1);
+            BwdTransTetSumFacKernel<false>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
+                                           isModified, basis0, basis1, basis2,
+                                           inptr, bwd, wsp0, wsp1);
             IProductWRTBaseTetSumFacKernel<false, false, DEFORMED>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
                 basis2, w0, w1, w2, jacptr, bwd, outptr, wsp0, wsp1,
@@ -337,9 +340,9 @@ NEK_DEVICE_INLINE static void Mass3DSumFacKernel(
             TData *wsp1 = wsp + (nqTot + nq1 * nq2 + nmTot) * nelmt +
                           std::max(nq2, nm0) * warpsize * iwarp;
             MatVecKernel(ilane, nmTot, nodToMod, inptr, modes);
-            BwdTransTetSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
-                                    isModified, basis0, basis1, basis2, modes,
-                                    bwd, wsp0, wsp1);
+            BwdTransTetSumFacKernel<false>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
+                                           isModified, basis0, basis1, basis2,
+                                           modes, bwd, wsp0, wsp1);
             IProductWRTBaseTetSumFacKernel<false, false, DEFORMED>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
                 basis2, w0, w1, w2, jacptr, bwd, modes, wsp0, wsp1, (TData)1.0);
@@ -354,9 +357,9 @@ NEK_DEVICE_INLINE static void Mass3DSumFacKernel(
             TData *wsp1 = wsp +
                           (nqTot + std::max(nq1 * nq2, nm0 * nm1)) * nelmt +
                           std::max(nq2, nm0) * warpsize * iwarp;
-            BwdTransPrismSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
-                                      isModified, basis0, basis1, basis2, inptr,
-                                      bwd, wsp0, wsp1);
+            BwdTransPrismSumFacKernel<false>(ilane, nm0, nm1, nm2, nq0, nq1,
+                                             nq2, isModified, basis0, basis1,
+                                             basis2, inptr, bwd, wsp0, wsp1);
             IProductWRTBasePrismSumFacKernel<false, false, DEFORMED>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
                 basis2, w0, w1, w2, jacptr, bwd, outptr, wsp0, wsp1,
@@ -371,9 +374,9 @@ NEK_DEVICE_INLINE static void Mass3DSumFacKernel(
                 wsp + (nqTot + nmTot + std::max(nq1 * nq2, nm0 * nm1)) * nelmt +
                 std::max(nq2, nm0) * warpsize * iwarp;
             MatVecKernel(ilane, nmTot, nodToMod, inptr, modes);
-            BwdTransPrismSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
-                                      isModified, basis0, basis1, basis2, modes,
-                                      bwd, wsp0, wsp1);
+            BwdTransPrismSumFacKernel<false>(ilane, nm0, nm1, nm2, nq0, nq1,
+                                             nq2, isModified, basis0, basis1,
+                                             basis2, modes, bwd, wsp0, wsp1);
             IProductWRTBasePrismSumFacKernel<false, false, DEFORMED>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
                 basis2, w0, w1, w2, jacptr, bwd, modes, wsp0, wsp1, (TData)1.0);
@@ -388,9 +391,9 @@ NEK_DEVICE_INLINE static void Mass3DSumFacKernel(
             TData *wsp1 = wsp +
                           (nqTot + std::max(nq1 * nq2, nm0 * nm1)) * nelmt +
                           std::max(nq2, nm0) * warpsize * iwarp;
-            BwdTransPyrSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
-                                    isModified, basis0, basis1, basis2, inptr,
-                                    bwd, wsp0, wsp1);
+            BwdTransPyrSumFacKernel<false>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
+                                           isModified, basis0, basis1, basis2,
+                                           inptr, bwd, wsp0, wsp1);
             IProductWRTBasePyrSumFacKernel<false, false, DEFORMED>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
                 basis2, w0, w1, w2, jacptr, bwd, outptr, wsp0, wsp1,

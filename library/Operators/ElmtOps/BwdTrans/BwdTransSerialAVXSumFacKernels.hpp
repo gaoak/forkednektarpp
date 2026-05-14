@@ -107,17 +107,17 @@ NEK_FORCE_INLINE static void BwdTrans3DWorkspace(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, typename simd_type>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nm0,
                                               const unsigned int nq0,
                                               const simd_type *basis0,
                                               const simd_type *in,
                                               simd_type *out)
 {
-    BwdTransSegKernel(nm0, nq0, basis0, in, out);
+    BwdTransSegKernel<APPEND>(nm0, nq0, basis0, in, out);
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, typename simd_type>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, [[maybe_unused]] const bool isModified,
@@ -131,21 +131,22 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
         simd_type *in1   = wsp0 + nm0;
 
         MatVecKernel(nmTot, NtoM, in, in1);
-        BwdTransTriKernel(nm0, nm1, nq0, nq1, isModified, basis0, basis1, wsp0,
-                          in1, out);
+        BwdTransTriKernel<APPEND>(nm0, nm1, nq0, nq1, isModified, basis0,
+                                  basis1, wsp0, in1, out);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
     {
-        BwdTransTriKernel(nm0, nm1, nq0, nq1, isModified, basis0, basis1, wsp0,
-                          in, out);
+        BwdTransTriKernel<APPEND>(nm0, nm1, nq0, nq1, isModified, basis0,
+                                  basis1, wsp0, in, out);
     }
     else
     {
-        BwdTransQuadKernel(nm0, nm1, nq0, nq1, basis0, basis1, wsp0, in, out);
+        BwdTransQuadKernel<APPEND>(nm0, nm1, nq0, nq1, basis0, basis1, wsp0, in,
+                                   out);
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, typename simd_type>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -156,13 +157,13 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
     {
-        BwdTransHexKernel(nm0, nm1, nm2, nq0, nq1, nq2, basis0, basis1, basis2,
-                          wsp0, wsp1, in, out);
+        BwdTransHexKernel<APPEND>(nm0, nm1, nm2, nq0, nq1, nq2, basis0, basis1,
+                                  basis2, wsp0, wsp1, in, out);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
     {
-        BwdTransTetKernel(nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
-                          basis1, basis2, wsp0, wsp1, in, out);
+        BwdTransTetKernel<APPEND>(nm0, nm1, nm2, nq0, nq1, nq2, isModified,
+                                  basis0, basis1, basis2, wsp0, wsp1, in, out);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::eNodalTet)
     {
@@ -170,13 +171,14 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
         simd_type *in1   = wsp0 + nm0 * nm1;
 
         MatVecKernel(nmTot, NtoM, in, in1);
-        BwdTransTetKernel(nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
-                          basis1, basis2, wsp0, wsp1, in1, out);
+        BwdTransTetKernel<APPEND>(nm0, nm1, nm2, nq0, nq1, nq2, isModified,
+                                  basis0, basis1, basis2, wsp0, wsp1, in1, out);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::ePrism)
     {
-        BwdTransPrismKernel(nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
-                            basis1, basis2, wsp0, wsp1, in, out);
+        BwdTransPrismKernel<APPEND>(nm0, nm1, nm2, nq0, nq1, nq2, isModified,
+                                    basis0, basis1, basis2, wsp0, wsp1, in,
+                                    out);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::eNodalPrism)
     {
@@ -184,13 +186,14 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
         simd_type *in1   = wsp0 + nm0 * nm1;
 
         MatVecKernel(nmTot, NtoM, in, in1);
-        BwdTransPrismKernel(nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
-                            basis1, basis2, wsp0, wsp1, in1, out);
+        BwdTransPrismKernel<APPEND>(nm0, nm1, nm2, nq0, nq1, nq2, isModified,
+                                    basis0, basis1, basis2, wsp0, wsp1, in1,
+                                    out);
     }
     else
     {
-        BwdTransPyrKernel(nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
-                          basis1, basis2, wsp0, wsp1, in, out);
+        BwdTransPyrKernel<APPEND>(nm0, nm1, nm2, nq0, nq1, nq2, isModified,
+                                  basis0, basis1, basis2, wsp0, wsp1, in, out);
     }
 }
 
