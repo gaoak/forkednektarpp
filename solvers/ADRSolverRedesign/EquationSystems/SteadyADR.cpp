@@ -77,14 +77,11 @@ void SteadyADR::v_InitObject(bool DeclareFields)
     // Create and initialise all fields
     InitialiseFields();
 
+    // Set advection velocity
+    SetAdvectionVel();
+
     // Set up diffusion Coeff.
     SetDiffusionCoeff();
-
-    // Set Advection Velocity
-    if (m_session->GetSolverInfo("EQTYPE") == "SteadyADR")
-    {
-        SetAdvectionVel();
-    }
 
     // Create and initialise all operators
     InitialiseOperators();
@@ -336,41 +333,43 @@ void SteadyADR::InitialiseFields()
 void SteadyADR::SetAdvectionVel()
 {
 
-    // Read advection velocity from session
-    if (m_session->DefinesFunction("AdvectionVelocity"))
+    if (m_session->GetSolverInfo("EQTYPE") == "SteadyADR")
     {
-        unsigned int coordDim = m_fields[0]->GetCoordim(0);
-
-        // Reads the Session File Velocity defined as function
-        std::vector<std::string> vel;
-        vel.push_back("Vx");
-        vel.push_back("Vy");
-        vel.push_back("Vz");
-        vel.resize(coordDim);
-
-        // Initialise operators
-        auto expressionOp = ExpressionOp<double>::Create(m_fields[0], vel);
-
-        // Read advection velocity expressions and configure operator
-        std::vector<LibUtilities::EquationSharedPtr> advectionVelocities;
-        for (unsigned int i = 0; i < coordDim; ++i)
+        // Read advection velocity from session
+        if (m_session->DefinesFunction("AdvectionVelocity"))
         {
-            advectionVelocities.push_back(
-                m_session->GetFunction("AdvectionVelocity", vel[i]));
-        }
-        expressionOp->SetExpressions(advectionVelocities);
-        expressionOp->SetTime(m_time);
+            unsigned int coordDim = m_fields[0]->GetCoordim(0);
 
-        // Initialise m_advectionVel, evaluate all expressions and
-        // transform to array
-        m_math.zero(m_advectionVel);
-        expressionOp->Apply(m_advectionVel, m_advectionVel);
-    }
-    else
-    {
-        NEKERROR(
-            ErrorUtil::efatal,
-            "Function 'AdvectionVelocity' was not defined in session file.")
+            // Reads the Session File Velocity defined as function
+            std::vector<std::string> vel;
+            vel.push_back("Vx");
+            vel.push_back("Vy");
+            vel.push_back("Vz");
+            vel.resize(coordDim);
+
+            // Initialise operators
+            auto expressionOp = ExpressionOp<double>::Create(m_fields[0], vel);
+
+            // Read advection velocity expressions and configure operator
+            std::vector<LibUtilities::EquationSharedPtr> advectionVelocities;
+            for (unsigned int i = 0; i < coordDim; ++i)
+            {
+                advectionVelocities.push_back(
+                    m_session->GetFunction("AdvectionVelocity", vel[i]));
+            }
+            expressionOp->SetExpressions(advectionVelocities);
+            expressionOp->SetTime(m_time);
+
+            // Initialise m_advectionVel, evaluate all expressions and
+            // transform to array
+            m_math.zero(m_advectionVel);
+            expressionOp->Apply(m_advectionVel, m_advectionVel);
+        }
+        else
+        {
+            NEKERROR(ErrorUtil::efatal, "Function 'AdvectionVelocity' was "
+                                        "not defined in session file.")
+        }
     }
 }
 

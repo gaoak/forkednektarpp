@@ -51,7 +51,6 @@ IF(NEKTAR_BUILD_REDESIGN)
             ADRSolverRedesign.cpp
             EquationSystems/SteadyADR.cpp
             EquationSystems/UnsteadyADR.cpp
-            EquationSystems/UnsteadyAdvection.cpp
         )
 
         IF(NEKTAR_BUILD_SOLVER_LIBS)
@@ -104,7 +103,7 @@ IF(NEKTAR_BUILD_REDESIGN)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvection2D_ExplicitSDCGaussRadauLegendre)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvection2D_ExplicitSDCGaussGaussLegendre)
 
-        # 2D discontinuous advection (weak DG/flux reconstruction)
+        # 2D discontinuous advection
         SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection2D_ISO_deformed_GLL_LAGRANGE_3x3)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection2D_ISO_deformed_GLL_LAGRANGE_SEM_3x3)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection2D_ISO_deformed_MODIFIED_3x3)

@@ -35,6 +35,7 @@
 
 #pragma once
 
+#include "Operators/GetFwdBwdTracePhys/GetFwdBwdTracePhysOp.hpp"
 #include "Operators/Math/Math.hpp"
 #include <Operators/ElmtOps/Advection/AdvectionOp.hpp>
 #include <Operators/ElmtOps/BwdTrans/BwdTransOp.hpp>
@@ -42,6 +43,9 @@
 #include <Operators/Field/Field.hpp>
 #include <Operators/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp>
 #include <Operators/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp>
+#include <Operators/SolverUtilsOps/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
+#include <Operators/SolverUtilsOps/Advection/VolumeFluxOp.hpp>
+#include <Operators/SolverUtilsOps/RiemannSolvers/RiemannSolverOp.hpp>
 #include <SolverUtils/EquationSystem.h>
 
 namespace Nektar
@@ -66,6 +70,7 @@ public:
     }
 
     /// Name of class
+    static std::string className0;
     static std::string className1;
     static std::string className2;
 
@@ -76,7 +81,12 @@ protected:
 
     // Time stepping coefficient
     double m_lambda;
-    bool m_explicitAdvection = true;
+    bool m_advection         = false;
+    bool m_diffusion         = false;
+    bool m_explicitAdvection = false;
+    bool m_explicitDiffusion = false;
+    bool m_implicitAdvection = false;
+    bool m_implicitDiffusion = false;
 
     // Save variable strings and number for verbose output and looping
     std::vector<std::string> m_variables;
@@ -85,7 +95,7 @@ protected:
     // Setup workspaces
     Field<double, FieldState::Phys> m_in;
     Field<double, FieldState::Phys> m_advectionVel;
-    Field<double, FieldState::Phys> m_wsp_phys;
+    Field<double, FieldState::Phys> m_traceAdvectionVel;
     Field<double, FieldState::Coeff> m_wsp_coeff;
 
     // Declare math
@@ -95,7 +105,11 @@ protected:
     std::shared_ptr<TimeOp<double>> m_timeOp;
 
     // Initialise operators
-    std::shared_ptr<AdvectionOp<double>> m_advectionOp;
+    std::shared_ptr<AdvectionOp<double>> m_advectionCGOp;
+    std::shared_ptr<AdvectionWeakDGOp<double>> m_advectionWeakDGOp;
+    std::shared_ptr<VolumeFluxOp<double>> m_volumeFluxOp;
+    std::shared_ptr<RiemannSolverOp<double>> m_riemannSolverOp;
+    std::shared_ptr<GetFwdBwdTracePhysOp<double>> m_getFwdBwdTracePhysOp;
     std::shared_ptr<LinearSystemOp<double>> m_linearSystemOp;
     std::shared_ptr<LinearSolverOp<double>> m_linearSolverOp;
     std::map<double, std::shared_ptr<PreconOp<double>>> m_preconOp;
