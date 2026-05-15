@@ -82,7 +82,7 @@ NEK_DEVICE_INLINE static void Divergence1DSumFacTOPKernel(
         const TData *dfptr = df + ndf * dfsize * e;
         const TData *inptr = in + nq0 * e;
         TData *outptr      = out + nq0 * e;
-        PhysDerivDir1DSumFacTOPKernel<DEFORMED, 0, false>(
+        PhysDerivDir1DSumFacTOPKernel<false, DEFORMED, 0>(
             ncoord, nq0, D0, dfptr, inptr, outptr, threadBlock);
         e += getBlockRange(threadBlock);
     }
@@ -122,7 +122,7 @@ NEK_DEVICE_INLINE static void Divergence2DSumFacTOPKernel(
 
         localBarrier(threadBlock);
 
-        PhysDerivDir2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED, 0, false>(
+        PhysDerivDir2DSumFacTOPKernel<SHAPE_TYPE, false, DEFORMED, 0>(
             ncoord, nq0, nq1, D0, D1, f0, f1, dfptr, s_wsp0, s_wsp1,
             threadBlock);
 
@@ -134,7 +134,7 @@ NEK_DEVICE_INLINE static void Divergence2DSumFacTOPKernel(
 
         localBarrier(threadBlock);
 
-        PhysDerivDir2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED, 1, true>(
+        PhysDerivDir2DSumFacTOPKernel<SHAPE_TYPE, true, DEFORMED, 1>(
             ncoord, nq0, nq1, D0, D1, f0, f1, dfptr, s_wsp0, s_wsp1,
             threadBlock);
 
@@ -184,7 +184,7 @@ NEK_DEVICE_INLINE static void Divergence3DSumFacTOPKernel(
 
         localBarrier(threadBlock);
 
-        PhysDerivDir3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED, 0, false>(
+        PhysDerivDir3DSumFacTOPKernel<SHAPE_TYPE, false, DEFORMED, 0>(
             nq0, nq1, nq2, D0, D1, D2, f0, f1, f1m, f2, dfptr, s_wsp0, s_wsp1,
             threadBlock);
 
@@ -196,7 +196,7 @@ NEK_DEVICE_INLINE static void Divergence3DSumFacTOPKernel(
 
         localBarrier(threadBlock);
 
-        PhysDerivDir3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED, 1, true>(
+        PhysDerivDir3DSumFacTOPKernel<SHAPE_TYPE, true, DEFORMED, 1>(
             nq0, nq1, nq2, D0, D1, D2, f0, f1, f1m, f2, dfptr, s_wsp0, s_wsp1,
             threadBlock);
 
@@ -208,7 +208,7 @@ NEK_DEVICE_INLINE static void Divergence3DSumFacTOPKernel(
 
         localBarrier(threadBlock);
 
-        PhysDerivDir3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED, 2, true>(
+        PhysDerivDir3DSumFacTOPKernel<SHAPE_TYPE, true, DEFORMED, 2>(
             nq0, nq1, nq2, D0, D1, D2, f0, f1, f1m, f2, dfptr, s_wsp0, s_wsp1,
             threadBlock);
 

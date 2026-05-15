@@ -549,7 +549,7 @@ protected:
                                         m_deriv0.data(), m_deriv1.data());
 
                 // Step 3: Apply diffusion coeff and WJ
-                DiffusionCoeffwithWJ2DKernel<SHAPE_TYPE, DEFORMED, true>(
+                DiffusionCoeffwithWJ2DKernel<SHAPE_TYPE, true, DEFORMED>(
                     m_coordDim, nq0, nq1, true, diffCoeffPtr, false,
                     NullTDataVector, NullTDataVector, NullTDataVector,
                     NullTDataVector, NullTDataVector, NullTDataVector,
@@ -678,7 +678,7 @@ protected:
                                         m_deriv1.data(), m_deriv2.data());
 
                 // Step 3: Apply diffusion coeff and WJ
-                DiffusionCoeffwithWJ3DKernel<SHAPE_TYPE, DEFORMED, true>(
+                DiffusionCoeffwithWJ3DKernel<SHAPE_TYPE, true, DEFORMED>(
                     nq0, nq1, nq2, true, diffCoeffPtr, false, NullTDataVector,
                     NullTDataVector, NullTDataVector, NullTDataVector,
                     NullTDataVector, NullTDataVector,

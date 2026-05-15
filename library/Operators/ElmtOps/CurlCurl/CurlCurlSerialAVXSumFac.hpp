@@ -363,7 +363,7 @@ protected:
                     reinterpret_cast<simd_t *>(outptr));
 
                 // Calculate physical derivative.
-                PhysDerivDir1DKernel<SHAPE_TYPE, DEFORMED, 0, false>(
+                PhysDerivDir1DKernel<SHAPE_TYPE, false, DEFORMED, 0>(
                     nq0, m_coordDim, reinterpret_cast<const simd_t *>(dfptr),
                     reinterpret_cast<const simd_t *>(outptr),
                     reinterpret_cast<simd_t *>(outptr));
@@ -472,7 +472,7 @@ protected:
                 m_D[1], m_wsp0.data(), m_wsp1.data());
 
             // du/dy
-            PhysDerivDir2DKernel<SHAPE_TYPE, DEFORMED, 1, false>(
+            PhysDerivDir2DKernel<SHAPE_TYPE, false, DEFORMED, 1>(
                 nq0, nq1, 2, m_f[0], m_f[1],
                 reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
                 m_wsp1.data(), m_wsp2.data());
@@ -482,7 +482,7 @@ protected:
                 nq0, nq1, reinterpret_cast<const simd_t *>(inptr1), m_D[0],
                 m_D[1], m_wsp0.data(), m_wsp1.data());
 
-            PhysDerivDir2DKernel<SHAPE_TYPE, DEFORMED, 0, false>(
+            PhysDerivDir2DKernel<SHAPE_TYPE, false, DEFORMED, 0>(
                 nq0, nq1, 2, m_f[0], m_f[1],
                 reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
                 m_wsp1.data(), m_wsp0.data());
@@ -496,13 +496,13 @@ protected:
             // q_x = d(omega_z)/dy
             PhysDerivTensor2DKernel(nq0, nq1, m_wsp2.data(), m_D[0], m_D[1],
                                     m_wsp0.data(), m_wsp1.data());
-            PhysDerivDir2DKernel<SHAPE_TYPE, DEFORMED, 1, false>(
+            PhysDerivDir2DKernel<SHAPE_TYPE, false, DEFORMED, 1>(
                 nq0, nq1, 2, m_f[0], m_f[1],
                 reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
                 m_wsp1.data(), reinterpret_cast<simd_t *>(outptr0));
 
             // q_y = -d(omega_z)/dx
-            PhysDerivDir2DKernel<SHAPE_TYPE, DEFORMED, 0, false>(
+            PhysDerivDir2DKernel<SHAPE_TYPE, false, DEFORMED, 0>(
                 nq0, nq1, 2, m_f[0], m_f[1],
                 reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
                 m_wsp1.data(), outsimd1);
@@ -628,7 +628,7 @@ protected:
             PhysDerivTensor3DKernel(
                 nq0, nq1, nq2, reinterpret_cast<const simd_t *>(inptr1), m_D[0],
                 m_D[1], m_D[2], m_wsp0.data(), m_wsp1.data(), m_wsp2.data());
-            PhysDerivDir3DKernel<SHAPE_TYPE, DEFORMED, 2, false>(
+            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 2>(
                 nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
                 reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
                 m_wsp1.data(), m_wsp2.data(), m_wsp3.data());
@@ -636,7 +636,7 @@ protected:
             PhysDerivTensor3DKernel(
                 nq0, nq1, nq2, reinterpret_cast<const simd_t *>(inptr2), m_D[0],
                 m_D[1], m_D[2], m_wsp0.data(), m_wsp1.data(), m_wsp2.data());
-            PhysDerivDir3DKernel<SHAPE_TYPE, DEFORMED, 1, false>(
+            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 1>(
                 nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
                 reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
                 m_wsp1.data(), m_wsp2.data(), m_wsp0.data());
@@ -649,7 +649,7 @@ protected:
             PhysDerivTensor3DKernel(
                 nq0, nq1, nq2, reinterpret_cast<const simd_t *>(inptr0), m_D[0],
                 m_D[1], m_D[2], m_wsp0.data(), m_wsp1.data(), m_wsp2.data());
-            PhysDerivDir3DKernel<SHAPE_TYPE, DEFORMED, 2, false>(
+            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 2>(
                 nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
                 reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
                 m_wsp1.data(), m_wsp2.data(), m_wsp4.data());
@@ -657,7 +657,7 @@ protected:
             PhysDerivTensor3DKernel(
                 nq0, nq1, nq2, reinterpret_cast<const simd_t *>(inptr2), m_D[0],
                 m_D[1], m_D[2], m_wsp0.data(), m_wsp1.data(), m_wsp2.data());
-            PhysDerivDir3DKernel<SHAPE_TYPE, DEFORMED, 0, false>(
+            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 0>(
                 nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
                 reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
                 m_wsp1.data(), m_wsp2.data(), m_wsp0.data());
@@ -670,7 +670,7 @@ protected:
             PhysDerivTensor3DKernel(
                 nq0, nq1, nq2, reinterpret_cast<const simd_t *>(inptr0), m_D[0],
                 m_D[1], m_D[2], m_wsp0.data(), m_wsp1.data(), m_wsp2.data());
-            PhysDerivDir3DKernel<SHAPE_TYPE, DEFORMED, 1, false>(
+            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 1>(
                 nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
                 reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
                 m_wsp1.data(), m_wsp2.data(), m_wsp5.data());
@@ -678,7 +678,7 @@ protected:
             PhysDerivTensor3DKernel(
                 nq0, nq1, nq2, reinterpret_cast<const simd_t *>(inptr1), m_D[0],
                 m_D[1], m_D[2], m_wsp0.data(), m_wsp1.data(), m_wsp2.data());
-            PhysDerivDir3DKernel<SHAPE_TYPE, DEFORMED, 0, false>(
+            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 0>(
                 nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
                 reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
                 m_wsp1.data(), m_wsp2.data(), m_wsp0.data());
@@ -694,11 +694,11 @@ protected:
             PhysDerivTensor3DKernel(nq0, nq1, nq2, m_wsp3.data(), m_D[0],
                                     m_D[1], m_D[2], m_wsp6.data(),
                                     m_wsp7.data(), m_wsp8.data());
-            PhysDerivDir3DKernel<SHAPE_TYPE, DEFORMED, 1, false>(
+            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 1>(
                 nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
                 reinterpret_cast<const simd_t *>(dfptr), m_wsp6.data(),
                 m_wsp7.data(), m_wsp8.data(), m_wsp0.data());
-            PhysDerivDir3DKernel<SHAPE_TYPE, DEFORMED, 2, false>(
+            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 2>(
                 nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
                 reinterpret_cast<const simd_t *>(dfptr), m_wsp6.data(),
                 m_wsp7.data(), m_wsp8.data(), m_wsp1.data());
@@ -707,11 +707,11 @@ protected:
             PhysDerivTensor3DKernel(nq0, nq1, nq2, m_wsp4.data(), m_D[0],
                                     m_D[1], m_D[2], m_wsp6.data(),
                                     m_wsp7.data(), m_wsp8.data());
-            PhysDerivDir3DKernel<SHAPE_TYPE, DEFORMED, 0, false>(
+            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 0>(
                 nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
                 reinterpret_cast<const simd_t *>(dfptr), m_wsp6.data(),
                 m_wsp7.data(), m_wsp8.data(), m_wsp2.data());
-            PhysDerivDir3DKernel<SHAPE_TYPE, DEFORMED, 2, false>(
+            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 2>(
                 nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
                 reinterpret_cast<const simd_t *>(dfptr), m_wsp6.data(),
                 m_wsp7.data(), m_wsp8.data(), m_wsp3.data());
@@ -720,11 +720,11 @@ protected:
             PhysDerivTensor3DKernel(nq0, nq1, nq2, m_wsp5.data(), m_D[0],
                                     m_D[1], m_D[2], m_wsp6.data(),
                                     m_wsp7.data(), m_wsp8.data());
-            PhysDerivDir3DKernel<SHAPE_TYPE, DEFORMED, 0, false>(
+            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 0>(
                 nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
                 reinterpret_cast<const simd_t *>(dfptr), m_wsp6.data(),
                 m_wsp7.data(), m_wsp8.data(), m_wsp4.data());
-            PhysDerivDir3DKernel<SHAPE_TYPE, DEFORMED, 1, false>(
+            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 1>(
                 nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
                 reinterpret_cast<const simd_t *>(dfptr), m_wsp6.data(),
                 m_wsp7.data(), m_wsp8.data(), m_wsp5.data());

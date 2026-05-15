@@ -347,7 +347,7 @@ protected:
                     reinterpret_cast<simd_t *>(outptr));
 
                 // Calculate physical derivative.
-                PhysDerivDir1DKernel<SHAPE_TYPE, DEFORMED, 0, false>(
+                PhysDerivDir1DKernel<SHAPE_TYPE, false, DEFORMED, 0>(
                     nq0, m_coordDim, reinterpret_cast<const simd_t *>(dfptr),
                     reinterpret_cast<const simd_t *>(outptr),
                     reinterpret_cast<simd_t *>(outptr));
@@ -453,7 +453,7 @@ protected:
                 m_D[1], m_wsp0.data(), m_wsp1.data());
 
             // physical derivative.
-            PhysDerivDir2DKernel<SHAPE_TYPE, DEFORMED, 0, false>(
+            PhysDerivDir2DKernel<SHAPE_TYPE, false, DEFORMED, 0>(
                 nq0, nq1, 2, m_f[0], m_f[1],
                 reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
                 m_wsp1.data(), reinterpret_cast<simd_t *>(outptr));
@@ -464,7 +464,7 @@ protected:
                 m_D[1], m_wsp0.data(), m_wsp1.data());
 
             //  physical derivative.
-            PhysDerivDir2DKernel<SHAPE_TYPE, DEFORMED, 1, true>(
+            PhysDerivDir2DKernel<SHAPE_TYPE, true, DEFORMED, 1>(
                 nq0, nq1, 2, m_f[0], m_f[1],
                 reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
                 m_wsp1.data(), reinterpret_cast<simd_t *>(outptr));
@@ -578,7 +578,7 @@ protected:
 
             // du/dx
             // Calculate physical derivative.
-            PhysDerivDir3DKernel<SHAPE_TYPE, DEFORMED, 0, false>(
+            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 0>(
                 nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
                 reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
                 m_wsp1.data(), m_wsp2.data(),
@@ -590,7 +590,7 @@ protected:
 
             // dv/dy
             // Calculate physical derivative.
-            PhysDerivDir3DKernel<SHAPE_TYPE, DEFORMED, 1, true>(
+            PhysDerivDir3DKernel<SHAPE_TYPE, true, DEFORMED, 1>(
                 nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
                 reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
                 m_wsp1.data(), m_wsp2.data(),
@@ -602,7 +602,7 @@ protected:
 
             // dw/dz
             // Calculate physical derivative.
-            PhysDerivDir3DKernel<SHAPE_TYPE, DEFORMED, 2, true>(
+            PhysDerivDir3DKernel<SHAPE_TYPE, true, DEFORMED, 2>(
                 nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
                 reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
                 m_wsp1.data(), m_wsp2.data(),

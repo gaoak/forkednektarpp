@@ -119,7 +119,7 @@ NEK_DEVICE_INLINE static void PhysDeriv1DSumFacKernel(
     }
 }
 
-template <bool DEFORMED, unsigned int DIR, bool APPEND, typename TData>
+template <bool APPEND, bool DEFORMED, unsigned int DIR, typename TData>
 NEK_DEVICE_INLINE static void PhysDerivDir1DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
@@ -242,8 +242,8 @@ NEK_DEVICE_INLINE static void PhysDeriv2DSumFacKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
-          bool APPEND, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
+          unsigned int DIR, typename TData>
 NEK_DEVICE_INLINE static void PhysDerivDir2DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
     const unsigned int nq1, const TData *NEK_RESTRICT D0,
@@ -436,8 +436,8 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
-          bool APPEND, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
+          unsigned int DIR, typename TData>
 NEK_DEVICE_INLINE static void PhysDerivDir3DSumFacKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const TData *NEK_RESTRICT D0,
@@ -615,7 +615,7 @@ NEK_DEVICE_INLINE static void PhysDeriv1DSumFacKernel(
     }
 }
 
-template <bool DEFORMED, typename TthreadBlock, unsigned int DIR, bool APPEND,
+template <bool APPEND, bool DEFORMED, typename TthreadBlock, unsigned int DIR,
           typename TData>
 NEK_DEVICE_INLINE static void PhysDeriv1DSumFacKernel(
     const unsigned int ncoord, const unsigned int nq0, const size_t nelmt,
@@ -636,7 +636,7 @@ NEK_DEVICE_INLINE static void PhysDeriv1DSumFacKernel(
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *inptr = in + nq0 * warpsize * iwarp;
         TData *outptr      = out + nq0 * warpsize * iwarp;
-        PhysDerivDir1DSumFacKernel<DEFORMED, DIR, APPEND>(
+        PhysDerivDir1DSumFacKernel<APPEND, DEFORMED, DIR>(
             ilane, ncoord, nq0, outoffset, D0, dfptr, inptr, outptr);
         e += getGlobalRange(threadBlock);
     }
@@ -700,8 +700,8 @@ NEK_DEVICE_INLINE static void PhysDeriv2DSumFacKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
-          bool APPEND, typename TthreadBlock, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
+          unsigned int DIR, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void PhysDerivDir2DSumFacKernel(
     const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
@@ -751,7 +751,7 @@ NEK_DEVICE_INLINE static void PhysDerivDir2DSumFacKernel(
         const TData *inptr = in + nqTot * warpsize * iwarp;
         TData *outptr      = out + nqTot * warpsize * iwarp;
 
-        PhysDerivDir2DSumFacKernel<SHAPE_TYPE, DEFORMED, DIR, APPEND>(
+        PhysDerivDir2DSumFacKernel<SHAPE_TYPE, APPEND, DEFORMED, DIR>(
             ilane, nq0, nq1, D0, D1, s_f0, s_f1, dfptr, inptr, outptr);
         e += getGlobalRange(threadBlock);
     }
@@ -867,8 +867,8 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
-          bool APPEND, typename TthreadBlock, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
+          unsigned int DIR, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void PhysDerivDir3DSumFacKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const size_t nelmt, const TData *NEK_RESTRICT D0,
@@ -970,7 +970,7 @@ NEK_DEVICE_INLINE static void PhysDerivDir3DSumFacKernel(
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *inptr = in + nqTot * warpsize * iwarp;
         TData *outptr      = out + nqTot * warpsize * iwarp;
-        PhysDerivDir3DSumFacKernel<SHAPE_TYPE, DEFORMED, DIR, APPEND>(
+        PhysDerivDir3DSumFacKernel<SHAPE_TYPE, APPEND, DEFORMED, DIR>(
             ilane, nq0, nq1, nq2, D0, D1, D2, s_f0, s_f1, s_f1m, s_f2, dfptr,
             inptr, outptr);
         e += getGlobalRange(threadBlock);
@@ -1016,7 +1016,7 @@ NEK_DEVICE_KERNEL
 }
 
 // Non-size based version.
-template <typename Implementation, bool DEFORMED, unsigned int DIR, bool APPEND,
+template <typename Implementation, bool APPEND, bool DEFORMED, unsigned int DIR,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
@@ -1028,13 +1028,13 @@ NEK_DEVICE_KERNEL
                                  TData *NEK_RESTRICT out,
                                  const TthreadBlock &threadBlock)
 {
-    PhysDerivDir1DSumFacKernel<DEFORMED, DIR, APPEND>(
+    PhysDerivDir1DSumFacKernel<APPEND, DEFORMED, DIR>(
         sizeParam1D.ncoord(), sizeParam1D.nq0(), nelmt, D0, df, in, out,
         threadBlock);
 }
 
 // Size based template version.
-template <typename Implementation, bool DEFORMED, unsigned int DIR, bool APPEND,
+template <typename Implementation, bool APPEND, bool DEFORMED, unsigned int DIR,
           unsigned int ncoord, unsigned int nq0, typename TthreadBlock,
           typename TData /*,
 unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)*/
@@ -1048,7 +1048,7 @@ NEK_DEVICE_KERNEL
         const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
         TData *NEK_RESTRICT out, const TthreadBlock &threadBlock)
 {
-    PhysDerivDir1DSumFacKernel<DEFORMED, DIR, APPEND>(ncoord, nq0, nelmt, D0,
+    PhysDerivDir1DSumFacKernel<APPEND, DEFORMED, DIR>(ncoord, nq0, nelmt, D0,
                                                       df, in, out, threadBlock);
 }
 
@@ -1100,7 +1100,7 @@ NEK_DEVICE_KERNEL
 
 // Non-size based version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, unsigned int DIR, bool APPEND, typename TthreadBlock,
+          bool APPEND, bool DEFORMED, unsigned int DIR, typename TthreadBlock,
           typename TData>
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
@@ -1114,14 +1114,14 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    PhysDerivDir2DSumFacKernel<SHAPE_TYPE, DEFORMED, DIR, APPEND>(
+    PhysDerivDir2DSumFacKernel<SHAPE_TYPE, APPEND, DEFORMED, DIR>(
         sizeParam2D.ncoord(), sizeParam2D.nq0(), sizeParam2D.nq1(), nelmt, D0,
         D1, f0, f1, df, in, out, shmemptr, threadBlock);
 }
 
 // Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, unsigned int DIR, bool APPEND, unsigned int ncoord, unsigned int nq0,
+          bool APPEND, bool DEFORMED, unsigned int DIR, unsigned int ncoord, unsigned int nq0,
           unsigned int nq1, typename TthreadBlock, typename TData/*,
                                                                    unsigned int maxThreadPerBlock =
                                                                    GetDeviceBlockSize<Implementation>(nq0 *nq1)*/>
@@ -1140,7 +1140,7 @@ const size_t nelmt, const TData *NEK_RESTRICT D0,
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    PhysDerivDir2DSumFacKernel<SHAPE_TYPE, DEFORMED, DIR, APPEND>(
+    PhysDerivDir2DSumFacKernel<SHAPE_TYPE, APPEND, DEFORMED, DIR>(
         ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out, shmemptr,
         threadBlock);
 }
@@ -1198,7 +1198,7 @@ NEK_DEVICE_KERNEL
 
 // Non-size based version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, unsigned int DIR, bool APPEND, typename TthreadBlock,
+          bool APPEND, bool DEFORMED, unsigned int DIR, typename TthreadBlock,
           typename TData>
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
@@ -1213,14 +1213,14 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    PhysDerivDir3DSumFacKernel<SHAPE_TYPE, DEFORMED, DIR, APPEND>(
+    PhysDerivDir3DSumFacKernel<SHAPE_TYPE, APPEND, DEFORMED, DIR>(
         sizeParam3D.nq0(), sizeParam3D.nq1(), sizeParam3D.nq2(), nelmt, D0, D1,
         D2, f0, f1, f1m, f2, df, in, out, shmemptr, threadBlock);
 }
 
 // Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, unsigned int DIR, bool APPEND, unsigned int nq0,
+          bool APPEND, bool DEFORMED, unsigned int DIR, unsigned int nq0,
           unsigned int nq1, unsigned int nq2, typename TthreadBlock,
           typename TData>
 NEK_DEVICE_KERNEL
@@ -1237,7 +1237,7 @@ NEK_DEVICE_KERNEL
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    PhysDerivDir3DSumFacKernel<SHAPE_TYPE, DEFORMED, DIR, APPEND>(
+    PhysDerivDir3DSumFacKernel<SHAPE_TYPE, APPEND, DEFORMED, DIR>(
         nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in, out,
         shmemptr, threadBlock);
 }
