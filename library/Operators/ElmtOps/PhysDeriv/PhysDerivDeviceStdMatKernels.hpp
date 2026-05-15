@@ -94,7 +94,7 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorKernel(
     }
 }
 
-template <typename ExecSpace, bool DEFORMED, bool APPEND, typename TData>
+template <typename ExecSpace, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void MultiplyByDerivDirFactorKernel(
     const unsigned dir, const unsigned nqTot, const unsigned ncoord,
     const unsigned dimension, const size_t nelmt, const size_t inoffset,

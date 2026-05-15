@@ -167,7 +167,7 @@ protected:
             // Multiply by derivative factor.
             if (m_isDeformed)
             {
-                MultiplyByDirDerivFactorKernel<ExecSpace, true, false>(
+                MultiplyByDirDerivFactorKernel<ExecSpace, false, true>(
                     0, m_nqTot, m_coordDim, m_dimension, 1,
                     reinterpret_cast<const simd_t *>(dfptr),
                     reinterpret_cast<const simd_t *>(wspptr),
@@ -212,7 +212,7 @@ protected:
                 }
                 else
                 {
-                    MultiplyByDirDerivFactorKernel<ExecSpace, false, true>(
+                    MultiplyByDirDerivFactorKernel<ExecSpace, true, false>(
                         c, m_nqTot, m_coordDim, m_dimension, 1,
                         reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(wspptr),

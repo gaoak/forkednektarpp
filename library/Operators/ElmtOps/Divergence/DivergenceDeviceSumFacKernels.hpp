@@ -109,7 +109,7 @@ NEK_DEVICE_INLINE static void Divergence1DSumFacKernel(
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *inptr = in + nq0 * warpsize * iwarp;
         TData *outptr      = out + nq0 * warpsize * iwarp;
-        PhysDerivDir1DSumFacKernel<DEFORMED, 0, false>(ilane, 1, nq0, D0, dfptr,
+        PhysDerivDir1DSumFacKernel<false, DEFORMED, 0>(ilane, 1, nq0, D0, dfptr,
                                                        inptr, outptr);
         e += getGlobalRange(threadBlock);
     }
@@ -166,9 +166,9 @@ NEK_DEVICE_INLINE static void Divergence2DSumFacKernel(
         const TData *inptr = in + nqTot * warpsize * iwarp;
         TData *outptr      = out + nqTot * warpsize * iwarp;
 
-        PhysDerivDir2DSumFacKernel<SHAPE_TYPE, DEFORMED, 0, false>(
+        PhysDerivDir2DSumFacKernel<SHAPE_TYPE, false, DEFORMED, 0>(
             ilane, ncoord, nq0, nq1, D0, D1, s_f0, s_f1, dfptr, inptr, outptr);
-        PhysDerivDir2DSumFacKernel<SHAPE_TYPE, DEFORMED, 1, true>(
+        PhysDerivDir2DSumFacKernel<SHAPE_TYPE, true, DEFORMED, 1>(
             ilane, ncoord, nq0, nq1, D0, D1, s_f0, s_f1, dfptr,
             inptr + inoffset, outptr);
         e += getGlobalRange(threadBlock);
@@ -278,13 +278,13 @@ NEK_DEVICE_INLINE static void Divergence3DSumFacKernel(
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *inptr = in + nqTot * warpsize * iwarp;
         TData *outptr      = out + nqTot * warpsize * iwarp;
-        PhysDerivDir3DSumFacKernel<SHAPE_TYPE, DEFORMED, 0, false>(
+        PhysDerivDir3DSumFacKernel<SHAPE_TYPE, false, DEFORMED, 0>(
             ilane, nq0, nq1, nq2, D0, D1, D2, s_f0, s_f1, s_f1m, s_f2, dfptr,
             inptr, outptr);
-        PhysDerivDir3DSumFacKernel<SHAPE_TYPE, DEFORMED, 1, true>(
+        PhysDerivDir3DSumFacKernel<SHAPE_TYPE, true, DEFORMED, 1>(
             ilane, nq0, nq1, nq2, D0, D1, D2, s_f0, s_f1, s_f1m, s_f2, dfptr,
             inptr + inoffset, outptr);
-        PhysDerivDir3DSumFacKernel<SHAPE_TYPE, DEFORMED, 2, true>(
+        PhysDerivDir3DSumFacKernel<SHAPE_TYPE, true, DEFORMED, 2>(
             ilane, nq0, nq1, nq2, D0, D1, D2, s_f0, s_f1, s_f1m, s_f2, dfptr,
             inptr + 2 * inoffset, outptr);
         e += getGlobalRange(threadBlock);

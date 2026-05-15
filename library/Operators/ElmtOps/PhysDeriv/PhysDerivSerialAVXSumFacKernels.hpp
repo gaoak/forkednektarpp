@@ -94,8 +94,8 @@ NEK_FORCE_INLINE void PhysDeriv1DKernel(const unsigned int nq0,
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
-          bool APPEND, typename simd_type>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
+          unsigned int DIR, typename simd_type>
 NEK_FORCE_INLINE void PhysDerivDir1DKernel(const unsigned int nq0,
                                            const unsigned int ndf,
                                            const simd_type *df_ptr,
@@ -209,8 +209,8 @@ NEK_FORCE_INLINE void PhysDeriv2DKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
-          bool APPEND, typename simd_type>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
+          unsigned int DIR, typename simd_type>
 NEK_FORCE_INLINE void PhysDerivDir2DKernel(
     const unsigned nq0, const unsigned nq1, const unsigned int outdim,
     [[maybe_unused]] const simd_type *f0, [[maybe_unused]] const simd_type *f1,
@@ -388,8 +388,8 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, unsigned int DIR,
-          bool APPEND, typename simd_type>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
+          unsigned int DIR, typename simd_type>
 NEK_FORCE_INLINE void PhysDerivDir3DKernel(
     const unsigned nq0, const unsigned nq1, const unsigned nq2,
     [[maybe_unused]] const simd_type *f0, [[maybe_unused]] const simd_type *f1,

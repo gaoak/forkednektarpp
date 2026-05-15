@@ -153,7 +153,7 @@ protected:
         // Multiply by derivative factor.
         if (m_isDeformed)
         {
-            MultiplyByDerivDirFactorKernel<ExecSpace, true, false>(
+            MultiplyByDerivDirFactorKernel<ExecSpace, false, true>(
                 0, m_nqTot, m_coordDim, m_dimension, nelmt, derivoffset,
                 m_dfptr, derivptr, outptr);
 
@@ -171,7 +171,7 @@ protected:
                 m_dfptr, derivptr, outptr);
             for (unsigned int d = 1; d < m_dimension; d++)
             {
-                MultiplyByDerivDirFactorKernel<ExecSpace, false, true>(
+                MultiplyByDerivDirFactorKernel<ExecSpace, true, false>(
                     d, m_nqTot, m_coordDim, m_dimension, nelmt, derivoffset,
                     m_dfptr, derivptr, outptr);
             }
