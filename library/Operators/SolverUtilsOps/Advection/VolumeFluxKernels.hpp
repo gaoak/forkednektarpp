@@ -33,15 +33,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
-#include "Operators/Common/Spaces.hpp"
-#include "Operators/LoopExecution/LoopExecution.hpp"
-#include <LibUtilities/BasicUtils/NekInline.hpp>
 
-// The dimension and shape kernels. NOTE: They are NOT duplicate
-// templated version based on the array size like the
-// operators. HOWEVER, they are forced to be INLINED. The inlining is
-// critical so that when used in the templated version of the operator
-// that loop unrolling occurs.
+#include "Operators/LoopExecution/LoopExecution.hpp"
 
 namespace Nektar::Operators::detail
 {

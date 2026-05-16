@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: EulerCFE.h
+// File: NavierStokesCFE.h
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,8 +28,8 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Euler equations in consƒervative variables without artificial
-// diffusion
+// Description: Navier-Stokes equations in conservative variables without
+// artificial diffusion
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -41,6 +41,7 @@
 #include <Operators/Field/Field.hpp>
 #include <Operators/SolverUtilsOps/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
 #include <Operators/SolverUtilsOps/Advection/VolumeFluxOp.hpp>
+#include <Operators/SolverUtilsOps/Diffusion/DiffusionIP/DiffusionIPOp.hpp>
 #include <SolverUtils/EquationSystem.h>
 
 namespace Nektar
@@ -48,10 +49,10 @@ namespace Nektar
 using namespace SolverUtils;
 using namespace Operators;
 
-class EulerCFE : public EquationSystem
+class NavierStokesCFE : public EquationSystem
 {
 public:
-    friend class MemoryManager<EulerCFE>;
+    friend class MemoryManager<NavierStokesCFE>;
 
     /// Creates an instance of this class
     static EquationSystemSharedPtr create(
@@ -59,7 +60,7 @@ public:
         const SpatialDomains::MeshGraphSharedPtr &pGraph)
     {
         EquationSystemSharedPtr p =
-            MemoryManager<EulerCFE>::AllocateSharedPtr(pSession, pGraph);
+            MemoryManager<NavierStokesCFE>::AllocateSharedPtr(pSession, pGraph);
         p->InitObject();
         return p;
     }
@@ -73,10 +74,10 @@ protected:
     unsigned int m_nVariables;
     unsigned int m_ndim;
 
-    // Parameters for CFE
+    // Parameters for Navier-Stokes equations
     double m_gamma;
 
-    // Setup workspaces
+    // Field storage used by the standalone time-stepping loop.
     Field<double, FieldState::Phys> m_in;
 
     // Declare math
@@ -87,14 +88,15 @@ protected:
 
     // Initialise operators
     std::shared_ptr<AdvectionWeakDGOp<double>> m_advectionWeakDGOp;
+    std::shared_ptr<DiffusionIPOp<double>> m_diffusionIPOp;
     std::shared_ptr<CompressibleSolverOp<double>> m_riemannSolverOp;
     std::shared_ptr<VolumeFluxOp<double>> m_volumeFluxOp;
     std::shared_ptr<ExpressionOp<double>> m_initialOp;
 
-    EulerCFE(const LibUtilities::SessionReaderSharedPtr &pSession,
-             const SpatialDomains::MeshGraphSharedPtr &pGraph);
+    NavierStokesCFE(const LibUtilities::SessionReaderSharedPtr &pSession,
+                    const SpatialDomains::MeshGraphSharedPtr &pGraph);
 
-    ~EulerCFE() override = default;
+    ~NavierStokesCFE() override = default;
 
     void v_InitObject(bool DeclareFields = true) override;
 
@@ -102,10 +104,10 @@ protected:
 
     void v_GenerateSummary(SummaryList &s) override;
 
-    void DoAdvection(Field<double, FieldState::Phys> &in,
-                     Field<double, FieldState::Phys> &out,
-                     [[maybe_unused]] const double &time,
-                     [[maybe_unused]] const double &factor);
+    void DoOdeRhs(Field<double, FieldState::Phys> &in,
+                  Field<double, FieldState::Phys> &out,
+                  [[maybe_unused]] const double &time,
+                  [[maybe_unused]] const double &factor);
 
     void DoProjection(Field<double, FieldState::Phys> &in,
                       Field<double, FieldState::Phys> &out, const double time);

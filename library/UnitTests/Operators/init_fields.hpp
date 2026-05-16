@@ -289,9 +289,12 @@ public:
         }
         else if constexpr (std::is_same_v<TExpList, MultiRegions::DisContField>)
         {
+            const auto &vars      = this->session->GetVariables();
+            const std::string var = vars.empty() ? "DefaultVar" : vars[0];
+
             this->fixt_explist =
                 MemoryManager<MultiRegions::DisContField>::AllocateSharedPtr(
-                    this->session, graph, "u", true, true,
+                    this->session, graph, var, true, true,
                     Collections::eNoCollection);
         }
         else if constexpr (std::is_same_v<TExpList, MultiRegions::ExpList>)

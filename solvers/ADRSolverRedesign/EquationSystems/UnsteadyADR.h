@@ -139,9 +139,9 @@ protected:
     void DoProjection(Field<double, FieldState::Phys> &in,
                       Field<double, FieldState::Phys> &out, const double time);
 
-    void InitialiseOperators();
-
     void InitialiseFields();
+
+    void InitialiseOperators();
 
     void SetDiffusionCoeff();
 

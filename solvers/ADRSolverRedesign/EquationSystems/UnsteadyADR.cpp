@@ -793,10 +793,10 @@ void UnsteadyADR::SetInitialConditionsField(
     }
     else
     {
+        m_math.zero(field);
+
         for (unsigned int i = 0; i < m_nVariables; i++)
         {
-            m_math.zero(field);
-
             if (m_session->GetComm()->GetRank() == 0)
             {
                 std::cout << "  - Field " << m_variables[i] << ": 0 (default)"

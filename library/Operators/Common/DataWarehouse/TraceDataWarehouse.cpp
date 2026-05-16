@@ -36,6 +36,35 @@
 
 namespace Nektar::Operators
 {
+template MemoryRegion<double> TraceEssentialCreator::Create<
+    NektarSpaces::HostSpace, double>(
+    const IPTraceNormalKey<double> &ipTraceNormalKey);
+template MemoryRegion<float> TraceEssentialCreator::Create<
+    NektarSpaces::HostSpace, float>(
+    const IPTraceNormalKey<float> &ipTraceNormalKey);
+#if defined(NEKTAR_ENABLE_DEVICE)
+template MemoryRegion<double> TraceEssentialCreator::Create<
+    NektarSpaces::DeviceSpace, double>(
+    const IPTraceNormalKey<double> &ipTraceNormalKey);
+template MemoryRegion<float> TraceEssentialCreator::Create<
+    NektarSpaces::DeviceSpace, float>(
+    const IPTraceNormalKey<float> &ipTraceNormalKey);
+#endif
+
+template MemoryRegion<double> TraceEssentialCreator::Create<
+    NektarSpaces::HostSpace, double>(
+    const IPTraceScalarKey<double> &ipTraceScalarKey);
+template MemoryRegion<float> TraceEssentialCreator::Create<
+    NektarSpaces::HostSpace, float>(
+    const IPTraceScalarKey<float> &ipTraceScalarKey);
+#if defined(NEKTAR_ENABLE_DEVICE)
+template MemoryRegion<double> TraceEssentialCreator::Create<
+    NektarSpaces::DeviceSpace, double>(
+    const IPTraceScalarKey<double> &ipTraceScalarKey);
+template MemoryRegion<float> TraceEssentialCreator::Create<
+    NektarSpaces::DeviceSpace, float>(
+    const IPTraceScalarKey<float> &ipTraceScalarKey);
+#endif
 
 template MemoryRegion<unsigned int> TraceEssentialCreator::Create<
     NektarSpaces::HostSpace, double>(

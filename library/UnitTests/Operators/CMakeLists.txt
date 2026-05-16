@@ -140,7 +140,6 @@ ADD_NEKTAR_EXECUTABLE(test_getfwdbwdtracephys
 ADD_NEKTAR_EXECUTABLE(test_advectionweakdg 
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SolverUtils SOURCES test_advectionweakdg.cpp)
 
-
 # Macro
 MACRO(SET_UNIT_TEST testname name execspace implementation mpi_flag)
     IF (CMAKE_BUILD_TYPE STREQUAL "Debug")

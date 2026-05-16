@@ -102,9 +102,9 @@ protected:
 
     void v_GenerateSummary(SummaryList &s) override;
 
-    void InitialiseOperators();
-
     void InitialiseFields();
+
+    void InitialiseOperators();
 
     void SetDiffusionCoeff();
 

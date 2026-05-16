@@ -226,10 +226,12 @@ IF(NEKTAR_BUILD_REDESIGN)
     ADD_SOLVER_EXECUTABLE(CompressibleFlowSolverRedesign SOURCES
         CompressibleFlowSolverRedesign.cpp
         EquationSystems/EulerCFE.cpp
+        EquationSystems/NavierStokesCFE.cpp
         ${OPERATORS_SOURCES}
     )
 
     SET_ALL_SOLVER_TEST(CompressibleFlowSolverRedesign IsentropicVortex)
+    SET_ALL_SOLVER_TEST(CompressibleFlowSolverRedesign TGVFlow3D_Hex8)
 
     TARGET_INCLUDE_DIRECTORIES(CompressibleFlowSolverRedesign PRIVATE
     "${CMAKE_SOURCE_DIR}/solvers/CompressibleFlowSolverRedesign")

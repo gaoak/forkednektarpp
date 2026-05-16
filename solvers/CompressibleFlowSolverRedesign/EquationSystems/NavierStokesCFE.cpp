@@ -1,6 +1,6 @@
-///////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
 //
-// File: EulerCFE.cpp
+// File: NavierStokesCFE.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,36 +28,37 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Euler equations in consƒervative variables without artificial
-// diffusion
+// Description: Navier-Stokes equations in conservative variables without
+// artificial diffusion
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "Operators/TimeOps/TimeOp.hpp"
 
-#include <CompressibleFlowSolverRedesign/EquationSystems/EulerCFE.h>
+#include <CompressibleFlowSolverRedesign/EquationSystems/NavierStokesCFE.h>
 #include <LibUtilities/BasicUtils/Timer.h>
 
 namespace Nektar
 {
 using namespace Operators;
 
-std::string EulerCFE::className =
+std::string NavierStokesCFE::className =
     SolverUtils::GetEquationSystemFactory().RegisterCreatorFunction(
-        "EulerCFE", EulerCFE::create,
-        "Euler equations in conservative variables.");
+        "NavierStokesCFE", NavierStokesCFE::create,
+        "Navier-Stokes equations in conservative variables.");
 
-EulerCFE::EulerCFE(const LibUtilities::SessionReaderSharedPtr &pSession,
-                   const SpatialDomains::MeshGraphSharedPtr &pGraph)
+NavierStokesCFE::NavierStokesCFE(
+    const LibUtilities::SessionReaderSharedPtr &pSession,
+    const SpatialDomains::MeshGraphSharedPtr &pGraph)
     : EquationSystem(pSession, pGraph), m_nVariables(1)
 {
 }
 
 /**
- * @brief Initialisation object for the Euler equations in conservative
+ * @brief Initialisation object for the Navier-Stokes equations in conservative
  * variables.
  */
-void EulerCFE::v_InitObject(bool DeclareFields)
+void NavierStokesCFE::v_InitObject(bool DeclareFields)
 {
     // Call to the initialisation object of EquationSystem
     EquationSystem::v_InitObject(DeclareFields);
@@ -80,8 +81,8 @@ void EulerCFE::v_InitObject(bool DeclareFields)
     m_ndim       = m_fields[0]->GetExp(0)->GetCoordim();
 
     m_timeOp = TimeOp<double>::Create(m_fields[0], m_variables);
-    m_timeOp->DefineExplicitRhs(&EulerCFE::DoAdvection, this);
-    m_timeOp->DefineProjection(&EulerCFE::DoProjection, this);
+    m_timeOp->DefineExplicitRhs(&NavierStokesCFE::DoOdeRhs, this);
+    m_timeOp->DefineProjection(&NavierStokesCFE::DoProjection, this);
 
     // Create and initialise all fields
     InitialiseFields();
@@ -91,10 +92,10 @@ void EulerCFE::v_InitObject(bool DeclareFields)
 }
 
 /**
- * @brief Explicit solution of Euler equations.
- * Using a standalone time stepping loop.
+ * @brief Explicit solution of Navier-Stokes equations in conservative
+ * variables. Using a standalone time stepping loop.
  */
-void EulerCFE::v_DoSolve()
+void NavierStokesCFE::v_DoSolve()
 {
     // Set InitialConditions
     SetInitialConditionsField(m_in); // Set initial conditions in m_in
@@ -149,7 +150,7 @@ void EulerCFE::v_DoSolve()
     //--------------------------------------------------------------------------
 }
 
-void EulerCFE::v_GenerateSummary(SummaryList &s)
+void NavierStokesCFE::v_GenerateSummary(SummaryList &s)
 {
     SessionSummary(s);
 
@@ -178,39 +179,43 @@ void EulerCFE::v_GenerateSummary(SummaryList &s)
     AddSummaryItem(s, "Redesign disclaimer", ss.str());
 }
 
-/*
- *  Setup rhs advection term.
+/**
+ * @brief Assemble the explicit Navier-Stokes increment.
  *
- *  Upon input
- *  param in: = u^{n}
- *  param out: = param in
- *  param time: = t^{n+1}
- *  param dt: = \Delta t
+ * The field-based TimeOp stores stage increments, so this routine returns
+ * dt * RHS rather than the unscaled RHS used by the legacy time-integration
+ * interface.  The explicit conservative Navier-Stokes RHS is
  *
- *  Upon output
- *  param in: = u^{n+1}
- *  param out: = param in
+ *     RHS = -advection + diffusion.
+ *
+ * The diffusion operator is applied in append mode so its final backward
+ * transform accumulates directly into the advective contribution.
  */
-void EulerCFE::DoAdvection(Field<double, FieldState::Phys> &in,
-                           Field<double, FieldState::Phys> &out,
-                           [[maybe_unused]] const double &time,
-                           const double &dt)
+void NavierStokesCFE::DoOdeRhs(Field<double, FieldState::Phys> &in,
+                               Field<double, FieldState::Phys> &out,
+                               [[maybe_unused]] const double &time,
+                               const double &dt)
 {
-    // Solve advection problem
+    // out = -dt * advection.
     m_advectionWeakDGOp->SetScale(-dt);
     m_advectionWeakDGOp->Apply(in, out);
+
+    // out += dt * diffusion.
+    m_diffusionIPOp->SetScale(dt);
+    m_diffusionIPOp->SetAppend(true);
+    m_diffusionIPOp->Apply(in, out);
 }
 
 /**
- * @brief Compute the projection for Euler equations.
+ * @brief Compute the projection for Navier-Stokes equations.
  *
  * @param in    Given fields.
  * @param out   DG-projected fields.
  * @param time  Time.
  */
-void EulerCFE::DoProjection(Field<double, FieldState::Phys> &in,
-                            Field<double, FieldState::Phys> &out,
-                            const double time)
+void NavierStokesCFE::DoProjection(Field<double, FieldState::Phys> &in,
+                                   Field<double, FieldState::Phys> &out,
+                                   const double time)
 {
     // Update time-varying boundary conditions
     SetBoundaryConditions(time);
@@ -225,7 +230,7 @@ void EulerCFE::DoProjection(Field<double, FieldState::Phys> &in,
 /*
  *  Create and initialise all operators for this solver
  */
-void EulerCFE::InitialiseOperators()
+void NavierStokesCFE::InitialiseOperators()
 {
     // Initialise Math
     std::string execName = Operator<double>::GetOpExecSpace(m_session);
@@ -245,6 +250,9 @@ void EulerCFE::InitialiseOperators()
     // Set volume flux and Riemann solver for advection operator
     m_advectionWeakDGOp->SetVolumeFluxOp(m_volumeFluxOp);
     m_advectionWeakDGOp->SetRiemannSolver(m_riemannSolverOp);
+
+    // Create diffusion operator
+    m_diffusionIPOp = DiffusionIPOp<double>::Create(m_fields[0], m_variables);
 }
 
 /*
@@ -254,7 +262,7 @@ void EulerCFE::InitialiseOperators()
  *  conditions applied.
  *  m_out is a FieldState::Phys workspace initialised to zero
  */
-void EulerCFE::InitialiseFields()
+void NavierStokesCFE::InitialiseFields()
 {
     // Create blocks.
     auto block_attr_phys =
@@ -268,7 +276,8 @@ void EulerCFE::InitialiseFields()
     m_math.zero(m_in);
 }
 
-void EulerCFE::SetInitialConditionsField(Field<double, FieldState::Phys> &field)
+void NavierStokesCFE::SetInitialConditionsField(
+    Field<double, FieldState::Phys> &field)
 {
     // Print to log/console
     if (m_session->GetComm()->GetRank() == 0)
@@ -327,7 +336,7 @@ void EulerCFE::SetInitialConditionsField(Field<double, FieldState::Phys> &field)
 /**
  * @brief Load CFS parameters from the session file.
  */
-void EulerCFE::InitialiseParameters()
+void NavierStokesCFE::InitialiseParameters()
 {
     // Get gamma parameter from session file.
     m_session->LoadParameter("Gamma", m_gamma, 1.4);

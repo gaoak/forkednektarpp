@@ -38,6 +38,7 @@
 #include <Operators/Field/Block.hpp>
 #include <Operators/Field/Field.hpp>
 
+#include <MultiRegions/DisContField.h>
 #include <MultiRegions/ExpList.h>
 
 #if defined(_MSC_VER)
@@ -47,6 +48,115 @@
 
 namespace Nektar::Operators
 {
+namespace
+{
+template <typename TData>
+std::vector<TData> GetIPTracePenaltyFactor(
+    const MultiRegions::ExpListSharedPtr &expansionList)
+{
+    auto tracelist     = expansionList->GetTrace();
+    auto traceMap      = expansionList->GetTraceMap();
+    auto &elmtToTrace  = traceMap->GetElmtToTrace();
+    const int spaceDim = expansionList->GetCoordim(0);
+
+    std::vector<TData> factor(tracelist->GetTotPoints(), TData(0.0));
+
+    const size_t nElmts = expansionList->GetExpSize();
+    for (size_t el = 0; el < nElmts; ++el)
+    {
+        auto exp     = expansionList->GetExp(el);
+        int numModes = 0;
+        for (int nd = 0; nd < spaceDim; ++nd)
+        {
+            numModes = std::max(numModes, exp->GetBasisNumModes(nd));
+        }
+        const TData penalty = static_cast<TData>(numModes * numModes);
+
+        const int nLocalTraces = exp->GetNtraces();
+        for (int t = 0; t < nLocalTraces; ++t)
+        {
+            const int globalTraceId = elmtToTrace[el][t]->GetElmtId();
+            const int offset        = tracelist->GetPhys_Offset(globalTraceId);
+            const int nTracePts     = tracelist->GetTotPoints(globalTraceId);
+
+            for (int p = 0; p < nTracePts; ++p)
+            {
+                factor[offset + p] = std::max(factor[offset + p], penalty);
+            }
+        }
+    }
+
+    return factor;
+}
+
+template <typename TData>
+std::vector<TData> GetIPTraceLengthRecip(
+    const MultiRegions::ExpListSharedPtr &expansionList)
+{
+    const size_t nTracePts = expansionList->GetTrace()->GetTotPoints();
+    Array<OneD, double> lengthFwd(nTracePts, 0.0);
+    Array<OneD, double> lengthBwd(nTracePts, 0.0);
+    expansionList->GetTrace()->GetElmtNormalLength(lengthFwd, lengthBwd);
+
+    if (auto discontField =
+            std::dynamic_pointer_cast<MultiRegions::DisContField>(
+                expansionList))
+    {
+        auto &periodicFwdCopy = discontField->GetPeriodicFwdCopy();
+        auto &periodicBwdCopy = discontField->GetPeriodicBwdCopy();
+        ASSERTL1(periodicFwdCopy.size() == periodicBwdCopy.size(),
+                 "Periodic forward/backward copy maps have different sizes.");
+        for (size_t i = 0; i < periodicFwdCopy.size(); ++i)
+        {
+            lengthBwd[periodicBwdCopy[i]] = lengthFwd[periodicFwdCopy[i]];
+        }
+    }
+
+    std::vector<TData> lengthRecip(nTracePts, TData(0.0));
+    for (size_t i = 0; i < nTracePts; ++i)
+    {
+        if (std::abs(lengthBwd[i]) < NekConstants::kNekMachineEpsilon)
+        {
+            lengthFwd[i] *= TData(0.5);
+            lengthBwd[i] = lengthFwd[i];
+        }
+
+        const TData sum = lengthBwd[i] + lengthFwd[i];
+        const TData mul = lengthBwd[i] * lengthFwd[i];
+        lengthRecip[i]  = TData(0.25) * sum / mul;
+    }
+
+    return lengthRecip;
+}
+
+template <typename TData, typename FillFunc>
+MemoryRegion<TData> CreateIPTraceBlockData(
+    const MultiRegions::ExpListSharedPtr &expansionList,
+    const unsigned int blockIdx, FillFunc fill)
+{
+    auto trace  = expansionList->GetTrace();
+    auto blocks = GetBlockAttributes<TData, FieldState::Phys>(trace);
+
+    size_t traceOffset = 0;
+    for (unsigned int blk = 0; blk < blockIdx; ++blk)
+    {
+        traceOffset += blocks[blk].GetNumElements() * blocks[blk].GetNumData();
+    }
+
+    const auto &block     = blocks[blockIdx];
+    const size_t nRealPts = block.GetNumElements() * block.GetNumData();
+    auto data             = MemoryRegion<TData>(block.CompSize());
+    auto dataptr = data.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
+    for (size_t i = 0; i < block.CompSize(); ++i)
+    {
+        dataptr[i] = (i < nRealPts) ? fill(traceOffset + i) : TData(0.0);
+    }
+
+    return data;
+}
+} // namespace
+
 template <typename MemSpace, typename TData>
 MemoryRegion<unsigned int> TraceEssentialCreator::Create(
     const LocTracePhysToElmtMapsKey<TData> &locTracePhysToElmtMapsKey)
@@ -117,6 +227,93 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
     }
 
     return maps;
+}
+
+template <typename MemSpace, typename TData>
+MemoryRegion<TData> TraceEssentialCreator::Create(
+    const IPTraceNormalKey<TData> &ipTraceNormalKey)
+{
+    const size_t nTracePts  = m_expansionList->GetTrace()->GetTotPoints();
+    const unsigned int nDim = m_expansionList->GetCoordim(0);
+    Array<OneD, Array<OneD, double>> normals(nDim);
+    for (size_t d = 0; d < normals.size(); ++d)
+    {
+        normals[d] = Array<OneD, double>(nTracePts, 0.0);
+    }
+    m_expansionList->GetTrace()->GetNormals(normals);
+
+    auto blocks = GetBlockAttributes<TData, FieldState::Phys>(
+        m_expansionList->GetTrace());
+    const auto &block = blocks[ipTraceNormalKey.m_block_idx];
+
+    size_t traceOffset = 0;
+    for (unsigned int blk = 0; blk < ipTraceNormalKey.m_block_idx; ++blk)
+    {
+        traceOffset += blocks[blk].GetNumElements() * blocks[blk].GetNumData();
+    }
+
+    const size_t nRealPts = block.GetNumElements() * block.GetNumData();
+    auto data             = MemoryRegion<TData>(nDim * block.CompSize());
+    auto dataptr = data.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
+    for (unsigned int d = 0; d < nDim; ++d)
+    {
+        for (size_t i = 0; i < block.CompSize(); ++i)
+        {
+            dataptr[d * block.CompSize() + i] =
+                (i < nRealPts) ? normals[d][traceOffset + i] : TData(0.0);
+        }
+    }
+
+    return data;
+}
+
+template <typename MemSpace, typename TData>
+MemoryRegion<TData> TraceEssentialCreator::Create(
+    const IPTraceScalarKey<TData> &ipTraceScalarKey)
+{
+    const size_t nTracePts = m_expansionList->GetTrace()->GetTotPoints();
+    std::vector<TData> scalarData(nTracePts, TData(0.0));
+
+    switch (ipTraceScalarKey.m_type)
+    {
+        case IPTraceScalarData::BwdWeightAver:
+        {
+            Array<OneD, double> bwdWeightAver(nTracePts, 0.0);
+            Array<OneD, double> bwdWeightJump(nTracePts, 0.0);
+            m_expansionList->GetBwdWeight(bwdWeightAver, bwdWeightJump);
+            for (size_t i = 0; i < nTracePts; ++i)
+            {
+                scalarData[i] = bwdWeightAver[i];
+            }
+            break;
+        }
+        case IPTraceScalarData::BwdWeightJump:
+        {
+            Array<OneD, double> bwdWeightAver(nTracePts, 0.0);
+            Array<OneD, double> bwdWeightJump(nTracePts, 0.0);
+            m_expansionList->GetBwdWeight(bwdWeightAver, bwdWeightJump);
+            for (size_t i = 0; i < nTracePts; ++i)
+            {
+                scalarData[i] = bwdWeightJump[i];
+            }
+            break;
+        }
+        case IPTraceScalarData::LengthRecip:
+        {
+            scalarData = GetIPTraceLengthRecip<TData>(m_expansionList);
+            break;
+        }
+        case IPTraceScalarData::PenaltyFactor:
+        {
+            scalarData = GetIPTracePenaltyFactor<TData>(m_expansionList);
+            break;
+        }
+    }
+
+    return CreateIPTraceBlockData<TData>(
+        m_expansionList, ipTraceScalarKey.m_block_idx,
+        [&](const size_t i) { return scalarData[i]; });
 }
 
 template <typename MemSpace, typename TData>

@@ -181,8 +181,8 @@ public:
 
     void ExpectedSolution()
     {
-        unsigned int compSize = this->fixt_in->GetNumComponents();
-        size_t nphys          = this->fixt_explist->GetTotPoints();
+        unsigned int numComp = this->fixt_in->GetNumComponents();
+        size_t nphys         = this->fixt_explist->GetTotPoints();
 
         std::string advName;
         std::string riemName;
@@ -197,8 +197,8 @@ public:
         riemannSolver->SetScalar("Vn", &AdvectionWeakDG::GetNormalVel, this);
 
         Nektar::Array<Nektar::OneD, Nektar::MultiRegions::ExpListSharedPtr> exp(
-            compSize);
-        for (unsigned int i = 0; i < compSize; ++i)
+            numComp);
+        for (unsigned int i = 0; i < numComp; ++i)
         {
             exp[i] = this->fixt_explist;
         }
@@ -207,12 +207,12 @@ public:
         advObject->InitObject(this->session, exp);
 
         Array<OneD, TData> in = this->fixt_in->ToArray();
-        Array<OneD, TData> out(nphys * compSize, 0.0);
+        Array<OneD, TData> out(nphys * numComp, 0.0);
 
-        Array<OneD, Array<OneD, TData>> inarray(compSize);
-        Array<OneD, Array<OneD, TData>> outarray(compSize);
+        Array<OneD, Array<OneD, TData>> inarray(numComp);
+        Array<OneD, Array<OneD, TData>> outarray(numComp);
 
-        for (unsigned int i = 0; i < compSize; ++i)
+        for (unsigned int i = 0; i < numComp; ++i)
         {
             inarray[i] = Array<OneD, TData>(nphys, 0.0);
             for (size_t j = 0; j < nphys; j++)
@@ -222,9 +222,9 @@ public:
             outarray[i] = Array<OneD, TData>(nphys, 0.0);
         }
 
-        advObject->Advect(compSize, exp, m_advectVel, inarray, outarray, 0);
+        advObject->Advect(numComp, exp, m_advectVel, inarray, outarray, 0);
 
-        for (unsigned int i = 0; i < compSize; ++i)
+        for (unsigned int i = 0; i < numComp; ++i)
         {
             for (size_t j = 0; j < nphys; ++j)
             {

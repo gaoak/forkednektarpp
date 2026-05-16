@@ -170,7 +170,7 @@ protected:
     Field<TData, FieldState::Phys> m_rotStorage1, m_rotStorage2, m_rotStorage3,
         m_rotMat;
     unsigned int m_dimension;
-    bool m_updateRotMat = false;
+    bool m_updateRotMat = true;
 
     void v_Apply(Field<TData, FieldState::Phys> &Fwd,
                  Field<TData, FieldState::Phys> &Bwd,

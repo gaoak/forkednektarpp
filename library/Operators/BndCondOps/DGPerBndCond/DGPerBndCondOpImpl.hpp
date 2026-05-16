@@ -59,23 +59,18 @@ public:
     {
         auto discontfield =
             std::dynamic_pointer_cast<DisContField>(this->m_expansionList);
-        auto &bndCondExpansions = discontfield->GetBndCondExpansions();
-        auto &bndConditions     = discontfield->GetBndConditions();
-        auto &trace             = expansionList->GetTrace();
-        auto periodicFwdCopy    = discontfield->GetPeriodicFwdCopy();
-        auto periodicBwdCopy    = discontfield->GetPeriodicBwdCopy();
+        auto &trace          = expansionList->GetTrace();
+        auto periodicFwdCopy = discontfield->GetPeriodicFwdCopy();
+        auto periodicBwdCopy = discontfield->GetPeriodicBwdCopy();
 
-        // Compute number of boundary phys.
-        for (size_t i = 0; i < bndCondExpansions.size(); ++i)
-        {
-            if (bndConditions[i]->GetBoundaryConditionType() ==
-                SpatialDomains::ePeriodic)
-            {
-                m_nBndPhys += bndCondExpansions[i]->GetTotPoints();
-            }
-        }
+        ASSERTL1(periodicFwdCopy.size() == periodicBwdCopy.size(),
+                 "Periodic forward/backward copy maps have different sizes.");
 
-        // Return if no periodic boundary condition.
+        // Periodic copy maps are already pointwise maps in trace storage. Use
+        // them directly instead of boundary expansion counts, which can
+        // double-count paired periodic regions.
+        m_nBndPhys = periodicFwdCopy.size();
+
         if (m_nBndPhys == 0)
         {
             return;
@@ -83,9 +78,12 @@ public:
 
         // Compute trace block offset.
         auto blocks = GetBlockAttributes<TData, FieldState::Phys>(trace);
-        std::vector<size_t> traceBlockOffset(blocks.size());
-        std::vector<size_t> traceTotOffset(blocks.size());
-        std::vector<size_t> traceBlockSize(blocks.size());
+        std::vector<size_t> traceBlockOffset;
+        std::vector<size_t> traceTotOffset;
+        std::vector<size_t> traceBlockSize;
+        traceBlockOffset.reserve(blocks.size() + 1);
+        traceTotOffset.reserve(blocks.size() + 1);
+        traceBlockSize.reserve(blocks.size());
         size_t blockOffset = 0;
         size_t totOffset   = 0;
         traceBlockOffset.push_back(blockOffset);
@@ -128,6 +126,9 @@ public:
             {
                 bwdTraceBlk++;
             }
+
+            ASSERTL1(fwdTraceBlk < nTraceBlk && bwdTraceBlk < nTraceBlk,
+                     "Periodic trace copy offset is outside trace storage.");
 
             for (unsigned int nc = 0; nc < nComps; ++nc)
             {
@@ -180,7 +181,7 @@ protected:
         const auto nTraceBlk = in.GetBlocks().size();
         auto &inBlock        = in.GetBlocks()[0];
         auto &outBlock       = out.GetBlocks()[0];
-        auto inptr           = inBlock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr           = inBlock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr          = outBlock.template GetPtr<MemSpace, WriteOnly>();
         size_t traceSize     = in.GetBlocks()[0].CompSize();
 
@@ -190,8 +191,8 @@ protected:
             traceSize += in.GetBlocks()[traceBlk].CompSize();
             auto &inBlock  = in.GetBlocks()[traceBlk];
             auto &outBlock = out.GetBlocks()[traceBlk];
-            inBlock.template GetPtr<MemSpace, WriteOnly>();
-            outBlock.template GetPtr<MemSpace, WriteOnly>();
+            inBlock.template GetPtr<MemSpace, ReadOnly>();
+            outBlock.template GetPtr<MemSpace, ReadWrite>();
         }
 
         auto periodicFwdCopyOffsetPtr =
