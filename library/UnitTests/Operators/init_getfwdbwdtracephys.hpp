@@ -130,6 +130,19 @@ public:
         const size_t nTracePointsTot =
             this->fixt_explist->GetTrace()->GetTotPoints();
         const size_t nphys = this->fixt_explist->GetTotPoints();
+        auto graph         = this->fixt_explist->GetGraph();
+
+        Nektar::Array<Nektar::OneD, Nektar::MultiRegions::ExpListSharedPtr> exp(
+            numComp);
+        const auto &vars = this->session->GetVariables();
+        for (unsigned int i = 0; i < numComp; ++i)
+        {
+
+            exp[i] =
+                MemoryManager<MultiRegions::DisContField>::AllocateSharedPtr(
+                    this->session, graph, vars[i], true, true,
+                    Collections::eNoCollection);
+        }
 
         Array<OneD, TData> inFwd = this->fixt_in->ToArray();
 
@@ -140,9 +153,9 @@ public:
 
         for (unsigned int i = 0; i < numComp; ++i)
         {
-            this->fixt_explist->ExpList::GetFwdBwdTracePhys(
-                inFwd + i * nphys, tmpFwd = Fwd + i * nTracePointsTot,
-                tmpBwd = Bwd + i * nTracePointsTot);
+            exp[i]->GetFwdBwdTracePhys(inFwd + i * nphys,
+                                       tmpFwd = Fwd + i * nTracePointsTot,
+                                       tmpBwd = Bwd + i * nTracePointsTot);
         }
         this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(Bwd);
     }

@@ -44,6 +44,56 @@ namespace Nektar::Operators
 
 class TraceEssentialCreator;
 
+enum class IPTraceScalarData
+{
+    BwdWeightAver,
+    BwdWeightJump,
+    LengthRecip,
+    PenaltyFactor
+};
+
+template <typename TData> class IPTraceNormalKey : public BaseKey
+{
+    friend class TraceEssentialCreator;
+
+public:
+    using creator = TraceEssentialCreator;
+    typedef TData value_type;
+
+    ~IPTraceNormalKey() override = default;
+
+    IPTraceNormalKey(const unsigned int block_idx) : m_block_idx(block_idx)
+    {
+        hash_combine(m_hash, m_block_idx, typeid(value_type).name(),
+                     "IPTraceNormalKey");
+    }
+
+private:
+    unsigned int m_block_idx;
+};
+
+template <typename TData> class IPTraceScalarKey : public BaseKey
+{
+    friend class TraceEssentialCreator;
+
+public:
+    using creator = TraceEssentialCreator;
+    typedef TData value_type;
+
+    ~IPTraceScalarKey() override = default;
+
+    IPTraceScalarKey(const unsigned int block_idx, const IPTraceScalarData type)
+        : m_block_idx(block_idx), m_type(type)
+    {
+        hash_combine(m_hash, m_block_idx, static_cast<unsigned int>(m_type),
+                     typeid(value_type).name(), "IPTraceScalarKey");
+    }
+
+private:
+    unsigned int m_block_idx;
+    IPTraceScalarData m_type;
+};
+
 template <typename TData> class LocTracePhysToElmtMapsKey : public BaseKey
 {
     friend class TraceEssentialCreator;
@@ -608,6 +658,12 @@ public:
 
     template <typename MemSpace, typename TData>
     MemoryRegion<TData> Create(const Interp2DKey<TData> &interp2DKey);
+
+    template <typename MemSpace, typename TData>
+    MemoryRegion<TData> Create(const IPTraceNormalKey<TData> &ipTraceNormalKey);
+
+    template <typename MemSpace, typename TData>
+    MemoryRegion<TData> Create(const IPTraceScalarKey<TData> &ipTraceScalarKey);
 
     inline static const std::string m_name = "TraceEssentialCreator";
 

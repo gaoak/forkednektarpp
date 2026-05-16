@@ -1,0 +1,221 @@
+<!-- Taylor Green's problem - 3D -->
+<?xml version="1.0" encoding="utf-8"?>
+<NEKTAR>
+    <GEOMETRY DIM="3" SPACE="3">
+        <VERTEX COMPRESSED="B64Z-LittleEndian" BITSIZE="64" XSCALE="2*PI" YSCALE="2*PI" ZSCALE="2*PI" >eJx90NsVgjAQBNCg4BN8K2Iz0yx9SQnTgfoTInPC7F9ys7tzEsJ/Dej6z6/eiDeFdWIRpqX9S+tEGXxVVomV5NMXa+vERs6af2ud2Inr/r11os7mS+8a68RBF0r/0TpxmrmPN2frxGVmb8x7lbP6LZsv+V3mT/9/wEM61FuZp/7M5ufoXTZX8pfMV/8C8tRqEgAA</VERTEX>
+        <EDGE COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJx1k8dywkAQBUUyCIzJAhtscs5g/v/XuEwf6Cr28qq1M692gpLk9eRDc+LiG/4ILYgTxXH6oSX5Zconrxta1n0ntCJffFIxPlUxPjUxfp9i+lKXP/V/yZ86G/KnnqZ88WmJ8WmL8bEvfryDPnF6ofSTvmRi9xcmf6B43vetOPJ/9F7ih2LyRmLm+qt45venOPowDi0rfiImbxrK/JnrTMz+zpPXQ95CTP1L+dCvleL4vhYzp02o+7sVs687+bCXe8Xx/SBmH4+h/h9Ooew1dZ9DK7q/iNmnq5g6bqHev7uY/+dfzDsfoanun0EiCz8A</EDGE>
+        <FACE>
+            <Q COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJxdks1awkAQBKNRxKASEVBAE0BBRfAX3v/VvHQdqL3Ux9DTs9Obojg+J+FpWKrOOQ+74Zn60HfCS/WV0qOrwgv5lqr39L/vw7xK+o5012EdXmkOPjfhrfrwqaQbhH359FS/01x8uA/zBtLjMwzJZxSO5YuOvCbhfcg+9LP/NHwI2W+s+kx+7Mcc7juVvpaO+zbhY0gO9OPfhk8hOc1Un8uPHBv9bqUnt0W4LI7PcziSbhWuw5eQ3PDhu31VHzniz7u9yY/8mYNPV/qJdJvwI3wPyRcfvout+sgXf95tJz/yZg4+tfS802fI3uT/FTbSkcNP+B3yjvSR5690c/U7L/QL6dhvH/6FvCt97H+Qjv3oJ4dG+n/riBC1</Q>
+        </FACE>
+        <ELEMENT>
+            <H COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJxdz8kOgzAUQ1GmEMpYaAu0zOX//5HNfQuczZGjyIqD4H5CjDDGBJ28s5yixwwfmEtvgaX0V1hjI/+w/JT+Fjt8Se8bP9jLjgFHdJK/+EPbO+Es9wuu0m97N9zRSz6k3/b+8cQLAA4DQQAA</H>
+        </ELEMENT>
+        <COMPOSITE>
+            <C ID="1"> F[2,7,22,26] </C>
+            <C ID="2"> F[14,18,31,34] </C>
+            <C ID="3"> F[21,25,30,33] </C>
+            <C ID="4"> F[3,8,13,17] </C>
+            <C ID="5"> F[0,11,20,29] </C>
+            <C ID="6"> F[10,19,28,35] </C>
+            <C ID="7"> H[0-7] </C>
+        </COMPOSITE>
+        <DOMAIN> C[7] </DOMAIN>
+    </GEOMETRY>
+    <Metadata>
+        <Provenance>
+            <GitBranch>refs/heads/master</GitBranch>
+            <GitSHA1>21dc3e13700f49b1f702f47dec2aef90ff554701</GitSHA1>
+            <Hostname>Spencers-MacBook-Pro-4.local</Hostname>
+            <NektarVersion>5.0.0</NektarVersion>
+            <Timestamp>22-May-2020 21:46:41</Timestamp>
+        </Provenance>
+        <NekMeshCommandLine>-m peralign:surf1=1:surf2=2:dir=x:orient -m peralign:surf1=3:surf2=4:dir=y:orient -m peralign:surf1=5:surf2=6:dir=z:orient 3D.xml 3D_oriented.xml </NekMeshCommandLine>
+    </Metadata>
+
+    <EXPANSIONS>
+        <E COMPOSITE="C[7]" NUMMODES="7" FIELDS="rho,rhou,rhov,rhow,E" TYPE="MODIFIED" />
+    </EXPANSIONS>
+
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="EQType"                VALUE="NavierStokesCFE"     />
+            <I PROPERTY="Projection"            VALUE="DisContinuous"       />
+            <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
+            <I PROPERTY="DiffusionType"         VALUE="InteriorPenalty"               />
+            <I PROPERTY="UpwindType"            VALUE="Roe"                />
+            <I PROPERTY="ProblemType"           VALUE="General"             />
+            <I PROPERTY="ViscosityType"         VALUE="Constant"            />
+        </SOLVERINFO>
+
+        <PARAMETERS>
+            <P> Gamma                 = 1.4                                     </P>
+            <P> Ma                    = 0.1                                     </P>
+            <P> ReRef                 = 1600                                    </P>
+            <P> Pr                    = 0.72                                    </P>
+            <P> GasConstantDim        = 287.058                                 </P>
+
+            <P> rhoDim                = 1.225                                   </P>
+            <P> TDim                  = 288.15                                  </P>
+            <P> Tref                  = TDim                                    </P>
+            <P> pDim                  = rhoDim*GasConstantDim*TDim              </P>
+
+            <P> Alpha_deg             = 0                                    </P>
+            <P> Alpha_rad             = Alpha_deg*PI/180                        </P>
+
+            <P> soundSpdDim           = sqrt(Gamma*pDim/rhoDim)                 </P>
+            <P> L                     = 1.0                                     </P>
+
+            <P> velMagnDim            = Ma*soundSpdDim                          </P>
+            <P> uDim                  = velMagnDim                             </P>
+            <P> vDim                  = 0                                       </P>
+            <P> wDim                  = 0                                     </P>
+            <P> muDim                 = rhoDim*uDim*L/ReRef                     </P>
+
+            <P> Re0                   = ReRef/L                                 </P>
+            <P> rhoInf                = rhoDim/rhoDim                           </P>
+            <P> uInf                  = uDim/velMagnDim                         </P>
+            <P> vInf                  = vDim/velMagnDim                         </P>
+            <P> wInf                  = wDim/velMagnDim                         </P>
+            <P> pInf                  = pDim/(rhoDim*velMagnDim*velMagnDim)     </P>
+            <P> mu                    = 1/Re0                                   </P>
+            <P> GasConstant           = GasConstantDim*TDim/(velMagnDim*velMagnDim)</P>
+
+            <P> TimeStep       = 0.0001    </P>
+            <P> NumSteps       = 10     </P>
+        </PARAMETERS>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 1 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
+
+        <VARIABLES>
+            <V ID="0"> rho  </V>
+            <V ID="1"> rhou </V>
+            <V ID="2"> rhov </V>
+            <V ID="3"> rhow </V>
+            <V ID="4"> E    </V>
+        </VARIABLES>
+
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[1] </B>
+            <B ID="1"> C[3] </B>
+            <B ID="2"> C[2] </B>
+            <B ID="3"> C[4] </B>
+            <B ID="4"> C[5] </B>
+            <B ID="5"> C[6] </B>
+        </BOUNDARYREGIONS>
+
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <P VAR="rho" VALUE="[2]" />
+                <P VAR="rhou" VALUE="[2]" />
+                <P VAR="rhov" VALUE="[2]" />
+                <P VAR="rhow" VALUE="[2]" />
+                <P VAR="E" VALUE="[2]" />
+            </REGION>
+            <REGION REF="1">
+                <P VAR="rho" VALUE="[3]" />
+                <P VAR="rhou" VALUE="[3]" />
+                <P VAR="rhov" VALUE="[3]" />
+                <P VAR="rhow" VALUE="[3]" />
+                <P VAR="E" VALUE="[3]" />
+            </REGION>
+            <REGION REF="2">
+                <P VAR="rho" VALUE="[0]" />
+                <P VAR="rhou" VALUE="[0]" />
+                <P VAR="rhov" VALUE="[0]" />
+                <P VAR="rhow" VALUE="[0]" />
+                <P VAR="E" VALUE="[0]" />
+            </REGION>
+            <REGION REF="3">
+                <P VAR="rho" VALUE="[1]" />
+                <P VAR="rhou" VALUE="[1]" />
+                <P VAR="rhov" VALUE="[1]" />
+                <P VAR="rhow" VALUE="[1]" />
+                <P VAR="E" VALUE="[1]" />
+            </REGION>
+            <REGION REF="4">
+                <P VAR="rho" VALUE="[5]" />
+                <P VAR="rhou" VALUE="[5]" />
+                <P VAR="rhov" VALUE="[5]" />
+                <P VAR="rhow" VALUE="[5]" />
+                <P VAR="E" VALUE="[5]" />
+            </REGION>
+            <REGION REF="5">
+                <P VAR="rho" VALUE="[4]" />
+                <P VAR="rhou" VALUE="[4]" />
+                <P VAR="rhov" VALUE="[4]" />
+                <P VAR="rhow" VALUE="[4]" />
+                <P VAR="E" VALUE="[4]" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+
+        <FUNCTION NAME="InitialConditions">
+            <E VAR="rho" VALUE="rhoInf" />
+            <E VAR="rhou" VALUE="rhoInf * uInf * sin(x/L) * cos(y/L) * cos(z/L)" />
+            <E VAR="rhov" VALUE="-rhoInf * uInf * cos(x/L) * sin(y/L) * cos(z/L)" />
+            <E VAR="rhow" VALUE="0" />
+            <E VAR="E" VALUE="
+                (
+                pInf
+                + (rhoInf * uInf * uInf / 16.0)
+                * (cos(2*x/L) + cos(2*y/L))
+                * (cos(2*z/L) + 2.0)
+                ) / (Gamma - 1.0)
+                + 0.5 * rhoInf * (
+                (uInf * sin(x/L) * cos(y/L) * cos(z/L))
+                * (uInf * sin(x/L) * cos(y/L) * cos(z/L))
+                +
+                (-uInf * cos(x/L) * sin(y/L) * cos(z/L))
+                * (-uInf * cos(x/L) * sin(y/L) * cos(z/L))
+                )
+                " />
+        </FUNCTION>
+
+        <FUNCTION NAME="ExactSolution">
+            <E VAR="rho" VALUE="rhoInf" />
+            <E VAR="rhou" VALUE="
+                rhoInf * uInf
+                * sin(x/L) * cos(y/L) * cos(z/L)
+                * exp(-3.0 * mu * t)
+                " />
+            <E VAR="rhov" VALUE="
+                -rhoInf * uInf
+                * cos(x/L) * sin(y/L) * cos(z/L)
+                * exp(-3.0 * mu * t)
+                " />
+            <E VAR="rhow" VALUE="0" />
+            <E VAR="E" VALUE="
+                (
+                pInf
+                + (rhoInf * uInf * uInf / 16.0)
+                * (cos(2*x/L) + cos(2*y/L))
+                * (cos(2*z/L) + 2.0)
+                * exp(-6.0 * mu * t)
+                ) / (Gamma - 1.0)
+                + 0.5 * rhoInf * (
+                (
+                uInf * sin(x/L) * cos(y/L) * cos(z/L)
+                * exp(-3.0 * mu * t)
+                )
+                *
+                (
+                uInf * sin(x/L) * cos(y/L) * cos(z/L)
+                * exp(-3.0 * mu * t)
+                )
+                +
+                (
+                -uInf * cos(x/L) * sin(y/L) * cos(z/L)
+                * exp(-3.0 * mu * t)
+                )
+                *
+                (
+                -uInf * cos(x/L) * sin(y/L) * cos(z/L)
+                * exp(-3.0 * mu * t)
+                )
+                )
+                " />
+        </FUNCTION>
+    </CONDITIONS>
+</NEKTAR>

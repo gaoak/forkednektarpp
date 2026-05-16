@@ -84,8 +84,14 @@ public:
 
         if (!this->m_fwdOnly)
         {
-            this->m_DirBCOp->Apply(bwd);
-            this->m_PerBCOp->Apply(fwd, bwd);
+            if (this->m_applyDirBC)
+            {
+                this->m_DirBCOp->Apply(bwd);
+            }
+            if (this->m_applyPerBC)
+            {
+                this->m_PerBCOp->Apply(fwd, bwd);
+            }
         }
     }
 };

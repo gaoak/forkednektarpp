@@ -171,12 +171,24 @@ public:
         }
     }
 
+    void SetApplyDirBC(bool applyDirBC)
+    {
+        m_applyDirBC = applyDirBC;
+    }
+
+    void SetApplyPerBC(bool applyPerBC)
+    {
+        m_applyPerBC = applyPerBC;
+    }
+
 protected:
     std::vector<std::shared_ptr<GetFwdBwdTracePhysBlockOp<TData>>> m_blockOp;
     std::shared_ptr<DGDirBndCondOp<TData>> m_DirBCOp;
     std::shared_ptr<DGPerBndCondOp<TData>> m_PerBCOp;
 
-    bool m_fwdOnly = false;
+    bool m_fwdOnly    = false;
+    bool m_applyDirBC = true;
+    bool m_applyPerBC = true;
 
     GetFwdBwdTracePhysOp(const MultiRegions::ExpListSharedPtr &expansionList,
                          const std::vector<std::string> &components)
@@ -188,7 +200,7 @@ protected:
                 ? components
                 : expansionList->GetSession()->GetVariables();
         m_DirBCOp = DGDirBndCondOp<TData>::Create(expansionList, vars);
-        m_PerBCOp = DGPerBndCondOp<TData>::Create(expansionList, vars);
+        m_PerBCOp = DGPerBndCondOp<TData>::Create(expansionList, components);
     }
 
     ~GetFwdBwdTracePhysOp() override = default;
