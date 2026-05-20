@@ -153,11 +153,11 @@ NEK_DEVICE_INLINE static void PhysDerivDir1DSumFacKernel(
     }
 }
 
-template <bool APPEND, typename TData>
+template <bool SCALE, bool APPEND, typename TData>
 NEK_DEVICE_INLINE static void SumDerivTensor1DKernel(
     const unsigned int ilane, const unsigned int nq0,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT in0,
-    TData *NEK_RESTRICT out)
+    TData *NEK_RESTRICT out, const TData scale = 1.0)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
@@ -169,6 +169,11 @@ NEK_DEVICE_INLINE static void SumDerivTensor1DKernel(
         for (unsigned int q = 0u; q < nq0; ++q)
         {
             d0 += D0[i * nq0 + q] * in0[warpsize * q + ilane];
+        }
+
+        if constexpr (SCALE)
+        {
+            d0 *= scale;
         }
 
         if constexpr (APPEND)
@@ -302,12 +307,12 @@ NEK_DEVICE_INLINE static void PhysDerivDir2DSumFacKernel(
     }
 }
 
-template <bool APPEND, typename TData>
+template <bool SCALE, bool APPEND, typename TData>
 NEK_DEVICE_INLINE static void SumDerivTensor2DKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT in0, const TData *NEK_RESTRICT in1,
-    TData *NEK_RESTRICT out)
+    TData *NEK_RESTRICT out, const TData scale = 1.0)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
@@ -334,11 +339,25 @@ NEK_DEVICE_INLINE static void SumDerivTensor2DKernel(
 
             if constexpr (APPEND)
             {
-                out[warpsize * cnt_ji + ilane] += d0 + d1;
+                if constexpr (SCALE)
+                {
+                    out[warpsize * cnt_ji + ilane] += scale * (d0 + d1);
+                }
+                else
+                {
+                    out[warpsize * cnt_ji + ilane] += d0 + d1;
+                }
             }
             else
             {
-                out[warpsize * cnt_ji + ilane] = d0 + d1;
+                if constexpr (SCALE)
+                {
+                    out[warpsize * cnt_ji + ilane] = scale * (d0 + d1);
+                }
+                else
+                {
+                    out[warpsize * cnt_ji + ilane] = d0 + d1;
+                }
             }
         }
     }
@@ -532,13 +551,14 @@ NEK_DEVICE_INLINE static void PhysDerivDir3DSumFacKernel(
     }
 }
 
-template <bool APPEND, typename TData>
+template <bool SCALE, bool APPEND, typename TData>
 NEK_DEVICE_INLINE static void SumDerivTensor3DKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const TData *NEK_RESTRICT D0,
     const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
     const TData *NEK_RESTRICT in0, const TData *NEK_RESTRICT in1,
-    const TData *NEK_RESTRICT in2, TData *NEK_RESTRICT out)
+    const TData *NEK_RESTRICT in2, TData *NEK_RESTRICT out,
+    const TData scale = 1.0)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
@@ -578,11 +598,27 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DKernel(
 
                 if constexpr (APPEND)
                 {
-                    out[warpsize * cnt_kji + ilane] += d0 + d1 + d2;
+                    if constexpr (SCALE)
+                    {
+                        out[warpsize * cnt_kji + ilane] +=
+                            scale * (d0 + d1 + d2);
+                    }
+                    else
+                    {
+                        out[warpsize * cnt_kji + ilane] += d0 + d1 + d2;
+                    }
                 }
                 else
                 {
-                    out[warpsize * cnt_kji + ilane] = d0 + d1 + d2;
+                    if constexpr (SCALE)
+                    {
+                        out[warpsize * cnt_kji + ilane] =
+                            scale * (d0 + d1 + d2);
+                    }
+                    else
+                    {
+                        out[warpsize * cnt_kji + ilane] = d0 + d1 + d2;
+                    }
                 }
             }
         }

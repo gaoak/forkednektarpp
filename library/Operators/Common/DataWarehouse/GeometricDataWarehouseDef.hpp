@@ -50,6 +50,89 @@ namespace Nektar::Operators
 
 template <typename MemSpace, typename TData>
 MemoryRegion<TData> GeometricDataCreator::Create(
+    const WeightsKey<TData> &weightsKey)
+{
+    // Fetch data from key.
+    const auto block_idx        = weightsKey.m_block_idx;
+    const auto interleave_width = weightsKey.m_interleave_width;
+
+    // Fetch expansion.
+    auto coll   = GetCollection(m_expansionList, block_idx);
+    auto expPtr = coll.GetExpVector()[0];
+
+    // Allocate memory and get pointer.
+    const auto memsize = interleave_width * expPtr->GetTotPoints();
+    auto weights       = MemoryRegion<TData>(memsize);
+
+    auto wptr = weights.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
+    auto dimension = expPtr->GetShapeDimension();
+
+    auto W = expPtr->GetQuadratureWeights();
+
+    switch (dimension)
+    {
+        case 1:
+        {
+            auto nq0 = expPtr->GetNumPoints(0);
+            for (unsigned i = 0; i < nq0; ++i)
+            {
+                for (unsigned wd = 0; wd < interleave_width; ++wd)
+                {
+                    wptr[i * interleave_width + wd] = W[0][i];
+                }
+            }
+        }
+        break;
+        case 2:
+        {
+            auto nq0 = expPtr->GetNumPoints(0);
+            auto nq1 = expPtr->GetNumPoints(1);
+
+            for (unsigned j = 0; j < nq1; ++j)
+            {
+                for (unsigned i = 0; i < nq0; ++i)
+                {
+                    auto offset = (j * nq0 + i) * interleave_width;
+                    for (unsigned wd = 0; wd < interleave_width; ++wd)
+                    {
+                        wptr[offset + wd] = W[1][j] * W[0][i];
+                    }
+                }
+            }
+        }
+        break;
+        case 3:
+        {
+            auto nq0  = expPtr->GetNumPoints(0);
+            auto nq1  = expPtr->GetNumPoints(1);
+            auto nq2  = expPtr->GetNumPoints(2);
+            auto nq01 = nq0 * nq1;
+
+            for (unsigned k = 0; k < nq2; ++k)
+            {
+                for (unsigned j = 0; j < nq1; ++j)
+                {
+                    auto w12 = W[1][j] * W[2][k];
+                    for (unsigned i = 0; i < nq0; ++i)
+                    {
+                        auto offset =
+                            (k * nq01 + j * nq0 + i) * interleave_width;
+                        for (unsigned wd = 0; wd < interleave_width; ++wd)
+                        {
+                            wptr[offset + wd] = w12 * W[0][i];
+                        }
+                    }
+                }
+            }
+        }
+        break;
+    }
+    return weights;
+}
+
+template <typename MemSpace, typename TData>
+MemoryRegion<TData> GeometricDataCreator::Create(
     const JacobianKey<TData> &jacobianKey)
 {
     // Use maximum vector width for back-ends interoperability.
@@ -105,7 +188,7 @@ MemoryRegion<TData> GeometricDataCreator::Create(
             // Save interleaved data.
             for (unsigned int pt = 0; pt < expPtr->GetTotPoints(); ++pt)
             {
-                for (unsigned int i = 0; i < interleave_width; ++i)
+                for (unsigned i = 0; i < interleave_width; ++i)
                 {
                     *(jacptr++) = jacArray[i][pt];
                 }
@@ -291,13 +374,13 @@ MemoryRegion<TData> GeometricDataCreator::Create(
     for (size_t chunk = 0, el = 0, crd_id = 0; chunk < num_elmt_groups; ++chunk)
     {
         // Loop over component or points
-        for (unsigned int index1 = 0; index1 < range1; ++index1)
+        for (unsigned index1 = 0; index1 < range1; ++index1)
         {
             // Loop over points or components
-            for (unsigned int index2 = 0; index2 < range2; ++index2)
+            for (unsigned index2 = 0; index2 < range2; ++index2)
             {
                 // Loop over interleave width
-                for (unsigned int i = 0; i < interleave_width; ++i, ++crd_id)
+                for (unsigned i = 0; i < interleave_width; ++i, ++crd_id)
                 {
                     // Check for padding
                     if (el + i < num_elements)
@@ -325,7 +408,7 @@ MemoryRegion<TData> GeometricDataCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<unsigned int> GeometricDataCreator::Create(
+MemoryRegion<unsigned> GeometricDataCreator::Create(
     const OrientKey<TData> &orientKey)
 {
     // Use maximum vector width for back-ends interoperability.
@@ -359,7 +442,7 @@ MemoryRegion<unsigned int> GeometricDataCreator::Create(
         for (unsigned int ed = 0; ed < nedge; ++ed)
         {
             // Loop over interleave width
-            for (unsigned int i = 0; i < interleave_width; ++i, ++orient_id)
+            for (unsigned i = 0; i < interleave_width; ++i, ++orient_id)
             {
                 // Check for padding
                 if (el + i < num_elements)
@@ -371,7 +454,7 @@ MemoryRegion<unsigned int> GeometricDataCreator::Create(
                 else
                 {
                     orientptr[orient_id] =
-                        static_cast<unsigned int>(StdRegions::eForwards);
+                        static_cast<unsigned>(StdRegions::eForwards);
                 }
             }
         }
@@ -383,7 +466,7 @@ MemoryRegion<unsigned int> GeometricDataCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<unsigned int> GeometricDataCreator::Create(
+MemoryRegion<unsigned> GeometricDataCreator::Create(
     const TraceToElmtMapKey<TData> &traceToElmtMapKey)
 {
     // Fetch data from key.
@@ -406,21 +489,21 @@ MemoryRegion<unsigned int> GeometricDataCreator::Create(
 
     // Allocate memory and get pointer.
     const auto memsize = nmTrace;
-    auto map           = MemoryRegion<unsigned int>(memsize);
+    auto map           = MemoryRegion<unsigned>(memsize);
     auto mapptr = map.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     // Loop over component or points
     for (unsigned int ed = 0; ed < nedge; ++ed)
     {
         // Allocate temporary arrays for map and sign
-        Array<OneD, unsigned int> tmpMap(nmEdge[ed], (unsigned)0);
+        Array<OneD, unsigned> tmpMap(nmEdge[ed], (unsigned)0);
         Array<OneD, int> tmpSign(nmEdge[ed], 1);
 
         // Extract map and sign
         expPtr->GetTraceToElementMap(ed, tmpMap, tmpSign);
 
         // Assign map to memory region
-        for (unsigned int nm = 0; nm < nmEdge[ed]; ++nm)
+        for (unsigned nm = 0; nm < nmEdge[ed]; ++nm)
         {
             *(mapptr++) = tmpMap[nm];
         }
@@ -455,6 +538,7 @@ MemoryRegion<int> GeometricDataCreator::Create(
     auto signptr = sign.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     // Loop over number of edges
+
     for (unsigned int ed = 0; ed < nedge; ++ed)
     {
         // Allocate temporary arrays for map and sign
@@ -476,7 +560,7 @@ MemoryRegion<int> GeometricDataCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<unsigned int> GeometricDataCreator::Create(
+MemoryRegion<unsigned> GeometricDataCreator::Create(
     const InteriorMapKey<TData> &interiorMapKey)
 {
     // Fetch data from key.
@@ -492,17 +576,17 @@ MemoryRegion<unsigned int> GeometricDataCreator::Create(
 
     // Allocate memory and get pointer.
     const auto memsize = numInteriorCoeffs;
-    auto map           = MemoryRegion<unsigned int>(memsize);
+    auto map           = MemoryRegion<unsigned>(memsize);
     auto mapptr = map.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     // Allocate temporary arrays for map and sign
-    Array<OneD, unsigned int> tmpMap(numInteriorCoeffs);
+    Array<OneD, unsigned> tmpMap(numInteriorCoeffs);
 
     // Extract map
     expPtr->GetInteriorMap(tmpMap);
 
     // Assign map to memory region
-    for (unsigned int nm = 0; nm < numInteriorCoeffs; ++nm)
+    for (unsigned nm = 0; nm < numInteriorCoeffs; ++nm)
     {
         *(mapptr++) = tmpMap[nm];
     }
@@ -628,6 +712,146 @@ MemoryRegion<TData> GeometricDataCreator::Create(
 
         return jac;
     }
+}
+
+template <typename MemSpace, typename TData>
+MemoryRegion<TData> GeometricDataCreator::Create(
+    const JacobianLocTraceKey<TData> &jacobianLocTraceKey)
+{
+    // Use maximum vector width for back-ends interoperability.
+    const auto vector_width = NektarSpaces::max_vector_width<TData>::value;
+
+    const auto block_idx        = jacobianLocTraceKey.m_block_idx;
+    const auto interleave_width = jacobianLocTraceKey.m_interleave_width;
+
+    auto coll          = GetCollection(m_expansionList, block_idx);
+    auto expPtr        = coll.GetExpVector()[0];
+    const auto exp_idx = expPtr->GetElmtId();
+    const auto nDim    = expPtr->GetShapeDimension();
+
+    const auto num_elements = coll.GetExpVector().size();
+    const auto num_elmt_groups =
+        ((num_elements + vector_width - 1) / vector_width) * vector_width /
+        interleave_width;
+
+    // Get number of traces on element
+    const auto locExpPtr = m_expansionList->GetExp(exp_idx);
+
+    // get total trace size
+    LibUtilities::ShapeType shape = expPtr->DetShapeType();
+
+    // if element deformed treat trace group as deformed.
+    bool isDeformed =
+        (locExpPtr->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed);
+
+    // caculate the total number of quadrature points
+    std::vector<unsigned> nTracePts;
+    unsigned nTraceJacPoints = 0;
+    for (unsigned dir = 0; dir < nDim; ++dir)
+    {
+        auto ntraces = LibUtilities::ShapeTypeNumTraceInDir[shape][dir];
+
+        // first trace id
+        auto traceId = LibUtilities::ShapeTypeTraceIDInDir[shape][dir][0];
+
+        auto npts = locExpPtr->GetLocTraceExp(traceId)->GetTotPoints();
+        nTracePts.push_back(npts);
+
+        if (isDeformed)
+        {
+            nTraceJacPoints += npts * ntraces;
+        }
+        else
+        {
+            nTraceJacPoints += ntraces;
+        }
+    }
+
+    const auto memsize = num_elmt_groups * interleave_width * nTraceJacPoints;
+    auto jac           = MemoryRegion<TData>(memsize);
+    auto jacptr = jac.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
+    // Loop over chunks.
+    for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
+    {
+        for (unsigned i = 0; i < interleave_width; ++i, ++el)
+        {
+            unsigned offset = 0;
+            for (unsigned dir = 0; dir < nDim; ++dir)
+            {
+                auto ntraces = LibUtilities::ShapeTypeNumTraceInDir[shape][dir];
+
+                // Loop over traces
+                for (unsigned n = 0; n < ntraces; ++n)
+                {
+                    auto traceId =
+                        LibUtilities::ShapeTypeTraceIDInDir[shape][dir][n];
+
+                    // Index for edge id
+                    if (el < num_elements)
+                    {
+                        // Get trace expansion
+                        auto traceExp = m_expansionList->GetExp(exp_idx + el)
+                                            ->GetLocTraceExp(traceId);
+
+                        // Get trace Jacobian
+                        auto jacArray = traceExp->GetGeomFactors()->GetJac();
+
+                        if (isDeformed)
+                        {
+                            auto TraceDeformed =
+                                (traceExp->GetGeomFactors()->GetGtype() ==
+                                 SpatialDomains::eDeformed);
+
+                            if (TraceDeformed)
+                            {
+                                for (unsigned pt = 0; pt < nTracePts[dir]; ++pt)
+                                {
+                                    jacptr[(offset + pt) * interleave_width +
+                                           i] = jacArray[pt];
+                                }
+                            }
+                            else
+                            {
+                                for (unsigned pt = 0; pt < nTracePts[dir]; ++pt)
+                                {
+                                    jacptr[(offset + pt) * interleave_width +
+                                           i] = jacArray[0];
+                                }
+                            }
+                            offset += nTracePts[dir];
+                        }
+                        else
+                        {
+                            jacptr[offset * interleave_width + i] = jacArray[0];
+                            offset++;
+                        }
+                    }
+                    else
+                    {
+                        if (isDeformed)
+                        {
+                            for (unsigned pt = 0; pt < nTracePts[dir]; ++pt)
+                            {
+                                jacptr[(offset + pt) * interleave_width + i] =
+                                    0.0;
+                            }
+                            offset += nTracePts[dir];
+                        }
+                        else
+                        {
+                            jacptr[offset * interleave_width + i] = 0.0;
+                            offset++;
+                        }
+                    }
+                }
+            }
+            ASSERTL1(offset == nTraceJacPoints,
+                     "Tot Jacobian points not correct");
+        }
+        jacptr += interleave_width * nTraceJacPoints;
+    }
+    return jac;
 }
 
 } // namespace Nektar::Operators

@@ -38,6 +38,17 @@ namespace Nektar::Operators
 {
 
 template MemoryRegion<double> GeometricDataCreator::Create<
+    NektarSpaces::HostSpace, double>(const WeightsKey<double> &jacobianKey);
+template MemoryRegion<float> GeometricDataCreator::Create<
+    NektarSpaces::HostSpace, float>(const WeightsKey<float> &jacobianKey);
+#if defined(NEKTAR_ENABLE_DEVICE)
+template MemoryRegion<double> GeometricDataCreator::Create<
+    NektarSpaces::DeviceSpace, double>(const WeightsKey<double> &jacobianKey);
+template MemoryRegion<float> GeometricDataCreator::Create<
+    NektarSpaces::DeviceSpace, float>(const WeightsKey<float> &jacobianKey);
+#endif
+
+template MemoryRegion<double> GeometricDataCreator::Create<
     NektarSpaces::HostSpace, double>(const JacobianKey<double> &jacobianKey);
 template MemoryRegion<float> GeometricDataCreator::Create<
     NektarSpaces::HostSpace, float>(const JacobianKey<float> &jacobianKey);
@@ -143,6 +154,21 @@ template MemoryRegion<double> GeometricDataCreator::Create<
 template MemoryRegion<float> GeometricDataCreator::Create<
     NektarSpaces::DeviceSpace, float>(
     const JacobianTraceKey<float> &jacobianTraceKey);
+#endif
+
+template MemoryRegion<double> GeometricDataCreator::Create<
+    NektarSpaces::HostSpace, double>(
+    const JacobianLocTraceKey<double> &jacobianLocTraceKey);
+template MemoryRegion<float> GeometricDataCreator::Create<
+    NektarSpaces::HostSpace, float>(
+    const JacobianLocTraceKey<float> &jacobianLocTraceKey);
+#if defined(NEKTAR_ENABLE_DEVICE)
+template MemoryRegion<double> GeometricDataCreator::Create<
+    NektarSpaces::DeviceSpace, double>(
+    const JacobianLocTraceKey<double> &jacobianLocTraceKey);
+template MemoryRegion<float> GeometricDataCreator::Create<
+    NektarSpaces::DeviceSpace, float>(
+    const JacobianLocTraceKey<float> &jacobianLocTraceKey);
 #endif
 
 } // namespace Nektar::Operators

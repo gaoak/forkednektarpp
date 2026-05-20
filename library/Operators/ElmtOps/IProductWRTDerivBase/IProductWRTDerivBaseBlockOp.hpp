@@ -39,37 +39,48 @@
 namespace Nektar::Operators
 {
 
-template <typename TData>
+template <FieldState TFieldOut, typename TData>
 class IProductWRTDerivBaseBlockOp
-    : public ElmtBlockOp<FieldState::Phys, FieldState::Coeff, TData>
+    : public ElmtBlockOp<FieldState::Phys, TFieldOut, TData>
 {
+    template <typename TDataOp>
+    using TIProductWRTDerivBaseBlockOp =
+        IProductWRTDerivBaseBlockOp<TFieldOut, TDataOp>;
+
 public:
-    static std::shared_ptr<IProductWRTDerivBaseBlockOp<TData>> Create(
+    static std::shared_ptr<IProductWRTDerivBaseBlockOp<TFieldOut, TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         NekDataWarehouseSharedPtr dataWarehouse, const std::string &execStr,
         std::string implStr)
     {
-        return ElmtBlockOp<FieldState::Phys, FieldState::Coeff, TData>::
-            template Create<IProductWRTDerivBaseBlockOp>(
-                block_idx, exp, dataWarehouse, execStr, implStr);
+        return ElmtBlockOp<FieldState::Phys, TFieldOut, TData>::template Create<
+            TIProductWRTDerivBaseBlockOp>(block_idx, exp, dataWarehouse,
+                                          execStr, implStr);
     }
 
-    static inline const std::string name = "BlockIProductWRTDerivBase";
+    static inline const std::string name =
+        "BlockIProductWRTDerivBase" + FieldStateToString<TFieldOut>();
 
     void SetAppend(bool append)
     {
         m_append = append;
     }
 
+    void SetScale(TData scale)
+    {
+        m_scale = scale;
+    }
+
 protected:
     bool m_append = false;
+    TData m_scale = 1.0;
 
     IProductWRTDerivBaseBlockOp(const unsigned int block_idx,
                                 const LocalRegions::ExpansionSharedPtr &exp,
                                 NekDataWarehouseSharedPtr dataWarehouse)
-        : ElmtBlockOp<FieldState::Phys, FieldState::Coeff, TData>(
-              block_idx, exp, dataWarehouse)
+        : ElmtBlockOp<FieldState::Phys, TFieldOut, TData>(block_idx, exp,
+                                                          dataWarehouse)
     {
     }
 

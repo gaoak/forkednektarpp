@@ -85,6 +85,56 @@ NEK_FORCE_INLINE static void StdAlignDerivBase1D(
     }
 }
 
+template <bool DEFORMED, typename simd_type>
+NEK_FORCE_INLINE static void StdAlignDerivBase1D(
+    const unsigned int nq0, const unsigned int indim, const simd_type *df_ptr,
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
+    const size_t insize, const simd_type *in, simd_type *out,
+    const simd_type *jac_Ptr, const simd_type *w)
+{
+    simd_type jac = 1.0;
+    // Calculate dxi/dx in[0] + dxi/dy in[1] + dxi/dz in[2]
+    if constexpr (!DEFORMED)
+    {
+        // unroll very small loops
+        jac       = jac_Ptr[0];
+        df_tmp[0] = df_ptr[0];
+        if (indim >= 2)
+        {
+            df_tmp[1] = df_ptr[1];
+        }
+        if (indim == 3)
+        {
+            df_tmp[2] = df_ptr[2];
+        }
+    }
+
+    for (unsigned i = 0; i < nq0; ++i)
+    {
+        if constexpr (DEFORMED)
+        {
+            jac       = jac_Ptr[i];
+            df_tmp[0] = df_ptr[i * indim];
+            if (indim >= 2)
+            {
+                df_tmp[1] = df_ptr[i * indim + 1];
+            }
+            if (indim == 3)
+            {
+                df_tmp[2] = df_ptr[i * indim + 2];
+            }
+        }
+
+        simd_type sum = 0.0;
+        for (unsigned int d = 0; d < indim; ++d)
+        {
+            simd_type inval = in[d * insize + i];
+            sum.fma(inval, df_tmp[d]);
+        }
+        out[i] = sum * jac * w[i];
+    }
+}
+
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void StdAlignDerivBase2D(
     const unsigned int nq0, const unsigned int nq1, const unsigned int indim,

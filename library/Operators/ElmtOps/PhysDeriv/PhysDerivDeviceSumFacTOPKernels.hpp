@@ -136,10 +136,10 @@ NEK_DEVICE_INLINE static void PhysDerivDir1DSumFacTOPKernel(
     localBarrier(threadBlock);
 }
 
-template <bool APPEND, typename TthreadBlock, typename TData>
+template <bool SCALE, bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void SumDerivTensor1DSumFacTOPKernel(
     const unsigned int nq0, const TData *NEK_RESTRICT D0,
-    const TData *NEK_RESTRICT in0, TData *NEK_RESTRICT out,
+    const TData *NEK_RESTRICT in0, TData *NEK_RESTRICT out, const TData scale,
     const TthreadBlock &threadBlock)
 {
     const unsigned int idx0   = getLocalIdx(threadBlock);
@@ -147,13 +147,18 @@ NEK_DEVICE_INLINE static void SumDerivTensor1DSumFacTOPKernel(
 
     for (unsigned int i = idx0; i < nq0; i += stride)
     {
-        // Compute tensorial derivative.
+        // Compute transpose tensorial derivative.
         // Direction 0
         TData d0 = 0.0;
 #pragma unroll
         for (unsigned int q = 0u; q < nq0; ++q)
         {
             d0 += D0[i * nq0 + q] * in0[q];
+        }
+
+        if constexpr (SCALE)
+        {
+            d0 *= scale;
         }
 
         if constexpr (APPEND)
@@ -323,12 +328,12 @@ NEK_DEVICE_INLINE static void PhysDerivDir2DSumFacTOPKernel(
     localBarrier(threadBlock);
 }
 
-template <bool APPEND, typename TthreadBlock, typename TData>
+template <bool SCALE, bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void SumDerivTensor2DSumFacTOPKernel(
     const unsigned int nq0, const unsigned int nq1,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT in0, const TData *NEK_RESTRICT in1,
-    TData *NEK_RESTRICT out, const TthreadBlock &threadBlock)
+    TData *NEK_RESTRICT out, const TData scale, const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot = nq0 * nq1;
 
@@ -359,11 +364,25 @@ NEK_DEVICE_INLINE static void SumDerivTensor2DSumFacTOPKernel(
 
         if constexpr (APPEND)
         {
-            out[idx] += d0 + d1;
+            if constexpr (SCALE)
+            {
+                out[idx] += scale * (d0 + d1);
+            }
+            else
+            {
+                out[idx] += d0 + d1;
+            }
         }
         else
         {
-            out[idx] = d0 + d1;
+            if constexpr (SCALE)
+            {
+                out[idx] = scale * (d0 + d1);
+            }
+            else
+            {
+                out[idx] = d0 + d1;
+            }
         }
     }
 
@@ -549,13 +568,13 @@ NEK_DEVICE_INLINE static void PhysDerivDir3DSumFacTOPKernel(
     localBarrier(threadBlock);
 }
 
-template <bool APPEND, typename TthreadBlock, typename TData>
+template <bool SCALE, bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void SumDerivTensor3DSumFacTOPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT in0,
     const TData *NEK_RESTRICT in1, const TData *NEK_RESTRICT in2,
-    TData *NEK_RESTRICT out, const TthreadBlock &threadBlock)
+    TData *NEK_RESTRICT out, const TData scale, const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
@@ -595,11 +614,25 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DSumFacTOPKernel(
 
         if constexpr (APPEND)
         {
-            out[idx] += d0 + d1 + d2;
+            if constexpr (SCALE)
+            {
+                out[idx] += scale * (d0 + d1 + d2);
+            }
+            else
+            {
+                out[idx] += d0 + d1 + d2;
+            }
         }
         else
         {
-            out[idx] = d0 + d1 + d2;
+            if constexpr (SCALE)
+            {
+                out[idx] = scale * (d0 + d1 + d2);
+            }
+            else
+            {
+                out[idx] = d0 + d1 + d2;
+            }
         }
     }
 

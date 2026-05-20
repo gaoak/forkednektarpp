@@ -34,6 +34,7 @@
 
 #include "init_fields.hpp"
 
+#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp"
 
 using namespace Nektar::Operators;
@@ -44,6 +45,9 @@ template <typename TData>
 class IProductWRTDerivBaseField
     : public InitFields<TData, FieldState::Phys, FieldState::Coeff>
 {
+private:
+    Field<TData, FieldState::Phys> *m_f_phys = nullptr;
+
 public:
     IProductWRTDerivBaseField()
         : InitFields<TData, FieldState::Phys, FieldState::Coeff>()
@@ -70,6 +74,10 @@ public:
         this->fixt_out = new Field<TData, FieldState::Coeff>(std::move(f_out));
         this->fixt_expected =
             new Field<TData, FieldState::Coeff>(std::move(f_expected));
+
+        auto f_phys =
+            Field<TData, FieldState::Phys>("f_phys", inblockAttr, nout, nhomo);
+        m_f_phys = new Field<TData, FieldState::Phys>(std::move(f_phys));
     }
 
     void SetTestCase()
@@ -104,9 +112,21 @@ public:
 
     void RunTestCase()
     {
-        auto op = IProductWRTDerivBaseOp<TData>::Create(
+        auto op = IProductWRTDerivBaseOp<FieldState::Coeff, TData>::Create(
             this->fixt_explist, this->session->GetVariables());
         op->Apply(*this->fixt_in, *this->fixt_out);
+    }
+
+    void RunTestCaseApplyPhys()
+    {
+        auto op = IProductWRTDerivBaseOp<FieldState::Phys, TData>::Create(
+            this->fixt_explist, this->session->GetVariables());
+        auto BT = IProductWRTBaseOp<TData>::Create(
+            this->fixt_explist, this->session->GetVariables());
+        BT->SetIntegration(false);
+
+        op->Apply(*this->fixt_in, *m_f_phys);
+        BT->Apply(*m_f_phys, *this->fixt_out);
     }
 
     void ExpectedSolution()

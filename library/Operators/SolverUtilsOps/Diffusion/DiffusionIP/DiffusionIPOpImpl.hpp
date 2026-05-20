@@ -131,8 +131,9 @@ public:
                                                    ExecSpace::name);
         m_bwdTransOp  = BwdTransOp<TData>::Create(expansionList, components,
                                                   ExecSpace::name);
-        m_iProductWRTDerivBaseOp = IProductWRTDerivBaseOp<TData>::Create(
-            expansionList, components, ExecSpace::name);
+        m_iProductWRTDerivBaseOp =
+            IProductWRTDerivBaseOp<FieldState ::Coeff, TData>::Create(
+                expansionList, components, ExecSpace::name);
         m_getFwdBwdTracePhysOp = GetFwdBwdTracePhysOp<TData>::Create(
             expansionList, components, ExecSpace::name);
         std::vector<std::string> derivComponents(m_nDim * m_nComp,
@@ -144,6 +145,8 @@ public:
             expansionList, components, ExecSpace::name);
         m_multiplyByElmtInvMassOp = MultiplyByElmtInvMassOp<TData>::Create(
             expansionList, components, ExecSpace::name);
+
+        m_iProductWRTDerivBaseOp->SetScale(-1.0);
 
         BuildDerivBndTraceOffsets(expansionList);
     }
@@ -171,7 +174,8 @@ protected:
         m_numDerivBwd, m_numDerivFwd;
     std::shared_ptr<PhysDerivOp<TData>> m_physDerivOp;
     std::shared_ptr<BwdTransOp<TData>> m_bwdTransOp;
-    std::shared_ptr<IProductWRTDerivBaseOp<TData>> m_iProductWRTDerivBaseOp;
+    std::shared_ptr<IProductWRTDerivBaseOp<FieldState::Coeff, TData>>
+        m_iProductWRTDerivBaseOp;
     std::shared_ptr<GetFwdBwdTracePhysOp<TData>> m_getFwdBwdTracePhysOp;
     std::shared_ptr<GetFwdBwdTracePhysOp<TData>> m_getFwdBwdTraceDerivOp;
     std::shared_ptr<AddTraceIntegralOp<TData>> m_addTraceIntegralOp;
@@ -183,6 +187,12 @@ protected:
                  Field<TData, FieldState::Phys> &out) override
     {
         Diffuse(in, out);
+    }
+
+    void v_SetAppend(const bool &append) override
+    {
+        this->m_append = append;
+        m_bwdTransOp->SetAppend(this->m_append);
     }
 
     void Diffuse(Field<TData, FieldState::Phys> &in,
@@ -197,7 +207,6 @@ protected:
         // public DiffusionOp interface returns a physical-space field. Append
         // is applied only at this final output stage so all internal workspaces
         // remain overwrite-style temporaries.
-        m_bwdTransOp->SetAppend(this->m_append);
         m_bwdTransOp->Apply(m_coeff, out);
 
         // Loop over blocks to reshape output storage
@@ -260,7 +269,6 @@ protected:
         // Step 3: integrate the volume flux contribution against derivative
         // bases to enter coefficient space.
         m_iProductWRTDerivBaseOp->Apply(m_fluxvector, m_tmp);
-        neg<ExecSpace>(m_tmp, m_tmp);
 
         // Step 4: add the interface numerical-flux contribution.
         CalcTraceNumFlux(in);

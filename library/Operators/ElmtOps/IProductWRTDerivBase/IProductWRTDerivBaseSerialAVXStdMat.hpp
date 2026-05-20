@@ -45,9 +45,10 @@
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, typename Implementation, typename TData>
+template <typename ExecSpace, typename Implementation, FieldState TFieldOut,
+          typename TData>
 class IProductWRTDerivBaseBlockOpImpl
-    : public IProductWRTDerivBaseBlockOp<TData>
+    : public IProductWRTDerivBaseBlockOp<TFieldOut, TData>
 {
     using simd_t =
         typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
@@ -58,7 +59,8 @@ public:
     IProductWRTDerivBaseBlockOpImpl(const unsigned int block_idx,
                                     const LocalRegions::ExpansionSharedPtr &exp,
                                     NekDataWarehouseSharedPtr dataWarehouse)
-        : IProductWRTDerivBaseBlockOp<TData>(block_idx, exp, dataWarehouse)
+        : IProductWRTDerivBaseBlockOp<TFieldOut, TData>(block_idx, exp,
+                                                        dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -66,7 +68,6 @@ public:
             exp->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed;
         m_dimension = exp->GetShapeDimension();
         m_coordDim  = exp->GetCoordim();
-        m_nmTot     = exp->GetNcoeffs();
         m_nqTot     = exp->GetTotPoints();
 
         // Fetch matrix.
@@ -77,14 +78,29 @@ public:
             basisKeys[d] = exp->GetBasis(d)->GetBasisKey();
         }
 
-        LibUtilities::PointsType nodalType =
-            (exp->IsNodalNonTensorialExp())
-                ? exp->GetNodalPointsKey().GetPointsType()
-                : LibUtilities::eNoPointsType;
+        if constexpr (TFieldOut == FieldState::Coeff)
+        {
+            LibUtilities::PointsType nodalType =
+                (exp->IsNodalNonTensorialExp())
+                    ? exp->GetNodalPointsKey().GetPointsType()
+                    : LibUtilities::eNoPointsType;
 
-        m_matptr = dataWarehouse->template GetData<MemSpace>(
-            StdMatKey<TData>(basisKeys, m_shapeType,
-                             eIProductWRTDerivBaseStdMatTranspose, nodalType));
+            m_outTot = exp->GetNcoeffs();
+            m_matptr =
+                dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
+                    basisKeys, m_shapeType,
+                    eIProductWRTDerivBaseStdMatTranspose, nodalType));
+        }
+        else
+        {
+            m_outTot = exp->GetTotPoints();
+            m_matptr = dataWarehouse->template GetData<MemSpace>(
+                StdMatKey<TData>(basisKeys, m_shapeType, ePhysDerivStdMat));
+
+            m_weights = this->m_dataWarehouse->template GetData<MemSpace>(
+                WeightsKey<TData>(block_idx, m_implInterleaveWidth));
+        }
+
         // Fetch Jacobian and deriv factors.
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(block_idx, m_implInterleaveWidth));
@@ -96,15 +112,14 @@ public:
     static std::string className;
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
-    static std::unique_ptr<
-        ElmtBlockOp<FieldState::Phys, FieldState::Coeff, TData>>
+    static std::unique_ptr<ElmtBlockOp<FieldState::Phys, TFieldOut, TData>>
     Instantiate(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,
                 NekDataWarehouseSharedPtr dataWarehouse)
     {
-        return std::make_unique<
-            IProductWRTDerivBaseBlockOpImpl<ExecSpace, Implementation, TData>>(
-            block_idx, exp, dataWarehouse);
+        return std::make_unique<IProductWRTDerivBaseBlockOpImpl<
+            ExecSpace, Implementation, TFieldOut, TData>>(block_idx, exp,
+                                                          dataWarehouse);
     }
 
 protected:
@@ -114,14 +129,15 @@ protected:
     bool m_isDeformed;
     unsigned int m_dimension;
     unsigned int m_coordDim;
-    unsigned int m_nmTot;
+    unsigned int m_outTot;
     unsigned int m_nqTot;
     const TData *m_matptr;
     const TData *m_jacptr;
     const TData *m_dfptr;
+    const TData *m_weights;
 
     void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
-                 BlockAccessor<TData, FieldState::Coeff> &outblock) override
+                 BlockAccessor<TData, TFieldOut> &outblock) override
     {
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -130,11 +146,14 @@ protected:
                           : outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
+        const auto width_ratio =
+            (inInterleaveWidth == 1)
+                ? 1
+                : inInterleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, inInterleaveWidth);
 
         // Get static workspace pointer.
         auto wspptr =
@@ -142,8 +161,10 @@ protected:
                 m_dimension * simd_t::width * m_nqTot);
 
         // Dispatch kernel.
-        auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-            simd_t::width, m_nmTot, m_nqTot, 1.0, 1.0);
+        auto gemm_kernel0 = LibxsmmDispatchWrapper<TData>::dispatch(
+            simd_t::width, m_outTot, m_nqTot, 1.0, (TData)this->m_append);
+        auto gemm_kernel1 = LibxsmmDispatchWrapper<TData>::dispatch(
+            simd_t::width, m_outTot, m_nqTot, 1.0, 1.0);
 
         // Loop over components.
         const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
@@ -166,48 +187,84 @@ protected:
                     for (unsigned int k = 0; k < m_coordDim; ++k)
                     {
                         ReshapeStorage<ExecSpace>(
-                            m_implInterleaveWidth, interleaveWidth, chunkSize,
+                            m_implInterleaveWidth, inInterleaveWidth, chunkSize,
                             m_nqTot, (TData *)inptr + k * inoffset);
+                    }
+
+                    if (this->m_append)
+                    {
+                        ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
+                                                  outInterleaveWidth, chunkSize,
+                                                  m_nqTot, (TData *)outptr);
                     }
                 }
 
-                // Multiply by derivative factor and Jacobian.
-                if (m_isDeformed)
+                if constexpr (TFieldOut == FieldState::Coeff)
                 {
-                    MultiplyByJacobianAndDerivFactorKernel<ExecSpace, true>(
-                        m_nqTot, m_coordDim, m_dimension, 1, inoffset_vec,
-                        wspsize, reinterpret_cast<const simd_t *>(jacptr),
-                        reinterpret_cast<const simd_t *>(dfptr),
-                        reinterpret_cast<const simd_t *>(inptr),
-                        reinterpret_cast<simd_t *>(wspptr));
-                    jacptr += m_nqTot * simd_t::width;
-                    dfptr += m_coordDim * m_dimension * m_nqTot * simd_t::width;
+                    // Multiply by derivative factor and Jacobian.
+                    if (m_isDeformed)
+                    {
+                        JacobianDerivFactorKernel<ExecSpace, true>(
+                            m_nqTot, m_coordDim, m_dimension, 1, inoffset_vec,
+                            wspsize, reinterpret_cast<const simd_t *>(jacptr),
+                            reinterpret_cast<const simd_t *>(dfptr),
+                            (const simd_t)this->m_scale,
+                            reinterpret_cast<const simd_t *>(inptr),
+                            reinterpret_cast<simd_t *>(wspptr));
+                        jacptr += m_nqTot * simd_t::width;
+                        dfptr +=
+                            m_coordDim * m_dimension * m_nqTot * simd_t::width;
+                    }
+                    else
+                    {
+                        JacobianDerivFactorKernel<ExecSpace, false>(
+                            m_nqTot, m_coordDim, m_dimension, 1, inoffset_vec,
+                            wspsize, reinterpret_cast<const simd_t *>(jacptr),
+                            reinterpret_cast<const simd_t *>(dfptr),
+                            (const simd_t)this->m_scale,
+                            reinterpret_cast<const simd_t *>(inptr),
+                            reinterpret_cast<simd_t *>(wspptr));
+                        jacptr += simd_t::width;
+                        dfptr += m_coordDim * m_dimension * simd_t::width;
+                    }
                 }
                 else
                 {
-                    MultiplyByJacobianAndDerivFactorKernel<ExecSpace, false>(
-                        m_nqTot, m_coordDim, m_dimension, 1, inoffset_vec,
-                        wspsize, reinterpret_cast<const simd_t *>(jacptr),
-                        reinterpret_cast<const simd_t *>(dfptr),
-                        reinterpret_cast<const simd_t *>(inptr),
-                        reinterpret_cast<simd_t *>(wspptr));
-                    jacptr += simd_t::width;
-                    dfptr += m_coordDim * m_dimension * simd_t::width;
-                }
-
-                // Perform matrix-matrix multiply.
-                if (!this->m_append)
-                {
-                    for (unsigned int q = 0; q < m_nmTot; ++q)
+                    if (m_isDeformed)
                     {
-                        reinterpret_cast<simd_t *>(outptr)[q] = 0.0;
+                        JacobianDerivFactorWeightsKernel<ExecSpace, true>(
+                            m_nqTot, m_coordDim, m_dimension, 1, inoffset_vec,
+                            wspsize, reinterpret_cast<const simd_t *>(jacptr),
+                            reinterpret_cast<const simd_t *>(dfptr),
+                            reinterpret_cast<const simd_t *>(m_weights),
+                            (const simd_t)this->m_scale,
+                            reinterpret_cast<const simd_t *>(inptr),
+                            reinterpret_cast<simd_t *>(wspptr));
+                        jacptr += m_nqTot * simd_t::width;
+                        dfptr +=
+                            m_coordDim * m_dimension * m_nqTot * simd_t::width;
+                    }
+                    else
+                    {
+                        JacobianDerivFactorWeightsKernel<ExecSpace, false>(
+                            m_nqTot, m_coordDim, m_dimension, 1, inoffset_vec,
+                            wspsize, reinterpret_cast<const simd_t *>(jacptr),
+                            reinterpret_cast<const simd_t *>(dfptr),
+                            reinterpret_cast<const simd_t *>(m_weights),
+                            (const simd_t)this->m_scale,
+                            reinterpret_cast<const simd_t *>(inptr),
+                            reinterpret_cast<simd_t *>(wspptr));
+                        jacptr += simd_t::width;
+                        dfptr += m_coordDim * m_dimension * simd_t::width;
                     }
                 }
 
-                for (unsigned int d = 0; d < m_dimension; d++)
+                // Perform matrix-matrix multiply.
+                gemm_kernel0(wspptr, m_matptr, outptr);
+                for (unsigned int d = 1; d < m_dimension; d++)
                 {
-                    gemm_kernel(wspptr + d * simd_t::width * m_nqTot,
-                                m_matptr + d * m_nqTot * m_nmTot, outptr);
+                    gemm_kernel1(wspptr + d * simd_t::width * m_nqTot,
+                                 m_matptr + d * m_nqTot * m_outTot, outptr);
                 }
 
                 // Reshape back, if necessary.
@@ -216,21 +273,21 @@ protected:
                     for (unsigned int k = 0; k < m_coordDim; ++k)
                     {
                         ReshapeStorage<ExecSpace>(
-                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                             m_nqTot,
                             (TData *)inptr + k * inoffset -
                                 (width_ratio - 1) * m_nqTot * simd_t::width);
                     }
                     ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        m_nmTot,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
+                        m_outTot,
                         (TData *)outptr -
-                            (width_ratio - 1) * m_nmTot * simd_t::width);
+                            (width_ratio - 1) * m_outTot * simd_t::width);
                 }
 
                 // Increment pointers.
                 inptr += m_nqTot * simd_t::width;
-                outptr += m_nmTot * simd_t::width;
+                outptr += m_outTot * simd_t::width;
             }
 
             if ((n + 1) % inblock.GetNumHomoModes() == 0)
@@ -240,7 +297,7 @@ protected:
         }
 
         // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
     }
 };
 

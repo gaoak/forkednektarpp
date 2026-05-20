@@ -85,8 +85,9 @@ public:
     {
         m_bwdTransOp = BwdTransOp<TData>::Create(expansionList, components,
                                                  ExecSpace::name);
-        m_iProductWRTDerivBaseOp = IProductWRTDerivBaseOp<TData>::Create(
-            expansionList, components, ExecSpace::name);
+        m_iProductWRTDerivBaseOp =
+            IProductWRTDerivBaseOp<FieldState::Coeff, TData>::Create(
+                expansionList, components, ExecSpace::name);
         m_getFwdBwdTracePhysOp = GetFwdBwdTracePhysOp<TData>::Create(
             expansionList, components, ExecSpace::name);
         m_addTraceIntegralOp = AddTraceIntegralOp<TData>::Create(
@@ -94,7 +95,7 @@ public:
         m_multiplyByElmtInvMassOp = MultiplyByElmtInvMassOp<TData>::Create(
             expansionList, components, ExecSpace::name);
 
-        m_bwdTransOp->SetAppend(this->m_append);
+        m_iProductWRTDerivBaseOp->SetScale(-1.0);
     }
 
     // className - for OperatorFactory
@@ -114,7 +115,8 @@ protected:
     Field<TData, FieldState::Coeff> m_coeff, m_tmp;
     Field<TData, FieldState::Phys> m_fluxvector, m_numflux, m_fwd, m_bwd;
     std::shared_ptr<BwdTransOp<TData>> m_bwdTransOp;
-    std::shared_ptr<IProductWRTDerivBaseOp<TData>> m_iProductWRTDerivBaseOp;
+    std::shared_ptr<IProductWRTDerivBaseOp<FieldState::Coeff, TData>>
+        m_iProductWRTDerivBaseOp;
     std::shared_ptr<GetFwdBwdTracePhysOp<TData>> m_getFwdBwdTracePhysOp;
     std::shared_ptr<AddTraceIntegralOp<TData>> m_addTraceIntegralOp;
     std::shared_ptr<MultiplyByElmtInvMassOp<TData>> m_multiplyByElmtInvMassOp;
@@ -123,6 +125,12 @@ protected:
                  Field<TData, FieldState::Phys> &out) override
     {
         Advect(in, out);
+    }
+
+    void v_SetAppend(const bool &append) override
+    {
+        this->m_append = append;
+        m_bwdTransOp->SetAppend(this->m_append);
     }
 
     void Advect(Field<TData, FieldState::Phys> &in,
@@ -167,8 +175,6 @@ protected:
 
         // Compute numerical flux on element traces
         AdvectTraceFlux(in, m_numflux);
-
-        neg<ExecSpace>(m_tmp, m_tmp);
 
         // Add trace integral contribution
         m_addTraceIntegralOp->Apply(m_numflux, m_tmp);

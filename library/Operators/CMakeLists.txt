@@ -44,7 +44,11 @@ MACRO(ADD_OPERATOR dir)
 
     # These operator have an additional argument for the FieldState
     # which requires two delcarations.
-    SET(CONFIG_FILE Common/OperatorFactoryDec.cpp.in)
+    If("${name}" STREQUAL "IProductWRTDerivBase")
+        SET(CONFIG_FILE Common/OpFactoryDecTwoOutStates.cpp.in)
+    ELSE()
+        SET(CONFIG_FILE Common/OpFactoryDec.cpp.in)
+    ENDIF()
 
     # Loop through each possible execution space.
     FOREACH (ExecSpace IN LISTS ExecSpaces)
@@ -118,7 +122,11 @@ MACRO(ADD_ELMT_OPERATOR dir)
 
     # These operator have an additional argument for the FieldState
     # which requires two delcarations.
-    SET(CONFIG_FILE ElmtOps/ElmtBlockOpFactoryDec.cpp.in)
+    If("${name}" STREQUAL "IProductWRTDerivBase")
+        SET(CONFIG_FILE ElmtOps/ElmtBlockOpTwoOutStates.cpp.in)
+    ELSE()
+        SET(CONFIG_FILE ElmtOps/ElmtBlockOpFactoryDec.cpp.in)
+    ENDIF()
 
     # Check to see if shape specific BlockOpSwitch*.h files have
     # been generated and if not generate for later potential use.

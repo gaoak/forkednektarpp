@@ -1263,6 +1263,12 @@ public:
         v_GenStdMatBwdDeriv(dir, mat);
     }
 
+    /// Return the quadrature weights stored in each std expandion
+    std::vector<Array<OneD, const NekDouble>> GetQuadratureWeights()
+    {
+        return m_weights;
+    }
+
 protected:
     Array<OneD, LibUtilities::BasisSharedPtr>
         m_base; /**< Bases needed for the expansion */

@@ -108,6 +108,11 @@
  *          NEKTAR_USE_LIKWID=ON.
  *      See likwid documentation for more information.
  */
+
+template <typename TData>
+using IProductWRTDerivBaseCoeffOp =
+    IProductWRTDerivBaseOp<FieldState::Coeff, TData>;
+
 int main(int argc, char *argv[])
 {
 #ifdef NEKTAR_USE_MAGMA
@@ -204,7 +209,7 @@ int main(int argc, char *argv[])
         }
         else if (Operator == "IProductWRTDerivBase")
         {
-            LaunchProfiler<IProductWRTDerivBaseOp, FieldState::Phys,
+            LaunchProfiler<IProductWRTDerivBaseCoeffOp, FieldState::Phys,
                            FieldState::Coeff, double>(explist, Ntest, nDim, 1,
                                                       Ncomp);
         }

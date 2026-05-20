@@ -673,7 +673,7 @@ NEK_DEVICE_INLINE static void Helmholtz1DSumFacKernel(
         ApplyMetric1DSumFacKernel<DEFORMED>(ilane, ncoord, nq0, nelmt * nq0, w0,
                                             dfptr, jacptr, coeff, deriv, deriv,
                                             bwd, lambda);
-        SumDerivTensor1DKernel<true>(ilane, nq0, D0, deriv, bwd);
+        SumDerivTensor1DKernel<false, true>(ilane, nq0, D0, deriv, bwd);
         IProductWRTBaseSegSumFacKernel<false, false>(ilane, nm0, nq0, basis0,
                                                      bwd, outptr, (TData)1.0);
         e += getGlobalRange(threadBlock);
@@ -777,8 +777,8 @@ NEK_DEVICE_INLINE static void Helmholtz2DSumFacKernel(
         ApplyMetric2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, ncoord, nq0, nq1, nelmt * nqTot, w0, w1, s_f0, s_f1, dfptr,
             jacptr, coeff, deriv, deriv0, deriv1, bwd, lambda);
-        SumDerivTensor2DKernel<true>(ilane, nq0, nq1, D0, D1, deriv0, deriv1,
-                                     bwd);
+        SumDerivTensor2DKernel<false, true>(ilane, nq0, nq1, D0, D1, deriv0,
+                                            deriv1, bwd);
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
             TData *wsp0 =
@@ -1004,8 +1004,8 @@ NEK_DEVICE_INLINE static void Helmholtz3DSumFacKernel(
             ilane, nq0, nq1, nq2, nelmt * nqTot, w0, w1, w2, s_f0, s_f1, s_f1m,
             s_f2, dfptr, jacptr, coeff, deriv, deriv0, deriv1, deriv2, bwd,
             lambda);
-        SumDerivTensor3DKernel<true>(ilane, nq0, nq1, nq2, D0, D1, D2, deriv0,
-                                     deriv1, deriv2, bwd);
+        SumDerivTensor3DKernel<true, true>(ilane, nq0, nq1, nq2, D0, D1, D2,
+                                           deriv0, deriv1, deriv2, bwd);
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
             TData *wsp0 =

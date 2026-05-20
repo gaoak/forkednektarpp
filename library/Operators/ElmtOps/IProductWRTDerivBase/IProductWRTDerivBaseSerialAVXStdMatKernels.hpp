@@ -35,11 +35,11 @@
 #pragma once
 
 template <typename ExecSpace, bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static void MultiplyByJacobianAndDerivFactorKernel(
+NEK_FORCE_INLINE static void JacobianDerivFactorKernel(
     const unsigned int nqTot, const unsigned int ncoord,
     const unsigned int dimension, const size_t nelmt, const size_t inoffset,
     const size_t outsize, const TData *jacptr, const TData *dfptr,
-    const TData *inptr, TData *outptr)
+    const TData scale, const TData *inptr, TData *outptr)
 {
     const auto ndf   = ncoord * dimension;
     const auto nsize = nqTot * nelmt;
@@ -60,7 +60,7 @@ NEK_FORCE_INLINE static void MultiplyByJacobianAndDerivFactorKernel(
             }
             for (unsigned int d = 0; d < dimension; d++)
             {
-                outptr[d * outsize + idx] = tmp[d] * jacptr[idx];
+                outptr[d * outsize + idx] = scale * tmp[d] * jacptr[idx];
             }
         }
     }
@@ -81,7 +81,70 @@ NEK_FORCE_INLINE static void MultiplyByJacobianAndDerivFactorKernel(
                 }
                 for (unsigned int d = 0; d < dimension; d++)
                 {
-                    outptr[d * outsize + nqTot * e + i] = tmp[d] * jacptr[e];
+                    outptr[d * outsize + nqTot * e + i] =
+                        scale * tmp[d] * jacptr[e];
+                }
+            }
+        }
+    }
+}
+
+template <typename ExecSpace, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static void JacobianDerivFactorWeightsKernel(
+    const unsigned int nqTot, const unsigned int ncoord,
+    const unsigned int dimension, const size_t nelmt, const size_t inoffset,
+    const size_t outsize, const TData *jacptr, const TData *dfptr,
+    const TData *weights, const TData scale, const TData *inptr, TData *outptr)
+{
+    const auto ndf = ncoord * dimension;
+
+    TData tmp[3];
+    if constexpr (DEFORMED)
+    {
+        for (size_t e = 0; e < nelmt; e++)
+        {
+            for (unsigned i = 0; i < nqTot; i++)
+            {
+                size_t idx = e * nqTot + i;
+
+                auto wj = jacptr[idx] * weights[i];
+
+                for (unsigned int d = 0; d < dimension; d++)
+                {
+                    tmp[d] = dfptr[ndf * idx + d] * inptr[idx];
+                    for (unsigned int k = 1; k < ncoord; ++k)
+                    {
+                        tmp[d].fma(dfptr[ndf * idx + k * dimension + d],
+                                   inptr[k * inoffset + idx]);
+                    }
+                }
+                for (unsigned int d = 0; d < dimension; d++)
+                {
+                    outptr[d * outsize + idx] = scale * tmp[d] * wj;
+                }
+            }
+        }
+    }
+    else
+    {
+        for (size_t e = 0; e < nelmt; e++)
+        {
+            for (unsigned i = 0; i < nqTot; i++)
+            {
+                auto wj = jacptr[e] * weights[i];
+
+                for (unsigned d = 0; d < dimension; d++)
+                {
+                    tmp[d] = dfptr[ndf * e + d] * inptr[nqTot * e + i];
+                    for (unsigned k = 1; k < ncoord; ++k)
+                    {
+                        tmp[d].fma(dfptr[ndf * e + k * dimension + d],
+                                   inptr[nqTot * e + i + k * inoffset]);
+                    }
+                }
+                for (unsigned d = 0; d < dimension; d++)
+                {
+                    outptr[d * outsize + nqTot * e + i] = scale * tmp[d] * wj;
                 }
             }
         }

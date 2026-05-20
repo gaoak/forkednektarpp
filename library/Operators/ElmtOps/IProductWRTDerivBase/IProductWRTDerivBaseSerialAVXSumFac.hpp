@@ -37,6 +37,7 @@
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseBlockOp.hpp"
+#include "Operators/Math/MathKernels.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseSerialAVXSumFacKernels.hpp"
@@ -44,9 +45,10 @@
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, typename Implementation, typename TData>
+template <typename ExecSpace, typename Implementation, FieldState TFieldOut,
+          typename TData>
 class IProductWRTDerivBaseBlockOpImpl
-    : public IProductWRTDerivBaseBlockOp<TData>
+    : public IProductWRTDerivBaseBlockOp<TFieldOut, TData>
 {
     using simd_t =
         typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
@@ -57,7 +59,8 @@ public:
     IProductWRTDerivBaseBlockOpImpl(const unsigned int block_idx,
                                     const LocalRegions::ExpansionSharedPtr &exp,
                                     NekDataWarehouseSharedPtr dataWarehouse)
-        : IProductWRTDerivBaseBlockOp<TData>(block_idx, exp, dataWarehouse)
+        : IProductWRTDerivBaseBlockOp<TFieldOut, TData>(block_idx, exp,
+                                                        dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -155,6 +158,7 @@ public:
         {
             const auto nqTot = m_nq[0];
             m_tmp0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+            m_tmp1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
         }
         else if (m_dimension == 2)
         {
@@ -187,15 +191,14 @@ public:
     static std::string className;
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
-    static std::unique_ptr<
-        ElmtBlockOp<FieldState::Phys, FieldState::Coeff, TData>>
+    static std::unique_ptr<ElmtBlockOp<FieldState::Phys, TFieldOut, TData>>
     Instantiate(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,
                 NekDataWarehouseSharedPtr dataWarehouse)
     {
-        return std::make_unique<
-            IProductWRTDerivBaseBlockOpImpl<ExecSpace, Implementation, TData>>(
-            block_idx, exp, dataWarehouse);
+        return std::make_unique<IProductWRTDerivBaseBlockOpImpl<
+            ExecSpace, Implementation, TFieldOut, TData>>(block_idx, exp,
+                                                          dataWarehouse);
     }
 
 protected:
@@ -231,7 +234,7 @@ protected:
 #endif
 
     void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
-                 BlockAccessor<TData, FieldState::Coeff> &outblock) override
+                 BlockAccessor<TData, TFieldOut> &outblock) override
     {
         WARNINGL1(
             m_warnOnce || (inblock.GetAlignment() % simd_t::alignment == 0 &&
@@ -310,39 +313,39 @@ protected:
     }
 
     void SegBlock(BlockAccessor<TData, FieldState::Phys> &inblock,
-                  BlockAccessor<TData, FieldState::Coeff> &outblock);
+                  BlockAccessor<TData, TFieldOut> &outblock);
 
     void TriBlock(BlockAccessor<TData, FieldState::Phys> &inblock,
-                  BlockAccessor<TData, FieldState::Coeff> &outblock);
+                  BlockAccessor<TData, TFieldOut> &outblock);
 
     void NodalTriBlock(BlockAccessor<TData, FieldState::Phys> &inblock,
-                       BlockAccessor<TData, FieldState::Coeff> &outblock);
+                       BlockAccessor<TData, TFieldOut> &outblock);
 
     void QuadBlock(BlockAccessor<TData, FieldState::Phys> &inblock,
-                   BlockAccessor<TData, FieldState::Coeff> &outblock);
+                   BlockAccessor<TData, TFieldOut> &outblock);
 
     void HexBlock(BlockAccessor<TData, FieldState::Phys> &inblock,
-                  BlockAccessor<TData, FieldState::Coeff> &outblock);
+                  BlockAccessor<TData, TFieldOut> &outblock);
 
     void NodalPrismBlock(BlockAccessor<TData, FieldState::Phys> &inblock,
-                         BlockAccessor<TData, FieldState::Coeff> &outblock);
+                         BlockAccessor<TData, TFieldOut> &outblock);
 
     void PrismBlock(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, FieldState::Coeff> &outblock);
+                    BlockAccessor<TData, TFieldOut> &outblock);
 
     void PyrBlock(BlockAccessor<TData, FieldState::Phys> &inblock,
-                  BlockAccessor<TData, FieldState::Coeff> &outblock);
+                  BlockAccessor<TData, TFieldOut> &outblock);
 
     void TetBlock(BlockAccessor<TData, FieldState::Phys> &inblock,
-                  BlockAccessor<TData, FieldState::Coeff> &outblock);
+                  BlockAccessor<TData, TFieldOut> &outblock);
 
     void NodalTetBlock(BlockAccessor<TData, FieldState::Phys> &inblock,
-                       BlockAccessor<TData, FieldState::Coeff> &outblock);
+                       BlockAccessor<TData, TFieldOut> &outblock);
 
-    // Non-size based operator.
+    // Non-size based operator Coeff output
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator1D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, FieldState::Coeff> &outblock)
+                    BlockAccessor<TData, TFieldOut> &outblock)
     {
         Operator1D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_nm[0], m_nq[0]);
     }
@@ -351,7 +354,7 @@ protected:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               unsigned int nm0, unsigned int nq0>
     void Operator1D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, FieldState::Coeff> &outblock)
+                    BlockAccessor<TData, TFieldOut> &outblock)
     {
         Operator1D<SHAPE_TYPE, DEFORMED>(inblock, outblock, nm0, nq0);
     }
@@ -359,8 +362,8 @@ protected:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     NEK_FORCE_INLINE void Operator1D(
         BlockAccessor<TData, FieldState::Phys> &inblock,
-        BlockAccessor<TData, FieldState::Coeff> &outblock,
-        const unsigned int nm0, const unsigned int nq0)
+        BlockAccessor<TData, TFieldOut> &outblock,
+        [[maybe_unused]] const unsigned int nm0, const unsigned int nq0)
     {
         unsigned int jacSize = 1;
         if constexpr (DEFORMED)
@@ -369,15 +372,21 @@ protected:
         }
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr    = inblock.template GetPtr<MemSpace, ReadOnly>();
+        auto outptr   = (this->m_append)
+                            ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                            : outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto outndata = outblock.GetNumData();
 
         // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
+        const auto width_ratio =
+            (inInterleaveWidth == 1)
+                ? 1
+                : inInterleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, inInterleaveWidth);
 
         // Loop over components.
         const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
@@ -397,19 +406,67 @@ protected:
                     for (unsigned int k = 0; k < m_coordDim; ++k)
                     {
                         ReshapeStorage<ExecSpace>(
-                            m_implInterleaveWidth, interleaveWidth, chunkSize,
+                            m_implInterleaveWidth, inInterleaveWidth, chunkSize,
                             nq0, (TData *)(inptr + k * inoffset));
                     }
                 }
-
                 StdAlignDerivBase1D<DEFORMED>(
                     nq0, m_coordDim, reinterpret_cast<const simd_t *>(dfptr),
                     m_df, inoffset_vec, reinterpret_cast<const simd_t *>(inptr),
-                    m_tmp0.data());
-                IProductSegKernel<false, false, DEFORMED>(
-                    nm0, nq0, m_tmp0.data(), m_DB[0], m_W[0],
-                    reinterpret_cast<const simd_t *>(jacptr),
-                    reinterpret_cast<simd_t *>(outptr));
+                    m_tmp0.data(), reinterpret_cast<const simd_t *>(jacptr),
+                    m_W[0]);
+                SumDerivTensor1DKernel<false>(nq0, m_tmp0.data(), m_D[0],
+                                              m_tmp1.data());
+
+                if constexpr (TFieldOut == FieldState::Phys)
+                {
+                    simd_t *vecout = reinterpret_cast<simd_t *>(outptr);
+                    if (this->m_append)
+                    {
+                        // Reshape, if necessary.
+                        if (e % width_ratio == 0)
+                        {
+                            ReshapeStorage<ExecSpace>(
+                                m_implInterleaveWidth, outInterleaveWidth,
+                                chunkSize, nq0, (TData *)outptr);
+                        }
+
+                        for (unsigned i = 0; i < nq0; ++i)
+                        {
+                            vecout[i] += this->m_scale * m_tmp1[i];
+                        }
+                    }
+                    else
+                    {
+                        for (unsigned i = 0; i < nq0; ++i)
+                        {
+                            vecout[i] = this->m_scale * m_tmp1[i];
+                        }
+                    }
+                }
+                else
+                {
+                    if (this->m_append)
+                    {
+                        // Reshape, if necessary.
+                        if (e % width_ratio == 0)
+                        {
+                            ReshapeStorage<ExecSpace>(
+                                m_implInterleaveWidth, outInterleaveWidth,
+                                chunkSize, nq0, (TData *)outptr);
+                        }
+
+                        IProductSegKernel<true, true>(
+                            nm0, nq0, m_tmp1.data(), m_B[0],
+                            reinterpret_cast<simd_t *>(outptr), this->m_scale);
+                    }
+                    else
+                    {
+                        IProductSegKernel<true, false>(
+                            nm0, nq0, m_tmp1.data(), m_B[0],
+                            reinterpret_cast<simd_t *>(outptr), this->m_scale);
+                    }
+                }
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
@@ -417,7 +474,7 @@ protected:
                     for (unsigned int k = 0; k < m_coordDim; ++k)
                     {
                         ReshapeStorage<ExecSpace>(
-                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                             nq0,
                             (TData *)inptr +
                                 k * inblock.CompSize() *
@@ -425,14 +482,15 @@ protected:
                                 (width_ratio - 1) * nq0 * simd_t::width);
                     }
                     ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize, nm0,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
+                        outndata,
                         (TData *)outptr -
-                            (width_ratio - 1) * nm0 * simd_t::width);
+                            (width_ratio - 1) * outndata * simd_t::width);
                 }
 
                 // Increment pointers for the next elmt group.
                 inptr += nq0 * simd_t::width;
-                outptr += nm0 * simd_t::width;
+                outptr += outndata * simd_t::width;
                 jacptr += jacSize * simd_t::width;
                 dfptr += jacSize * m_coordDim * simd_t::width;
             }
@@ -446,13 +504,13 @@ protected:
         }
 
         // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
     }
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator2D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, FieldState::Coeff> &outblock)
+                    BlockAccessor<TData, TFieldOut> &outblock)
     {
         Operator2D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_nm[0], m_nm[1],
                                          m_nq[0], m_nq[1]);
@@ -463,7 +521,7 @@ protected:
               unsigned int nm0, unsigned int nm1, unsigned int nq0,
               unsigned int nq1>
     void Operator2D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, FieldState::Coeff> &outblock)
+                    BlockAccessor<TData, TFieldOut> &outblock)
     {
         Operator2D<SHAPE_TYPE, DEFORMED>(inblock, outblock, nm0, nm1, nq0, nq1);
     }
@@ -471,13 +529,12 @@ protected:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     NEK_FORCE_INLINE void Operator2D(
         BlockAccessor<TData, FieldState::Phys> &inblock,
-        BlockAccessor<TData, FieldState::Coeff> &outblock,
-        const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
+        BlockAccessor<TData, TFieldOut> &outblock,
+        [[maybe_unused]] const unsigned int nm0,
+        [[maybe_unused]] const unsigned int nm1, const unsigned int nq0,
         const unsigned int nq1)
     {
         // Shape size.
-        const auto nmTot =
-            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
         const auto nqTot = nq0 * nq1;
 
         const auto ndf       = 2u * m_coordDim;
@@ -488,8 +545,11 @@ protected:
         }
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr    = inblock.template GetPtr<MemSpace, ReadOnly>();
+        auto outptr   = (this->m_append)
+                            ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                            : outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto outndata = outblock.GetNumData();
 
         // Workspace for kernels.
         simd_t *tmpPtr[2];
@@ -497,11 +557,14 @@ protected:
         tmpPtr[1] = m_tmp1.data();
 
         // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
+        const auto width_ratio =
+            (inInterleaveWidth == 1)
+                ? 1
+                : inInterleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, inInterleaveWidth);
 
         // Loop over components.
         const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
@@ -521,7 +584,7 @@ protected:
                     for (unsigned int k = 0; k < m_coordDim; ++k)
                     {
                         ReshapeStorage<ExecSpace>(
-                            m_implInterleaveWidth, interleaveWidth, chunkSize,
+                            m_implInterleaveWidth, inInterleaveWidth, chunkSize,
                             nqTot, (TData *)(inptr + k * inoffset));
                     }
                 }
@@ -534,10 +597,59 @@ protected:
                     m_W[1]);
                 SumDerivTensor2DKernel<false>(nq0, nq1, tmpPtr[0], tmpPtr[1],
                                               m_D[0], m_D[1], m_tmp2.data());
-                IProduct2DKernel<SHAPE_TYPE, false, false>(
-                    nm0, nm1, nq0, nq1, m_isModified, m_tmp2.data(), m_B[0],
-                    m_B[1], m_nodToModTrans, m_wsp0.data(),
-                    reinterpret_cast<simd_t *>(outptr));
+
+                if constexpr (TFieldOut == FieldState::Phys)
+                {
+                    simd_t *vecout = reinterpret_cast<simd_t *>(outptr);
+
+                    if (this->m_append)
+                    {
+                        // Reshape, if necessary.
+                        if (e % width_ratio == 0)
+                        {
+                            ReshapeStorage<ExecSpace>(
+                                m_implInterleaveWidth, outInterleaveWidth,
+                                chunkSize, nqTot, (TData *)outptr);
+                        }
+
+                        for (unsigned i = 0; i < nqTot; ++i)
+                        {
+                            vecout[i] += this->m_scale * m_tmp2[i];
+                        }
+                    }
+                    else
+                    {
+                        for (unsigned i = 0; i < nqTot; ++i)
+                        {
+                            vecout[i] = this->m_scale * m_tmp2[i];
+                        }
+                    }
+                }
+                else
+                {
+                    if (this->m_append)
+                    {
+                        // Reshape, if necessary.
+                        if (e % width_ratio == 0)
+                        {
+                            ReshapeStorage<ExecSpace>(
+                                m_implInterleaveWidth, outInterleaveWidth,
+                                chunkSize, nqTot, (TData *)outptr);
+                        }
+
+                        IProduct2DKernel<SHAPE_TYPE, true, true>(
+                            nm0, nm1, nq0, nq1, m_isModified, m_tmp2.data(),
+                            m_B[0], m_B[1], m_nodToModTrans, m_wsp0.data(),
+                            reinterpret_cast<simd_t *>(outptr), this->m_scale);
+                    }
+                    else
+                    {
+                        IProduct2DKernel<SHAPE_TYPE, true, false>(
+                            nm0, nm1, nq0, nq1, m_isModified, m_tmp2.data(),
+                            m_B[0], m_B[1], m_nodToModTrans, m_wsp0.data(),
+                            reinterpret_cast<simd_t *>(outptr), this->m_scale);
+                    }
+                }
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
@@ -545,21 +657,21 @@ protected:
                     for (unsigned int k = 0; k < m_coordDim; ++k)
                     {
                         ReshapeStorage<ExecSpace>(
-                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                             nqTot,
                             (TData *)inptr + k * inoffset -
                                 (width_ratio - 1) * nqTot * simd_t::width);
                     }
                     ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nmTot,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
+                        outndata,
                         (TData *)outptr -
-                            (width_ratio - 1) * nmTot * simd_t::width);
+                            (width_ratio - 1) * outndata * simd_t::width);
                 }
 
                 // Increment pointers for the next elmt group.
                 inptr += nqTot * simd_t::width;
-                outptr += nmTot * simd_t::width;
+                outptr += outndata * simd_t::width;
                 jacptr += jacSize * simd_t::width;
                 dfptr += jacSize * ndf * simd_t::width;
             }
@@ -573,13 +685,13 @@ protected:
         }
 
         // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
     }
 
-    // Non-size based operator.
+    // Non-size based operator with Coeff output
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator3D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, FieldState::Coeff> &outblock)
+                    BlockAccessor<TData, TFieldOut> &outblock)
     {
         Operator3D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_nm[0], m_nm[1],
                                          m_nm[2], m_nq[0], m_nq[1], m_nq[2]);
@@ -590,7 +702,7 @@ protected:
               unsigned int nm0, unsigned int nm1, unsigned int nm2,
               unsigned int nq0, unsigned int nq1, unsigned int nq2>
     void Operator3D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, FieldState::Coeff> &outblock)
+                    BlockAccessor<TData, TFieldOut> &outblock)
     {
         Operator3D<SHAPE_TYPE, DEFORMED>(inblock, outblock, nm0, nm1, nm2, nq0,
                                          nq1, nq2);
@@ -599,13 +711,13 @@ protected:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     NEK_FORCE_INLINE void Operator3D(
         BlockAccessor<TData, FieldState::Phys> &inblock,
-        BlockAccessor<TData, FieldState::Coeff> &outblock,
-        const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-        const unsigned int nq0, const unsigned int nq1, const unsigned int nq2)
+        BlockAccessor<TData, TFieldOut> &outblock,
+        [[maybe_unused]] const unsigned int nm0,
+        [[maybe_unused]] const unsigned int nm1,
+        [[maybe_unused]] const unsigned int nm2, const unsigned int nq0,
+        const unsigned int nq1, const unsigned int nq2)
     {
         // Shape size.
-        const auto nmTot =
-            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
         const auto nqTot = nq0 * nq1 * nq2;
 
         constexpr unsigned int ndf = 9u;
@@ -616,8 +728,11 @@ protected:
         }
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr    = inblock.template GetPtr<MemSpace, ReadOnly>();
+        auto outptr   = (this->m_append)
+                            ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                            : outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto outndata = outblock.GetNumData();
 
         // Workspace for kernels.
         simd_t *tmpPtr[3];
@@ -626,11 +741,14 @@ protected:
         tmpPtr[2] = m_tmp2.data();
 
         // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
+        const auto width_ratio =
+            (inInterleaveWidth == 1)
+                ? 1
+                : inInterleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, inInterleaveWidth);
 
         // Loop over components.
         for (unsigned int n = 0; n < outblock.GetNumComponents(); ++n)
@@ -646,7 +764,7 @@ protected:
                     for (unsigned int k = 0; k < 3; ++k)
                     {
                         ReshapeStorage<ExecSpace>(
-                            m_implInterleaveWidth, interleaveWidth, chunkSize,
+                            m_implInterleaveWidth, inInterleaveWidth, chunkSize,
                             nqTot, (TData *)(inptr + k * inblock.CompSize()));
                     }
                 }
@@ -661,11 +779,62 @@ protected:
                 SumDerivTensor3DKernel<false>(nq0, nq1, nq2, tmpPtr[0],
                                               tmpPtr[1], tmpPtr[2], m_D[0],
                                               m_D[1], m_D[2], m_tmp3.data());
-                IProduct3DKernel<SHAPE_TYPE, false, false>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, m_tmp3.data(),
-                    m_B[0], m_B[1], m_B[2], m_nodToModTrans, m_wsp0.data(),
-                    m_wsp1.data(), m_wsp2.data(),
-                    reinterpret_cast<simd_t *>(outptr));
+
+                if constexpr (TFieldOut == FieldState::Phys)
+                {
+                    simd_t *vecout = reinterpret_cast<simd_t *>(outptr);
+                    if (this->m_append)
+                    {
+                        // Reshape, if necessary.
+                        if (e % width_ratio == 0)
+                        {
+                            ReshapeStorage<ExecSpace>(
+                                m_implInterleaveWidth, outInterleaveWidth,
+                                chunkSize, nqTot, (TData *)outptr);
+                        }
+
+                        for (unsigned i = 0; i < nqTot; ++i)
+                        {
+                            vecout[i] += this->m_scale * m_tmp3[i];
+                        }
+                    }
+                    else
+                    {
+                        for (unsigned i = 0; i < nqTot; ++i)
+                        {
+                            vecout[i] = this->m_scale * m_tmp3[i];
+                        }
+                    }
+                }
+                else
+                {
+                    if (this->m_append)
+                    {
+                        // Reshape, if necessary.
+                        if (e % width_ratio == 0)
+                        {
+                            ReshapeStorage<ExecSpace>(
+                                m_implInterleaveWidth, outInterleaveWidth,
+                                chunkSize, nqTot, (TData *)outptr);
+                        }
+
+                        IProduct3DKernel<SHAPE_TYPE, true, true>(
+                            nm0, nm1, nm2, nq0, nq1, nq2, m_isModified,
+                            m_tmp3.data(), m_B[0], m_B[1], m_B[2],
+                            m_nodToModTrans, m_wsp0.data(), m_wsp1.data(),
+                            m_wsp2.data(), reinterpret_cast<simd_t *>(outptr),
+                            this->m_scale);
+                    }
+                    else
+                    {
+                        IProduct3DKernel<SHAPE_TYPE, true, false>(
+                            nm0, nm1, nm2, nq0, nq1, nq2, m_isModified,
+                            m_tmp3.data(), m_B[0], m_B[1], m_B[2],
+                            m_nodToModTrans, m_wsp0.data(), m_wsp1.data(),
+                            m_wsp2.data(), reinterpret_cast<simd_t *>(outptr),
+                            this->m_scale);
+                    }
+                }
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
@@ -673,21 +842,22 @@ protected:
                     for (unsigned int k = 0; k < 3; ++k)
                     {
                         ReshapeStorage<ExecSpace>(
-                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                             nqTot,
                             (TData *)inptr + k * inblock.CompSize() -
                                 (width_ratio - 1) * nqTot * simd_t::width);
                     }
+
                     ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nmTot,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
+                        outndata,
                         (TData *)outptr -
-                            (width_ratio - 1) * nmTot * simd_t::width);
+                            (width_ratio - 1) * outndata * simd_t::width);
                 }
 
                 // Increment pointers for the next elmt group.
                 inptr += nqTot * simd_t::width;
-                outptr += nmTot * simd_t::width;
+                outptr += outndata * simd_t::width;
                 jacptr += jacSize * simd_t::width;
                 dfptr += jacSize * ndf * simd_t::width;
             }
@@ -698,7 +868,7 @@ protected:
         }
 
         // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
     }
 };
 

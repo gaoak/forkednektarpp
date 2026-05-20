@@ -54,6 +54,20 @@
         }                                                                      \
     }
 
+#define TEST_IPWRTDERIVBASEPHYS(test_name, test, tol)                          \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        Configure();                                                           \
+        SetTestCase();                                                         \
+        RunTestCaseApplyPhys();                                                \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
 #define TEST_IPWRTDERIVBASE3DH1(test_name, test, tol)                          \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
@@ -85,15 +99,19 @@
 BOOST_AUTO_TEST_SUITE(TestIProductWRTDerivBase)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+
+TEST_IPWRTDERIVBASEPHYS(ipwrtderivbase_seg_phys, Seg, 1.0E-12)
 TEST_IPWRTDERIVBASE(ipwrtderivbase_seg, Seg, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_seg_sem, SegSEM, 1.0E-12)
+TEST_IPWRTDERIVBASEPHYS(ipwrtderivbase_seg_sem_phys, SegSEM, 1.0E-12)
 
 // TEST_IPWRTDERIVBASE3DH2(ipwrtderivbase_seg_sem_3dh2, SegSEM, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_seg_3d, Seg3D, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_quad, Quad, 1.0E-12)
+TEST_IPWRTDERIVBASEPHYS(ipwrtderivbase_quad_phys, Quad, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_quad_3d, Quad3D, 1.0E-12)
 
@@ -104,6 +122,7 @@ TEST_IPWRTDERIVBASE(ipwrtderivbase_quad_sem, QuadSEM, 1.0E-12)
 TEST_IPWRTDERIVBASE(ipwrtderivbase_quad_varp, QuadVarP, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_tri, Tri, 1.0E-12)
+TEST_IPWRTDERIVBASEPHYS(ipwrtderivbase_tri_phys, Tri, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_tri_3d, Tri3D, 1.0E-12)
 
@@ -115,11 +134,14 @@ TEST_IPWRTDERIVBASE(ipwrtderivbase_tri_nodal, TriNodal, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_square_all_elements, SquareAllElements,
                     1.0E-12)
+TEST_IPWRTDERIVBASEPHYS(ipwrtderivbase_square_all_elements_phys,
+                        SquareAllElements, 1.0E-12)
 
 TEST_IPWRTDERIVBASE3DH1(ipwrtderivbase_square_all_elements_3dh1,
                         SquareAllElements, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_hex, Hex, 1.0E-12)
+TEST_IPWRTDERIVBASEPHYS(ipwrtderivbase_hex_phys, Hex, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_hex_sem, HexSEM, 1.0E-12)
 
@@ -142,8 +164,12 @@ TEST_IPWRTDERIVBASE(ipwrtderivbase_tet_varp, TetVarP, 1.0E-12)
 TEST_IPWRTDERIVBASE(ipwrtderivbase_tet_nodal, TetNodal, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_cube_prism_hex, CubePrismHex, 1.0E-12)
+TEST_IPWRTDERIVBASEPHYS(ipwrtderivbase_cube_prism_hex_phys, CubePrismHex,
+                        1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_cube_all_elements, CubeAllElements, 1.0E-12)
+TEST_IPWRTDERIVBASEPHYS(ipwrtderivbase_cube_all_elements_phys, CubeAllElements,
+                        1.0E-12)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()
