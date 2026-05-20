@@ -43,25 +43,29 @@ namespace Nektar::Operators
 
 // IProductWRTDerivBase base class
 // Defines the apply operator to enforce apply parameter types
-template <typename TData>
-class IProductWRTDerivBaseOp
-    : public ElmtOp<FieldState::Phys, FieldState::Coeff, TData>
+template <FieldState TFieldOut, typename TData>
+class IProductWRTDerivBaseOp : public ElmtOp<FieldState::Phys, TFieldOut, TData>
 {
-    friend class ElmtOp<FieldState::Phys, FieldState::Coeff, TData>;
+    template <typename TDataOp>
+    using TIProductWRTDerivBaseOp = IProductWRTDerivBaseOp<TFieldOut, TDataOp>;
+    template <typename TDataOp>
+    using TIProductWRTDerivBaseBlockOp =
+        IProductWRTDerivBaseBlockOp<TFieldOut, TDataOp>;
+    friend class ElmtOp<FieldState::Phys, TFieldOut, TData>;
 
 public:
-    static std::shared_ptr<IProductWRTDerivBaseOp<TData>> Create(
+    static std::shared_ptr<IProductWRTDerivBaseOp<TFieldOut, TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components,
         const std::string &execStr = "", const std::string &implStr = "")
     {
-        return ElmtOp<FieldState::Phys, FieldState::Coeff,
-                      TData>::template Create<IProductWRTDerivBaseOp,
-                                              IProductWRTDerivBaseBlockOp>(
+        return ElmtOp<FieldState::Phys, TFieldOut, TData>::template Create<
+            TIProductWRTDerivBaseOp, TIProductWRTDerivBaseBlockOp>(
             expansionList, components, execStr, implStr);
     }
 
-    static inline const std::string name = "IProductWRTDerivBase";
+    static inline const std::string name =
+        "IProductWRTDerivBase" + FieldStateToString<TFieldOut>();
 
     void SetAppend(bool append)
     {
@@ -72,26 +76,30 @@ public:
         }
     }
 
+    void SetScale(TData scale)
+    {
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
+        {
+            this->m_blockOp[blk]->SetScale(scale);
+        }
+    }
+
 protected:
-    std::vector<std::shared_ptr<IProductWRTDerivBaseBlockOp<TData>>> m_blockOp;
+    std::vector<std::shared_ptr<IProductWRTDerivBaseBlockOp<TFieldOut, TData>>>
+        m_blockOp;
 
     IProductWRTDerivBaseOp(const MultiRegions::ExpListSharedPtr &expansionList,
                            const std::vector<std::string> &components)
-        : ElmtOp<FieldState::Phys, FieldState::Coeff, TData>(expansionList,
-                                                             components)
+        : ElmtOp<FieldState::Phys, TFieldOut, TData>(expansionList, components)
     {
     }
 
     ~IProductWRTDerivBaseOp() override = default;
 
     void v_Apply(Field<TData, FieldState::Phys> &in,
-                 Field<TData, FieldState::Coeff> &out) override
+                 Field<TData, TFieldOut> &out) override
     {
-        ASSERTL1(out.GetNumComponents() ==
-                     in.GetNumComponents() /
-                         this->m_expansionList->GetCoordim(0),
-                 "Number of input and output components differ");
-
         ASSERTL1(in.GetNumHomoModes() == out.GetNumHomoModes(),
                  "Number of input and output homogeneous modes differ");
 

@@ -339,22 +339,42 @@ protected:
                                               (TData *)inptr);
                 }
 
-                // IProduct Kernel.
-                if (this->m_scale == 1.0)
+                if (this->m_integration)
                 {
-                    IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                        nm0, nq0, reinterpret_cast<const simd_t *>(inptr),
-                        m_B[0], m_W[0],
-                        reinterpret_cast<const simd_t *>(jacptr),
-                        reinterpret_cast<simd_t *>(outptr));
+                    // IProduct Kernel.
+                    if (this->m_scale == 1.0)
+                    {
+                        IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
+                            nm0, nq0, reinterpret_cast<const simd_t *>(inptr),
+                            m_B[0], m_W[0],
+                            reinterpret_cast<const simd_t *>(jacptr),
+                            reinterpret_cast<simd_t *>(outptr));
+                    }
+                    else
+                    {
+                        IProduct1DKernel<SHAPE_TYPE, true, false, DEFORMED>(
+                            nm0, nq0, reinterpret_cast<const simd_t *>(inptr),
+                            m_B[0], m_W[0],
+                            reinterpret_cast<const simd_t *>(jacptr),
+                            reinterpret_cast<simd_t *>(outptr), this->m_scale);
+                    }
                 }
                 else
                 {
-                    IProduct1DKernel<SHAPE_TYPE, true, false, DEFORMED>(
-                        nm0, nq0, reinterpret_cast<const simd_t *>(inptr),
-                        m_B[0], m_W[0],
-                        reinterpret_cast<const simd_t *>(jacptr),
-                        reinterpret_cast<simd_t *>(outptr), this->m_scale);
+                    // IProduct Kernel with no quadrature B^T op
+                    if (this->m_scale == 1.0)
+                    {
+                        IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
+                            nm0, nq0, reinterpret_cast<const simd_t *>(inptr),
+                            m_B[0], reinterpret_cast<simd_t *>(outptr));
+                    }
+                    else
+                    {
+                        IProduct1DKernel<SHAPE_TYPE, true, false, DEFORMED>(
+                            nm0, nq0, reinterpret_cast<const simd_t *>(inptr),
+                            m_B[0], reinterpret_cast<simd_t *>(outptr),
+                            this->m_scale);
+                    }
                 }
 
                 // Reshape back, if necessary.
@@ -450,23 +470,46 @@ protected:
                 }
 
                 // IProduct Kernel.
-                if (this->m_scale == 1.0)
+                if (this->m_integration)
                 {
-                    IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                        nm0, nm1, nq0, nq1, m_isModified,
-                        reinterpret_cast<const simd_t *>(inptr), m_B[0], m_B[1],
-                        m_W[0], m_W[1], m_nodToModTrans,
-                        reinterpret_cast<const simd_t *>(jacptr), m_wsp0.data(),
-                        reinterpret_cast<simd_t *>(outptr));
+                    if (this->m_scale == 1.0)
+                    {
+                        IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
+                            nm0, nm1, nq0, nq1, m_isModified,
+                            reinterpret_cast<const simd_t *>(inptr), m_B[0],
+                            m_B[1], m_W[0], m_W[1], m_nodToModTrans,
+                            reinterpret_cast<const simd_t *>(jacptr),
+                            m_wsp0.data(), reinterpret_cast<simd_t *>(outptr));
+                    }
+                    else
+                    {
+                        IProduct2DKernel<SHAPE_TYPE, true, false, DEFORMED>(
+                            nm0, nm1, nq0, nq1, m_isModified,
+                            reinterpret_cast<const simd_t *>(inptr), m_B[0],
+                            m_B[1], m_W[0], m_W[1], m_nodToModTrans,
+                            reinterpret_cast<const simd_t *>(jacptr),
+                            m_wsp0.data(), reinterpret_cast<simd_t *>(outptr),
+                            this->m_scale);
+                    }
                 }
                 else
                 {
-                    IProduct2DKernel<SHAPE_TYPE, true, false, DEFORMED>(
-                        nm0, nm1, nq0, nq1, m_isModified,
-                        reinterpret_cast<const simd_t *>(inptr), m_B[0], m_B[1],
-                        m_W[0], m_W[1], m_nodToModTrans,
-                        reinterpret_cast<const simd_t *>(jacptr), m_wsp0.data(),
-                        reinterpret_cast<simd_t *>(outptr), this->m_scale);
+                    if (this->m_scale == 1.0)
+                    {
+                        IProduct2DKernel<SHAPE_TYPE, false, false>(
+                            nm0, nm1, nq0, nq1, m_isModified,
+                            reinterpret_cast<const simd_t *>(inptr), m_B[0],
+                            m_B[1], m_nodToModTrans, m_wsp0.data(),
+                            reinterpret_cast<simd_t *>(outptr));
+                    }
+                    else
+                    {
+                        IProduct2DKernel<SHAPE_TYPE, true, false>(
+                            nm0, nm1, nq0, nq1, m_isModified,
+                            reinterpret_cast<const simd_t *>(inptr), m_B[0],
+                            m_B[1], m_nodToModTrans, m_wsp0.data(),
+                            reinterpret_cast<simd_t *>(outptr), this->m_scale);
+                    }
                 }
 
                 // Reshape back, if necessary.
@@ -561,28 +604,52 @@ protected:
                                               (TData *)inptr);
                 }
 
-                // IProduct Kernel.
-                if (this->m_scale == 1.0)
+                if (this->m_integration)
                 {
-                    IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                        nm0, nm1, nm2, nq0, nq1, nq2, m_isModified,
-                        reinterpret_cast<const simd_t *>(inptr), m_B[0], m_B[1],
-                        m_B[2], m_W[0], m_W[1], m_W[2], m_nodToModTrans,
-                        reinterpret_cast<const simd_t *>(jacptr), m_wsp0.data(),
-                        m_wsp1.data(), m_wsp2.data(),
-                        reinterpret_cast<simd_t *>(outptr));
+                    if (this->m_scale == 1.0)
+                    {
+                        IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
+                            nm0, nm1, nm2, nq0, nq1, nq2, m_isModified,
+                            reinterpret_cast<const simd_t *>(inptr), m_B[0],
+                            m_B[1], m_B[2], m_W[0], m_W[1], m_W[2],
+                            m_nodToModTrans,
+                            reinterpret_cast<const simd_t *>(jacptr),
+                            m_wsp0.data(), m_wsp1.data(), m_wsp2.data(),
+                            reinterpret_cast<simd_t *>(outptr));
+                    }
+                    else
+                    {
+                        IProduct3DKernel<SHAPE_TYPE, true, false, DEFORMED>(
+                            nm0, nm1, nm2, nq0, nq1, nq2, m_isModified,
+                            reinterpret_cast<const simd_t *>(inptr), m_B[0],
+                            m_B[1], m_B[2], m_W[0], m_W[1], m_W[2],
+                            m_nodToModTrans,
+                            reinterpret_cast<const simd_t *>(jacptr),
+                            m_wsp0.data(), m_wsp1.data(), m_wsp2.data(),
+                            reinterpret_cast<simd_t *>(outptr), this->m_scale);
+                    }
                 }
                 else
                 {
-                    IProduct3DKernel<SHAPE_TYPE, true, false, DEFORMED>(
-                        nm0, nm1, nm2, nq0, nq1, nq2, m_isModified,
-                        reinterpret_cast<const simd_t *>(inptr), m_B[0], m_B[1],
-                        m_B[2], m_W[0], m_W[1], m_W[2], m_nodToModTrans,
-                        reinterpret_cast<const simd_t *>(jacptr), m_wsp0.data(),
-                        m_wsp1.data(), m_wsp2.data(),
-                        reinterpret_cast<simd_t *>(outptr), this->m_scale);
+                    if (this->m_scale == 1.0)
+                    {
+                        IProduct3DKernel<SHAPE_TYPE, false, false>(
+                            nm0, nm1, nm2, nq0, nq1, nq2, m_isModified,
+                            reinterpret_cast<const simd_t *>(inptr), m_B[0],
+                            m_B[1], m_B[2], m_nodToModTrans, m_wsp0.data(),
+                            m_wsp1.data(), m_wsp2.data(),
+                            reinterpret_cast<simd_t *>(outptr));
+                    }
+                    else
+                    {
+                        IProduct3DKernel<SHAPE_TYPE, true, false>(
+                            nm0, nm1, nm2, nq0, nq1, nq2, m_isModified,
+                            reinterpret_cast<const simd_t *>(inptr), m_B[0],
+                            m_B[1], m_B[2], m_nodToModTrans, m_wsp0.data(),
+                            m_wsp1.data(), m_wsp2.data(),
+                            reinterpret_cast<simd_t *>(outptr), this->m_scale);
+                    }
                 }
-
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {

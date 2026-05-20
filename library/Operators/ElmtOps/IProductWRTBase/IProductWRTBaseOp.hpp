@@ -71,6 +71,15 @@ public:
         }
     }
 
+    void SetIntegration(bool value)
+    {
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
+        {
+            this->m_blockOp[blk]->SetIntegration(value);
+        }
+    }
+
 protected:
     std::vector<std::shared_ptr<IProductWRTBaseBlockOp<TData>>> m_blockOp;
 

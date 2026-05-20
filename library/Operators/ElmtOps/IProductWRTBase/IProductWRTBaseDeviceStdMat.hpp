@@ -80,6 +80,10 @@ public:
         // Fetch Jacobian.
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+
+        m_BT_matptr =
+            dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
+                basisKeys, m_shapeType, eBwdTransStdMatTranspose, nodalType));
     }
 
     // className - for BlockOperatorFactory
@@ -108,6 +112,7 @@ protected:
     unsigned int m_nqTot;
     const TData *m_matptr;
     const TData *m_jacptr;
+    const TData *m_BT_matptr;
 
     void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
                  BlockAccessor<TData, FieldState::Coeff> &outblock) override
@@ -139,24 +144,34 @@ protected:
                                       nelmtTot, inblock.GetNumData(),
                                       (TData *)inptr);
 
-            // Multiply by jacobian.
-            if (m_isDeformed)
+            if (this->m_integration) // integration with weights
             {
-                MultiplyByJacobian<ExecSpace, true>(nelmt, m_nqTot, nhomo,
-                                                    m_jacptr, inptr, wspptr,
-                                                    this->m_scale);
+                // Multiply by jacobian.
+                if (m_isDeformed)
+                {
+                    MultiplyByJacobian<ExecSpace, true>(nelmt, m_nqTot, nhomo,
+                                                        m_jacptr, inptr, wspptr,
+                                                        this->m_scale);
+                }
+                else
+                {
+                    MultiplyByJacobian<ExecSpace, false>(nelmt, m_nqTot, nhomo,
+                                                         m_jacptr, inptr,
+                                                         wspptr, this->m_scale);
+                }
+
+                // Perform matrix-matrix multiply.
+                NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot,
+                        (TData)1.0, m_matptr, m_nmTot, wspptr, m_nqTot,
+                        (TData)0.0, outptr, m_nmTot);
             }
             else
             {
-                MultiplyByJacobian<ExecSpace, false>(nelmt, m_nqTot, nhomo,
-                                                     m_jacptr, inptr, wspptr,
-                                                     this->m_scale);
+                // Just perform matrix-matrix multiply of B^T
+                NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot,
+                        this->m_scale, m_BT_matptr, m_nmTot, inptr, m_nqTot,
+                        (TData)0.0, outptr, m_nmTot);
             }
-
-            // Perform matrix-matrix multiply.
-            NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, (TData)1.0,
-                    m_matptr, m_nmTot, wspptr, m_nqTot, (TData)0.0, outptr,
-                    m_nmTot);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,

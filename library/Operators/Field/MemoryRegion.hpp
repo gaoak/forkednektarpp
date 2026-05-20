@@ -53,6 +53,18 @@ enum class FieldState
     Coeff
 };
 
+template <FieldState TFieldState> std::string FieldStateToString(void)
+{
+    if constexpr (TFieldState == FieldState::Coeff)
+    {
+        return "Coeff";
+    }
+    else if constexpr (TFieldState == FieldState::Phys)
+    {
+        return "Phys";
+    }
+}
+
 // Memory access qualifier
 struct ReadOnly
 {

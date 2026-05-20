@@ -151,7 +151,8 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction1DSumFacTOPKernel(
         ApplyMetric1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, nq0, w0, dfptr,
                                                jacptr, coeff, deriv, deriv, bwd,
                                                (TData)1.0, threadBlock);
-        SumDerivTensor1DSumFacTOPKernel<true>(nq0, D0, deriv, bwd, threadBlock);
+        SumDerivTensor1DSumFacTOPKernel<false, true>(nq0, D0, deriv, bwd,
+                                                     (TData)1.0, threadBlock);
         IProductWRTBaseSegSumFacTOPKernel<false, false>(
             nm0, nq0, basis0, bwd, outptr, (TData)1.0, threadBlock);
 
@@ -276,8 +277,8 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction2DSumFacTOPKernel(
                 ncoord, nq0, nq1, nqTot, w0, w1, f0, f1, dfptr, jacptr, coeff,
                 deriv, deriv0, deriv1, metric, bwd, (TData)1.0, threadBlock);
         }
-        SumDerivTensor2DSumFacTOPKernel<true>(nq0, nq1, D0, D1, deriv0, deriv1,
-                                              bwd, threadBlock);
+        SumDerivTensor2DSumFacTOPKernel<false, true>(
+            nq0, nq1, D0, D1, deriv0, deriv1, bwd, (TData)1.0, threadBlock);
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
             IProductWRTBaseQuadSumFacTOPKernel<false, false>(
@@ -474,8 +475,9 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction3DSumFacTOPKernel(
                 jacptr, coeff, deriv, deriv0, deriv1, deriv2, metric, bwd,
                 (TData)1.0, threadBlock);
         }
-        SumDerivTensor3DSumFacTOPKernel<true>(nq0, nq1, nq2, D0, D1, D2, deriv0,
-                                              deriv1, deriv2, bwd, threadBlock);
+        SumDerivTensor3DSumFacTOPKernel<false, true>(
+            nq0, nq1, nq2, D0, D1, D2, deriv0, deriv1, deriv2, bwd, (TData)1.0,
+            threadBlock);
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
             IProductWRTBaseHexSumFacTOPKernel<false, false>(

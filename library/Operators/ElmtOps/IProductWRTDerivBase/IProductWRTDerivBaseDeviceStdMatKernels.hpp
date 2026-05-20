@@ -37,7 +37,7 @@
 #include "Operators/LoopExecution/LoopExecution.hpp"
 
 template <typename ExecSpace, bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static void MultiplyByJacobianAndDerivFactorKernel(
+NEK_FORCE_INLINE static void JacobianDerivFactorKernel(
     const unsigned int nqTot, const unsigned int ncoord,
     const unsigned int dimension, const size_t nelmt, const unsigned int nhomo,
     const size_t inoffset, const size_t outoffset, const TData *jacptr,
@@ -88,6 +88,68 @@ NEK_FORCE_INLINE static void MultiplyByJacobianAndDerivFactorKernel(
                 for (unsigned int d = 0; d < dimension; d++)
                 {
                     outptr[d * outoffset + idx] = tmp[d] * jacptr[e];
+                }
+            });
+    }
+}
+
+template <typename ExecSpace, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static void JacobianDerivFactorWeightsKernel(
+    const unsigned int nqTot, const unsigned int ncoord,
+    const unsigned int dimension, const size_t nelmt, const unsigned int nhomo,
+    const size_t inoffset, const size_t outoffset, const TData *jacptr,
+    const TData *dfptr, const TData *weights, const TData *inptr, TData *outptr)
+{
+    const auto ndf   = ncoord * dimension;
+    const auto nsize = nqTot * nelmt * nhomo;
+
+    if constexpr (DEFORMED)
+    {
+        Nektar::parallel_for<ExecSpace>(
+            0, nsize, NEKTAR_LAMBDA(const size_t idx) {
+                size_t idx0 = idx % (nelmt * nqTot);
+                size_t e    = idx0 / nqTot;
+                size_t i    = idx0 % nqTot;
+                TData tmp[3];
+                for (unsigned int d = 0; d < dimension; d++)
+                {
+                    tmp[d] = dfptr[(ndf - 1) * nqTot * e + nqTot * d + idx0] *
+                             inptr[idx];
+                    for (unsigned int k = 1; k < ncoord; ++k)
+                    {
+                        tmp[d] += dfptr[(ndf - 1) * nqTot * e +
+                                        nqTot * (k * dimension + d) + idx0] *
+                                  inptr[idx + k * inoffset];
+                    }
+                }
+                auto wj = jacptr[idx0] * weights[i];
+                for (unsigned int d = 0; d < dimension; d++)
+                {
+                    outptr[d * outoffset + idx] = tmp[d] * wj;
+                }
+            });
+    }
+    else
+    {
+        Nektar::parallel_for<ExecSpace>(
+            0, nsize, NEKTAR_LAMBDA(const size_t idx) {
+                size_t idx0 = idx % (nelmt * nqTot);
+                size_t e    = idx0 / nqTot;
+                size_t i    = idx0 % nqTot;
+                TData tmp[3];
+                for (unsigned int d = 0; d < dimension; d++)
+                {
+                    tmp[d] = dfptr[(ndf * e + d)] * inptr[idx];
+                    for (unsigned int k = 1; k < ncoord; ++k)
+                    {
+                        tmp[d] += dfptr[(ndf * e + k * dimension + d)] *
+                                  inptr[idx + k * inoffset];
+                    }
+                }
+                auto wj = jacptr[e] * weights[i];
+                for (unsigned int d = 0; d < dimension; d++)
+                {
+                    outptr[d * outoffset + idx] = tmp[d] * wj;
                 }
             });
     }

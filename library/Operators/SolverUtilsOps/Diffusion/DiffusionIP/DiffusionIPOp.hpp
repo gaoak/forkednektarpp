@@ -55,6 +55,11 @@ public:
 
     static inline const std::string name = "DiffusionIP";
 
+    void SetAppend(const bool &append)
+    {
+        v_SetAppend(append);
+    }
+
 protected:
     DiffusionIPOp(const MultiRegions::ExpListSharedPtr &expansionList,
                   const std::vector<std::string> &components)
@@ -83,6 +88,8 @@ protected:
     }
 
     ~DiffusionIPOp() override = default;
+
+    virtual void v_SetAppend(const bool &append) = 0;
 
     double m_gamma            = 1.4;
     double m_prandtl          = 0.72;

@@ -39,11 +39,33 @@
 
 namespace Nektar::Operators::detail
 {
+// FieldState::Coeff output case
 template <>
 void IProductWRTDerivBaseBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::@Impl@,
-                                      @TData@>::@Shape@Block
+                                     FieldState::Coeff, @TData@>::@Shape@Block
                 (BlockAccessor<@TData@, FieldState::Phys> &inblock, 
                  BlockAccessor<@TData@, FieldState::Coeff> &outblock)
+{
+    // The following will use predefined code found in the Operators/Common
+    // directory to import boost_pp code to make wrapper code to call
+    // Operator1D methods for Segs, Operator2D method for Tris and Quads and
+    // Operator3D otherwise
+    //
+    // To see the full code from this macros,  Compile the .cpp file with make
+    // VERBOSE=1 copy the full compile command and add in --preprocess after the
+    // c++ command then you can view the file in the file output after the -o
+    // option in the compile line.
+    
+#define SHAPE_TYPE_@Shape@
+#include "@CMAKE_CURRENT_BINARY_DIR@/BlockOpSwitchCode@Shape@.h"
+}
+
+// FieldState::Phys output case
+template <>
+void IProductWRTDerivBaseBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::@Impl@,
+                          FieldState::Phys, @TData@>::@Shape@Block
+                (BlockAccessor<@TData@, FieldState::Phys> &inblock, 
+                 BlockAccessor<@TData@, FieldState::Phys> &outblock)
 {
     // The following will use predefined code found in the Operators/Common
     // directory to import boost_pp code to make wrapper code to call

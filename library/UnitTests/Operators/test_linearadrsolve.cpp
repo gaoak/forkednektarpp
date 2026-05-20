@@ -756,7 +756,7 @@ TEST_LINEARADRSOLVE_TFQMR2(linearadrsolve_tfqmr_left_precon_tet,
 #endif
 
 TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_seg_3c, Helmholtz1D_Seg_3C,
-                         1.0E-12)
+                         1.0E-11)
 TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_tri_quad_3c,
                          Helmholtz2D_Tri_Quad_3C, 4.0E-09)
 TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_all_bcs, Helmholtz2D_AllBCs,

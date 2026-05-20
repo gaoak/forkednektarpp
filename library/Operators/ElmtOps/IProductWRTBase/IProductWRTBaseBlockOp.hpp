@@ -62,8 +62,14 @@ public:
         m_scale = scale;
     }
 
+    void SetIntegration(bool value)
+    {
+        m_integration = value;
+    }
+
 protected:
-    TData m_scale = 1.0;
+    TData m_scale      = 1.0;
+    bool m_integration = true;
 
     IProductWRTBaseBlockOp(const unsigned int block_idx,
                            const LocalRegions::ExpansionSharedPtr &exp,

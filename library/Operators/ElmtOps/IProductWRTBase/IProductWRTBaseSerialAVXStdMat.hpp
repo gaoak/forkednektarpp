@@ -82,9 +82,14 @@ public:
         m_matptr = dataWarehouse->template GetData<MemSpace>(
             StdMatKey<TData>(basisKeys, m_shapeType,
                              eIProductWRTBaseStdMatTranspose, nodalType));
+
         // Fetch Jacobian.
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
             JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+
+        m_BT_matptr =
+            dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
+                basisKeys, m_shapeType, eBwdTransStdMat, nodalType));
     }
 
     // className - for BlockOperatorFactory
@@ -112,6 +117,7 @@ protected:
     unsigned int m_nmTot;
     unsigned int m_nqTot;
     const TData *m_matptr;
+    const TData *m_BT_matptr;
     const TData *m_jacptr;
 
     void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
@@ -155,26 +161,46 @@ protected:
                                               m_nqTot, (TData *)inptr);
                 }
 
-                // Multiply by jacobian.
-                if (m_isDeformed)
+                if (this->m_integration) // integration with weights
                 {
-                    MultiplyByJacobian<ExecSpace, true>(
-                        1, m_nqTot, reinterpret_cast<const simd_t *>(jacptr),
-                        reinterpret_cast<const simd_t *>(inptr),
-                        reinterpret_cast<simd_t *>(wspptr), this->m_scale);
-                    jacptr += m_nqTot * simd_t::width;
+                    // Multiply by jacobian.
+                    if (m_isDeformed)
+                    {
+                        MultiplyByJacobian<ExecSpace, true>(
+                            1, m_nqTot,
+                            reinterpret_cast<const simd_t *>(jacptr),
+                            reinterpret_cast<const simd_t *>(inptr),
+                            reinterpret_cast<simd_t *>(wspptr), this->m_scale);
+                        jacptr += m_nqTot * simd_t::width;
+                    }
+                    else
+                    {
+                        MultiplyByJacobian<ExecSpace, false>(
+                            1, m_nqTot,
+                            reinterpret_cast<const simd_t *>(jacptr),
+                            reinterpret_cast<const simd_t *>(inptr),
+                            reinterpret_cast<simd_t *>(wspptr), this->m_scale);
+                        jacptr += simd_t::width;
+                    }
+
+                    // Perform matrix-matrix multiply.
+                    gemm_kernel(wspptr, m_matptr, outptr);
                 }
                 else
                 {
-                    MultiplyByJacobian<ExecSpace, false>(
-                        1, m_nqTot, reinterpret_cast<const simd_t *>(jacptr),
-                        reinterpret_cast<const simd_t *>(inptr),
-                        reinterpret_cast<simd_t *>(wspptr), this->m_scale);
-                    jacptr += simd_t::width;
-                }
 
-                // Perform matrix-matrix multiply.
-                gemm_kernel(wspptr, m_matptr, outptr);
+                    // Just perform matrix-matrix multiply of B^T
+                    gemm_kernel(inptr, m_BT_matptr, outptr);
+
+                    if (this->m_scale != 1.0)
+                    {
+                        for (unsigned q = 0; q < m_nmTot; ++q)
+                        {
+                            reinterpret_cast<simd_t *>(outptr)[q] *=
+                                this->m_scale;
+                        }
+                    }
+                }
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)

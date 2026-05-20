@@ -41,6 +41,29 @@ namespace Nektar::Operators
 
 class GeometricDataCreator;
 
+template <typename TData> class WeightsKey : public BaseKey
+{
+    friend class GeometricDataCreator;
+
+public:
+    using creator = GeometricDataCreator;
+    typedef TData value_type;
+
+    ~WeightsKey() override = default;
+
+    WeightsKey(const unsigned int block_idx,
+               const unsigned int interleave_width)
+        : m_block_idx(block_idx), m_interleave_width(interleave_width)
+    {
+        hash_combine(m_hash, m_block_idx, m_interleave_width,
+                     typeid(value_type).name(), "WeightsKey");
+    }
+
+private:
+    unsigned int m_block_idx;
+    unsigned int m_interleave_width;
+};
+
 template <typename TData> class JacobianKey : public BaseKey
 {
     friend class GeometricDataCreator;
@@ -228,6 +251,29 @@ private:
     unsigned int m_interleave_width;
 };
 
+template <typename TData> class JacobianLocTraceKey : public BaseKey
+{
+    friend class GeometricDataCreator;
+
+public:
+    using creator = GeometricDataCreator;
+    typedef TData value_type;
+
+    ~JacobianLocTraceKey() override = default;
+
+    JacobianLocTraceKey(const unsigned int block_idx,
+                        const unsigned int interleave_width)
+        : m_block_idx(block_idx), m_interleave_width(interleave_width)
+    {
+        hash_combine(m_hash, m_block_idx, m_interleave_width,
+                     typeid(value_type).name(), "JacobianLocTraceKey");
+    }
+
+private:
+    unsigned int m_block_idx;
+    unsigned int m_interleave_width;
+};
+
 class GeometricDataCreator : public DataCreatorClass
 {
 public:
@@ -236,6 +282,9 @@ public:
         : m_expansionList(expansionList)
     {
     }
+
+    template <typename MemSpace, typename TData>
+    MemoryRegion<TData> Create(const WeightsKey<TData> &weightsKey);
 
     template <typename MemSpace, typename TData>
     MemoryRegion<TData> Create(const JacobianKey<TData> &jacobianKey);
@@ -263,6 +312,10 @@ public:
 
     template <typename MemSpace, typename TData>
     MemoryRegion<TData> Create(const JacobianTraceKey<TData> &jacobianTraceKey);
+
+    template <typename MemSpace, typename TData>
+    MemoryRegion<TData> Create(
+        const JacobianLocTraceKey<TData> &jacobianLocTraceKey);
 
     inline static const std::string m_name = "GeometricDataCreator";
 

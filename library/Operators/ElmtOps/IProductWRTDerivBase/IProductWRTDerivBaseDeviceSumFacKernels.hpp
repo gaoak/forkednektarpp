@@ -47,7 +47,7 @@ namespace Nektar::Operators::detail
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 // Helper function
-template <typename Implementation,
+template <typename Implementation, FieldState TFieldOut,
           typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
               * = nullptr>
 inline size_t IProductWRTDerivBaseWorkSpaceSize(
@@ -64,7 +64,7 @@ inline size_t IProductWRTDerivBaseWorkSpaceSize(
     return wspsize;
 }
 
-template <typename Implementation,
+template <typename Implementation, FieldState TFieldOut,
           typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
               * = nullptr>
 inline size_t IProductWRTDerivBaseWorkSpaceSize(
@@ -74,23 +74,30 @@ inline size_t IProductWRTDerivBaseWorkSpaceSize(
 {
     size_t wspsize = 0;
 
-    if (shapeType == LibUtilities::Quad)
+    if constexpr (TFieldOut == FieldState::Phys)
     {
-        wspsize = (3 * nq0 * nq1 + nq1) * nelmt;
+        wspsize = (2 * nq0 * nq1) * nelmt;
     }
-    else if (shapeType == LibUtilities::Tri)
+    else
     {
-        wspsize = (3 * nq0 * nq1 + nq1) * nelmt;
-    }
-    else if (shapeType == LibUtilities::NodalTri)
-    {
-        wspsize = (3 * nq0 * nq1 + nq1 + nm0 * (nm0 + 1) / 2) * nelmt;
+        if (shapeType == LibUtilities::Quad)
+        {
+            wspsize = (3 * nq0 * nq1 + nq1) * nelmt;
+        }
+        else if (shapeType == LibUtilities::Tri)
+        {
+            wspsize = (3 * nq0 * nq1 + nq1) * nelmt;
+        }
+        else if (shapeType == LibUtilities::NodalTri)
+        {
+            wspsize = (3 * nq0 * nq1 + nq1 + nm0 * (nm0 + 1) / 2) * nelmt;
+        }
     }
 
     return wspsize;
 }
 
-template <typename Implementation,
+template <typename Implementation, FieldState TFieldOut,
           typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
               * = nullptr>
 inline size_t IProductWRTDerivBaseWorkSpaceSize(
@@ -101,39 +108,46 @@ inline size_t IProductWRTDerivBaseWorkSpaceSize(
 {
     size_t wspsize = 0;
 
-    if (shapeType == LibUtilities::Hex)
+    if constexpr (TFieldOut == FieldState::Phys)
     {
-        wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nelmt;
+        wspsize = (3 * nq0 * nq1 * nq2) * nelmt;
     }
-    else if (shapeType == LibUtilities::Tet)
+    else
     {
-        wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nelmt;
-    }
-    else if (shapeType == LibUtilities::NodalTet)
-    {
-        wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2 +
-                   nm0 * (nm0 + 1) * (nm0 + 2) / 6) *
-                  nelmt;
-    }
-    else if (shapeType == LibUtilities::Prism)
-    {
-        wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nelmt;
-    }
-    else if (shapeType == LibUtilities::NodalPrism)
-    {
-        wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2 +
-                   nm0 * (nm0 + 1) * nm0 / 2) *
-                  nelmt;
-    }
-    else if (shapeType == LibUtilities::Pyr)
-    {
-        wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nelmt;
+        if (shapeType == LibUtilities::Hex)
+        {
+            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nelmt;
+        }
+        else if (shapeType == LibUtilities::Tet)
+        {
+            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nelmt;
+        }
+        else if (shapeType == LibUtilities::NodalTet)
+        {
+            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2 +
+                       nm0 * (nm0 + 1) * (nm0 + 2) / 6) *
+                      nelmt;
+        }
+        else if (shapeType == LibUtilities::Prism)
+        {
+            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nelmt;
+        }
+        else if (shapeType == LibUtilities::NodalPrism)
+        {
+            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2 +
+                       nm0 * (nm0 + 1) * nm0 / 2) *
+                      nelmt;
+        }
+        else if (shapeType == LibUtilities::Pyr)
+        {
+            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nelmt;
+        }
     }
 
     return wspsize;
 }
 
-template <typename Implementation,
+template <typename Implementation, FieldState TFieldOut,
           typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
               * = nullptr>
 inline unsigned int IProductWRTDerivBaseSharedMemorySize(
@@ -144,6 +158,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          FieldState TFieldOut,
           typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
               * = nullptr>
 inline unsigned int IProductWRTDerivBaseSharedMemorySize(
@@ -163,6 +178,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          FieldState TFieldOut,
           typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
               * = nullptr>
 inline unsigned int IProductWRTDerivBaseSharedMemorySize(
@@ -365,14 +381,14 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacKernel(
     }
 }
 
-template <bool DEFORMED, typename TthreadBlock, typename TData>
+template <bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void IProductWRTDerivBase1DSumFacKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nq0,
     const size_t nelmt, const unsigned int inoffset,
     const TData *NEK_RESTRICT dbasis0, const TData *NEK_RESTRICT w0,
     const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
     const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-    TData *NEK_RESTRICT wsp,
+    TData *NEK_RESTRICT wsp, TData scale,
     [[maybe_unused]] unsigned char *NEK_RESTRICT shmemptr,
     const TthreadBlock &threadBlock)
 {
@@ -395,13 +411,49 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase1DSumFacKernel(
         TData *outptr      = out + nm0 * warpsize * iwarp;
         StdAlignDerivBase1DSumFacKernel<DEFORMED>(
             ilane, ncoord, nq0, inoffset, w0, dfptr, jacptr, inptr, deriv);
-        IProductWRTBaseSegSumFacKernel<false, false>(ilane, nm0, nq0, dbasis0,
-                                                     deriv, outptr, (TData)1.0);
+        IProductWRTBaseSegSumFacKernel<true, APPEND>(ilane, nm0, nq0, dbasis0,
+                                                     deriv, outptr, scale);
         e += getGlobalRange(threadBlock);
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+template <bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void IProductWRTDerivBasePhys1DSumFacKernel(
+    const unsigned int ncoord, const unsigned int nq0, const size_t nelmt,
+    const unsigned int inoffset, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, TData scale,
+    [[maybe_unused]] unsigned char *NEK_RESTRICT shmemptr,
+    const TthreadBlock &threadBlock)
+{
+    const unsigned int ndf     = ncoord;
+    const unsigned int dfsize  = DEFORMED ? nq0 : 1u;
+    const unsigned int jacsize = DEFORMED ? nq0 : 1u;
+
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+
+    size_t e = getGlobalIdx(threadBlock);
+    while (e < nelmt)
+    {
+        const size_t ilane = e % warpsize;
+        const size_t iwarp = e / warpsize;
+        const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
+        const TData *jacptr =
+            DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
+        const TData *inptr = in + nq0 * warpsize * iwarp;
+        TData *deriv       = wsp + nq0 * warpsize * iwarp;
+        TData *outptr      = out + nq0 * warpsize * iwarp;
+        StdAlignDerivBase1DSumFacKernel<DEFORMED>(
+            ilane, ncoord, nq0, inoffset, w0, dfptr, jacptr, inptr, deriv);
+        SumDerivTensor1DKernel<true, APPEND>(ilane, nq0, D0, deriv, outptr,
+                                             scale);
+
+        e += getGlobalRange(threadBlock);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void IProductWRTDerivBase2DSumFacKernel(
     const unsigned int ncoord, const unsigned int nm0, const unsigned int nm1,
@@ -413,7 +465,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DSumFacKernel(
     const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
     const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp,
+    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, TData scale,
     unsigned char *NEK_RESTRICT shmemptr, const TthreadBlock &threadBlock)
 {
     const unsigned int ndf     = 2 * ncoord;
@@ -466,39 +518,108 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DSumFacKernel(
         StdAlignDerivBase2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, ncoord, nq0, nq1, inoffset, w0, w1, s_f0, s_f1, dfptr,
             jacptr, inptr, deriv0, deriv1);
-        SumDerivTensor2DKernel<false>(ilane, nq0, nq1, D0, D1, deriv0, deriv1,
-                                      deriv);
+        SumDerivTensor2DKernel<false, false>(ilane, nq0, nq1, D0, D1, deriv0,
+                                             deriv1, deriv, scale);
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
             TData *wsp0 = wsp + 3 * nqTot * nelmt + nq1 * warpsize * iwarp;
-            IProductWRTBaseQuadSumFacKernel<false, false>(
+            IProductWRTBaseQuadSumFacKernel<true, APPEND>(
                 ilane, nm0, nm1, nq0, nq1, basis0, basis1, deriv, outptr, wsp0,
-                (TData)1.0);
+                scale);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
             TData *wsp0 = wsp + 3 * nqTot * nelmt + nq1 * warpsize * iwarp;
-            IProductWRTBaseTriSumFacKernel<false, false>(
+            IProductWRTBaseTriSumFacKernel<true, APPEND>(
                 ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, deriv,
-                outptr, wsp0, (TData)1.0);
+                outptr, wsp0, scale);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
         {
             TData *out1ptr = wsp + 3 * nqTot * nelmt + nmTot * warpsize * iwarp;
             TData *wsp0 =
                 wsp + (nmTot + 3 * nqTot) * nelmt + nq1 * warpsize * iwarp;
-            IProductWRTBaseTriSumFacKernel<false, false>(
+            IProductWRTBaseTriSumFacKernel<true, false>(
                 ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, deriv,
-                out1ptr, wsp0, (TData)1.0);
+                out1ptr, wsp0, scale);
 
             // Multiply by transpose notToMod to transform coeffs.
-            MatVecKernel<false, true>(ilane, nmTot, nodToMod, out1ptr, outptr);
+            MatVecKernel<APPEND, true>(ilane, nmTot, nodToMod, out1ptr, outptr);
         }
         e += getGlobalRange(threadBlock);
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
+          typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void IProductWRTDerivBasePhys2DSumFacKernel(
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
+    const size_t nelmt, const unsigned int inoffset,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    TData *NEK_RESTRICT wsp, TData scale, unsigned char *NEK_RESTRICT shmemptr,
+    const TthreadBlock &threadBlock)
+{
+    const unsigned int ndf     = 2 * ncoord;
+    const unsigned int nqTot   = nq0 * nq1;
+    const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
+    const unsigned int jacsize = DEFORMED ? nqTot : 1u;
+
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+
+    TData *s_f0 = nullptr;
+    TData *s_f1 = nullptr;
+
+    // Pre-compute factor.
+    if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                  SHAPE_TYPE == LibUtilities::NodalTri)
+    {
+        s_f0 = (TData *)shmemptr;
+        s_f1 = s_f0 + nq0;
+
+        const unsigned int idx0   = getLocalIdx(threadBlock);
+        const unsigned int stride = getLocalRange(threadBlock);
+
+        for (unsigned int idx = idx0; idx < nq0; idx += stride)
+        {
+            s_f0[idx] = f0[idx];
+        }
+
+        for (unsigned int idx = idx0; idx < nq1; idx += stride)
+        {
+            s_f1[idx] = f1[idx];
+        }
+
+        localBarrier(threadBlock);
+    }
+
+    size_t e = getGlobalIdx(threadBlock);
+    while (e < nelmt)
+    {
+        const size_t ilane = e % warpsize;
+        const size_t iwarp = e / warpsize;
+        const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
+        const TData *jacptr =
+            DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
+        const TData *inptr = in + nqTot * warpsize * iwarp;
+        TData *outptr      = out + nqTot * warpsize * iwarp;
+        TData *deriv0      = wsp + nqTot * warpsize * iwarp;
+        TData *deriv1      = wsp + nqTot * nelmt + nqTot * warpsize * iwarp;
+
+        StdAlignDerivBase2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
+            ilane, ncoord, nq0, nq1, inoffset, w0, w1, s_f0, s_f1, dfptr,
+            jacptr, inptr, deriv0, deriv1);
+        SumDerivTensor2DKernel<true, APPEND>(ilane, nq0, nq1, D0, D1, deriv0,
+                                             deriv1, outptr, scale);
+
+        e += getGlobalRange(threadBlock);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
@@ -513,7 +634,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacKernel(
     const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
     const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp,
+    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, TData scale,
     unsigned char *NEK_RESTRICT shmemptr, const TthreadBlock &threadBlock)
 {
     constexpr unsigned int ndf = 9u;
@@ -618,17 +739,18 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacKernel(
         StdAlignDerivBase3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, nq0, nq1, nq2, inoffset, w0, w1, w2, s_f0, s_f1, s_f1m, s_f2,
             dfptr, jacptr, inptr, deriv0, deriv1, deriv2);
-        SumDerivTensor3DKernel<false>(ilane, nq0, nq1, nq2, D0, D1, D2, deriv0,
-                                      deriv1, deriv2, deriv);
+        SumDerivTensor3DKernel<false, false>(ilane, nq0, nq1, nq2, D0, D1, D2,
+                                             deriv0, deriv1, deriv2, deriv,
+                                             scale);
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
             TData *wsp0 =
                 wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
             TData *wsp1 =
                 wsp + (4 * nqTot + nq1 * nq2) * nelmt + nq2 * warpsize * iwarp;
-            IProductWRTBaseHexSumFacKernel<false, false>(
+            IProductWRTBaseHexSumFacKernel<true, APPEND>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, basis0, basis1, basis2,
-                deriv, outptr, wsp0, wsp1, (TData)1.0);
+                deriv, outptr, wsp0, wsp1, scale);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
@@ -636,9 +758,9 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacKernel(
                 wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
             TData *wsp1 =
                 wsp + (4 * nqTot + nq1 * nq2) * nelmt + nq2 * warpsize * iwarp;
-            IProductWRTBaseTetSumFacKernel<false, false>(
+            IProductWRTBaseTetSumFacKernel<true, APPEND>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, deriv, outptr, wsp0, wsp1, (TData)1.0);
+                basis2, deriv, outptr, wsp0, wsp1, scale);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
         {
@@ -647,12 +769,12 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacKernel(
                           nq1 * nq2 * warpsize * iwarp;
             TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2 + nmTot) * nelmt +
                           nq2 * warpsize * iwarp;
-            IProductWRTBaseTetSumFacKernel<false, false>(
+            IProductWRTBaseTetSumFacKernel<true, false>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, deriv, out1ptr, wsp0, wsp1, (TData)1.0);
+                basis2, deriv, out1ptr, wsp0, wsp1, scale);
 
             // Multiply by transpose notToMod to transform coeffs.
-            MatVecKernel<false, true>(ilane, nmTot, nodToMod, out1ptr, outptr);
+            MatVecKernel<APPEND, true>(ilane, nmTot, nodToMod, out1ptr, outptr);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
@@ -660,9 +782,9 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacKernel(
                 wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
             TData *wsp1 =
                 wsp + (4 * nqTot + nq1 * nq2) * nelmt + nq2 * warpsize * iwarp;
-            IProductWRTBasePrismSumFacKernel<false, false>(
+            IProductWRTBasePrismSumFacKernel<true, APPEND>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, deriv, outptr, wsp0, wsp1, (TData)1.0);
+                basis2, deriv, outptr, wsp0, wsp1, scale);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
         {
@@ -671,12 +793,12 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacKernel(
                           nq1 * nq2 * warpsize * iwarp;
             TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2 + nmTot) * nelmt +
                           nq2 * warpsize * iwarp;
-            IProductWRTBasePrismSumFacKernel<false, false>(
+            IProductWRTBasePrismSumFacKernel<true, false>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, deriv, out1ptr, wsp0, wsp1, (TData)1.0);
+                basis2, deriv, out1ptr, wsp0, wsp1, scale);
 
             // Multiply by transpose notToMod to transform coeffs.
-            MatVecKernel<false, true>(ilane, nmTot, nodToMod, out1ptr, outptr);
+            MatVecKernel<APPEND, true>(ilane, nmTot, nodToMod, out1ptr, outptr);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
@@ -684,17 +806,141 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacKernel(
                 wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
             TData *wsp1 =
                 wsp + (4 * nqTot + nq1 * nq2) * nelmt + nq2 * warpsize * iwarp;
-            IProductWRTBasePyrSumFacKernel<false, false>(
+            IProductWRTBasePyrSumFacKernel<true, APPEND>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, deriv, outptr, wsp0, wsp1, (TData)1.0);
+                basis2, deriv, outptr, wsp0, wsp1, scale);
         }
         e += getGlobalRange(threadBlock);
     }
 }
 
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
+          typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void IProductWRTDerivBasePhys3DSumFacKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const size_t nelmt, const unsigned int inoffset,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+    const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    TData *NEK_RESTRICT wsp, TData scale, unsigned char *NEK_RESTRICT shmemptr,
+    const TthreadBlock &threadBlock)
+{
+    constexpr unsigned int ndf = 9u;
+    const unsigned int nqTot   = nq0 * nq1 * nq2;
+    const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
+    const unsigned int jacsize = DEFORMED ? nqTot : 1u;
+
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+
+    TData *s_f0  = nullptr;
+    TData *s_f1  = nullptr;
+    TData *s_f1m = nullptr;
+    TData *s_f2  = nullptr;
+
+    // Pre-compute factor.
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+    if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                  SHAPE_TYPE == LibUtilities::NodalTet)
+    {
+        s_f0  = (TData *)shmemptr;
+        s_f1  = s_f0 + nq0;
+        s_f1m = s_f1 + nq1;
+        s_f2  = s_f1m + nq1;
+
+        for (unsigned int idx = idx0; idx < nq0; idx += stride)
+        {
+            s_f0[idx] = f0[idx];
+        }
+
+        for (unsigned int idx = idx0; idx < nq1; idx += stride)
+        {
+            s_f1[idx]  = f1[idx];
+            s_f1m[idx] = f1m[idx];
+        }
+
+        for (unsigned int idx = idx0; idx < nq2; idx += stride)
+        {
+            s_f2[idx] = f2[idx];
+        }
+
+        localBarrier(threadBlock);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                       SHAPE_TYPE == LibUtilities::NodalPrism)
+    {
+        s_f0 = (TData *)shmemptr;
+        s_f2 = s_f0 + nq0;
+
+        for (unsigned int idx = idx0; idx < nq0; idx += stride)
+        {
+            s_f0[idx] = f0[idx];
+        }
+
+        for (unsigned int idx = idx0; idx < nq2; idx += stride)
+        {
+            s_f2[idx] = f2[idx];
+        }
+
+        localBarrier(threadBlock);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        s_f0 = (TData *)shmemptr;
+        s_f1 = s_f0 + nq0;
+        s_f2 = s_f1 + nq1;
+
+        for (unsigned int idx = idx0; idx < nq0; idx += stride)
+        {
+            s_f0[idx] = f0[idx];
+        }
+
+        for (unsigned int idx = idx0; idx < nq1; idx += stride)
+        {
+            s_f1[idx] = f1[idx];
+        }
+
+        for (unsigned int idx = idx0; idx < nq2; idx += stride)
+        {
+            s_f2[idx] = f2[idx];
+        }
+
+        localBarrier(threadBlock);
+    }
+
+    size_t e = getGlobalIdx(threadBlock); // use size_t to prevent overflow
+    while (e < nelmt)
+    {
+        const size_t ilane = e % warpsize;
+        const size_t iwarp = e / warpsize;
+        const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
+        const TData *jacptr =
+            DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
+        const TData *inptr = in + nqTot * warpsize * iwarp;
+        TData *outptr      = out + nqTot * warpsize * iwarp;
+
+        TData *deriv0 = wsp + nqTot * warpsize * iwarp;
+        TData *deriv1 = wsp + nqTot * nelmt + nqTot * warpsize * iwarp;
+        TData *deriv2 = wsp + 2 * nqTot * nelmt + nqTot * warpsize * iwarp;
+
+        StdAlignDerivBase3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
+            ilane, nq0, nq1, nq2, inoffset, w0, w1, w2, s_f0, s_f1, s_f1m, s_f2,
+            dfptr, jacptr, inptr, deriv0, deriv1, deriv2);
+        SumDerivTensor3DKernel<true, APPEND>(ilane, nq0, nq1, nq2, D0, D1, D2,
+                                             deriv0, deriv1, deriv2, outptr,
+                                             scale);
+
+        e += getGlobalRange(threadBlock);
+    }
+}
+
 // Non-size based version.
-template <typename Implementation, bool DEFORMED, typename TthreadBlock,
-          typename TData>
+template <typename Implementation, bool APPEND, bool DEFORMED,
+          typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
     IProductWRTDerivBase1DKernelLauncher(
@@ -703,20 +949,20 @@ NEK_DEVICE_KERNEL
         const TData *NEK_RESTRICT dbasis0, const TData *NEK_RESTRICT w0,
         const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
         const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        TData *NEK_RESTRICT wsp, unsigned char *shmemptr,
+        TData *NEK_RESTRICT wsp, TData scale, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    IProductWRTDerivBase1DSumFacKernel<DEFORMED>(
+    IProductWRTDerivBase1DSumFacKernel<APPEND, DEFORMED>(
         ncoord, sizeParam1D.nm0(), sizeParam1D.nq0(), nelmt, inoffset, dbasis0,
-        w0, df, jac, in, out, wsp, shmemptr, threadBlock);
+        w0, df, jac, in, out, wsp, scale, shmemptr, threadBlock);
 }
 
 // Size based template version.
 template <
-    typename Implementation, bool DEFORMED, unsigned int nm0, unsigned int nq0,
-    typename TthreadBlock, typename TData,
+    typename Implementation, bool APPEND, bool DEFORMED, unsigned int nm0,
+    unsigned int nq0, typename TthreadBlock, typename TData,
     unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)>
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
@@ -726,19 +972,64 @@ NEK_DEVICE_KERNEL
         const unsigned int inoffset, const TData *NEK_RESTRICT dbasis0,
         const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT df,
         const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp,
+        TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, TData scale,
         unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    IProductWRTDerivBase1DSumFacKernel<DEFORMED>(
+    IProductWRTDerivBase1DSumFacKernel<APPEND, DEFORMED>(
         ncoord, nm0, nq0, nelmt, inoffset, dbasis0, w0, df, jac, in, out, wsp,
+        scale, shmemptr, threadBlock);
+}
+
+// Non-size based version.
+template <typename Implementation, bool APPEND, bool DEFORMED,
+          typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL
+    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+    IProductWRTDerivBasePhys1DKernelLauncher(
+        NonTemplated1DSizeParameters sizeParam1D, const unsigned int ncoord,
+        const size_t nelmt, const unsigned int inoffset,
+        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT w0,
+        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        TData *NEK_RESTRICT wsp, TData scale, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    IProductWRTDerivBasePhys1DSumFacKernel<APPEND, DEFORMED>(
+        ncoord, sizeParam1D.nq0(), nelmt, inoffset, D0, w0, df, jac, in, out,
+        wsp, scale, shmemptr, threadBlock);
+}
+
+// Size based template version.
+template <
+    typename Implementation, bool APPEND, bool DEFORMED, unsigned nm0,
+    unsigned nq0, typename TthreadBlock, typename TData,
+    unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)>
+NEK_DEVICE_KERNEL
+    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+    __LAUNCH_BOUNDS__(maxThreadPerBlock)
+        IProductWRTDerivBasePhys1DKernelLauncher(
+            [[maybe_unused]] Templated1DSizeParameters<nm0, nq0> sizeParam1D,
+            const unsigned int ncoord, const size_t nelmt,
+            const unsigned int inoffset, const TData *NEK_RESTRICT D0,
+            const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT df,
+            const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+            TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, TData scale,
+            unsigned char *shmemptr, const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    IProductWRTDerivBasePhys1DSumFacKernel<APPEND, DEFORMED>(
+        ncoord, nq0, nelmt, inoffset, D0, w0, df, jac, in, out, wsp, scale,
         shmemptr, threadBlock);
 }
 
 // Non-size based version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TthreadBlock, typename TData>
+          bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
     IProductWRTDerivBase2DKernelLauncher(
@@ -751,23 +1042,23 @@ NEK_DEVICE_KERNEL
         const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
         const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT df,
         const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp,
+        TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, TData scale,
         unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    IProductWRTDerivBase2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
+    IProductWRTDerivBase2DSumFacKernel<SHAPE_TYPE, APPEND, DEFORMED>(
         ncoord, sizeParam2D.nm0(), sizeParam2D.nm1(), sizeParam2D.nmTot(),
         sizeParam2D.nq0(), sizeParam2D.nq1(), nelmt, inoffset, isModified,
         basis0, basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, in, out, wsp,
-        shmemptr, threadBlock);
+        scale, shmemptr, threadBlock);
 }
 
 // Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, unsigned int nm0, unsigned int nm1, unsigned int nmTot,
-          unsigned int nq0, unsigned int nq1, typename TthreadBlock,
-          typename TData,
+          bool APPEND, bool DEFORMED, unsigned int nm0, unsigned int nm1,
+          unsigned int nmTot, unsigned int nq0, unsigned int nq1,
+          typename TthreadBlock, typename TData,
           unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(
               LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1))>
 NEK_DEVICE_KERNEL
@@ -784,20 +1075,73 @@ NEK_DEVICE_KERNEL
         const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
         const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT df,
         const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp,
+        TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, TData scale,
         unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    IProductWRTDerivBase2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
+    IProductWRTDerivBase2DSumFacKernel<SHAPE_TYPE, APPEND, DEFORMED>(
         ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, inoffset, isModified, basis0,
-        basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, in, out, wsp,
+        basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, in, out, wsp, scale,
         shmemptr, threadBlock);
 }
 
 // Non-size based version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TthreadBlock, typename TData>
+          bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL
+    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+    IProductWRTDerivBasePhys2DKernelLauncher(
+        NonTemplated2DSizeParameters sizeParam2D, const unsigned int ncoord,
+        const size_t nelmt, const unsigned int inoffset,
+        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+        const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        TData *NEK_RESTRICT wsp, TData scale, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    IProductWRTDerivBasePhys2DSumFacKernel<SHAPE_TYPE, APPEND, DEFORMED>(
+        ncoord, sizeParam2D.nq0(), sizeParam2D.nq1(), nelmt, inoffset, D0, D1,
+        w0, w1, f0, f1, df, jac, in, out, wsp, scale, shmemptr, threadBlock);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool APPEND, bool DEFORMED, unsigned int nm0, unsigned int nm1,
+          unsigned int nmTot, unsigned int nq0, unsigned int nq1,
+          typename TthreadBlock, typename TData,
+          unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(
+              LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1))>
+NEK_DEVICE_KERNEL
+    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+    __LAUNCH_BOUNDS__(maxThreadPerBlock)
+        IProductWRTDerivBasePhys2DKernelLauncher(
+            [[maybe_unused]] Templated2DSizeParameters<nm0, nm1, nmTot, nq0,
+                                                       nq1>
+                sizeParam2D,
+            const unsigned int ncoord, const size_t nelmt,
+            const unsigned int inoffset, const TData *NEK_RESTRICT D0,
+            const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT w0,
+            const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT f0,
+            const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
+            const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+            TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, TData scale,
+            unsigned char *shmemptr, const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    IProductWRTDerivBasePhys2DSumFacKernel<SHAPE_TYPE, APPEND, DEFORMED>(
+        ncoord, nq0, nq1, nelmt, inoffset, D0, D1, w0, w1, f0, f1, df, jac, in,
+        out, wsp, scale, shmemptr, threadBlock);
+}
+
+// Non-size based version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
     IProductWRTDerivBase3DKernelLauncher(
@@ -815,24 +1159,25 @@ NEK_DEVICE_KERNEL
         const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT nodToMod,
         const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
         const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        TData *NEK_RESTRICT wsp, unsigned char *shmemptr,
+        TData *NEK_RESTRICT wsp, TData scale, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    IProductWRTDerivBase3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
+    IProductWRTDerivBase3DSumFacKernel<SHAPE_TYPE, APPEND, DEFORMED>(
         sizeParam3D.nm0(), sizeParam3D.nm1(), sizeParam3D.nm2(),
         sizeParam3D.nmTot(), sizeParam3D.nq0(), sizeParam3D.nq1(),
         sizeParam3D.nq2(), nelmt, inoffset, isModified, basis0, basis1, basis2,
         D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, nodToMod, df, jac, in, out,
-        wsp, shmemptr, threadBlock);
+        wsp, scale, shmemptr, threadBlock);
 }
 
 // Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, unsigned int nm0, unsigned int nm1, unsigned int nm2,
-          unsigned int nmTot, unsigned int nq0, unsigned int nq1,
-          unsigned int nq2, typename TthreadBlock, typename TData,
+          bool APPEND, bool DEFORMED, unsigned int nm0, unsigned int nm1,
+          unsigned int nm2, unsigned int nmTot, unsigned int nq0,
+          unsigned int nq1, unsigned int nq2, typename TthreadBlock,
+          typename TData,
           unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(
               LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2))>
 NEK_DEVICE_KERNEL
@@ -853,15 +1198,72 @@ NEK_DEVICE_KERNEL
         const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT nodToMod,
         const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
         const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        TData *NEK_RESTRICT wsp, unsigned char *shmemptr,
+        TData *NEK_RESTRICT wsp, TData scale, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
-    IProductWRTDerivBase3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
+    IProductWRTDerivBase3DSumFacKernel<SHAPE_TYPE, APPEND, DEFORMED>(
         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, inoffset, isModified,
         basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2,
-        nodToMod, df, jac, in, out, wsp, shmemptr, threadBlock);
+        nodToMod, df, jac, in, out, wsp, scale, shmemptr, threadBlock);
+}
+
+// Non-size based version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL
+    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+    IProductWRTDerivBasePhys3DKernelLauncher(
+        NonTemplated3DSizeParameters sizeParam3D, const size_t nelmt,
+        const unsigned int inoffset, const TData *NEK_RESTRICT D0,
+        const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
+        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+        const TData *NEK_RESTRICT w2, const TData *NEK_RESTRICT f0,
+        const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
+        const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
+        const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, TData scale,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    IProductWRTDerivBasePhys3DSumFacKernel<SHAPE_TYPE, APPEND, DEFORMED>(
+        sizeParam3D.nq0(), sizeParam3D.nq1(), sizeParam3D.nq2(), nelmt,
+        inoffset, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, df, jac, in, out,
+        wsp, scale, shmemptr, threadBlock);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool APPEND, bool DEFORMED, unsigned int nm0, unsigned int nm1,
+          unsigned int nm2, unsigned int nmTot, unsigned int nq0,
+          unsigned int nq1, unsigned int nq2, typename TthreadBlock,
+          typename TData,
+          unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(
+              LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2))>
+NEK_DEVICE_KERNEL
+    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+    __LAUNCH_BOUNDS__(maxThreadPerBlock)
+        IProductWRTDerivBasePhys3DKernelLauncher(
+            [[maybe_unused]] Templated3DSizeParameters<nm0, nm1, nm2, nmTot,
+                                                       nq0, nq1, nq2>,
+            const size_t nelmt, const unsigned int inoffset,
+            const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+            const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT w0,
+            const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
+            const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+            const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
+            const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
+            const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+            TData *NEK_RESTRICT wsp, TData scale, unsigned char *shmemptr,
+            const TthreadBlock &threadBlock)
+{
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    IProductWRTDerivBasePhys3DSumFacKernel<SHAPE_TYPE, APPEND, DEFORMED>(
+        nq0, nq1, nq2, nelmt, inoffset, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2,
+        df, jac, in, out, wsp, scale, shmemptr, threadBlock);
 }
 #endif
 

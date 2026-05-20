@@ -109,6 +109,17 @@ NEK_FORCE_INLINE static void IProduct1DKernel(
                                                scale);
 }
 
+// inner product without quadrature metric wJ
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
+          bool DEFORMED, typename simd_type>
+NEK_FORCE_INLINE static void IProduct1DKernel(
+    const unsigned int nm0, const unsigned int nq0, const simd_type *in,
+    const simd_type *B0, simd_type *out,
+    typename simd_type::scalarType scale = 1.0)
+{
+    IProductSegKernel<SCALE, APPEND>(nm0, nq0, in, B0, out, scale);
+}
+
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
           bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProduct2DKernel(

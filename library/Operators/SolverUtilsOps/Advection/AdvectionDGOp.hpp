@@ -65,7 +65,7 @@ public:
 
     void SetAppend(const bool &append)
     {
-        this->m_append = append;
+        v_SetAppend(append);
     }
 
     void SetAdvectVel(Field<TData, FieldState::Phys> &advectVel)
@@ -100,6 +100,8 @@ protected:
 
     virtual void v_Apply(Field<TData, FieldState::Phys> &in,
                          Field<TData, FieldState::Phys> &out) = 0;
+
+    virtual void v_SetAppend(const bool &append) = 0;
 };
 
 } // namespace Nektar::Operators

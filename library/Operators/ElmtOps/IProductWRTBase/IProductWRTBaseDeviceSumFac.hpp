@@ -348,28 +348,54 @@ protected:
                                       nelmt, inblock.GetNumData(),
                                       (TData *)inptr);
 
-            // IProduct kernel.
-            if (this->m_scale == 1.0)
+            if (this->m_integration)
             {
-                constexpr bool Scale = false;
+                // IProduct kernel.
+                if (this->m_scale == 1.0)
+                {
+                    constexpr bool Scale = false;
 
-                DEVICE_1DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTBase1DKernelLauncher<Implementation, Scale,
-                                                     Append, DEFORMED>),
-                    gridsize, blocksize, shmemsize, 0, sizeParam1D, nelmt,
-                    m_B[0], m_W[0], m_jacptr, inptr, outptr, 1.0);
+                    DEVICE_1DGRID_KERNEL_LAUNCHER(
+                        (IProductWRTBase1DKernelLauncher<Implementation, Scale,
+                                                         Append, DEFORMED>),
+                        gridsize, blocksize, shmemsize, 0, sizeParam1D, nelmt,
+                        m_B[0], m_W[0], m_jacptr, inptr, outptr, 1.0);
+                }
+                else
+                {
+                    constexpr bool Scale = true;
+
+                    DEVICE_1DGRID_KERNEL_LAUNCHER(
+                        (IProductWRTBase1DKernelLauncher<Implementation, Scale,
+                                                         Append, DEFORMED>),
+                        gridsize, blocksize, shmemsize, 0, sizeParam1D, nelmt,
+                        m_B[0], m_W[0], m_jacptr, inptr, outptr, this->m_scale);
+                }
             }
             else
             {
-                constexpr bool Scale = true;
+                // IProduct kernel no quadrature
+                if (this->m_scale == 1.0)
+                {
+                    constexpr bool Scale = false;
 
-                DEVICE_1DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTBase1DKernelLauncher<Implementation, Scale,
-                                                     Append, DEFORMED>),
-                    gridsize, blocksize, shmemsize, 0, sizeParam1D, nelmt,
-                    m_B[0], m_W[0], m_jacptr, inptr, outptr, this->m_scale);
+                    DEVICE_1DGRID_KERNEL_LAUNCHER(
+                        (IProductWRTBase1DKernelLauncher<Implementation, Scale,
+                                                         Append>),
+                        gridsize, blocksize, shmemsize, 0, sizeParam1D, nelmt,
+                        m_B[0], inptr, outptr, 1.0);
+                }
+                else
+                {
+                    constexpr bool Scale = true;
+
+                    DEVICE_1DGRID_KERNEL_LAUNCHER(
+                        (IProductWRTBase1DKernelLauncher<Implementation, Scale,
+                                                         Append>),
+                        gridsize, blocksize, shmemsize, 0, sizeParam1D, nelmt,
+                        m_B[0], inptr, outptr, this->m_scale);
+                }
             }
-
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
@@ -461,28 +487,61 @@ protected:
                                       nelmt, inblock.GetNumData(),
                                       (TData *)inptr);
 
-            // IProduct kernel.
-            if (this->m_scale == 1.0)
+            if (this->m_integration)
             {
-                constexpr bool Scale = false;
+                // IProduct kernel.
+                if (this->m_scale == 1.0)
+                {
+                    constexpr bool Scale = false;
 
-                DEVICE_1DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTBase2DKernelLauncher<SHAPE_TYPE, Implementation,
-                                                     Scale, Append, DEFORMED>),
-                    gridsize, blocksize, shmemsize, 0, sizeParam2D, nelmt,
-                    m_isModified, m_index[0], m_B[0], m_B[1], m_W[0], m_W[1],
-                    m_nodToMod, m_jacptr, inptr, outptr, wspptr, 1.0);
+                    DEVICE_1DGRID_KERNEL_LAUNCHER(
+                        (IProductWRTBase2DKernelLauncher<SHAPE_TYPE,
+                                                         Implementation, Scale,
+                                                         Append, DEFORMED>),
+                        gridsize, blocksize, shmemsize, 0, sizeParam2D, nelmt,
+                        m_isModified, m_index[0], m_B[0], m_B[1], m_W[0],
+                        m_W[1], m_nodToMod, m_jacptr, inptr, outptr, wspptr,
+                        1.0);
+                }
+                else
+                {
+                    constexpr bool Scale = true;
+
+                    DEVICE_1DGRID_KERNEL_LAUNCHER(
+                        (IProductWRTBase2DKernelLauncher<SHAPE_TYPE,
+                                                         Implementation, Scale,
+                                                         Append, DEFORMED>),
+                        gridsize, blocksize, shmemsize, 0, sizeParam2D, nelmt,
+                        m_isModified, m_index[0], m_B[0], m_B[1], m_W[0],
+                        m_W[1], m_nodToMod, m_jacptr, inptr, outptr, wspptr,
+                        this->m_scale);
+                }
             }
             else
             {
-                constexpr bool Scale = true;
+                // IProduct Kernel with no quadrature
+                if (this->m_scale == 1.0)
+                {
+                    constexpr bool Scale = false;
 
-                DEVICE_1DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTBase2DKernelLauncher<SHAPE_TYPE, Implementation,
-                                                     Scale, Append, DEFORMED>),
-                    gridsize, blocksize, shmemsize, 0, sizeParam2D, nelmt,
-                    m_isModified, m_index[0], m_B[0], m_B[1], m_W[0], m_W[1],
-                    m_nodToMod, m_jacptr, inptr, outptr, wspptr, this->m_scale);
+                    DEVICE_1DGRID_KERNEL_LAUNCHER(
+                        (IProductWRTBase2DKernelLauncher<
+                            SHAPE_TYPE, Implementation, Scale, Append>),
+                        gridsize, blocksize, shmemsize, 0, sizeParam2D, nelmt,
+                        m_isModified, m_index[0], m_B[0], m_B[1], m_nodToMod,
+                        inptr, outptr, wspptr, 1.0);
+                }
+                else
+                {
+                    constexpr bool Scale = true;
+
+                    DEVICE_1DGRID_KERNEL_LAUNCHER(
+                        (IProductWRTBase2DKernelLauncher<
+                            SHAPE_TYPE, Implementation, Scale, Append>),
+                        gridsize, blocksize, shmemsize, 0, sizeParam2D, nelmt,
+                        m_isModified, m_index[0], m_B[0], m_B[1], m_nodToMod,
+                        inptr, outptr, wspptr, this->m_scale);
+                }
             }
 
             // Reshape back, if necessary.
@@ -576,30 +635,64 @@ protected:
                                       nelmt, inblock.GetNumData(),
                                       (TData *)inptr);
 
-            // IProduct kernel.
-            if (this->m_scale == 1.0)
+            if (this->m_integration)
             {
-                constexpr bool Scale = false;
+                // IProduct kernel.
+                if (this->m_scale == 1.0)
+                {
+                    constexpr bool Scale = false;
 
-                DEVICE_1DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTBase3DKernelLauncher<SHAPE_TYPE, Implementation,
-                                                     Scale, Append, DEFORMED>),
-                    gridsize, blocksize, shmemsize, 0, sizeParam3D, nelmt,
-                    m_isModified, m_index[0], m_index[1], m_index[2], m_B[0],
-                    m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], m_nodToMod,
-                    m_jacptr, inptr, outptr, wspptr, 1.0);
+                    DEVICE_1DGRID_KERNEL_LAUNCHER(
+                        (IProductWRTBase3DKernelLauncher<SHAPE_TYPE,
+                                                         Implementation, Scale,
+                                                         Append, DEFORMED>),
+                        gridsize, blocksize, shmemsize, 0, sizeParam3D, nelmt,
+                        m_isModified, m_index[0], m_index[1], m_index[2],
+                        m_B[0], m_B[1], m_B[2], m_W[0], m_W[1], m_W[2],
+                        m_nodToMod, m_jacptr, inptr, outptr, wspptr, 1.0);
+                }
+                else
+                {
+                    constexpr bool Scale = true;
+
+                    DEVICE_1DGRID_KERNEL_LAUNCHER(
+                        (IProductWRTBase3DKernelLauncher<SHAPE_TYPE,
+                                                         Implementation, Scale,
+                                                         Append, DEFORMED>),
+                        gridsize, blocksize, shmemsize, 0, sizeParam3D, nelmt,
+                        m_isModified, m_index[0], m_index[1], m_index[2],
+                        m_B[0], m_B[1], m_B[2], m_W[0], m_W[1], m_W[2],
+                        m_nodToMod, m_jacptr, inptr, outptr, wspptr,
+                        this->m_scale);
+                }
             }
             else
             {
-                constexpr bool Scale = true;
+                // IProduct kernel - no quadrature
+                if (this->m_scale == 1.0)
+                {
+                    constexpr bool Scale = false;
 
-                DEVICE_1DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTBase3DKernelLauncher<SHAPE_TYPE, Implementation,
-                                                     Scale, Append, DEFORMED>),
-                    gridsize, blocksize, shmemsize, 0, sizeParam3D, nelmt,
-                    m_isModified, m_index[0], m_index[1], m_index[2], m_B[0],
-                    m_B[1], m_B[2], m_W[0], m_W[1], m_W[2], m_nodToMod,
-                    m_jacptr, inptr, outptr, wspptr, this->m_scale);
+                    DEVICE_1DGRID_KERNEL_LAUNCHER(
+                        (IProductWRTBase3DKernelLauncher<
+                            SHAPE_TYPE, Implementation, Scale, Append>),
+                        gridsize, blocksize, shmemsize, 0, sizeParam3D, nelmt,
+                        m_isModified, m_index[0], m_index[1], m_index[2],
+                        m_B[0], m_B[1], m_B[2], m_nodToMod, inptr, outptr,
+                        wspptr, 1.0);
+                }
+                else
+                {
+                    constexpr bool Scale = true;
+
+                    DEVICE_1DGRID_KERNEL_LAUNCHER(
+                        (IProductWRTBase3DKernelLauncher<
+                            SHAPE_TYPE, Implementation, Scale, Append>),
+                        gridsize, blocksize, shmemsize, 0, sizeParam3D, nelmt,
+                        m_isModified, m_index[0], m_index[1], m_index[2],
+                        m_B[0], m_B[1], m_B[2], m_nodToMod, inptr, outptr,
+                        wspptr, this->m_scale);
+                }
             }
 
             // Reshape back, if necessary.

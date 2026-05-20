@@ -125,7 +125,7 @@ IF(NEKTAR_BUILD_REDESIGN)
 
             # These operator have an additional argument for the FieldState
             # which requires two delcarations.
-            SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/Operators/Common/OperatorFactoryDec.cpp.in)
+            SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/Operators/Common/OpFactoryDec.cpp.in)
 
             # Loop through each possible execution space.
             FOREACH (ExecSpace IN LISTS ExecSpaces)

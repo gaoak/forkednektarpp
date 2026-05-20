@@ -103,6 +103,7 @@ public:
         return std::static_pointer_cast<TOperator<TData>>(
             factory.CreateInstance(requestedKey, expansionList, components));
     }
+
     /**
      * @brief Return the execution space name ("opExecSpace") for an
      * operator.

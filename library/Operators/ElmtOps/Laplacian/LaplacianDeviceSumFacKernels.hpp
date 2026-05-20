@@ -665,7 +665,8 @@ NEK_DEVICE_INLINE static void Laplacian1DSumFacKernel(
                                           dfptr, bwd, deriv);
         ApplyMetric1DSumFacKernel<DEFORMED>(ilane, ncoord, nq0, nelmt * nq0, w0,
                                             dfptr, jacptr, coeff, deriv, deriv);
-        SumDerivTensor1DKernel<false>(ilane, nq0, D0, deriv, bwd);
+        SumDerivTensor1DKernel<false, false>(ilane, nq0, D0, deriv, bwd,
+                                             (TData)1.0);
         IProductWRTBaseSegSumFacKernel<false, false>(ilane, nm0, nq0, basis0,
                                                      bwd, outptr, (TData)1.0);
         e += getGlobalRange(threadBlock);
@@ -769,8 +770,8 @@ NEK_DEVICE_INLINE static void Laplacian2DSumFacKernel(
         ApplyMetric2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, ncoord, nq0, nq1, nelmt * nqTot, w0, w1, s_f0, s_f1, dfptr,
             jacptr, coeff, deriv, deriv0, deriv1);
-        SumDerivTensor2DKernel<false>(ilane, nq0, nq1, D0, D1, deriv0, deriv1,
-                                      bwd);
+        SumDerivTensor2DKernel<false, false>(ilane, nq0, nq1, D0, D1, deriv0,
+                                             deriv1, bwd);
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
             TData *wsp0 =
@@ -995,8 +996,8 @@ NEK_DEVICE_INLINE static void Laplacian3DSumFacKernel(
         ApplyMetric3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, nq0, nq1, nq2, nelmt * nqTot, w0, w1, w2, s_f0, s_f1, s_f1m,
             s_f2, dfptr, jacptr, coeff, deriv, deriv0, deriv1, deriv2);
-        SumDerivTensor3DKernel<false>(ilane, nq0, nq1, nq2, D0, D1, D2, deriv0,
-                                      deriv1, deriv2, bwd);
+        SumDerivTensor3DKernel<false, false>(ilane, nq0, nq1, nq2, D0, D1, D2,
+                                             deriv0, deriv1, deriv2, bwd);
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
             TData *wsp0 =
