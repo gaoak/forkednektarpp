@@ -136,8 +136,10 @@ protected:
 
         // Get static workspace pointer.
         auto wspptr =
-            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                simd_t::width * m_nqTot);
+            (this->m_integration)
+                ? BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                      simd_t::width * m_nqTot)
+                : nullptr;
 
         // Dispatch kernel.
         auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(

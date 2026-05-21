@@ -109,6 +109,8 @@ public:
 
     void RunTestCase(const std::string &method)
     {
+        std::string execStr = Operator<TData>::GetOpExecSpace(this->session);
+
         auto assmb = AssmbScatrZeroDirOp<TData>::Create(
             this->fixt_explist, this->session->GetVariables());
         auto op     = HelmholtzOp<TData>::Create(this->fixt_explist,
@@ -119,6 +121,35 @@ public:
         op->SetDiffCoeff(m_diffCoeff);
         precon->Configure(op);
         assmb->Apply(*this->fixt_in, *this->fixt_out);
+
+        // reshape this->fixt_out
+        if (execStr == "AVX")
+        {
+            for (unsigned int blk = 0; blk < this->fixt_out->GetBlocks().size();
+                 ++blk)
+            {
+                auto &block = this->fixt_out->GetBlocks()[blk];
+                auto inptr =
+                    block.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+                for (unsigned int nc = 0;
+                     nc < this->fixt_out->GetNumComponents(); ++nc)
+                {
+                    // reshuffle data into simd_t width for AVX check
+                    ReshapeStorage<NektarSpaces::Serial>(
+                        NektarSpaces::vector_width<NektarSpaces::AVX,
+                                                   TData>::value,
+                        block.GetInterleaveWidth(),
+                        block.GetNumElementsWithPadding(), block.GetNumData(),
+                        inptr);
+                    inptr += block.CompSize();
+                }
+
+                block.template SetInterleaveWidth<TData>(
+                    NektarSpaces::vector_width<NektarSpaces::AVX,
+                                               TData>::value);
+            }
+        }
+
         precon->Apply(*this->fixt_out, *this->fixt_out);
     }
 

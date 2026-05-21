@@ -35,6 +35,7 @@
 #include "init_fields.hpp"
 
 #include "Operators/ElmtOps/Expression/ExpressionOp.hpp"
+#include <Operators/Utils/UtilsKernels.hpp>
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
@@ -90,6 +91,36 @@ public:
 
     void RunTestCase()
     {
+        std::string execStr = Operator<TData>::GetOpExecSpace(this->session);
+
+        // reshape this->fixt_in
+        if (execStr == "AVX")
+        {
+            for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
+                 ++blk)
+            {
+                auto &block = this->fixt_in->GetBlocks()[blk];
+                auto inptr =
+                    block.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+                for (unsigned int nc = 0;
+                     nc < this->fixt_in->GetNumComponents(); ++nc)
+                {
+                    // reshuffle data into simd_t width for AVX check
+                    ReshapeStorage<NektarSpaces::Serial>(
+                        NektarSpaces::vector_width<NektarSpaces::AVX,
+                                                   TData>::value,
+                        block.GetInterleaveWidth(),
+                        block.GetNumElementsWithPadding(), block.GetNumData(),
+                        inptr);
+                    inptr += block.CompSize();
+                }
+
+                block.template SetInterleaveWidth<TData>(
+                    NektarSpaces::vector_width<NektarSpaces::AVX,
+                                               TData>::value);
+            }
+        }
+
         auto op = ExpressionOp<TData>::Create(this->fixt_explist,
                                               this->session->GetVariables());
         op->SetTime(m_time);

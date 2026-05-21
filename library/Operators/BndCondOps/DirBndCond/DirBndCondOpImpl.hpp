@@ -626,22 +626,17 @@ protected:
             auto &inoutBlk = inout.GetBlocks()[blk];
 
             // Initialize pointers.
-            auto inoutPtr = inoutBlk.template GetPtr<MemSpace, ReadWrite>();
+            auto inoutPtr    = inoutBlk.template GetPtr<MemSpace, ReadWrite>();
+            auto inoutWidth  = inoutBlk.GetInterleaveWidth();
+            unsigned blksize = inoutBlk.CompSize();
 
             // if block is interlaced deInterleave block since currently mapping
             // set up assuming serial alignment
-            auto inoutWidth  = inoutBlk.GetInterleaveWidth();
-            unsigned blksize = inoutBlk.CompSize();
-            if (inoutWidth != 1)
+            for (unsigned nc = 0; nc < inout.GetNumComponents(); ++nc)
             {
-                for (unsigned nc = 0; nc < inout.GetNumComponents(); ++nc)
-                {
-                    deInterleave<ExecSpace>(
-                        inoutWidth,
-                        inoutBlk.GetNumElementsWithPadding() / inoutWidth,
-                        inoutBlk.GetNumData(), inoutPtr + nc * blksize);
-                }
-                inoutBlk.template SetInterleaveWidth<TData>(1);
+                ReshapeStorage<ExecSpace>(
+                    1u, inoutWidth, inoutBlk.GetNumElementsWithPadding(),
+                    inoutBlk.GetNumData(), inoutPtr + nc * blksize);
             }
 
             auto mapPtrBlock = m_map[blk].template GetPtr<MemSpace, ReadOnly>();
@@ -794,6 +789,24 @@ protected:
                         nLocCoeffBlock, locid0Ptr, locid1Ptr, locsignPtr,
                         inptr + nc * blksize1, outptr + nc * blksize0);
                 }
+            }
+        }
+
+        for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
+        {
+            auto &inoutBlk = inout.GetBlocks()[blk];
+
+            // Initialize pointers.
+            auto inoutPtr    = inoutBlk.template GetPtr<MemSpace, ReadWrite>();
+            auto inoutWidth  = inoutBlk.GetInterleaveWidth();
+            unsigned blksize = inoutBlk.CompSize();
+
+            // Reshape back, if necessary.
+            for (unsigned nc = 0; nc < inout.GetNumComponents(); ++nc)
+            {
+                ReshapeStorage<ExecSpace>(
+                    inoutWidth, 1u, inoutBlk.GetNumElementsWithPadding(),
+                    inoutBlk.GetNumData(), inoutPtr + nc * blksize);
             }
         }
     }
