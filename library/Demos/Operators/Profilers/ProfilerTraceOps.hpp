@@ -383,14 +383,15 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr const &expList,
         auto &inblock = in.GetBlocks()[blk];
         TData *inptr =
             inblock.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-        for (unsigned int component = 0; component < in.GetNumComponents();
+        for (unsigned int component = 0; component < inblock.GetNumComponents();
              component++)
         {
             ReshapeStorage<NektarSpaces::Serial>(
                 interleaveWidth, inblock.GetInterleaveWidth(),
-                inblock.GetNumElementsWithPadding() * in.GetNumHomoModes(),
+                inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes(),
                 inblock.GetNumData(),
-                inptr + component * inblock.CompSize() * in.GetNumHomoModes());
+                inptr +
+                    component * inblock.CompSize() * inblock.GetNumHomoModes());
         }
 
         inblock.template SetInterleaveWidth<TData>(interleaveWidth);
@@ -452,21 +453,23 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr const &expList,
             fwdblock.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
         TData *bwdptr =
             bwdblock.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-        for (unsigned int component = 0; component < fwd.GetNumComponents();
-             component++)
+        for (unsigned int component = 0;
+             component < fwdblock.GetNumComponents(); component++)
         {
             ReshapeStorage<NektarSpaces::Serial>(
                 1, fwdblock.GetInterleaveWidth(),
-                fwdblock.GetNumElementsWithPadding() * fwd.GetNumHomoModes(),
+                fwdblock.GetNumElementsWithPadding() *
+                    fwdblock.GetNumHomoModes(),
                 fwdblock.GetNumData(),
-                fwdptr +
-                    component * fwdblock.CompSize() * fwd.GetNumHomoModes());
+                fwdptr + component * fwdblock.CompSize() *
+                             fwdblock.GetNumHomoModes());
             ReshapeStorage<NektarSpaces::Serial>(
                 1, bwdblock.GetInterleaveWidth(),
-                bwdblock.GetNumElementsWithPadding() * fwd.GetNumHomoModes(),
+                bwdblock.GetNumElementsWithPadding() *
+                    fwdblock.GetNumHomoModes(),
                 bwdblock.GetNumData(),
-                bwdptr +
-                    component * fwdblock.CompSize() * fwd.GetNumHomoModes());
+                bwdptr + component * fwdblock.CompSize() *
+                             fwdblock.GetNumHomoModes());
         }
 
         fwdblock.template SetInterleaveWidth<TData>(1);

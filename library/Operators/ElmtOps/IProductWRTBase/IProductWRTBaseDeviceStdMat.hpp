@@ -130,8 +130,10 @@ protected:
 
         // Get static workspace pointer.
         auto wspptr =
-            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                nelmtTot * m_nqTot);
+            (this->m_integration)
+                ? BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                      nelmtTot * m_nqTot)
+                : nullptr;
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();

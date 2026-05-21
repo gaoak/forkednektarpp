@@ -63,6 +63,20 @@ public:
 
     void RunTestCase()
     {
+        std::string execStr = Operator<TData>::GetOpExecSpace(this->session);
+
+        if (execStr == "AVX")
+        {
+            for (unsigned int blk = 0; blk < this->fixt_out->GetBlocks().size();
+                 ++blk)
+            {
+                auto &block = this->fixt_out->GetBlocks()[blk];
+                block.template SetInterleaveWidth<TData>(
+                    NektarSpaces::vector_width<NektarSpaces::AVX,
+                                               TData>::value);
+            }
+        }
+
         auto op = NeuBndCondOp<TData>::Create(this->fixt_explist,
                                               this->session->GetVariables());
         op->Apply(*this->fixt_out);

@@ -513,14 +513,15 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
         auto &inblock = in.GetBlocks()[blk];
         TData *inptr =
             inblock.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-        for (unsigned int component = 0; component < in.GetNumComponents();
+        for (unsigned int component = 0; component < inblock.GetNumComponents();
              component++)
         {
             ReshapeStorage<NektarSpaces::Serial>(
                 interleaveWidth, inblock.GetInterleaveWidth(),
-                inblock.GetNumElementsWithPadding() * in.GetNumHomoModes(),
+                inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes(),
                 inblock.GetNumData(),
-                inptr + component * inblock.CompSize() * in.GetNumHomoModes());
+                inptr +
+                    component * inblock.CompSize() * inblock.GetNumHomoModes());
         }
 
         inblock.template SetInterleaveWidth<TData>(interleaveWidth);
@@ -584,10 +585,11 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
         {
             ReshapeStorage<NektarSpaces::Serial>(
                 1, outblock.GetInterleaveWidth(),
-                outblock.GetNumElementsWithPadding() * out.GetNumHomoModes(),
+                outblock.GetNumElementsWithPadding() *
+                    outblock.GetNumHomoModes(),
                 outblock.GetNumData(),
-                outptr +
-                    component * outblock.CompSize() * out.GetNumHomoModes());
+                outptr + component * outblock.CompSize() *
+                             outblock.GetNumHomoModes());
         }
 
         outblock.template SetInterleaveWidth<TData>(1);

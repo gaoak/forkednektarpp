@@ -259,11 +259,6 @@ protected:
         if (&in != &out)
         {
             out.template Copy<MemSpace>(in);
-            for (unsigned blk = 0; blk < in.GetBlocks().size(); ++blk)
-            {
-                out.GetBlocks()[blk].template SetInterleaveWidth<TData>(
-                    in.GetBlocks()[blk].GetInterleaveWidth());
-            }
         }
 
         v_Apply(out);
@@ -308,6 +303,10 @@ protected:
         // Initialize pointer.
         auto inoutPtr =
             inout.GetBlocks()[0].template GetPtr<MemSpace, ReadWrite>();
+        for (unsigned blk = 1; blk < inout.GetBlocks().size(); ++blk)
+        {
+            inout.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>();
+        }
 
         if (m_isParallel)
         {
