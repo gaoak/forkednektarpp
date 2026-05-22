@@ -123,6 +123,7 @@ protected:
 
             // Set output block to input interleave.
             outblock.template SetInterleaveWidth<TData>(in_width);
+            diagblock.template SetInterleaveWidth<TData>(in_width);
         }
     }
 

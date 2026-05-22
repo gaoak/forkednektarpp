@@ -182,6 +182,7 @@ protected:
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
+        out.SetInterleaveWidth(in);
 
         // Reset device memory.
         auto exchange = m_vExchange.template GetPtr<MemSpace, WriteOnly>();
@@ -246,7 +247,9 @@ protected:
             if (this->m_niter == 0)
             {
                 m_p.template Initialize<MemSpace>(0);
+                m_p.SetInterleaveWidth(in);
                 m_q.template Initialize<MemSpace>(0);
+                m_q.SetInterleaveWidth(in);
             }
             else
             {

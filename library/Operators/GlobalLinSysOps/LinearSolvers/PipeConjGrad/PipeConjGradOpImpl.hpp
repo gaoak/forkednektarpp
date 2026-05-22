@@ -154,6 +154,7 @@ protected:
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
+        out.SetInterleaveWidth(in);
 
         // Reset device memory.
         auto exchange = m_vExchange.template GetPtr<MemSpace, WriteOnly>();

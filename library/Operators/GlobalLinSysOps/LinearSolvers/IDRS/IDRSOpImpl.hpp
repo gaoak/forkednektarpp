@@ -143,6 +143,33 @@ protected:
     void v_Apply(Field<TData, FieldState::Coeff> &in,
                  Field<TData, FieldState::Coeff> &out) override
     {
+        // Reshape m_P if required.
+        for (unsigned int stage = 0; stage < m_stage; stage++)
+        {
+            for (unsigned blk = 0; blk < in.GetBlocks().size(); ++blk)
+            {
+                auto &inblk = in.GetBlocks()[blk];
+                auto &pblk  = m_P[stage].GetBlocks()[blk];
+
+                if (inblk.GetInterleaveWidth() != pblk.GetInterleaveWidth())
+                {
+                    auto ptr     = pblk.template GetPtr<MemSpace, ReadWrite>();
+                    auto numComp = pblk.GetNumComponents();
+
+                    for (unsigned nc = 0; nc < numComp; ++nc)
+                    {
+                        ReshapeStorage<ExecSpace>(
+                            inblk.GetInterleaveWidth(),
+                            pblk.GetInterleaveWidth(),
+                            pblk.GetNumElementsWithPadding(), pblk.GetNumData(),
+                            ptr + nc * pblk.CompSize());
+                    }
+                    pblk.template SetInterleaveWidth<TData>(
+                        inblk.GetInterleaveWidth());
+                }
+            }
+        }
+
         // Implement IDR(s) iterative method as described in:
         //
         // Reference:
@@ -160,6 +187,7 @@ protected:
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
+        out.SetInterleaveWidth(in);
 
         // Calculate inital rhs magnitude.
         m_r.template Copy<MemSpace>(in);
@@ -195,7 +223,9 @@ protected:
             Mu[k]    = std::vector<TData>(m_stage);
             Mu[k][k] = 1.0;
             m_G[k].template Initialize<MemSpace>(0.0);
+            m_G[k].SetInterleaveWidth(in);
             m_U[k].template Initialize<MemSpace>(0.0);
+            m_U[k].SetInterleaveWidth(in);
         }
         while (true)
         {

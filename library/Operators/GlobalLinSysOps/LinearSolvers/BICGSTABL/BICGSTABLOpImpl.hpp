@@ -155,6 +155,7 @@ protected:
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
+        out.SetInterleaveWidth(in);
 
         // Calculate inital rhs magnitude.
         m_r[0].template Copy<MemSpace>(in);
@@ -192,7 +193,9 @@ protected:
         rho          = 1.0;
         omega        = 1.0;
         m_u[0].template Initialize<MemSpace>(0);
+        m_u[0].SetInterleaveWidth(in);
         m_acc.template Initialize<MemSpace>(0);
+        m_acc.SetInterleaveWidth(in);
         if (m_accurateUpdate)
         {
             m_rhs.template Copy<MemSpace>(m_r[0]);
@@ -490,6 +493,7 @@ protected:
                     {
                         add<ExecSpace>(tmp3, out, out);
                         m_acc.template Initialize<MemSpace>(0);
+                        m_acc.SetInterleaveWidth(in);
                         m_rhs.template Copy<MemSpace>(m_r[0]);
 
                         MaxResApprox = zeta;

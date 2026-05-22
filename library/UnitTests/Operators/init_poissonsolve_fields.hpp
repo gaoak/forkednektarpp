@@ -173,6 +173,36 @@ public:
 
     void RunTestCase(const std::string &method)
     {
+        std::string execStr(
+            boost::unit_test::framework::master_test_suite().argv[1]);
+        std::string implStr(
+            boost::unit_test::framework::master_test_suite().argv[2]);
+
+        // reshape this->fixt_in
+        if (implStr == "SumFac" || execStr == "AVX")
+        {
+            for (auto &block : this->fixt_in->GetBlocks())
+            {
+                auto ptr =
+                    block.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+                for (unsigned int nc = 0; nc < block.GetNumComponents(); ++nc)
+                {
+                    // reshuffle data into simd_t width for AVX check
+                    ReshapeStorage<NektarSpaces::Serial>(
+                        NektarSpaces::GetVectorWidth<TData>(execStr),
+                        block.GetInterleaveWidth(),
+                        block.GetNumElementsWithPadding(), block.GetNumData(),
+                        ptr);
+                    ptr += block.CompSize();
+                }
+
+                block.template SetInterleaveWidth<TData>(
+                    NektarSpaces::GetVectorWidth<TData>(execStr));
+            }
+            this->fixt_out->SetInterleaveWidth(
+                NektarSpaces::GetVectorWidth<TData>(execStr));
+        }
+
         auto op     = PoissonSolveOp<TData>::Create(this->fixt_explist,
                                                     this->session->GetVariables());
         auto precon = PreconOp<TData>::Create(
