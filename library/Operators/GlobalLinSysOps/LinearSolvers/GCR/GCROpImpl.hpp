@@ -117,6 +117,7 @@ protected:
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
+        out.SetInterleaveWidth(in);
 
         // Calculate inital rhs magnitude.
         m_r.template Copy<MemSpace>(in);

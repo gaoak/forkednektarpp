@@ -296,21 +296,13 @@ protected:
             auto outPtr  = outBlk.template GetPtr<MemSpace, ReadWrite>();
 
             auto inWidth = inBlk.GetInterleaveWidth();
-            if (inWidth != 1)
-            {
-                deInterleave<ExecSpace>(
-                    inWidth, inBlk.GetNumElementsWithPadding() / inWidth,
-                    inBlk.GetNumData(), inPtr);
-                inBlk.template SetInterleaveWidth<TData>(1);
-            }
+            ReshapeStorage<ExecSpace>(1u, inWidth,
+                                      inBlk.GetNumElementsWithPadding(),
+                                      inBlk.GetNumData(), inPtr);
             auto outWidth = outBlk.GetInterleaveWidth();
-            if (outWidth != 1)
-            {
-                deInterleave<ExecSpace>(
-                    outWidth, outBlk.GetNumElementsWithPadding() / outWidth,
-                    outBlk.GetNumData(), outPtr);
-                inBlk.template SetInterleaveWidth<TData>(1);
-            }
+            ReshapeStorage<ExecSpace>(1u, outWidth,
+                                      outBlk.GetNumElementsWithPadding(),
+                                      outBlk.GetNumData(), outPtr);
         }
 
         // Get pointers.
@@ -336,6 +328,24 @@ protected:
             RobBndCond2DKernel<ExecSpace>(
                 m_nmaxcoeff, m_nBndEdge, ncoeffPtr, offsetPtr, matOffsetPtr,
                 mapOffsetPtr, matPtr, mapPtr, signPtr, inPtr, outPtr);
+        }
+
+        // Reshape back, if necessary.
+        for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
+        {
+            auto &inBlk  = in.GetBlocks()[blk];
+            auto &outBlk = out.GetBlocks()[blk];
+            auto inPtr   = inBlk.template GetPtr<MemSpace, ReadWrite>();
+            auto outPtr  = outBlk.template GetPtr<MemSpace, ReadWrite>();
+
+            auto inWidth = inBlk.GetInterleaveWidth();
+            ReshapeStorage<ExecSpace>(inWidth, 1u,
+                                      inBlk.GetNumElementsWithPadding(),
+                                      inBlk.GetNumData(), inPtr);
+            ReshapeStorage<ExecSpace>(inWidth, 1u,
+                                      outBlk.GetNumElementsWithPadding(),
+                                      outBlk.GetNumData(), outPtr);
+            outBlk.template SetInterleaveWidth<TData>(inWidth);
         }
     }
 };

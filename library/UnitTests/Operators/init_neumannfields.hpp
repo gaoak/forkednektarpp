@@ -67,13 +67,10 @@ public:
 
         if (execStr == "AVX")
         {
-            for (unsigned int blk = 0; blk < this->fixt_out->GetBlocks().size();
-                 ++blk)
+            for (auto &block : this->fixt_out->GetBlocks())
             {
-                auto &block = this->fixt_out->GetBlocks()[blk];
                 block.template SetInterleaveWidth<TData>(
-                    NektarSpaces::vector_width<NektarSpaces::AVX,
-                                               TData>::value);
+                    NektarSpaces::GetVectorWidth<TData>(execStr));
             }
         }
 

@@ -42,8 +42,62 @@
 #include "Operators/Math/MathSYCLKernels.hpp"
 #include "Operators/Math/MathSerialKernels.hpp"
 
+#include "Operators/Common/OperatorsDeclspec.hpp"
+
 namespace Nektar::Operators
 {
+
+class internalMathKernelMask
+{
+public:
+    template <typename MemSpace, typename TData, FieldState TFieldState>
+    static const uint8_t *GetInstance(BlockAccessor<TData, TFieldState> &block)
+    {
+        auto key =
+            std::tuple<size_t, size_t, unsigned int, size_t, unsigned int>(
+                block.GetNumElements(), block.GetNumElementsWithPadding(),
+                block.GetNumData(), block.CompSize(),
+                block.GetInterleaveWidth());
+        if (mask.find(key) == mask.end())
+        {
+            auto mr  = MemoryRegion<uint8_t>(block.CompSize());
+            auto ptr = mr.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
+            // Loop over chunks.
+            for (size_t chunk = 0, el = 0; chunk < block.GetNumElmtGroups();
+                 ++chunk, el += block.GetInterleaveWidth())
+            {
+                // Loop over interleave width
+                for (unsigned int pt = 0; pt < block.GetNumData(); ++pt)
+                {
+                    for (unsigned int i = 0; i < block.GetInterleaveWidth();
+                         ++i)
+                    {
+                        // Check for padding
+                        if (el + i < block.GetNumElements())
+                        {
+                            *(ptr++) = 1;
+                        }
+                        else
+                        {
+                            *(ptr++) = 0;
+                        }
+                    }
+                }
+            }
+
+            mask[key] = std::move(mr);
+        }
+
+        return mask[key].template GetPtr<MemSpace, ReadOnly>();
+    }
+
+private:
+    inline static std::map<
+        std::tuple<size_t, size_t, unsigned int, size_t, unsigned int>,
+        MemoryRegion<uint8_t>>
+        mask;
+};
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 void zero(Field<TData, TFieldState> &x)
@@ -665,16 +719,24 @@ void reduceSum(Field<TData, TFieldState> &x, TData *out)
     {
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
-        auto size   = block.GetNumElements() * block.GetNumData() *
-                    x.GetNumComponents() * x.GetNumHomoModes();
+        auto maskptr =
+            internalMathKernelMask::template GetInstance<MemSpace>(block);
+        auto size  = block.CompSize();
+        auto ncomp = block.GetNumComponents() * block.GetNumHomoModes();
 
-        if (blk == 0)
+        for (unsigned int n = 0; n < ncomp; ++n)
         {
-            reduceSumKernel<ExecSpace, true>(size, xptr, out);
-        }
-        else
-        {
-            reduceSumKernel<ExecSpace, false>(size, xptr, out);
+            auto doInit = (blk == 0 && n == 0);
+            if (doInit)
+            {
+                reduceSumKernel<ExecSpace, true>(size, maskptr, xptr, out);
+            }
+            else
+            {
+                reduceSumKernel<ExecSpace, false>(size, maskptr, xptr, out);
+            }
+
+            xptr += size;
         }
     }
 }
@@ -705,10 +767,9 @@ void reduceSum(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
 
         auto maskptr =
             mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto &block = x.GetBlocks()[blk];
-        auto size   = block.GetNumElements() * block.GetNumData() *
-                    x.GetNumComponents() * x.GetNumHomoModes();
+        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
 
         if (blk == 0)
         {
@@ -742,16 +803,24 @@ void reduceMax(Field<TData, TFieldState> &x, TData *out)
     {
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
-        auto size   = block.GetNumElements() * block.GetNumData() *
-                    x.GetNumComponents() * x.GetNumHomoModes();
+        auto maskptr =
+            internalMathKernelMask::template GetInstance<MemSpace>(block);
+        auto size  = block.CompSize();
+        auto ncomp = block.GetNumComponents() * block.GetNumHomoModes();
 
-        if (blk == 0)
+        for (unsigned int n = 0; n < ncomp; ++n)
         {
-            reduceMaxKernel<ExecSpace, true>(size, xptr, out);
-        }
-        else
-        {
-            reduceMaxKernel<ExecSpace, false>(size, xptr, out);
+            auto doInit = (blk == 0 && n == 0);
+            if (doInit)
+            {
+                reduceMaxKernel<ExecSpace, true>(size, maskptr, xptr, out);
+            }
+            else
+            {
+                reduceMaxKernel<ExecSpace, false>(size, maskptr, xptr, out);
+            }
+
+            xptr += size;
         }
     }
 }
@@ -782,10 +851,9 @@ void reduceMax(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
 
         auto maskptr =
             mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto &block = x.GetBlocks()[blk];
-        auto size   = block.GetNumElements() * block.GetNumData() *
-                    x.GetNumComponents() * x.GetNumHomoModes();
+        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
 
         if (blk == 0)
         {
@@ -819,16 +887,24 @@ void reduceMin(Field<TData, TFieldState> &x, TData *out)
     {
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
-        auto size   = block.GetNumElements() * block.GetNumData() *
-                    x.GetNumComponents() * x.GetNumHomoModes();
+        auto maskptr =
+            internalMathKernelMask::template GetInstance<MemSpace>(block);
+        auto size  = block.CompSize();
+        auto ncomp = block.GetNumComponents() * block.GetNumHomoModes();
 
-        if (blk == 0)
+        for (unsigned int n = 0; n < ncomp; ++n)
         {
-            reduceMinKernel<ExecSpace, true>(size, xptr, out);
-        }
-        else
-        {
-            reduceMinKernel<ExecSpace, false>(size, xptr, out);
+            auto doInit = (blk == 0 && n == 0);
+            if (doInit)
+            {
+                reduceMinKernel<ExecSpace, true>(size, maskptr, xptr, out);
+            }
+            else
+            {
+                reduceMinKernel<ExecSpace, false>(size, maskptr, xptr, out);
+            }
+
+            xptr += size;
         }
     }
 }
@@ -859,10 +935,9 @@ void reduceMin(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
 
         auto maskptr =
             mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto &block = x.GetBlocks()[blk];
-        auto size   = block.GetNumElements() * block.GetNumData() *
-                    x.GetNumComponents() * x.GetNumHomoModes();
+        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
 
         if (blk == 0)
         {
@@ -911,24 +986,25 @@ void ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto yptr   = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
-        auto size   = block.GetNumElements() * block.GetNumData();
-        auto stride = block.CompSize();
-        auto ncomp  = x.GetNumComponents() * x.GetNumHomoModes();
+        auto maskptr =
+            internalMathKernelMask::template GetInstance<MemSpace>(block);
+        auto size  = block.CompSize();
+        auto ncomp = block.GetNumComponents() * block.GetNumHomoModes();
 
         for (unsigned int n = 0; n < ncomp; ++n)
         {
             auto doInit = (blk == 0 && n == 0);
             if (doInit)
             {
-                ddotKernel<ExecSpace, true>(size, xptr, yptr, out);
+                ddotKernel<ExecSpace, true>(size, maskptr, xptr, yptr, out);
             }
             else
             {
-                ddotKernel<ExecSpace, false>(size, xptr, yptr, out);
+                ddotKernel<ExecSpace, false>(size, maskptr, xptr, yptr, out);
             }
 
-            xptr += stride;
-            yptr += stride;
+            xptr += size;
+            yptr += size;
         }
     }
 }
@@ -978,28 +1054,18 @@ void ddot(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
 
         auto maskptr =
             mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto yptr   = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto &block = x.GetBlocks()[blk];
-        auto size   = block.GetNumElements() * block.GetNumData();
-        auto stride = block.CompSize();
-        auto ncomp  = x.GetNumComponents() * x.GetNumHomoModes();
+        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
 
-        for (unsigned int n = 0; n < ncomp; ++n)
+        if (blk == 0)
         {
-            auto doInit = (blk == 0 && n == 0);
-            if (doInit)
-            {
-                ddotKernel<ExecSpace, true>(size, maskptr, xptr, yptr, out);
-            }
-            else
-            {
-                ddotKernel<ExecSpace, false>(size, maskptr, xptr, yptr, out);
-            }
-
-            maskptr += stride;
-            xptr += stride;
-            yptr += stride;
+            ddotKernel<ExecSpace, true>(size, maskptr, xptr, yptr, out);
+        }
+        else
+        {
+            ddotKernel<ExecSpace, false>(size, maskptr, xptr, yptr, out);
         }
     }
 }
@@ -1035,16 +1101,24 @@ void l1norm(Field<TData, TFieldState> &x, TData *out)
     {
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
-        auto size   = block.GetNumElements() * block.GetNumData() *
-                    x.GetNumComponents() * x.GetNumHomoModes();
+        auto maskptr =
+            internalMathKernelMask::template GetInstance<MemSpace>(block);
+        auto size  = block.CompSize();
+        auto ncomp = block.GetNumComponents() * block.GetNumHomoModes();
 
-        if (blk == 0)
+        for (unsigned int n = 0; n < ncomp; ++n)
         {
-            l1normKernel<ExecSpace, true>(size, xptr, out);
-        }
-        else
-        {
-            l1normKernel<ExecSpace, false>(size, xptr, out);
+            auto doInit = (blk == 0 && n == 0);
+            if (doInit)
+            {
+                l1normKernel<ExecSpace, true>(size, maskptr, xptr, out);
+            }
+            else
+            {
+                l1normKernel<ExecSpace, false>(size, maskptr, xptr, out);
+            }
+
+            xptr += size;
         }
     }
 }
@@ -1075,10 +1149,9 @@ void l1norm(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
 
         auto maskptr =
             mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto &block = x.GetBlocks()[blk];
-        auto size   = block.GetNumElements() * block.GetNumData() *
-                    x.GetNumComponents() * x.GetNumHomoModes();
+        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
 
         if (blk == 0)
         {
@@ -1112,16 +1185,24 @@ void l2norm(Field<TData, TFieldState> &x, TData *out)
     {
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
-        auto size   = block.GetNumElements() * block.GetNumData() *
-                    x.GetNumComponents() * x.GetNumHomoModes();
+        auto maskptr =
+            internalMathKernelMask::template GetInstance<MemSpace>(block);
+        auto size  = block.CompSize();
+        auto ncomp = block.GetNumComponents() * block.GetNumHomoModes();
 
-        if (blk == 0)
+        for (unsigned int n = 0; n < ncomp; ++n)
         {
-            l2normKernel<ExecSpace, true>(size, xptr, out);
-        }
-        else
-        {
-            l2normKernel<ExecSpace, false>(size, xptr, out);
+            auto doInit = (blk == 0 && n == 0);
+            if (doInit)
+            {
+                l2normKernel<ExecSpace, true>(size, maskptr, xptr, out);
+            }
+            else
+            {
+                l2normKernel<ExecSpace, false>(size, maskptr, xptr, out);
+            }
+
+            xptr += size;
         }
     }
 }
@@ -1152,10 +1233,9 @@ void l2norm(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
 
         auto maskptr =
             mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto &block = x.GetBlocks()[blk];
-        auto size   = block.GetNumElements() * block.GetNumData() *
-                    x.GetNumComponents() * x.GetNumHomoModes();
+        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
 
         if (blk == 0)
         {
@@ -1189,16 +1269,24 @@ void lpnorm(const unsigned int p, Field<TData, TFieldState> &x, TData *out)
     {
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
-        auto size   = block.GetNumElements() * block.GetNumData() *
-                    x.GetNumComponents() * x.GetNumHomoModes();
+        auto maskptr =
+            internalMathKernelMask::template GetInstance<MemSpace>(block);
+        auto size  = block.CompSize();
+        auto ncomp = block.GetNumComponents() * block.GetNumHomoModes();
 
-        if (blk == 0)
+        for (unsigned int n = 0; n < ncomp; ++n)
         {
-            lpnormKernel<ExecSpace, true>(size, p, xptr, out);
-        }
-        else
-        {
-            lpnormKernel<ExecSpace, false>(size, p, xptr, out);
+            auto doInit = (blk == 0 && n == 0);
+            if (doInit)
+            {
+                lpnormKernel<ExecSpace, true>(size, p, maskptr, xptr, out);
+            }
+            else
+            {
+                lpnormKernel<ExecSpace, false>(size, p, maskptr, xptr, out);
+            }
+
+            xptr += size;
         }
     }
 }
@@ -1229,10 +1317,9 @@ void lpnorm(const unsigned int p, Field<uint8_t, TFieldState> &mask,
 
         auto maskptr =
             mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto &block = x.GetBlocks()[blk];
-        auto size   = block.GetNumElements() * block.GetNumData() *
-                    x.GetNumComponents() * x.GetNumHomoModes();
+        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
 
         if (blk == 0)
         {
@@ -1267,16 +1354,24 @@ void linfnorm(Field<TData, TFieldState> &x, TData *out)
     {
         auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
         auto &block = x.GetBlocks()[blk];
-        auto size   = block.GetNumElements() * block.GetNumData() *
-                    x.GetNumComponents() * x.GetNumHomoModes();
+        auto maskptr =
+            internalMathKernelMask::template GetInstance<MemSpace>(block);
+        auto size  = block.CompSize();
+        auto ncomp = block.GetNumComponents() * block.GetNumHomoModes();
 
-        if (blk == 0)
+        for (unsigned int n = 0; n < ncomp; ++n)
         {
-            linfnormKernel<ExecSpace, true>(size, xptr, out);
-        }
-        else
-        {
-            linfnormKernel<ExecSpace, false>(size, xptr, out);
+            auto doInit = (blk == 0 && n == 0);
+            if (doInit)
+            {
+                linfnormKernel<ExecSpace, true>(size, maskptr, xptr, out);
+            }
+            else
+            {
+                linfnormKernel<ExecSpace, false>(size, maskptr, xptr, out);
+            }
+
+            xptr += size;
         }
     }
 }
@@ -1307,10 +1402,9 @@ void linfnorm(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
 
         auto maskptr =
             mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto &block = x.GetBlocks()[blk];
-        auto size   = block.GetNumElements() * block.GetNumData() *
-                    x.GetNumComponents() * x.GetNumHomoModes();
+        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
 
         if (blk == 0)
         {

@@ -130,7 +130,9 @@ protected:
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
+        out.SetInterleaveWidth(in);
         m_d.template Initialize<MemSpace>(0);
+        m_d.SetInterleaveWidth(in);
 
         // Calculate inital rhs magnitude.
         m_r.template Copy<MemSpace>(in);
@@ -161,6 +163,7 @@ protected:
 
         // Iteration >= 1
         m_p.template Initialize<MemSpace>(0);
+        m_p.SetInterleaveWidth(in);
         m_u.template Copy<MemSpace>(m_r);
         m_rtilde.template Copy<MemSpace>(m_r);
         rho_new = this->m_math.ddot(m_rtilde, m_r);

@@ -132,6 +132,7 @@ protected:
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
+        out.SetInterleaveWidth(in);
 
         // Calculate inital rhs magnitude.
         m_v0.template Copy<MemSpace>(in);
@@ -164,6 +165,7 @@ protected:
         gamma1 = gamma0 = 1.0;
         sigma1 = sigma0 = 0.0;
         m_p1.template Initialize<MemSpace>(0);
+        m_p1.SetInterleaveWidth(in);
         while (true)
         {
             if (this->m_niter > this->m_maxIter)

@@ -64,6 +64,17 @@ public:
 
     void RunTestCase()
     {
+        std::string execStr = Operator<TData>::GetOpExecSpace(this->session);
+
+        if (execStr == "AVX")
+        {
+            for (auto &block : this->fixt_in->GetBlocks())
+            {
+                block.template SetInterleaveWidth<TData>(
+                    NektarSpaces::GetVectorWidth<TData>(execStr));
+            }
+        }
+
         auto op = RobBndCondOp<TData>::Create(this->fixt_explist,
                                               this->session->GetVariables());
         op->Apply(*this->fixt_in, *this->fixt_out);

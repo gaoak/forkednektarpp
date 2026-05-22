@@ -249,6 +249,7 @@ protected:
             {
                 // Set the fields to zero.
                 out.template Initialize<MemSpace>(0);
+                out.SetInterleaveWidth(in);
 
                 // If not restarted, x0 should be zero
                 m_r0.template Copy<MemSpace>(in);

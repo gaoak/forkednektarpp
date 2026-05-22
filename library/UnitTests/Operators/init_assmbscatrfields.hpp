@@ -97,28 +97,23 @@ public:
         // reshape this->fixt_in
         if (execStr == "AVX")
         {
-            for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
-                 ++blk)
+            for (auto &block : this->fixt_in->GetBlocks())
             {
-                auto &block = this->fixt_in->GetBlocks()[blk];
-                auto inptr =
+                auto ptr =
                     block.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-                for (unsigned int nc = 0;
-                     nc < this->fixt_in->GetNumComponents(); ++nc)
+                for (unsigned int nc = 0; nc < block.GetNumComponents(); ++nc)
                 {
                     // reshuffle data into simd_t width for AVX check
                     ReshapeStorage<NektarSpaces::Serial>(
-                        NektarSpaces::vector_width<NektarSpaces::AVX,
-                                                   TData>::value,
+                        NektarSpaces::GetVectorWidth<TData>(execStr),
                         block.GetInterleaveWidth(),
                         block.GetNumElementsWithPadding(), block.GetNumData(),
-                        inptr);
-                    inptr += block.CompSize();
+                        ptr);
+                    ptr += block.CompSize();
                 }
 
                 block.template SetInterleaveWidth<TData>(
-                    NektarSpaces::vector_width<NektarSpaces::AVX,
-                                               TData>::value);
+                    NektarSpaces::GetVectorWidth<TData>(execStr));
             }
         }
 
@@ -134,28 +129,23 @@ public:
         // reshape this->fixt_in
         if (execStr == "AVX")
         {
-            for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
-                 ++blk)
+            for (auto &block : this->fixt_in->GetBlocks())
             {
-                auto &block = this->fixt_in->GetBlocks()[blk];
-                auto inptr =
-                    block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-                for (unsigned int nc = 0;
-                     nc < this->fixt_in->GetNumComponents(); ++nc)
+                auto ptr =
+                    block.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+                for (unsigned int nc = 0; nc < block.GetNumComponents(); ++nc)
                 {
                     // reshuffle data into simd_t width for AVX check
                     ReshapeStorage<NektarSpaces::Serial>(
-                        NektarSpaces::vector_width<NektarSpaces::AVX,
-                                                   TData>::value,
+                        NektarSpaces::GetVectorWidth<TData>(execStr),
                         block.GetInterleaveWidth(),
                         block.GetNumElementsWithPadding(), block.GetNumData(),
-                        inptr);
-                    inptr += block.CompSize();
+                        ptr);
+                    ptr += block.CompSize();
                 }
 
                 block.template SetInterleaveWidth<TData>(
-                    NektarSpaces::vector_width<NektarSpaces::AVX,
-                                               TData>::value);
+                    NektarSpaces::GetVectorWidth<TData>(execStr));
             }
         }
 

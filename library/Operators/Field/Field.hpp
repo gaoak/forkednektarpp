@@ -254,6 +254,24 @@ public:
         return *this;
     }
 
+    void SetInterleaveWidth(const unsigned int &interleaveWidth)
+    {
+        for (unsigned int blk = 0; blk < m_block_accessors.size(); ++blk)
+        {
+            m_block_accessors[blk].template SetInterleaveWidth<TData>(
+                interleaveWidth);
+        }
+    }
+
+    void SetInterleaveWidth(Field &field)
+    {
+        for (unsigned int blk = 0; blk < m_block_accessors.size(); ++blk)
+        {
+            m_block_accessors[blk].template SetInterleaveWidth<TData>(
+                field.m_block_accessors[blk].GetInterleaveWidth());
+        }
+    }
+
     /**
      * @brief Templated initialize method.
      *
@@ -433,9 +451,6 @@ public:
         {
             m_block_accessors[blk].m_memory_region.template Copy<MemSpace>(
                 field.m_block_accessors[blk].m_memory_region);
-        }
-        for (unsigned int blk = 0; blk < m_block_accessors.size(); ++blk)
-        {
             m_block_accessors[blk].template SetInterleaveWidth<TData>(
                 field.m_block_accessors[blk].GetInterleaveWidth());
         }
