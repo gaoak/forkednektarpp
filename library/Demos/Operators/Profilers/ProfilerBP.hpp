@@ -45,7 +45,6 @@
 #include <Operators/ElmtOps/Mass/MassOp.hpp>
 
 #include <Operators/Field/Field.hpp>
-#include <Operators/LoopExecution/LoopExecution.hpp>
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
@@ -302,9 +301,9 @@ void LaunchProfiler(const MultiRegions::ContFieldSharedPtr &expList,
         DiagPreconOp<TData>::Create(expList, session->GetVariables());
     auto conjGradOp =
         ConjGradOp<TData>::Create(expList, session->GetVariables());
-    diagPreconOp->Configure(elmtOp);
     conjGradOp->SetLHS(elmtOp);
     conjGradOp->SetPrecon(diagPreconOp);
+    conjGradOp->UpdatePrecon();
 
     // Set operator name tag.
     std::string execName = Operator<TData>::GetOpExecSpace(session);

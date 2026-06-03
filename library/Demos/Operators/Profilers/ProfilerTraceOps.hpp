@@ -38,14 +38,12 @@
 
 #include <Operators/Field/Field.hpp>
 #include <Operators/GetFwdBwdTracePhys/GetFwdBwdTracePhysOp.hpp>
-#include <Operators/LoopExecution/LoopExecution.hpp>
 #include <Operators/Math/MathKernels.hpp>
 #include <Operators/Utils/UtilsKernels.hpp>
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <MultiRegions/DisContField.h>
-#include <MultiRegions/ExpList.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
 // Add likwid support
