@@ -55,6 +55,7 @@ NekNonlinSysIterNewton::NekNonlinSysIterNewton(
     const NekSysKey &pKey)
     : NekNonlinSysIter(pSession, vRowComm, nscale, pKey)
 {
+    pSession->LoadParameter("NewtonScale", m_NewtonScale, 1.0);
 }
 
 void NekNonlinSysIterNewton::v_InitObject()
@@ -95,11 +96,24 @@ int NekNonlinSysIterNewton::v_SolveSystem(
         resnormOld = m_SysResNorm;
         m_linsol->SetRhsMagnitude(m_SysResNorm);
         m_linsol->SetNekLinSysTolerance(LinSysRelativeIteTol);
+        if (m_verbose)
+        {
+            cout << "Newton Non-It=" << NttlNonlinIte
+                 << " m_SysResNorm0=" << m_SysResNorm0
+                 << " m_SysResNorm=" << m_SysResNorm << " "
+                 << "(RES=" << sqrt(m_SysResNorm)
+                 << " Res/Res0= " << sqrt(m_SysResNorm / m_SysResNorm0)
+                 << " Res/DtRHS= " << sqrt(m_SysResNorm / m_rhs_magnitude)
+                 << " LinSysRelativeIteTol=" << LinSysRelativeIteTol << endl;
+            cout << "Will apply Newton correction with Newton Scale = "
+                 << m_NewtonScale << endl;
+        }
         int ntmpLinSysIts =
             m_linsol->SolveSystem(nGlobal, m_Residual, m_DeltSltn, 0);
         m_NtotLinSysIts += ntmpLinSysIts;
 
-        Vmath::Vsub(nGlobal, m_Solution, 1, m_DeltSltn, 1, m_Solution, 1);
+        Vmath::Svtvp(nGlobal, -1.0 * m_NewtonScale, m_DeltSltn, 1, m_Solution,
+                     1, m_Solution, 1);
     }
 
     if ((!m_converged || m_verbose) && m_root && m_FlagWarnings)

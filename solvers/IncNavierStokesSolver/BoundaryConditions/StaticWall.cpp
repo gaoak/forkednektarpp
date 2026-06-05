@@ -28,7 +28,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Abstract base class for Extrapolate.
+// Description: Stationary wall boundary condition.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -39,8 +39,7 @@ namespace Nektar
 {
 
 std::string StaticWall::className = GetIncBCFactory().RegisterCreatorFunction(
-    "StaticWall", StaticWall::create,
-    "Far field boundary condition of moving reference frame");
+    "StaticWall", StaticWall::create, "Stationary wall boundary condition");
 
 StaticWall::StaticWall(
     [[maybe_unused]] const LibUtilities::SessionReaderSharedPtr pSession,
@@ -69,13 +68,14 @@ void StaticWall::v_Initialise(
     IncBaseCondition::v_Initialise(pSession);
     m_field->GetBndElmtExpansion(m_nbnd, m_bndElmtExps, false);
     m_bndElmtExps->SetWaveSpace(m_field->GetWaveSpace());
-    m_viscous = Array<OneD, Array<OneD, Array<OneD, NekDouble>>>(m_intSteps);
+    m_extrapArray =
+        Array<OneD, Array<OneD, Array<OneD, NekDouble>>>(m_intSteps);
     for (int n = 0; n < m_intSteps; ++n)
     {
-        m_viscous[n] = Array<OneD, Array<OneD, NekDouble>>(m_bnddim);
+        m_extrapArray[n] = Array<OneD, Array<OneD, NekDouble>>(m_bnddim);
         for (int i = 0; i < m_bnddim; ++i)
         {
-            m_viscous[n][i] = Array<OneD, NekDouble>(m_npoints, 0.0);
+            m_extrapArray[n][i] = Array<OneD, NekDouble>(m_npoints, 0.0);
         }
     }
 }
@@ -85,7 +85,8 @@ void StaticWall::v_Update(
     [[maybe_unused]] const Array<OneD, const Array<OneD, NekDouble>> &Adv,
     std::map<std::string, NekDouble> &params)
 {
-    if (m_BndExp.empty() || fields.size() == 0)
+    if (m_BndExp.empty() || fields.size() == 0 ||
+        params.find("pressure") == params.end())
     {
         return;
     }
@@ -96,7 +97,7 @@ void StaticWall::v_Update(
     {
         rhs[i] = Array<OneD, NekDouble>(m_npoints, 0.);
     }
-    AddVisPressureBCs(fields, rhs, params);
+    AddExtrapVisPressureBCs(fields, rhs, params);
     m_BndExp[m_pressure]->NormVectorIProductWRTBase(
         rhs, m_BndExp[m_pressure]->UpdateCoeffs());
 }

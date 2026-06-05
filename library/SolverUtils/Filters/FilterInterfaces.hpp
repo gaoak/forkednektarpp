@@ -40,6 +40,7 @@
 
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <SolverUtils/SolverUtilsDeclspec.h>
+#include <set>
 
 namespace Nektar::SolverUtils
 {
@@ -69,21 +70,28 @@ public:
     // gave access and set to the moving frame velocity
     // for Moving reference frame formulation
     SOLVER_UTILS_EXPORT void SetMovingFrameVelocities(
-        const Array<OneD, NekDouble> &vFrameVels, const int step);
+        const Array<OneD, NekDouble> &vFrameVels);
 
     SOLVER_UTILS_EXPORT bool GetMovingFrameVelocities(
-        Array<OneD, NekDouble> &vFrameVels, const int step);
+        Array<OneD, NekDouble> &vFrameVels);
 
     // gave access and set the displacement and angles between moving frame and
     // stationary one
     SOLVER_UTILS_EXPORT void SetMovingFrameDisp(
-        const Array<OneD, NekDouble> &vFrameDisp, const int step);
+        const Array<OneD, NekDouble> &vFrameDisp);
+
+    SOLVER_UTILS_EXPORT bool GetMovingFrameDisp(
+        Array<OneD, NekDouble> &vFrameDisp);
 
     SOLVER_UTILS_EXPORT void SetMovingFramePivot(
         const Array<OneD, NekDouble> &vFramePivot);
 
-    SOLVER_UTILS_EXPORT bool GetMovingFrameDisp(
-        Array<OneD, NekDouble> &vFrameDisp, const int step);
+    SOLVER_UTILS_EXPORT void GetMovingFramePivot(
+        Array<OneD, NekDouble> &vFramePivot);
+
+    SOLVER_UTILS_EXPORT void SetMovableDoFs(const std::set<int> &dirDoFs);
+
+    SOLVER_UTILS_EXPORT void GetMovableDoFs(std::set<int> &dirDoFs);
 
     /// Set aerodynamic force and moment
     SOLVER_UTILS_EXPORT void SetAeroForce(Array<OneD, NekDouble> forces);
@@ -103,30 +111,30 @@ protected:
         const Array<OneD, const Array<OneD, NekDouble>> &physfield,
         Array<OneD, NekDouble> &pressure) = 0;
     SOLVER_UTILS_EXPORT virtual void v_SetMovingFrameVelocities(
-        [[maybe_unused]] const Array<OneD, NekDouble> &vFrameVels,
-        [[maybe_unused]] const int step)
+        [[maybe_unused]] const Array<OneD, NekDouble> &vFrameVels)
     {
     }
     SOLVER_UTILS_EXPORT virtual bool v_GetMovingFrameVelocities(
-        [[maybe_unused]] Array<OneD, NekDouble> &vFrameVels,
-        [[maybe_unused]] const int step)
+        [[maybe_unused]] Array<OneD, NekDouble> &vFrameVels)
     {
         return false;
     }
     SOLVER_UTILS_EXPORT virtual void v_SetMovingFrameDisp(
-        [[maybe_unused]] const Array<OneD, NekDouble> &vFrameDisp,
-        [[maybe_unused]] const int step)
+        [[maybe_unused]] const Array<OneD, NekDouble> &vFrameDisp)
     {
+    }
+    SOLVER_UTILS_EXPORT virtual bool v_GetMovingFrameDisp(
+        [[maybe_unused]] Array<OneD, NekDouble> &vFrameDisp)
+    {
+        return false;
     }
     SOLVER_UTILS_EXPORT virtual void v_SetMovingFramePivot(
         [[maybe_unused]] const Array<OneD, NekDouble> &vFramePivot)
     {
     }
-    SOLVER_UTILS_EXPORT virtual bool v_GetMovingFrameDisp(
-        [[maybe_unused]] Array<OneD, NekDouble> &vFrameDisp,
-        [[maybe_unused]] const int step)
+    SOLVER_UTILS_EXPORT virtual void v_GetMovingFramePivot(
+        [[maybe_unused]] Array<OneD, NekDouble> &vFramePivot)
     {
-        return false;
     }
 
     SOLVER_UTILS_EXPORT virtual void v_SetAeroForce(
@@ -136,6 +144,14 @@ protected:
 
     SOLVER_UTILS_EXPORT virtual void v_GetAeroForce(
         [[maybe_unused]] Array<OneD, NekDouble> forces)
+    {
+    }
+    SOLVER_UTILS_EXPORT virtual void v_SetMovableDoFs(
+        [[maybe_unused]] const std::set<int> &dirDoFs)
+    {
+    }
+    SOLVER_UTILS_EXPORT virtual void v_GetMovableDoFs(
+        [[maybe_unused]] std::set<int> &dirDoFs)
     {
     }
 };
@@ -182,27 +198,27 @@ inline void FluidInterface::GetPressure(
  *
  */
 inline void FluidInterface::SetMovingFrameVelocities(
-    const Array<OneD, NekDouble> &vFrameVels, const int step)
+    const Array<OneD, NekDouble> &vFrameVels)
 {
-    v_SetMovingFrameVelocities(vFrameVels, step);
+    v_SetMovingFrameVelocities(vFrameVels);
 }
 
 /**
  *
  */
 inline bool FluidInterface::GetMovingFrameVelocities(
-    Array<OneD, NekDouble> &vFrameVels, const int step)
+    Array<OneD, NekDouble> &vFrameVels)
 {
-    return v_GetMovingFrameVelocities(vFrameVels, step);
+    return v_GetMovingFrameVelocities(vFrameVels);
 }
 
 /**
  *
  */
 inline void FluidInterface::SetMovingFrameDisp(
-    const Array<OneD, NekDouble> &vFrameDisp, const int step)
+    const Array<OneD, NekDouble> &vFrameDisp)
 {
-    v_SetMovingFrameDisp(vFrameDisp, step);
+    v_SetMovingFrameDisp(vFrameDisp);
 }
 
 /**
@@ -214,10 +230,16 @@ inline void FluidInterface::SetMovingFramePivot(
     v_SetMovingFramePivot(vFramePivot);
 }
 
-inline bool FluidInterface::GetMovingFrameDisp(
-    Array<OneD, NekDouble> &vFrameDisp, const int step)
+inline void FluidInterface::GetMovingFramePivot(
+    Array<OneD, NekDouble> &vFramePivot)
 {
-    return v_GetMovingFrameDisp(vFrameDisp, step);
+    v_GetMovingFramePivot(vFramePivot);
+}
+
+inline bool FluidInterface::GetMovingFrameDisp(
+    Array<OneD, NekDouble> &vFrameDisp)
+{
+    return v_GetMovingFrameDisp(vFrameDisp);
 }
 
 inline void FluidInterface::SetAeroForce(Array<OneD, NekDouble> forces)
@@ -228,6 +250,15 @@ inline void FluidInterface::SetAeroForce(Array<OneD, NekDouble> forces)
 inline void FluidInterface::GetAeroForce(Array<OneD, NekDouble> forces)
 {
     v_GetAeroForce(forces);
+}
+inline void FluidInterface::SetMovableDoFs(const std::set<int> &dirDoFs)
+{
+    v_SetMovableDoFs(dirDoFs);
+}
+
+inline void FluidInterface::GetMovableDoFs(std::set<int> &dirDoFs)
+{
+    v_GetMovableDoFs(dirDoFs);
 }
 
 } // namespace Nektar::SolverUtils

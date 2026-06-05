@@ -78,7 +78,7 @@ IF (NEKTAR_USE_SCOTCH)
         FIND_PROGRAM(PATCH patch)
         IF(NOT PATCH)
             MESSAGE(FATAL_ERROR
-                "'patch' tool for modifying files not found. Cannot build boost-numpy.")
+                "'patch' tool for modifying files not found. Cannot build scotch.")
         ENDIF()
         MARK_AS_ADVANCED(PATCH)
 

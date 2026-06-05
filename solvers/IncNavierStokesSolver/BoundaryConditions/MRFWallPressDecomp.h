@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MovingFrameFar.h
+// File: MRFWallPressDecomp.h
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,14 +28,15 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Abstract base class for Extrapolate.
+// Description: Wall boundary condition of moving reference frame with pressure
+// decomposition.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef NEKTAR_SOLVERS_MOVINGFRAMEFAR_H
-#define NEKTAR_SOLVERS_MOVINGFRAMEFAR_H
+#ifndef NEKTAR_SOLVERS_MRFWALLPRESSDECOMP_H
+#define NEKTAR_SOLVERS_MRFWALLPRESSDECOMP_H
 
-#include <IncNavierStokesSolver/BoundaryConditions/IncBaseCondition.h>
+#include <IncNavierStokesSolver/BoundaryConditions/StaticWall.h>
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
@@ -45,10 +46,10 @@
 namespace Nektar
 {
 
-class MovingFrameFar : public IncBaseCondition
+class MRFWallPressDecomp : public StaticWall
 {
 public:
-    friend class MemoryManager<MovingFrameFar>;
+    friend class MemoryManager<MRFWallPressDecomp>;
 
     static IncBaseConditionSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr pSession,
@@ -58,31 +59,36 @@ public:
         int bnddim)
     {
         IncBaseConditionSharedPtr p =
-            MemoryManager<MovingFrameFar>::AllocateSharedPtr(
+            MemoryManager<MRFWallPressDecomp>::AllocateSharedPtr(
                 pSession, pFields, cond, exp, nbnd, spacedim, bnddim);
         p->Initialise(pSession);
         return p;
     }
 
     static std::string className;
+    ~MRFWallPressDecomp() override;
 
 protected:
-    std::vector<LibUtilities::EquationSharedPtr> m_definedVels;
-
-    MovingFrameFar(const LibUtilities::SessionReaderSharedPtr pSession,
-                   Array<OneD, MultiRegions::ExpListSharedPtr> pFields,
-                   Array<OneD, SpatialDomains::BoundaryConditionShPtr> cond,
-                   Array<OneD, MultiRegions::ExpListSharedPtr> exp, int nbnd,
-                   int spacedim, int bnddim);
-
-    ~MovingFrameFar() override = default;
-
     void v_Initialise(
         const LibUtilities::SessionReaderSharedPtr &pSession) override;
 
     void v_Update(const Array<OneD, const Array<OneD, NekDouble>> &fields,
                   const Array<OneD, const Array<OneD, NekDouble>> &Adv,
                   std::map<std::string, NekDouble> &params) override;
+    MRFWallPressDecomp(const LibUtilities::SessionReaderSharedPtr pSession,
+                       Array<OneD, MultiRegions::ExpListSharedPtr> pFields,
+                       Array<OneD, SpatialDomains::BoundaryConditionShPtr> cond,
+                       Array<OneD, MultiRegions::ExpListSharedPtr> exp,
+                       int nbnd, int spacedim, int bnddim);
+    void AddExtrapCentVisPressureBCs(
+        const Array<OneD, const Array<OneD, NekDouble>> &fields,
+        Array<OneD, Array<OneD, NekDouble>> &N,
+        std::map<std::string, NekDouble> &params, int npts0);
+    void AddCentripetalAcc(Array<OneD, Array<OneD, NekDouble>> &N,
+                           std::map<std::string, NekDouble> &params, int npts0);
+    bool m_hasVels;
+    bool m_hasPressure;
+    int m_pressure;
 };
 
 } // namespace Nektar

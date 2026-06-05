@@ -175,33 +175,51 @@ void IncBaseCondition::AddRigidBodyAcc(Array<OneD, Array<OneD, NekDouble>> &N,
     {
         return;
     }
+    NekDouble u0 = 0., v0 = 0., Ax = 0., Ay = 0., Omega = 0., DOmega = 0.;
+    if (params.find("U") != params.end())
+    {
+        u0 = params["U"];
+    }
+    if (params.find("V") != params.end())
+    {
+        v0 = params["V"];
+    }
+    if (params.find("A_x") != params.end())
+    {
+        Ax = params["A_x"];
+    }
+    if (params.find("A_y") != params.end())
+    {
+        Ay = params["A_y"];
+    }
+    if (params.find("Omega_z") != params.end())
+    {
+        Omega = params["Omega_z"];
+    }
+    if (params.find("DOmega_z") != params.end())
+    {
+        DOmega = params["DOmega_z"];
+    }
     Array<OneD, Array<OneD, NekDouble>> acceleration(m_spacedim);
     for (size_t k = 0; k < m_spacedim; ++k)
     {
         acceleration[k] = Array<OneD, NekDouble>(npts0, 0.0);
     }
-
     // set up pressure condition
-    if (params.find("Omega_z") != params.end())
+    if (params.find("Omega_z") != params.end() ||
+        params.find("DOmega_z") != params.end())
     {
-        NekDouble Wz2 = params["Omega_z"] * params["Omega_z"];
-        NekDouble dWz = 0.;
-        if (params.find("DOmega_z") != params.end())
-        {
-            dWz = params["DOmega_z"];
-        }
-        Vmath::Svtsvtp(npts0, Wz2, m_coords[0], 1, dWz, m_coords[1], 1, N[0],
+        NekDouble Wz2 = Omega * Omega;
+        Vmath::Svtsvtp(npts0, Wz2, m_coords[0], 1, DOmega, m_coords[1], 1, N[0],
                        1);
-        Vmath::Svtsvtp(npts0, Wz2, m_coords[1], 1, -dWz, m_coords[0], 1, N[1],
-                       1);
+        Vmath::Svtsvtp(npts0, Wz2, m_coords[1], 1, -DOmega, m_coords[0], 1,
+                       N[1], 1);
     }
-    std::vector<std::string> vars = {"A_x", "A_y", "A_z"};
-    for (int k = 0; k < m_bnddim; ++k)
+    Vmath::Sadd(npts0, -Ax + Omega * v0, N[0], 1, N[0], 1);
+    Vmath::Sadd(npts0, -Ay - Omega * u0, N[1], 1, N[1], 1);
+    if (m_bnddim > 2 && params.find("A_z") != params.end())
     {
-        if (params.find(vars[k]) != params.end())
-        {
-            Vmath::Sadd(npts0, -params[vars[k]], N[k], 1, N[k], 1);
-        }
+        Vmath::Sadd(npts0, -params["A_z"], N[2], 1, N[2], 1);
     }
 }
 
@@ -237,14 +255,26 @@ void IncBaseCondition::AddVisPressureBCs(
     Array<OneD, NekDouble> temp(m_npoints);
     for (int i = 0; i < m_bnddim; i++)
     {
-        m_field->ExtractElmtToBndPhys(m_nbnd, Q[i],
-                                      m_viscous[m_intSteps - 1][i]);
+        m_field->ExtractElmtToBndPhys(m_nbnd, Q[i], temp);
+        Vmath::Svtvp(m_npoints, -kinvis, temp, 1, N[i], 1, N[i], 1);
     }
-    ExtrapolateArray(m_numCalls, m_viscous);
+}
+
+void IncBaseCondition::AddExtrapVisPressureBCs(
+    const Array<OneD, const Array<OneD, NekDouble>> &fields,
+    Array<OneD, Array<OneD, NekDouble>> &N,
+    std::map<std::string, NekDouble> &params)
+{
+    for (int i = 0; i < m_bnddim; ++i)
+    {
+        Vmath::Zero(m_npoints, m_extrapArray[m_intSteps - 1][i], 1);
+    }
+    AddVisPressureBCs(fields, m_extrapArray[m_intSteps - 1], params);
+    ExtrapolateArray(m_numCalls, m_extrapArray);
     for (int i = 0; i < m_bnddim; i++)
     {
-        Vmath::Svtvp(m_npoints, -kinvis, m_viscous[m_intSteps - 1][i], 1, N[i],
-                     1, N[i], 1);
+        Vmath::Vadd(m_npoints, m_extrapArray[m_intSteps - 1][i], 1, N[i], 1,
+                    N[i], 1);
     }
 }
 

@@ -8,7 +8,7 @@
     </EXPANSIONS>
     <CONDITIONS>
         <SOLVERINFO>
-            <I PROPERTY="SolverType"                    VALUE="VelocityCorrectionScheme" />
+            <I PROPERTY="SolverType"                    VALUE="VCSFSI" />
             <I PROPERTY="EQTYPE"                        VALUE="UnsteadyNavierStokes"     />
             <I PROPERTY="EvolutionOperator"             VALUE="Nonlinear"                />
             <I PROPERTY="Projection"                    VALUE="Continuous"                 />
@@ -108,7 +108,7 @@
             <E VAR="p" VALUE="0" />
         </FUNCTION>
 
-        <FUNCTION NAME="MovingReferenceFrame">
+        <FUNCTION NAME="MRFVel">
             <E VAR="Y" VALUE="amp*cos(omega*t+phase0)" />
             <E VAR="v" VALUE="-omega*amp*sin(omega*t+phase0)" />
             <E VAR="A_y" VALUE="-omega*omega*amp*cos(omega*t+phase0)" />
@@ -117,8 +117,11 @@
 
     <FORCING>
         <FORCE TYPE="MovingReferenceFrame">
-            <FRAMEVELOCITY> MovingReferenceFrame </FRAMEVELOCITY>
         </FORCE>
     </FORCING>
+
+    <RIGIDSOLVER>
+        <FRAMEVELOCITY> MRFVel </FRAMEVELOCITY>
+    </RIGIDSOLVER>
 
 </NEKTAR>

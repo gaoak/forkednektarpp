@@ -762,7 +762,7 @@ void FilterAeroForces::CalculateForces(
     // update the direction vectors
     // only effective if we use moving reference frame
     Array<OneD, NekDouble> vFrameDisp(6, 0.);
-    if (fluidEqu->GetMovingFrameDisp(vFrameDisp, 0))
+    if (fluidEqu->GetMovingFrameDisp(vFrameDisp))
     {
         if (vFrameDisp[5] != 0.)
         {
@@ -1157,19 +1157,18 @@ void FilterAeroForces::CalculateForces(
 
     // Pass force (computatonal frame) to FluidInterface (required for
     // MovingReferenceFrame)
-    Array<OneD, NekDouble> aeroforces(6, 0.);
+    Array<OneD, NekDouble> aeroforces(12, 0.);
     for (size_t i = 0; i < m_Ft.size(); ++i)
     {
-        aeroforces[i] = (Vmath::Vsum(m_nPlanes, m_Fpplane[i], 1) +
-                         Vmath::Vsum(m_nPlanes, m_Fvplane[i], 1)) /
-                        m_nPlanes;
+        aeroforces[i]     = Vmath::Vsum(m_nPlanes, m_Fpplane[i], 1) / m_nPlanes;
+        aeroforces[i + 6] = Vmath::Vsum(m_nPlanes, m_Fvplane[i], 1) / m_nPlanes;
     }
     for (size_t i = 0; i < m_Mt.size(); ++i)
     {
         int j             = m_Mt.size() - 1 - i;
-        aeroforces[5 - i] = (Vmath::Vsum(m_nPlanes, m_Mpplane[j], 1) +
-                             Vmath::Vsum(m_nPlanes, m_Mvplane[j], 1)) /
-                            m_nPlanes;
+        aeroforces[5 - i] = Vmath::Vsum(m_nPlanes, m_Mpplane[j], 1) / m_nPlanes;
+        aeroforces[5 - i + 6] =
+            Vmath::Vsum(m_nPlanes, m_Mvplane[j], 1) / m_nPlanes;
     }
     fluidEqu->SetAeroForce(aeroforces);
 

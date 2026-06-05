@@ -35,6 +35,15 @@ IF (THIRDPARTY_BUILD_ZLIB)
     ELSE ()
         SET(ZLIB_NAME z)
         SET(ZLIB_NAME_DEBUG z)
+
+        UNSET(PATCH CACHE)
+        FIND_PROGRAM(PATCH patch)
+        IF(NOT PATCH)
+            MESSAGE(FATAL_ERROR
+                "'patch' tool for modifying files not found. Cannot build zlib.")
+        ENDIF()
+        MARK_AS_ADVANCED(PATCH)
+        SET(ZLIB_PATCH_COMMAND ${PATCH} -p1 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/zlib-1.2.9.patch)
     ENDIF ()
 
     THIRDPARTY_LIBRARY(ZLIB_LIBRARIES SHARED ${ZLIB_NAME} DESCRIPTION "Zlib library")
@@ -50,18 +59,20 @@ IF (THIRDPARTY_BUILD_ZLIB)
         BINARY_DIR ${TPBUILD}/zlib-1.2.9
         TMP_DIR ${TPBUILD}/zlib-1.2.9-tmp
         INSTALL_DIR ${TPDIST}
+        PATCH_COMMAND ${ZLIB_PATCH_COMMAND}
         BUILD_BYPRODUCTS ${ZLIB_LIBRARIES}
         CONFIGURE_COMMAND ${CMAKE_COMMAND}
             ${NEKTAR_EXTERNAL_PROJECT_CMAKE_GENERATOR_ARGS}
             -DCMAKE_C_COMPILER:FILEPATH=${CMAKE_C_COMPILER}
             -DCMAKE_INSTALL_PREFIX:PATH=${TPDIST}
             -DCMAKE_C_FLAGS:STRING=-fPIC
+            -DCMAKE_MACOSX_RPATH=1
             ${TPSRC}/zlib-1.2.9
         )
 
     IF (APPLE)
         EXTERNALPROJECT_ADD_STEP(zlib-1.2.9 patch-install-path
-            COMMAND ${CMAKE_INSTALL_NAME_TOOL} -id ${CMAKE_INSTALL_PREFIX}/${NEKTAR_LIB_DIR}/libz.1.2.9.dylib ${TPDIST}/lib/libz.1.2.9.dylib
+            COMMAND ${CMAKE_INSTALL_NAME_TOOL} -id  @rpath/libz.1.2.9.dylib ${TPDIST}/lib/libz.1.2.9.dylib
             DEPENDEES install)
     ENDIF ()
 

@@ -39,7 +39,7 @@ namespace Nektar
 {
 
 std::set<std::string> IncBoundaryConditions::m_BndType = {
-    "MovingFrameFar", "StaticWall", "TransMovingWall", "MovingFrameWall"};
+    "MRFFar", "StaticWall", "TransMovingWall", "MRFWall", "MRFWallPressDecomp"};
 
 IncBoundaryConditions::IncBoundaryConditions()
 {

@@ -18,6 +18,9 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
         ./EquationSystems/VelocityCorrectionSchemeWeakPressure.cpp
         ./EquationSystems/SmoothedProfileMethod.cpp
         ./EquationSystems/VCSMapping.cpp
+        ./EquationSystems/RigidSolver.cpp
+        ./EquationSystems/VCSFSI.cpp
+        ./EquationSystems/PressDecompVCSFSI.cpp
         ./EquationSystems/Extrapolate.cpp
         ./EquationSystems/StandardExtrapolate.cpp
         ./EquationSystems/MappingExtrapolate.cpp
@@ -39,10 +42,11 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
         ./Forcing/ForcingStabilityCoupledLNS.cpp
         ./BoundaryConditions/IncBoundaryConditions.cpp
         ./BoundaryConditions/IncBaseCondition.cpp
-        ./BoundaryConditions/MovingFrameFar.cpp
+        ./BoundaryConditions/MRFFar.cpp
         ./BoundaryConditions/StaticWall.cpp
         ./BoundaryConditions/TransMovingWall.cpp
-        ./BoundaryConditions/MovingFrameWall.cpp
+        ./BoundaryConditions/MRFWall.cpp
+        ./BoundaryConditions/MRFWallPressDecomp.cpp
         )
 
     IF(NEKTAR_BUILD_SOLVER_LIBS)
@@ -64,6 +68,9 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
             EquationSystems/SubSteppingExtrapolate.h
             EquationSystems/SubSteppingExtrapolateWeakPressure.h
             EquationSystems/VCSMapping.h
+            EquationSystems/RigidSolver.h
+            EquationSystems/VCSFSI.h
+            EquationSystems/PressDecompVCSFSI.h
             EquationSystems/VelocityCorrectionScheme.h
             EquationSystems/VelocityCorrectionSchemeImplicit.h
             EquationSystems/VelocityCorrectionSchemeWeakPressure.h
@@ -76,10 +83,11 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
             Forcing/ForcingStabilityCoupledLNS.h
             BoundaryConditions/IncBoundaryConditions.h
             BoundaryConditions/IncBaseCondition.h
-            BoundaryConditions/MovingFrameFar.h
+            BoundaryConditions/MRFFar.h
             BoundaryConditions/StaticWall.h
             BoundaryConditions/TransMovingWall.h
-            BoundaryConditions/MovingFrameWall.h)
+            BoundaryConditions/MRFWall.h
+            BoundaryConditions/MRFWallPressDecomp.h)
         # Create separate library. No need to pass source files, as the executable's
         # LIBRARY_SOURCES objects will be reused
         ADD_SOLVER_LIBRARY(IncNavierStokesSolver HEADERS
@@ -182,7 +190,9 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
     ADD_NEKTAR_TEST(MovingRefFrame_translation)
     ADD_NEKTAR_TEST(MovingRefFrame_Rot_SimpleDomain)
     ADD_NEKTAR_TEST(MovingRefFrame_Rot_naca0012)
-    ADD_NEKTAR_TEST(SelfPropel_MRF_naca0012)
+    ADD_NEKTAR_TEST(SelfPropelledAirfoil_1DoF_PD-VCS)
+    ADD_NEKTAR_TEST(SelfPropelledAirfoil_2DoFs_PD-VCS)
+    ADD_NEKTAR_TEST(SelfPropelledAirfoil_2DoFs_VCS)
     ADD_NEKTAR_TEST(Rayleigh_Bernard)
     ADD_NEKTAR_TEST(SinCos_LinNS_3DHom1D)
     ADD_NEKTAR_TEST(TaylorVor_dt1)

@@ -10,14 +10,14 @@
     </files>
     <metrics>
         <metric type="L2" id="1">
-            <value variable="u" tolerance="5e-4">0.304817</value>
-            <value variable="v" tolerance="5e-4">0.303689</value>
-            <value variable="p" tolerance="5e-2">0.0166721</value>
+            <value variable="u" tolerance="5e-4">2.9125363e-01</value>
+            <value variable="v" tolerance="5e-4">3.0579505e-01</value>
+            <value variable="p" tolerance="5e-2">1.9414285e-02</value>
         </metric>
         <metric type="Linf" id="2">
-            <value variable="u" tolerance="2e-3">0.151083</value>
-            <value variable="v" tolerance="5e-4">0.0797194</value>
-            <value variable="p" tolerance="5e-2">0.00747142</value>
+            <value variable="u" tolerance="2e-3">1.5042508e-01</value>
+            <value variable="v" tolerance="5e-4">7.9868420e-02</value>
+            <value variable="p" tolerance="5e-2">7.6541462e-03</value>
         </metric>
     </metrics>
 </test>

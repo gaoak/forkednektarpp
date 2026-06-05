@@ -8,7 +8,7 @@
 
     <CONDITIONS>
         <SOLVERINFO>
-            <I PROPERTY="SolverType" VALUE="VelocityCorrectionScheme" />
+            <I PROPERTY="SolverType" VALUE="VCSFSI" />
             <I PROPERTY="EQTYPE" VALUE="UnsteadyNavierStokes" />
             <I PROPERTY="AdvectionForm" VALUE="Convective" />
             <I PROPERTY="Projection" VALUE="Galerkin" />
@@ -74,7 +74,7 @@
             <E VAR="p" VALUE="0.5*(1-exp(-2*0.963740544195769*x))" />
         </FUNCTION>
 
-        <FUNCTION NAME="MovingReferenceFrame">
+        <FUNCTION NAME="MRFVel">
             <E VAR="v" VALUE="1" />
         </FUNCTION>
 
@@ -82,9 +82,12 @@
 
     <FORCING>
         <FORCE TYPE="MovingReferenceFrame">
-            <FRAMEVELOCITY> MovingReferenceFrame </FRAMEVELOCITY>
         </FORCE>
     </FORCING>
+
+    <RIGIDSOLVER>
+        <FRAMEVELOCITY> MRFVel </FRAMEVELOCITY>
+    </RIGIDSOLVER>
 
     <GEOMETRY DIM="1" SPACE="1">
 

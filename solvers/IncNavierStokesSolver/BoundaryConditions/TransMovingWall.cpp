@@ -28,7 +28,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Abstract base class for Extrapolate.
+// Description: Translational moving wall boundary condition.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -41,7 +41,7 @@ namespace Nektar
 std::string TransMovingWall::className =
     GetIncBCFactory().RegisterCreatorFunction(
         "TransMovingWall", TransMovingWall::create,
-        "Far field boundary condition of moving reference frame");
+        "Translational moving wall boundary condition");
 
 TransMovingWall::TransMovingWall(
     [[maybe_unused]] const LibUtilities::SessionReaderSharedPtr pSession,
@@ -95,7 +95,8 @@ void TransMovingWall::v_Update(
     [[maybe_unused]] const Array<OneD, const Array<OneD, NekDouble>> &Adv,
     std::map<std::string, NekDouble> &params)
 {
-    if (m_BndExp.empty() || fields.size() == 0)
+    if (m_BndExp.empty() || fields.size() == 0 ||
+        params.find("pressure") == params.end())
     {
         return;
     }
@@ -108,7 +109,7 @@ void TransMovingWall::v_Update(
         rhs[i] = Array<OneD, NekDouble>(m_npoints, 0.);
     }
     // add viscous term
-    AddVisPressureBCs(fields, rhs, params);
+    AddExtrapVisPressureBCs(fields, rhs, params);
     // Add DuDt
     std::map<std::string, NekDouble> transParams;
     std::vector<std::string> accStr = {"A_x", "A_y", "A_z"};

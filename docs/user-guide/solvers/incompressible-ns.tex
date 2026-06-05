@@ -971,7 +971,7 @@ In case the relative error is tracked, where \inltt{PROPERTY="AbsoluteTolerance"
 To use the solvers and preconditioners that utilize the Xxt library, \emph{Nektar++} needs to be compiled with MPI support. Similarly for PETSc, the setting \inltt{NEKTAR\_USE\_PETSC} needs to be activated upon configuring the compilation.
 \end{notebox}
 
-A new preconditioner called Low-Order Refined (\inltt{LOR}) preconditioning is an option when seeking efficient pressure preconditioning.  LOR  maintains bounded iteration counts with an increasing problem size, which becomes optimal for large 3D problems, where \inltt{Diagonal} preconditioning often results in excessive iteration counts.
+A new preconditioner called Low-Order Refined (\inltt{LOR}) preconditioning is an option when seeking efficient pressure preconditioning.  LOR  maintains bounded iteration counts with an increasing problem size, which becomes optimal for large 3D problems, where \inltt{Diagonal} preconditioning often results in excessive iteration counts.
 To use the LOR preconditioning in your simulations, specify the following in \inltt{GLOBALSYSSOLNINFO}:
 \begin{lstlisting}[style=XMLStyle]
   <I PROPERTY="GlobalSysSoln"             VALUE="IterativeFull" />
@@ -2196,6 +2196,130 @@ number of digits after decimal points, we can define the
 \inltt{IO\_FlowStepsPrecision = 10} to increase the number of decimal points 
 to 10 (or more).
 
+\section{Flow rigid-body interaction using MovingReferenceFrame}
+The fluid-structure interaction problem with only one rigid body can be simulated using the MovingReferenceFrame method. In this method, the grid is fixed to the body whereas the inertial velocity field is calculated. It should be noted that the output velocity fields are expressed using the coordinate basis of the moving frame. Further, note that if you are using the FilterAeroForces, the force vector $\left(F_x, F_y, F_z\right)$ has been automatically converted and output in the inertial frame (ground reference frame).
+
+To use this formulation the user need to specify the force type inside the \inltt{FORCING} tag as follwos:
+
+\begin{lstlisting}[style=XMLStyle]
+<FORCE TYPE="MovingReferenceFrame">
+<FRAMEVELOCITY> [MRF FUNCTION NAME] </FRAMEVELOCITY>
+<PIVOTPOINT> x0,  y0,  z0  </PIVOTPOINT>
+</FORCE>
+\end{lstlisting}
+
+Here we are required to provide one function for this force type which defines the linear velocity and the angular velocity of reference frame or both. In the case of rotating frame, i.e. when we are prescribing the angular velocity of reference frame, we can provide a coordinate of \inltt{PIVOTPOINT}, around which the frame is rotating. If no pivot point provided, the origin of coordinates in the moving reference frame will be used as the pivot point.
+Note that the frame velocities (both linear and angular velocities) must be defined in the inertial stationary frame of reference,i.e. ground reference frame (and expressed using the basis of inertial stationary frame), however, the Poivot point is in the moving reference frame.
+
+Examples of linear and angular velocity funcitons together with their usage in the Forcing is shown below:
+
+\begin{lstlisting}[style=XMLStyle]
+<CONDITIONS>
+
+<FUNCTION NAME="VelMRF">
+<E VAR="u" VALUE="2*sin(PI*t)" />
+<E VAR="v" VALUE="0.1" />
+<E VAR="w" VALUE="0" />
+<E VAR="Omega_x" VALUE="0" />
+<E VAR="Omega_y" VALUE="0" />
+<E VAR="Omega_z" VALUE="0.3*cos(2*PI*t)" />
+</FUNCTION>
+
+</CONDITIONS>
+
+<FORCING>
+
+<FORCE TYPE="MovingReferenceFrame">
+<FRAMEVELOCITY> VelMRF </FRAMEVELOCITY>
+<PIVOTPOINT> 0.2, 0.0, 0.0  </PIVOTPOINT>
+</FORCE>
+
+</FORCING>
+\end{lstlisting}
+
+
+The moving frame function defines the velocity of the body frame observed in the inertial reference frame $$\mathbf{u}_{frame} = \mathbf{u}_0 + \mathbf{\Omega}\times (\mathbf{x}-\mathbf{x}_0).$$ This means that these functions (such as the \inltt{VelMRF} in the above example) are defined and expressed in the stationary inertial frame (ground frame).
+
+Here, $\mathbf{u}_0 = (\text{u, v, w})$ is the translational velocity, $\mathbf{\Omega}=(\text{Omega\_x, Omega\_y, Omega\_z})$ is the angular velocity.
+$\mathbf{x}_0=(0.2, 0.0, 0.0)$ is the rotation pivot and it is fixed in the body frame.
+Translational motion is allowed for all dimensions while rotational motion is currently restricted to z (omega\_z) for 2D, 3DH1D and full 3D simulations.
+
+Finally, note that when using \inltt{MovingReferenceFrame} force type, for any open part of the computational domain that the user specifies the velocity, such as inlet and free stream boundary conditions, the \inltt{USERDEFINEDTYPE="MovingFrameDomainVel"} tag can be used for velocity components. For example if boundary \inltt{ID=2} is the inlet with \inltt{Uinfx} and \inltt{Uinfy} the values of inlet velocities defined as parameters, the boundary condition for this boundary becomes:
+
+\begin{lstlisting}[style=XMLStyle]
+<REGION REF="2"> 
+<D VAR="u" USERDEFINEDTYPE="MovingFrameDomainVel" VALUE="Uinfx" />
+<D VAR="v" USERDEFINEDTYPE="MovingFrameDomainVel" VALUE="Uinfy" />
+<N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />  
+</REGION>
+\end{lstlisting}
+
+for the wall boundary conditions on the surface of the body, we need to use \inltt{MRFWall} tag as shown below:
+
+\begin{lstlisting}[style=XMLStyle]
+<REGION REF="0"> 
+<D VAR="u" USERDEFINEDTYPE="MRFWall" VALUE="Uinfx" />
+<D VAR="v" USERDEFINEDTYPE="MRFWall" VALUE="Uinfy" />
+<N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />  
+</REGION>
+\end{lstlisting}
+
+The outlet and pressure boundary conditions are the same as before. In practical, It is not necessary to set the \inltt{MovingFrameDomainVel} or \inltt{MRFWall} tag for all velocity components. In the circumstance when the analytical solution of a velocity component in the body frame is available, the value can still be prescribed as a normal Dirichlet-type boundary condition.
+
+In addition to the prescribed motion, the frame velocity can also be determined from the fluid-body interaction. One example is as follows:
+\begin{lstlisting}[style=XMLStyle]
+<CONDITIONS>
+<FUNCTION NAME="VelMRF">
+<E VAR="u" VALUE="0.0" />
+<E VAR="v" VALUE="0" />
+<E VAR="Omega_z" VALUE="cos(t)"/>
+</FUNCTION>
+
+<FUNCTION NAME="InitDisp">
+<E VAR="x" VALUE="0" />
+<E VAR="y" VALUE="0" />
+<E VAR="Theta_z" VALUE="0"/>
+</FUNCTION>
+
+<FUNCTION NAME="ExtForce">
+<E VAR="fx" VALUE="-1" />
+<E VAR="fy" VALUE="0" />
+<E VAR="Mz" VALUE="0"/>
+</FUNCTION>
+</CONDITIONS>
+
+<FORCING>
+<FORCE TYPE="MovingReferenceFrame">
+<FRAMEVELOCITY> VelMRF </FRAMEVELOCITY>
+<EXTERNALFORCE>  ExtForce </EXTERNALFORCE>
+<INITIALDISPLACEMENT>  InitDisp </INITIALDISPLACEMENT>
+<MASS>         1.0, 0., 0,  0,1,0,  0,0,1 </MASS>
+<MOTIONPRESCRIBED>  0, 1 ,1 </MOTIONPRESCRIBED>
+<PIVOTPOINT> 0. , 0,0 </PIVOTPOINT>
+</FORCE>
+</FORCING>
+\end{lstlisting}
+
+The meanings of the parameters are:
+\begin{center}
+    \begin{tabularx}{0.99\textwidth}{lXr}
+        \toprule
+        \textbf{Option name} & \textbf{Description} & \textbf{Default}
+        \\
+        \midrule
+        \inltt{MOTIONPRESCRIBED}      &A vector that denotes a certain degree of freedom is prescribed by the \inltt{FRAMEVELOCITY} (\texttt{1}) or determined from fluid force (\texttt{0}).  & \texttt{1}\\
+        \inltt{EXTERNALFORCE}      & External force exerted on the body, (fx, fy, fz, Mx, My, Mz).  & \texttt{0}\\
+        \inltt{MASS}      & Mass matrix of the body system. Its size is $3\times3$ in 2D and $4\times4$ in 3D.  & \texttt{0} \\
+        \inltt{DAMPING}      & Damper matrix of the body system. Its size is $3\times3$ in 2D and $4\times4$ in 3D.  & \texttt{0} \\
+        \inltt{RIGIDITY}      & Stiffness matrix of the body system. Its size is $3\times3$ in 2D and $4\times4$ in 3D.  & \texttt{0} \\
+        \inltt{INITIALDISPLACEMENT}      & A function to set the initial displacement of the body, (x, y, z, Theta\_x, Theta\_y, Theta\_z).  & \texttt{0} \\
+        \inltt{TRAVELINGWAVESPEED}      & A traveling wave motion can be set to simulation problem such as a traveling wave propagating along an infinite geometry.  & \texttt{0} \\
+        \inltt{OutputFile}      & Output file name.  & \texttt{SessionFileName.mrf} \\
+        \inltt{OutputFrequency}      & Output frequency of the body's motion.  & \texttt{1} \\
+        \bottomrule
+    \end{tabularx}
+\end{center}
+
 \section{Examples}
 \label{s:incns:examples}
 
@@ -3175,3 +3299,134 @@ temporal units.
    \caption {}
 \end{figure}
 
+\subsection{Two-degree-of-freedom self-propelled flapping airfoil}
+
+In this section, we consider a two-degree-of-freedom (2-DOF) self-propelled flapping airfoil in an incompressible viscous flow. The case is solved using the pressure-decomposed velocity-correction scheme \cite{Chen2026Stabilized}, namely \inltt{PressDecompVCSFSI}.
+
+\subsubsection{Input file}
+
+The input file for this case is located in the directory
+
+\inltt{\$NEKHOME/solvers/IncNavierStokesSolver/Examples/SelfPropelledAirfoil}.
+
+We first specify the time-integration scheme and the solver information. In particular, we select the pressure-decomposed fluid-rigid-body interaction formulation within the velocity-correction scheme, using a continuous Galerkin projection. Since this formulation requires an implicit-explicit time-integration scheme, a first-order IMEX scheme is adopted.
+
+\begin{lstlisting}[style=XMLStyle]
+	<TIMEINTEGRATIONSCHEME>
+	<METHOD> IMEX </METHOD>
+	<ORDER> 1 </ORDER>
+	</TIMEINTEGRATIONSCHEME>
+	
+	<SOLVERINFO>
+	<I PROPERTY="SolverType"                VALUE="PressDecompVCSFSI"       />
+	<I PROPERTY="EQTYPE"                    VALUE="UnsteadyNavierStokes"    />
+	<I PROPERTY="EvolutionOperator"         VALUE="Nonlinear"               />
+	<I PROPERTY="Projection"                VALUE="Continuous"              />
+	<I PROPERTY="GlobalSysSoln"             VALUE="XxtMultiLevelStaticCond" />
+	<I PROPERTY="Driver"                    VALUE="Standard"                />
+	<I PROPERTY="SpectralVanishingViscositySpectralHP" VALUE="DGKernel"     />
+	</SOLVERINFO>
+\end{lstlisting}
+
+The airfoil undergoes a prescribed pitching motion about a pivot point located at $(0.25c,0)$, while its streamwise and transverse translations are freely determined by the fluid-structure interaction. The pitching motion is imposed through the angular velocity of the moving frame,
+$\Omega_z=\theta\omega\cos(\omega t)$, where $\theta=5^\circ$, $f=1$, and $\omega=2\pi f$. The Reynolds number is set to $Re=310$, and the kinematic viscosity is specified as $\nu=1.5\sin\theta\,f/Re$. The density ratio is $\rho_s/\rho_f=1$. Therefore, with the airfoil area $A_b=0.082209642481$, the body mass is given by $m=(\rho_s/\rho_f)A_b$. The key parameters are listed below.
+
+\begin{lstlisting}[style=XMLStyle]
+	
+	<PARAMETERS>
+	<P> Re            = 310                     </P>
+	<P> MassRatio     = 1                       </P>
+	<P> Area          = 0.082209642481          </P>
+	<P> Mass          = MassRatio*Area          </P>
+	
+	<P> theta         = 5.*PI/180               </P>
+	<P> freq          = 1                       </P>
+	<P> omega         = 2.*PI*freq              </P>
+	<P> Kinvis        = 1.5*sin(theta)*freq/Re  </P>
+	
+	<P> NperT         = 10000                   </P>
+	<P> NT            = 1                       </P>
+	<P> TimeStep      = 1./(freq*NperT)         </P>
+	
+	<P> NewmarkBeta   = 0.5                     </P>
+	<P> NewmarkGamma  = 1.                      </P>
+	</PARAMETERS>
+\end{lstlisting}
+
+The boundary conditions are specified as follows. On the airfoil wall boundary, region 0, the \inltt{MRFWallPressDecomp} user-defined condition is applied, with Dirichlet conditions for the velocity components and a Neumann condition for the pressure. On the far-field boundaries, regions 1--4, the velocity is imposed using the \inltt{MRFFar} Dirichlet condition, while a high-order Neumann condition is applied for the pressure.
+
+\begin{lstlisting}[style=XMLStyle]
+	<BOUNDARYCONDITIONS>
+	<REGION REF="0">
+	<D VAR="u" USERDEFINEDTYPE="MRFWallPressDecomp" VALUE="0" />
+	<D VAR="v" USERDEFINEDTYPE="MRFWallPressDecomp" VALUE="0" />
+	<N VAR="p" USERDEFINEDTYPE="MRFWallPressDecomp" VALUE="0" />
+	</REGION>
+	<REGION REF="1">
+	<D VAR="u" USERDEFINEDTYPE="MRFFar" VALUE="0" />
+	<D VAR="v" USERDEFINEDTYPE="MRFFar" VALUE="0" />
+	<N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
+	</REGION>
+	<REGION REF="2">
+	<D VAR="u" USERDEFINEDTYPE="MRFFar" VALUE="0" />
+	<D VAR="v" USERDEFINEDTYPE="MRFFar" VALUE="0" />
+	<N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
+	</REGION>
+	<REGION REF="3">
+	<D VAR="u" USERDEFINEDTYPE="MRFFar" VALUE="0" />
+	<D VAR="v" USERDEFINEDTYPE="MRFFar" VALUE="0" />
+	<N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
+	</REGION>
+	<REGION REF="4">
+	<D VAR="u" USERDEFINEDTYPE="MRFFar" VALUE="0" />
+	<D VAR="v" USERDEFINEDTYPE="MRFFar" VALUE="0" />
+	<N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
+	</REGION>
+	</BOUNDARYCONDITIONS>
+\end{lstlisting}
+
+The rigid-body solver is configured as follows:
+
+\begin{lstlisting}[style=XMLStyle]
+	<RIGIDSOLVER>
+	<FRAMEVELOCITY>    VelMRF         </FRAMEVELOCITY>
+	<MASS>             Mass           </MASS>
+	<MOTIONPRESCRIBED> 0,0,1          </MOTIONPRESCRIBED>
+	<PIVOTPOINT>       0.25,0         </PIVOTPOINT>
+	<PIVOTDISTANCE>    0.17           </PIVOTDISTANCE>
+	<BOUNDARY>         B[0]           </BOUNDARY>
+	<OutputFile>       bodyMotion.mrf </OutputFile>
+	<OutputFrequency>  20             </OutputFrequency>
+	</RIGIDSOLVER>
+\end{lstlisting}
+
+Here, \inltt{MOTIONPRESCRIBED} indicates that the rotational degree of freedom is prescribed, while the two translational degrees of freedom are solved dynamically.
+
+\subsubsection{Running the solver}
+
+The case can be run using
+
+\begin{lstlisting}[style=BashInputStyle]
+	IncNavierStokesSolver SelfPropelledAirfoil.xml
+\end{lstlisting}
+
+After running the solver, the diagnostic errors are printed, for example,
+
+\begin{lstlisting}[style=BashInputStyle]
+	L 2 error (variable u) : 9.8161018e-02
+	L inf error (variable u) : 4.9679997e-01
+	L 2 error (variable v) : 1.1047406e-01
+	L inf error (variable v) : 6.0848130e-01
+	L 2 error (variable p) : 5.3833656e-02
+	L inf error (variable p) : 3.7329035e-01
+\end{lstlisting}
+
+The computed solution should look similar to that shown in figure~\ref{f:incns:selfpropell}.
+
+\begin{figure}
+	\begin{center}
+		\includegraphics[width=7cm]{img/SelfPropelledAirfoil.png}
+		\caption{Vorticity contour for the self-propelled flapping NACA0012 airfoil.}
+		\label{f:incns:selfpropell}
+	\end{center}
+\end{figure}

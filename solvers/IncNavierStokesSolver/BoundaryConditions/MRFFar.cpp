@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MovingFrameFar.cpp
+// File: MRFFar.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,22 +28,21 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Abstract base class for Extrapolate.
+// Description: Far field boundary condition of moving reference frame.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <IncNavierStokesSolver/BoundaryConditions/MovingFrameFar.h>
+#include <IncNavierStokesSolver/BoundaryConditions/MRFFar.h>
 #include <LibUtilities/Communication/Comm.h>
 
 namespace Nektar
 {
 
-std::string MovingFrameFar::className =
-    GetIncBCFactory().RegisterCreatorFunction(
-        "MovingFrameFar", MovingFrameFar::create,
-        "Far field boundary condition of moving reference frame");
+std::string MRFFar::className = GetIncBCFactory().RegisterCreatorFunction(
+    "MRFFar", MRFFar::create,
+    "Far field boundary condition of moving reference frame");
 
-MovingFrameFar::MovingFrameFar(
+MRFFar::MRFFar(
     [[maybe_unused]] const LibUtilities::SessionReaderSharedPtr pSession,
     [[maybe_unused]] Array<OneD, MultiRegions::ExpListSharedPtr> pFields,
     [[maybe_unused]] Array<OneD, SpatialDomains::BoundaryConditionShPtr> cond,
@@ -52,7 +51,7 @@ MovingFrameFar::MovingFrameFar(
     [[maybe_unused]] int bnddim)
     : IncBaseCondition(pSession, pFields, cond, exp, nbnd, spacedim, bnddim)
 {
-    classname = "MovingFrameFar";
+    classname = "MRFFar";
     for (size_t i = 0; i < m_spacedim; ++i)
     {
         m_BndConds[i] = cond[i];
@@ -63,7 +62,7 @@ MovingFrameFar::MovingFrameFar(
     }
 }
 
-void MovingFrameFar::v_Initialise(
+void MRFFar::v_Initialise(
     [[maybe_unused]] const LibUtilities::SessionReaderSharedPtr &pSession)
 {
     IncBaseCondition::v_Initialise(pSession);
@@ -77,14 +76,14 @@ void MovingFrameFar::v_Initialise(
     }
 }
 
-void MovingFrameFar::v_Update(
+void MRFFar::v_Update(
     [[maybe_unused]] const Array<OneD, const Array<OneD, NekDouble>> &fields,
     [[maybe_unused]] const Array<OneD, const Array<OneD, NekDouble>> &Adv,
     std::map<std::string, NekDouble> &params)
 {
     int nptsPlane0 = 0;
     SetNumPointsOnPlane0(nptsPlane0);
-    if (0 == nptsPlane0)
+    if (0 == nptsPlane0 || params.find("velocity") == params.end())
     {
         return;
     }

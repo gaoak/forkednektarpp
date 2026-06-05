@@ -134,17 +134,24 @@ IF( NEKTAR_SOLVER_CARDIAC_EP )
             Stimuli/Stimulus.h
             Stimuli/StimulusPoint.h
             Stimuli/StimulusRect.h)
-		IF (NEKTAR_HAS_MYOKIT)
+        IF (NEKTAR_HAS_MYOKIT)
             SET(CardiacEPSolverHeaders ${CardiacEPSolverHeaders}
 				CellModels/CellMLTest.h)
-		ENDIF()
+        ENDIF()
 
         # Create separate library. No need to pass source files, as the executable's
         # LIBRARY_SOURCES objects will be reused
-        ADD_SOLVER_LIBRARY(CardiacEPSolver HEADERS ${CardiacEPSolverHeaders}
-                            DEPENDS SolverUtils ${FFTW_LIBRARY})
+        IF( NEKTAR_USE_FFTW )
+            ADD_SOLVER_LIBRARY(CardiacEPSolver HEADERS ${CardiacEPSolverHeaders}
+                                DEPENDS SolverUtils ${FFTW_LIBRARY})
+        ELSE()
+            ADD_SOLVER_LIBRARY(CardiacEPSolver HEADERS ${CardiacEPSolverHeaders}
+                                DEPENDS SolverUtils)
+        ENDIF()
     ENDIF()
 
     ADD_SUBDIRECTORY(Utilities)
-    TARGET_LINK_LIBRARIES(CardiacEPSolver LINK_PRIVATE ${FFTW_LIBRARY})
+    IF( NEKTAR_USE_FFTW )
+        TARGET_LINK_LIBRARIES(CardiacEPSolver LINK_PRIVATE ${FFTW_LIBRARY})
+    ENDIF()
 ENDIF( NEKTAR_SOLVER_CARDIAC_EP )

@@ -55,8 +55,13 @@ IF (NEKTAR_USE_PETSC)
                 SET(PETSC_CXX_COMPILER "${MPI_CXX_COMPILER}")
                 SET(PETSC_Fortran_COMPILER "${MPI_Fortran_COMPILER}")
             ENDIF (NOT MPI_BUILTIN)
+            SET(PETSC_NO_MPI "")
+            SET(DOWNLOAD_HYPRE --download-hypre)
+            SET(DOWNLOAD_ML --download-ml)
         ELSE (NEKTAR_USE_MPI)
             SET(PETSC_NO_MPI "--with-mpi=0")
+            SET(DOWNLOAD_HYPRE "")
+            SET(DOWNLOAD_ML "")
         ENDIF (NEKTAR_USE_MPI)
 
         IF(CMAKE_Fortran_COMPILER AND NEKTAR_USE_MPI)
@@ -121,6 +126,9 @@ IF (NEKTAR_USE_PETSC)
                 MAKEFLAGS=$MAKEFLAGS
                 CFLAGS="-Wno-error=implicit-function-declaration"
                 CXXFLAGS="-Wno-error=implicit-function-declaration"
+                COPTFLAGS="-O3"
+                CXXOPTFLAGS="-O3"
+                HIPOPTFLAGS="-O3"
                 --with-fc=${PETSC_Fortran_COMPILER}
                 --with-cc=${PETSC_C_COMPILER}
                 --with-cxx=${PETSC_CXX_COMPILER}
@@ -131,8 +139,8 @@ IF (NEKTAR_USE_PETSC)
                 --with-ssl=0
                 --prefix=${TPDIST}
                 --with-petsc-arch=c-opt
-                --download-hypre
-                --download-ml
+                ${DOWNLOAD_HYPRE}
+                ${DOWNLOAD_ML}
                 --with-debugging=0
                 --with-pkg-config
                 ${PETSC_MUMPS}

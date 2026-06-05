@@ -16,7 +16,7 @@ RUN sysctl net.ipv6.conf.all.disable_ipv6=1 && \
 
 # Install Nektar++ dependencies through Mamba to ensure correct Python bindings
 # which match the conda install.
-RUN mamba install --quiet --yes jupyterlab=2.3.1 cmake=3.19.1 boost=1.74.0 \
+RUN mamba install --quiet --yes jupyterlab=3.6.3 cmake=3.19.1 boost=1.74.0 \
         occt=7.4.0 gmsh=4.6.0 pyvista=0.31.3 arpack=3.7.0 fftw=3.3.8 \
         scotch=6.0.9 openmpi=4.1.0 tinyxml=2.6.2 ptscotch=6.0.9 vtk==9.0.1 \
         jupyter_contrib_nbextensions=0.5.1 hdf5=1.10.6=mpi_openmpi* && \
@@ -26,9 +26,6 @@ RUN mamba install --quiet --yes jupyterlab=2.3.1 cmake=3.19.1 boost=1.74.0 \
     jupyter nbextension enable --sys-prefix hide_input_all/main && \
     jupyter nbextension enable --sys-prefix init_cell/main && \
     jupyter nbextension enable --sys-prefix equation-numbering/main && \
-    jupyter labextension install @jupyter-widgets/jupyterlab-manager \
-                jupyter-matplotlib jupyterlab-datawidgets itkwidgets \
-                @jupyterlab/toc && \
     conda clean --all -f -y && \
     jupyter lab clean && \
     rm -rf "/home/${NB_USER}/.cache/yarn" && \

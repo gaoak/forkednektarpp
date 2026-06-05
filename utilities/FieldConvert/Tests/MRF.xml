@@ -52,23 +52,23 @@
         </BOUNDARYREGIONS>
         <BOUNDARYCONDITIONS>
             <REGION REF="0">
-                <D VAR="u" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfx" />
-                <D VAR="v" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfy" />
+                <D VAR="u" USERDEFINEDTYPE="MRFFar" VALUE="Uinfx" />
+                <D VAR="v" USERDEFINEDTYPE="MRFFar" VALUE="Uinfy" />
                 <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
             </REGION>
             <REGION REF="1">
-                <D VAR="u" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfx" />
-                <D VAR="v" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfy" />
+                <D VAR="u" USERDEFINEDTYPE="MRFFar" VALUE="Uinfx" />
+                <D VAR="v" USERDEFINEDTYPE="MRFFar" VALUE="Uinfy" />
                 <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
             </REGION>
             <REGION REF="2">
-                <D VAR="u" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfx" />
-                <D VAR="v" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfy" />
+                <D VAR="u" USERDEFINEDTYPE="MRFFar" VALUE="Uinfx" />
+                <D VAR="v" USERDEFINEDTYPE="MRFFar" VALUE="Uinfy" />
                 <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
             </REGION>
             <REGION REF="3">
-                <D VAR="u" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfx" />
-                <D VAR="v" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfy" />
+                <D VAR="u" USERDEFINEDTYPE="MRFFar" VALUE="Uinfx" />
+                <D VAR="v" USERDEFINEDTYPE="MRFFar" VALUE="Uinfy" />
                 <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
             </REGION>
 

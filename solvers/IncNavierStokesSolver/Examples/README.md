@@ -29,3 +29,8 @@ Solving the 2D Kovasznay flow at Reynolds number Re=40. Folder: `KovasznayFlow2D
 2D Transient Growth Analysis of a flow past a Backward-Facing Step
 --------------
 Perform a transient growth stability analysis. This will help in understanding the effects of separation caused by abrupt changes in geometry for a flow past a Backward-Facing Step at Re = 500. Folder: `BackwardFacingStep_TG`.
+
+Self-propelled flapping airfoil
+--------------
+Two-degree-of-freedom (2-DoF) self-propelled flapping airfoil in an incompressible viscous flow case at Ref=310. Folder:
+`SelfPropelledAirfoil`.

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MovingFrameWall.cpp
+// File: MRFWall.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,22 +28,21 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Abstract base class for Extrapolate.
+// Description: Wall boundary condition of moving reference frame.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <IncNavierStokesSolver/BoundaryConditions/MovingFrameWall.h>
+#include <IncNavierStokesSolver/BoundaryConditions/MRFWall.h>
 #include <LibUtilities/Communication/Comm.h>
 
 namespace Nektar
 {
 
-std::string MovingFrameWall::className =
-    GetIncBCFactory().RegisterCreatorFunction(
-        "MovingFrameWall", MovingFrameWall::create,
-        "Far field boundary condition of moving reference frame");
+std::string MRFWall::className = GetIncBCFactory().RegisterCreatorFunction(
+    "MRFWall", MRFWall::create,
+    "Wall boundary condition of moving reference frame");
 
-MovingFrameWall::MovingFrameWall(
+MRFWall::MRFWall(
     [[maybe_unused]] const LibUtilities::SessionReaderSharedPtr pSession,
     [[maybe_unused]] Array<OneD, MultiRegions::ExpListSharedPtr> pFields,
     [[maybe_unused]] Array<OneD, SpatialDomains::BoundaryConditionShPtr> cond,
@@ -52,7 +51,7 @@ MovingFrameWall::MovingFrameWall(
     [[maybe_unused]] int bnddim)
     : StaticWall(pSession, pFields, cond, exp, nbnd, spacedim, bnddim)
 {
-    classname = "MovingFrameWall";
+    classname = "MRFWall";
     m_hasVels = false;
     for (size_t i = 0; i < m_bnddim; ++i)
     {
@@ -70,21 +69,25 @@ MovingFrameWall::MovingFrameWall(
     }
 }
 
-void MovingFrameWall::v_Initialise(
-    const LibUtilities::SessionReaderSharedPtr &pSession)
+void MRFWall::v_Initialise(const LibUtilities::SessionReaderSharedPtr &pSession)
 {
     IncBaseCondition::v_Initialise(pSession);
+    if (!(pSession->GetSolverInfo("SolverType") == "VCSFSI"))
+    {
+        ASSERTL0(false, "The boundary condition MRFWall is only "
+                        "supported for use in the SolverType 'VCSFSI'");
+    }
     m_field->GetBndElmtExpansion(m_nbnd, m_bndElmtExps, false);
     if (m_hasPressure)
     {
-        m_viscous =
+        m_extrapArray =
             Array<OneD, Array<OneD, Array<OneD, NekDouble>>>(m_intSteps);
         for (int n = 0; n < m_intSteps; ++n)
         {
-            m_viscous[n] = Array<OneD, Array<OneD, NekDouble>>(m_bnddim);
+            m_extrapArray[n] = Array<OneD, Array<OneD, NekDouble>>(m_bnddim);
             for (int i = 0; i < m_bnddim; ++i)
             {
-                m_viscous[n][i] = Array<OneD, NekDouble>(m_npoints, 0.0);
+                m_extrapArray[n][i] = Array<OneD, NekDouble>(m_npoints, 0.0);
             }
         }
     }
@@ -94,7 +97,7 @@ void MovingFrameWall::v_Initialise(
 /// @param fields
 /// @param Adv is in wavespace for 3DH1D
 /// @param params
-void MovingFrameWall::v_Update(
+void MRFWall::v_Update(
     [[maybe_unused]] const Array<OneD, const Array<OneD, NekDouble>> &fields,
     [[maybe_unused]] const Array<OneD, const Array<OneD, NekDouble>> &Adv,
     std::map<std::string, NekDouble> &params)
@@ -108,24 +111,22 @@ void MovingFrameWall::v_Update(
         InitialiseCoords(params);
     }
     // pressure
-    if (m_hasPressure && fields.size() > 0)
+    if (params.find("pressure") != params.end() && m_hasPressure &&
+        fields.size() > 0)
     {
         ++m_numCalls;
-
         Array<OneD, Array<OneD, NekDouble>> rhs(m_bnddim);
         for (int i = 0; i < m_bnddim; ++i)
         {
             rhs[i] = Array<OneD, NekDouble>(m_npoints, 0.);
         }
         // add viscous term
-        AddVisPressureBCs(fields, rhs, params);
-        // add DuDt term
-        AddRigidBodyAcc(rhs, params, nptsPlane0);
+        AddExtrapAcceVisPressureBCs(fields, rhs, params, nptsPlane0);
         m_BndExp[m_pressure]->NormVectorIProductWRTBase(
             rhs, m_BndExp[m_pressure]->UpdateCoeffs());
     }
     // velocity
-    if (m_hasVels && nptsPlane0)
+    if (params.find("velocity") != params.end() && m_hasVels && nptsPlane0)
     {
         Array<OneD, Array<OneD, NekDouble>> velocities(m_bnddim);
         for (size_t k = 0; k < m_bnddim; ++k)
@@ -153,6 +154,25 @@ void MovingFrameWall::v_Update(
                 }
             }
         }
+    }
+}
+
+void MRFWall::AddExtrapAcceVisPressureBCs(
+    const Array<OneD, const Array<OneD, NekDouble>> &fields,
+    Array<OneD, Array<OneD, NekDouble>> &N,
+    std::map<std::string, NekDouble> &params, int npts0)
+{
+    for (int i = 0; i < m_bnddim; ++i)
+    {
+        Vmath::Zero(m_npoints, m_extrapArray[m_intSteps - 1][i], 1);
+    }
+    AddVisPressureBCs(fields, m_extrapArray[m_intSteps - 1], params);
+    AddRigidBodyAcc(m_extrapArray[m_intSteps - 1], params, npts0);
+    ExtrapolateArray(m_numCalls, m_extrapArray);
+    for (int i = 0; i < m_bnddim; i++)
+    {
+        Vmath::Vadd(m_npoints, m_extrapArray[m_intSteps - 1][i], 1, N[i], 1,
+                    N[i], 1);
     }
 }
 

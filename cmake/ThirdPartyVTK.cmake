@@ -39,9 +39,24 @@ IF( NEKTAR_USE_VTK )
 
         THIRDPARTY_LIBRARY(VTK_LIBRARIES SHARED ${VTK_LIB_LIST} DESCRIPTION "VTK libs")
 
+        UNSET(PATCH CACHE)
+        FIND_PROGRAM(PATCH patch)
+        IF(NOT PATCH)
+            MESSAGE(FATAL_ERROR
+                "'patch' tool for modifying files not found. Cannot build VTK.")
+        ENDIF()
+        MARK_AS_ADVANCED(PATCH)
+
         # The cmake package has been modified due to a bug in the CMake files
         # which causes it to produce an error when the path includes a '+'.
         # Obviously this is inconvenient for us.
+        IF(APPLE)
+           SET(VTK_USE_X OFF)
+           SET(VTK_USE_COCOA ON)
+        ELSE()
+           SET(VTK_USE_X ON)
+           SET(VTK_USE_COCOA OFF)
+        ENDIF()
         EXTERNALPROJECT_ADD(
             vtk-9.3.0
             URL "https://www.vtk.org/files/release/9.3/VTK-9.3.0.tar.gz"
@@ -52,19 +67,27 @@ IF( NEKTAR_USE_VTK )
             BINARY_DIR ${TPBUILD}/vtk-9.3.0
             TMP_DIR ${TPBUILD}/vtk-9.3.0-tmp
             INSTALL_DIR ${TPDIST}
+            PATCH_COMMAND ${PATCH} -p0 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/vtk-9.3.0.patch
             BUILD_BYPRODUCTS ${VTK_LIBRARIES}
             CONFIGURE_COMMAND ${CMAKE_COMMAND} 
                 ${NEKTAR_EXTERNAL_PROJECT_CMAKE_GENERATOR_ARGS}
                 -DCMAKE_INSTALL_PREFIX:PATH=${TPDIST} 
                 -DBUILD_SHARED_LIBS:BOOL=ON 
                 -DCMAKE_BUILD_TYPE:STRING=Release 
-                -DVTK_USE_X=ON
+                -DCMAKE_C_FLAGS="-w"
+                -DCMAKE_CXX_FLAGS="-w"
+                -DVTK_USE_X=${VTK_USE_X}
+                -DVTK_USE_COCOA=${VTK_USE_COCOA}
+                -DVTK_MODULE_USE_EXTERNAL_VTK_zlib=ON
+                -DZLIB_INCLUDE_DIR=${ZLIB_INCLUDE_DIR}
+                -DZLIB_LIBRARY=${ZLIB_LIBRARIES}
                 ${TPSRC}/vtk-9.3.0
         )
         SET(VTK_USE_FILE ${VTK_DIR}/UseVTK.cmake)
         SET(VTK_INCLUDE_DIRS ${TPDIST}/include/vtk-9.3 CACHE FILEPATH
             "VTK include directory" FORCE)
         ADD_DEPENDENCIES(thirdparty vtk-9.3.0)
+        ADD_DEPENDENCIES(vtk-9.3.0 zlib-1.2.9)
     ENDIF()
 
     # Force VTK headers to be treated as system headers.

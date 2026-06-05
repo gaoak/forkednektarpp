@@ -21,7 +21,7 @@ it!
   **[issue tracker](https://gitlab.nektar.info/nektar/nektar/issues)** -- be
   sure to do a quick search and see if anyone has reported the same thing first.
 - Alternatively you can
-  **[join the mailing list](https://mailman.ic.ac.uk/mailman/listinfo/nektar-users)**
+  **[join the mailing list](https://mailing-lists.imperial.ac.uk/mailman3/lists/nektar-users.imperial.ac.uk)**
   for more advice.
 
 It's *really helpful* if you can include a small session file that reproduces

@@ -47,11 +47,11 @@ IF (NEKTAR_USE_ARPACK)
             BUILD_BYPRODUCTS ${ARPACK_LIBRARY}
             CONFIGURE_COMMAND ${CMAKE_COMMAND}
                 ${NEKTAR_EXTERNAL_PROJECT_CMAKE_GENERATOR_ARGS}
-                -DCMAKE_Fortran_COMPILER:FILEPATH=${CMAKE_Fortran_COMPILER}
-                -DCMAKE_Fortran_FLAGS="-fallow-argument-mismatch"
-                -DCMAKE_INSTALL_PREFIX:PATH=${TPDIST}
-                -DCMAKE_INSTALL_LIBDIR:PATH=${TPDIST}/lib
-                -DBUILD_SHARED_LIBS:STRING=ON
+                "-DCMAKE_Fortran_COMPILER:FILEPATH=${CMAKE_Fortran_COMPILER}"
+                "-DCMAKE_Fortran_FLAGS=-w -O3 -fallow-argument-mismatch"
+                "-DCMAKE_INSTALL_PREFIX:PATH=${TPDIST}"
+                "-DCMAKE_INSTALL_LIBDIR:PATH=${TPDIST}/lib"
+                "-DBUILD_SHARED_LIBS:STRING=ON"
                 ${TPSRC}/arpack-ng-1.0
             )
 

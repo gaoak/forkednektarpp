@@ -8,7 +8,7 @@
     </EXPANSIONS>
     <CONDITIONS>
         <SOLVERINFO>
-            <I PROPERTY="SolverType"                    VALUE="VelocityCorrectionScheme" />
+            <I PROPERTY="SolverType"                    VALUE="PressDecompVCSFSI" />
             <I PROPERTY="EQTYPE"                        VALUE="UnsteadyNavierStokes"     />
             <I PROPERTY="EvolutionOperator"             VALUE="Nonlinear"                />
             <I PROPERTY="Projection"                    VALUE="Continuous"                 />
@@ -55,29 +55,29 @@
 
         <BOUNDARYCONDITIONS>
             <REGION REF="0">
-                <D VAR="u" USERDEFINEDTYPE="MovingFrameWall" VALUE="0" />
-                <D VAR="v" USERDEFINEDTYPE="MovingFrameWall" VALUE="0" />
-                <N VAR="p" USERDEFINEDTYPE="MovingFrameWall" VALUE="0" />
+                <D VAR="u" USERDEFINEDTYPE="MRFWallPressDecomp" VALUE="0" />
+                <D VAR="v" USERDEFINEDTYPE="MRFWallPressDecomp" VALUE="0" />
+                <N VAR="p" USERDEFINEDTYPE="MRFWallPressDecomp" VALUE="0" />
             </REGION>
             <REGION REF="1">
-                <D VAR="u" VALUE="0" />
-                <D VAR="v" VALUE="0" />
-                <D VAR="p" VALUE="0"  />
+                <D VAR="u" USERDEFINEDTYPE="MRFFar" VALUE="0" />
+                <D VAR="v" USERDEFINEDTYPE="MRFFar" VALUE="0" />
+                <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
             </REGION>
             <REGION REF="2">
-                <D VAR="u" VALUE="0" />
-                <D VAR="v" VALUE="0" />
-                <D VAR="p" VALUE="0"  />
+                <D VAR="u" USERDEFINEDTYPE="MRFFar" VALUE="0" />
+                <D VAR="v" USERDEFINEDTYPE="MRFFar" VALUE="0" />
+                <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
             </REGION>
             <REGION REF="3">
-                <D VAR="u" VALUE="0" />
-                <D VAR="v" VALUE="0" />
-                <D VAR="p" VALUE="0"  />
+                <D VAR="u" USERDEFINEDTYPE="MRFFar" VALUE="0" />
+                <D VAR="v" USERDEFINEDTYPE="MRFFar" VALUE="0" />
+                <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
             </REGION>
             <REGION REF="4">
-                <D VAR="u" VALUE="0" />
-                <D VAR="v" VALUE="0" />
-                <D VAR="p" VALUE="0"  />
+                <D VAR="u" USERDEFINEDTYPE="MRFFar" VALUE="0" />
+                <D VAR="v" USERDEFINEDTYPE="MRFFar" VALUE="0" />
+                <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
             </REGION>
         </BOUNDARYCONDITIONS>
 
@@ -93,15 +93,18 @@
 
     <FORCING>
         <FORCE TYPE="MovingReferenceFrame">
-            <MASS>         Mp, 0., 0,  0,Mp,0,  0,0,Ip </MASS>
-            <MOTIONPRESCRIBED>  0, 0 ,0 </MOTIONPRESCRIBED>
-            <EXTERNALFORCE>  ExtForce </EXTERNALFORCE>
-            <BOUNDARY> B[0] </BOUNDARY>
-            <OutputFile> bodyMotion.mrf </OutputFile>
-            <CIRCULARCYLINDER> true </CIRCULARCYLINDER>
-            <OutputFrequency> 1 </OutputFrequency>
         </FORCE>
     </FORCING>
+
+    <RIGIDSOLVER>
+        <MASS>     Mp </MASS>
+        <ROTATIONINERTIA>   Ip      </ROTATIONINERTIA>
+        <MOTIONPRESCRIBED>  0, 0 ,0 </MOTIONPRESCRIBED>
+        <EXTERNALFORCE>  ExtForce </EXTERNALFORCE>
+        <BOUNDARY> B[0] </BOUNDARY>
+        <OutputFile> bodyMotion.mrf </OutputFile>
+        <OutputFrequency> 1 </OutputFrequency>
+    </RIGIDSOLVER>
 
     <FILTERS>
         <FILTER TYPE="AeroForces">

@@ -68,6 +68,8 @@ public:
     LIB_UTILITIES_EXPORT ~NekNonlinSysIterNewton() override = default;
 
 protected:
+    NekDouble m_NewtonScale;
+
     bool m_InexactNewtonForcing = false;
 
     void v_InitObject() override;

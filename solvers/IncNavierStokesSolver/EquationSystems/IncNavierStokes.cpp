@@ -163,21 +163,30 @@ void IncNavierStokes::v_InitObject(bool DeclareField)
     // Note: this must be done before the forcing
     if (DefinedForcing("MovingReferenceFrame"))
     {
-        // 0-5(inertial disp), 6-11(inertial vel), 12-17(inertial acce) current
+        std::string vSolver = m_session->GetSolverInfo("SolverType");
+        const bool isVCS = boost::iequals(vSolver, "VelocityCorrectionScheme");
+        if (isVCS)
+        {
+            ASSERTL0(false, "The Forcing MovingRefenceFrame is no "
+                            "longer supported for use in the "
+                            "VelocityCorrectionScheme. Please replace the "
+                            "SolverType with VCSFSI or PressDecompVCSFSI.");
+        }
+        // 0-5(inertial disp), 6-11(body vel), 12-17(body acce) current
         // 18-21(body pivot)
-        // 21-26(inertial disp), 27-32(body vel), 33-38(body acce) next step
-        // 39-41(body pivot)
         m_strFrameData = {
             "X",   "Y",   "Z",   "Theta_x",  "Theta_y",  "Theta_z",
             "U",   "V",   "W",   "Omega_x",  "Omega_y",  "Omega_z",
             "A_x", "A_y", "A_z", "DOmega_x", "DOmega_y", "DOmega_z",
             "X0",  "Y0",  "Z0"};
-        m_movingFrameData = Array<OneD, NekDouble>(42, 0.0);
-        m_aeroForces      = Array<OneD, NekDouble>(6, 0.0);
+        m_movingFrameData = Array<OneD, NekDouble>(21, 0.0);
+        m_aeroForces      = Array<OneD, NekDouble>(12, 0.0); // p; vis
+        m_movableDoFs.resize(6, false);
     }
-
-    m_aeroForces = Array<OneD, NekDouble>(6, 0.0);
-
+    else
+    {
+        m_aeroForces = Array<OneD, NekDouble>(6, 0.0);
+    }
     // Forcing terms
     m_forcing = SolverUtils::Forcing::Load(m_session, shared_from_this(),
                                            m_fields, v_GetForceDimension());
@@ -885,28 +894,28 @@ void IncNavierStokes::v_GetVelocity(
  * class
  */
 void IncNavierStokes::v_SetMovingFrameVelocities(
-    const Array<OneD, NekDouble> &vFrameVels, const int step)
+    const Array<OneD, NekDouble> &vFrameVels)
 {
     if (m_movingFrameData.size())
     {
-        ASSERTL0(vFrameVels.size() == 12,
+        ASSERTL0(vFrameVels.size() <= 12,
                  "Arrays have different dimensions, cannot set moving frame "
                  "velocities");
-        Array<OneD, NekDouble> temp = m_movingFrameData + 6 + 21 * step;
+        Array<OneD, NekDouble> temp = m_movingFrameData + 6;
         Vmath::Vcopy(vFrameVels.size(), vFrameVels, 1, temp, 1);
     }
 }
 
 bool IncNavierStokes::v_GetMovingFrameVelocities(
-    Array<OneD, NekDouble> &vFrameVels, const int step)
+    Array<OneD, NekDouble> &vFrameVels)
 {
     if (m_movingFrameData.size())
     {
-        ASSERTL0(vFrameVels.size() == 12,
+        ASSERTL0(vFrameVels.size() <= 12,
                  "Arrays have different dimensions, cannot get moving frame "
                  "velocities");
-        Vmath::Vcopy(vFrameVels.size(), m_movingFrameData + 6 + 21 * step, 1,
-                     vFrameVels, 1);
+        Vmath::Vcopy(vFrameVels.size(), m_movingFrameData + 6, 1, vFrameVels,
+                     1);
         return true;
     }
     else
@@ -920,14 +929,14 @@ bool IncNavierStokes::v_GetMovingFrameVelocities(
  * stationary inertial reference frame
  **/
 void IncNavierStokes::v_SetMovingFrameDisp(
-    const Array<OneD, NekDouble> &vFrameDisp, const int step)
+    const Array<OneD, NekDouble> &vFrameDisp)
 {
     if (m_movingFrameData.size())
     {
         ASSERTL0(
             vFrameDisp.size() == 6,
             "Arrays have different size, cannot set moving frame displacement");
-        Array<OneD, NekDouble> temp = m_movingFrameData + 21 * step;
+        Array<OneD, NekDouble> temp = m_movingFrameData;
         Vmath::Vcopy(vFrameDisp.size(), vFrameDisp, 1, temp, 1);
     }
 }
@@ -936,16 +945,14 @@ void IncNavierStokes::v_SetMovingFrameDisp(
  * Function to get the angles between the moving frame of reference and
  * stationary inertial reference frame
  **/
-bool IncNavierStokes::v_GetMovingFrameDisp(Array<OneD, NekDouble> &vFrameDisp,
-                                           const int step)
+bool IncNavierStokes::v_GetMovingFrameDisp(Array<OneD, NekDouble> &vFrameDisp)
 {
     if (m_movingFrameData.size())
     {
         ASSERTL0(
             vFrameDisp.size() == 6,
             "Arrays have different size, cannot get moving frame displacement");
-        Vmath::Vcopy(vFrameDisp.size(), m_movingFrameData + 21 * step, 1,
-                     vFrameDisp, 1);
+        Vmath::Vcopy(vFrameDisp.size(), m_movingFrameData, 1, vFrameDisp, 1);
         return true;
     }
     else
@@ -961,23 +968,49 @@ void IncNavierStokes::v_SetMovingFramePivot(
              "Arrays have different size, cannot set moving frame pivot");
     Array<OneD, NekDouble> temp = m_movingFrameData + 18;
     Vmath::Vcopy(vFramePivot.size(), vFramePivot, 1, temp, 1);
-    temp = m_movingFrameData + 39;
-    Vmath::Vcopy(vFramePivot.size(), vFramePivot, 1, temp, 1);
+}
+
+void IncNavierStokes::v_GetMovingFramePivot(Array<OneD, NekDouble> &vFramePivot)
+{
+    ASSERTL0(vFramePivot.size() == 3,
+             "Arrays have different size, cannot set moving frame pivot");
+    Array<OneD, NekDouble> temp = m_movingFrameData + 18;
+    Vmath::Vcopy(vFramePivot.size(), temp, 1, vFramePivot, 1);
+}
+
+void IncNavierStokes::v_SetMovableDoFs(const std::set<int> &dirDoFs)
+{
+    for (int i = 0; i < m_movableDoFs.size(); ++i)
+    {
+        m_movableDoFs[i] = dirDoFs.find(i) != dirDoFs.end();
+    }
+}
+
+void IncNavierStokes::v_GetMovableDoFs(std::set<int> &dirDoFs)
+{
+    dirDoFs.clear();
+    for (int i = 0; i < m_movableDoFs.size(); ++i)
+    {
+        if (m_movableDoFs[i])
+        {
+            dirDoFs.insert(i);
+        }
+    }
 }
 
 void IncNavierStokes::v_SetAeroForce(Array<OneD, NekDouble> forces)
 {
-    if (m_aeroForces.size() >= 6)
+    if (m_aeroForces.size() >= 12)
     {
-        Vmath::Vcopy(6, forces, 1, m_aeroForces, 1);
+        Vmath::Vcopy(12, forces, 1, m_aeroForces, 1);
     }
 }
 
 void IncNavierStokes::v_GetAeroForce(Array<OneD, NekDouble> forces)
 {
-    if (m_aeroForces.size() >= 6)
+    if (m_aeroForces.size() >= 12)
     {
-        Vmath::Vcopy(6, m_aeroForces, 1, forces, 1);
+        Vmath::Vcopy(12, m_aeroForces, 1, forces, 1);
     }
 }
 

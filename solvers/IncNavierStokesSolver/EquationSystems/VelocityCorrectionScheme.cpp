@@ -671,14 +671,9 @@ void VelocityCorrectionScheme::v_DoInitialise(bool dumpInitialConditions)
     // field below
     SetBoundaryConditions(m_time);
     std::map<std::string, NekDouble> params;
-    params["Time"] = m_time;
-    for (size_t i = 0; i < m_strFrameData.size(); ++i)
-    {
-        if (std::fabs(m_movingFrameData[i + 21]) != 0.)
-        {
-            params[m_strFrameData[i]] = m_movingFrameData[i + 21];
-        }
-    }
+    params["Time"]     = m_time;
+    params["velocity"] = 1.;
+    AddMovingFrameDataToParams(m_strFrameData, m_movingFrameData, params);
     Array<OneD, Array<OneD, NekDouble>> fields;
     Array<OneD, Array<OneD, NekDouble>> Adv;
     m_IncNavierStokesBCs->Update(fields, Adv, params);
@@ -788,15 +783,10 @@ void VelocityCorrectionScheme::v_EvaluateAdvection_SetPressureBCs(
     // Calculate High-Order pressure boundary conditions
     timer.Start();
     std::map<std::string, NekDouble> params;
-    params["Kinvis"] = m_kinvis;
-    params["Time"]   = time + m_timestep;
-    for (size_t i = 0; i < m_strFrameData.size(); ++i)
-    {
-        if (std::fabs(m_movingFrameData[i + 21]) != 0.)
-        {
-            params[m_strFrameData[i]] = m_movingFrameData[i + 21];
-        }
-    }
+    params["Kinvis"]   = m_kinvis;
+    params["Time"]     = time + m_timestep;
+    params["pressure"] = 1.;
+    AddMovingFrameDataToParams(m_strFrameData, m_movingFrameData, params);
     m_extrapolation->EvaluatePressureBCs(inarray, outarray, m_kinvis);
     m_IncNavierStokesBCs->Update(inarray, outarray, params);
     timer.Stop();
@@ -838,6 +828,7 @@ void VelocityCorrectionScheme::v_SolveUnsteadyStokesSystem(
 
     // Set up forcing term for Helmholtz problems
     timer.Start();
+    SolveSolid(time);
     SetUpViscousForcing(inarray, m_F, aii_Dt);
     timer.Stop();
     timer.AccumulateRegion("Viscous Forcing");
@@ -868,6 +859,23 @@ void VelocityCorrectionScheme::v_SolveUnsteadyStokesSystem(
             m_fields[i]->GlobalToLocal();
         }
     }
+}
+
+void VelocityCorrectionScheme::v_SolveSolid(NekDouble time)
+{
+    UpdateVelocityBCs(time);
+}
+
+void VelocityCorrectionScheme::UpdateVelocityBCs(NekDouble time)
+{
+    // update velocity boundary condition
+    Array<OneD, Array<OneD, NekDouble>> fields;
+    Array<OneD, const Array<OneD, NekDouble>> Adv;
+    std::map<std::string, NekDouble> params;
+    params["Time"]     = time;
+    params["velocity"] = 1.;
+    AddMovingFrameDataToParams(m_strFrameData, m_movingFrameData, params);
+    m_IncNavierStokesBCs->Update(fields, Adv, params);
 }
 
 /**
@@ -1272,6 +1280,20 @@ void VelocityCorrectionScheme::ComputeGJPNormalVelocity(
         }
         Vmath::Vabs(nTracePts, unorm, 1, unorm, 1);
         varcoeffs[StdRegions::eVarCoeffGJPNormVel] = unorm;
+    }
+}
+
+void VelocityCorrectionScheme::AddMovingFrameDataToParams(
+    const std::vector<std::string> &strFrameData,
+    const Array<OneD, NekDouble> &movingFrameData,
+    std::map<std::string, NekDouble> &params)
+{
+    for (size_t i = 0; i < strFrameData.size(); ++i)
+    {
+        if (std::fabs(movingFrameData[i]) != 0.0)
+        {
+            params[strFrameData[i]] = movingFrameData[i];
+        }
     }
 }
 } // namespace Nektar

@@ -6,7 +6,7 @@
     <CONDITIONS>
         <SOLVERINFO>
             <I PROPERTY="EQTYPE" VALUE="UnsteadyNavierStokes" />
-            <I PROPERTY="SolverType" VALUE="VelocityCorrectionScheme" />
+            <I PROPERTY="SolverType" VALUE="VCSFSI" />
             <I PROPERTY="EvolutionOperator" VALUE="Nonlinear"/>
             <I PROPERTY="AdvectionForm" VALUE="Convective"/>
             <I PROPERTY="Projection" VALUE="Galerkin" />
@@ -51,8 +51,8 @@
         </BOUNDARYREGIONS>
         <BOUNDARYCONDITIONS>
             <REGION REF="0">
-                <D VAR="u" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfx" />
-                <D VAR="v" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfy" />
+                <D VAR="u" USERDEFINEDTYPE="MRFFar" VALUE="Uinfx" />
+                <D VAR="v" USERDEFINEDTYPE="MRFFar" VALUE="Uinfy" />
                 <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
             </REGION>
             <REGION REF="1">
@@ -61,13 +61,13 @@
                 <D VAR="p" USERDEFINEDTYPE="HOutflow" VALUE="0" />
             </REGION>
             <REGION REF="2">
-                <D VAR="u" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfx" />
-                <D VAR="v" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfy" />
+                <D VAR="u" USERDEFINEDTYPE="MRFFar" VALUE="Uinfx" />
+                <D VAR="v" USERDEFINEDTYPE="MRFFar" VALUE="Uinfy" />
                 <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
             </REGION>
             <REGION REF="3">
-                <D VAR="u" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfx" />
-                <D VAR="v" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfy" />
+                <D VAR="u" USERDEFINEDTYPE="MRFFar" VALUE="Uinfx" />
+                <D VAR="v" USERDEFINEDTYPE="MRFFar" VALUE="Uinfy" />
                 <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
             </REGION>
 
@@ -93,10 +93,12 @@
     </CONDITIONS>
     <FORCING>
         <FORCE TYPE="MovingReferenceFrame">
-            <FRAMEVELOCITY> VelMRF </FRAMEVELOCITY>
         </FORCE>
     </FORCING>
 
+    <RIGIDSOLVER>
+        <FRAMEVELOCITY> VelMRF </FRAMEVELOCITY>
+    </RIGIDSOLVER>
     <FILTERS>
         <FILTER TYPE="AeroForces">
             <PARAM NAME="OutputFile">dragLift</PARAM>

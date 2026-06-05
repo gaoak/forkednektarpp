@@ -62,6 +62,8 @@ enum SolverType
     eWeakPressure,
     eVCSImplicit,
     eImplicit,
+    eVCSFSI,
+    ePressDecompVCSFSI,
 };
 
 enum EquationType
@@ -229,18 +231,29 @@ protected:
         const Array<OneD, const Array<OneD, NekDouble>> &physfield,
         Array<OneD, Array<OneD, NekDouble>> &velocity) override;
 
-    void v_SetMovingFrameVelocities(const Array<OneD, NekDouble> &vFrameVels,
-                                    const int step) override;
-    bool v_GetMovingFrameVelocities(Array<OneD, NekDouble> &vFrameVels,
-                                    const int step) override;
-    void v_SetMovingFrameDisp(const Array<OneD, NekDouble> &vFrameDisp,
-                              const int step) override;
+    void v_SetMovingFrameVelocities(
+        const Array<OneD, NekDouble> &vFrameVels) override;
+
+    bool v_GetMovingFrameVelocities(
+        Array<OneD, NekDouble> &vFrameVels) override;
+
+    void v_SetMovingFrameDisp(
+        const Array<OneD, NekDouble> &vFrameDisp) override;
+
     void v_SetMovingFramePivot(
         const Array<OneD, NekDouble> &vFramePivot) override;
-    bool v_GetMovingFrameDisp(Array<OneD, NekDouble> &vFrameDisp,
-                              const int step) override;
+
+    void v_GetMovingFramePivot(Array<OneD, NekDouble> &vFramePivot) override;
+
+    bool v_GetMovingFrameDisp(Array<OneD, NekDouble> &vFrameDisp) override;
+
     void v_SetAeroForce(Array<OneD, NekDouble> forces) override;
+
     void v_GetAeroForce(Array<OneD, NekDouble> forces) override;
+
+    void v_SetMovableDoFs(const std::set<int> &dirDoFs) override;
+
+    void v_GetMovableDoFs(std::set<int> &dirDoFs) override;
 
     void EvaluateAdvectionTerms(
         const Array<OneD, const Array<OneD, NekDouble>> &inarray,

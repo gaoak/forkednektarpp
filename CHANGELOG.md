@@ -42,23 +42,30 @@ v5.10.0
 - Fix ThirdParty build for Arpack, FFTW, LST, OCE, PETSc, TinyXML, VTK (!2530)
 - Fix memory leak in ObjectPool (!2513)
 - Fix 3rdparty compilation with ninja/unix makefiles/macos/win (!2537) 
+- Fix Boost, FFTW, VTK, and Zlib thirdparty compilation on macos, fix serial PETsc thirdparty compilation, fix OCE depedencies (!2538)
+- Add scaling factor to limit the Newton step (!2533)
 
 **IncNavierStokesSolver**
 - Added an option to process Reynolds Stress fields at a higher polynomial order (!2303)
 - Remove Vmath SIMD (!2365) 
 - Fix non-zero Dirichlet BCs with flow rate for inc NS Solver (!2399)
 - Added an option to modify the number of decimal point print out in a constant-rate setup (!2491)
+- Added a stablized velocity correction scheme for fluid-structure interaction of rigid body (!2040)
 
 **CI**
 - Add PROCESSORS property to tests to enforce correct parallelism (!2445)
 - Allow multiple tests per `.tst` file (!2509)
 - Enable use of ninja for build system (!2511)
+- Fix dockerhub-build-workbook (!2561)
 
 **AcousticSolver**
 - Use native c++ random number generator instead of boost (!2379)
 
 **ADRSolver**
 - Renable Movement_fixed_3D_stacked_cylinders_curved_hdf5_par unit test (!2523)
+
+**Documentation**
+- Update mailing list URL to point to new mailing list server (!2541)
 
 v5.9.0
 ------

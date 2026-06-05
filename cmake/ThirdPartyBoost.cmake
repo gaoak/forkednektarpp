@@ -154,19 +154,9 @@ IF (THIRDPARTY_BUILD_BOOST)
     ENDIF()
 
     UNSET(BOOST_URL_MD5)
-    IF (BOOST_MIN_VERSION STREQUAL "1.60.0")
-        SET(BOOST_URL "${TPURL}/boost_1_71_0.tar.bz2")
-        SET(BOOST_BUILD_VERSION "1.71.0")
-        SET(BOOST_URL_MD5 "4cdf9b5c2dc01fb2b7b733d5af30e558")
-    ELSEIF(BOOST_MIN_VERSION STREQUAL "1.76.0")
-        SET(BOOST_URL "${TPURL}/boost_1_76_0.tar.bz2")
-        SET(BOOST_BUILD_VERSION "1.76.0")
-        SET(BOOST_URL_MD5 "33334dd7f862e8ac9fe1cc7c6584fb6d")
-    ELSEIF(BOOST_MIN_VERSION STREQUAL "1.82.0")
-        SET(BOOST_URL "${TPURL}/boost_1_82_0.tar.bz2")
-        SET(BOOST_BUILD_VERSION "1.82.0")
-        SET(BOOST_URL_MD5 "b45dac8b54b58c087bfbed260dbfc03a")
-    ENDIF()
+    SET(BOOST_URL "${TPURL}/boost_1_82_0.tar.bz2")
+    SET(BOOST_BUILD_VERSION "1.82.0")
+    SET(BOOST_URL_MD5 "b45dac8b54b58c087bfbed260dbfc03a")
 
     UNSET(BOOST_BYPRODUCTS)
     FOREACH(BOOSTLIB ${NEEDED_BOOST_LIBS})
@@ -187,18 +177,6 @@ IF (THIRDPARTY_BUILD_BOOST)
         INSTALL_DIR ${TPDIST}
     )
 
-    UNSET(PATCH CACHE)
-    FIND_PROGRAM(PATCH patch)
-    IF(NOT PATCH)
-        MESSAGE(FATAL_ERROR
-            "'patch' tool for modifying files not found. Cannot build boost-numpy.")
-    ENDIF()
-    MARK_AS_ADVANCED(PATCH)
-
-    IF (BOOST_MIN_VERSION STREQUAL "1.60.0")
-       LIST(APPEND BOOST_EXTERNALPROJECT_ARGS PATCH_COMMAND ${PATCH} -p0 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/boost-1.71.0.patch)
-    ENDIF()
-
     IF (NOT WIN32)
         EXTERNALPROJECT_ADD(
             boost
@@ -217,7 +195,7 @@ IF (THIRDPARTY_BUILD_BOOST)
             INSTALL_COMMAND ""
             )
     ELSE ()
-            MESSAGE(STATUS "Windows MSVC build - toolset is: ${TOOLSET_CMDLINE}")
+        MESSAGE(STATUS "Windows MSVC build - toolset is: ${TOOLSET_CMDLINE}")
         IF (CMAKE_SIZEOF_VOID_P EQUAL 8)
             SET(ADDRESS_MODEL 64)
         ELSE()

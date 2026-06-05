@@ -4,19 +4,22 @@
         <E COMPOSITE="C[6,7]" NUMMODES="3" TYPE="MODIFIED" FIELDS="u,v" />
         <E COMPOSITE="C[6,7]" NUMMODES="2" TYPE="MODIFIEDQUADPLUS1" FIELDS="p" />
     </EXPANSIONS>
+
     <CONDITIONS>
         <SOLVERINFO>
             <I PROPERTY="EQTYPE" VALUE="UnsteadyNavierStokes" />
-            <I PROPERTY="SolverType" VALUE="VelocityCorrectionScheme" />
+            <I PROPERTY="SolverType" VALUE="VCSFSI" />
             <I PROPERTY="EvolutionOperator" VALUE="Nonlinear"/>
             <I PROPERTY="AdvectionForm" VALUE="Convective"/>
             <I PROPERTY="Projection" VALUE="Galerkin" />
             <I PROPERTY="SpectralVanishingViscosity" VALUE="DGKernel" />
         </SOLVERINFO>
+
         <TIMEINTEGRATIONSCHEME>
             <METHOD> IMEX </METHOD>
             <ORDER> 2 </ORDER>
         </TIMEINTEGRATIONSCHEME>
+
         <PARAMETERS>
             <P> TimeStep      = 1.0e-3                      </P>
             <P> NumSteps      = 10               	   </P>
@@ -32,11 +35,13 @@
             <P> amp           = 10.*PI/180.              </P>
             <P> omega         = 2.*PI*freq                 </P>
         </PARAMETERS>
+
         <VARIABLES>
             <V ID="0"> u </V>
             <V ID="1"> v </V>
             <V ID="2"> p </V>
         </VARIABLES>
+
         <BOUNDARYREGIONS>
             <B ID="0"> C[1] </B>      <!-- wall -->
             <B ID="1"> C[2] </B>      <!-- inflow -->
@@ -44,33 +49,34 @@
             <B ID="3"> C[4] </B>      <!-- Far Field -->
             <B ID="4"> C[5] </B>      <!-- Far Field -->
         </BOUNDARYREGIONS>
+
         <BOUNDARYCONDITIONS>
             <REGION REF="0">
-                <D VAR="u" USERDEFINEDTYPE="MovingFrameWall" VALUE="0" />
-                <D VAR="v" USERDEFINEDTYPE="MovingFrameWall" VALUE="0" />
-                <N VAR="p" USERDEFINEDTYPE="MovingFrameWall" VALUE="0" />
+                <D VAR="u" USERDEFINEDTYPE="MRFWall" VALUE="0" />
+                <D VAR="v" USERDEFINEDTYPE="MRFWall" VALUE="0" />
+                <N VAR="p" USERDEFINEDTYPE="MRFWall" VALUE="0" />
             </REGION>
 
             <REGION REF="1">
-                <D VAR="u" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfx" />
-                <D VAR="v" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfy" />
+                <D VAR="u" USERDEFINEDTYPE="MRFFar" VALUE="Uinfx" />
+                <D VAR="v" USERDEFINEDTYPE="MRFFar" VALUE="Uinfy" />
                 <D VAR="p" VALUE="0" />
             </REGION>
 
             <REGION REF="2"> <!-- outflow -->
-                <D VAR="u" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfx" />
-                <D VAR="v" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfy" />
+                <D VAR="u" USERDEFINEDTYPE="MRFFar" VALUE="Uinfx" />
+                <D VAR="v" USERDEFINEDTYPE="MRFFar" VALUE="Uinfy" />
                 <D VAR="p" VALUE="0" />
             </REGION>
 
             <REGION REF="3">
-                <D VAR="u" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfx" />
-                <D VAR="v" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfy" />
+                <D VAR="u" USERDEFINEDTYPE="MRFFar" VALUE="Uinfx" />
+                <D VAR="v" USERDEFINEDTYPE="MRFFar" VALUE="Uinfy" />
                 <D VAR="p" VALUE="0" />
             </REGION>
             <REGION REF="4">
-                <D VAR="u" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfx" />
-                <D VAR="v" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfy" />
+                <D VAR="u" USERDEFINEDTYPE="MRFFar" VALUE="Uinfx" />
+                <D VAR="v" USERDEFINEDTYPE="MRFFar" VALUE="Uinfy" />
                 <D VAR="p" VALUE="0" />
             </REGION>
         </BOUNDARYCONDITIONS>
@@ -83,15 +89,17 @@
             <E VAR="Omega_z" VALUE="amp*omega*cos(omega*(t-t0))"/>
             <E VAR="DOmega_z" VALUE="-amp*omega*omega*sin(omega*(t-t0))"/>
         </FUNCTION>
-
     </CONDITIONS>
 
     <FORCING>
         <FORCE TYPE="MovingReferenceFrame">
-            <FRAMEVELOCITY> VelMRF </FRAMEVELOCITY>
-            <PIVOTPOINT> 0.25, 0.0, 0.0 </PIVOTPOINT>
         </FORCE>
     </FORCING>
+
+    <RIGIDSOLVER>
+        <FRAMEVELOCITY> VelMRF </FRAMEVELOCITY>
+        <PIVOTPOINT> 0.25, 0.0 </PIVOTPOINT>
+    </RIGIDSOLVER>
 
     <FILTERS>
         <FILTER TYPE="AeroForces">

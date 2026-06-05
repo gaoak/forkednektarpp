@@ -43,6 +43,39 @@ IF (NEKTAR_USE_FFTW)
         INCLUDE(ExternalProject)
         THIRDPARTY_LIBRARY(FFTW_LIBRARY STATIC fftw3 DESCRIPTION "FFTW library")
 
+        IF(APPLE)
+            UNSET(PATCH CACHE)
+            FIND_PROGRAM(PATCH patch)
+            IF(NOT PATCH)
+                MESSAGE(FATAL_ERROR
+                    "'patch' tool for modifying files not found. Cannot build fftw3.")
+            ENDIF()
+            SET(FFTW_PATCH_COMMAND 
+	        cp ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/config.guess . &&
+	        cp ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/config.sub . &&
+                ${PATCH} -p0 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/fftw-3.2.2.patch)
+            IF(NOT CMAKE_OSX_SYSROOT)
+                EXECUTE_PROCESS(
+                    COMMAND xcrun --sdk macosx --show-sdk-path
+                    OUTPUT_VARIABLE MACOSX_SDK_PATH
+                    OUTPUT_STRIP_TRAILING_WHITESPACE
+                )
+            ELSE()
+                SET(MACOSX_SDK_PATH ${CMAKE_OSX_SYSROOT})
+            ENDIF()
+
+            MESSAGE(STATUS "macOS SDK for FFTW: ${MACOSX_SDK_PATH}")
+            SET(FFTW_CONFIG SDKROOT=${CMAKE_OSX_SYSROOT}; 
+                "CFLAGS=-O3 -isysroot ${MACOSX_SDK_PATH} -arch arm64";
+                "CPPFLAGS=-isysroot ${MACOSX_SDK_PATH}";
+                "LDFLAGS=-isysroot ${MACOSX_SDK_PATH} -arch arm64";)
+        ELSE()
+            SET(FFTW_PATCH_COMMAND 
+	        cp ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/config.guess . &&
+	        cp ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/config.sub .)
+            SET(FFTW_CONFIG "CFLAGS=-w"; "CPPFLAGS=-w")
+        ENDIF()
+        MARK_AS_ADVANCED(PATCH)
         EXTERNALPROJECT_ADD(
             fftw-3.2.2
             URL ${TPURL}/fftw-3.2.2.tar.gz
@@ -54,15 +87,15 @@ IF (NEKTAR_USE_FFTW)
             TMP_DIR ${TPBUILD}/fftw-3.2.2-tmp
             INSTALL_DIR ${TPDIST}
             BUILD_BYPRODUCTS ${FFTW_LIBRARY}
-	    PATCH_COMMAND
-	        cp ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/config.guess . &&
-	        cp ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/config.sub .
+	    PATCH_COMMAND ${FFTW_PATCH_COMMAND}
             CONFIGURE_COMMAND
                 CC=${CMAKE_C_COMPILER}
                 ${TPSRC}/fftw-3.2.2/configure
+                ${FFTW_CONFIG}
                 --prefix=${TPDIST}
                 --libdir=${TPDIST}/lib
                 --quiet
+                --enable-static
                 --enable-shared
                 --disable-dependency-tracking
         )

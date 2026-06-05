@@ -78,6 +78,11 @@ public:
         v_SolvePressure(Forcing);
     }
 
+    void SolveSolid(NekDouble time)
+    {
+        v_SolveSolid(time);
+    }
+
     void SolveViscous(const Array<OneD, const Array<OneD, NekDouble>> &Forcing,
                       const Array<OneD, const Array<OneD, NekDouble>> &inarray,
                       Array<OneD, Array<OneD, NekDouble>> &outarray,
@@ -199,6 +204,8 @@ protected:
 
     virtual void v_SolvePressure(const Array<OneD, NekDouble> &Forcing);
 
+    virtual void v_SolveSolid(NekDouble time);
+
     virtual void v_SolveViscous(
         const Array<OneD, const Array<OneD, NekDouble>> &Forcing,
         const Array<OneD, const Array<OneD, NekDouble>> &inarray,
@@ -241,6 +248,12 @@ protected:
     void ComputeGJPNormalVelocity(
         const Array<OneD, const Array<OneD, NekDouble>> &inarray,
         StdRegions::VarCoeffMap &varcoeffs);
+    void UpdateVelocityBCs(NekDouble time);
+
+    void AddMovingFrameDataToParams(
+        const std::vector<std::string> &strFrameData,
+        const Array<OneD, NekDouble> &movingFrameData,
+        std::map<std::string, NekDouble> &params);
 
 private:
 };

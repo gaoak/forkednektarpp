@@ -77,7 +77,7 @@ public:
                 std::map<std::string, NekDouble> &params)
     {
         v_Update(fields, Adv, params);
-    };
+    }
 
 protected:
     IncBaseCondition(const LibUtilities::SessionReaderSharedPtr pSession,
@@ -108,6 +108,11 @@ protected:
         Array<OneD, Array<OneD, NekDouble>> &N,
         std::map<std::string, NekDouble> &params);
 
+    void AddExtrapVisPressureBCs(
+        const Array<OneD, const Array<OneD, NekDouble>> &fields,
+        Array<OneD, Array<OneD, NekDouble>> &N,
+        std::map<std::string, NekDouble> &params);
+
     void AddRigidBodyAcc(Array<OneD, Array<OneD, NekDouble>> &N,
                          std::map<std::string, NekDouble> &params, int npts0);
 
@@ -129,7 +134,7 @@ protected:
     Array<OneD, Array<OneD, NekDouble>> m_coords;
     MultiRegions::ExpListSharedPtr m_bndElmtExps;
     MultiRegions::ExpListSharedPtr m_field;
-    Array<OneD, Array<OneD, Array<OneD, NekDouble>>> m_viscous;
+    Array<OneD, Array<OneD, Array<OneD, NekDouble>>> m_extrapArray;
     int m_pressure;
 
     static NekDouble StifflyStable_Betaq_Coeffs[3][3];
