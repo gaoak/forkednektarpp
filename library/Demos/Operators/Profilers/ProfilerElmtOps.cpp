@@ -108,7 +108,6 @@
  *          NEKTAR_USE_LIKWID=ON.
  *      See likwid documentation for more information.
  */
-
 template <typename TData>
 using IProductWRTDerivBaseCoeffOp =
     IProductWRTDerivBaseOp<FieldState::Coeff, TData>;
