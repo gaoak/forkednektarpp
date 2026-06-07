@@ -47,10 +47,10 @@
 namespace Nektar::Operators
 {
 
-class internalMathKernelMask
+template <typename MemSpace> class internalMathKernelMask
 {
 public:
-    template <typename MemSpace, typename TData, FieldState TFieldState>
+    template <typename TData, FieldState TFieldState>
     static const uint8_t *GetInstance(BlockAccessor<TData, TFieldState> &block)
     {
         auto key =
@@ -58,10 +58,10 @@ public:
                 block.GetNumElements(), block.GetNumElementsWithPadding(),
                 block.GetNumData(), block.CompSize(),
                 block.GetInterleaveWidth());
-        if (mask.find(key) == mask.end())
+        if (m_mask.find(key) == m_mask.end())
         {
-            auto mr  = MemoryRegion<uint8_t>(block.CompSize());
-            auto ptr = mr.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+            auto mask = std::vector<uint8_t>(block.CompSize());
+            auto ptr  = mask.data();
 
             // Loop over chunks.
             for (size_t chunk = 0, el = 0; chunk < block.GetNumElmtGroups();
@@ -86,17 +86,30 @@ public:
                 }
             }
 
-            mask[key] = std::move(mr);
+            if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+            {
+                hostMalloc(&m_mask[key], block.CompSize() * sizeof(uint8_t),
+                           NektarSpaces::host_memory_alignment);
+                memcpy(m_mask[key], mask.data(),
+                       block.CompSize() * sizeof(uint8_t));
+            }
+            else if constexpr (std::is_same_v<MemSpace,
+                                              NektarSpaces::DeviceSpace>)
+            {
+                deviceMalloc(&m_mask[key], block.CompSize() * sizeof(uint8_t));
+                deviceMemcpy<HostToDevice>(m_mask[key], mask.data(),
+                                           block.CompSize() * sizeof(uint8_t));
+            }
         }
 
-        return mask[key].template GetPtr<MemSpace, ReadOnly>();
+        return m_mask[key];
     }
 
 private:
     inline static std::map<
         std::tuple<size_t, size_t, unsigned int, size_t, unsigned int>,
-        MemoryRegion<uint8_t>>
-        mask;
+        uint8_t *>
+        m_mask;
 };
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -717,12 +730,11 @@ void reduceSum(Field<TData, TFieldState> &x, TData *out)
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto &block = x.GetBlocks()[blk];
-        auto maskptr =
-            internalMathKernelMask::template GetInstance<MemSpace>(block);
-        auto size  = block.CompSize();
-        auto ncomp = block.GetNumComponents() * block.GetNumHomoModes();
+        auto xptr    = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto &block  = x.GetBlocks()[blk];
+        auto maskptr = internalMathKernelMask<MemSpace>::GetInstance(block);
+        auto size    = block.CompSize();
+        auto ncomp   = block.GetNumComponents() * block.GetNumHomoModes();
 
         for (unsigned int n = 0; n < ncomp; ++n)
         {
@@ -801,12 +813,11 @@ void reduceMax(Field<TData, TFieldState> &x, TData *out)
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto &block = x.GetBlocks()[blk];
-        auto maskptr =
-            internalMathKernelMask::template GetInstance<MemSpace>(block);
-        auto size  = block.CompSize();
-        auto ncomp = block.GetNumComponents() * block.GetNumHomoModes();
+        auto xptr    = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto &block  = x.GetBlocks()[blk];
+        auto maskptr = internalMathKernelMask<MemSpace>::GetInstance(block);
+        auto size    = block.CompSize();
+        auto ncomp   = block.GetNumComponents() * block.GetNumHomoModes();
 
         for (unsigned int n = 0; n < ncomp; ++n)
         {
@@ -885,12 +896,11 @@ void reduceMin(Field<TData, TFieldState> &x, TData *out)
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto &block = x.GetBlocks()[blk];
-        auto maskptr =
-            internalMathKernelMask::template GetInstance<MemSpace>(block);
-        auto size  = block.CompSize();
-        auto ncomp = block.GetNumComponents() * block.GetNumHomoModes();
+        auto xptr    = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto &block  = x.GetBlocks()[blk];
+        auto maskptr = internalMathKernelMask<MemSpace>::GetInstance(block);
+        auto size    = block.CompSize();
+        auto ncomp   = block.GetNumComponents() * block.GetNumHomoModes();
 
         for (unsigned int n = 0; n < ncomp; ++n)
         {
@@ -983,13 +993,12 @@ void ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
                   "MathKernels::ddot - Inconsistent interleave format between "
                   "input Fields");
 
-        auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto yptr   = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto &block = x.GetBlocks()[blk];
-        auto maskptr =
-            internalMathKernelMask::template GetInstance<MemSpace>(block);
-        auto size  = block.CompSize();
-        auto ncomp = block.GetNumComponents() * block.GetNumHomoModes();
+        auto xptr    = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto yptr    = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto &block  = x.GetBlocks()[blk];
+        auto maskptr = internalMathKernelMask<MemSpace>::GetInstance(block);
+        auto size    = block.CompSize();
+        auto ncomp   = block.GetNumComponents() * block.GetNumHomoModes();
 
         for (unsigned int n = 0; n < ncomp; ++n)
         {
@@ -1099,12 +1108,11 @@ void l1norm(Field<TData, TFieldState> &x, TData *out)
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto &block = x.GetBlocks()[blk];
-        auto maskptr =
-            internalMathKernelMask::template GetInstance<MemSpace>(block);
-        auto size  = block.CompSize();
-        auto ncomp = block.GetNumComponents() * block.GetNumHomoModes();
+        auto xptr    = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto &block  = x.GetBlocks()[blk];
+        auto maskptr = internalMathKernelMask<MemSpace>::GetInstance(block);
+        auto size    = block.CompSize();
+        auto ncomp   = block.GetNumComponents() * block.GetNumHomoModes();
 
         for (unsigned int n = 0; n < ncomp; ++n)
         {
@@ -1183,12 +1191,11 @@ void l2norm(Field<TData, TFieldState> &x, TData *out)
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto &block = x.GetBlocks()[blk];
-        auto maskptr =
-            internalMathKernelMask::template GetInstance<MemSpace>(block);
-        auto size  = block.CompSize();
-        auto ncomp = block.GetNumComponents() * block.GetNumHomoModes();
+        auto xptr    = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto &block  = x.GetBlocks()[blk];
+        auto maskptr = internalMathKernelMask<MemSpace>::GetInstance(block);
+        auto size    = block.CompSize();
+        auto ncomp   = block.GetNumComponents() * block.GetNumHomoModes();
 
         for (unsigned int n = 0; n < ncomp; ++n)
         {
@@ -1267,12 +1274,11 @@ void lpnorm(const unsigned int p, Field<TData, TFieldState> &x, TData *out)
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto &block = x.GetBlocks()[blk];
-        auto maskptr =
-            internalMathKernelMask::template GetInstance<MemSpace>(block);
-        auto size  = block.CompSize();
-        auto ncomp = block.GetNumComponents() * block.GetNumHomoModes();
+        auto xptr    = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto &block  = x.GetBlocks()[blk];
+        auto maskptr = internalMathKernelMask<MemSpace>::GetInstance(block);
+        auto size    = block.CompSize();
+        auto ncomp   = block.GetNumComponents() * block.GetNumHomoModes();
 
         for (unsigned int n = 0; n < ncomp; ++n)
         {
@@ -1352,12 +1358,11 @@ void linfnorm(Field<TData, TFieldState> &x, TData *out)
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto xptr   = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto &block = x.GetBlocks()[blk];
-        auto maskptr =
-            internalMathKernelMask::template GetInstance<MemSpace>(block);
-        auto size  = block.CompSize();
-        auto ncomp = block.GetNumComponents() * block.GetNumHomoModes();
+        auto xptr    = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        auto &block  = x.GetBlocks()[blk];
+        auto maskptr = internalMathKernelMask<MemSpace>::GetInstance(block);
+        auto size    = block.CompSize();
+        auto ncomp   = block.GetNumComponents() * block.GetNumHomoModes();
 
         for (unsigned int n = 0; n < ncomp; ++n)
         {

@@ -65,15 +65,15 @@ IF (NEKTAR_USE_FFTW)
             ENDIF()
 
             MESSAGE(STATUS "macOS SDK for FFTW: ${MACOSX_SDK_PATH}")
-            SET(FFTW_CONFIG SDKROOT=${CMAKE_OSX_SYSROOT}; 
-                "CFLAGS=-O3 -isysroot ${MACOSX_SDK_PATH} -arch arm64";
-                "CPPFLAGS=-isysroot ${MACOSX_SDK_PATH}";
-                "LDFLAGS=-isysroot ${MACOSX_SDK_PATH} -arch arm64";)
+            SET(FFTW_CONFIG "SDKROOT=${CMAKE_OSX_SYSROOT}"
+                "CFLAGS=-O3 -isysroot ${MACOSX_SDK_PATH} -arch arm64"
+                "CPPFLAGS=-isysroot ${MACOSX_SDK_PATH}"
+                "LDFLAGS=-isysroot ${MACOSX_SDK_PATH} -arch arm64")
         ELSE()
             SET(FFTW_PATCH_COMMAND 
 	        cp ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/config.guess . &&
 	        cp ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/config.sub .)
-            SET(FFTW_CONFIG "CFLAGS=-w"; "CPPFLAGS=-w")
+            SET(FFTW_CONFIG "CFLAGS=-w" "CPPFLAGS=-w")
         ENDIF()
         MARK_AS_ADVANCED(PATCH)
         EXTERNALPROJECT_ADD(
