@@ -77,9 +77,9 @@ public:
 
         // Initialise CUDA/HIP context for JIT.
 #if defined(NEKTAR_ENABLE_CUDA) || defined(SYCL_ENABLE_CUDA)
-        cudaFree(0);
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(SYCL_ENABLE_CUDA)
-        hipFree(0);
+        CHECK_HIPCUDA_ERROR(cudaFree(0));
+#elif defined(NEKTAR_ENABLE_HIP) || defined(SYCL_ENABLE_HIP)
+        CHECK_HIPCUDA_ERROR(hipFree(0));
 #endif
     }
 
