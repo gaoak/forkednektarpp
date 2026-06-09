@@ -48,6 +48,10 @@
 #define sycl_backend sycl::backend::hip
 #elif defined(SYCL_ENABLE_HIP)
 #define sycl_backend sycl::backend::ext_oneapi_hip
+#elif defined(NEKTAR_ENABLE_CUDA)
+#define stream_t cudaStream_t
+#elif defined(NEKTAR_ENABLE_HIP)
+#define stream_t hipStream_t
 #endif
 
 #if defined(SYCL_ENABLE_CUDA)
@@ -216,6 +220,7 @@ protected:
                     ? (this->m_append) ? m_kernel_handle1 : m_kernel_handle2
                 : (this->m_append) ? m_kernel_handle3
                                    : m_kernel_handle4;
+// clang-format off
 #if defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
             SYCLQueue::GetInstance().submit([&](sycl::handler &h) {
 #if defined(__ADAPTIVECPP__)
@@ -224,20 +229,21 @@ protected:
 #else
                 h.host_task([=](sycl::interop_handle ih) {
 #endif
-                        auto stream = ih.get_native_queue<sycl_backend>();
-                        CHECK_HIPCUDA_DRIVER_ERROR(nekLaunchKernel(
-                            kernel_handle, gridSize, 1, 1, blockSize, 1, 1, 0,
-                            stream, args, nullptr));
-                    });
+                    auto stream = ih.get_native_queue<sycl_backend>();
+#else
+                    stream_t stream = nullptr;
+#endif
+                    CHECK_HIPCUDA_DRIVER_ERROR(nekLaunchKernel(
+                        kernel_handle, gridSize, 1, 1, blockSize, 1, 1, 0,
+                        stream, args, nullptr));
+#if defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
+                });
             });
 #if !defined(__ADAPTIVECPP__)
             SYCLQueue::GetInstance().wait();
 #endif
-#else
-            CHECK_HIPCUDA_DRIVER_ERROR(nekLaunchKernel(kernel_handle, gridSize,
-                                                       1, 1, blockSize, 1, 1, 0,
-                                                       nullptr, args, nullptr));
 #endif
+            // clang-format on
             delete[] ptr;
             delete[] args;
         }
@@ -248,6 +254,30 @@ protected:
 
     void v_SetExpressions(
         const std::vector<LibUtilities::EquationSharedPtr> &exprs) override
+    {
+// clang-format off
+#if defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
+        SYCLQueue::GetInstance().submit([&](sycl::handler &h) {
+#if defined(__ADAPTIVECPP__)
+            h.AdaptiveCpp_enqueue_custom_operation(
+                [=]([[maybe_unused]] sycl::interop_handle ih) {
+#else
+            h.host_task([=]([[maybe_unused]] sycl::interop_handle ih) {
+#endif
+#endif
+                SetDeviceExpressions(exprs);
+#if defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
+            });
+        });
+#if !defined(__ADAPTIVECPP__)
+        SYCLQueue::GetInstance().wait();
+#endif
+#endif
+        // clang-format on
+    }
+
+    void SetDeviceExpressions(
+        const std::vector<LibUtilities::EquationSharedPtr> &exprs)
     {
         // Use NVRTC (Nvidia Runtime Compilation) / HIPRTC (HIP Runtime
         // Compilation) to generate a kernel function from a string expression.
