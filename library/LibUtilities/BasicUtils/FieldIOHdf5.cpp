@@ -694,15 +694,18 @@ void FieldIOHdf5::v_Write(const std::string &outFile,
     // Set properties for parallel file access (if we're in parallel)
     H5::PListSharedPtr parallelProps = H5::PList::Default();
     H5::PListSharedPtr writePL       = H5::PList::Default();
+
+#if defined(NEKTAR_USE_MPI) && defined(NEKTAR_HDF5_PARALLEL)
     if (nprocs > 1)
     {
         // Use MPI/O to access the file
         parallelProps = H5::PList::FileAccess();
         parallelProps->SetMpio(m_comm->GetSpaceComm());
-        // Use collective IO
+        // Use collective IO if compiled with MPI
         writePL = H5::PList::DatasetXfer();
         writePL->SetDxMpioCollective();
     }
+#endif
 
     // Reopen the file
     H5::FileSharedPtr outfile =
@@ -889,12 +892,14 @@ void FieldIOHdf5::v_Import(const std::string &infilename,
                            const Array<OneD, int> &ElementIDs)
 {
     std::stringstream prfx;
-    int nprocs = m_comm->GetSpaceComm()->GetSize();
 
     // Set properties for parallel file access (if we're in parallel)
     H5::PListSharedPtr parallelProps = H5::PList::Default();
     H5::PListSharedPtr readPL        = H5::PList::Default();
     H5::PListSharedPtr readPLInd     = H5::PList::Default();
+
+#if defined(NEKTAR_USE_MPI) && defined(NEKTAR_HDF5_PARALLEL)
+    int nprocs = m_comm->GetSpaceComm()->GetSize();
 
     if (nprocs > 1)
     {
@@ -907,6 +912,7 @@ void FieldIOHdf5::v_Import(const std::string &infilename,
         readPLInd = H5::PList::DatasetXfer();
         readPLInd->SetDxMpioIndependent();
     }
+#endif
 
     DataSourceSharedPtr dataSource =
         H5DataSource::create(infilename, parallelProps);

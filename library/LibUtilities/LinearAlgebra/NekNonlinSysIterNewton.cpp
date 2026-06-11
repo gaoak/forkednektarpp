@@ -55,6 +55,15 @@ NekNonlinSysIterNewton::NekNonlinSysIterNewton(
     const NekSysKey &pKey)
     : NekNonlinSysIter(pSession, vRowComm, nscale, pKey)
 {
+    int inexactNewtonForcing = 0;
+    pSession->LoadParameter("InexactNewtonForcing", inexactNewtonForcing, 0);
+    m_InexactNewtonForcing = (bool)inexactNewtonForcing;
+    pSession->LoadParameter("ForcingEtaInit", m_ForcingEtaInit, 1.0e-2);
+    pSession->LoadParameter("ForcingEtaMin", m_ForcingEtaMin,
+                            m_NekLinSysTolerance);
+    pSession->LoadParameter("ForcingEtaMax", m_ForcingEtaMax, 5.0e-2);
+    pSession->LoadParameter("ForcingGamma", m_ForcingGamma, 0.9);
+    pSession->LoadParameter("ForcingAlpha", m_ForcingAlpha, 1.5);
     pSession->LoadParameter("NewtonScale", m_NewtonScale, 1.0);
 }
 
@@ -112,8 +121,13 @@ int NekNonlinSysIterNewton::v_SolveSystem(
             m_linsol->SolveSystem(nGlobal, m_Residual, m_DeltSltn, 0);
         m_NtotLinSysIts += ntmpLinSysIts;
 
-        Vmath::Svtvp(nGlobal, -1.0 * m_NewtonScale, m_DeltSltn, 1, m_Solution,
-                     1, m_Solution, 1);
+        NekDouble oldResNorm = sqrt(m_SysResNorm);
+        bool accepted        = v_ApplyNewtonUpdate(nGlobal, oldResNorm);
+        if (!accepted)
+        {
+            WARNINGL0(false, "Newton step rejected.");
+            break;
+        }
     }
 
     if ((!m_converged || m_verbose) && m_root && m_FlagWarnings)
@@ -133,22 +147,37 @@ int NekNonlinSysIterNewton::v_SolveSystem(
     return NttlNonlinIte;
 }
 
+bool NekNonlinSysIterNewton::v_ApplyNewtonUpdate(
+    const int ntotal, [[maybe_unused]] const NekDouble oldResNorm)
+{
+    Vmath::Svtvp(ntotal, -1.0 * m_NewtonScale, m_DeltSltn, 1, m_Solution, 1,
+                 m_Solution, 1);
+    return true;
+}
+
 NekDouble NekNonlinSysIterNewton::CalcInexactNewtonForcing(
     const int &nIteration, const NekDouble &resnormOld,
     const NekDouble &resnorm)
 {
-    if (nIteration == 0 || !m_InexactNewtonForcing)
+    if (!m_InexactNewtonForcing)
     {
         return m_NekLinSysTolerance;
     }
-    else
+
+    if (nIteration == 0 || resnormOld <= 0.0)
     {
-        static const NekDouble forcingGamma = 1.0;
-        static const NekDouble forcingAlpha = 0.5 * (1.0 + sqrt(5.0));
-        NekDouble tmpForc =
-            forcingGamma * pow((resnorm / resnormOld), forcingAlpha);
-        return max(min(m_NekLinSysTolerance, tmpForc), 1.0E-6);
+        return m_ForcingEtaInit;
     }
+
+    // resnorm and resnormOld are stored as squared norms in this class
+    NekDouble rk   = sqrt(resnorm);
+    NekDouble rkm1 = sqrt(resnormOld);
+
+    NekDouble eta = m_ForcingGamma * pow(rk / rkm1, m_ForcingAlpha);
+
+    eta = std::max(m_ForcingEtaMin, std::min(m_ForcingEtaMax, eta));
+
+    return eta;
 }
 
 } // namespace Nektar::LibUtilities

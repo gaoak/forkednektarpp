@@ -67,6 +67,12 @@ IF(NEKTAR_USE_MESHGEN)
         ENDIF()
         MARK_AS_ADVANCED(PATCH)
 
+        IF(CMAKE_VERSION VERSION_GREATER_EQUAL "4.0")
+	    SET(OCE_PATCH_COMMAND ${PATCH} -p1 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/oce-0.18.3.patch && 
+                                  ${PATCH} -p1 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/oce-0.18.3-cmake4.0.patch)
+        ELSE()
+	    SET(OCE_PATCH_COMMAND ${PATCH} -p1 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/oce-0.18.3.patch)
+        ENDIF()
         EXTERNALPROJECT_ADD(
             oce-0.18.3
             PREFIX ${TPSRC}
@@ -78,7 +84,7 @@ IF(NEKTAR_USE_MESHGEN)
             SOURCE_DIR ${TPSRC}/oce-0.18.3
             INSTALL_DIR ${TPBUILD}/oce-0.18.3/dist
             BUILD_BYPRODUCTS ${OCC_LIBRARIES}
-            PATCH_COMMAND ${PATCH} -p1 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/oce-0.18.3.patch
+            PATCH_COMMAND ${OCE_PATCH_COMMAND}
             CONFIGURE_COMMAND ${CMAKE_COMMAND}
                 ${NEKTAR_EXTERNAL_PROJECT_CMAKE_GENERATOR_ARGS}
                 -DCMAKE_C_COMPILER:FILEPATH=${CMAKE_C_COMPILER}

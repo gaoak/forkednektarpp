@@ -111,11 +111,11 @@ public:
     }
 
 protected:
-    Object();
-    Object(hid_t id);
-    virtual ~Object();
+    LIB_UTILITIES_EXPORT Object();
+    LIB_UTILITIES_EXPORT Object(hid_t id);
+    LIB_UTILITIES_EXPORT virtual ~Object();
     hid_t m_Id;
-    virtual void v_Close() = 0;
+    LIB_UTILITIES_EXPORT virtual void v_Close() = 0;
 };
 
 // PropertyList objects
@@ -123,50 +123,50 @@ class PList : public Object
 {
 public:
     /// Default options
-    static PListSharedPtr Default();
+    LIB_UTILITIES_EXPORT static PListSharedPtr Default();
     /// Properties for object creation
-    static PListSharedPtr ObjectCreate();
+    LIB_UTILITIES_EXPORT static PListSharedPtr ObjectCreate();
     /// Properties for file creation
-    static PListSharedPtr FileCreate();
+    LIB_UTILITIES_EXPORT static PListSharedPtr FileCreate();
     /// Properties for file access
-    static PListSharedPtr FileAccess();
+    LIB_UTILITIES_EXPORT static PListSharedPtr FileAccess();
     /// Properties for dataset creation
-    static PListSharedPtr DatasetCreate();
+    LIB_UTILITIES_EXPORT static PListSharedPtr DatasetCreate();
     /// Properties for dataset access
-    static PListSharedPtr DatasetAccess();
+    LIB_UTILITIES_EXPORT static PListSharedPtr DatasetAccess();
     /// Properties for raw data transfer
-    static PListSharedPtr DatasetXfer();
+    LIB_UTILITIES_EXPORT static PListSharedPtr DatasetXfer();
     /// Properties for file mounting
-    static PListSharedPtr FileMount();
+    LIB_UTILITIES_EXPORT static PListSharedPtr FileMount();
     /// Properties for group creation
-    static PListSharedPtr GroupCreate();
+    LIB_UTILITIES_EXPORT static PListSharedPtr GroupCreate();
     /// Properties for group access
-    static PListSharedPtr GroupAccess();
+    LIB_UTILITIES_EXPORT static PListSharedPtr GroupAccess();
     /// Properties for datatype creation
-    static PListSharedPtr DatatypeCreate();
+    LIB_UTILITIES_EXPORT static PListSharedPtr DatatypeCreate();
     /// Properties for datatype access
-    static PListSharedPtr DatatypeAccess();
+    LIB_UTILITIES_EXPORT static PListSharedPtr DatatypeAccess();
     /// Properties for character encoding when encoding strings or object names
-    static PListSharedPtr StringCreate();
+    LIB_UTILITIES_EXPORT static PListSharedPtr StringCreate();
     /// Properties for attribute creation
-    static PListSharedPtr AttributeCreate();
+    LIB_UTILITIES_EXPORT static PListSharedPtr AttributeCreate();
     /// Properties governing the object copying process
-    static PListSharedPtr ObjectCopy();
+    LIB_UTILITIES_EXPORT static PListSharedPtr ObjectCopy();
     /// Properties governing link creation
-    static PListSharedPtr LinkCreate();
+    LIB_UTILITIES_EXPORT static PListSharedPtr LinkCreate();
     /// Properties governing link traversal when accessing objects
-    static PListSharedPtr LinkAccess();
+    LIB_UTILITIES_EXPORT static PListSharedPtr LinkAccess();
 
-    PList();
-    ~PList() override;
-    void SetChunk(const std::vector<hsize_t> &dims);
-    void SetDeflate(const unsigned level = 1);
-    void SetMpio(CommSharedPtr comm);
-    void SetDxMpioCollective();
-    void SetDxMpioIndependent();
+    LIB_UTILITIES_EXPORT PList();
+    LIB_UTILITIES_EXPORT ~PList() override;
+    LIB_UTILITIES_EXPORT void SetChunk(const std::vector<hsize_t> &dims);
+    LIB_UTILITIES_EXPORT void SetDeflate(const unsigned level = 1);
+    LIB_UTILITIES_EXPORT void SetMpio(CommSharedPtr comm);
+    LIB_UTILITIES_EXPORT void SetDxMpioCollective();
+    LIB_UTILITIES_EXPORT void SetDxMpioIndependent();
 
 protected:
-    void v_Close() override;
+    LIB_UTILITIES_EXPORT void v_Close() override;
 
 private:
     PList(hid_t cls);
@@ -179,10 +179,11 @@ public:
     class LinkIterator
     {
     public:
-        LinkIterator(CanHaveGroupsDataSetsSharedPtr grp, hsize_t idx = 0);
-        const std::string &operator*();
-        LinkIterator &operator++();
-        bool operator==(const LinkIterator &other) const;
+        LIB_UTILITIES_EXPORT LinkIterator(CanHaveGroupsDataSetsSharedPtr grp,
+                                          hsize_t idx = 0);
+        LIB_UTILITIES_EXPORT const std::string &operator*();
+        LIB_UTILITIES_EXPORT LinkIterator &operator++();
+        LIB_UTILITIES_EXPORT bool operator==(const LinkIterator &other) const;
         inline bool operator!=(const LinkIterator &other) const
         {
             return !(*this == other);
@@ -198,8 +199,9 @@ public:
         }
 
     private:
-        static herr_t helper(hid_t g_id, const char *name,
-                             const H5L_info_t *info, void *op_data);
+        LIB_UTILITIES_EXPORT static herr_t helper(hid_t g_id, const char *name,
+                                                  const H5L_info_t *info,
+                                                  void *op_data);
         CanHaveGroupsDataSetsSharedPtr m_grp;
         hsize_t m_idx;
         hsize_t m_next;
@@ -209,17 +211,16 @@ public:
 
     // Create a group with the given name. The createPL can be
     // omitted to use the default properties.
-    GroupSharedPtr CreateGroup(const std::string &name,
-                               PListSharedPtr createPL = PList::Default(),
-                               PListSharedPtr accessPL = PList::Default());
+    LIB_UTILITIES_EXPORT GroupSharedPtr CreateGroup(
+        const std::string &name, PListSharedPtr createPL = PList::Default(),
+        PListSharedPtr accessPL = PList::Default());
 
     // Create a dataset with the name, type and space.
     // The createPL can be omitted to use the defaults.
-    DataSetSharedPtr CreateDataSet(const std::string &name,
-                                   DataTypeSharedPtr type,
-                                   DataSpaceSharedPtr space,
-                                   PListSharedPtr createPL = PList::Default(),
-                                   PListSharedPtr accessPL = PList::Default());
+    LIB_UTILITIES_EXPORT DataSetSharedPtr CreateDataSet(
+        const std::string &name, DataTypeSharedPtr type,
+        DataSpaceSharedPtr space, PListSharedPtr createPL = PList::Default(),
+        PListSharedPtr accessPL = PList::Default());
 
     // Create a dataset containing the data supplied
     // The createPL can be omitted to use the defaults
@@ -231,16 +232,17 @@ public:
 
     // Open an existing group.
     // The accessPL can be omitted to use the defaults
-    GroupSharedPtr OpenGroup(const std::string &name,
-                             PListSharedPtr accessPL = PList::Default()) const;
+    LIB_UTILITIES_EXPORT GroupSharedPtr
+    OpenGroup(const std::string &name,
+              PListSharedPtr accessPL = PList::Default()) const;
 
     // Open an existing dataset
     // The accessPL can be omitted to use the defaults
-    DataSetSharedPtr OpenDataSet(
-        const std::string &name,
-        PListSharedPtr accessPL = PList::Default()) const;
+    LIB_UTILITIES_EXPORT DataSetSharedPtr
+    OpenDataSet(const std::string &name,
+                PListSharedPtr accessPL = PList::Default()) const;
 
-    bool ContainsDataSet(std::string nm);
+    LIB_UTILITIES_EXPORT bool ContainsDataSet(std::string nm);
 
     hsize_t GetNumElements()
     {
@@ -248,7 +250,7 @@ public:
     }
 
 protected:
-    virtual hsize_t v_GetNumElements() = 0;
+    LIB_UTILITIES_EXPORT virtual hsize_t v_GetNumElements() = 0;
     LinkIterator begin();
     LinkIterator end();
 
@@ -262,10 +264,11 @@ public:
     class AttrIterator
     {
     public:
-        AttrIterator(CanHaveAttributesSharedPtr obj, hsize_t idx = 0);
-        const std::string &operator*();
-        AttrIterator &operator++();
-        bool operator==(const AttrIterator &other) const;
+        LIB_UTILITIES_EXPORT AttrIterator(CanHaveAttributesSharedPtr obj,
+                                          hsize_t idx = 0);
+        LIB_UTILITIES_EXPORT const std::string &operator*();
+        LIB_UTILITIES_EXPORT AttrIterator &operator++();
+        LIB_UTILITIES_EXPORT bool operator==(const AttrIterator &other) const;
         inline bool operator!=(const AttrIterator &other) const
         {
             return !(*this == other);
@@ -285,10 +288,11 @@ public:
         std::string m_currentName;
     };
 
-    AttributeSharedPtr CreateAttribute(const std::string &name,
-                                       DataTypeSharedPtr type,
-                                       DataSpaceSharedPtr space);
-    AttributeSharedPtr OpenAttribute(const std::string &name);
+    LIB_UTILITIES_EXPORT AttributeSharedPtr
+    CreateAttribute(const std::string &name, DataTypeSharedPtr type,
+                    DataSpaceSharedPtr space);
+    LIB_UTILITIES_EXPORT AttributeSharedPtr
+    OpenAttribute(const std::string &name);
 
     template <class T>
     void SetAttribute(const std::string &name, const T &value);
@@ -299,44 +303,47 @@ public:
     template <class T>
     void GetAttribute(const std::string &name, std::vector<T> &value);
 
-    int GetNumAttr() const;
-    AttrIterator attr_begin();
-    AttrIterator attr_end();
+    LIB_UTILITIES_EXPORT int GetNumAttr() const;
+    LIB_UTILITIES_EXPORT AttrIterator attr_begin();
+    LIB_UTILITIES_EXPORT AttrIterator attr_end();
 };
 
 /// HDF5 DataSpace wrapper
 class DataSpace : public Object
 {
 public:
-    static DataSpaceSharedPtr Null();
-    static DataSpaceSharedPtr Scalar();
-    static DataSpaceSharedPtr OneD(hsize_t size);
+    LIB_UTILITIES_EXPORT static DataSpaceSharedPtr Null();
+    LIB_UTILITIES_EXPORT static DataSpaceSharedPtr Scalar();
+    LIB_UTILITIES_EXPORT static DataSpaceSharedPtr OneD(hsize_t size);
 
-    DataSpace();
-    DataSpace(hsize_t size, hsize_t max = H5S_UNLIMITED - 1);
-    DataSpace(const std::vector<hsize_t> &dims);
-    DataSpace(const std::vector<hsize_t> &dims,
-              const std::vector<hsize_t> &max_dims);
-    ~DataSpace() override;
+    LIB_UTILITIES_EXPORT DataSpace();
+    LIB_UTILITIES_EXPORT DataSpace(hsize_t size,
+                                   hsize_t max = H5S_UNLIMITED - 1);
+    LIB_UTILITIES_EXPORT DataSpace(const std::vector<hsize_t> &dims);
+    LIB_UTILITIES_EXPORT DataSpace(const std::vector<hsize_t> &dims,
+                                   const std::vector<hsize_t> &max_dims);
+    LIB_UTILITIES_EXPORT ~DataSpace() override;
 
-    void SelectRange(const hsize_t start, const hsize_t count);
-    void AppendRange(const hsize_t start, const hsize_t count);
+    LIB_UTILITIES_EXPORT void SelectRange(const hsize_t start,
+                                          const hsize_t count);
+    LIB_UTILITIES_EXPORT void AppendRange(const hsize_t start,
+                                          const hsize_t count);
 
-    void SelectRange(const std::vector<hsize_t> start,
-                     const std::vector<hsize_t> count);
-    void AppendRange(const std::vector<hsize_t> start,
-                     const std::vector<hsize_t> count);
+    LIB_UTILITIES_EXPORT void SelectRange(const std::vector<hsize_t> start,
+                                          const std::vector<hsize_t> count);
+    LIB_UTILITIES_EXPORT void AppendRange(const std::vector<hsize_t> start,
+                                          const std::vector<hsize_t> count);
 
-    void SetSelection(const hsize_t num_elmt,
-                      const std::vector<hsize_t> &coords);
+    LIB_UTILITIES_EXPORT void SetSelection(const hsize_t num_elmt,
+                                           const std::vector<hsize_t> &coords);
 
-    void ClearRange();
+    LIB_UTILITIES_EXPORT void ClearRange();
 
-    hsize_t GetSize();
-    std::vector<hsize_t> GetDims();
+    LIB_UTILITIES_EXPORT hsize_t GetSize();
+    LIB_UTILITIES_EXPORT std::vector<hsize_t> GetDims();
 
 protected:
-    void v_Close() override;
+    LIB_UTILITIES_EXPORT void v_Close() override;
 
 private:
     DataSpace(hid_t id);
@@ -367,7 +374,7 @@ template <class T> struct DataTypeTraits
      * Define this for a specialision for any HDF5 NATIVE type you want to use.
      * See http://hdfgroup.org/HDF5/doc/UG/UG_frame11Datatypes.html
      */
-    static const hid_t NativeType;
+    LIB_UTILITIES_EXPORT static const hid_t NativeType;
 
     typedef typename Converter::ConvertedType ConvertedType;
 
@@ -392,23 +399,23 @@ template <class T> struct DataTypeTraits
 class DataType : public Object
 {
 public:
-    static DataTypeSharedPtr String(size_t len = 0);
+    LIB_UTILITIES_EXPORT static DataTypeSharedPtr String(size_t len = 0);
     template <class T>
     static DataTypeSharedPtr OfObject([[maybe_unused]] const T &obj)
     {
         return DataTypeTraits<T>::GetType();
     }
-    DataTypeSharedPtr Copy() const;
+    LIB_UTILITIES_EXPORT DataTypeSharedPtr Copy() const;
 
 protected:
-    void v_Close() override;
-    DataType(hid_t id);
+    LIB_UTILITIES_EXPORT void v_Close() override;
+    LIB_UTILITIES_EXPORT DataType(hid_t id);
 };
 
 class CompoundDataType : public DataType
 {
 public:
-    static CompoundDataTypeSharedPtr Create(size_t sz);
+    LIB_UTILITIES_EXPORT static CompoundDataTypeSharedPtr Create(size_t sz);
 
     void Add(std::string name, size_t offset, hid_t type)
     {
@@ -422,7 +429,7 @@ public:
     }
 
 protected:
-    void v_Close() override;
+    LIB_UTILITIES_EXPORT void v_Close() override;
 
 private:
     CompoundDataType(hid_t);
@@ -433,24 +440,24 @@ class PredefinedDataType : public DataType
 {
 public:
     template <class T> static DataTypeSharedPtr Native();
-    static DataTypeSharedPtr CS1();
+    LIB_UTILITIES_EXPORT static DataTypeSharedPtr CS1();
 
 protected:
-    void v_Close() override;
+    LIB_UTILITIES_EXPORT void v_Close() override;
 
 private:
-    PredefinedDataType(hid_t);
+    LIB_UTILITIES_EXPORT PredefinedDataType(hid_t);
 };
 
 /// HDF5 Attribute Wrapper
 class Attribute : public Object
 {
 public:
-    ~Attribute() override;
-    DataSpaceSharedPtr GetSpace() const;
+    LIB_UTILITIES_EXPORT ~Attribute() override;
+    LIB_UTILITIES_EXPORT DataSpaceSharedPtr GetSpace() const;
 
 protected:
-    void v_Close() override;
+    LIB_UTILITIES_EXPORT void v_Close() override;
 
 private:
     Attribute(hid_t id) : Object(id)
@@ -467,16 +474,18 @@ private:
 class File : public CanHaveGroupsDataSets
 {
 public:
-    static FileSharedPtr Create(const std::string &filename, unsigned mode,
-                                PListSharedPtr createPL = PList::Default(),
-                                PListSharedPtr accessPL = PList::Default());
-    static FileSharedPtr Open(const std::string &filename, unsigned mode,
-                              PListSharedPtr accessPL = PList::Default());
-    ~File() override;
+    LIB_UTILITIES_EXPORT static FileSharedPtr Create(
+        const std::string &filename, unsigned mode,
+        PListSharedPtr createPL = PList::Default(),
+        PListSharedPtr accessPL = PList::Default());
+    LIB_UTILITIES_EXPORT static FileSharedPtr Open(
+        const std::string &filename, unsigned mode,
+        PListSharedPtr accessPL = PList::Default());
+    LIB_UTILITIES_EXPORT ~File() override;
 
 protected:
-    void v_Close() override;
-    hsize_t v_GetNumElements() override;
+    LIB_UTILITIES_EXPORT void v_Close() override;
+    LIB_UTILITIES_EXPORT hsize_t v_GetNumElements() override;
 
 private:
     File(hid_t id);
@@ -486,14 +495,15 @@ private:
 class Group : public CanHaveAttributes, public CanHaveGroupsDataSets
 {
 public:
-    ~Group() override;
-    std::vector<std::string> GetElementNames();
-    CanHaveAttributesSharedPtr operator[](hsize_t idx);
-    CanHaveAttributesSharedPtr operator[](const std::string &key);
+    LIB_UTILITIES_EXPORT ~Group() override;
+    LIB_UTILITIES_EXPORT std::vector<std::string> GetElementNames();
+    LIB_UTILITIES_EXPORT CanHaveAttributesSharedPtr operator[](hsize_t idx);
+    LIB_UTILITIES_EXPORT CanHaveAttributesSharedPtr
+    operator[](const std::string &key);
 
 protected:
-    void v_Close() override;
-    hsize_t v_GetNumElements() override;
+    LIB_UTILITIES_EXPORT void v_Close() override;
+    LIB_UTILITIES_EXPORT hsize_t v_GetNumElements() override;
 
 private:
     Group(hid_t id);
@@ -503,8 +513,8 @@ private:
 class DataSet : public CanHaveAttributes
 {
 public:
-    ~DataSet() override;
-    DataSpaceSharedPtr GetSpace() const;
+    LIB_UTILITIES_EXPORT ~DataSet() override;
+    LIB_UTILITIES_EXPORT DataSpaceSharedPtr GetSpace() const;
 
     template <class T> void Write(const std::vector<T> &data)
     {
@@ -567,7 +577,7 @@ public:
         data.resize(len);
 
         H5_CALL(H5Dread, (m_Id, mem_t->GetId(), H5S_ALL, H5S_ALL, H5P_DEFAULT,
-                          &data[0]));
+                          data.data()));
     }
     template <class T>
     void Read(std::vector<T> &data, DataSpaceSharedPtr filespace,
@@ -581,7 +591,7 @@ public:
 
         DataSpaceSharedPtr memspace = DataSpace::OneD(len);
         H5_CALL(H5Dread, (m_Id, mem_t->GetId(), memspace->GetId(),
-                          filespace->GetId(), dxpl->GetId(), &data[0]));
+                          filespace->GetId(), dxpl->GetId(), data.data()));
     }
     template <class T>
     void Read(std::vector<T> &data, DataSpaceSharedPtr filespace,
@@ -613,7 +623,7 @@ public:
         data.resize(len);
 
         H5_CALL(H5Dread, (m_Id, mem_t->GetId(), memspace->GetId(),
-                          filespace->GetId(), dxpl->GetId(), &data[0]));
+                          filespace->GetId(), dxpl->GetId(), data.data()));
 
         H5Sselect_all(filespace->GetId());
     }
@@ -638,7 +648,7 @@ public:
     }
 
 protected:
-    void v_Close() override;
+    LIB_UTILITIES_EXPORT void v_Close() override;
 
 private:
     DataSet(hid_t id);

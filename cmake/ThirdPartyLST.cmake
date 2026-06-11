@@ -20,6 +20,16 @@ IF(NEKTAR_USE_LST)
     THIRDPARTY_LIBRARY(LST_LIBRARY
         SHARED lst DESCRIPTION "Linear stability analysis library")
 
+    IF(CMAKE_VERSION VERSION_GREATER_EQUAL "4.0")
+        UNSET(PATCH CACHE)
+        FIND_PROGRAM(PATCH patch)
+        IF(NOT PATCH)
+	    MESSAGE(FATAL_ERROR
+	        "'patch' tool for modifying files not found. Cannot build lst.")
+        ENDIF()
+	SET(LST_PATCH_COMMAND ${PATCH} -p1 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/lst-1.6-cmake4.0.patch)
+    ENDIF()
+
     EXTERNALPROJECT_ADD(
         lst-1.6
         URL                ${TPURL}/lst_v1.6.zip
@@ -31,8 +41,9 @@ IF(NEKTAR_USE_LST)
         BINARY_DIR         ${TPBUILD}/lst-1.6
         TMP_DIR            ${TPBUILD}/lst-1.6-tmp
         INSTALL_DIR        ${TPDIST}
-        BUILD_BYPRODUCTS ${LST_LIBRARY}
-        CONFIGURE_COMMAND ${CMAKE_COMMAND} 
+        BUILD_BYPRODUCTS   ${LST_LIBRARY}
+	PATCH_COMMAND      ${LST_PATCH_COMMAND}
+        CONFIGURE_COMMAND  ${CMAKE_COMMAND} 
         ${NEKTAR_EXTERNAL_PROJECT_CMAKE_GENERATOR_ARGS}
         "-DCMAKE_MACOSX_RPATH=1"
         "-DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER}"

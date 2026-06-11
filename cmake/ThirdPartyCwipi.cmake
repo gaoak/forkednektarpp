@@ -40,6 +40,19 @@ IF ( NEKTAR_USE_CWIPI )
         THIRDPARTY_LIBRARY(CWIPI_LIBRARY SHARED cwp
             DESCRIPTION "CWIPI main library")
 
+        UNSET(PATCH CACHE)
+        FIND_PROGRAM(PATCH patch)
+        IF(NOT PATCH)
+           MESSAGE(FATAL_ERROR
+            "'patch' tool for modifying files not found. Cannot build lst.")
+        ENDIF()
+
+	IF(CMAKE_VERSION VERSION_GREATER_EQUAL "4.0")
+	    SET(CWIPI_PATCH_COMMAND ${PATCH} -p1 < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/cwipi-disable-warnings.patch &&
+	                            ${PATCH} -p1 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/cwipi-0.11.1-cmake4.0.patch)
+        ELSE()
+            SET(CWIPI_PATCH_COMMAND ${PATCH} -p1 < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/cwipi-disable-warnings.patch) 
+        ENDIF()
         EXTERNALPROJECT_ADD(
             cwipi-0.11.1
             URL ${TPURL}/cwipi-0.11.1.tgz
@@ -51,7 +64,7 @@ IF ( NEKTAR_USE_CWIPI )
             TMP_DIR ${TPBUILD}/cwipi-0.11.1-tmp
             INSTALL_DIR ${TPDIST}
             BUILD_BYPRODUCTS ${CWIPI_LIBRARY}
-            PATCH_COMMAND patch -p1 < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/cwipi-disable-warnings.patch
+            PATCH_COMMAND ${CWIPI_PATCH_COMMAND}
             COMMAND patch -p1 < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/cwipi-disable-fortran.patch
             CONFIGURE_COMMAND
                 CFLAGS=-w

@@ -1,3 +1,5 @@
+ # Define helper macro option_with_default
+ macro( option_with_default OPTION_NAME OPTION_STRING OPTION_DEFAULT )
 --- oce-0.18.3-ori/src/Font/Font_BRepFont.cxx	2026-04-29 22:37:04.270826330 +0100
 +++ oce-0.18.3/src/Font/Font_BRepFont.cxx	2026-04-29 22:43:58.141404397 +0100
 @@ -255,7 +255,7 @@

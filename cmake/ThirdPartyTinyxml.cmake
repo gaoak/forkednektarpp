@@ -29,6 +29,19 @@ IF (THIRDPARTY_BUILD_TINYXML)
     find_program(PATCH patch)
 
     IF(PATCH)
+        IF(CMAKE_VERSION VERSION_GREATER_EQUAL "4.0")
+            UNSET(PATCH CACHE)
+            FIND_PROGRAM(PATCH patch)
+            IF(NOT PATCH)
+	        MESSAGE(FATAL_ERROR
+	            "'patch' tool for modifying files not found. Cannot build lst.")
+            ENDIF()
+	    SET(TINYXML_PATCH_COMMAND ${PATCH} -d ${TPSRC}/tinyxml-2.6.2 -o tmp < ${CMAKE_SOURCE_DIR}/cmake/scripts/tinyxml.patch && 
+		                      ${PATCH} -p1 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/tinyxml-2.6.2-cmake4.0.patch)
+        ELSE()
+	    SET(TINYXML_PATCH_COMMAND ${PATCH} -d ${TPSRC}/tinyxml-2.6.2 -o tmp < ${CMAKE_SOURCE_DIR}/cmake/scripts/tinyxml.patch) 
+        ENDIF()
+
         EXTERNALPROJECT_ADD(
             tinyxml-2.6.2
             PREFIX ${TPSRC}
@@ -40,7 +53,7 @@ IF (THIRDPARTY_BUILD_TINYXML)
             BINARY_DIR ${TPBUILD}/tinyxml-2.6.2
             TMP_DIR ${TPBUILD}/tinyxml-2.6.2-tmp
             INSTALL_DIR ${TPDIST}
-            PATCH_COMMAND ${PATCH} -d ${TPSRC}/tinyxml-2.6.2 -o tmp < ${CMAKE_SOURCE_DIR}/cmake/scripts/tinyxml.patch
+            PATCH_COMMAND ${TINYXML_PATCH_COMMAND}
             COMMAND ${CMAKE_COMMAND} -E copy ${TPSRC}/tinyxml-2.6.2/tmp ${TPSRC}/tinyxml-2.6.2/tinyxmlparser.cpp
             COMMAND ${CMAKE_COMMAND} -E remove ${TPSRC}/tinyxml-2.6.2/tmp
             CONFIGURE_COMMAND ${CMAKE_COMMAND}

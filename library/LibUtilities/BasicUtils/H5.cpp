@@ -178,7 +178,7 @@ void PList::SetDeflate(const unsigned level)
 {
     H5_CALL(H5Pset_deflate, (m_Id, level));
 }
-#ifdef NEKTAR_USE_MPI
+#if defined(NEKTAR_USE_MPI) && defined(NEKTAR_HDF5_PARALLEL)
 void PList::SetDxMpioCollective()
 {
     H5_CALL(H5Pset_dxpl_mpio, (m_Id, H5FD_MPIO_COLLECTIVE));
@@ -204,7 +204,7 @@ void PList::SetDxMpioIndependent()
 {
     ASSERTL0(false, "Trying to use parallel HDF5 without MPI!");
 }
-void PList::SetMpio(CommSharedPtr comm)
+void PList::SetMpio([[maybe_unused]] CommSharedPtr comm)
 {
     ASSERTL0(false, "Trying to use parallel HDF5 without MPI!");
 }
@@ -571,22 +571,33 @@ void PredefinedDataType::v_Close()
     m_Id = H5I_INVALID_HID;
 }
 
-template <> const hid_t DataTypeTraits<char>::NativeType = H5T_NATIVE_CHAR;
-
-template <> const hid_t DataTypeTraits<int>::NativeType = H5T_NATIVE_INT;
+template <>
+LIB_UTILITIES_EXPORT const hid_t DataTypeTraits<char>::NativeType =
+    H5T_NATIVE_CHAR;
 
 template <>
-const hid_t DataTypeTraits<unsigned int>::NativeType = H5T_NATIVE_UINT;
+LIB_UTILITIES_EXPORT const hid_t DataTypeTraits<int>::NativeType =
+    H5T_NATIVE_INT;
 
 template <>
-const hid_t DataTypeTraits<unsigned long>::NativeType = H5T_NATIVE_ULONG;
+LIB_UTILITIES_EXPORT const hid_t DataTypeTraits<unsigned int>::NativeType =
+    H5T_NATIVE_UINT;
 
 template <>
-const hid_t DataTypeTraits<unsigned long long>::NativeType = H5T_NATIVE_ULLONG;
+LIB_UTILITIES_EXPORT const hid_t DataTypeTraits<unsigned long>::NativeType =
+    H5T_NATIVE_ULONG;
 
-template <> const hid_t DataTypeTraits<double>::NativeType = H5T_NATIVE_DOUBLE;
+template <>
+LIB_UTILITIES_EXPORT const hid_t
+    DataTypeTraits<unsigned long long>::NativeType = H5T_NATIVE_ULLONG;
 
-template <> const hid_t DataTypeTraits<BasisType>::NativeType = H5T_NATIVE_INT;
+template <>
+LIB_UTILITIES_EXPORT const hid_t DataTypeTraits<double>::NativeType =
+    H5T_NATIVE_DOUBLE;
+
+template <>
+LIB_UTILITIES_EXPORT const hid_t DataTypeTraits<BasisType>::NativeType =
+    H5T_NATIVE_INT;
 
 AttributeSharedPtr Attribute::Create(hid_t parent, const std::string &name,
                                      DataTypeSharedPtr type,

@@ -71,12 +71,21 @@ protected:
     NekDouble m_NewtonScale;
 
     bool m_InexactNewtonForcing = false;
+    // Classic bounded Eisenstat-Walker style forcing
+    NekDouble m_ForcingEtaInit = 1.0e-2;
+    NekDouble m_ForcingEtaMin  = 1.0e-6;
+    NekDouble m_ForcingEtaMax  = 5.0e-2;
+    NekDouble m_ForcingGamma   = 0.9;
+    NekDouble m_ForcingAlpha   = 1.5;
 
     void v_InitObject() override;
 
     int v_SolveSystem(const int nGlobal,
                       const Array<OneD, const NekDouble> &pInput,
                       Array<OneD, NekDouble> &pOutput, const int nDir) override;
+
+    virtual bool v_ApplyNewtonUpdate(const int ntotal,
+                                     const NekDouble oldResNorm);
 
 private:
     NekDouble CalcInexactNewtonForcing(const int &nIteration,

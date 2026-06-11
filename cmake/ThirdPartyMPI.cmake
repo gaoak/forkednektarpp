@@ -64,6 +64,17 @@ IF( NEKTAR_USE_MPI )
         THIRDPARTY_LIBRARY(XXT_LIBRARY STATIC xxt DESCRIPTION "XXT Library")
         MARK_AS_ADVANCED(GSMPI_LIBRARY)
         MARK_AS_ADVANCED(XXT_LIBRARY)
+
+    	IF(CMAKE_VERSION VERSION_GREATER_EQUAL "4.0")
+            UNSET(PATCH CACHE)
+            FIND_PROGRAM(PATCH patch)
+            IF(NOT PATCH)
+	        MESSAGE(FATAL_ERROR
+	            "'patch' tool for modifying files not found. Cannot build gsmpi.")
+            ENDIF()
+	    SET(GSMPI_PATCH_COMMAND ${PATCH} -p1 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/gsmpi-1.2.1_2-cmake4.0.patch)
+        ENDIF()
+
         EXTERNALPROJECT_ADD(
             gsmpi-1.2.1_2
             URL ${TPURL}/gsmpi-1.2.1_2.tar.bz2
@@ -75,6 +86,7 @@ IF( NEKTAR_USE_MPI )
             TMP_DIR ${TPBUILD}/gsmpi-1.2.1_2-tmp
             INSTALL_DIR ${TPDIST}
             BUILD_BYPRODUCTS ${GSMPI_LIBRARY} ${XXT_LIBRARY}
+	    PATCH_COMMAND ${GSMPI_PATCH_COMMAND}
             CONFIGURE_COMMAND
                 ${CMAKE_COMMAND}
                 ${NEKTAR_EXTERNAL_PROJECT_CMAKE_GENERATOR_ARGS}

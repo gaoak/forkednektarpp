@@ -149,6 +149,8 @@ template <> struct avx2<bool, 8>
 
 } // namespace abi
 
+//////////////////////////////////////////////////////////////////////////////
+
 // concrete types
 template <typename T> struct avx2Int8
 {
@@ -624,6 +626,48 @@ inline void load_unalign_interleave(
     }
 }
 
+inline void load_unalign_interleave_skipPads(
+    const double *in, const std::uint32_t dataLen, const std::uint32_t skipPads,
+    std::vector<avx2Double4, allocator<avx2Double4>> &out)
+{
+    alignas(avx2Double4::alignment) avx2Double4::scalarArray tmp;
+    alignas(avx2Double4::alignment) avx2Double4::scalarArray tmp1;
+    alignas(avx2Double4::alignment) avx2Double4::scalarArray tmp2;
+    alignas(avx2Double4::alignment) avx2Double4::scalarArray tmp3;
+
+    size_t nBlocks = dataLen / 4;
+    const avx2Double4 zero{0.0};
+
+    for (size_t i = 0; i < nBlocks; ++i)
+    {
+        zero.store(tmp);
+        zero.store(tmp1);
+        zero.store(tmp2);
+        zero.store(tmp3);
+        for (size_t j = 0; j < avx2Double4::width - skipPads; ++j)
+        {
+            tmp[j]  = in[j * dataLen + 4 * i];
+            tmp1[j] = in[j * dataLen + 4 * i + 1];
+            tmp2[j] = in[j * dataLen + 4 * i + 2];
+            tmp3[j] = in[j * dataLen + 4 * i + 3];
+        }
+        out[4 * i].load(tmp);
+        out[4 * i + 1].load(tmp1);
+        out[4 * i + 2].load(tmp2);
+        out[4 * i + 3].load(tmp3);
+    }
+
+    for (size_t i = nBlocks * 4; i < dataLen; ++i)
+    {
+        zero.store(tmp);
+        for (size_t j = 0; j < avx2Double4::width - skipPads; ++j)
+        {
+            tmp[j] = in[i + j * dataLen];
+        }
+        out[i].load(tmp);
+    }
+}
+
 inline void load_interleave(
     const double *in, std::uint32_t dataLen,
     std::vector<avx2Double4, allocator<avx2Double4>> &out)
@@ -674,6 +718,44 @@ inline void deinterleave_unalign_store(
     }
 }
 
+inline void deinterleave_unalign_store_skipPads(
+    const std::vector<avx2Double4, allocator<avx2Double4>> &in,
+    const std::uint32_t dataLen, const std::uint32_t skipPads, double *out)
+{
+    alignas(avx2Double4::alignment) avx2Double4::scalarArray tmp;
+    alignas(avx2Double4::alignment) avx2Double4::scalarArray tmp1;
+    alignas(avx2Double4::alignment) avx2Double4::scalarArray tmp2;
+    alignas(avx2Double4::alignment) avx2Double4::scalarArray tmp3;
+
+    // 4x unrolled loop
+    size_t nBlocks = dataLen / 4;
+
+    for (size_t i = 0; i < nBlocks; ++i)
+    {
+        in[4 * i].store(tmp);
+        in[4 * i + 1].store(tmp1);
+        in[4 * i + 2].store(tmp2);
+        in[4 * i + 3].store(tmp3);
+        for (size_t j = 0; j < avx2Double4::width - skipPads; ++j)
+        {
+            out[j * dataLen + 4 * i]     = tmp[j];
+            out[j * dataLen + 4 * i + 1] = tmp1[j];
+            out[j * dataLen + 4 * i + 2] = tmp2[j];
+            out[j * dataLen + 4 * i + 3] = tmp3[j];
+        }
+    }
+
+    // spill over loop
+    for (size_t i = nBlocks * 4; i < dataLen; ++i)
+    {
+        in[i].store(tmp);
+        for (size_t j = 0; j < avx2Double4::width - skipPads; ++j)
+        {
+            out[j * dataLen + i] = tmp[j];
+        }
+    }
+}
+
 inline void deinterleave_store(
     const std::vector<avx2Double4, allocator<avx2Double4>> &in,
     std::uint32_t dataLen, double *out)
@@ -689,8 +771,6 @@ inline void deinterleave_store(
         index0 = index0 + 1;
     }
 }
-
-//////////////////////////////////////////////////////////////////////////////
 
 struct avx2Float8
 {
@@ -927,6 +1007,48 @@ inline void load_unalign_interleave(
     }
 }
 
+inline void load_unalign_interleave_skipPads(
+    const double *in, const std::uint32_t dataLen, const std::uint32_t skipPads,
+    std::vector<avx2Float8, allocator<avx2Float8>> &out)
+{
+    alignas(avx2Float8::alignment) avx2Float8::scalarArray tmp;
+    alignas(avx2Float8::alignment) avx2Float8::scalarArray tmp1;
+    alignas(avx2Float8::alignment) avx2Float8::scalarArray tmp2;
+    alignas(avx2Float8::alignment) avx2Float8::scalarArray tmp3;
+
+    size_t nBlocks = dataLen / 4;
+    const avx2Float8 zero{0.0};
+
+    for (size_t i = 0; i < nBlocks; ++i)
+    {
+        zero.store(tmp);
+        zero.store(tmp1);
+        zero.store(tmp2);
+        zero.store(tmp3);
+        for (size_t j = 0; j < avx2Float8::width - skipPads; ++j)
+        {
+            tmp[j]  = in[j * dataLen + 4 * i];
+            tmp1[j] = in[j * dataLen + 4 * i + 1];
+            tmp2[j] = in[j * dataLen + 4 * i + 2];
+            tmp3[j] = in[j * dataLen + 4 * i + 3];
+        }
+        out[4 * i].load(tmp);
+        out[4 * i + 1].load(tmp1);
+        out[4 * i + 2].load(tmp2);
+        out[4 * i + 3].load(tmp3);
+    }
+
+    for (size_t i = nBlocks * 4; i < dataLen; ++i)
+    {
+        zero.store(tmp);
+        for (size_t j = 0; j < avx2Float8::width - skipPads; ++j)
+        {
+            tmp[j] = in[i + j * dataLen];
+        }
+        out[i].load(tmp);
+    }
+}
+
 inline void load_interleave(const float *in, std::uint32_t dataLen,
                             std::vector<avx2Float8, allocator<avx2Float8>> &out)
 {
@@ -979,6 +1101,44 @@ inline void deinterleave_unalign_store(
         out[i + 5 * dataLen] = tmp[5];
         out[i + 6 * dataLen] = tmp[6];
         out[i + 7 * dataLen] = tmp[7];
+    }
+}
+
+inline void deinterleave_unalign_store_skipPads(
+    const std::vector<avx2Float8, allocator<avx2Float8>> &in,
+    const std::uint32_t dataLen, const std::uint32_t skipPads, double *out)
+{
+    alignas(avx2Float8::alignment) avx2Float8::scalarArray tmp;
+    alignas(avx2Float8::alignment) avx2Float8::scalarArray tmp1;
+    alignas(avx2Float8::alignment) avx2Float8::scalarArray tmp2;
+    alignas(avx2Float8::alignment) avx2Float8::scalarArray tmp3;
+
+    // 4x unrolled loop
+    size_t nBlocks = dataLen / 4;
+
+    for (size_t i = 0; i < nBlocks; ++i)
+    {
+        in[4 * i].store(tmp);
+        in[4 * i + 1].store(tmp1);
+        in[4 * i + 2].store(tmp2);
+        in[4 * i + 3].store(tmp3);
+        for (size_t j = 0; j < avx2Float8::width - skipPads; ++j)
+        {
+            out[j * dataLen + 4 * i]     = tmp[j];
+            out[j * dataLen + 4 * i + 1] = tmp1[j];
+            out[j * dataLen + 4 * i + 2] = tmp2[j];
+            out[j * dataLen + 4 * i + 3] = tmp3[j];
+        }
+    }
+
+    // spill over loop
+    for (size_t i = nBlocks * 4; i < dataLen; ++i)
+    {
+        in[i].store(tmp);
+        for (size_t j = 0; j < avx2Float8::width - skipPads; ++j)
+        {
+            out[j * dataLen + i] = tmp[j];
+        }
     }
 }
 

@@ -127,6 +127,18 @@ template <class T>
 struct has_scalarType<T, void_t<typename T::scalarType>> : std::true_type
 {
 };
+
+// Generic template handles types that have no nested ::scalarIndexType member:
+template <class, class = void_t<>> struct has_scalarIndexType : std::false_type
+{
+};
+// Specialization recognizes types that do have a nested ::scalarIndexType
+// member:
+template <class T>
+struct has_scalarIndexType<T, void_t<typename T::scalarIndexType>>
+    : std::true_type
+{
+};
 } // namespace details
 
 // If it quacks...

@@ -33,6 +33,16 @@ IF (NEKTAR_USE_ARPACK)
 
         THIRDPARTY_LIBRARY(ARPACK_LIBRARY SHARED arpack DESCRIPTION "ARPACK library")
 
+        IF(CMAKE_VERSION VERSION_GREATER_EQUAL "4.0")
+            UNSET(PATCH CACHE)
+            FIND_PROGRAM(PATCH patch)
+            IF(NOT PATCH)
+	        MESSAGE(FATAL_ERROR
+	            "'patch' tool for modifying files not found. Cannot build lst.")
+            ENDIF()
+	    SET(ARPACK_PATCH_COMMAND ${PATCH} -p1 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/arpack-ng-1.0-cmake4.0.patch)
+        ENDIF()
+
     	EXTERNALPROJECT_ADD(
             arpack-ng-1.0
             PREFIX ${TPSRC}
@@ -45,6 +55,7 @@ IF (NEKTAR_USE_ARPACK)
             TMP_DIR ${TPBUILD}/arpack-ng-1.0-tmp
             INSTALL_DIR ${TPDIST}
             BUILD_BYPRODUCTS ${ARPACK_LIBRARY}
+	    PATCH_COMMAND ${ARPACK_PATCH_COMMAND}
             CONFIGURE_COMMAND ${CMAKE_COMMAND}
                 ${NEKTAR_EXTERNAL_PROJECT_CMAKE_GENERATOR_ARGS}
                 "-DCMAKE_Fortran_COMPILER:FILEPATH=${CMAKE_Fortran_COMPILER}"

@@ -82,7 +82,9 @@
 namespace Nektar::SimdLibTests
 {
 using namespace tinysimd;
-using vec_t = simd<double>;
+using vec_t              = simd<double>;
+using default_long_vec_t = longsimd<double>;
+using long_vec_t         = longsimd<double, 3 * vec_t::width>;
 
 BOOST_AUTO_TEST_CASE(SimdLibDouble_width_alignment)
 {
@@ -869,6 +871,189 @@ BOOST_AUTO_TEST_CASE(SimdLibDouble_load_interleave_unload)
         for (size_t j = 0; j < nDof; ++j, ++i)
         {
             BOOST_CHECK_EQUAL(dofScalarArr[i], i + j);
+        }
+    }
+}
+
+BOOST_AUTO_TEST_CASE(SimdLibDouble_longsimd_width)
+{
+    BOOST_CHECK_EQUAL(default_long_vec_t::width,
+                      vec_t::width * tinysimd::PACKMULTIPLIER);
+
+    BOOST_CHECK_EQUAL(long_vec_t::width, 3 * vec_t::width);
+    BOOST_CHECK_EQUAL(long_vec_t::alignment, vec_t::alignment);
+    BOOST_CHECK_EQUAL(sizeof(long_vec_t), sizeof(double) * long_vec_t::width);
+    BOOST_CHECK_EQUAL(is_vector_floating_point_v<long_vec_t>, true);
+}
+
+BOOST_AUTO_TEST_CASE(SimdLibDouble_longsimd_mixed_arithmetic)
+{
+    alignas(long_vec_t::alignment) std::array<double, long_vec_t::width>
+        lhsData{{}};
+    alignas(vec_t::alignment) std::array<double, vec_t::width> rhsData{{}};
+
+    for (size_t i = 0; i < lhsData.size(); ++i)
+    {
+        lhsData[i] = static_cast<double>(i + 1);
+    }
+    for (size_t i = 0; i < rhsData.size(); ++i)
+    {
+        rhsData[i] = static_cast<double>(10 * (i + 1));
+    }
+
+    long_vec_t lhs;
+    lhs.load(lhsData.data(), is_aligned);
+
+    vec_t rhs;
+    rhs.load(rhsData.data(), is_aligned);
+
+    auto sum         = lhs + rhs;
+    auto reverseSum  = rhs + lhs;
+    auto scalarRight = lhs + 2.5;
+    auto scalarLeft  = 100.0 - lhs;
+    auto scaled      = lhs * 2.0;
+
+    long_vec_t acc(1.0);
+    acc.fma(lhs, rhs);
+
+    alignas(long_vec_t::alignment) std::array<double, long_vec_t::width> tmp{
+        {}};
+    sum.store(tmp.data(), is_aligned);
+    for (size_t i = 0; i < tmp.size(); ++i)
+    {
+        const auto chunkLane = i % vec_t::width;
+        BOOST_CHECK_EQUAL(tmp[i], lhsData[i] + rhsData[chunkLane]);
+    }
+
+    reverseSum.store(tmp.data(), is_aligned);
+    for (size_t i = 0; i < tmp.size(); ++i)
+    {
+        const auto chunkLane = i % vec_t::width;
+        BOOST_CHECK_EQUAL(tmp[i], lhsData[i] + rhsData[chunkLane]);
+    }
+
+    scalarRight.store(tmp.data(), is_aligned);
+    for (size_t i = 0; i < tmp.size(); ++i)
+    {
+        BOOST_CHECK_EQUAL(tmp[i], lhsData[i] + 2.5);
+    }
+
+    scalarLeft.store(tmp.data(), is_aligned);
+    for (size_t i = 0; i < tmp.size(); ++i)
+    {
+        BOOST_CHECK_EQUAL(tmp[i], 100.0 - lhsData[i]);
+    }
+
+    scaled.store(tmp.data(), is_aligned);
+    for (size_t i = 0; i < tmp.size(); ++i)
+    {
+        BOOST_CHECK_EQUAL(tmp[i], lhsData[i] * 2.0);
+    }
+
+    acc.store(tmp.data(), is_aligned);
+    for (size_t i = 0; i < tmp.size(); ++i)
+    {
+        const auto chunkLane = i % vec_t::width;
+        BOOST_CHECK_EQUAL(tmp[i], 1.0 + lhsData[i] * rhsData[chunkLane]);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(SimdLibDouble_longsimd_interleave_helpers)
+{
+    {
+        constexpr size_t nDof      = 5;
+        constexpr size_t nBlocks   = 3;
+        constexpr size_t nEle      = long_vec_t::width * nBlocks;
+        constexpr size_t blockSize = nDof * long_vec_t::width;
+        constexpr size_t size      = nDof * nEle;
+
+        std::array<double, size> data{{}};
+        for (size_t i = 0; i < size; ++i)
+        {
+            data[i] = static_cast<double>(i);
+        }
+
+        std::vector<long_vec_t, allocator<long_vec_t>> work(nDof);
+
+        for (size_t block = 0; block < nBlocks; ++block)
+        {
+            double *dataPtr = data.data() + block * blockSize;
+            load_interleave(dataPtr, nDof, work);
+            for (size_t j = 0; j < nDof; ++j)
+            {
+                work[j] += static_cast<double>(j + 1);
+            }
+            deinterleave_store(work, nDof, dataPtr);
+        }
+
+        for (size_t block = 0; block < nBlocks; ++block)
+        {
+            for (size_t lane = 0; lane < long_vec_t::width; ++lane)
+            {
+                for (size_t dof = 0; dof < nDof; ++dof)
+                {
+                    const auto idx = block * blockSize + lane * nDof + dof;
+                    BOOST_CHECK_EQUAL(data[idx],
+                                      static_cast<double>(idx + dof + 1));
+                }
+            }
+        }
+    }
+
+    {
+        constexpr size_t nDof          = 4;
+        constexpr size_t skipPads      = long_vec_t::width > 1 ? 1 : 0;
+        constexpr size_t activeWidth   = long_vec_t::width - skipPads;
+        constexpr size_t unalignedSize = nDof * long_vec_t::width;
+        constexpr size_t paddedSize    = nDof * activeWidth;
+
+        std::array<double, unalignedSize> data{{}};
+        for (size_t i = 0; i < data.size(); ++i)
+        {
+            data[i] = static_cast<double>(100 + i);
+        }
+
+        std::vector<long_vec_t, allocator<long_vec_t>> work(nDof);
+        load_unalign_interleave(data.data(), nDof, work);
+        for (size_t j = 0; j < nDof; ++j)
+        {
+            work[j] += static_cast<double>(2 * j + 1);
+        }
+        std::array<double, unalignedSize> out{{}};
+        deinterleave_unalign_store(work, nDof, out.data());
+
+        for (size_t lane = 0; lane < long_vec_t::width; ++lane)
+        {
+            for (size_t dof = 0; dof < nDof; ++dof)
+            {
+                const auto idx = lane * nDof + dof;
+                BOOST_CHECK_EQUAL(out[idx],
+                                  data[idx] + static_cast<double>(2 * dof + 1));
+            }
+        }
+
+        std::array<double, paddedSize> padded{{}};
+        for (size_t i = 0; i < padded.size(); ++i)
+        {
+            padded[i] = static_cast<double>(200 + i);
+        }
+
+        load_unalign_interleave_skipPads(padded.data(), nDof, skipPads, work);
+        for (auto &value : work)
+        {
+            value += 3.0;
+        }
+        std::array<double, paddedSize> paddedOut{{}};
+        deinterleave_unalign_store_skipPads(work, nDof, skipPads,
+                                            paddedOut.data());
+
+        for (size_t lane = 0; lane < activeWidth; ++lane)
+        {
+            for (size_t dof = 0; dof < nDof; ++dof)
+            {
+                const auto idx = lane * nDof + dof;
+                BOOST_CHECK_EQUAL(paddedOut[idx], padded[idx] + 3.0);
+            }
         }
     }
 }

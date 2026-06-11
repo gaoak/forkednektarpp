@@ -33,6 +33,20 @@ IF(NEKTAR_USE_MESHGEN)
 
         THIRDPARTY_LIBRARY(TETGEN_LIBRARY STATIC tetgen DESCRIPTION "Tetgen library")
 
+        UNSET(PATCH CACHE)
+        FIND_PROGRAM(PATCH patch)
+        IF(NOT PATCH)
+            MESSAGE(FATAL_ERROR
+	        "'patch' tool for modifying files not found. Cannot build triangle.")
+        ENDIF()
+
+	IF(CMAKE_VERSION VERSION_GREATER_EQUAL "4.0")
+            SET(TETGEN_PATCH_COMMAND ${PATCH} -p1 < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/tetgen-snprintf.patch &&
+		                            ${PATCH} -p1 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/tetgen-1.5-cmake4.0.patch)
+        ELSE()
+            SET(TETGEN_PATCH_COMMAND ${PATCH} -p1 < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/tetgen-snprintf.patch)
+        ENDIF()
+
         EXTERNALPROJECT_ADD(
             tetgen-1.5
             PREFIX ${TPSRC}
@@ -45,7 +59,7 @@ IF(NEKTAR_USE_MESHGEN)
             TMP_DIR ${TPBUILD}/tetgen-1.5-tmp
             INSTALL_DIR ${TPDIST}
             BUILD_BYPRODUCTS ${TETGEN_LIBRARY}
-            PATCH_COMMAND ${PATCH} -p1 < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/tetgen-snprintf.patch
+            PATCH_COMMAND ${TETGEN_PATCH_COMMAND}
             CONFIGURE_COMMAND ${CMAKE_COMMAND}
             ${NEKTAR_EXTERNAL_PROJECT_CMAKE_GENERATOR_ARGS}
             -DCMAKE_C_COMPILER:FILEPATH=${CMAKE_C_COMPILER}

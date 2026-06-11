@@ -229,9 +229,8 @@ void MeshGraphIOHDF5::v_PartitionMesh(
     LibUtilities::H5::PListSharedPtr parallelProps = H5::PList::Default();
     m_readPL                                       = H5::PList::Default();
 
-    /// TODO: collective I/O seems unstable for various partitioning choices on
-    /// hybrid meshes.
 #if 0
+#if defined(NEKTAR_USE_MPI) && defined(NEKTAR_HDF5_PARALLEL)
     if (commMesh->GetSize() > 1)
     {
         // Use MPI/O to access the file
@@ -241,6 +240,7 @@ void MeshGraphIOHDF5::v_PartitionMesh(
         m_readPL = H5::PList::DatasetXfer();
         m_readPL->SetDxMpioCollective();
     }
+#endif
 #endif
 
     m_file = H5::File::Open(m_hdf5Name, H5F_ACC_RDONLY, parallelProps);
@@ -382,8 +382,12 @@ void MeshGraphIOHDF5::v_PartitionMesh(
             parallelProps->SetMpio(interComm);
 
             // Use collective IO
+#if 0
+#if defined(NEKTAR_USE_MPI) && defined(NEKTAR_HDF5_PARALLEL)
             readPL = H5::PList::DatasetXfer();
             readPL->SetDxMpioCollective();
+#endif
+#endif
             file = H5::File::Open(m_hdf5Name, H5F_ACC_RDONLY, parallelProps);
 
             auto root  = file->OpenGroup("NEKTAR");
@@ -419,12 +423,14 @@ void MeshGraphIOHDF5::v_PartitionMesh(
             data->Read(tmpElmts, space, readPL);
 
             const int nGeomData = std::get<1>(it);
+            auto tmpIt          = tmpElmts.begin();
 
             if (m_meshGraph->GetDomainRange() ==
                 LibUtilities::NullDomainRangeShPtr)
             {
                 // avoid range checking on larger meshes if not required
-                for (int i = 0, cnt = 0; i < tmpIds.size(); ++i, ++rowCount)
+                for (int i = 0; i < tmpIds.size();
+                     ++i, ++rowCount, tmpIt += nGeomData)
                 {
                     MeshEntity e;
                     row2id[rowCount]  = tmpIds[i];
@@ -432,16 +438,16 @@ void MeshGraphIOHDF5::v_PartitionMesh(
                     e.id              = rowCount;
                     e.origId          = tmpIds[i];
                     e.ghost           = false;
-                    e.list            = std::vector<unsigned int>(
-                        &tmpElmts[cnt], &tmpElmts[cnt + nGeomData]);
+                    e.list =
+                        std::vector<unsigned int>(tmpIt, tmpIt + nGeomData);
                     elmts.push_back(e);
-                    cnt += nGeomData;
                 }
             }
             else
             {
                 // avoid range checking on larger meshes if not required
-                for (int i = 0, cnt = 0; i < tmpIds.size(); ++i, ++rowCount)
+                for (int i = 0; i < tmpIds.size();
+                     ++i, ++rowCount, tmpIt += nGeomData)
                 {
                     MeshEntity e;
                     row2id[rowCount]  = tmpIds[i];
@@ -449,13 +455,12 @@ void MeshGraphIOHDF5::v_PartitionMesh(
                     e.id              = rowCount;
                     e.origId          = tmpIds[i];
                     e.ghost           = false;
-                    e.list            = std::vector<unsigned int>(
-                        &tmpElmts[cnt], &tmpElmts[cnt + nGeomData]);
+                    e.list =
+                        std::vector<unsigned int>(tmpIt, tmpIt + nGeomData);
                     if (m_meshGraph->CheckRange(e))
                     {
                         elmts.push_back(e);
                     }
-                    cnt += nGeomData;
                 }
             }
         }

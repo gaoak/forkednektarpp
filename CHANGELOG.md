@@ -44,6 +44,11 @@ v5.10.0
 - Fix 3rdparty compilation with ninja/unix makefiles/macos/win (!2537) 
 - Fix Boost, FFTW, VTK, and Zlib thirdparty compilation on macos, fix serial PETsc thirdparty compilation, fix OCE depedencies (!2538)
 - Add scaling factor to limit the Newton step (!2533)
+- Acctivate the inexact forcing in the Newton process (!2534)
+- Fix Arpack, Cwipi, GSMPI, Lapack, LST, Metis, OCE, TetGen, Triangle, TinyXML, and Zlib compilation for CMake 4.0 and above (!2559)
+- Enable HDF5 by default (!2163)
+- Add the ApplyNewtonUpdate method to the NekNonlinSysIterNewton the derived Newton implementations can use (!2551)
+- Add new interfaces in SimdLib to support interleaving/deinterleaving on unaligned inputs, and also variable-length virtual SIMD type (!2565)
 
 **IncNavierStokesSolver**
 - Added an option to process Reynolds Stress fields at a higher polynomial order (!2303)

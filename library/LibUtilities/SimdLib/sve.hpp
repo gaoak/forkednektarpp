@@ -777,6 +777,26 @@ inline void load_unalign_interleave(
     }
 }
 
+inline void load_unalign_interleave_skipPads(
+    const double *in, const std::uint32_t dataLen, const std::uint32_t nPads,
+    std::vector<sveFloat32, allocator<sveFloat32>> &out)
+{
+    alignas(sveFloat32::alignment) sveFloat32::scalarArray tmp;
+    const size_t nData = sveFloat32::width - nPads;
+    for (size_t i = 0; i < dataLen; ++i)
+    {
+        for (size_t j = 0; j < nData; ++j)
+        {
+            tmp[j] = in[i + j * dataLen];
+        }
+        for (size_t j = nData; j < sveFloat32::width; ++j)
+        {
+            tmp[j] = 0.0;
+        }
+        out[i].load(tmp);
+    }
+}
+
 inline void load_interleave(const float *in, std::uint32_t dataLen,
                             std::vector<sveFloat32, allocator<sveFloat32>> &out)
 {
@@ -822,6 +842,22 @@ inline void deinterleave_unalign_store(
     {
         in[i].store(tmp);
         for (size_t j = 0; j < sveFloat32::width; ++j)
+        {
+            out[i + j * dataLen] = tmp[j];
+        }
+    }
+}
+
+inline void deinterleave_unalign_store_skipPads(
+    const std::vector<sveFloat32, allocator<sveFloat32>> &in,
+    const std::uint32_t dataLen, const std::uint32_t nPads, double *out)
+{
+    alignas(sveFloat32::alignment) sveFloat32::scalarArray tmp;
+    const size_t nData = sveFloat32::width - nPads;
+    for (size_t i = 0; i < dataLen; ++i)
+    {
+        in[i].store(tmp);
+        for (size_t j = 0; j < nData; ++j)
         {
             out[i + j * dataLen] = tmp[j];
         }
@@ -1065,6 +1101,26 @@ inline void load_unalign_interleave(
     }
 }
 
+inline void load_unalign_interleave_skipPads(
+    const double *in, const std::uint32_t dataLen, const std::uint32_t nPads,
+    std::vector<sveFloat64, allocator<sveFloat64>> &out)
+{
+    alignas(sveFloat64::alignment) sveFloat64::scalarArray tmp;
+    const size_t nData = sveFloat64::width - nPads;
+    for (size_t i = 0; i < dataLen; ++i)
+    {
+        for (size_t j = 0; j < nData; ++j)
+        {
+            tmp[j] = in[i + j * dataLen];
+        }
+        for (size_t j = nData; j < sveFloat64::width; ++j)
+        {
+            tmp[j] = 0.0;
+        }
+        out[i].load(tmp);
+    }
+}
+
 inline void load_interleave(const double *in, std::uint32_t dataLen,
                             std::vector<sveFloat64, allocator<sveFloat64>> &out)
 {
@@ -1109,6 +1165,22 @@ inline void deinterleave_unalign_store(
     {
         in[i].store(tmp);
         for (size_t j = 0; j < sveFloat64::width; ++j)
+        {
+            out[i + j * dataLen] = tmp[j];
+        }
+    }
+}
+
+inline void deinterleave_unalign_store_skipPads(
+    const std::vector<sveFloat64, allocator<sveFloat64>> &in,
+    const std::uint32_t dataLen, const std::uint32_t nPads, double *out)
+{
+    alignas(sveFloat64::alignment) sveFloat64::scalarArray tmp;
+    const size_t nData = sveFloat64::width - nPads;
+    for (size_t i = 0; i < dataLen; ++i)
+    {
+        in[i].store(tmp);
+        for (size_t j = 0; j < nData; ++j)
         {
             out[i + j * dataLen] = tmp[j];
         }

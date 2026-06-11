@@ -57,6 +57,16 @@ ELSE()
         INCLUDE(ExternalProject)
         THIRDPARTY_LIBRARY(BLAS_LAPACK SHARED blas lapack DESCRIPTION "BLAS and LAPACK libraries")
 
+        IF(CMAKE_VERSION VERSION_GREATER_EQUAL "4.0")
+            UNSET(PATCH CACHE)
+            FIND_PROGRAM(PATCH patch)
+            IF(NOT PATCH)
+	        MESSAGE(FATAL_ERROR
+	            "'patch' tool for modifying files not found. Cannot build lst.")
+            ENDIF()
+	    SET(LAPACK_PATCH_COMMAND ${PATCH} -p1 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/lapack-3.7.1-cmake4.0.patch)
+        ENDIF()
+
         EXTERNALPROJECT_ADD(
             lapack-3.7.1
             PREFIX ${TPSRC}
@@ -69,6 +79,7 @@ ELSE()
             TMP_DIR ${TPBUILD}/lapack-3.7.1-tmp
             INSTALL_DIR ${TPDIST}
             BUILD_BYPRODUCTS ${BLAS_LAPACK}
+	    PATCH_COMMAND ${LAPACK_PATCH_COMMAND}
             CONFIGURE_COMMAND ${CMAKE_COMMAND}
             ${NEKTAR_EXTERNAL_PROJECT_CMAKE_GENERATOR_ARGS}
             -DCMAKE_Fortran_COMPILER:FILEPATH=${CMAKE_Fortran_COMPILER}

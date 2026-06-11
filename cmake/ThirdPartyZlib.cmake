@@ -43,7 +43,12 @@ IF (THIRDPARTY_BUILD_ZLIB)
                 "'patch' tool for modifying files not found. Cannot build zlib.")
         ENDIF()
         MARK_AS_ADVANCED(PATCH)
-        SET(ZLIB_PATCH_COMMAND ${PATCH} -p1 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/zlib-1.2.9.patch)
+	IF(CMAKE_VERSION VERSION_GREATER_EQUAL "4.0")
+	    SET(ZLIB_PATCH_COMMAND ${PATCH} -p1 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/zlib-1.2.9.patch &&
+	                           ${PATCH} -p1 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/zlib-1.2.9-cmake4.0.patch)
+        ELSE()
+	    SET(ZLIB_PATCH_COMMAND ${PATCH} -p1 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/zlib-1.2.9.patch)
+        ENDIF()
     ENDIF ()
 
     THIRDPARTY_LIBRARY(ZLIB_LIBRARIES SHARED ${ZLIB_NAME} DESCRIPTION "Zlib library")
@@ -59,7 +64,7 @@ IF (THIRDPARTY_BUILD_ZLIB)
         BINARY_DIR ${TPBUILD}/zlib-1.2.9
         TMP_DIR ${TPBUILD}/zlib-1.2.9-tmp
         INSTALL_DIR ${TPDIST}
-        PATCH_COMMAND ${ZLIB_PATCH_COMMAND}
+	PATCH_COMMAND ${ZLIB_PATCH_COMMAND}
         BUILD_BYPRODUCTS ${ZLIB_LIBRARIES}
         CONFIGURE_COMMAND ${CMAKE_COMMAND}
             ${NEKTAR_EXTERNAL_PROJECT_CMAKE_GENERATOR_ARGS}

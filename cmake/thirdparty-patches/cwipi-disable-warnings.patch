@@ -1,5 +1,4 @@
-diff -Naur cwipi-0.11.1.old/cmake/modules/default_flags.cmake cwipi-0.11.1/cmake/modules/default_flags.cmake
---- cwipi-0.11.1.old/cmake/modules/default_flags.cmake	2020-03-27 10:29:35
+--- cwipi-0.11.1/cmake/modules/default_flags.cmake	2020-03-27 10:29:35
 +++ cwipi-0.11.1/cmake/modules/default_flags.cmake	2022-12-13 21:52:16
 @@ -16,7 +16,7 @@
  

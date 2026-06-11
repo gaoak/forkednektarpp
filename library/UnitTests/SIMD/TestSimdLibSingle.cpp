@@ -81,7 +81,8 @@
 namespace Nektar::SimdLibTests
 {
 using namespace tinysimd;
-using vec_t = simd<float>;
+using vec_t      = simd<float>;
+using long_vec_t = longsimd<float, 3 * vec_t::width>;
 
 BOOST_AUTO_TEST_CASE(SimdLibSingle_width_alignment)
 {
@@ -791,6 +792,81 @@ BOOST_AUTO_TEST_CASE(SimdLibFloat_load_interleave_unload)
         for (size_t j = 0; j < nDof; ++j, ++i)
         {
             BOOST_CHECK_EQUAL(dofScalarArr[i], i + j);
+        }
+    }
+}
+
+BOOST_AUTO_TEST_CASE(SimdLibFloat_longsimd_mixed_arithmetic)
+{
+    alignas(long_vec_t::alignment) std::array<float, long_vec_t::width> lhsData{
+        {}};
+    alignas(vec_t::alignment) std::array<float, vec_t::width> rhsData{{}};
+
+    for (size_t i = 0; i < lhsData.size(); ++i)
+    {
+        lhsData[i] = static_cast<float>(i + 1);
+    }
+    for (size_t i = 0; i < rhsData.size(); ++i)
+    {
+        rhsData[i] = static_cast<float>(i + 1);
+    }
+
+    long_vec_t lhs;
+    lhs.load(lhsData.data(), is_aligned);
+
+    vec_t rhs;
+    rhs.load(rhsData.data(), is_aligned);
+
+    auto mixed = lhs + rhs;
+    mixed += rhs;
+    mixed += 2.0f;
+
+    alignas(long_vec_t::alignment) std::array<float, long_vec_t::width> tmp{{}};
+    mixed.store(tmp.data(), is_aligned);
+    for (size_t i = 0; i < tmp.size(); ++i)
+    {
+        const auto chunkLane = i % vec_t::width;
+        BOOST_CHECK_EQUAL(tmp[i],
+                          lhsData[i] + 2.0f * rhsData[chunkLane] + 2.0f);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(SimdLibFloat_longsimd_interleave_helpers)
+{
+    constexpr size_t nDof      = 3;
+    constexpr size_t nBlocks   = 2;
+    constexpr size_t nEle      = long_vec_t::width * nBlocks;
+    constexpr size_t blockSize = nDof * long_vec_t::width;
+    constexpr size_t size      = nDof * nEle;
+
+    std::array<float, size> data{{}};
+    for (size_t i = 0; i < size; ++i)
+    {
+        data[i] = static_cast<float>(i);
+    }
+
+    std::vector<long_vec_t, allocator<long_vec_t>> work(nDof);
+
+    for (size_t block = 0; block < nBlocks; ++block)
+    {
+        float *dataPtr = data.data() + block * blockSize;
+        load_interleave(dataPtr, nDof, work);
+        for (size_t j = 0; j < nDof; ++j)
+        {
+            work[j] += static_cast<float>(j + 1);
+        }
+        deinterleave_store(work, nDof, dataPtr);
+    }
+
+    for (size_t block = 0; block < nBlocks; ++block)
+    {
+        for (size_t lane = 0; lane < long_vec_t::width; ++lane)
+        {
+            for (size_t dof = 0; dof < nDof; ++dof)
+            {
+                const auto idx = block * blockSize + lane * nDof + dof;
+                BOOST_CHECK_EQUAL(data[idx], static_cast<float>(idx + dof + 1));
+            }
         }
     }
 }

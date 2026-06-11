@@ -24,6 +24,17 @@ IF(NEKTAR_USE_MESHGEN)
         INCLUDE(ExternalProject)
         THIRDPARTY_LIBRARY(TRIANGLE_LIBRARY STATIC triangle
             DESCRIPTION "Triangle library")
+
+       IF(CMAKE_VERSION VERSION_GREATER_EQUAL "4.0")
+            UNSET(PATCH CACHE)
+            FIND_PROGRAM(PATCH patch)
+            IF(NOT PATCH)
+	        MESSAGE(FATAL_ERROR
+	            "'patch' tool for modifying files not found. Cannot build triangle.")
+            ENDIF()
+	    SET(TRIANGLE_PATCH_COMMAND ${PATCH} -p1 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/triangle-1.6-cmake4.0.patch)
+        ENDIF()
+
         EXTERNALPROJECT_ADD(
             triangle-1.6
             PREFIX ${TPSRC}
@@ -36,6 +47,7 @@ IF(NEKTAR_USE_MESHGEN)
             TMP_DIR ${TPBUILD}/triangle-1.6-tmp
             INSTALL_DIR ${TPDIST}
             BUILD_BYPRODUCTS ${TRIANGLE_LIBRARY}
+	    PATCH_COMMAND ${TRIANGLE_PATCH_COMMAND}
             CONFIGURE_COMMAND ${CMAKE_COMMAND}
                 ${NEKTAR_EXTERNAL_PROJECT_CMAKE_GENERATOR_ARGS}
                 -DCMAKE_C_COMPILER:FILEPATH=${CMAKE_C_COMPILER}

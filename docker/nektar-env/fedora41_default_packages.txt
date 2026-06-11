@@ -13,3 +13,4 @@ ninja-build
 patch
 tinyxml-devel
 zlib-devel
+zlib-static

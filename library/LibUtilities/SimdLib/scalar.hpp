@@ -324,6 +324,17 @@ inline void load_unalign_interleave(
 }
 
 template <typename T>
+inline void load_unalign_interleave_skipPads(
+    const T *in, const size_t dataLen, [[maybe_unused]] const size_t skipPads,
+    std::vector<scalarT<T>, allocator<scalarT<T>>> &out)
+{
+    for (size_t i = 0; i < dataLen; ++i)
+    {
+        out[i] = in[i];
+    }
+}
+
+template <typename T>
 inline void load_interleave(const T *in, const size_t dataLen,
                             std::vector<scalarT<T>, allocator<scalarT<T>>> &out)
 {
@@ -337,6 +348,17 @@ template <typename T>
 inline void deinterleave_unalign_store(
     const std::vector<scalarT<T>, allocator<scalarT<T>>> &in,
     const size_t dataLen, T *out)
+{
+    for (size_t i = 0; i < dataLen; ++i)
+    {
+        out[i] = in[i]._data;
+    }
+}
+
+template <typename T>
+inline void deinterleave_unalign_store_skipPads(
+    const std::vector<scalarT<T>, allocator<scalarT<T>>> &in,
+    const size_t dataLen, [[maybe_unused]] const size_t skipPads, T *out)
 {
     for (size_t i = 0; i < dataLen; ++i)
     {

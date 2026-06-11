@@ -24,3 +24,4 @@ tetgen-devel
 tinyxml-devel
 vtk-devel
 zlib-devel
+zlib-static
