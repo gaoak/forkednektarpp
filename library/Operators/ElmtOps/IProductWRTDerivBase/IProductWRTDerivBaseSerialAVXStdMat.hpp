@@ -195,7 +195,7 @@ protected:
                     {
                         ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
                                                   outInterleaveWidth, chunkSize,
-                                                  m_nqTot, (TData *)outptr);
+                                                  m_outTot, (TData *)outptr);
                     }
                 }
 
@@ -208,9 +208,9 @@ protected:
                             m_nqTot, m_coordDim, m_dimension, 1, inoffset_vec,
                             wspsize, reinterpret_cast<const simd_t *>(jacptr),
                             reinterpret_cast<const simd_t *>(dfptr),
-                            (const simd_t)this->m_scale,
                             reinterpret_cast<const simd_t *>(inptr),
-                            reinterpret_cast<simd_t *>(wspptr));
+                            reinterpret_cast<simd_t *>(wspptr),
+                            (const simd_t)this->m_scale);
                         jacptr += m_nqTot * simd_t::width;
                         dfptr +=
                             m_coordDim * m_dimension * m_nqTot * simd_t::width;
@@ -221,9 +221,9 @@ protected:
                             m_nqTot, m_coordDim, m_dimension, 1, inoffset_vec,
                             wspsize, reinterpret_cast<const simd_t *>(jacptr),
                             reinterpret_cast<const simd_t *>(dfptr),
-                            (const simd_t)this->m_scale,
                             reinterpret_cast<const simd_t *>(inptr),
-                            reinterpret_cast<simd_t *>(wspptr));
+                            reinterpret_cast<simd_t *>(wspptr),
+                            (const simd_t)this->m_scale);
                         jacptr += simd_t::width;
                         dfptr += m_coordDim * m_dimension * simd_t::width;
                     }
@@ -237,9 +237,9 @@ protected:
                             wspsize, reinterpret_cast<const simd_t *>(jacptr),
                             reinterpret_cast<const simd_t *>(dfptr),
                             reinterpret_cast<const simd_t *>(m_weights),
-                            (const simd_t)this->m_scale,
                             reinterpret_cast<const simd_t *>(inptr),
-                            reinterpret_cast<simd_t *>(wspptr));
+                            reinterpret_cast<simd_t *>(wspptr),
+                            (const simd_t)this->m_scale);
                         jacptr += m_nqTot * simd_t::width;
                         dfptr +=
                             m_coordDim * m_dimension * m_nqTot * simd_t::width;
@@ -251,9 +251,9 @@ protected:
                             wspsize, reinterpret_cast<const simd_t *>(jacptr),
                             reinterpret_cast<const simd_t *>(dfptr),
                             reinterpret_cast<const simd_t *>(m_weights),
-                            (const simd_t)this->m_scale,
                             reinterpret_cast<const simd_t *>(inptr),
-                            reinterpret_cast<simd_t *>(wspptr));
+                            reinterpret_cast<simd_t *>(wspptr),
+                            (const simd_t)this->m_scale);
                         jacptr += simd_t::width;
                         dfptr += m_coordDim * m_dimension * simd_t::width;
                     }

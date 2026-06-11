@@ -39,7 +39,7 @@ NEK_FORCE_INLINE static void JacobianDerivFactorKernel(
     const unsigned int nqTot, const unsigned int ncoord,
     const unsigned int dimension, const size_t nelmt, const size_t inoffset,
     const size_t outsize, const TData *jacptr, const TData *dfptr,
-    const TData scale, const TData *inptr, TData *outptr)
+    const TData *inptr, TData *outptr, const TData scale)
 {
     const auto ndf   = ncoord * dimension;
     const auto nsize = nqTot * nelmt;
@@ -94,7 +94,7 @@ NEK_FORCE_INLINE static void JacobianDerivFactorWeightsKernel(
     const unsigned int nqTot, const unsigned int ncoord,
     const unsigned int dimension, const size_t nelmt, const size_t inoffset,
     const size_t outsize, const TData *jacptr, const TData *dfptr,
-    const TData *weights, const TData scale, const TData *inptr, TData *outptr)
+    const TData *weights, const TData *inptr, TData *outptr, const TData scale)
 {
     const auto ndf = ncoord * dimension;
 

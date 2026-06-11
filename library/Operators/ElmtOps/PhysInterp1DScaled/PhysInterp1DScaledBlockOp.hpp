@@ -57,7 +57,7 @@ public:
 
     static inline const std::string name = "BlockPhysInterp1DScaled";
 
-    void SetScaleFactor(TData scale)
+    void SetScaleFactor(const TData &scale)
     {
         v_SetScaleFactor(scale);
     }
@@ -75,7 +75,7 @@ protected:
 
     ~PhysInterp1DScaledBlockOp() override = default;
 
-    virtual void v_SetScaleFactor(TData scale)
+    virtual void v_SetScaleFactor(const TData &scale)
     {
         m_scale = scale;
     }

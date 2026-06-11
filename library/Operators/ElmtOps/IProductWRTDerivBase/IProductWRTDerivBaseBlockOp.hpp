@@ -67,7 +67,7 @@ public:
         m_append = append;
     }
 
-    void SetScale(TData scale)
+    void SetScale(const TData &scale)
     {
         m_scale = scale;
     }

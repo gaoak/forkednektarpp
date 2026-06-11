@@ -428,7 +428,7 @@ protected:
                         {
                             ReshapeStorage<ExecSpace>(
                                 m_implInterleaveWidth, outInterleaveWidth,
-                                chunkSize, nq0, (TData *)outptr);
+                                chunkSize, outndata, (TData *)outptr);
                         }
 
                         for (unsigned i = 0; i < nq0; ++i)
@@ -453,7 +453,7 @@ protected:
                         {
                             ReshapeStorage<ExecSpace>(
                                 m_implInterleaveWidth, outInterleaveWidth,
-                                chunkSize, nq0, (TData *)outptr);
+                                chunkSize, outndata, (TData *)outptr);
                         }
 
                         IProductSegKernel<true, true>(
@@ -609,7 +609,7 @@ protected:
                         {
                             ReshapeStorage<ExecSpace>(
                                 m_implInterleaveWidth, outInterleaveWidth,
-                                chunkSize, nqTot, (TData *)outptr);
+                                chunkSize, outndata, (TData *)outptr);
                         }
 
                         for (unsigned i = 0; i < nqTot; ++i)
@@ -634,7 +634,7 @@ protected:
                         {
                             ReshapeStorage<ExecSpace>(
                                 m_implInterleaveWidth, outInterleaveWidth,
-                                chunkSize, nqTot, (TData *)outptr);
+                                chunkSize, outndata, (TData *)outptr);
                         }
 
                         IProduct2DKernel<SHAPE_TYPE, true, true>(
@@ -790,7 +790,7 @@ protected:
                         {
                             ReshapeStorage<ExecSpace>(
                                 m_implInterleaveWidth, outInterleaveWidth,
-                                chunkSize, nqTot, (TData *)outptr);
+                                chunkSize, outndata, (TData *)outptr);
                         }
 
                         for (unsigned i = 0; i < nqTot; ++i)
@@ -815,7 +815,7 @@ protected:
                         {
                             ReshapeStorage<ExecSpace>(
                                 m_implInterleaveWidth, outInterleaveWidth,
-                                chunkSize, nqTot, (TData *)outptr);
+                                chunkSize, outndata, (TData *)outptr);
                         }
 
                         IProduct3DKernel<SHAPE_TYPE, true, true>(
