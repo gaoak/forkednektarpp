@@ -99,5 +99,10 @@
             <E VAR="w" VALUE="-0.25*cos(freq*x)" />
         </FUNCTION>
     </CONDITIONS>
-
+    <FILTERS>
+        <FILTER TYPE="Checkpoint">
+            <PARAM NAME="OutputFile">checkpoint</PARAM>
+            <PARAM NAME="OutputFrequency">2</PARAM>
+        </FILTER>
+    </FILTERS>
 </NEKTAR>

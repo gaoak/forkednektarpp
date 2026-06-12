@@ -102,4 +102,10 @@
             <E VAR="Vz" VALUE="advz" />
         </FUNCTION>
     </CONDITIONS>
+    <FILTERS>
+        <FILTER TYPE="Checkpoint">
+            <PARAM NAME="OutputFile">checkpoint</PARAM>
+            <PARAM NAME="OutputFrequency">2</PARAM>
+        </FILTER>
+    </FILTERS>
 </NEKTAR>

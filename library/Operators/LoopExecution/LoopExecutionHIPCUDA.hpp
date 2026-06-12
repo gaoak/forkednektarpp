@@ -133,7 +133,7 @@ __global__ __launch_bounds__(blockSize) void reduceMaxKernel(
     // Implementation based on reduce7 of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
 
-    constexpr TData min             = std::numeric_limits<TData>::min();
+    constexpr TData min             = std::numeric_limits<TData>::lowest();
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     auto grid  = cg::this_grid();

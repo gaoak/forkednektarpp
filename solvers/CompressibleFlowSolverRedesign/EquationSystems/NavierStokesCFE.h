@@ -35,21 +35,19 @@
 
 #pragma once
 
-#include "Operators/Math/Math.hpp"
 #include <CompressibleFlowSolverRedesign/RiemannSolvers/CompressibleSolverOp.hpp>
 #include <Operators/ElmtOps/Expression/ExpressionOp.hpp>
-#include <Operators/Field/Field.hpp>
 #include <Operators/SolverUtilsOps/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
 #include <Operators/SolverUtilsOps/Advection/VolumeFluxOp.hpp>
 #include <Operators/SolverUtilsOps/Diffusion/DiffusionIP/DiffusionIPOp.hpp>
-#include <SolverUtils/EquationSystem.h>
+#include <SolverCore/EquationSystems/UnsteadySystem.h>
 
 namespace Nektar
 {
-using namespace SolverUtils;
+using namespace SolverCore;
 using namespace Operators;
 
-class NavierStokesCFE : public EquationSystem
+class NavierStokesCFE : public UnsteadySystem
 {
 public:
     friend class MemoryManager<NavierStokesCFE>;
@@ -59,32 +57,18 @@ public:
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const SpatialDomains::MeshGraphSharedPtr &pGraph)
     {
-        EquationSystemSharedPtr p =
+        EquationSystemSharedPtr equ =
             MemoryManager<NavierStokesCFE>::AllocateSharedPtr(pSession, pGraph);
-        p->InitObject();
-        return p;
+        equ->InitObject();
+        return equ;
     }
 
     /// Name of class
     static std::string className;
 
 protected:
-    // Save variable strings and number for verbose output and looping
-    std::vector<std::string> m_variables;
-    unsigned int m_nVariables;
-    unsigned int m_ndim;
-
     // Parameters for Navier-Stokes equations
     double m_gamma;
-
-    // Field storage used by the standalone time-stepping loop.
-    Field<double, FieldState::Phys> m_in;
-
-    // Declare math
-    Math m_math;
-
-    // Time-integration
-    std::shared_ptr<TimeOp<double>> m_timeOp;
 
     // Initialise operators
     std::shared_ptr<AdvectionWeakDGOp<double>> m_advectionWeakDGOp;
@@ -92,31 +76,23 @@ protected:
     std::shared_ptr<CompressibleSolverOp<double>> m_riemannSolverOp;
     std::shared_ptr<VolumeFluxOp<double>> m_volumeFluxOp;
     std::shared_ptr<ExpressionOp<double>> m_initialOp;
+    std::shared_ptr<ExpressionOp<double>> m_velOp;
 
     NavierStokesCFE(const LibUtilities::SessionReaderSharedPtr &pSession,
                     const SpatialDomains::MeshGraphSharedPtr &pGraph);
 
     ~NavierStokesCFE() override = default;
 
-    void v_InitObject(bool DeclareFields = true) override;
-
-    void v_DoSolve() override;
-
-    void v_GenerateSummary(SummaryList &s) override;
-
     void DoOdeRhs(Field<double, FieldState::Phys> &in,
                   Field<double, FieldState::Phys> &out,
                   [[maybe_unused]] const double &time,
                   [[maybe_unused]] const double &factor);
 
-    void DoProjection(Field<double, FieldState::Phys> &in,
-                      Field<double, FieldState::Phys> &out, const double time);
+    void v_InitObject(bool declareExpansionLists = true) override;
 
-    void InitialiseFields();
+    void v_GenerateSummary(SummaryList &s) override;
 
-    void InitialiseOperators();
-
-    void SetInitialConditionsField(Field<double, FieldState::Phys> &field);
+    void v_InitialiseOperators() override;
 
     void InitialiseParameters();
 };

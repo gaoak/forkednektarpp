@@ -8,10 +8,15 @@ ENDMACRO()
 MACRO(ADD_SOLVER_EXECUTABLE name)
     CMAKE_PARSE_ARGUMENTS(SOLVER "" "COMPONENT" "SOURCES;LIBRARY_SOURCES;DEPENDS" ${ARGN} )
 
+    SET(SOLVER_TARGET_DEPENDS SolverUtils)
+    IF (SOLVER_DEPENDS)
+        SET(SOLVER_TARGET_DEPENDS ${SOLVER_DEPENDS})
+    ENDIF()
+
     IF (SOLVER_LIBRARY_SOURCES)
         ADD_LIBRARY(${name}-obj OBJECT ${SOLVER_LIBRARY_SOURCES})
         SET_PROPERTY(TARGET ${name}-obj PROPERTY POSITION_INDEPENDENT_CODE ON)
-        ADD_DEPENDENCIES(${name}-obj SolverUtils)
+        ADD_DEPENDENCIES(${name}-obj ${SOLVER_TARGET_DEPENDS})
         LIST(APPEND SOLVER_SOURCES $<TARGET_OBJECTS:${name}-obj>)
         SET_COMMON_PROPERTIES(${name}-obj)
     ENDIF()
@@ -21,7 +26,8 @@ MACRO(ADD_SOLVER_EXECUTABLE name)
     ENDIF()
 
     ADD_NEKTAR_EXECUTABLE(${name}
-        COMPONENT ${SOLVER_COMPONENT} DEPENDS SolverUtils SOURCES ${SOLVER_SOURCES})
+            COMPONENT ${SOLVER_COMPONENT} DEPENDS ${SOLVER_TARGET_DEPENDS}
+            SOURCES ${SOLVER_SOURCES})
 ENDMACRO()
 
 IF (NEKTAR_BUILD_SOLVER_LIBS)
@@ -37,13 +43,13 @@ IF (NEKTAR_BUILD_SOLVER_LIBS)
 
         # Append "Lib" suffix to target name, otherwise it clashes with the executable (final output will still be called ${name})
         ADD_NEKTAR_LIBRARY(${name}
-                        TARGET_SUFFIX Lib
-                        LINK_MODE PRIVATE
-                        SOURCES ${SOLVERLIB_SRCS_USED}
-                        HEADERS ${SOLVERLIB_HEADERS}
-                        DEPENDS ${SOLVERLIB_DEPENDS}
-                        SUMMARY "Nektar++ ${name} solver library"
-                        DESCRIPTION "This library provides functionality used by the ${name} solver.")
+                TARGET_SUFFIX Lib
+                LINK_MODE PRIVATE
+                SOURCES ${SOLVERLIB_SRCS_USED}
+                HEADERS ${SOLVERLIB_HEADERS}
+                DEPENDS ${SOLVERLIB_DEPENDS}
+                SUMMARY "Nektar++ ${name} solver library"
+                DESCRIPTION "This library provides functionality used by the ${name} solver.")
     ENDMACRO()
 ENDIF()
 
@@ -56,12 +62,12 @@ MACRO(ADD_SOLVER_UTILITY name solver)
 
     IF (UTIL_USELIBRARY)
         ADD_NEKTAR_EXECUTABLE(${name}
-            COMPONENT ${UTIL_COMPONENT} DEPENDS SolverUtils
-            SOURCES ${UTIL_SOURCES} $<TARGET_OBJECTS:${solver}-obj>)
+                COMPONENT ${UTIL_COMPONENT} DEPENDS SolverUtils
+                SOURCES ${UTIL_SOURCES} $<TARGET_OBJECTS:${solver}-obj>)
     ELSE()
         ADD_NEKTAR_EXECUTABLE(${name}
-            COMPONENT ${UTIL_COMPONENT} DEPENDS SolverUtils
-            SOURCES ${UTIL_SOURCES})
+                COMPONENT ${UTIL_COMPONENT} DEPENDS SolverUtils
+                SOURCES ${UTIL_SOURCES})
     ENDIF()
 ENDMACRO()
 

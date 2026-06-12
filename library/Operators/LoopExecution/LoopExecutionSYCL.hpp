@@ -109,7 +109,7 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
                      const size_t begin, const size_t end, TData *buffer,
                      const Functor &functor)
 {
-    constexpr TData min = std::numeric_limits<TData>::min();
+    constexpr TData min = std::numeric_limits<TData>::lowest();
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {

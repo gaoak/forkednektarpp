@@ -70,7 +70,7 @@ inline
         }
         else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
         {
-            *red = std::numeric_limits<TData>::min();
+            *red = std::numeric_limits<TData>::lowest();
         }
         else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
         {

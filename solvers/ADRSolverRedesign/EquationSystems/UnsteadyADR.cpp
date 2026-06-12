@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/TimeOps/TimeOp.hpp"
+#include <Operators/ElmtOps/Expression/ExpressionOp.hpp>
 #include <Operators/GlobalLinSysOps/LinearSystems/HelmSolve/HelmSolveOp.hpp>
 #include <Operators/GlobalLinSysOps/LinearSystems/LinearADRSolve/LinearADRSolveOp.hpp>
 #include <Operators/GlobalLinSysOps/LinearSystems/PoissonSolve/PoissonSolveOp.hpp>
@@ -55,49 +55,22 @@ std::string UnsteadyADR::className2 =
 
 UnsteadyADR::UnsteadyADR(const LibUtilities::SessionReaderSharedPtr &pSession,
                          const SpatialDomains::MeshGraphSharedPtr &pGraph)
-    : EquationSystem(pSession, pGraph)
+    : UnsteadySystem(pSession, pGraph)
 {
 }
 
 /**
  * @brief Initialisation object for the UnsteadyADR problem.
  */
-void UnsteadyADR::v_InitObject(bool DeclareFields)
+void UnsteadyADR::v_InitObject(bool declareExpansionLists)
 {
     // Call to the initialisation object of EquationSystem
-    EquationSystem::v_InitObject(DeclareFields);
+    UnsteadySystem::v_InitObject(declareExpansionLists);
 
-    // Initialise boundary conditions
-    SetBoundaryConditions(m_time);
+    /// Load parameters from session
+    InitialiseParameters();
 
-    // Get variable strings and number of variables
-    m_variables  = m_session->GetVariables();
-    m_nVariables = m_variables.size();
-    if ((m_session->GetSolverInfo("EQTYPE") == "UnsteadyAdvection") ||
-        (m_session->GetSolverInfo("EQTYPE") == "UnsteadyAdvectionDiffusion"))
-    {
-        m_advection = true;
-        m_session->MatchSolverInfo("ADVECTIONADVANCEMENT", "Explicit",
-                                   m_explicitAdvection, true);
-        m_implicitAdvection = !m_explicitAdvection;
-    }
-
-    if ((m_session->GetSolverInfo("EQTYPE") == "UnsteadyDiffusion") ||
-        (m_session->GetSolverInfo("EQTYPE") == "UnsteadyAdvectionDiffusion"))
-    {
-        m_diffusion = true;
-        m_session->MatchSolverInfo("DIFFUSIONADVANCEMENT", "Explicit",
-                                   m_explicitDiffusion, true);
-        m_implicitDiffusion = !m_explicitDiffusion;
-    }
-
-    // Initialise Time-stepping operator
-    m_timeOp = TimeOp<double>::Create(m_fields[0], m_variables);
-    m_timeOp->DefineImplicit(&UnsteadyADR::DoImplicit, this);
-    m_timeOp->DefineExplicitRhs(&UnsteadyADR::DoExplicitRhs, this);
-    m_timeOp->DefineProjection(&UnsteadyADR::DoProjection, this);
-
-    // Create and initialise all fields
+    /// Create Field for solution m_fields and others
     InitialiseFields();
 
     // Set advection velocity
@@ -108,76 +81,18 @@ void UnsteadyADR::v_InitObject(bool DeclareFields)
 
     // Create and initialise all operators
     InitialiseOperators();
-}
 
-/**
- * @brief Solves UnsteadyADR problem.
- */
-void UnsteadyADR::v_DoSolve()
-{
-    // Set InitialConditions
-    SetInitialConditionsField(m_in);
-
-    // Time-stepping loop
-    while (m_timeOp->GetStep() < m_steps ||
-           m_timeOp->GetTime() < m_fintime - NekConstants::kNekZeroTol)
-    {
-        // Do time integration
-        m_timeOp->Apply(m_in);
-        m_time = m_timeOp->GetTime();
-
-        // Verbose print
-        if (m_infosteps && !(m_timeOp->GetStep() % m_infosteps))
-        {
-            std::cout
-                // << std::scientific
-                << "Steps: " << std::setw(8) << std::left << m_timeOp->GetStep()
-                << " Time: " << std::setw(12) << std::left
-                << m_timeOp->GetTime() << std::endl;
-        }
-    }
-
-    // Keep EquationSystem time consistent with the time integrator state for
-    // exact-solution evaluation and output metadata.
-    m_time = m_timeOp->GetTime();
-
-    // TODO : Remove the below code, when updated with Redesign solverUtils
-    //  ----------------------------------------------------------------------
-    // Write result into m_fields.m_phys for correct output to Fld file and
-    // check against exact solution
-    // Note outcoeffs has data arranged as [comp0, comp1, comp2] in a single
-    // array
-    Array<OneD, double> out = m_in.ToArray<double>();
-    auto size               = 0;
-    for (unsigned int i = 0; i < m_nVariables; i++)
-    {
-        // Get physical size for this field
-        auto nPhys = m_fields[i]->GetTotPoints();
-
-        // Copy result into m_fields.m_phys
-        Array<OneD, double> out_var(nPhys);
-        for (unsigned int j = 0; j < nPhys; j++)
-        {
-            out_var[j] = out[size + j];
-        }
-
-        m_fields[i]->SetPhys(out_var);
-        m_fields[i]->SetPhysState(true);
-
-        // Increment
-        size += nPhys;
-    }
-    //--------------------------------------------------------------------------
+    // Configure Time-integration
+    InitialiseTimeOp();
+    m_timeOp->DefineImplicit(&UnsteadyADR::DoImplicit, this);
+    m_timeOp->DefineExplicitRhs(&UnsteadyADR::DoExplicitRhs, this);
 }
 
 void UnsteadyADR::v_GenerateSummary(SummaryList &s)
 {
-    SessionSummary(s);
+    UnsteadySystem::v_GenerateSummary(s);
 
-    AddSummaryItem(s, "Integration Scheme",
-                   m_session->GetTimeIntScheme().method);
-    AddSummaryItem(s, "Integration Order",
-                   std::to_string(m_session->GetTimeIntScheme().order));
+    AddSummaryItem(s, "Equations", "Advection-Diffusion-Reaction");
     if (m_advection)
     {
         AddSummaryItem(s, "Advect. advancement",
@@ -262,7 +177,7 @@ void UnsteadyADR::DoImplicit(
                 // Configure and cache preconditioner
                 m_preconOp.insert(
                     {dt_inv_gamma,
-                     PreconOp<double>::Create(m_fields[0],
+                     PreconOp<double>::Create(m_expansionLists[0],
                                               m_session->GetVariables())});
                 m_linearSystemOp->SetPrecon(m_preconOp[dt_inv_gamma]);
                 m_linearSystemOp->UpdatePrecon();
@@ -277,10 +192,10 @@ void UnsteadyADR::DoImplicit(
             m_math.mul(-m_lambda, in, out);
 
             // Solve implicit ADR problem
-            m_linearSystemOp->Apply(out, m_wsp_coeff);
+            m_linearSystemOp->Apply(out, m_fields_coeff);
 
             // Transform to physical space
-            m_bwdTransOp->Apply(m_wsp_coeff, out);
+            m_bwdTransOp->Apply(m_fields_coeff, out);
             break;
         }
         default:
@@ -344,63 +259,19 @@ void UnsteadyADR::DoExplicitRhs(Field<double, FieldState::Phys> &in,
         }
     }
 
-    // Add the forcing term, if defined.
-    if (m_session->DefinesFunction("BodyForce"))
+    // Add forcing terms, if defined. The first forcing assigns when there is
+    // no preceding explicit contribution; subsequent forcings append.
+    const bool hasExplicitTerm = m_explicitAdvection || m_explicitDiffusion;
+    for (unsigned int i = 0; i < m_forcing.size(); ++i)
     {
-        // Set forcing operator and evaluate
-        m_forcingOp->SetTime(time);
-        m_forcingOp->SetScale(dt);
-        m_forcingOp->Apply(in, out);
+        m_forcing[i]->SetAppend(hasExplicitTerm || i > 0);
+        m_forcing[i]->Apply(in, out, time, dt);
     }
 
     // Zero output if no explicit term.
-    if (!m_explicitAdvection && !m_explicitDiffusion &&
-        !m_session->DefinesFunction("BodyForce"))
+    if (!hasExplicitTerm && m_forcing.empty())
     {
         m_math.zero(out);
-    }
-}
-
-/**
- * @brief Compute the projection for the unsteady ADR problem.
- *
- * @param in    Given fields.
- * @param out   CG-projected fields.
- * @param time  Time.
- */
-void UnsteadyADR::DoProjection(Field<double, FieldState::Phys> &in,
-                               Field<double, FieldState::Phys> &out,
-                               [[maybe_unused]] const double time)
-{
-    // Update time-varying boundary conditions
-    // SetBoundaryConditions(time);
-
-    // Switch on the projection type (Discontinuous or Continuous)
-    switch (m_projectionType)
-    {
-        case MultiRegions::eDiscontinuous:
-        {
-            // Discontinuous projection
-            if (&in != &out)
-            {
-                m_math.copy(in, out);
-            }
-            break;
-        }
-        case MultiRegions::eGalerkin:
-        {
-            // Continuous projection
-            // Note we could use the cheaper operators: AvgAssemble or
-            // GlobalToLocal
-            m_fwdTransOp->Apply(in, m_wsp_coeff);
-            m_bwdTransOp->Apply(m_wsp_coeff, out);
-            break;
-        }
-        default:
-        {
-            ASSERTL0(false, "Unsupported projection type.");
-            break;
-        }
     }
 }
 
@@ -431,27 +302,13 @@ void UnsteadyADR::SetDiffusionCoeff()
 {
     if (m_diffusion)
     {
-        // Get the scalar part
-        m_session->LoadParameter("epsilon", m_epsilon, 1.0);
-
-        // Set-up anisotropic diffusion coefficient
-        // Default value for D_ij = 1, if i = j
-        // Default value for D_ij = 0, if i != j
-        const auto coordDim      = m_fields[0]->GetCoordim(0);
-        const auto diffCoeffSize = coordDim * (coordDim + 1) / 2;
-        m_diffCoeff.resize(diffCoeffSize);
-
-        if (coordDim == 1)
+        if (m_coordim == 1)
         {
-            m_session->LoadParameter("D00", m_diffCoeff[0], 1.0);
             // Multiply by Scalar Part
             m_diffCoeff[0] *= m_epsilon;
         }
-        else if (coordDim == 2)
+        else if (m_coordim == 2)
         {
-            m_session->LoadParameter("D00", m_diffCoeff[0], 1.0);
-            m_session->LoadParameter("D01", m_diffCoeff[1], 0.0);
-            m_session->LoadParameter("D11", m_diffCoeff[2], 1.0);
             // Multiply by Scalar Part
             m_diffCoeff[0] *= m_epsilon;
             m_diffCoeff[1] *= m_epsilon;
@@ -459,12 +316,6 @@ void UnsteadyADR::SetDiffusionCoeff()
         }
         else
         {
-            m_session->LoadParameter("D00", m_diffCoeff[0], 1.0);
-            m_session->LoadParameter("D01", m_diffCoeff[1], 0.0);
-            m_session->LoadParameter("D11", m_diffCoeff[2], 1.0);
-            m_session->LoadParameter("D02", m_diffCoeff[3], 0.0);
-            m_session->LoadParameter("D12", m_diffCoeff[4], 0.0);
-            m_session->LoadParameter("D22", m_diffCoeff[5], 1.0);
             // Multiply by Scalar Part
             m_diffCoeff[0] *= m_epsilon;
             m_diffCoeff[1] *= m_epsilon;
@@ -479,29 +330,24 @@ void UnsteadyADR::SetDiffusionCoeff()
 /*
  *  Create and initialise all operators for this solver
  */
-void UnsteadyADR::InitialiseOperators()
+void UnsteadyADR::v_InitialiseOperators()
 {
-    // Initialise math helper
-    std::string execName = Operator<double>::GetOpExecSpace(m_session);
-    m_math               = Math(execName);
+    EquationSystem::v_InitialiseOperators();
 
     // Switch on the projection type (Discontinuous or Continuous)
     switch (m_projectionType)
     {
         case MultiRegions::eDiscontinuous:
         {
-            // Discontinuous projection
-            m_fields[0]->GetTrace()->SetDataWarehouse();
-
             // Create operators
             if (m_advection)
             {
-                m_advectionWeakDGOp =
-                    AdvectionWeakDGOp<double>::Create(m_fields[0], m_variables);
-                m_volumeFluxOp =
-                    VolumeFluxOp<double>::Create(m_fields[0], m_variables);
-                m_riemannSolverOp =
-                    RiemannSolverOp<double>::Create(m_fields[0], m_variables);
+                m_advectionWeakDGOp = AdvectionWeakDGOp<double>::Create(
+                    m_expansionLists[0], m_variables);
+                m_volumeFluxOp = VolumeFluxOp<double>::Create(
+                    m_expansionLists[0], m_variables);
+                m_riemannSolverOp = RiemannSolverOp<double>::Create(
+                    m_expansionLists[0], m_variables);
 
                 // Set volume flux and Riemann solver for advection operator
                 m_advectionWeakDGOp->SetVolumeFluxOp(m_volumeFluxOp);
@@ -510,18 +356,17 @@ void UnsteadyADR::InitialiseOperators()
                 // Check if forcing is defined
                 if (m_session->DefinesFunction("AdvectionVelocity"))
                 {
-                    unsigned int coordDim = m_fields[0]->GetCoordim(0);
-
                     // Reads the Session File Velocity defined as function
                     std::vector<std::string> vel;
                     vel.push_back("Vx");
                     vel.push_back("Vy");
                     vel.push_back("Vz");
-                    vel.resize(coordDim);
+                    vel.resize(m_coordim);
 
                     // Create operator
                     m_getFwdBwdTracePhysOp =
-                        GetFwdBwdTracePhysOp<double>::Create(m_fields[0], vel);
+                        GetFwdBwdTracePhysOp<double>::Create(
+                            m_expansionLists[0], vel);
                     m_getFwdBwdTracePhysOp->SetFwdOnly(true);
 
                     // Extract trace advection velocity for upwind solver
@@ -544,15 +389,11 @@ void UnsteadyADR::InitialiseOperators()
         }
         case MultiRegions::eGalerkin:
         {
-            // Continuous projection
-            m_bwdTransOp = BwdTransOp<double>::Create(
-                m_fields[0], m_session->GetVariables());
-
             // Explicit operators
             if (m_explicitAdvection)
             {
-                m_advectionCGOp =
-                    AdvectionOp<double>::Create(m_fields[0], m_variables);
+                m_advectionCGOp = AdvectionOp<double>::Create(
+                    m_expansionLists[0], m_variables);
                 m_advectionCGOp->SetAdvVel(m_advectionVel);
             }
             if (m_explicitDiffusion)
@@ -564,9 +405,9 @@ void UnsteadyADR::InitialiseOperators()
             if (m_implicitAdvection && m_implicitDiffusion)
             {
                 m_linearSolverOp = LinearSolverOp<double>::Create(
-                    m_fields[0], m_session->GetVariables());
+                    m_expansionLists[0], m_session->GetVariables());
                 auto linearADRSolveOp = LinearADRSolveOp<double>::Create(
-                    m_fields[0], m_session->GetVariables());
+                    m_expansionLists[0], m_session->GetVariables());
                 linearADRSolveOp->SetLinearSolver(m_linearSolverOp);
                 linearADRSolveOp->SetDiffCoeff(m_diffCoeff);
                 linearADRSolveOp->SetAdvVel(m_advectionVel);
@@ -577,33 +418,20 @@ void UnsteadyADR::InitialiseOperators()
                 if (m_explicitAdvection)
                 {
                     m_linearSolverOp = LinearSolverOp<double>::Create(
-                        m_fields[0], m_session->GetVariables(), "ConjGrad");
+                        m_expansionLists[0], m_session->GetVariables(),
+                        "ConjGrad");
                 }
                 else
                 {
                     m_linearSolverOp = LinearSolverOp<double>::Create(
-                        m_fields[0], m_session->GetVariables());
+                        m_expansionLists[0], m_session->GetVariables());
                 }
                 auto helmSolveOp = HelmSolveOp<double>::Create(
-                    m_fields[0], m_session->GetVariables());
+                    m_expansionLists[0], m_session->GetVariables());
                 helmSolveOp->SetLinearSolver(m_linearSolverOp);
                 helmSolveOp->SetDiffCoeff(m_diffCoeff);
                 m_linearSystemOp = helmSolveOp;
             }
-
-            // Projection operators
-            m_fwdTransOp = FwdTransOp<double>::Create(
-                m_fields[0], m_session->GetVariables());
-            auto preconOp = PreconOp<double>::Create(m_fields[0],
-                                                     m_session->GetVariables());
-            // The projection solve is a mass-matrix problem, so use
-            // ConjGrad regardless of the ADR system solver configured in
-            // the session.
-            auto linsolverOp = LinearSolverOp<double>::Create(
-                m_fields[0], m_session->GetVariables(), "ConjGrad");
-            m_fwdTransOp->SetLinearSolver(linsolverOp);
-            m_fwdTransOp->SetPrecon(preconOp);
-            m_fwdTransOp->UpdatePrecon();
             break;
         }
         default:
@@ -613,34 +441,18 @@ void UnsteadyADR::InitialiseOperators()
         }
     }
 
-    // Check if forcing is defined
-    if (m_session->DefinesFunction("BodyForce"))
-    {
-        // Create operator
-        m_forcingOp = ExpressionOp<double>::Create(m_fields[0],
-                                                   m_session->GetVariables());
-
-        // Read initial conditions and configure operator
-        std::vector<LibUtilities::EquationSharedPtr> forcingEquations;
-        for (unsigned int i = 0; i < m_nVariables; ++i)
-        {
-            forcingEquations.push_back(m_session->GetFunction("BodyForce", i));
-        }
-        m_forcingOp->SetExpressions(forcingEquations);
-        if (m_explicitAdvection)
-        {
-            m_forcingOp->SetAppend(true);
-        }
-        m_forcingOp->SetTime(m_time);
-    }
+    // Load forcing terms, if defined in the session file.
+    m_forcing = Forcing::Load(m_session, m_expansionLists[0], m_variables);
 }
 
 /*
  *  Create and initialise Fields.
  */
-void UnsteadyADR::InitialiseFields()
+void UnsteadyADR::v_InitialiseFields()
 {
-    unsigned int coordDim     = m_fields[0]->GetCoordim(0);
+    // Initialise solution "m_fields" via EquationSystem routine
+    EquationSystem::v_InitialiseFields();
+
     unsigned int numHomoModes = m_npointsZ; // Note read in EquationSystem.cpp
 
     // Switch on the projection type (Discontinuous or Continuous)
@@ -650,47 +462,35 @@ void UnsteadyADR::InitialiseFields()
         case MultiRegions::eDiscontinuous:
         {
             // Create blocks.
-            auto block_attr_phys =
-                GetBlockAttributes<double, FieldState::Phys>(m_fields[0]);
-            auto block_attr_trace_phys =
-                GetBlockAttributes<double, FieldState::Phys>(
-                    m_fields[0]->GetTrace());
+            auto bAtr_phys = GetBlockAttributes<double, FieldState::Phys>(
+                m_expansionLists[0]);
+            auto bAtr_phys_trace = GetBlockAttributes<double, FieldState::Phys>(
+                m_expansionLists[0]->GetTrace());
 
-            // Create fields.
-            m_in = Field<double, FieldState::Phys>("solution", block_attr_phys,
-                                                   m_nVariables, numHomoModes);
             if (m_advection)
             {
                 m_advectionVel = Field<double, FieldState::Phys>(
-                    "advectionVel", block_attr_phys, coordDim, numHomoModes);
+                    "advectionVel", bAtr_phys, m_coordim, numHomoModes);
                 m_traceAdvectionVel = Field<double, FieldState::Phys>(
-                    "traceAdvectVel", block_attr_trace_phys, coordDim,
-                    numHomoModes);
+                    "traceAdvectVel", bAtr_phys_trace, m_coordim, numHomoModes);
             }
-
-            // Initialise fields
             break;
         }
         // Continuous field
         case MultiRegions::eGalerkin:
         {
             // Get block Attributes.
-            auto block_attr_phys =
-                GetBlockAttributes<double, FieldState::Phys>(m_fields[0]);
-            auto block_attr_coeff =
-                GetBlockAttributes<double, FieldState::Coeff>(m_fields[0]);
+            auto bAtr_phys = GetBlockAttributes<double, FieldState::Phys>(
+                m_expansionLists[0]);
+            auto bAtr_coeff = GetBlockAttributes<double, FieldState::Coeff>(
+                m_expansionLists[0]);
 
             // Create fields.
-            m_in = Field<double, FieldState::Phys>("solution", block_attr_phys,
-                                                   m_nVariables, numHomoModes);
-            m_wsp_coeff = Field<double, FieldState::Coeff>(
-                "m_wsp_coeff", block_attr_coeff, m_nVariables, numHomoModes);
             if (m_advection)
             {
                 m_advectionVel = Field<double, FieldState::Phys>(
-                    "advVel", block_attr_phys, coordDim, numHomoModes);
+                    "advVel", bAtr_phys, m_coordim, numHomoModes);
             }
-            m_math.zero(m_wsp_coeff);
             break;
         }
         default:
@@ -711,21 +511,20 @@ void UnsteadyADR::SetAdvectionVel()
         // Read advection velocity from session
         if (m_session->DefinesFunction("AdvectionVelocity"))
         {
-            unsigned int coordDim = m_fields[0]->GetCoordim(0);
-
             // Reads the Session File Velocity defined as function
             std::vector<std::string> vel;
             vel.push_back("Vx");
             vel.push_back("Vy");
             vel.push_back("Vz");
-            vel.resize(coordDim);
+            vel.resize(m_coordim);
 
             // Initialise operators
-            auto expressionOp = ExpressionOp<double>::Create(m_fields[0], vel);
+            auto expressionOp =
+                ExpressionOp<double>::Create(m_expansionLists[0], vel);
 
             // Read advection velocity expressions and configure operator
             std::vector<LibUtilities::EquationSharedPtr> advectionVelocities;
-            for (unsigned int i = 0; i < coordDim; ++i)
+            for (unsigned int i = 0; i < m_coordim; ++i)
             {
                 advectionVelocities.push_back(
                     m_session->GetFunction("AdvectionVelocity", vel[i]));
@@ -746,62 +545,53 @@ void UnsteadyADR::SetAdvectionVel()
     }
 }
 
-void UnsteadyADR::SetInitialConditionsField(
-    Field<double, FieldState::Phys> &field)
+void UnsteadyADR::InitialiseParameters()
 {
-    // Print to log/console
-    if (m_session->GetComm()->GetRank() == 0)
+    // Get variable strings and number of variables
+    if ((m_session->GetSolverInfo("EQTYPE") == "UnsteadyAdvection") ||
+        (m_session->GetSolverInfo("EQTYPE") == "UnsteadyAdvectionDiffusion"))
     {
-        std::cout << "Initial Conditions:" << std::endl;
+        m_advection = true;
+        m_session->MatchSolverInfo("ADVECTIONADVANCEMENT", "Explicit",
+                                   m_explicitAdvection, true);
+        m_implicitAdvection = !m_explicitAdvection;
     }
 
-    // Set initial conditions from session file
-    if (m_session->DefinesFunction("InitialConditions"))
+    if ((m_session->GetSolverInfo("EQTYPE") == "UnsteadyDiffusion") ||
+        (m_session->GetSolverInfo("EQTYPE") == "UnsteadyAdvectionDiffusion"))
     {
-        // Initialise operators
-        auto initialOp = ExpressionOp<double>::Create(
-            m_fields[0], m_session->GetVariables());
-
-        // Read initial conditions and configure operator
-        std::vector<LibUtilities::EquationSharedPtr> initialConditons;
-        for (unsigned int i = 0; i < m_nVariables; ++i)
-        {
-            initialConditons.push_back(
-                m_session->GetFunction("InitialConditions", i));
-        }
-        initialOp->SetExpressions(initialConditons);
-        initialOp->SetTime(m_time);
-
-        // Set initial conditions defined in session and update coefficients
-        m_math.zero(field);
-        initialOp->Apply(field, field);
-
-        // Project initial conditions
-        DoProjection(field, field, 0.0);
-
-        // Print for initial conditions
-        if (m_session->GetComm()->GetRank() == 0)
-        {
-            for (unsigned int i = 0; i < m_nVariables; ++i)
-            {
-                std::string varName = m_variables[i];
-                std::cout << "  - Field " << varName << ": "
-                          << GetFunction("InitialConditions")->Describe(varName)
-                          << std::endl;
-            }
-        }
+        m_diffusion = true;
+        m_session->MatchSolverInfo("DIFFUSIONADVANCEMENT", "Explicit",
+                                   m_explicitDiffusion, true);
+        m_implicitDiffusion = !m_explicitDiffusion;
     }
-    else
-    {
-        m_math.zero(field);
 
-        for (unsigned int i = 0; i < m_nVariables; i++)
+    // Get diffusion parameters
+    if (m_diffusion)
+    {
+        // Resize diffCoeff vector
+        const auto diffCoeffSize = m_coordim * (m_coordim + 1) / 2;
+        m_diffCoeff.resize(diffCoeffSize);
+
+        m_session->LoadParameter("epsilon", m_epsilon, 1.0);
+        if (m_coordim == 1)
         {
-            if (m_session->GetComm()->GetRank() == 0)
-            {
-                std::cout << "  - Field " << m_variables[i] << ": 0 (default)"
-                          << std::endl;
-            }
+            m_session->LoadParameter("D00", m_diffCoeff[0], 1.0);
+        }
+        else if (m_coordim == 2)
+        {
+            m_session->LoadParameter("D00", m_diffCoeff[0], 1.0);
+            m_session->LoadParameter("D01", m_diffCoeff[1], 0.0);
+            m_session->LoadParameter("D11", m_diffCoeff[2], 1.0);
+        }
+        else
+        {
+            m_session->LoadParameter("D00", m_diffCoeff[0], 1.0);
+            m_session->LoadParameter("D01", m_diffCoeff[1], 0.0);
+            m_session->LoadParameter("D11", m_diffCoeff[2], 1.0);
+            m_session->LoadParameter("D02", m_diffCoeff[3], 0.0);
+            m_session->LoadParameter("D12", m_diffCoeff[4], 0.0);
+            m_session->LoadParameter("D22", m_diffCoeff[5], 1.0);
         }
     }
 }

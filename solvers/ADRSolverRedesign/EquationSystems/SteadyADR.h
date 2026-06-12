@@ -36,14 +36,15 @@
 #pragma once
 
 #include "Operators/Math/Math.hpp"
-#include <Operators/ElmtOps/Expression/ExpressionOp.hpp>
+#include <Operators/ElmtOps/BwdTrans/BwdTransOp.hpp>
 #include <Operators/Field/Field.hpp>
 #include <Operators/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp>
-#include <SolverUtils/EquationSystem.h>
+#include <SolverCore/EquationSystems/EquationSystem.h>
+#include <SolverCore/Forcing/Forcing.h>
 
 namespace Nektar
 {
-using namespace SolverUtils;
+using namespace SolverCore;
 using namespace Operators;
 
 class SteadyADR : public EquationSystem
@@ -56,10 +57,10 @@ public:
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const SpatialDomains::MeshGraphSharedPtr &pGraph)
     {
-        EquationSystemSharedPtr p =
+        EquationSystemSharedPtr equ =
             MemoryManager<SteadyADR>::AllocateSharedPtr(pSession, pGraph);
-        p->InitObject();
-        return p;
+        equ->InitObject();
+        return equ;
     }
 
     /// Name of class
@@ -70,41 +71,35 @@ public:
 protected:
     // Diffusion coefficient
     double m_epsilon;
+    double m_lambda;
     std::vector<double> m_diffCoeff;
 
-    // Save variable strings and number for verbose output and looping
-    std::vector<std::string> m_variables;
-    unsigned int m_nVariables;
-
     // Setup workspaces
-    Field<double, FieldState::Phys> m_in;
-    Field<double, FieldState::Phys> m_advectionVel;
     Field<double, FieldState::Phys> m_wsp_fce;
-    Field<double, FieldState::Coeff> m_wsp_coeff;
-
-    // Declare math
-    Math m_math;
+    Field<double, FieldState::Phys> m_advectionVel;
 
     // Initialise operators
     std::shared_ptr<LinearSystemOp<double>> m_linearSystemOp;
     std::shared_ptr<LinearSolverOp<double>> m_linearSolverOp;
     std::shared_ptr<PreconOp<double>> m_preconOp;
-    std::shared_ptr<ExpressionOp<double>> m_forcingOp;
+    std::vector<ForcingSharedPtr> m_forcing;
 
     SteadyADR(const LibUtilities::SessionReaderSharedPtr &pSession,
               const SpatialDomains::MeshGraphSharedPtr &pGraph);
 
     ~SteadyADR() override = default;
 
-    void v_InitObject(bool DeclareFields = true) override;
+    void v_InitObject(bool declareExpansionLists = true) override;
 
     void v_DoSolve() override;
 
     void v_GenerateSummary(SummaryList &s) override;
 
-    void InitialiseFields();
+    void InitialiseParameters();
 
-    void InitialiseOperators();
+    void v_InitialiseFields() override;
+
+    void v_InitialiseOperators() override;
 
     void SetDiffusionCoeff();
 

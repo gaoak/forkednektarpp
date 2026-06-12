@@ -129,7 +129,7 @@ public:
 
     TData max()
     {
-        TData out = std::numeric_limits<TData>::min();
+        TData out = std::numeric_limits<TData>::lowest();
         for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
              ++blk)
         {

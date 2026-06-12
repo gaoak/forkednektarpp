@@ -39,20 +39,22 @@
 #include "Operators/ElmtOps/Divergence/DivergenceOp.hpp"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivOp.hpp"
 #include "Operators/GlobalLinSysOps/LinearSystems/PoissonSolve/PoissonSolveOp.hpp"
-#include "Operators/Math/Math.hpp"
+#include "SolverCore/Core/SessionFunction.h"
 #include <Operators/ElmtOps/BwdTrans/BwdTransOp.hpp>
-#include <Operators/ElmtOps/Expression/ExpressionOp.hpp>
 #include <Operators/Field/Field.hpp>
 #include <Operators/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp>
 #include <Operators/GlobalLinSysOps/LinearSystems/HelmSolve/HelmSolveOp.hpp>
-#include <SolverUtils/EquationSystem.h>
+#include <Operators/Norm/NormL2/NormL2Op.hpp>
+#include <Operators/Norm/NormLinf/NormLinfOp.hpp>
+#include <SolverCore/EquationSystems/UnsteadySystem.h>
+#include <SolverCore/Forcing/Forcing.h>
 
 namespace Nektar
 {
-using namespace SolverUtils;
+using namespace SolverCore;
 using namespace Operators;
 
-class VelocityCorrectionScheme : public EquationSystem
+class VelocityCorrectionScheme : public UnsteadySystem
 {
 public:
     friend class MemoryManager<VelocityCorrectionScheme>;
@@ -62,51 +64,43 @@ public:
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const SpatialDomains::MeshGraphSharedPtr &pGraph)
     {
-        EquationSystemSharedPtr p =
+        EquationSystemSharedPtr equ =
             MemoryManager<VelocityCorrectionScheme>::AllocateSharedPtr(pSession,
                                                                        pGraph);
-        p->InitObject();
-        return p;
+        equ->InitObject();
+        return equ;
     }
 
     /// Name of class
     static std::string className;
 
 protected:
-    // Diffusion coefficient
+    // Kinematic viscosity
     double m_kinvis;
+
+    // Diffusion coefficient
     std::vector<double> m_diffCoeff;
 
     // Time stepping coefficient
     double m_lambda;
 
     // Save variable strings and number for verbose output and looping
-    std::vector<std::string> m_variables;
+    unsigned int m_pressureIndex;
     std::vector<std::string> m_variablesVel;
     std::vector<std::string> m_variablesFields;
     std::vector<std::string> m_variablesAddScalars;
     std::vector<std::string> m_variablesPressure;
-    unsigned int m_nVariables;
-    unsigned int m_pressureIndex;
+    std::vector<std::string> m_variablesTotal;
 
     // Setup workspaces
-    Field<double, FieldState::Phys> m_in;
     Field<double, FieldState::Phys> m_pressure;
     Field<double, FieldState::Phys> m_advVel;
     Field<double, FieldState::Phys> m_wsp_phys;
     Field<double, FieldState::Phys> m_wsp_phys_deriv_pressure;
     Field<double, FieldState::Phys> m_wsp_phys_1c;
-    Field<double, FieldState::Coeff> m_wsp_coeff;
     Field<double, FieldState::Coeff> m_pressure_coeff;
 
-    // Declare math
-    Math m_math;
-
-    // Time-integration
-    std::shared_ptr<TimeOp<double>> m_timeOp;
-
     // Initialise operators
-    std::shared_ptr<BwdTransOp<double>> m_bwdTransFieldsOp;
     std::shared_ptr<BwdTransOp<double>> m_bwdTransPressureOp;
     std::shared_ptr<AdvectionOp<double>> m_advectionOp;
     std::shared_ptr<PhysDerivOp<double>> m_physDerivPressureOp;
@@ -116,8 +110,7 @@ protected:
     std::map<double, std::shared_ptr<PreconOp<double>>> m_preconFieldsOpMap;
     std::map<double, std::shared_ptr<PreconOp<double>>> m_preconPressureOpMap;
     std::shared_ptr<PoissonSolveOp<double>> m_poissonSolveOp;
-    std::shared_ptr<ExpressionOp<double>> m_forcingOp;
-    std::shared_ptr<FwdTransOp<double>> m_fwdTransFieldsOp;
+    std::vector<ForcingSharedPtr> m_forcing;
     std::shared_ptr<DivergenceOp<double>> m_divergenceOp;
 
     VelocityCorrectionScheme(
@@ -125,14 +118,6 @@ protected:
         const SpatialDomains::MeshGraphSharedPtr &pGraph);
 
     ~VelocityCorrectionScheme() override = default;
-
-    void v_InitObject(bool DeclareFields = true) override;
-
-    void v_DoSolve() override;
-
-    void v_GenerateSummary(SummaryList &s) override;
-
-    Array<OneD, bool> v_GetSystemSingularChecks() override;
 
     void SolveUnsteadyStokesSystem(Field<double, FieldState::Phys> &in,
                                    Field<double, FieldState::Phys> &out,
@@ -143,16 +128,24 @@ protected:
                                           Field<double, FieldState::Phys> &out,
                                           const double &time, const double &dt);
 
-    void DoProjection(Field<double, FieldState::Phys> &in,
-                      Field<double, FieldState::Phys> &out, const double time);
+    void v_InitObject(bool declareExpansionLists = true) override;
+    void v_PrintNorms(std::ostream &out) override;
 
-    void InitialiseOperators();
+    void v_GenerateSummary(SummaryList &s) override;
 
-    void InitialiseFields();
+    std::vector<bool> v_GetSystemSingularChecks() override;
+
+    void v_SetInitialConditions([[maybe_unused]] double initialTime) override;
+
+    void v_InitialiseFields() override;
+
+    void v_InitialiseOperators() override;
+
+    void v_WriteFld(const std::string &outname) override;
 
     void SetDiffusionCoeff();
 
-    void SetInitialConditionsField(Field<double, FieldState::Phys> &fields);
+    void InitialiseParameters();
 };
 
 } // namespace Nektar

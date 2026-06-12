@@ -34,19 +34,18 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <LibUtilities/BasicUtils/SessionReader.h>
-#include <SolverUtils/Driver.h>
+#include <SolverCore/Driver/Driver.h>
 #include <SpatialDomains/MeshGraphIO.h>
+#include <stdexcept>
 
-using namespace std;
 using namespace Nektar;
-using namespace Nektar::SolverUtils;
+using namespace Nektar::SolverCore;
 
 int main(int argc, char *argv[])
 {
     LibUtilities::SessionReaderSharedPtr session;
     SpatialDomains::MeshGraphSharedPtr graph;
-    string vDriverModule;
-    DriverSharedPtr drv;
+    DriverSharedPtr driver;
 
     try
     {
@@ -56,31 +55,23 @@ int main(int argc, char *argv[])
         // Create MeshGraph
         graph = SpatialDomains::MeshGraphIO::Read(session);
 
-        // Create driver
-        session->LoadSolverInfo("Driver", vDriverModule, "Standard");
-        drv = GetDriverFactory().CreateInstance(vDriverModule, session, graph);
-
-        // Execute driver
-        drv->Execute();
-
-        // This does nothing as we do not use legacy timers
-        //// Print out timings if verbose
-        // if (session->DefinesCmdLineArgument("verbose"))
-        //{
-        //     int iolevel;
-        //     session->LoadParameter("IO_Timer_Level", iolevel, 5);
-        // }
+        std::string driverModule;
+        session->LoadSolverInfo("Driver", driverModule, "Standard");
+        driver =
+            GetDriverFactory().CreateInstance(driverModule, session, graph);
+        driver->Execute();
 
         // Finalise communications
         session->Finalise();
     }
-    catch (const std::runtime_error &)
+    catch (const std::runtime_error &e)
     {
+        std::cout << "Error: " << e.what() << std::endl;
         return 1;
     }
     catch (const std::string &eStr)
     {
-        cout << "Error: " << eStr << endl;
+        std::cout << "Error: " << eStr << std::endl;
     }
 
     return 0;

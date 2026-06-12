@@ -68,7 +68,7 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
         }
         else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
         {
-            *red = std::numeric_limits<TData>::min();
+            *red = std::numeric_limits<TData>::lowest();
         }
         else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
         {

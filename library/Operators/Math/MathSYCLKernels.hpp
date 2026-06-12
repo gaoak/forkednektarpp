@@ -325,7 +325,7 @@ template <bool init, typename TData>
 void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
                      const size_t nsize, const TData *x, TData *out)
 {
-    constexpr TData min = std::numeric_limits<TData>::min();
+    constexpr TData min = std::numeric_limits<TData>::lowest();
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
@@ -380,7 +380,7 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
                      const size_t nsize, const uint8_t *mask, const TData *x,
                      TData *out)
 {
-    constexpr TData min = std::numeric_limits<TData>::min();
+    constexpr TData min = std::numeric_limits<TData>::lowest();
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
@@ -947,7 +947,7 @@ template <bool init, typename TData>
 void linfnormKernel(const unsigned int gridSize, const unsigned int blockSize,
                     const size_t nsize, const TData *x, TData *out)
 {
-    constexpr TData min = std::numeric_limits<TData>::min();
+    constexpr TData min = 0.0;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
@@ -1002,7 +1002,7 @@ void linfnormKernel(const unsigned int gridSize, const unsigned int blockSize,
                     const size_t nsize, const uint8_t *mask, const TData *x,
                     TData *out)
 {
-    constexpr TData min = std::numeric_limits<TData>::min();
+    constexpr TData min = 0.0;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {

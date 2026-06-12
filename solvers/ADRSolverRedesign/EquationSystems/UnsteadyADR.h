@@ -36,24 +36,21 @@
 #pragma once
 
 #include "Operators/GetFwdBwdTracePhys/GetFwdBwdTracePhysOp.hpp"
-#include "Operators/Math/Math.hpp"
 #include <Operators/ElmtOps/Advection/AdvectionOp.hpp>
-#include <Operators/ElmtOps/BwdTrans/BwdTransOp.hpp>
-#include <Operators/ElmtOps/Expression/ExpressionOp.hpp>
 #include <Operators/Field/Field.hpp>
-#include <Operators/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp>
 #include <Operators/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp>
 #include <Operators/SolverUtilsOps/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
 #include <Operators/SolverUtilsOps/Advection/VolumeFluxOp.hpp>
 #include <Operators/SolverUtilsOps/RiemannSolvers/RiemannSolverOp.hpp>
-#include <SolverUtils/EquationSystem.h>
+#include <SolverCore/EquationSystems/UnsteadySystem.h>
+#include <SolverCore/Forcing/Forcing.h>
 
 namespace Nektar
 {
-using namespace SolverUtils;
+using namespace SolverCore;
 using namespace Operators;
 
-class UnsteadyADR : public EquationSystem
+class UnsteadyADR : public UnsteadySystem
 {
 public:
     friend class MemoryManager<UnsteadyADR>;
@@ -63,10 +60,10 @@ public:
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const SpatialDomains::MeshGraphSharedPtr &pGraph)
     {
-        EquationSystemSharedPtr p =
+        EquationSystemSharedPtr equ =
             MemoryManager<UnsteadyADR>::AllocateSharedPtr(pSession, pGraph);
-        p->InitObject();
-        return p;
+        equ->InitObject();
+        return equ;
     }
 
     /// Name of class
@@ -88,21 +85,9 @@ protected:
     bool m_implicitAdvection = false;
     bool m_implicitDiffusion = false;
 
-    // Save variable strings and number for verbose output and looping
-    std::vector<std::string> m_variables;
-    unsigned int m_nVariables;
-
     // Setup workspaces
-    Field<double, FieldState::Phys> m_in;
     Field<double, FieldState::Phys> m_advectionVel;
     Field<double, FieldState::Phys> m_traceAdvectionVel;
-    Field<double, FieldState::Coeff> m_wsp_coeff;
-
-    // Declare math
-    Math m_math;
-
-    // Time-integration
-    std::shared_ptr<TimeOp<double>> m_timeOp;
 
     // Initialise operators
     std::shared_ptr<AdvectionOp<double>> m_advectionCGOp;
@@ -113,20 +98,12 @@ protected:
     std::shared_ptr<LinearSystemOp<double>> m_linearSystemOp;
     std::shared_ptr<LinearSolverOp<double>> m_linearSolverOp;
     std::map<double, std::shared_ptr<PreconOp<double>>> m_preconOp;
-    std::shared_ptr<ExpressionOp<double>> m_forcingOp;
-    std::shared_ptr<BwdTransOp<double>> m_bwdTransOp;
-    std::shared_ptr<FwdTransOp<double>> m_fwdTransOp;
+    std::vector<ForcingSharedPtr> m_forcing;
 
     UnsteadyADR(const LibUtilities::SessionReaderSharedPtr &pSession,
                 const SpatialDomains::MeshGraphSharedPtr &pGraph);
 
     ~UnsteadyADR() override = default;
-
-    void v_InitObject(bool DeclareFields = true) override;
-
-    void v_DoSolve() override;
-
-    void v_GenerateSummary(SummaryList &s) override;
 
     void DoImplicit(Field<double, FieldState::Phys> &inout,
                     Field<double, FieldState::Phys> &out,
@@ -136,18 +113,19 @@ protected:
                        Field<double, FieldState::Phys> &out, const double &time,
                        const double &dt);
 
-    void DoProjection(Field<double, FieldState::Phys> &in,
-                      Field<double, FieldState::Phys> &out, const double time);
+    void v_InitObject(bool declareExpansionLists = true) override;
 
-    void InitialiseFields();
+    void v_GenerateSummary(SummaryList &s) override;
 
-    void InitialiseOperators();
+    void InitialiseParameters();
+
+    void v_InitialiseFields() override;
+
+    void v_InitialiseOperators() override;
 
     void SetDiffusionCoeff();
 
     void SetAdvectionVel();
-
-    void SetInitialConditionsField(Field<double, FieldState::Phys> &field);
 };
 
 } // namespace Nektar
