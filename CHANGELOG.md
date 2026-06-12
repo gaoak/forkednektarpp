@@ -49,6 +49,7 @@ v5.10.0
 - Enable HDF5 by default (!2163)
 - Add the ApplyNewtonUpdate method to the NekNonlinSysIterNewton the derived Newton implementations can use (!2551)
 - Add new interfaces in SimdLib to support interleaving/deinterleaving on unaligned inputs, and also variable-length virtual SIMD type (!2565)
+- Fix search for Boost 1.89 and above (!2567)
 
 **IncNavierStokesSolver**
 - Added an option to process Reynolds Stress fields at a higher polynomial order (!2303)
