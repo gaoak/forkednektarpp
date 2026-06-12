@@ -119,6 +119,11 @@
         </FUNCTION>
 
     </CONDITIONS>
-
+    <FILTERS>
+        <FILTER TYPE="Checkpoint">
+            <PARAM NAME="OutputFile">checkpoint</PARAM>
+            <PARAM NAME="OutputFrequency">10</PARAM>
+        </FILTER>
+    </FILTERS>
 </NEKTAR>
 

@@ -18,6 +18,7 @@
 # Divergence             Nodepend - Seg, Quad, etc
 # CurlCurl               Nodepend - Seg, Quad, etc
 # PhysInterp1D           Nodepend - Seg, Quad, etc
+# Norm                   Nodepend - Seg, Quad, etc
 # Expression             Nodepend - Helmholtz1D_Seg, etc.
 
 # These tests may require an individual  cpp.in file
@@ -94,7 +95,8 @@ ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass.cpp)
 ADD_NEKTAR_EXECUTABLE(test_expression
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_expression.cpp)
-
+ADD_NEKTAR_EXECUTABLE(test_norm
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_norm.cpp)
 ADD_NEKTAR_EXECUTABLE(test_addtraceintegral
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral.cpp)
 ADD_NEKTAR_EXECUTABLE(test_bwdtrans
@@ -135,7 +137,7 @@ ADD_NEKTAR_EXECUTABLE(test_curlcurl
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_curlcurl.cpp)
 ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled.cpp)
-ADD_NEKTAR_EXECUTABLE(test_getfwdbwdtracephys 
+ADD_NEKTAR_EXECUTABLE(test_getfwdbwdtracephys
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_getfwdbwdtracephys.cpp)
 ADD_NEKTAR_EXECUTABLE(test_advectionweakdg 
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SolverUtils SOURCES test_advectionweakdg.cpp)
@@ -212,6 +214,7 @@ ENDIF()
 SET_UNIT_TEST(MultiplyByElmtInvMass_serial_generic test_multiplybyelmtinvmass Serial Generic FALSE)
 SET_UNIT_TEST(FwdTransBC_serial_generic test_fwdtransbc Serial Generic FALSE)
 SET_UNIT_TEST(Expression_serial_generic test_expression Serial Generic FALSE)
+SET_UNIT_TEST(Norm_serial_generic test_norm Serial Generic FALSE)
 
 # Serial StdMat
 SET_UNIT_TEST(AddTraceIntegral_serial_stdmat test_addtraceintegral Serial StdMat FALSE)
@@ -292,6 +295,7 @@ IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(MultiplyByElmtInvMass_avx_generic test_multiplybyelmtinvmass AVX Generic FALSE)
     SET_UNIT_TEST(FwdTransBC_avx_generic test_fwdtransbc AVX Generic FALSE)
     SET_UNIT_TEST(Expression_avx_generic test_expression AVX Generic FALSE)
+    SET_UNIT_TEST(Norm_avx_generic test_norm AVX Generic FALSE)
 ENDIF()
 
 # AVX StdMat
@@ -373,6 +377,7 @@ IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(MultiplyByElmtInvMass_device_generic test_multiplybyelmtinvmass Device Generic FALSE)
     SET_UNIT_TEST(FwdTransBC_device_generic test_fwdtransbc Device Generic FALSE)
     SET_UNIT_TEST(Expression_device_generic test_expression Device Generic FALSE)
+    SET_UNIT_TEST(Norm_device_generic test_norm Device Generic FALSE)
 ENDIF()
 
 # Device StdMat

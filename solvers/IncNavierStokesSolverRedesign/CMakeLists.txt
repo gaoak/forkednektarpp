@@ -42,9 +42,11 @@ IF(NEKTAR_BUILD_REDESIGN)
             ENDFOREACH ()
         ENDMACRO()
 
-        ADD_SOLVER_EXECUTABLE(IncNavierStokesSolverRedesign SOURCES
-            IncNavierStokesSolverRedesign.cpp
-            EquationSystems/VelocityCorrectionScheme.cpp
+        ADD_SOLVER_EXECUTABLE(IncNavierStokesSolverRedesign
+            DEPENDS SolverCore Operators
+            SOURCES
+                IncNavierStokesSolverRedesign.cpp
+                EquationSystems/VelocityCorrectionScheme.cpp
         )
 
         IF(NEKTAR_BUILD_SOLVER_LIBS)
@@ -63,7 +65,8 @@ IF(NEKTAR_BUILD_REDESIGN)
                 UniformFlow3D_Tet
                 CouetteFlow3D_Tet
                 CouetteFlow3D_Prism
-                ChannelFlow3D_Tet)
+                ChannelFlow3D_Tet
+        )
             SET_ALL_SOLVER_TEST(IncNavierStokesSolverRedesign ${Session})
         ENDFOREACH()
 

@@ -32,8 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <LibUtilities/BasicUtils/Timer.h>
-
+#include <Operators/ElmtOps/Expression/ExpressionOp.hpp>
 #include <Operators/GlobalLinSysOps/LinearSystems/HelmSolve/HelmSolveOp.hpp>
 #include <Operators/GlobalLinSysOps/LinearSystems/LinearADRSolve/LinearADRSolveOp.hpp>
 #include <Operators/GlobalLinSysOps/LinearSystems/PoissonSolve/PoissonSolveOp.hpp>
@@ -56,25 +55,25 @@ std::string SteadyADR::className3 =
 
 SteadyADR::SteadyADR(const LibUtilities::SessionReaderSharedPtr &pSession,
                      const SpatialDomains::MeshGraphSharedPtr &pGraph)
-    : EquationSystem(pSession, pGraph)
+    : EquationSystem(pSession, pGraph), m_epsilon(1.0), m_lambda(0.0)
 {
+    ASSERTL0(m_projectionType == MultiRegions::eGalerkin,
+             "The SteadyADR is only implemented for "
+             "projectionType Galerkin");
 }
 
 /**
  * @brief Initialisation object for the SteadyADR problem.
  */
-void SteadyADR::v_InitObject(bool DeclareFields)
+void SteadyADR::v_InitObject(bool declareExpansionLists)
 {
-    EquationSystem::v_InitObject(DeclareFields);
+    // Call to the initialisation object of EquationSystem
+    EquationSystem::v_InitObject(declareExpansionLists);
 
-    // Load output/verbose parameters
-    m_session->LoadParameter("IO_InfoSteps", m_infosteps, 0);
+    /// Load parameters from session
+    InitialiseParameters();
 
-    // Get variable strings and number of variables
-    m_variables  = m_session->GetVariables();
-    m_nVariables = m_variables.size();
-
-    // Create and initialise all fields
+    /// Create Field for solution m_fields and others
     InitialiseFields();
 
     // Set advection velocity
@@ -92,46 +91,24 @@ void SteadyADR::v_InitObject(bool DeclareFields)
  */
 void SteadyADR::v_DoSolve()
 {
-    // Evaluate the forcing
-    if (m_session->DefinesFunction("BodyForce"))
+    // Evaluate forcing terms. The first forcing assigns into the workspace;
+    // subsequent forcings append.
+    m_math.zero(m_wsp_fce);
+    for (unsigned int i = 0; i < m_forcing.size(); ++i)
     {
-        // Evaluate forcing operator
-        m_forcingOp->Apply(m_wsp_fce, m_wsp_fce);
+        m_forcing[i]->SetAppend(i > 0);
+        m_forcing[i]->Apply(m_wsp_fce, m_wsp_fce, m_time);
     }
 
     // Apply method for solving the SteadyADR problem
-    m_linearSystemOp->Apply(m_wsp_fce, m_wsp_coeff);
-
-    // TODO : Remove the below code, when updated with Redesign solverUtils
-    //  ----------------------------------------------------------------------
-    // Write result into m_fields.m_coeffs for correct output to Fld file and
-    // check against exact solution
-    // Note outcoeffs has data arranged as [comp0, comp1, comp2] in a single
-    // array
-    Array<OneD, double> outcoeffs = m_wsp_coeff.ToArray<double>();
-    auto sizeCoeffs               = 0;
-    for (unsigned int i = 0; i < m_nVariables; i++)
-    {
-        // Set PhysState to false in order to use coeffs for comparison against
-        // exact solution
-        m_fields[i]->SetPhysState(false);
-
-        // Get physical size for this field
-        auto nCoeff = m_fields[i]->GetNcoeffs();
-
-        // Copy result into m_fields.m_phys
-        Array<OneD, double> outcoeffs_var = outcoeffs + sizeCoeffs;
-        Vmath::Vcopy(nCoeff, outcoeffs_var, 1, m_fields[i]->UpdateCoeffs(), 1);
-
-        // Increment
-        sizeCoeffs += nCoeff;
-    }
-    //--------------------------------------------------------------------------
+    m_linearSystemOp->Apply(m_wsp_fce, m_fields_coeff);
+    m_bwdTransOp->Apply(m_fields_coeff, m_fields);
 }
 
 void SteadyADR::v_GenerateSummary(SummaryList &s)
 {
-    SessionSummary(s);
+    EquationSystem::v_GenerateSummary(s);
+    AddSummaryItem(s, "Equations", "Advection-Diffusion-Reaction");
 
     std::stringstream ss;
     ss << R"(
@@ -178,27 +155,13 @@ void SteadyADR::v_GenerateSummary(SummaryList &s)
  */
 void SteadyADR::SetDiffusionCoeff()
 {
-    // Get the scalar part
-    m_session->LoadParameter("epsilon", m_epsilon, 1.0);
-
-    // Set-up anisotropic diffusion coefficient
-    // Default value for D_ij = 1, if i = j
-    // Default value for D_ij = 0, if i != j
-    const auto coordDim      = m_fields[0]->GetCoordim(0);
-    const auto diffCoeffSize = coordDim * (coordDim + 1) / 2;
-    m_diffCoeff.resize(diffCoeffSize);
-
-    if (coordDim == 1)
+    if (m_coordim == 1)
     {
-        m_session->LoadParameter("D00", m_diffCoeff[0], 1.0);
         // Multiply by Scalar Part
         m_diffCoeff[0] *= m_epsilon;
     }
-    else if (coordDim == 2)
+    else if (m_coordim == 2)
     {
-        m_session->LoadParameter("D00", m_diffCoeff[0], 1.0);
-        m_session->LoadParameter("D01", m_diffCoeff[1], 0.0);
-        m_session->LoadParameter("D11", m_diffCoeff[2], 1.0);
         // Multiply by Scalar Part
         m_diffCoeff[0] *= m_epsilon;
         m_diffCoeff[1] *= m_epsilon;
@@ -206,12 +169,6 @@ void SteadyADR::SetDiffusionCoeff()
     }
     else
     {
-        m_session->LoadParameter("D00", m_diffCoeff[0], 1.0);
-        m_session->LoadParameter("D01", m_diffCoeff[1], 0.0);
-        m_session->LoadParameter("D11", m_diffCoeff[2], 1.0);
-        m_session->LoadParameter("D02", m_diffCoeff[3], 0.0);
-        m_session->LoadParameter("D12", m_diffCoeff[4], 0.0);
-        m_session->LoadParameter("D22", m_diffCoeff[5], 1.0);
         // Multiply by Scalar Part
         m_diffCoeff[0] *= m_epsilon;
         m_diffCoeff[1] *= m_epsilon;
@@ -225,26 +182,22 @@ void SteadyADR::SetDiffusionCoeff()
 /*
  *  Create and initialise all operators for this solver
  */
-void SteadyADR::InitialiseOperators()
+void SteadyADR::v_InitialiseOperators()
 {
-    // Initialise Math
-    std::string execName = Operator<double>::GetOpExecSpace(m_session);
-    m_math               = Math(execName);
+    EquationSystem::v_InitialiseOperators();
 
     // Create LinearADRSolve, preconditioner, and linear system operators
-    m_preconOp =
-        PreconOp<double>::Create(m_fields[0], m_session->GetVariables());
-    m_linearSolverOp =
-        LinearSolverOp<double>::Create(m_fields[0], m_session->GetVariables());
+    m_preconOp       = PreconOp<double>::Create(m_expansionLists[0],
+                                                m_session->GetVariables());
+    m_linearSolverOp = LinearSolverOp<double>::Create(
+        m_expansionLists[0], m_session->GetVariables());
 
     if (m_session->GetSolverInfo("EQTYPE") == "SteadyADR")
     {
-        double lambda;
-        m_session->LoadParameter("lambda", lambda, 0.0);
         auto linearADRSolveOp = LinearADRSolveOp<double>::Create(
-            m_fields[0], m_session->GetVariables());
+            m_expansionLists[0], m_session->GetVariables());
         linearADRSolveOp->SetLinearSolver(m_linearSolverOp);
-        linearADRSolveOp->SetLambda(lambda);
+        linearADRSolveOp->SetLambda(m_lambda);
         linearADRSolveOp->SetDiffCoeff(m_diffCoeff);
         linearADRSolveOp->SetAdvVel(m_advectionVel);
         linearADRSolveOp->SetPrecon(m_preconOp);
@@ -253,11 +206,9 @@ void SteadyADR::InitialiseOperators()
     }
     else if (m_session->GetSolverInfo("EQTYPE") == "Helmholtz")
     {
-        double lambda;
-        m_session->LoadParameter("lambda", lambda, 0.0);
-        auto helmSolveOp =
-            HelmSolveOp<double>::Create(m_fields[0], m_session->GetVariables());
-        helmSolveOp->SetLambda(lambda);
+        auto helmSolveOp = HelmSolveOp<double>::Create(
+            m_expansionLists[0], m_session->GetVariables());
+        helmSolveOp->SetLambda(m_lambda);
         helmSolveOp->SetLinearSolver(m_linearSolverOp);
         helmSolveOp->SetDiffCoeff(m_diffCoeff);
         helmSolveOp->SetPrecon(m_preconOp);
@@ -267,7 +218,7 @@ void SteadyADR::InitialiseOperators()
     else if (m_session->GetSolverInfo("EQTYPE") == "Poisson")
     {
         auto poissonSolveOp = PoissonSolveOp<double>::Create(
-            m_fields[0], m_session->GetVariables());
+            m_expansionLists[0], m_session->GetVariables());
         poissonSolveOp->SetLinearSolver(m_linearSolverOp);
         poissonSolveOp->SetDiffCoeff(m_diffCoeff);
         poissonSolveOp->SetPrecon(m_preconOp);
@@ -275,56 +226,43 @@ void SteadyADR::InitialiseOperators()
         m_linearSystemOp = poissonSolveOp;
     }
 
-    // Check if forcing is defined
-    if (m_session->DefinesFunction("BodyForce"))
-    {
-        // Create operator
-        m_forcingOp = ExpressionOp<double>::Create(m_fields[0],
-                                                   m_session->GetVariables());
-
-        // Read initial conditions and configure operator
-        std::vector<LibUtilities::EquationSharedPtr> forcingEquations;
-        for (unsigned int i = 0; i < m_nVariables; ++i)
-        {
-            forcingEquations.push_back(m_session->GetFunction("BodyForce", i));
-        }
-        m_forcingOp->SetExpressions(forcingEquations);
-    }
+    // Load forcing terms, if defined in the session file.
+    m_forcing = Forcing::Load(m_session, m_expansionLists[0], m_variables);
 }
 
 /*
  *  Create and initialise Fields.
  *
  * m_wsp_fce is FieldState::Phys workspace initialised to zero for the forcing
- * term m_wsp_coeff is a FieldState::Coeff workspace initialised to zero for the
- * solution
+ * term m_fields_coeff is a FieldState::Coeff workspace initialised to zero for
+ * the solution
  */
-void SteadyADR::InitialiseFields()
+void SteadyADR::v_InitialiseFields()
 {
+    // Initialise solution "m_fields" via EquationSystem routine
+    EquationSystem::v_InitialiseFields();
+
     // Get block Attributes.
-    auto block_attr_phys =
-        GetBlockAttributes<double, FieldState::Phys>(m_fields[0]);
-    auto block_attr_coeff =
-        GetBlockAttributes<double, FieldState::Coeff>(m_fields[0]);
+    auto bAtr_phys =
+        GetBlockAttributes<double, FieldState::Phys>(m_expansionLists[0]);
+    auto bAtr_coeff =
+        GetBlockAttributes<double, FieldState::Coeff>(m_expansionLists[0]);
 
     // Create fields.
     unsigned int nhomo = m_npointsZ; // Note read in EquationSystem.cpp
 
-    m_wsp_fce = Field<double, FieldState::Phys>("m_wsp_fce", block_attr_phys,
+    m_wsp_fce = Field<double, FieldState::Phys>("m_wsp_fce", bAtr_phys,
                                                 m_nVariables, nhomo);
 
-    m_wsp_coeff = Field<double, FieldState::Coeff>(
-        "m_wsp_coeff", block_attr_coeff, m_nVariables, nhomo);
     if (m_session->GetSolverInfo("EQTYPE") == "SteadyADR")
     {
-        unsigned int coordDim = m_fields[0]->GetCoordim(0);
-        m_advectionVel        = Field<double, FieldState::Phys>(
-            "advVel", block_attr_phys, coordDim, nhomo);
+        unsigned int coordDim = m_expansionLists[0]->GetCoordim(0);
+        m_advectionVel = Field<double, FieldState::Phys>("advVel", bAtr_phys,
+                                                         coordDim, nhomo);
     }
 
     // Initialise fields
     m_math.zero(m_wsp_fce);
-    m_math.zero(m_wsp_coeff);
 }
 
 /*
@@ -332,27 +270,25 @@ void SteadyADR::InitialiseFields()
  */
 void SteadyADR::SetAdvectionVel()
 {
-
     if (m_session->GetSolverInfo("EQTYPE") == "SteadyADR")
     {
         // Read advection velocity from session
         if (m_session->DefinesFunction("AdvectionVelocity"))
         {
-            unsigned int coordDim = m_fields[0]->GetCoordim(0);
-
             // Reads the Session File Velocity defined as function
             std::vector<std::string> vel;
             vel.push_back("Vx");
             vel.push_back("Vy");
             vel.push_back("Vz");
-            vel.resize(coordDim);
+            vel.resize(m_coordim);
 
             // Initialise operators
-            auto expressionOp = ExpressionOp<double>::Create(m_fields[0], vel);
+            auto expressionOp =
+                ExpressionOp<double>::Create(m_expansionLists[0], vel);
 
             // Read advection velocity expressions and configure operator
             std::vector<LibUtilities::EquationSharedPtr> advectionVelocities;
-            for (unsigned int i = 0; i < coordDim; ++i)
+            for (unsigned int i = 0; i < m_coordim; ++i)
             {
                 advectionVelocities.push_back(
                     m_session->GetFunction("AdvectionVelocity", vel[i]));
@@ -370,6 +306,37 @@ void SteadyADR::SetAdvectionVel()
             NEKERROR(ErrorUtil::efatal, "Function 'AdvectionVelocity' was "
                                         "not defined in session file.")
         }
+    }
+}
+
+void SteadyADR::InitialiseParameters()
+{
+    // Load lambda parameter for SteadyADR and Helmholtz problems
+    m_session->LoadParameter("lambda", m_lambda, 0.0);
+
+    // Get diffusion parameters
+    const auto diffCoeffSize = m_coordim * (m_coordim + 1) / 2;
+    m_diffCoeff.resize(diffCoeffSize);
+
+    m_session->LoadParameter("epsilon", m_epsilon, 1.0);
+    if (m_coordim == 1)
+    {
+        m_session->LoadParameter("D00", m_diffCoeff[0], 1.0);
+    }
+    else if (m_coordim == 2)
+    {
+        m_session->LoadParameter("D00", m_diffCoeff[0], 1.0);
+        m_session->LoadParameter("D01", m_diffCoeff[1], 0.0);
+        m_session->LoadParameter("D11", m_diffCoeff[2], 1.0);
+    }
+    else
+    {
+        m_session->LoadParameter("D00", m_diffCoeff[0], 1.0);
+        m_session->LoadParameter("D01", m_diffCoeff[1], 0.0);
+        m_session->LoadParameter("D11", m_diffCoeff[2], 1.0);
+        m_session->LoadParameter("D02", m_diffCoeff[3], 0.0);
+        m_session->LoadParameter("D12", m_diffCoeff[4], 0.0);
+        m_session->LoadParameter("D22", m_diffCoeff[5], 1.0);
     }
 }
 

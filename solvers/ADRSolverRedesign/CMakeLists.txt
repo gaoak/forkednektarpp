@@ -47,7 +47,9 @@ IF(NEKTAR_BUILD_REDESIGN)
             ENDFOREACH ()
         ENDMACRO()
 
-        ADD_SOLVER_EXECUTABLE(ADRSolverRedesign SOURCES
+        ADD_SOLVER_EXECUTABLE(ADRSolverRedesign
+            DEPENDS SolverCore Operators
+            SOURCES
             ADRSolverRedesign.cpp
             EquationSystems/SteadyADR.cpp
             EquationSystems/UnsteadyADR.cpp

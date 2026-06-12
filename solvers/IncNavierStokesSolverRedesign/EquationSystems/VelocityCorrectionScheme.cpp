@@ -33,8 +33,6 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/TimeOps/TimeOp.hpp"
-#include "SolverUtils/Forcing/Forcing.h"
 #include <IncNavierStokesSolverRedesign/EquationSystems/VelocityCorrectionScheme.h>
 
 namespace Nektar
@@ -43,130 +41,99 @@ using namespace Operators;
 
 std::string VelocityCorrectionScheme::className =
     GetEquationSystemFactory().RegisterCreatorFunction(
-        "VelocityCorrectionScheme", VelocityCorrectionScheme::create);
+        "VelocityCorrectionScheme", VelocityCorrectionScheme::create,
+        "Velocity correciton scheme for solving incompressible Navier-Stokes "
+        "in segregated form.");
 
 VelocityCorrectionScheme::VelocityCorrectionScheme(
     const LibUtilities::SessionReaderSharedPtr &pSession,
     const SpatialDomains::MeshGraphSharedPtr &pGraph)
-    : EquationSystem(pSession, pGraph), m_kinvis(1.0),
-      m_diffCoeff(std::vector<double>(1.0)), m_lambda(1.0), m_nVariables(1),
-      m_pressureIndex(0)
+    : UnsteadySystem(pSession, pGraph), m_kinvis(1.0),
+      m_diffCoeff(std::vector<double>(1.0)), m_lambda(1.0), m_pressureIndex(0)
 {
+    ASSERTL0(m_projectionType == MultiRegions::eGalerkin,
+             "The VelocityCorrectionScheme is only implemented for "
+             "projectionType Galerkin");
+
+    // Get variable strings and number of variables
+    // For IncNavierStokes, we assume: u,v,w,theta,p in this order
+    // 1. velocities: u, v, w (in 3D)
+    // 2. passive scalar fields: theta (not required)
+    // 3. pressure: p
+    m_variablesVel =
+        std::vector(m_variables.begin(), m_variables.begin() + m_coordim);
+    m_variablesFields = std::vector(m_variables.begin(), m_variables.end() - 1);
+    m_variablesAddScalars =
+        std::vector(m_variables.begin() + m_coordim, m_variables.end() - 1);
+    m_variablesPressure = {m_variables.back()};
+    m_pressureIndex     = m_nVariables - 1;
+
+    // Save list of all variables for output with pressure
+    m_variablesTotal = m_variables;
+
+    // Overwrite EquationSystem::m_variables
+    // Note this is required to correctly use virtual routines from parent
+    // classes: EquationSystem and UnsteadySystem
+    m_variables  = m_variablesFields;
+    m_nVariables = m_variables.size();
 }
 
 /**
  * @brief Initialisation object for the unsteady diffusion problem.
  */
-void VelocityCorrectionScheme::v_InitObject(bool DeclareFields)
+void VelocityCorrectionScheme::v_InitObject(bool declareExpansionLists)
 {
-    EquationSystem::v_InitObject(DeclareFields);
+    // Call to the initialisation object of EquationSystem
+    UnsteadySystem::v_InitObject(declareExpansionLists);
 
-    // Load output/verbose parameters
-    m_session->LoadParameter("IO_InfoSteps", m_infosteps, 0);
+    // Declare ExpansionList for pressure
+    auto velocityExpansionList =
+        std::dynamic_pointer_cast<MultiRegions::ContField>(m_expansionLists[0]);
+    if (m_graph->SameExpansionInfo(m_variables[0], m_variablesPressure[0]))
+    {
+        m_expansionLists.push_back(
+            MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
+                *velocityExpansionList, m_graph, m_variablesPressure[0], true,
+                m_checkIfSystemSingular[m_pressureIndex]));
+    }
+    else
+    {
+        m_expansionLists.push_back(
+            MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
+                m_session, m_graph, m_variablesPressure[0], true,
+                m_checkIfSystemSingular[m_pressureIndex]));
+    }
+    m_expansionLists[m_pressureIndex]->SetDataWarehouse();
 
-    // Initialise boundary conditions
-    SetBoundaryConditions(m_time);
+    /// Create Field for solution m_fields and others
+    // Note we use expansionList for velocity (and added scalar) fields
+    InitialiseFields();
 
-    // Get variable strings and number of variables
-    // For IncNavierStokes, we assume: u,v,w,theta,p in this order
-    // first velocities, second (passive) scalar fields, last pressure
-    m_variables = m_session->GetVariables();
-    m_variablesVel =
-        std::vector(m_variables.begin(), m_variables.begin() + m_spacedim);
-    m_variablesFields = std::vector(m_variables.begin(), m_variables.end() - 1);
-    m_variablesAddScalars =
-        std::vector(m_variables.begin() + m_spacedim, m_variables.end() - 1);
-    m_variablesPressure.push_back(m_variables.back());
-    m_nVariables    = m_variables.size();
-    m_pressureIndex = m_nVariables - 1;
-
-    // Initialise Time-stepping operator
-    m_timeOp = TimeOp<double>::Create(m_fields[0], m_variablesFields);
-    m_timeOp->DefineImplicit(
-        &VelocityCorrectionScheme::SolveUnsteadyStokesSystem, this);
-    m_timeOp->DefineExplicitRhs(
-        &VelocityCorrectionScheme::EvaluateAdvection_SetPressureBCs, this);
-    m_timeOp->DefineProjection(&VelocityCorrectionScheme::DoProjection, this);
-
-    // Load diffusion coefficient
-    m_session->LoadParameter("kinvis", m_kinvis, 1.0);
+    // Load physical parameters
+    InitialiseParameters();
 
     // Set up diffusion Coeff.
     SetDiffusionCoeff();
 
     // Create and initialise all operators
     InitialiseOperators();
-    InitialiseFields();
-}
 
-/**
- * @brief Implicit solution of the unsteady diffusion problem.
- * Using a standalone time stepping loop.
- */
-void VelocityCorrectionScheme::v_DoSolve()
-{
-    // Set InitialConditions
-    SetInitialConditionsField(m_in);
-
-    // Time-stepping loop
-    while (m_timeOp->GetStep() < m_steps ||
-           m_timeOp->GetTime() < m_fintime - NekConstants::kNekZeroTol)
-    {
-        // Do time integration
-        m_timeOp->Apply(m_in);
-
-        // Verbose print
-        if (m_infosteps && !(m_timeOp->GetStep() % m_infosteps))
-        {
-            std::cout
-                // << std::scientific
-                << "Steps: " << std::setw(8) << std::left << m_timeOp->GetStep()
-                << " Time: " << std::setw(12) << std::left
-                << m_timeOp->GetTime() << std::endl;
-        }
-    }
-
-    m_time = m_timeOp->GetTime();
-
-    // TODO : Remove the below code, when updated with Redesign solverUtils
-    //  ----------------------------------------------------------------------
-    // Write result into m_fields.m_coeffs for correct output to Fld file and
-    // check against exact solution. Velocity/scalar fields and pressure use
-    // separate redesign workspaces, so copy them back separately.
-    Array<OneD, double> outcoeffs = m_wsp_coeff.ToArray<double>();
-    auto sizeCoeffs               = 0;
-    for (unsigned int i = 0; i < m_variablesFields.size(); i++)
-    {
-        // Set PhysState to false in order to use coeffs for comparison against
-        // exact solution
-        m_fields[i]->SetPhysState(false);
-
-        // Get physical size for this field
-        auto nCoeff = m_fields[i]->GetNcoeffs();
-
-        // Copy result into m_fields.m_phys
-        Array<OneD, double> outcoeffs_var = outcoeffs + sizeCoeffs;
-        Vmath::Vcopy(nCoeff, outcoeffs_var, 1, m_fields[i]->UpdateCoeffs(), 1);
-
-        // Increment
-        sizeCoeffs += nCoeff;
-    }
-
-    m_fields[m_pressureIndex]->SetPhysState(false);
-    Vmath::Vcopy(m_fields[m_pressureIndex]->GetNcoeffs(),
-                 m_pressure_coeff.ToArray<double>(), 1,
-                 m_fields[m_pressureIndex]->UpdateCoeffs(), 1);
-    //--------------------------------------------------------------------------
+    // Configure Time-integration
+    // Note we exclude pressure from time integration
+    InitialiseTimeOp();
+    m_timeOp->DefineImplicit(
+        &VelocityCorrectionScheme::SolveUnsteadyStokesSystem, this);
+    m_timeOp->DefineExplicitRhs(
+        &VelocityCorrectionScheme::EvaluateAdvection_SetPressureBCs, this);
 }
 
 void VelocityCorrectionScheme::v_GenerateSummary(SummaryList &s)
 {
-    SessionSummary(s);
+    UnsteadySystem::v_GenerateSummary(s);
 
-    AddSummaryItem(s, "Integration Scheme",
-                   m_session->GetTimeIntScheme().method);
-    AddSummaryItem(s, "Integration Order",
-                   std::to_string(m_session->GetTimeIntScheme().order));
+    AddSummaryItem(s, "Equations", "Incompressible Navier-Stokes");
+    AddSummaryItem(s, "Algorithm", "Velocity correction scheme");
+    AddSummaryItem(s, "Formulation", "Semi-implicit");
 
     std::stringstream ss;
     ss << R"(
@@ -186,76 +153,6 @@ void VelocityCorrectionScheme::v_GenerateSummary(SummaryList &s)
                             |___/
 )";
     AddSummaryItem(s, "Redesign disclaimer", ss.str());
-}
-
-Array<OneD, bool> VelocityCorrectionScheme::v_GetSystemSingularChecks()
-{
-    unsigned int nVar = m_session->GetVariables().size();
-    Array<OneD, bool> checks(nVar, false);
-
-    const auto pressureVar = m_session->GetVariables().back();
-    const SpatialDomains::BoundaryConditions bcs(m_session, m_graph);
-    const auto &bndConditions = bcs.GetBoundaryConditions();
-
-    bool pressureSingular = true;
-    for (const auto &[regionId, bndCondMap] : bndConditions)
-    {
-        auto condIt = bndCondMap->find(pressureVar);
-        ASSERTL1(condIt != bndCondMap->end(),
-                 "Unable to locate pressure boundary condition for region " +
-                     std::to_string(regionId));
-
-        auto type = condIt->second->GetBoundaryConditionType();
-        if (type != SpatialDomains::eNeumann &&
-            type != SpatialDomains::ePeriodic)
-        {
-            pressureSingular = false;
-            break;
-        }
-    }
-
-    checks[nVar - 1] = pressureSingular;
-    return checks;
-}
-
-/*
- *  @brief Evaluate explicit advection term, forcing terms
- *  and higher-order pressure boundary conditions.
- *
- *  Upon input
- *  param in: = U^{n} = [u^{n}, v^{n}, ...]
- *            = "m_in" member variable of this solver
- *  param out: "m_explicits" datastructure within IMEX operator
- *
- *  Upon output
- *  param out: = U^{n} \cdot \nabla U^{n}
- *             + f(U^{n})
- *             + \frac{\partial p}{\partial \mathbf{n}} |_{\Gamma_N}
- */
-void VelocityCorrectionScheme::EvaluateAdvection_SetPressureBCs(
-    Field<double, FieldState::Phys> &in, Field<double, FieldState::Phys> &out,
-    const double &time, const double &dt)
-{
-    m_math.zero(out);
-
-    m_math.copy(in, m_advVel);
-    m_advectionOp->SetAdvVel(m_advVel);
-    m_advectionOp->Apply(in, out);
-    m_math.mul(-dt, out, out);
-
-    // Evaluate and add forcing function, if defined
-    if (m_session->DefinesFunction("BodyForce"))
-    {
-        // Set forcing operator and evaluate
-        m_forcingOp->SetTime(time);
-        m_forcingOp->SetScale(dt);
-
-        m_forcingOp->Apply(in, out);
-    }
-
-    // TODO Calculate High-Order pressure boundary conditions
-    // m_extrapolation->EvaluatePressureBCs(inarray, outarray, m_kinvis);
-    // m_IncNavierStokesBCs->Update(inarray, outarray, params);
 }
 
 /*
@@ -283,7 +180,6 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
     /// Set up forcing term for pressure Poisson equation
     // Compute divergence of RHS
     // TODO this should only apply to the velocity components!
-    m_math.zero(m_wsp_phys_1c);
     m_divergenceOp->Apply(in, m_wsp_phys_1c);
 
     // Scale divergence by \gamma / \Delta t
@@ -295,8 +191,9 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
     {
         // Configure and cache preconditioner
         m_preconPressureOpMap.insert(
-            {dt_inv_gamma, PreconOp<double>::Create(m_fields[m_pressureIndex],
-                                                    m_variablesPressure)});
+            {dt_inv_gamma,
+             PreconOp<double>::Create(m_expansionLists[m_pressureIndex],
+                                      m_variablesPressure)});
         m_poissonSolveOp->SetPrecon(m_preconPressureOpMap[dt_inv_gamma]);
         m_poissonSolveOp->UpdatePrecon();
     }
@@ -310,8 +207,8 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
 
     /// Set up forcing term for Helmholtz problems
     // Evaluate p^{n+1} in physical space
-    // m_math.zero(m_wsp_phys_1c);
     m_bwdTransPressureOp->Apply(m_pressure_coeff, m_wsp_phys_1c);
+    m_math.copy(m_wsp_phys_1c, m_pressure);
 
     // Compute derivative \nabla p^{n+1}
     m_physDerivPressureOp->Apply(m_wsp_phys_1c, m_wsp_phys_deriv_pressure);
@@ -322,7 +219,6 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
 
     /// Solve velocity systems
     // Update \lambda = \gamma / \Delta t / \nu
-    // TODO check lambda sign
     m_lambda = 1.0 / dt_inv_gamma / m_kinvis;
     m_helmSolveOp->SetLambda(m_lambda);
 
@@ -332,7 +228,7 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
         // Configure and cache preconditioner
         m_preconFieldsOpMap.insert(
             {dt_inv_gamma,
-             PreconOp<double>::Create(m_fields[0], m_variablesFields)});
+             PreconOp<double>::Create(m_expansionLists[0], m_variablesFields)});
         m_helmSolveOp->SetPrecon(m_preconFieldsOpMap[dt_inv_gamma]);
         m_helmSolveOp->UpdatePrecon();
     }
@@ -343,32 +239,50 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
     }
 
     // Solve diffusion problem for each component
-    m_math.zero(m_wsp_coeff);
+    m_math.zero(m_fields_coeff);
 
-    m_helmSolveOp->Apply(m_wsp_phys, m_wsp_coeff);
+    m_helmSolveOp->Apply(m_wsp_phys, m_fields_coeff);
 
     // Transform to physical space
-    m_bwdTransFieldsOp->Apply(m_wsp_coeff, out);
+    m_bwdTransOp->Apply(m_fields_coeff, out);
 }
 
-/**
- * @brief Compute the projection for the unsteady diffusion problem.
+/*
+ *  @brief Evaluate explicit advection term, forcing terms
+ *  and higher-order pressure boundary conditions.
  *
- * @param in    Given fields.
- * @param out   CG-projected fields.
- * @param time  Time.
+ *  Upon input
+ *  param in: = U^{n} = [u^{n}, v^{n}, ...]
+ *            = "m_fields" member variable of this solver
+ *  param out: "m_explicits" datastructure within IMEX operator
+ *
+ *  Upon output
+ *  param out: = U^{n} \cdot \nabla U^{n}
+ *             + f(U^{n})
+ *             + \frac{\partial p}{\partial \mathbf{n}} |_{\Gamma_N}
  */
-void VelocityCorrectionScheme::DoProjection(
+void VelocityCorrectionScheme::EvaluateAdvection_SetPressureBCs(
     Field<double, FieldState::Phys> &in, Field<double, FieldState::Phys> &out,
-    [[maybe_unused]] const double time)
+    const double &time, const double &dt)
 {
-    // Update time-varying boundary conditions
-    // SetBoundaryConditions(time);
+    m_math.zero(out);
 
-    // CG projection
-    // Note we could use the cheaper operators: AvgAssemble or GlobalToLocal
-    m_fwdTransFieldsOp->Apply(in, m_wsp_coeff);
-    m_bwdTransFieldsOp->Apply(m_wsp_coeff, out);
+    m_advectionOp->SetScale(-dt);
+    m_math.copy(in, m_advVel);
+    m_advectionOp->SetAdvVel(m_advVel);
+    m_advectionOp->Apply(in, out);
+
+    // Evaluate and add forcing terms. Advection has already written to out, so
+    // all configured forcings append their contribution to the explicit RHS.
+    for (auto &forcing : m_forcing)
+    {
+        forcing->SetAppend(true);
+        forcing->Apply(in, out, time, dt);
+    }
+
+    // TODO Calculate High-Order pressure boundary conditions
+    // m_extrapolation->EvaluatePressureBCs(inarray, outarray, m_kinvis);
+    // m_IncNavierStokesBCs->Update(inarray, outarray, params);
 }
 
 /**
@@ -399,15 +313,14 @@ void VelocityCorrectionScheme::SetDiffusionCoeff()
     // Set-up anisotropic diffusion coefficient
     // Default value for D_ij = 1, if i = j
     // Default value for D_ij = 0, if i != j
-    const auto coordDim      = m_fields[0]->GetCoordim(0);
-    const auto diffCoeffSize = coordDim * (coordDim + 1) / 2;
+    const auto diffCoeffSize = m_coordim * (m_coordim + 1) / 2;
     m_diffCoeff.resize(diffCoeffSize);
 
-    if (coordDim == 1)
+    if (m_coordim == 1)
     {
         m_session->LoadParameter("D00", m_diffCoeff[0], 1.0);
     }
-    else if (coordDim == 2)
+    else if (m_coordim == 2)
     {
         m_session->LoadParameter("D00", m_diffCoeff[0], 1.0);
         m_session->LoadParameter("D01", m_diffCoeff[1], 0.0);
@@ -427,213 +340,299 @@ void VelocityCorrectionScheme::SetDiffusionCoeff()
 /*
  *  Create and initialise all operators for this solver
  */
-void VelocityCorrectionScheme::InitialiseOperators()
+void VelocityCorrectionScheme::v_InitialiseOperators()
 {
-    // Initialise Math
-    std::string execName = Operator<double>::GetOpExecSpace(m_session);
-    m_math               = Math(execName);
+    EquationSystem::v_InitialiseOperators();
 
     // Create velocity operators
     m_linearSolverFieldsOp = LinearSolverOp<double>::Create(
-        m_fields[0], m_variablesFields, "ConjGrad");
-    m_advectionOp = AdvectionOp<double>::Create(m_fields[0], m_variablesFields);
-    m_bwdTransFieldsOp =
-        BwdTransOp<double>::Create(m_fields[0], m_variablesFields);
+        m_expansionLists[0], m_variablesFields, "ConjGrad");
+    m_advectionOp =
+        AdvectionOp<double>::Create(m_expansionLists[0], m_variablesFields);
     m_divergenceOp =
-        DivergenceOp<double>::Create(m_fields[0], m_variablesFields);
-    m_helmSolveOp = HelmSolveOp<double>::Create(m_fields[0], m_variablesFields);
+        DivergenceOp<double>::Create(m_expansionLists[0], m_variablesFields);
+    m_helmSolveOp =
+        HelmSolveOp<double>::Create(m_expansionLists[0], m_variablesFields);
 
     // Configure HelmSolve
     m_helmSolveOp->SetLinearSolver(m_linearSolverFieldsOp);
     m_helmSolveOp->SetDiffCoeff(m_diffCoeff);
 
     // Create pressure operators
-    m_bwdTransPressureOp = BwdTransOp<double>::Create(m_fields[m_pressureIndex],
-                                                      m_variablesPressure);
+    m_bwdTransPressureOp = BwdTransOp<double>::Create(
+        m_expansionLists[m_pressureIndex], m_variablesPressure);
     m_physDerivPressureOp = PhysDerivOp<double>::Create(
-        m_fields[m_pressureIndex], m_variablesPressure);
-    m_poissonSolveOp = PoissonSolveOp<double>::Create(m_fields[m_pressureIndex],
-                                                      m_variablesPressure);
+        m_expansionLists[m_pressureIndex], m_variablesPressure);
+    m_poissonSolveOp = PoissonSolveOp<double>::Create(
+        m_expansionLists[m_pressureIndex], m_variablesPressure);
     m_linearSolverPressureOp = LinearSolverOp<double>::Create(
-        m_fields[m_pressureIndex], m_variablesPressure, "ConjGrad");
+        m_expansionLists[m_pressureIndex], m_variablesPressure, "ConjGrad");
 
     // Configure PoissonSolve
     m_poissonSolveOp->SetLinearSolver(m_linearSolverPressureOp);
     m_poissonSolveOp->SetDiffCoeff(m_diffCoeff);
 
-    // Initialise forcing operator, if defined in session file
-    // Note we assume forcing acts only on velocity components
-    if (m_session->DefinesFunction("BodyForce"))
-    {
-        // Create operator
-        // TODO check which variables/components here?
-        m_forcingOp = ExpressionOp<double>::Create(m_fields[0], m_variablesVel,
-                                                   "Serial", "Generic");
-
-        // Read forcing functions for all variables and configure operator
-        std::vector<LibUtilities::EquationSharedPtr> forcingEquations;
-        for (unsigned int i = 0; i < m_variablesVel.size(); ++i)
-        {
-            forcingEquations.push_back(m_session->GetFunction("BodyForce", i));
-        }
-        m_forcingOp->SetExpressions(forcingEquations);
-        m_forcingOp->SetTime(m_time);
-        // Set to append for VelocityCorrectionScheme
-        m_forcingOp->SetAppend(true);
-    }
-
-    // Initialise forward transform operator to evaluate initial condition
-    // in coefficient space.
-    m_fwdTransFieldsOp =
-        FwdTransOp<double>::Create(m_fields[0], m_variablesFields);
-    auto preconOp = PreconOp<double>::Create(m_fields[0], m_variablesFields);
-    auto linsolverOp =
-        LinearSolverOp<double>::Create(m_fields[0], m_variablesFields);
-    m_fwdTransFieldsOp->SetLinearSolver(linsolverOp);
-    m_fwdTransFieldsOp->SetPrecon(preconOp);
-    m_fwdTransFieldsOp->UpdatePrecon();
+    // Load forcing terms, if defined in the session file. For IncNS the
+    // pressure variable is excluded, so forcing acts only on velocity fields.
+    m_forcing = Forcing::Load(m_session, m_expansionLists[0], m_variablesVel);
 }
 
 /*
  *  Create and initialise Fields.
  */
-void VelocityCorrectionScheme::InitialiseFields()
+void VelocityCorrectionScheme::v_InitialiseFields()
 {
-    // Create blocks for velocity and passive scalars.
-    auto bAtr_phys = GetBlockAttributes<double, FieldState::Phys>(m_fields[0]);
-    auto bAtr_coeff =
-        GetBlockAttributes<double, FieldState::Coeff>(m_fields[0]);
+    // EquationSystem initialises m_fields and m_fields_coeff
+    EquationSystem::v_InitialiseFields();
 
-    // Create blocks for pressure.
-    auto bAtr_phys_pressure =
-        GetBlockAttributes<double, FieldState::Phys>(m_fields[m_pressureIndex]);
-    auto bAtr_coeff_pressure = GetBlockAttributes<double, FieldState::Coeff>(
-        m_fields[m_pressureIndex]);
+    /// Create fields for velocity and passive scalars.
+    // Get block attributes
+    auto bAtr_phys =
+        GetBlockAttributes<double, FieldState::Phys>(m_expansionLists[0]);
 
-    // Note this is parsed in EquationSystem.cpp
-    unsigned int nhomo = m_npointsZ;
-
-    // Create fields for velocity and passive scalars.
-    m_in = Field<double, FieldState::Phys>("velocity and passive scalars",
-                                           bAtr_phys, m_variablesFields.size(),
-                                           nhomo);
-    m_wsp_coeff = Field<double, FieldState::Coeff>(
-        "wsp_coeff", bAtr_coeff, m_variablesFields.size(), nhomo);
+    // Create fields
     m_wsp_phys = Field<double, FieldState::Phys>(
-        "wsp_phys", bAtr_phys, m_variablesFields.size(), nhomo);
-    m_wsp_phys_deriv_pressure = Field<double, FieldState::Phys>(
-        "wsp_phys_deriv_pressure", bAtr_phys_pressure, m_spacedim, nhomo);
+        "wsp_phys", bAtr_phys, m_variablesFields.size(), m_npointsZ);
+    m_advVel = Field<double, FieldState::Phys>("explicit advection velocity",
+                                               bAtr_phys, m_variablesVel.size(),
+                                               m_npointsZ);
 
-    // Create fields for pressure.
+    /// Create fields for pressure.
+    // Get block attributes
+    auto bAtr_phys_pressure = GetBlockAttributes<double, FieldState::Phys>(
+        m_expansionLists[m_pressureIndex]);
+    auto bAtr_coeff_pressure = GetBlockAttributes<double, FieldState::Coeff>(
+        m_expansionLists[m_pressureIndex]);
+    // Create fields
     m_pressure = Field<double, FieldState::Phys>(
-        "pressure", bAtr_phys_pressure, m_variablesPressure.size(), nhomo);
-    m_pressure_coeff =
-        Field<double, FieldState::Coeff>("pressure coeff", bAtr_coeff_pressure,
-                                         m_variablesPressure.size(), nhomo);
-    m_wsp_phys_1c = Field<double, FieldState::Phys>(
-        "wsp_phys_1c", bAtr_phys_pressure, m_variablesPressure.size(), nhomo);
-
-    m_advVel = Field<double, FieldState::Phys>(
-        "explicit advection velocity", bAtr_phys, m_variablesVel.size(), nhomo);
+        "pressure", bAtr_phys_pressure, m_variablesPressure.size(), m_npointsZ);
+    m_pressure_coeff = Field<double, FieldState::Coeff>(
+        "pressure coeff", bAtr_coeff_pressure, m_variablesPressure.size(),
+        m_npointsZ);
+    m_wsp_phys_deriv_pressure = Field<double, FieldState::Phys>(
+        "wsp_phys_deriv_pressure", bAtr_phys_pressure, m_coordim, m_npointsZ);
+    m_wsp_phys_1c =
+        Field<double, FieldState::Phys>("wsp_phys_1c", bAtr_phys_pressure,
+                                        m_variablesPressure.size(), m_npointsZ);
 }
 
-void VelocityCorrectionScheme::SetInitialConditionsField(
-    Field<double, FieldState::Phys> &fields)
+/*
+ *  Set initial condition manually because of the
+ *  auxiliary pressure field for incompressible Navier-Stokes.
+ */
+void VelocityCorrectionScheme::v_SetInitialConditions(double initialTime)
 {
-    // Print to log/console
-    if (m_session->GetComm()->GetRank() == 0)
+    /// Do initial conditions for velocity and additional scalar fields
+    // Set initial conditions in m_fields using m_variables
+    UnsteadySystem::v_SetInitialConditions(initialTime);
+
+    /// Do initial conditions for auxiliary pressure field
+    // Set time to initial time
+    m_time = initialTime;
+
+    // Initialise velocity, pressure and workspace fields
+    m_math.zero(m_pressure);
+    m_math.zero(m_pressure_coeff);
+
+    // Set initial conditions
+    auto vType = GetInitialConditionType(m_variablesPressure);
+    SessionFunction initialConditions(
+        m_session, m_expansionLists[m_pressureIndex], "InitialConditions");
+    if (vType == LibUtilities::eFunctionTypeExpression)
     {
-        std::cout << "Initial Conditions:" << std::endl;
-    }
-
-    // Set initial conditions from session file
-    if (m_session->DefinesFunction("InitialConditions"))
-    {
-        // Initialise expression operator
-        auto initialVelocityOp =
-            ExpressionOp<double>::Create(m_fields[0], m_variablesFields);
-        initialVelocityOp->SetTime(m_time);
-
-        // Read initial conditions and configure operator for velocity and
-        // passive scalars
-        std::vector<LibUtilities::EquationSharedPtr> initialConditons;
-        for (unsigned int i = 0; i < m_variablesFields.size(); ++i)
-        {
-            initialConditons.push_back(
-                m_session->GetFunction("InitialConditions", i));
-        }
-        initialVelocityOp->SetExpressions(initialConditons);
-
-        // Set initial conditions defined in session and update coefficients
-        m_math.zero(fields);
-        m_math.zero(m_wsp_coeff);
-        initialVelocityOp->Apply(fields, fields);
-
-        // Global C0-projection of initial conditions
-        // Note we could use the cheaper operators: AvgAssemble or GlobalToLocal
-        m_fwdTransFieldsOp->Apply(fields, m_wsp_coeff);
-        m_bwdTransFieldsOp->Apply(m_wsp_coeff, fields);
-
-        /// Set pressure initial conditions
-        // Read initial conditions and re-configure operator for pressure
-        initialConditons.clear();
-        for (unsigned int i = m_variablesFields.size(); i < m_nVariables; ++i)
-        {
-            initialConditons.push_back(
-                m_session->GetFunction("InitialConditions", i));
-        }
-        auto initialPressureOp = ExpressionOp<double>::Create(
-            m_fields[m_pressureIndex], m_variablesPressure);
-        initialPressureOp->SetTime(m_time);
-        initialPressureOp->SetExpressions(initialConditons);
-
-        // Set initial conditions defined in session and update coefficients
-        m_math.zero(m_pressure);
-        m_math.zero(m_pressure_coeff);
-        initialPressureOp->Apply(m_pressure, m_pressure);
+        initialConditions.EvaluateExpression(m_variablesPressure, m_pressure,
+                                             m_time);
 
         // Project the pressure initial condition into coefficient space so the
         // first Stokes step has a usable pressure state.
         auto fwdTransPressureOp = FwdTransOp<double>::Create(
-            m_fields[m_pressureIndex], m_variablesPressure);
+            m_expansionLists[m_pressureIndex], m_variablesPressure);
         auto preconPressureOp = PreconOp<double>::Create(
-            m_fields[m_pressureIndex], m_variablesPressure);
+            m_expansionLists[m_pressureIndex], m_variablesPressure);
         auto linsolverPressureOp = LinearSolverOp<double>::Create(
-            m_fields[m_pressureIndex], m_variablesPressure);
+            m_expansionLists[m_pressureIndex], m_variablesPressure);
         fwdTransPressureOp->SetLinearSolver(linsolverPressureOp);
         fwdTransPressureOp->SetPrecon(preconPressureOp);
         fwdTransPressureOp->UpdatePrecon();
+
+        // Project initial conditions
         fwdTransPressureOp->Apply(m_pressure, m_pressure_coeff);
         m_bwdTransPressureOp->Apply(m_pressure_coeff, m_pressure);
-
-        // Print for initial conditions
-        if (m_session->GetComm()->GetRank() == 0)
-        {
-            for (unsigned int i = 0; i < m_nVariables; ++i)
-            {
-                std::string varName = m_variables[i];
-                std::cout << "  - Field " << varName << ": "
-                          << GetFunction("InitialConditions")->Describe(varName)
-                          << std::endl;
-            }
-        }
     }
-    else
+    // Set initial conditions from file
+    else if (vType == LibUtilities::eFunctionTypeFile)
     {
-        // Zero all components in fields and pressure
-        m_math.zero(fields);
-        m_math.zero(m_pressure);
-        m_math.zero(m_pressure_coeff);
+        // Field files store modal coefficients. Load coefficient space first
+        // and reconstruct physical values with the redesign BwdTrans operator.
+        initialConditions.EvaluateFld(m_variablesPressure, m_pressure_coeff,
+                                      m_time);
+        m_bwdTransPressureOp->Apply(m_pressure_coeff, m_pressure);
+    }
 
-        for (unsigned int i = 0; i < m_nVariables; i++)
+    // Print pressure initial condition
+    if (m_session->GetComm()->GetRank() == 0)
+    {
+        for (const auto &varName : m_variablesPressure)
         {
-            if (m_session->GetComm()->GetRank() == 0)
-            {
-                std::cout << "  - Field " << m_variables[i] << ": 0 (default)"
-                          << std::endl;
-            }
+            std::cout << "  - Field " << varName << ": "
+                      << initialConditions.Describe(varName) << std::endl;
         }
     }
 }
 
+void VelocityCorrectionScheme::v_PrintNorms(std::ostream &out)
+{
+    /// Print norms for velocity and additional scalar fields
+    EquationSystem::v_PrintNorms(out);
+
+    /// Print norms for axuiliary pressure field
+    // Create workspace Field
+    auto wsp_phys = Field<double, FieldState::Phys>(
+        "exact solution pressure",
+        GetBlockAttributes<double, FieldState::Phys>(
+            m_expansionLists[m_pressureIndex]),
+        m_variablesPressure.size(), m_npointsZ);
+    m_math.zero(wsp_phys);
+
+    // Evaluate exact solution and compute diff to discrete solution
+    if (m_session->DefinesFunction("ExactSolution"))
+    {
+        SessionFunction exactSolution(
+            m_session, m_expansionLists[m_pressureIndex], "ExactSolution");
+        exactSolution.EvaluateExpression(m_variablesPressure, wsp_phys, m_time);
+    }
+    m_math.sub(m_pressure, wsp_phys, wsp_phys);
+
+    // // Pressure is determined only up to an arbitrary constant. Remove the
+    // // mean pressure error before reporting pressure norms.
+    // auto pressureDiff = wsp_phys.ToVector<double>();
+    // auto ones = std::vector<double>(pressureDiff.size(), 1.0);
+    // Array<OneD, const double> pressureDiffArray(pressureDiff.size(),
+    //                                             pressureDiff.data());
+    // Array<OneD, const double> onesArray(ones.size(), ones.data());
+    // const double volume =
+    //     m_expansionLists[m_pressureIndex]->Integral(onesArray);
+    // const double meanPressureError =
+    //     m_expansionLists[m_pressureIndex]->Integral(pressureDiffArray) /
+    //     volume;
+    // for (auto &value : pressureDiff)
+    // {
+    //     value -= meanPressureError;
+    // }
+    // wsp_phys.FromVector<NektarSpaces::HostSpace>(pressureDiff);
+
+    // Compute L2 norm
+    auto pressureL2NormOp = Operators::NormL2Op<double>::Create(
+        m_expansionLists[m_pressureIndex], m_variablesPressure);
+    pressureL2NormOp->Apply(wsp_phys);
+    auto pressureL2Error = pressureL2NormOp->GetNorms()[0];
+
+    // Compute Linf norm
+    auto pressureLinfNormOp = Operators::NormLinfOp<double>::Create(
+        m_expansionLists[m_pressureIndex], m_variablesPressure);
+    pressureLinfNormOp->Apply(wsp_phys);
+    auto pressureLinfError = pressureLinfNormOp->GetNorms()[0];
+
+    // Print norms
+    if (m_comm->GetRank() == 0)
+    {
+        out << "L 2 error (variable " << m_variablesPressure[0]
+            << ") : " << pressureL2Error << std::endl;
+        out << "L inf error (variable " << m_variablesPressure[0]
+            << ") : " << pressureLinfError << std::endl;
+    }
+}
+
+/**
+ * @brief Load physical parameters from the session file.
+ */
+void VelocityCorrectionScheme::InitialiseParameters()
+{
+    // Get gamma parameter from session file.
+    m_session->LoadParameter("Kinvis", m_kinvis, 1.0);
+}
+
+/*
+ * Check if pressure field is singular that is has only
+ * Neumann and/or Periodic boundary conditions.
+ */
+std::vector<bool> VelocityCorrectionScheme::v_GetSystemSingularChecks()
+{
+    unsigned int nVar = m_session->GetVariables().size();
+    std::vector<bool> checks(nVar, false);
+
+    const auto pressureVar = m_session->GetVariables().back();
+    const SpatialDomains::BoundaryConditions bcs(m_session, m_graph);
+    const auto &bndConditions = bcs.GetBoundaryConditions();
+
+    bool pressureSingular = true;
+    for (const auto &[regionId, bndCondMap] : bndConditions)
+    {
+        auto condIt = bndCondMap->find(pressureVar);
+        ASSERTL1(condIt != bndCondMap->end(),
+                 "Unable to locate pressure boundary condition for region " +
+                     std::to_string(regionId));
+
+        auto type = condIt->second->GetBoundaryConditionType();
+        if (type != SpatialDomains::eNeumann &&
+            type != SpatialDomains::ePeriodic)
+        {
+            pressureSingular = false;
+            break;
+        }
+    }
+
+    checks[nVar - 1] = pressureSingular;
+    return checks;
+}
+
+void VelocityCorrectionScheme::v_WriteFld(const std::string &outname)
+{
+    std::vector<std::vector<double>> fieldCoeffs;
+    std::vector<std::string> variables(m_expansionLists.size());
+
+    // Get vector with all component data and sort into vectors per component
+    std::vector<double> allCoeffs = m_fields_coeff.ToVector<double>();
+    auto ncomp                    = m_fields_coeff.GetNumComponents();
+    auto ncoeffsTotal = allCoeffs.size(); // use allCoeffs to not have padding
+    auto ncoeffsComp  = ncoeffsTotal / ncomp;
+    fieldCoeffs.reserve(ncomp + 1); // Note +1 to add pressure
+    for (unsigned int nc = 0; nc < ncomp; ++nc)
+    {
+        auto first = allCoeffs.begin() + nc * ncoeffsComp;
+        auto last  = allCoeffs.begin() + (nc + 1) * ncoeffsComp;
+
+        fieldCoeffs.emplace_back(std::make_move_iterator(first),
+                                 std::make_move_iterator(last));
+    }
+
+    // TODO might have to interpolate pressure to velocity fields for correct
+    // output? Add pressure to fieldCoeffs
+    std::vector<double> pressureCoeffs = m_pressure_coeff.ToVector<double>();
+    auto first                         = pressureCoeffs.begin();
+    auto last                          = pressureCoeffs.end();
+    fieldCoeffs.emplace_back(std::make_move_iterator(first),
+                             std::make_move_iterator(last));
+
+    // Note: FieldDef holds nummodes, basis, shapetype, variable strings, ..
+    auto fieldDef = m_expansionLists[0]->GetFieldDefinitions();
+    std::vector<std::vector<double>> fieldData(fieldDef.size());
+
+    for (unsigned int nc = 0; nc < ncomp + 1; ++nc)
+    {
+        for (size_t i = 0; i < fieldDef.size(); ++i)
+        {
+            // Note Legacy transforms NodalToModal, if necessary, this code does
+            // not
+            fieldDef[i]->m_fields.push_back(m_variablesTotal[nc]);
+            m_expansionLists[0]->AppendFieldData(fieldDef[i], fieldData[i],
+                                                 fieldCoeffs[nc]);
+        }
+    }
+
+    m_fieldMetaDataMap["Time"] = std::to_string(m_time);
+
+    m_fieldIo->Write(outname, fieldDef, fieldData, m_fieldMetaDataMap,
+                     m_session->GetBackups());
+}
 } // namespace Nektar

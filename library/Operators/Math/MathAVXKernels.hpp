@@ -1126,7 +1126,7 @@ reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
 
     if constexpr (init)
     {
-        *out = std::numeric_limits<TData>::min();
+        *out = std::numeric_limits<TData>::lowest();
     }
 
     // Vectorized loop unroll 4x
@@ -1218,7 +1218,7 @@ reduceMaxKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     // TODO: SIMD/AVX
     if (init)
     {
-        *out = std::numeric_limits<TData>::min();
+        *out = std::numeric_limits<TData>::lowest();
     }
 
     for (size_t i = 0; i < nsize; i++)
@@ -1842,7 +1842,7 @@ linfnormKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     // TODO: SIMD/AVX
     if (init)
     {
-        *out = std::numeric_limits<TData>::min();
+        *out = 0.0;
     }
 
     for (size_t i = 0; i < nsize; i++)

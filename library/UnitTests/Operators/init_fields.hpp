@@ -426,7 +426,7 @@ public:
      *
      * @return bool
      */
-    bool Compare(TData tol)
+    virtual bool Compare(TData tol)
     {
         auto rank = this->session->GetComm()->GetRank();
 

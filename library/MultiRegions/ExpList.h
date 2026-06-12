@@ -954,6 +954,13 @@ public:
     {
         v_AppendFieldData(fielddef, fielddata, coeffs);
     }
+
+    void AppendFieldData(LibUtilities::FieldDefinitionsSharedPtr &fielddef,
+                         std::vector<NekDouble> &fielddata,
+                         std::vector<NekDouble> &coeffs)
+    {
+        v_AppendFieldData(fielddef, fielddata, coeffs);
+    }
     /** \brief Extract the data in fielddata into the coeffs
      * using the basic ExpList Elemental expansions rather
      * than planes in homogeneous case
@@ -977,6 +984,12 @@ public:
         LibUtilities::FieldDefinitionsSharedPtr &fielddef,
         std::vector<NekDouble> &fielddata, std::string &field,
         Array<OneD, NekDouble> &coeffs,
+        std::unordered_map<int, int> zIdToPlane =
+            std::unordered_map<int, int>());
+    MULTI_REGIONS_EXPORT void ExtractDataToCoeffs(
+        LibUtilities::FieldDefinitionsSharedPtr &fielddef,
+        std::vector<NekDouble> &fielddata, std::string &field,
+        std::vector<NekDouble> &coeffs,
         std::unordered_map<int, int> zIdToPlane =
             std::unordered_map<int, int>());
     // Extract data from file fileName and put coefficents into array coefffs
@@ -1481,6 +1494,9 @@ protected:
     virtual void v_AppendFieldData(
         LibUtilities::FieldDefinitionsSharedPtr &fielddef,
         std::vector<NekDouble> &fielddata, Array<OneD, NekDouble> &coeffs);
+    virtual void v_AppendFieldData(
+        LibUtilities::FieldDefinitionsSharedPtr &fielddef,
+        std::vector<NekDouble> &fielddata, std::vector<NekDouble> &coeffs);
     virtual void v_ExtractDataToCoeffs(
         LibUtilities::FieldDefinitionsSharedPtr &fielddef,
         std::vector<NekDouble> &fielddata, std::string &field,

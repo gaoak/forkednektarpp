@@ -72,13 +72,9 @@ IF(NEKTAR_BUILD_REDESIGN)
                     FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
                         ${dir}/${name}${SolverType}${ExecSpace}*.hpp)
 
-                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                        "${dir}/${name}OpImpl.hpp")
-                    SET(IMPL_HEADER "#include \"${include_file}\"")
+                    SET(IMPL_HEADER "#include \"${dir}/${name}OpImpl.hpp\"")
 
-                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                        "${dir}/${SolverType}SolverKernels.hpp")
-                    SET(KERNEL_HEADER "#include \"${include_file}\"")
+                    SET(KERNEL_HEADER "#include \"${dir}/${SolverType}SolverKernels.hpp\"")
 
                     # Create the cpp file from the implementation file.
                     CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
@@ -115,6 +111,7 @@ IF(NEKTAR_BUILD_REDESIGN)
 
             IF(IS_DIRECTORY ${dir})
                 GET_FILENAME_COMPONENT(name "${dir}" NAME)
+                GET_FILENAME_COMPONENT(abs_dir "${dir}" ABSOLUTE)
             ELSE()
                 CONTINUE()
             ENDIF()
@@ -152,13 +149,11 @@ IF(NEKTAR_BUILD_REDESIGN)
                         
                     # Get the headers matching the name and execution space
                     FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-                        ${dir}/${name}${ExecSpace}*.hpp)
+                        ${abs_dir}/${name}${ExecSpace}*.hpp)
 
                     # Found a impl header.
-                    IF(EXISTS "${dir}/${name}OpImpl.hpp")
-                        FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                            "${dir}/${name}OpImpl.hpp")
-                        SET(IMPL_HEADER "#include \"${include_file}\"")
+                    IF(EXISTS "${abs_dir}/${name}OpImpl.hpp")
+                        SET(IMPL_HEADER "#include \"${abs_dir}/${name}OpImpl.hpp\"")
                     # No implementation, skip.
                     ELSE()
                         CONTINUE() # This avoid creating a *.cpp file
@@ -223,7 +218,9 @@ IF(NEKTAR_BUILD_REDESIGN)
             ENDFOREACH ()
         ENDMACRO()
 
-    ADD_SOLVER_EXECUTABLE(CompressibleFlowSolverRedesign SOURCES
+        ADD_SOLVER_EXECUTABLE(CompressibleFlowSolverRedesign
+        DEPENDS SolverCore Operators
+        SOURCES
         CompressibleFlowSolverRedesign.cpp
         EquationSystems/EulerCFE.cpp
         EquationSystems/NavierStokesCFE.cpp

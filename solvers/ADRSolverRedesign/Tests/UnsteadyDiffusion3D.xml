@@ -224,5 +224,10 @@
             <E VAR="u" VALUE="cos(freq*x)*cos(freq*y)*cos(freq*z)" />
         </FUNCTION>
     </CONDITIONS>
-
+    <FILTERS>
+        <FILTER TYPE="Checkpoint">
+            <PARAM NAME="OutputFile">checkpoint</PARAM>
+            <PARAM NAME="OutputFrequency">2</PARAM>
+        </FILTER>
+    </FILTERS>
 </NEKTAR>

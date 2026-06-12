@@ -73,6 +73,12 @@
             <E VAR="u" VALUE="sin(2*PI*x)*sin(2*PI*y)*sin(2*PI*z)" />
         </FUNCTION>
     </CONDITIONS>
+    <FILTERS>
+        <FILTER TYPE="Checkpoint">
+            <PARAM NAME="OutputFile">checkpoint</PARAM>
+            <PARAM NAME="OutputFrequency">4</PARAM>
+        </FILTER>
+    </FILTERS>
     <GEOMETRY DIM="3" SPACE="3">
         <VERTEX>
             <V ID="0">-1.00000000e+00 -1.00000000e+00 -1.00000000e+00</V>

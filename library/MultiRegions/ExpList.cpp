@@ -4250,6 +4250,36 @@ void ExpList::v_AppendFieldData(
     }
 }
 
+void ExpList::v_AppendFieldData(
+    LibUtilities::FieldDefinitionsSharedPtr &fielddef,
+    std::vector<NekDouble> &fielddata, std::vector<NekDouble> &coeffs)
+{
+    // Determine mapping from element ids to location in
+    // expansion list
+    map<int, int> ElmtID_to_ExpID;
+
+    for (unsigned int i = 0; i < (*m_exp).size(); ++i)
+    {
+        ElmtID_to_ExpID[(*m_exp)[i]->GetGeom()->GetGlobalID()] = i;
+    }
+
+    for (unsigned int i = 0; i < fielddef->m_elementIDs.size(); ++i)
+    {
+        int eid     = ElmtID_to_ExpID[fielddef->m_elementIDs[i]];
+        int datalen = (*m_exp)[eid]->GetNcoeffs();
+        if ((*m_exp)[eid]->IsNodalNonTensorialExp())
+        {
+            ASSERTL0(false, "Elemental NodalToModal transformation not "
+                            "implemented for std::vector input.")
+        }
+        else
+        {
+            fielddata.insert(fielddata.end(), &coeffs[m_coeff_offset[eid]],
+                             &coeffs[m_coeff_offset[eid]] + datalen);
+        }
+    }
+}
+
 /// Extract the data in fielddata into the coeffs
 void ExpList::ExtractDataToCoeffs(
     LibUtilities::FieldDefinitionsSharedPtr &fielddef,
@@ -4257,6 +4287,16 @@ void ExpList::ExtractDataToCoeffs(
     Array<OneD, NekDouble> &coeffs, std::unordered_map<int, int> zIdToPlane)
 {
     v_ExtractDataToCoeffs(fielddef, fielddata, field, coeffs, zIdToPlane);
+}
+
+void ExpList::ExtractDataToCoeffs(
+    LibUtilities::FieldDefinitionsSharedPtr &fielddef,
+    std::vector<NekDouble> &fielddata, std::string &field,
+    std::vector<NekDouble> &coeffs, std::unordered_map<int, int> zIdToPlane)
+{
+    Array<OneD, NekDouble> tmp(coeffs.size(), 0.0);
+    ExtractDataToCoeffs(fielddef, fielddata, field, tmp, zIdToPlane);
+    std::copy(tmp.begin(), tmp.end(), coeffs.begin());
 }
 
 void ExpList::ExtractCoeffsToCoeffs(

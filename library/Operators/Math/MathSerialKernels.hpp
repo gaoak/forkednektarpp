@@ -183,7 +183,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
                                void>::type
 reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
 {
-    TData initializer = init ? std::numeric_limits<TData>::min() : *out;
+    TData initializer = init ? std::numeric_limits<TData>::lowest() : *out;
     *out = std::max(initializer, *(std::max_element(x, x + nsize)));
 }
 
@@ -195,7 +195,7 @@ reduceMaxKernel(const size_t nsize, const uint8_t *mask, const TData *x,
 {
     if (init)
     {
-        *out = std::numeric_limits<TData>::min();
+        *out = std::numeric_limits<TData>::lowest();
     }
 
     for (size_t i = 0; i < nsize; i++)
@@ -209,7 +209,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
                                void>::type
 reduceMinKernel(const size_t nsize, const TData *x, TData *out)
 {
-    TData initializer = init ? std::numeric_limits<TData>::min() : *out;
+    TData initializer = init ? std::numeric_limits<TData>::max() : *out;
     *out = std::min(initializer, *(std::min_element(x, x + nsize)));
 }
 
@@ -347,7 +347,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
                                void>::type
 linfnormKernel(const size_t nsize, const TData *x, TData *out)
 {
-    TData initializer = init ? std::numeric_limits<TData>::min() : *out;
+    TData initializer = init ? 0.0 : *out;
     *out              = std::accumulate(x, x + nsize, initializer,
                                         [](const TData &acc, const TData &val) {
                                return std::max(acc, std::abs(val));
@@ -362,7 +362,7 @@ linfnormKernel(const size_t nsize, const uint8_t *mask, const TData *x,
 {
     if (init)
     {
-        *out = std::numeric_limits<TData>::min();
+        *out = 0.0;
     }
 
     for (size_t i = 0; i < nsize; i++)

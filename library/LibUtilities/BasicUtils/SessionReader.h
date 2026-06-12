@@ -96,13 +96,14 @@ struct TimeIntScheme
 
 enum FunctionType
 {
+    eFunctionTypeNone,
     eFunctionTypeExpression,
     eFunctionTypeFile,
     eFunctionTypeTransientFile,
     eSIZE_FunctionType,
 };
-const char *const FunctionTypeMap[] = {"No Function type", "Expression",
-                                       "File"};
+const char *const FunctionTypeMap[] = {"No Function type", "Expression", "File",
+                                       "Transient file"};
 
 struct FunctionVariableDefinition
 {
