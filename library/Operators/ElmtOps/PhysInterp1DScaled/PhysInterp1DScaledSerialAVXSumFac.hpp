@@ -191,7 +191,7 @@ protected:
         }
     }
 
-    void v_SetScaleFactor(TData scale) override
+    void v_SetScaleFactor(const TData &scale) override
     {
         this->m_scale = scale;
         m_nq.clear();
