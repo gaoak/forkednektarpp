@@ -118,12 +118,16 @@ public:
 static constexpr unsigned int PACKSIZE =
     abi::default_longsimd_width<double>::value;
 
+#if defined(__CUDACC__) || defined(__NEK_HIPCC__)
+#define TINYSIMD_PRAGMA_UNROLL
+#else
 #if defined(__clang__)
 #define TINYSIMD_PRAGMA_UNROLL _Pragma("clang loop unroll(full)")
 #elif defined(__GNUC__)
 #define TINYSIMD_PRAGMA_UNROLL _Pragma("GCC unroll 16")
 #else
 #define TINYSIMD_PRAGMA_UNROLL
+#endif
 #endif
 
 // light wrapper for default types
