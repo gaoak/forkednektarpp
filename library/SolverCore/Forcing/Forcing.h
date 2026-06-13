@@ -64,7 +64,8 @@ SOLVER_CORE_EXPORT ForcingFactory &GetForcingFactory();
 
 /**
  * @class Forcing
- * @brief Defines a forcing term to be explicitly applied to a redesign Field.
+ * @brief Defines a forcing term to be explicitly applied to a device support
+ * Field.
  */
 class Forcing
 {

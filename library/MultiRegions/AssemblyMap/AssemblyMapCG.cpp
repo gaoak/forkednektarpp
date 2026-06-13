@@ -2533,7 +2533,7 @@ void AssemblyMapCG::SetUpUniversalC0ContMap(const ExpList &locExp,
     // operations beyond just assembly that is replaced below
     m_gsh = Gs::Init(tmp, vRowComm, verbose);
 
-    // this is needed for redesign calls to DataWarehouse
+    // this is needed for device support calls to DataWarehouse
     m_cgcomm = std::make_unique<AssemblyCommCG<double>>(vRowComm, tmp);
 
     Gs::Unique(tmp, vRowComm);

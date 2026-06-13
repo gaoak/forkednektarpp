@@ -35,17 +35,17 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/Advection/AdvectionOp.hpp"
-#include "Operators/ElmtOps/Divergence/DivergenceOp.hpp"
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivOp.hpp"
-#include "Operators/GlobalLinSysOps/LinearSystems/PoissonSolve/PoissonSolveOp.hpp"
-#include "SolverCore/Core/SessionFunction.h"
+#include <Operators/ElmtOps/Advection/AdvectionOp.hpp>
 #include <Operators/ElmtOps/BwdTrans/BwdTransOp.hpp>
+#include <Operators/ElmtOps/Divergence/DivergenceOp.hpp>
+#include <Operators/ElmtOps/PhysDeriv/PhysDerivOp.hpp>
 #include <Operators/Field/Field.hpp>
 #include <Operators/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp>
 #include <Operators/GlobalLinSysOps/LinearSystems/HelmSolve/HelmSolveOp.hpp>
+#include <Operators/GlobalLinSysOps/LinearSystems/PoissonSolve/PoissonSolveOp.hpp>
 #include <Operators/Norm/NormL2/NormL2Op.hpp>
 #include <Operators/Norm/NormLinf/NormLinfOp.hpp>
+#include <SolverCore/Core/SessionFunction.h>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 #include <SolverCore/Forcing/Forcing.h>
 

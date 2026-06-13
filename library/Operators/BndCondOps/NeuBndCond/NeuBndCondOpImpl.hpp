@@ -103,7 +103,7 @@ public:
                 session, *(it.second), graph, true, components[0], false,
                 bc->GetComm(), Collections::eNoImpType);
 
-            // Set data warehouse for redesign operators
+            // Set data warehouse for device support operators
             bcExpList->SetDataWarehouse();
 
             // Save number of coefficients

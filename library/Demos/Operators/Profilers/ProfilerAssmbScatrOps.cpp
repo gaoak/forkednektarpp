@@ -48,7 +48,7 @@
  *  1.  Build the Nektar++ project with following configurations to get the
  *      profiler executable:
  *          NEKTAR_BUILD_DEMOS=ON
- *          NEKTAR_BUILD_REDESIGN=ON
+ *          NEKTAR_ENABLE_DEVICE_SUPPORT=ON
  *      You may need other configurations to enable certain features, e.g. CUDA,
  *      AVX, MPI, etc.
  *

@@ -46,7 +46,7 @@ namespace Nektar::SolverCore
 /**
  * @brief Body/field forcing evaluated from a session function.
  *
- * This redesign version intentionally starts with the minimal explicit
+ * This device support version intentionally starts with the minimal explicit
  * physical-space path: evaluate the configured function with ExpressionOp and
  * add it to the output Field.
  */

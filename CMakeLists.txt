@@ -254,7 +254,7 @@ OPTION(NEKTAR_BUILD_UNIT_TESTS        "Build unit tests."              ON)
 OPTION(NEKTAR_BUILD_TESTS             "Build regression tests."        ON)
 OPTION(NEKTAR_BUILD_PERFORMANCE_TESTS "Build performance tests."       OFF)
 OPTION(NEKTAR_BUILD_PYTHON            "Build Nektar++ Python bindings" OFF)
-OPTION(NEKTAR_BUILD_REDESIGN          "Build Nektar++ redesign code"   OFF)
+OPTION(NEKTAR_ENABLE_DEVICE_SUPPORT   "Build Nektar++ device support code"   OFF)
 
 # Option to build solver libraries. Hidden if NEKTAR_BUILD_SOLVERS=OFF
 CMAKE_DEPENDENT_OPTION(NEKTAR_BUILD_SOLVER_LIBS
@@ -336,9 +336,9 @@ ENDIF()
 # Include Nektar++ common macros
 INCLUDE (NektarCommon)
 
-# Redesign-specific options
-IF (NEKTAR_BUILD_REDESIGN)
-    ADD_DEFINITIONS(-DNEKTAR_BUILD_REDESIGN)
+# Device Support options
+IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
+    ADD_DEFINITIONS(-DNEKTAR_ENABLE_DEVICE_SUPPORT)
     OPTION(NEKTAR_ENABLE_SINGLE_PRECISION "Enable single precision compilation" OFF)
     OPTION(NEKTAR_ENABLE_DOUBLE_PRECISION "Enable double precision compilation" ON)
     MARK_AS_ADVANCED(NEKTAR_ENABLE_SINGLE_PRECISION)

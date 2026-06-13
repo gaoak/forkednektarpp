@@ -73,7 +73,7 @@ CommMpi::CommMpi(int narg, char *arg[]) : Comm(narg, arg)
         // store bool to indicate that Nektar++ is in charge of finalizing MPI.
         m_controls_mpi = true;
 
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
         // Bind local MPI rank to GPU.
         MPI_Comm local_comm;
         int local_rank, local_size;
