@@ -43,7 +43,7 @@
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <LibUtilities/LibUtilitiesDeclspec.h>
 
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
 #include <Operators/Common/Spaces.hpp>
 #include <Operators/Field/MemoryRegion.hpp>
 #endif
@@ -120,20 +120,20 @@ public:
     LIB_UTILITIES_EXPORT inline NekDouble Wtime();
 
     template <class T> void Send(int pProc, T &pData);
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
     void Send(int pProc, Operators::MemoryRegion<T> &pData);
 #endif
 
     template <class T> void Recv(int pProc, T &pData);
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
     void Recv(int pProc, Operators::MemoryRegion<T> &pData);
 #endif
 
     template <class T>
     void SendRecv(int pSendProc, T &pSendData, int pRecvProc, T &pRecvData);
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
     void SendRecv(int pSendProc, Operators::MemoryRegion<T> &pSendData,
                   int pRecvProc, Operators::MemoryRegion<T> &pRecvData);
@@ -145,7 +145,7 @@ public:
                         CommRequestSharedPtr request);
     template <class T>
     void AllReduceEnd(T &pData, CommRequestSharedPtr request);
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
     void AllReduce(Operators::MemoryRegion<T> &pData, enum ReduceOperator pOp);
     template <class MemSpace, class T>
@@ -157,7 +157,7 @@ public:
 #endif
 
     template <class T> void AlltoAll(T &pSendData, T &pRecvData);
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
     void AlltoAll(Operators::MemoryRegion<T> &pSendData,
                   Operators::MemoryRegion<T> &pRecvData);
@@ -165,7 +165,7 @@ public:
     template <class T1, class T2>
     void AlltoAllv(T1 &pSendData, T2 &pSendDataSizeMap, T2 &pSendDataOffsetMap,
                    T1 &pRecvData, T2 &pRecvDataSizeMap, T2 &pRecvDataOffsetMap);
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
     void AlltoAllv(Operators::MemoryRegion<T> &pSendData,
                    Operators::MemoryRegion<int> &pSendDataSizeMap,
@@ -176,7 +176,7 @@ public:
 #endif
 
     template <class T> void AllGather(T &pSendData, T &pRecvData);
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
     void AllGather(Operators::MemoryRegion<T> &pSendData,
                    Operators::MemoryRegion<T> &pRecvData);
@@ -185,7 +185,7 @@ public:
     void AllGatherv(T &pSendData, T &pRecvData,
                     Array<OneD, int> &pRecvDataSizeMap,
                     Array<OneD, int> &pRecvDataOffsetMap);
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
     void AllGatherv(Operators::MemoryRegion<T> &pSendData,
                     Operators::MemoryRegion<T> &pRecvData,
@@ -195,7 +195,7 @@ public:
     template <class T>
     void AllGatherv(T &pRecvData, Array<OneD, int> &pRecvDataSizeMap,
                     Array<OneD, int> &pRecvDataOffsetMap);
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
     void AllGatherv(Operators::MemoryRegion<T> &pRecvData,
                     Operators::MemoryRegion<int> &pRecvDataSizeMap,
@@ -203,20 +203,20 @@ public:
 #endif
 
     template <class T> void Bcast(T &pData, int pRoot);
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
     void Bcast(Operators::MemoryRegion<T> &pData, int pRoot);
 #endif
 
     template <class T> T Gather(int rootProc, T &val);
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
     Operators::MemoryRegion<T> Gather(int rootProc,
                                       Operators::MemoryRegion<T> &val);
 #endif
 
     template <class T> T Scatter(int rootProc, T &pData);
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
     Operators::MemoryRegion<T> Scatter(int rootProc,
                                        Operators::MemoryRegion<T> &pData);
@@ -224,7 +224,7 @@ public:
 
     template <class T>
     void DistGraphCreateAdjacent(T &sources, T &sourceweights, int reorder);
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
     void DistGraphCreateAdjacent(Operators::MemoryRegion<T> &sources,
                                  Operators::MemoryRegion<T> &sourceweights,
@@ -235,7 +235,7 @@ public:
     void NeighborAlltoAllv(T1 &pSendData, T2 &pSendDataSizeMap,
                            T2 &pSendDataOffsetMap, T1 &pRecvData,
                            T2 &pRecvDataSizeMap, T2 &pRecvDataOffsetMap);
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
     void NeighborAlltoAllv(Operators::MemoryRegion<T> &pSendData,
                            Operators::MemoryRegion<int> &pSendDataSizeMap,
@@ -455,7 +455,7 @@ template <class T> void Comm::Send(int pProc, T &pData)
            CommDataTypeTraits<T>::GetDataType(), pProc);
 }
 
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
 /**
  *
  */
@@ -490,7 +490,7 @@ template <class T> void Comm::Recv(int pProc, T &pData)
            CommDataTypeTraits<T>::GetDataType(), pProc);
 }
 
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
 /**
  *
  */
@@ -528,7 +528,7 @@ void Comm::SendRecv(int pSendProc, T &pSendData, int pRecvProc, T &pRecvData)
                CommDataTypeTraits<T>::GetDataType(), pRecvProc);
 }
 
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
 /**
  *
  */
@@ -594,7 +594,7 @@ void Comm::AllReduceEnd([[maybe_unused]] T &pData, CommRequestSharedPtr request)
     v_AllReduceEnd(request);
 }
 
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
 /**
  *
  */
@@ -680,7 +680,7 @@ template <class T> void Comm::AlltoAll(T &pSendData, T &pRecvData)
                CommDataTypeTraits<T>::GetDataType());
 }
 
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
 /**
  *
  */
@@ -746,7 +746,7 @@ void Comm::AlltoAllv(T1 &pSendData, T2 &pSendDataSizeMap,
                 CommDataTypeTraits<T1>::GetDataType());
 }
 
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
 /**
  *
  */
@@ -816,7 +816,7 @@ template <class T> void Comm::AllGather(T &pSendData, T &pRecvData)
                 CommDataTypeTraits<T>::GetDataType());
 }
 
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
 /**
  *
  */
@@ -874,7 +874,7 @@ void Comm::AllGatherv(T &pSendData, T &pRecvData,
                  CommDataTypeTraits<T>::GetDataType());
 }
 
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
 /**
  *
  */
@@ -934,7 +934,7 @@ void Comm::AllGatherv(T &pRecvData, Array<OneD, int> &pRecvDataSizeMap,
                  CommDataTypeTraits<T>::GetDataType());
 }
 
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
 /**
  *
  */
@@ -981,7 +981,7 @@ template <class T> void Comm::Bcast(T &pData, int pRoot)
             CommDataTypeTraits<T>::GetDataType(), pRoot);
 }
 
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
 /**
  *
  */
@@ -1040,7 +1040,7 @@ template <class T> T Comm::Gather(const int rootProc, T &val)
     return ans;
 }
 
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
 /**
  * Concatenate all the input arrays, in rank order, onto the process with rank
  * == rootProc
@@ -1112,7 +1112,7 @@ template <class T> T Comm::Scatter(const int rootProc, T &pData)
     return ans;
 }
 
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
 /**
  * Scatter pData across ranks in chunks of len(pData)/num_ranks
  */
@@ -1189,7 +1189,7 @@ void Comm::DistGraphCreateAdjacent(T &sources, T &sourceweights, int reorder)
         (const int *)CommDataTypeTraits<T>::GetPointer(sourceweights), reorder);
 }
 
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
 template <class MemSpace, class T>
 void Comm::DistGraphCreateAdjacent(Operators::MemoryRegion<T> &sources,
                                    Operators::MemoryRegion<T> &sourceweights,
@@ -1261,7 +1261,7 @@ void Comm::NeighborAlltoAllv(T1 &pSendData, T2 &pSendDataSizeMap,
         CommDataTypeTraits<T1>::GetDataType());
 }
 
-#if defined(NEKTAR_BUILD_REDESIGN)
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
 template <class MemSpace, class T>
 void Comm::NeighborAlltoAllv(Operators::MemoryRegion<T> &pSendData,
                              Operators::MemoryRegion<int> &pSendDataSizeMap,

@@ -20,6 +20,6 @@ ADD_TEST(NAME UnitTests COMMAND UnitTests --detect_memory_leaks=0)
 
 SUBDIRS(LibUtilities StdRegions LocalRegions Collections MultiRegions SpatialDomains NekMesh)
 
-if (NEKTAR_BUILD_REDESIGN)
+if (NEKTAR_ENABLE_DEVICE_SUPPORT)
     SUBDIRS(Operators)
 endif()

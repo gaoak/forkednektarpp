@@ -141,7 +141,8 @@ void UnsteadySystem::v_SetInitialConditions(double initialTime)
     else if (vType == LibUtilities::eFunctionTypeFile)
     {
         // Field files store modal coefficients. Load coefficient space first
-        // and reconstruct physical values with the redesign BwdTrans operator.
+        // and reconstruct physical values with the device support BwdTrans
+        // operator.
         initialConditions.EvaluateFld(m_variables, m_fields_coeff, m_time);
         m_bwdTransOp->Apply(m_fields_coeff, m_fields);
     }

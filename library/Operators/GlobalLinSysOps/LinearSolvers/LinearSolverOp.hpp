@@ -70,7 +70,7 @@ public:
             method0 = session->GetSolverInfo("LinSysIterSolver");
         }
 
-        // TODO fix name of Conjugate Gradient solver for legacy/redesign
+        // TODO fix name of Conjugate Gradient solver for legacy/device support
         // Rename from legacy specification
         if (method0 == "ConjugateGradientLoc" || method0 == "ConjugateGradient")
         {

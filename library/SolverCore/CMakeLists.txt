@@ -38,7 +38,7 @@ function(add_component_sources HEADER_VAR SOURCE_VAR DIR)
 endfunction()
 
 
-IF(NEKTAR_BUILD_REDESIGN)
+IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
     # Set empty sources and top-level headers
     set(SOLVER_CORE_SOURCES)
     set(SOLVER_CORE_HEADERS
@@ -64,5 +64,5 @@ IF(NEKTAR_BUILD_REDESIGN)
         HEADERS ${SOLVER_CORE_HEADERS}
         DEPENDS MultiRegions Operators
         SUMMARY "Nektar++ SolverCore library"
-        DESCRIPTION "Minimal standalone solver core for redesign solvers.")
-ENDIF(NEKTAR_BUILD_REDESIGN)
+        DESCRIPTION "Minimal standalone solver core for device support solvers.")
+ENDIF(NEKTAR_ENABLE_DEVICE_SUPPORT)
