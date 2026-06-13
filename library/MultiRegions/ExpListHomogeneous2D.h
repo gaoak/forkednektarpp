@@ -181,6 +181,8 @@ protected:
         std::vector<LibUtilities::FieldDefinitionsSharedPtr> &fielddef)
         override;
 
+    using ExpList::v_AppendFieldData;
+
     void v_AppendFieldData(LibUtilities::FieldDefinitionsSharedPtr &fielddef,
                            std::vector<NekDouble> &fielddata) override;
 
