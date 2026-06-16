@@ -92,7 +92,7 @@ void GetExpectedResults(const std::string &opName,
     {
         expList->IProductWRTBase(inArr, outArr);
     }
-    else if (opName == "IProductWRTDerivBase")
+    else if (opName == "IProductWRTDerivBaseCoeff")
     {
         Array<OneD, Array<OneD, double>> inArrays(nIn);
         for (unsigned int d = 0; d < nIn; d++)
