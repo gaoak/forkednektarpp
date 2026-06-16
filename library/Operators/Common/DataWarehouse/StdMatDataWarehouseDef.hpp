@@ -159,8 +159,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
     {
         case eBwdTransStdMat:
         {
-            Array<OneD, NekDouble> tmp(nmTot), t;
-            Array<OneD, NekDouble> mat(nmTot * nqTot);
+            Array<OneD, double> tmp(nmTot), t;
+            Array<OneD, double> mat(nmTot * nqTot);
             for (unsigned int i = 0; i < nmTot; ++i)
             {
                 Vmath::Zero(nmTot, tmp, 1);
@@ -173,8 +173,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
         break;
         case eBwdTransStdMatTranspose:
         {
-            Array<OneD, NekDouble> tmp(nmTot), t(nqTot);
-            Array<OneD, NekDouble> mat(nmTot * nqTot);
+            Array<OneD, double> tmp(nmTot), t(nqTot);
+            Array<OneD, double> mat(nmTot * nqTot);
             for (unsigned int i = 0; i < nmTot; ++i)
             {
                 Vmath::Zero(nmTot, tmp, 1);
@@ -189,8 +189,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
         break;
         case ePhysDerivStdMat:
         {
-            Array<OneD, NekDouble> tmp(nqTot), t;
-            Array<OneD, NekDouble> mat(dimension * nqTot * nqTot);
+            Array<OneD, double> tmp(nqTot), t;
+            Array<OneD, double> mat(dimension * nqTot * nqTot);
             for (unsigned int d = 0; d < dimension; ++d)
             {
                 for (unsigned int i = 0; i < nqTot; ++i)
@@ -207,8 +207,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
         break;
         case ePhysDerivStdMatTranspose:
         {
-            Array<OneD, NekDouble> tmp(nqTot), t(nqTot);
-            Array<OneD, NekDouble> mat(dimension * nqTot * nqTot);
+            Array<OneD, double> tmp(nqTot), t(nqTot);
+            Array<OneD, double> mat(dimension * nqTot * nqTot);
             for (unsigned int d = 0; d < dimension; ++d)
             {
                 for (unsigned int i = 0; i < nqTot; ++i)
@@ -227,9 +227,9 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
         break;
         case eDerivStdMat:
         {
-            Array<OneD, NekDouble> tmp0(nmTot), t;
-            Array<OneD, NekDouble> tmp1(nqTot);
-            Array<OneD, NekDouble> mat(dimension * nqTot * nmTot);
+            Array<OneD, double> tmp0(nmTot), t;
+            Array<OneD, double> tmp1(nqTot);
+            Array<OneD, double> mat(dimension * nqTot * nmTot);
             for (unsigned int d = 0; d < dimension; ++d)
             {
                 for (unsigned int i = 0; i < nmTot; ++i)
@@ -247,9 +247,9 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
         break;
         case eDerivStdMatTranspose:
         {
-            Array<OneD, NekDouble> tmp0(nmTot), t(nqTot);
-            Array<OneD, NekDouble> tmp1(nqTot);
-            Array<OneD, NekDouble> mat(dimension * nqTot * nmTot);
+            Array<OneD, double> tmp0(nmTot), t(nqTot);
+            Array<OneD, double> tmp1(nqTot);
+            Array<OneD, double> mat(dimension * nqTot * nmTot);
             for (unsigned int d = 0; d < dimension; ++d)
             {
                 for (unsigned int i = 0; i < nmTot; ++i)
@@ -269,8 +269,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
         break;
         case eIProductWRTBaseStdMat:
         {
-            Array<OneD, NekDouble> tmp(nqTot), t;
-            Array<OneD, NekDouble> mat(nmTot * nqTot);
+            Array<OneD, double> tmp(nqTot), t;
+            Array<OneD, double> mat(nmTot * nqTot);
             for (unsigned int i = 0; i < nqTot; ++i)
             {
                 Vmath::Zero(nqTot, tmp, 1);
@@ -283,8 +283,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
         break;
         case eIProductWRTBaseStdMatTranspose:
         {
-            Array<OneD, NekDouble> tmp(nqTot), t(nmTot);
-            Array<OneD, NekDouble> mat(nmTot * nqTot);
+            Array<OneD, double> tmp(nqTot), t(nmTot);
+            Array<OneD, double> mat(nmTot * nqTot);
             for (unsigned int i = 0; i < nqTot; ++i)
             {
                 Vmath::Zero(nqTot, tmp, 1);
@@ -299,8 +299,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
         break;
         case eIProductWRTDerivBaseStdMat:
         {
-            Array<OneD, NekDouble> tmp(nqTot), t;
-            Array<OneD, NekDouble> mat(dimension * nmTot * nqTot);
+            Array<OneD, double> tmp(nqTot), t;
+            Array<OneD, double> mat(dimension * nmTot * nqTot);
             for (unsigned int d = 0; d < dimension; ++d)
             {
                 for (unsigned int i = 0; i < nqTot; ++i)
@@ -317,8 +317,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
         break;
         case eIProductWRTDerivBaseStdMatTranspose:
         {
-            Array<OneD, NekDouble> tmp(nqTot), t(nmTot);
-            Array<OneD, NekDouble> mat(dimension * nmTot * nqTot);
+            Array<OneD, double> tmp(nqTot), t(nmTot);
+            Array<OneD, double> mat(dimension * nmTot * nqTot);
             for (unsigned int d = 0; d < dimension; ++d)
             {
                 for (unsigned int i = 0; i < nqTot; ++i)
@@ -340,8 +340,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
             const auto nmTot = stdExp->GetTotPoints();
             const auto nqTot =
                 std::accumulate(nq.begin(), nq.end(), 1, std::multiplies());
-            Array<OneD, NekDouble> tmp(nmTot), t;
-            Array<OneD, NekDouble> mat(nmTot * nqTot);
+            Array<OneD, double> tmp(nmTot), t;
+            Array<OneD, double> mat(nmTot * nqTot);
             for (unsigned int i = 0; i < nmTot; ++i)
             {
                 Vmath::Zero(nmTot, tmp, 1);
@@ -409,8 +409,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
             const auto nmTot = stdExp->GetTotPoints();
             const auto nqTot =
                 std::accumulate(nq.begin(), nq.end(), 1, std::multiplies());
-            Array<OneD, NekDouble> tmp(nmTot), t(nqTot);
-            Array<OneD, NekDouble> mat(nmTot * nqTot);
+            Array<OneD, double> tmp(nmTot), t(nqTot);
+            Array<OneD, double> mat(nmTot * nqTot);
             for (unsigned int i = 0; i < nmTot; ++i)
             {
                 Vmath::Zero(nmTot, tmp, 1);
@@ -481,8 +481,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
         {
             Nektar::StdRegions::StdMatrixKey mkey(
                 StdRegions::eMass, stdExp->DetShapeType(), *stdExp);
-            Array<OneD, NekDouble> tmp(nmTot), t;
-            Array<OneD, NekDouble> mat(nmTot * nmTot);
+            Array<OneD, double> tmp(nmTot), t;
+            Array<OneD, double> mat(nmTot * nmTot);
             for (unsigned int i = 0; i < nmTot; ++i)
             {
                 Vmath::Zero(nmTot, tmp, 1);
@@ -497,8 +497,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
         {
             Nektar::StdRegions::StdMatrixKey mkey(
                 StdRegions::eMass, stdExp->DetShapeType(), *stdExp);
-            Array<OneD, NekDouble> tmp(nmTot), t(nmTot);
-            Array<OneD, NekDouble> mat(nmTot * nmTot);
+            Array<OneD, double> tmp(nmTot), t(nmTot);
+            Array<OneD, double> mat(nmTot * nmTot);
             for (unsigned int i = 0; i < nmTot; ++i)
             {
                 Vmath::Zero(nmTot, tmp, 1);
@@ -516,7 +516,7 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
             Nektar::StdRegions::StdMatrixKey mkey(
                 StdRegions::eInvMass, stdExp->DetShapeType(), *stdExp);
             const auto &InvMass = stdExp->GetStdMatrix(mkey);
-            Array<OneD, NekDouble> mat(nmTot * nmTot);
+            Array<OneD, double> mat(nmTot * nmTot);
             std::copy_n(InvMass->GetRawPtr(), nmTot * nmTot, mat.data());
 
             return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
@@ -527,7 +527,7 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
             Nektar::StdRegions::StdMatrixKey mkey(
                 StdRegions::eInvMass, stdExp->DetShapeType(), *stdExp);
             const auto &InvMass = stdExp->GetStdMatrix(mkey);
-            Array<OneD, NekDouble> mat(nmTot * nmTot);
+            Array<OneD, double> mat(nmTot * nmTot);
 
             // copy to mat with stride nmTot
             for (unsigned int i = 0; i < nmTot; ++i)
@@ -612,7 +612,7 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
                 StdRegions::eMass, stdExp->DetShapeType(), *stdExp);
             const auto &InvMassInterior =
                 stdExp->GetStdStaticCondMatrix(mkey)->GetBlock(1, 1);
-            Array<OneD, NekDouble> mat(InvMassInterior->GetStorageSize());
+            Array<OneD, double> mat(InvMassInterior->GetStorageSize());
             std::copy_n(InvMassInterior->GetRawPtr(),
                         nInteriorDofs * nInteriorDofs, mat.data());
 
@@ -628,7 +628,7 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
             const auto &InvMassInterior =
                 stdExp->GetStdStaticCondMatrix(mkey)->GetBlock(1, 1);
             InvMassInterior->Transpose();
-            Array<OneD, NekDouble> mat(InvMassInterior->GetStorageSize());
+            Array<OneD, double> mat(InvMassInterior->GetStorageSize());
             std::copy_n(InvMassInterior->GetRawPtr(),
                         nInteriorDofs * nInteriorDofs, mat.data());
 

@@ -163,7 +163,7 @@ MemoryRegion<TData> GeometricDataCreator::Create(
     // Deformed geometry.
     if (isDeformed)
     {
-        Array<OneD, Array<OneD, NekDouble>> jacArray(interleave_width);
+        Array<OneD, Array<OneD, double>> jacArray(interleave_width);
 
         // Loop over chunks.
         for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
@@ -181,7 +181,7 @@ MemoryRegion<TData> GeometricDataCreator::Create(
                 else
                 {
                     jacArray[i] =
-                        Array<OneD, NekDouble>(expPtr->GetTotPoints(), 0.0);
+                        Array<OneD, double>(expPtr->GetTotPoints(), 0.0);
                 }
             }
 
@@ -634,7 +634,7 @@ MemoryRegion<TData> GeometricDataCreator::Create(
     // Deformed geometry.
     if (isDeformed)
     {
-        Array<OneD, Array<OneD, NekDouble>> jacArray(interleave_width);
+        Array<OneD, Array<OneD, double>> jacArray(interleave_width);
 
         // Loop over chunks.
         for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
@@ -657,7 +657,7 @@ MemoryRegion<TData> GeometricDataCreator::Create(
                     }
                     else
                     {
-                        jacArray[i] = Array<OneD, NekDouble>(
+                        jacArray[i] = Array<OneD, double>(
                             expPtr->GetTraceExp(ed)->GetTotPoints(), 0.0);
                     }
                 }

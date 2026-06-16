@@ -712,12 +712,12 @@ protected:
             this->m_expansionList);
 
         // Copy the data from the input field.
-        auto inoutarr = inout.template ToArray<NekDouble>();
+        auto inoutarr = inout.template ToArray<double>();
 
         contfield->GetLocalToGlobalMap()->UniversalAbsMaxBnd(inoutarr);
 
         // Copy the data to the output field.
-        inout.template CopyArray<MemSpace, NekDouble>(inoutarr);
+        inout.template CopyArray<MemSpace, double>(inoutarr);
 
         for (unsigned nc = 0; nc < inout.GetNumComponents(); ++nc)
         {

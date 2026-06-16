@@ -1222,7 +1222,7 @@ MemoryRegion<TData> TraceEssentialCreator::Create(
         }
     }
 
-    Array<OneD, Array<OneD, NekDouble>> interpEndPtI0Array(numTypes);
+    Array<OneD, Array<OneD, double>> interpEndPtI0Array(numTypes);
     auto interpTrace = MemoryRegion<TData>(memsize);
     auto interpTraceptr =
         interpTrace.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
@@ -1319,7 +1319,7 @@ MemoryRegion<TData> TraceEssentialCreator::Create(
         }
     }
 
-    Array<OneD, Array<OneD, NekDouble>> interpEndPtI1Array(numTypes);
+    Array<OneD, Array<OneD, double>> interpEndPtI1Array(numTypes);
     auto interpTrace = MemoryRegion<TData>(memsize);
     auto interpTraceptr =
         interpTrace.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
@@ -1401,8 +1401,8 @@ MemoryRegion<TData> TraceEssentialCreator::Create(
 
     const auto nq  = fromKey.GetNumPoints();
     const auto nqe = toKey.GetNumPoints();
-    Array<OneD, NekDouble> tmp(nq), t;
-    Array<OneD, NekDouble> mat(nqe * nq);
+    Array<OneD, double> tmp(nq), t;
+    Array<OneD, double> mat(nqe * nq);
     for (unsigned int i = 0; i < nq; ++i)
     {
         Vmath::Zero(nq, tmp, 1);
@@ -1424,8 +1424,8 @@ MemoryRegion<TData> TraceEssentialCreator::Create(
 
     const auto nqe     = fromKey0.GetNumPoints() * fromKey1.GetNumPoints();
     const auto nq_face = toKey0.GetNumPoints() * toKey1.GetNumPoints();
-    Array<OneD, NekDouble> tmp(nqe), t;
-    Array<OneD, NekDouble> mat(nq_face * nqe);
+    Array<OneD, double> tmp(nqe), t;
+    Array<OneD, double> mat(nq_face * nqe);
     for (unsigned int i = 0; i < nqe; ++i)
     {
         Vmath::Zero(nqe, tmp, 1);
