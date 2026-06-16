@@ -63,7 +63,7 @@ template <typename T> std::string SummaryValueToString(const T &value)
     {
         return std::string(value);
     }
-    else if constexpr (std::is_same_v<ValueType, NekDouble>)
+    else if constexpr (std::is_same_v<ValueType, double>)
     {
         std::ostringstream valueStream;
         valueStream << std::setprecision(8) << value;

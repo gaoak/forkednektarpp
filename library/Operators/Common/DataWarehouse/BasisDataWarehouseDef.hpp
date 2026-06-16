@@ -70,7 +70,7 @@ MemoryRegion<TData> BasisDataCreator::Create(
         case eWeights:
         {
             auto ndata = basis->GetW().size();
-            Array<OneD, NekDouble> wTmp(ndata);
+            Array<OneD, double> wTmp(ndata);
 
             switch (basis->GetBasisType())
             {
@@ -188,7 +188,7 @@ MemoryRegion<TData> BasisDataCreator::Create(
 
             // Transpose interpolation matrix
             const auto npFrom = basis->GetPointsKey().GetNumPoints();
-            Array<OneD, NekDouble> tmpI(npFrom * npTo);
+            Array<OneD, double> tmpI(npFrom * npTo);
             for (int i = 0; i < npFrom; ++i)
             {
                 for (int j = 0; j < npTo; ++j)
@@ -203,7 +203,7 @@ MemoryRegion<TData> BasisDataCreator::Create(
         case eHalfMultOnePlusZero:
         {
             const auto z = basis->GetZ();
-            Array<OneD, NekDouble> Tmp(z.size());
+            Array<OneD, double> Tmp(z.size());
 
             for (unsigned int i = 0; i < z.size(); ++i)
             {
@@ -217,7 +217,7 @@ MemoryRegion<TData> BasisDataCreator::Create(
         {
             const auto z = basis->GetZ();
             auto n       = z.size();
-            Array<OneD, NekDouble> Tmp(n);
+            Array<OneD, double> Tmp(n);
 
             for (unsigned int i = 0; i < n; ++i)
             {

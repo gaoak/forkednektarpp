@@ -82,7 +82,7 @@ NEK_DEVICE_INLINE TData GetSoundSpeed(const TData &rho, const TData &e)
 
     // Ideal gas law: P = (gamma - 1) * rho * e
     const TData gamma = 1.4; // Specific heat ratio for air
-    NekDouble p       = GetPressure(rho, e);
+    TData p           = GetPressure(rho, e);
     return std::sqrt(gamma * p / rho);
 }
 
