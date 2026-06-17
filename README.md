@@ -62,18 +62,18 @@ Redesign
 A minimalist compilation command example is shown below for each available backend:
 
 ### Serial
-    cmake .. -DNEKTAR_BUILD_REDESIGN=ON 
+    cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON 
 
 ### AVX2 
-    cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
+    cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
              -DNEKTAR_ENABLE_SIMD=AVX2 
 
 ### AVX512 
-    cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
+    cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
              -DNEKTAR_ENABLE_SIMD=AVX512 
 
 ### SVE 
-    cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
+    cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
              -DNEKTAR_ENABLE_SIMD=SVE \
              -DNEKTAR_SVE_BITS=xxx
 
@@ -81,7 +81,7 @@ Notes:
  - xxx can be 128, 256, 512, 1024, or 2048 depending of the architecture
 
 ### SVE2 
-    cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
+    cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
              -DNEKTAR_ENABLE_SIMD=SVE2 \
              -DNEKTAR_SVE_BITS=xxx
 
@@ -89,7 +89,7 @@ Notes:
  - xxx can be 128, 256, 512, 1024, or 2048 depending of the architecture
 
 ### CUDA
-    cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
+    cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
              -DNEKTAR_ENABLE_DEVICE=CUDA \
              -DNEKTAR_DEVICE_ARCH=sm_xx \ 
 
@@ -103,7 +103,7 @@ The `sm_xx` value can also be queried using the following command:
 `nvidia-smi --query-gpu=compute_cap --format=csv`
 
 ### HIP
-    cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
+    cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
              -DNEKTAR_ENABLE_DEVICE=HIP \
              -DCMAKE_CXX_COMPILER=hipcc \
              -DNEKTAR_DEVICE_ARCH=gfxzzz \
@@ -119,7 +119,7 @@ The `gfxzzz` value can also be queried using the following command:
 `rocm-smi --showproductname | grep gfx`
 
 ### Intel SYCL (CUDA)
-    cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
+    cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
              -DNEKTAR_ENABLE_DEVICE=SYCL-CUDA \
              -DNEKTAR_DEVICE_ARCH=sm_xx \ 
              -DCMAKE_CXX_COMPILER="/path-to-intel-compiler/bin/icpx" 
@@ -131,7 +131,7 @@ Note:
 - For V100, please use `sm_xx=sm_70` 
 
 ### AdaptiveCpp SYCL (CUDA)
-    cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
+    cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
              -DNEKTAR_ENABLE_DEVICE=SYCL-CUDA \
              -DCMAKE_CXX_COMPILER="/path-to-adaptivecpp-compiler/bin/acpp" 
  
