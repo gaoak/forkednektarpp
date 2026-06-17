@@ -102,7 +102,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
           bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProduct1DKernel(
     const unsigned int nm0, const unsigned int nq0, const simd_type *in,
-    const simd_type *B0, const simd_type *w0, const simd_type *jac,
+    const typename simd_type::scalarType *B0,
+    const typename simd_type::scalarType *w0, const simd_type *jac,
     simd_type *out, typename simd_type::scalarType scale = 1.0)
 {
     IProductSegKernel<SCALE, APPEND, DEFORMED>(nm0, nq0, in, B0, w0, jac, out,
@@ -114,7 +115,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
           bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProduct1DKernel(
     const unsigned int nm0, const unsigned int nq0, const simd_type *in,
-    const simd_type *B0, simd_type *out,
+    const typename simd_type::scalarType *B0, simd_type *out,
     typename simd_type::scalarType scale = 1.0)
 {
     IProductSegKernel<SCALE, APPEND>(nm0, nq0, in, B0, out, scale);
@@ -125,8 +126,10 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
 NEK_FORCE_INLINE static void IProduct2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, [[maybe_unused]] const bool isModified,
-    const simd_type *in, const simd_type *B0, const simd_type *B1,
-    const simd_type *w0, const simd_type *w1,
+    const simd_type *in, const typename simd_type::scalarType *B0,
+    const typename simd_type::scalarType *B1,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1,
     [[maybe_unused]] const simd_type *NtoMTrans, const simd_type *jac,
     simd_type *wsp0, simd_type *out, typename simd_type::scalarType scale = 1.0)
 {
@@ -159,7 +162,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
 NEK_FORCE_INLINE static void IProduct2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, [[maybe_unused]] const bool isModified,
-    const simd_type *in, const simd_type *B0, const simd_type *B1,
+    const simd_type *in, const typename simd_type::scalarType *B0,
+    const typename simd_type::scalarType *B1,
     [[maybe_unused]] const simd_type *NtoMTrans, simd_type *wsp0,
     simd_type *out, typename simd_type::scalarType scale = 1.0)
 
@@ -191,8 +195,12 @@ NEK_FORCE_INLINE static void IProduct3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     [[maybe_unused]] const bool isModified, const simd_type *in,
-    const simd_type *B0, const simd_type *B1, const simd_type *B2,
-    const simd_type *w0, const simd_type *w1, const simd_type *w2,
+    const typename simd_type::scalarType *B0,
+    const typename simd_type::scalarType *B1,
+    const typename simd_type::scalarType *B2,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1,
+    const typename simd_type::scalarType *w2,
     [[maybe_unused]] const simd_type *NtoMTrans, const simd_type *jac,
     simd_type *wsp0, simd_type *wsp1, [[maybe_unused]] simd_type *wsp2,
     simd_type *out, typename simd_type::scalarType scale = 1.0)
@@ -251,7 +259,9 @@ NEK_FORCE_INLINE static void IProduct3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     [[maybe_unused]] const bool isModified, const simd_type *in,
-    const simd_type *B0, const simd_type *B1, const simd_type *B2,
+    const typename simd_type::scalarType *B0,
+    const typename simd_type::scalarType *B1,
+    const typename simd_type::scalarType *B2,
     [[maybe_unused]] const simd_type *NtoMTrans, simd_type *wsp0,
     simd_type *wsp1, [[maybe_unused]] simd_type *wsp2, simd_type *out,
     typename simd_type::scalarType scale = 1.0)

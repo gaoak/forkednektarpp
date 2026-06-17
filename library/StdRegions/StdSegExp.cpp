@@ -156,7 +156,7 @@ void StdSegExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
         // Default case
 #undef BWDTRANS_DEF
 #define BWDTRANS_DEF                                                           \
-    BwdTransSegKernel<false>(nmodes0, nquad0, (const vec_t *)base0.data(),     \
+    BwdTransSegKernel<false>(nmodes0, nquad0, base0.data(),                    \
                              (const vec_t *)inarray.data(),                    \
                              (vec_t *)outarray.data())
 
@@ -164,7 +164,7 @@ void StdSegExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
 #undef BWDTRANS_Q
 #define BWDTRANS_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        BwdTransSegKernel<false>(NM(i), NQ(i), (const vec_t *)base0.data(),    \
+        BwdTransSegKernel<false>(NM(i), NQ(i), base0.data(),                   \
                                  (const vec_t *)inarray.data(),                \
                                  (vec_t *)outarray.data());                    \
         break;
@@ -343,18 +343,18 @@ void StdSegExp::v_IProductWRTBaseKernel(
 #undef IPRODUCTWRTBASE_DEF
 #define IPRODUCTWRTBASE_DEF                                                    \
     IProductSegKernel<false, false, true>(                                     \
-        order0, nquad0, (const vec_t *)inarray.data(),                         \
-        (const vec_t *)base0.data(), (const vec_t *)m_weights[0].data(),       \
-        (const vec_t *)jac.data(), (vec_t *)outarray.data())
+        order0, nquad0, (const vec_t *)inarray.data(), base0.data(),           \
+        m_weights[0].data(), (const vec_t *)jac.data(),                        \
+        (vec_t *)outarray.data())
 
         // Inner loop case over quarature points
 #undef IPRODUCTWRTBASE_Q
 #define IPRODUCTWRTBASE_Q(r, i)                                                \
     case NQ(i):                                                                \
         IProductSegKernel<false, false, true>(                                 \
-            NM(i), NQ(i), (const vec_t *)inarray.data(),                       \
-            (const vec_t *)base0.data(), (const vec_t *)m_weights[0].data(),   \
-            (const vec_t *)jac.data(), (vec_t *)outarray.data());              \
+            NM(i), NQ(i), (const vec_t *)inarray.data(), base0.data(),         \
+            m_weights[0].data(), (const vec_t *)jac.data(),                    \
+            (vec_t *)outarray.data());                                         \
         break;
 
         // outer loop case over modes
@@ -389,18 +389,18 @@ void StdSegExp::v_IProductWRTBaseKernel(
 #undef IPRODUCTWRTBASE_DEF
 #define IPRODUCTWRTBASE_DEF                                                    \
     IProductSegKernel<false, false, false>(                                    \
-        order0, nquad0, (const vec_t *)inarray.data(),                         \
-        (const vec_t *)base0.data(), (const vec_t *)m_weights[0].data(),       \
-        (const vec_t *)jac.data(), (vec_t *)outarray.data())
+        order0, nquad0, (const vec_t *)inarray.data(), base0.data(),           \
+        m_weights[0].data(), (const vec_t *)jac.data(),                        \
+        (vec_t *)outarray.data())
 
         // Inner loop case over quarature points
 #undef IPRODUCTWRTBASE_Q
 #define IPRODUCTWRTBASE_Q(r, i)                                                \
     case NQ(i):                                                                \
         IProductSegKernel<false, false, false>(                                \
-            NM(i), NQ(i), (const vec_t *)inarray.data(),                       \
-            (const vec_t *)base0.data(), (const vec_t *)m_weights[0].data(),   \
-            (const vec_t *)jac.data(), (vec_t *)outarray.data());              \
+            NM(i), NQ(i), (const vec_t *)inarray.data(), base0.data(),         \
+            m_weights[0].data(), (const vec_t *)jac.data(),                    \
+            (vec_t *)outarray.data());                                         \
         break;
 
         // outer loop case over modes

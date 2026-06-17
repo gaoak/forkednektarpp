@@ -151,9 +151,8 @@ void StdHexExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
 #undef BWDTRANS_DEF
 #define BWDTRANS_DEF                                                           \
     BwdTransHexKernel<false>(                                                  \
-        nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,                     \
-        (const vec_t *)base0.data(), (const vec_t *)base1.data(),              \
-        (const vec_t *)base2.data(), wsp0.data(), wsp1.data(),                 \
+        nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2, base0.data(),       \
+        base1.data(), base2.data(), wsp0.data(), wsp1.data(),                  \
         (const vec_t *)inarray.data(), (vec_t *)outarray.data())
 
         // Inner loop case over quarature points
@@ -161,9 +160,8 @@ void StdHexExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
 #define BWDTRANS_Q(r, i)                                                       \
     case NQ(i):                                                                \
         BwdTransHexKernel<false>(                                              \
-            NM(i), NM(i), NM(i), NQ(i), NQ(i), NQ(i),                          \
-            (const vec_t *)base0.data(), (const vec_t *)base1.data(),          \
-            (const vec_t *)base2.data(), wsp0.data(), wsp1.data(),             \
+            NM(i), NM(i), NM(i), NQ(i), NQ(i), NQ(i), base0.data(),            \
+            base1.data(), base2.data(), wsp0.data(), wsp1.data(),              \
             (const vec_t *)inarray.data(), (vec_t *)outarray.data());          \
         break;
 
@@ -263,13 +261,11 @@ void StdHexExp::v_IProductWRTBaseKernel(
 #define IPRODUCTWRTBASE_DEF                                                    \
     IProductHexKernel<false, false, true>(                                     \
         order0, order1, order2, nquad0, nquad1, nquad2,                        \
-        (const vec_t *)inarray.data(), (const vec_t *)base0.data(),            \
-        (const vec_t *)base1.data(), (const vec_t *)base2.data(),              \
-        (const vec_t *)m_weights[0].data(),                                    \
-        (const vec_t *)m_weights[1].data(),                                    \
-        (const vec_t *)m_weights[2].data(), (const vec_t *)jac.data(),         \
-        (vec_t *)wsp0.data(), (vec_t *)wsp1.data(), (vec_t *)outarray.data(),  \
-        1.0, CollDir0, CollDir1, CollDir2)
+        (const vec_t *)inarray.data(), base0.data(), base1.data(),             \
+        base2.data(), m_weights[0].data(), m_weights[1].data(),                \
+        m_weights[2].data(), (const vec_t *)jac.data(), (vec_t *)wsp0.data(),  \
+        (vec_t *)wsp1.data(), (vec_t *)outarray.data(), 1.0, CollDir0,         \
+        CollDir1, CollDir2)
 
         // Inner loop case over quarature points
 #undef IPRODUCTWRTBASE_Q
@@ -277,11 +273,9 @@ void StdHexExp::v_IProductWRTBaseKernel(
     case NQ(i):                                                                \
         IProductHexKernel<false, false, true>(                                 \
             NM(i), NM(i), NM(i), NQ(i), NQ(i), NQ(i),                          \
-            (const vec_t *)inarray.data(), (const vec_t *)base0.data(),        \
-            (const vec_t *)base1.data(), (const vec_t *)base2.data(),          \
-            (const vec_t *)m_weights[0].data(),                                \
-            (const vec_t *)m_weights[1].data(),                                \
-            (const vec_t *)m_weights[2].data(), (const vec_t *)jac.data(),     \
+            (const vec_t *)inarray.data(), base0.data(), base1.data(),         \
+            base2.data(), m_weights[0].data(), m_weights[1].data(),            \
+            m_weights[2].data(), (const vec_t *)jac.data(),                    \
             (vec_t *)wsp0.data(), (vec_t *)wsp1.data(),                        \
             (vec_t *)outarray.data(), 1.0, CollDir0, CollDir1, CollDir2);      \
         break;
@@ -327,13 +321,11 @@ void StdHexExp::v_IProductWRTBaseKernel(
 #define IPRODUCTWRTBASE_DEF                                                    \
     IProductHexKernel<false, false, false>(                                    \
         order0, order1, order2, nquad0, nquad1, nquad2,                        \
-        (const vec_t *)inarray.data(), (const vec_t *)base0.data(),            \
-        (const vec_t *)base1.data(), (const vec_t *)base2.data(),              \
-        (const vec_t *)m_weights[0].data(),                                    \
-        (const vec_t *)m_weights[1].data(),                                    \
-        (const vec_t *)m_weights[2].data(), (const vec_t *)jac.data(),         \
-        (vec_t *)wsp0.data(), (vec_t *)wsp1.data(), (vec_t *)outarray.data(),  \
-        1.0, CollDir0, CollDir1, CollDir2)
+        (const vec_t *)inarray.data(), base0.data(), base1.data(),             \
+        base2.data(), m_weights[0].data(), m_weights[1].data(),                \
+        m_weights[2].data(), (const vec_t *)jac.data(), (vec_t *)wsp0.data(),  \
+        (vec_t *)wsp1.data(), (vec_t *)outarray.data(), 1.0, CollDir0,         \
+        CollDir1, CollDir2)
 
         // Inner loop case over quarature points
 #undef IPRODUCTWRTBASE_Q
@@ -341,11 +333,9 @@ void StdHexExp::v_IProductWRTBaseKernel(
     case NQ(i):                                                                \
         IProductHexKernel<false, false, false>(                                \
             NM(i), NM(i), NM(i), NQ(i), NQ(i), NQ(i),                          \
-            (const vec_t *)inarray.data(), (const vec_t *)base0.data(),        \
-            (const vec_t *)base1.data(), (const vec_t *)base2.data(),          \
-            (const vec_t *)m_weights[0].data(),                                \
-            (const vec_t *)m_weights[1].data(),                                \
-            (const vec_t *)m_weights[2].data(), (const vec_t *)jac.data(),     \
+            (const vec_t *)inarray.data(), base0.data(), base1.data(),         \
+            base2.data(), m_weights[0].data(), m_weights[1].data(),            \
+            m_weights[2].data(), (const vec_t *)jac.data(),                    \
             (vec_t *)wsp0.data(), (vec_t *)wsp1.data(),                        \
             (vec_t *)outarray.data(), 1.0, CollDir0, CollDir1, CollDir2);      \
         break;

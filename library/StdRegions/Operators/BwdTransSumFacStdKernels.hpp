@@ -33,11 +33,10 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 template <bool APPEND, typename simd_type>
-NEK_FORCE_INLINE static void BwdTransSegKernel(const unsigned int nm0,
-                                               const unsigned int nq0,
-                                               const simd_type *basis0,
-                                               const simd_type *in,
-                                               simd_type *out)
+NEK_FORCE_INLINE static void BwdTransSegKernel(
+    const unsigned int nm0, const unsigned int nq0,
+    const typename simd_type::scalarType *basis0, const simd_type *in,
+    simd_type *out)
 {
     for (unsigned int i = 0; i < nq0; ++i)
     {
@@ -62,8 +61,10 @@ NEK_FORCE_INLINE static void BwdTransSegKernel(const unsigned int nm0,
 template <bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void BwdTransTriKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
-    const unsigned int nq1, const bool isModified, const simd_type *basis0,
-    const simd_type *basis1, simd_type *p_sums, const simd_type *in,
+    const unsigned int nq1, const bool isModified,
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1, simd_type *p_sums,
+    const simd_type *in,
     simd_type *out) // wsp : nm0
 {
     for (unsigned int eta1 = 0, eta_idx = 0; eta1 < nq1; ++eta1)
@@ -112,8 +113,10 @@ NEK_FORCE_INLINE static void BwdTransTriKernel(
 template <bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void BwdTransQuadKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
-    const unsigned int nq1, const simd_type *basis0, const simd_type *basis1,
-    simd_type *wsp, const simd_type *in, simd_type *out) // wsp : nq0 * nm1
+    const unsigned int nq1, const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1, simd_type *wsp,
+    const simd_type *in,
+    simd_type *out) // wsp : nq0 * nm1
 {
     for (unsigned int i = 0, cnt_iq = 0; i < nq0; ++i)
     {
@@ -156,7 +159,9 @@ template <bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void BwdTransHexKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const simd_type *basis0, const simd_type *basis1, const simd_type *basis2,
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
+    const typename simd_type::scalarType *basis2,
     simd_type *sum_irq, // nq0 * nm2 * nm1
     simd_type *sum_jir, // nq1 * nq0 * nm2
     const simd_type *in, simd_type *out)
@@ -230,8 +235,9 @@ template <bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void BwdTransTetKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const bool isModified, const simd_type *basis0, const simd_type *basis1,
-    const simd_type *basis2,
+    const bool isModified, const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
+    const typename simd_type::scalarType *basis2,
     simd_type *fpq, // nm0 * nm1
     simd_type *fp,  // nm0
     const simd_type *in, simd_type *out)
@@ -348,8 +354,9 @@ template <bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void BwdTransPrismKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const bool isModified, const simd_type *basis0, const simd_type *basis1,
-    const simd_type *basis2,
+    const bool isModified, const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
+    const typename simd_type::scalarType *basis2,
     simd_type *fpq, // nm0 * nm1
     simd_type *fp,  // nm0
     const simd_type *in, simd_type *out)
@@ -426,8 +433,9 @@ template <bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void BwdTransPyrKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const bool isModified, const simd_type *basis0, const simd_type *basis1,
-    const simd_type *basis2,
+    const bool isModified, const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
+    const typename simd_type::scalarType *basis2,
     simd_type *fpq, // nm0 * nm1
     simd_type *fp,  // nm0
     const simd_type *in, simd_type *out)

@@ -100,7 +100,7 @@ protected:
     unsigned int m_coordDim;
     std::vector<unsigned int> m_nm;
     std::vector<unsigned int> m_nq;
-    std::vector<const simd_t *> m_B;
+    std::vector<const TData *> m_B;
     std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp0;
     std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp1;
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
@@ -223,8 +223,8 @@ protected:
 
             // Fetch basis data.
             m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<simd_t>(this->m_exp->GetBasis(d)->GetBasisKey(),
-                                     eInterp, m_nq[d])));
+                BasisDataKey<TData>(this->m_exp->GetBasis(d)->GetBasisKey(),
+                                    eInterp, m_nq[d])));
         }
 
         // Workspace for kernels - also checks preconditions.

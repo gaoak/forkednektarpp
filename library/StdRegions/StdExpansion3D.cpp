@@ -165,8 +165,7 @@ void StdExpansion3D::PhysTensorDeriv(
 #undef PHYSDERIV_DEF
 #define PHYSDERIV_DEF                                                          \
     PhysDerivTensor3DKernel(nquad0, nquad1, nquad2,                            \
-                            (const vec_t *)intmp.data(), (const vec_t *)D0,    \
-                            (const vec_t *)D1, (const vec_t *)D2,              \
+                            (const vec_t *)intmp.data(), D0, D1, D2,           \
                             (vec_t *)out_d0.data(), (vec_t *)out_d1.data(),    \
                             (vec_t *)out_d2.data(), Deriv0, Deriv1, Deriv2)
 
@@ -175,8 +174,7 @@ void StdExpansion3D::PhysTensorDeriv(
 #define PHYSDERIV_Q(r, i)                                                      \
     case NQ1(i):                                                               \
         PhysDerivTensor3DKernel(                                               \
-            NQ1(i), NQ1(i), NQ1(i), (const vec_t *)intmp.data(),               \
-            (const vec_t *)D0, (const vec_t *)D1, (const vec_t *)D2,           \
+            NQ1(i), NQ1(i), NQ1(i), (const vec_t *)intmp.data(), D0, D1, D2,   \
             (vec_t *)out_d0.data(), (vec_t *)out_d1.data(),                    \
             (vec_t *)out_d2.data(), Deriv0, Deriv1, Deriv2);                   \
         break;

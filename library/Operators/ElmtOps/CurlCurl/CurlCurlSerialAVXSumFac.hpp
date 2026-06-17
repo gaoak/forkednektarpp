@@ -80,8 +80,8 @@ public:
 
             // Fetch basis data.
             m_D.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<simd_t>(exp->GetBasis(d)->GetBasisKey(),
-                                     eDerivative)));
+                BasisDataKey<TData>(exp->GetBasis(d)->GetBasisKey(),
+                                    eDerivative)));
         }
 
         if (dimension == 2)
@@ -167,7 +167,7 @@ protected:
     unsigned int m_coordDim;
     std::vector<unsigned int> m_nm;
     std::vector<unsigned int> m_nq;
-    std::vector<const simd_t *> m_D;
+    std::vector<const TData *> m_D;
     std::vector<const simd_t *> m_f;
     std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp0;
     std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp1;

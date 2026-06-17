@@ -37,10 +37,9 @@
 namespace Nektar::Operators::detail
 {
 template <bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE static simd_type L2Norm1DKernel(const unsigned int nq0,
-                                                 const simd_type *w0,
-                                                 const simd_type *jac,
-                                                 const simd_type *in)
+NEK_FORCE_INLINE static simd_type L2Norm1DKernel(
+    const unsigned int nq0, const typename simd_type::scalarType *w0,
+    const simd_type *jac, const simd_type *in)
 {
     simd_type acc = 0.0;
     for (unsigned int i = 0; i < nq0; ++i)
@@ -58,9 +57,9 @@ NEK_FORCE_INLINE static simd_type L2Norm1DKernel(const unsigned int nq0,
 }
 
 template <bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE static simd_type Volume1DKernel(const unsigned int nq0,
-                                                 const simd_type *w0,
-                                                 const simd_type *jac)
+NEK_FORCE_INLINE static simd_type Volume1DKernel(
+    const unsigned int nq0, const typename simd_type::scalarType *w0,
+    const simd_type *jac)
 {
     simd_type vol = 0.0;
     for (unsigned int i = 0; i < nq0; ++i)
@@ -79,8 +78,10 @@ NEK_FORCE_INLINE static simd_type Volume1DKernel(const unsigned int nq0,
 
 template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static simd_type L2Norm2DKernel(
-    const unsigned int nq0, const unsigned int nq1, const simd_type *w0,
-    const simd_type *w1, const simd_type *jac, const simd_type *in)
+    const unsigned int nq0, const unsigned int nq1,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1, const simd_type *jac,
+    const simd_type *in)
 {
     simd_type acc  = 0.0;
     unsigned int q = 0;
@@ -106,11 +107,10 @@ NEK_FORCE_INLINE static simd_type L2Norm2DKernel(
 }
 
 template <bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE static simd_type Volume2DKernel(const unsigned int nq0,
-                                                 const unsigned int nq1,
-                                                 const simd_type *w0,
-                                                 const simd_type *w1,
-                                                 const simd_type *jac)
+NEK_FORCE_INLINE static simd_type Volume2DKernel(
+    const unsigned int nq0, const unsigned int nq1,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1, const simd_type *jac)
 {
     simd_type vol  = 0.0;
     unsigned int q = 0;
@@ -138,8 +138,10 @@ NEK_FORCE_INLINE static simd_type Volume2DKernel(const unsigned int nq0,
 template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static simd_type L2Norm3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const simd_type *w0, const simd_type *w1, const simd_type *w2,
-    const simd_type *jac, const simd_type *in)
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1,
+    const typename simd_type::scalarType *w2, const simd_type *jac,
+    const simd_type *in)
 {
     simd_type acc  = 0.0;
     unsigned int q = 0;
@@ -171,8 +173,9 @@ NEK_FORCE_INLINE static simd_type L2Norm3DKernel(
 template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static simd_type Volume3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const simd_type *w0, const simd_type *w1, const simd_type *w2,
-    const simd_type *jac)
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1,
+    const typename simd_type::scalarType *w2, const simd_type *jac)
 {
     simd_type vol  = 0.0;
     unsigned int q = 0;

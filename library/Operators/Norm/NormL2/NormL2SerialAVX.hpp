@@ -79,7 +79,7 @@ public:
 
             // Fetch basis data.
             m_W.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<simd_t>(basisKeys[d], eWeights)));
+                BasisDataKey<TData>(basisKeys[d], eWeights)));
         }
 
         // Fetch Jacobian.
@@ -110,7 +110,7 @@ protected:
     unsigned int m_coordim;
     const TData *m_jacptr;
     std::vector<unsigned int> m_nq;
-    std::vector<const simd_t *> m_W;
+    std::vector<const TData *> m_W;
 
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
     // flag to ensure we only get one warning for alignment otherwise CI system

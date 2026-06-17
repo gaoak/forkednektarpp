@@ -385,9 +385,10 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTriKernel(
     const std::vector<typename simd_type::scalarType> &varD02,
     const std::vector<typename simd_type::scalarType> &varD12,
     const std::vector<typename simd_type::scalarType> &varD22,
-    const simd_type *jac_ptr, const simd_type *w0, const simd_type *w1,
-    const simd_type *df_ptr, const simd_type *hfac0, const simd_type *hfac1,
-    simd_type *deriv0, simd_type *deriv1, [[maybe_unused]] simd_type *phys,
+    const simd_type *jac_ptr, const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1, const simd_type *df_ptr,
+    const simd_type *hfac0, const simd_type *hfac1, simd_type *deriv0,
+    simd_type *deriv1, [[maybe_unused]] simd_type *phys,
     [[maybe_unused]] typename simd_type::scalarType lambda = 0.0)
 {
     const auto ndf = 2 * ncoord;
@@ -581,9 +582,9 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJQuadKernel(
     const std::vector<typename simd_type::scalarType> &varD02,
     const std::vector<typename simd_type::scalarType> &varD12,
     const std::vector<typename simd_type::scalarType> &varD22,
-    const simd_type *jac_ptr, const simd_type *w0, const simd_type *w1,
-    const simd_type *df_ptr, simd_type *deriv0, simd_type *deriv1,
-    [[maybe_unused]] simd_type *phys,
+    const simd_type *jac_ptr, const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1, const simd_type *df_ptr,
+    simd_type *deriv0, simd_type *deriv1, [[maybe_unused]] simd_type *phys,
     [[maybe_unused]] typename simd_type::scalarType lambda = 0.0)
 {
     const auto ndf = 2 * ncoord;
@@ -866,9 +867,11 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJHexKernel(
     const std::vector<typename simd_type::scalarType> &varD02,
     const std::vector<typename simd_type::scalarType> &varD12,
     const std::vector<typename simd_type::scalarType> &varD22,
-    const simd_type *jac_ptr, const simd_type *w0, const simd_type *w1,
-    const simd_type *w2, const simd_type *df_ptr, simd_type *deriv0,
-    simd_type *deriv1, simd_type *deriv2, [[maybe_unused]] simd_type *phys,
+    const simd_type *jac_ptr, const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1,
+    const typename simd_type::scalarType *w2, const simd_type *df_ptr,
+    simd_type *deriv0, simd_type *deriv1, simd_type *deriv2,
+    [[maybe_unused]] simd_type *phys,
     [[maybe_unused]] typename simd_type::scalarType lambda = 0.0)
 {
     constexpr auto ndf = 9;
@@ -1216,11 +1219,12 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTetKernel(
     const std::vector<typename simd_type::scalarType> &varD02,
     const std::vector<typename simd_type::scalarType> &varD12,
     const std::vector<typename simd_type::scalarType> &varD22,
-    const simd_type *jac_ptr, const simd_type *w0, const simd_type *w1,
-    const simd_type *w2, const simd_type *df_ptr, const simd_type *hfac0,
-    const simd_type *hfac1, const simd_type *hfac2, const simd_type *hfac3,
-    simd_type *deriv0, simd_type *deriv1, simd_type *deriv2,
-    [[maybe_unused]] simd_type *phys,
+    const simd_type *jac_ptr, const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1,
+    const typename simd_type::scalarType *w2, const simd_type *df_ptr,
+    const simd_type *hfac0, const simd_type *hfac1, const simd_type *hfac2,
+    const simd_type *hfac3, simd_type *deriv0, simd_type *deriv1,
+    simd_type *deriv2, [[maybe_unused]] simd_type *phys,
     [[maybe_unused]] typename simd_type::scalarType lambda = 0.0)
 {
     constexpr auto ndf = 9;
@@ -1449,10 +1453,11 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPrismKernel(
     const std::vector<typename simd_type::scalarType> &varD02,
     const std::vector<typename simd_type::scalarType> &varD12,
     const std::vector<typename simd_type::scalarType> &varD22,
-    const simd_type *jac_ptr, const simd_type *w0, const simd_type *w1,
-    const simd_type *w2, const simd_type *df_ptr, const simd_type *hfac0,
-    const simd_type *hfac3, simd_type *deriv0, simd_type *deriv1,
-    simd_type *deriv2, [[maybe_unused]] simd_type *phys,
+    const simd_type *jac_ptr, const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1,
+    const typename simd_type::scalarType *w2, const simd_type *df_ptr,
+    const simd_type *hfac0, const simd_type *hfac3, simd_type *deriv0,
+    simd_type *deriv1, simd_type *deriv2, [[maybe_unused]] simd_type *phys,
     [[maybe_unused]] typename simd_type::scalarType lambda = 0.0)
 {
     constexpr auto ndf = 9;
@@ -1665,10 +1670,12 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPyrKernel(
     const std::vector<typename simd_type::scalarType> &varD02,
     const std::vector<typename simd_type::scalarType> &varD12,
     const std::vector<typename simd_type::scalarType> &varD22,
-    const simd_type *jac_ptr, const simd_type *w0, const simd_type *w1,
-    const simd_type *w2, const simd_type *df_ptr, const simd_type *hfac0,
-    const simd_type *hfac1, const simd_type *hfac3, simd_type *deriv0,
-    simd_type *deriv1, simd_type *deriv2, [[maybe_unused]] simd_type *phys,
+    const simd_type *jac_ptr, const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1,
+    const typename simd_type::scalarType *w2, const simd_type *df_ptr,
+    const simd_type *hfac0, const simd_type *hfac1, const simd_type *hfac3,
+    simd_type *deriv0, simd_type *deriv1, simd_type *deriv2,
+    [[maybe_unused]] simd_type *phys,
     [[maybe_unused]] typename simd_type::scalarType lambda = 0.0)
 {
     constexpr auto ndf = 9;
@@ -1894,10 +1901,11 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJ2DKernel(
     const std::vector<typename simd_type::scalarType> &varD02,
     const std::vector<typename simd_type::scalarType> &varD12,
     const std::vector<typename simd_type::scalarType> &varD22,
-    const simd_type *jac_ptr, const simd_type *w0, const simd_type *w1,
-    const simd_type *df_ptr, [[maybe_unused]] const simd_type *h0,
-    [[maybe_unused]] const simd_type *h1, simd_type *deriv0, simd_type *deriv1,
-    simd_type *phys = nullptr, typename simd_type::scalarType lambda = 0.0)
+    const simd_type *jac_ptr, const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1, const simd_type *df_ptr,
+    [[maybe_unused]] const simd_type *h0, [[maybe_unused]] const simd_type *h1,
+    simd_type *deriv0, simd_type *deriv1, simd_type *phys = nullptr,
+    typename simd_type::scalarType lambda = 0.0)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
                   SHAPE_TYPE == LibUtilities::eNodalTri)
@@ -1928,8 +1936,9 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJ3DKernel(
     const std::vector<typename simd_type::scalarType> &varD02,
     const std::vector<typename simd_type::scalarType> &varD12,
     const std::vector<typename simd_type::scalarType> &varD22,
-    const simd_type *jac_ptr, const simd_type *w0, const simd_type *w1,
-    const simd_type *w2, const simd_type *df_ptr,
+    const simd_type *jac_ptr, const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1,
+    const typename simd_type::scalarType *w2, const simd_type *df_ptr,
     [[maybe_unused]] const simd_type *h0, [[maybe_unused]] const simd_type *h1,
     [[maybe_unused]] const simd_type *h2, [[maybe_unused]] const simd_type *h3,
     simd_type *deriv0, simd_type *deriv1, simd_type *deriv2,
