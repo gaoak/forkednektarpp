@@ -269,19 +269,18 @@ void StdTetExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
 #define BWDTRANS_DEF                                                           \
     BwdTransTetKernel<false>(                                                  \
         nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2, isModified,         \
-        (const vec_t *)base0.data(), (const vec_t *)base1.data(),              \
-        (const vec_t *)base2.data(), wsp0.data(), wsp1.data(),                 \
+        base0.data(), base1.data(), base2.data(), wsp0.data(), wsp1.data(),    \
         (const vec_t *)inarray.data(), (vec_t *)outarray.data())
 
     // Inner loop case over quarature points
 #undef BWDTRANS_Q
 #define BWDTRANS_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        BwdTransTetKernel<false>(                                              \
-            NM(i), NM(i), NM(i), NQ(i), NQ_M1(i), NQ_M1(i), isModified,        \
-            (const vec_t *)base0.data(), (const vec_t *)base1.data(),          \
-            (const vec_t *)base2.data(), wsp0.data(), wsp1.data(),             \
-            (const vec_t *)inarray.data(), (vec_t *)outarray.data());          \
+        BwdTransTetKernel<false>(NM(i), NM(i), NM(i), NQ(i), NQ_M1(i),         \
+                                 NQ_M1(i), isModified, base0.data(),           \
+                                 base1.data(), base2.data(), wsp0.data(),      \
+                                 wsp1.data(), (const vec_t *)inarray.data(),   \
+                                 (vec_t *)outarray.data());                    \
         break;
 
     // outer loop case over modes
@@ -387,12 +386,10 @@ void StdTetExp::v_IProductWRTBaseKernel(
 #define IPRODUCTWRTBASE_DEF                                                    \
     IProductTetKernel<false, false, true>(                                     \
         order0, order1, order2, nquad0, nquad1, nquad2, isModified,            \
-        (const vec_t *)inarray.data(), (const vec_t *)base0.data(),            \
-        (const vec_t *)base1.data(), (const vec_t *)base2.data(),              \
-        (const vec_t *)m_weights[0].data(),                                    \
-        (const vec_t *)m_weights[1].data(),                                    \
-        (const vec_t *)m_weights[2].data(), (const vec_t *)jac.data(),         \
-        (vec_t *)wsp0.data(), (vec_t *)wsp1.data(), (vec_t *)outarray.data())
+        (const vec_t *)inarray.data(), base0.data(), base1.data(),             \
+        base2.data(), m_weights[0].data(), m_weights[1].data(),                \
+        m_weights[2].data(), (const vec_t *)jac.data(), (vec_t *)wsp0.data(),  \
+        (vec_t *)wsp1.data(), (vec_t *)outarray.data())
 
         // Inner loop case over quarature points
 #undef IPRODUCTWRTBASE_Q
@@ -400,11 +397,9 @@ void StdTetExp::v_IProductWRTBaseKernel(
     case NQ(i):                                                                \
         IProductTetKernel<false, false, true>(                                 \
             NM(i), NM(i), NM(i), NQ(i), NQ_M1(i), NQ_M1(i), isModified,        \
-            (const vec_t *)inarray.data(), (const vec_t *)base0.data(),        \
-            (const vec_t *)base1.data(), (const vec_t *)base2.data(),          \
-            (const vec_t *)m_weights[0].data(),                                \
-            (const vec_t *)m_weights[1].data(),                                \
-            (const vec_t *)m_weights[2].data(), (const vec_t *)jac.data(),     \
+            (const vec_t *)inarray.data(), base0.data(), base1.data(),         \
+            base2.data(), m_weights[0].data(), m_weights[1].data(),            \
+            m_weights[2].data(), (const vec_t *)jac.data(),                    \
             (vec_t *)wsp0.data(), (vec_t *)wsp1.data(),                        \
             (vec_t *)outarray.data());                                         \
         break;
@@ -450,12 +445,10 @@ void StdTetExp::v_IProductWRTBaseKernel(
 #define IPRODUCTWRTBASE_DEF                                                    \
     IProductTetKernel<false, false, false>(                                    \
         order0, order1, order2, nquad0, nquad1, nquad2, isModified,            \
-        (const vec_t *)inarray.data(), (const vec_t *)base0.data(),            \
-        (const vec_t *)base1.data(), (const vec_t *)base2.data(),              \
-        (const vec_t *)m_weights[0].data(),                                    \
-        (const vec_t *)m_weights[1].data(),                                    \
-        (const vec_t *)m_weights[2].data(), (const vec_t *)jac.data(),         \
-        (vec_t *)wsp0.data(), (vec_t *)wsp1.data(), (vec_t *)outarray.data())
+        (const vec_t *)inarray.data(), base0.data(), base1.data(),             \
+        base2.data(), m_weights[0].data(), m_weights[1].data(),                \
+        m_weights[2].data(), (const vec_t *)jac.data(), (vec_t *)wsp0.data(),  \
+        (vec_t *)wsp1.data(), (vec_t *)outarray.data())
 
         // Inner loop case over quarature points
 #undef IPRODUCTWRTBASE_Q
@@ -463,11 +456,9 @@ void StdTetExp::v_IProductWRTBaseKernel(
     case NQ(i):                                                                \
         IProductTetKernel<false, false, false>(                                \
             NM(i), NM(i), NM(i), NQ(i), NQ_M1(i), NQ_M1(i), isModified,        \
-            (const vec_t *)inarray.data(), (const vec_t *)base0.data(),        \
-            (const vec_t *)base1.data(), (const vec_t *)base2.data(),          \
-            (const vec_t *)m_weights[0].data(),                                \
-            (const vec_t *)m_weights[1].data(),                                \
-            (const vec_t *)m_weights[2].data(), (const vec_t *)jac.data(),     \
+            (const vec_t *)inarray.data(), base0.data(), base1.data(),         \
+            base2.data(), m_weights[0].data(), m_weights[1].data(),            \
+            m_weights[2].data(), (const vec_t *)jac.data(),                    \
             (vec_t *)wsp0.data(), (vec_t *)wsp1.data(),                        \
             (vec_t *)outarray.data());                                         \
         break;

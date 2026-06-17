@@ -108,11 +108,10 @@ NEK_FORCE_INLINE static void BwdTrans3DWorkspace(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, typename simd_type>
-NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nm0,
-                                              const unsigned int nq0,
-                                              const simd_type *basis0,
-                                              const simd_type *in,
-                                              simd_type *out)
+NEK_FORCE_INLINE static void BwdTrans1DKernel(
+    const unsigned int nm0, const unsigned int nq0,
+    const typename simd_type::scalarType *basis0, const simd_type *in,
+    simd_type *out)
 {
     BwdTransSegKernel<APPEND>(nm0, nq0, basis0, in, out);
 }
@@ -121,7 +120,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, [[maybe_unused]] const bool isModified,
-    const simd_type *basis0, const simd_type *basis1,
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
     [[maybe_unused]] const simd_type *NtoM, simd_type *wsp0,
     const simd_type *in, simd_type *out)
 {
@@ -150,8 +150,10 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    [[maybe_unused]] const bool isModified, const simd_type *basis0,
-    const simd_type *basis1, const simd_type *basis2,
+    [[maybe_unused]] const bool isModified,
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
+    const typename simd_type::scalarType *basis2,
     [[maybe_unused]] const simd_type *NtoM, simd_type *wsp0, simd_type *wsp1,
     const simd_type *in, simd_type *out)
 {

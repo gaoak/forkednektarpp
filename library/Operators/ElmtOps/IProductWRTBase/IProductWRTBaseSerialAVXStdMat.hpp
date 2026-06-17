@@ -190,7 +190,6 @@ protected:
                 }
                 else
                 {
-
                     // Just perform matrix-matrix multiply of B^T
                     gemm_kernel(inptr, m_BT_matptr, outptr);
 

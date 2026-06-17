@@ -76,7 +76,7 @@ public:
 
             // Fetch basis data.
             m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<simd_t>(exp->GetBasis(d)->GetBasisKey(), eBasis)));
+                BasisDataKey<TData>(exp->GetBasis(d)->GetBasisKey(), eBasis)));
         }
 
         if ((m_shapeType == LibUtilities::eNodalTri) ||
@@ -148,7 +148,7 @@ protected:
     unsigned int m_coordDim;
     std::vector<unsigned int> m_nm;
     std::vector<unsigned int> m_nq;
-    std::vector<const simd_t *> m_B;
+    std::vector<const TData *> m_B;
     std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp0;
     std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp1;
     const simd_t *m_nodToMod;

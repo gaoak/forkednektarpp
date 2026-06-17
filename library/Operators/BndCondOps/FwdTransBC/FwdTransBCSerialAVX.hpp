@@ -135,9 +135,9 @@ public:
 
             // Fetch basis data.
             m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<simd_t>(basisKeys[d], eBasis)));
+                BasisDataKey<TData>(basisKeys[d], eBasis)));
             m_W.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<simd_t>(basisKeys[d], eWeights)));
+                BasisDataKey<TData>(basisKeys[d], eWeights)));
         }
 
         // Check whether points are collocated
@@ -167,8 +167,8 @@ public:
             // Fetch interpolation matrix.
             // Note it is from basis[1] to basis[0]
             m_interp1to0 = this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<simd_t>(basisKeys[1], eInterpTranspose, m_nq[0],
-                                     basisKeys[0].GetPointsType()));
+                BasisDataKey<TData>(basisKeys[1], eInterpTranspose, m_nq[0],
+                                    basisKeys[0].GetPointsType()));
 
             // Fetch Jacobian for each segment.
             m_jacTraceptr = this->m_dataWarehouse->template GetData<MemSpace>(
@@ -286,14 +286,14 @@ protected:
     std::vector<unsigned int> m_nm;
     std::vector<unsigned int> m_nmInt;
     std::vector<unsigned int> m_nq;
-    std::vector<const simd_t *> m_B;
-    std::vector<const simd_t *> m_W;
+    std::vector<const TData *> m_B;
+    std::vector<const TData *> m_W;
     std::vector<const simd_t *> m_massint_seg;
     std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp1;
     std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp2;
     std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp3;
     std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp4;
-    const simd_t *m_interp1to0;
+    const TData *m_interp1to0;
     const simd_t *m_massint;
     const simd_t *m_nodToMod;
     const simd_t *m_nodToModTrans;
@@ -604,9 +604,7 @@ protected:
                 {
                     FwdTransBC2DKernel<ExecSpace, SHAPE_TYPE, DEFORMED>(
                         nm0, nm1, nq0, nq1, m_isModified, m_B[0], m_B[1],
-                        m_W[0], m_W[1],
-                        reinterpret_cast<const simd_t *>(m_interp1to0),
-                        m_offset_seg,
+                        m_W[0], m_W[1], m_interp1to0, m_offset_seg,
                         reinterpret_cast<const simd_t *>(m_massint_seg[0]),
                         reinterpret_cast<const simd_t *>(m_massint_seg[1]),
                         reinterpret_cast<const simd_t *>(m_jacTraceptr),

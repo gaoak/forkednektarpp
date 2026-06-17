@@ -45,8 +45,9 @@ namespace Nektar::Operators::detail
 {
 template <typename ExecSpace, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void FwdTransBCSegKernel(
-    const unsigned int nm0, const unsigned int nq0, const simd_type *basis0,
-    const simd_type *w0, const unsigned int offset_seg,
+    const unsigned int nm0, const unsigned int nq0,
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *w0, const unsigned int offset_seg,
     const simd_type *invintmass, [[maybe_unused]] const simd_type *jac,
     const simd_type *in, simd_type *out, simd_type *wsp1, simd_type *wsp2)
 {
@@ -87,8 +88,10 @@ NEK_FORCE_INLINE static void FwdTransBCSegKernel(
 template <typename ExecSpace, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void FwdTransBCQuadKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
-    const unsigned int nq1, const simd_type *basis0, const simd_type *basis1,
-    const simd_type *w0, const simd_type *w1, const unsigned int offset_seg,
+    const unsigned int nq1, const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1, const unsigned int offset_seg,
     const simd_type *invintmass0, const simd_type *invintmass1,
     [[maybe_unused]] const simd_type *tJac, const unsigned int *tMap,
     const int *tSign, const unsigned int nmTotInt, const unsigned int *iMap,
@@ -185,12 +188,16 @@ NEK_FORCE_INLINE static void FwdTransBCQuadKernel(
 template <typename ExecSpace, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void FwdTransBCTriKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
-    const unsigned int nq1, const bool isModified, const simd_type *basis0,
-    const simd_type *basis1, const simd_type *w0, const simd_type *w1,
-    const simd_type *interp1to0, const unsigned int offset_seg,
-    const simd_type *invintmass0, [[maybe_unused]] const simd_type *tJac,
-    const unsigned int *tMap, const int *tSign, const unsigned int nmTotInt,
-    const unsigned int *iMap, [[maybe_unused]] const simd_type *invintmass,
+    const unsigned int nq1, const bool isModified,
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1,
+    const typename simd_type::scalarType *interp1to0,
+    const unsigned int offset_seg, const simd_type *invintmass0,
+    [[maybe_unused]] const simd_type *tJac, const unsigned int *tMap,
+    const int *tSign, const unsigned int nmTotInt, const unsigned int *iMap,
+    [[maybe_unused]] const simd_type *invintmass,
     [[maybe_unused]] const simd_type *jac, const simd_type *in, simd_type *out,
     simd_type *wsp1, simd_type *wsp2, simd_type *wsp3, simd_type *wsp4)
 {
@@ -285,8 +292,9 @@ NEK_FORCE_INLINE static void FwdTransBCTriKernel(
 template <typename ExecSpace, LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename simd_type>
 NEK_FORCE_INLINE static void FwdTransBC1DKernel(
-    const unsigned int nm0, const unsigned int nq0, const simd_type *basis0,
-    const simd_type *w0, const unsigned int offset_seg,
+    const unsigned int nm0, const unsigned int nq0,
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *w0, const unsigned int offset_seg,
     const simd_type *invintmass, const simd_type *jac, const simd_type *in,
     simd_type *out, simd_type *wsp1, simd_type *wsp2)
 {
@@ -299,8 +307,11 @@ template <typename ExecSpace, LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
 NEK_FORCE_INLINE static void FwdTransBC2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, [[maybe_unused]] const bool isModified,
-    const simd_type *basis0, const simd_type *basis1, const simd_type *w0,
-    const simd_type *w1, [[maybe_unused]] const simd_type *interp1to0,
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1,
+    [[maybe_unused]] const typename simd_type::scalarType *interp1to0,
     const unsigned int offset_seg, const simd_type *invintmass0,
     [[maybe_unused]] const simd_type *invintmass1, const simd_type *tJac,
     const unsigned int *tMap, const int *tSign, const unsigned int nmTotInt,

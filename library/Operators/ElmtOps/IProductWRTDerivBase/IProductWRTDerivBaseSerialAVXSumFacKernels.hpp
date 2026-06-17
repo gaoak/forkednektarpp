@@ -90,7 +90,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase1D(
     const unsigned int nq0, const unsigned int indim, const simd_type *df_ptr,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
     const size_t insize, const simd_type *in, simd_type *out,
-    const simd_type *jac_Ptr, const simd_type *w)
+    const simd_type *jac_Ptr, const typename simd_type::scalarType *w)
 {
     simd_type jac = 1.0;
     // Calculate dxi/dx in[0] + dxi/dy in[1] + dxi/dz in[2]
@@ -143,7 +143,8 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
     const size_t inoffset, const simd_type *inptr, simd_type *out[2],
     [[maybe_unused]] const simd_type *Fac0,
     [[maybe_unused]] const simd_type *Fac1, const simd_type *jac_Ptr,
-    const simd_type *w0, const simd_type *w1)
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1)
 {
     const auto ndf = 2 * indim;
     simd_type jac  = 1.0;
@@ -237,8 +238,10 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
     [[maybe_unused]] const simd_type *Fac1,
     [[maybe_unused]] const simd_type *Fac1a,
     [[maybe_unused]] const simd_type *Fac2, const simd_type *jac_Ptr,
-    const simd_type *w0, const simd_type *w1, const simd_type *w2,
-    const simd_type *inptr, simd_type *out[3])
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1,
+    const typename simd_type::scalarType *w2, const simd_type *inptr,
+    simd_type *out[3])
 {
     const auto ndf = 9;
     simd_type jac  = 1.0;
