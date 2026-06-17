@@ -627,6 +627,7 @@ SET(OPERATORS_HEADERS
     Common/DataWarehouse/StdMatDataWarehouse.hpp
     Common/DataWarehouse/TraceDataWarehouse.hpp
     Field/Block.hpp
+    Field/Field.hpp
     ElmtOps/ElmtBlockOp.hpp
     Math/Math.hpp
     NekBlas/NekBlas.hpp
@@ -884,6 +885,8 @@ IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
        Common/Memory/MemoryAlloc.cu
+       Math/Math.cu
+       Field/Field.cu
     )
 
     SET(OPERATORS_DEPENDS
@@ -894,29 +897,18 @@ ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
        Common/Memory/MemoryAlloc.hip
+       Math/Math.hip
+       Field/Field.hip
     )
 
     SET(OPERATORS_DEPENDS
       ${OPERATORS_DEPENDS}
       ${NEKTAR_HIP_DEPENDS})
-ENDIF()
-
-# CUDA specific file
-IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-    SET(OPERATORS_SOURCES
-      ${OPERATORS_SOURCES}
-      Math/Math.cu
-    )
-# HIP specific file
-ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
-    SET(OPERATORS_SOURCES
-      ${OPERATORS_SOURCES}
-      Math/Math.hip
-    )
 ELSE()
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
       Math/Math.cpp
+      Field/Field.cpp
     )
 ENDIF()
 

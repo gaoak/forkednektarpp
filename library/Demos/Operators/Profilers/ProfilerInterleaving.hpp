@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////////////////////////
 //
-// File: ProfilerAssmbScatrOps.hpp
+// File: ProfilerInterleaving.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -36,13 +36,12 @@
 #include <iomanip>
 #include <iostream>
 
-#include "Operators/AssmbScatr/AssmbScatrZeroDirOp.hpp"
+#include <Operators/Common/Operator.hpp>
 #include <Operators/Field/Field.hpp>
-#include <Operators/Math/MathKernels.hpp>
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
-#include <MultiRegions/ContField.h>
+#include <MultiRegions/ExpList.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
 // Add likwid support
@@ -68,7 +67,7 @@ using namespace Nektar::LibUtilities;
 /// total information for each rank. Caution: for many ranks and many
 /// blocks, setting verbose may cause the display content too big to read.
 template <FieldState TState>
-void PrintBlockInfo(const MultiRegions::ContFieldSharedPtr &expList,
+void PrintBlockInfo(const MultiRegions::ExpListSharedPtr &expList,
                     const std::vector<BlockAttributes<TState>> &blockAttr)
 {
     auto comm                 = expList->GetComm();
@@ -276,12 +275,10 @@ void PrintProfileResult(
     comm->Block();
 }
 
-template <FieldState TStateIn, FieldState TStateOut, bool InPlace,
-          typename TData>
-void LaunchProfiler(MultiRegions::ContFieldSharedPtr &expList,
+template <FieldState TState, typename TData>
+void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
                     const unsigned int Ntest, const unsigned int nIn = 1,
-                    const unsigned int nOut = 1, const unsigned int nComp = 1,
-                    const unsigned int nHomo = 1)
+                    const unsigned int nComp = 1, const unsigned int nHomo = 1)
 {
     // Timer.
     Timer timer;
@@ -291,85 +288,52 @@ void LaunchProfiler(MultiRegions::ContFieldSharedPtr &expList,
     // Get communicator.
     auto comm = expList->GetComm();
 
-    // Create operator.
-    auto oper =
-        AssmbScatrZeroDirOp<TData>::Create(expList, session->GetVariables());
-
-    // Set operator name tag.
-    std::string execName = AssmbScatrZeroDirOp<TData>::GetOpExecSpace(session);
-    std::string opName   = oper->name;
+    std::string execName = Operator<TData>::GetOpExecSpace(session);
     std::string dataType = (std::is_same_v<TData, double>) ? "Double" : "Float";
-    auto tag             = opName + execName + dataType;
+    auto tag             = "Interleave" + execName + dataType;
 
     // Create block attributes.
-    auto inblockAttr  = GetBlockAttributes<TData, TStateIn>(expList);
-    auto outblockAttr = GetBlockAttributes<TData, TStateOut>(expList);
+    auto blockAttr = GetBlockAttributes<TData, TState>(expList);
 
     // Create fields.
-    auto in = Field<TData, TStateIn>("f_in", inblockAttr, nIn * nComp, nHomo);
-    auto out =
-        Field<TData, TStateOut>("f_out", outblockAttr, nOut * nComp, nHomo);
+    auto inout = Field<TData, TState>("f_in", blockAttr, nIn * nComp, nHomo);
 
     // Initialize the in field to random non-zeros: 1 2 3 4 ...
-    for (size_t i = 0; i < in.GetBlocks().size(); ++i)
+    for (size_t i = 0; i < inout.GetBlocks().size(); ++i)
     {
-        auto inptr = in.GetBlocks()[i]
+        auto inptr = inout.GetBlocks()[i]
                          .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
         for (unsigned int n = 0; n < nIn * nComp; n++)
         {
-            for (size_t j = 0; j < in.GetBlocks()[i].CompSize(); ++j)
+            for (size_t j = 0; j < inout.GetBlocks()[i].CompSize(); ++j)
             {
-                inptr[j] = (j + (n + 1.0)) / in.GetBlocks()[i].CompSize();
+                inptr[j] = (j + (n + 1.0)) / inout.GetBlocks()[i].CompSize();
             }
-            inptr += in.GetBlocks()[i].CompSize();
+            inptr += inout.GetBlocks()[i].CompSize();
         }
-    }
-
-    if constexpr (InPlace)
-    {
-        // Copy input.
-        out.template Copy<NektarSpaces::HostSpace>(in);
-    }
-    else
-    {
-        // Initialize the out field to zero.
-        out.template Initialize<NektarSpaces::HostSpace>(0.0);
     }
 
     // Warm-up : fill the cache and memory, and let core temperature/freq
     // stabilized.
     for (unsigned int i = 0; i < Ntest / 2; ++i)
     {
-        if constexpr (InPlace)
-        {
-            oper->Apply(out);
-        }
-        else
-        {
-            oper->Apply(in, out);
-        }
+        inout.ReshapeStorage(NektarSpaces::GetVectorWidth<TData>(execName),
+                             execName);
+        inout.ReshapeStorage(1, execName);
     }
+
     comm->Block();
 
     // Benchmark
-    // For CUDA, we synchronize the device before starting/stopping the timer
-    // For MPI, since elmental operators are local we don't need to synchronize
-    // after each operator call. Just add a block after the timer stops.
-
     nekDeviceSynchronize();
     timer.Start();
     LIKWID_MARKER_START(tag.c_str());
 
     for (unsigned int i = 0; i < Ntest; ++i)
     {
-        if constexpr (InPlace)
-        {
-            oper->Apply(out);
-        }
-        else
-        {
-            oper->Apply(in, out);
-        }
+        inout.ReshapeStorage(NektarSpaces::GetVectorWidth<TData>(execName),
+                             execName);
+        inout.ReshapeStorage(1, execName);
     }
 
     nekDeviceSynchronize();
@@ -384,47 +348,25 @@ void LaunchProfiler(MultiRegions::ContFieldSharedPtr &expList,
         std::cout << "Input field: " << nComp * nIn << " components"
                   << std::endl;
     }
-    PrintBlockInfo(expList, inblockAttr);
-
-    // First check if the output is all zeros.
-    TData L2;
-    l2norm<NektarSpaces::Serial>(out, &L2);
-    if (L2 < 1e-9)
-    {
-        std::cout << "Warning: output does not change!"
-                  << "Device may not be invoked!" << std::endl;
-    }
-
-    // Then check if results match with expected
-    // If we compare float results with double results, then it is
-    // reasonable to have some mismatched values (e.g., > 1e-4)
-    Array<OneD, double> tmpArr = out.template ToArray<double>();
+    PrintBlockInfo(expList, blockAttr);
 
     // Print block information and get the total number of dofs.
     if (comm->GetRank() == 0)
     {
-        std::cout << "Output field: " << nComp * nOut << " components"
+        std::cout << "Output field: " << nComp * nIn << " components"
                   << std::endl;
     }
-    PrintBlockInfo(expList, outblockAttr);
+    PrintBlockInfo(expList, blockAttr);
 
     if (comm->GetRank() == 0)
     {
         std::cout << "---------------------------------" << std::endl;
-        if constexpr (InPlace)
-        {
-            std::cout << "AssmbScatrOps Profiler : " << tag << " (In-place)"
-                      << std::endl;
-        }
-        else
-        {
-            std::cout << "AssmbScatrOps Profiler : " << tag << std::endl;
-        }
+        std::cout << "Interleaving Profiler : " << tag << std::endl;
         std::cout << "---------------------------------" << std::endl;
     }
     comm->Block();
 
     // Collect elapsed time and compute the max, min, and average.
     auto rankElapsed = std::vector<double>(1, timer.TimePerTest(Ntest));
-    PrintProfileResult<TData>(comm, rankElapsed, inblockAttr, outblockAttr);
+    PrintProfileResult<TData>(comm, rankElapsed, blockAttr, blockAttr);
 }
