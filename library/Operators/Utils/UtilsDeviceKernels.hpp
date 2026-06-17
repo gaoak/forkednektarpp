@@ -36,6 +36,7 @@
 
 #include "Operators/Common/Memory/MemoryAlloc.hpp"
 #include "Operators/Common/Spaces.hpp"
+#include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsDeviceKernelsHelper.hpp"
 
 namespace Nektar
@@ -471,11 +472,11 @@ interleave(const unsigned int interleaveWidth, const size_t numElmtGroups,
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = numElmtGroups;
 
-    const unsigned int shmemsize =
-        sizeof(TData) * interleaveWidth * std::min(interleaveWidth, npts);
-    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+    const unsigned int shmemsize = sizeof(TData) * interleaveWidth * npts;
+    const unsigned int maxShemsize =
+        GetDeviceProperties::SharedMemoryPerBlock();
 
-    if (npts <= interleaveWidth)
+    if (shmemsize <= maxShemsize)
     {
         if (interleaveWidth == NektarSpaces::Device::warpSize)
         {
@@ -501,6 +502,43 @@ interleave(const unsigned int interleaveWidth, const size_t numElmtGroups,
             deviceMalloc(&internalInterleaveDeviceBuffer, bufferSize);
             internalInterleaveDeviceBufferSize = bufferSize;
         }
+
+#if defined(NEKTAR_ENABLE_HIP)
+        // HIP specific optimisation
+        if constexpr (std::is_floating_point_v<TData>)
+        {
+            auto handle = NekHandle<NektarSpaces::Device>::GetInstance();
+
+            TData alpha = 1.0;
+            TData beta  = 0.0;
+            if constexpr (std::is_same_v<TData, float>)
+            {
+                HIPBLAS_CHECK(hipblasSgeamStridedBatched(
+                    handle, HIPBLAS_OP_T, HIPBLAS_OP_T, npts, interleaveWidth,
+                    &alpha, inout, interleaveWidth, interleaveWidth * npts,
+                    &beta, (TData *)nullptr, interleaveWidth,
+                    interleaveWidth * npts,
+                    (TData *)internalInterleaveDeviceBuffer, npts,
+                    interleaveWidth * npts, numElmtGroups));
+            }
+            else if constexpr (std::is_same_v<TData, double>)
+            {
+                HIPBLAS_CHECK(hipblasDgeamStridedBatched(
+                    handle, HIPBLAS_OP_T, HIPBLAS_OP_T, npts, interleaveWidth,
+                    &alpha, inout, interleaveWidth, interleaveWidth * npts,
+                    &beta, (TData *)nullptr, interleaveWidth,
+                    interleaveWidth * npts,
+                    (TData *)internalInterleaveDeviceBuffer, npts,
+                    interleaveWidth * npts, numElmtGroups));
+            }
+            deviceMemcpy<DeviceToDevice>(
+                inout, (TData *)internalInterleaveDeviceBuffer, bufferSize);
+            return;
+        }
+#endif
+
+        const unsigned int shmemsize =
+            sizeof(TData) * interleaveWidth * interleaveWidth;
         if (interleaveWidth == NektarSpaces::Device::warpSize)
         {
             DEVICE_1DGRID_KERNEL_LAUNCHER(
@@ -527,11 +565,11 @@ deInterleave(const unsigned int interleaveWidth, size_t numElmtGroups,
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = numElmtGroups;
 
-    const unsigned int shmemsize =
-        sizeof(TData) * interleaveWidth * std::min(interleaveWidth, npts);
-    GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+    const unsigned int shmemsize = sizeof(TData) * interleaveWidth * npts;
+    const unsigned int maxShemsize =
+        GetDeviceProperties::SharedMemoryPerBlock();
 
-    if (npts <= interleaveWidth)
+    if (shmemsize <= maxShemsize)
     {
         if (interleaveWidth == NektarSpaces::Device::warpSize)
         {
@@ -557,6 +595,41 @@ deInterleave(const unsigned int interleaveWidth, size_t numElmtGroups,
             deviceMalloc(&internalInterleaveDeviceBuffer, bufferSize);
             internalInterleaveDeviceBufferSize = bufferSize;
         }
+
+#if defined(NEKTAR_ENABLE_HIP)
+        // HIP specific optimisation
+        if constexpr (std::is_floating_point_v<TData>)
+        {
+            auto handle = NekHandle<NektarSpaces::Device>::GetInstance();
+
+            TData alpha = 1.0;
+            TData beta  = 0.0;
+            if constexpr (std::is_same_v<TData, float>)
+            {
+                HIPBLAS_CHECK(hipblasSgeamStridedBatched(
+                    handle, HIPBLAS_OP_T, HIPBLAS_OP_T, interleaveWidth, npts,
+                    &alpha, inout, npts, interleaveWidth * npts, &beta,
+                    (TData *)nullptr, npts, interleaveWidth * npts,
+                    (TData *)internalInterleaveDeviceBuffer, interleaveWidth,
+                    interleaveWidth * npts, numElmtGroups));
+            }
+            else if constexpr (std::is_same_v<TData, double>)
+            {
+                HIPBLAS_CHECK(hipblasDgeamStridedBatched(
+                    handle, HIPBLAS_OP_T, HIPBLAS_OP_T, interleaveWidth, npts,
+                    &alpha, inout, npts, interleaveWidth * npts, &beta,
+                    (TData *)nullptr, npts, interleaveWidth * npts,
+                    (TData *)internalInterleaveDeviceBuffer, interleaveWidth,
+                    interleaveWidth * npts, numElmtGroups));
+            }
+            deviceMemcpy<DeviceToDevice>(
+                inout, (TData *)internalInterleaveDeviceBuffer, bufferSize);
+            return;
+        }
+#endif
+
+        const unsigned int shmemsize =
+            sizeof(TData) * interleaveWidth * interleaveWidth;
         if (interleaveWidth == NektarSpaces::Device::warpSize)
         {
             DEVICE_1DGRID_KERNEL_LAUNCHER(

@@ -103,7 +103,7 @@ public:
                 blockAttr[blk].CompSize() * num_components * num_homo_modes;
             auto mr = MemoryRegion<TData>(name + std::to_string(blk), nsize,
                                           memAllocType, alignment);
-            this->m_block_accessors.push_back(
+            this->GetBlocks().push_back(
                 BlockAccessor(blockAttr[blk], std::move(mr), this,
                               num_components, num_homo_modes));
         }
@@ -155,7 +155,7 @@ public:
                 blockAttr[blk].CompSize() * components.size() * num_homo_modes;
             auto mr = MemoryRegion<TData>(name + std::to_string(blk), nsize,
                                           memAllocType, alignment);
-            this->m_block_accessors.push_back(
+            this->GetBlocks().push_back(
                 BlockAccessor(blockAttr[blk], std::move(mr), this,
                               components.size(), num_homo_modes));
         }
@@ -256,21 +256,24 @@ public:
 
     void SetInterleaveWidth(const unsigned int &interleaveWidth)
     {
-        for (unsigned int blk = 0; blk < m_block_accessors.size(); ++blk)
+        for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
         {
-            m_block_accessors[blk].template SetInterleaveWidth<TData>(
+            this->GetBlocks()[blk].template SetInterleaveWidth<TData>(
                 interleaveWidth);
         }
     }
 
     void SetInterleaveWidth(Field &field)
     {
-        for (unsigned int blk = 0; blk < m_block_accessors.size(); ++blk)
+        for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
         {
-            m_block_accessors[blk].template SetInterleaveWidth<TData>(
-                field.m_block_accessors[blk].GetInterleaveWidth());
+            this->GetBlocks()[blk].template SetInterleaveWidth<TData>(
+                field.GetBlocks()[blk].GetInterleaveWidth());
         }
     }
+
+    void ReshapeStorage(const unsigned int &interleaveWidth,
+                        const std::string &execSpace);
 
     /**
      * @brief Templated initialize method.
@@ -290,9 +293,9 @@ public:
         // data initialization.
         AllocateFieldStorage<MemSpace>(this);
 
-        for (unsigned int blk = 0; blk < m_block_accessors.size(); ++blk)
+        for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
         {
-            m_block_accessors[blk]
+            this->GetBlocks()[blk]
                 .m_memory_region.template Initialize<MemSpace>(val);
         }
     }
@@ -447,12 +450,12 @@ public:
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
         }
 
-        for (unsigned int blk = 0; blk < m_block_accessors.size(); ++blk)
+        for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
         {
-            m_block_accessors[blk].m_memory_region.template Copy<MemSpace>(
-                field.m_block_accessors[blk].m_memory_region);
-            m_block_accessors[blk].template SetInterleaveWidth<TData>(
-                field.m_block_accessors[blk].GetInterleaveWidth());
+            this->GetBlocks()[blk].m_memory_region.template Copy<MemSpace>(
+                field.GetBlocks()[blk].m_memory_region);
+            this->GetBlocks()[blk].template SetInterleaveWidth<TData>(
+                field.GetBlocks()[blk].GetInterleaveWidth());
         }
     }
 
@@ -507,7 +510,7 @@ public:
             for (auto n = 0;
                  n < this->GetNumComponents() * this->GetNumHomoModes(); n++)
             {
-                m_block_accessors[blk]
+                this->GetBlocks()[blk]
                     .m_memory_region.template CopyFromHostPtr<MemSpace>(
                         src + n * compSize, nElmts * nPts, offset);
                 offset += nSize;
@@ -566,7 +569,7 @@ public:
             for (auto n = 0;
                  n < this->GetNumComponents() * this->GetNumHomoModes(); n++)
             {
-                m_block_accessors[blk]
+                this->GetBlocks()[blk]
                     .m_memory_region.template CopyFromHostPtr<MemSpace>(
                         src + n * compSize, nElmts * nPts, offset);
                 offset += nSize;
@@ -607,9 +610,9 @@ public:
         }
 
         size_t nSize = 0;
-        for (unsigned int blk = 0; blk < m_block_accessors.size(); ++blk)
+        for (unsigned int blk = 0; blk < this->m_block_accessors.size(); ++blk)
         {
-            nSize += m_block_accessors[blk].m_memory_region.size();
+            nSize += this->m_block_accessors[blk].m_memory_region.size();
         }
         return nSize;
     }
@@ -708,12 +711,11 @@ protected:
                 auto src = (TData *)((size_t)field->m_host + alignment_offset);
                 std::memset((void *)src, 0, field->size() * sizeof(TData));
 
-                for (unsigned int blk = 0;
-                     blk < field->m_block_accessors.size(); ++blk)
+                for (unsigned int blk = 0; blk < field->GetBlocks().size();
+                     ++blk)
                 {
-                    field->m_block_accessors[blk]
-                        .m_memory_region.SetHostStorage(src);
-                    src += field->m_block_accessors[blk].m_memory_region.size();
+                    field->GetBlocks()[blk].m_memory_region.SetHostStorage(src);
+                    src += field->GetBlocks()[blk].m_memory_region.size();
                 }
             }
         }
@@ -728,12 +730,12 @@ protected:
                 deviceMemset(field->m_device, 0, field->size() * sizeof(TData));
 
                 auto src = field->m_device;
-                for (unsigned int blk = 0;
-                     blk < field->m_block_accessors.size(); ++blk)
+                for (unsigned int blk = 0; blk < field->GetBlocks().size();
+                     ++blk)
                 {
-                    field->m_block_accessors[blk]
-                        .m_memory_region.SetDeviceStorage(src);
-                    src += field->m_block_accessors[blk].m_memory_region.size();
+                    field->GetBlocks()[blk].m_memory_region.SetDeviceStorage(
+                        src);
+                    src += field->GetBlocks()[blk].m_memory_region.size();
                 }
             }
         }
