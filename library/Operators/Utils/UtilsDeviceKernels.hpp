@@ -507,28 +507,31 @@ interleave(const unsigned int interleaveWidth, const size_t numElmtGroups,
         // HIP specific optimisation
         if constexpr (std::is_floating_point_v<TData>)
         {
+#if defined(NEKTAR_USE_MAGMA)
+            auto queue  = NekHandle<NektarSpaces::Device>::GetInstance();
+            auto handle = magma_queue_get_hipblas_handle(queue);
+#else
             auto handle = NekHandle<NektarSpaces::Device>::GetInstance();
+#endif
 
             TData alpha = 1.0;
             TData beta  = 0.0;
             if constexpr (std::is_same_v<TData, float>)
             {
                 HIPBLAS_CHECK(hipblasSgeamStridedBatched(
-                    handle, HIPBLAS_OP_T, HIPBLAS_OP_T, npts, interleaveWidth,
-                    &alpha, inout, interleaveWidth, interleaveWidth * npts,
-                    &beta, (TData *)nullptr, interleaveWidth,
-                    interleaveWidth * npts,
-                    (TData *)internalInterleaveDeviceBuffer, npts,
+                    handle, HIPBLAS_OP_T, HIPBLAS_OP_T, interleaveWidth, npts,
+                    &alpha, inout, npts, interleaveWidth * npts, &beta,
+                    (TData *)nullptr, npts, interleaveWidth * npts,
+                    (TData *)internalInterleaveDeviceBuffer, interleaveWidth,
                     interleaveWidth * npts, numElmtGroups));
             }
             else if constexpr (std::is_same_v<TData, double>)
             {
                 HIPBLAS_CHECK(hipblasDgeamStridedBatched(
-                    handle, HIPBLAS_OP_T, HIPBLAS_OP_T, npts, interleaveWidth,
-                    &alpha, inout, interleaveWidth, interleaveWidth * npts,
-                    &beta, (TData *)nullptr, interleaveWidth,
-                    interleaveWidth * npts,
-                    (TData *)internalInterleaveDeviceBuffer, npts,
+                    handle, HIPBLAS_OP_T, HIPBLAS_OP_T, interleaveWidth, npts,
+                    &alpha, inout, npts, interleaveWidth * npts, &beta,
+                    (TData *)nullptr, npts, interleaveWidth * npts,
+                    (TData *)internalInterleaveDeviceBuffer, interleaveWidth,
                     interleaveWidth * npts, numElmtGroups));
             }
             deviceMemcpy<DeviceToDevice>(
@@ -600,26 +603,33 @@ deInterleave(const unsigned int interleaveWidth, size_t numElmtGroups,
         // HIP specific optimisation
         if constexpr (std::is_floating_point_v<TData>)
         {
+#if defined(NEKTAR_USE_MAGMA)
+            auto queue  = NekHandle<NektarSpaces::Device>::GetInstance();
+            auto handle = magma_queue_get_hipblas_handle(queue);
+#else
             auto handle = NekHandle<NektarSpaces::Device>::GetInstance();
+#endif
 
             TData alpha = 1.0;
             TData beta  = 0.0;
             if constexpr (std::is_same_v<TData, float>)
             {
                 HIPBLAS_CHECK(hipblasSgeamStridedBatched(
-                    handle, HIPBLAS_OP_T, HIPBLAS_OP_T, interleaveWidth, npts,
-                    &alpha, inout, npts, interleaveWidth * npts, &beta,
-                    (TData *)nullptr, npts, interleaveWidth * npts,
-                    (TData *)internalInterleaveDeviceBuffer, interleaveWidth,
+                    handle, HIPBLAS_OP_T, HIPBLAS_OP_T, npts, interleaveWidth,
+                    &alpha, inout, interleaveWidth, interleaveWidth * npts,
+                    &beta, (TData *)nullptr, interleaveWidth,
+                    interleaveWidth * npts,
+                    (TData *)internalInterleaveDeviceBuffer, npts,
                     interleaveWidth * npts, numElmtGroups));
             }
             else if constexpr (std::is_same_v<TData, double>)
             {
                 HIPBLAS_CHECK(hipblasDgeamStridedBatched(
-                    handle, HIPBLAS_OP_T, HIPBLAS_OP_T, interleaveWidth, npts,
-                    &alpha, inout, npts, interleaveWidth * npts, &beta,
-                    (TData *)nullptr, npts, interleaveWidth * npts,
-                    (TData *)internalInterleaveDeviceBuffer, interleaveWidth,
+                    handle, HIPBLAS_OP_T, HIPBLAS_OP_T, npts, interleaveWidth,
+                    &alpha, inout, interleaveWidth, interleaveWidth * npts,
+                    &beta, (TData *)nullptr, interleaveWidth,
+                    interleaveWidth * npts,
+                    (TData *)internalInterleaveDeviceBuffer, npts,
                     interleaveWidth * npts, numElmtGroups));
             }
             deviceMemcpy<DeviceToDevice>(
