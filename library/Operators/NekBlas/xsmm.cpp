@@ -110,41 +110,6 @@ NekGemmStridedBatched([[maybe_unused]] THandle handle, std::string transposeA,
 }
 
 template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, xsmmHandle_t>, void>::type
-NekGemmGroupedBatched([[maybe_unused]] THandle handle, std::string transposeA,
-                      std::string transposeB, const int *M, const int *N,
-                      const int *K, const TData alpha,
-                      TData const *const *Aarray, const int *lda,
-                      TData const *const *Barray, const int *ldb,
-                      const TData beta, TData **Carray, const int *ldc,
-                      const int batchSize)
-{
-    ASSERTL0(transposeA == "N" && transposeB == "N",
-             "libxsmm: matrix tranpose is not supported");
-    ASSERTL0(alpha == 1.0, "libxsmm: alpha must be equal to 1.0");
-    ASSERTL0(beta == 0.0 || beta == 1.0,
-             "libxsmm: beta must be equal to 0.0 or 1.0");
-    if (alpha != 1.0)
-    {
-        ASSERTL0(beta == 0.0,
-                 "libxsmm: beta must be equal to 0.0 when alpha != 1.0");
-    }
-
-    for (int i = 0; i < batchSize; i++)
-    {
-        libxsmm_gemm(nullptr, nullptr, M[i], N[i], K[i], &alpha, Aarray[i],
-                     lda + i, Barray[i], ldb + i, &beta, Carray[i], ldc + i);
-        if (alpha != 1.0 && beta == 0.0)
-        {
-            for (int j = 0; j < M[i] * N[i]; j++)
-            {
-                Carray[i][j] *= alpha;
-            }
-        }
-    }
-}
-
-template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, xsmmHandle_t>, void>::type NekGemv(
     [[maybe_unused]] THandle, std::string transpose, const int M, const int N,
     const TData alpha, const TData *A, const int lda, const TData *x,
@@ -209,20 +174,6 @@ template void NekGemmStridedBatched<xsmmHandle_t, double>(
     const int lda, const int strideA, const double *b, const int ldb,
     const int strideB, const double beta, double *c, const int ldc,
     const int strideC, const int batchSize);
-
-template void NekGemmGroupedBatched<xsmmHandle_t, float>(
-    xsmmHandle_t handle, std::string transposeA, std::string transposeB,
-    const int *M, const int *N, const int *K, const float alpha,
-    float const *const *Aarray, const int *lda, float const *const *Barray,
-    const int *ldb, const float beta, float **Carray, const int *ldc,
-    const int batchSize);
-
-template void NekGemmGroupedBatched<xsmmHandle_t, double>(
-    xsmmHandle_t handle, std::string transposeA, std::string transposeB,
-    const int *M, const int *N, const int *K, const double alpha,
-    double const *const *Aarray, const int *lda, double const *const *Barray,
-    const int *ldb, const double beta, double **Carray, const int *ldc,
-    const int batchSize);
 
 template void NekGemv<xsmmHandle_t, float>(xsmmHandle_t, std::string, int, int,
                                            float, const float *, int,

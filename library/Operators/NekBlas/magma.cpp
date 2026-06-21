@@ -84,57 +84,6 @@ NekGemmStridedBatched(THandle handle, std::string transposeA,
 }
 
 template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type
-NekGemmGroupedBatched(THandle handle, std::string transposeA,
-                      std::string transposeB, const int *M, const int *N,
-                      const int *K, const TData alpha,
-                      TData const *const *Aarray, const int *lda,
-                      TData const *const *Barray, const int *ldb,
-                      const TData beta, TData **Carray, const int *ldc,
-                      const int batchSize)
-{
-    auto transA = (transposeA == "N") ? MagmaNoTrans : MagmaTrans;
-    auto transB = (transposeB == "N") ? MagmaNoTrans : MagmaTrans;
-
-    TData const **Adev;
-    TData const **Bdev;
-    TData **Cdev;
-    Nektar::deviceMalloc(&Adev, sizeof(TData *) * batchSize,
-                         Nektar::eDeviceMemoryPool);
-    Nektar::deviceMalloc(&Bdev, sizeof(TData *) * batchSize,
-                         Nektar::eDeviceMemoryPool);
-    Nektar::deviceMalloc(&Cdev, sizeof(TData *) * batchSize,
-                         Nektar::eDeviceMemoryPool);
-
-    Nektar::deviceMemcpy<Nektar::HostToDevice>(Adev, Aarray,
-                                               sizeof(TData *) * batchSize);
-    Nektar::deviceMemcpy<Nektar::HostToDevice>(Bdev, Barray,
-                                               sizeof(TData *) * batchSize);
-    Nektar::deviceMemcpy<Nektar::HostToDevice>(Cdev, Carray,
-                                               sizeof(TData *) * batchSize);
-
-    if constexpr (std::is_same_v<TData, float>)
-    {
-        magmablas_sgemm_vbatched(transA, transB, (int *)M, (int *)N, (int *)K,
-                                 alpha, Adev, (int *)lda, Bdev, (int *)ldb,
-                                 beta, Cdev, (int *)ldc, batchSize, handle);
-    }
-    else if constexpr (std::is_same_v<TData, double>)
-    {
-        magmablas_dgemm_vbatched(transA, transB, (int *)M, (int *)N, (int *)K,
-                                 alpha, Adev, (int *)lda, Bdev, (int *)ldb,
-                                 beta, Cdev, (int *)ldc, batchSize, handle);
-    }
-
-    Nektar::deviceFree(Adev, sizeof(TData *) * batchSize,
-                       Nektar::eDeviceMemoryPool);
-    Nektar::deviceFree(Bdev, sizeof(TData *) * batchSize,
-                       Nektar::eDeviceMemoryPool);
-    Nektar::deviceFree(Cdev, sizeof(TData *) * batchSize,
-                       Nektar::eDeviceMemoryPool);
-}
-
-template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type NekGemv(
     THandle handle, std::string transpose, const int M, const int N,
     const TData alpha, const TData *a, const int lda, const TData *x,
@@ -202,20 +151,6 @@ template void NekGemmStridedBatched<magma_queue_t, double>(
     const int lda, const int strideA, const double *b, const int ldb,
     const int strideB, const double beta, double *c, const int ldc,
     const int strideC, const int batchSize);
-
-template void NekGemmGroupedBatched<magma_queue_t, float>(
-    magma_queue_t handle, std::string transposeA, std::string transposeB,
-    const int *M, const int *N, const int *K, const float alpha,
-    float const *const *Aarray, const int *lda, float const *const *Barray,
-    const int *ldb, const float beta, float **Carray, const int *ldc,
-    const int batchSize);
-
-template void NekGemmGroupedBatched<magma_queue_t, double>(
-    magma_queue_t handle, std::string transposeA, std::string transposeB,
-    const int *M, const int *N, const int *K, const double alpha,
-    double const *const *Aarray, const int *lda, double const *const *Barray,
-    const int *ldb, const double beta, double **Carray, const int *ldc,
-    const int batchSize);
 
 template void NekGemv<magma_queue_t, float>(
     magma_queue_t handle, std::string transpose, const int M, const int N,

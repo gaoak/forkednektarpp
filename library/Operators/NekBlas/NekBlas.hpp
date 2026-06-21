@@ -212,53 +212,6 @@ NekGemmStridedBatched(THandle handle, std::string transposeA,
                       const std::int64_t strideC, const std::int64_t batchSize);
 #endif
 
-// NekGemmGroupedBatched
-template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, blasHandle_t>, void>::type
-NekGemmGroupedBatched(THandle, std::string transposeA, std::string transposeB,
-                      const int *m, const int *n, const int *k,
-                      const TData alpha, TData const *const *Aarray,
-                      const int *lda, TData const *const *Barray,
-                      const int *ldb, const TData beta, TData **Carray,
-                      const int *ldc, const int batchSize);
-#if defined(NEKTAR_ENABLE_SIMD)
-template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, xsmmHandle_t>, void>::type
-NekGemmGroupedBatched(THandle, std::string transposeA, std::string transposeB,
-                      const int *M, const int *N, const int *K,
-                      const TData alpha, TData const *const *Aarray,
-                      const int *lda, TData const *const *Barray,
-                      const int *ldb, const TData beta, TData **Carray,
-                      const int *ldc, const int batchSize);
-#endif
-template <typename THandle, typename TData>
-#if defined(NEKTAR_USE_MAGMA)
-typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type
-#elif defined(NEKTAR_ENABLE_CUDA)
-typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type
-#elif defined(NEKTAR_ENABLE_HIP)
-typename std::enable_if<std::is_same_v<THandle, hipblasHandle_t>, void>::type
-#else
-typename std::enable_if<std::is_same_v<THandle, std::nullptr_t>, void>::type
-#endif
-NekGemmGroupedBatched(THandle, std::string transposeA, std::string transposeB,
-                      const int *M, const int *N, const int *K,
-                      const TData alpha, TData const *const *Aarray,
-                      const int *lda, TData const *const *Barray,
-                      const int *ldb, const TData beta, TData **Carray,
-                      const int *ldc, const int batchSize);
-#if defined(NEKTAR_ENABLE_SYCL)
-template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type
-NekGemmGroupedBatched(THandle, std::string transposeA, std::string transposeB,
-                      const std::int64_t *M, const std::int64_t *N,
-                      const std::int64_t *K, const TData alpha,
-                      TData const *const *Aarray, const std::int64_t *lda,
-                      TData const *const *Barray, const std::int64_t *ldb,
-                      const TData beta, TData **Carray, const std::int64_t *ldc,
-                      const std::int64_t batchSize);
-#endif
-
 // NekGemv
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, blasHandle_t>, void>::type NekGemv(

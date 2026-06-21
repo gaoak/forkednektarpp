@@ -86,102 +86,6 @@ NekGemmStridedBatched(THandle handle, std::string transposeA,
 
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, hipblasHandle_t>, void>::type
-NekGemmGroupedBatched(THandle handle, std::string transposeA,
-                      std::string transposeB, const int *M, const int *N,
-                      const int *K, const TData alpha,
-                      TData const *const *Aarray, const int *lda,
-                      TData const *const *Barray, const int *ldb,
-                      const TData beta, TData **Carray, const int *ldc,
-                      const int batchSize)
-{
-    // Create HIP Streams.
-    const unsigned int nStreams = std::min(8, batchSize);
-    std::vector<hipStream_t> streams(nStreams);
-    for (unsigned int s = 0; s < nStreams; ++s)
-    {
-        CHECK_HIPCUDA_ERROR(hipStreamCreate(&streams[s]));
-    }
-
-    for (unsigned int i = 0; i < batchSize; i++)
-    {
-        // Set stream.
-        HIPBLAS_CHECK(hipblasSetStream(handle, streams[i % nStreams]));
-
-        NekGemm(handle, transposeA, transposeB, M[i], N[i], K[i], alpha,
-                Aarray[i], lda[i], Barray[i], ldb[i], beta, Carray[i], ldc[i]);
-    }
-
-    for (unsigned int s = 0; s < nStreams; ++s)
-    {
-        CHECK_HIPCUDA_ERROR(hipStreamSynchronize(streams[s]));
-    }
-
-    // Set back to default stream.
-    HIPBLAS_CHECK(hipblasSetStream(handle, 0));
-
-    // Destroy streams.
-    for (unsigned int s = 0; s < nStreams; ++s)
-    {
-        CHECK_HIPCUDA_ERROR(hipStreamDestroy(streams[s]));
-    }
-
-    /*
-    std::vector<hipblasOperation_t> transA(batchSize);
-    std::vector<hipblasOperation_t> transB(batchSize);
-    std::vector<int> groupSize(batchSize);
-    std::vector<TData> alpha_array(batchSize);
-    std::vector<TData> beta_array(batchSize);
-    std::fill(transA.begin(), transA.end(),
-              (transposeA == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T);
-    std::fill(transB.begin(), transB.end(),
-              (transposeB == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T);
-    std::fill(alpha_array.begin(), alpha_array.end(), alpha);
-    std::fill(beta_array.begin(), beta_array.end(), beta);
-    std::fill(groupSize.begin(), groupSize.end(), 1);
-
-    TData const **Adev;
-    TData const **Bdev;
-    TData **Cdev;
-    Nektar::deviceMalloc(&Adev, sizeof(TData *) * batchSize,
-                         Nektar::eDeviceMemoryPool);
-    Nektar::deviceMalloc(&Bdev, sizeof(TData *) * batchSize,
-                         Nektar::eDeviceMemoryPool);
-    Nektar::deviceMalloc(&Cdev, sizeof(TData *) * batchSize,
-                         Nektar::eDeviceMemoryPool);
-
-    Nektar::deviceMemcpy<Nektar::HostToDevice>(Adev, Aarray,
-                                               sizeof(TData *) * batchSize);
-    Nektar::deviceMemcpy<Nektar::HostToDevice>(Bdev, Barray,
-                                               sizeof(TData *) * batchSize);
-    Nektar::deviceMemcpy<Nektar::HostToDevice>(Cdev, Carray,
-                                               sizeof(TData *) * batchSize);
-
-    if constexpr (std::is_same_v<TData, float>)
-    {
-        HIPBLAS_CHECK(cublasSgemmGroupedBatched(
-            handle, transA.data(), transB.data(), M, N, K, alpha_array.data(),
-            Adev, lda, Bdev, ldb, beta_array.data(), Cdev, ldc, batchSize,
-            groupSize.data()));
-    }
-    else if constexpr (std::is_same_v<TData, double>)
-    {
-        HIPBLAS_CHECK(cublasDgemmGroupedBatched(
-            handle, transA.data(), transB.data(), M, N, K, alpha_array.data(),
-            Adev, lda, Bdev, ldb, beta_array.data(), Cdev, ldc, batchSize,
-            groupSize.data()));
-    }
-
-    Nektar::deviceFree(Adev, sizeof(TData *) * batchSize,
-                       Nektar::eDeviceMemoryPool);
-    Nektar::deviceFree(Bdev, sizeof(TData *) * batchSize,
-                       Nektar::eDeviceMemoryPool);
-    Nektar::deviceFree(Cdev, sizeof(TData *) * batchSize,
-                       Nektar::eDeviceMemoryPool);
-    */
-}
-
-template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, hipblasHandle_t>, void>::type
 NekGemv(THandle handle, std::string transpose, const int M, const int N,
         const TData alpha, const TData *a, const int lda, const TData *x,
         const int incx, const TData beta, TData *y, const int incy)
@@ -250,20 +154,6 @@ template void NekGemmStridedBatched<hipblasHandle_t, double>(
     const int lda, const int strideA, const double *b, const int ldb,
     const int strideB, const double beta, double *c, const int ldc,
     const int strideC, const int batchSize);
-
-template void NekGemmGroupedBatched<hipblasHandle_t, float>(
-    hipblasHandle_t handle, std::string transposeA, std::string transposeB,
-    const int *M, const int *N, const int *K, const float alpha,
-    float const *const *Aarray, const int *lda, float const *const *Barray,
-    const int *ldb, const float beta, float **Carray, const int *ldc,
-    const int batchSize);
-
-template void NekGemmGroupedBatched<hipblasHandle_t, double>(
-    hipblasHandle_t handle, std::string transposeA, std::string transposeB,
-    const int *M, const int *N, const int *K, const double alpha,
-    double const *const *Aarray, const int *lda, double const *const *Barray,
-    const int *ldb, const double beta, double **Carray, const int *ldc,
-    const int batchSize);
 
 template void NekGemv<hipblasHandle_t, float>(
     hipblasHandle_t handle, std::string transpose, const int M, const int N,
