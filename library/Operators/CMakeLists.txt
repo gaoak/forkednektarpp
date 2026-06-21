@@ -886,7 +886,7 @@ IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
       ${OPERATORS_SOURCES}
        Common/Memory/MemoryAlloc.cu
        Math/Math.cu
-       Field/Field.cu
+       Field/BlockHelper.cu
     )
 
     SET(OPERATORS_DEPENDS
@@ -898,7 +898,7 @@ ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
       ${OPERATORS_SOURCES}
        Common/Memory/MemoryAlloc.hip
        Math/Math.hip
-       Field/Field.hip
+       Field/BlockHelper.hip
     )
 
     SET(OPERATORS_DEPENDS
@@ -908,7 +908,7 @@ ELSE()
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
       Math/Math.cpp
-      Field/Field.cpp
+      Field/BlockHelper.cpp
     )
 ENDIF()
 
