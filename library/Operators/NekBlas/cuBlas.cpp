@@ -84,69 +84,6 @@ NekGemmStridedBatched(THandle handle, std::string transposeA,
 }
 
 template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type
-NekGemmGroupedBatched(THandle handle, std::string transposeA,
-                      std::string transposeB, const int *M, const int *N,
-                      const int *K, const TData alpha,
-                      TData const *const *Aarray, const int *lda,
-                      TData const *const *Barray, const int *ldb,
-                      const TData beta, TData **Carray, const int *ldc,
-                      const int batchSize)
-{
-    std::vector<cublasOperation_t> transA(batchSize);
-    std::vector<cublasOperation_t> transB(batchSize);
-    std::vector<int> groupSize(batchSize);
-    std::vector<TData> alpha_array(batchSize);
-    std::vector<TData> beta_array(batchSize);
-    std::fill(transA.begin(), transA.end(),
-              (transposeA == "N") ? CUBLAS_OP_N : CUBLAS_OP_T);
-    std::fill(transB.begin(), transB.end(),
-              (transposeB == "N") ? CUBLAS_OP_N : CUBLAS_OP_T);
-    std::fill(alpha_array.begin(), alpha_array.end(), alpha);
-    std::fill(beta_array.begin(), beta_array.end(), beta);
-    std::fill(groupSize.begin(), groupSize.end(), 1);
-
-    TData const **Adev;
-    TData const **Bdev;
-    TData **Cdev;
-    Nektar::deviceMalloc(&Adev, sizeof(TData *) * batchSize,
-                         Nektar::eDeviceMemoryPool);
-    Nektar::deviceMalloc(&Bdev, sizeof(TData *) * batchSize,
-                         Nektar::eDeviceMemoryPool);
-    Nektar::deviceMalloc(&Cdev, sizeof(TData *) * batchSize,
-                         Nektar::eDeviceMemoryPool);
-
-    Nektar::deviceMemcpy<Nektar::HostToDevice>(Adev, Aarray,
-                                               sizeof(TData *) * batchSize);
-    Nektar::deviceMemcpy<Nektar::HostToDevice>(Bdev, Barray,
-                                               sizeof(TData *) * batchSize);
-    Nektar::deviceMemcpy<Nektar::HostToDevice>(Cdev, Carray,
-                                               sizeof(TData *) * batchSize);
-
-    if constexpr (std::is_same_v<TData, float>)
-    {
-        CUBLAS_CHECK(cublasSgemmGroupedBatched(
-            handle, transA.data(), transB.data(), M, N, K, alpha_array.data(),
-            Adev, lda, Bdev, ldb, beta_array.data(), Cdev, ldc, batchSize,
-            groupSize.data()));
-    }
-    else if constexpr (std::is_same_v<TData, double>)
-    {
-        CUBLAS_CHECK(cublasDgemmGroupedBatched(
-            handle, transA.data(), transB.data(), M, N, K, alpha_array.data(),
-            Adev, lda, Bdev, ldb, beta_array.data(), Cdev, ldc, batchSize,
-            groupSize.data()));
-    }
-
-    Nektar::deviceFree(Adev, sizeof(TData *) * batchSize,
-                       Nektar::eDeviceMemoryPool);
-    Nektar::deviceFree(Bdev, sizeof(TData *) * batchSize,
-                       Nektar::eDeviceMemoryPool);
-    Nektar::deviceFree(Cdev, sizeof(TData *) * batchSize,
-                       Nektar::eDeviceMemoryPool);
-}
-
-template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type NekGemv(
     THandle handle, std::string transpose, const int M, const int N,
     const TData alpha, const TData *a, const int lda, const TData *x,
@@ -216,20 +153,6 @@ template void NekGemmStridedBatched<cublasHandle_t, double>(
     const int lda, const int strideA, const double *b, const int ldb,
     const int strideB, const double beta, double *c, const int ldc,
     const int strideC, const int batchSize);
-
-template void NekGemmGroupedBatched<cublasHandle_t, float>(
-    cublasHandle_t handle, std::string transposeA, std::string transposeB,
-    const int *M, const int *N, const int *K, const float alpha,
-    float const *const *Aarray, const int *lda, float const *const *Barray,
-    const int *ldb, const float beta, float **Carray, const int *ldc,
-    const int batchSize);
-
-template void NekGemmGroupedBatched<cublasHandle_t, double>(
-    cublasHandle_t handle, std::string transposeA, std::string transposeB,
-    const int *M, const int *N, const int *K, const double alpha,
-    double const *const *Aarray, const int *lda, double const *const *Barray,
-    const int *ldb, const double beta, double **Carray, const int *ldc,
-    const int batchSize);
 
 template void NekGemv<cublasHandle_t, float>(
     cublasHandle_t handle, std::string transpose, const int M, const int N,

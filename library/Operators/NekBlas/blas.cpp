@@ -70,26 +70,6 @@ NekGemmStridedBatched([[maybe_unused]] THandle handle, std::string transposeA,
 }
 
 template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, blasHandle_t>, void>::type
-NekGemmGroupedBatched([[maybe_unused]] THandle handle, std::string transposeA,
-                      std::string transposeB, const int *M, const int *N,
-                      const int *K, const TData alpha,
-                      TData const *const *Aarray, const int *lda,
-                      TData const *const *Barray, const int *ldb,
-                      const TData beta, TData **Carray, const int *ldc,
-                      const int batchSize)
-{
-    auto transA = *transposeA.c_str();
-    auto transB = *transposeB.c_str();
-
-    for (int i = 0; i < batchSize; i++)
-    {
-        Blas::Gemm(transA, transB, M[i], N[i], K[i], alpha, Aarray[i], lda[i],
-                   Barray[i], ldb[i], beta, Carray[i], ldc[i]);
-    }
-}
-
-template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, blasHandle_t>, void>::type NekGemv(
     [[maybe_unused]] THandle handle, std::string transpose, const int M,
     const int N, const TData alpha, const TData *a, const int lda,
@@ -143,20 +123,6 @@ template void NekGemmStridedBatched<blasHandle_t, double>(
     const int lda, const int strideA, const double *b, const int ldb,
     const int strideB, const double beta, double *c, const int ldc,
     const int strideC, const int batchSize);
-
-template void NekGemmGroupedBatched<blasHandle_t, float>(
-    blasHandle_t handle, std::string transposeA, std::string transposeB,
-    const int *M, const int *N, const int *K, const float alpha,
-    float const *const *Aarray, const int *lda, float const *const *Barray,
-    const int *ldb, const float beta, float **Carray, const int *ldc,
-    const int batchSize);
-
-template void NekGemmGroupedBatched<blasHandle_t, double>(
-    blasHandle_t handle, std::string transposeA, std::string transposeB,
-    const int *M, const int *N, const int *K, const double alpha,
-    double const *const *Aarray, const int *lda, double const *const *Barray,
-    const int *ldb, const double beta, double **Carray, const int *ldc,
-    const int batchSize);
 
 template void NekGemv<blasHandle_t, float>(
     blasHandle_t handle, std::string transpose, const int M, const int N,

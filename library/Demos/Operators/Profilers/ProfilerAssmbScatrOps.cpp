@@ -32,6 +32,10 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#if defined(NEKTAR_USE_MAGMA)
+#include "magma_v2.h"
+#endif
+
 #include "ProfilerAssmbScatrOps.hpp"
 
 /**
@@ -158,4 +162,8 @@ int main(int argc, char *argv[])
     LIKWID_MARKER_CLOSE;
 
     session->Finalise();
+
+#ifdef NEKTAR_USE_MAGMA
+    magma_finalize();
+#endif
 }

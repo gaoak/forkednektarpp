@@ -39,6 +39,32 @@
 
 #include <magma_v2.h>
 
+#if defined(NEKTAR_ENABLE_CUDA)
+#define CUBLAS_CHECK(condition)                                                \
+    {                                                                          \
+        const cublasStatus_t status = condition;                               \
+        if (status != CUBLAS_STATUS_SUCCESS)                                   \
+        {                                                                      \
+            std::cerr << "cuBLAS error encountered: \""                        \
+                      << cublasGetStatusString(status) << "\" at " << __FILE__ \
+                      << ':' << __LINE__ << std::endl;                         \
+            exit(0);                                                           \
+        }                                                                      \
+    }
+#elif defined(NEKTAR_ENABLE_HIP)
+#define HIPBLAS_CHECK(condition)                                               \
+    {                                                                          \
+        const hipblasStatus_t status = condition;                              \
+        if (status != HIPBLAS_STATUS_SUCCESS)                                  \
+        {                                                                      \
+            std::cerr << "hipBLAS error encountered: \""                       \
+                      << hipblasStatusToString(status) << "\" at " << __FILE__ \
+                      << ':' << __LINE__ << std::endl;                         \
+            exit(0);                                                           \
+        }                                                                      \
+    }
+#endif
+
 class magmaHandle
 {
 public:
