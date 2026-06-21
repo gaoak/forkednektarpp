@@ -236,22 +236,17 @@ public:
 
         return *this;
     }
+
+    void ReshapeStorage(const unsigned int &interleaveWidth,
+                        const std::string &execSpace);
+
     /**
      * @brief Get the pointer to the host/device memory.
      *
      * @return    - TData*
      */
     template <typename MemSpace, typename MemAccess>
-    typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *GetPtr()
-    {
-        // If not yet allocated, allocate contiguous host OR device memory
-        // accross all MemoryRegion objects from m_field. Note: m_field is a
-        // pointer to a Field object from which the current BlockAccessor object
-        // belong to.
-        Field<TData, TState>::template AllocateFieldStorage<MemSpace>(m_field);
-
-        return m_memory_region.template GetPtr<MemSpace, MemAccess>();
-    }
+    typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *GetPtr();
 
     /**
      * @brief Gets the alignment of the memory region block.

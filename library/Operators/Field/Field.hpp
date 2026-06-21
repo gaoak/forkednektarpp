@@ -273,7 +273,13 @@ public:
     }
 
     void ReshapeStorage(const unsigned int &interleaveWidth,
-                        const std::string &execSpace);
+                        const std::string &execSpace)
+    {
+        for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
+        {
+            this->GetBlocks()[blk].ReshapeStorage(interleaveWidth, execSpace);
+        }
+    }
 
     /**
      * @brief Templated initialize method.
