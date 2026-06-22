@@ -76,9 +76,9 @@ protected:
 
     virtual void v_SetAppend(const bool &append) = 0;
 
-    double m_IPSymmFluxCoeff = 0.0;
-    double m_IP2ndDervCoeff  = 0.0;
-    double m_IPPenaltyCoeff  = 4.0;
+    TData m_IPSymmFluxCoeff = 0.0;
+    TData m_IP2ndDervCoeff  = 0.0;
+    TData m_IPPenaltyCoeff  = 4.0;
 };
 
 } // namespace Nektar::Operators

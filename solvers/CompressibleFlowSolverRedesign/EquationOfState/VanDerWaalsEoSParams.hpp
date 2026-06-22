@@ -47,7 +47,7 @@ namespace Nektar::Operators::detail
 template <typename TData> struct VanDerWaalsEoS
 {
     // Specialised constructor for updating
-    VanDerWaalsEoS(double gamma, double gasConst, double Tcrit, double Pcrit)
+    VanDerWaalsEoS(TData gamma, TData gasConst, TData Tcrit, TData Pcrit)
         : m_gamma(gamma), m_gasConst(gasConst), m_gammaMoneOgasConst(0)
     {
         m_gammaMoneOgasConst = (m_gamma - TData(1.0)) / m_gasConst;

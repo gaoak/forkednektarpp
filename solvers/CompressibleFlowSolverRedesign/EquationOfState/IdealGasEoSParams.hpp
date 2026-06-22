@@ -47,7 +47,7 @@ namespace Nektar::Operators::detail
 template <typename TData> struct IdealGasEoS
 {
     // Specialised constructor for updating
-    IdealGasEoS(double gamma, double gasConst)
+    IdealGasEoS(TData gamma, TData gasConst)
         : m_gamma(gamma), m_gasConst(gasConst)
     {
         m_gammaMoneOgasConst = (m_gamma - TData(1.0)) / m_gasConst;

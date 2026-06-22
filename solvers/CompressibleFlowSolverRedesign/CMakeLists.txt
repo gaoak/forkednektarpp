@@ -24,7 +24,7 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
 
         # Set default data types
         IF(NEKTAR_ENABLE_DOUBLE_PRECISION)
-        SET(DataTypes double)
+            SET(DataTypes double)
         ENDIF()
         IF(NEKTAR_ENABLE_SINGLE_PRECISION)
             SET(DataTypes ${DataTypes} float)

@@ -46,8 +46,8 @@ NEK_FORCE_INLINE static void DiffuseTraceFluxKernel(
     const unsigned int derivStride, const TData prandtl, const TData muRef,
     const bool isMuVariable, const TData oneOverTStar,
     const TData tRatioSutherland, const TData *normbase,
-    const double *bwdWeightAverBase, const double *bwdWeightJumpBase,
-    const double *lengthRecipBase, const double *penaltyFactorBase,
+    const TData *bwdWeightAverBase, const TData *bwdWeightJumpBase,
+    const TData *lengthRecipBase, const TData *penaltyFactorBase,
     const TData *fwdbase, const TData *bwdbase, const TData *derivfwdbase,
     const TData *derivbwdbase, TData *averbase, TData *jumpbase,
     TData *fluxbase)

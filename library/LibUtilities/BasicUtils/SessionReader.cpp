@@ -1082,6 +1082,29 @@ bool SessionReader::DefinesReferenceValue(const std::string &pName) const
  *
  */
 void SessionReader::LoadReferenceValue(const std::string &pName,
+                                       NekSingle &pVar,
+                                       const NekSingle &pDefault) const
+{
+    std::string vName = boost::to_upper_copy(pName);
+    auto paramIter    = m_referenceValues.find(vName);
+    if (paramIter != m_referenceValues.end())
+    {
+        pVar = paramIter->second;
+    }
+    else
+    {
+        pVar = pDefault;
+
+        NEKERROR(ErrorUtil::ewarning,
+                 "Setting default value of " + pName + " = " +
+                     boost::lexical_cast<std::string>(pDefault));
+    }
+}
+
+/**
+ *
+ */
+void SessionReader::LoadReferenceValue(const std::string &pName,
                                        NekDouble &pVar,
                                        const NekDouble &pDefault) const
 {

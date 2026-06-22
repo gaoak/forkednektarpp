@@ -77,7 +77,7 @@ public:
 
 protected:
     static constexpr unsigned m_device_width =
-        NektarSpaces::vector_width<ExecSpace, double>::value;
+        NektarSpaces::vector_width<ExecSpace, TData>::value;
     const unsigned *m_gsNumAssmb    = nullptr;
     const unsigned *m_gsIndex       = nullptr;
     const unsigned *m_gsOffset      = nullptr;
