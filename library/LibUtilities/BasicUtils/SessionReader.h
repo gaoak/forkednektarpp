@@ -244,6 +244,10 @@ public:
     /// Checks if a reference value  is specified in the XML document.
     LIB_UTILITIES_EXPORT bool DefinesReferenceValue(
         const std::string &name) const;
+    /// Check for and load a single-precision reference value.
+    LIB_UTILITIES_EXPORT void LoadReferenceValue(const std::string &name,
+                                                 NekSingle &var,
+                                                 const NekSingle &def) const;
     /// Check for and load a double-precision reference value.
     LIB_UTILITIES_EXPORT void LoadReferenceValue(const std::string &name,
                                                  NekDouble &var,

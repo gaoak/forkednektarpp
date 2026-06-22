@@ -340,7 +340,7 @@ public:
             auto &parallelDirBndSign = assmbMap->GetParallelDirBndSign();
             m_signChange[nc]         = assmbMap->GetSignChange();
 
-            std::vector<std::tuple<size_t, size_t, double>> mapReordered;
+            std::vector<std::tuple<size_t, size_t, TData>> mapReordered;
             mapReordered.reserve(dirIndexByComp[nc].size());
             for (size_t idx : dirIndexByComp[nc])
             {
@@ -349,8 +349,8 @@ public:
                     bndcoeff[idx + nc * m_numBndCoeffCompSize]));
             }
             std::sort(mapReordered.begin(), mapReordered.end(),
-                      [](std::tuple<size_t, size_t, double> const &t1,
-                         std::tuple<size_t, size_t, double> const &t2) {
+                      [](std::tuple<size_t, size_t, TData> const &t1,
+                         std::tuple<size_t, size_t, TData> const &t2) {
                           return std::tie(std::get<1>(t1), std::get<0>(t1)) <
                                  std::tie(std::get<1>(t2), std::get<0>(t2));
                       });
@@ -395,7 +395,7 @@ public:
 
             // local dir dofs.
             m_localDirSize[nc] = assmbMap->GetCopyLocalDirDofs().size();
-            std::vector<std::tuple<size_t, size_t, double>> locReordered(
+            std::vector<std::tuple<size_t, size_t, TData>> locReordered(
                 m_localDirSize[nc]);
             if (m_localDirSize[nc] > 0)
             {
@@ -406,8 +406,8 @@ public:
                     cnt++;
                 }
                 std::sort(std::begin(locReordered), std::end(locReordered),
-                          [](std::tuple<size_t, size_t, double> const &t1,
-                             std::tuple<size_t, size_t, double> const &t2) {
+                          [](std::tuple<size_t, size_t, TData> const &t1,
+                             std::tuple<size_t, size_t, TData> const &t2) {
                               return std::tie(std::get<1>(t1),
                                               std::get<0>(t1)) <
                                      std::tie(std::get<1>(t2), std::get<0>(t2));

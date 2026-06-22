@@ -148,7 +148,7 @@ protected:
 
         // Create fields.
         unsigned int numHomoModes = 1;
-        m_traceNormals            = Field<double, FieldState::Phys>(
+        m_traceNormals            = Field<TData, FieldState::Phys>(
             "m_traceNormals", blocks_trace, coordDim, numHomoModes);
 
         // Initialise fields

@@ -58,7 +58,7 @@ public:
 
         SetUpEquationOfState(session, m_EoS);
 
-        double rhoInf, pInf;
+        TData rhoInf, pInf;
 
         // reference values could probably be in seperate session section
         session->LoadReferenceValue("viscosity", m_muRef, 1.78e-05);
@@ -72,7 +72,7 @@ public:
         if (boost::iequals(viscosityType, "Variable"))
         {
             m_isMuVariable = true;
-            double Tref, Tsuth;
+            TData Tref, Tsuth;
             session->LoadReferenceValue("Temperature", Tref, 288.15);
             session->LoadReferenceValue("Tsutherland", Tsuth, 110.0);
             m_TRatioSutherland = Tsuth / Tref;
@@ -82,13 +82,13 @@ public:
             m_isMuVariable = false;
         }
 
-        double Cp = m_EoS.gamma() / (m_EoS.gamma() - 1.0) * m_EoS.gasConst();
+        TData Cp = m_EoS.gamma() / (m_EoS.gamma() - 1.0) * m_EoS.gasConst();
 
         if (session->DefinesReferenceValue("thermalConductivity"))
         {
             ASSERTL0(!session->DefinesReferenceValue("Prandtl"),
                      "Cannot define both Prandtl and thermalConductivity.");
-            double thermalConductivityRef;
+            TData thermalConductivityRef;
             session->LoadReferenceValue("thermalConductivity",
                                         thermalConductivityRef, 1.0);
             m_Prandtl = Cp * m_muRef / thermalConductivityRef;
@@ -117,11 +117,11 @@ protected:
     EqnOfSParams m_EoS;
     // viscosity parameters
     bool m_isMuVariable;
-    double m_muRef;
-    double m_Prandtl;
+    TData m_muRef;
+    TData m_Prandtl;
     // Sutherland's law parameters
-    double m_TRatioSutherland;
-    double m_oneOverTstar;
+    TData m_TRatioSutherland;
+    TData m_oneOverTstar;
 
     void v_Apply(Field<TData, FieldState::Phys> &in,
                  Field<TData, FieldState::Phys> &deriv,

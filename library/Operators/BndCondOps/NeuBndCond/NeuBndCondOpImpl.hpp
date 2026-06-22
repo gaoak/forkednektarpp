@@ -327,7 +327,7 @@ public:
             auto &map        = assmbMap->GetBndCondCoeffsToLocalCoeffsMap();
             m_signChange[nc] = assmbMap->GetSignChange();
 
-            std::vector<std::tuple<size_t, size_t, double>> mapReordered;
+            std::vector<std::tuple<size_t, size_t, TData>> mapReordered;
             mapReordered.reserve(neuIndexByComp[nc].size());
             for (size_t idx : neuIndexByComp[nc])
             {
@@ -336,8 +336,8 @@ public:
                     bndcoeff[idx + nc * m_numBndCoeffCompSize]));
             }
             std::sort(mapReordered.begin(), mapReordered.end(),
-                      [](std::tuple<size_t, size_t, double> const &t1,
-                         std::tuple<size_t, size_t, double> const &t2) {
+                      [](std::tuple<size_t, size_t, TData> const &t1,
+                         std::tuple<size_t, size_t, TData> const &t2) {
                           return std::tie(std::get<1>(t1), std::get<0>(t1)) <
                                  std::tie(std::get<1>(t2), std::get<0>(t2));
                       });

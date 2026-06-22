@@ -57,8 +57,8 @@ struct AUSM3Upwinding
         // Note: if fa = 1 then AUSM3 = AUSM2
         TData Mco    = 0.01;
         TData Mtilde = 0.5 * (ML * ML + MR * MR);
-        TData Mo     = std::sqrt(std::min(1.0, std::max(Mtilde, Mco * Mco)));
-        TData fa     = Mo * (2.0 - Mo);
+        TData Mo = std::sqrt(std::min((TData)1.0, std::max(Mtilde, Mco * Mco)));
+        TData fa = Mo * ((TData)2.0 - Mo);
         constexpr TData beta  = 0.125;
         constexpr TData alpha = 0.1875;
         constexpr TData sigma = 1.0;
@@ -66,11 +66,11 @@ struct AUSM3Upwinding
         constexpr TData Ku    = 0.75;
         TData rhoA            = 0.5 * (rhoL + rhoR);
         TData Mp              = -(Kp / fa) * ((pR - pL) / (rhoA * cA * cA)) *
-                   std::max(1.0 - sigma * Mtilde, 0.0);
+                   std::max((TData)1.0 - sigma * Mtilde, (TData)0.0);
 
         Mbar = M4Function(0, beta, ML) + M4Function(1, beta, MR) + Mp;
 
-        TData pu = -2.0 * Ku * rhoA * cA * cA * (MR - ML) *
+        TData pu = -(TData)2.0 * Ku * rhoA * cA * cA * (MR - ML) *
                    P5Function(0, alpha, ML) * P5Function(1, alpha, MR);
 
         pbar =
