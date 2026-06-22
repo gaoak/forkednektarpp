@@ -145,7 +145,7 @@ void EulerCFE::v_InitialiseOperators()
     m_riemannSolverOp         = CompressibleSolverOp<double>::Create(
         m_expansionLists[0], m_variables, riemannMethod, execName);
     m_volumeFluxOp =
-        VolumeFluxOp<double>::Create(m_expansionLists[0], m_variables);
+        EulerVolumeFluxOp<double>::Create(m_expansionLists[0], m_variables);
 
     // Set volume flux and Riemann solver for advection operator
     m_advectionWeakDGOp->SetVolumeFluxOp(m_volumeFluxOp);
@@ -158,7 +158,7 @@ void EulerCFE::v_InitialiseOperators()
 void EulerCFE::InitialiseParameters()
 {
     // Get gamma parameter from session file.
-    m_session->LoadParameter("Gamma", m_gamma, 1.4);
+    m_session->LoadParameter("GasConstant", m_gasConstant, 287);
 }
 
 } // namespace Nektar

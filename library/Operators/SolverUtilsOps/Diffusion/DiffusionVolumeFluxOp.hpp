@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: EulerVolumeFluxOp.hpp
+// File: DiffusionVolumeFluxOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,42 +28,46 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: DiffusionVolume flux operator base classes.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include "Operators/SolverUtilsOps/Advection/VolumeFluxOp.hpp"
+#include "Operators/SolverUtilsOps/Flux/FluxOp.hpp"
 
 namespace Nektar::Operators
 {
 
-// Upwind base class
-// Defines the apply operator to enforce apply parameter types
-template <typename TData> class EulerVolumeFluxOp : public VolumeFluxOp<TData>
+template <typename TData> class DiffusionVolumeFluxOp : public FluxOp<TData>
 {
 public:
-    static std::shared_ptr<EulerVolumeFluxOp<TData>> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::vector<std::string> &components,
-        const std::string &execStr = "")
+    void Apply(Field<TData, FieldState::Phys> &in,
+               Field<TData, FieldState::Phys> &deriv,
+               Field<TData, FieldState::Phys> &out)
     {
-        return std::dynamic_pointer_cast<EulerVolumeFluxOp<TData>>(
-            VolumeFluxOp<TData>::Create(expansionList, components, name,
-                                        execStr));
+        this->v_Apply(in, deriv, out);
     }
 
-    static inline const std::string name = "EulerVolumeFlux";
+    void operator()(Field<TData, FieldState::Phys> &in,
+                    Field<TData, FieldState::Phys> &deriv,
+                    Field<TData, FieldState::Phys> &out)
+    {
+        this->v_Apply(in, deriv, out);
+    }
 
 protected:
-    EulerVolumeFluxOp(const MultiRegions::ExpListSharedPtr &expansionList,
-                      const std::vector<std::string> &components)
-        : VolumeFluxOp<TData>(expansionList, components)
+    DiffusionVolumeFluxOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                          const std::vector<std::string> &components)
+        : FluxOp<TData>(expansionList, components)
     {
     }
 
-    ~EulerVolumeFluxOp() override = default;
+    ~DiffusionVolumeFluxOp() override = default;
+
+    virtual void v_Apply(Field<TData, FieldState::Phys> &in,
+                         Field<TData, FieldState::Phys> &deriv,
+                         Field<TData, FieldState::Phys> &out) = 0;
 };
 
 } // namespace Nektar::Operators

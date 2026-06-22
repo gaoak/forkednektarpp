@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: CompressibleSolverOp.hpp
+// File: DiffusionCFETraceFluxOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,28 +28,28 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: CompressibleSolver operator base class.
+// Description: Volume Flux for the Compressible Flow Equations (CFE) diffusion
+// operators
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include "Operators/SolverUtilsOps/RiemannSolvers/RiemannSolverOp.hpp"
-
-#include "EquationOfState/SupportedEoS.hpp"
+#include "Operators/SolverUtilsOps/Diffusion/DiffusionTraceFluxOp.hpp"
 
 namespace Nektar::Operators
 {
 
-// CompressibleSolver operator base class
+// Upwind base class
+// Defines the apply operator to enforce apply parameter types
 template <typename TData>
-class CompressibleSolverOp : public RiemannSolverOp<TData>
+class DiffusionCFETraceFluxOp : public DiffusionTraceFluxOp<TData>
 {
 public:
-    static std::shared_ptr<CompressibleSolverOp<TData>> Create(
+    static std::shared_ptr<DiffusionCFETraceFluxOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::vector<std::string> &components, const std::string &method,
-        const std::string &execStr)
+        const std::vector<std::string> &components,
+        const std::string &execStr = "")
     {
         std::string EoSName;
 
@@ -64,21 +64,21 @@ public:
                      "No EquationOfState section defined in session file");
         }
 
-        return std::static_pointer_cast<CompressibleSolverOp<TData>>(
-            RiemannSolverOp<TData>::Create(expansionList, components,
-                                           name + method + EoSName, execStr));
+        return std::dynamic_pointer_cast<DiffusionCFETraceFluxOp<TData>>(
+            DiffusionTraceFluxOp<TData>::Create(expansionList, components,
+                                                name + EoSName, execStr));
     }
 
-    static inline const std::string name = "CompressibleSolver";
+    static inline const std::string name = "DiffusionCFETraceFlux";
 
 protected:
-    CompressibleSolverOp(const MultiRegions::ExpListSharedPtr &expansionList,
-                         const std::vector<std::string> &components)
-        : RiemannSolverOp<TData>(expansionList, components)
+    DiffusionCFETraceFluxOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                            const std::vector<std::string> &components)
+        : DiffusionTraceFluxOp<TData>(expansionList, components)
     {
     }
 
-    ~CompressibleSolverOp() override = default;
+    ~DiffusionCFETraceFluxOp() override = default;
 };
 
 } // namespace Nektar::Operators

@@ -344,7 +344,7 @@ void UnsteadyADR::v_InitialiseOperators()
             {
                 m_advectionWeakDGOp = AdvectionWeakDGOp<double>::Create(
                     m_expansionLists[0], m_variables);
-                m_volumeFluxOp = VolumeFluxOp<double>::Create(
+                m_volumeFluxOp = LinearAdvVolumeFluxOp<double>::Create(
                     m_expansionLists[0], m_variables);
                 m_riemannSolverOp = RiemannSolverOp<double>::Create(
                     m_expansionLists[0], m_variables);

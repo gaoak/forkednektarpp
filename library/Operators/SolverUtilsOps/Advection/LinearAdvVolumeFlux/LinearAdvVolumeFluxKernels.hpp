@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: VolumeFluxKernels.hpp
+// File: LinearAdvVolumeFluxKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,7 +28,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Volume flux kernels.
+// Description: Volume flux kernels for linear advection
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -39,7 +39,7 @@
 namespace Nektar::Operators::detail
 {
 template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static void AdvectVolumeFluxKernel(
+NEK_FORCE_INLINE static void LinearAdvVolumeFluxKernel(
     const unsigned int npts, const unsigned int velComps,
     const unsigned int nvarComps, const unsigned int velStride,
     const unsigned int inStride, const unsigned int outStride,
@@ -61,77 +61,6 @@ NEK_FORCE_INLINE static void AdvectVolumeFluxKernel(
 
                     outbase[out_off] = in_val * velbase[vel_off];
                 }
-            }
-        });
-}
-
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static void EulerVolumeFluxKernel(
-    const unsigned int npts, const unsigned int ndim,
-    const unsigned int nvarComps, const unsigned int inStride,
-    const unsigned int outStride, const TData *inbase, TData *outbase)
-{
-    // Check that we have the right number of variables for Euler
-    if (nvarComps != ndim + 2)
-    {
-        return;
-    }
-
-    // Parallelize over points; each i is independent
-    Nektar::parallel_for<ExecSpace>(
-        0u, npts, NEKTAR_LAMBDA(const size_t i) {
-            // ---- Load conservative variables U at point i ----
-            const TData rho    = inbase[0 * inStride + i];
-            const TData invRho = TData(1) / rho;
-
-            TData mom[3] = {TData(0), TData(0), TData(0)};
-            TData vel[3] = {TData(0), TData(0), TData(0)};
-
-            for (unsigned int d = 0; d < ndim; ++d)
-            {
-                mom[d] = inbase[(1u + d) * inStride + i]; // rho*u_d
-                vel[d] = mom[d] * invRho;                 // u_d
-            }
-
-            const TData E = inbase[(ndim + 1u) * inStride + i];
-
-            // ---- Pressure (ideal gas): p = (gamma-1)*(E - 0.5*rho*|u|^2) ----
-            TData u2sum = TData(0);
-            for (unsigned int d = 0; d < ndim; ++d)
-            {
-                u2sum += vel[d] * vel[d];
-            }
-
-            const TData p      = (1.4 - 1) * (E - TData(0.5) * rho * u2sum);
-            const TData ePlusP = E + p;
-
-            // ---- Fluxes ----
-            // rho equation: F_rho,d = rho*u_d = mom[d]
-            for (unsigned int d = 0; d < ndim; ++d)
-            {
-                outbase[(0u * ndim + d) * outStride + i] = mom[d];
-            }
-
-            // momentum equations:
-            // F_{mom_a,d} = (rho*u_a)*u_d + p*delta_{a,d}
-            for (unsigned int a = 0; a < ndim; ++a)
-            {
-                for (unsigned int d = 0; d < ndim; ++d)
-                {
-                    TData val = mom[a] * vel[d];
-                    if (a == d)
-                    {
-                        val += p;
-                    }
-                    outbase[((1u + a) * ndim + d) * outStride + i] = val;
-                }
-            }
-
-            // energy equation: F_E,d = (E+p)*u_d
-            for (unsigned int d = 0; d < ndim; ++d)
-            {
-                outbase[((ndim + 1u) * ndim + d) * outStride + i] =
-                    ePlusP * vel[d];
             }
         });
 }

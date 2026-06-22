@@ -1072,6 +1072,38 @@ void SessionReader::SetParameter(const std::string &pName, NekDouble &pVar)
 /**
  *
  */
+bool SessionReader::DefinesReferenceValue(const std::string &pName) const
+{
+    std::string vName = boost::to_upper_copy(pName);
+    return m_referenceValues.find(vName) != m_referenceValues.end();
+}
+
+/**
+ *
+ */
+void SessionReader::LoadReferenceValue(const std::string &pName,
+                                       NekDouble &pVar,
+                                       const NekDouble &pDefault) const
+{
+    std::string vName = boost::to_upper_copy(pName);
+    auto paramIter    = m_referenceValues.find(vName);
+    if (paramIter != m_referenceValues.end())
+    {
+        pVar = paramIter->second;
+    }
+    else
+    {
+        pVar = pDefault;
+
+        NEKERROR(ErrorUtil::ewarning,
+                 "Setting default value of " + pName + " = " +
+                     boost::lexical_cast<std::string>(pDefault));
+    }
+}
+
+/**
+ *
+ */
 bool SessionReader::DefinesSolverInfo(const std::string &pName) const
 {
     std::string vName = boost::to_upper_copy(pName);
@@ -1244,6 +1276,42 @@ bool SessionReader::DefinesTimeIntScheme() const
 const TimeIntScheme &SessionReader::GetTimeIntScheme() const
 {
     return m_timeIntScheme;
+}
+
+/**
+ * @brief Returns true if the EQUATIONOFSTATE section is defined
+ * in the session file.
+ */
+bool SessionReader::DefinesEquationOfState() const
+{
+    return m_eqnOfStateScheme.type != "";
+}
+
+/**
+ * @brief Returns the equation of state scheme structure #m_eqnOfStateScheme
+ * from the session file.
+ */
+const EquationOfStateScheme &SessionReader::GetEquationOfState() const
+{
+    return m_eqnOfStateScheme;
+}
+
+/**
+ * @brief Returns true if the EQUATIONOFSTATE section is defined
+ * in the session file.
+ */
+bool SessionReader::DefinesReferenceValues() const
+{
+    return m_referenceValues.size();
+}
+
+/**
+ * @brief Returns the equation of state scheme structure #m_eqnOfStateScheme
+ * from the session file.
+ */
+const ParameterMap &SessionReader::GetReferenceValues() const
+{
+    return m_referenceValues;
 }
 
 /**
@@ -1752,6 +1820,8 @@ void SessionReader::ParseDocument()
     ReadSolverInfo(e);
     ReadGlobalSysSolnInfo(e);
     ReadTimeIntScheme(e);
+    ReadEquationOfState(e);
+    ReadReferenceValues(e);
     ReadVariables(e);
     ReadFunctions(e);
 
@@ -1961,6 +2031,7 @@ void SessionReader::ReadParameters(TiXmlElement *conditions)
 
     TiXmlElement *parametersElement =
         conditions->FirstChildElement("PARAMETERS");
+
     GetXMLElementTimeLevel(parametersElement, m_timeLevel);
 
     // See if we have parameters defined.  They are optional so we go on
@@ -2329,6 +2400,133 @@ void SessionReader::ReadTimeIntScheme(TiXmlElement *conditions)
                     cout << " " << x;
                 }
                 cout << endl;
+            }
+        }
+    }
+}
+
+/**
+ * @brief Read the equation of state scheme structure, if present.
+ */
+void SessionReader::ReadEquationOfState(TiXmlElement *conditions)
+{
+    if (!conditions)
+    {
+        return;
+    }
+
+    TiXmlElement *EoSInt = conditions->FirstChildElement("EquationOfState");
+
+    if (!EoSInt)
+    {
+        return;
+    }
+
+    TiXmlElement *type   = EoSInt->FirstChildElement("Type");
+    TiXmlElement *params = EoSInt->FirstChildElement("Parameters");
+
+    // Only the type is required.
+    ASSERTL0(type, "Missing TYPE tag inside "
+                   "EquationOfState seection.");
+    m_eqnOfStateScheme.type = type->GetText();
+
+    if (params)
+    {
+        TiXmlElement *list = params->FirstChildElement();
+
+        while (list)
+        {
+            std::string name = list->Value();
+            std::string rhs  = list->GetText();
+
+            LibUtilities::Equation expession(m_interpreter, rhs);
+            double value = expession.Evaluate();
+
+            m_eqnOfStateScheme.params[boost::to_upper_copy(name)] = value;
+
+            list = list->NextSiblingElement();
+        }
+
+        if (m_comm && (m_comm->GetRank() == 0))
+        {
+            if (m_parameters.size())
+            {
+                for (auto &x : m_eqnOfStateScheme.params)
+                {
+                    if (m_parameters.count(x.first))
+                    {
+                        cout << "Parameter " << x.first
+                             << " defined in both Parameters and "
+                                "EquationofState section. EquationOfState "
+                                "definition will be used. "
+                             << endl;
+                    }
+                }
+            }
+        }
+    }
+
+    if (m_verbose && m_comm)
+    {
+        if (m_comm->GetRank() == 0)
+        {
+            cout << "Using equation of state scheme:" << endl;
+            cout << "\t Type : " << m_eqnOfStateScheme.type << endl;
+            if (m_eqnOfStateScheme.params.size() > 0)
+            {
+                cout << "\t Paramameters :\n ";
+                for (auto &x : m_eqnOfStateScheme.params)
+                {
+                    cout << "\t\t" << x.first << " : " << x.second << endl;
+                }
+            }
+        }
+    }
+}
+
+/**
+ * @brief Read the equation of state scheme structure, if present.
+ */
+void SessionReader::ReadReferenceValues(TiXmlElement *conditions)
+{
+    if (!conditions)
+    {
+        return;
+    }
+
+    TiXmlElement *RefInt = conditions->FirstChildElement("ReferenceValues");
+
+    if (!RefInt)
+    {
+        return;
+    }
+
+    TiXmlElement *list = RefInt->FirstChildElement();
+
+    while (list)
+    {
+        std::string name = list->Value();
+        std::string rhs  = list->GetText();
+
+        LibUtilities::Equation expession(m_interpreter, rhs);
+        double value = expession.Evaluate();
+
+        m_referenceValues[boost::to_upper_copy(name)] = value;
+
+        list = list->NextSiblingElement();
+    }
+
+    if (m_verbose && m_comm)
+    {
+        if (m_comm->GetRank() == 0)
+        {
+            cout << "Reference Values:" << endl;
+            if (m_referenceValues.size() > 0)
+            {
+                for (auto &x : m_referenceValues)
+                {
+                    cout << "\t\t" << x.first << " : " << x.second << endl;
+                }
             }
         }
     }

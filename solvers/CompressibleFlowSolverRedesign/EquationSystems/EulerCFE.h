@@ -35,10 +35,10 @@
 
 #pragma once
 
+#include <CompressibleFlowSolverRedesign/EulerVolumeFlux/EulerVolumeFluxOp.hpp>
 #include <CompressibleFlowSolverRedesign/RiemannSolvers/CompressibleSolverOp.hpp>
-#include <Operators/ElmtOps/Expression/ExpressionOp.hpp>
+#include <Operators/Math/Math.hpp>
 #include <Operators/SolverUtilsOps/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
-#include <Operators/SolverUtilsOps/Advection/VolumeFluxOp.hpp>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 
 namespace Nektar
@@ -68,11 +68,12 @@ public:
 protected:
     // Parameters for CFE
     double m_gamma;
+    double m_gasConstant;
 
     // Initialise operators
     std::shared_ptr<AdvectionWeakDGOp<double>> m_advectionWeakDGOp;
     std::shared_ptr<CompressibleSolverOp<double>> m_riemannSolverOp;
-    std::shared_ptr<VolumeFluxOp<double>> m_volumeFluxOp;
+    std::shared_ptr<EulerVolumeFluxOp<double>> m_volumeFluxOp;
     std::shared_ptr<ExpressionOp<double>> m_initialOp;
     std::shared_ptr<ExpressionOp<double>> m_velOp;
 

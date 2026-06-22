@@ -175,5 +175,14 @@
             <V ID="3">rhow</V>
             <V ID="4">E</V>
         </VARIABLES>
+
+        <EquationOfState>
+            <Type> IdealGas </Type>
+            <Parameters>
+                <Gamma>       1.4 </Gamma>
+                <GasConstant> 287 </GasConstant>
+            </Parameters>
+        </EquationOfState>
+
     </CONDITIONS>
 </NEKTAR>

@@ -32,13 +32,17 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 #pragma once
-#include "Advection/EulerVolumeFlux/EulerVolumeFluxOp.hpp"
-#include "Operators/SolverUtilsOps/Advection/VolumeFluxKernels.hpp"
+#include <boost/algorithm/string/predicate.hpp>
+
+#include "EulerVolumeFlux/EulerVolumeFluxKernels.hpp"
+#include "EulerVolumeFlux/EulerVolumeFluxOp.hpp"
+
+#include "EquationOfState/SupportedEoS.hpp"
 
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, typename EqnOfSParams, typename TData>
 class EulerVolumeFluxOpImpl : public EulerVolumeFluxOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -49,6 +53,8 @@ public:
         : EulerVolumeFluxOp<TData>(std::move(expansionList), components)
     {
         m_dimension = expansionList->GetExp(0)->GetShapeDimension();
+
+        SetUpEquationOfState(expansionList->GetSession(), m_EoS);
     }
 
     // className - for OperatorFactory
@@ -59,12 +65,14 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
-        return std::make_unique<EulerVolumeFluxOpImpl<ExecSpace, TData>>(
+        return std::make_unique<
+            EulerVolumeFluxOpImpl<ExecSpace, EqnOfSParams, TData>>(
             expansionList, components);
     }
 
 protected:
     unsigned int m_dimension;
+    EqnOfSParams m_EoS;
 
     void v_Apply(Field<TData, FieldState::Phys> &in,
                  Field<TData, FieldState::Phys> &out) override
@@ -83,9 +91,9 @@ protected:
 
             const auto nvarComps = inblock.GetNumComponents();
 
-            EulerVolumeFluxKernel<ExecSpace>(npts, m_dimension, nvarComps,
-                                             inStride, outStride, inbase,
-                                             outbase);
+            EulerVolumeFluxKernel<ExecSpace, EqnOfSParams>(
+                m_EoS, npts, m_dimension, nvarComps, inStride, outStride,
+                inbase, outbase);
         }
     }
 };

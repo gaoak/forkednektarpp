@@ -30,60 +30,165 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
             SET(DataTypes ${DataTypes} float)
         ENDIF()
 
-        # Set compilation for Riemann solvers
-        SET(SolverTypes Average AUSM0 AUSM1 AUSM2 AUSM3 HLL HLLC LaxFriedrichs Roe)
+        # Set Equation of State types 
+        SET(EoSTypes IdealGasEoS VanDerWaalsEoS)
 
-        SET(name CompressibleSolver)
-        SET(dir ${CMAKE_CURRENT_SOURCE_DIR}/RiemannSolvers)
+        ################################################################
+        # Volume Flux operators
+        SET(CFEVolFluxes  EulerVolumeFlux DiffusionCFEVolFlux DiffusionCFETraceFlux)
 
-        SET(NAME_HEADERS ${name}_HEADERS)
-        SET(NAME_SOURCES ${name}_SOURCES)
-        SET(OPERATOR ${name})
+        FOREACH (name IN LISTS CFEVolFluxes)
+            SET(dir ${CMAKE_CURRENT_SOURCE_DIR}/${name})
+            SET(NAME_HEADERS ${name}_HEADERS)
+            SET(NAME_SOURCES ${name}_SOURCES)
+            SET(OPERATOR ${name})  #Operator parameter for boiler plate code
 
-        # These operator have an additional argument for the FieldState
-        # which requires two delcarations.
-        SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/Operators/SolverUtilsOps/RiemannSolvers/RiemannOperatorFactoryDec.cpp.in)
+            # These operator have an additional argument for Equation of state and
+            # SovlerTypes which requires more  delcarations.
+            SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/solvers/CompressibleFlowSolverRedesign/VolumeFluxFactoryDec.cpp.in)
 
-        FOREACH (SolverType IN LISTS SolverTypes)
-            # Loop through each possible execution space.
-            FOREACH (ExecSpace IN LISTS ExecSpaces)
-        
-                # Set file extension.
-                SET(HEADER_EXT hpp)
-                IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-                    SET(SOURCE_EXT cu)
-                ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
-                    SET(SOURCE_EXT hip)
-                ELSE()
-                    SET(SOURCE_EXT cpp)
-                ENDIF()
+            FOREACH (EoSType IN LISTS EoSTypes)
+                # Loop through each possible execution space.
+                FOREACH (ExecSpace IN LISTS ExecSpaces)
 
-                # Loop through each possible data type.
-                FOREACH (TData IN LISTS DataTypes)
-                    # Set up the name used for the .cpp declaration file.
-                    SET(FactoryDeclName ${name}${SolverType}${ExecSpace}${TData}.${SOURCE_EXT})
+                    # Set file extension.
+                    SET(HEADER_EXT hpp)
+                    IF("${ExecSpace}" STREQUAL "Device"
+                           AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+                            SET(SOURCE_EXT cu)
+                    ELSEIF("${ExecSpace}" STREQUAL "Device"
+                          AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+                          SET(SOURCE_EXT hip)
+                    ELSE()
+                          SET(SOURCE_EXT cpp)
+                    ENDIF()
 
-                    # Get the source and header files for this operator,
-                    # execution space, and implementation.
-                    SET(CURRENT_HEADERS ${name}${SolverType}_${ExecSpace}_HEADERS)
-                    SET(CURRENT_SOURCES ${name}${SolverType}_${ExecSpace}_SOURCES)
+                    # Loop through each possible data type.
+                    FOREACH (TData IN LISTS DataTypes)
+                        # Set up the name used for the .cpp declaration file.
+                        SET(FactoryDeclName
+                        ${name}${SolverType}${EoSType}${ExecSpace}${TData}.${SOURCE_EXT})
+
+                        # Get the source and header files for this operator,
+                        # execution space, and implementation.
+                        SET(CURRENT_HEADERS ${name}_${ExecSpace}_HEADERS)
+                        SET(CURRENT_SOURCES ${name}_${ExecSpace}_SOURCES)
                         
-                    # Get the headers matching the name and execution space
-                    FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+                        # Get the headers matching the name and execution space
+                        FILE(GLOB ${CURRENT_HEADERS} RELATIVE
+                        ${CMAKE_CURRENT_SOURCE_DIR}
                         ${dir}/${name}${SolverType}${ExecSpace}*.hpp)
 
-                    SET(IMPL_HEADER "#include \"${dir}/${name}OpImpl.hpp\"")
+                        FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                            "${dir}/${name}OpImpl.hpp")
+                        SET(IMPL_HEADER "#include \"${include_file}\"")
 
-                    SET(KERNEL_HEADER "#include \"${dir}/${SolverType}SolverKernels.hpp\"")
+                        FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                            "${dir}/SolverKernels.hpp")
+                        SET(KERNEL_HEADER "#include \"${include_file}\"")
 
-                    # Create the cpp file from the implementation file.
-                    CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
+                        FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                            "${dir}/../EquationOfState/${EoSType}.hpp")
+                        SET(EOS_HEADER "#include \"${include_file}\"")
+                        SET(EOS_TYPE ${EoSType}) 
+                    
+                        # Create the cpp file from the implementation file.
+                        CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
 
-                    # Add the respective cpp file.
-                    SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
-                    SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
-                    SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
+                        # Add the respective cpp file.
+                        SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
+                        SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
+                        SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
 
+                    ENDFOREACH()
+                ENDFOREACH()
+            ENDFOREACH()
+
+        # Add this operator's implemenations to the global operator source
+        # and header files.
+        SET(OPERATORS_HEADERS
+            ${OPERATORS_HEADERS}
+            ${${NAME_HEADERS}}
+            )
+        SET(OPERATORS_SOURCES
+            ${OPERATORS_SOURCES}
+            ${${NAME_SOURCES}}
+            )
+
+        # Make list visible to subdirectories
+        SET(VOLUE_FACTORY_SOURCES "${OPERATORS_SOURCES}" CACHE INTERNAL "Generated Volume flux factory sources")
+        ENDFOREACH()
+
+        ################################################################
+        # Trace Flux operators
+        SET(name CompressibleSolver)
+        SET(dir ${CMAKE_CURRENT_SOURCE_DIR}/RiemannSolvers)
+        SET(NAME_HEADERS ${name}_HEADERS)
+        SET(NAME_SOURCES ${name}_SOURCES)
+        SET(OPERATOR ${name})  #Operator parameter for boiler plate code
+
+        # Set compilation for Riemann solvers
+        SET(SolverTypes  Average AUSM0 AUSM1 AUSM2 AUSM3 HLL HLLC LaxFriedrichs Roe)
+
+        # These operator have an additional argument for Equation of state and
+        # SovlerTypes which requires more  delcarations.
+        SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/solvers/CompressibleFlowSolverRedesign/RiemannSolvers/RiemannOperatorFactoryDec.cpp.in)
+
+        FOREACH (EoSType IN LISTS EoSTypes)
+           FOREACH (SolverType IN LISTS SolverTypes)
+               # Loop through each possible execution space.
+               FOREACH (ExecSpace IN LISTS ExecSpaces)
+        
+                   # Set file extension.
+                   SET(HEADER_EXT hpp)
+                   IF("${ExecSpace}" STREQUAL "Device"
+                                     AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+                       SET(SOURCE_EXT cu)
+                   ELSEIF("${ExecSpace}" STREQUAL "Device"
+                                         AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+                       SET(SOURCE_EXT hip)
+                   ELSE()
+                       SET(SOURCE_EXT cpp)
+                   ENDIF()
+
+                   # Loop through each possible data type.
+                   FOREACH (TData IN LISTS DataTypes)
+                        # Set up the name used for the .cpp declaration file.
+                        SET(FactoryDeclName
+                             ${name}${SolverType}${EoSType}${ExecSpace}${TData}.${SOURCE_EXT})
+
+                        # Get the source and header files for this operator,
+                        # execution space, and implementation.
+                        SET(CURRENT_HEADERS ${name}${SolverType}_${ExecSpace}_HEADERS)
+                        SET(CURRENT_SOURCES ${name}${SolverType}_${ExecSpace}_SOURCES)
+                        
+                        # Get the headers matching the name and execution space
+                        FILE(GLOB ${CURRENT_HEADERS} RELATIVE
+                           ${CMAKE_CURRENT_SOURCE_DIR}
+                           ${dir}/${name}${SolverType}${ExecSpace}*.hpp)
+
+                        FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                            "${dir}/${name}OpImpl.hpp")
+                        SET(IMPL_HEADER "#include \"${include_file}\"")
+
+                        FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                            "${dir}/${SolverType}SolverKernels.hpp")
+                        SET(KERNEL_HEADER "#include \"${include_file}\"")
+
+                        FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                            "${dir}/../EquationOfState/${EoSType}.hpp")
+                        SET(EOS_HEADER "#include \"${include_file}\"")
+                        SET(EOS_TYPE ${EoSType}) 
+                    
+                        # Create the cpp file from the implementation file.
+                        CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
+
+                        # Add the respective cpp file.
+                        SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
+                        SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
+                        SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
+
+                    ENDFOREACH()
                 ENDFOREACH()
             ENDFOREACH()
         ENDFOREACH()
@@ -106,6 +211,8 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
           ADD_SUBDIRECTORY(RiemannSolvers/UnitTests)
         ENDIF()
 
+
+        ################################################################
         # Macro for each operator.
         MACRO(ADD_OPERATOR dir)
 
@@ -184,7 +291,7 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
 
         # Loop through all of the directories which contain operators and add
         # their source and header files.
-        FILE(GLOB children Advection/*)
+        FILE(GLOB children)
 
         FOREACH(child ${children})
         MESSAGE("Child : " "${child}")
@@ -198,10 +305,9 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
             FOREACH (ExecSpace IN LISTS ExecSpaces)
                 # Add SumFac test for all execution spaces
                 SET(Implementation SumFac)
-                ADD_TEST(
-                        NAME ${solver}_${session}_${ExecSpace}_${Implementation}
-                        COMMAND Tester ${CMAKE_CURRENT_SOURCE_DIR}/Tests/${session}.tst -v
-                        --opExecSpace=${ExecSpace} --opImpl=${Implementation})
+                ADD_TEST(NAME ${solver}_${session}_${ExecSpace}_${Implementation}
+                     COMMAND Tester ${CMAKE_CURRENT_SOURCE_DIR}/Tests/${session}.tst -v
+                      --opExecSpace=${ExecSpace} --opImpl=${Implementation})
 
                 # Check if Device or not and set implementation for available algorithm
                 IF( ("${ExecSpace}" STREQUAL "Serial") OR ("${ExecSpace}" STREQUAL "AVX") )

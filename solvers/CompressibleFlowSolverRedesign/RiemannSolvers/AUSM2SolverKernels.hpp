@@ -74,14 +74,16 @@ struct AUSM2Upwinding
     }
 };
 
-template <typename ExecSpace, unsigned int NDIM> struct AUSM2SolverKernel
+template <typename ExecSpace, typename EqnOfStParams, unsigned int NDIM>
+struct AUSM2SolverKernel
 {
     template <typename TData>
-    NEK_DEVICE_INLINE void operator()(const size_t blksize, const TData *fwd,
+    NEK_DEVICE_INLINE void operator()(const EqnOfStParams &EoS,
+                                      const size_t blksize, const TData *fwd,
                                       const TData *bwd, TData *flux)
     {
-        AUSMSolverKernel<ExecSpace, NDIM, AUSM2Upwinding>()(blksize, fwd, bwd,
-                                                            flux);
+        AUSMSolverKernel<ExecSpace, EqnOfStParams, NDIM, AUSM2Upwinding>()(
+            EoS, blksize, fwd, bwd, flux);
     }
 };
 

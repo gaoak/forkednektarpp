@@ -35,6 +35,7 @@
 #pragma once
 
 #include "RiemannSolvers/CompressibleSolverOp.hpp"
+#include <boost/algorithm/string/predicate.hpp>
 
 #include "Operators/LoopExecution/LoopExecution.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
@@ -42,12 +43,14 @@
 namespace Nektar::Operators::detail
 {
 
-template <template <typename, unsigned int> typename RiemannKernel,
-          typename ExecSpace, unsigned int NDIM, bool ROTMAT, typename TData>
+template <template <typename, typename, unsigned int> typename RiemannKernel,
+          typename EoSParamType, typename ExecSpace, unsigned int NDIM,
+          bool ROTMAT, typename TData>
 NEK_FORCE_INLINE static void RiemannKernelLauncher(
-    const size_t blksize, const TData *normalPtr, const TData *rotMatPtr,
-    TData *rotStorage1Ptr, TData *rotStorage2Ptr, TData *rotStorage3Ptr,
-    const TData *fwdPtr, const TData *bwdPtr, TData *fluxPtr)
+    const EoSParamType &EoS, const size_t blksize, const TData *normalPtr,
+    const TData *rotMatPtr, TData *rotStorage1Ptr, TData *rotStorage2Ptr,
+    TData *rotStorage3Ptr, const TData *fwdPtr, const TData *bwdPtr,
+    TData *fluxPtr)
 {
     using namespace Nektar::Operators::detail;
 
@@ -81,8 +84,8 @@ NEK_FORCE_INLINE static void RiemannKernelLauncher(
                     rotStorage2Ptr + i * vec_width);
 
                 // Compute flux in rotated frame.
-                RiemannKernel<ExecSpace, NDIM>()(
-                    blksize, rotStorage1Ptr + i * vec_width,
+                RiemannKernel<ExecSpace, EoSParamType, NDIM>()(
+                    EoS, blksize, rotStorage1Ptr + i * vec_width,
                     rotStorage2Ptr + i * vec_width,
                     rotStorage3Ptr + i * vec_width);
 
@@ -105,8 +108,8 @@ NEK_FORCE_INLINE static void RiemannKernelLauncher(
                     rotStorage2Ptr + i * vec_width);
 
                 // Compute flux in rotated frame.
-                RiemannKernel<ExecSpace, NDIM>()(
-                    blksize, rotStorage1Ptr + i * vec_width,
+                RiemannKernel<ExecSpace, EoSParamType, NDIM>()(
+                    EoS, blksize, rotStorage1Ptr + i * vec_width,
                     rotStorage2Ptr + i * vec_width,
                     rotStorage3Ptr + i * vec_width);
 
@@ -118,8 +121,8 @@ NEK_FORCE_INLINE static void RiemannKernelLauncher(
     }
 }
 
-template <template <typename, unsigned int> typename RiemannKernel,
-          typename ExecSpace, typename TData>
+template <template <typename, typename, unsigned int> typename RiemannKernel,
+          typename EoSParamType, typename ExecSpace, typename TData>
 class CompressibleSolverOpImpl : public CompressibleSolverOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -151,6 +154,8 @@ public:
               9, 1))
     {
         m_dimension = expansionList->GetExp(0)->GetShapeDimension();
+
+        SetUpEquationOfState(expansionList->GetSession(), m_EoS);
     }
 
     // className - for OperatorFactory
@@ -161,9 +166,14 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
-        return std::make_unique<
-            CompressibleSolverOpImpl<RiemannKernel, ExecSpace, TData>>(
-            expansionList, components);
+        return std::make_unique<CompressibleSolverOpImpl<
+            RiemannKernel, EoSParamType, ExecSpace, TData>>(expansionList,
+                                                            components);
+    }
+
+    void SetEquationOfStateParams(EoSParamType EoS)
+    {
+        m_EoS = EoS;
     }
 
 protected:
@@ -171,6 +181,7 @@ protected:
         m_rotMat;
     unsigned int m_dimension;
     bool m_updateRotMat = true;
+    EoSParamType m_EoS;
 
     void v_Apply(Field<TData, FieldState::Phys> &Fwd,
                  Field<TData, FieldState::Phys> &Bwd,
@@ -246,14 +257,16 @@ protected:
 
             if (m_updateRotMat)
             {
-                RiemannKernelLauncher<RiemannKernel, ExecSpace, NDIM, true>(
-                    blksize, normalPtr, rotMatPtr, rotStorage1Ptr,
+                RiemannKernelLauncher<RiemannKernel, EoSParamType, ExecSpace,
+                                      NDIM, true>(
+                    m_EoS, blksize, normalPtr, rotMatPtr, rotStorage1Ptr,
                     rotStorage2Ptr, rotStorage3Ptr, fwdPtr, bwdPtr, fluxPtr);
             }
             else
             {
-                RiemannKernelLauncher<RiemannKernel, ExecSpace, NDIM, false>(
-                    blksize, normalPtr, rotMatPtr, rotStorage1Ptr,
+                RiemannKernelLauncher<RiemannKernel, EoSParamType, ExecSpace,
+                                      NDIM, false>(
+                    m_EoS, blksize, normalPtr, rotMatPtr, rotStorage1Ptr,
                     rotStorage2Ptr, rotStorage3Ptr, fwdPtr, bwdPtr, fluxPtr);
             }
         }

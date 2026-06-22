@@ -94,6 +94,12 @@ struct TimeIntScheme
     std::vector<NekDouble> freeParams;
 };
 
+struct EquationOfStateScheme
+{
+    std::string type = "";
+    ParameterMap params;
+};
+
 enum FunctionType
 {
     eFunctionTypeNone,
@@ -234,6 +240,14 @@ public:
     LIB_UTILITIES_EXPORT void LoadParameter(const std::string &name,
                                             NekDouble &var,
                                             const NekDouble &def) const;
+
+    /// Checks if a reference value  is specified in the XML document.
+    LIB_UTILITIES_EXPORT bool DefinesReferenceValue(
+        const std::string &name) const;
+    /// Check for and load a double-precision reference value.
+    LIB_UTILITIES_EXPORT void LoadReferenceValue(const std::string &name,
+                                                 NekDouble &var,
+                                                 const NekDouble &def) const;
     /// Set an integer parameter
     LIB_UTILITIES_EXPORT void SetParameter(const std::string &name, int &var);
     /// Set an unsigned integer parameter
@@ -301,6 +315,15 @@ public:
     /* ------ TIME INTEGRATION INFORMATION ----- */
     LIB_UTILITIES_EXPORT bool DefinesTimeIntScheme() const;
     LIB_UTILITIES_EXPORT const TimeIntScheme &GetTimeIntScheme() const;
+
+    /* ------ EQUATION OF STATE INFORMATION ----- */
+    LIB_UTILITIES_EXPORT bool DefinesEquationOfState() const;
+    LIB_UTILITIES_EXPORT const EquationOfStateScheme &GetEquationOfState()
+        const;
+
+    /* ------ REFERENCE VALUES INFORMATION ----- */
+    LIB_UTILITIES_EXPORT bool DefinesReferenceValues() const;
+    LIB_UTILITIES_EXPORT const ParameterMap &GetReferenceValues() const;
 
     /* ------ GEOMETRIC INFO ------ */
     LIB_UTILITIES_EXPORT std::string GetGeometryType() const;
@@ -450,8 +473,12 @@ private:
     TagMap m_tags;
     /// Filters map.
     FilterMap m_filters;
-    /// Time integration scheme information.
+    /// Time integration scheme information
     TimeIntScheme m_timeIntScheme;
+    /// Equation of state scheme information
+    EquationOfStateScheme m_eqnOfStateScheme;
+    /// Equation of state scheme information
+    ParameterMap m_referenceValues;
     /// Time level.
     size_t m_timeLevel = 0;
     /// Be verbose
@@ -517,6 +544,10 @@ private:
     LIB_UTILITIES_EXPORT void ReadFunctions(TiXmlElement *conditions);
     /// Reads the FILTERS section of the XML document.
     LIB_UTILITIES_EXPORT void ReadFilters(TiXmlElement *filters);
+    /// Reads the EquationOfState section of the XML document.
+    LIB_UTILITIES_EXPORT void ReadEquationOfState(TiXmlElement *conditions);
+    /// Reads the Reference Values section  of the XML document.
+    LIB_UTILITIES_EXPORT void ReadReferenceValues(TiXmlElement *conditions);
     /// Enforce parameters from command line arguments.
     LIB_UTILITIES_EXPORT void CmdLineOverride();
     /// Check values of solver info options are valid.

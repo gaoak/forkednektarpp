@@ -67,41 +67,18 @@ protected:
     {
         auto session = expansionList->GetSession();
 
-        session->LoadParameter("Gamma", m_gamma, 1.4);
-        session->LoadParameter("Pr", m_prandtl, 0.72);
-        session->LoadParameter("GasConstant", m_gasConstant, 287.058);
-        session->LoadParameter("mu", m_muRef, 1.78e-05);
         session->LoadParameter("IPSymmFluxCoeff", m_IPSymmFluxCoeff, 0.0);
         session->LoadParameter("IP2ndDervCoeff", m_IP2ndDervCoeff, 0.0);
         session->LoadParameter("IPPenaltyCoeff", m_IPPenaltyCoeff, 4.0);
-
-        std::string viscosityType;
-        session->LoadSolverInfo("ViscosityType", viscosityType, "Constant");
-        m_isMuVariable = (viscosityType == "Variable");
-
-        if (m_isMuVariable)
-        {
-            session->LoadParameter("Tref", m_Tref, 288.15);
-            m_oneOverTStar     = 1.0 / m_Tref;
-            m_TRatioSutherland = 110.0 / m_Tref;
-        }
     }
 
     ~DiffusionIPOp() override = default;
 
     virtual void v_SetAppend(const bool &append) = 0;
 
-    double m_gamma            = 1.4;
-    double m_prandtl          = 0.72;
-    double m_gasConstant      = 287.058;
-    double m_muRef            = 1.78e-05;
-    double m_IPSymmFluxCoeff  = 0.0;
-    double m_IP2ndDervCoeff   = 0.0;
-    double m_IPPenaltyCoeff   = 4.0;
-    double m_Tref             = 288.15;
-    double m_oneOverTStar     = 1.0 / 288.15;
-    double m_TRatioSutherland = 110.0 / 288.15;
-    bool m_isMuVariable       = false;
+    double m_IPSymmFluxCoeff = 0.0;
+    double m_IP2ndDervCoeff  = 0.0;
+    double m_IPPenaltyCoeff  = 4.0;
 };
 
 } // namespace Nektar::Operators

@@ -43,18 +43,14 @@
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, unsigned int NDIM> struct HLLSolverKernel
+template <typename ExecSpace, typename EqnOfStParams, unsigned int NDIM>
+struct HLLSolverKernel
 {
     template <typename TScalar>
-    NEK_DEVICE_INLINE void operator()(const size_t blksize, const TScalar *fwd,
+    NEK_DEVICE_INLINE void operator()(const EqnOfStParams &EoS,
+                                      const size_t blksize, const TScalar *fwd,
                                       const TScalar *bwd, TScalar *flux)
     {
-        // Explicit vectorisation for AVX backend, vec_t =
-        // tinysimd::simd<TScalar> for AVX, vec_t = TScalar otherwise.
-        // using vec_t =
-        //    typename data_type_if<std::is_same_v<ExecSpace,
-        //    NektarSpaces::AVX>,
-        //                          TScalar>::type;
         constexpr unsigned int vec_width =
             (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
                 ? tinysimd::simd<TScalar>::width
@@ -100,12 +96,12 @@ template <typename ExecSpace, unsigned int NDIM> struct HLLSolverKernel
             const TScalar eR = (ER - oneHalf * qR2) / rhoR;
 
             // Pressure
-            const TScalar pL = GetPressure(rhoL, eL);
-            const TScalar pR = GetPressure(rhoR, eR);
+            const TScalar pL = GetPressure(EoS, rhoL, eL);
+            const TScalar pR = GetPressure(EoS, rhoR, eR);
 
             // Speed of sound
-            const TScalar cL = GetSoundSpeed(rhoL, eL);
-            const TScalar cR = GetSoundSpeed(rhoR, eR);
+            const TScalar cL = GetSoundSpeed(EoS, rhoL, eL);
+            const TScalar cR = GetSoundSpeed(EoS, rhoR, eR);
 
             // Enthalpy
             const TScalar hL = (EL + pL) / rhoL;
@@ -128,8 +124,8 @@ template <typename ExecSpace, unsigned int NDIM> struct HLLSolverKernel
             const TScalar hRoe = (srL * hL + srR * hR) / srLR;
 
             const TScalar cRoe =
-                GetRoeSoundSpeed(rhoL, pL, eL, hL, srL, rhoR, pR, eR, hR, srR,
-                                 hRoe, URoe2, srLR);
+                GetRoeSoundSpeed(EoS, rhoL, pL, eL, hL, srL, rhoR, pR, eR, hR,
+                                 srR, hRoe, URoe2, srLR);
 
             // Maximum wave speeds
             const TScalar SL = std::min(uL[0] - cL, uRoe[0] - cRoe);

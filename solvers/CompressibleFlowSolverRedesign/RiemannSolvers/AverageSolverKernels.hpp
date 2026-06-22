@@ -43,10 +43,12 @@
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, unsigned int NDIM> struct AverageSolverKernel
+template <typename ExecSpace, typename EqnOfStParams, unsigned int NDIM>
+struct AverageSolverKernel
 {
     template <typename TScalar>
-    NEK_DEVICE_INLINE void operator()(const size_t blksize, const TScalar *fwd,
+    NEK_DEVICE_INLINE void operator()(const EqnOfStParams &EoS,
+                                      const size_t blksize, const TScalar *fwd,
                                       const TScalar *bwd, TScalar *flux)
     {
         using std::abs;
@@ -99,8 +101,8 @@ template <typename ExecSpace, unsigned int NDIM> struct AverageSolverKernel
         const vec_t eR = (ER - oneHalf * qR2) / rhoR;
 
         // Pressure
-        const vec_t pL = GetPressure(rhoL, eL);
-        const vec_t pR = GetPressure(rhoR, eR);
+        const vec_t pL = GetPressure(EoS, rhoL, eL);
+        const vec_t pR = GetPressure(EoS, rhoR, eR);
 
         // Average Riemann fluxes
         fluxvec[0] = oneHalf * (rhoR * uR[0] + rhoL * uL[0]);
