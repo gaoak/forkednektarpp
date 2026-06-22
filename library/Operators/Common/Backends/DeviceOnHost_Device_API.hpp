@@ -49,120 +49,126 @@ namespace Nektar
 // with CUDA/HIP backend. Has no effect for SYCL and/or DEVICEONHOST backend.
 #define FETCH_SHARED_MEMORY(ptr)
 
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getLocalIdx(
     [[maybe_unused]] const deviceOnHostBlock<1> &threadBlock)
 {
     return 0;
 }
 
-template <unsigned int dim>
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getLocalIdx(
     [[maybe_unused]] const deviceOnHostBlock<2> &threadBlock)
 {
     return 0;
 }
 
-template <unsigned int dim>
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getLocalIdx(
     [[maybe_unused]] const deviceOnHostBlock<3> &threadBlock)
 {
     return 0;
 }
 
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getLocalRange(
     [[maybe_unused]] const deviceOnHostBlock<1> &threadBlock)
 {
     return 1;
 }
 
-template <unsigned int dim>
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getLocalRange(
     [[maybe_unused]] const deviceOnHostBlock<2> &threadBlock)
 {
     return 1;
 }
 
-template <unsigned int dim>
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getLocalRange(
     [[maybe_unused]] const deviceOnHostBlock<3> &threadBlock)
 {
     return 1;
 }
 
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static size_t getGlobalIdx(
     [[maybe_unused]] const deviceOnHostBlock<1> &threadBlock)
 {
     return 0;
 }
 
-template <unsigned int dim>
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static size_t getGlobalIdx(
     [[maybe_unused]] const deviceOnHostBlock<2> &threadBlock)
 {
     return 0;
 }
 
-template <unsigned int dim>
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static size_t getGlobalIdx(
     [[maybe_unused]] const deviceOnHostBlock<3> &threadBlock)
 {
     return 0;
 }
 
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static size_t getGlobalRange(
     [[maybe_unused]] const deviceOnHostBlock<1> &threadBlock)
 {
     return 1;
 }
 
-template <unsigned int dim>
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static size_t getGlobalRange(
     [[maybe_unused]] const deviceOnHostBlock<2> &threadBlock)
 {
     return 1;
 }
 
-template <unsigned int dim>
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static size_t getGlobalRange(
     [[maybe_unused]] const deviceOnHostBlock<3> &threadBlock)
 {
     return 1;
 }
 
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getBlockIdx(
     [[maybe_unused]] const deviceOnHostBlock<1> &threadBlock)
 {
     return 0;
 }
 
-template <unsigned int dim>
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getBlockIdx(
     [[maybe_unused]] const deviceOnHostBlock<2> &threadBlock)
 {
     return 0;
 }
 
-template <unsigned int dim>
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getBlockIdx(
     [[maybe_unused]] const deviceOnHostBlock<3> &threadBlock)
 {
     return 0;
 }
 
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getBlockRange(
     [[maybe_unused]] const deviceOnHostBlock<1> &threadBlock)
 {
     return 1;
 }
 
-template <unsigned int dim>
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getBlockRange(
     [[maybe_unused]] const deviceOnHostBlock<2> &threadBlock)
 {
     return 1;
 }
 
-template <unsigned int dim>
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getBlockRange(
     [[maybe_unused]] const deviceOnHostBlock<3> &threadBlock)
 {

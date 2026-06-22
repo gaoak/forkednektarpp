@@ -50,13 +50,21 @@ namespace Nektar
 // with CUDA/HIP backend. Has no effect for SYCL and/or DEVICEONHOST backend.
 #define FETCH_SHARED_MEMORY(ptr)
 
+template <int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getLocalIdx(
     const sycl::nd_item<1> &threadBlock)
 {
-    return threadBlock.get_local_id(0);
+    if constexpr (dim == 0)
+    {
+        return threadBlock.get_local_id(0);
+    }
+    else
+    {
+        return 0;
+    }
 }
 
-template <int dim>
+template <int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getLocalIdx(
     const sycl::nd_item<2> &threadBlock)
 {
@@ -75,7 +83,7 @@ NEK_DEVICE_INLINE static unsigned int getLocalIdx(
     }
 }
 
-template <int dim>
+template <int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getLocalIdx(
     const sycl::nd_item<3> &threadBlock)
 {
@@ -98,13 +106,21 @@ NEK_DEVICE_INLINE static unsigned int getLocalIdx(
     }
 }
 
+template <int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getLocalRange(
     const sycl::nd_item<1> &threadBlock)
 {
-    return threadBlock.get_local_range(0);
+    if constexpr (dim == 0)
+    {
+        return threadBlock.get_local_range(0);
+    }
+    else
+    {
+        return 1;
+    }
 }
 
-template <int dim>
+template <int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getLocalRange(
     const sycl::nd_item<2> &threadBlock)
 {
@@ -119,11 +135,11 @@ NEK_DEVICE_INLINE static unsigned int getLocalRange(
     }
     else
     {
-        return 0;
+        return 1;
     }
 }
 
-template <int dim>
+template <int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getLocalRange(
     const sycl::nd_item<3> &threadBlock)
 {
@@ -142,17 +158,25 @@ NEK_DEVICE_INLINE static unsigned int getLocalRange(
     }
     else
     {
+        return 1;
+    }
+}
+
+template <int dim = 0>
+NEK_DEVICE_INLINE static size_t getGlobalIdx(
+    const sycl::nd_item<1> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        return threadBlock.get_global_id(0);
+    }
+    else
+    {
         return 0;
     }
 }
 
-NEK_DEVICE_INLINE static size_t getGlobalIdx(
-    const sycl::nd_item<1> &threadBlock)
-{
-    return threadBlock.get_global_id(0);
-}
-
-template <int dim>
+template <int dim = 0>
 NEK_DEVICE_INLINE static size_t getGlobalIdx(
     const sycl::nd_item<2> &threadBlock)
 {
@@ -171,7 +195,7 @@ NEK_DEVICE_INLINE static size_t getGlobalIdx(
     }
 }
 
-template <int dim>
+template <int dim = 0>
 NEK_DEVICE_INLINE static size_t getGlobalIdx(
     const sycl::nd_item<3> &threadBlock)
 {
@@ -194,13 +218,21 @@ NEK_DEVICE_INLINE static size_t getGlobalIdx(
     }
 }
 
+template <int dim = 0>
 NEK_DEVICE_INLINE static size_t getGlobalRange(
     const sycl::nd_item<1> &threadBlock)
 {
-    return threadBlock.get_global_range(0);
+    if constexpr (dim == 0)
+    {
+        return threadBlock.get_global_range(0);
+    }
+    else
+    {
+        return 1;
+    }
 }
 
-template <int dim>
+template <int dim = 0>
 NEK_DEVICE_INLINE static size_t getGlobalRange(
     const sycl::nd_item<2> &threadBlock)
 {
@@ -215,11 +247,11 @@ NEK_DEVICE_INLINE static size_t getGlobalRange(
     }
     else
     {
-        return 0;
+        return 1;
     }
 }
 
-template <int dim>
+template <int dim = 0>
 NEK_DEVICE_INLINE static size_t getGlobalRange(
     const sycl::nd_item<3> &threadBlock)
 {
@@ -238,17 +270,25 @@ NEK_DEVICE_INLINE static size_t getGlobalRange(
     }
     else
     {
+        return 1;
+    }
+}
+
+template <int dim = 0>
+NEK_DEVICE_INLINE static unsigned int getBlockIdx(
+    const sycl::nd_item<1> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        return threadBlock.get_group(0);
+    }
+    else
+    {
         return 0;
     }
 }
 
-NEK_DEVICE_INLINE static unsigned int getBlockIdx(
-    const sycl::nd_item<1> &threadBlock)
-{
-    return threadBlock.get_group(0);
-}
-
-template <int dim>
+template <int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getBlockIdx(
     const sycl::nd_item<2> &threadBlock)
 {
@@ -267,7 +307,7 @@ NEK_DEVICE_INLINE static unsigned int getBlockIdx(
     }
 }
 
-template <int dim>
+template <int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getBlockIdx(
     const sycl::nd_item<3> &threadBlock)
 {
@@ -290,13 +330,21 @@ NEK_DEVICE_INLINE static unsigned int getBlockIdx(
     }
 }
 
+template <int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getBlockRange(
     const sycl::nd_item<1> &threadBlock)
 {
-    return threadBlock.get_group_range(0);
+    if constexpr (dim == 0)
+    {
+        return threadBlock.get_group_range(0);
+    }
+    else
+    {
+        return 1;
+    }
 }
 
-template <int dim>
+template <int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getBlockRange(
     const sycl::nd_item<2> &threadBlock)
 {
@@ -311,11 +359,11 @@ NEK_DEVICE_INLINE static unsigned int getBlockRange(
     }
     else
     {
-        return 0;
+        return 1;
     }
 }
 
-template <int dim>
+template <int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getBlockRange(
     const sycl::nd_item<3> &threadBlock)
 {
@@ -334,7 +382,7 @@ NEK_DEVICE_INLINE static unsigned int getBlockRange(
     }
     else
     {
-        return 0;
+        return 1;
     }
 }
 

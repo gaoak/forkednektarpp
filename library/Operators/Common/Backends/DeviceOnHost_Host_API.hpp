@@ -76,12 +76,17 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
 // deviceOnHostBlock<2>. The shared memory size must be specified in bytes. The
 // shared memory is declared as unsigned char* type. The shmemptr must then cast
 // to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
-#define DEVICE_2DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, STREAM,     \
-                                      ...)                                     \
-    nektar_unused(GRIDSIZE);                                                   \
-    nektar_unused(BLOCKSIZE);                                                  \
-    std::vector<unsigned char> shmem(SHMEMSIZE);                               \
-    KERNEL(__VA_ARGS__, shmem.data(), deviceOnHostBlock<2>());
+#define DEVICE_2DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZEX, GRIDSIZEY,            \
+                                      BLOCKSIZEX, BLOCKSIZEY, SHMEMSIZE,       \
+                                      STREAM, ...)                             \
+    {                                                                          \
+        nektar_unused(GRIDSIZEX);                                              \
+        nektar_unused(GRIDSIZEY);                                              \
+        nektar_unused(BLOCKSIZEX);                                             \
+        nektar_unused(BLOCKSIZEY);                                             \
+        std::vector<unsigned char> shmem(SHMEMSIZE);                           \
+        KERNEL(__VA_ARGS__, shmem.data(), deviceOnHostBlock<2>());             \
+    }
 
 // Kernel launcher on a three-dimensional GPU grid with shared memory provision.
 // KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL. The last two
@@ -89,12 +94,19 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
 // deviceOnHostBlock<3>. The shared memory size must be specified in bytes. The
 // shared memory is declared as unsigned char* type. The shmemptr must then cast
 // to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
-#define DEVICE_3DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, STREAM,     \
-                                      ...)                                     \
-    nektar_unused(GRIDSIZE);                                                   \
-    nektar_unused(BLOCKSIZE);                                                  \
-    std::vector<unsigned char> shmem(SHMEMSIZE);                               \
-    KERNEL(__VA_ARGS__, shmem.data(), deviceOnHostBlock<3>());
+#define DEVICE_3DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZEX, GRIDSIZEY, GRIDSIZEZ, \
+                                      BLOCKSIZEX, BLOCKSIZEY, BLOCKSIZEZ,      \
+                                      STREAM, ...)                             \
+    {                                                                          \
+        nektar_unused(GRIDSIZEX);                                              \
+        nektar_unused(GRIDSIZEY);                                              \
+        nektar_unused(GRIDSIZEZ);                                              \
+        nektar_unused(BLOCKSIZEX);                                             \
+        nektar_unused(BLOCKSIZEY);                                             \
+        nektar_unused(BLOCKSIZEZ);                                             \
+        std::vector<unsigned char> shmem(SHMEMSIZE);                           \
+        KERNEL(__VA_ARGS__, shmem.data(), deviceOnHostBlock<3>());             \
+    }
 
 // Kernel launcher on a one-dimensional GPU grid without shared memory
 // provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
@@ -102,27 +114,40 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
 // deviceOnHostBlock<1>.
 #define DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
                                               STREAM, ...)                     \
-    nektar_unused(GRIDSIZE);                                                   \
-    nektar_unused(BLOCKSIZE);                                                  \
-    KERNEL(__VA_ARGS__, deviceOnHostBlock<1>());
+    {                                                                          \
+        nektar_unused(GRIDSIZE);                                               \
+        nektar_unused(BLOCKSIZE);                                              \
+        KERNEL(__VA_ARGS__, deviceOnHostBlock<1>());                           \
+    }
 
 // Kernel launcher on a two-dimensional GPU grid without shared memory
 // provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
 // The last argument of the KERNEL function MUST be of type
 // deviceOnHostBlock<2>.
-#define DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
-                                              STREAM, ...)                     \
-    nektar_unused(GRIDSIZE);                                                   \
-    nektar_unused(BLOCKSIZE);                                                  \
-    KERNEL(__VA_ARGS__, deviceOnHostBlock<2>());
+#define DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(                                 \
+    KERNEL, GRIDSIZEX, GRIDSIZEY, BLOCKSIZEX, BLOCKSIZEY, STREAM, ...)         \
+    {                                                                          \
+        nektar_unused(GRIDSIZEX);                                              \
+        nektar_unused(GRIDSIZEY);                                              \
+        nektar_unused(BLOCKSIZEX);                                             \
+        nektar_unused(BLOCKSIZEY);                                             \
+        KERNEL(__VA_ARGS__, deviceOnHostBlock<2>());                           \
+    }
 
 // Kernel launcher on a three-dimensional GPU grid without shared memory
 // provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
 // The last argument of the KERNEL function MUST be of type
 // deviceOnHostBlock<3>.
-#define DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
-                                              STREAM, ...)                     \
-    nektar_unused(GRIDSIZE);                                                   \
-    nektar_unused(BLOCKSIZE);                                                  \
-    KERNEL(__VA_ARGS__, deviceOnHostBlock<3>());
+#define DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(                                 \
+    KERNEL, GRIDSIZEX, GRIDSIZEY, GRIDSIZEZ, BLOCKSIZEX, BLOCKSIZEY,           \
+    BLOCKSIZEZ, STREAM, ...)                                                   \
+    {                                                                          \
+        nektar_unused(GRIDSIZEX);                                              \
+        nektar_unused(GRIDSIZEY);                                              \
+        nektar_unused(GRIDSIZEZ);                                              \
+        nektar_unused(BLOCKSIZEX);                                             \
+        nektar_unused(BLOCKSIZEY);                                             \
+        nektar_unused(BLOCKSIZEZ);                                             \
+        KERNEL(__VA_ARGS__, deviceOnHostBlock<3>());                           \
+    }
 #endif

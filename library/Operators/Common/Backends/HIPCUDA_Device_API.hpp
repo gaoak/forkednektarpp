@@ -61,13 +61,21 @@ namespace Nektar
 
 namespace cg = cooperative_groups;
 
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getLocalIdx(
     [[maybe_unused]] const hipcudaBlock<1> &threadBlock)
 {
-    return threadIdx.x;
+    if constexpr (dim == 0)
+    {
+        return threadIdx.x;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
-template <unsigned int dim>
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getLocalIdx(
     [[maybe_unused]] const hipcudaBlock<2> &threadBlock)
 {
@@ -86,7 +94,7 @@ NEK_DEVICE_INLINE static unsigned int getLocalIdx(
     }
 }
 
-template <unsigned int dim>
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getLocalIdx(
     [[maybe_unused]] const hipcudaBlock<3> &threadBlock)
 {
@@ -109,13 +117,21 @@ NEK_DEVICE_INLINE static unsigned int getLocalIdx(
     }
 }
 
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getLocalRange(
     [[maybe_unused]] const hipcudaBlock<1> &threadBlock)
 {
-    return blockDim.x;
+    if constexpr (dim == 0)
+    {
+        return blockDim.x;
+    }
+    else
+    {
+        return 1;
+    }
 }
 
-template <unsigned int dim>
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getLocalRange(
     [[maybe_unused]] const hipcudaBlock<2> &threadBlock)
 {
@@ -130,11 +146,11 @@ NEK_DEVICE_INLINE static unsigned int getLocalRange(
     }
     else
     {
-        return 0;
+        return 1;
     }
 }
 
-template <unsigned int dim>
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getLocalRange(
     [[maybe_unused]] const hipcudaBlock<3> &threadBlock)
 {
@@ -153,17 +169,25 @@ NEK_DEVICE_INLINE static unsigned int getLocalRange(
     }
     else
     {
+        return 1;
+    }
+}
+
+template <unsigned int dim = 0>
+NEK_DEVICE_INLINE static size_t getGlobalIdx(
+    [[maybe_unused]] const hipcudaBlock<1> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        return blockDim.x * blockIdx.x + threadIdx.x;
+    }
+    else
+    {
         return 0;
     }
 }
 
-NEK_DEVICE_INLINE static size_t getGlobalIdx(
-    [[maybe_unused]] const hipcudaBlock<1> &threadBlock)
-{
-    return blockDim.x * blockIdx.x + threadIdx.x;
-}
-
-template <unsigned int dim>
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static size_t getGlobalIdx(
     [[maybe_unused]] const hipcudaBlock<2> &threadBlock)
 {
@@ -182,7 +206,7 @@ NEK_DEVICE_INLINE static size_t getGlobalIdx(
     }
 }
 
-template <unsigned int dim>
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static size_t getGlobalIdx(
     [[maybe_unused]] const hipcudaBlock<3> &threadBlock)
 {
@@ -205,13 +229,21 @@ NEK_DEVICE_INLINE static size_t getGlobalIdx(
     }
 }
 
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static size_t getGlobalRange(
     [[maybe_unused]] const hipcudaBlock<1> &threadBlock)
 {
-    return gridDim.x * blockDim.x;
+    if constexpr (dim == 0)
+    {
+        return gridDim.x * blockDim.x;
+    }
+    else
+    {
+        return 1;
+    }
 }
 
-template <unsigned int dim>
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static size_t getGlobalRange(
     [[maybe_unused]] const hipcudaBlock<2> &threadBlock)
 {
@@ -226,11 +258,11 @@ NEK_DEVICE_INLINE static size_t getGlobalRange(
     }
     else
     {
-        return 0;
+        return 1;
     }
 }
 
-template <unsigned int dim>
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static size_t getGlobalRange(
     [[maybe_unused]] const hipcudaBlock<3> &threadBlock)
 {
@@ -249,17 +281,25 @@ NEK_DEVICE_INLINE static size_t getGlobalRange(
     }
     else
     {
+        return 1;
+    }
+}
+
+template <unsigned int dim = 0>
+NEK_DEVICE_INLINE static unsigned int getBlockIdx(
+    [[maybe_unused]] const hipcudaBlock<1> &threadBlock)
+{
+    if constexpr (dim == 0)
+    {
+        return blockIdx.x;
+    }
+    else
+    {
         return 0;
     }
 }
 
-NEK_DEVICE_INLINE static unsigned int getBlockIdx(
-    [[maybe_unused]] const hipcudaBlock<1> &threadBlock)
-{
-    return blockIdx.x;
-}
-
-template <unsigned int dim>
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getBlockIdx(
     [[maybe_unused]] const hipcudaBlock<2> &threadBlock)
 {
@@ -278,7 +318,7 @@ NEK_DEVICE_INLINE static unsigned int getBlockIdx(
     }
 }
 
-template <unsigned int dim>
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getBlockIdx(
     [[maybe_unused]] const hipcudaBlock<3> &threadBlock)
 {
@@ -301,13 +341,21 @@ NEK_DEVICE_INLINE static unsigned int getBlockIdx(
     }
 }
 
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getBlockRange(
     [[maybe_unused]] const hipcudaBlock<1> &threadBlock)
 {
-    return gridDim.x;
+    if constexpr (dim == 0)
+    {
+        return gridDim.x;
+    }
+    else
+    {
+        return 1;
+    }
 }
 
-template <unsigned int dim>
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getBlockRange(
     [[maybe_unused]] const hipcudaBlock<2> &threadBlock)
 {
@@ -321,11 +369,11 @@ NEK_DEVICE_INLINE static unsigned int getBlockRange(
     }
     else
     {
-        return 0;
+        return 1;
     }
 }
 
-template <unsigned int dim>
+template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getBlockRange(
     [[maybe_unused]] const hipcudaBlock<3> &threadBlock)
 {
@@ -343,7 +391,7 @@ NEK_DEVICE_INLINE static unsigned int getBlockRange(
     }
     else
     {
-        return 0;
+        return 1;
     }
 }
 
