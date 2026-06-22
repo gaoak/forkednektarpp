@@ -43,10 +43,12 @@
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, unsigned int NDIM> struct RoeSolverKernel
+template <typename ExecSpace, typename EqnOfStParams, unsigned int NDIM>
+struct RoeSolverKernel
 {
     template <typename TScalar>
-    NEK_DEVICE_INLINE void operator()(const size_t blksize, const TScalar *fwd,
+    NEK_DEVICE_INLINE void operator()(const EqnOfStParams &EoS,
+                                      const size_t blksize, const TScalar *fwd,
                                       const TScalar *bwd, TScalar *flux)
     {
         using std::abs;
@@ -69,7 +71,7 @@ template <typename ExecSpace, unsigned int NDIM> struct RoeSolverKernel
         const auto fwdvec      = reinterpret_cast<const vec_t *>(fwd);
         const auto bwdvec      = reinterpret_cast<const vec_t *>(bwd);
         auto fluxvec           = reinterpret_cast<vec_t *>(flux);
-        const vec_t gamma      = 1.4;
+        const vec_t gamma      = EoS.gamma();
 
         // Density
         const vec_t rhoL = fwdvec[0];
@@ -100,8 +102,8 @@ template <typename ExecSpace, unsigned int NDIM> struct RoeSolverKernel
         const vec_t eR = (ER - oneHalf * qR2) / rhoR;
 
         // Pressure
-        const vec_t pL = GetPressure(rhoL, eL);
-        const vec_t pR = GetPressure(rhoR, eR);
+        const vec_t pL = GetPressure(EoS, rhoL, eL);
+        const vec_t pR = GetPressure(EoS, rhoR, eR);
 
         // Enthalpy
         const vec_t hL = (EL + pL) / rhoL;
@@ -123,8 +125,8 @@ template <typename ExecSpace, unsigned int NDIM> struct RoeSolverKernel
 
         const vec_t hRoe = (srL * hL + srR * hR) / srLR;
 
-        const vec_t cRoe = GetRoeSoundSpeed(rhoL, pL, eL, hL, srL, rhoR, pR, eR,
-                                            hR, srR, hRoe, URoe2, srLR);
+        const vec_t cRoe = GetRoeSoundSpeed(EoS, rhoL, pL, eL, hL, srL, rhoR,
+                                            pR, eR, hR, srR, hRoe, URoe2, srLR);
 
         // Compute eigenvectors (equation 11.59).
         vec_t k[NDIM + 2][NDIM + 2];

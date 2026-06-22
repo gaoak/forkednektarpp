@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AdvectionVolumeFluxOpImpl.hpp
+// File: LinearAdvVolumeFluxOpImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,22 +32,22 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 #pragma once
-#include "Operators/SolverUtilsOps/Advection/AdvectionVolumeFlux/AdvectionVolumeFluxOp.hpp"
-#include "Operators/SolverUtilsOps/Advection/VolumeFluxKernels.hpp"
+#include "Operators/SolverUtilsOps/Advection/LinearAdvVolumeFlux/LinearAdvVolumeFluxKernels.hpp"
+#include "Operators/SolverUtilsOps/Advection/LinearAdvVolumeFlux/LinearAdvVolumeFluxOp.hpp"
 
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-class AdvectionVolumeFluxOpImpl : public AdvectionVolumeFluxOp<TData>
+class LinearAdvVolumeFluxOpImpl : public LinearAdvVolumeFluxOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    AdvectionVolumeFluxOpImpl(
+    LinearAdvVolumeFluxOpImpl(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
-        : AdvectionVolumeFluxOp<TData>(std::move(expansionList), components)
+        : LinearAdvVolumeFluxOp<TData>(std::move(expansionList), components)
     {
     }
 
@@ -59,7 +59,7 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
-        return std::make_unique<AdvectionVolumeFluxOpImpl<ExecSpace, TData>>(
+        return std::make_unique<LinearAdvVolumeFluxOpImpl<ExecSpace, TData>>(
             expansionList, components);
     }
 
@@ -85,9 +85,9 @@ protected:
             const auto nvarComps = inblock.GetNumComponents();
             const auto velComps  = velblock.GetNumComponents();
 
-            AdvectVolumeFluxKernel<ExecSpace>(npts, velComps, nvarComps,
-                                              velStride, inStride, outStride,
-                                              velbase, inbase, outbase);
+            LinearAdvVolumeFluxKernel<ExecSpace>(npts, velComps, nvarComps,
+                                                 velStride, inStride, outStride,
+                                                 velbase, inbase, outbase);
         }
     }
 };

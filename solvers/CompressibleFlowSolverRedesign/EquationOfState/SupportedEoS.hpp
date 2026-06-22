@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AdvectionVolumeFluxOp.hpp
+// File: SupportedEoS.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,43 +28,13 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: list of equations of state header files for use in
+// other parts of solver
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include "Operators/SolverUtilsOps/Advection/VolumeFluxOp.hpp"
-
-namespace Nektar::Operators
-{
-
-// Upwind base class
-// Defines the apply operator to enforce apply parameter types
-template <typename TData>
-class AdvectionVolumeFluxOp : public VolumeFluxOp<TData>
-{
-public:
-    static std::shared_ptr<AdvectionVolumeFluxOp<TData>> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::vector<std::string> &components,
-        const std::string &execStr = "")
-    {
-        return std::dynamic_pointer_cast<AdvectionVolumeFluxOp<TData>>(
-            VolumeFluxOp<TData>::Create(expansionList, components, name,
-                                        execStr));
-    }
-
-    static inline const std::string name = "AdvectionVolumeFlux";
-
-protected:
-    AdvectionVolumeFluxOp(const MultiRegions::ExpListSharedPtr &expansionList,
-                          const std::vector<std::string> &components)
-        : VolumeFluxOp<TData>(expansionList, components)
-    {
-    }
-
-    ~AdvectionVolumeFluxOp() override = default;
-};
-
-} // namespace Nektar::Operators
+// add any additional new equations of state structs to this list
+#include "EquationOfState/IdealGasEoSParams.hpp"
+#include "EquationOfState/VanDerWaalsEoSParams.hpp"

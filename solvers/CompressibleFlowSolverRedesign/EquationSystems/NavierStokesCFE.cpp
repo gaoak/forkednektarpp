@@ -147,18 +147,28 @@ void NavierStokesCFE::v_InitialiseOperators()
         AdvectionWeakDGOp<double>::Create(m_expansionLists[0], m_variables);
     std::string execName      = Operator<double>::GetOpExecSpace(m_session);
     std::string riemannMethod = m_session->GetSolverInfo("UpwindType");
-    m_riemannSolverOp         = CompressibleSolverOp<double>::Create(
+
+    // Euler trace and volume ops
+    m_riemannSolverOp = CompressibleSolverOp<double>::Create(
         m_expansionLists[0], m_variables, riemannMethod, execName);
-    m_volumeFluxOp =
-        VolumeFluxOp<double>::Create(m_expansionLists[0], m_variables);
+    m_eulerVolFluxOp =
+        EulerVolumeFluxOp<double>::Create(m_expansionLists[0], m_variables);
 
     // Set volume flux and Riemann solver for advection operator
-    m_advectionWeakDGOp->SetVolumeFluxOp(m_volumeFluxOp);
+    m_advectionWeakDGOp->SetVolumeFluxOp(m_eulerVolFluxOp);
     m_advectionWeakDGOp->SetRiemannSolver(m_riemannSolverOp);
+
+    // Diffusion volume and trace ops
+    m_diffusionVolFluxOp =
+        DiffusionCFEVolFluxOp<double>::Create(m_expansionLists[0], m_variables);
+    m_diffusionTraceFluxOp = DiffusionCFETraceFluxOp<double>::Create(
+        m_expansionLists[0], m_variables);
 
     // Create diffusion operator
     m_diffusionIPOp =
         DiffusionIPOp<double>::Create(m_expansionLists[0], m_variables);
+    m_diffusionIPOp->SetVolumeFluxOp(m_diffusionVolFluxOp);
+    m_diffusionIPOp->SetTraceFluxOp(m_diffusionTraceFluxOp);
 }
 
 /**

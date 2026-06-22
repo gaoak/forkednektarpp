@@ -34,8 +34,8 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/SolverUtilsOps/Advection/AdvectionVolumeFlux/AdvectionVolumeFluxOp.hpp"
 #include "Operators/SolverUtilsOps/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp"
+#include "Operators/SolverUtilsOps/Advection/LinearAdvVolumeFlux/LinearAdvVolumeFluxOp.hpp"
 #include "Operators/SolverUtilsOps/RiemannSolvers/RiemannSolverOp.hpp"
 #include <ADRSolver/EquationSystems/UnsteadyAdvection.h>
 #include <SolverUtils/RiemannSolvers/RiemannSolver.h>
@@ -168,7 +168,7 @@ public:
             this->fixt_explist, this->session->GetVariables(), riemName);
         RiemannOp->SetTraceAdvVel(*this->fixt_traceAdvVel);
 
-        auto VolumeFluxOp = AdvectionVolumeFluxOp<TData>::Create(
+        auto VolumeFluxOp = LinearAdvVolumeFluxOp<TData>::Create(
             this->fixt_explist, this->session->GetVariables());
         VolumeFluxOp->SetAdvectVel(*this->fixt_advectVel);
 

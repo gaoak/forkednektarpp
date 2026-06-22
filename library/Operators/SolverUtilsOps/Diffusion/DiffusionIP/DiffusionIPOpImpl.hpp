@@ -101,26 +101,6 @@ public:
               "Deriv Bwd Trace",
               GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList->GetTrace()),
-              expansionList->GetCoordim(0) * components.size(), 1)),
-          m_traceAver(Field<TData, FieldState::Phys>(
-              "Trace average",
-              GetBlockAttributes<TData, FieldState::Phys>(
-                  expansionList->GetTrace()),
-              components.size(), 1)),
-          m_traceJump(Field<TData, FieldState::Phys>(
-              "Trace jump",
-              GetBlockAttributes<TData, FieldState::Phys>(
-                  expansionList->GetTrace()),
-              components.size(), 1)),
-          m_numDerivBwd(Field<TData, FieldState::Phys>(
-              "Num deriv bwd",
-              GetBlockAttributes<TData, FieldState::Phys>(
-                  expansionList->GetTrace()),
-              expansionList->GetCoordim(0) * components.size(), 1)),
-          m_numDerivFwd(Field<TData, FieldState::Phys>(
-              "Num deriv fwd",
-              GetBlockAttributes<TData, FieldState::Phys>(
-                  expansionList->GetTrace()),
               expansionList->GetCoordim(0) * components.size(), 1))
     {
         m_nDim  = expansionList->GetCoordim(0);
@@ -170,8 +150,7 @@ protected:
 
     Field<TData, FieldState::Coeff> m_coeff, m_tmp;
     Field<TData, FieldState::Phys> m_deriv, m_fluxvector, m_numflux, m_fwd,
-        m_bwd, m_derivTraceFwd, m_derivTraceBwd, m_traceAver, m_traceJump,
-        m_numDerivBwd, m_numDerivFwd;
+        m_bwd, m_derivTraceFwd, m_derivTraceBwd;
     std::shared_ptr<PhysDerivOp<TData>> m_physDerivOp;
     std::shared_ptr<BwdTransOp<TData>> m_bwdTransOp;
     std::shared_ptr<IProductWRTDerivBaseOp<FieldState::Coeff, TData>>
@@ -241,30 +220,8 @@ protected:
         // numerical-flux construction.
         m_physDerivOp->Apply(in, m_deriv);
 
-        for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
-        {
-            auto &inblock    = in.GetBlocks()[blk];
-            auto &derivblock = m_deriv.GetBlocks()[blk];
-            auto &fluxblock  = m_fluxvector.GetBlocks()[blk];
-
-            auto inbase  = inblock.template GetPtr<MemSpace, ReadOnly>();
-            auto qbase   = derivblock.template GetPtr<MemSpace, ReadOnly>();
-            auto outbase = fluxblock.template GetPtr<MemSpace, WriteOnly>();
-
-            const auto npts        = fluxblock.CompSize();
-            const auto inStride    = inblock.CompSize();
-            const auto derivStride = derivblock.CompSize();
-            const auto outStride   = fluxblock.CompSize();
-            const auto nvarComps   = inblock.GetNumComponents();
-
-            // Step 2: assemble the viscous volume flux tensor F_v(q, grad q)
-            // for this element block.
-            DiffuseVolumeFluxKernel<ExecSpace>(
-                npts, m_nDim, nvarComps, inStride, derivStride, outStride,
-                this->m_gamma, this->m_prandtl, this->m_gasConstant,
-                this->m_muRef, this->m_isMuVariable, this->m_oneOverTStar,
-                this->m_TRatioSutherland, inbase, qbase, outbase);
-        }
+        // Step 2: assemble the viscous volume flux tensor F_v(q, grad q)
+        this->m_volumeFluxOp->Apply(in, m_deriv, m_fluxvector);
 
         // Step 3: integrate the volume flux contribution against derivative
         // bases to enter coefficient space.
@@ -310,81 +267,15 @@ protected:
                                        m_derivTraceBwd);
         CopyBwdDerivTraceFromFwdOnBnd();
 
-        for (unsigned int blk = 0; blk < m_numflux.GetBlocks().size(); ++blk)
-        {
-            auto &fwdblock       = m_fwd.GetBlocks()[blk];
-            auto &bwdblock       = m_bwd.GetBlocks()[blk];
-            auto &traceAverblock = m_traceAver.GetBlocks()[blk];
-            auto &traceJumpblock = m_traceJump.GetBlocks()[blk];
-            auto &numFluxblock   = m_numflux.GetBlocks()[blk];
-
-            // These trace geometry/weight arrays are read-only mesh data, so
-            // they live in the data warehouse instead of per-op Field storage.
-            auto normalbase = this->m_dataWarehouse->template GetData<MemSpace>(
-                IPTraceNormalKey<TData>(blk));
-            auto bwdWeightAverBase =
-                this->m_dataWarehouse->template GetData<MemSpace>(
-                    IPTraceScalarKey<TData>(blk,
-                                            IPTraceScalarData::BwdWeightAver));
-            auto bwdWeightJumpBase =
-                this->m_dataWarehouse->template GetData<MemSpace>(
-                    IPTraceScalarKey<TData>(blk,
-                                            IPTraceScalarData::BwdWeightJump));
-            auto lengthRecipBase =
-                this->m_dataWarehouse->template GetData<MemSpace>(
-                    IPTraceScalarKey<TData>(blk,
-                                            IPTraceScalarData::LengthRecip));
-            auto penaltyFactorBase =
-                this->m_dataWarehouse->template GetData<MemSpace>(
-                    IPTraceScalarKey<TData>(blk,
-                                            IPTraceScalarData::PenaltyFactor));
-            auto fwdbase = fwdblock.template GetPtr<MemSpace, ReadOnly>();
-            auto bwdbase = bwdblock.template GetPtr<MemSpace, ReadOnly>();
-            auto derivTraceFwdbase = m_derivTraceFwd.GetBlocks()[blk]
-                                         .template GetPtr<MemSpace, ReadOnly>();
-            auto derivTraceBwdbase = m_derivTraceBwd.GetBlocks()[blk]
-                                         .template GetPtr<MemSpace, ReadOnly>();
-            auto traceAverbase =
-                traceAverblock.template GetPtr<MemSpace, WriteOnly>();
-            auto traceJumpbase =
-                traceJumpblock.template GetPtr<MemSpace, WriteOnly>();
-            auto numFluxbase =
-                numFluxblock.template GetPtr<MemSpace, WriteOnly>();
-
-            const auto npts        = numFluxblock.CompSize();
-            const auto traceStride = numFluxblock.CompSize();
-            const auto derivStride =
-                m_derivTraceFwd.GetBlocks()[blk].CompSize();
-
-            // For each trace point on this block, assemble:
-            // - conservative average state
-            // - conservative jump
-            // - penalty-corrected derivative trace
-            // - final normal viscous numerical flux
-            DiffuseTraceFluxKernel<ExecSpace>(
-                npts, m_nDim, m_nComp, traceStride, derivStride, this->m_gamma,
-                this->m_prandtl, this->m_gasConstant, this->m_muRef,
-                this->m_isMuVariable, this->m_oneOverTStar,
-                this->m_TRatioSutherland, normalbase, bwdWeightAverBase,
-                bwdWeightJumpBase, lengthRecipBase, penaltyFactorBase, fwdbase,
-                bwdbase, derivTraceFwdbase, derivTraceBwdbase, traceAverbase,
-                traceJumpbase, numFluxbase);
-        }
-
-        ApplyFluxBndConds();
+        // calculate the adverage and jump conditions
+        this->m_traceFluxOp->Apply(m_fwd, m_bwd, m_derivTraceFwd,
+                                   m_derivTraceBwd, m_numflux);
     }
 
     void AddSecondDerivToTrace(const Array<OneD, TData> &)
     {
         ASSERTL0(false, "AddSecondDerivToTrace is not available in the serial "
                         "field-only DiffusionIP path.");
-    }
-
-    void ApplyFluxBndConds()
-    {
-        // Placeholder for future boundary trace-flux corrections.
-        // Boundary trace-flux corrections such as WallAdiabatic are not
-        // implemented in the current serial DiffusionIP operator path.
     }
 
     void CopyBwdDerivTraceFromFwdOnBnd()

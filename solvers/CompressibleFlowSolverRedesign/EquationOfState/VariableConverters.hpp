@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DiffusionIPKernels.hpp
+// File: VariableConverters.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,35 +28,61 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Variable Converters related to Equations of State
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
-
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static void CopyBwdDerivTraceFromFwdOnBndKernel(
-    const size_t nBndPts, const unsigned int nComps,
-    const unsigned int compStride, const size_t *bndTraceOffset,
-    const TData *fwdbase, TData *bwdbase)
+/**
+ * @brief Compute the specific internal energy
+ *        \f$ e = (E - rho*V^2/2)/rho \f$.
+ */
+template <typename TData>
+NEK_HOSTDEVICE_INLINE TData GetInternalEnergy(unsigned ndim, const TData &rho,
+                                              const TData *m, const TData &E)
 {
-    // Derivative traces do not have physical boundary data of their own. On
-    // physical boundaries legacy DiffusionIP uses dq^- = dq^+ before the IP
-    // penalty term is added, while periodic traces are handled separately.
-    Nektar::parallel_for<ExecSpace>(
-        0u, nBndPts, NEKTAR_LAMBDA(const size_t i) {
-            const size_t offset = bndTraceOffset[i];
-            for (unsigned int c = 0; c < nComps; ++c)
-            {
-                bwdbase[c * compStride + offset] =
-                    fwdbase[c * compStride + offset];
-            }
-        });
+    TData sum    = TData(0);
+    TData invrho = TData(1) / rho;
+
+    // tmp = (rho * u_i)^2
+    for (unsigned i = 0; i < ndim; ++i)
+    {
+        sum += m[i] * m[i];
+    }
+
+    /// rho*V^2
+    sum *= invrho;
+
+    // Calculate  = (E - rho*V^2/2)/rho
+    return (E - TData(0.5) * sum) * invrho;
+}
+
+// Constant-viscosity or Sutherland-law viscosity model.
+template <typename TData>
+NEK_HOSTDEVICE_INLINE TData GetDynamicViscosity(const TData &temperature,
+                                                const TData &muRef,
+                                                bool isVariable,
+                                                const TData &oneOverTstar,
+                                                const TData &tRatioSutherland)
+{
+    TData mu_star = muRef;
+
+    if (isVariable) // define using sutherland's law
+    {
+        const TData onePlusC = TData(1.0) + tRatioSutherland;
+        const TData ratio    = temperature * oneOverTstar;
+
+        return mu_star * ratio * std::sqrt(ratio) * onePlusC /
+               (ratio + tRatioSutherland);
+    }
+    else
+    {
+        return mu_star;
+    }
 }
 
 } // namespace Nektar::Operators::detail

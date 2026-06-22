@@ -41,14 +41,14 @@
             <I PROPERTY="EQType"                VALUE="NavierStokesCFE"     />
             <I PROPERTY="Projection"            VALUE="DisContinuous"       />
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
-            <I PROPERTY="DiffusionType"         VALUE="InteriorPenalty"               />
+            <I PROPERTY="DiffusionType"         VALUE="InteriorPenalty"    />
             <I PROPERTY="UpwindType"            VALUE="Roe"                />
             <I PROPERTY="ProblemType"           VALUE="General"             />
             <I PROPERTY="ViscosityType"         VALUE="Constant"            />
         </SOLVERINFO>
 
         <PARAMETERS>
-            <P> Gamma                 = 1.4                                     </P>
+            <P> GammaDim              = 1.4                                     </P>
             <P> Ma                    = 0.1                                     </P>
             <P> ReRef                 = 1600                                    </P>
             <P> Pr                    = 0.72                                    </P>
@@ -62,7 +62,7 @@
             <P> Alpha_deg             = 0                                    </P>
             <P> Alpha_rad             = Alpha_deg*PI/180                        </P>
 
-            <P> soundSpdDim           = sqrt(Gamma*pDim/rhoDim)                 </P>
+            <P> soundSpdDim           = sqrt(GammaDim*pDim/rhoDim)                 </P>
             <P> L                     = 1.0                                     </P>
 
             <P> velMagnDim            = Ma*soundSpdDim                          </P>
@@ -78,8 +78,6 @@
             <P> wInf                  = wDim/velMagnDim                         </P>
             <P> pInf                  = pDim/(rhoDim*velMagnDim*velMagnDim)     </P>
             <P> mu                    = 1/Re0                                   </P>
-            <P> GasConstant           = GasConstantDim*TDim/(velMagnDim*velMagnDim)</P>
-
             <P> TimeStep       = 0.0001    </P>
             <P> NumSteps       = 10     </P>
         </PARAMETERS>
@@ -88,6 +86,24 @@
             <METHOD> RungeKutta </METHOD>
             <ORDER> 1 </ORDER>
         </TIMEINTEGRATIONSCHEME>
+
+        <EquationOfState>
+            <Type> IdealGas </Type>
+            <Parameters>
+                <Gamma>       GammaDim </Gamma>
+                <GasConstant> GasConstantDim*TDim/(velMagnDim*velMagnDim) </GasConstant>
+            </Parameters>
+        </EquationOfState>
+
+        <ReferenceValues>
+            <Viscosity>     1/Re0                               </Viscosity>
+            <Pressure>      pDim/(rhoDim*velMagnDim*velMagnDim) </Pressure>
+            <Density>       rhoDim                              </Density>
+            <Temperature>   TDim                                </Temperature>
+            <TSutherland>   110                                 </TSutherland>
+            <Prandtl>       0.72                                </Prandtl>
+            <!--ThermalConductivity>    xxx     </ThermalConductivity-->
+        </ReferenceValues>
 
         <VARIABLES>
             <V ID="0"> rho  </V>
@@ -162,7 +178,7 @@
                 + (rhoInf * uInf * uInf / 16.0)
                 * (cos(2*x/L) + cos(2*y/L))
                 * (cos(2*z/L) + 2.0)
-                ) / (Gamma - 1.0)
+                ) / (GammaDim - 1.0)
                 + 0.5 * rhoInf * (
                 (uInf * sin(x/L) * cos(y/L) * cos(z/L))
                 * (uInf * sin(x/L) * cos(y/L) * cos(z/L))
@@ -193,7 +209,7 @@
                 * (cos(2*x/L) + cos(2*y/L))
                 * (cos(2*z/L) + 2.0)
                 * exp(-6.0 * mu * t)
-                ) / (Gamma - 1.0)
+                ) / (GammaDim - 1.0)
                 + 0.5 * rhoInf * (
                 (
                 uInf * sin(x/L) * cos(y/L) * cos(z/L)

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AdvectionDGOp.hpp
+// File: DiffusionTraceFluxOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,81 +28,52 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Advection operator base class.
+// Description: DiffusionTrace flux operator base classes.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include "Operators/Common/Operator.hpp"
-#include "Operators/Math/MathKernels.hpp"
-#include "Operators/SolverUtilsOps/Advection/AdvectionVolumeFluxOp.hpp"
-#include "Operators/SolverUtilsOps/RiemannSolvers/RiemannSolverOp.hpp"
+#include "Operators/SolverUtilsOps/Flux/FluxOp.hpp"
 
 namespace Nektar::Operators
 {
 
-// Advection operator base class
-template <typename TData> class AdvectionDGOp : public Operator<TData>
+template <typename TData> class DiffusionTraceFluxOp : public FluxOp<TData>
 {
 public:
-    void Apply(Field<TData, FieldState::Phys> &in,
+    void Apply(Field<TData, FieldState::Phys> &fwd,
+               Field<TData, FieldState::Phys> &bwd,
+               Field<TData, FieldState::Phys> &derivFwd,
+               Field<TData, FieldState::Phys> &derivBwd,
                Field<TData, FieldState::Phys> &out)
     {
-        this->v_Apply(in, out);
+        this->v_Apply(fwd, bwd, derivFwd, derivBwd, out);
     }
 
-    void operator()(Field<TData, FieldState::Phys> &in,
+    void operator()(Field<TData, FieldState::Phys> &fwd,
+                    Field<TData, FieldState::Phys> &bwd,
+                    Field<TData, FieldState::Phys> &derivFwd,
+                    Field<TData, FieldState::Phys> &derivBwd,
                     Field<TData, FieldState::Phys> &out)
     {
-        this->v_Apply(in, out);
-    }
-
-    void SetScale(const TData &scale)
-    {
-        this->m_scale = scale;
-    }
-
-    void SetAppend(const bool &append)
-    {
-        v_SetAppend(append);
-    }
-
-    void SetAdvectVel(Field<TData, FieldState::Phys> &advectVel)
-    {
-        this->m_advectVel = std::move(advectVel);
-    }
-
-    void SetRiemannSolver(const std::shared_ptr<RiemannSolverOp<TData>> &ptr)
-    {
-        this->m_riemannSolverOp = ptr;
-    }
-
-    void SetVolumeFluxOp(
-        const std::shared_ptr<AdvectionVolumeFluxOp<TData>> &ptr)
-    {
-        this->m_volumeFluxOp = ptr;
+        this->v_Apply(fwd, bwd, derivFwd, derivBwd, out);
     }
 
 protected:
-    Field<TData, FieldState::Phys> m_advectVel;
-    std::shared_ptr<RiemannSolverOp<TData>> m_riemannSolverOp;
-    std::shared_ptr<AdvectionVolumeFluxOp<TData>> m_volumeFluxOp;
-    TData m_scale = 1.0;
-    bool m_append = false;
-
-    AdvectionDGOp(const MultiRegions::ExpListSharedPtr &expansionList,
-                  const std::vector<std::string> &components)
-        : Operator<TData>(expansionList, components)
+    DiffusionTraceFluxOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                         const std::vector<std::string> &components)
+        : FluxOp<TData>(expansionList, components)
     {
     }
 
-    ~AdvectionDGOp() override = default;
+    ~DiffusionTraceFluxOp() override = default;
 
-    virtual void v_Apply(Field<TData, FieldState::Phys> &in,
+    virtual void v_Apply(Field<TData, FieldState::Phys> &fwd,
+                         Field<TData, FieldState::Phys> &bwd,
+                         Field<TData, FieldState::Phys> &derivFwd,
+                         Field<TData, FieldState::Phys> &derivBwd,
                          Field<TData, FieldState::Phys> &out) = 0;
-
-    virtual void v_SetAppend(const bool &append) = 0;
 };
 
 } // namespace Nektar::Operators

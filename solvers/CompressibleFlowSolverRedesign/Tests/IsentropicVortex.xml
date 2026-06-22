@@ -35,19 +35,17 @@
     <CONDITIONS>
 
         <PARAMETERS>
-            <P> Gamma           = 1.4               </P>
-
+            <P> GammaDim        = 1.4               </P>
             <P> TimeStep        = 0.001             </P>
             <P> T               = 0.1               </P>
             <P> NumSteps        = T/TimeStep        </P>
-
             <P> Beta = 5.0 </P>
             <P> U0   = 1.0 </P>
             <P> V0   = 0.5 </P>
             <P> X0   = 5.0 </P>
             <P> Y0   = 0.0 </P>
             <!-- constant factor -->
-            <P> fac = 1/(16*Gamma*PI^2) </P>
+            <P> fac = 1/(16*GammaDim*PI^2) </P>
 
         </PARAMETERS>
 
@@ -62,6 +60,15 @@
             <METHOD> RungeKutta </METHOD>
             <ORDER> 4 </ORDER>
         </TIMEINTEGRATIONSCHEME>
+
+
+        <EquationOfState>
+            <Type> IdealGas </Type>
+            <Parameters>
+                <Gamma>       GammaDim </Gamma>
+                <GasConstant> 287      </GasConstant>
+            </Parameters>
+        </EquationOfState>
 
         <VARIABLES>
             <V ID="0"> rho  </V>
@@ -110,28 +117,28 @@
 
             <E VAR="rho"
                 VALUE="
-                (1 - (Gamma-1)*(Beta*exp(1 - ((x-X0)^2 + (y-Y0)^2)))^2 * fac)^(1/(Gamma-1))
+                (1 - (GammaDim-1)*(Beta*exp(1 - ((x-X0)^2 + (y-Y0)^2)))^2 * fac)^(1/(GammaDim-1))
                 " />
 
             <E VAR="rhou"
                 VALUE="
-                (1 - (Gamma-1)*(Beta*exp(1 - ((x-X0)^2 + (y-Y0)^2)))^2 * fac)^(1/(Gamma-1))
+                (1 - (GammaDim-1)*(Beta*exp(1 - ((x-X0)^2 + (y-Y0)^2)))^2 * fac)^(1/(GammaDim-1))
                 *
                 (U0 - (Beta*exp(1 - ((x-X0)^2 + (y-Y0)^2)))*(y-Y0)/(2*PI))
                 " />
 
             <E VAR="rhov"
                 VALUE="
-                (1 - (Gamma-1)*(Beta*exp(1 - ((x-X0)^2 + (y-Y0)^2)))^2 * fac)^(1/(Gamma-1))
+                (1 - (GammaDim-1)*(Beta*exp(1 - ((x-X0)^2 + (y-Y0)^2)))^2 * fac)^(1/(GammaDim-1))
                 *
                 ( V0 + (Beta*exp(1 - ((x-X0)^2 + (y-Y0)^2)))*(x-X0)/(2*PI) )
                 " />
 
             <E VAR="E"
                 VALUE="
-                ((1 - (Gamma-1)*(Beta*exp(1 - ((x-X0)^2 + (y-Y0)^2)))^2 * fac)^(Gamma/(Gamma-1)))/(Gamma-1)
+                ((1 - (GammaDim-1)*(Beta*exp(1 - ((x-X0)^2 + (y-Y0)^2)))^2 * fac)^(GammaDim/(GammaDim-1)))/(GammaDim-1)
                 + 0.5
-                * (1 - (Gamma-1)*(Beta*exp(1 - ((x-X0)^2 + (y-Y0)^2)))^2 * fac)^(1/(Gamma-1))
+                * (1 - (GammaDim-1)*(Beta*exp(1 - ((x-X0)^2 + (y-Y0)^2)))^2 * fac)^(1/(GammaDim-1))
                 * (
                 ( U0 - (Beta*exp(1 - ((x-X0)^2 + (y-Y0)^2)))*(y-Y0)/(2*PI) )^2
                 + ( V0 + (Beta*exp(1 - ((x-X0)^2 + (y-Y0)^2)))*(x-X0)/(2*PI) )^2
@@ -144,28 +151,28 @@
 
             <E VAR="rho"
                 VALUE="
-                (1 - (Gamma-1)*(Beta*exp(1 - ((x-5.1)^2 + (y-0.05)^2)))^2 * fac)^(1/(Gamma-1))
+                (1 - (GammaDim-1)*(Beta*exp(1 - ((x-5.1)^2 + (y-0.05)^2)))^2 * fac)^(1/(GammaDim-1))
                 " />
 
             <E VAR="rhou"
                 VALUE="
-                (1 - (Gamma-1)*(Beta*exp(1 - ((x-5.1)^2 + (y-0.05)^2)))^2 * fac)^(1/(Gamma-1))
+                (1 - (GammaDim-1)*(Beta*exp(1 - ((x-5.1)^2 + (y-0.05)^2)))^2 * fac)^(1/(GammaDim-1))
                 *
                 ( U0 - (Beta*exp(1 - ((x-5.1)^2 + (y-0.05)^2)))*(y-0.05)/(2*PI) )
                 " />
 
             <E VAR="rhov"
                 VALUE="
-                (1 - (Gamma-1)*(Beta*exp(1 - ((x-5.1)^2 + (y-0.05)^2)))^2 * fac)^(1/(Gamma-1))
+                (1 - (GammaDim-1)*(Beta*exp(1 - ((x-5.1)^2 + (y-0.05)^2)))^2 * fac)^(1/(GammaDim-1))
                 *
                 ( V0 + (Beta*exp(1 - ((x-5.1)^2 + (y-0.05)^2)))*(x-5.1)/(2*PI) )
                 " />
 
             <E VAR="E"
                 VALUE="
-                ((1 - (Gamma-1)*(Beta*exp(1 - ((x-5.1)^2 + (y-0.05)^2)))^2 * fac)^(Gamma/(Gamma-1)))/(Gamma-1)
+                ((1 - (GammaDim-1)*(Beta*exp(1 - ((x-5.1)^2 + (y-0.05)^2)))^2 * fac)^(GammaDim/(GammaDim-1)))/(GammaDim-1)
                 + 0.5
-                * (1 - (Gamma-1)*(Beta*exp(1 - ((x-5.1)^2 + (y-0.05)^2)))^2 * fac)^(1/(Gamma-1))
+                * (1 - (GammaDim-1)*(Beta*exp(1 - ((x-5.1)^2 + (y-0.05)^2)))^2 * fac)^(1/(GammaDim-1))
                 * (
                 ( U0 - (Beta*exp(1 - ((x-5.1)^2 + (y-0.05)^2)))*(y-0.05)/(2*PI) )^2
                 + ( V0 + (Beta*exp(1 - ((x-5.1)^2 + (y-0.05)^2)))*(x-5.1)/(2*PI) )^2

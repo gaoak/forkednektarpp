@@ -36,6 +36,8 @@
 
 #include "Operators/Common/Operator.hpp"
 #include "Operators/Math/MathKernels.hpp"
+#include "Operators/SolverUtilsOps/Diffusion/DiffusionTraceFluxOp.hpp"
+#include "Operators/SolverUtilsOps/Diffusion/DiffusionVolumeFluxOp.hpp"
 namespace Nektar::Operators
 {
 
@@ -65,7 +67,21 @@ public:
         this->m_append = append;
     }
 
+    void SetVolumeFluxOp(
+        const std::shared_ptr<DiffusionVolumeFluxOp<TData>> &ptr)
+    {
+        this->m_volumeFluxOp = ptr;
+    }
+
+    void SetTraceFluxOp(const std::shared_ptr<DiffusionTraceFluxOp<TData>> &ptr)
+    {
+        this->m_traceFluxOp = ptr;
+    }
+
 protected:
+    std::shared_ptr<DiffusionVolumeFluxOp<TData>> m_volumeFluxOp;
+    std::shared_ptr<DiffusionTraceFluxOp<TData>> m_traceFluxOp;
+
     TData m_scale = 1.0;
     bool m_append = false;
 

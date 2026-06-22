@@ -129,11 +129,13 @@ NEK_DEVICE_INLINE TData P5Function(int A, TData alpha, TData M)
     return out;
 }
 
-template <typename ExecSpace, unsigned int NDIM, typename AUSMUpwinding>
+template <typename ExecSpace, typename EqnOfStParams, unsigned int NDIM,
+          typename AUSMUpwinding>
 struct AUSMSolverKernel
 {
     template <typename TScalar>
-    NEK_DEVICE_INLINE void operator()(const size_t blksize, const TScalar *fwd,
+    NEK_DEVICE_INLINE void operator()(const EqnOfStParams &EoS,
+                                      const size_t blksize, const TScalar *fwd,
                                       const TScalar *bwd, TScalar *flux)
     {
         // Explicit vectorisation for AVX backend, vec_t =
@@ -187,12 +189,12 @@ struct AUSMSolverKernel
             const TScalar eR = (ER - oneHalf * qR2) / rhoR;
 
             // Pressure
-            const TScalar pL = GetPressure(rhoL, eL);
-            const TScalar pR = GetPressure(rhoR, eR);
+            const TScalar pL = GetPressure(EoS, rhoL, eL);
+            const TScalar pR = GetPressure(EoS, rhoR, eR);
 
             // Speed of sound
-            const TScalar cL = GetSoundSpeed(rhoL, eL);
-            const TScalar cR = GetSoundSpeed(rhoR, eR);
+            const TScalar cL = GetSoundSpeed(EoS, rhoL, eL);
+            const TScalar cR = GetSoundSpeed(EoS, rhoR, eR);
 
             // Average speeds of sound
             TScalar cA = 0.5 * (cL + cR);

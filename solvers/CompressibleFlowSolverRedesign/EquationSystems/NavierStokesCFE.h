@@ -35,10 +35,12 @@
 
 #pragma once
 
+#include <CompressibleFlowSolverRedesign/DiffusionCFETraceFlux/DiffusionCFETraceFluxOp.hpp>
+#include <CompressibleFlowSolverRedesign/DiffusionCFEVolFlux/DiffusionCFEVolFluxOp.hpp>
+#include <CompressibleFlowSolverRedesign/EulerVolumeFlux/EulerVolumeFluxOp.hpp>
 #include <CompressibleFlowSolverRedesign/RiemannSolvers/CompressibleSolverOp.hpp>
-#include <Operators/ElmtOps/Expression/ExpressionOp.hpp>
+#include <Operators/Math/Math.hpp>
 #include <Operators/SolverUtilsOps/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
-#include <Operators/SolverUtilsOps/Advection/VolumeFluxOp.hpp>
 #include <Operators/SolverUtilsOps/Diffusion/DiffusionIP/DiffusionIPOp.hpp>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 
@@ -74,7 +76,9 @@ protected:
     std::shared_ptr<AdvectionWeakDGOp<double>> m_advectionWeakDGOp;
     std::shared_ptr<DiffusionIPOp<double>> m_diffusionIPOp;
     std::shared_ptr<CompressibleSolverOp<double>> m_riemannSolverOp;
-    std::shared_ptr<VolumeFluxOp<double>> m_volumeFluxOp;
+    std::shared_ptr<EulerVolumeFluxOp<double>> m_eulerVolFluxOp;
+    std::shared_ptr<DiffusionCFEVolFluxOp<double>> m_diffusionVolFluxOp;
+    std::shared_ptr<DiffusionCFETraceFluxOp<double>> m_diffusionTraceFluxOp;
     std::shared_ptr<ExpressionOp<double>> m_initialOp;
     std::shared_ptr<ExpressionOp<double>> m_velOp;
 

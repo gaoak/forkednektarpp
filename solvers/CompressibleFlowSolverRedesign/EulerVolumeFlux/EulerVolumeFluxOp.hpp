@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DiffusionIPKernels.hpp
+// File: EulerVolumeFluxOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,29 +34,52 @@
 
 #pragma once
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
+#include "Operators/SolverUtilsOps/Advection/AdvectionVolumeFluxOp.hpp"
 
-namespace Nektar::Operators::detail
+#include "EquationOfState/SupportedEoS.hpp"
+
+namespace Nektar::Operators
 {
 
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static void CopyBwdDerivTraceFromFwdOnBndKernel(
-    const size_t nBndPts, const unsigned int nComps,
-    const unsigned int compStride, const size_t *bndTraceOffset,
-    const TData *fwdbase, TData *bwdbase)
+// Upwind base class
+// Defines the apply operator to enforce apply parameter types
+template <typename TData>
+class EulerVolumeFluxOp : public AdvectionVolumeFluxOp<TData>
 {
-    // Derivative traces do not have physical boundary data of their own. On
-    // physical boundaries legacy DiffusionIP uses dq^- = dq^+ before the IP
-    // penalty term is added, while periodic traces are handled separately.
-    Nektar::parallel_for<ExecSpace>(
-        0u, nBndPts, NEKTAR_LAMBDA(const size_t i) {
-            const size_t offset = bndTraceOffset[i];
-            for (unsigned int c = 0; c < nComps; ++c)
-            {
-                bwdbase[c * compStride + offset] =
-                    fwdbase[c * compStride + offset];
-            }
-        });
-}
+public:
+    static std::shared_ptr<EulerVolumeFluxOp<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
+        const std::string &execStr = "")
+    {
+        std::string EoSName;
 
-} // namespace Nektar::Operators::detail
+        if (expansionList->GetSession()->DefinesEquationOfState())
+        {
+            EoSName = boost::to_upper_copy(
+                expansionList->GetSession()->GetEquationOfState().type);
+        }
+        else
+        {
+            NEKERROR(ErrorUtil::efatal,
+                     "No EquationOfState section defined in session file");
+        }
+
+        return std::dynamic_pointer_cast<EulerVolumeFluxOp<TData>>(
+            AdvectionVolumeFluxOp<TData>::Create(expansionList, components,
+                                                 name + EoSName, execStr));
+    }
+
+    static inline const std::string name = "EulerVolumeFlux";
+
+protected:
+    EulerVolumeFluxOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                      const std::vector<std::string> &components)
+        : AdvectionVolumeFluxOp<TData>(expansionList, components)
+    {
+    }
+
+    ~EulerVolumeFluxOp() override = default;
+};
+
+} // namespace Nektar::Operators

@@ -125,5 +125,12 @@
             <V ID="2">rhov</V>
             <V ID="3">E</V>
         </VARIABLES>
+        <EquationOfState>
+            <Type> IdealGas </Type>
+            <Parameters>
+                <Gamma>       1.4 </Gamma>
+                <GasConstant> 287 </GasConstant>
+            </Parameters>
+        </EquationOfState>
     </CONDITIONS>
 </NEKTAR>
