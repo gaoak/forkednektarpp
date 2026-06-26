@@ -135,6 +135,16 @@ Note:
              -DNEKTAR_ENABLE_DEVICE=SYCL-CUDA \
              -DCMAKE_CXX_COMPILER="/path-to-adaptivecpp-compiler/bin/acpp" 
  
+Note: 
+- Due to massive library size, linking problems may occur when using the AdaptiveCpp compiler. Using the lld linker instead of the GNU linker (bfd) can fix the problem:
+
+```
+    cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
+             -DNEKTAR_ENABLE_DEVICE=SYCL-CUDA \
+             -DCMAKE_CXX_COMPILER="/path-to-adaptivecpp-compiler/bin/acpp" \
+             -DCMAKE_LINKER=lld \
+             -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld"
+```     
 
 Installation
 ------------
