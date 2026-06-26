@@ -62,51 +62,66 @@ Redesign
 A minimalist compilation command example is shown below for each available backend:
 
 ### Serial
-    cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON 
+```
+cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON 
+```
 
 ### AVX2 
-    cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
-             -DNEKTAR_ENABLE_SIMD=AVX2 
+```
+cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
+         -DNEKTAR_ENABLE_SIMD=AVX2 
+```
 
 ### AVX512 
-    cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
-             -DNEKTAR_ENABLE_SIMD=AVX512 
+```
+cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
+         -DNEKTAR_ENABLE_SIMD=AVX512 
+```
 
 ### SVE 
-    cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
-             -DNEKTAR_ENABLE_SIMD=SVE \
-             -DNEKTAR_SVE_BITS=xxx
+```
+cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
+         -DNEKTAR_ENABLE_SIMD=SVE \
+         -DNEKTAR_SVE_BITS=xxx
+```
 
 Notes:
  - xxx can be 128, 256, 512, 1024, or 2048 depending of the architecture
 
 ### SVE2 
-    cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
-             -DNEKTAR_ENABLE_SIMD=SVE2 \
-             -DNEKTAR_SVE_BITS=xxx
+```
+cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
+         -DNEKTAR_ENABLE_SIMD=SVE2 \
+         -DNEKTAR_SVE_BITS=xxx
+```
 
 Notes:
  - xxx can be 128, 256, 512, 1024, or 2048 depending of the architecture
 
 ### CUDA
-    cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
-             -DNEKTAR_ENABLE_DEVICE=CUDA \
-             -DNEKTAR_DEVICE_ARCH=sm_xx \ 
+```
+cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
+         -DNEKTAR_ENABLE_DEVICE=CUDA \
+         -DNEKTAR_DEVICE_ARCH=sm_xx \ 
+```
 
 Note:
-- For H100, please use `sm_xx=sm_90` 
-- For A40, please use `sm_xx=sm_86`
+- For V100, please use `sm_xx=sm_70`
 - For A100, please use `sm_xx=sm_80` 
-- For V100, please use `sm_xx=sm_70` 
+- For A40, please use `sm_xx=sm_86`
+- For H100, please use `sm_xx=sm_90` 
+- For B100, please use `sm_xx=sm_100` 
 
 The `sm_xx` value can also be queried using the following command:
 `nvidia-smi --query-gpu=compute_cap --format=csv`
 
 ### HIP
-    cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
-             -DNEKTAR_ENABLE_DEVICE=HIP \
-             -DCMAKE_CXX_COMPILER=hipcc \
-             -DNEKTAR_DEVICE_ARCH=gfxzzz \
+```
+cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
+         -DNEKTAR_ENABLE_DEVICE=HIP \
+         -DCMAKE_CXX_COMPILER=hipcc \
+         -DNEKTAR_DEVICE_ARCH=gfxzzz \
+```
 
 Note:
 - For MI100, please use `gfxzzz=gfx908` 
@@ -114,36 +129,43 @@ Note:
 - For MI250, please use `gfxzzz=gfx90a` 
 - For MI300, please use `gfxzzz=gfx942` 
 - For MI325, please use `gfxzzz=gfx942` 
+- For MI350, please use `gfxzzz=gfx950` 
+- For MI355, please use `gfxzzz=gfx950` 
 
 The `gfxzzz` value can also be queried using the following command:
 `rocm-smi --showproductname | grep gfx`
 
 ### Intel SYCL (CUDA)
-    cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
-             -DNEKTAR_ENABLE_DEVICE=SYCL-CUDA \
-             -DNEKTAR_DEVICE_ARCH=sm_xx \ 
-             -DCMAKE_CXX_COMPILER="/path-to-intel-compiler/bin/icpx" 
+```
+cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
+         -DNEKTAR_ENABLE_DEVICE=SYCL-CUDA \
+         -DNEKTAR_DEVICE_ARCH=sm_xx \ 
+         -DCMAKE_CXX_COMPILER="/path-to-intel-compiler/bin/icpx" 
+```
 
 Note:
-- For H100, please use `sm_xx=sm_90` 
-- For A40, please use `sm_xx=sm_86`
+- For V100, please use `sm_xx=sm_70`
 - For A100, please use `sm_xx=sm_80` 
-- For V100, please use `sm_xx=sm_70` 
+- For A40, please use `sm_xx=sm_86`
+- For H100, please use `sm_xx=sm_90` 
+- For B100, please use `sm_xx=sm_100` 
 
 ### AdaptiveCpp SYCL (CUDA)
-    cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
-             -DNEKTAR_ENABLE_DEVICE=SYCL-CUDA \
-             -DCMAKE_CXX_COMPILER="/path-to-adaptivecpp-compiler/bin/acpp" 
- 
+```
+cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
+         -DNEKTAR_ENABLE_DEVICE=SYCL-CUDA \
+         -DCMAKE_CXX_COMPILER="/path-to-adaptivecpp-compiler/bin/acpp" 
+ ```
+
 Note: 
 - Due to massive library size, linking problems may occur when using the AdaptiveCpp compiler. Using the lld linker instead of the GNU linker (bfd) can fix the problem:
 
 ```
-    cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
-             -DNEKTAR_ENABLE_DEVICE=SYCL-CUDA \
-             -DCMAKE_CXX_COMPILER="/path-to-adaptivecpp-compiler/bin/acpp" \
-             -DCMAKE_LINKER=lld \
-             -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld"
+cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
+         -DNEKTAR_ENABLE_DEVICE=SYCL-CUDA \
+         -DCMAKE_CXX_COMPILER="/path-to-adaptivecpp-compiler/bin/acpp" \
+         -DCMAKE_LINKER=lld \
+         -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld"
 ```     
 
 Installation
