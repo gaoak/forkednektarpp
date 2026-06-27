@@ -34,28 +34,8 @@
 
 #pragma once
 
-#include <cuda.h>
-#include <cuda_runtime.h>
+#include <Operators/Common/Backends/CUDAStream.hpp>
 #include <nvrtc.h>
-#define CHECK_LAST_HIPCUDA_ERROR()                                             \
-    {                                                                          \
-        cudaError_t err = cudaGetLastError();                                  \
-        if (err != cudaSuccess)                                                \
-        {                                                                      \
-            std::cerr << "CUDA Runtime Error at: " << __FILE__ << ":"          \
-                      << __LINE__ << std::endl;                                \
-            std::cerr << cudaGetErrorString(err) << std::endl;                 \
-            exit(0);                                                           \
-        }                                                                      \
-    }
-#define CHECK_HIPCUDA_ERROR(err)                                               \
-    if (err != cudaSuccess)                                                    \
-    {                                                                          \
-        std::cerr << "CUDA Runtime Error at: " << __FILE__ << ":" << __LINE__  \
-                  << std::endl;                                                \
-        std::cerr << cudaGetErrorString(err) << std::endl;                     \
-        exit(0);                                                               \
-    }
 // Helper to check CUDA driver errors
 #define CHECK_HIPCUDA_DRIVER_ERROR(err)                                        \
     {                                                                          \
@@ -108,8 +88,9 @@ template <unsigned int ndim> class hipcudaBlock
 // shared memory is declared as unsigned char* type. The shmemptr must then cast
 // to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
 #define DEVICE_1DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
-                                      STREAM, ...)                             \
+                                      STREAMID, ...)                           \
     {                                                                          \
+        auto STREAM             = CUDAStream::GetInstance(STREAMID);           \
         unsigned char *shmemptr = nullptr;                                     \
         KERNEL<<<GRIDSIZE, BLOCKSIZE, SHMEMSIZE, STREAM>>>(                    \
             __VA_ARGS__, shmemptr, hipcudaBlock<1>());                         \
@@ -124,8 +105,9 @@ template <unsigned int ndim> class hipcudaBlock
 // to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
 #define DEVICE_2DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZEX, GRIDSIZEY,            \
                                       BLOCKSIZEX, BLOCKSIZEY, SHMEMSIZE,       \
-                                      STREAM, ...)                             \
+                                      STREAMID, ...)                           \
     {                                                                          \
+        auto STREAM             = CUDAStream::GetInstance(STREAMID);           \
         unsigned char *shmemptr = nullptr;                                     \
         dim3 GRIDSIZE(GRIDSIZEX, GRIDSIZEY, 1);                                \
         dim3 BLOCKSIZE(BLOCKSIZEX, BLOCKSIZEY, 1);                             \
@@ -142,8 +124,9 @@ template <unsigned int ndim> class hipcudaBlock
 // to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
 #define DEVICE_3DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZEX, GRIDSIZEY, GRIDSIZEZ, \
                                       BLOCKSIZEX, BLOCKSIZEY, BLOCKSIZEZ,      \
-                                      SHMEMSIZE, STREAM, ...)                  \
+                                      SHMEMSIZE, STREAMID, ...)                \
     {                                                                          \
+        auto STREAM             = CUDAStream::GetInstance(STREAMID);           \
         unsigned char *shmemptr = nullptr;                                     \
         dim3 GRIDSIZE(GRIDSIZEX, GRIDSIZEY, GRIDSIZEZ);                        \
         dim3 BLOCKSIZE(BLOCKSIZEX, BLOCKSIZEY, BLOCKSIZEZ);                    \
@@ -156,8 +139,9 @@ template <unsigned int ndim> class hipcudaBlock
 // provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
 // The last argument of the KERNEL function MUST be of type hipcudaBlock<1>.
 #define DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
-                                              STREAM, ...)                     \
+                                              STREAMID, ...)                   \
     {                                                                          \
+        auto STREAM = CUDAStream::GetInstance(STREAMID);                       \
         KERNEL<<<GRIDSIZE, BLOCKSIZE, 0, STREAM>>>(__VA_ARGS__,                \
                                                    hipcudaBlock<1>());         \
         CHECK_LAST_HIPCUDA_ERROR();                                            \
@@ -167,8 +151,9 @@ template <unsigned int ndim> class hipcudaBlock
 // provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
 // The last argument of the KERNEL function MUST be of type hipcudaBlock<2>.
 #define DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(                                 \
-    KERNEL, GRIDSIZEX, GRIDSIZEY, BLOCKSIZEX, BLOCKSIZEY, STREAM, ...)         \
+    KERNEL, GRIDSIZEX, GRIDSIZEY, BLOCKSIZEX, BLOCKSIZEY, STREAMID, ...)       \
     {                                                                          \
+        auto STREAM = CUDAStream::GetInstance(STREAMID);                       \
         dim3 GRIDSIZE(GRIDSIZEX, GRIDSIZEY, 1);                                \
         dim3 BLOCKSIZE(BLOCKSIZEX, BLOCKSIZEY, 1);                             \
         KERNEL<<<GRIDSIZE, BLOCKSIZE, 0, STREAM>>>(__VA_ARGS__,                \
@@ -181,8 +166,9 @@ template <unsigned int ndim> class hipcudaBlock
 // The last argument of the KERNEL function MUST be of type hipcudaBlock<3>.
 #define DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(                                 \
     KERNEL, GRIDSIZEX, GRIDSIZEY, GRIDSIZEZ, BLOCKSIZEX, BLOCKSIZEY,           \
-    BLOCKSIZEZ, STREAM, ...)                                                   \
+    BLOCKSIZEZ, STREAMID, ...)                                                 \
     {                                                                          \
+        auto STREAM = CUDAStream::GetInstance(STREAMID);                       \
         dim3 GRIDSIZE(GRIDSIZEX, GRIDSIZEY, GRIDSIZEZ);                        \
         dim3 BLOCKSIZE(BLOCKSIZEX, BLOCKSIZEY, BLOCKSIZEZ);                    \
         KERNEL<<<GRIDSIZE, BLOCKSIZE, 0, STREAM>>>(__VA_ARGS__,                \

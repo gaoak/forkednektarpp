@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include <map>
 #include <sycl/sycl.hpp>
 
 extern unsigned int internalSYCLDeviceId;
@@ -43,38 +44,28 @@ extern unsigned int internalSYCLDeviceId;
  * instansiated. Can also use this class for implementing custom device
  * selectors.
  *
- * @todo: Investigate supporting multiple queues in future to allow for multiple
- * devices
  */
 class SYCLQueue
 {
 public:
-    static sycl::queue &GetInstance(unsigned int id)
+    static sycl::queue &GetInstance(unsigned int id = 0)
     {
-        if (queue.size() == 0)
+        if (queue.find(id) == queue.end())
         {
 #if defined(SYCL_ENABLE_CPU)
-            queue.push_back(new sycl::queue(sycl::cpu_selector_v,
-                                            sycl::property::queue::in_order()));
+            queue[id] = new sycl::queue(sycl::cpu_selector_v,
+                                        sycl::property::queue::in_order());
 #else
             std::vector<sycl::device> gpu_devices =
                 sycl::device::get_devices(sycl::info::device_type::gpu);
-            for (auto &gpu_device : gpu_devices)
-            {
-                queue.push_back(new sycl::queue(
-                    gpu_device, sycl::property::queue::in_order()));
-            }
+            queue[id] = new sycl::queue(gpu_devices[internalSYCLDeviceId],
+                                        sycl::property::queue::in_order());
 #endif
         }
 
         return *queue[id];
     }
 
-    static sycl::queue &GetInstance(void)
-    {
-        return SYCLQueue::GetInstance(internalSYCLDeviceId);
-    }
-
 private:
-    static std::vector<sycl::queue *> queue;
+    static std::map<unsigned int, sycl::queue *> queue;
 };

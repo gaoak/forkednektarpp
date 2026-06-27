@@ -44,9 +44,9 @@
 // shared memory is declared as unsigned char* type. The shmemptr must then cast
 // to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
 #define DEVICE_1DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
-                                      STREAM, ...)                             \
+                                      STREAMID, ...)                           \
     {                                                                          \
-        sycl::queue &Q = SYCLQueue::GetInstance();                             \
+        sycl::queue &Q = SYCLQueue::GetInstance(STREAMID);                     \
         auto args      = std::make_tuple(__VA_ARGS__);                         \
         Q.submit([=](sycl::handler &cgh) {                                     \
             sycl::local_accessor<unsigned char, 1> shmem(                      \
@@ -73,9 +73,9 @@
 // to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
 #define DEVICE_2DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZEX, GRIDSIZEY,            \
                                       BLOCKSIZEX, BLOCKSIZEY, SHMEMSIZE,       \
-                                      STREAM, ...)                             \
+                                      STREAMID, ...)                           \
     {                                                                          \
-        sycl::queue &Q = SYCLQueue::GetInstance();                             \
+        sycl::queue &Q = SYCLQueue::GetInstance(STREAMID);                     \
         auto args      = std::make_tuple(__VA_ARGS__);                         \
         sycl::range<2> GRIDSIZE(GRIDSIZEY, GRIDSIZEX);                         \
         sycl::range<2> BLOCKSIZE(BLOCKSIZEY, BLOCKSIZEX);                      \
@@ -104,9 +104,9 @@
 // to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
 #define DEVICE_3DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZEX, GRIDSIZEY, GRIDSIZEZ, \
                                       BLOCKSIZEX, BLOCKSIZEY, BLOCKSIZEZ,      \
-                                      SHMEMSIZE, STREAM, ...)                  \
+                                      SHMEMSIZE, STREAMID, ...)                \
     {                                                                          \
-        sycl::queue &Q = SYCLQueue::GetInstance();                             \
+        sycl::queue &Q = SYCLQueue::GetInstance(STREAMID);                     \
         auto args      = std::make_tuple(__VA_ARGS__);                         \
         sycl::range<3> GRIDSIZE(GRIDSIZEZ, GRIDSIZEY, GRIDSIZEX);              \
         sycl::range<3> BLOCKSIZE(BLOCKSIZEZ, BLOCKSIZEY, BLOCKSIZEX);          \
@@ -131,9 +131,9 @@
 // provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
 // The last argument of the KERNEL function MUST be of type sycl::nd_item<1>.
 #define DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
-                                              STREAM, ...)                     \
+                                              STREAMID, ...)                   \
     {                                                                          \
-        sycl::queue &Q = SYCLQueue::GetInstance();                             \
+        sycl::queue &Q = SYCLQueue::GetInstance(STREAMID);                     \
         auto args      = std::make_tuple(__VA_ARGS__);                         \
         Q.submit([=](sycl::handler &cgh) {                                     \
             cgh.parallel_for(                                                  \
@@ -153,9 +153,9 @@
 // provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
 // The last argument of the KERNEL function MUST be of type sycl::nd_item<2>.
 #define DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(                                 \
-    KERNEL, GRIDSIZEX, GRIDSIZEY, BLOCKSIZEX, BLOCKSIZEY, STREAM, ...)         \
+    KERNEL, GRIDSIZEX, GRIDSIZEY, BLOCKSIZEX, BLOCKSIZEY, STREAMID, ...)       \
     {                                                                          \
-        sycl::queue &Q = SYCLQueue::GetInstance();                             \
+        sycl::queue &Q = SYCLQueue::GetInstance(STREAMID);                     \
         auto args      = std::make_tuple(__VA_ARGS__);                         \
         sycl::range<2> GRIDSIZE(GRIDSIZEY, GRIDSIZEX);                         \
         sycl::range<2> BLOCKSIZE(BLOCKSIZEY, BLOCKSIZEX);                      \
@@ -178,9 +178,9 @@
 // The last argument of the KERNEL function MUST be of type sycl::nd_item<3>.
 #define DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(                                 \
     KERNEL, GRIDSIZEX, GRIDSIZEY, GRIDSIZEZ, BLOCKSIZEX, BLOCKSIZEY,           \
-    BLOCKSIZEZ, STREAM, ...)                                                   \
+    BLOCKSIZEZ, STREAMID, ...)                                                 \
     {                                                                          \
-        sycl::queue &Q = SYCLQueue::GetInstance();                             \
+        sycl::queue &Q = SYCLQueue::GetInstance(STREAMID);                     \
         auto args      = std::make_tuple(__VA_ARGS__);                         \
         sycl::range<3> GRIDSIZE(GRIDSIZEZ, GRIDSIZEY, GRIDSIZEX);              \
         sycl::range<3> BLOCKSIZE(BLOCKSIZEZ, BLOCKSIZEY, BLOCKSIZEX);          \

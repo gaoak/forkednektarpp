@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: SYCLQueue.cpp
+// File: CUDAStream.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,8 +32,6 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "SYCLQueue.hpp"
+#include "CUDAStream.hpp"
 
-unsigned int internalSYCLDeviceId = 0;
-
-std::map<unsigned int, sycl::queue *> SYCLQueue::queue;
+std::map<unsigned int, cudaStream_t> CUDAStream::streams;

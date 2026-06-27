@@ -62,7 +62,7 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
 // shared memory is declared as unsigned char* type. The shmemptr must then cast
 // to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
 #define DEVICE_1DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
-                                      STREAM, ...)                             \
+                                      STREAMID, ...)                           \
     {                                                                          \
         nektar_unused(GRIDSIZE);                                               \
         nektar_unused(BLOCKSIZE);                                              \
@@ -78,7 +78,7 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
 // to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
 #define DEVICE_2DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZEX, GRIDSIZEY,            \
                                       BLOCKSIZEX, BLOCKSIZEY, SHMEMSIZE,       \
-                                      STREAM, ...)                             \
+                                      STREAMID, ...)                           \
     {                                                                          \
         nektar_unused(GRIDSIZEX);                                              \
         nektar_unused(GRIDSIZEY);                                              \
@@ -96,7 +96,7 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
 // to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
 #define DEVICE_3DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZEX, GRIDSIZEY, GRIDSIZEZ, \
                                       BLOCKSIZEX, BLOCKSIZEY, BLOCKSIZEZ,      \
-                                      STREAM, ...)                             \
+                                      STREAMID, ...)                           \
     {                                                                          \
         nektar_unused(GRIDSIZEX);                                              \
         nektar_unused(GRIDSIZEY);                                              \
@@ -113,7 +113,7 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
 // The last argument of the KERNEL function MUST be of type
 // deviceOnHostBlock<1>.
 #define DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
-                                              STREAM, ...)                     \
+                                              STREAMID, ...)                   \
     {                                                                          \
         nektar_unused(GRIDSIZE);                                               \
         nektar_unused(BLOCKSIZE);                                              \
@@ -125,7 +125,7 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
 // The last argument of the KERNEL function MUST be of type
 // deviceOnHostBlock<2>.
 #define DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(                                 \
-    KERNEL, GRIDSIZEX, GRIDSIZEY, BLOCKSIZEX, BLOCKSIZEY, STREAM, ...)         \
+    KERNEL, GRIDSIZEX, GRIDSIZEY, BLOCKSIZEX, BLOCKSIZEY, STREAMID, ...)       \
     {                                                                          \
         nektar_unused(GRIDSIZEX);                                              \
         nektar_unused(GRIDSIZEY);                                              \
@@ -140,7 +140,7 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
 // deviceOnHostBlock<3>.
 #define DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(                                 \
     KERNEL, GRIDSIZEX, GRIDSIZEY, GRIDSIZEZ, BLOCKSIZEX, BLOCKSIZEY,           \
-    BLOCKSIZEZ, STREAM, ...)                                                   \
+    BLOCKSIZEZ, STREAMID, ...)                                                 \
     {                                                                          \
         nektar_unused(GRIDSIZEX);                                              \
         nektar_unused(GRIDSIZEY);                                              \
