@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: SYCLQueue.cpp
+// File: HIPStream.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,8 +32,6 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "SYCLQueue.hpp"
+#include "HIPStream.hpp"
 
-unsigned int internalSYCLDeviceId = 0;
-
-std::map<unsigned int, sycl::queue *> SYCLQueue::queue;
+std::map<unsigned int, hipStream_t> HIPStream::streams;

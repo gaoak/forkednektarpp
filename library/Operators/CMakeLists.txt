@@ -790,8 +790,6 @@ ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatr)
 ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatrZeroDir)
 ENDIF()
 
-  #MESSAGE("Sources 1 : " "${OPERATORS_SOURCES}")
-
 # Loop through TimeIntegration directory which contain operators and add
 # their source and header files.
 FILE(GLOB children TimeOps/*)
@@ -884,8 +882,14 @@ ENDIF()
 
 # CUDA specific file
 IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+    SET(OPERATORS_HEADERS
+      ${OPERATORS_HEADERS}
+       Common/Backends/CUDAStream.cpp
+    )
+
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
+       Common/Backends/CUDAStream.hpp
        Common/Memory/MemoryAlloc.cu
        Math/Math.cu
        Field/BlockHelper.cu
@@ -896,8 +900,14 @@ IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
       ${NEKTAR_CUDA_DEPENDS})
 # HIP specific file
 ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+    SET(OPERATORS_HEADERS
+      ${OPERATORS_HEADERS}
+       Common/Backends/HIPStream.cpp
+    )
+
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
+       Common/Backends/HIPStream.hpp
        Common/Memory/MemoryAlloc.hip
        Math/Math.hip
        Field/BlockHelper.hip
