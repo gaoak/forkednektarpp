@@ -34,9 +34,12 @@
 
 #pragma once
 
+#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp"
 #include "Operators/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp"
 
 #include "Operators/Math/Math.hpp"
+
+#include "MultiRegions/DisContField.h"
 
 namespace Nektar::Operators::detail
 {
@@ -51,14 +54,34 @@ public:
                    const std::vector<std::string> &components)
         : FwdTransOp<TData>(expansionList, components)
     {
-        this->m_ElmtOp  = MassOp<TData>::Create(this->m_expansionList,
-                                                components, ExecSpace::name);
+        auto session = this->m_expansionList->GetSession();
+
+        if (session->DefinesSolverInfo("Projection"))
+        {
+            m_isDG = session->GetSolverInfo("Projection") == "DisContinuous";
+        }
+        else
+        {
+            m_isDG = std::dynamic_pointer_cast<MultiRegions::DisContField>(
+                         this->m_expansionList) != nullptr;
+        }
+
         this->m_IProdOp = IProductWRTBaseOp<TData>::Create(
             this->m_expansionList, components, ExecSpace::name);
-        this->m_DirBCOp = DirBndCondOp<TData>::Create(
-            this->m_expansionList, components, ExecSpace::name);
-        this->m_RobBCOp = RobBndCondOp<TData>::Create(
-            this->m_expansionList, components, ExecSpace::name);
+        if (!m_isDG)
+        {
+            this->m_ElmtOp  = MassOp<TData>::Create(this->m_expansionList,
+                                                    components, ExecSpace::name);
+            this->m_DirBCOp = DirBndCondOp<TData>::Create(
+                this->m_expansionList, components, ExecSpace::name);
+            this->m_RobBCOp = RobBndCondOp<TData>::Create(
+                this->m_expansionList, components, ExecSpace::name);
+        }
+        else
+        {
+            m_MultiplyByElmtInvMassOp = MultiplyByElmtInvMassOp<TData>::Create(
+                this->m_expansionList, components, ExecSpace::name);
+        }
     }
 
     // className - for OperatorFactory
@@ -74,27 +97,38 @@ public:
     }
 
 protected:
+    bool m_isDG = false;
+    std::shared_ptr<MultiplyByElmtInvMassOp<TData>> m_MultiplyByElmtInvMassOp;
+
     void v_Apply(Field<TData, FieldState::Phys> &in,
                  Field<TData, FieldState::Coeff> &out) override
     {
         // IProductWRT of RHS.
         this->m_IProdOp->Apply(in, this->m_rhs);
 
-        // Handle Dirichlet BCs.
-        this->m_DirBCOp->Apply(out);
+        if (!m_isDG)
+        {
+            // Handle Dirichlet BCs.
+            this->m_DirBCOp->Apply(out);
 
-        // Apply Mass operator.
-        this->m_ElmtOp->Apply(out, this->m_tmp);
+            // Apply Mass operator.
+            this->m_ElmtOp->Apply(out, this->m_tmp);
 
-        // Handle Robin BCs.
-        this->m_RobBCOp->Apply(out, this->m_tmp);
+            // Handle Robin BCs.
+            this->m_RobBCOp->Apply(out, this->m_tmp);
 
-        // Solve linear system.
-        sub<ExecSpace>(this->m_rhs, this->m_tmp, this->m_rhs);
-        this->m_LinSolverOp->Apply(this->m_rhs, this->m_tmp);
+            // Solve linear system.
+            sub<ExecSpace>(this->m_rhs, this->m_tmp, this->m_rhs);
+            this->m_LinSolverOp->Apply(this->m_rhs, this->m_tmp);
 
-        // Add Dirichlet BCs.
-        add<ExecSpace>(out, this->m_tmp, out);
+            // Add Dirichlet BCs.
+            add<ExecSpace>(out, this->m_tmp, out);
+        }
+        else
+        {
+            // DG forward transform is local: coeffs = M_e^{-1} (u, phi).
+            m_MultiplyByElmtInvMassOp->Apply(this->m_rhs, out);
+        }
     }
 };
 

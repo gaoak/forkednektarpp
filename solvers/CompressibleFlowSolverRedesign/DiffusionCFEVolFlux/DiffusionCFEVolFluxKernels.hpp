@@ -44,22 +44,23 @@ namespace Nektar::Operators::detail
 
 template <typename TData>
 NEK_DEVICE_INLINE static void GetViscousFluxBilinearFormKernel(
-    const unsigned nDim, const unsigned fluxDirection,
-    const unsigned derivDirection, const TData *inAverage, const TData *inJump,
-    const TData mu, const TData gamma, const TData prandtl, TData *outarray)
+    const unsigned int nDim, const unsigned int fluxDirection,
+    const unsigned int derivDirection, const TData *inAverage,
+    const TData *inJump, const TData mu, const TData gamma, const TData prandtl,
+    TData *outarray)
 {
     // Viscous bilinear form for one flux-direction / derivative-direction
     // pair in conservative variables.
-    const unsigned nDimPlusOne  = nDim + 1;
-    const unsigned fluxPlusOne  = fluxDirection + 1;
-    const unsigned derivPlusOne = derivDirection + 1;
+    const unsigned int nDimPlusOne  = nDim + 1;
+    const unsigned int fluxPlusOne  = fluxDirection + 1;
+    const unsigned int derivPlusOne = derivDirection + 1;
 
     const TData gammaOverPr         = gamma / prandtl;
     const TData oneMinusGammaOverPr = TData(1.0) - gammaOverPr;
 
-    constexpr TData oneThird  = 1.0 / 3.0;
-    constexpr TData twoThird  = 2.0 / 3.0;
-    constexpr TData fourThird = 4.0 / 3.0;
+    const TData oneThird  = TData(1.0) / TData(3.0);
+    const TData twoThird  = TData(2.0) / TData(3.0);
+    const TData fourThird = TData(4.0) / TData(3.0);
 
     if (derivDirection == fluxDirection)
     {
@@ -71,7 +72,7 @@ NEK_DEVICE_INLINE static void GetViscousFluxBilinearFormKernel(
         TData u2[3] = {TData(0.0), TData(0.0), TData(0.0)};
         TData u2sum = TData(0.0);
 
-        for (unsigned d = 0; d < nDim; ++d)
+        for (unsigned int d = 0; d < nDim; ++d)
         {
             u[d]  = inAverage[d + 1] * invRho;
             u2[d] = u[d] * u[d];
@@ -87,9 +88,9 @@ NEK_DEVICE_INLINE static void GetViscousFluxBilinearFormKernel(
         TData tmp2 = gammaOverPr * inJump[nDimPlusOne] - tmp1;
 
         TData outTmpE = TData(0.0);
-        for (unsigned d = 0; d < nDim; ++d)
+        for (unsigned int d = 0; d < nDim; ++d)
         {
-            const unsigned dPlusOne = d + 1;
+            const unsigned int dPlusOne = d + 1;
             TData outTmpD = (inJump[dPlusOne] - u[d] * inJump[0]) * nu;
 
             outTmpE += oneMinusGammaOverPr * u[d] * inJump[dPlusOne];
@@ -114,11 +115,11 @@ NEK_DEVICE_INLINE static void GetViscousFluxBilinearFormKernel(
 
         TData u[3] = {TData(0.0), TData(0.0), TData(0.0)};
 
-        for (unsigned d = 0; d < nDim; ++d)
+        for (unsigned int d = 0; d < nDim; ++d)
         {
-            const unsigned dPlusOne = d + 1;
-            u[d]                    = inAverage[dPlusOne] * invRho;
-            outarray[dPlusOne]      = TData(0.0);
+            const unsigned int dPlusOne = d + 1;
+            u[d]                        = inAverage[dPlusOne] * invRho;
+            outarray[dPlusOne]          = TData(0.0);
         }
 
         TData nu = mu * invRho;
@@ -140,9 +141,9 @@ NEK_DEVICE_INLINE static void GetViscousFluxBilinearFormKernel(
 
 template <typename ExecSpace, typename EqnOfSParams, typename TData>
 NEK_FORCE_INLINE static void DiffusionCFEVolFluxKernel(
-    const EqnOfSParams EoS, const unsigned npts, const unsigned nDim,
-    const unsigned nvarComps, const unsigned inStride,
-    const unsigned derivStride, const unsigned outStride, const TData prandtl,
+    const EqnOfSParams EoS, const size_t npts, const unsigned int nDim,
+    const unsigned int nvarComps, const size_t inStride,
+    const size_t derivStride, const size_t outStride, const TData prandtl,
     const TData muRef, const bool isMuVariable, const TData oneOverTStar,
     const TData tRatioSutherland, const TData *inbase, const TData *qbase,
     TData *outbase)
@@ -152,50 +153,67 @@ NEK_FORCE_INLINE static void DiffusionCFEVolFluxKernel(
 
     // Assemble the volume viscous flux tensor pointwise from the conservative
     // state and its physical derivatives.
-    Nektar::parallel_for<ExecSpace>(
-        0u, npts, NEKTAR_LAMBDA(const size_t i) {
-            TData inTmp[5]  = {TData(0.0), TData(0.0), TData(0.0), TData(0.0),
-                               TData(0.0)};
-            TData qTmp[5]   = {TData(0.0), TData(0.0), TData(0.0), TData(0.0),
-                               TData(0.0)};
-            TData outTmp[5] = {TData(0.0), TData(0.0), TData(0.0), TData(0.0),
-                               TData(0.0)};
+    using vec_t =
+        typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                              TData>::type;
+    constexpr unsigned int vec_width =
+        (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
+            ? tinysimd::simd<TData>::width
+            : 1;
 
-            for (unsigned f = 0; f < nvarComps; ++f)
+    const size_t groupsize      = npts / vec_width;
+    const auto invec            = reinterpret_cast<const vec_t *>(inbase);
+    const auto qvec             = reinterpret_cast<const vec_t *>(qbase);
+    auto outvec                 = reinterpret_cast<vec_t *>(outbase);
+    const size_t inVecStride    = inStride / vec_width;
+    const size_t derivVecStride = derivStride / vec_width;
+    const size_t outVecStride   = outStride / vec_width;
+
+    Nektar::parallel_for<ExecSpace>(
+        0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
+            vec_t inTmp[5]  = {vec_t(0.0), vec_t(0.0), vec_t(0.0), vec_t(0.0),
+                               vec_t(0.0)};
+            vec_t qTmp[5]   = {vec_t(0.0), vec_t(0.0), vec_t(0.0), vec_t(0.0),
+                               vec_t(0.0)};
+            vec_t outTmp[5] = {vec_t(0.0), vec_t(0.0), vec_t(0.0), vec_t(0.0),
+                               vec_t(0.0)};
+
+            for (unsigned int f = 0; f < nvarComps; ++f)
             {
-                inTmp[f] = inbase[f * inStride + i];
+                inTmp[f] = invec[f * inVecStride + i];
             }
 
-            const TData e =
+            const vec_t e =
                 GetInternalEnergy(nDim, inTmp[0], inTmp + 1, inTmp[nDim + 1]);
-            const TData temperature = GetTemperature(EoS, inTmp[0], e);
+            const vec_t temperature = GetTemperature(EoS, inTmp[0], e);
 
-            const TData mu =
-                GetDynamicViscosity(temperature, muRef, isMuVariable,
-                                    oneOverTStar, tRatioSutherland);
+            const vec_t mu = GetDynamicViscosity(
+                temperature, vec_t(muRef), isMuVariable, vec_t(oneOverTStar),
+                vec_t(tRatioSutherland));
 
-            for (unsigned fluxDir = 0; fluxDir < nDim; ++fluxDir)
+            for (unsigned int fluxDir = 0; fluxDir < nDim; ++fluxDir)
             {
-                for (unsigned f = 0; f < nvarComps; ++f)
+                for (unsigned int f = 0; f < nvarComps; ++f)
                 {
-                    outbase[(f * nDim + fluxDir) * outStride + i] = TData(0.0);
+                    outvec[(f * nDim + fluxDir) * outVecStride + i] =
+                        vec_t(0.0);
                 }
 
-                for (unsigned derivDir = 0; derivDir < nDim; ++derivDir)
+                for (unsigned int derivDir = 0; derivDir < nDim; ++derivDir)
                 {
-                    for (unsigned f = 0; f < nvarComps; ++f)
+                    for (unsigned int f = 0; f < nvarComps; ++f)
                     {
                         qTmp[f] =
-                            qbase[(f * nDim + derivDir) * derivStride + i];
+                            qvec[(f * nDim + derivDir) * derivVecStride + i];
                     }
 
                     GetViscousFluxBilinearFormKernel(
-                        nDim, fluxDir, derivDir, inTmp, qTmp, mu, EoS.gamma(),
-                        prandtl, outTmp);
+                        nDim, fluxDir, derivDir, inTmp, qTmp, mu,
+                        vec_t(EoS.gamma()), vec_t(prandtl), outTmp);
 
-                    for (unsigned f = 0; f < nvarComps; ++f)
+                    for (unsigned int f = 0; f < nvarComps; ++f)
                     {
-                        outbase[(f * nDim + fluxDir) * outStride + i] +=
+                        outvec[(f * nDim + fluxDir) * outVecStride + i] +=
                             outTmp[f];
                     }
                 }

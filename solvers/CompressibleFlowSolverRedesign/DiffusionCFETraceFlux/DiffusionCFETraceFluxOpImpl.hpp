@@ -123,8 +123,8 @@ public:
     }
 
 protected:
-    unsigned m_nDim;
-    unsigned m_nComp;
+    unsigned int m_nDim;
+    unsigned int m_nComp;
     EqnOfSParams m_EoS;
 
     // viscosity parameters
@@ -187,9 +187,9 @@ protected:
             auto numFluxbase =
                 numFluxblock.template GetPtr<MemSpace, WriteOnly>();
 
-            const auto npts        = numFluxblock.CompSize();
-            const auto traceStride = numFluxblock.CompSize();
-            const auto derivStride = derivFwd.GetBlocks()[blk].CompSize();
+            const size_t npts        = numFluxblock.CompSize();
+            const size_t traceStride = numFluxblock.CompSize();
+            const size_t derivStride = derivFwd.GetBlocks()[blk].CompSize();
 
             // For each trace point on this block, assemble:
             // - conservative average state
@@ -205,6 +205,12 @@ protected:
                 derivTraceBwdbase, traceAverbase, traceJumpbase, numFluxbase);
         }
         ApplyFluxBndConds();
+    }
+
+    void v_Apply(Field<TData, FieldState::Coeff> &out) override
+    {
+        // Placeholder for symmetric IP trace term.
+        (void)out;
     }
 
     void ApplyFluxBndConds()

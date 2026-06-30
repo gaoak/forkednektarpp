@@ -317,6 +317,62 @@ MemoryRegion<TData> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
+MemoryRegion<TData> TraceEssentialCreator::Create(
+    const IPTraceDerivBaseKey<TData> &ipTraceDerivBaseKey)
+{
+    auto coll = GetCollection(m_expansionList, ipTraceDerivBaseKey.m_block_idx);
+    auto exp  = coll.GetExpVector()[0];
+
+    const unsigned int nDim    = m_expansionList->GetCoordim(0);
+    const unsigned int nCoeffs = exp->GetNcoeffs();
+    unsigned int nLocTracePts  = 0;
+
+    for (int t = 0; t < exp->GetNtraces(); ++t)
+    {
+        nLocTracePts += exp->GetTraceNumPoints(t);
+    }
+
+    auto data = MemoryRegion<TData>(nDim * nCoeffs * nLocTracePts);
+    auto ptr  = data.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
+    unsigned int traceOffset = 0;
+    for (int t = 0; t < exp->GetNtraces(); ++t)
+    {
+        auto traceExp             = exp->GetLocTraceExp(t);
+        const int nPts            = exp->GetTraceNumPoints(t);
+        const int nTraceMetricPts = traceExp->GetTotPoints();
+
+        Array<OneD, double> ones(nTraceMetricPts, 1.0);
+        Array<OneD, double> metric(nTraceMetricPts, 0.0);
+        traceExp->MultiplyByQuadratureMetric(ones, metric);
+
+        Array<OneD, DNekMatSharedPtr> derivBaseOnTrace;
+        exp->PhysDerivBaseOnTraceMat(t, derivBaseOnTrace);
+        ASSERTL1(nPts <= nTraceMetricPts,
+                 "Trace derivative basis has more points than the trace "
+                 "quadrature metric.");
+
+        for (unsigned int d = 0; d < nDim; ++d)
+        {
+            for (unsigned int c = 0; c < nCoeffs; ++c)
+            {
+                for (int p = 0; p < nPts; ++p)
+                {
+                    const size_t idx =
+                        (d * nCoeffs + c) * nLocTracePts + traceOffset + p;
+                    ptr[idx] = static_cast<TData>((*derivBaseOnTrace[d])(c, p) *
+                                                  metric[p]);
+                }
+            }
+        }
+
+        traceOffset += nPts;
+    }
+
+    return data;
+}
+
+template <typename MemSpace, typename TData>
 MemoryRegion<unsigned int> TraceEssentialCreator::Create(
     const OrientationMapsKey<TData> &orientationMapsKey)
 {

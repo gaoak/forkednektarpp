@@ -39,6 +39,7 @@
 #include "Operators/Common/DataWarehouse/BasisDataWarehouse.hpp"
 #include "Operators/Common/DataWarehouse/GeometricDataWarehouse.hpp"
 
+#include "Operators/Math/MathKernels.hpp"
 #include "Operators/Norm/NormL2/NormL2BlockOp.hpp"
 #include "Operators/Norm/NormL2/NormL2SerialAVXKernels.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
@@ -128,6 +129,37 @@ protected:
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
         m_warnOnce = true;
 #endif
+        if (inblock.GetNumPaddingElements() > 0)
+        {
+            auto maskptr =
+                internalMathKernelMask<MemSpace>::GetInstance(inblock);
+            auto inptr = inblock.template GetPtr<MemSpace, ReadWrite>();
+            const auto interleaveWidth = inblock.GetInterleaveWidth();
+            const auto numElmt         = inblock.GetNumElements();
+            const auto numElmtPadded   = inblock.GetNumElementsWithPadding();
+            const auto nData           = inblock.GetNumData();
+            const auto compSize        = inblock.CompSize();
+            const auto nComp =
+                inblock.GetNumComponents() * inblock.GetNumHomoModes();
+
+            for (unsigned int n = 0; n < nComp; ++n)
+            {
+                auto compPtr = inptr + n * compSize;
+                for (size_t e = numElmt; e < numElmtPadded; ++e)
+                {
+                    const size_t lane  = e % interleaveWidth;
+                    const size_t group = e / interleaveWidth;
+                    const size_t base  = group * interleaveWidth * nData + lane;
+
+                    for (unsigned int q = 0; q < nData; ++q)
+                    {
+                        const auto offset = base + q * interleaveWidth;
+                        compPtr[offset] =
+                            maskptr[offset] ? compPtr[offset] : 0.0;
+                    }
+                }
+            }
+        }
 
         switch (m_dimension)
         {

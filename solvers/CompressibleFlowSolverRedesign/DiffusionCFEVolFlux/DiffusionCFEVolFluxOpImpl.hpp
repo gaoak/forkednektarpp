@@ -137,11 +137,11 @@ protected:
             auto qbase   = derivblock.template GetPtr<MemSpace, ReadOnly>();
             auto outbase = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-            const auto npts        = outblock.CompSize();
-            const auto inStride    = inblock.CompSize();
-            const auto derivStride = derivblock.CompSize();
-            const auto outStride   = outblock.CompSize();
-            const auto nvarComps   = inblock.GetNumComponents();
+            const size_t npts            = outblock.CompSize();
+            const size_t inStride        = inblock.CompSize();
+            const size_t derivStride     = derivblock.CompSize();
+            const size_t outStride       = outblock.CompSize();
+            const unsigned int nvarComps = inblock.GetNumComponents();
 
             DiffusionCFEVolFluxKernel<ExecSpace, EqnOfSParams>(
                 m_EoS, npts, m_dimension, nvarComps, inStride, derivStride,

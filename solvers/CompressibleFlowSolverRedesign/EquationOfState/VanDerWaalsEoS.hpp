@@ -50,9 +50,9 @@ template <typename TData, typename TScalar>
 NEK_HOSTDEVICE_INLINE TData GetPressure(const VanDerWaalsEoS<TScalar> &EoS,
                                         const TData &rho, const TData &e)
 {
-    return (e + EoS.a() * rho) * (EoS.gamma() - TData(1.0)) /
-               (TScalar(1.0) / rho - EoS.b()) -
-           EoS.a() * rho * rho;
+    return (e + TData(EoS.a()) * rho) * (TData(EoS.gamma()) - TData(1.0)) /
+               (TData(1.0) / rho - TData(EoS.b())) -
+           TData(EoS.a()) * rho * rho;
 }
 
 template <typename TData, typename TScalar>
@@ -61,11 +61,12 @@ NEK_HOSTDEVICE_INLINE TData GetDPDrho_e(const VanDerWaalsEoS<TScalar> &EoS,
 {
     TData result;
 
-    result = (EoS.gamma() - TData(1.0)) *
-             (e + TScalar(2.0) * EoS.a() * rho - EoS.a() * EoS.b() * rho * rho);
-    result = result /
-             ((TScalar(1.0) - EoS.b() * rho) * (TScalar(1.0) - EoS.b() * rho));
-    result = result - TScalar(2.0) * EoS.a() * rho;
+    result = (TData(EoS.gamma()) - TData(1.0)) *
+             (e + TData(2.0) * TData(EoS.a()) * rho -
+              TData(EoS.a() * EoS.b()) * rho * rho);
+    result = result / ((TData(1.0) - TData(EoS.b()) * rho) *
+                       (TData(1.0) - TData(EoS.b()) * rho));
+    result = result - TData(2.0) * TData(EoS.a()) * rho;
 
     return result;
 }
@@ -75,7 +76,8 @@ NEK_HOSTDEVICE_INLINE TData GetDPDe_rho(const VanDerWaalsEoS<TScalar> &EoS,
                                         const TData &rho,
                                         [[maybe_unused]] const TData &e)
 {
-    return (EoS.gamma() - TData(1.0)) / (TScalar(1.0) / rho - EoS.b());
+    return (TData(EoS.gamma()) - TData(1.0)) /
+           (TData(1.0) / rho - TData(EoS.b()));
 }
 
 template <typename TData, typename TScalar>
@@ -108,14 +110,15 @@ NEK_HOSTDEVICE_INLINE TData GetRoeSoundSpeed(
 {
     using std::sqrt;
     // Calculate sound speed using ideal gas relation
-    return sqrt((EoS.gamma() - TData(1.0)) * (HRoe - TScalar(0.5) * URoe2));
+    return sqrt((TData(EoS.gamma()) - TData(1.0)) *
+                (HRoe - TData(0.5) * URoe2));
 }
 
 template <typename TData, typename TScalar>
 NEK_HOSTDEVICE_INLINE TData GetTemperature(const VanDerWaalsEoS<TScalar> &EoS,
                                            const TData &rho, const TData &e)
 {
-    return (e + EoS.a() * rho) * EoS.gammaMoneOgasConst();
+    return (e + TData(EoS.a()) * rho) * TData(EoS.gammaMoneOgasConst());
 }
 
 } // namespace Nektar::Operators::detail

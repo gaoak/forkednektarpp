@@ -35,12 +35,13 @@
 
 #pragma once
 
+#include <ADRSolverRedesign/LinearAdvVolumeFlux/LinearAdvVolumeFluxOp.hpp>
 #include <Operators/ElmtOps/Advection/AdvectionOp.hpp>
 #include <Operators/Field/Field.hpp>
 #include <Operators/GetFwdBwdTracePhys/GetFwdBwdTracePhysOp.hpp>
 #include <Operators/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp>
 #include <Operators/SolverUtilsOps/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
-#include <Operators/SolverUtilsOps/Advection/LinearAdvVolumeFlux/LinearAdvVolumeFluxOp.hpp>
+#include <Operators/SolverUtilsOps/Diffusion/DiffusionIP/DiffusionIPOp.hpp>
 #include <Operators/SolverUtilsOps/RiemannSolvers/RiemannSolverOp.hpp>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 #include <SolverCore/Forcing/Forcing.h>
@@ -93,6 +94,7 @@ protected:
     std::shared_ptr<AdvectionOp<double>> m_advectionCGOp;
     std::shared_ptr<AdvectionWeakDGOp<double>> m_advectionWeakDGOp;
     std::shared_ptr<LinearAdvVolumeFluxOp<double>> m_volumeFluxOp;
+    std::shared_ptr<DiffusionIPOp<double>> m_diffusionIPOp;
     std::shared_ptr<RiemannSolverOp<double>> m_riemannSolverOp;
     std::shared_ptr<GetFwdBwdTracePhysOp<double>> m_getFwdBwdTracePhysOp;
     std::shared_ptr<LinearSystemOp<double>> m_linearSystemOp;

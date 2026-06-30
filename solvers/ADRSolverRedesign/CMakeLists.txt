@@ -7,20 +7,99 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
         SET(NEKTAR_SOLVER_ADR_RE OFF CACHE INTERNAL "")
     ENDIF()
 
+    # Default execution spaces.
+    SET(ExecSpaces Serial)
+
+    # Optional AVX execution space.
+    IF(NEKTAR_ENABLE_SIMD)
+        SET(ExecSpaces ${ExecSpaces} AVX)
+    ENDIF()
+
+    # Optional Device execution space.
+    IF(NEKTAR_ENABLE_DEVICE)
+        SET(ExecSpaces ${ExecSpaces} Device)
+    ENDIF()
+
+    # Set default data types.
+    IF(NEKTAR_ENABLE_DOUBLE_PRECISION)
+        SET(DataTypes double)
+    ENDIF()
+    IF(NEKTAR_ENABLE_SINGLE_PRECISION)
+        SET(DataTypes ${DataTypes} float)
+    ENDIF()
+
+    ################################################################
+    # ADR-specific operators.
+    MACRO(ADD_ADR_OPERATOR dir)
+
+            IF(IS_DIRECTORY ${dir})
+                GET_FILENAME_COMPONENT(name "${dir}" NAME)
+                GET_FILENAME_COMPONENT(abs_dir "${dir}" ABSOLUTE)
+            ELSE()
+                CONTINUE()
+            ENDIF()
+
+            SET(NAME_HEADERS ${name}_HEADERS)
+            SET(NAME_SOURCES ${name}_SOURCES)
+            SET(OPERATOR ${name})
+            SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/Operators/Common/OpFactoryDec.cpp.in)
+
+            FOREACH(ExecSpace IN LISTS ExecSpaces)
+                SET(HEADER_EXT hpp)
+                IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+                    SET(SOURCE_EXT cu)
+                ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+                    SET(SOURCE_EXT hip)
+                ELSE()
+                    SET(SOURCE_EXT cpp)
+                ENDIF()
+
+                FOREACH(TData IN LISTS DataTypes)
+                    SET(FactoryDeclName ${name}${ExecSpace}${TData}.${SOURCE_EXT})
+                    SET(CURRENT_HEADERS ${name}_${ExecSpace}_HEADERS)
+                    SET(CURRENT_SOURCES ${name}_${ExecSpace}_SOURCES)
+
+                    FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+                        ${abs_dir}/${name}${ExecSpace}*.hpp)
+
+                    IF(EXISTS "${abs_dir}/${name}OpImpl.hpp")
+                        FILE(RELATIVE_PATH include_file ${CMAKE_SOURCE_DIR}/solvers
+                            "${abs_dir}/${name}OpImpl.hpp")
+                        SET(IMPL_HEADER "#include \"${include_file}\"")
+                    ELSE()
+                        CONTINUE()
+                    ENDIF()
+
+                    CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
+
+                    SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
+                    SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
+                    SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
+                ENDFOREACH()
+            ENDFOREACH()
+
+            SET(OPERATORS_HEADERS
+                ${OPERATORS_HEADERS}
+                ${${NAME_HEADERS}}
+                )
+            SET(OPERATORS_SOURCES
+                ${OPERATORS_SOURCES}
+                ${${NAME_SOURCES}}
+                )
+    ENDMACRO()
+
+    FILE(GLOB ADR_OPERATOR_DIRS
+        LinearAdvVolumeFlux
+        DiffusionScalarIPVolFlux
+        DiffusionScalarIPTraceFlux)
+    FOREACH(child ${ADR_OPERATOR_DIRS})
+        ADD_ADR_OPERATOR(${child})
+    ENDFOREACH()
+
+    SET(ADR_OPERATOR_SOURCES "${OPERATORS_SOURCES}" CACHE INTERNAL
+        "Generated ADR operator factory sources")
+
     IF (NEKTAR_SOLVER_ADR_RE)
-
-        # Default execution spaces.
-        SET(ExecSpaces Serial)
-
-        # Optional AVX execution space.
-        IF(NEKTAR_ENABLE_SIMD)
-            SET(ExecSpaces ${ExecSpaces} AVX)
-        ENDIF()
-
-        # Optional Device execution space.
-        IF(NEKTAR_ENABLE_DEVICE)
-            SET(ExecSpaces ${ExecSpaces} Device)
-        ENDIF()
 
         # Macro
         MACRO(SET_ALL_SOLVER_TEST solver session)
@@ -53,6 +132,7 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
             ADRSolverRedesign.cpp
             EquationSystems/SteadyADR.cpp
             EquationSystems/UnsteadyADR.cpp
+            ${OPERATORS_SOURCES}
         )
 
         IF(NEKTAR_BUILD_SOLVER_LIBS)
@@ -131,6 +211,11 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection3D_m12_DG_hex_periodic)
         # face rotation test
         # SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection3D_DG_prism_varP) # Failing due to workspace size
+
+        # 2D explicit diffusion (ScalarIP)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign ExDiffusion_2D_IP_hybrid_m3_periodic)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign ExDiffusion_2D_IP_hybrid_m3)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign ExDiffusion_2D_IP_hybrid_m8)
 
     ENDIF()
 ENDIF(NEKTAR_ENABLE_DEVICE_SUPPORT)

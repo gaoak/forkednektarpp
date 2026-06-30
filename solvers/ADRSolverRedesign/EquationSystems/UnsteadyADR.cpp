@@ -32,6 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <ADRSolverRedesign/DiffusionScalarIPTraceFlux/DiffusionScalarIPTraceFluxOp.hpp>
+#include <ADRSolverRedesign/DiffusionScalarIPVolFlux/DiffusionScalarIPVolFluxOp.hpp>
 #include <Operators/ElmtOps/Expression/ExpressionOp.hpp>
 #include <Operators/GlobalLinSysOps/LinearSystems/HelmSolve/HelmSolveOp.hpp>
 #include <Operators/GlobalLinSysOps/LinearSystems/LinearADRSolve/LinearADRSolveOp.hpp>
@@ -233,7 +235,9 @@ void UnsteadyADR::DoExplicitRhs(Field<double, FieldState::Phys> &in,
             }
             if (m_explicitDiffusion)
             {
-                // To be completed
+                m_diffusionIPOp->SetScale(dt);
+                m_diffusionIPOp->SetAppend(m_explicitAdvection);
+                m_diffusionIPOp->Apply(in, out);
             }
             break;
         }
@@ -383,7 +387,20 @@ void UnsteadyADR::v_InitialiseOperators()
             }
             if (m_diffusion)
             {
-                // To be completed
+                m_diffusionIPOp = DiffusionIPOp<double>::Create(
+                    m_expansionLists[0], m_variables);
+                auto diffusionScalarIPVolFluxOp =
+                    DiffusionScalarIPVolFluxOp<double>::Create(
+                        m_expansionLists[0], m_variables);
+                auto diffusionScalarIPTraceFluxOp =
+                    DiffusionScalarIPTraceFluxOp<double>::Create(
+                        m_expansionLists[0], m_variables);
+
+                diffusionScalarIPVolFluxOp->SetDiffCoeff(m_diffCoeff);
+                diffusionScalarIPTraceFluxOp->SetDiffCoeff(m_diffCoeff);
+
+                m_diffusionIPOp->SetVolumeFluxOp(diffusionScalarIPVolFluxOp);
+                m_diffusionIPOp->SetTraceFluxOp(diffusionScalarIPTraceFluxOp);
             }
             break;
         }

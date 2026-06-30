@@ -51,7 +51,7 @@ NEK_HOSTDEVICE_INLINE TData GetPressure(const IdealGasEoS<TScalar> &EoS,
                                         const TData &rho, const TData &e)
 {
     // Ideal gas law: P = (gamma - 1) * rho * e
-    return (EoS.gamma() - TData(1.0)) * rho * e;
+    return (TData(EoS.gamma()) - TData(1.0)) * rho * e;
 }
 
 template <typename TData, typename TScalar>
@@ -62,7 +62,7 @@ NEK_HOSTDEVICE_INLINE TData GetSoundSpeed(const IdealGasEoS<TScalar> &EoS,
 
     // Ideal gas law: P = (gamma - 1) * rho * e
     TData p = GetPressure(EoS, rho, e);
-    return sqrt(EoS.gamma() * p / rho);
+    return sqrt(TData(EoS.gamma()) * p / rho);
 }
 
 template <typename TData, typename TScalar>
@@ -77,15 +77,16 @@ NEK_HOSTDEVICE_INLINE TData GetRoeSoundSpeed(
 {
     using std::sqrt;
     // Calculate sound speed using ideal gas relation
-    return sqrt((EoS.gamma() - TData(1.0)) * (HRoe - TData(0.5) * URoe2));
+    return sqrt((TData(EoS.gamma()) - TData(1.0)) *
+                (HRoe - TData(0.5) * URoe2));
 }
 
 template <typename TData, typename TScalar>
-NEK_HOSTDEVICE_INLINE TScalar GetTemperature(const IdealGasEoS<TScalar> &EoS,
-                                             [[maybe_unused]] const TData &rho,
-                                             const TData &e)
+NEK_HOSTDEVICE_INLINE TData GetTemperature(const IdealGasEoS<TScalar> &EoS,
+                                           [[maybe_unused]] const TData &rho,
+                                           const TData &e)
 {
-    return e * EoS.gammaMoneOgasConst();
+    return e * TData(EoS.gammaMoneOgasConst());
 }
 
 } // namespace Nektar::Operators::detail
