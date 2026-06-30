@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: LinearAdvVolumeFluxOpImpl.hpp
+// File: DiffusionScalarIPVolFluxOpImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,67 +28,86 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Linear advection volume flux operator implementation.
+// Description: Scalar IP diffusion volume flux implementation.
 //
 ///////////////////////////////////////////////////////////////////////////////
+
 #pragma once
-#include "Operators/SolverUtilsOps/Advection/LinearAdvVolumeFlux/LinearAdvVolumeFluxKernels.hpp"
-#include "Operators/SolverUtilsOps/Advection/LinearAdvVolumeFlux/LinearAdvVolumeFluxOp.hpp"
+
+#include "ADRSolverRedesign/DiffusionScalarIPVolFlux/DiffusionScalarIPVolFluxKernels.hpp"
+#include "ADRSolverRedesign/DiffusionScalarIPVolFlux/DiffusionScalarIPVolFluxOp.hpp"
 
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-class LinearAdvVolumeFluxOpImpl : public LinearAdvVolumeFluxOp<TData>
+class DiffusionScalarIPVolFluxOpImpl : public DiffusionScalarIPVolFluxOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    LinearAdvVolumeFluxOpImpl(
+    DiffusionScalarIPVolFluxOpImpl(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
-        : LinearAdvVolumeFluxOp<TData>(std::move(expansionList), components)
+        : DiffusionScalarIPVolFluxOp<TData>(std::move(expansionList),
+                                            components)
     {
+        m_nDim = expansionList->GetCoordim(0);
+
+        std::vector<TData> diffCoeff(m_nDim * (m_nDim + 1) / 2, TData(0.0));
+        for (unsigned int d = 0; d < m_nDim; ++d)
+        {
+            diffCoeff[d * (d + 3) / 2] = TData(1.0);
+        }
+        this->SetDiffCoeff(diffCoeff);
     }
 
-    // className - for OperatorFactory
     static std::string className;
 
-    // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
-        return std::make_unique<LinearAdvVolumeFluxOpImpl<ExecSpace, TData>>(
-            expansionList, components);
+        return std::make_unique<
+            DiffusionScalarIPVolFluxOpImpl<ExecSpace, TData>>(expansionList,
+                                                              components);
     }
 
 protected:
+    unsigned int m_nDim;
+    MemoryRegion<TData> m_diffCoeff;
+
     void v_Apply(Field<TData, FieldState::Phys> &in,
+                 Field<TData, FieldState::Phys> &deriv,
                  Field<TData, FieldState::Phys> &out) override
     {
         for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
-            auto &inblock  = in.GetBlocks()[blk];
-            auto &outblock = out.GetBlocks()[blk];
-            auto &velblock = this->m_advectVel.GetBlocks()[blk];
+            auto &inblock    = in.GetBlocks()[blk];
+            auto &derivblock = deriv.GetBlocks()[blk];
+            auto &outblock   = out.GetBlocks()[blk];
 
-            auto inbase  = inblock.template GetPtr<MemSpace, ReadOnly>();
-            auto outbase = outblock.template GetPtr<MemSpace, WriteOnly>();
-            auto velbase = velblock.template GetPtr<MemSpace, ReadOnly>();
+            auto derivbase = derivblock.template GetPtr<MemSpace, ReadOnly>();
+            auto outbase   = outblock.template GetPtr<MemSpace, WriteOnly>();
+            auto diffCoeffBase =
+                m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
 
-            const auto npts      = outblock.CompSize();
-            const auto inStride  = inblock.CompSize();
-            const auto outStride = outblock.CompSize();
-            const auto velStride = velblock.CompSize();
-
-            const auto nvarComps = inblock.GetNumComponents();
-            const auto velComps  = velblock.GetNumComponents();
-
-            LinearAdvVolumeFluxKernel<ExecSpace>(npts, velComps, nvarComps,
-                                                 velStride, inStride, outStride,
-                                                 velbase, inbase, outbase);
+            DiffusionScalarIPVolFluxKernel<ExecSpace>(
+                outblock.CompSize(), m_nDim, inblock.GetNumComponents(),
+                derivblock.CompSize(), outblock.CompSize(), diffCoeffBase,
+                derivbase, outbase);
         }
+    }
+
+    void v_SetDiffCoeff(std::vector<TData> &diffCoeff) override
+    {
+        const auto diffCoeffSize = m_nDim * (m_nDim + 1) / 2;
+        ASSERTL0(diffCoeff.size() == diffCoeffSize,
+                 "The number of diffusion coefficients must match 1, 3 or 6 "
+                 "for a 1D, 2D or 3D case, respectively.");
+
+        m_diffCoeff = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
+            diffCoeff);
     }
 };
 

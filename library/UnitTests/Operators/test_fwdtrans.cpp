@@ -63,7 +63,6 @@ TEST_FWDTRANS(fwdtrans_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-08)
 TEST_FWDTRANS(fwdtrans_tri_quad_3c, Helmholtz2D_Tri_Quad_3C, 1.0E-08)
 
 TEST_FWDTRANS(fwdtrans_seg, Helmholtz1D_Seg, 1.0E-12)
-
 TEST_FWDTRANS(fwdtrans_all_bcs, Helmholtz2D_AllBCs, 1.0E-08)
 
 TEST_FWDTRANS(fwdtrans_hex, Helmholtz3D_Hex, 5.0E-08)
@@ -76,6 +75,41 @@ TEST_FWDTRANS(fwdtrans_pyr, Helmholtz3D_Pyr, 1.0E-08)
 
 TEST_FWDTRANS(fwdtrans_tet, Helmholtz3D_Tet, 5.0E-08)
 TEST_FWDTRANS(fwdtrans_tet_3c, Helmholtz3D_Tet_3C, 5.0E-08)
+
+TEST_FWDTRANS(fwdtrans_dg_seg, DGSeg, 1.0E-08)
+TEST_FWDTRANS(fwdtrans_dg_seg_sem, DGSegSEM, 1.0E-08)
+TEST_FWDTRANS(fwdtrans_dg_seg_3d, DGSeg3D, 1.0E-08)
+
+TEST_FWDTRANS(fwdtrans_dg_quad, DGQuad, 1.0E-08)
+TEST_FWDTRANS(fwdtrans_dg_quad_3d, DGQuad3D, 1.0E-08)
+TEST_FWDTRANS(fwdtrans_dg_quad_varp, DGQuadVarP, 1.0E-08)
+TEST_FWDTRANS(fwdtrans_dg_quad_sem, DGQuadSEM, 1.0E-08)
+
+TEST_FWDTRANS(fwdtrans_dg_tri, DGTri, 1.0E-08)
+TEST_FWDTRANS(fwdtrans_dg_tri_3d, DGTri3D, 1.0E-08)
+TEST_FWDTRANS(fwdtrans_dg_tri_varp, DGTriVarP, 1.0E-08)
+// TEST_FWDTRANS(fwdtrans_dg_tri_nodal, DGTriNodal, 1.0E-08)
+
+TEST_FWDTRANS(fwdtrans_dg_square_all_elements, DGSquareAllElements, 1.0E-08)
+
+TEST_FWDTRANS(fwdtrans_dg_hex, DGHex, 1.0E-08)
+TEST_FWDTRANS(fwdtrans_dg_hex_varp, DGHexVarP, 1.0E-08)
+TEST_FWDTRANS(fwdtrans_dg_hex_sem, DGHexSEM, 1.0E-08)
+
+TEST_FWDTRANS(fwdtrans_dg_prism, DGPrism, 1.0E-08)
+TEST_FWDTRANS(fwdtrans_dg_prism_varp, DGPrismVarP, 1.0E-08)
+// TEST_FWDTRANS(fwdtrans_dg_prism_nodal, DGPrismNodal, 1.0E-08)
+
+TEST_FWDTRANS(fwdtrans_dg_pyr, DGPyr, 1.0E-08)
+TEST_FWDTRANS(fwdtrans_dg_pyr_varp, DGPyrVarP, 1.0E-08)
+
+TEST_FWDTRANS(fwdtrans_dg_tet, DGTet, 1.0E-08)
+TEST_FWDTRANS(fwdtrans_dg_tet_varp, DGTetVarP, 1.0E-08)
+// TEST_FWDTRANS(fwdtrans_dg_tet_nodal, DGTetNodal, 1.0E-08)
+
+TEST_FWDTRANS(fwdtrans_dg_cube_prism_hex, DGCubePrismHex, 1.0E-08)
+
+TEST_FWDTRANS(fwdtrans_dg_cube_all_elements, DGCubeAllElements, 1.0E-08)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

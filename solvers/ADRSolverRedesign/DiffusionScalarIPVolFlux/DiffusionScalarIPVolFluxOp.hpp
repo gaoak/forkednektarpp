@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DiffusionVolumeFluxOp.hpp
+// File: DiffusionScalarIPVolFluxOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,69 +28,41 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: DiffusionVolume flux operator base classes.
+// Description: Scalar IP diffusion volume flux operator.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include "Operators/SolverUtilsOps/Flux/FluxOp.hpp"
+#include "Operators/SolverUtilsOps/Diffusion/DiffusionVolumeFluxOp.hpp"
 
 namespace Nektar::Operators
 {
 
-template <typename TData> class DiffusionVolumeFluxOp : public FluxOp<TData>
-{
-public:
-    // Build the physical diffusion volume flux from u and grad(u).
-    void Apply(Field<TData, FieldState::Phys> &in,
-               Field<TData, FieldState::Phys> &deriv,
-               Field<TData, FieldState::Phys> &out)
-    {
-        this->v_Apply(in, deriv, out);
-    }
-
-    void operator()(Field<TData, FieldState::Phys> &in,
-                    Field<TData, FieldState::Phys> &deriv,
-                    Field<TData, FieldState::Phys> &out)
-    {
-        this->v_Apply(in, deriv, out);
-    }
-
-protected:
-    DiffusionVolumeFluxOp(const MultiRegions::ExpListSharedPtr &expansionList,
-                          const std::vector<std::string> &components)
-        : FluxOp<TData>(expansionList, components)
-    {
-    }
-
-    ~DiffusionVolumeFluxOp() override = default;
-
-    virtual void v_Apply(Field<TData, FieldState::Phys> &in,
-                         Field<TData, FieldState::Phys> &deriv,
-                         Field<TData, FieldState::Phys> &out) = 0;
-};
-
 template <typename TData>
-class ScalarIPDiffusionVolumeFluxOp : public DiffusionVolumeFluxOp<TData>
+class DiffusionScalarIPVolFluxOp : public ScalarIPDiffusionVolumeFluxOp<TData>
 {
 public:
-    void SetDiffCoeff(std::vector<TData> &diffCoeff)
+    static std::shared_ptr<DiffusionScalarIPVolFluxOp<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
+        const std::string &execStr = "")
     {
-        this->v_SetDiffCoeff(diffCoeff);
+        return std::dynamic_pointer_cast<DiffusionScalarIPVolFluxOp<TData>>(
+            FluxOp<TData>::Create(expansionList, components, name, execStr));
     }
 
+    static inline const std::string name = "DiffusionScalarIPVolFlux";
+
 protected:
-    ScalarIPDiffusionVolumeFluxOp(
+    DiffusionScalarIPVolFluxOp(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
-        : DiffusionVolumeFluxOp<TData>(expansionList, components)
+        : ScalarIPDiffusionVolumeFluxOp<TData>(expansionList, components)
     {
     }
 
-    ~ScalarIPDiffusionVolumeFluxOp() override = default;
-
-    virtual void v_SetDiffCoeff(std::vector<TData> &diffCoeff) = 0;
+    ~DiffusionScalarIPVolFluxOp() override = default;
 };
 
 } // namespace Nektar::Operators

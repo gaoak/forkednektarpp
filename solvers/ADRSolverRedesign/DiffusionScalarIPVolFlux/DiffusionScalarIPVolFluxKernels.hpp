@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: LinearAdvVolumeFluxKernels.hpp
+// File: DiffusionScalarIPVolFluxKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,38 +28,58 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Volume flux kernels for linear advection
+// Description: Scalar IP diffusion volume flux kernels.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
 #include "Operators/LoopExecution/LoopExecution.hpp"
+#include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
+
 template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static void LinearAdvVolumeFluxKernel(
-    const unsigned int npts, const unsigned int velComps,
-    const unsigned int nvarComps, const unsigned int velStride,
-    const unsigned int inStride, const unsigned int outStride,
-    const TData *velbase, const TData *inbase, TData *outbase)
+NEK_FORCE_INLINE static void DiffusionScalarIPVolFluxKernel(
+    const size_t npts, const unsigned int ndim, const unsigned int nvarComps,
+    const size_t derivStride, const size_t outStride, const TData *diffCoeff,
+    const TData *derivbase, TData *outbase)
 {
-    // Parallelize over points; each i is independent
+    using vec_t =
+        typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                              TData>::type;
+    constexpr unsigned int vec_width =
+        (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
+            ? tinysimd::simd<TData>::width
+            : 1;
+
+    const size_t groupsize = npts / vec_width;
+    const auto derivvec    = reinterpret_cast<const vec_t *>(derivbase);
+    auto outvec            = reinterpret_cast<vec_t *>(outbase);
+
+    const size_t derivVecStride = derivStride / vec_width;
+    const size_t outVecStride   = outStride / vec_width;
+
     Nektar::parallel_for<ExecSpace>(
-        0u, npts, NEKTAR_LAMBDA(const size_t i) {
-            for (unsigned int nvar = 0; nvar < nvarComps; ++nvar)
+        0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
+            const auto diffCoeffMapPtr = GetDiffCoeffMapPtr(ndim);
+
+            for (unsigned int f = 0; f < nvarComps; ++f)
             {
-                const size_t in_off = (nvar)*inStride + i;
-                const TData in_val  = inbase[in_off];
-
-                for (unsigned int ndim = 0; ndim < velComps; ++ndim)
+                for (unsigned int outDir = 0; outDir < ndim; ++outDir)
                 {
-                    const size_t vel_off = ndim * velStride + i;
-                    const size_t out_off =
-                        (nvar * velComps + ndim) * outStride + i;
+                    vec_t flux = vec_t(0.0);
+                    for (unsigned int derivDir = 0; derivDir < ndim; ++derivDir)
+                    {
+                        const auto diffIdx =
+                            diffCoeffMapPtr[outDir * ndim + derivDir];
+                        const size_t derivIdx =
+                            (f * ndim + derivDir) * derivVecStride + i;
+                        flux += vec_t(diffCoeff[diffIdx]) * derivvec[derivIdx];
+                    }
 
-                    outbase[out_off] = in_val * velbase[vel_off];
+                    outvec[(f * ndim + outDir) * outVecStride + i] = flux;
                 }
             }
         });

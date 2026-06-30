@@ -28,7 +28,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Volume flux operator base class.
+// Description: Flux operator factory base class.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -40,7 +40,7 @@
 namespace Nektar::Operators
 {
 
-// Volume flux operator base class
+// Flux operator factory base class.
 template <typename TData> class FluxOp : public Operator<TData>
 {
 public:
@@ -74,14 +74,7 @@ public:
             factory.CreateInstance(requestedKey, expansionList, components));
     }
 
-    void SetAdvectVel(Field<TData, FieldState::Phys> &advectVel)
-    {
-        this->m_advectVel = std::move(advectVel);
-    }
-
 protected:
-    Field<TData, FieldState::Phys> m_advectVel;
-
     FluxOp(const MultiRegions::ExpListSharedPtr &expansionList,
            const std::vector<std::string> &components)
         : Operator<TData>(expansionList, components)

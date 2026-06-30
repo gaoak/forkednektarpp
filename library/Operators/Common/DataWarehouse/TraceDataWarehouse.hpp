@@ -94,6 +94,32 @@ private:
     IPTraceScalarData m_type;
 };
 
+template <typename TData> class IPTraceDerivBaseKey : public BaseKey
+{
+    friend class TraceEssentialCreator;
+
+public:
+    using creator = TraceEssentialCreator;
+    typedef TData value_type;
+
+    ~IPTraceDerivBaseKey() override = default;
+
+    // Stores the physical derivative of each elemental basis function on the
+    // local trace, multiplied by the trace quadrature metric. The scalar IP
+    // symmetric term uses this as:
+    //   sum_p jump(p) * (D n)_d(p) * dphi_i/dx_d(p) * wJ_trace(p).
+    // Layout is [direction][coefficient][local trace point] for one element
+    // block shape.
+    IPTraceDerivBaseKey(const unsigned int block_idx) : m_block_idx(block_idx)
+    {
+        hash_combine(m_hash, m_block_idx, typeid(value_type).name(),
+                     "IPTraceDerivBaseKey");
+    }
+
+private:
+    unsigned int m_block_idx;
+};
+
 template <typename TData> class LocTracePhysToElmtMapsKey : public BaseKey
 {
     friend class TraceEssentialCreator;
@@ -664,6 +690,10 @@ public:
 
     template <typename MemSpace, typename TData>
     MemoryRegion<TData> Create(const IPTraceScalarKey<TData> &ipTraceScalarKey);
+
+    template <typename MemSpace, typename TData>
+    MemoryRegion<TData> Create(
+        const IPTraceDerivBaseKey<TData> &ipTraceDerivBaseKey);
 
     inline static const std::string m_name = "TraceEssentialCreator";
 

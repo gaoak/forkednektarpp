@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: EulerVolumeFluxKernels.hpp
+// File: LinearAdvVolumeFluxKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,7 +28,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Euler volume flux kernels.
+// Description: Volume flux kernels for linear advection
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -36,23 +36,15 @@
 
 #include "Operators/LoopExecution/LoopExecution.hpp"
 
-// header should appear after loop execution.hpp
-#include "EquationOfState/VariableConverters.hpp"
-
 namespace Nektar::Operators::detail
 {
-template <typename ExecSpace, typename EqnOfSParams, typename TData>
-NEK_FORCE_INLINE static void EulerVolumeFluxKernel(
-    const EqnOfSParams EoS, const unsigned int npts, const unsigned int ndim,
-    const unsigned int nvarComps, const unsigned int inStride,
-    const unsigned int outStride, const TData *inbase, TData *outbase)
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static void LinearAdvVolumeFluxKernel(
+    const unsigned int npts, const unsigned int velComps,
+    const unsigned int nvarComps, const unsigned int velStride,
+    const unsigned int inStride, const unsigned int outStride,
+    const TData *velbase, const TData *inbase, TData *outbase)
 {
-    // Check that we have the right number of variables for Euler
-    if (nvarComps != ndim + 2)
-    {
-        return;
-    }
-
     using vec_t =
         typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                               TData>::type;
@@ -62,63 +54,30 @@ NEK_FORCE_INLINE static void EulerVolumeFluxKernel(
             : 1;
 
     const size_t groupsize    = npts / vec_width;
+    const size_t velVecStride = velStride / vec_width;
     const size_t inVecStride  = inStride / vec_width;
     const size_t outVecStride = outStride / vec_width;
+    const auto velvec         = reinterpret_cast<const vec_t *>(velbase);
     const auto invec          = reinterpret_cast<const vec_t *>(inbase);
     auto outvec               = reinterpret_cast<vec_t *>(outbase);
 
     // Parallelize over point groups; each i is independent.
     Nektar::parallel_for<ExecSpace>(
         0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
-            // ---- Load conservative variables U at point i ----
-            const vec_t rho    = invec[0 * inVecStride + i];
-            const vec_t invRho = vec_t(TData(1)) / rho;
-
-            vec_t mom[3] = {vec_t(TData(0)), vec_t(TData(0)), vec_t(TData(0))};
-            vec_t vel[3] = {vec_t(TData(0)), vec_t(TData(0)), vec_t(TData(0))};
-
-            for (unsigned int d = 0; d < ndim; ++d)
+            for (unsigned int nvar = 0; nvar < nvarComps; ++nvar)
             {
-                mom[d] = invec[(1u + d) * inVecStride + i]; // rho*u_d
-                vel[d] = mom[d] * invRho;                   // u_d
-            }
+                const size_t in_off = nvar * inVecStride + i;
+                const vec_t in_val  = invec[in_off];
 
-            const vec_t E = invec[(ndim + 1u) * inVecStride + i];
-
-            // ---- Pressure via EoS, explicitly vectorized over lanes ----
-            const vec_t e      = GetInternalEnergy(ndim, rho, mom, E);
-            const vec_t p      = GetPressure(EoS, rho, e);
-            const vec_t ePlusP = E + p;
-
-            // ---- Fluxes ----
-            // rho equation: F_rho,d = rho*u_d = mom[d]
-            for (unsigned int d = 0; d < ndim; ++d)
-            {
-                outvec[(0u * ndim + d) * outVecStride + i] = mom[d];
-            }
-
-            // momentum equations:
-            // F_{mom_a,d} = (rho*u_a)*u_d + p*delta_{a,d}
-            for (unsigned a = 0; a < ndim; ++a)
-            {
-                for (unsigned d = 0; d < ndim; ++d)
+                for (unsigned int ndim = 0; ndim < velComps; ++ndim)
                 {
-                    vec_t val = mom[a] * vel[d];
-                    if (a == d)
-                    {
-                        val += p;
-                    }
-                    outvec[((1u + a) * ndim + d) * outVecStride + i] = val;
-                }
-            }
+                    const size_t vel_off = ndim * velVecStride + i;
+                    const size_t out_off =
+                        (nvar * velComps + ndim) * outVecStride + i;
 
-            // energy equation: F_E,d = (E+p)*u_d
-            for (unsigned d = 0; d < ndim; ++d)
-            {
-                outvec[((ndim + 1u) * ndim + d) * outVecStride + i] =
-                    ePlusP * vel[d];
+                    outvec[out_off] = in_val * velvec[vel_off];
+                }
             }
         });
 }
-
 } // namespace Nektar::Operators::detail

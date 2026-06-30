@@ -80,4 +80,24 @@ void ReshapeStorage(const unsigned int targInterleaveWidth,
     }
 }
 
+NEK_HOSTDEVICE_INLINE static const unsigned int *GetDiffCoeffMapPtr(
+    const unsigned int ncoord)
+{
+    if (ncoord == 1)
+    {
+        static const std::array<unsigned int, 1> diffCoeff1DMap{0};
+        return &diffCoeff1DMap[0];
+    }
+    else if (ncoord == 2)
+    {
+        static const std::array<unsigned int, 4> diffCoeff2DMap{0, 1, 1, 2};
+        return &diffCoeff2DMap[0];
+    }
+    else
+    {
+        static const std::array<unsigned int, 9> diffCoeff3DMap{0, 1, 3, 1, 2,
+                                                                4, 3, 4, 5};
+        return &diffCoeff3DMap[0];
+    }
+}
 } // namespace Nektar::Operators

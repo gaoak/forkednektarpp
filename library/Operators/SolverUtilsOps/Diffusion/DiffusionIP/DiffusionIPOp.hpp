@@ -60,6 +60,17 @@ public:
         v_SetAppend(append);
     }
 
+    void SetVolumeFluxOp(
+        const std::shared_ptr<DiffusionVolumeFluxOp<TData>> &ptr)
+    {
+        this->m_volumeFluxOp = ptr;
+    }
+
+    void SetTraceFluxOp(const std::shared_ptr<DiffusionTraceFluxOp<TData>> &ptr)
+    {
+        this->m_traceFluxOp = ptr;
+    }
+
 protected:
     DiffusionIPOp(const MultiRegions::ExpListSharedPtr &expansionList,
                   const std::vector<std::string> &components)
@@ -75,6 +86,9 @@ protected:
     ~DiffusionIPOp() override = default;
 
     virtual void v_SetAppend(const bool &append) = 0;
+
+    std::shared_ptr<DiffusionVolumeFluxOp<TData>> m_volumeFluxOp;
+    std::shared_ptr<DiffusionTraceFluxOp<TData>> m_traceFluxOp;
 
     TData m_IPSymmFluxCoeff = 0.0;
     TData m_IP2ndDervCoeff  = 0.0;

@@ -139,8 +139,9 @@ ADD_NEKTAR_EXECUTABLE(test_physinterp1dscaled
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physinterp1dscaled.cpp)
 ADD_NEKTAR_EXECUTABLE(test_getfwdbwdtracephys
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_getfwdbwdtracephys.cpp)
-ADD_NEKTAR_EXECUTABLE(test_advectionweakdg 
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SolverUtils SOURCES test_advectionweakdg.cpp)
+ADD_NEKTAR_EXECUTABLE(test_advectionweakdg
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SolverUtils
+    SOURCES test_advectionweakdg.cpp ${ADR_OPERATOR_SOURCES})
 
 # Macro
 MACRO(SET_UNIT_TEST testname name execspace implementation mpi_flag)

@@ -75,8 +75,7 @@ public:
           m_fluxvector(Field<TData, FieldState::Phys>(
               "Flux vector",
               GetBlockAttributes<TData, FieldState::Phys>(expansionList),
-              expansionList->GetExp(0)->GetShapeDimension() * components.size(),
-              1)),
+              expansionList->GetCoordim(0) * components.size(), 1)),
           m_numflux(Field<TData, FieldState::Phys>(
               "Num flux",
               GetBlockAttributes<TData, FieldState::Phys>(
@@ -215,6 +214,11 @@ protected:
     void DiffuseCoeffs(Field<TData, FieldState::Phys> &in,
                        Field<TData, FieldState::Coeff> &out)
     {
+        ASSERTL1(this->m_volumeFluxOp,
+                 "DiffusionIPOp requires a volume flux op.");
+        ASSERTL1(this->m_traceFluxOp,
+                 "DiffusionIPOp requires a trace flux op.");
+
         // Step 1: compute physical derivatives of the conservative state.
         // These derivatives drive both the volume viscous tensor and the trace
         // numerical-flux construction.
@@ -231,10 +235,9 @@ protected:
         CalcTraceNumFlux(in);
         m_addTraceIntegralOp->Apply(m_numflux, m_tmp);
 
-        // Step 5: the symmetric IP correction is intentionally absent in the
-        // current simplified path.
-        ASSERTL1(std::abs(this->m_IPSymmFluxCoeff) < 1.0e-12,
-                 "DiffusionIPOp symmetric trace flux is not implemented yet.");
+        // Step 5: add the symmetric IP correction
+        // ScalarIP implemented, coupled IP not implemented yet.
+        this->m_traceFluxOp->Apply(m_tmp);
 
         // Step 6: apply the inverse element mass matrix to complete the weak DG
         // diffusion action in coefficient space.

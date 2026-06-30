@@ -66,6 +66,21 @@ template MemoryRegion<float> TraceEssentialCreator::Create<
     const IPTraceScalarKey<float> &ipTraceScalarKey);
 #endif
 
+template MemoryRegion<double> TraceEssentialCreator::Create<
+    NektarSpaces::HostSpace, double>(
+    const IPTraceDerivBaseKey<double> &ipTraceDerivBaseKey);
+template MemoryRegion<float> TraceEssentialCreator::Create<
+    NektarSpaces::HostSpace, float>(
+    const IPTraceDerivBaseKey<float> &ipTraceDerivBaseKey);
+#if defined(NEKTAR_ENABLE_DEVICE)
+template MemoryRegion<double> TraceEssentialCreator::Create<
+    NektarSpaces::DeviceSpace, double>(
+    const IPTraceDerivBaseKey<double> &ipTraceDerivBaseKey);
+template MemoryRegion<float> TraceEssentialCreator::Create<
+    NektarSpaces::DeviceSpace, float>(
+    const IPTraceDerivBaseKey<float> &ipTraceDerivBaseKey);
+#endif
+
 template MemoryRegion<unsigned int> TraceEssentialCreator::Create<
     NektarSpaces::HostSpace, double>(
     const LocTracePhysToElmtMapsKey<double> &locTracePhysToElmtMapsKey);

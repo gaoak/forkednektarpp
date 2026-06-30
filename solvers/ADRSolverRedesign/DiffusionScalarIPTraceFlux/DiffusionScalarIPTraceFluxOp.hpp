@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: LinearAdvVolumeFluxOp.hpp
+// File: DiffusionScalarIPTraceFluxOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,43 +28,44 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Scalar IP diffusion trace flux operator.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include "Operators/SolverUtilsOps/Advection/AdvectionVolumeFluxOp.hpp"
+#include "Operators/SolverUtilsOps/Diffusion/DiffusionTraceFluxOp.hpp"
 
 namespace Nektar::Operators
 {
 
-// Upwind base class
-// Defines the apply operator to enforce apply parameter types
 template <typename TData>
-class LinearAdvVolumeFluxOp : public AdvectionVolumeFluxOp<TData>
+class DiffusionScalarIPTraceFluxOp : public ScalarIPDiffusionTraceFluxOp<TData>
 {
 public:
-    static std::shared_ptr<LinearAdvVolumeFluxOp<TData>> Create(
+    static std::shared_ptr<DiffusionScalarIPTraceFluxOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
-        return std::dynamic_pointer_cast<LinearAdvVolumeFluxOp<TData>>(
-            AdvectionVolumeFluxOp<TData>::Create(expansionList, components,
-                                                 name, execStr));
+        return std::dynamic_pointer_cast<DiffusionScalarIPTraceFluxOp<TData>>(
+            FluxOp<TData>::Create(expansionList, components, name, execStr));
     }
 
-    static inline const std::string name = "LinearAdvVolumeFlux";
+    static inline const std::string name = "DiffusionScalarIPTraceFlux";
 
 protected:
-    LinearAdvVolumeFluxOp(const MultiRegions::ExpListSharedPtr &expansionList,
-                          const std::vector<std::string> &components)
-        : AdvectionVolumeFluxOp<TData>(expansionList, components)
+    DiffusionScalarIPTraceFluxOp(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
+        : ScalarIPDiffusionTraceFluxOp<TData>(expansionList, components)
     {
+        auto session = expansionList->GetSession();
+        session->LoadParameter("IPPenaltyCoeff", m_IPPenaltyCoeff, 4.0);
     }
 
-    ~LinearAdvVolumeFluxOp() override = default;
+    ~DiffusionScalarIPTraceFluxOp() override = default;
+    TData m_IPPenaltyCoeff                   = 4.0;
 };
 
 } // namespace Nektar::Operators

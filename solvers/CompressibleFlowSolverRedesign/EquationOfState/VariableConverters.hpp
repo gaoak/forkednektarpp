@@ -69,6 +69,8 @@ NEK_HOSTDEVICE_INLINE TData GetDynamicViscosity(const TData &temperature,
                                                 const TData &oneOverTstar,
                                                 const TData &tRatioSutherland)
 {
+    using std::sqrt;
+
     TData mu_star = muRef;
 
     if (isVariable) // define using sutherland's law
@@ -76,7 +78,7 @@ NEK_HOSTDEVICE_INLINE TData GetDynamicViscosity(const TData &temperature,
         const TData onePlusC = TData(1.0) + tRatioSutherland;
         const TData ratio    = temperature * oneOverTstar;
 
-        return mu_star * ratio * std::sqrt(ratio) * onePlusC /
+        return mu_star * ratio * sqrt(ratio) * onePlusC /
                (ratio + tRatioSutherland);
     }
     else
