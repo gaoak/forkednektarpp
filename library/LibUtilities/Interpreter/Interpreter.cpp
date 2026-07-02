@@ -94,10 +94,10 @@ typedef NekDouble (*PFD3)(NekDouble, NekDouble, NekDouble);
 typedef NekDouble (*PFD4)(NekDouble, NekDouble, NekDouble, NekDouble);
 struct func
 {
-    func(PFD1 p) : func1(p), size(1){};
-    func(PFD2 p) : func2(p), size(2){};
-    func(PFD3 p) : func3(p), size(3){};
-    func(PFD4 p) : func4(p), size(4){};
+    func(PFD1 p) : func1(p), size(1) {};
+    func(PFD2 p) : func2(p), size(2) {};
+    func(PFD3 p) : func3(p), size(3) {};
+    func(PFD4 p) : func4(p), size(4) {};
 
     union // Pointer to a function
     {
@@ -1409,7 +1409,7 @@ private:
 
         EvaluationStep(rgt rn, ci i, ci l, ci r, vr s, cvr c, cvr p, cvr v)
             : rng(rn), state(s), consts(c), params(p), vars(v), storeIdx(i),
-              argIdx1(l), argIdx2(r){};
+              argIdx1(l), argIdx2(r) {};
 
         virtual ~EvaluationStep()
         {

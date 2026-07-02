@@ -58,6 +58,10 @@ public:
         AllocateInitMatrix();
 
         std::string SolverType = "Newton";
+        if (pSession->DefinesSolverInfo("NonlinearSolver"))
+        {
+            SolverType = pSession->GetSolverInfo("NonlinearSolver");
+        }
         ASSERTL0(
             LibUtilities::GetNekNonlinSysIterFactory().ModuleExists(SolverType),
             "NekNonlinSys '" + SolverType + "' is not defined.\n");

@@ -69,7 +69,7 @@ public:
         }
     }
 
-    virtual ~NodeOpti(){};
+    virtual ~NodeOpti() {};
 
     void CalcMinJac();
 
@@ -128,7 +128,7 @@ public:
     {
     }
 
-    ~NodeOpti3D3D() override{};
+    ~NodeOpti3D3D() override {};
 
     void Optimise() override;
 
@@ -154,7 +154,7 @@ public:
     {
     }
 
-    ~NodeOpti2D2D() override{};
+    ~NodeOpti2D2D() override {};
 
     void Optimise() override;
 

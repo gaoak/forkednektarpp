@@ -70,8 +70,7 @@ FilterError::FilterError(const LibUtilities::SessionReaderSharedPtr &pSession,
         for (size_t i = 0; i < m_numVariables; ++i)
         {
             std::string varName = equationSys->GetVariable(i);
-            m_outFile << " " + varName + "_L2"
-                      << " " + varName + "_Linf";
+            m_outFile << " " + varName + "_L2" << " " + varName + "_Linf";
 
             if (!m_isHomogeneous1D)
             {

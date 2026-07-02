@@ -447,6 +447,293 @@ The downside to this approach is that you are now constrained to using one of
 the \nekpp preconditioners. However, this does give access to a wider range of
 Krylov methods than are available inside \nekpp for more advanced users.
 
+\subsection{Nonlinear Newton solver options}
+
+Many problems require the solution of a nonlinear system of equations
+$$
+    F(u) = 0,
+$$
+where $u$ denotes the solution vector and $F(u)$ is the nonlinear
+residual. The Newton iterative method linearises the solution process such that
+at nonlinear iteration $k$,
+a correction $\delta_k$ results from the linearised system
+$$
+    J(u_k)\delta_k = F(u_k),
+$$
+where $J(u_k)$ is the Jacobian of $F$ at $u_k$.
+
+Iteratively updating $u_k$ with the correction $\delta_k$ the Newton iteration step is then
+$$
+    u_{k+1} = u_k - \delta_k.
+$$
+
+Often, the computed correction $\delta_k$ is too aggressive or does not represent
+the nonlinear problem well.
+Below, we list several options and techniques to stabilise the Newton iterative process.
+
+\subsubsection{Vanilla Newton}
+
+The default nonlinear solver is the standard Newton method. It applies the
+computed Newton correction directly, unless a fixed Newton scale is specified.
+
+To select it explicitly in the \inltt{SOLVERINFO} tag, use
+\begin{lstlisting}[style=XMLStyle]
+<SOLVERINFO>
+    <I PROPERTY="NonlinearSolver" VALUE="Newton" />
+</SOLVERINFO>
+\end{lstlisting}
+
+The relevant default parameters are
+\begin{lstlisting}[style=XMLStyle]
+<PARAMETERS>
+    <P> LinSysRelativeTolInNonlin = 1.0e-6 </P>
+    <P> NewtonScale               = 1.0    </P>
+</PARAMETERS>
+\end{lstlisting}
+
+Here \inltt{LinSysRelativeTolInNonlin} defines the relative tolerance used for
+the linear solve inside Newton when inexact Newton forcing is disabled.
+
+\subsubsection{Inexact Newton forcing}
+
+Inexact Newton forcing changes the accuracy requested from the linear solver at
+each nonlinear iteration. Instead of solving the Newton correction to a fixed
+relative tolerance, the linear solve is stopped when
+$$
+    \|J(u_k)\delta_k - F(u_k)\|_2
+    \leq \eta_k \|F(u_k)\|_2.
+$$
+If inexact forcing is enabled, the forcing parameter is chosen as
+$$
+    \eta_0 = \eta_{\mathrm{init}},
+$$
+and for $k>0$,
+$$
+    \eta_k =
+    \min\left(
+        \eta_{\max},
+        \max\left(
+            \eta_{\min},
+            \gamma
+            \left(
+                \frac{\|F(u_k)\|_2}{\|F(u_{k-1})\|_2}
+            \right)^\alpha
+        \right)
+    \right).
+$$
+This reduces unnecessary linear iterations far from convergence, while allowing
+a tighter linear solve as the nonlinear residual decreases.
+
+To activate the inexact forcing, no additional \inltt{SOLVERINFO} option is required. The forcing parameters are
+common to the Newton-based nonlinear solvers:
+\begin{lstlisting}[style=XMLStyle]
+<PARAMETERS>
+    <P> InexactNewtonForcing     = 0      </P>
+    <P> LinSysRelativeTolInNonlin = 1.0e-6 </P>
+    <P> ForcingEtaInit           = 1.0e-2 </P>
+    <P> ForcingEtaMin            = 1.0e-6 </P>
+    <P> ForcingEtaMax            = 5.0e-2 </P>
+    <P> ForcingGamma             = 0.9    </P>
+    <P> ForcingAlpha             = 1.5    </P>
+</PARAMETERS>
+\end{lstlisting}
+
+By default \inltt{InexactNewtonForcing} is disabled ($0$). To turn it on set \inltt{InexactNewtonForcing     = 1 }. If
+\inltt{ForcingEtaMin} is not specified, the value is copied from
+\inltt{LinSysRelativeTolInNonlin}.
+
+\subsubsection{Fixed Newton scale}
+
+A simple stabilisation technique is to apply a fixed fraction of the Newton correction.
+The Newton update then becomes
+$$
+    u_{k+1} = u_k - \alpha \delta_k,
+$$
+where $\alpha$ is specified by \inltt{NewtonScale}. The default value
+$\alpha=1$ gives the full Newton step.
+
+This option uses the standard Newton solver:
+\begin{lstlisting}[style=XMLStyle]
+<SOLVERINFO>
+    <I PROPERTY="NonlinearSolver" VALUE="Newton" />
+</SOLVERINFO>
+\end{lstlisting}
+
+The parameter is set in the \inltt{PARAMETERS} tag as
+\begin{lstlisting}[style=XMLStyle]
+<PARAMETERS>
+    <P> NewtonScale = 0.1 </P>
+</PARAMETERS>
+\end{lstlisting}
+
+The stabilising effect results from taking much shorter steps along the computed correction $\delta_k$.
+
+\subsubsection{Backtracking}
+
+The backtracking solver applies the Newton correction with an adaptive scale
+$\alpha$. For a trial update
+$$
+    u_{\mathrm{trial}} = u_k - \alpha \delta_k,
+$$
+the step is accepted if the residual is reduced according to
+$$
+    \|F(u_{\mathrm{trial}})\|_2
+    \leq
+    \left(1 - \eta \alpha\right)\|F(u_k)\|_2,
+$$
+where $\eta$ is given by \inltt{AcceptReductionEta}. If the condition is not
+satisfied, the scale is reduced by \inltt{BacktrackFactor}. The next nonlinear
+iteration starts from the accepted scale, or from an enlarged scale if the first
+trial was accepted.
+
+To use this method, set
+\begin{lstlisting}[style=XMLStyle]
+<SOLVERINFO>
+    <I PROPERTY="NonlinearSolver" VALUE="NewtonBacktrack" />
+</SOLVERINFO>
+\end{lstlisting}
+
+The available parameters and their default values are
+\begin{lstlisting}[style=XMLStyle]
+<PARAMETERS>
+    <P> NewtonScaleInit       = 1.0e-2 </P>
+    <P> NewtonScaleMax        = 1.0e-1 </P>
+    <P> NewtonScaleMin        = 1.0e-6 </P>
+    <P> NewtonScaleGrowFactor = 2.0    </P>
+    <P> BacktrackFactor       = 0.5    </P>
+    <P> MaxBacktrackSteps     = 4      </P>
+    <P> AcceptReductionEta    = 1.0e-4 </P>
+</PARAMETERS>
+\end{lstlisting}
+
+In this variant, the Newton step is taken in the same direction as $\delta_k$, but the step length is adjusted to guarantee the decrease of the residuum.
+
+\subsubsection{Line-search trust region}
+
+The trust-region variant is similar to a backtracking variant in that it keeps the direction of the computed correction $\delta_k$ unchanged, only adjusting the step length.
+Here, a trust radius $\Delta_k$ is used. If the Newton correction lies within the trust region, the step is taken, but if is too large, the applied correction is scaled to lie inside the current trust radius $\Delta_k$:
+$$
+    s_k =
+    \begin{cases}
+    \delta_k, & \|\delta_k\|_2 \leq \Delta_k, \\
+    \displaystyle \frac{\Delta_k}{\|\delta_k\|_2}\delta_k,
+    & \|\delta_k\|_2 > \Delta_k.
+    \end{cases}
+$$
+The trial update is $u_{\mathrm{trial}} = u_k - s_k$. The step is accepted
+using the ratio
+$$
+    \rho =
+    \frac{\mathrm{ared}}{\mathrm{pred}},
+    \qquad
+    \mathrm{ared}
+    =
+    \|F(u_k)\|_2 - \|F(u_{\mathrm{trial}})\|_2.
+$$
+In this implementation, the predicted reduction is estimated from the applied
+fraction of the Newton step. The trust radius is reduced when the model is poor
+and enlarged when the accepted step lies on the trust-region boundary and gives
+a good reduction.
+
+To use this method, add
+\begin{lstlisting}[style=XMLStyle]
+<SOLVERINFO>
+    <I PROPERTY="NonlinearSolver" VALUE="NewtonTrustRegion" />
+</SOLVERINFO>
+\end{lstlisting}
+
+The available parameters and default values are
+\begin{lstlisting}[style=XMLStyle]
+<PARAMETERS>
+    <P> TrustRadiusInit                         = 1.0e-2 </P>
+    <P> TrustRadiusMin                          = 1.0e-8 </P>
+    <P> TrustRadiusMax                          = 1.0e2  </P>
+    <P> TrustRegionRhoAccept                    = 1.0e-1 </P>
+    <P> TrustRegionRhoShrink                    = 2.5e-1 </P>
+    <P> TrustRegionRhoGrow                      = 7.5e-1 </P>
+    <P> TrustRegionShrinkFactor                 = 0.5    </P>
+    <P> TrustRegionGrowFactor                   = 2.0    </P>
+    <P> MaxTrustRegionSteps                     = 4      </P>
+    <P> TrustRegionMaxFallbackResidualGrowth    = 10.0   </P>
+</PARAMETERS>
+\end{lstlisting}
+
+\subsubsection{Hook step}
+
+The hook-step method uses information generated by GMRES to solve a reduced
+trust-region problem in the Krylov subspace. If GMRES constructs the Arnoldi
+basis $V_m$ and the Hessenberg matrix $\bar{H}_m$, the step is written as
+$$
+    s_k = V_m y.
+$$
+The reduced hook-step problem is
+$$
+    \min_{\|y\|_2 \leq \Delta_k}
+    \left\|
+        \beta e_1 - \bar{H}_m y
+    \right\|_2,
+$$
+where $\beta = \|F(u_k)\|_2$. If the unconstrained GMRES minimiser lies outside
+the trust radius, the constrained step is obtained from
+$$
+    \left(\bar{H}_m^T\bar{H}_m + \mu I\right)y
+    =
+    \beta \bar{H}_m^T e_1,
+    \qquad
+    \|y\|_2 = \Delta_k,
+$$
+with a non-negative hook-step parameter $\mu$.
+
+The predicted residual norm is computed from the reduced GMRES model,
+$$
+    \|r_{\mathrm{pred}}\|_2
+    =
+    \left\|
+        \beta e_1 - \bar{H}_m y
+    \right\|_2,
+$$
+and the acceptance ratio is
+$$
+    \rho =
+    \frac{
+        \|F(u_k)\|_2 - \|F(u_{\mathrm{trial}})\|_2
+    }{
+        \|F(u_k)\|_2 - \|r_{\mathrm{pred}}\|_2
+    }.
+$$
+The hook step can therefore change both the length and direction of the Newton
+correction inside the Krylov subspace.
+
+This method requires GMRES:
+\begin{lstlisting}[style=XMLStyle]
+<SOLVERINFO>
+    <I PROPERTY="NonlinearSolver" VALUE="NewtonHookStep" />
+    <I PROPERTY="LinSysIterSolver" VALUE="GMRES" />
+</SOLVERINFO>
+\end{lstlisting}
+
+The available parameters and default values are
+\begin{lstlisting}[style=XMLStyle]
+<PARAMETERS>
+    <P> TrustRadiusInit                         = 1.0e-2 </P>
+    <P> TrustRadiusMin                          = 1.0e-8 </P>
+    <P> TrustRadiusMax                          = 1.0e2  </P>
+    <P> TrustRegionRhoAccept                    = 1.0e-1 </P>
+    <P> TrustRegionRhoShrink                    = 2.5e-1 </P>
+    <P> TrustRegionRhoGrow                      = 7.5e-1 </P>
+    <P> TrustRegionShrinkFactor                 = 0.5    </P>
+    <P> TrustRegionGrowFactor                   = 2.0    </P>
+    <P> MaxTrustRegionSteps                     = 4      </P>
+    <P> MaxTrustRegionGrowthSteps               = 3      </P>
+    <P> TrustRegionMaxFallbackResidualGrowth    = 10.0   </P>
+    <P> MeaningfulAredRel                       = 1.0e-3 </P>
+    <P> MeaningfulAredAbs                       = 1.0e-12 </P>
+</PARAMETERS>
+\end{lstlisting}
+
+The initial hook-step implementation requires GMRES data to be exported by the
+linear solver and does not support left-preconditioned GMRES.
+
 \subsection{Boundary Regions and Conditions}
 
 Boundary conditions are defined by two XML elements. The first defines the

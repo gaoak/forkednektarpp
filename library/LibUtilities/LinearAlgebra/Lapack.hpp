@@ -40,6 +40,10 @@ namespace Lapack
 {
 extern "C"
 {
+    // General matrix solve driver
+    void F77NAME(dgesv)(const int &n, const int &nrhs, double *a,
+                        const int &lda, int *ipiv, double *b, const int &ldb,
+                        int &info);
     // Matrix factorisation and solves
     void F77NAME(dsptrf)(const char &uplo, const int &n, double *ap, int *ipiv,
                          int &info);
@@ -105,6 +109,30 @@ extern "C"
     void F77NAME(dsbev)(const char &jobz, const char &uplo, const int &kl,
                         const int &ku, double *ap, const int &lda, double *w,
                         double *z, const int &ldz, double *work, int &info);
+    // SVD and Least Squares
+    void F77NAME(dgesvd)(const char &jobu, const char &jobvt, const int &m,
+                         const int &n, double *a, const int &lda, double *s,
+                         double *u, const int &ldu, double *vt, const int &ldvt,
+                         double *work, const int &lwork, int &info);
+    void F77NAME(sgesvd)(const char &jobu, const char &jobvt, const int &m,
+                         const int &n, float *a, const int &lda, float *s,
+                         float *u, const int &ldu, float *vt, const int &ldvt,
+                         float *work, const int &lwork, int &info);
+    void F77NAME(dgels)(const char &trans, const int &m, const int &n,
+                        const int &nrhs, double *a, const int &lda, double *b,
+                        const int &ldb, double *work, const int &lwork,
+                        int &info);
+    void F77NAME(sgels)(const char &trans, const int &m, const int &n,
+                        const int &nrhs, float *a, const int &lda, float *b,
+                        const int &ldb, float *work, const int &lwork,
+                        int &info);
+}
+
+static inline void Dgesv(const int &n, const int &nrhs, double *a,
+                         const int &lda, int *ipiv, double *b, const int &ldb,
+                         int &info)
+{
+    F77NAME(dgesv)(n, nrhs, a, lda, ipiv, b, ldb, info);
 }
 
 /// \brief factor a real packed-symmetric matrix using Bunch-Kaufman
@@ -350,6 +378,49 @@ static inline void Dsbev(const char &jobz, const char &uplo, const int &kl,
                          double *z, const int &ldz, double *work, int &info)
 {
     F77NAME(dsbev)(jobz, uplo, kl, ku, ap, lda, w, z, ldz, work, info);
+}
+
+/// \brief Singular Value Decomposition (SVD) of a real matrix (double
+/// precision)
+static inline void Dgesvd(const char &jobu, const char &jobvt, const int &m,
+                          const int &n, double *a, const int &lda, double *s,
+                          double *u, const int &ldu, double *vt,
+                          const int &ldvt, double *work, const int &lwork,
+                          int &info)
+{
+    F77NAME(dgesvd)
+    (jobu, jobvt, m, n, a, lda, s, u, ldu, vt, ldvt, work, lwork, info);
+}
+
+/// \brief Singular Value Decomposition (SVD) of a real matrix (single
+/// precision)
+static inline void Sgesvd(const char &jobu, const char &jobvt, const int &m,
+                          const int &n, float *a, const int &lda, float *s,
+                          float *u, const int &ldu, float *vt, const int &ldvt,
+                          float *work, const int &lwork, int &info)
+{
+    F77NAME(sgesvd)
+    (jobu, jobvt, m, n, a, lda, s, u, ldu, vt, ldvt, work, lwork, info);
+}
+
+/// \brief Solve least squares/minimum norm problems for real matrices (double
+/// precision)
+static inline void Dgels(const char &trans, const int &m, const int &n,
+                         const int &nrhs, double *a, const int &lda, double *b,
+                         const int &ldb, double *work, const int &lwork,
+                         int &info)
+{
+    F77NAME(dgels)(trans, m, n, nrhs, a, lda, b, ldb, work, lwork, info);
+}
+
+/// \brief Solve least squares/minimum norm problems for real matrices (single
+/// precision)
+static inline void Sgels(const char &trans, const int &m, const int &n,
+                         const int &nrhs, float *a, const int &lda, float *b,
+                         const int &ldb, float *work, const int &lwork,
+                         int &info)
+{
+    F77NAME(sgels)(trans, m, n, nrhs, a, lda, b, ldb, work, lwork, info);
 }
 
 } // namespace Lapack

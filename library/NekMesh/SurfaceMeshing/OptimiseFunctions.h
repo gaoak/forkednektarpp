@@ -56,7 +56,7 @@ public:
         o   = ob;
     };
 
-    ~OptiEdge() override{};
+    ~OptiEdge() override {};
 
     NekDouble F(Array<OneD, NekDouble> xitst) override;
     DNekMat dF(Array<OneD, NekDouble> xitst) override;

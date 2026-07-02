@@ -76,7 +76,7 @@ public:
         const Array<OneD, Array<OneD, NekDouble>> &pts,
         std::map<PtsInfo, int> ptsInfo = NullPtsInfoMap)
         : m_ptsInfo(ptsInfo), m_dim(dim), m_fieldNames(fieldnames), m_pts(pts),
-          m_ptsType(ePtsFile){};
+          m_ptsType(ePtsFile) {};
 
     LIB_UTILITIES_EXPORT PtsField(
         const int dim, const std::vector<std::string> fieldnames,
@@ -85,7 +85,7 @@ public:
         [[maybe_unused]] const Array<OneD, Array<OneD, unsigned int>>
             &neighInds)
         : m_ptsInfo(NullPtsInfoMap), m_dim(dim), m_fieldNames(fieldnames),
-          m_pts(pts), m_ptsType(ePtsFile){};
+          m_pts(pts), m_ptsType(ePtsFile) {};
 
     LIB_UTILITIES_EXPORT void GetConnectivity(
         std::vector<Array<OneD, int>> &conn) const;

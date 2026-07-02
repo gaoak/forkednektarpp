@@ -109,7 +109,7 @@ void NodalTriFekete::v_CalculatePoints()
             } // end j
             continue;
         } // end symmetry6
-    }     // end npts
+    } // end npts
 
     NodalPointReorder2d();
 

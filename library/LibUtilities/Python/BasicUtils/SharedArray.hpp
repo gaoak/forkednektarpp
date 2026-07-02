@@ -105,8 +105,8 @@ public:
 
         using nonconst_t = typename std::remove_const<U>::type;
         value            = Nektar::Array<Nektar::OneD, T>(arr.shape(0),
-                                               (nonconst_t *)arr.data(),
-                                               (void *)src.ptr(), &decrement);
+                                                          (nonconst_t *)arr.data(),
+                                                          (void *)src.ptr(), &decrement);
 
         // We increase the refcount on src so that even if on the Python side we
         // go out of scope, the data will still exist in at least one reference

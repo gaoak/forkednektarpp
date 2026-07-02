@@ -75,6 +75,75 @@ public:
         return (m_maxrestart * m_LinSysMaxStorage);
     }
 
+    /**
+     * @brief Data exported from GMRES for use by the Newton hook-step solver.
+     * The data stored here correspond to the most recently completed GMRES
+     * restart block.
+     */
+    struct GMRESHookData
+    {
+        /// True if hook step data is usable.
+        bool valid = false;
+        /// Current Krylov subspace dimension, number of done Arnoldi sweeps
+        int nswp = 0;
+        /// Dimension of the system; length of each Krylov vector
+        int nGlobal = 0;
+        /// Offset to the non-Dirichlet part of the vector;
+        /// active size is nGlobal - nDir
+        int nDir = 0;
+        /// Initial residual norm beta used in || beta e_1 - H y ||_2
+        NekDouble beta = 0.0;
+
+        /// Arnoldi basis vectors V_0,...,V_m;
+        /// contains nswp + 1 vectors of length nGlobal.
+        Array<OneD, Array<OneD, NekDouble>> V;
+        /// Arnoldi Hessenberg matrix stored by columns: H[col][row].
+        /// H size is (nswp + 1) x nswp.
+        Array<OneD, Array<OneD, NekDouble>> H;
+        /// Unconstrained reduced GMRES solution y of size nswp.
+        Array<OneD, NekDouble> yNewton;
+    };
+
+    /**
+     * @brief Enable or disable export of GMRES Arnoldi data for the hook-step
+     *        nonlinear solver.
+     * @param flag If true, GMRES exports hook-step data.
+     * @return LIB_UTILITIES_EXPORT
+     */
+    LIB_UTILITIES_EXPORT void EnableHookStepExport(bool flag)
+    {
+        m_ExportHookData = flag;
+    }
+
+    /**
+     * @brief Get the Hook Data object.
+     * Check if GMRESHookData::valid before using the data.
+     *
+     * @return LIB_UTILITIES_EXPORT const&
+     */
+    LIB_UTILITIES_EXPORT const GMRESHookData &GetHookData() const
+    {
+        return m_HookData;
+    }
+
+    LIB_UTILITIES_EXPORT bool UsingLeftPrecon() const
+    {
+        return m_NekLinSysLeftPrecon;
+    }
+
+    LIB_UTILITIES_EXPORT bool UsingRightPrecon() const
+    {
+        return m_NekLinSysRightPrecon;
+    }
+
+    LIB_UTILITIES_EXPORT void ApplyRightPrecon(
+        const Array<OneD, const NekDouble> &in, Array<OneD, NekDouble> &out)
+    {
+        Array<OneD, NekDouble> tmpIn(in.size(), 0.0);
+        Vmath::Vcopy(in.size(), in, 1, tmpIn, 1);
+        m_operator.DoNekSysPrecon(tmpIn, out);
+    }
+
 protected:
     // This is maximum gmres restart iteration
     int m_maxrestart;
@@ -94,6 +163,11 @@ protected:
     bool m_NekLinSysLeftPrecon    = false;
     bool m_NekLinSysRightPrecon   = true;
     bool m_GMRESCentralDifference = false;
+
+    // True, if GMRES data needs to be exported to compute the hook step
+    bool m_ExportHookData = false;
+    // Hook step data needed to compute the hook step
+    GMRESHookData m_HookData;
 
     void v_InitObject() override;
 

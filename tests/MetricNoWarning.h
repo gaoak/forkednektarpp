@@ -45,7 +45,7 @@ namespace Nektar
 class MetricNoWarning : public Metric
 {
 public:
-    ~MetricNoWarning() override{};
+    ~MetricNoWarning() override {};
 
     static MetricSharedPtr create(TiXmlElement *metric, bool generate)
     {

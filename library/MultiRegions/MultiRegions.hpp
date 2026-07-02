@@ -148,7 +148,7 @@ struct RobinBCInfo
     {
     }
 
-    virtual ~RobinBCInfo(){};
+    virtual ~RobinBCInfo() {};
 
     int m_robinID; /// id of which edge/face is robin condition
     Array<OneD, const NekDouble> m_robinPrimitiveCoeffs;

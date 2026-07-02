@@ -201,7 +201,7 @@ public:
     static std::shared_ptr<Basis> Create(const BasisKey &bkey);
 
     /// Destructor.
-    virtual ~Basis(){};
+    virtual ~Basis() {};
 
     /// Return order of basis from the basis specification.
     inline int GetNumModes() const

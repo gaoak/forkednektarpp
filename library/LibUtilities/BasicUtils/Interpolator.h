@@ -154,10 +154,10 @@ private:
         Array<OneD, NekDouble> coords;
         NekDouble dist;
 
-        PtsPoint() : idx(-1), coords(Array<OneD, NekDouble>(3)), dist(1E30){};
+        PtsPoint() : idx(-1), coords(Array<OneD, NekDouble>(3)), dist(1E30) {};
 
         PtsPoint(int idx, Array<OneD, NekDouble> coords, NekDouble dist)
-            : idx(idx), coords(coords), dist(dist){};
+            : idx(idx), coords(coords), dist(dist) {};
 
         bool operator<(const PtsPoint &comp) const
         {

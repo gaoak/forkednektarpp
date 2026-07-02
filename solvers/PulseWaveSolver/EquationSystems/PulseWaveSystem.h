@@ -61,7 +61,7 @@ struct InterfacePoint
     InterfacePoint(const int vid, const int domain, const int elmt,
                    const int elmtVert, const int traceId, const int bcpos)
         : m_vid(vid), m_domain(domain), m_elmt(elmt), m_elmtVert(elmtVert),
-          m_traceId(traceId), m_bcPosition(bcpos){};
+          m_traceId(traceId), m_bcPosition(bcpos) {};
     int m_vid;        // Global Vid of interface point
     int m_domain;     // domain interface point belongs to
     int m_elmt;       // element id of vertex

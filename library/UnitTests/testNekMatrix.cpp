@@ -97,6 +97,26 @@ BOOST_AUTO_TEST_CASE(TestFullMatrixInversion)
     }
 }
 
+BOOST_AUTO_TEST_CASE(TestFullMatrixPseudoInversion)
+{
+    double buf[] = {1.0, 3.0, 5.0, 2.0, 4.0, 6.0};
+    NekMatrix<double> m(3, 2, buf);
+
+    m.Invert();
+
+    BOOST_CHECK_EQUAL(m.GetRows(), 2u);
+    BOOST_CHECK_EQUAL(m.GetColumns(), 3u);
+
+    double epsilon = 1.0e-10;
+    BOOST_CHECK_CLOSE(*m(0, 0), -4.0 / 3.0, epsilon);
+    BOOST_CHECK_CLOSE(*m(0, 1), -1.0 / 3.0, epsilon);
+    BOOST_CHECK_CLOSE(*m(0, 2), 2.0 / 3.0, epsilon);
+
+    BOOST_CHECK_CLOSE(*m(1, 0), 13.0 / 12.0, epsilon);
+    BOOST_CHECK_CLOSE(*m(1, 1), 1.0 / 3.0, epsilon);
+    BOOST_CHECK_CLOSE(*m(1, 2), -5.0 / 12.0, epsilon);
+}
+
 BOOST_AUTO_TEST_CASE(TestDiagonalMatrixInversion)
 {
     double buf[] = {1.0, 2.0, 3.0, 4.0};

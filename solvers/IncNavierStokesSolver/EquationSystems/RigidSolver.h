@@ -62,8 +62,8 @@ namespace Nektar
 class Newmark_BetaSolver
 {
 public:
-    Newmark_BetaSolver(){};
-    ~Newmark_BetaSolver(){};
+    Newmark_BetaSolver() {};
+    ~Newmark_BetaSolver() {};
     void SetNewmarkBeta(NekDouble beta, NekDouble gamma, NekDouble dt,
                         Array<OneD, NekDouble> M, Array<OneD, NekDouble> C,
                         Array<OneD, NekDouble> K, std::set<int> DirDoFs,
@@ -92,7 +92,7 @@ class FrameTransform
 {
 public:
     FrameTransform();
-    ~FrameTransform(){};
+    ~FrameTransform() {};
     void SetAngle(const Array<OneD, NekDouble> theta);
     void BodyToInerital(const int dim, const Array<OneD, NekDouble> &body,
                         Array<OneD, NekDouble> &inertial);

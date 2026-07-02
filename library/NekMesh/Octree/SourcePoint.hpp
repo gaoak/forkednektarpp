@@ -175,7 +175,7 @@ public:
         m_type = eRCBoundary;
     }
 
-    ~CPoint() override{};
+    ~CPoint() override {};
 
     /**
      * @brief get mesh spacing paramter
@@ -242,7 +242,7 @@ public:
         m_type = ePBoundary;
     }
 
-    ~BPoint() override{};
+    ~BPoint() override {};
 
     /**
      * @brief gets the corresponding cad information for the point
@@ -302,7 +302,7 @@ public:
         m_type = eSrcPoint;
     }
 
-    ~SrcPoint() override{};
+    ~SrcPoint() override {};
 
     /**
      * @brief get mesh spacing paramter

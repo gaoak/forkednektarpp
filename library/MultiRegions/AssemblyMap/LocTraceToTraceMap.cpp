@@ -1450,10 +1450,10 @@ void LocTraceToTraceMap::InterpLocEdgesToTrace(
                     {
                         int fbegin, fend, fsize;
                         int tbegin, tend, tsize;
-                        LibUtilities::GetEffectiveQuadRange(fromPointsKey0,
-                                                            fbegin, fend);
-                        LibUtilities::GetEffectiveQuadRange(toPointsKey0,
-                                                            tbegin, tend);
+                        LibUtilities::PointsKey::GetEffectiveQuadRange(
+                            fromPointsKey0, fbegin, fend);
+                        LibUtilities::PointsKey::GetEffectiveQuadRange(
+                            toPointsKey0, tbegin, tend);
                         fsize = fend - fbegin;
                         tsize = tend - tbegin;
                         ASSERTL0(
@@ -1571,14 +1571,14 @@ void LocTraceToTraceMap::InterpLocFacesToTrace(
                     {
                         int fbegin0, fend0, fbegin1, fend1;
                         int tbegin0, tend0, tbegin1, tend1;
-                        LibUtilities::GetEffectiveQuadRange(fromPointsKey0,
-                                                            fbegin0, fend0);
-                        LibUtilities::GetEffectiveQuadRange(toPointsKey0,
-                                                            tbegin0, tend0);
-                        LibUtilities::GetEffectiveQuadRange(fromPointsKey1,
-                                                            fbegin1, fend1);
-                        LibUtilities::GetEffectiveQuadRange(toPointsKey1,
-                                                            tbegin1, tend1);
+                        LibUtilities::PointsKey::GetEffectiveQuadRange(
+                            fromPointsKey0, fbegin0, fend0);
+                        LibUtilities::PointsKey::GetEffectiveQuadRange(
+                            toPointsKey0, tbegin0, tend0);
+                        LibUtilities::PointsKey::GetEffectiveQuadRange(
+                            fromPointsKey1, fbegin1, fend1);
+                        LibUtilities::PointsKey::GetEffectiveQuadRange(
+                            toPointsKey1, tbegin1, tend1);
                         ASSERTL0(
                             fend0 - fbegin0 == tend0 - tbegin0 &&
                                 fend1 - fbegin1 == tend1 - tbegin1,
@@ -1770,10 +1770,10 @@ void LocTraceToTraceMap::InterpLocEdgesToTraceTranspose(
                 {
                     int fbegin, fsize;
                     int tbegin, tsize;
-                    LibUtilities::GetEffectiveQuadRange(fromPointsKey0, fbegin,
-                                                        fsize);
-                    LibUtilities::GetEffectiveQuadRange(toPointsKey0, tbegin,
-                                                        tsize);
+                    LibUtilities::PointsKey::GetEffectiveQuadRange(
+                        fromPointsKey0, fbegin, fsize);
+                    LibUtilities::PointsKey::GetEffectiveQuadRange(
+                        toPointsKey0, tbegin, tsize);
                     fsize = fsize - fbegin;
                     tsize = tsize - tbegin;
                     ASSERTL0(fsize == tsize, "Quad ranges mismatch in "
@@ -1879,14 +1879,14 @@ void LocTraceToTraceMap::InterpLocFacesToTraceTranspose(
                 {
                     int fbegin0, fend0, fbegin1, fend1;
                     int tbegin0, tend0, tbegin1, tend1;
-                    LibUtilities::GetEffectiveQuadRange(fromPointsKey0, fbegin0,
-                                                        fend0);
-                    LibUtilities::GetEffectiveQuadRange(toPointsKey0, tbegin0,
-                                                        tend0);
-                    LibUtilities::GetEffectiveQuadRange(fromPointsKey1, fbegin1,
-                                                        fend1);
-                    LibUtilities::GetEffectiveQuadRange(toPointsKey1, tbegin1,
-                                                        tend1);
+                    LibUtilities::PointsKey::GetEffectiveQuadRange(
+                        fromPointsKey0, fbegin0, fend0);
+                    LibUtilities::PointsKey::GetEffectiveQuadRange(
+                        toPointsKey0, tbegin0, tend0);
+                    LibUtilities::PointsKey::GetEffectiveQuadRange(
+                        fromPointsKey1, fbegin1, fend1);
+                    LibUtilities::PointsKey::GetEffectiveQuadRange(
+                        toPointsKey1, tbegin1, tend1);
                     // overwrite end by size
                     fend0 = fend0 - fbegin0;
                     tend0 = tend0 - tbegin0;
@@ -2096,10 +2096,10 @@ void LocTraceToTraceMap::InterpTraceToLocEdges(
                 {
                     int fbegin, fend;
                     int tbegin, tend;
-                    LibUtilities::GetEffectiveQuadRange(fromPointsKey0, fbegin,
-                                                        fend);
-                    LibUtilities::GetEffectiveQuadRange(toPointsKey0, tbegin,
-                                                        tend);
+                    LibUtilities::PointsKey::GetEffectiveQuadRange(
+                        fromPointsKey0, fbegin, fend);
+                    LibUtilities::PointsKey::GetEffectiveQuadRange(
+                        toPointsKey0, tbegin, tend);
                     // overwrite fend by size
                     fend = fend - fbegin;
                     tend = tend - tbegin;
@@ -2200,14 +2200,14 @@ void LocTraceToTraceMap::InterpTraceToLocFaces(
                 {
                     int fbegin0, fend0, fbegin1, fend1;
                     int tbegin0, tend0, tbegin1, tend1;
-                    LibUtilities::GetEffectiveQuadRange(fromPointsKey0, fbegin0,
-                                                        fend0);
-                    LibUtilities::GetEffectiveQuadRange(toPointsKey0, tbegin0,
-                                                        tend0);
-                    LibUtilities::GetEffectiveQuadRange(fromPointsKey1, fbegin1,
-                                                        fend1);
-                    LibUtilities::GetEffectiveQuadRange(toPointsKey1, tbegin1,
-                                                        tend1);
+                    LibUtilities::PointsKey::GetEffectiveQuadRange(
+                        fromPointsKey0, fbegin0, fend0);
+                    LibUtilities::PointsKey::GetEffectiveQuadRange(
+                        toPointsKey0, tbegin0, tend0);
+                    LibUtilities::PointsKey::GetEffectiveQuadRange(
+                        fromPointsKey1, fbegin1, fend1);
+                    LibUtilities::PointsKey::GetEffectiveQuadRange(
+                        toPointsKey1, tbegin1, tend1);
                     // overwrite end by size
                     fend0 = fend0 - fbegin0;
                     tend0 = tend0 - tbegin0;

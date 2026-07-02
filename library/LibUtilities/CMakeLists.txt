@@ -219,6 +219,9 @@ SET(LinearAlgebraHeaders
 ./LinearAlgebra/NekMatrix.hpp
 ./LinearAlgebra/NekNonlinSysIter.h
 ./LinearAlgebra/NekNonlinSysIterNewton.h
+./LinearAlgebra/NekNonlinSysIterNewtonHookStep.h
+./LinearAlgebra/NekNonlinSysIterNewtonTrustRegion.h
+./LinearAlgebra/NekNonlinSysIterNewtonBacktrack.h
 ./LinearAlgebra/NekPoint.hpp
 ./LinearAlgebra/NekSys.h
 ./LinearAlgebra/NekTypeDefs.hpp
@@ -253,6 +256,9 @@ SET(LinearAlgebraSources
 ./LinearAlgebra/NekLinSysIterEvsDirect.cpp
 ./LinearAlgebra/NekNonlinSysIter.cpp
 ./LinearAlgebra/NekNonlinSysIterNewton.cpp
+./LinearAlgebra/NekNonlinSysIterNewtonHookStep.cpp
+./LinearAlgebra/NekNonlinSysIterNewtonTrustRegion.cpp
+./LinearAlgebra/NekNonlinSysIterNewtonBacktrack.cpp
 ./LinearAlgebra/NekSys.cpp
 ./LinearAlgebra/NekVector.cpp
 ./LinearAlgebra/ScaledMatrix.cpp

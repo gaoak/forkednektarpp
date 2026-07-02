@@ -47,7 +47,7 @@ namespace Nektar::FieldUtils
 class ProcessForceDecompose : public ProcessModule
 {
 public:
-    ProcessForceDecompose(){};
+    ProcessForceDecompose() {};
     ProcessForceDecompose(FieldSharedPtr f);
 
 protected:

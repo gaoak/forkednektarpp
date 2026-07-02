@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File:  ForcingIncNSSyntheticEddy.h
+// File: NekNonlinSysIterNewtonBacktrack.h
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -10,6 +10,7 @@
 // Department of Aeronautics, Imperial College London (UK), and Scientific
 // Computing and Imaging Institute, University of Utah (USA).
 //
+// License for the specific language governing rights and limitations under
 // Permission is hereby granted, free of charge, to any person obtaining a
 // copy of this software and associated documentation files (the "Software"),
 // to deal in the Software without restriction, including without limitation
@@ -28,63 +29,62 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Derived base class - Synthetic turbulence forcing for the
-//              Incompressible solver
+// Description: NekNonlinSysIterNewtonBacktrack header
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef NEKTAR_SOLVERUTILS_FORCINGINCNSSYNTHETICEDDY
-#define NEKTAR_SOLVERUTILS_FORCINGINCNSSYNTHETICEDDY
+#ifndef NEKTAR_LIB_UTILITIES_LINEAR_ALGEBRA_NEK_NONLINSYS_NEWTON_BACKTRACK_H
+#define NEKTAR_LIB_UTILITIES_LINEAR_ALGEBRA_NEK_NONLINSYS_NEWTON_BACKTRACK_H
 
-#include <SolverUtils/Forcing/Forcing.h>
-#include <SolverUtils/Forcing/ForcingSyntheticEddy.h>
-#include <string>
+#include <LibUtilities/LinearAlgebra/NekNonlinSysIterNewton.h>
 
-namespace Nektar::SolverUtils
+namespace Nektar::LibUtilities
 {
-class ForcingIncNSSyntheticEddy
 
-    : virtual public SolverUtils::Forcing,
-      virtual public SolverUtils::ForcingSyntheticEddy
+class NekNonlinSysIterNewtonBacktrack : public NekNonlinSysIterNewton
 {
 public:
-    friend class MemoryManager<ForcingIncNSSyntheticEddy>;
+    friend class MemoryManager<NekNonlinSysIterNewtonBacktrack>;
 
-    /// Creates an instance of this class
-    static ForcingSharedPtr create(
+    LIB_UTILITIES_EXPORT static NekNonlinSysIterSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr &pSession,
-        const std::weak_ptr<EquationSystem> &pEquation,
-        const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-        const unsigned int &pNumForcingFields, const TiXmlElement *pForce)
+        const LibUtilities::CommSharedPtr &vComm, const int nDimen,
+        const NekSysKey &pKey)
     {
-        ForcingSharedPtr p =
-            MemoryManager<ForcingIncNSSyntheticEddy>::AllocateSharedPtr(
-                pSession, pEquation);
-        p->InitObject(pFields, pNumForcingFields, pForce);
+        NekNonlinSysIterSharedPtr p =
+            MemoryManager<NekNonlinSysIterNewtonBacktrack>::AllocateSharedPtr(
+                pSession, vComm, nDimen, pKey);
+        p->InitObject();
         return p;
     }
 
-    /// Name of the class
     static std::string className;
 
-protected:
-    // Apply forcing term
-    void v_Apply(const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-                 const Array<OneD, Array<OneD, NekDouble>> &inarray,
-                 Array<OneD, Array<OneD, NekDouble>> &outarray,
-                 const NekDouble &time) override;
-
-    /// Calculate Forcing
-    void CalculateForcing(
-        const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields);
-
-private:
-    ForcingIncNSSyntheticEddy(
+    LIB_UTILITIES_EXPORT NekNonlinSysIterNewtonBacktrack(
         const LibUtilities::SessionReaderSharedPtr &pSession,
-        const std::weak_ptr<EquationSystem> &pEquation);
-    ~ForcingIncNSSyntheticEddy(void) override {};
+        const LibUtilities::CommSharedPtr &vComm, const int nDimen,
+        const NekSysKey &pKey);
+
+    LIB_UTILITIES_EXPORT ~NekNonlinSysIterNewtonBacktrack() override = default;
+
+protected:
+    NekDouble m_newtonScaleInit       = 1.0e-2;
+    NekDouble m_newtonScaleMax        = 1.0e-1;
+    NekDouble m_newtonScaleMin        = 1.0e-6;
+    NekDouble m_newtonScaleGrowFactor = 2.0;
+    NekDouble m_backtrackFactor       = 0.5;
+    int m_maxBacktrackSteps           = 4;
+    NekDouble m_acceptReductionEta    = 1.0e-4;
+
+    Array<OneD, NekDouble> m_solutionTrial;
+    Array<OneD, NekDouble> m_residualTrial;
+
+    void v_InitObject() override;
+
+    bool v_ApplyNewtonUpdate(const int ntotal,
+                             const NekDouble oldResNorm) override;
 };
 
-} // namespace Nektar::SolverUtils
+} // namespace Nektar::LibUtilities
 
 #endif

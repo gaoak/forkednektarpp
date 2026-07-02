@@ -319,6 +319,21 @@ DNekMatSharedPtr StdExpansion::CreateGeneralMatrix(const StdMatrixKey &mkey)
             }
         }
         break;
+        case eInvBwdTrans:
+        {
+            // First, get BwdTrans matrix
+            StdRegions::StdMatrixKey matkey(StdRegions::eBwdTrans,
+                                            this->DetShapeType(), *this);
+            DNekMatSharedPtr MatBwdTrans = GetStdMatrix(matkey);
+
+            int nq = GetTotPoints();
+            returnval =
+                MemoryManager<DNekMat>::AllocateSharedPtr(m_ncoeffs, nq);
+            // Then, copy to returnval and Invert it:
+            *returnval = *MatBwdTrans;
+            returnval->Invert();
+        }
+        break;
         case eIProductWRTBase:
         {
             int nq = GetTotPoints();
@@ -338,6 +353,16 @@ DNekMatSharedPtr StdExpansion::CreateGeneralMatrix(const StdMatrixKey &mkey)
                 Vmath::Vcopy(m_ncoeffs, tmpout.data(), 1,
                              returnval->GetRawPtr() + i * m_ncoeffs, 1);
             }
+        }
+        break;
+        case eInvIProductWRTBase:
+        {
+            StdRegions::StdMatrixKey matkey(StdRegions::eInvBwdTrans,
+                                            this->DetShapeType(), *this);
+            DNekMatSharedPtr MatInvBwdTrans = GetStdMatrix(matkey);
+
+            returnval = MemoryManager<DNekMat>::AllocateSharedPtr(
+                Transpose(*MatInvBwdTrans));
         }
         break;
         case eIProductWRTDerivBase0:

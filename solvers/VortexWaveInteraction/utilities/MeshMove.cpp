@@ -1457,7 +1457,7 @@ int main(int argc, char *argv[])
                         }
                     }
                 } // close edges
-            }     // close verts h
+            } // close verts h
 
             for (int s = 0; s < np_lay; s++)
             {
@@ -1969,7 +1969,7 @@ int main(int argc, char *argv[])
         }
         */
 
-    }    // move_norm bool
+    } // move_norm bool
     else // move vertically
     {
         MoveLayersvertically(nlays, nvertl, cntlow, cntup, lay_Vids, x_c, y_c,

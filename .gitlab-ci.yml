@@ -255,10 +255,10 @@ include:
 
 .clang-format-template: &clang-format-template
   <<: *execution-conditions
-  image: debian:12-slim
+  image: debian:13-slim
   stage: quality-checks
   variables:
-    CL_F_VER: 16
+    CL_F_VER: 18
     TARGETS: library solvers templates tests utilities
   before_script:
     - apt-get update && apt-get install -y clang-format-$CL_F_VER git-core
@@ -273,8 +273,8 @@ include:
   stage: quality-checks
   variables:
     NUM_CPUS: 12
-    CL_T_VER: 16
-    CL_F_VER: 16
+    CL_T_VER: 18
+    CL_F_VER: 18
     TARGETS: library solvers templates tests utilities
   before_script:
     - git config --global --add safe.directory "$CI_PROJECT_DIR"
@@ -517,10 +517,10 @@ debian-bookworm-clang-format:
   needs: []
 
 ## CLANG-TIDY
-debian-bookworm-clang-tidy:
+debian-trixie-clang-tidy:
   <<: *clang-tidy-template
-  image: $CI_REGISTRY_IMAGE:env-debian-bookworm-full
-  needs: ["debian-bookworm-full-build-env"]
+  image: $CI_REGISTRY_IMAGE:env-debian-trixie-full
+  needs: ["debian-trixie-full-build-env"]
 
 debian-bookworm-header-format:
   <<: *header-format-template

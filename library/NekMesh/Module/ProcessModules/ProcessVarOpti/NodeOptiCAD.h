@@ -53,7 +53,7 @@ public:
     {
     }
 
-    ~NodeOpti1D3D() override{};
+    ~NodeOpti1D3D() override {};
 
     void Optimise() override;
 
@@ -82,7 +82,7 @@ public:
     {
     }
 
-    ~NodeOpti2D3D() override{};
+    ~NodeOpti2D3D() override {};
 
     void Optimise() override;
 
@@ -112,7 +112,7 @@ public:
         m_bd = curve->GetBounds();
     }
 
-    ~NodeOpti1D2D() override{};
+    ~NodeOpti1D2D() override {};
 
     void Optimise() override;
 

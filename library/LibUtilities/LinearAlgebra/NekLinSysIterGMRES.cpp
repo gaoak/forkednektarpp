@@ -223,6 +223,9 @@ NekDouble NekLinSysIterGMRES::DoGmresRestart(
     const Array<OneD, const NekDouble> &pInput, Array<OneD, NekDouble> &pOutput,
     const int nDir)
 {
+    // Hookstep data exposure
+    m_HookData.valid = false;
+
     int nNonDir = nGlobal - nDir;
 
     // Allocate array storage of coefficients
@@ -317,8 +320,9 @@ NekDouble NekLinSysIterGMRES::DoGmresRestart(
     }
 
     Vmath::Smul(nNonDir, sqrt(m_prec_factor), r0 + nDir, 1, tmp = r0 + nDir, 1);
-    eps    = eps * m_prec_factor;
-    eta[0] = sqrt(eps);
+    eps             = eps * m_prec_factor;
+    eta[0]          = sqrt(eps);
+    NekDouble beta0 = eta[0]; // Hookstep export data before change
 
     // Give an order for the entries in Hessenburg matrix
     for (int nd = 0; nd < m_LinSysMaxStorage; ++nd)
@@ -424,6 +428,34 @@ NekDouble NekLinSysIterGMRES::DoGmresRestart(
     }
 
     DoBackward(nswp, m_Upper, eta, y_total);
+
+    // Hookstep data exposure
+    if (m_ExportHookData)
+    {
+        m_HookData.valid   = true;
+        m_HookData.nswp    = nswp;
+        m_HookData.nGlobal = nGlobal;
+        m_HookData.nDir    = nDir;
+        m_HookData.beta    = beta0;
+
+        m_HookData.V = Array<OneD, Array<OneD, NekDouble>>(nswp + 1);
+        for (int i = 0; i < nswp + 1; ++i)
+        {
+            m_HookData.V[i] = Array<OneD, NekDouble>(nGlobal, 0.0);
+            Vmath::Vcopy(nGlobal, m_V_total[i], 1, m_HookData.V[i], 1);
+        }
+
+        m_HookData.H = Array<OneD, Array<OneD, NekDouble>>(nswp);
+        for (int i = 0; i < nswp; ++i)
+        {
+            m_HookData.H[i] = Array<OneD, NekDouble>(nswp + 1, 0.0);
+            Vmath::Vcopy(nswp + 1, m_hes[i], 1, m_HookData.H[i], 1);
+        }
+
+        m_HookData.yNewton = Array<OneD, NekDouble>(nswp, 0.0);
+        Vmath::Vcopy(nswp, y_total, 1, m_HookData.yNewton, 1);
+    }
+    // Hookstep stuf ends here
 
     // Calculate output V_total * y_total or Z_total * y_total (flexible).
     auto &Z_total = (m_flexible) ? m_Z_total : m_V_total;

@@ -194,7 +194,7 @@ public:
         m_x = m_y = m_z = -99999;
     }
 
-    ~IsoVertex(){};
+    ~IsoVertex() {};
 
     int get_iso_id()
     {
@@ -253,7 +253,7 @@ protected:
     }
 
 protected:
-    ProcessIsoContour(){};
+    ProcessIsoContour() {};
     void ResetFieldPts(std::vector<IsoSharedPtr> &iso);
     void SetupIsoFromFieldPts(std::vector<IsoSharedPtr> &isovec);
 

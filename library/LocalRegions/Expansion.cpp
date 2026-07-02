@@ -1131,29 +1131,29 @@ void GetTraceQuadRange(const LibUtilities::ShapeType shapeType,
     {
         q_begin.resize(1);
         q_end.resize(1);
-        LibUtilities::GetEffectiveQuadRange(bkeys[0].GetPointsKey(), q_begin[0],
-                                            q_end[0]);
+        LibUtilities::PointsKey::GetEffectiveQuadRange(bkeys[0].GetPointsKey(),
+                                                       q_begin[0], q_end[0]);
         return;
     }
     else if (DIM == 2)
     {
         q_begin.resize(2);
         q_end.resize(2);
-        LibUtilities::GetEffectiveQuadRange(bkeys[0].GetPointsKey(), q_begin[0],
-                                            q_end[0]);
-        LibUtilities::GetEffectiveQuadRange(bkeys[1].GetPointsKey(), q_begin[1],
-                                            q_end[1]);
+        LibUtilities::PointsKey::GetEffectiveQuadRange(bkeys[0].GetPointsKey(),
+                                                       q_begin[0], q_end[0]);
+        LibUtilities::PointsKey::GetEffectiveQuadRange(bkeys[1].GetPointsKey(),
+                                                       q_begin[1], q_end[1]);
     }
     else if (DIM == 3)
     {
         q_begin.resize(3);
         q_end.resize(3);
-        LibUtilities::GetEffectiveQuadRange(bkeys[0].GetPointsKey(), q_begin[0],
-                                            q_end[0]);
-        LibUtilities::GetEffectiveQuadRange(bkeys[1].GetPointsKey(), q_begin[1],
-                                            q_end[1]);
-        LibUtilities::GetEffectiveQuadRange(bkeys[2].GetPointsKey(), q_begin[2],
-                                            q_end[2]);
+        LibUtilities::PointsKey::GetEffectiveQuadRange(bkeys[0].GetPointsKey(),
+                                                       q_begin[0], q_end[0]);
+        LibUtilities::PointsKey::GetEffectiveQuadRange(bkeys[1].GetPointsKey(),
+                                                       q_begin[1], q_end[1]);
+        LibUtilities::PointsKey::GetEffectiveQuadRange(bkeys[2].GetPointsKey(),
+                                                       q_begin[2], q_end[2]);
     }
 
     switch (shapeType)

@@ -64,7 +64,7 @@ public:
     {
     }
 
-    ~CADVertCFI(){};
+    ~CADVertCFI() {};
 
     void Initialise(int i, cfi::Point *in, NekDouble s);
 

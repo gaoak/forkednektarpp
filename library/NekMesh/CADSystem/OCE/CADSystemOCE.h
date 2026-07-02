@@ -57,7 +57,7 @@ public:
     CADSystemOCE(std::string name) : CADSystem(name, "oce")
     {
     }
-    ~CADSystemOCE() override{};
+    ~CADSystemOCE() override {};
 
     bool LoadCAD() override;
 

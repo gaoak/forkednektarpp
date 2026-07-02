@@ -56,9 +56,9 @@ public:
 
     static std::string key;
 
-    CADSurfCFI(){};
+    CADSurfCFI() {};
 
-    ~CADSurfCFI(){};
+    ~CADSurfCFI() {};
 
     void Initialise(int i, cfi::Face *in, NekDouble s);
     void SetScaling(NekDouble i)

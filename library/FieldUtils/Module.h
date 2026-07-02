@@ -239,7 +239,7 @@ public:
     FieldSharedPtr m_f;
 
 protected:
-    Module(){};
+    Module() {};
 
     virtual void v_Process([[maybe_unused]] po::variables_map &vm)
     {
@@ -300,7 +300,7 @@ typedef std::shared_ptr<InputModule> InputModuleSharedPtr;
 class ProcessModule : public Module
 {
 public:
-    ProcessModule(){};
+    ProcessModule() {};
     ProcessModule(FieldSharedPtr p_f) : Module(p_f)
     {
     }

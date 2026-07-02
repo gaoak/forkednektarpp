@@ -39,9 +39,13 @@
 
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/LibUtilitiesDeclspec.h>
+#include <LibUtilities/LinearAlgebra/Blas.hpp>
 #include <LibUtilities/LinearAlgebra/Lapack.hpp>
+#include <algorithm>
+#include <cmath>
 #include <limits>
 #include <tuple>
+#include <type_traits>
 
 namespace Nektar
 {
@@ -153,6 +157,140 @@ struct LIB_UTILITIES_EXPORT FullMatrixFuncs
             std::string message = "ERROR: Element u_" + std::to_string(info) +
                                   std::to_string(info) + " is 0 from dgetri";
             ASSERTL0(false, message.c_str());
+        }
+    }
+
+    // add a method to do the pseudo inverse of a full matrix, using SVD routine
+    // from Lapack.
+    template <typename DataType>
+    static void PseudoInverse(unsigned int rows, unsigned int columns,
+                              Array<OneD, DataType> &data)
+    {
+        int m      = rows;
+        int n      = columns;
+        int lda    = m;
+        int ldu    = m;
+        int ldvt   = n;
+        int info   = 0;
+        int min_mn = std::min(m, n);
+        // Copy input data since SVD destroys it
+        Array<OneD, DataType> a(data);
+        // SVD outputs
+        Array<OneD, DataType> s(min_mn, 0.0);
+        Array<OneD, DataType> u(ldu * m, 0.0);
+        Array<OneD, DataType> vt(ldvt * n, 0.0);
+        // Workspace query
+        DataType wkopt = 0.0;
+        int lwork      = -1;
+        // SVD job: all singular vectors
+        char jobu  = 'A';
+        char jobvt = 'A';
+        //
+        // DGESVD computes the singular value decomposition (SVD) of a real
+        // M-by-N matrix A, optionally computing the left and/or right singular
+        // vectors. The SVD is written
+        //
+        //      A = U * SIGMA * transpose(V)
+        //
+        // where SIGMA is an M-by-N matrix which is zero except for its
+        // min(m,n) diagonal elements, U is an M-by-M orthogonal matrix, and
+        // V is an N-by-N orthogonal matrix.  The diagonal elements of SIGMA
+        // are the singular values of A; they are real and non-negative, and
+        // are returned in descending order.  The first min(m,n) columns of
+        // U and V are the left and right singular vectors of A.
+        //
+        // Note that the routine returns V**T, not V.
+        //
+        if (sizeof(DataType) == sizeof(NekDouble))
+        {
+            Lapack::Dgesvd(jobu, jobvt, m, n, (double *)a.data(), lda,
+                           (double *)s.data(), (double *)u.data(), ldu,
+                           (double *)vt.data(), ldvt, (double *)&wkopt, lwork,
+                           info);
+        }
+        else if (sizeof(DataType) == sizeof(NekSingle))
+        {
+            Lapack::Sgesvd(jobu, jobvt, m, n, (float *)a.data(), lda,
+                           (float *)s.data(), (float *)u.data(), ldu,
+                           (float *)vt.data(), ldvt, (float *)&wkopt, lwork,
+                           info);
+        }
+        else
+        {
+            ASSERTL0(
+                false,
+                "PseudoInverse DataType is neither NekDouble nor NekSingle");
+        }
+        lwork = static_cast<int>(wkopt);
+        Array<OneD, DataType> work(lwork);
+        if (sizeof(DataType) == sizeof(NekDouble))
+        {
+            Lapack::Dgesvd(jobu, jobvt, m, n, (double *)a.data(), lda,
+                           (double *)s.data(), (double *)u.data(), ldu,
+                           (double *)vt.data(), ldvt, (double *)work.data(),
+                           lwork, info);
+        }
+        else if (sizeof(DataType) == sizeof(NekSingle))
+        {
+            Lapack::Sgesvd(jobu, jobvt, m, n, (float *)a.data(), lda,
+                           (float *)s.data(), (float *)u.data(), ldu,
+                           (float *)vt.data(), ldvt, (float *)work.data(),
+                           lwork, info);
+        }
+        if (info < 0)
+        {
+            std::string message = "ERROR: The " + std::to_string(-info) +
+                                  "th parameter had an illegal value for gesvd";
+            ASSERTL0(false, message.c_str());
+        }
+        else if (info > 0)
+        {
+            std::string message = "ERROR: SVD did not converge in gesvd";
+            ASSERTL0(false, message.c_str());
+        }
+        // Compute pseudo-inverse: A^+ = V * S^+ * U^T
+        // S^+ is diagonal with 1/s_i for s_i > tol, 0 otherwise
+        DataType tol = std::numeric_limits<DataType>::epsilon() *
+                       std::max(m, n) * std::abs(s[0]);
+        Array<OneD, DataType> sinv(min_mn, 0.0);
+        for (int i = 0; i < min_mn; ++i)
+        {
+            if (std::abs(s[i]) > tol)
+            {
+                sinv[i] = 1.0 / s[i];
+            }
+            else
+            {
+                sinv[i] = 0.0;
+            }
+        }
+        // temp = S^+ * U^T (size min_mn x m)
+        Array<OneD, DataType> temp(min_mn * m, 0.0);
+        // scale each row of U^T by sinv
+        for (int i = 0; i < min_mn; ++i)
+        {
+            for (int j = 0; j < m; ++j)
+            {
+                temp[i + j * min_mn] = sinv[i] * u[j + i * ldu];
+            }
+        }
+        // Use BLAS GEMM: data = V (n x min_mn) * temp (min_mn x m)
+        data           = Array<OneD, DataType>(n * m, 0.0);
+        char transa    = 'T';
+        char transb    = 'N';
+        DataType alpha = 1.0;
+        DataType beta  = 0.0;
+        if (sizeof(DataType) == sizeof(NekDouble))
+        {
+            Blas::Gemm(transa, transb, n, m, min_mn, alpha, (double *)vt.data(),
+                       ldvt, (double *)temp.data(), min_mn, beta,
+                       (double *)data.data(), n);
+        }
+        else if (sizeof(DataType) == sizeof(NekSingle))
+        {
+            Blas::Gemm(transa, transb, n, m, min_mn, (float)alpha,
+                       (float *)vt.data(), ldvt, (float *)temp.data(), min_mn,
+                       (float)beta, (float *)data.data(), n);
         }
     }
 

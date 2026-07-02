@@ -797,16 +797,26 @@ void NekMatrix<DataType, StandardMatrixTag>::EigenSolve(
 template <typename DataType>
 void NekMatrix<DataType, StandardMatrixTag>::Invert()
 {
-    ASSERTL0(this->GetRows() == this->GetColumns(),
-             "Only square matrices can be inverted.");
     ASSERTL0(this->GetTransposeFlag() == 'N',
              "Only untransposed matrices may be inverted.");
 
     switch (this->GetType())
     {
         case eFULL:
-            FullMatrixFuncs::Invert(this->GetRows(), this->GetColumns(),
-                                    this->GetData(), this->GetTransposeFlag());
+            if (this->GetRows() == this->GetColumns())
+            {
+                FullMatrixFuncs::Invert(this->GetRows(), this->GetColumns(),
+                                        this->GetData(),
+                                        this->GetTransposeFlag());
+            }
+            else
+            {
+                FullMatrixFuncs::PseudoInverse(
+                    this->GetRows(), this->GetColumns(), this->GetData());
+                // the matrix is already transposed, so update the row and
+                // column indices this->v_Transpose();
+                this->Resize(this->GetColumns(), this->GetRows());
+            }
             break;
         case eDIAGONAL:
             DiagonalMatrixFuncs::Invert(this->GetRows(), this->GetColumns(),

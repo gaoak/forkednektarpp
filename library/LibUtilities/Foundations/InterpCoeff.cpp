@@ -83,7 +83,7 @@ void InterpCoeff2D(const BasisKey &fbasis0, const BasisKey &fbasis1,
 
     Array<OneD, NekDouble> wsp(tnm1 * fnm0);
 
-    if (fbasis1.GetBasisType() == tbasis1.GetBasisType())
+    if (fbasis1.GetBasisType() == tbasis1.GetBasisType() && fnm1 == tnm1)
     {
         Vmath::Vcopy(fnm0 * tnm1, from, 1, wsp.data(), 1);
     }
@@ -96,7 +96,7 @@ void InterpCoeff2D(const BasisKey &fbasis0, const BasisKey &fbasis1,
                     ft1->GetPtr().data(), tnm1, 0.0, wsp.data(), fnm0);
     }
 
-    if (fbasis0.GetBasisType() == tbasis0.GetBasisType())
+    if (fbasis0.GetBasisType() == tbasis0.GetBasisType() && fnm0 == tnm0)
     {
         Vmath::Vcopy(tnm0 * tnm1, wsp.data(), 1, to, 1);
     }

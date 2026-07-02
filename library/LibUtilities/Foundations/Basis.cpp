@@ -116,38 +116,98 @@ void Basis::Initialize()
 
 /** \brief Calculate the interpolation Matrix for coefficient from
  *  one base (m_basisKey) to another (tbasis0)
+ *  In the new version, we do not enforce the interpolation matrix to
+ *  be square. The output dimension will be determined by tBasis and
+ *  input dimension will be determined by m_basisKey.
+ *  - If tBasis.GetNumModes() > m_basisKey.GetNumModes(), the interpolation
+ * matrix will be $B^{(l-1,l)T}_f B^{(-l)T}_t$, using tBasis.GetNumModes() as
+ * basis points.
+ *  - If tBasis.GetNumModes() <= m_basisKey.GetNumModes(), the interpolation
+ * matrix will be $B^{(-l)}_f B^{(l,l-1)}_t$, using m_basisKey.GetNumModes() as
+ * basis points. which is the same as the old version.
  */
 std::shared_ptr<NekMatrix<NekDouble>> Basis::CalculateInterpMatrix(
     const BasisKey &tbasis0)
 {
-    size_t dim = m_basisKey.GetNumModes();
-    const PointsKey pkey(dim, LibUtilities::eGaussLobattoLegendre);
-    BasisKey fbkey(m_basisKey.GetBasisType(), dim, pkey);
-    BasisKey tbkey(tbasis0.GetBasisType(), dim, pkey);
+    // Get the number of modes of the target basis
+    size_t tdim = tbasis0.GetNumModes();
+    // Get the number of modes of the source basis
+    size_t fdim = m_basisKey.GetNumModes();
+    if (tdim < fdim)
+    {
+        size_t dim = fdim;
+        const PointsKey pkey(dim, LibUtilities::eGaussLobattoLegendre);
+        BasisKey fbkey(m_basisKey.GetBasisType(), fdim, pkey);
+        BasisKey tbkey(tbasis0.GetBasisType(), tdim, pkey);
 
-    // "Constructur" of the basis
-    BasisSharedPtr fbasis = BasisManager()[fbkey];
-    BasisSharedPtr tbasis = BasisManager()[tbkey];
+        // "Constructur" of the basis
+        BasisSharedPtr fbasis = BasisManager()[fbkey];
+        BasisSharedPtr tbasis = BasisManager()[tbkey];
 
-    // Get B Matrices
-    Array<OneD, NekDouble> fB_data = fbasis->GetBdata();
-    Array<OneD, NekDouble> tB_data = tbasis->GetBdata();
+        // Get B Matrices
+        Array<OneD, NekDouble> fB_data = fbasis->GetBdata();
+        Array<OneD, NekDouble> tB_data = tbasis->GetBdata();
 
-    // Convert to a NekMatrix
-    NekMatrix<NekDouble> fB(dim, dim, fB_data);
-    NekMatrix<NekDouble> tB(dim, dim, tB_data);
+        // Convert to a NekMatrix
+        NekMatrix<NekDouble> fB(fdim, dim, fB_data);
+        NekMatrix<NekDouble> tB(dim, tdim, tB_data);
 
-    // Invert the "to" matrix: tu = tB^(-1)*fB fu = ftB fu
-    tB.Invert();
+        // Invert the "from" matrix
+        fB.Invert();
 
-    // Compute transformation matrix
-    Array<OneD, NekDouble> zero1D(dim * dim, 0.0);
-    std::shared_ptr<NekMatrix<NekDouble>> ftB(
-        MemoryManager<NekMatrix<NekDouble>>::AllocateSharedPtr(dim, dim,
-                                                               zero1D));
-    (*ftB) = tB * fB;
+        // Compute transformation matrix
+        Array<OneD, NekDouble> zero1D(tdim * fdim, 0.0);
+        std::shared_ptr<NekMatrix<NekDouble>> ftB(
+            MemoryManager<NekMatrix<NekDouble>>::AllocateSharedPtr(fdim, tdim,
+                                                                   zero1D));
+        // tu := tB^T * fB^(-1)^T  fu = ftB fu
+        (*ftB) = fB * tB;
+        // this operation will not acturally do the transpose, just set the
+        // transpose flag to 'T' ftB->Transpose(); we need to do the transpose
+        // manually
+        std::shared_ptr<NekMatrix<NekDouble>> ftB_T(
+            MemoryManager<NekMatrix<NekDouble>>::AllocateSharedPtr(tdim, fdim,
+                                                                   0.0));
+        for (size_t i = 0; i < tdim; ++i)
+        {
+            for (size_t j = 0; j < fdim; ++j)
+            {
+                (*ftB_T)(i, j) = (*ftB)(j, i);
+            }
+        }
+        return ftB_T;
+    }
+    else // original version
+    {
+        size_t dim = tdim;
+        const PointsKey pkey(dim, LibUtilities::eGaussLobattoLegendre);
+        BasisKey fbkey(m_basisKey.GetBasisType(), fdim, pkey);
+        BasisKey tbkey(tbasis0.GetBasisType(), tdim, pkey);
 
-    return ftB;
+        // "Constructur" of the basis
+        BasisSharedPtr fbasis = BasisManager()[fbkey];
+        BasisSharedPtr tbasis = BasisManager()[tbkey];
+
+        // Get B Matrices
+        Array<OneD, NekDouble> fB_data = fbasis->GetBdata();
+        Array<OneD, NekDouble> tB_data = tbasis->GetBdata();
+
+        // Convert to a NekMatrix
+        NekMatrix<NekDouble> fB(dim, fdim, fB_data);
+        NekMatrix<NekDouble> tB(dim, tdim, tB_data);
+
+        // Invert the "to" matrix: tu := tB^(-1)*fB fu = ftB fu
+        tB.Invert();
+
+        // Compute transformation matrix
+        Array<OneD, NekDouble> zero1D(tdim * fdim, 0.0);
+        std::shared_ptr<NekMatrix<NekDouble>> ftB(
+            MemoryManager<NekMatrix<NekDouble>>::AllocateSharedPtr(tdim, fdim,
+                                                                   zero1D));
+        (*ftB) = tB * fB;
+
+        return ftB;
+    }
 }
 
 // Method used to generate appropriate basis

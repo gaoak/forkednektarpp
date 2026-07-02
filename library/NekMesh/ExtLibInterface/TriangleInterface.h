@@ -62,7 +62,7 @@ public:
     /**
      * @brief default constructor
      */
-    TriangleInterface(){};
+    TriangleInterface() {};
 
     /**
      * @brief assign meshing paramters

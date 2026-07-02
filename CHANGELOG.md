@@ -48,8 +48,13 @@ v5.10.0
 - Fix Arpack, Cwipi, GSMPI, Lapack, LST, Metis, OCE, TetGen, Triangle, TinyXML, and Zlib compilation for CMake 4.0 and above (!2559)
 - Enable HDF5 by default (!2163)
 - Add the ApplyNewtonUpdate method to the NekNonlinSysIterNewton the derived Newton implementations can use (!2551)
+- Add Newton globalisation via the Hook step approach using GMRES information with fallback and oportunistic explore (!2554)
+- Add Neton globalisation via linesearch (Backtracking) with a trust region concept and a heuristic residuum decrease model
+- Add Newton iteration with globalisation via linesearch and Armijo suficiend residual decrease (!2552) 
 - Add new interfaces in SimdLib to support interleaving/deinterleaving on unaligned inputs, and also variable-length virtual SIMD type (!2565)
 - Fix search for Boost 1.89 and above (!2567)
+- Add tests for different Newton method globalisation techniques (!2576)
+- Add pseudo inverse feature to Nektar matrix; introduce the pseudo inverse of BwdTrans matrix and allow interpolation between any coefficient spaces (!2569)
 
 **IncNavierStokesSolver**
 - Added an option to process Reynolds Stress fields at a higher polynomial order (!2303)
@@ -72,6 +77,9 @@ v5.10.0
 
 **Documentation**
 - Update mailing list URL to point to new mailing list server (!2541)
+
+**Miscellaneous**
+-  Update to clang-format-18 and clang-tidy-18 (!2587)
 
 v5.9.0
 ------
@@ -185,6 +193,8 @@ v5.8.0
   
 **Miscellaneous**
 - Added LinMeshGraph executable for splitting meshes using user specified splits (!1888) 
+- Deprecate use of TimeIntegrationMethod in SolverInfo (!2059)
+
 **Python**
 - Transition bindings to use pybind11 (!1950)
 
@@ -194,9 +204,6 @@ v5.8.0
 **PulseWaveSolver**
 - Added ability to output history points (and other filters) (!2000)
 
-**Miscellaneous**
-- Deprecate use of TimeIntegrationMethod in SolverInfo (!2059)
-	
 v5.7.0
 -----
 **Library**
@@ -406,6 +413,7 @@ v5.5.0
 **Documentation**
 - Update instructions for VS2022 (!1714)
 - Update ADRSolver user guide (!1730)
+- Add entry on Newton methods (!2577)
 
 **ShallowWaterSolver**
 - Reduce memory footprint of the Peregrine solver(!1680)

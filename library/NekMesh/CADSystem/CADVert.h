@@ -70,7 +70,7 @@ public:
         m_type = CADType::eVert;
     }
 
-    ~CADVert() override{};
+    ~CADVert() override {};
 
     /**
      * @brief Get x,y,z location of the vertex

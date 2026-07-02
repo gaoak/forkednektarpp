@@ -51,19 +51,19 @@ string NekNonlinSysIterNewton::className =
 
 NekNonlinSysIterNewton::NekNonlinSysIterNewton(
     const LibUtilities::SessionReaderSharedPtr &pSession,
-    const LibUtilities::CommSharedPtr &vRowComm, const int nscale,
+    const LibUtilities::CommSharedPtr &vRowComm, const int nDimen,
     const NekSysKey &pKey)
-    : NekNonlinSysIter(pSession, vRowComm, nscale, pKey)
+    : NekNonlinSysIter(pSession, vRowComm, nDimen, pKey)
 {
     int inexactNewtonForcing = 0;
     pSession->LoadParameter("InexactNewtonForcing", inexactNewtonForcing, 0);
-    m_InexactNewtonForcing = (bool)inexactNewtonForcing;
-    pSession->LoadParameter("ForcingEtaInit", m_ForcingEtaInit, 1.0e-2);
-    pSession->LoadParameter("ForcingEtaMin", m_ForcingEtaMin,
+    m_inexactNewtonForcing = (bool)inexactNewtonForcing;
+    pSession->LoadParameter("ForcingEtaInit", m_forcingEtaInit, 1.0e-2);
+    pSession->LoadParameter("ForcingEtaMin", m_forcingEtaMin,
                             m_NekLinSysTolerance);
-    pSession->LoadParameter("ForcingEtaMax", m_ForcingEtaMax, 5.0e-2);
-    pSession->LoadParameter("ForcingGamma", m_ForcingGamma, 0.9);
-    pSession->LoadParameter("ForcingAlpha", m_ForcingAlpha, 1.5);
+    pSession->LoadParameter("ForcingEtaMax", m_forcingEtaMax, 5.0e-2);
+    pSession->LoadParameter("ForcingGamma", m_forcingGamma, 0.9);
+    pSession->LoadParameter("ForcingAlpha", m_forcingAlpha, 1.5);
     pSession->LoadParameter("NewtonScale", m_NewtonScale, 1.0);
 }
 
@@ -92,7 +92,14 @@ int NekNonlinSysIterNewton::v_SolveSystem(
     int NttlNonlinIte    = 0;
     for (; NttlNonlinIte < m_NekNonlinSysMaxIterations; ++NttlNonlinIte)
     {
-        m_operator.DoNekSysResEval(m_Solution, m_Residual, true);
+        if (!m_haveUpdatedResidual)
+        {
+            m_operator.DoNekSysResEval(m_Solution, m_Residual, true);
+        }
+        else
+        {
+            m_haveUpdatedResidual = false;
+        }
 
         ConvergenceCheck(NttlNonlinIte, m_Residual);
         if (m_converged)
@@ -159,23 +166,23 @@ NekDouble NekNonlinSysIterNewton::CalcInexactNewtonForcing(
     const int &nIteration, const NekDouble &resnormOld,
     const NekDouble &resnorm)
 {
-    if (!m_InexactNewtonForcing)
+    if (!m_inexactNewtonForcing)
     {
         return m_NekLinSysTolerance;
     }
 
     if (nIteration == 0 || resnormOld <= 0.0)
     {
-        return m_ForcingEtaInit;
+        return m_forcingEtaInit;
     }
 
     // resnorm and resnormOld are stored as squared norms in this class
     NekDouble rk   = sqrt(resnorm);
     NekDouble rkm1 = sqrt(resnormOld);
 
-    NekDouble eta = m_ForcingGamma * pow(rk / rkm1, m_ForcingAlpha);
+    NekDouble eta = m_forcingGamma * pow(rk / rkm1, m_forcingAlpha);
 
-    eta = std::max(m_ForcingEtaMin, std::min(m_ForcingEtaMax, eta));
+    eta = std::max(m_forcingEtaMin, std::min(m_forcingEtaMax, eta));
 
     return eta;
 }

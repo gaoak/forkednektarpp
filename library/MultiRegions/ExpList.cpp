@@ -492,9 +492,9 @@ ExpList::ExpList(
                         locexp[i]->GetTraceBasisKey(j);
                     LibUtilities::BasisKey existing = it->second.second;
 
-                    int np1 = LibUtilities::GetDegreeOfExactness(
+                    int np1 = LibUtilities::PointsKey::GetDegreeOfExactness(
                         edge.GetPointsType(), edge.GetNumPoints());
-                    int np2 = LibUtilities::GetDegreeOfExactness(
+                    int np2 = LibUtilities::PointsKey::GetDegreeOfExactness(
                         existing.GetPointsType(), existing.GetNumPoints());
                     int nm1 = edge.GetNumModes();
                     int nm2 = existing.GetNumModes();
@@ -577,13 +577,13 @@ ExpList::ExpList(
                     // int np10 = existing0.GetNumPoints();
                     // int np11 = existing1.GetNumPoints();
                     // -----------new design-----------
-                    int np00 = LibUtilities::GetDegreeOfExactness(
+                    int np00 = LibUtilities::PointsKey::GetDegreeOfExactness(
                         face0.GetPointsType(), face0.GetNumPoints());
-                    int np01 = LibUtilities::GetDegreeOfExactness(
+                    int np01 = LibUtilities::PointsKey::GetDegreeOfExactness(
                         face1.GetPointsType(), face1.GetNumPoints());
-                    int np10 = LibUtilities::GetDegreeOfExactness(
+                    int np10 = LibUtilities::PointsKey::GetDegreeOfExactness(
                         existing0.GetPointsType(), existing0.GetNumPoints());
-                    int np11 = LibUtilities::GetDegreeOfExactness(
+                    int np11 = LibUtilities::PointsKey::GetDegreeOfExactness(
                         existing1.GetPointsType(), existing1.GetNumPoints());
                     int nm00 = face0.GetNumModes();
                     int nm01 = face1.GetNumModes();
@@ -787,9 +787,9 @@ ExpList::ExpList(
                 auto ptype =
                     static_cast<LibUtilities::PointsType>(TracesPointsType0[i]);
 
-                int np1 = LibUtilities::GetDegreeOfExactness(ptype,
-                                                             TracesTotPnts0[i]);
-                int np2 = LibUtilities::GetDegreeOfExactness(
+                int np1 = LibUtilities::PointsKey::GetDegreeOfExactness(
+                    ptype, TracesTotPnts0[i]);
+                int np2 = LibUtilities::PointsKey::GetDegreeOfExactness(
                     existing.GetPointsType(), existing.GetNumPoints());
                 int nm1 = TracesTotNm0[i];
                 int nm2 = existing.GetNumModes();
@@ -838,13 +838,13 @@ ExpList::ExpList(
                 auto ptype1 =
                     static_cast<LibUtilities::PointsType>(TracesPointsType1[i]);
 
-                int np00 = LibUtilities::GetDegreeOfExactness(
+                int np00 = LibUtilities::PointsKey::GetDegreeOfExactness(
                     ptype0, TracesTotPnts0[i]);
-                int np01 = LibUtilities::GetDegreeOfExactness(
+                int np01 = LibUtilities::PointsKey::GetDegreeOfExactness(
                     ptype1, TracesTotPnts1[i]);
-                int np10 = LibUtilities::GetDegreeOfExactness(
+                int np10 = LibUtilities::PointsKey::GetDegreeOfExactness(
                     existing0.GetPointsType(), existing0.GetNumPoints());
-                int np11 = LibUtilities::GetDegreeOfExactness(
+                int np11 = LibUtilities::PointsKey::GetDegreeOfExactness(
                     existing1.GetPointsType(), existing1.GetNumPoints());
                 int nm00 = TracesTotNm0[i];
                 int nm01 = TracesTotNm1[i];

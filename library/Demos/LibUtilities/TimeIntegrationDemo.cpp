@@ -132,7 +132,7 @@ public:
         m_maxL2Norm = -std::numeric_limits<double>::max();
     }
 
-    virtual ~DemoSolver(){};
+    virtual ~DemoSolver() {};
 
     // -----------------------------------------------------------------
     // Exact solution and project (identity)

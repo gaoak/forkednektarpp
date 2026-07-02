@@ -212,6 +212,88 @@ public:
     LIB_UTILITIES_EXPORT friend bool opLess::operator()(
         const PointsKey &lhs, const PointsKey &rhs) const;
 
+    // returns a new pointskey that has same accuracy but different type
+    PointsKey GetEquivalentPointsKey(const PointsType ptype);
+
+    /// offset the m_nq_begin and m_nq_end according to the points type
+    static inline void GetEffectiveQuadRange(
+        const LibUtilities::PointsKey &pkey, int &q_begin, int &q_end)
+    {
+        switch (pkey.GetPointsType())
+        {
+            case LibUtilities::eGaussLegendreWithM:
+            {
+                q_begin = 1;
+                q_end   = pkey.GetNumPoints();
+            }
+            break;
+            case LibUtilities::eGaussLegendreWithMP:
+            {
+                q_begin = 1;
+                q_end   = pkey.GetNumPoints() - 1;
+            }
+            break;
+            default:
+            {
+                q_begin = 0;
+                q_end   = pkey.GetNumPoints();
+            }
+        }
+    }
+
+    /// Get degree of exactness for quadrature points
+    static inline int GetDegreeOfExactness(const PointsType ptype,
+                                           const int npt)
+    {
+        switch (ptype)
+        {
+            case eGaussGaussLegendre:
+            case eGaussGaussChebyshev:
+            {
+                return 2 * npt - 1;
+            }
+            case eGaussLegendreWithMP:
+            {
+                return 2 * (npt - 2) - 1;
+            }
+            case eGaussLegendreWithM:
+            {
+                return 2 * (npt - 1) - 1;
+            }
+            case eGaussRadauMLegendre:
+            case eGaussRadauPLegendre:
+            case eGaussRadauMChebyshev:
+            case eGaussRadauMAlpha0Beta1:
+            case eGaussRadauMAlpha0Beta2:
+            case eGaussRadauMAlpha1Beta0:
+            case eGaussRadauMAlpha2Beta0:
+            {
+                return 2 * npt - 2;
+            }
+            case eGaussLobattoLegendre:
+            case eGaussLobattoChebyshev:
+            {
+                return 2 * npt - 3;
+            }
+            case eGaussKronrodLegendre:
+            {
+                return 3 * (npt - 1) / 2 + 1;
+            }
+            case eGaussRadauKronrodMLegendre:
+            case eGaussRadauKronrodMAlpha1Beta0:
+            {
+                return 3 * (npt - 2) / 2; // not for sure
+            }
+            case eGaussLobattoKronrodLegendre:
+            {
+                return 3 * (npt - 3) / 2; // not for sure
+            }
+            default:
+                break; // make it happy
+        }
+        return npt;
+    }
+
 protected:
     size_t m_numpoints;      //!< number of the points (as appropriately
                              //!< defined for PointsType)
@@ -499,13 +581,6 @@ private:
     Points(const Points &pts) = delete;
     Points()                  = delete;
 };
-
-/// offset the m_nq_begin and m_nq_end according to the points type
-LIB_UTILITIES_EXPORT void GetEffectiveQuadRange(
-    const LibUtilities::PointsKey &pkey, int &q_begin, int &q_end);
-/// Get degree of exactness for quadrature points
-LIB_UTILITIES_EXPORT int GetDegreeOfExactness(const PointsType ptype,
-                                              const int npt);
 
 } // namespace Nektar::LibUtilities
 

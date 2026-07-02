@@ -70,7 +70,7 @@ struct StdFacKey
 {
     // constructor
     StdFacKey(StdFacType type, LibUtilities::BasisKey bKey)
-        : m_stdFacType(type), m_basisKey(bKey){};
+        : m_stdFacType(type), m_basisKey(bKey) {};
 
     friend bool operator<(const StdFacKey &lhs, const StdFacKey &rhs)
     {
@@ -1603,7 +1603,7 @@ protected:
 
     STD_REGIONS_EXPORT virtual void v_NodalToModal(
         [[maybe_unused]] const Array<OneD, const NekDouble> &inarray,
-        [[maybe_unused]] Array<OneD, NekDouble> &outarray){};
+        [[maybe_unused]] Array<OneD, NekDouble> &outarray) {};
 
     STD_REGIONS_EXPORT virtual void v_BwdTrans(
         const Array<OneD, const NekDouble> &inarray,

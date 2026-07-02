@@ -122,7 +122,7 @@ struct WomersleyParams
         m_axispoint  = Array<OneD, NekDouble>(dim, 0.0);
     };
 
-    virtual ~WomersleyParams(){};
+    virtual ~WomersleyParams() {};
 
     // Real and imaginary velocity comp. of wom
     std::vector<NekComplexDouble> m_wom_vel;

@@ -320,7 +320,7 @@ struct HighOrderOutflow
         pSession->LoadParameter("Delta_HighOrderBC", m_delta, 1 / 20.0);
     }
 
-    virtual ~HighOrderOutflow(){};
+    virtual ~HighOrderOutflow() {};
 
     /// Number of quadrature points for Outflow HOBC
     int m_numOutHBCPts;
