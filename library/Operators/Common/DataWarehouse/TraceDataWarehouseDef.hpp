@@ -871,10 +871,14 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 
             int fbegin0, fend0, fbegin1, fend1;
             int tbegin0, tend0, tbegin1, tend1;
-            LibUtilities::GetEffectiveQuadRange(fromPointsKey0, fbegin0, fend0);
-            LibUtilities::GetEffectiveQuadRange(toPointsKey0, tbegin0, tend0);
-            LibUtilities::GetEffectiveQuadRange(fromPointsKey1, fbegin1, fend1);
-            LibUtilities::GetEffectiveQuadRange(toPointsKey1, tbegin1, tend1);
+            LibUtilities::PointsKey::GetEffectiveQuadRange(fromPointsKey0,
+                                                           fbegin0, fend0);
+            LibUtilities::PointsKey::GetEffectiveQuadRange(toPointsKey0,
+                                                           tbegin0, tend0);
+            LibUtilities::PointsKey::GetEffectiveQuadRange(fromPointsKey1,
+                                                           fbegin1, fend1);
+            LibUtilities::PointsKey::GetEffectiveQuadRange(toPointsKey1,
+                                                           tbegin1, tend1);
             quadRangeArray[count++] = fbegin0;
             quadRangeArray[count++] = fend0;
             quadRangeArray[count++] = tbegin0;
