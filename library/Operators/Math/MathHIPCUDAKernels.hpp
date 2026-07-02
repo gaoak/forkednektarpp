@@ -1552,7 +1552,8 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 zeroKernel(const size_t nsize, TData *x)
 {
-    deviceMemset(x, 0, nsize * sizeof(TData));
+    const unsigned int streamID = 0;
+    deviceMemset(x, 0, nsize * sizeof(TData), streamID);
 }
 
 template <typename ExecSpace, typename TData>
@@ -1560,7 +1561,8 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 fillKernel(const size_t nsize, const TData &val, TData *x)
 {
-    deviceFill(x, val, nsize);
+    const unsigned int streamID = 0;
+    deviceFill(x, val, nsize, streamID);
 }
 
 template <typename ExecSpace, typename TData>
@@ -1568,7 +1570,8 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 copyKernel(const size_t nsize, const TData *x, TData *y)
 {
-    deviceMemcpy<DeviceToDevice>(y, x, nsize * sizeof(TData));
+    const unsigned int streamID = 0;
+    deviceMemcpy<DeviceToDevice>(y, x, nsize * sizeof(TData), streamID);
 }
 
 template <typename ExecSpace, typename TData>
@@ -1576,10 +1579,17 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 absKernel(const size_t nsize, const TData *x, TData *y)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    absKernel<<<gridSize, blockSize>>>(nsize, x, y);
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
+    absKernel<<<gridSize, blockSize, 0, stream>>>(nsize, x, y);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1588,10 +1598,17 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 negKernel(const size_t nsize, const TData *x, TData *y)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    negKernel<<<gridSize, blockSize>>>(nsize, x, y);
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
+    negKernel<<<gridSize, blockSize, 0, stream>>>(nsize, x, y);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1600,10 +1617,17 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 sqrtKernel(const size_t nsize, const TData *x, TData *y)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    sqrtKernel<<<gridSize, blockSize>>>(nsize, x, y);
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
+    sqrtKernel<<<gridSize, blockSize, 0, stream>>>(nsize, x, y);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1612,10 +1636,17 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 addKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    addKernel<<<gridSize, blockSize>>>(nsize, x, y, z);
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
+    addKernel<<<gridSize, blockSize, 0, stream>>>(nsize, x, y, z);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1624,10 +1655,17 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 subKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    subKernel<<<gridSize, blockSize>>>(nsize, x, y, z);
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
+    subKernel<<<gridSize, blockSize, 0, stream>>>(nsize, x, y, z);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1636,10 +1674,17 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 mulKernel(const size_t nsize, const TData alpha, const TData *x, TData *y)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    mulKernel<<<gridSize, blockSize>>>(nsize, alpha, x, y);
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
+    mulKernel<<<gridSize, blockSize, 0, stream>>>(nsize, alpha, x, y);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1648,10 +1693,17 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 mulKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    mulKernel<<<gridSize, blockSize>>>(nsize, x, y, z);
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
+    mulKernel<<<gridSize, blockSize, 0, stream>>>(nsize, x, y, z);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1660,10 +1712,17 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 divKernel(const size_t nsize, const TData alpha, const TData *x, TData *y)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    divKernel<<<gridSize, blockSize>>>(nsize, alpha, x, y);
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
+    divKernel<<<gridSize, blockSize, 0, stream>>>(nsize, alpha, x, y);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1672,10 +1731,17 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 divKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    divKernel<<<gridSize, blockSize>>>(nsize, x, y, z);
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
+    divKernel<<<gridSize, blockSize, 0, stream>>>(nsize, x, y, z);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1685,10 +1751,17 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
             const TData *y, TData *z)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    daxpyKernel<<<gridSize, blockSize>>>(nsize, alpha, x, y, z);
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
+    daxpyKernel<<<gridSize, blockSize, 0, stream>>>(nsize, alpha, x, y, z);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1697,10 +1770,17 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 sumNMatrixKernel(const size_t nsize, const size_t n, const TData *x, TData *y)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    sumNMatrixKernel<<<gridSize, blockSize>>>(nsize, n, x, y);
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
+    sumNMatrixKernel<<<gridSize, blockSize, 0, stream>>>(nsize, n, x, y);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1709,19 +1789,26 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 reduceSumKernel(const size_t nsize, const TData *x, TData *out)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
 
     if (internalMemoryBuffer == nullptr)
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize);
+        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBuffer;
-    reduceSumKernel<true><<<gridSize, blockSize>>>(nsize, x, buffer);
+    reduceSumKernel<true><<<gridSize, blockSize, 0, stream>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
+    reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1731,19 +1818,27 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 reduceSumKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                 TData *out)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
 
     if (internalMemoryBuffer == nullptr)
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize);
+        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBuffer;
-    reduceSumKernel<true><<<gridSize, blockSize>>>(nsize, mask, x, buffer);
+    reduceSumKernel<true>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
+    reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1752,19 +1847,26 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
 
     if (internalMemoryBuffer == nullptr)
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize);
+        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBuffer;
-    reduceMaxKernel<true><<<gridSize, blockSize>>>(nsize, x, buffer);
+    reduceMaxKernel<true><<<gridSize, blockSize, 0, stream>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceMaxKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
+    reduceMaxKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1774,19 +1876,27 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 reduceMaxKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                 TData *out)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
 
     if (internalMemoryBuffer == nullptr)
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize);
+        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBuffer;
-    reduceMaxKernel<true><<<gridSize, blockSize>>>(nsize, mask, x, buffer);
+    reduceMaxKernel<true>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceMaxKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
+    reduceMaxKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1795,19 +1905,26 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 reduceMinKernel(const size_t nsize, const TData *x, TData *out)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
 
     if (internalMemoryBuffer == nullptr)
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize);
+        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBuffer;
-    reduceMinKernel<true><<<gridSize, blockSize>>>(nsize, x, buffer);
+    reduceMinKernel<true><<<gridSize, blockSize, 0, stream>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceMinKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
+    reduceMinKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1817,19 +1934,27 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 reduceMinKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                 TData *out)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
 
     if (internalMemoryBuffer == nullptr)
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize);
+        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBuffer;
-    reduceMinKernel<true><<<gridSize, blockSize>>>(nsize, mask, x, buffer);
+    reduceMinKernel<true>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceMinKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
+    reduceMinKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1838,19 +1963,26 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
 
     if (internalMemoryBuffer == nullptr)
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize);
+        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBuffer;
-    ddotKernel<true><<<gridSize, blockSize>>>(nsize, x, y, buffer);
+    ddotKernel<true><<<gridSize, blockSize, 0, stream>>>(nsize, x, y, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
+    reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1860,19 +1992,27 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
            const TData *y, TData *out)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
 
     if (internalMemoryBuffer == nullptr)
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize);
+        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBuffer;
-    ddotKernel<true><<<gridSize, blockSize>>>(nsize, mask, x, y, buffer);
+    ddotKernel<true>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, y, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
+    reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1881,19 +2021,26 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 l1normKernel(const size_t nsize, const TData *x, TData *out)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
 
     if (internalMemoryBuffer == nullptr)
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize);
+        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBuffer;
-    l1normKernel<true><<<gridSize, blockSize>>>(nsize, x, buffer);
+    l1normKernel<true><<<gridSize, blockSize, 0, stream>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
+    reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1903,19 +2050,27 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 l1normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
              TData *out)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
 
     if (internalMemoryBuffer == nullptr)
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize);
+        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBuffer;
-    l1normKernel<true><<<gridSize, blockSize>>>(nsize, mask, x, buffer);
+    l1normKernel<true>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
+    reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1924,19 +2079,26 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 l2normKernel(const size_t nsize, const TData *x, TData *out)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
 
     if (internalMemoryBuffer == nullptr)
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize);
+        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBuffer;
-    l2normKernel<true><<<gridSize, blockSize>>>(nsize, x, buffer);
+    l2normKernel<true><<<gridSize, blockSize, 0, stream>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
+    reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1946,19 +2108,27 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 l2normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
              TData *out)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
 
     if (internalMemoryBuffer == nullptr)
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize);
+        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBuffer;
-    l2normKernel<true><<<gridSize, blockSize>>>(nsize, mask, x, buffer);
+    l2normKernel<true>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
+    reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1968,19 +2138,26 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
              TData *out)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
 
     if (internalMemoryBuffer == nullptr)
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize);
+        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBuffer;
-    lpnormKernel<true><<<gridSize, blockSize>>>(nsize, p, x, buffer);
+    lpnormKernel<true><<<gridSize, blockSize, 0, stream>>>(nsize, p, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
+    reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -1990,19 +2167,27 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 lpnormKernel(const size_t nsize, const unsigned int p, const uint8_t *mask,
              const TData *x, TData *out)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
 
     if (internalMemoryBuffer == nullptr)
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize);
+        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBuffer;
-    lpnormKernel<true><<<gridSize, blockSize>>>(nsize, p, mask, x, buffer);
+    lpnormKernel<true>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, p, mask, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
+    reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -2011,19 +2196,26 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 linfnormKernel(const size_t nsize, const TData *x, TData *out)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
 
     if (internalMemoryBuffer == nullptr)
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize);
+        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBuffer;
-    linfnormKernel<true><<<gridSize, blockSize>>>(nsize, x, buffer);
+    linfnormKernel<true><<<gridSize, blockSize, 0, stream>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceMaxKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
+    reduceMaxKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -2033,19 +2225,27 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 linfnormKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                TData *out)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
 
     if (internalMemoryBuffer == nullptr)
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize);
+        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBuffer;
-    linfnormKernel<true><<<gridSize, blockSize>>>(nsize, mask, x, buffer);
+    linfnormKernel<true>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceMaxKernel<init><<<1, blockSize>>>(gridSize, buffer, out);
+    reduceMaxKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 

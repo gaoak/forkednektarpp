@@ -64,10 +64,17 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 parallel_for(const size_t begin, const size_t end, const Functor &functor)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = ((end - begin) + blockSize - 1u) / blockSize;
 
-    parallel_for<<<gridSize, blockSize>>>(begin, end, functor);
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
+    parallel_for<<<gridSize, blockSize, 0, stream>>>(begin, end, functor);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -110,12 +117,12 @@ __global__ __launch_bounds__(blockSize) void reduceSumKernel(
     v += warp.shfl_down(v, 2);  // |
     v += warp.shfl_down(v, 1);  // |
 #elif defined(NEKTAR_ENABLE_HIP)
-    v += warp.shfl_down(v, 32);             // |
-    v += warp.shfl_down(v, 16);             // |
-    v += warp.shfl_down(v, 8);              // | warp level
-    v += warp.shfl_down(v, 4);              // | reduce here
-    v += warp.shfl_down(v, 2);              // |
-    v += warp.shfl_down(v, 1);              // |
+    v += warp.shfl_down(v, 32);                       // |
+    v += warp.shfl_down(v, 16);                       // |
+    v += warp.shfl_down(v, 8);                        // | warp level
+    v += warp.shfl_down(v, 4);                        // | reduce here
+    v += warp.shfl_down(v, 2);                        // |
+    v += warp.shfl_down(v, 1);                        // |
 #endif
 
     // use atomicAdd to sum over warps
@@ -164,12 +171,12 @@ __global__ __launch_bounds__(blockSize) void reduceMaxKernel(
     v = std::max(v, warp.shfl_down(v, 2));  // |
     v = std::max(v, warp.shfl_down(v, 1));  // |
 #elif defined(NEKTAR_ENABLE_HIP)
-    v = std::max(v, warp.shfl_down(v, 32)); // |
-    v = std::max(v, warp.shfl_down(v, 16)); // |
-    v = std::max(v, warp.shfl_down(v, 8));  // | warp level
-    v = std::max(v, warp.shfl_down(v, 4));  // | reduce here
-    v = std::max(v, warp.shfl_down(v, 2));  // |
-    v = std::max(v, warp.shfl_down(v, 1));  // |
+    v           = std::max(v, warp.shfl_down(v, 32)); // |
+    v           = std::max(v, warp.shfl_down(v, 16)); // |
+    v           = std::max(v, warp.shfl_down(v, 8));  // | warp level
+    v           = std::max(v, warp.shfl_down(v, 4));  // | reduce here
+    v           = std::max(v, warp.shfl_down(v, 2));  // |
+    v           = std::max(v, warp.shfl_down(v, 1));  // |
 #endif
 
     if (warp.thread_rank() == 0)
@@ -217,12 +224,12 @@ __global__ __launch_bounds__(blockSize) void reduceMinKernel(
     v = std::min(v, warp.shfl_down(v, 2));  // |
     v = std::min(v, warp.shfl_down(v, 1));  // |
 #elif defined(NEKTAR_ENABLE_HIP)
-    v = std::min(v, warp.shfl_down(v, 32)); // |
-    v = std::min(v, warp.shfl_down(v, 16)); // |
-    v = std::min(v, warp.shfl_down(v, 8));  // | warp level
-    v = std::min(v, warp.shfl_down(v, 4));  // | reduce here
-    v = std::min(v, warp.shfl_down(v, 2));  // |
-    v = std::min(v, warp.shfl_down(v, 1));  // |
+    v           = std::min(v, warp.shfl_down(v, 32)); // |
+    v           = std::min(v, warp.shfl_down(v, 16)); // |
+    v           = std::min(v, warp.shfl_down(v, 8));  // | warp level
+    v           = std::min(v, warp.shfl_down(v, 4));  // | reduce here
+    v           = std::min(v, warp.shfl_down(v, 2));  // |
+    v           = std::min(v, warp.shfl_down(v, 1));  // |
 #endif
 
     if (warp.thread_rank() == 0)
@@ -240,23 +247,30 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
 {
     using TData = typename Reduction::value_type;
 
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
 
     if (internalMemoryBuffer == nullptr)
     {
         const unsigned int internalMemoryBufferSize =
             internalMaxDataSizeByte * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize);
+        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBuffer;
     if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {
         reduceSumKernel<true>
-            <<<gridSize, blockSize>>>(begin, end, buffer, functor);
+            <<<gridSize, blockSize, 0, stream>>>(begin, end, buffer, functor);
         CHECK_LAST_HIPCUDA_ERROR();
-        reduceSumKernel<init><<<1, blockSize>>>(
+        reduceSumKernel<init><<<1, blockSize, 0, stream>>>(
             0, gridSize, out,
             [=] __device__(const size_t i) { return buffer[i]; });
         CHECK_LAST_HIPCUDA_ERROR();
@@ -264,9 +278,9 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
     {
         reduceMaxKernel<true>
-            <<<gridSize, blockSize>>>(begin, end, buffer, functor);
+            <<<gridSize, blockSize, 0, stream>>>(begin, end, buffer, functor);
         CHECK_LAST_HIPCUDA_ERROR();
-        reduceMaxKernel<init><<<1, blockSize>>>(
+        reduceMaxKernel<init><<<1, blockSize, 0, stream>>>(
             0, gridSize, out,
             [=] __device__(const size_t i) { return buffer[i]; });
         CHECK_LAST_HIPCUDA_ERROR();
@@ -274,9 +288,9 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
     {
         reduceMinKernel<true>
-            <<<gridSize, blockSize>>>(begin, end, buffer, functor);
+            <<<gridSize, blockSize, 0, stream>>>(begin, end, buffer, functor);
         CHECK_LAST_HIPCUDA_ERROR();
-        reduceMinKernel<init><<<1, blockSize>>>(
+        reduceMinKernel<init><<<1, blockSize, 0, stream>>>(
             0, gridSize, out,
             [=] __device__(const size_t i) { return buffer[i]; });
         CHECK_LAST_HIPCUDA_ERROR();
@@ -292,17 +306,18 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
 {
     using TData = typename Reduction::value_type;
 
+    const unsigned int streamID = 0;
     if (internalHostBuffer == nullptr)
     {
         hostMallocPinned(&internalHostBuffer, internalMaxDataSizeByte);
-        deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte);
+        deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte, streamID);
     }
 
     parallel_reduce<ExecSpace, true, Reduction>(begin, end, functor,
                                                 (TData *)internalDeviceBuffer);
 
     deviceMemcpy<DeviceToHost>(internalHostBuffer, internalDeviceBuffer,
-                               sizeof(TData));
+                               sizeof(TData), streamID);
 
     out = *(TData *)internalHostBuffer;
 }

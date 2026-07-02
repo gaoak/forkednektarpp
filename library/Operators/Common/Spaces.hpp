@@ -359,20 +359,22 @@ extern unsigned int internalMaxDataSizeByte;
 #elif defined(NEKTAR_ENABLE_HIP)
     CHECK_HIPCUDA_ERROR(hipDeviceSynchronize());
 #elif defined(NEKTAR_ENABLE_SYCL)
-    SYCLQueue::GetInstance().wait();
+    // TODO: Synchronise all queue
+    SYCLQueue::GetInstance(0).wait();
 #endif
 }
 
-template <typename Tstream>
 [[maybe_unused]] static inline void nekStreamSynchronize(
-    [[maybe_unused]] const Tstream stream)
+    [[maybe_unused]] const unsigned int streamID)
 {
 #if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
     CHECK_HIPCUDA_ERROR(cudaStreamSynchronize(stream));
 #elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
     CHECK_HIPCUDA_ERROR(hipStreamSynchronize(stream));
 #elif defined(NEKTAR_ENABLE_SYCL)
-    SYCLQueue::GetInstance().wait();
+    SYCLQueue::GetInstance(streamID).wait();
 #endif
 }
 

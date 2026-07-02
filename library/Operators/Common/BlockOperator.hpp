@@ -137,8 +137,9 @@ private:
     {
         if (m_deviceWspSize < size)
         {
-            deviceFree(m_deviceWsp, sizeof(TData) * m_deviceWspSize);
-            deviceMalloc(&m_deviceWsp, sizeof(TData) * size);
+            const unsigned int streamID = 0;
+            deviceFree(m_deviceWsp, sizeof(TData) * m_deviceWspSize, streamID);
+            deviceMalloc(&m_deviceWsp, sizeof(TData) * size, streamID);
             m_deviceWspSize = size;
         }
     }

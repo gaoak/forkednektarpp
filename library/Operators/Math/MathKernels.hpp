@@ -96,9 +96,12 @@ public:
             else if constexpr (std::is_same_v<MemSpace,
                                               NektarSpaces::DeviceSpace>)
             {
-                deviceMalloc(&m_mask[key], block.CompSize() * sizeof(uint8_t));
+                const unsigned int streamID = 0;
+                deviceMalloc(&m_mask[key], block.CompSize() * sizeof(uint8_t),
+                             streamID);
                 deviceMemcpy<HostToDevice>(m_mask[key], mask.data(),
-                                           block.CompSize() * sizeof(uint8_t));
+                                           block.CompSize() * sizeof(uint8_t),
+                                           streamID);
             }
         }
 

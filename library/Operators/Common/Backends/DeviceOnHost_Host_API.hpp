@@ -66,6 +66,7 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
     {                                                                          \
         nektar_unused(GRIDSIZE);                                               \
         nektar_unused(BLOCKSIZE);                                              \
+        nektar_unused(STREAMID);                                               \
         std::vector<unsigned char> shmem(SHMEMSIZE);                           \
         KERNEL(__VA_ARGS__, shmem.data(), deviceOnHostBlock<1>());             \
     }
@@ -84,6 +85,7 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
         nektar_unused(GRIDSIZEY);                                              \
         nektar_unused(BLOCKSIZEX);                                             \
         nektar_unused(BLOCKSIZEY);                                             \
+        nektar_unused(STREAMID);                                               \
         std::vector<unsigned char> shmem(SHMEMSIZE);                           \
         KERNEL(__VA_ARGS__, shmem.data(), deviceOnHostBlock<2>());             \
     }
@@ -104,6 +106,7 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
         nektar_unused(BLOCKSIZEX);                                             \
         nektar_unused(BLOCKSIZEY);                                             \
         nektar_unused(BLOCKSIZEZ);                                             \
+        nektar_unused(STREAMID);                                               \
         std::vector<unsigned char> shmem(SHMEMSIZE);                           \
         KERNEL(__VA_ARGS__, shmem.data(), deviceOnHostBlock<3>());             \
     }
@@ -117,6 +120,7 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
     {                                                                          \
         nektar_unused(GRIDSIZE);                                               \
         nektar_unused(BLOCKSIZE);                                              \
+        nektar_unused(STREAMID);                                               \
         KERNEL(__VA_ARGS__, deviceOnHostBlock<1>());                           \
     }
 
@@ -131,6 +135,7 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
         nektar_unused(GRIDSIZEY);                                              \
         nektar_unused(BLOCKSIZEX);                                             \
         nektar_unused(BLOCKSIZEY);                                             \
+        nektar_unused(STREAMID);                                               \
         KERNEL(__VA_ARGS__, deviceOnHostBlock<2>());                           \
     }
 
@@ -148,6 +153,7 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
         nektar_unused(BLOCKSIZEX);                                             \
         nektar_unused(BLOCKSIZEY);                                             \
         nektar_unused(BLOCKSIZEZ);                                             \
+        nektar_unused(STREAMID);                                               \
         KERNEL(__VA_ARGS__, deviceOnHostBlock<3>());                           \
     }
 #endif

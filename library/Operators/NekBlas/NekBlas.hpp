@@ -50,10 +50,12 @@
 #elif defined(NEKTAR_ENABLE_HIP)
 #include "Operators/NekBlas/hipBlasHandle.hpp"
 #elif defined(NEKTAR_ENABLE_SYCL)
-#include "Operators/Common/Backends/SYCLQueue.hpp"
+#include "Operators/NekBlas/oneMathHandle.hpp"
 #endif
 
 #include "Operators/Common/Spaces.hpp"
+
+void setNekBlasStream(blasHandle_t handle, const unsigned int streamID);
 
 template <typename ExecSpace> class NekHandle
 {
@@ -67,6 +69,8 @@ public:
 };
 
 #if defined(NEKTAR_ENABLE_SIMD)
+void setNekBlasStream(xsmmHandle_t handle, const unsigned int streamID);
+
 template <> class NekHandle<NektarSpaces::AVX>
 {
 public:
@@ -91,6 +95,8 @@ public:
     }
 };
 #elif defined(NEKTAR_ENABLE_CUDA)
+void setNekBlasStream(cublasHandle_t handle, const unsigned int streamID);
+
 template <> class NekHandle<NektarSpaces::Device>
 {
 public:
@@ -102,6 +108,8 @@ public:
     }
 };
 #elif defined(NEKTAR_ENABLE_HIP)
+void setNekBlasStream(hipblasHandle_t handle, const unsigned int streamID);
+
 template <> class NekHandle<NektarSpaces::Device>
 {
 public:
@@ -113,14 +121,17 @@ public:
     }
 };
 #elif defined(NEKTAR_ENABLE_SYCL)
+extern unsigned int internalOneMathStreamID;
+void setNekBlasStream(oneMathHandle_t handle, const unsigned int streamID);
+
 template <> class NekHandle<NektarSpaces::Device>
 {
 public:
     typedef std::int64_t index_type;
 
-    static sycl::queue GetInstance(void)
+    static oneMathHandle_t GetInstance(void)
     {
-        return SYCLQueue::GetInstance();
+        return oneMathHandle::GetInstance();
     }
 };
 #endif
@@ -154,11 +165,12 @@ NekGemm(THandle handle, std::string transposeA, std::string transposeB,
         const TData beta, TData *c, const int ldc);
 #if defined(NEKTAR_ENABLE_SYCL)
 template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type NekGemm(
-    THandle handle, std::string transposeA, std::string transposeB,
-    const std::int64_t M, const std::int64_t N, const std::int64_t K,
-    const TData alpha, const TData *a, const std::int64_t lda, const TData *b,
-    const std::int64_t ldb, const TData beta, TData *c, const std::int64_t ldc);
+typename std::enable_if<std::is_same_v<THandle, oneMathHandle_t>, void>::type
+NekGemm(THandle handle, std::string transposeA, std::string transposeB,
+        const std::int64_t M, const std::int64_t N, const std::int64_t K,
+        const TData alpha, const TData *a, const std::int64_t lda,
+        const TData *b, const std::int64_t ldb, const TData beta, TData *c,
+        const std::int64_t ldc);
 #endif
 
 // NekGemmStridedBatched
@@ -201,7 +213,7 @@ NekGemmStridedBatched(THandle handle, std::string transposeA,
                       const int batchSize);
 #if defined(NEKTAR_ENABLE_SYCL)
 template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type
+typename std::enable_if<std::is_same_v<THandle, oneMathHandle_t>, void>::type
 NekGemmStridedBatched(THandle handle, std::string transposeA,
                       std::string transposeB, const std::int64_t M,
                       const std::int64_t N, const std::int64_t K,
@@ -240,11 +252,11 @@ NekGemv(THandle handle, std::string transpose, const int M, const int N,
         const int incx, const TData beta, TData *y, const int incy);
 #if defined(NEKTAR_ENABLE_SYCL)
 template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type NekGemv(
-    THandle handle, std::string transpose, const std::int64_t M,
-    const std::int64_t N, const TData alpha, const TData *a,
-    const std::int64_t lda, const TData *x, const std::int64_t incx,
-    const TData beta, TData *y, const std::int64_t incy);
+typename std::enable_if<std::is_same_v<THandle, oneMathHandle_t>, void>::type
+NekGemv(THandle handle, std::string transpose, const std::int64_t M,
+        const std::int64_t N, const TData alpha, const TData *a,
+        const std::int64_t lda, const TData *x, const std::int64_t incx,
+        const TData beta, TData *y, const std::int64_t incy);
 #endif
 
 // NekGemvStridedBatched
@@ -284,7 +296,7 @@ NekGemvStridedBatched(THandle handle, std::string transpose, const int M,
                       const int batchSize);
 #if defined(NEKTAR_ENABLE_SYCL)
 template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type
+typename std::enable_if<std::is_same_v<THandle, oneMathHandle_t>, void>::type
 NekGemvStridedBatched(THandle handle, std::string transpose,
                       const std::int64_t M, const std::int64_t N,
                       const TData alpha, const TData *a, const std::int64_t lda,

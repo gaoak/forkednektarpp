@@ -67,6 +67,7 @@ ignore_sources = [
     "library/Operators/NekBlas/hipBlas.cpp",
     "library/Operators/NekBlas/hipBlasHandle.cpp",
     "library/Operators/NekBlas/syclBlas.cpp",
+    "library/Operators/NekBlas/oneMathHandle.cpp",
     # Others
     "library/Operators/MathKernels/Math.cpp",
 ]

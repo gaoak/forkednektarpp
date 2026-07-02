@@ -68,7 +68,8 @@ public:
 
         if (m_device)
         {
-            deviceFree(m_device, this->size(), m_memAllocType);
+            const unsigned int streamID = 0;
+            deviceFree(m_device, this->size(), streamID, m_memAllocType);
         }
 
         m_instantiated = false;
@@ -731,9 +732,11 @@ protected:
             // the field object.
             if (!field->m_device)
             {
+                const unsigned int streamID = 0;
                 deviceMalloc(&field->m_device, field->size() * sizeof(TData),
-                             field->m_memAllocType);
-                deviceMemset(field->m_device, 0, field->size() * sizeof(TData));
+                             streamID, field->m_memAllocType);
+                deviceMemset(field->m_device, 0, field->size() * sizeof(TData),
+                             streamID);
 
                 auto src = field->m_device;
                 for (unsigned int blk = 0; blk < field->GetBlocks().size();

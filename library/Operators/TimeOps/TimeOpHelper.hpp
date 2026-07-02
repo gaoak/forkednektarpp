@@ -208,11 +208,19 @@ NEK_FORCE_INLINE static void UpdateStageKernel(const size_t nsize, TData *inout,
                                                const TData *solution,
                                                const TDatas *...solutions)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
     UpdateStageKernelLauncher<Scheme, IntOrder>
-        <<<gridSize, blockSize>>>(nsize, inout, solution, solutions...);
+        <<<gridSize, blockSize, 0, stream>>>(nsize, inout, solution,
+                                             solutions...);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -223,11 +231,19 @@ NEK_FORCE_INLINE static void UpdateStageKernel(const size_t nsize, TData *inout,
                                                const TData *solution,
                                                const TDatas *...solutions)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
     UpdateStageKernelLauncher<Scheme, ImpStage, ExpStage, IntOrder>
-        <<<gridSize, blockSize>>>(nsize, inout, solution, solutions...);
+        <<<gridSize, blockSize, 0, stream>>>(nsize, inout, solution,
+                                             solutions...);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -237,11 +253,18 @@ NEK_FORCE_INLINE static void UpdateSolutionKernel(const size_t nsize,
                                                   TData *inout,
                                                   const TDatas *...solutions)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
     UpdateSolutionKernelLauncher<Scheme>
-        <<<gridSize, blockSize>>>(nsize, inout, solutions...);
+        <<<gridSize, blockSize, 0, stream>>>(nsize, inout, solutions...);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -252,11 +275,19 @@ NEK_FORCE_INLINE static void UpdateSolutionKernel(const size_t nsize,
                                                   const TData *solution,
                                                   const TDatas *...solutions)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
     UpdateSolutionKernelLauncher<Scheme, IntOrder>
-        <<<gridSize, blockSize>>>(nsize, inout, solution, solutions...);
+        <<<gridSize, blockSize, 0, stream>>>(nsize, inout, solution,
+                                             solutions...);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -268,11 +299,19 @@ NEK_FORCE_INLINE static void UpdateSolutionKernel(const size_t nsize,
                                                   const TData *solution,
                                                   const TDatas *...solutions)
 {
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
     UpdateSolutionKernelLauncher<Scheme, ImpStage, ExpStage, IntOrder>
-        <<<gridSize, blockSize>>>(nsize, inout, solution, solutions...);
+        <<<gridSize, blockSize, 0, stream>>>(nsize, inout, solution,
+                                             solutions...);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 

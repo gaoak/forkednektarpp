@@ -35,6 +35,11 @@
 #include "LibUtilities/BasicUtils/ErrorUtil.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 
+void setNekBlasStream(hipblasHandle_t handle, const unsigned int streamID)
+{
+    HIPBLAS_CHECK(hipblasSetStream(handle, HIPStream::GetInstance(streamID)));
+}
+
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, hipblasHandle_t>, void>::type
 NekGemm(THandle handle, std::string transposeA, std::string transposeB,

@@ -36,6 +36,11 @@
 
 #include <LibUtilities/LinearAlgebra/Blas.hpp>
 
+void setNekBlasStream([[maybe_unused]] blasHandle_t handle,
+                      [[maybe_unused]] const unsigned int streamID)
+{
+}
+
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, blasHandle_t>, void>::type NekGemm(
     [[maybe_unused]] THandle handle, std::string transposeA,

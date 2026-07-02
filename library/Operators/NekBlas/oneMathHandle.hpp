@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MemoryAlloc.hip
+// File: oneMathHandle.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,41 +32,25 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <Operators/Common/Memory/MemoryAlloc.hpp>
-#include <Operators/Common/Spaces.hpp>
+#pragma once
 
-namespace Nektar
+class oneMathHandle_t
 {
+};
 
-bool isSetDeviceMemoryPool = false;
-
-template <typename TData>
-__global__ void deviceFillKernel(TData *dst, const TData val, const size_t size)
+class oneMathHandle
 {
-    const unsigned int idx0   = threadIdx.x + blockIdx.x * blockDim.x;
-    const unsigned int stride = blockDim.x * gridDim.x;
-    for (unsigned int idx = idx0; idx < size; idx += stride)
+public:
+    static oneMathHandle_t &GetInstance()
     {
-        dst[idx] = val;
+        if (!handle)
+        {
+            handle = new oneMathHandle_t;
+        }
+
+        return *handle;
     }
-}
 
-template <typename TData>
-void deviceFillKernelLauncher(TData *dst, const TData val, const size_t size,
-                              const unsigned int streamID)
-{
-    auto stream                  = HIPStream::GetInstance(streamID);
-    const unsigned int blocksize = NektarSpaces::Device::maximumBlockSize;
-    const unsigned int gridsize  = (size + blocksize - 1) / blocksize;
-    deviceFillKernel<<<gridsize, blocksize, 0, stream>>>(dst, val, size);
-    CHECK_LAST_HIPCUDA_ERROR()
-}
-
-template void deviceFillKernelLauncher<double>(double *dst, const double val,
-                                               const size_t size,
-                                               const unsigned int streamID);
-template void deviceFillKernelLauncher<float>(float *dst, const float val,
-                                              const size_t size,
-                                              const unsigned int streamID);
-
-} // namespace Nektar
+private:
+    static oneMathHandle_t *handle;
+};

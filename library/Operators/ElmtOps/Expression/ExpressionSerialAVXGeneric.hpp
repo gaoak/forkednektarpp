@@ -145,7 +145,7 @@ protected:
                 // reuse Serial/AVX code.
                 if constexpr (std::is_same_v<ExecSpace, NektarSpaces::Device>)
                 {
-                    nekStreamSynchronize(nullptr);
+                    nekStreamSynchronize(0);
                 }
 
                 // Kernel operation.
@@ -207,7 +207,7 @@ protected:
                 // reuse Serial/AVX code.
                 if constexpr (std::is_same_v<ExecSpace, NektarSpaces::Device>)
                 {
-                    nekStreamSynchronize(nullptr);
+                    nekStreamSynchronize(0);
                 }
             }
         }
