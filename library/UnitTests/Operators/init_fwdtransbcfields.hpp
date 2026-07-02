@@ -61,9 +61,9 @@ public:
         auto outblockAttr = GetBoundaryBlockAttributes<FieldState::Coeff>();
 
         auto f_in       = Field<TData, FieldState::Phys>("f_in", inblockAttr,
-                                                   components, nhomo);
+                                                         components, nhomo);
         auto f_out      = Field<TData, FieldState::Coeff>("f_out", outblockAttr,
-                                                     components, nhomo);
+                                                          components, nhomo);
         auto f_expected = Field<TData, FieldState::Coeff>(
             "f_expected", outblockAttr, components, nhomo);
         this->fixt_in  = new Field<TData, FieldState::Phys>(std::move(f_in));

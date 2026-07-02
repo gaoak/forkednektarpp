@@ -319,9 +319,9 @@ void LaunchProfiler(const MultiRegions::ContFieldSharedPtr &expList,
 
     // Create fields.
     auto fIn         = Field<TData, FieldState::Coeff>("f_in", inBlockAttr,
-                                               session->GetVariables(), 1);
+                                                       session->GetVariables(), 1);
     auto fOut        = Field<TData, FieldState::Coeff>("f_out", outBlockAttr,
-                                                session->GetVariables(), 1);
+                                                       session->GetVariables(), 1);
     auto fOutCorrect = Field<TData, FieldState::Coeff>(
         "f_out_correct", outBlockAttr, session->GetVariables(), 1);
     auto fOutCorrectAssemb = Field<TData, FieldState::Coeff>(

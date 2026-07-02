@@ -315,7 +315,7 @@ extern unsigned int internalMaxDataSizeByte;
 #elif defined(NEKTAR_ENABLE_HIP)
     CHECK_HIPCUDA_ERROR(hipSetDevice(device_rank));
 #elif defined(NEKTAR_ENABLE_SYCL)
-    internalSYCLDeviceId                           = device_rank;
+    internalSYCLDeviceId = device_rank;
 #else
     // Do nothing
 #endif

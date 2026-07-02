@@ -90,7 +90,7 @@ public:
             basisKeys, m_shapeType, eDerivStdMatTranspose, nodalType));
         m_ipdmat   = dataWarehouse->template GetData<MemSpace>(
             StdMatKey<TData>(basisKeys, m_shapeType,
-                             eIProductWRTDerivBaseStdMatTranspose, nodalType));
+                               eIProductWRTDerivBaseStdMatTranspose, nodalType));
 
         // Fetch Jacobian and deriv factors.
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(

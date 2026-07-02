@@ -118,7 +118,7 @@ public:
                 auto cndMapIter = bndCondMap->find(components[nc]);
                 bc              = (*cndMapIter).second;
                 bool tmp        = (bool)std::dynamic_pointer_cast<
-                    SpatialDomains::NeumannBoundaryCondition>(bc);
+                           SpatialDomains::NeumannBoundaryCondition>(bc);
 
                 // Save if component has a Neumann condition
                 isNeumann[nc] = tmp;

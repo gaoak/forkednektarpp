@@ -117,12 +117,12 @@ __global__ __launch_bounds__(blockSize) void reduceSumKernel(
     v += warp.shfl_down(v, 2);  // |
     v += warp.shfl_down(v, 1);  // |
 #elif defined(NEKTAR_ENABLE_HIP)
-    v += warp.shfl_down(v, 32);                       // |
-    v += warp.shfl_down(v, 16);                       // |
-    v += warp.shfl_down(v, 8);                        // | warp level
-    v += warp.shfl_down(v, 4);                        // | reduce here
-    v += warp.shfl_down(v, 2);                        // |
-    v += warp.shfl_down(v, 1);                        // |
+    v += warp.shfl_down(v, 32); // |
+    v += warp.shfl_down(v, 16); // |
+    v += warp.shfl_down(v, 8);  // | warp level
+    v += warp.shfl_down(v, 4);  // | reduce here
+    v += warp.shfl_down(v, 2);  // |
+    v += warp.shfl_down(v, 1);  // |
 #endif
 
     // use atomicAdd to sum over warps
@@ -171,12 +171,12 @@ __global__ __launch_bounds__(blockSize) void reduceMaxKernel(
     v = std::max(v, warp.shfl_down(v, 2));  // |
     v = std::max(v, warp.shfl_down(v, 1));  // |
 #elif defined(NEKTAR_ENABLE_HIP)
-    v           = std::max(v, warp.shfl_down(v, 32)); // |
-    v           = std::max(v, warp.shfl_down(v, 16)); // |
-    v           = std::max(v, warp.shfl_down(v, 8));  // | warp level
-    v           = std::max(v, warp.shfl_down(v, 4));  // | reduce here
-    v           = std::max(v, warp.shfl_down(v, 2));  // |
-    v           = std::max(v, warp.shfl_down(v, 1));  // |
+    v = std::max(v, warp.shfl_down(v, 32)); // |
+    v = std::max(v, warp.shfl_down(v, 16)); // |
+    v = std::max(v, warp.shfl_down(v, 8));  // | warp level
+    v = std::max(v, warp.shfl_down(v, 4));  // | reduce here
+    v = std::max(v, warp.shfl_down(v, 2));  // |
+    v = std::max(v, warp.shfl_down(v, 1));  // |
 #endif
 
     if (warp.thread_rank() == 0)
@@ -224,12 +224,12 @@ __global__ __launch_bounds__(blockSize) void reduceMinKernel(
     v = std::min(v, warp.shfl_down(v, 2));  // |
     v = std::min(v, warp.shfl_down(v, 1));  // |
 #elif defined(NEKTAR_ENABLE_HIP)
-    v           = std::min(v, warp.shfl_down(v, 32)); // |
-    v           = std::min(v, warp.shfl_down(v, 16)); // |
-    v           = std::min(v, warp.shfl_down(v, 8));  // | warp level
-    v           = std::min(v, warp.shfl_down(v, 4));  // | reduce here
-    v           = std::min(v, warp.shfl_down(v, 2));  // |
-    v           = std::min(v, warp.shfl_down(v, 1));  // |
+    v = std::min(v, warp.shfl_down(v, 32)); // |
+    v = std::min(v, warp.shfl_down(v, 16)); // |
+    v = std::min(v, warp.shfl_down(v, 8));  // | warp level
+    v = std::min(v, warp.shfl_down(v, 4));  // | reduce here
+    v = std::min(v, warp.shfl_down(v, 2));  // |
+    v = std::min(v, warp.shfl_down(v, 1));  // |
 #endif
 
     if (warp.thread_rank() == 0)

@@ -38,7 +38,7 @@
 
 if (deformed)
 {
-// clang-format off
+    // clang-format off
 #define OPERATOR1D_DEF                                                         \
     operator1D<LibUtilities::eSegment, true>(inblock, outblock)
 

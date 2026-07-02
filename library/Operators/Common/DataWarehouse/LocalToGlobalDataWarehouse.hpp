@@ -497,7 +497,7 @@ public:
     ~LocalToGlobalDataCreator() override = default;
     LocalToGlobalDataCreator(
         const MultiRegions::ExpListSharedPtr &expansionList)
-        : m_expansionList(expansionList){};
+        : m_expansionList(expansionList) {};
 
     std::vector<MultiRegions::AssemblyMapCGSharedPtr> &GetAssemblyMap(
         const std::vector<std::string> &components);

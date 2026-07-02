@@ -128,7 +128,7 @@ public:
                 auto cndMapIter = bndCondMap->find(components[nc]);
                 bc              = (*cndMapIter).second;
                 bool tmp        = (bool)std::dynamic_pointer_cast<
-                    SpatialDomains::DirichletBoundaryCondition>(bc);
+                           SpatialDomains::DirichletBoundaryCondition>(bc);
 
                 // Save if component has a Dirichlet condition
                 isDirichlet[nc] = tmp;

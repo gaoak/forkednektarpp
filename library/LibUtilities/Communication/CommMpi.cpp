@@ -479,7 +479,7 @@ void CommMpi::v_DistGraphCreateAdjacent(
     ASSERTL0(false, "MPI_Dist_graph_create_adjacent is not supported in your "
                     "installed MPI version.");
 #else
-    int retval  = MPI_Dist_graph_create_adjacent(
+    int retval = MPI_Dist_graph_create_adjacent(
         m_comm, indegree, sources, sourceweights, indegree, sources,
         sourceweights, MPI_INFO_NULL, reorder, &m_comm);
 
