@@ -844,30 +844,36 @@ IF(NEKTAR_USE_MAGMA)
 ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
-       NekBlas/cuBlasHandle.hpp
+      NekBlas/cuBlasHandle.hpp
     )
 
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-       NekBlas/cuBlasHandle.cpp
-       NekBlas/cuBlas.cpp
+      NekBlas/cuBlasHandle.cpp
+      NekBlas/cuBlas.cpp
     )
 # HIPBLAS specific file
 ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
-       NekBlas/hipBlasHandle.hpp
+      NekBlas/hipBlasHandle.hpp
     )
 
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-       NekBlas/hipBlasHandle.cpp
-       NekBlas/hipBlas.cpp
+      NekBlas/hipBlasHandle.cpp
+      NekBlas/hipBlas.cpp
     )
-# MKL specific file
+# MKL/OneMath specific file
 ELSEIF(NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
+    SET(OPERATORS_HEADERS
+      ${OPERATORS_HEADERS}
+      NekBlas/oneMathHandle.hpp
+    )
+
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
+      NekBlas/oneMathHandle.cpp
       NekBlas/syclBlas.cpp
     )
 ENDIF()

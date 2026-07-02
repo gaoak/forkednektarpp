@@ -95,7 +95,8 @@ static inline void SetDeviceMemoryPool(void)
 }
 
 template <typename TData>
-void deviceFillKernelLauncher(TData *dst, const TData val, const size_t size);
+void deviceFillKernelLauncher(TData *dst, const TData val, const size_t size,
+                              const unsigned int streamID);
 
 template <typename TData>
 inline void hostMalloc(TData **src, const size_t size,
@@ -122,8 +123,9 @@ inline void hostMallocPinned(TData **src, const size_t size)
 #elif defined(NEKTAR_ENABLE_HIP)
         CHECK_HIPCUDA_ERROR(hipHostMalloc((void **)src, size));
 #elif defined(NEKTAR_ENABLE_SYCL)
-        sycl::queue &Q = SYCLQueue::GetInstance();
+        sycl::queue &Q = SYCLQueue::GetInstance(0);
         *src           = (TData *)sycl::malloc_host(size, Q);
+        Q.wait();
 #else
         *src = (TData *)malloc(size);
 #endif
@@ -137,6 +139,7 @@ inline void hostMallocPinned(TData **src, const size_t size)
 template <typename TData>
 inline void deviceMalloc(
     TData **src, const size_t size,
+    [[maybe_unused]] const unsigned int streamID,
     [[maybe_unused]] const MemAllocType memAllocType = eHostPageable)
 {
     if (size > 0)
@@ -146,9 +149,10 @@ inline void deviceMalloc(
         if (memAllocType == eDeviceMemoryPool ||
             memAllocType == eHostPinnedDeviceMemoryPool)
         {
+            auto stream = CUDAStream::GetInstance(streamID);
             SetDeviceMemoryPool();
             GetDeviceProperties::CheckGlobalMemoryUsage(size);
-            CHECK_HIPCUDA_ERROR(cudaMallocAsync((void **)src, size, 0));
+            CHECK_HIPCUDA_ERROR(cudaMallocAsync((void **)src, size, stream));
             GetDeviceProperties::TotalGlobalMemory() -= size;
         }
         else
@@ -162,9 +166,10 @@ inline void deviceMalloc(
         if (memAllocType == eDeviceMemoryPool ||
             memAllocType == eHostPinnedDeviceMemoryPool)
         {
+            auto stream = HIPStream::GetInstance(streamID);
             SetDeviceMemoryPool();
             GetDeviceProperties::CheckGlobalMemoryUsage(size);
-            CHECK_HIPCUDA_ERROR(hipMallocAsync((void **)src, size, 0));
+            CHECK_HIPCUDA_ERROR(hipMallocAsync((void **)src, size, stream));
             GetDeviceProperties::TotalGlobalMemory() -= size;
         }
         else
@@ -175,7 +180,7 @@ inline void deviceMalloc(
         }
 #elif defined(NEKTAR_ENABLE_SYCL)
         GetDeviceProperties::CheckGlobalMemoryUsage(size);
-        sycl::queue &Q = SYCLQueue::GetInstance();
+        sycl::queue &Q = SYCLQueue::GetInstance(streamID);
         *src           = (TData *)sycl::malloc_device(size, Q);
         GetDeviceProperties::TotalGlobalMemory() -= size;
 #else
@@ -211,9 +216,10 @@ template <typename TData> inline void hostFreePinned(TData *src)
 #elif defined(NEKTAR_ENABLE_HIP)
     CHECK_HIPCUDA_ERROR(hipFreeHost(src));
 #elif defined(NEKTAR_ENABLE_SYCL)
-    sycl::queue &Q = SYCLQueue::GetInstance();
+    sycl::queue &Q = SYCLQueue::GetInstance(0);
     Q.wait();
     sycl::free(src, Q);
+    Q.wait();
 #else
     free(src);
 #endif
@@ -222,6 +228,7 @@ template <typename TData> inline void hostFreePinned(TData *src)
 template <typename TData>
 inline void deviceFree(
     TData *src, [[maybe_unused]] const size_t size,
+    [[maybe_unused]] const unsigned int streamID,
     [[maybe_unused]] const MemAllocType memAllocType = eHostPageable)
 {
     if (src == nullptr)
@@ -233,7 +240,8 @@ inline void deviceFree(
     if (memAllocType == eDeviceMemoryPool ||
         memAllocType == eHostPinnedDeviceMemoryPool)
     {
-        CHECK_HIPCUDA_ERROR(cudaFreeAsync(src, 0));
+        auto stream = CUDAStream::GetInstance(streamID);
+        CHECK_HIPCUDA_ERROR(cudaFreeAsync(src, stream));
         GetDeviceProperties::TotalGlobalMemory() += size;
     }
     else
@@ -245,7 +253,8 @@ inline void deviceFree(
     if (memAllocType == eDeviceMemoryPool ||
         memAllocType == eHostPinnedDeviceMemoryPool)
     {
-        CHECK_HIPCUDA_ERROR(hipFreeAsync(src, 0));
+        auto stream = HIPStream::GetInstance(streamID);
+        CHECK_HIPCUDA_ERROR(hipFreeAsync(src, stream));
         GetDeviceProperties::TotalGlobalMemory() += size;
     }
     else
@@ -254,9 +263,10 @@ inline void deviceFree(
         GetDeviceProperties::TotalGlobalMemory() += size;
     }
 #elif defined(NEKTAR_ENABLE_SYCL)
-    sycl::queue &Q = SYCLQueue::GetInstance();
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     Q.wait();
     sycl::free(src, Q);
+    Q.wait();
     GetDeviceProperties::TotalGlobalMemory() += size;
 #else
     free(src);
@@ -264,7 +274,8 @@ inline void deviceFree(
 }
 
 template <typename TData>
-inline void deviceMemset(TData *dst, const int val, const size_t size)
+inline void deviceMemset(TData *dst, const int val, const size_t size,
+                         [[maybe_unused]] const unsigned int streamID)
 {
     if (size == 0)
     {
@@ -272,11 +283,13 @@ inline void deviceMemset(TData *dst, const int val, const size_t size)
     }
 
 #if defined(NEKTAR_ENABLE_CUDA)
-    CHECK_HIPCUDA_ERROR(cudaMemsetAsync((void *)dst, val, size, 0));
+    auto stream = CUDAStream::GetInstance(streamID);
+    CHECK_HIPCUDA_ERROR(cudaMemsetAsync((void *)dst, val, size, stream));
 #elif defined(NEKTAR_ENABLE_HIP)
-    CHECK_HIPCUDA_ERROR(hipMemsetAsync((void *)dst, val, size, 0));
+    auto stream = HIPStream::GetInstance(streamID);
+    CHECK_HIPCUDA_ERROR(hipMemsetAsync((void *)dst, val, size, stream));
 #elif defined(NEKTAR_ENABLE_SYCL)
-    sycl::queue &Q = SYCLQueue::GetInstance();
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     Q.memset((void *)dst, val, size);
 #else
     memset((void *)dst, val, size);
@@ -284,7 +297,8 @@ inline void deviceMemset(TData *dst, const int val, const size_t size)
 }
 
 template <typename TData>
-inline void deviceFill(TData *dst, const TData val, const size_t size)
+inline void deviceFill(TData *dst, const TData val, const size_t size,
+                       [[maybe_unused]] const unsigned int streamID)
 {
     if (size == 0)
     {
@@ -292,11 +306,11 @@ inline void deviceFill(TData *dst, const TData val, const size_t size)
     }
 
 #if defined(NEKTAR_ENABLE_CUDA)
-    deviceFillKernelLauncher(dst, val, size);
+    deviceFillKernelLauncher(dst, val, size, streamID);
 #elif defined(NEKTAR_ENABLE_HIP)
-    deviceFillKernelLauncher(dst, val, size);
+    deviceFillKernelLauncher(dst, val, size, streamID);
 #elif defined(NEKTAR_ENABLE_SYCL)
-    sycl::queue &Q = SYCLQueue::GetInstance();
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     Q.fill(dst, val, size);
 #else
     std::fill(dst, dst + size, val);
@@ -304,7 +318,8 @@ inline void deviceFill(TData *dst, const TData val, const size_t size)
 }
 
 template <typename MemCopy, typename TData>
-inline void deviceMemcpy(TData *dst, const TData *src, const size_t size)
+inline void deviceMemcpy(TData *dst, const TData *src, const size_t size,
+                         [[maybe_unused]] const unsigned int streamID)
 {
     if (size == 0)
     {
@@ -318,15 +333,17 @@ inline void deviceMemcpy(TData *dst, const TData *src, const size_t size)
     else if constexpr (std::is_same_v<MemCopy, DeviceToHost>)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
+        auto stream = CUDAStream::GetInstance(streamID);
         CHECK_HIPCUDA_ERROR(
-            cudaMemcpyAsync(dst, src, size, cudaMemcpyDeviceToHost, 0));
-        CHECK_HIPCUDA_ERROR(cudaStreamSynchronize(0));
+            cudaMemcpyAsync(dst, src, size, cudaMemcpyDeviceToHost, stream));
+        CHECK_HIPCUDA_ERROR(cudaStreamSynchronize(stream));
 #elif defined(NEKTAR_ENABLE_HIP)
+        auto stream = HIPStream::GetInstance(streamID);
         CHECK_HIPCUDA_ERROR(
-            hipMemcpyAsync(dst, src, size, hipMemcpyDeviceToHost, 0));
-        CHECK_HIPCUDA_ERROR(hipStreamSynchronize(0));
+            hipMemcpyAsync(dst, src, size, hipMemcpyDeviceToHost, stream));
+        CHECK_HIPCUDA_ERROR(hipStreamSynchronize(stream));
 #elif defined(NEKTAR_ENABLE_SYCL)
-        sycl::queue &Q = SYCLQueue::GetInstance();
+        sycl::queue &Q = SYCLQueue::GetInstance(streamID);
         Q.memcpy(dst, src, size).wait();
 #else
         memcpy(dst, src, size);
@@ -335,13 +352,15 @@ inline void deviceMemcpy(TData *dst, const TData *src, const size_t size)
     else if constexpr (std::is_same_v<MemCopy, HostToDevice>)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
+        auto stream = CUDAStream::GetInstance(streamID);
         CHECK_HIPCUDA_ERROR(
-            cudaMemcpyAsync(dst, src, size, cudaMemcpyHostToDevice, 0));
+            cudaMemcpyAsync(dst, src, size, cudaMemcpyHostToDevice, stream));
 #elif defined(NEKTAR_ENABLE_HIP)
+        auto stream = HIPStream::GetInstance(streamID);
         CHECK_HIPCUDA_ERROR(
-            hipMemcpyAsync(dst, src, size, hipMemcpyHostToDevice, 0));
+            hipMemcpyAsync(dst, src, size, hipMemcpyHostToDevice, stream));
 #elif defined(NEKTAR_ENABLE_SYCL)
-        sycl::queue &Q = SYCLQueue::GetInstance();
+        sycl::queue &Q = SYCLQueue::GetInstance(streamID);
         Q.memcpy(dst, src, size);
 #if defined(SYCL_ENABLE_CPU)
         Q.wait();
@@ -353,13 +372,15 @@ inline void deviceMemcpy(TData *dst, const TData *src, const size_t size)
     else if constexpr (std::is_same_v<MemCopy, DeviceToDevice>)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
+        auto stream = CUDAStream::GetInstance(streamID);
         CHECK_HIPCUDA_ERROR(
-            cudaMemcpyAsync(dst, src, size, cudaMemcpyDeviceToDevice, 0));
+            cudaMemcpyAsync(dst, src, size, cudaMemcpyDeviceToDevice, stream));
 #elif defined(NEKTAR_ENABLE_HIP)
+        auto stream = HIPStream::GetInstance(streamID);
         CHECK_HIPCUDA_ERROR(
-            hipMemcpyAsync(dst, src, size, hipMemcpyDeviceToDevice, 0));
+            hipMemcpyAsync(dst, src, size, hipMemcpyDeviceToDevice, stream));
 #elif defined(NEKTAR_ENABLE_SYCL)
-        sycl::queue &Q = SYCLQueue::GetInstance();
+        sycl::queue &Q = SYCLQueue::GetInstance(streamID);
         Q.memcpy(dst, src, size);
 #else
         memcpy(dst, src, size);

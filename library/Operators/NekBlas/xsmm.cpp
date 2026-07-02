@@ -37,6 +37,11 @@
 #include "LibUtilities/BasicUtils/ErrorUtil.hpp"
 #include "libxsmm.h"
 
+void setNekBlasStream([[maybe_unused]] xsmmHandle_t handle,
+                      [[maybe_unused]] const unsigned int streamID)
+{
+}
+
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, xsmmHandle_t>, void>::type NekGemm(
     [[maybe_unused]] THandle handle, std::string transposeA,

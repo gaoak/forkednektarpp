@@ -259,32 +259,32 @@ class GetDeviceProperties
 public:
     static const size_t &SharedMemoryPerBlock(void)
     {
-        FetchDeviceProperties(0);
-        return m_sharedMemoryPerBlock[0];
+        FetchDeviceProperties(internalSYCLDeviceId);
+        return m_sharedMemoryPerBlock[internalSYCLDeviceId];
     }
 
     static const size_t &SharedMemoryPerMultiprocessor(void)
     {
-        FetchDeviceProperties(0);
-        return m_sharedMemoryPerMultiprocessor[0];
+        FetchDeviceProperties(internalSYCLDeviceId);
+        return m_sharedMemoryPerMultiprocessor[internalSYCLDeviceId];
     }
 
     static size_t &TotalGlobalMemory(void)
     {
-        FetchDeviceProperties(0);
-        return m_totalGlobalMemory[0];
+        FetchDeviceProperties(internalSYCLDeviceId);
+        return m_totalGlobalMemory[internalSYCLDeviceId];
     }
 
     static const unsigned &NumMultiProcessors(void)
     {
-        FetchDeviceProperties(0);
-        return m_numMultiProcessors[0];
+        FetchDeviceProperties(internalSYCLDeviceId);
+        return m_numMultiProcessors[internalSYCLDeviceId];
     }
 
     static const size_t &MaxThreadsPerMultiprocessor(void)
     {
-        FetchDeviceProperties(0);
-        return m_maxThreadsPerMultiprocessor[0];
+        FetchDeviceProperties(internalSYCLDeviceId);
+        return m_maxThreadsPerMultiprocessor[internalSYCLDeviceId];
     }
 
     static void CheckSharedMemoryUsage(const size_t shmemsize)

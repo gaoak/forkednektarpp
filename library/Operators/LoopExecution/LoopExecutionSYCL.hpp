@@ -45,7 +45,8 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 parallel_for(const size_t begin, const size_t end, const Functor &functor)
 {
-    sycl::queue &Q = SYCLQueue::GetInstance();
+    const unsigned int streamID = 0;
+    sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(sycl::range<1>(end - begin),
                          [=](sycl::id<1> indx) { functor(begin + indx); });
@@ -58,7 +59,8 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
                      const size_t begin, const size_t end, TData *buffer,
                      const Functor &functor)
 {
-    sycl::queue &Q = SYCLQueue::GetInstance();
+    const unsigned int streamID = 0;
+    sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
     Q.submit([=](sycl::handler &cgh) {
         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
 
@@ -111,7 +113,8 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     constexpr TData min = std::numeric_limits<TData>::lowest();
 
-    sycl::queue &Q = SYCLQueue::GetInstance();
+    const unsigned int streamID = 0;
+    sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
     Q.submit([=](sycl::handler &cgh) {
         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
 
@@ -166,7 +169,8 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     constexpr TData max = std::numeric_limits<TData>::max();
 
-    sycl::queue &Q = SYCLQueue::GetInstance();
+    const unsigned int streamID = 0;
+    sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
     Q.submit([=](sycl::handler &cgh) {
         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
 
@@ -224,8 +228,10 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
     using TData = typename Reduction::value_type;
 
 #if defined(USE_SYCL_BUILTIN_REDUCER)
+    const unsigned int streamID = 0;
     const unsigned int gridSize = NektarSpaces::Device::maximumBlockSize;
 #else
+    const unsigned int streamID  = 0;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 #endif
@@ -234,13 +240,13 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
     {
         const unsigned int internalMemoryBufferSize =
             internalMaxDataSizeByte * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize);
+        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
     }
 
     if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {
 #if defined(USE_SYCL_BUILTIN_REDUCER)
-        sycl::queue &Q = SYCLQueue::GetInstance();
+        sycl::queue &Q = SYCLQueue::GetInstance(streamID);
         sycl::property_list initializer =
             init ? sycl::property_list{sycl::property::reduction::
                                            initialize_to_identity{}}
@@ -260,7 +266,7 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
     {
 #if defined(USE_SYCL_BUILTIN_REDUCER)
-        sycl::queue &Q = SYCLQueue::GetInstance();
+        sycl::queue &Q = SYCLQueue::GetInstance(streamID);
         sycl::property_list initializer =
             init ? sycl::property_list{sycl::property::reduction::
                                            initialize_to_identity{}}
@@ -280,7 +286,7 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
     {
 #if defined(USE_SYCL_BUILTIN_REDUCER)
-        sycl::queue &Q = SYCLQueue::GetInstance();
+        sycl::queue &Q = SYCLQueue::GetInstance(streamID);
         sycl::property_list initializer =
             init ? sycl::property_list{sycl::property::reduction::
                                            initialize_to_identity{}}
@@ -308,17 +314,18 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
 {
     using TData = typename Reduction::value_type;
 
+    const unsigned int streamID = 0;
     if (internalHostBuffer == nullptr)
     {
         hostMallocPinned(&internalHostBuffer, internalMaxDataSizeByte);
-        deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte);
+        deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte, streamID);
     }
 
     parallel_reduce<ExecSpace, true, Reduction>(begin, end, functor,
                                                 (TData *)internalDeviceBuffer);
 
     deviceMemcpy<DeviceToHost>(internalHostBuffer, internalDeviceBuffer,
-                               sizeof(TData));
+                               sizeof(TData), streamID);
 
     out = *(TData *)internalHostBuffer;
 }

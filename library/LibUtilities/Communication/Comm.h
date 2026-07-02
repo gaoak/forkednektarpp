@@ -465,7 +465,7 @@ void Comm::Send(int pProc, Operators::MemoryRegion<T> &pData)
     if (m_gpu_aware)
     {
         // Synchronize stream before communication.
-        nekStreamSynchronize(nullptr);
+        nekStreamSynchronize(0);
 
         v_Send(pData.template GetPtr<MemSpace, ReadOnly>(), pData.size(),
                CommDataTypeTraits<T>::GetDataType(), pProc);
@@ -539,7 +539,7 @@ void Comm::SendRecv(int pSendProc, Operators::MemoryRegion<T> &pSendData,
     if (m_gpu_aware)
     {
         // Synchronize stream before communication.
-        nekStreamSynchronize(nullptr);
+        nekStreamSynchronize(0);
 
         v_SendRecv(pSendData.template GetPtr<MemSpace, ReadOnly>(),
                    pSendData.size(), CommDataTypeTraits<T>::GetDataType(),
@@ -604,7 +604,7 @@ void Comm::AllReduce(Operators::MemoryRegion<T> &pData, enum ReduceOperator pOp)
     if (m_gpu_aware)
     {
         // Synchronize stream before communication.
-        nekStreamSynchronize(nullptr);
+        nekStreamSynchronize(0);
 
         v_AllReduce(pData.template GetPtr<MemSpace, ReadWrite>(), pData.size(),
                     CommDataTypeTraits<T>::GetDataType(), pOp);
@@ -626,7 +626,7 @@ void Comm::AllReduceBegin(Operators::MemoryRegion<T> &pData,
     if (m_gpu_aware)
     {
         // Synchronize stream before communication.
-        nekStreamSynchronize(nullptr);
+        nekStreamSynchronize(0);
 
         v_AllReduceBegin(pData.template GetPtr<MemSpace, ReadWrite>(),
                          pData.size(), CommDataTypeTraits<T>::GetDataType(),
@@ -700,7 +700,7 @@ void Comm::AlltoAll(Operators::MemoryRegion<T> &pSendData,
     if (m_gpu_aware)
     {
         // Synchronize stream before communication.
-        nekStreamSynchronize(nullptr);
+        nekStreamSynchronize(0);
 
         v_AlltoAll(pSendData.template GetPtr<MemSpace, ReadOnly>(), count,
                    CommDataTypeTraits<T>::GetDataType(),
@@ -761,7 +761,7 @@ void Comm::AlltoAllv(Operators::MemoryRegion<T> &pSendData,
     if (m_gpu_aware)
     {
         // Synchronize stream before communication.
-        nekStreamSynchronize(nullptr);
+        nekStreamSynchronize(0);
 
         v_AlltoAllv(pSendData.template GetPtr<MemSpace, ReadOnly>(),
                     pSendDataSizeMap.template GetPtr<MemSpace, ReadOnly>(),
@@ -830,7 +830,7 @@ void Comm::AllGather(Operators::MemoryRegion<T> &pSendData,
     if (m_gpu_aware)
     {
         // Synchronize stream before communication.
-        nekStreamSynchronize(nullptr);
+        nekStreamSynchronize(0);
 
         v_AllGather(pSendData.template GetPtr<MemSpace, ReadOnly>(), sendSize,
                     CommDataTypeTraits<T>::GetDataType(),
@@ -889,7 +889,7 @@ void Comm::AllGatherv(Operators::MemoryRegion<T> &pSendData,
     if (m_gpu_aware)
     {
         // Synchronize stream before communication.
-        nekStreamSynchronize(nullptr);
+        nekStreamSynchronize(0);
 
         v_AllGatherv(pSendData.template GetPtr<MemSpace, ReadOnly>(), sendSize,
                      CommDataTypeTraits<T>::GetDataType(),
@@ -946,7 +946,7 @@ void Comm::AllGatherv(Operators::MemoryRegion<T> &pRecvData,
     if (m_gpu_aware)
     {
         // Synchronize stream before communication.
-        nekStreamSynchronize(nullptr);
+        nekStreamSynchronize(0);
 
         v_AllGatherv(pRecvData.template GetPtr<MemSpace, ReadWrite>(),
                      pRecvDataSizeMap.template GetPtr<MemSpace, ReadOnly>(),
@@ -993,7 +993,7 @@ void Comm::Bcast(Operators::MemoryRegion<T> &pData, int pRoot)
         // Synchronize memory on the root process.
         if (GetRank() == pRoot)
         {
-            nekStreamSynchronize(nullptr);
+            nekStreamSynchronize(0);
             pData.template GetPtr<MemSpace, ReadOnly>();
         }
 
@@ -1061,7 +1061,7 @@ Operators::MemoryRegion<T> Comm::Gather(const int rootProc,
         // Synchronize stream before communication.
         if (!amRoot)
         {
-            nekStreamSynchronize(nullptr);
+            nekStreamSynchronize(0);
         }
 
         void *recvbuf =
@@ -1131,7 +1131,7 @@ Operators::MemoryRegion<T> Comm::Scatter(const int rootProc,
         // Synchronize stream before communication.
         if (amRoot)
         {
-            nekStreamSynchronize(nullptr);
+            nekStreamSynchronize(0);
         }
 
         const void *sendbuf =
@@ -1203,7 +1203,7 @@ void Comm::DistGraphCreateAdjacent(Operators::MemoryRegion<T> &sources,
     if (m_gpu_aware)
     {
         // Synchronize stream before communication.
-        nekStreamSynchronize(nullptr);
+        nekStreamSynchronize(0);
 
         v_DistGraphCreateAdjacent(
             indegree, sources.template GetPtr<MemSpace, ReadOnly>(),
@@ -1273,7 +1273,7 @@ void Comm::NeighborAlltoAllv(Operators::MemoryRegion<T> &pSendData,
     if (m_gpu_aware)
     {
         // Synchronize stream before communication.
-        nekStreamSynchronize(nullptr);
+        nekStreamSynchronize(0);
 
         v_NeighborAlltoAllv(
             pSendData.template GetPtr<MemSpace, ReadOnly>(),

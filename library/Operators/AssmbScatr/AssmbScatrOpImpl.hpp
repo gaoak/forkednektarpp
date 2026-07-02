@@ -331,7 +331,7 @@ protected:
                      m_rowComm->IsGPUAware())
             {
                 // Synchronize stream before communication.
-                nekStreamSynchronize(nullptr);
+                nekStreamSynchronize(0);
             }
 
             // start  comms

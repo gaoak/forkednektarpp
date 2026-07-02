@@ -32,6 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "Operators/Common/Backends/SYCLQueue.hpp"
 #include "Operators/Common/Memory/MemoryAlloc.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 
@@ -43,29 +44,38 @@ using namespace oneapi::math;
 using namespace oneapi::mkl;
 #endif
 
-template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type NekGemm(
-    [[maybe_unused]] THandle queue, std::string transposeA,
-    std::string transposeB, const std::int64_t M, const std::int64_t N,
-    const std::int64_t K, const TData alpha, const TData *a,
-    const std::int64_t lda, const TData *b, const std::int64_t ldb,
-    const TData beta, TData *c, const std::int64_t ldc)
+unsigned int internalOneMathStreamID = 0;
+
+void setNekBlasStream([[maybe_unused]] oneMathHandle_t handle,
+                      const unsigned int streamID)
 {
+    internalOneMathStreamID = streamID;
+}
+
+template <typename THandle, typename TData>
+typename std::enable_if<std::is_same_v<THandle, oneMathHandle_t>, void>::type
+NekGemm([[maybe_unused]] THandle handle, std::string transposeA,
+        std::string transposeB, const std::int64_t M, const std::int64_t N,
+        const std::int64_t K, const TData alpha, const TData *a,
+        const std::int64_t lda, const TData *b, const std::int64_t ldb,
+        const TData beta, TData *c, const std::int64_t ldc)
+{
+    sycl::queue &Q = SYCLQueue::GetInstance(internalOneMathStreamID);
 #if __has_include("oneapi/mkl.hpp") || __has_include("oneapi/math.hpp")
     auto transA = (transposeA == "N") ? transpose::N : transpose::T;
     auto transB = (transposeB == "N") ? transpose::N : transpose::T;
-    blas::column_major::gemm(queue, transA, transB, M, N, K, alpha, a, lda, b,
-                             ldb, beta, c, ldc);
+    blas::column_major::gemm(Q, transA, transB, M, N, K, alpha, a, lda, b, ldb,
+                             beta, c, ldc);
 #else
-    queue.wait();
+    Q.wait();
     NekGemm(blasHandle_t(), transposeA, transposeB, M, N, K, alpha, a, lda, b,
             ldb, beta, c, ldc);
 #endif
 }
 
 template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type
-NekGemmStridedBatched([[maybe_unused]] THandle queue, std::string transposeA,
+typename std::enable_if<std::is_same_v<THandle, oneMathHandle_t>, void>::type
+NekGemmStridedBatched([[maybe_unused]] THandle handle, std::string transposeA,
                       std::string transposeB, const std::int64_t M,
                       const std::int64_t N, const std::int64_t K,
                       const TData alpha, const TData *a, const std::int64_t lda,
@@ -74,14 +84,15 @@ NekGemmStridedBatched([[maybe_unused]] THandle queue, std::string transposeA,
                       const TData beta, TData *c, const std::int64_t ldc,
                       const std::int64_t strideC, const std::int64_t batchSize)
 {
+    sycl::queue &Q = SYCLQueue::GetInstance(internalOneMathStreamID);
 #if __has_include("oneapi/mkl.hpp") || __has_include("oneapi/math.hpp")
     auto transA = (transposeA == "N") ? transpose::N : transpose::T;
     auto transB = (transposeB == "N") ? transpose::N : transpose::T;
-    blas::column_major::gemm_batch(queue, transA, transB, M, N, K, alpha, a,
-                                   lda, strideA, b, ldb, strideB, beta, c, ldc,
+    blas::column_major::gemm_batch(Q, transA, transB, M, N, K, alpha, a, lda,
+                                   strideA, b, ldb, strideB, beta, c, ldc,
                                    strideC, batchSize);
 #else
-    queue.wait();
+    Q.wait();
     NekGemmStridedBatched(blasHandle_t(), transposeA, transposeB, M, N, K,
                           alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc,
                           strideC, batchSize);
@@ -89,27 +100,29 @@ NekGemmStridedBatched([[maybe_unused]] THandle queue, std::string transposeA,
 }
 
 template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type NekGemv(
-    [[maybe_unused]] THandle queue, std::string transpose, const std::int64_t M,
-    const std::int64_t N, const TData alpha, const TData *a,
-    const std::int64_t lda, const TData *x, const std::int64_t incx,
-    const TData beta, TData *y, const std::int64_t incy)
+typename std::enable_if<std::is_same_v<THandle, oneMathHandle_t>, void>::type
+NekGemv([[maybe_unused]] THandle handle, std::string transpose,
+        const std::int64_t M, const std::int64_t N, const TData alpha,
+        const TData *a, const std::int64_t lda, const TData *x,
+        const std::int64_t incx, const TData beta, TData *y,
+        const std::int64_t incy)
 {
+    sycl::queue &Q = SYCLQueue::GetInstance(internalOneMathStreamID);
 #if __has_include("oneapi/mkl.hpp") || __has_include("oneapi/math.hpp")
     auto trans = (transpose == "N") ? transpose::N : transpose::T;
 
-    blas::column_major::gemv(queue, trans, M, N, alpha, a, lda, x, incx, beta,
-                             y, incy);
+    blas::column_major::gemv(Q, trans, M, N, alpha, a, lda, x, incx, beta, y,
+                             incy);
 #else
-    queue.wait();
+    Q.wait();
     NekGemv(blasHandle_t(), transpose, M, N, alpha, a, lda, x, incx, beta, y,
             incy);
 #endif
 }
 
 template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, sycl::queue>, void>::type
-NekGemvStridedBatched([[maybe_unused]] THandle queue, std::string transpose,
+typename std::enable_if<std::is_same_v<THandle, oneMathHandle_t>, void>::type
+NekGemvStridedBatched([[maybe_unused]] THandle handle, std::string transpose,
                       const std::int64_t M, const std::int64_t N,
                       const TData alpha, const TData *a, const std::int64_t lda,
                       const std::int64_t strideA, const TData *x,
@@ -117,38 +130,39 @@ NekGemvStridedBatched([[maybe_unused]] THandle queue, std::string transpose,
                       const TData beta, TData *y, const std::int64_t incy,
                       const std::int64_t strideY, const std::int64_t batchSize)
 {
+    sycl::queue &Q = SYCLQueue::GetInstance(internalOneMathStreamID);
 #if __has_include("oneapi/mkl.hpp") || __has_include("oneapi/math.hpp")
 #if __has_include("oneapi/math.hpp")
     ASSERTL0(false, "gemv_batch not yet implemented in oneMath")
 #endif
     auto trans = (transpose == "N") ? transpose::N : transpose::T;
 
-    blas::column_major::gemv_batch(queue, trans, M, N, alpha, a, lda, strideA,
-                                   x, incx, strideX, beta, y, incy, strideY,
+    blas::column_major::gemv_batch(Q, trans, M, N, alpha, a, lda, strideA, x,
+                                   incx, strideX, beta, y, incy, strideY,
                                    batchSize);
 #else
-    queue.wait();
+    Q.wait();
     NekGemvStridedBatched(blasHandle_t(), transpose, M, N, alpha, a, lda,
                           strideA, x, incx, strideX, beta, y, incy, strideY,
                           batchSize);
 #endif
 }
 
-template void NekGemm<sycl::queue, float>(
-    sycl::queue queue, std::string transposeA, std::string transposeB,
+template void NekGemm<oneMathHandle_t, float>(
+    oneMathHandle_t handle, std::string transposeA, std::string transposeB,
     const std::int64_t M, const std::int64_t N, const std::int64_t K,
     const float alpha, const float *a, const std::int64_t lda, const float *b,
     const std::int64_t ldb, const float beta, float *c, const std::int64_t ldc);
 
-template void NekGemm<sycl::queue, double>(
-    sycl::queue queue, std::string transposeA, std::string transposeB,
+template void NekGemm<oneMathHandle_t, double>(
+    oneMathHandle_t handle, std::string transposeA, std::string transposeB,
     const std::int64_t M, const std::int64_t N, const std::int64_t K,
     const double alpha, const double *a, const std::int64_t lda,
     const double *b, const std::int64_t ldb, const double beta, double *c,
     const std::int64_t ldc);
 
-template void NekGemmStridedBatched<sycl::queue, float>(
-    sycl::queue queue, std::string transposeA, std::string transposeB,
+template void NekGemmStridedBatched<oneMathHandle_t, float>(
+    oneMathHandle_t handle, std::string transposeA, std::string transposeB,
     const std::int64_t M, const std::int64_t N, const std::int64_t K,
     const float alpha, const float *a, const std::int64_t lda,
     const std::int64_t strideA, const float *b, const std::int64_t ldb,
@@ -156,8 +170,8 @@ template void NekGemmStridedBatched<sycl::queue, float>(
     const std::int64_t ldc, const std::int64_t strideC,
     const std::int64_t batchSize);
 
-template void NekGemmStridedBatched<sycl::queue, double>(
-    sycl::queue queue, std::string transposeA, std::string transposeB,
+template void NekGemmStridedBatched<oneMathHandle_t, double>(
+    oneMathHandle_t handle, std::string transposeA, std::string transposeB,
     const std::int64_t M, const std::int64_t N, const std::int64_t K,
     const double alpha, const double *a, const std::int64_t lda,
     const std::int64_t strideA, const double *b, const std::int64_t ldb,
@@ -165,28 +179,28 @@ template void NekGemmStridedBatched<sycl::queue, double>(
     const std::int64_t ldc, const std::int64_t strideC,
     const std::int64_t batchSize);
 
-template void NekGemv<sycl::queue, float>(
-    sycl::queue queue, std::string transpose, const std::int64_t M,
+template void NekGemv<oneMathHandle_t, float>(
+    oneMathHandle_t handle, std::string transpose, const std::int64_t M,
     const std::int64_t N, const float alpha, const float *a,
     const std::int64_t lda, const float *x, const std::int64_t incx,
     const float beta, float *y, const std::int64_t incy);
 
-template void NekGemv<sycl::queue, double>(
-    sycl::queue queue, std::string transpose, const std::int64_t M,
+template void NekGemv<oneMathHandle_t, double>(
+    oneMathHandle_t handle, std::string transpose, const std::int64_t M,
     const std::int64_t N, const double alpha, const double *a,
     const std::int64_t lda, const double *x, const std::int64_t incx,
     const double beta, double *y, const std::int64_t incy);
 
-template void NekGemvStridedBatched<sycl::queue, float>(
-    sycl::queue queue, std::string transpose, const std::int64_t M,
+template void NekGemvStridedBatched<oneMathHandle_t, float>(
+    oneMathHandle_t handle, std::string transpose, const std::int64_t M,
     const std::int64_t N, const float alpha, const float *a,
     const std::int64_t lda, const std::int64_t strideA, const float *x,
     const std::int64_t incx, const std::int64_t strideX, const float beta,
     float *y, const std::int64_t incy, const std::int64_t strideY,
     const std::int64_t batchSize);
 
-template void NekGemvStridedBatched<sycl::queue, double>(
-    sycl::queue queue, std::string transpose, const std::int64_t M,
+template void NekGemvStridedBatched<oneMathHandle_t, double>(
+    oneMathHandle_t handle, std::string transpose, const std::int64_t M,
     const std::int64_t N, const double alpha, const double *a,
     const std::int64_t lda, const std::int64_t strideA, const double *x,
     const std::int64_t incx, const std::int64_t strideX, const double beta,

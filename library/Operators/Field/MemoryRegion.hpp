@@ -175,7 +175,9 @@ public:
     {
         if (m_device && m_device_owned)
         {
-            deviceFree(m_device, m_size * sizeof(TData), m_memAllocType);
+            const unsigned int streamID = 0;
+            deviceFree(m_device, m_size * sizeof(TData), streamID,
+                       m_memAllocType);
         }
 
         if (m_host && m_host_owned)
@@ -420,11 +422,12 @@ public:
                 // Allocate device memory, if not yet allocated.
                 if (!m_device)
                 {
-                    deviceMalloc(&m_device, m_size * sizeof(TData),
+                    const unsigned int streamID = 0;
+                    deviceMalloc(&m_device, m_size * sizeof(TData), streamID,
                                  m_memAllocType);
 
                     // Initialize memory to zero.
-                    deviceMemset(m_device, 0, m_size * sizeof(TData));
+                    deviceMemset(m_device, 0, m_size * sizeof(TData), streamID);
                 }
 
                 m_host_valid   = false;
@@ -645,13 +648,16 @@ public:
         }
         else if (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
         {
+            const unsigned int streamID = 0;
+
             // Allocate device memory, if not yet allocated.
             if (!m_device)
             {
-                deviceMalloc(&m_device, m_size * sizeof(TData), m_memAllocType);
+                deviceMalloc(&m_device, m_size * sizeof(TData), streamID,
+                             m_memAllocType);
 
                 // Initialize memory to zero.
-                deviceMemset(m_device, 0, m_size * sizeof(TData));
+                deviceMemset(m_device, 0, m_size * sizeof(TData), streamID);
             }
 
             auto size = (count == 0) ? m_size : count;
@@ -665,17 +671,17 @@ public:
                 // Zero value.
                 if (val == TData(0))
                 {
-                    deviceMemset(dst, 0, size * sizeof(TData));
+                    deviceMemset(dst, 0, size * sizeof(TData), streamID);
                 }
                 // Nonzero value.
                 else
                 {
-                    deviceFill(dst, val, size);
+                    deviceFill(dst, val, size, streamID);
                 }
             }
             else
             {
-                deviceFill(dst, val, size);
+                deviceFill(dst, val, size, streamID);
             }
 
             m_host_valid   = false;
@@ -708,8 +714,9 @@ public:
         }
         else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
         {
-            deviceMemcpy<DeviceToDevice>(dst, src,
-                                         this->size() * sizeof(TData));
+            const unsigned int streamID = 0;
+            deviceMemcpy<DeviceToDevice>(dst, src, this->size() * sizeof(TData),
+                                         streamID);
         }
     }
 
@@ -942,13 +949,16 @@ private:
         }
         else if (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
         {
+            const unsigned int streamID = 0;
+
             // Allocate device memory, if not yet allocated.
             if (!m_device)
             {
-                deviceMalloc(&m_device, m_size * sizeof(TData), m_memAllocType);
+                deviceMalloc(&m_device, m_size * sizeof(TData), streamID,
+                             m_memAllocType);
 
                 // Allocate device memory, if not yet allocated.
-                deviceMemset(m_device, 0, m_size * sizeof(TData));
+                deviceMemset(m_device, 0, m_size * sizeof(TData), streamID);
             }
 
             TData *dst = m_device + offset;
@@ -956,14 +966,15 @@ private:
             // Copy to device memory.
             if constexpr (std::is_same_v<TDataIn, TData>)
             {
-                deviceMemcpy<HostToDevice>(dst, src, size * sizeof(TData));
+                deviceMemcpy<HostToDevice>(dst, src, size * sizeof(TData),
+                                           streamID);
             }
             else
             {
                 std::vector<TData> tmp(size);
                 std::copy(src, src + size, tmp.data());
                 deviceMemcpy<HostToDevice>(dst, tmp.data(),
-                                           size * sizeof(TData));
+                                           size * sizeof(TData), streamID);
             }
 
             m_host_valid   = false;
@@ -979,6 +990,8 @@ private:
     {
         if (!m_device_valid)
         {
+            const unsigned int streamID = 0;
+
             if (!m_host_aligned && m_size > 0)
             {
                 NEKERROR(Nektar::ErrorUtil::efatal,
@@ -991,14 +1004,15 @@ private:
             // Allocate device memory, if not yet allocated.
             if (!m_device)
             {
-                deviceMalloc(&m_device, m_size * sizeof(TData), m_memAllocType);
+                deviceMalloc(&m_device, m_size * sizeof(TData), streamID,
+                             m_memAllocType);
             }
 
             // Make sure the host data is valid. It might not be.
             if (m_host_valid)
             {
                 deviceMemcpy<HostToDevice>(m_device, m_host_aligned,
-                                           m_size * sizeof(TData));
+                                           m_size * sizeof(TData), streamID);
             }
             else
             {
@@ -1061,8 +1075,10 @@ private:
             // Make sure the device data is valid. It might not be.
             if (m_device_valid)
             {
+                const unsigned int streamID = 0;
+
                 deviceMemcpy<DeviceToHost>(m_host_aligned, m_device,
-                                           m_size * sizeof(TData));
+                                           m_size * sizeof(TData), streamID);
             }
             else
             {
