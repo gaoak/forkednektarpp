@@ -55,7 +55,7 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
                 ENDIF()
 
                 FOREACH(TData IN LISTS DataTypes)
-                    SET(FactoryDeclName ${name}${ExecSpace}${TData}.${SOURCE_EXT})
+                    SET(FactoryDeclName Operators/${name}${ExecSpace}${TData}.${SOURCE_EXT})
                     SET(CURRENT_HEADERS ${name}_${ExecSpace}_HEADERS)
                     SET(CURRENT_SOURCES ${name}_${ExecSpace}_SOURCES)
 

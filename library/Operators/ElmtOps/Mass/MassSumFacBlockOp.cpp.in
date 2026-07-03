@@ -56,7 +56,7 @@ void MassBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::@Impl@,
     // option in the compile line.
     
 #define SHAPE_TYPE_@Shape@
-#include "@CMAKE_CURRENT_BINARY_DIR@/BlockOpSwitchCode@Shape@.h"
+#include "@CMAKE_CURRENT_BINARY_DIR@/include/BlockOpSwitchCode@Shape@.h"
 }
 } // namespace Nektar::Operators::detail
 // clang-format on

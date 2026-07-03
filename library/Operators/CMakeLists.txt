@@ -66,7 +66,8 @@ MACRO(ADD_OPERATOR dir)
         # Loop through each possible data type.
         FOREACH (TData IN LISTS DataTypes)
             # Set up the name used for the .cpp declaration file.
-            SET(FactoryDeclName ${name}${ExecSpace}${TData}.${SOURCE_EXT})
+            SET(FactoryDeclName
+	         src/${name}${ExecSpace}${TData}.${SOURCE_EXT})
 
             # Get the source and header files for this operator,
             # execution space, and implementation.
@@ -134,7 +135,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
     ELSE()
         SET(ShapeIncludeName "Common/BlockOpSwitchCode.h.in")
         FOREACH (Shape IN LISTS Shapes)
-            SET(ShapeIncName BlockOpSwitchCode${Shape}.h)
+            SET(ShapeIncName include/BlockOpSwitchCode${Shape}.h)
             MESSAGE("Generating block header  file file: " "${ShapeIncName}")
             CONFIGURE_FILE(${ShapeIncludeName} ${ShapeIncName})
         ENDFOREACH()
@@ -144,7 +145,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
     ELSE()
         SET(ShapeIncludeName "Common/BlockOpSwitch1DCoordsCode.h.in")
         FOREACH (Shape IN LISTS Shapes)
-            SET(ShapeIncName BlockOpSwitch1DCoordsCode${Shape}.h)
+            SET(ShapeIncName include/BlockOpSwitch1DCoordsCode${Shape}.h)
             MESSAGE("Generating block header  file file: " "${ShapeIncName}")
             CONFIGURE_FILE(${ShapeIncludeName} ${ShapeIncName})
         ENDFOREACH()
@@ -154,7 +155,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
     ELSE()
         SET(ShapeIncludeName "Common/BlockOpSwitchPhysInterp1D.h.in")
         FOREACH (Shape IN LISTS Shapes)
-            SET(ShapeIncName BlockOpSwitchPhysInterp1D${Shape}.h)
+            SET(ShapeIncName include/BlockOpSwitchPhysInterp1D${Shape}.h)
             MESSAGE("Generating block header  file file: " "${ShapeIncName}")
             CONFIGURE_FILE(${ShapeIncludeName} ${ShapeIncName})
         ENDFOREACH()
@@ -187,7 +188,8 @@ MACRO(ADD_ELMT_OPERATOR dir)
             # Loop through each possible data type.
             FOREACH (TData IN LISTS DataTypes)
                 # Set up the name used for the .cpp declaration file.
-                SET(FactoryDeclName "Block${name}${ExecSpace}${Impl}${TData}.${SOURCE_EXT}")
+                SET(FactoryDeclName
+	        "src/Block${name}${ExecSpace}${Impl}${TData}.${SOURCE_EXT}")
 
                 # Get the source and header files for this operator,
                 # execution space, and implementation.
@@ -278,7 +280,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
                         FOREACH (TData IN LISTS DataTypes)
                             SET(ShapeConfigName "${dir}/${name}SumFacBlockOp.cpp.in")
                             FOREACH (Shape IN LISTS Shapes)
-                                SET(ShapeName ${name}${ExecSpace}SumFac${TData}${Shape}.cpp)
+                                SET(ShapeName src/${name}${ExecSpace}SumFac${TData}${Shape}.cpp)
                                 MESSAGE("Generating shape cpp file: " "${ShapeName}")
                                 CONFIGURE_FILE(${ShapeConfigName} ${ShapeName})
                                 SET(CPP_SHAPE_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}")
@@ -313,7 +315,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
                         FOREACH (TData IN LISTS DataTypes)
                             SET(ShapeConfigName "${dir}/${name}SumFacBlockOp.cpp.in")
                             FOREACH (Shape IN LISTS Shapes)
-                                SET(ShapeName ${name}${ExecSpace}${Impl}${TData}${Shape}.${SOURCE_EXT})
+                                SET(ShapeName src/${name}${ExecSpace}${Impl}${TData}${Shape}.${SOURCE_EXT})
                                 MESSAGE("Generating shape cpp file: " "${ShapeName}")
                                 CONFIGURE_FILE(${ShapeConfigName} ${ShapeName})
                                 SET(CPP_SHAPE_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}")
@@ -363,7 +365,7 @@ ENDMACRO()
 # Macro for single operator.
 MACRO(ADD_SINGLE_OPERATOR dir opname)
 
-  SET(FactoryDeclName "${opname}${ExecSpace}${TData}.${SOURCE_EXT}")
+  SET(FactoryDeclName "src/${opname}${ExecSpace}${TData}.${SOURCE_EXT}")
   CONFIGURE_FILE(${dir}/${opname}FactoryDec.cpp.in
                  ${FactoryDeclName})
   SET(OPERATORS_SOURCES  ${OPERATORS_SOURCES}  ${FactoryDeclName})
@@ -418,7 +420,7 @@ MACRO(ADD_BLOCK_OPERATOR dir)
             # Reset for this (ExecSpace, TData)
             UNSET(IMPL_HEADER)  
             # Set up the name used for the .cpp declaration file.
-            SET(FactoryDeclName "Block${name}${ExecSpace}${TData}.${SOURCE_EXT}")
+            SET(FactoryDeclName "src/Block${name}${ExecSpace}${TData}.${SOURCE_EXT}")
             # Found a Serial/AVX header.
             IF((EXISTS "${dir}/${name}SerialAVX.hpp") AND
                 ("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX"))
@@ -561,13 +563,13 @@ MACRO(ADD_TIME_OPERATOR dir)
                     IF (${name} STREQUAL "IMEXdirk")
                         LIST(GET TimeIntegrationImpStages ${INDEX} ImpStage)
                         LIST(GET TimeIntegrationExpStages ${INDEX} ExpStage)
-                        SET(FactoryDeclName ${name}${Variant}${ExecSpace}${TData}${ImpStage}${ExpStage}Order${IntOrder}.${SOURCE_EXT})
+                        SET(FactoryDeclName src/${name}${Variant}${ExecSpace}${TData}${ImpStage}${ExpStage}Order${IntOrder}.${SOURCE_EXT})
                     ELSEIF (${name} STREQUAL "ExplicitSDC" OR ${name} STREQUAL "ImplicitSDC" OR ${name} STREQUAL "IMEXSDC")
-                        SET(FactoryDeclName ${name}${ExecSpace}${TData}.${SOURCE_EXT})
+                        SET(FactoryDeclName src/${name}${ExecSpace}${TData}.${SOURCE_EXT})
                     ELSEIF (${name} STREQUAL "ExplicitGEM" OR ${name} STREQUAL "ImplicitGEM" OR ${name} STREQUAL "IMEXGEM")
-                        SET(FactoryDeclName ${name}${ExecSpace}${TData}.${SOURCE_EXT})
+                        SET(FactoryDeclName src/${name}${ExecSpace}${TData}.${SOURCE_EXT})
                     ELSE()
-                        SET(FactoryDeclName ${name}${Variant}${ExecSpace}${TData}Order${IntOrder}.${SOURCE_EXT})
+                        SET(FactoryDeclName src/${name}${Variant}${ExecSpace}${TData}Order${IntOrder}.${SOURCE_EXT})
                     ENDIF()
 
                     # Get the source and header files for this operator,
@@ -712,7 +714,7 @@ FOREACH (SolverType IN LISTS SolverTypes)
         # Loop through each possible data type.
         FOREACH (TData IN LISTS DataTypes)
             # Set up the name used for the .cpp declaration file.
-            SET(FactoryDeclName ${name}${SolverType}${ExecSpace}${TData}.${SOURCE_EXT})
+            SET(FactoryDeclName src/${name}${SolverType}${ExecSpace}${TData}.${SOURCE_EXT})
 
             # Get the source and header files for this operator,
             # execution space, and implementation.
