@@ -67,7 +67,7 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
                     FOREACH (TData IN LISTS DataTypes)
                         # Set up the name used for the .cpp declaration file.
                         SET(FactoryDeclName
-                        ${name}${SolverType}${EoSType}${ExecSpace}${TData}.${SOURCE_EXT})
+                        Operators/${name}${SolverType}${EoSType}${ExecSpace}${TData}.${SOURCE_EXT})
 
                         # Get the source and header files for this operator,
                         # execution space, and implementation.
@@ -155,7 +155,7 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
                    FOREACH (TData IN LISTS DataTypes)
                         # Set up the name used for the .cpp declaration file.
                         SET(FactoryDeclName
-                             ${name}${SolverType}${EoSType}${ExecSpace}${TData}.${SOURCE_EXT})
+                             Operators/${name}${SolverType}${EoSType}${ExecSpace}${TData}.${SOURCE_EXT})
 
                         # Get the source and header files for this operator,
                         # execution space, and implementation.
