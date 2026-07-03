@@ -108,8 +108,8 @@ protected:
     ~UnsteadyADR() override = default;
 
     void DoImplicit(Field<double, FieldState::Phys> &inout,
-                    Field<double, FieldState::Phys> &out,
-                    [[maybe_unused]] const double &time, const double &lambda);
+                    Field<double, FieldState::Phys> &out, const double &time,
+                    const double &lambda);
 
     void DoExplicitRhs(Field<double, FieldState::Phys> &in,
                        Field<double, FieldState::Phys> &out, const double &time,

@@ -52,16 +52,16 @@ public:
     {
     }
 
-    void SetTestCase()
+    void SetTestCase(const double time = 0.0)
     {
         // Set initial conditions.
         this->fixt_out->template Initialize<NektarSpaces::HostSpace>(0.0);
 
         // Compute expected solution.
-        ExpectedSolution();
+        ExpectedSolution(time);
     }
 
-    void RunTestCase()
+    void RunTestCase(const double time = 0.0)
     {
         std::string execStr = Operator<TData>::GetOpExecSpace(this->session);
 
@@ -76,10 +76,11 @@ public:
 
         auto op = NeuBndCondOp<TData>::Create(this->fixt_explist,
                                               this->session->GetVariables());
+        op->UpdateBndCoeffs(time);
         op->Apply(*this->fixt_out);
     }
 
-    void ExpectedSolution()
+    void ExpectedSolution(const double time = 0.0)
     {
         // Get variables
         auto variables     = this->fixt_explist->GetSession()->GetVariables();
@@ -96,8 +97,7 @@ public:
                      std::to_string(ncomp) + " and Nfields = " +
                      std::to_string(nvars) + ", respectively.")
 
-        // Impose Dirichlet BCs for each component
-        double time = 0.0;
+        // Impose Neumann BCs for each component
         Array<OneD, double> tmp;
         for (unsigned int nc = 0; nc < ncomp; ++nc)
         {
@@ -108,7 +108,7 @@ public:
                                             Collections::eNoCollection);
 
             // Update BC for this variable and impose
-            bcfield.EvaluateBoundaryConditions(time);
+            bcfield.EvaluateBoundaryConditions(time, variables[nc]);
             bcfield.ImposeNeumannConditions(tmp = outcoeffs + nc * ncoeffs);
         }
         this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
@@ -150,6 +150,9 @@ public:
 
 TEST(Helmholtz1D_Seg, "run/Helmholtz1D_P8.xml")
 
+TEST(Helmholtz1D_Seg_TimeDependentNeumann,
+     "run/Helmholtz1D_P8_TimeDependentDirichlet.xml")
+
 TEST(Helmholtz1D_Seg_3C, "run/Helmholtz1D_3C.xml")
 
 TEST(Helmholtz1D_Seg_3C_mixedBC, "run/Helmholtz1D_3C_mixedBC.xml")
@@ -164,6 +167,9 @@ TEST(Helmholtz2D_Tri_3C, "run/Helmholtz2D_Tri_3C.xml")
 
 TEST(Helmholtz2D_Tri_Quad, "run/Helmholtz2D_P7_AllBCs.xml")
 
+TEST(Helmholtz2D_Tri_Quad_TimeDependentBC,
+     "run/Helmholtz2D_P7_AllBCs_TimeDependentDirichlet.xml")
+
 TEST(Helmholtz2D_Tri_Quad_3C, "run/Helmholtz2D_3C.xml")
 
 TEST(Helmholtz2D_Tri_Quad_3C_mixedBC, "run/Helmholtz2D_3C_mixedBC.xml")
@@ -172,11 +178,20 @@ TEST(Helmholtz3D_Hex, "run/Helmholtz3D_Hex_Heterogeneous.xml")
 
 TEST(Helmholtz3D_Prism, "run/Helmholtz3D_Prism_VarP.xml")
 
+TEST(Helmholtz3D_Prism_TimeDependentBC,
+     "run/Helmholtz3D_Prism_VarP_TimeDependentBC.xml")
+
 TEST(Helmholtz3D_Pyr, "run/Helmholtz3D_Pyr_VarP.xml")
 
 TEST(Helmholtz3D_Tet, "run/Helmholtz3D_Tet_VarP.xml")
 
+TEST(Helmholtz3D_Tet_TimeDependentBC,
+     "run/Helmholtz3D_Tet_VarP_TimeDependentBC.xml")
+
 TEST(Helmholtz3D_Hex_AllBCs, "run/Helmholtz3D_Hex_AllBCs_P6.xml")
+
+TEST(Helmholtz3D_Hex_AllBCs_TimeDependentBC,
+     "run/Helmholtz3D_Hex_AllBCs_P6_TimeDependentBC.xml")
 
 TEST(Helmholtz3D_Hex_3C, "run/Helmholtz3D_Hex_3C.xml")
 

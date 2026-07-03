@@ -180,6 +180,10 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvecDiff3D_Prism_3C)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvecDiff3D_TetPrism_3C)
 
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvection1D_TimeDependentDirichlet)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvection2D_TimeDependentDirichlet)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvection3D_TimeDependentDirichlet)
+
         # SDC time-integration
         SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvection2D_ExplicitSDCGaussLobattoLegendre)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvection2D_ExplicitSDCGaussRadauLegendre)

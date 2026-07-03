@@ -174,8 +174,8 @@ void VelocityCorrectionScheme::v_GenerateSummary(SummaryList &s)
  */
 void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
     Field<double, FieldState::Phys> &in,
-    [[maybe_unused]] Field<double, FieldState::Phys> &out,
-    [[maybe_unused]] const double &time, const double &dt_inv_gamma)
+    [[maybe_unused]] Field<double, FieldState::Phys> &out, const double &time,
+    const double &dt_inv_gamma)
 {
     /// Set up forcing term for pressure Poisson equation
     // Compute divergence of RHS
@@ -203,6 +203,7 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
         m_poissonSolveOp->SetPrecon(m_preconPressureOpMap[dt_inv_gamma]);
     }
 
+    m_poissonSolveOp->UpdateBndCoeffs(time);
     m_poissonSolveOp->Apply(m_wsp_phys_1c, m_pressure_coeff);
 
     /// Set up forcing term for Helmholtz problems
@@ -241,6 +242,7 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
     // Solve diffusion problem for each component
     m_math.zero(m_fields_coeff);
 
+    m_helmSolveOp->UpdateBndCoeffs(time);
     m_helmSolveOp->Apply(m_wsp_phys, m_fields_coeff);
 
     // Transform to physical space

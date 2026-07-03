@@ -220,6 +220,7 @@ void EquationSystem::v_WriteFld(const std::string &outname)
     // Assume DG has result already in m_fields_coeff
     if (m_projectionType == MultiRegions::eGalerkin)
     {
+        m_fwdTransOp->UpdateBndCoeffs(m_time);
         m_math.zero(m_fields_coeff);
         m_fwdTransOp->Apply(m_fields, m_fields_coeff);
     }
@@ -431,7 +432,7 @@ void EquationSystem::CheckHomogeneousDimensions()
  */
 void EquationSystem::v_DoProjection(Field<double, FieldState::Phys> &in,
                                     Field<double, FieldState::Phys> &out,
-                                    [[maybe_unused]] const double time)
+                                    const double time)
 {
     // Switch on the projection type (Discontinuous or Continuous)
     switch (m_projectionType)
@@ -450,6 +451,7 @@ void EquationSystem::v_DoProjection(Field<double, FieldState::Phys> &in,
             // Continuous projection
             // Note we could use the cheaper operators: AvgAssemble or
             // GlobalToLocal
+            m_fwdTransOp->UpdateBndCoeffs(time);
             m_fwdTransOp->Apply(in, m_fields_coeff);
             m_bwdTransOp->Apply(m_fields_coeff, out);
             break;

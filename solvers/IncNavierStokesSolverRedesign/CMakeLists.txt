@@ -17,6 +17,12 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
             SET(ExecSpaces ${ExecSpaces} Device)
         ENDIF()
 
+        # Supported floating point data types.
+        SET(DataTypes double)
+        IF(NEKTAR_ENABLE_SINGLE_PRECISION)
+            SET(DataTypes ${DataTypes} float)
+        ENDIF()
+
         # Macro
         MACRO(SET_ALL_SOLVER_TEST solver session)
             FOREACH (ExecSpace IN LISTS ExecSpaces)

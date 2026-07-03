@@ -424,6 +424,22 @@ protected:
             "    const TData " + vnames[i] + " = " + vnames[i] + "ptr[tid];\n";
     }
 
+    // Expressions are emitted from the original session string, so numeric
+    // literals keep their source spelling.  In CUDA/HIP JIT compilation,
+    // calls such as sqrt(61) are ambiguous because 61 is an int and both
+    // float and double overloads are viable.  Cast math-function
+    // arguments to TData so overload resolution follows the precision of
+    // this generated kernel.
+    kernel_src += "#define sqrt(x) sqrt(static_cast<TData>(x))\n";
+    kernel_src += "#define sin(x) sin(static_cast<TData>(x))\n";
+    kernel_src += "#define cos(x) cos(static_cast<TData>(x))\n";
+    kernel_src += "#define tan(x) tan(static_cast<TData>(x))\n";
+    kernel_src += "#define exp(x) exp(static_cast<TData>(x))\n";
+    kernel_src += "#define log(x) log(static_cast<TData>(x))\n";
+    kernel_src += "#define log10(x) log10(static_cast<TData>(x))\n";
+    kernel_src += "#define pow(x,y) pow(static_cast<TData>(x), "
+                  "static_cast<TData>(y))\n";
+
     // Define expression.
     for (unsigned int nc = 0; nc < this->m_expressions.size(); nc++)
     {

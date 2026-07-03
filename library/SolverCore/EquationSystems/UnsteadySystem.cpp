@@ -135,7 +135,7 @@ void UnsteadySystem::v_SetInitialConditions(double initialTime)
 
         // Continuous Galerkin: C0 projection
         // Discontinuous Galerkin: Copy
-        DoProjection(m_fields, m_fields);
+        DoProjection(m_fields, m_fields, m_time);
     }
     // Set initial conditions from file
     else if (vType == LibUtilities::eFunctionTypeFile)

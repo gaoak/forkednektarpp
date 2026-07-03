@@ -41,6 +41,7 @@
 #include "Operators/BndCondOps/FwdTransBC/FwdTransBCOp.hpp"
 
 #include "Operators/ElmtOps/Expression/ExpressionOp.hpp"
+#include "Operators/Math/MathKernels.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 using namespace Nektar;
@@ -126,6 +127,9 @@ public:
 
                 // Check if any component has a Dirichlet condition
                 hasDirichletCondition = hasDirichletCondition || tmp;
+                this->m_hasTimeDependentBndCoeffs =
+                    this->m_hasTimeDependentBndCoeffs ||
+                    (tmp && bc->IsTimeDependent());
             }
 
             isDirichletByRegion.push_back(isDirichlet);
@@ -154,13 +158,15 @@ public:
                 m_numBndCoeffCompSize += nelmt * ncoeff;
             }
 
+            m_dirNumCoeffs.push_back(bcExpList->GetNcoeffs());
+
             // Initialize memory regions
             this->m_wsp_phys.back().template Initialize<MemSpace>(0.0);
             this->m_wsp_coeffs.back().template Initialize<MemSpace>(0.0);
 
             // Create operators for this boundary condition
             this->m_expressionOps.push_back(
-                ExpressionOp<TData>::Create(bcExpList, components, "Serial"));
+                ExpressionOp<TData>::Create(bcExpList, components));
             this->m_expressionOps.back()->SetComponentMask(isDirichlet);
 
             this->m_fwdTransBCOps.push_back(FwdTransBCOp<TData>::Create(
@@ -203,13 +209,14 @@ public:
             blockBound[blk] = bound;
         }
 
-        // Collecting boundary coefficients.
-        // and index map (map for one component only)
-        std::vector<TData> bndcoeff(nComp * m_numBndCoeffCompSize);
+        // Collect the compact Dirichlet-to-full-boundary coefficient index map
+        // for one component. Boundary coefficients themselves are dynamic and
+        // are filled by UpdateBndCoeffs().
         std::vector<size_t> index(m_numBndCoeffCompSize);
         std::vector<std::vector<size_t>> dirIndexByComp(nComp);
         size_t bndcnt = 0, cnt = 0;
-        for (unsigned int i = 0, iDir = 0; i < bregions.size(); ++i)
+        m_dirCoeffOffsets.clear();
+        for (unsigned int i = 0; i < bregions.size(); ++i)
         {
             // Get number of coefficients for this BC
             auto nBndExpCoeff = numBcExpCoeffs[i];
@@ -219,28 +226,7 @@ public:
                             isDirichletByRegion[i].end(),
                             [=](bool i) { return i == 1; }))
             {
-                // Evaluate Dirichlet BCs and put into vector
-                m_expressionOps[iDir]->Apply(m_wsp_phys[iDir],
-                                             m_wsp_phys[iDir]);
-                m_fwdTransBCOps[iDir]->Apply(m_wsp_phys[iDir],
-                                             m_wsp_coeffs[iDir]);
-
-                // Concatenate vector of all boundary coefficients (ToVector
-                // removes padding)
-                std::vector<TData> tmp =
-                    m_wsp_coeffs[iDir].template ToVector<TData>();
-
-                // Sort vector in boundary-region major to be consistent with
-                // map layout
-                ASSERTL1(tmp.size() == nComp * nBndExpCoeff,
-                         "Unexpected boundary coefficient vector size.");
-                for (unsigned int nc = 0; nc < nComp; ++nc)
-                {
-                    std::copy(tmp.begin() + nc * nBndExpCoeff,
-                              tmp.begin() + (nc + 1) * nBndExpCoeff,
-                              bndcoeff.begin() + nc * m_numBndCoeffCompSize +
-                                  bndcnt);
-                }
+                m_dirCoeffOffsets.push_back(bndcnt);
 
                 // Gather index
                 for (size_t j = 0; j < nBndExpCoeff; ++j)
@@ -258,9 +244,6 @@ public:
                     }
                 }
                 bndcnt += nBndExpCoeff;
-
-                // Increment Dirichlet boundaries
-                iDir++;
             }
             cnt += nBndExpCoeff;
         }
@@ -272,6 +255,9 @@ public:
         m_map.clear();
         m_sign.clear();
         m_bndCoeff.clear();
+        m_bndCoeffSrc.clear();
+        m_bndCoeffHost.clear();
+        m_compactBndCoeff.assign(nComp * m_numBndCoeffCompSize, 0.0);
         m_parDirBndSign.clear();
         m_parDirOffsets.assign(domainBlocks.size(),
                                std::vector<size_t>(nComp, 0));
@@ -304,7 +290,8 @@ public:
 
         std::vector<std::vector<size_t>> mapBlockByBlk(domainBlocks.size());
         std::vector<std::vector<TData>> signBlockByBlk(domainBlocks.size());
-        std::vector<std::vector<TData>> bndCoeffBlockByBlk(domainBlocks.size());
+        std::vector<std::vector<size_t>> bndCoeffSrcBlockByBlk(
+            domainBlocks.size());
         std::vector<std::vector<int>> parDirBlockByBlk(domainBlocks.size());
         std::vector<std::vector<std::vector<size_t>>> locid0BlockByPair(
             domainBlocks.size(),
@@ -340,17 +327,15 @@ public:
             auto &parallelDirBndSign = assmbMap->GetParallelDirBndSign();
             m_signChange[nc]         = assmbMap->GetSignChange();
 
-            std::vector<std::tuple<size_t, size_t, TData>> mapReordered;
+            std::vector<std::tuple<size_t, size_t>> mapReordered;
             mapReordered.reserve(dirIndexByComp[nc].size());
             for (size_t idx : dirIndexByComp[nc])
             {
-                mapReordered.push_back(std::make_tuple(
-                    idx, map[index[idx]],
-                    bndcoeff[idx + nc * m_numBndCoeffCompSize]));
+                mapReordered.push_back(std::make_tuple(idx, map[index[idx]]));
             }
             std::sort(mapReordered.begin(), mapReordered.end(),
-                      [](std::tuple<size_t, size_t, TData> const &t1,
-                         std::tuple<size_t, size_t, TData> const &t2) {
+                      [](std::tuple<size_t, size_t> const &t1,
+                         std::tuple<size_t, size_t> const &t2) {
                           return std::tie(std::get<1>(t1), std::get<0>(t1)) <
                                  std::tie(std::get<1>(t2), std::get<0>(t2));
                       });
@@ -377,7 +362,7 @@ public:
 
                 mapBlockByBlk[blk].reserve(compOffset + compCount);
                 signBlockByBlk[blk].reserve(compOffset + compCount);
-                bndCoeffBlockByBlk[blk].reserve(compOffset + compCount);
+                bndCoeffSrcBlockByBlk[blk].reserve(compOffset + compCount);
 
                 for (size_t idx : blockIndices[blk])
                 {
@@ -387,8 +372,9 @@ public:
                         m_signChange[nc]
                             ? sign[index[std::get<0>(mapReordered[idx])]]
                             : static_cast<TData>(1));
-                    bndCoeffBlockByBlk[blk].push_back(
-                        std::get<2>(mapReordered[idx]));
+                    bndCoeffSrcBlockByBlk[blk].push_back(
+                        std::get<0>(mapReordered[idx]) +
+                        nc * m_numBndCoeffCompSize);
                 }
             }
             m_anySignChange = m_anySignChange || m_signChange[nc];
@@ -528,6 +514,8 @@ public:
 
         m_map.reserve(domainBlocks.size());
         m_bndCoeff.reserve(domainBlocks.size());
+        m_bndCoeffSrc.reserve(domainBlocks.size());
+        m_bndCoeffHost.reserve(domainBlocks.size());
         if (m_anySignChange)
         {
             m_sign.reserve(domainBlocks.size());
@@ -536,14 +524,16 @@ public:
         for (unsigned int blk = 0; blk < domainBlocks.size(); ++blk)
         {
             ASSERTL1(mapBlockByBlk[blk].size() ==
-                         bndCoeffBlockByBlk[blk].size(),
+                         bndCoeffSrcBlockByBlk[blk].size(),
                      "Mismatch between map and boundary coefficient sizes.");
             m_map.push_back(
                 MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
                     mapBlockByBlk[blk]));
+            m_bndCoeffSrc.push_back(std::move(bndCoeffSrcBlockByBlk[blk]));
+            m_bndCoeffHost.emplace_back(m_bndCoeffSrc.back().size(), 0.0);
             m_bndCoeff.push_back(
                 MemoryRegion<TData>::template FromVector<MemSpace, TData>(
-                    bndCoeffBlockByBlk[blk]));
+                    m_bndCoeffHost.back()));
             if (m_anySignChange)
             {
                 m_sign.push_back(
@@ -554,6 +544,8 @@ public:
                 MemoryRegion<int>::template FromVector<MemSpace, int>(
                     parDirBlockByBlk[blk]));
         }
+
+        this->UpdateBndCoeffs(static_cast<TData>(0.0));
 
         for (unsigned int blk1 = 0; blk1 < domainBlocks.size(); ++blk1)
         {
@@ -593,10 +585,15 @@ protected:
     std::vector<Field<TData, FieldState::Coeff>> m_wsp_coeffs;
     std::vector<std::shared_ptr<ExpressionOp<TData>>> m_expressionOps;
     std::vector<std::shared_ptr<FwdTransBCOp<TData>>> m_fwdTransBCOps;
+    std::vector<size_t> m_dirCoeffOffsets;
+    std::vector<size_t> m_dirNumCoeffs;
 
     std::vector<MemoryRegion<size_t>> m_map;
     std::vector<MemoryRegion<TData>> m_sign;
     std::vector<MemoryRegion<TData>> m_bndCoeff;
+    std::vector<std::vector<size_t>> m_bndCoeffSrc;
+    std::vector<TData> m_compactBndCoeff;
+    std::vector<std::vector<TData>> m_bndCoeffHost;
     std::vector<std::vector<size_t>> m_compOffsets;
     std::vector<std::vector<size_t>> m_compCounts;
 
@@ -611,6 +608,57 @@ protected:
     std::vector<std::vector<MemoryRegion<TData>>> m_locsign;
     std::vector<std::vector<std::vector<size_t>>> m_locOffsets;
     std::vector<std::vector<std::vector<size_t>>> m_locCounts;
+
+    void v_UpdateBndCoeffs(const TData &time) override
+    {
+        if (m_numBndCoeffCompSize == 0)
+        {
+            return;
+        }
+
+        const unsigned int nComp = this->m_components.size();
+        std::fill(m_compactBndCoeff.begin(), m_compactBndCoeff.end(), 0.0);
+
+        for (unsigned int iDir = 0; iDir < m_expressionOps.size(); ++iDir)
+        {
+            const size_t nBndExpCoeff = m_dirNumCoeffs[iDir];
+            const size_t bndOffset    = m_dirCoeffOffsets[iDir];
+
+            // Zero wsp_phys and wsp_coeff
+            zero<ExecSpace>(m_wsp_phys[iDir]);
+            zero<ExecSpace>(m_wsp_coeffs[iDir]);
+
+            // Update time
+            m_expressionOps[iDir]->SetTime(time);
+
+            // Evaluate Dirichlet expression and project onto boundary
+            m_expressionOps[iDir]->Apply(m_wsp_phys[iDir], m_wsp_phys[iDir]);
+            m_fwdTransBCOps[iDir]->Apply(m_wsp_phys[iDir], m_wsp_coeffs[iDir]);
+
+            std::vector<TData> tmp =
+                m_wsp_coeffs[iDir].template ToVector<TData>();
+
+            ASSERTL1(tmp.size() == nComp * nBndExpCoeff,
+                     "Unexpected boundary coefficient vector size.");
+            for (unsigned int nc = 0; nc < nComp; ++nc)
+            {
+                std::copy(tmp.begin() + nc * nBndExpCoeff,
+                          tmp.begin() + (nc + 1) * nBndExpCoeff,
+                          m_compactBndCoeff.begin() +
+                              nc * m_numBndCoeffCompSize + bndOffset);
+            }
+        }
+
+        for (unsigned int blk = 0; blk < m_bndCoeff.size(); ++blk)
+        {
+            auto &bndCoeffBlock = m_bndCoeffHost[blk];
+            for (size_t i = 0; i < m_bndCoeffSrc[blk].size(); ++i)
+            {
+                bndCoeffBlock[i] = m_compactBndCoeff[m_bndCoeffSrc[blk][i]];
+            }
+            m_bndCoeff[blk].template CopyVector<MemSpace, TData>(bndCoeffBlock);
+        }
+    }
 
     void v_Apply(Field<TData, FieldState::Coeff> &inout) override
     {

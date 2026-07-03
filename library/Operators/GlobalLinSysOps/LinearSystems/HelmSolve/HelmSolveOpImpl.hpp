@@ -56,10 +56,12 @@ public:
         this->m_IProdOp = IProductWRTBaseOp<TData>::Create(
             this->m_expansionList, components, ExecSpace::name);
         this->m_IProdOp->SetScale(-1.0);
-        this->m_DirBCOp = DirBndCondOp<TData>::Create(
-            this->m_expansionList, components, ExecSpace::name);
-        this->m_NeuBCOp = NeuBndCondOp<TData>::Create(
-            this->m_expansionList, components, ExecSpace::name);
+        // Add default Dirichlet BC
+        this->m_DirBCOps.push_back(DirBndCondOp<TData>::Create(
+            this->m_expansionList, components, ExecSpace::name));
+        // Add default Neumann BC
+        this->m_NeuBCOps.push_back(NeuBndCondOp<TData>::Create(
+            this->m_expansionList, components, ExecSpace::name));
         this->m_RobBCOp = RobBndCondOp<TData>::Create(
             this->m_expansionList, components, ExecSpace::name);
     }
@@ -84,10 +86,16 @@ protected:
         this->m_IProdOp->Apply(in, this->m_rhs);
 
         // Handle Neumann BCs on RHS.
-        this->m_NeuBCOp->Apply(this->m_rhs);
+        for (auto &neuBCOp : this->m_NeuBCOps)
+        {
+            neuBCOp->Apply(this->m_rhs);
+        }
 
         // Handle Dirichlet BCs.
-        this->m_DirBCOp->Apply(out);
+        for (auto &dirBCOp : this->m_DirBCOps)
+        {
+            dirBCOp->Apply(out);
+        }
 
         // Apply Helmholtz operator.
         this->m_ElmtOp->Apply(out, this->m_tmp);

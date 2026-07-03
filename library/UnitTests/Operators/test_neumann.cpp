@@ -54,10 +54,27 @@
         }                                                                      \
     }
 
+#define TEST_NEUMANN_UPDATE(test_name, test, tol, time)                        \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        Configure();                                                           \
+        SetTestCase(time);                                                     \
+        RunTestCase(time);                                                     \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
 BOOST_AUTO_TEST_SUITE(TestNeumann)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_NEUMANN(neumann1d_seg, Helmholtz1D_Seg, 1.0E-12)
+
+TEST_NEUMANN_UPDATE(neumann1d_seg_time_update,
+                    Helmholtz1D_Seg_TimeDependentNeumann, 1.0E-12, 0.75)
 
 TEST_NEUMANN(neumann1d_seg_3c, Helmholtz1D_Seg_3C, 1.0E-12)
 
@@ -73,6 +90,9 @@ TEST_NEUMANN(neumann2d_tri_3c, Helmholtz2D_Tri_3C, 1.0E-12)
 
 TEST_NEUMANN(neumann2d_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-12)
 
+TEST_NEUMANN_UPDATE(neumann2d_tri_quad_time_update,
+                    Helmholtz2D_Tri_Quad_TimeDependentBC, 1.0E-12, 0.75)
+
 TEST_NEUMANN(neumann2d_tri_quad_3c, Helmholtz2D_Tri_Quad_3C, 1.0E-12)
 
 TEST_NEUMANN(neumann2d_tri_quad_3c_mixedbc, Helmholtz2D_Tri_Quad_3C_mixedBC,
@@ -82,11 +102,20 @@ TEST_NEUMANN(neumann3d_hex, Helmholtz3D_Hex, 1.0E-12)
 
 TEST_NEUMANN(neumann3d_prism, Helmholtz3D_Prism, 1.0E-12)
 
+TEST_NEUMANN_UPDATE(neumann3d_prism_time_update,
+                    Helmholtz3D_Prism_TimeDependentBC, 1.0E-12, 0.75)
+
 TEST_NEUMANN(neumann3d_pyr, Helmholtz3D_Pyr, 1.0E-12)
 
 TEST_NEUMANN(neumann3d_tet, Helmholtz3D_Tet, 1.0E-12)
 
+TEST_NEUMANN_UPDATE(neumann3d_tet_time_update, Helmholtz3D_Tet_TimeDependentBC,
+                    1.0E-12, 0.75)
+
 TEST_NEUMANN(neumann3d_hex_allbcs, Helmholtz3D_Hex_AllBCs, 1.0E-12)
+
+TEST_NEUMANN_UPDATE(neumann3d_hex_allbcs_time_update,
+                    Helmholtz3D_Hex_AllBCs_TimeDependentBC, 1.0E-12, 0.75)
 
 TEST_NEUMANN(neumann3d_hex_3c, Helmholtz3D_Hex_3C, 1.0E-12)
 
