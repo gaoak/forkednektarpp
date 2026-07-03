@@ -65,7 +65,20 @@ public:
         v_Apply(inout);
     }
 
+    void UpdateBndCoeffs(const TData &time = 0.0)
+    {
+        if (m_bndCoeffsInitialised && !m_hasTimeDependentBndCoeffs)
+        {
+            return;
+        }
+        v_UpdateBndCoeffs(time);
+        m_bndCoeffsInitialised = true;
+    }
+
 protected:
+    bool m_bndCoeffsInitialised      = false;
+    bool m_hasTimeDependentBndCoeffs = false;
+
     NeuBndCondOp(const MultiRegions::ExpListSharedPtr &expansionList,
                  const std::vector<std::string> &components)
         : Operator<TData>(expansionList, components)
@@ -75,6 +88,8 @@ protected:
     ~NeuBndCondOp() override = default;
 
     virtual void v_Apply(Field<TData, FieldState::Coeff> &inout) = 0;
+
+    virtual void v_UpdateBndCoeffs(const TData &time) = 0;
 };
 
 } // namespace Nektar::Operators

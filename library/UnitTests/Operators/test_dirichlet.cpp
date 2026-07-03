@@ -54,10 +54,27 @@
         }                                                                      \
     }
 
+#define TEST_DIRICHLET_UPDATE(test_name, test, tol, time)                      \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        Configure();                                                           \
+        SetTestCase(time);                                                     \
+        RunTestCase(time);                                                     \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
 BOOST_AUTO_TEST_SUITE(TestDirichlet)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_DIRICHLET(dirichlet1d_seg, Helmholtz1D_Seg, 1.0E-12)
+
+TEST_DIRICHLET_UPDATE(dirichlet1d_seg_time_update,
+                      Helmholtz1D_Seg_TimeDependentDirichlet, 1.0E-12, 0.75)
 
 TEST_DIRICHLET(dirichlet1d_seg_3c, Helmholtz1D_Seg_3C, 1.0E-12)
 
@@ -73,6 +90,10 @@ TEST_DIRICHLET(dirichlet2d_tri_3c, Helmholtz2D_Tri_3C, 1.0E-12)
 
 TEST_DIRICHLET(dirichlet2d_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-12)
 
+TEST_DIRICHLET_UPDATE(dirichlet2d_tri_quad_time_update,
+                      Helmholtz2D_Tri_Quad_TimeDependentDirichlet, 1.0E-12,
+                      0.75)
+
 TEST_DIRICHLET(dirichlet2d_tri_quad_3c, Helmholtz2D_Tri_Quad_3C, 1.0E-12)
 
 TEST_DIRICHLET(dirichlet2d_tri_quad_3c_mixedbc, Helmholtz2D_Tri_Quad_3C_mixedBC,
@@ -80,12 +101,21 @@ TEST_DIRICHLET(dirichlet2d_tri_quad_3c_mixedbc, Helmholtz2D_Tri_Quad_3C_mixedBC,
 
 TEST_DIRICHLET(dirichlet3d_hex, Helmholtz3D_Hex, 1.0E-12)
 
+TEST_DIRICHLET_UPDATE(dirichlet3d_hex_time_update,
+                      Helmholtz3D_Hex_TimeDependentDirichlet, 1.0E-12, 0.75)
+
 TEST_DIRICHLET(dirichlet3d_prism, Helmholtz3D_Prism, 1.0E-12)
+
+TEST_DIRICHLET_UPDATE(dirichlet3d_prism_time_update,
+                      Helmholtz3D_Prism_TimeDependentDirichlet, 1.0E-12, 0.75)
 TEST_DIRICHLET(dirichlet3d_couette_prism, CouetteFlow3D_Prism, 1.0E-12)
 
 TEST_DIRICHLET(dirichlet3d_pyr, Helmholtz3D_Pyr, 1.0E-12)
 
 TEST_DIRICHLET(dirichlet3d_tet, Helmholtz3D_Tet, 1.0E-12)
+
+TEST_DIRICHLET_UPDATE(dirichlet3d_tet_time_update,
+                      Helmholtz3D_Tet_TimeDependentDirichlet, 1.0E-12, 0.75)
 TEST_DIRICHLET(dirichlet3d_uniform_tet, UniformFlow3D_Tet, 1.0E-12)
 TEST_DIRICHLET(dirichlet3d_channel_tet, ChannelFlow3D_Tet, 1.0E-12)
 

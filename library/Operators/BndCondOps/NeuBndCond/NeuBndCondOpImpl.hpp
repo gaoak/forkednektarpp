@@ -125,6 +125,9 @@ public:
 
                 // Check if any component has a Neumann condition
                 hasNeumanCondition = hasNeumanCondition || tmp;
+                this->m_hasTimeDependentBndCoeffs =
+                    this->m_hasTimeDependentBndCoeffs ||
+                    (tmp && bc->IsTimeDependent());
             }
 
             isNeumannByRegion.push_back(isNeumann);
@@ -153,20 +156,28 @@ public:
                 m_numBndCoeffCompSize += nelmt * ncoeff;
             }
 
+            m_neuNumCoeffs.push_back(bcExpList->GetNcoeffs());
+            m_neuIsPoint.push_back(bcExpList->GetShapeDimension() == 0);
+
             // Initialize memory regions
             this->m_wsp_phys.back().template Initialize<MemSpace>(0.0);
             this->m_wsp_coeffs.back().template Initialize<MemSpace>(0.0);
 
             // Create operators for this boundary condition
             this->m_expressionOps.push_back(
-                ExpressionOp<TData>::Create(bcExpList, components, "Serial"));
+                ExpressionOp<TData>::Create(bcExpList, components));
             this->m_expressionOps.back()->SetComponentMask(isNeumann);
 
-            // Note we do a copy for 0D (points)
-            if (bcExpList->GetShapeDimension() != 0)
+            // Note we do a copy for 0D (points). Keep this vector aligned
+            // with Neumann boundary regions.
+            if (!m_neuIsPoint.back())
             {
                 this->m_iprodOps.push_back(IProductWRTBaseOp<TData>::Create(
                     bcExpList, components, ExecSpace::name));
+            }
+            else
+            {
+                this->m_iprodOps.push_back(nullptr);
             }
 
             // Gather equations for each field/component
@@ -206,13 +217,14 @@ public:
             blockBound[blk] = bound;
         }
 
-        // Collecting boundary coefficients.
-        // and index map (map for one component only)
-        std::vector<TData> bndcoeff(nComp * m_numBndCoeffCompSize);
+        // Collect the compact Neumann-to-full-boundary coefficient index map
+        // for one component. Boundary coefficients themselves are dynamic and
+        // are filled by UpdateBndCoeffs().
         std::vector<size_t> index(m_numBndCoeffCompSize);
         std::vector<std::vector<size_t>> neuIndexByComp(nComp);
         size_t bndcnt = 0, cnt = 0;
-        for (unsigned int i = 0, iNeu = 0; i < bregions.size(); ++i)
+        m_neuCoeffOffsets.clear();
+        for (unsigned int i = 0; i < bregions.size(); ++i)
         {
             // Get number of coefficients for this BC
             auto nBndExpCoeff = numBcExpCoeffs[i];
@@ -222,47 +234,7 @@ public:
                             isNeumannByRegion[i].end(),
                             [=](bool i) { return i == 1; }))
             {
-                // Evaluate Neumann BC string
-                m_expressionOps[iNeu]->Apply(m_wsp_phys[iNeu],
-                                             m_wsp_phys[iNeu]);
-
-                // Evaluate IProduct for Neumann BC
-                if (bcExpList->GetShapeDimension() != 0)
-                {
-                    m_iprodOps[iNeu]->Apply(m_wsp_phys[iNeu],
-                                            m_wsp_coeffs[iNeu]);
-                }
-                // Note that for 0D we simply need a copy
-                else
-                {
-                    auto physptr = m_wsp_phys[iNeu]
-                                       .GetBlocks()[0]
-                                       .template GetPtr<MemSpace, ReadOnly>();
-                    auto coeffptr = m_wsp_coeffs[iNeu]
-                                        .GetBlocks()[0]
-                                        .template GetPtr<MemSpace, WriteOnly>();
-                    size_t nsize = nBndExpCoeff;
-                    for (size_t nc = 0; nc < nComp; nc++)
-                    {
-                        copyKernel<ExecSpace>(nsize, physptr, coeffptr);
-                        physptr += m_wsp_phys[iNeu].GetBlocks()[0].CompSize();
-                        coeffptr +=
-                            m_wsp_coeffs[iNeu].GetBlocks()[0].CompSize();
-                    }
-                }
-
-                // Concatenate vector of all boundary coefficients
-                std::vector<TData> tmp =
-                    m_wsp_coeffs[iNeu].template ToVector<TData>();
-                ASSERTL1(tmp.size() == nComp * nBndExpCoeff,
-                         "Unexpected boundary coefficient vector size.");
-                for (unsigned int nc = 0; nc < nComp; ++nc)
-                {
-                    std::copy(tmp.begin() + nc * nBndExpCoeff,
-                              tmp.begin() + (nc + 1) * nBndExpCoeff,
-                              bndcoeff.begin() + nc * m_numBndCoeffCompSize +
-                                  bndcnt);
-                }
+                m_neuCoeffOffsets.push_back(bndcnt);
 
                 // Gather index
                 for (size_t j = 0; j < nBndExpCoeff; ++j)
@@ -280,9 +252,6 @@ public:
                     }
                 }
                 bndcnt += nBndExpCoeff;
-
-                // Increment Neumann boundaries
-                iNeu++;
             }
             cnt += nBndExpCoeff;
         }
@@ -294,6 +263,9 @@ public:
         m_map.clear();
         m_sign.clear();
         m_bndCoeff.clear();
+        m_bndCoeffSrc.clear();
+        m_bndCoeffHost.clear();
+        m_compactBndCoeff.assign(nComp * m_numBndCoeffCompSize, 0.0);
         m_signChange.resize(nComp, false);
         m_compOffsets.assign(domainBlocks.size(),
                              std::vector<size_t>(nComp, 0));
@@ -302,7 +274,8 @@ public:
 
         std::vector<std::vector<size_t>> mapBlockByBlk(domainBlocks.size());
         std::vector<std::vector<TData>> signBlockByBlk(domainBlocks.size());
-        std::vector<std::vector<TData>> bndCoeffBlockByBlk(domainBlocks.size());
+        std::vector<std::vector<size_t>> bndCoeffSrcBlockByBlk(
+            domainBlocks.size());
 
         auto expContField = std::dynamic_pointer_cast<MultiRegions::ContField>(
             this->m_expansionList);
@@ -327,17 +300,15 @@ public:
             auto &map        = assmbMap->GetBndCondCoeffsToLocalCoeffsMap();
             m_signChange[nc] = assmbMap->GetSignChange();
 
-            std::vector<std::tuple<size_t, size_t, TData>> mapReordered;
+            std::vector<std::tuple<size_t, size_t>> mapReordered;
             mapReordered.reserve(neuIndexByComp[nc].size());
             for (size_t idx : neuIndexByComp[nc])
             {
-                mapReordered.push_back(std::make_tuple(
-                    idx, map[index[idx]],
-                    bndcoeff[idx + nc * m_numBndCoeffCompSize]));
+                mapReordered.push_back(std::make_tuple(idx, map[index[idx]]));
             }
             std::sort(mapReordered.begin(), mapReordered.end(),
-                      [](std::tuple<size_t, size_t, TData> const &t1,
-                         std::tuple<size_t, size_t, TData> const &t2) {
+                      [](std::tuple<size_t, size_t> const &t1,
+                         std::tuple<size_t, size_t> const &t2) {
                           return std::tie(std::get<1>(t1), std::get<0>(t1)) <
                                  std::tie(std::get<1>(t2), std::get<0>(t2));
                       });
@@ -364,7 +335,7 @@ public:
 
                 mapBlockByBlk[blk].reserve(compOffset + compCount);
                 signBlockByBlk[blk].reserve(compOffset + compCount);
-                bndCoeffBlockByBlk[blk].reserve(compOffset + compCount);
+                bndCoeffSrcBlockByBlk[blk].reserve(compOffset + compCount);
 
                 for (size_t idx : blockIndices[blk])
                 {
@@ -374,8 +345,9 @@ public:
                         m_signChange[nc]
                             ? sign[index[std::get<0>(mapReordered[idx])]]
                             : static_cast<TData>(1));
-                    bndCoeffBlockByBlk[blk].push_back(
-                        std::get<2>(mapReordered[idx]));
+                    bndCoeffSrcBlockByBlk[blk].push_back(
+                        std::get<0>(mapReordered[idx]) +
+                        nc * m_numBndCoeffCompSize);
                 }
             }
             m_anySignChange = m_anySignChange || m_signChange[nc];
@@ -383,6 +355,8 @@ public:
 
         m_map.reserve(domainBlocks.size());
         m_bndCoeff.reserve(domainBlocks.size());
+        m_bndCoeffSrc.reserve(domainBlocks.size());
+        m_bndCoeffHost.reserve(domainBlocks.size());
         if (m_anySignChange)
         {
             m_sign.reserve(domainBlocks.size());
@@ -390,14 +364,16 @@ public:
         for (unsigned int blk = 0; blk < domainBlocks.size(); ++blk)
         {
             ASSERTL1(mapBlockByBlk[blk].size() ==
-                         bndCoeffBlockByBlk[blk].size(),
+                         bndCoeffSrcBlockByBlk[blk].size(),
                      "Mismatch between map and boundary coefficient sizes.");
             m_map.push_back(
                 MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
                     mapBlockByBlk[blk]));
+            m_bndCoeffSrc.push_back(std::move(bndCoeffSrcBlockByBlk[blk]));
+            m_bndCoeffHost.emplace_back(m_bndCoeffSrc.back().size(), 0.0);
             m_bndCoeff.push_back(
                 MemoryRegion<TData>::template FromVector<MemSpace, TData>(
-                    bndCoeffBlockByBlk[blk]));
+                    m_bndCoeffHost.back()));
             if (m_anySignChange)
             {
                 m_sign.push_back(
@@ -405,6 +381,8 @@ public:
                         signBlockByBlk[blk]));
             }
         }
+
+        this->UpdateBndCoeffs(static_cast<TData>(0.0));
     }
 
     // className - for OperatorFactory
@@ -428,16 +406,95 @@ protected:
     std::vector<Field<TData, FieldState::Coeff>> m_wsp_coeffs;
     std::vector<std::shared_ptr<ExpressionOp<TData>>> m_expressionOps;
     std::vector<std::shared_ptr<IProductWRTBaseOp<TData>>> m_iprodOps;
+    std::vector<size_t> m_neuCoeffOffsets;
+    std::vector<size_t> m_neuNumCoeffs;
+    std::vector<bool> m_neuIsPoint;
 
     std::vector<MemoryRegion<size_t>> m_map;
     std::vector<MemoryRegion<TData>> m_sign;
     std::vector<MemoryRegion<TData>> m_bndCoeff;
+    std::vector<std::vector<size_t>> m_bndCoeffSrc;
+    std::vector<TData> m_compactBndCoeff;
+    std::vector<std::vector<TData>> m_bndCoeffHost;
     std::vector<std::vector<size_t>> m_compOffsets;
     std::vector<std::vector<size_t>> m_compCounts;
 
+    void v_UpdateBndCoeffs(const TData &time) override
+    {
+        if (m_numBndCoeffCompSize == 0)
+        {
+            return;
+        }
+
+        const unsigned int nComp = this->m_components.size();
+        std::fill(m_compactBndCoeff.begin(), m_compactBndCoeff.end(), 0.0);
+
+        for (unsigned int iNeu = 0; iNeu < m_expressionOps.size(); ++iNeu)
+        {
+            const size_t nBndExpCoeff = m_neuNumCoeffs[iNeu];
+            const size_t bndOffset    = m_neuCoeffOffsets[iNeu];
+
+            // Zero wsp_phys and wsp_coeff
+            zero<ExecSpace>(m_wsp_phys[iNeu]);
+            zero<ExecSpace>(m_wsp_coeffs[iNeu]);
+
+            // Update time
+            m_expressionOps[iNeu]->SetTime(time);
+
+            // Evaluate Neumann expression
+            m_expressionOps[iNeu]->Apply(m_wsp_phys[iNeu], m_wsp_phys[iNeu]);
+
+            // Evaluate inner product of Neumann BC
+            if (!m_neuIsPoint[iNeu])
+            {
+                m_iprodOps[iNeu]->Apply(m_wsp_phys[iNeu], m_wsp_coeffs[iNeu]);
+            }
+            else
+            {
+                auto physptr = m_wsp_phys[iNeu]
+                                   .GetBlocks()[0]
+                                   .template GetPtr<MemSpace, ReadOnly>();
+                auto coeffptr = m_wsp_coeffs[iNeu]
+                                    .GetBlocks()[0]
+                                    .template GetPtr<MemSpace, WriteOnly>();
+                for (size_t nc = 0; nc < nComp; nc++)
+                {
+                    // Note use copyKernel instead of copy because of
+                    // FieldState mismatch Phys != Coeff. In 0D, they are
+                    // equivalent hence the copy is correct.
+                    copyKernel<ExecSpace>(nBndExpCoeff, physptr, coeffptr);
+                    physptr += m_wsp_phys[iNeu].GetBlocks()[0].CompSize();
+                    coeffptr += m_wsp_coeffs[iNeu].GetBlocks()[0].CompSize();
+                }
+            }
+
+            std::vector<TData> tmp =
+                m_wsp_coeffs[iNeu].template ToVector<TData>();
+            ASSERTL1(tmp.size() == nComp * nBndExpCoeff,
+                     "Unexpected boundary coefficient vector size.");
+            for (unsigned int nc = 0; nc < nComp; ++nc)
+            {
+                std::copy(tmp.begin() + nc * nBndExpCoeff,
+                          tmp.begin() + (nc + 1) * nBndExpCoeff,
+                          m_compactBndCoeff.begin() +
+                              nc * m_numBndCoeffCompSize + bndOffset);
+            }
+        }
+
+        for (unsigned int blk = 0; blk < m_bndCoeff.size(); ++blk)
+        {
+            auto &bndCoeffBlock = m_bndCoeffHost[blk];
+            for (size_t i = 0; i < m_bndCoeffSrc[blk].size(); ++i)
+            {
+                bndCoeffBlock[i] = m_compactBndCoeff[m_bndCoeffSrc[blk][i]];
+            }
+            m_bndCoeff[blk].template CopyVector<MemSpace, TData>(bndCoeffBlock);
+        }
+    }
+
     void v_Apply(Field<TData, FieldState::Coeff> &inout) override
     {
-        // Return if no Dirichlet boundary condition.
+        // Return if no Neumann boundary condition.
         if (m_numBndCoeffCompSize == 0)
         {
             return;

@@ -79,13 +79,38 @@ public:
         m_LinSolverOp->UpdatePrecon();
     }
 
+    void UpdateBndCoeffs(const TData &time = 0.0)
+    {
+        // Update default Dirichlet bc operator
+        if (m_DirBCOps.size() > 0)
+        {
+            m_DirBCOps[0]->UpdateBndCoeffs(time);
+        }
+
+        // Update default Neumann bc operator
+        if (m_NeuBCOps.size() > 0)
+        {
+            m_NeuBCOps[0]->UpdateBndCoeffs(time);
+        }
+    }
+
+    void AddDirichletBCOp(const std::shared_ptr<DirBndCondOp<TData>> &op)
+    {
+        m_DirBCOps.push_back(op);
+    }
+
+    void AddNeumannBCOp(const std::shared_ptr<NeuBndCondOp<TData>> &op)
+    {
+        m_NeuBCOps.push_back(op);
+    }
+
 protected:
     std::shared_ptr<LinearSolverOp<TData>> m_LinSolverOp;
     std::shared_ptr<ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>>
         m_ElmtOp;
-    std::shared_ptr<DirBndCondOp<TData>> m_DirBCOp;
+    std::vector<std::shared_ptr<DirBndCondOp<TData>>> m_DirBCOps;
     std::shared_ptr<IProductWRTBaseOp<TData>> m_IProdOp;
-    std::shared_ptr<NeuBndCondOp<TData>> m_NeuBCOp;
+    std::vector<std::shared_ptr<NeuBndCondOp<TData>>> m_NeuBCOps;
     std::shared_ptr<RobBndCondOp<TData>> m_RobBCOp;
 
     Field<TData, FieldState::Coeff> m_rhs;

@@ -70,10 +70,11 @@ public:
             this->m_expansionList, components, ExecSpace::name);
         if (!m_isDG)
         {
-            this->m_ElmtOp  = MassOp<TData>::Create(this->m_expansionList,
-                                                    components, ExecSpace::name);
-            this->m_DirBCOp = DirBndCondOp<TData>::Create(
-                this->m_expansionList, components, ExecSpace::name);
+            this->m_ElmtOp = MassOp<TData>::Create(this->m_expansionList,
+                                                   components, ExecSpace::name);
+            // Add default Dirichlet BC
+            this->m_DirBCOps.push_back(DirBndCondOp<TData>::Create(
+                this->m_expansionList, components, ExecSpace::name));
             this->m_RobBCOp = RobBndCondOp<TData>::Create(
                 this->m_expansionList, components, ExecSpace::name);
         }
@@ -109,7 +110,10 @@ protected:
         if (!m_isDG)
         {
             // Handle Dirichlet BCs.
-            this->m_DirBCOp->Apply(out);
+            for (auto &dirBCOp : this->m_DirBCOps)
+            {
+                dirBCOp->Apply(out);
+            }
 
             // Apply Mass operator.
             this->m_ElmtOp->Apply(out, this->m_tmp);

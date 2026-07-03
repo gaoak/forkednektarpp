@@ -128,8 +128,8 @@ void UnsteadyADR::v_GenerateSummary(SummaryList &s)
 
 void UnsteadyADR::DoImplicit(
     Field<double, FieldState::Phys> &in,
-    [[maybe_unused]] Field<double, FieldState::Phys> &out,
-    [[maybe_unused]] const double &time, const double &dt_inv_gamma)
+    [[maybe_unused]] Field<double, FieldState::Phys> &out, const double &time,
+    const double &dt_inv_gamma)
 {
     if (m_session->GetSolverInfo("EQTYPE") == "UnsteadyAdvection")
     {
@@ -192,6 +192,10 @@ void UnsteadyADR::DoImplicit(
 
             // Multiply by negative lambda
             m_math.mul(-m_lambda, in, out);
+
+            // Refresh time-dependent Dirichlet and Neumann coefficients at the
+            // current implicit stage time before applying the linear system.
+            m_linearSystemOp->UpdateBndCoeffs(time);
 
             // Solve implicit ADR problem
             m_linearSystemOp->Apply(out, m_fields_coeff);
