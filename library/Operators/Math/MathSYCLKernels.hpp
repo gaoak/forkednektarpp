@@ -51,7 +51,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 zeroKernel(const size_t nsize, TData *x)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
     deviceMemset(x, 0, nsize * sizeof(TData), streamID);
 }
 
@@ -60,7 +60,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 fillKernel(const size_t nsize, const TData &val, TData *x)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
     deviceFill(x, val, nsize, streamID);
 }
 
@@ -69,7 +69,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 copyKernel(const size_t nsize, const TData *x, TData *y)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
     deviceMemcpy<DeviceToDevice>(y, x, nsize * sizeof(TData), streamID);
 }
 
@@ -78,14 +78,15 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 absKernel(const size_t nsize, const TData *x, TData *y)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e  = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                         [=](sycl::nd_item<1> indx) {
+                          [=](sycl::nd_item<1> indx) {
                              size_t idx0   = indx.get_global_id(0);
                              size_t stride = indx.get_global_range(0);
 
@@ -95,6 +96,7 @@ absKernel(const size_t nsize, const TData *x, TData *y)
                              }
                          });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <typename ExecSpace, typename TData>
@@ -102,12 +104,14 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 negKernel(const size_t nsize, const TData *x, TData *y)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
     sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e               = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize),
-                         [=](sycl::id<1> indx) { y[indx] = -x[indx]; });
+                                       [=](sycl::id<1> indx) { y[indx] = -x[indx]; });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <typename ExecSpace, typename TData>
@@ -115,14 +119,15 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 sqrtKernel(const size_t nsize, const TData *x, TData *y)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e  = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                         [=](sycl::nd_item<1> indx) {
+                          [=](sycl::nd_item<1> indx) {
                              size_t idx0   = indx.get_global_id(0);
                              size_t stride = indx.get_global_range(0);
 
@@ -134,6 +139,7 @@ sqrtKernel(const size_t nsize, const TData *x, TData *y)
                              }
                          });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <typename ExecSpace, typename TData>
@@ -141,13 +147,15 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 addKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
     sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e               = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize), [=](sycl::id<1> indx) {
             z[indx] = x[indx] + y[indx];
         });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <typename ExecSpace, typename TData>
@@ -155,13 +163,15 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 subKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
     sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e               = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize), [=](sycl::id<1> indx) {
             z[indx] = x[indx] - y[indx];
         });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <typename ExecSpace, typename TData>
@@ -169,12 +179,14 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 mulKernel(const size_t nsize, const TData alpha, const TData *x, TData *y)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
     sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e               = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize),
-                         [=](sycl::id<1> indx) { y[indx] = alpha * x[indx]; });
+                                       [=](sycl::id<1> indx) { y[indx] = alpha * x[indx]; });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <typename ExecSpace, typename TData>
@@ -182,13 +194,15 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 mulKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
     sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e               = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize), [=](sycl::id<1> indx) {
             z[indx] = x[indx] * y[indx];
         });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <typename ExecSpace, typename TData>
@@ -196,12 +210,14 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 divKernel(const size_t nsize, const TData alpha, const TData *x, TData *y)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
     sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e               = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize),
-                         [=](sycl::id<1> indx) { y[indx] = alpha / x[indx]; });
+                                       [=](sycl::id<1> indx) { y[indx] = alpha / x[indx]; });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <typename ExecSpace, typename TData>
@@ -209,13 +225,15 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 divKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
     sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e               = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize), [=](sycl::id<1> indx) {
             z[indx] = x[indx] / y[indx];
         });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <typename ExecSpace, typename TData>
@@ -224,13 +242,15 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
             const TData *y, TData *z)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
     sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e               = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize), [=](sycl::id<1> indx) {
             z[indx] = alpha * x[indx] + y[indx];
         });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <bool init, typename TData>
@@ -239,7 +259,8 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
                      const TData *x, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e  = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
 
         cgh.parallel_for(
@@ -282,6 +303,7 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
                 }
             });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <bool init, typename TData>
@@ -290,9 +312,9 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
                      const uint8_t *mask, const TData *x, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e  = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
-
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
@@ -333,6 +355,7 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
                 }
             });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <bool init, typename TData>
@@ -343,9 +366,9 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
     constexpr TData min = std::numeric_limits<TData>::lowest();
 
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e  = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
-
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
@@ -388,6 +411,7 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
                 }
             });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <bool init, typename TData>
@@ -398,9 +422,9 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
     constexpr TData min = std::numeric_limits<TData>::lowest();
 
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e  = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
-
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
@@ -443,6 +467,7 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
                 }
             });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <bool init, typename TData>
@@ -453,9 +478,9 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
     constexpr TData max = std::numeric_limits<TData>::max();
 
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e  = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
-
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
@@ -498,6 +523,7 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
                 }
             });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <bool init, typename TData>
@@ -508,9 +534,9 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
     constexpr TData max = std::numeric_limits<TData>::max();
 
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e  = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
-
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
@@ -553,6 +579,7 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
                 }
             });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <bool init, typename TData>
@@ -561,9 +588,9 @@ void ddotKernel(const unsigned int gridSize, const unsigned int blockSize,
                 const TData *y, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e  = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
-
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
@@ -604,6 +631,7 @@ void ddotKernel(const unsigned int gridSize, const unsigned int blockSize,
                 }
             });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <bool init, typename TData>
@@ -612,9 +640,9 @@ void ddotKernel(const unsigned int gridSize, const unsigned int blockSize,
                 const uint8_t *mask, const TData *x, const TData *y, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e  = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
-
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
@@ -655,6 +683,7 @@ void ddotKernel(const unsigned int gridSize, const unsigned int blockSize,
                 }
             });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <bool init, typename TData>
@@ -663,9 +692,9 @@ void l1normKernel(const unsigned int gridSize, const unsigned int blockSize,
                   const TData *x, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e  = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
-
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
@@ -706,6 +735,7 @@ void l1normKernel(const unsigned int gridSize, const unsigned int blockSize,
                 }
             });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <bool init, typename TData>
@@ -714,9 +744,9 @@ void l1normKernel(const unsigned int gridSize, const unsigned int blockSize,
                   const uint8_t *mask, const TData *x, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e  = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
-
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
@@ -757,6 +787,7 @@ void l1normKernel(const unsigned int gridSize, const unsigned int blockSize,
                 }
             });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <bool init, typename TData>
@@ -765,9 +796,9 @@ void l2normKernel(const unsigned int gridSize, const unsigned int blockSize,
                   const TData *x, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e  = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
-
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
@@ -808,6 +839,7 @@ void l2normKernel(const unsigned int gridSize, const unsigned int blockSize,
                 }
             });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <bool init, typename TData>
@@ -816,9 +848,9 @@ void l2normKernel(const unsigned int gridSize, const unsigned int blockSize,
                   const uint8_t *mask, const TData *x, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e  = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
-
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
@@ -859,6 +891,7 @@ void l2normKernel(const unsigned int gridSize, const unsigned int blockSize,
                 }
             });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <bool init, typename TData>
@@ -867,9 +900,9 @@ void lpnormKernel(const unsigned int gridSize, const unsigned int blockSize,
                   const TData *x, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e  = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
-
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
@@ -910,6 +943,7 @@ void lpnormKernel(const unsigned int gridSize, const unsigned int blockSize,
                 }
             });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <bool init, typename TData>
@@ -918,9 +952,9 @@ void lpnormKernel(const unsigned int gridSize, const unsigned int blockSize,
                   const uint8_t *mask, const TData *x, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e  = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
-
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
@@ -961,6 +995,7 @@ void lpnormKernel(const unsigned int gridSize, const unsigned int blockSize,
                 }
             });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <bool init, typename TData>
@@ -971,9 +1006,9 @@ void linfnormKernel(const unsigned int gridSize, const unsigned int blockSize,
     constexpr TData min = 0.0;
 
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e  = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
-
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
@@ -1016,6 +1051,7 @@ void linfnormKernel(const unsigned int gridSize, const unsigned int blockSize,
                 }
             });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <bool init, typename TData>
@@ -1026,9 +1062,9 @@ void linfnormKernel(const unsigned int gridSize, const unsigned int blockSize,
     constexpr TData min = 0.0;
 
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e  = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
-
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
@@ -1071,6 +1107,7 @@ void linfnormKernel(const unsigned int gridSize, const unsigned int blockSize,
                 }
             });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <typename ExecSpace, bool init, typename TData>
@@ -1078,7 +1115,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 reduceSumKernel(const size_t nsize, const TData *x, TData *out)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
 
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
@@ -1087,10 +1124,14 @@ reduceSumKernel(const size_t nsize, const TData *x, TData *out)
         init ? sycl::property_list{sycl::property::reduction::
                                        initialize_to_identity{}}
              : sycl::property_list{};
-    Q.parallel_for(
-        sycl::range<1>(nsize),
-        sycl::reduction(out, sycl::plus<>(), initializer),
-        [=](sycl::id<1> indx, auto &reducer) { reducer += x[indx]; });
+    sycl::event e = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
+        cgh.parallel_for(
+            sycl::range<1>(nsize),
+            sycl::reduction(out, sycl::plus<>(), initializer),
+            [=](sycl::id<1> indx, auto &reducer) { reducer += x[indx]; });
+    });
+    SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1113,7 +1154,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 reduceSumKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                 TData *out)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
 
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
@@ -1122,11 +1163,15 @@ reduceSumKernel(const size_t nsize, const uint8_t *mask, const TData *x,
         init ? sycl::property_list{sycl::property::reduction::
                                        initialize_to_identity{}}
              : sycl::property_list{};
-    Q.parallel_for(sycl::range<1>(nsize),
-                   sycl::reduction(out, sycl::plus<>(), initializer),
-                   [=](sycl::id<1> indx, auto &reducer) {
-                       reducer += mask[indx] * x[indx];
-                   });
+    sycl::event e = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
+        cgh.parallel_for(sycl::range<1>(nsize),
+                         sycl::reduction(out, sycl::plus<>(), initializer),
+                         [=](sycl::id<1> indx, auto &reducer) {
+                             reducer += mask[indx] * x[indx];
+                         });
+    });
+    SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1149,7 +1194,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
 
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
@@ -1158,10 +1203,14 @@ reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
         init ? sycl::property_list{sycl::property::reduction::
                                        initialize_to_identity{}}
              : sycl::property_list{};
-    Q.parallel_for(
-        sycl::range<1>(nsize),
-        sycl::reduction(out, sycl::maximum<>(), initializer),
-        [=](sycl::id<1> indx, auto &reducer) { reducer.combine(x[indx]); });
+    sycl::event e = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
+        cgh.parallel_for(
+            sycl::range<1>(nsize),
+            sycl::reduction(out, sycl::maximum<>(), initializer),
+            [=](sycl::id<1> indx, auto &reducer) { reducer.combine(x[indx]); });
+    });
+    SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1184,7 +1233,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 reduceMaxKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                 TData *out)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
 
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
@@ -1193,14 +1242,18 @@ reduceMaxKernel(const size_t nsize, const uint8_t *mask, const TData *x,
         init ? sycl::property_list{sycl::property::reduction::
                                        initialize_to_identity{}}
              : sycl::property_list{};
-    Q.parallel_for(sycl::range<1>(nsize),
-                   sycl::reduction(out, sycl::maximum<>(), initializer),
-                   [=](sycl::id<1> indx, auto &reducer) {
-                       if (mask[indx])
-                       {
-                           reducer.combine(x[indx]);
-                       }
-                   });
+    sycl::event e = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
+        cgh.parallel_for(sycl::range<1>(nsize),
+                         sycl::reduction(out, sycl::maximum<>(), initializer),
+                         [=](sycl::id<1> indx, auto &reducer) {
+                             if (mask[indx])
+                             {
+                                 reducer.combine(x[indx]);
+                             }
+                         });
+    });
+    SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1223,7 +1276,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 reduceMinKernel(const size_t nsize, const TData *x, TData *out)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
 
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
@@ -1232,10 +1285,14 @@ reduceMinKernel(const size_t nsize, const TData *x, TData *out)
         init ? sycl::property_list{sycl::property::reduction::
                                        initialize_to_identity{}}
              : sycl::property_list{};
-    Q.parallel_for(
-        sycl::range<1>(nsize),
-        sycl::reduction(out, sycl::minimum<>(), initializer),
-        [=](sycl::id<1> indx, auto &reducer) { reducer.combine(x[indx]); });
+    sycl::event e = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
+        cgh.parallel_for(
+            sycl::range<1>(nsize),
+            sycl::reduction(out, sycl::minimum<>(), initializer),
+            [=](sycl::id<1> indx, auto &reducer) { reducer.combine(x[indx]); });
+    });
+    SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1258,7 +1315,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 reduceMinKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                 TData *out)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
 
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
@@ -1267,14 +1324,18 @@ reduceMinKernel(const size_t nsize, const uint8_t *mask, const TData *x,
         init ? sycl::property_list{sycl::property::reduction::
                                        initialize_to_identity{}}
              : sycl::property_list{};
-    Q.parallel_for(sycl::range<1>(nsize),
-                   sycl::reduction(out, sycl::minimum<>(), initializer),
-                   [=](sycl::id<1> indx, auto &reducer) {
-                       if (mask[indx])
-                       {
-                           reducer.combine(x[indx]);
-                       }
-                   });
+    sycl::event e = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
+        cgh.parallel_for(sycl::range<1>(nsize),
+                         sycl::reduction(out, sycl::minimum<>(), initializer),
+                         [=](sycl::id<1> indx, auto &reducer) {
+                             if (mask[indx])
+                             {
+                                 reducer.combine(x[indx]);
+                             }
+                         });
+    });
+    SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1297,7 +1358,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
 
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
@@ -1306,10 +1367,15 @@ ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
         init ? sycl::property_list{sycl::property::reduction::
                                        initialize_to_identity{}}
              : sycl::property_list{};
-    Q.parallel_for(
-        sycl::range<1>(nsize),
-        sycl::reduction(out, sycl::plus<>(), initializer),
-        [=](sycl::id<1> indx, auto &reducer) { reducer += x[indx] * y[indx]; });
+    sycl::event e = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
+        cgh.parallel_for(sycl::range<1>(nsize),
+                         sycl::reduction(out, sycl::plus<>(), initializer),
+                         [=](sycl::id<1> indx, auto &reducer) {
+                             reducer += x[indx] * y[indx];
+                         });
+    });
+    SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1332,7 +1398,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
            const TData *y, TData *out)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
 
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
@@ -1341,11 +1407,15 @@ ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
         init ? sycl::property_list{sycl::property::reduction::
                                        initialize_to_identity{}}
              : sycl::property_list{};
-    Q.parallel_for(sycl::range<1>(nsize),
-                   sycl::reduction(out, sycl::plus<>(), initializer),
-                   [=](sycl::id<1> indx, auto &reducer) {
-                       reducer += mask[indx] * x[indx] * y[indx];
-                   });
+    sycl::event e = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
+        cgh.parallel_for(sycl::range<1>(nsize),
+                         sycl::reduction(out, sycl::plus<>(), initializer),
+                         [=](sycl::id<1> indx, auto &reducer) {
+                             reducer += mask[indx] * x[indx] * y[indx];
+                         });
+    });
+    SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1367,7 +1437,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 l1normKernel(const size_t nsize, const TData *x, TData *out)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
 
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
@@ -1376,11 +1446,15 @@ l1normKernel(const size_t nsize, const TData *x, TData *out)
         init ? sycl::property_list{sycl::property::reduction::
                                        initialize_to_identity{}}
              : sycl::property_list{};
-    Q.parallel_for(sycl::range<1>(nsize),
-                   sycl::reduction(out, sycl::plus<>(), initializer),
-                   [=](sycl::id<1> indx, auto &reducer) {
-                       reducer += sycl::fabs(x[indx]);
-                   });
+    sycl::event e = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
+        cgh.parallel_for(sycl::range<1>(nsize),
+                         sycl::reduction(out, sycl::plus<>(), initializer),
+                         [=](sycl::id<1> indx, auto &reducer) {
+                             reducer += sycl::fabs(x[indx]);
+                         });
+    });
+    SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1403,7 +1477,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 l1normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
              TData *out)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
 
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
@@ -1412,11 +1486,15 @@ l1normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
         init ? sycl::property_list{sycl::property::reduction::
                                        initialize_to_identity{}}
              : sycl::property_list{};
-    Q.parallel_for(sycl::range<1>(nsize),
-                   sycl::reduction(out, sycl::plus<>(), initializer),
-                   [=](sycl::id<1> indx, auto &reducer) {
-                       reducer += mask[indx] * sycl::fabs(x[indx]);
-                   });
+    sycl::event e = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
+        cgh.parallel_for(sycl::range<1>(nsize),
+                         sycl::reduction(out, sycl::plus<>(), initializer),
+                         [=](sycl::id<1> indx, auto &reducer) {
+                             reducer += mask[indx] * sycl::fabs(x[indx]);
+                         });
+    });
+    SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1438,7 +1516,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 l2normKernel(const size_t nsize, const TData *x, TData *out)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
 
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
@@ -1447,10 +1525,15 @@ l2normKernel(const size_t nsize, const TData *x, TData *out)
         init ? sycl::property_list{sycl::property::reduction::
                                        initialize_to_identity{}}
              : sycl::property_list{};
-    Q.parallel_for(
-        sycl::range<1>(nsize),
-        sycl::reduction(out, sycl::plus<>(), initializer),
-        [=](sycl::id<1> indx, auto &reducer) { reducer += x[indx] * x[indx]; });
+    sycl::event e = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
+        cgh.parallel_for(sycl::range<1>(nsize),
+                         sycl::reduction(out, sycl::plus<>(), initializer),
+                         [=](sycl::id<1> indx, auto &reducer) {
+                             reducer += x[indx] * x[indx];
+                         });
+    });
+    SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1473,7 +1556,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 l2normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
              TData *out)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
 
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
@@ -1482,11 +1565,15 @@ l2normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
         init ? sycl::property_list{sycl::property::reduction::
                                        initialize_to_identity{}}
              : sycl::property_list{};
-    Q.parallel_for(sycl::range<1>(nsize),
-                   sycl::reduction(out, sycl::plus<>(), initializer),
-                   [=](sycl::id<1> indx, auto &reducer) {
-                       reducer += mask[indx] * x[indx] * x[indx];
-                   });
+    sycl::event e = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
+        cgh.parallel_for(sycl::range<1>(nsize),
+                         sycl::reduction(out, sycl::plus<>(), initializer),
+                         [=](sycl::id<1> indx, auto &reducer) {
+                             reducer += mask[indx] * x[indx] * x[indx];
+                         });
+    });
+    SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1509,7 +1596,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
              TData *out)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
 
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
@@ -1518,11 +1605,15 @@ lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
         init ? sycl::property_list{sycl::property::reduction::
                                        initialize_to_identity{}}
              : sycl::property_list{};
-    Q.parallel_for(sycl::range<1>(nsize),
-                   sycl::reduction(out, sycl::plus<>(), initializer),
-                   [=](sycl::id<1> indx, auto &reducer) {
-                       reducer += sycl::pown(sycl::fabs(x[indx]), p);
-                   });
+    sycl::event e = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
+        cgh.parallel_for(sycl::range<1>(nsize),
+                         sycl::reduction(out, sycl::plus<>(), initializer),
+                         [=](sycl::id<1> indx, auto &reducer) {
+                             reducer += sycl::pown(sycl::fabs(x[indx]), p);
+                         });
+    });
+    SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1545,7 +1636,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 lpnormKernel(const size_t nsize, const unsigned int p, const uint8_t *mask,
              const TData *x, TData *out)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
 
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
@@ -1554,12 +1645,16 @@ lpnormKernel(const size_t nsize, const unsigned int p, const uint8_t *mask,
         init ? sycl::property_list{sycl::property::reduction::
                                        initialize_to_identity{}}
              : sycl::property_list{};
-    Q.parallel_for(sycl::range<1>(nsize),
-                   sycl::reduction(out, sycl::plus<>(), initializer),
-                   [=](sycl::id<1> indx, auto &reducer) {
-                       reducer +=
-                           mask[indx] * sycl::pown(sycl::fabs(x[indx]), p);
-                   });
+    sycl::event e = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
+        cgh.parallel_for(sycl::range<1>(nsize),
+                         sycl::reduction(out, sycl::plus<>(), initializer),
+                         [=](sycl::id<1> indx, auto &reducer) {
+                             reducer += mask[indx] *
+                                        sycl::pown(sycl::fabs(x[indx]), p);
+                         });
+    });
+    SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1582,7 +1677,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 linfnormKernel(const size_t nsize, const TData *x, TData *out)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
 
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
@@ -1591,11 +1686,15 @@ linfnormKernel(const size_t nsize, const TData *x, TData *out)
         init ? sycl::property_list{sycl::property::reduction::
                                        initialize_to_identity{}}
              : sycl::property_list{};
-    Q.parallel_for(sycl::range<1>(nsize),
-                   sycl::reduction(out, sycl::maximum<>(), initializer),
-                   [=](sycl::id<1> indx, auto &reducer) {
-                       reducer.combine(sycl::fabs(x[indx]));
-                   });
+    sycl::event e = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
+        cgh.parallel_for(sycl::range<1>(nsize),
+                         sycl::reduction(out, sycl::maximum<>(), initializer),
+                         [=](sycl::id<1> indx, auto &reducer) {
+                             reducer.combine(sycl::fabs(x[indx]));
+                         });
+    });
+    SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1618,7 +1717,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 linfnormKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                TData *out)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
 
 #if defined(USE_SYCL_BUILTIN_REDUCER)
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
@@ -1627,14 +1726,18 @@ linfnormKernel(const size_t nsize, const uint8_t *mask, const TData *x,
         init ? sycl::property_list{sycl::property::reduction::
                                        initialize_to_identity{}}
              : sycl::property_list{};
-    Q.parallel_for(sycl::range<1>(nsize),
-                   sycl::reduction(out, sycl::maximum<>(), initializer),
-                   [=](sycl::id<1> indx, auto &reducer) {
-                       if (mask[indx])
-                       {
-                           reducer.combine(sycl::fabs(x[indx]));
-                       }
-                   });
+    sycl::event e = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
+        cgh.parallel_for(sycl::range<1>(nsize),
+                         sycl::reduction(out, sycl::maximum<>(), initializer),
+                         [=](sycl::id<1> indx, auto &reducer) {
+                             if (mask[indx])
+                             {
+                                 reducer.combine(sycl::fabs(x[indx]));
+                             }
+                         });
+    });
+    SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;

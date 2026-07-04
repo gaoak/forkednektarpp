@@ -61,7 +61,7 @@
 class HIPStream
 {
 public:
-    static hipStream_t &GetInstance(unsigned int id = 0)
+    static hipStream_t &GetInstance(unsigned int id)
     {
         if (streams.find(id) == streams.end())
         {

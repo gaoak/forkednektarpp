@@ -34,6 +34,16 @@
 
 #pragma once
 
+namespace Nektar
+{
+extern unsigned int internalMathKernelStreamID;
+
+[[maybe_unused]] static void setMathKernelStreamID(const unsigned int streamID)
+{
+    internalMathKernelStreamID = streamID;
+}
+} // namespace Nektar
+
 #include "Operators/Field/Field.hpp"
 
 #include "Operators/Math/MathAVXKernels.hpp"
@@ -102,6 +112,7 @@ public:
                 deviceMemcpy<HostToDevice>(m_mask[key], mask.data(),
                                            block.CompSize() * sizeof(uint8_t),
                                            streamID);
+                nekStreamSynchronize(streamID);
             }
         }
 

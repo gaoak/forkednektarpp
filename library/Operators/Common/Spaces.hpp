@@ -359,8 +359,11 @@ extern unsigned int internalMaxDataSizeByte;
 #elif defined(NEKTAR_ENABLE_HIP)
     CHECK_HIPCUDA_ERROR(hipDeviceSynchronize());
 #elif defined(NEKTAR_ENABLE_SYCL)
-    // TODO: Synchronise all queue
-    SYCLQueue::GetInstance(0).wait();
+    auto &Queues = SYCLQueue::GetAllInstances();
+    for (auto &item : Queues)
+    {
+        item.second->wait();
+    }
 #endif
 }
 

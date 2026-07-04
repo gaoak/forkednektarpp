@@ -37,18 +37,39 @@
 #if defined(NEKTAR_ENABLE_SYCL)
 #include "Operators/Common/Backends/SYCLQueue.hpp"
 
+static void inline setSYCLExecutionDependency(const unsigned int streamID,
+                                              sycl::handler &cgh)
+{
+    if (streamID == 0)
+    {
+        for (auto &item : SYCLQueue::GetAllEvents())
+        {
+            if (item.first != 0)
+            {
+                cgh.depends_on(item.second);
+            }
+        }
+    }
+    else
+    {
+        cgh.depends_on(SYCLQueue::GetEvent(0));
+    }
+}
+
 // Kernel launcher on a one-dimensional GPU grid with shared memory provision.
 // KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL. The last two
 // arguments of the KERNEL function MUST be of type unsigned char * and
 // sycl::nd_item<1>. The shared memory size must be specified in bytes. The
 // shared memory is declared as unsigned char* type. The shmemptr must then cast
 // to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
+// clang-format off
 #define DEVICE_1DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
                                       STREAMID, ...)                           \
     {                                                                          \
         sycl::queue &Q = SYCLQueue::GetInstance(STREAMID);                     \
         auto args      = std::make_tuple(__VA_ARGS__);                         \
-        Q.submit([=](sycl::handler &cgh) {                                     \
+        sycl::event e = Q.submit([=](sycl::handler &cgh) {                     \
+            setSYCLExecutionDependency(STREAMID, cgh);                         \
             sycl::local_accessor<unsigned char, 1> shmem(                      \
                 sycl::range<1>(SHMEMSIZE), cgh);                               \
             cgh.parallel_for(                                                  \
@@ -63,7 +84,9 @@
                         args);                                                 \
                 });                                                            \
         });                                                                    \
+        SYCLQueue::SetEvent(STREAMID, e);                                      \
     }
+// clang-format on
 
 // Kernel launcher on a two-dimensional GPU grid with shared memory provision.
 // KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL. The last two
@@ -71,6 +94,7 @@
 // sycl::nd_item<2>. The shared memory size must be specified in bytes. The
 // shared memory is declared as unsigned char* type. The shmemptr must then cast
 // to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
+// clang-format off
 #define DEVICE_2DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZEX, GRIDSIZEY,            \
                                       BLOCKSIZEX, BLOCKSIZEY, SHMEMSIZE,       \
                                       STREAMID, ...)                           \
@@ -79,7 +103,8 @@
         auto args      = std::make_tuple(__VA_ARGS__);                         \
         sycl::range<2> GRIDSIZE(GRIDSIZEY, GRIDSIZEX);                         \
         sycl::range<2> BLOCKSIZE(BLOCKSIZEY, BLOCKSIZEX);                      \
-        Q.submit([=](sycl::handler &cgh) {                                     \
+        sycl::event e = Q.submit([=](sycl::handler &cgh) {                     \
+            setSYCLExecutionDependency(STREAMID, cgh);                         \
             sycl::local_accessor<unsigned char, 1> shmem(                      \
                 sycl::range<1>(SHMEMSIZE), cgh);                               \
             cgh.parallel_for(                                                  \
@@ -94,6 +119,7 @@
                         args);                                                 \
                 });                                                            \
         });                                                                    \
+        SYCLQueue::SetEvent(STREAMID, e);                                      \
     }
 
 // Kernel launcher on a three-dimensional GPU grid with shared memory provision.
@@ -110,7 +136,8 @@
         auto args      = std::make_tuple(__VA_ARGS__);                         \
         sycl::range<3> GRIDSIZE(GRIDSIZEZ, GRIDSIZEY, GRIDSIZEX);              \
         sycl::range<3> BLOCKSIZE(BLOCKSIZEZ, BLOCKSIZEY, BLOCKSIZEX);          \
-        Q.submit([=](sycl::handler &cgh) {                                     \
+        sycl::event e = Q.submit([=](sycl::handler &cgh) {                     \
+            setSYCLExecutionDependency(STREAMID, cgh);                         \
             sycl::local_accessor<unsigned char, 1> shmem(                      \
                 sycl::range<1>(SHMEMSIZE), cgh);                               \
             cgh.parallel_for(                                                  \
@@ -125,17 +152,21 @@
                         args);                                                 \
                 });                                                            \
         });                                                                    \
+        SYCLQueue::SetEvent(STREAMID, e);                                      \
     }
+// clang-format on
 
 // Kernel launcher on a one-dimensional GPU grid without shared memory
 // provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
 // The last argument of the KERNEL function MUST be of type sycl::nd_item<1>.
+// clang-format off
 #define DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
                                               STREAMID, ...)                   \
     {                                                                          \
         sycl::queue &Q = SYCLQueue::GetInstance(STREAMID);                     \
         auto args      = std::make_tuple(__VA_ARGS__);                         \
-        Q.submit([=](sycl::handler &cgh) {                                     \
+        sycl::event e = Q.submit([=](sycl::handler &cgh) {                     \
+            setSYCLExecutionDependency(STREAMID, cgh);                         \
             cgh.parallel_for(                                                  \
                 sycl::nd_range<1>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),            \
                 [=](sycl::nd_item<1> item_ct1) {                               \
@@ -147,11 +178,14 @@
                         args);                                                 \
                 });                                                            \
         });                                                                    \
+        SYCLQueue::SetEvent(STREAMID, e);                                      \
     }
+// clang-format on
 
 // Kernel launcher on a two-dimensional GPU grid without shared memory
 // provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
 // The last argument of the KERNEL function MUST be of type sycl::nd_item<2>.
+// clang-format off
 #define DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(                                 \
     KERNEL, GRIDSIZEX, GRIDSIZEY, BLOCKSIZEX, BLOCKSIZEY, STREAMID, ...)       \
     {                                                                          \
@@ -159,7 +193,8 @@
         auto args      = std::make_tuple(__VA_ARGS__);                         \
         sycl::range<2> GRIDSIZE(GRIDSIZEY, GRIDSIZEX);                         \
         sycl::range<2> BLOCKSIZE(BLOCKSIZEY, BLOCKSIZEX);                      \
-        Q.submit([=](sycl::handler &cgh) {                                     \
+        sycl::event e = Q.submit([=](sycl::handler &cgh) {                     \
+            setSYCLExecutionDependency(STREAMID, cgh);                         \
             cgh.parallel_for(                                                  \
                 sycl::nd_range<2>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),            \
                 [=](sycl::nd_item<2> item_ct1) {                               \
@@ -171,11 +206,14 @@
                         args);                                                 \
                 });                                                            \
         });                                                                    \
+        SYCLQueue::SetEvent(STREAMID, e);                                      \
     }
+// clang-format on
 
 // Kernel launcher on a three-dimensional GPU grid without shared memory
 // provision. KERNEL must be a kernel function decorated by NEK_DEVICE_KERNEL.
 // The last argument of the KERNEL function MUST be of type sycl::nd_item<3>.
+// clang-format off
 #define DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(                                 \
     KERNEL, GRIDSIZEX, GRIDSIZEY, GRIDSIZEZ, BLOCKSIZEX, BLOCKSIZEY,           \
     BLOCKSIZEZ, STREAMID, ...)                                                 \
@@ -184,7 +222,8 @@
         auto args      = std::make_tuple(__VA_ARGS__);                         \
         sycl::range<3> GRIDSIZE(GRIDSIZEZ, GRIDSIZEY, GRIDSIZEX);              \
         sycl::range<3> BLOCKSIZE(BLOCKSIZEZ, BLOCKSIZEY, BLOCKSIZEX);          \
-        Q.submit([=](sycl::handler &cgh) {                                     \
+        sycl::event e = Q.submit([=](sycl::handler &cgh) {                     \
+            setSYCLExecutionDependency(STREAMID, cgh);                         \
             cgh.parallel_for(                                                  \
                 sycl::nd_range<3>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),            \
                 [=](sycl::nd_item<3> item_ct1) {                               \
@@ -196,5 +235,7 @@
                         args);                                                 \
                 });                                                            \
         });                                                                    \
+        SYCLQueue::SetEvent(STREAMID, e);                                      \
     }
+// clang-format on
 #endif

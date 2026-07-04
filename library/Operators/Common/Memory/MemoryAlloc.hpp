@@ -125,7 +125,6 @@ inline void hostMallocPinned(TData **src, const size_t size)
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance(0);
         *src           = (TData *)sycl::malloc_host(size, Q);
-        Q.wait();
 #else
         *src = (TData *)malloc(size);
 #endif
@@ -219,7 +218,6 @@ template <typename TData> inline void hostFreePinned(TData *src)
     sycl::queue &Q = SYCLQueue::GetInstance(0);
     Q.wait();
     sycl::free(src, Q);
-    Q.wait();
 #else
     free(src);
 #endif
@@ -264,9 +262,22 @@ inline void deviceFree(
     }
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+    /*if (streamID != 0)
+    {
+        Q.wait();
+    }
+    else
+    {
+        // Imitate CUDA/HIP default stream blocking behabior by synchronizing
+        // all SYCL queues.
+        auto &Queues = SYCLQueue::GetAllInstances();
+        for (auto &item : Queues)
+        {
+            *item.second.wait();
+        }
+    }*/
     Q.wait();
     sycl::free(src, Q);
-    Q.wait();
     GetDeviceProperties::TotalGlobalMemory() += size;
 #else
     free(src);
@@ -290,7 +301,11 @@ inline void deviceMemset(TData *dst, const int val, const size_t size,
     CHECK_HIPCUDA_ERROR(hipMemsetAsync((void *)dst, val, size, stream));
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-    Q.memset((void *)dst, val, size);
+    sycl::event e  = Q.submit([&](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
+        cgh.memset((void *)dst, val, size);
+    });
+    SYCLQueue::SetEvent(streamID, e);
 #else
     memset((void *)dst, val, size);
 #endif
@@ -311,7 +326,11 @@ inline void deviceFill(TData *dst, const TData val, const size_t size,
     deviceFillKernelLauncher(dst, val, size, streamID);
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-    Q.fill(dst, val, size);
+    sycl::event e  = Q.submit([&](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
+        cgh.fill(dst, val, size);
+    });
+    SYCLQueue::SetEvent(streamID, e);
 #else
     std::fill(dst, dst + size, val);
 #endif
@@ -344,7 +363,12 @@ inline void deviceMemcpy(TData *dst, const TData *src, const size_t size,
         CHECK_HIPCUDA_ERROR(hipStreamSynchronize(stream));
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-        Q.memcpy(dst, src, size).wait();
+        sycl::event e  = Q.submit([&](sycl::handler &cgh) {
+            setSYCLExecutionDependency(streamID, cgh);
+            cgh.memcpy(dst, src, size);
+        });
+        SYCLQueue::SetEvent(streamID, e);
+        Q.wait();
 #else
         memcpy(dst, src, size);
 #endif
@@ -361,7 +385,11 @@ inline void deviceMemcpy(TData *dst, const TData *src, const size_t size,
             hipMemcpyAsync(dst, src, size, hipMemcpyHostToDevice, stream));
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-        Q.memcpy(dst, src, size);
+        sycl::event e  = Q.submit([&](sycl::handler &cgh) {
+            setSYCLExecutionDependency(streamID, cgh);
+            cgh.memcpy(dst, src, size);
+        });
+        SYCLQueue::SetEvent(streamID, e);
 #if defined(SYCL_ENABLE_CPU)
         Q.wait();
 #endif
@@ -381,7 +409,11 @@ inline void deviceMemcpy(TData *dst, const TData *src, const size_t size,
             hipMemcpyAsync(dst, src, size, hipMemcpyDeviceToDevice, stream));
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-        Q.memcpy(dst, src, size);
+        sycl::event e  = Q.submit([&](sycl::handler &cgh) {
+            setSYCLExecutionDependency(streamID, cgh);
+            cgh.memcpy(dst, src, size);
+        });
+        SYCLQueue::SetEvent(streamID, e);
 #else
         memcpy(dst, src, size);
 #endif

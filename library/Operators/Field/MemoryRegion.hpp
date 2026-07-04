@@ -175,7 +175,7 @@ public:
     {
         if (m_device && m_device_owned)
         {
-            const unsigned int streamID = 0;
+            const unsigned int streamID = 0; // TODO
             deviceFree(m_device, m_size * sizeof(TData), streamID,
                        m_memAllocType);
         }
@@ -422,7 +422,7 @@ public:
                 // Allocate device memory, if not yet allocated.
                 if (!m_device)
                 {
-                    const unsigned int streamID = 0;
+                    const unsigned int streamID = 0; // TODO
                     deviceMalloc(&m_device, m_size * sizeof(TData), streamID,
                                  m_memAllocType);
 
@@ -648,7 +648,7 @@ public:
         }
         else if (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
         {
-            const unsigned int streamID = 0;
+            const unsigned int streamID = 0; // TODO
 
             // Allocate device memory, if not yet allocated.
             if (!m_device)
@@ -714,7 +714,7 @@ public:
         }
         else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
         {
-            const unsigned int streamID = 0;
+            const unsigned int streamID = 0; // TODO
             deviceMemcpy<DeviceToDevice>(dst, src, this->size() * sizeof(TData),
                                          streamID);
         }
@@ -949,7 +949,7 @@ private:
         }
         else if (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
         {
-            const unsigned int streamID = 0;
+            const unsigned int streamID = 0; // TODO
 
             // Allocate device memory, if not yet allocated.
             if (!m_device)
@@ -990,7 +990,7 @@ private:
     {
         if (!m_device_valid)
         {
-            const unsigned int streamID = 0;
+            const unsigned int streamID = 0; // TODO
 
             if (!m_host_aligned && m_size > 0)
             {
@@ -1075,7 +1075,7 @@ private:
             // Make sure the device data is valid. It might not be.
             if (m_device_valid)
             {
-                const unsigned int streamID = 0;
+                const unsigned int streamID = 0; // TODO
 
                 deviceMemcpy<DeviceToHost>(m_host_aligned, m_device,
                                            m_size * sizeof(TData), streamID);

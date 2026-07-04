@@ -469,7 +469,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 interleave(const unsigned int interleaveWidth, const size_t numElmtGroups,
            const unsigned int npts, TData *inout)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = 0; // TODO
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = numElmtGroups;
 
@@ -579,7 +579,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 deInterleave(const unsigned int interleaveWidth, size_t numElmtGroups,
              const unsigned int npts, TData *inout)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = 0; // TODO
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = numElmtGroups;
 
@@ -693,7 +693,7 @@ NEK_FORCE_INLINE static
                        const unsigned int nhomo, const TData *jacptr,
                        const TData *inptr, TData *outptr, const TData scale)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = 0; // TODO
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize =
         (nelmt * nqTot * nhomo + blockSize - 1u) / blockSize;
@@ -711,7 +711,7 @@ NEK_FORCE_INLINE static
                      const unsigned int nhomo, const TData *jacptr,
                      const TData *inptr, TData *outptr)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = 0; // TODO
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize =
         (nelmt * nqTot * nhomo + blockSize - 1u) / blockSize;

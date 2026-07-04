@@ -47,6 +47,14 @@
 namespace Nektar
 {
 
+extern unsigned int internalLoopExecutionStreamID;
+
+[[maybe_unused]] static void setLoopExecutionStreamID(
+    const unsigned int streamID)
+{
+    internalLoopExecutionStreamID = streamID;
+}
+
 // NEKTAR_LAMBDA
 // Use in Nektar::parallel_for:
 //   Nektar::parallel_for<ExecSpace>(...,

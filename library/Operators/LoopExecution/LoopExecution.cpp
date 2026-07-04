@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: SYCLQueue.cpp
+// File: LoopExecution.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,13 +28,17 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Provide support for Nektar::parallel_for and
+// Nektar::paralle_reduce portablity functions. Nektar::parallel_for and
+// Nektar::paralle_reduce should only be used within an Operator class and not
+// at the solver level. Nektar::parallel_for does NOT have provision for shared
+// memory and in-kernel memory synchronization.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "SYCLQueue.hpp"
+#include "Operators/LoopExecution/LoopExecution.hpp"
 
-unsigned int internalSYCLDeviceId = 0;
-
-std::map<unsigned int, sycl::queue *> SYCLQueue::queue;
-std::map<unsigned int, sycl::event> SYCLQueue::event;
+namespace Nektar
+{
+unsigned int internalLoopExecutionStreamID = 0;
+}

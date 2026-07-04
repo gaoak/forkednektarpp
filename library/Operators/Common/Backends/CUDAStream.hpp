@@ -62,7 +62,7 @@
 class CUDAStream
 {
 public:
-    static cudaStream_t &GetInstance(unsigned int id = 0)
+    static cudaStream_t &GetInstance(unsigned int id)
     {
         if (streams.find(id) == streams.end())
         {

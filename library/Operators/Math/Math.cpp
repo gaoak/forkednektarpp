@@ -37,15 +37,16 @@
 #include "Operators/Math/Math.hpp"
 #include "Operators/Math/MathKernels.hpp"
 
-#if defined(NEKTAR_ENABLE_DEVICE)
 namespace Nektar
 {
+unsigned int internalMathKernelStreamID = 0;
+#if defined(NEKTAR_ENABLE_DEVICE)
 void *internalMemoryBuffer           = nullptr;
 void *internalDeviceBuffer           = nullptr;
 void *internalHostBuffer             = nullptr;
 unsigned int internalMaxDataSizeByte = 16;
-} // namespace Nektar
 #endif
+} // namespace Nektar
 
 namespace Nektar::Operators
 {
@@ -425,6 +426,7 @@ typename T::value_type Math::reduceSum(T &x, const std::string &execSpace)
                                  streamID);
             Nektar::hostMallocPinned(&internalHostBuffer,
                                      internalMaxDataSizeByte);
+            Nektar::nekStreamSynchronize(streamID);
         }
         Nektar::Operators::reduceSum<NektarSpaces::Device>(
             x, (typename T::value_type *)internalDeviceBuffer);
@@ -469,6 +471,7 @@ typename T::value_type Math::reduceSum(M &mask, T &x,
                                  streamID);
             Nektar::hostMallocPinned(&internalHostBuffer,
                                      internalMaxDataSizeByte);
+            Nektar::nekStreamSynchronize(streamID);
         }
         Nektar::Operators::reduceSum<NektarSpaces::Device>(
             mask, x, (typename T::value_type *)internalDeviceBuffer);
@@ -512,6 +515,7 @@ typename T::value_type Math::reduceMax(T &x, const std::string &execSpace)
                                  streamID);
             Nektar::hostMallocPinned(&internalHostBuffer,
                                      internalMaxDataSizeByte);
+            Nektar::nekStreamSynchronize(streamID);
         }
         Nektar::Operators::reduceMax<NektarSpaces::Device>(
             x, (typename T::value_type *)internalDeviceBuffer);
@@ -556,6 +560,7 @@ typename T::value_type Math::reduceMax(M &mask, T &x,
                                  streamID);
             Nektar::hostMallocPinned(&internalHostBuffer,
                                      internalMaxDataSizeByte);
+            Nektar::nekStreamSynchronize(streamID);
         }
         Nektar::Operators::reduceMax<NektarSpaces::Device>(
             mask, x, (typename T::value_type *)internalDeviceBuffer);
@@ -599,6 +604,7 @@ typename T::value_type Math::reduceMin(T &x, const std::string &execSpace)
                                  streamID);
             Nektar::hostMallocPinned(&internalHostBuffer,
                                      internalMaxDataSizeByte);
+            Nektar::nekStreamSynchronize(streamID);
         }
         Nektar::Operators::reduceMin<NektarSpaces::Device>(
             x, (typename T::value_type *)internalDeviceBuffer);
@@ -643,6 +649,7 @@ typename T::value_type Math::reduceMin(M &mask, T &x,
                                  streamID);
             Nektar::hostMallocPinned(&internalHostBuffer,
                                      internalMaxDataSizeByte);
+            Nektar::nekStreamSynchronize(streamID);
         }
         Nektar::Operators::reduceMin<NektarSpaces::Device>(
             mask, x, (typename T::value_type *)internalDeviceBuffer);
@@ -686,6 +693,7 @@ typename T::value_type Math::ddot(T &x, T &y, const std::string &execSpace)
                                  streamID);
             Nektar::hostMallocPinned(&internalHostBuffer,
                                      internalMaxDataSizeByte);
+            Nektar::nekStreamSynchronize(streamID);
         }
         Nektar::Operators::ddot<NektarSpaces::Device>(
             x, y, (typename T::value_type *)internalDeviceBuffer);
@@ -730,6 +738,7 @@ typename T::value_type Math::ddot(M &mask, T &x, T &y,
                                  streamID);
             Nektar::hostMallocPinned(&internalHostBuffer,
                                      internalMaxDataSizeByte);
+            Nektar::nekStreamSynchronize(streamID);
         }
         Nektar::Operators::ddot<NektarSpaces::Device>(
             mask, x, y, (typename T::value_type *)internalDeviceBuffer);
@@ -773,6 +782,7 @@ typename T::value_type Math::l1norm(T &x, const std::string &execSpace)
                                  streamID);
             Nektar::hostMallocPinned(&internalHostBuffer,
                                      internalMaxDataSizeByte);
+            Nektar::nekStreamSynchronize(streamID);
         }
         Nektar::Operators::l1norm<NektarSpaces::Device>(
             x, (typename T::value_type *)internalDeviceBuffer);
@@ -816,6 +826,7 @@ typename T::value_type Math::l1norm(M &mask, T &x, const std::string &execSpace)
                                  streamID);
             Nektar::hostMallocPinned(&internalHostBuffer,
                                      internalMaxDataSizeByte);
+            Nektar::nekStreamSynchronize(streamID);
         }
         Nektar::Operators::l1norm<NektarSpaces::Device>(
             mask, x, (typename T::value_type *)internalDeviceBuffer);
@@ -859,6 +870,7 @@ typename T::value_type Math::l2norm(T &x, const std::string &execSpace)
                                  streamID);
             Nektar::hostMallocPinned(&internalHostBuffer,
                                      internalMaxDataSizeByte);
+            Nektar::nekStreamSynchronize(streamID);
         }
         Nektar::Operators::l2norm<NektarSpaces::Device>(
             x, (typename T::value_type *)internalDeviceBuffer);
@@ -902,6 +914,7 @@ typename T::value_type Math::l2norm(M &mask, T &x, const std::string &execSpace)
                                  streamID);
             Nektar::hostMallocPinned(&internalHostBuffer,
                                      internalMaxDataSizeByte);
+            Nektar::nekStreamSynchronize(streamID);
         }
         Nektar::Operators::l2norm<NektarSpaces::Device>(
             mask, x, (typename T::value_type *)internalDeviceBuffer);
@@ -946,6 +959,7 @@ typename T::value_type Math::lpnorm(const unsigned int p, T &x,
                                  streamID);
             Nektar::hostMallocPinned(&internalHostBuffer,
                                      internalMaxDataSizeByte);
+            Nektar::nekStreamSynchronize(streamID);
         }
         Nektar::Operators::lpnorm<NektarSpaces::Device>(
             p, x, (typename T::value_type *)internalDeviceBuffer);
@@ -990,6 +1004,7 @@ typename T::value_type Math::lpnorm(const unsigned int p, M &mask, T &x,
                                  streamID);
             Nektar::hostMallocPinned(&internalHostBuffer,
                                      internalMaxDataSizeByte);
+            Nektar::nekStreamSynchronize(streamID);
         }
         Nektar::Operators::lpnorm<NektarSpaces::Device>(
             p, mask, x, (typename T::value_type *)internalDeviceBuffer);
@@ -1033,6 +1048,7 @@ typename T::value_type Math::linfnorm(T &x, const std::string &execSpace)
                                  streamID);
             Nektar::hostMallocPinned(&internalHostBuffer,
                                      internalMaxDataSizeByte);
+            Nektar::nekStreamSynchronize(streamID);
         }
         Nektar::Operators::linfnorm<NektarSpaces::Device>(
             x, (typename T::value_type *)internalDeviceBuffer);
@@ -1077,6 +1093,7 @@ typename T::value_type Math::linfnorm(M &mask, T &x,
                                  streamID);
             Nektar::hostMallocPinned(&internalHostBuffer,
                                      internalMaxDataSizeByte);
+            Nektar::nekStreamSynchronize(streamID);
         }
         Nektar::Operators::linfnorm<NektarSpaces::Device>(
             mask, x, (typename T::value_type *)internalDeviceBuffer);

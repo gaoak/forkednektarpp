@@ -70,6 +70,7 @@ public:
         {
             const unsigned int streamID = 0;
             deviceFree(m_device, this->size(), streamID, m_memAllocType);
+            nekStreamSynchronize(streamID);
         }
 
         m_instantiated = false;
@@ -737,6 +738,7 @@ protected:
                              streamID, field->m_memAllocType);
                 deviceMemset(field->m_device, 0, field->size() * sizeof(TData),
                              streamID);
+                nekStreamSynchronize(streamID);
 
                 auto src = field->m_device;
                 for (unsigned int blk = 0; blk < field->GetBlocks().size();
