@@ -543,15 +543,15 @@ template <
     typename Implementation, bool APPEND, bool DEFORMED, unsigned int ncoord,
     unsigned int nq0, typename TthreadBlock, typename TData/*,
     unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)*/>
-NEK_DEVICE_KERNEL 
+NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
     /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
     Advection1DKernelLauncher(
         [[maybe_unused]] Templated1DPhysSizeParameters<ncoord, nq0>,
   const size_t nelmt, const TData *NEK_RESTRICT D0,
                               const TData *NEK_RESTRICT df,
-                              const TData *NEK_RESTRICT advVel_ptr, 
-                              const size_t adVecoffset, 
+                              const TData *NEK_RESTRICT advVel_ptr,
+                              const size_t adVecoffset,
                               const TData *NEK_RESTRICT in,
                               TData *NEK_RESTRICT out, const TData scale, const TthreadBlock &threadBlock)
 {
@@ -588,7 +588,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           unsigned int nq1, typename TthreadBlock, typename TData/*,
           unsigned int maxThreadPerBlock =
               GetDeviceBlockSize<Implementation>(nq0 *nq1)*/>
-NEK_DEVICE_KERNEL 
+NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
     /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
     Advection2DKernelLauncher(
@@ -598,8 +598,8 @@ const size_t nelmt, const TData *NEK_RESTRICT D0,
                               const TData *NEK_RESTRICT f0,
                               const TData *NEK_RESTRICT f1,
                               const TData *NEK_RESTRICT df,
-                              const TData *NEK_RESTRICT advVel_ptr, 
-                              const size_t adVecoffset, 
+                              const TData *NEK_RESTRICT advVel_ptr,
+                              const size_t adVecoffset,
                               const TData *NEK_RESTRICT in,
                               TData *NEK_RESTRICT out, const TData scale, unsigned char* shmemptr, const TthreadBlock &threadBlock)
 {
@@ -640,7 +640,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TData/*,
           unsigned int maxThreadPerBlock =
               GetDeviceBlockSize<Implementation>(nq0 *nq1 *nq2)*/>
-NEK_DEVICE_KERNEL  
+NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
     /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/ Advection3DKernelLauncher(
         [[maybe_unused]] Templated3DPhysSizeParameters<nq0, nq1, nq2>,
@@ -648,7 +648,7 @@ NEK_DEVICE_KERNEL
     const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
     const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
     const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
-    const TData *NEK_RESTRICT df,  const TData *NEK_RESTRICT advVel_ptr, 
+    const TData *NEK_RESTRICT df,  const TData *NEK_RESTRICT advVel_ptr,
     const size_t adVecoffset, const TData *NEK_RESTRICT in,
     TData *NEK_RESTRICT out, const TData scale, unsigned char*shmemptr, const TthreadBlock &threadBlock)
 {

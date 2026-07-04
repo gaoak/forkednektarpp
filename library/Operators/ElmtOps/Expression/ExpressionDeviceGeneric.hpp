@@ -241,7 +241,7 @@ protected:
 #if defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
                 });
             });
-            SYCLQueue::SetEvent(0, e);                                                
+            SYCLQueue::SetEvent(0, e);
 #endif
             // clang-format on
             delete[] ptr;
@@ -271,7 +271,7 @@ protected:
 #if defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
             });
         });
-        SYCLQueue::SetEvent(0, e);                                                
+        SYCLQueue::SetEvent(0, e);
 #endif
         // clang-format on
     }

@@ -315,7 +315,7 @@ template <typename Implementation,
           typename TthreadBlock, typename TData/*,
                                                                    unsigned int maxThreadPerBlock =
                                                                    GetDeviceBlockSize<Implementation>(nq0 *nq1)*/>
-NEK_DEVICE_KERNEL 
+NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
  /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
 Divergence1DKernelLauncher(
@@ -355,7 +355,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           unsigned int nq1, typename TthreadBlock, typename TData/*,
                                                                    unsigned int maxThreadPerBlock =
                                                                    GetDeviceBlockSize<Implementation>(nq0 *nq1)*/>
-NEK_DEVICE_KERNEL 
+NEK_DEVICE_KERNEL
     typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
  /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
 Divergence2DKernelLauncher(

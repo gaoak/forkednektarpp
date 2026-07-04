@@ -110,11 +110,11 @@ NEK_DEVICE_INLINE static constexpr auto GetDIRKStageCoefficients(void)
         constexpr TData lambda = 0.4358665215;
 
         // clang-format off
-        return std::array<TData, 3> 
+        return std::array<TData, 3>
                 {  // 1st stage
                    0.5 * (1.0 - lambda),
                    // 2nd stage
-                   0.25 * (-6.0 * lambda * lambda + 16.0 * lambda - 1.0), 
+                   0.25 * (-6.0 * lambda * lambda + 16.0 * lambda - 1.0),
                    0.25 * (6.0 * lambda * lambda - 20.0 * lambda + 5.0)
                 };
         // clang-format on
@@ -230,7 +230,7 @@ NEK_DEVICE_INLINE static constexpr auto GetESDIRKStageCoefficients(void)
         // differential equations. A review. No. NF1676L-19716. 2016.
 
         // clang-format off
-        return std::array<TData, 10> 
+        return std::array<TData, 10>
                 {   // 1st stage
                     9.0 / 40.0,
                     // 2n stage
@@ -255,7 +255,7 @@ NEK_DEVICE_INLINE static constexpr auto GetESDIRKStageCoefficients(void)
         // Diagonally implicit Runge-Kutta methods for ordinary
         // differential equations. A review. No. NF1676L-19716. 2016.
         // clang-format off
-        return std::array<TData, 15> 
+        return std::array<TData, 15>
                 {  // 1st stage
                    0.25,
                    // 2nd stage

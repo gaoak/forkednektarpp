@@ -160,7 +160,7 @@ NEK_DEVICE_INLINE static constexpr auto GetIMEXdirkStageCoefficients(void)
     {
         // clang-format off
         return std::array<TData, 1>
-                {   
+                {
                     // 1st stage (Explicit)
                     1.0
                 };
@@ -172,7 +172,7 @@ NEK_DEVICE_INLINE static constexpr auto GetIMEXdirkStageCoefficients(void)
     {
         // clang-format off
         return std::array<TData, 1>
-                {   
+                {
                     // 1st stage (Explicit)
                     1.0
                 };
@@ -183,7 +183,7 @@ NEK_DEVICE_INLINE static constexpr auto GetIMEXdirkStageCoefficients(void)
     {
         // clang-format off
         return std::array<TData, 1>
-                {   
+                {
                     // 1st stage (Explicit)
                     0.5
                 };
@@ -198,7 +198,7 @@ NEK_DEVICE_INLINE static constexpr auto GetIMEXdirkStageCoefficients(void)
 
         // clang-format off
         return std::array<TData, 4>
-                {   
+                {
                     // 1st stage (Explicit)
                     gamma,
                     // 2nd stage (Implicit)
@@ -217,7 +217,7 @@ NEK_DEVICE_INLINE static constexpr auto GetIMEXdirkStageCoefficients(void)
 
         // clang-format off
         return std::array<TData, 4>
-                {   
+                {
                     // 1st stage (Explicit)
                     gamma,
                     // 2nd stage (Implicit)
@@ -235,7 +235,7 @@ NEK_DEVICE_INLINE static constexpr auto GetIMEXdirkStageCoefficients(void)
 
         // clang-format off
         return std::array<TData, 4>
-                {   
+                {
                     // 1st stage (Explicit)
                     gamma,
                     // 2nd stage (Implicit)
@@ -249,8 +249,8 @@ NEK_DEVICE_INLINE static constexpr auto GetIMEXdirkStageCoefficients(void)
     else if constexpr (ImpStage == 3 && ExpStage == 4 && IntOrder == 3)
     {
         // clang-format off
-        return std::array<TData, 9> 
-                {  
+        return std::array<TData, 9>
+                {
                    // 1st stage (Explicit)
                    0.4358665215,
                    // 2nd stage (Implicit)
@@ -269,7 +269,7 @@ NEK_DEVICE_INLINE static constexpr auto GetIMEXdirkStageCoefficients(void)
     {
         // clang-format off
         return std::array<TData, 16>
-                {   
+                {
                     // 1st stage (Explicit)
                     0.5,
                     // 2nd stage (Implicit)
