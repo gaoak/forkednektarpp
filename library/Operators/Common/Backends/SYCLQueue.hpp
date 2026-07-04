@@ -48,7 +48,7 @@ extern unsigned int internalSYCLDeviceId;
 class SYCLQueue
 {
 public:
-    static sycl::queue &GetInstance(unsigned int id = 0)
+    static sycl::queue &GetInstance(unsigned int id)
     {
         if (queue.find(id) == queue.end())
         {
@@ -66,6 +66,33 @@ public:
         return *queue[id];
     }
 
+    static std::map<unsigned int, sycl::queue *> &GetAllInstances(void)
+    {
+        return queue;
+    }
+
+    static void SetEvent(unsigned int id, sycl::event &e)
+    {
+        event[id] = e;
+    }
+
+    static sycl::event &GetEvent(unsigned int id)
+    {
+        if (queue.find(id) == queue.end())
+        {
+            sycl::event e;
+            event[id] = e;
+        }
+
+        return event[id];
+    }
+
+    static std::map<unsigned int, sycl::event> &GetAllEvents(void)
+    {
+        return event;
+    }
+
 private:
     static std::map<unsigned int, sycl::queue *> queue;
+    static std::map<unsigned int, sycl::event> event;
 };

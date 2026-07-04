@@ -45,12 +45,14 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 parallel_for(const size_t begin, const size_t end, const Functor &functor)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalLoopExecutionStreamID;
     sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e               = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(end - begin),
-                         [=](sycl::id<1> indx) { functor(begin + indx); });
+                                       [=](sycl::id<1> indx) { functor(begin + indx); });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 // Reduction kernels.
@@ -59,11 +61,11 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
                      const size_t begin, const size_t end, TData *buffer,
                      const Functor &functor)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalLoopExecutionStreamID;
     sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e               = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
-
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
@@ -104,6 +106,7 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
                 }
             });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <bool init, typename TData, typename Functor>
@@ -113,11 +116,11 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     constexpr TData min = std::numeric_limits<TData>::lowest();
 
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalLoopExecutionStreamID;
     sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e               = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
-
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
@@ -160,6 +163,7 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
                 }
             });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 template <bool init, typename TData, typename Functor>
@@ -169,11 +173,11 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     constexpr TData max = std::numeric_limits<TData>::max();
 
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalLoopExecutionStreamID;
     sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
-    Q.submit([=](sycl::handler &cgh) {
+    sycl::event e               = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(streamID, cgh);
         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
-
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
@@ -216,6 +220,7 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
                 }
             });
     });
+    SYCLQueue::SetEvent(streamID, e);
 }
 
 // Parallel reduction launchers without device-to-host copy.
@@ -228,10 +233,10 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
     using TData = typename Reduction::value_type;
 
 #if defined(USE_SYCL_BUILTIN_REDUCER)
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalLoopExecutionStreamID;
     const unsigned int gridSize = NektarSpaces::Device::maximumBlockSize;
 #else
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalLoopExecutionStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 #endif
@@ -251,11 +256,15 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
             init ? sycl::property_list{sycl::property::reduction::
                                            initialize_to_identity{}}
                  : sycl::property_list{};
-        Q.parallel_for(sycl::range<1>(end - begin),
-                       sycl::reduction(out, sycl::plus<>(), initializer),
-                       [=](sycl::id<1> indx, auto &reducer) {
-                           reducer.combine(functor(begin + indx));
-                       });
+        sycl::event e = Q.submit([=](sycl::handler &cgh) {
+            setSYCLExecutionDependency(streamID, cgh);
+            cgh.parallel_for(sycl::range<1>(end - begin),
+                             sycl::reduction(out, sycl::plus<>(), initializer),
+                             [=](sycl::id<1> indx, auto &reducer) {
+                                 reducer.combine(functor(begin + indx));
+                             });
+        });
+        SYCLQueue::SetEvent(streamID, e);
 #else
         TData *buffer = (TData *)internalMemoryBuffer;
         reduceSumKernel<true>(gridSize, blockSize, begin, end, buffer, functor);
@@ -271,11 +280,16 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
             init ? sycl::property_list{sycl::property::reduction::
                                            initialize_to_identity{}}
                  : sycl::property_list{};
-        Q.parallel_for(sycl::range<1>(end - begin),
-                       sycl::reduction(out, sycl::maximum<>(), initializer),
-                       [=](sycl::id<1> indx, auto &reducer) {
-                           reducer.combine(functor(begin + indx));
-                       });
+        sycl::event e = Q.submit([=](sycl::handler &cgh) {
+            setSYCLExecutionDependency(streamID, cgh);
+            cgh.parallel_for(
+                sycl::range<1>(end - begin),
+                sycl::reduction(out, sycl::maximum<>(), initializer),
+                [=](sycl::id<1> indx, auto &reducer) {
+                    reducer.combine(functor(begin + indx));
+                });
+        });
+        SYCLQueue::SetEvent(streamID, e);
 #else
         TData *buffer = (TData *)internalMemoryBuffer;
         reduceMaxKernel<true>(gridSize, blockSize, begin, end, buffer, functor);
@@ -291,11 +305,16 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
             init ? sycl::property_list{sycl::property::reduction::
                                            initialize_to_identity{}}
                  : sycl::property_list{};
-        Q.parallel_for(sycl::range<1>(end - begin),
-                       sycl::reduction(out, sycl::minimum<>(), initializer),
-                       [=](sycl::id<1> indx, auto &reducer) {
-                           reducer.combine(functor(begin + indx));
-                       });
+        sycl::event e = Q.submit([=](sycl::handler &cgh) {
+            setSYCLExecutionDependency(streamID, cgh);
+            cgh.parallel_for(
+                sycl::range<1>(end - begin),
+                sycl::reduction(out, sycl::minimum<>(), initializer),
+                [=](sycl::id<1> indx, auto &reducer) {
+                    reducer.combine(functor(begin + indx));
+                });
+        });
+        SYCLQueue::SetEvent(streamID, e);
 #else
         TData *buffer = (TData *)internalMemoryBuffer;
         reduceMinKernel<true>(gridSize, blockSize, begin, end, buffer, functor);
@@ -314,7 +333,7 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
 {
     using TData = typename Reduction::value_type;
 
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalLoopExecutionStreamID;
     if (internalHostBuffer == nullptr)
     {
         hostMallocPinned(&internalHostBuffer, internalMaxDataSizeByte);

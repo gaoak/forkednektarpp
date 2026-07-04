@@ -208,7 +208,7 @@ NEK_FORCE_INLINE static void UpdateStageKernel(const size_t nsize, TData *inout,
                                                const TData *solution,
                                                const TDatas *...solutions)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = 0; // TODO
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -231,7 +231,7 @@ NEK_FORCE_INLINE static void UpdateStageKernel(const size_t nsize, TData *inout,
                                                const TData *solution,
                                                const TDatas *...solutions)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = 0; // TODO
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -253,7 +253,7 @@ NEK_FORCE_INLINE static void UpdateSolutionKernel(const size_t nsize,
                                                   TData *inout,
                                                   const TDatas *...solutions)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = 0; // TODO
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -275,7 +275,7 @@ NEK_FORCE_INLINE static void UpdateSolutionKernel(const size_t nsize,
                                                   const TData *solution,
                                                   const TDatas *...solutions)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = 0; // TODO
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -299,7 +299,7 @@ NEK_FORCE_INLINE static void UpdateSolutionKernel(const size_t nsize,
                                                   const TData *solution,
                                                   const TDatas *...solutions)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = 0; // TODO
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 

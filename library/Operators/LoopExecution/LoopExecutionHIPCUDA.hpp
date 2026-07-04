@@ -64,7 +64,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 parallel_for(const size_t begin, const size_t end, const Functor &functor)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalLoopExecutionStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = ((end - begin) + blockSize - 1u) / blockSize;
 
@@ -247,7 +247,7 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
 {
     using TData = typename Reduction::value_type;
 
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalLoopExecutionStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -306,7 +306,7 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
 {
     using TData = typename Reduction::value_type;
 
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalLoopExecutionStreamID;
     if (internalHostBuffer == nullptr)
     {
         hostMallocPinned(&internalHostBuffer, internalMaxDataSizeByte);

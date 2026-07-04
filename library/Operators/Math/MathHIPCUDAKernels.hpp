@@ -1552,7 +1552,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 zeroKernel(const size_t nsize, TData *x)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
     deviceMemset(x, 0, nsize * sizeof(TData), streamID);
 }
 
@@ -1561,7 +1561,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 fillKernel(const size_t nsize, const TData &val, TData *x)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
     deviceFill(x, val, nsize, streamID);
 }
 
@@ -1570,7 +1570,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 copyKernel(const size_t nsize, const TData *x, TData *y)
 {
-    const unsigned int streamID = 0;
+    const unsigned int streamID = internalMathKernelStreamID;
     deviceMemcpy<DeviceToDevice>(y, x, nsize * sizeof(TData), streamID);
 }
 
@@ -1579,7 +1579,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 absKernel(const size_t nsize, const TData *x, TData *y)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -1598,7 +1598,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 negKernel(const size_t nsize, const TData *x, TData *y)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -1617,7 +1617,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 sqrtKernel(const size_t nsize, const TData *x, TData *y)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -1636,7 +1636,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 addKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -1655,7 +1655,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 subKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -1674,7 +1674,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 mulKernel(const size_t nsize, const TData alpha, const TData *x, TData *y)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -1693,7 +1693,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 mulKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -1712,7 +1712,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 divKernel(const size_t nsize, const TData alpha, const TData *x, TData *y)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -1731,7 +1731,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 divKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -1751,7 +1751,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
             const TData *y, TData *z)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -1770,7 +1770,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 sumNMatrixKernel(const size_t nsize, const size_t n, const TData *x, TData *y)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -1789,7 +1789,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 reduceSumKernel(const size_t nsize, const TData *x, TData *out)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1818,7 +1818,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 reduceSumKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                 TData *out)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1847,7 +1847,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1876,7 +1876,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 reduceMaxKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                 TData *out)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1905,7 +1905,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 reduceMinKernel(const size_t nsize, const TData *x, TData *out)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1934,7 +1934,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 reduceMinKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                 TData *out)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1963,7 +1963,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1992,7 +1992,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
            const TData *y, TData *out)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -2021,7 +2021,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 l1normKernel(const size_t nsize, const TData *x, TData *out)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -2050,7 +2050,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 l1normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
              TData *out)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -2079,7 +2079,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 l2normKernel(const size_t nsize, const TData *x, TData *out)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -2108,7 +2108,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 l2normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
              TData *out)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -2138,7 +2138,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
              TData *out)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -2167,7 +2167,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 lpnormKernel(const size_t nsize, const unsigned int p, const uint8_t *mask,
              const TData *x, TData *out)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -2196,7 +2196,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 linfnormKernel(const size_t nsize, const TData *x, TData *out)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -2225,7 +2225,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 linfnormKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                TData *out)
 {
-    const unsigned int streamID  = 0;
+    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 

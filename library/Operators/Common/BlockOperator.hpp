@@ -137,7 +137,7 @@ private:
     {
         if (m_deviceWspSize < size)
         {
-            const unsigned int streamID = 0;
+            const unsigned int streamID = 0; // TODO
             deviceFree(m_deviceWsp, sizeof(TData) * m_deviceWspSize, streamID);
             deviceMalloc(&m_deviceWsp, sizeof(TData) * size, streamID);
             m_deviceWspSize = size;

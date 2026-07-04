@@ -320,7 +320,7 @@ private:
         if (m_totalGlobalMemory.find(id) == m_totalGlobalMemory.end())
         {
             auto device =
-                SYCLQueue::GetInstance().get_info<sycl::info::queue::device>();
+                SYCLQueue::GetInstance(0).get_info<sycl::info::queue::device>();
             m_totalGlobalMemory.emplace(
                 id, device.get_info<sycl::info::device::global_mem_size>());
             m_sharedMemoryPerBlock.emplace(
@@ -340,7 +340,7 @@ private:
 #if defined(NEKTAR_ENABLE_SYCL) && !defined(SYCL_ENABLE_CPU) &&                \
     defined(__INTEL_LLVM_COMPILER)
     auto device =
-        SYCLQueue::GetInstance().get_info<sycl::info::queue::device>();
+        SYCLQueue::GetInstance(0).get_info<sycl::info::queue::device>();
     std::cout << "--------------------------------" << std::endl;
     std::cout << "Device Properties " << std::endl;
     std::cout << "--------------------------------" << std::endl;
@@ -370,7 +370,7 @@ private:
            device.get_info<sycl::info::device::max_compute_units>());
 #elif defined(NEKTAR_ENABLE_SYCL)
     auto device =
-        SYCLQueue::GetInstance().get_info<sycl::info::queue::device>();
+        SYCLQueue::GetInstance(0).get_info<sycl::info::queue::device>();
     std::cout << "--------------------------------" << std::endl;
     std::cout << "Device Properties " << std::endl;
     std::cout << "--------------------------------" << std::endl;
