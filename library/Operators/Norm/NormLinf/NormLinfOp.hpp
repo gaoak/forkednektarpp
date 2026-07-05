@@ -85,31 +85,7 @@ public:
 
     void Apply(Field<TData, FieldState::Phys> &in)
     {
-        ASSERTL1(in.GetNumHomoModes() == 1,
-                 "The NormLinf is not implemented for homogeneous expansions.");
-
-        // Initialise norm memory region
-        if (m_data.size() != in.GetNumComponents())
-        {
-            m_data = MemoryRegion<TData>("NormLinfDeviceReduce",
-                                         in.GetNumComponents(), eHostPinned);
-        }
-
-        // Reset norms
-        m_math.fill(0.0, m_data);
-
-        // Loop all blocks
-        for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
-        {
-            auto &inblock = in.GetBlocks()[blk];
-
-            this->m_blockOp[blk]->Apply(inblock, m_data);
-        }
-
-        // Communicate norms
-        auto rowComm = this->m_expansionList->GetComm()->GetRowComm();
-        rowComm->template AllReduce<NektarSpaces::DeviceSpace>(
-            m_data, Nektar::LibUtilities::ReduceMax);
+        v_Apply(in);
     }
 
     void operator()(Field<TData, FieldState::Phys> &in)
@@ -124,7 +100,6 @@ public:
     }
 
 protected:
-    Math m_math;
     MemoryRegion<TData> m_data;
     std::vector<std::shared_ptr<NormLinfBlockOp<TData>>> m_blockOp;
 
@@ -133,5 +108,7 @@ protected:
         : Operator<TData>(expansionList, components)
     {
     }
+
+    virtual void v_Apply(Field<TData, FieldState::Phys> &in) = 0;
 };
 } // namespace Nektar::Operators

@@ -42,6 +42,8 @@ namespace Nektar::Operators::detail
 template <typename ExecSpace, typename TData>
 class NormL2OpImpl : public NormL2Op<TData>
 {
+    using MemSpace = typename ExecSpace::memory_space;
+
 public:
     NormL2OpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                  const std::vector<std::string> &components)
@@ -57,6 +59,48 @@ public:
     {
         return std::make_unique<NormL2OpImpl<ExecSpace, TData>>(expansionList,
                                                                 components);
+    }
+
+    void v_Apply(Field<TData, FieldState::Phys> &in) override
+    {
+        ASSERTL1(in.GetNumHomoModes() == 1,
+                 "The NormL2 is not implemented for homogeneous expansions.");
+
+        auto numComp = in.GetNumComponents();
+        if (this->m_data.size() != numComp + 1)
+        {
+            this->m_data =
+                MemoryRegion<TData>("NormL2", numComp + 1, eHostPinned);
+        }
+        this->m_data.template Initialize<MemSpace>(TData{0});
+
+        for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
+        {
+            auto &inblock = in.GetBlocks()[blk];
+            this->m_blockOp[blk]->Apply(inblock, this->m_data);
+        }
+
+        auto rowComm = this->m_expansionList->GetComm()->GetRowComm();
+        rowComm->template AllReduce<MemSpace>(this->m_data,
+                                              LibUtilities::ReduceSum);
+
+        auto dataPtr =
+            this->m_data.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+
+        if (this->m_normalised)
+        {
+            ASSERTL1(dataPtr[numComp] > 0.0,
+                     "NormL2Op encountered a non-positive volume.");
+        }
+        else
+        {
+            dataPtr[numComp] = 1.0;
+        }
+
+        for (unsigned int nc = 0; nc < numComp; ++nc)
+        {
+            dataPtr[nc] = std::sqrt(dataPtr[nc] / dataPtr[numComp]);
+        }
     }
 };
 
