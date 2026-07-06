@@ -42,6 +42,8 @@ namespace Nektar::Operators::detail
 template <typename ExecSpace, typename TData>
 class NormLinfOpImpl : public NormLinfOp<TData>
 {
+    using MemSpace = typename ExecSpace::memory_space;
+
 public:
     NormLinfOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                    const std::vector<std::string> &components)
@@ -57,6 +59,36 @@ public:
     {
         return std::make_unique<NormLinfOpImpl<ExecSpace, TData>>(expansionList,
                                                                   components);
+    }
+
+protected:
+    void v_Apply(Field<TData, FieldState::Phys> &in) override
+    {
+        ASSERTL1(in.GetNumHomoModes() == 1,
+                 "The NormLinf is not implemented for homogeneous expansions.");
+
+        // Initialise norm memory region
+        if (this->m_data.size() != in.GetNumComponents())
+        {
+            this->m_data = MemoryRegion<TData>(
+                "NormLinfDeviceReduce", in.GetNumComponents(), eHostPinned);
+        }
+
+        // Reset norms
+        this->m_data.template Initialize<MemSpace>(TData{0});
+
+        // Loop all blocks
+        for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
+        {
+            auto &inblock = in.GetBlocks()[blk];
+
+            this->m_blockOp[blk]->Apply(inblock, this->m_data);
+        }
+
+        // Communicate norms
+        auto rowComm = this->m_expansionList->GetComm()->GetRowComm();
+        rowComm->template AllReduce<MemSpace>(this->m_data,
+                                              Nektar::LibUtilities::ReduceMax);
     }
 };
 
