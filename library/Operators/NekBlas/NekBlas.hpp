@@ -55,7 +55,7 @@
 
 #include "Operators/Common/Spaces.hpp"
 
-void setNekBlasStream(blasHandle_t handle, const unsigned int streamID);
+void NekBlasSetStream(blasHandle_t handle, const unsigned int streamID);
 
 template <typename ExecSpace> class NekHandle
 {
@@ -69,7 +69,7 @@ public:
 };
 
 #if defined(NEKTAR_ENABLE_SIMD)
-void setNekBlasStream(xsmmHandle_t handle, const unsigned int streamID);
+void NekBlasSetStream(xsmmHandle_t handle, const unsigned int streamID);
 
 template <> class NekHandle<NektarSpaces::AVX>
 {
@@ -95,7 +95,7 @@ public:
     }
 };
 #elif defined(NEKTAR_ENABLE_CUDA)
-void setNekBlasStream(cublasHandle_t handle, const unsigned int streamID);
+void NekBlasSetStream(cublasHandle_t handle, const unsigned int streamID);
 
 template <> class NekHandle<NektarSpaces::Device>
 {
@@ -108,7 +108,7 @@ public:
     }
 };
 #elif defined(NEKTAR_ENABLE_HIP)
-void setNekBlasStream(hipblasHandle_t handle, const unsigned int streamID);
+void NekBlasSetStream(hipblasHandle_t handle, const unsigned int streamID);
 
 template <> class NekHandle<NektarSpaces::Device>
 {
@@ -122,7 +122,7 @@ public:
 };
 #elif defined(NEKTAR_ENABLE_SYCL)
 extern unsigned int internalOneMathStreamID;
-void setNekBlasStream(oneMathHandle_t handle, const unsigned int streamID);
+void NekBlasSetStream(oneMathHandle_t handle, const unsigned int streamID);
 
 template <> class NekHandle<NektarSpaces::Device>
 {

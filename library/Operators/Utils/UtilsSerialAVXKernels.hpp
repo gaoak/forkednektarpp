@@ -63,7 +63,8 @@ inline
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
     interleave(const unsigned int interleaveWidth, const size_t numElmtGroups,
-               const unsigned int npts, TData *inout)
+               const unsigned int npts, TData *inout,
+               [[maybe_unused]] const unsigned int streamID)
 {
     const unsigned int elmtGroupSize = npts * interleaveWidth;
     std::vector<TData> wsp(elmtGroupSize);
@@ -90,7 +91,8 @@ inline
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
     deInterleave(const unsigned int interleaveWidth, const size_t numElmtGroups,
-                 const unsigned int npts, TData *inout)
+                 const unsigned int npts, TData *inout,
+                 [[maybe_unused]] const unsigned int streamID)
 {
     const unsigned int elmtGroupSize = npts * interleaveWidth;
     std::vector<TData> wsp(elmtGroupSize);
@@ -118,7 +120,8 @@ NEK_FORCE_INLINE static
                             void>::type
     MultiplyByJacobian(const size_t nelmt, const unsigned int nqTot,
                        const TData *jacptr, const TData *inptr, TData *outptr,
-                       const TScalar scale)
+                       const TScalar scale,
+                       [[maybe_unused]] const unsigned int streamID = 0)
 {
     if constexpr (DEFORMED)
     {
@@ -146,7 +149,8 @@ NEK_FORCE_INLINE static
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
     DivideByJacobian(const size_t nelmt, const unsigned int nqTot,
-                     const TData *jacptr, const TData *inptr, TData *outptr)
+                     const TData *jacptr, const TData *inptr, TData *outptr,
+                     [[maybe_unused]] const unsigned int streamID = 0)
 {
     if constexpr (DEFORMED)
     {

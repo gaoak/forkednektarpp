@@ -416,9 +416,8 @@ protected:
             {
                 for (unsigned nc = 0; nc < inout.GetNumComponents(); ++nc)
                 {
-                    deInterleave<ExecSpace>(
-                        inoutWidth,
-                        inoutBlk.GetNumElementsWithPadding() / inoutWidth,
+                    ReshapeStorage<ExecSpace>(
+                        1u, inoutWidth, inoutBlk.GetNumElementsWithPadding(),
                         inoutBlk.GetNumData(), inoutPtr + nc * blksize);
                 }
                 inoutBlk.template SetInterleaveWidth<TData>(1);
