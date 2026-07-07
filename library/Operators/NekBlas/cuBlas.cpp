@@ -35,7 +35,7 @@
 #include "Operators/Common/Memory/MemoryAlloc.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 
-void setNekBlasStream(cublasHandle_t handle, const unsigned int streamID)
+void NekBlasSetStream(cublasHandle_t handle, const unsigned int streamID)
 {
     CUBLAS_CHECK(cublasSetStream(handle, CUDAStream::GetInstance(streamID)));
 }

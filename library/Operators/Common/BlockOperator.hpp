@@ -106,48 +106,70 @@ protected:
     // in insufficient memory. The current implementation assumes that all
     // BlockOperator instances execute on the default stream/queue.
     template <typename MemSpace>
-    static TData *GetStaticWorkSpace(const size_t size)
+    static TData *GetStaticWorkSpace(const size_t size,
+                                     const unsigned int streamID = 0)
     {
         if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
         {
-            SetHostWorkSpace(size);
-            return m_hostWsp;
+            SetHostWorkSpace(size, streamID);
+            return m_hostWsp[streamID];
         }
         else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
         {
-            SetDeviceWorkSpace(size);
-            return m_deviceWsp;
+            SetDeviceWorkSpace(size, streamID);
+            return m_deviceWsp[streamID];
         }
     }
 
 private:
-    static void SetHostWorkSpace(const size_t size)
+    static void SetHostWorkSpace(const size_t size, const unsigned int streamID)
     {
-        if (m_hostWspSize < size)
+        if (m_hostWspSize.find(streamID) == m_hostWspSize.end())
         {
-            hostFree(m_hostWsp, NektarSpaces::host_memory_alignment);
-            hostMalloc(&m_hostWsp, sizeof(TData) * size,
+            TData *hostptr = nullptr;
+            hostMalloc(&hostptr, sizeof(TData) * size,
                        NektarSpaces::host_memory_alignment);
-            memset(m_hostWsp, 0, sizeof(TData) * size);
-            m_hostWspSize = size;
+            memset(hostptr, 0, sizeof(TData) * size);
+            m_hostWsp[streamID]     = hostptr;
+            m_hostWspSize[streamID] = size;
         }
-    }
-
-    static void SetDeviceWorkSpace(const size_t size)
-    {
-        if (m_deviceWspSize < size)
+        else if (m_hostWspSize[streamID] < size)
         {
-            const unsigned int streamID = 0; // TODO
-            deviceFree(m_deviceWsp, sizeof(TData) * m_deviceWspSize, streamID);
-            deviceMalloc(&m_deviceWsp, sizeof(TData) * size, streamID);
-            m_deviceWspSize = size;
+            TData *hostptr = m_hostWsp[streamID];
+            hostFree(hostptr, NektarSpaces::host_memory_alignment);
+            hostMalloc(&hostptr, sizeof(TData) * size,
+                       NektarSpaces::host_memory_alignment);
+            memset(hostptr, 0, sizeof(TData) * size);
+            m_hostWsp[streamID]     = hostptr;
+            m_hostWspSize[streamID] = size;
         }
     }
 
-    static inline TData *m_deviceWsp     = nullptr;
-    static inline size_t m_deviceWspSize = 0;
-    static inline TData *m_hostWsp       = nullptr;
-    static inline size_t m_hostWspSize   = 0;
+    static void SetDeviceWorkSpace(const size_t size,
+                                   const unsigned int streamID)
+    {
+        if (m_deviceWspSize.find(streamID) == m_deviceWspSize.end())
+        {
+            TData *deviceptr = nullptr;
+            deviceMalloc(&deviceptr, sizeof(TData) * size, streamID);
+            m_deviceWsp[streamID]     = deviceptr;
+            m_deviceWspSize[streamID] = size;
+        }
+        else if (m_deviceWspSize[streamID] < size)
+        {
+            TData *deviceptr = m_deviceWsp[streamID];
+            deviceFree(deviceptr, sizeof(TData) * m_deviceWspSize[streamID],
+                       streamID);
+            deviceMalloc(&deviceptr, sizeof(TData) * size, streamID);
+            m_deviceWsp[streamID]     = deviceptr;
+            m_deviceWspSize[streamID] = size;
+        }
+    }
+
+    static inline std::map<unsigned int, TData *> m_deviceWsp;
+    static inline std::map<unsigned int, size_t> m_deviceWspSize;
+    static inline std::map<unsigned int, TData *> m_hostWsp;
+    static inline std::map<unsigned int, size_t> m_hostWspSize;
 };
 
 } // namespace Nektar::Operators

@@ -46,7 +46,7 @@ using namespace oneapi::mkl;
 
 unsigned int internalOneMathStreamID = 0;
 
-void setNekBlasStream([[maybe_unused]] oneMathHandle_t handle,
+void NekBlasSetStream([[maybe_unused]] oneMathHandle_t handle,
                       const unsigned int streamID)
 {
     internalOneMathStreamID = streamID;

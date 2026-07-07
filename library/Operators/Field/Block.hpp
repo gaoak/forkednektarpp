@@ -246,7 +246,8 @@ public:
      * @return    - TData*
      */
     template <typename MemSpace, typename MemAccess>
-    typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *GetPtr();
+    typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *GetPtr(
+        const unsigned int streamID = 0);
 
     /**
      * @brief Gets the alignment of the memory region block.

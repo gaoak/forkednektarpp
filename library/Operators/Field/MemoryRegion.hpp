@@ -175,9 +175,10 @@ public:
     {
         if (m_device && m_device_owned)
         {
-            const unsigned int streamID = 0; // TODO
+            const unsigned int streamID = 0;
             deviceFree(m_device, m_size * sizeof(TData), streamID,
                        m_memAllocType);
+            nekStreamSynchronize(streamID);
         }
 
         if (m_host && m_host_owned)
@@ -257,7 +258,8 @@ public:
      * @return    - TData*
      */
     template <typename MemSpace, typename MemAccess>
-    typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *GetPtr()
+    typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *GetPtr(
+        [[maybe_unused]] const unsigned int streamID = 0)
     {
         if (!m_instantiated)
         {
@@ -293,7 +295,7 @@ public:
                                  m_name + ") before the data is initialized.");
                 }
 
-                DeviceToHostCopy(); // Move to host if necessary
+                DeviceToHostCopy(streamID); // Move to host if necessary
 
                 m_host_valid = true;
 
@@ -371,7 +373,7 @@ public:
                                  m_name + ") before the data is initialized.");
                 }
 
-                DeviceToHostCopy(); // Move to host if necessary
+                DeviceToHostCopy(streamID); // Move to host if necessary
 
                 m_host_valid   = true;
                 m_device_valid = false;
@@ -406,7 +408,7 @@ public:
                                  m_name + ") before the data is initialized.");
                 }
 
-                HostToDeviceCopy(); // Move to device if necessary
+                HostToDeviceCopy(streamID); // Move to device if necessary
 
                 m_device_valid = true;
 
@@ -422,7 +424,6 @@ public:
                 // Allocate device memory, if not yet allocated.
                 if (!m_device)
                 {
-                    const unsigned int streamID = 0; // TODO
                     deviceMalloc(&m_device, m_size * sizeof(TData), streamID,
                                  m_memAllocType);
 
@@ -461,7 +462,7 @@ public:
                                  m_name + ") before the data is initialized.");
                 }
 
-                HostToDeviceCopy(); // Move to device if necessary
+                HostToDeviceCopy(streamID); // Move to device if necessary
 
                 m_host_valid   = false;
                 m_device_valid = true;
@@ -694,7 +695,9 @@ public:
      *
      * @param rhs - MemoryRegion to copy from
      */
-    template <typename MemSpace> void Copy(MemoryRegion &rhs)
+    template <typename MemSpace>
+    void Copy(MemoryRegion &rhs,
+              [[maybe_unused]] const unsigned int streamID = 0)
     {
         if (this->size() != rhs.size())
         {
@@ -714,7 +717,6 @@ public:
         }
         else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
         {
-            const unsigned int streamID = 0; // TODO
             deviceMemcpy<DeviceToDevice>(dst, src, this->size() * sizeof(TData),
                                          streamID);
         }
@@ -986,12 +988,10 @@ private:
      * @brief Perform a host to device copy.
      *
      */
-    void HostToDeviceCopy(void)
+    void HostToDeviceCopy(const unsigned int streamID)
     {
         if (!m_device_valid)
         {
-            const unsigned int streamID = 0; // TODO
-
             if (!m_host_aligned && m_size > 0)
             {
                 NEKERROR(Nektar::ErrorUtil::efatal,
@@ -1030,7 +1030,7 @@ private:
      * @brief Perform a device to host copy.
      *
      */
-    void DeviceToHostCopy(void)
+    void DeviceToHostCopy(const unsigned int streamID = 0)
     {
         if (!m_host_valid)
         {
@@ -1075,8 +1075,6 @@ private:
             // Make sure the device data is valid. It might not be.
             if (m_device_valid)
             {
-                const unsigned int streamID = 0; // TODO
-
                 deviceMemcpy<DeviceToHost>(m_host_aligned, m_device,
                                            m_size * sizeof(TData), streamID);
             }

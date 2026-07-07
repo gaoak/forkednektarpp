@@ -467,9 +467,8 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 interleave(const unsigned int interleaveWidth, const size_t numElmtGroups,
-           const unsigned int npts, TData *inout)
+           const unsigned int npts, TData *inout, const unsigned int streamID)
 {
-    const unsigned int streamID  = 0; // TODO
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = numElmtGroups;
 
@@ -577,9 +576,8 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 deInterleave(const unsigned int interleaveWidth, size_t numElmtGroups,
-             const unsigned int npts, TData *inout)
+             const unsigned int npts, TData *inout, const unsigned int streamID)
 {
-    const unsigned int streamID  = 0; // TODO
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = numElmtGroups;
 
@@ -691,9 +689,9 @@ NEK_FORCE_INLINE static
                             void>::type
     MultiplyByJacobian(const size_t nelmt, const unsigned int nqTot,
                        const unsigned int nhomo, const TData *jacptr,
-                       const TData *inptr, TData *outptr, const TData scale)
+                       const TData *inptr, TData *outptr, const TData scale,
+                       const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = 0; // TODO
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize =
         (nelmt * nqTot * nhomo + blockSize - 1u) / blockSize;
@@ -709,9 +707,9 @@ NEK_FORCE_INLINE static
                             void>::type
     DivideByJacobian(const size_t nelmt, const unsigned int nqTot,
                      const unsigned int nhomo, const TData *jacptr,
-                     const TData *inptr, TData *outptr)
+                     const TData *inptr, TData *outptr,
+                     const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = 0; // TODO
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize =
         (nelmt * nqTot * nhomo + blockSize - 1u) / blockSize;

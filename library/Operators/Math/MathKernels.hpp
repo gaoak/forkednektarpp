@@ -38,7 +38,7 @@ namespace Nektar
 {
 extern unsigned int internalMathKernelStreamID;
 
-[[maybe_unused]] static void setMathKernelStreamID(const unsigned int streamID)
+[[maybe_unused]] static void MathKernelSetStreamID(const unsigned int streamID)
 {
     internalMathKernelStreamID = streamID;
 }

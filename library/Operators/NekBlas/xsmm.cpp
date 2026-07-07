@@ -37,7 +37,7 @@
 #include "LibUtilities/BasicUtils/ErrorUtil.hpp"
 #include "libxsmm.h"
 
-void setNekBlasStream([[maybe_unused]] xsmmHandle_t handle,
+void NekBlasSetStream([[maybe_unused]] xsmmHandle_t handle,
                       [[maybe_unused]] const unsigned int streamID)
 {
 }

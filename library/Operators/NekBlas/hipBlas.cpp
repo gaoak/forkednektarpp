@@ -35,7 +35,7 @@
 #include "LibUtilities/BasicUtils/ErrorUtil.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 
-void setNekBlasStream(hipblasHandle_t handle, const unsigned int streamID)
+void NekBlasSetStream(hipblasHandle_t handle, const unsigned int streamID)
 {
     HIPBLAS_CHECK(hipblasSetStream(handle, HIPStream::GetInstance(streamID)));
 }

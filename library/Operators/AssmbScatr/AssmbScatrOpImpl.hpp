@@ -290,9 +290,8 @@ protected:
                 unsigned blksize = inoutblk.CompSize();
                 for (unsigned nc = 0; nc < numComp; ++nc)
                 {
-                    deInterleave<ExecSpace>(
-                        inoutwidth,
-                        inoutblk.GetNumElementsWithPadding() / inoutwidth,
+                    ReshapeStorage<ExecSpace>(
+                        1u, inoutwidth, inoutblk.GetNumElementsWithPadding(),
                         inoutblk.GetNumData(), inoutPtr + nc * blksize);
                 }
                 inoutblk.template SetInterleaveWidth<TData>(1);
@@ -385,9 +384,8 @@ protected:
                     unsigned blksize = inoutblk.CompSize();
                     for (unsigned nc = 0; nc < numComp; ++nc)
                     {
-                        interleave<ExecSpace>(
-                            m_device_width,
-                            inoutblk.GetNumElementsWithPadding() / width,
+                        ReshapeStorage<ExecSpace>(
+                            width, 1u, inoutblk.GetNumElementsWithPadding(),
                             inoutblk.GetNumData(), inoutPtr + nc * blksize);
                     }
                     inoutblk.template SetInterleaveWidth<TData>(width);

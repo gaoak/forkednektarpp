@@ -49,7 +49,7 @@ namespace Nektar
 
 extern unsigned int internalLoopExecutionStreamID;
 
-[[maybe_unused]] static void setLoopExecutionStreamID(
+[[maybe_unused]] static void LoopExecutionSetStreamID(
     const unsigned int streamID)
 {
     internalLoopExecutionStreamID = streamID;

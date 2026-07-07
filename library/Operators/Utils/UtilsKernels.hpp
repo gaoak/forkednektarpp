@@ -55,7 +55,8 @@ namespace Nektar::Operators
 template <typename ExecSpace, typename TData>
 void ReshapeStorage(const unsigned int targInterleaveWidth,
                     const unsigned int currInterleaveWidth, const size_t nelmt,
-                    const unsigned int ndata, TData *inoutptr)
+                    const unsigned int ndata, TData *inoutptr,
+                    const unsigned int streamID = 0)
 {
     if (currInterleaveWidth != targInterleaveWidth)
     {
@@ -64,7 +65,7 @@ void ReshapeStorage(const unsigned int targInterleaveWidth,
         {
             deInterleave<ExecSpace>(currInterleaveWidth,
                                     nelmt / currInterleaveWidth, ndata,
-                                    inoutptr);
+                                    inoutptr, streamID);
         }
 
         // Reshape to required shape, if necessary
@@ -75,7 +76,8 @@ void ReshapeStorage(const unsigned int targInterleaveWidth,
                 "Number of elements is not divisible by interleave width.");
 
             interleave<ExecSpace>(targInterleaveWidth,
-                                  nelmt / targInterleaveWidth, ndata, inoutptr);
+                                  nelmt / targInterleaveWidth, ndata, inoutptr,
+                                  streamID);
         }
     }
 }

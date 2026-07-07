@@ -35,7 +35,7 @@
 #include "Operators/Common/Memory/MemoryAlloc.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 
-void setNekBlasStream([[maybe_unused]] magma_queue_t handle,
+void NekBlasSetStream([[maybe_unused]] magma_queue_t handle,
                       [[maybe_unused]] const unsigned int streamID)
 {
     // TODO
