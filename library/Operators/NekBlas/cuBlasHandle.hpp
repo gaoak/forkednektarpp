@@ -36,8 +36,11 @@
 
 #include <iostream>
 #include <stdio.h>
+#include <unordered_map>
 
 #include <cublas_v2.h>
+
+#include <Operators/Common/Backends/CUDAStream.hpp>
 
 #define CUBLAS_CHECK(condition)                                                \
     {                                                                          \
@@ -54,7 +57,7 @@
 class cuBlasHandle
 {
 public:
-    static cublasHandle_t &GetInstance()
+    static cublasHandle_t &GetInstance(const unsigned int streamID)
     {
         if (!handle)
         {
@@ -63,6 +66,9 @@ public:
                 printf("cuBLAS initialization failed\n");
             }
         }
+
+        CUBLAS_CHECK(
+            cublasSetStream(handle, CUDAStream::GetInstance(streamID)));
 
         return handle;
     }

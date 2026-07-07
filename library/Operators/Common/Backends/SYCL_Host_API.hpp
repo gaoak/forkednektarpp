@@ -40,8 +40,10 @@
 static void inline setSYCLExecutionDependency(const unsigned int streamID,
                                               sycl::handler &cgh)
 {
+    // Set SYCL depedencies to reproduce CUDA/HIP default stream behavior.
     if (streamID == 0)
     {
+        // Tasks in the "default" queue depend on all "non-default" queue.
         for (auto &item : SYCLQueue::GetAllEvents())
         {
             if (item.first != 0)
@@ -52,6 +54,7 @@ static void inline setSYCLExecutionDependency(const unsigned int streamID,
     }
     else
     {
+        // Tasks in "non-default" queue depend on the "default" queue.
         cgh.depends_on(SYCLQueue::GetEvent(0));
     }
 }

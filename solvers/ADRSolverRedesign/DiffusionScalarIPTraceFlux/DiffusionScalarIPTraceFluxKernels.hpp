@@ -49,7 +49,7 @@ NEK_FORCE_INLINE static void DiffuseScalarTraceFluxKernel(
     const TData *lengthRecipBase, const TData *penaltyFactorBase,
     const TData *fwdbase, const TData *bwdbase, const TData *derivfwdbase,
     const TData *derivbwdbase, TData *averbase, TData *jumpbase,
-    TData *fluxbase)
+    TData *fluxbase, const unsigned int streamID)
 {
     using vec_t =
         typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
@@ -75,6 +75,8 @@ NEK_FORCE_INLINE static void DiffuseScalarTraceFluxKernel(
 
     const size_t traceVecStride = traceStride / vec_width;
     const size_t derivVecStride = derivStride / vec_width;
+
+    Nektar::LoopExecutionSetStreamID(streamID);
 
     Nektar::parallel_for<ExecSpace>(
         0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
@@ -155,6 +157,8 @@ NEK_FORCE_INLINE static void DiffuseScalarTraceFluxKernel(
                     penalty * normalDiffusionStrength * bwdMinusFwd;
             }
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 template <typename ExecSpace, typename TData>
@@ -170,10 +174,12 @@ NEK_FORCE_INLINE static void AddScalarSymmetricTraceFluxCoeffKernel(
     const size_t *traceOffsetBase, const unsigned int *nqOffsetBase,
     const unsigned int *orientationMapsBase,
     const size_t *orientationMapsOffsetBase, const TData *derivBaseTraceBase,
-    TData *outBase)
+    TData *outBase, const unsigned int streamID)
 {
     const size_t nWork =
         static_cast<size_t>(nelmtWithPadding) * nComps * nCoeffs;
+
+    Nektar::LoopExecutionSetStreamID(streamID);
 
     Nektar::parallel_for<ExecSpace>(
         0u, nWork, NEKTAR_LAMBDA(const size_t i) {
@@ -242,6 +248,8 @@ NEK_FORCE_INLINE static void AddScalarSymmetricTraceFluxCoeffKernel(
 
             outBase[comp * coeffStride + coeffIdx] += val;
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 } // namespace Nektar::Operators::detail

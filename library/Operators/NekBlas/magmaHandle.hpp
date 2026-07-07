@@ -36,10 +36,12 @@
 
 #include <iostream>
 #include <stdio.h>
+#include <unordered_map>
 
 #include <magma_v2.h>
 
 #if defined(NEKTAR_ENABLE_CUDA)
+#include <Operators/Common/Backends/CUDAStream.hpp>
 #define CUBLAS_CHECK(condition)                                                \
     {                                                                          \
         const cublasStatus_t status = condition;                               \
@@ -52,6 +54,7 @@
         }                                                                      \
     }
 #elif defined(NEKTAR_ENABLE_HIP)
+#include <Operators/Common/Backends/HIPStream.hpp>
 #define HIPBLAS_CHECK(condition)                                               \
     {                                                                          \
         const hipblasStatus_t status = condition;                              \
@@ -68,17 +71,41 @@
 class magmaHandle
 {
 public:
-    static magma_queue_t &GetInstance()
+    static magma_queue_t &GetInstance(const unsigned int streamID)
     {
-        if (!handle)
+        if (handle.find(streamID) == handle.end())
         {
-            magma_int_t dev = 0;
-            magma_queue_create(dev, &handle);
+            magma_queue_t magma_queue;
+            int device_rank = 0;
+#if defined(NEKTAR_ENABLE_CUDA)
+            (void)cudaGetDevice(&device_rank);
+            cudaStream_t stream = CUDAStream::GetInstance(streamID);
+            cublasHandle_t cublas_handle;
+            cusparseHandle_t cusparse_handle;
+            CUBLAS_CHECK(cublasCreate(&cublas_handle));
+            (void)cusparseCreate(&cusparse_handle);
+            CUBLAS_CHECK(cublasSetStream(cublas_handle, stream));
+            (void)cusparseSetStream(cusparse_handle, stream);
+            magma_queue_create_from_cuda(device_rank, stream, cublas_handle,
+                                         cusparse_handle, &magma_queue);
+#elif defined(NEKTAR_ENABLE_HIP)
+            (void)hipGetDevice(&device_rank);
+            hipStream_t stream = HIPStream::GetInstance(streamID);
+            hipblasHandle_t hipblas_handle;
+            hipsparseHandle_t hipsparse_handle;
+            HIPBLAS_CHECK(hipblasCreate(&hipblas_handle));
+            (void)hipsparseCreate(&hipsparse_handle);
+            HIPBLAS_CHECK(hipblasSetStream(hipblas_handle, stream));
+            (void)hipsparseSetStream(hipsparse_handle, stream);
+            magma_queue_create_from_hip(device_rank, stream, hipblas_handle,
+                                        hipsparse_handle, &magma_queue);
+#endif
+            handle[streamID] = magma_queue;
         }
 
-        return handle;
+        return handle[streamID];
     }
 
 private:
-    static magma_queue_t handle;
+    static std::unordered_map<unsigned int, magma_queue_t> handle;
 };

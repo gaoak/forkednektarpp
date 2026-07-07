@@ -42,12 +42,13 @@
 #include <limits>
 
 #include "Operators/Common/Memory/MemoryAlloc.hpp"
+#include "Operators/Common/OperatorsDeclspec.hpp"
 #include "Operators/Common/Spaces.hpp"
 
 namespace Nektar
 {
 
-extern unsigned int internalLoopExecutionStreamID;
+extern OPERATORS_EXPORT unsigned int internalLoopExecutionStreamID;
 
 [[maybe_unused]] static void LoopExecutionSetStreamID(
     const unsigned int streamID)

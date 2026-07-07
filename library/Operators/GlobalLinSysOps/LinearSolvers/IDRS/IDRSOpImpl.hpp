@@ -148,12 +148,15 @@ protected:
         {
             for (unsigned blk = 0; blk < in.GetBlocks().size(); ++blk)
             {
+                const unsigned int streamID = blk + 1;
+
                 auto &inblk = in.GetBlocks()[blk];
                 auto &pblk  = m_P[stage].GetBlocks()[blk];
 
                 if (inblk.GetInterleaveWidth() != pblk.GetInterleaveWidth())
                 {
-                    auto ptr     = pblk.template GetPtr<MemSpace, ReadWrite>();
+                    auto ptr =
+                        pblk.template GetPtr<MemSpace, ReadWrite>(streamID);
                     auto numComp = pblk.GetNumComponents();
 
                     for (unsigned nc = 0; nc < numComp; ++nc)
@@ -162,7 +165,7 @@ protected:
                             inblk.GetInterleaveWidth(),
                             pblk.GetInterleaveWidth(),
                             pblk.GetNumElementsWithPadding(), pblk.GetNumData(),
-                            ptr + nc * pblk.CompSize());
+                            ptr + nc * pblk.CompSize(), streamID);
                     }
                     pblk.template SetInterleaveWidth<TData>(
                         inblk.GetInterleaveWidth());

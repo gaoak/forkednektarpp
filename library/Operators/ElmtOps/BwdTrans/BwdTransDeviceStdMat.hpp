@@ -52,6 +52,8 @@ public:
                         NekDataWarehouseSharedPtr dataWarehouse)
         : BwdTransBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
+        m_streamID = block_idx + 1;
+
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
         m_isDeformed =
@@ -96,6 +98,7 @@ public:
 protected:
     static constexpr unsigned int m_implInterleaveWidth = 1u;
 
+    unsigned int m_streamID;
     LibUtilities::ShapeType m_shapeType;
     bool m_isDeformed;
     unsigned int m_dimension;
@@ -107,16 +110,17 @@ protected:
     void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
                  BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
-        auto handle = NekHandle<ExecSpace>::GetInstance();
+        auto handle = NekHandle<ExecSpace>::GetInstance(m_streamID);
 
         const auto nelmtTot =
             inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes();
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = (this->m_append)
-                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
-                          : outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr =
+            (this->m_append)
+                ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
+                : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
@@ -128,12 +132,12 @@ protected:
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, inInterleaveWidth,
                                       nelmtTot, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
             if (this->m_append)
             {
                 ReshapeStorage<ExecSpace>(
                     m_implInterleaveWidth, outInterleaveWidth, nelmtTot,
-                    outblock.GetNumData(), (TData *)outptr);
+                    outblock.GetNumData(), (TData *)outptr, m_streamID);
             }
 
             // Perform matrix-matrix multiply.
@@ -144,9 +148,10 @@ protected:
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
                                       nelmtTot, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
             ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
-                                      nelmtTot, outblock.GetNumData(), outptr);
+                                      nelmtTot, outblock.GetNumData(), outptr,
+                                      m_streamID);
 
             // Increment pointers.
             inptr += inblock.CompSize() * inblock.GetNumHomoModes();

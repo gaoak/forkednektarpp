@@ -43,8 +43,11 @@ NEK_FORCE_INLINE static void AdvectVolumeFluxKernel(
     const unsigned int npts, const unsigned int velComps,
     const unsigned int nvarComps, const unsigned int velStride,
     const unsigned int inStride, const unsigned int outStride,
-    const TData *velbase, const TData *inbase, TData *outbase)
+    const TData *velbase, const TData *inbase, TData *outbase,
+    const unsigned int streamID)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     // Parallelize over points; each i is independent
     Nektar::parallel_for<ExecSpace>(
         0u, npts, NEKTAR_LAMBDA(const size_t i) {
@@ -63,19 +66,24 @@ NEK_FORCE_INLINE static void AdvectVolumeFluxKernel(
                 }
             }
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void AdvectVolumeFluxEulerKernel(
     const unsigned int npts, const unsigned int ndim,
     const unsigned int nvarComps, const unsigned int inStride,
-    const unsigned int outStride, const TData *inbase, TData *outbase)
+    const unsigned int outStride, const TData *inbase, TData *outbase,
+    const unsigned int streamID)
 {
     // Check that we have the right number of variables for Euler
     if (nvarComps != ndim + 2)
     {
         return;
     }
+
+    Nektar::LoopExecutionSetStreamID(streamID);
 
     // Parallelize over points; each i is independent
     Nektar::parallel_for<ExecSpace>(
@@ -134,6 +142,8 @@ NEK_FORCE_INLINE static void AdvectVolumeFluxEulerKernel(
                     ePlusP * vel[d];
             }
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 } // namespace Nektar::Operators::detail

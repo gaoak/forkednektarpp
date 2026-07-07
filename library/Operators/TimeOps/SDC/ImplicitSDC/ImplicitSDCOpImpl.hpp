@@ -173,6 +173,8 @@ protected:
             for (unsigned int blk = 0;
                  blk < this->m_solutions[n].GetBlocks().size(); ++blk)
             {
+                const unsigned int streamID = blk + 1;
+
                 // Determine shape and type of the element.
                 auto &block = this->m_solutions[n].GetBlocks()[blk];
                 auto nsize  = block.GetNumElementsWithPadding() *
@@ -181,19 +183,19 @@ protected:
 
                 // Compute solution.
                 IterateImplicitSDCSolutionKernel<ExecSpace>(
-                    nsize, dtn,
+                    streamID, nsize, dtn,
                     this->m_solutions[n - 1]
                         .GetBlocks()[blk]
-                        .template GetPtr<MemSpace, ReadOnly>(),
+                        .template GetPtr<MemSpace, ReadOnly>(streamID),
                     this->m_residuals[n]
                         .GetBlocks()[blk]
-                        .template GetPtr<MemSpace, ReadOnly>(),
+                        .template GetPtr<MemSpace, ReadOnly>(streamID),
                     this->m_SFint[n]
                         .GetBlocks()[blk]
-                        .template GetPtr<MemSpace, ReadOnly>(),
+                        .template GetPtr<MemSpace, ReadOnly>(streamID),
                     this->m_solutions[n]
                         .GetBlocks()[blk]
-                        .template GetPtr<MemSpace, WriteOnly>());
+                        .template GetPtr<MemSpace, WriteOnly>(streamID));
             }
 
             // Compute residual.

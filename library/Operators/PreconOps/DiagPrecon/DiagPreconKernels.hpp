@@ -42,8 +42,10 @@ namespace Nektar::Operators::detail
 template <typename ExecSpace, typename TData>
 void SetModeBlkKernel(const unsigned mode, const size_t nelmt,
                       const unsigned numdata, const TData val, TData *blkptr,
-                      const bool isInterleaved)
+                      const bool isInterleaved, const unsigned int streamID)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     if (isInterleaved)
     {
         Nektar::parallel_for<ExecSpace>(
@@ -63,13 +65,18 @@ void SetModeBlkKernel(const unsigned mode, const size_t nelmt,
                 blkptr[(idx * numdata + mode)] = val;
             });
     }
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 template <typename ExecSpace, typename TData>
 void CopyModeBlkKernel(const unsigned mode, const size_t nelmt,
                        const unsigned numdata, const TData *fromblkptr,
-                       TData *toblkptr, const bool isInterleaved)
+                       TData *toblkptr, const bool isInterleaved,
+                       const unsigned int streamID)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     if (isInterleaved)
     {
         Nektar::parallel_for<ExecSpace>(
@@ -91,17 +98,24 @@ void CopyModeBlkKernel(const unsigned mode, const size_t nelmt,
                     fromblkptr[idx * numdata + mode];
             });
     }
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 template <typename ExecSpace, typename TData>
-void InvDiagBlkKernel(const size_t nsize, TData *diagblkptr)
+void InvDiagBlkKernel(const size_t nsize, TData *diagblkptr,
+                      const unsigned int streamID)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0, nsize, NEKTAR_LAMBDA(size_t idx) {
             // Set any zero terms to 1.0 - arises in variable p case.
             diagblkptr[idx] = (diagblkptr[idx] == 0.0) ? diagblkptr[idx]
                                                        : 1.0 / diagblkptr[idx];
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 } // namespace Nektar::Operators::detail

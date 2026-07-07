@@ -36,7 +36,7 @@
 
 #include <hip/hip_runtime.h>
 #include <iostream>
-#include <map>
+#include <unordered_map>
 
 #define CHECK_LAST_HIPCUDA_ERROR()                                             \
     {                                                                          \
@@ -82,5 +82,5 @@ public:
     }
 
 private:
-    static std::map<unsigned int, hipStream_t> streams;
+    static std::unordered_map<unsigned int, hipStream_t> streams;
 };

@@ -120,6 +120,8 @@ protected:
     {
         for (unsigned int blk = 0; blk < out.GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             auto &fwdblock       = fwd.GetBlocks()[blk];
             auto &bwdblock       = bwd.GetBlocks()[blk];
             auto &traceAverblock = m_traceAver.GetBlocks()[blk];
@@ -146,19 +148,24 @@ protected:
                     IPTraceScalarKey<TData>(blk,
                                             IPTraceScalarData::PenaltyFactor));
             auto diffCoeffBase =
-                m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
+                m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(streamID);
 
-            auto fwdbase = fwdblock.template GetPtr<MemSpace, ReadOnly>();
-            auto bwdbase = bwdblock.template GetPtr<MemSpace, ReadOnly>();
+            auto fwdbase =
+                fwdblock.template GetPtr<MemSpace, ReadOnly>(streamID);
+            auto bwdbase =
+                bwdblock.template GetPtr<MemSpace, ReadOnly>(streamID);
             auto derivTraceFwdbase =
-                derivFwd.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+                derivFwd.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(
+                    streamID);
             auto derivTraceBwdbase =
-                derivBwd.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+                derivBwd.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(
+                    streamID);
             auto traceAverbase =
-                traceAverblock.template GetPtr<MemSpace, WriteOnly>();
+                traceAverblock.template GetPtr<MemSpace, WriteOnly>(streamID);
             auto traceJumpbase =
-                traceJumpblock.template GetPtr<MemSpace, WriteOnly>();
-            auto outbase = outblock.template GetPtr<MemSpace, WriteOnly>();
+                traceJumpblock.template GetPtr<MemSpace, WriteOnly>(streamID);
+            auto outbase =
+                outblock.template GetPtr<MemSpace, WriteOnly>(streamID);
 
             DiffuseScalarTraceFluxKernel<ExecSpace>(
                 outblock.CompSize(), m_nDim, m_nComp, outblock.CompSize(),
@@ -166,7 +173,7 @@ protected:
                 diffCoeffBase, normalbase, bwdWeightAverBase, bwdWeightJumpBase,
                 lengthRecipBase, penaltyFactorBase, fwdbase, bwdbase,
                 derivTraceFwdbase, derivTraceBwdbase, traceAverbase,
-                traceJumpbase, outbase);
+                traceJumpbase, outbase, streamID);
         }
     }
 
@@ -213,9 +220,11 @@ protected:
             for (unsigned int traceBlk = 0;
                  traceBlk < m_traceJump.GetBlocks().size(); ++traceBlk)
             {
+                const unsigned int streamID = traceBlk + 1;
+
                 auto &jumpBlock = m_traceJump.GetBlocks()[traceBlk];
                 auto traceJumpBlockBase =
-                    jumpBlock.template GetPtr<MemSpace, ReadOnly>();
+                    jumpBlock.template GetPtr<MemSpace, ReadOnly>(streamID);
                 auto traceNormalBlockBase =
                     this->m_dataWarehouse->template GetData<MemSpace>(
                         IPTraceNormalKey<TData>(traceBlk));
@@ -228,7 +237,7 @@ protected:
                     jumpBlock.CompSize(), diffCoeffBase, traceJumpBlockBase,
                     traceNormalBlockBase, traceBlockId, traceOffset, nqOffset,
                     orientationMaps, orientationMapsOffset, derivBaseTrace,
-                    outBase);
+                    outBase, streamID);
             }
         }
 

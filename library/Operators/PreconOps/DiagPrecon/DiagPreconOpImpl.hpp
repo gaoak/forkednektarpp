@@ -94,13 +94,17 @@ protected:
 
         for (size_t blk = 0; blk < out.GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             auto &inblock   = in.GetBlocks()[blk];
             auto &outblock  = out.GetBlocks()[blk];
             auto &diagblock = m_invDiag.GetBlocks()[blk];
 
-            auto inPtr   = inblock.template GetPtr<MemSpace, ReadOnly>();
-            auto outPtr  = outblock.template GetPtr<MemSpace, WriteOnly>();
-            auto diagPtr = diagblock.template GetPtr<MemSpace, ReadOnly>();
+            auto inPtr = inblock.template GetPtr<MemSpace, ReadOnly>(streamID);
+            auto outPtr =
+                outblock.template GetPtr<MemSpace, WriteOnly>(streamID);
+            auto diagPtr =
+                diagblock.template GetPtr<MemSpace, ReadOnly>(streamID);
 
             // Reshape, if necessary.
             auto in_width = inblock.GetInterleaveWidth();
@@ -109,7 +113,7 @@ protected:
                 ReshapeStorage<ExecSpace>(
                     in_width, diagblock.GetInterleaveWidth(),
                     diagblock.GetNumElementsWithPadding(),
-                    diagblock.GetNumData(), (TData *)diagPtr);
+                    diagblock.GetNumData(), (TData *)diagPtr, streamID);
             }
 
             // Apply diagonal preconditioner.
@@ -118,7 +122,7 @@ protected:
             for (auto n = 0; n < outblock.GetNumComponents(); ++n)
             {
                 mulKernel<ExecSpace>(blkSize, diagPtr, inPtr + n * blkSize,
-                                     outPtr + n * blkSize);
+                                     outPtr + n * blkSize, streamID);
             }
 
             // Set output block to input interleave.
@@ -167,6 +171,8 @@ protected:
         {
             for (unsigned blk = 0; blk < unit_vec.GetBlocks().size(); ++blk)
             {
+                const unsigned int streamID = blk + 1;
+
                 auto &unitblk     = unit_vec.GetBlocks()[blk];
                 const auto nCoeff = unitblk.GetNumData();
 
@@ -177,7 +183,7 @@ protected:
                     const auto numdata = unitblk.GetNumData();
                     const auto nelmt   = unitblk.GetNumElementsWithPadding();
                     auto *blkptr =
-                        unitblk.template GetPtr<MemSpace, WriteOnly>();
+                        unitblk.template GetPtr<MemSpace, WriteOnly>(streamID);
 
                     // Loop over components.
                     for (unsigned int n = 0; n < unitblk.GetNumComponents();
@@ -186,7 +192,7 @@ protected:
                         // Set ith term in unit vector to be 1.
                         SetModeBlkKernel<ExecSpace>(mode, nelmt, numdata,
                                                     (TData)1.0, blkptr,
-                                                    isInterleaved);
+                                                    isInterleaved, streamID);
                         blkptr +=
                             unitblk.CompSize() * unitblk.GetNumHomoModes();
                     }
@@ -199,6 +205,8 @@ protected:
 
             for (unsigned blk = 0; blk < unit_vec.GetBlocks().size(); ++blk)
             {
+                const unsigned int streamID = blk + 1;
+
                 auto &unitblk     = unit_vec.GetBlocks()[blk];
                 auto &actionblk   = action.GetBlocks()[blk];
                 auto &diagblk     = m_invDiag.GetBlocks()[blk];
@@ -211,11 +219,11 @@ protected:
                     const auto numdata = unitblk.GetNumData();
                     const auto nelmt   = unitblk.GetNumElementsWithPadding();
                     auto *unitptr =
-                        unitblk.template GetPtr<MemSpace, WriteOnly>();
+                        unitblk.template GetPtr<MemSpace, WriteOnly>(streamID);
                     auto *actionptr =
-                        actionblk.template GetPtr<MemSpace, ReadOnly>();
+                        actionblk.template GetPtr<MemSpace, ReadOnly>(streamID);
                     auto *diagptr =
-                        diagblk.template GetPtr<MemSpace, WriteOnly>();
+                        diagblk.template GetPtr<MemSpace, WriteOnly>(streamID);
 
                     // Loop over components.
                     for (unsigned int n = 0; n < diagblk.GetNumComponents();
@@ -225,12 +233,12 @@ protected:
                         // the ith diagonal.
                         CopyModeBlkKernel<ExecSpace>(mode, nelmt, numdata,
                                                      actionptr, diagptr,
-                                                     isInterleaved);
+                                                     isInterleaved, streamID);
 
                         // Reset the ith term in the unit vector to be 0.
                         SetModeBlkKernel<ExecSpace>(mode, nelmt, numdata,
                                                     (TData)0.0, unitptr,
-                                                    isInterleaved);
+                                                    isInterleaved, streamID);
 
                         // Increment pointers.
                         actionptr +=
@@ -254,14 +262,17 @@ protected:
         // Invert diagonal.
         for (unsigned blk = 0; blk < m_invDiag.GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             // Block dependent.
             auto &block  = m_invDiag.GetBlocks()[blk];
-            auto diagptr = block.template GetPtr<MemSpace, ReadWrite>();
+            auto diagptr = block.template GetPtr<MemSpace, ReadWrite>(streamID);
 
             // Loop over components.
             for (unsigned int n = 0; n < block.GetNumComponents(); ++n)
             {
-                InvDiagBlkKernel<ExecSpace>(block.CompSize(), diagptr);
+                InvDiagBlkKernel<ExecSpace>(block.CompSize(), diagptr,
+                                            streamID);
                 diagptr += block.CompSize() * block.GetNumHomoModes();
             }
         }

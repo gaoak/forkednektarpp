@@ -146,7 +146,7 @@ NEK_FORCE_INLINE static void DiffusionCFEVolFluxKernel(
     const size_t derivStride, const size_t outStride, const TData prandtl,
     const TData muRef, const bool isMuVariable, const TData oneOverTStar,
     const TData tRatioSutherland, const TData *inbase, const TData *qbase,
-    TData *outbase)
+    TData *outbase, const unsigned int streamID)
 {
     ASSERTL0(nvarComps == nDim + 2,
              "number of componeents is not equal to the dimension plus two")
@@ -168,6 +168,8 @@ NEK_FORCE_INLINE static void DiffusionCFEVolFluxKernel(
     const size_t inVecStride    = inStride / vec_width;
     const size_t derivVecStride = derivStride / vec_width;
     const size_t outVecStride   = outStride / vec_width;
+
+    Nektar::LoopExecutionSetStreamID(streamID);
 
     Nektar::parallel_for<ExecSpace>(
         0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
@@ -219,6 +221,8 @@ NEK_FORCE_INLINE static void DiffusionCFEVolFluxKernel(
                 }
             }
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 } // namespace Nektar::Operators::detail

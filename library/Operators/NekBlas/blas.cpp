@@ -36,8 +36,8 @@
 
 #include <LibUtilities/LinearAlgebra/Blas.hpp>
 
-void NekBlasSetStream([[maybe_unused]] blasHandle_t handle,
-                      [[maybe_unused]] const unsigned int streamID)
+void NekBlasSetStreamID([[maybe_unused]] blasHandle_t handle,
+                        [[maybe_unused]] const unsigned int streamID)
 {
 }
 

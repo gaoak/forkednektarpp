@@ -257,14 +257,15 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
     auto stream = HIPStream::GetInstance(streamID);
 #endif
 
-    if (internalMemoryBuffer == nullptr)
+    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
         const unsigned int internalMemoryBufferSize =
             internalMaxDataSizeByte * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
+        deviceMalloc(&internalMemoryBufferMap[streamID],
+                     internalMemoryBufferSize, streamID);
     }
 
-    TData *buffer = (TData *)internalMemoryBuffer;
+    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {
         reduceSumKernel<true>

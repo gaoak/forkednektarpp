@@ -232,95 +232,38 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
 {
     using TData = typename Reduction::value_type;
 
-#if defined(USE_SYCL_BUILTIN_REDUCER)
-    const unsigned int streamID = internalLoopExecutionStreamID;
-    const unsigned int gridSize = NektarSpaces::Device::maximumBlockSize;
-#else
     const unsigned int streamID  = internalLoopExecutionStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
-#endif
 
-    if (internalMemoryBuffer == nullptr)
+    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
         const unsigned int internalMemoryBufferSize =
             internalMaxDataSizeByte * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
+        deviceMalloc(&internalMemoryBufferMap[streamID],
+                     internalMemoryBufferSize, streamID);
     }
 
     if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {
-#if defined(USE_SYCL_BUILTIN_REDUCER)
-        sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-        sycl::property_list initializer =
-            init ? sycl::property_list{sycl::property::reduction::
-                                           initialize_to_identity{}}
-                 : sycl::property_list{};
-        sycl::event e = Q.submit([=](sycl::handler &cgh) {
-            setSYCLExecutionDependency(streamID, cgh);
-            cgh.parallel_for(sycl::range<1>(end - begin),
-                             sycl::reduction(out, sycl::plus<>(), initializer),
-                             [=](sycl::id<1> indx, auto &reducer) {
-                                 reducer.combine(functor(begin + indx));
-                             });
-        });
-        SYCLQueue::SetEvent(streamID, e);
-#else
-        TData *buffer = (TData *)internalMemoryBuffer;
+        TData *buffer = (TData *)internalMemoryBufferMap[streamID];
         reduceSumKernel<true>(gridSize, blockSize, begin, end, buffer, functor);
         reduceSumKernel<init>(1, gridSize, 0, gridSize, out,
                               [=](const size_t i) { return buffer[i]; });
-#endif
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
     {
-#if defined(USE_SYCL_BUILTIN_REDUCER)
-        sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-        sycl::property_list initializer =
-            init ? sycl::property_list{sycl::property::reduction::
-                                           initialize_to_identity{}}
-                 : sycl::property_list{};
-        sycl::event e = Q.submit([=](sycl::handler &cgh) {
-            setSYCLExecutionDependency(streamID, cgh);
-            cgh.parallel_for(
-                sycl::range<1>(end - begin),
-                sycl::reduction(out, sycl::maximum<>(), initializer),
-                [=](sycl::id<1> indx, auto &reducer) {
-                    reducer.combine(functor(begin + indx));
-                });
-        });
-        SYCLQueue::SetEvent(streamID, e);
-#else
-        TData *buffer = (TData *)internalMemoryBuffer;
+        TData *buffer = (TData *)internalMemoryBufferMap[streamID];
         reduceMaxKernel<true>(gridSize, blockSize, begin, end, buffer, functor);
         reduceMaxKernel<init>(1, gridSize, 0, gridSize, out,
                               [=](const size_t i) { return buffer[i]; });
-#endif
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
     {
-#if defined(USE_SYCL_BUILTIN_REDUCER)
-        sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-        sycl::property_list initializer =
-            init ? sycl::property_list{sycl::property::reduction::
-                                           initialize_to_identity{}}
-                 : sycl::property_list{};
-        sycl::event e = Q.submit([=](sycl::handler &cgh) {
-            setSYCLExecutionDependency(streamID, cgh);
-            cgh.parallel_for(
-                sycl::range<1>(end - begin),
-                sycl::reduction(out, sycl::minimum<>(), initializer),
-                [=](sycl::id<1> indx, auto &reducer) {
-                    reducer.combine(functor(begin + indx));
-                });
-        });
-        SYCLQueue::SetEvent(streamID, e);
-#else
-        TData *buffer = (TData *)internalMemoryBuffer;
+        TData *buffer = (TData *)internalMemoryBufferMap[streamID];
         reduceMinKernel<true>(gridSize, blockSize, begin, end, buffer, functor);
         reduceMinKernel<init>(1, gridSize, 0, gridSize, out,
                               [=](const size_t i) { return buffer[i]; });
-#endif
     }
 }
 

@@ -166,10 +166,10 @@ private:
         }
     }
 
-    static inline std::map<unsigned int, TData *> m_deviceWsp;
-    static inline std::map<unsigned int, size_t> m_deviceWspSize;
-    static inline std::map<unsigned int, TData *> m_hostWsp;
-    static inline std::map<unsigned int, size_t> m_hostWspSize;
+    static inline std::unordered_map<unsigned int, TData *> m_deviceWsp;
+    static inline std::unordered_map<unsigned int, size_t> m_deviceWspSize;
+    static inline std::unordered_map<unsigned int, TData *> m_hostWsp;
+    static inline std::unordered_map<unsigned int, size_t> m_hostWspSize;
 };
 
 } // namespace Nektar::Operators

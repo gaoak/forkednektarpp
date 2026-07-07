@@ -35,12 +35,6 @@
 #include "Operators/Common/Memory/MemoryAlloc.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 
-void NekBlasSetStream([[maybe_unused]] magma_queue_t handle,
-                      [[maybe_unused]] const unsigned int streamID)
-{
-    // TODO
-}
-
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, magma_queue_t>, void>::type NekGemm(
     THandle handle, std::string transposeA, std::string transposeB, const int M,

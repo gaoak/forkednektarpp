@@ -74,6 +74,8 @@ public:
                           NekDataWarehouseSharedPtr dataWarehouse)
         : ExpressionBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
+        m_streamID = block_idx + 1;
+
         // Determine shape and type of the element.
         this->m_dimension = exp->GetShapeDimension();
         this->m_coordDim  = exp->GetCoordim();
@@ -109,6 +111,7 @@ public:
 
 protected:
     bool m_isExpressionSet = false;
+    unsigned int m_streamID;
     unsigned int m_dimension;
     unsigned int m_coordDim;
     unsigned int m_nqTot;
@@ -133,15 +136,17 @@ protected:
         const auto compSize = inblock.CompSize();
 
         // Initialize pointers.
-        auto inptr = (&inblock != &outblock)
-                         ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                         : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto outptr =
+        auto inptr =
             (&inblock != &outblock)
-                ? (this->m_append)
-                      ? outblock.template GetPtr<MemSpace, ReadWrite>()
-                      : outblock.template GetPtr<MemSpace, WriteOnly>()
-                : (TData *)inptr;
+                ? inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID)
+                : inblock.template GetPtr<MemSpace, ReadWrite>(m_streamID);
+        auto outptr = (&inblock != &outblock)
+                          ? (this->m_append)
+                                ? outblock.template GetPtr<MemSpace, ReadWrite>(
+                                      m_streamID)
+                                : outblock.template GetPtr<MemSpace, WriteOnly>(
+                                      m_streamID)
+                          : (TData *)inptr;
 
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
@@ -167,7 +172,8 @@ protected:
                         outblock.GetNumElementsWithPadding(),
                         outblock.GetNumData(),
                         (TData *)outptr +
-                            (n + nc * outblock.GetNumHomoModes()) * compSize);
+                            (n + nc * outblock.GetNumHomoModes()) * compSize,
+                        m_streamID);
                 }
             }
 
@@ -222,9 +228,9 @@ protected:
                                    : m_kernel_handle4;
             // clang-format off
 #if defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
-            sycl::queue &Q = SYCLQueue::GetInstance(0);
+            sycl::queue &Q = SYCLQueue::GetInstance(m_streamID);
             sycl::event e = Q.submit([=](sycl::handler &cgh) {
-                    setSYCLExecutionDependency(0, cgh);
+                    setSYCLExecutionDependency(m_streamID, cgh);
 #if defined(__ADAPTIVECPP__)
                 cgh.AdaptiveCpp_enqueue_custom_operation(
                     [=](sycl::interop_handle ih) {
@@ -233,7 +239,11 @@ protected:
 #endif
                     auto stream = ih.get_native_queue<sycl_backend>();
 #else
-                    stream_t stream = nullptr;
+#if defined(NEKTAR_ENABLE_CUDA) 
+                    stream_t stream = CUDAStream::GetInstance(m_streamID);
+#elif defined(NEKTAR_ENABLE_HIP) 
+                    stream_t stream = HIPStream::GetInstance(m_streamID);
+#endif
 #endif
                     CHECK_HIPCUDA_DRIVER_ERROR(nekLaunchKernel(
                         kernel_handle, gridSize, 1, 1, blockSize, 1, 1, 0,
@@ -241,7 +251,7 @@ protected:
 #if defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
                 });
             });
-            SYCLQueue::SetEvent(0, e);
+            SYCLQueue::SetEvent(m_streamID, e);
 #endif
             // clang-format on
             delete[] ptr;
@@ -257,9 +267,9 @@ protected:
     {
         // clang-format off
 #if defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
-        sycl::queue &Q = SYCLQueue::GetInstance(0);
+        sycl::queue &Q = SYCLQueue::GetInstance(m_streamID);
         sycl::event e = Q.submit([=](sycl::handler &cgh) {
-                    setSYCLExecutionDependency(0, cgh);
+                    setSYCLExecutionDependency(m_streamID, cgh);
 #if defined(__ADAPTIVECPP__)
             cgh.AdaptiveCpp_enqueue_custom_operation(
                 [=]([[maybe_unused]] sycl::interop_handle ih) {
@@ -271,7 +281,7 @@ protected:
 #if defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
             });
         });
-        SYCLQueue::SetEvent(0, e);
+        SYCLQueue::SetEvent(m_streamID, e);
 #endif
         // clang-format on
     }

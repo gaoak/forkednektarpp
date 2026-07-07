@@ -34,16 +34,6 @@
 
 #pragma once
 
-namespace Nektar
-{
-extern unsigned int internalMathKernelStreamID;
-
-[[maybe_unused]] static void MathKernelSetStreamID(const unsigned int streamID)
-{
-    internalMathKernelStreamID = streamID;
-}
-} // namespace Nektar
-
 #include "Operators/Field/Field.hpp"
 
 #include "Operators/Math/MathAVXKernels.hpp"
@@ -133,11 +123,14 @@ void zero(Field<TData, TFieldState> &x)
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
         auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
-        zeroKernel<ExecSpace>(size, xptr);
+        zeroKernel<ExecSpace>(size, xptr, streamID);
     }
 }
 
@@ -158,11 +151,14 @@ void fill(const TData &val, Field<TData, TFieldState> &x)
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
         auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
-        fillKernel<ExecSpace>(size, val, xptr);
+        fillKernel<ExecSpace>(size, val, xptr, streamID);
     }
 }
 
@@ -192,12 +188,16 @@ void copy(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto yptr =
+            y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
         auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
-        copyKernel<ExecSpace>(size, xptr, yptr);
+        copyKernel<ExecSpace>(size, xptr, yptr, streamID);
 
         y.GetBlocks()[blk].template SetInterleaveWidth<TData>(
             x.GetBlocks()[blk].GetInterleaveWidth());
@@ -239,12 +239,16 @@ void abs(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto yptr =
+            y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
         auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
-        absKernel<ExecSpace>(size, xptr, yptr);
+        absKernel<ExecSpace>(size, xptr, yptr, streamID);
 
         y.GetBlocks()[blk].template SetInterleaveWidth<TData>(
             x.GetBlocks()[blk].GetInterleaveWidth());
@@ -286,12 +290,16 @@ void neg(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto yptr =
+            y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
         auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
-        negKernel<ExecSpace>(size, xptr, yptr);
+        negKernel<ExecSpace>(size, xptr, yptr, streamID);
 
         y.GetBlocks()[blk].template SetInterleaveWidth<TData>(
             x.GetBlocks()[blk].GetInterleaveWidth());
@@ -333,12 +341,16 @@ void sqrt(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto yptr =
+            y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
         auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
-        sqrtKernel<ExecSpace>(size, xptr, yptr);
+        sqrtKernel<ExecSpace>(size, xptr, yptr, streamID);
 
         y.GetBlocks()[blk].template SetInterleaveWidth<TData>(
             x.GetBlocks()[blk].GetInterleaveWidth());
@@ -386,13 +398,18 @@ void add(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
                   "MathKernels::add - Inconsistent interleave format between "
                   "input Fields");
 
-        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto zptr = z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto yptr =
+            y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto zptr =
+            z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
         auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
-        addKernel<ExecSpace>(size, xptr, yptr, zptr);
+        addKernel<ExecSpace>(size, xptr, yptr, zptr, streamID);
 
         z.GetBlocks()[blk].template SetInterleaveWidth<TData>(
             x.GetBlocks()[blk].GetInterleaveWidth());
@@ -441,13 +458,18 @@ void sub(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
                   "MathKernels::sub - Inconsistent interleave format between "
                   "input Fields");
 
-        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto zptr = z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto yptr =
+            y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto zptr =
+            z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
         auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
-        subKernel<ExecSpace>(size, xptr, yptr, zptr);
+        subKernel<ExecSpace>(size, xptr, yptr, zptr, streamID);
 
         z.GetBlocks()[blk].template SetInterleaveWidth<TData>(
             x.GetBlocks()[blk].GetInterleaveWidth());
@@ -491,12 +513,16 @@ void mul(const TData alpha, Field<TData, TFieldState> &x,
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto yptr =
+            y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
         auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
-        mulKernel<ExecSpace>(size, alpha, xptr, yptr);
+        mulKernel<ExecSpace>(size, alpha, xptr, yptr, streamID);
 
         y.GetBlocks()[blk].template SetInterleaveWidth<TData>(
             x.GetBlocks()[blk].GetInterleaveWidth());
@@ -544,13 +570,18 @@ void mul(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
                   "MathKernels::mul - Inconsistent interleave format between "
                   "input Fields");
 
-        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto zptr = z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto yptr =
+            y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto zptr =
+            z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
         auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
-        mulKernel<ExecSpace>(size, xptr, yptr, zptr);
+        mulKernel<ExecSpace>(size, xptr, yptr, zptr, streamID);
 
         z.GetBlocks()[blk].template SetInterleaveWidth<TData>(
             x.GetBlocks()[blk].GetInterleaveWidth());
@@ -594,12 +625,16 @@ void div(const TData alpha, Field<TData, TFieldState> &x,
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto yptr =
+            y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
         auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
-        divKernel<ExecSpace>(size, alpha, xptr, yptr);
+        divKernel<ExecSpace>(size, alpha, xptr, yptr, streamID);
 
         y.GetBlocks()[blk].template SetInterleaveWidth<TData>(
             x.GetBlocks()[blk].GetInterleaveWidth());
@@ -647,13 +682,18 @@ void div(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
                   "MathKernel::div - Inconsistent interleave format between "
                   "input Fields");
 
-        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto zptr = z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto yptr =
+            y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto zptr =
+            z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
         auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
-        divKernel<ExecSpace>(size, xptr, yptr, zptr);
+        divKernel<ExecSpace>(size, xptr, yptr, zptr, streamID);
 
         z.GetBlocks()[blk].template SetInterleaveWidth<TData>(
             x.GetBlocks()[blk].GetInterleaveWidth());
@@ -702,13 +742,18 @@ void daxpy(const TData alpha, Field<TData, TFieldState> &x,
                   "MathKernel::daxpy - Inconsistent interleave format between "
                   "input Fields");
 
-        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto zptr = z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto yptr =
+            y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto zptr =
+            z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
         auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
-        daxpyKernel<ExecSpace>(size, alpha, xptr, yptr, zptr);
+        daxpyKernel<ExecSpace>(size, alpha, xptr, yptr, zptr, streamID);
 
         z.GetBlocks()[blk].template SetInterleaveWidth<TData>(
             x.GetBlocks()[blk].GetInterleaveWidth());
@@ -742,9 +787,21 @@ void reduceSum(Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
+    if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+    {
+        *out = 0.0;
+    }
+    else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+    {
+        deviceMemset(out, 0, sizeof(TData), 0);
+    }
+
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto xptr    = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
         auto &block  = x.GetBlocks()[blk];
         auto maskptr = internalMathKernelMask<MemSpace>::GetInstance(block);
         auto size    = block.CompSize();
@@ -752,15 +809,8 @@ void reduceSum(Field<TData, TFieldState> &x, TData *out)
 
         for (unsigned int n = 0; n < ncomp; ++n)
         {
-            auto doInit = (blk == 0 && n == 0);
-            if (doInit)
-            {
-                reduceSumKernel<ExecSpace, true>(size, maskptr, xptr, out);
-            }
-            else
-            {
-                reduceSumKernel<ExecSpace, false>(size, maskptr, xptr, out);
-            }
+            reduceSumKernel<ExecSpace, false>(size, maskptr, xptr, out,
+                                              streamID);
 
             xptr += size;
         }
@@ -784,6 +834,15 @@ void reduceSum(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
 {
     using MemSpace = typename ExecSpace::memory_space;
 
+    if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+    {
+        *out = 0.0;
+    }
+    else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+    {
+        deviceMemset(out, 0, sizeof(TData), 0);
+    }
+
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         WARNINGL1(mask.GetBlocks()[blk].GetInterleaveWidth() ==
@@ -791,20 +850,16 @@ void reduceSum(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
                   "MathKernesl::reduceSum - Inconsistent interleave format "
                   "between input Fields");
 
+        const unsigned int streamID = blk + 1;
+
         auto maskptr =
-            mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+            mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
         auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
-        if (blk == 0)
-        {
-            reduceSumKernel<ExecSpace, true>(size, maskptr, xptr, out);
-        }
-        else
-        {
-            reduceSumKernel<ExecSpace, false>(size, maskptr, xptr, out);
-        }
+        reduceSumKernel<ExecSpace, false>(size, maskptr, xptr, out, streamID);
     }
 }
 
@@ -825,9 +880,21 @@ void reduceMax(Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
+    if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+    {
+        *out = std::numeric_limits<TData>::lowest();
+    }
+    else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+    {
+        deviceFill(out, std::numeric_limits<TData>::lowest(), 1, 0);
+    }
+
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto xptr    = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
         auto &block  = x.GetBlocks()[blk];
         auto maskptr = internalMathKernelMask<MemSpace>::GetInstance(block);
         auto size    = block.CompSize();
@@ -835,15 +902,8 @@ void reduceMax(Field<TData, TFieldState> &x, TData *out)
 
         for (unsigned int n = 0; n < ncomp; ++n)
         {
-            auto doInit = (blk == 0 && n == 0);
-            if (doInit)
-            {
-                reduceMaxKernel<ExecSpace, true>(size, maskptr, xptr, out);
-            }
-            else
-            {
-                reduceMaxKernel<ExecSpace, false>(size, maskptr, xptr, out);
-            }
+            reduceMaxKernel<ExecSpace, false>(size, maskptr, xptr, out,
+                                              streamID);
 
             xptr += size;
         }
@@ -867,6 +927,15 @@ void reduceMax(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
 {
     using MemSpace = typename ExecSpace::memory_space;
 
+    if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+    {
+        *out = std::numeric_limits<TData>::lowest();
+    }
+    else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+    {
+        deviceFill(out, std::numeric_limits<TData>::lowest(), 1, 0);
+    }
+
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         WARNINGL1(mask.GetBlocks()[blk].GetInterleaveWidth() ==
@@ -874,20 +943,16 @@ void reduceMax(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
                   "MathKernels::reduceMax - Inconsistent interleave format "
                   "between input Fields");
 
+        const unsigned int streamID = blk + 1;
+
         auto maskptr =
-            mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+            mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
         auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
-        if (blk == 0)
-        {
-            reduceMaxKernel<ExecSpace, true>(size, maskptr, xptr, out);
-        }
-        else
-        {
-            reduceMaxKernel<ExecSpace, false>(size, maskptr, xptr, out);
-        }
+        reduceMaxKernel<ExecSpace, false>(size, maskptr, xptr, out, streamID);
     }
 }
 
@@ -908,9 +973,21 @@ void reduceMin(Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
+    if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+    {
+        *out = std::numeric_limits<TData>::max();
+    }
+    else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+    {
+        deviceFill(out, std::numeric_limits<TData>::max(), 1, 0);
+    }
+
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto xptr    = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
         auto &block  = x.GetBlocks()[blk];
         auto maskptr = internalMathKernelMask<MemSpace>::GetInstance(block);
         auto size    = block.CompSize();
@@ -918,15 +995,8 @@ void reduceMin(Field<TData, TFieldState> &x, TData *out)
 
         for (unsigned int n = 0; n < ncomp; ++n)
         {
-            auto doInit = (blk == 0 && n == 0);
-            if (doInit)
-            {
-                reduceMinKernel<ExecSpace, true>(size, maskptr, xptr, out);
-            }
-            else
-            {
-                reduceMinKernel<ExecSpace, false>(size, maskptr, xptr, out);
-            }
+            reduceMinKernel<ExecSpace, false>(size, maskptr, xptr, out,
+                                              streamID);
 
             xptr += size;
         }
@@ -950,6 +1020,15 @@ void reduceMin(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
 {
     using MemSpace = typename ExecSpace::memory_space;
 
+    if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+    {
+        *out = std::numeric_limits<TData>::max();
+    }
+    else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+    {
+        deviceFill(out, std::numeric_limits<TData>::max(), 1, 0);
+    }
+
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         WARNINGL1(mask.GetBlocks()[blk].GetInterleaveWidth() ==
@@ -957,20 +1036,16 @@ void reduceMin(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
                   "MathKernels::reduceMin - Inconsistent interleave format "
                   "between input Fields");
 
+        const unsigned int streamID = blk + 1;
+
         auto maskptr =
-            mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+            mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
         auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
-        if (blk == 0)
-        {
-            reduceMinKernel<ExecSpace, true>(size, maskptr, xptr, out);
-        }
-        else
-        {
-            reduceMinKernel<ExecSpace, false>(size, maskptr, xptr, out);
-        }
+        reduceMinKernel<ExecSpace, false>(size, maskptr, xptr, out, streamID);
     }
 }
 
@@ -1000,6 +1075,15 @@ void ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
+    if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+    {
+        *out = 0.0;
+    }
+    else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+    {
+        deviceMemset(out, 0, sizeof(TData), 0);
+    }
+
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         WARNINGL1(x.GetBlocks()[blk].GetInterleaveWidth() ==
@@ -1007,8 +1091,12 @@ void ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
                   "MathKernels::ddot - Inconsistent interleave format between "
                   "input Fields");
 
-        auto xptr    = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto yptr    = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto yptr =
+            y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
         auto &block  = x.GetBlocks()[blk];
         auto maskptr = internalMathKernelMask<MemSpace>::GetInstance(block);
         auto size    = block.CompSize();
@@ -1016,15 +1104,8 @@ void ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
 
         for (unsigned int n = 0; n < ncomp; ++n)
         {
-            auto doInit = (blk == 0 && n == 0);
-            if (doInit)
-            {
-                ddotKernel<ExecSpace, true>(size, maskptr, xptr, yptr, out);
-            }
-            else
-            {
-                ddotKernel<ExecSpace, false>(size, maskptr, xptr, yptr, out);
-            }
+            ddotKernel<ExecSpace, false>(size, maskptr, xptr, yptr, out,
+                                         streamID);
 
             xptr += size;
             yptr += size;
@@ -1066,6 +1147,15 @@ void ddot(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
+    if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+    {
+        *out = 0.0;
+    }
+    else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+    {
+        deviceMemset(out, 0, sizeof(TData), 0);
+    }
+
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         WARNINGL1((mask.GetBlocks()[blk].GetInterleaveWidth() ==
@@ -1075,21 +1165,18 @@ void ddot(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
                   "MathKernels::ddot - Inconsistent interleave format between "
                   "input Fields");
 
+        const unsigned int streamID = blk + 1;
+
         auto maskptr =
-            mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+            mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto yptr =
+            y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
         auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
-        if (blk == 0)
-        {
-            ddotKernel<ExecSpace, true>(size, maskptr, xptr, yptr, out);
-        }
-        else
-        {
-            ddotKernel<ExecSpace, false>(size, maskptr, xptr, yptr, out);
-        }
+        ddotKernel<ExecSpace, false>(size, maskptr, xptr, yptr, out, streamID);
     }
 }
 
@@ -1120,9 +1207,21 @@ void l1norm(Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
+    if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+    {
+        *out = 0.0;
+    }
+    else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+    {
+        deviceMemset(out, 0, sizeof(TData), 0);
+    }
+
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto xptr    = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
         auto &block  = x.GetBlocks()[blk];
         auto maskptr = internalMathKernelMask<MemSpace>::GetInstance(block);
         auto size    = block.CompSize();
@@ -1130,15 +1229,7 @@ void l1norm(Field<TData, TFieldState> &x, TData *out)
 
         for (unsigned int n = 0; n < ncomp; ++n)
         {
-            auto doInit = (blk == 0 && n == 0);
-            if (doInit)
-            {
-                l1normKernel<ExecSpace, true>(size, maskptr, xptr, out);
-            }
-            else
-            {
-                l1normKernel<ExecSpace, false>(size, maskptr, xptr, out);
-            }
+            l1normKernel<ExecSpace, false>(size, maskptr, xptr, out, streamID);
 
             xptr += size;
         }
@@ -1162,6 +1253,15 @@ void l1norm(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
 {
     using MemSpace = typename ExecSpace::memory_space;
 
+    if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+    {
+        *out = 0.0;
+    }
+    else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+    {
+        deviceMemset(out, 0, sizeof(TData), 0);
+    }
+
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         WARNINGL1(mask.GetBlocks()[blk].GetInterleaveWidth() ==
@@ -1169,20 +1269,16 @@ void l1norm(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
                   "MathKernels::l1norm - Inconsistent interleave format "
                   "between input Fields");
 
+        const unsigned int streamID = blk + 1;
+
         auto maskptr =
-            mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+            mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
         auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
-        if (blk == 0)
-        {
-            l1normKernel<ExecSpace, true>(size, maskptr, xptr, out);
-        }
-        else
-        {
-            l1normKernel<ExecSpace, false>(size, maskptr, xptr, out);
-        }
+        l1normKernel<ExecSpace, false>(size, maskptr, xptr, out, streamID);
     }
 }
 
@@ -1203,9 +1299,21 @@ void l2norm(Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
+    if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+    {
+        *out = 0.0;
+    }
+    else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+    {
+        deviceMemset(out, 0, sizeof(TData), 0);
+    }
+
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto xptr    = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
         auto &block  = x.GetBlocks()[blk];
         auto maskptr = internalMathKernelMask<MemSpace>::GetInstance(block);
         auto size    = block.CompSize();
@@ -1213,15 +1321,7 @@ void l2norm(Field<TData, TFieldState> &x, TData *out)
 
         for (unsigned int n = 0; n < ncomp; ++n)
         {
-            auto doInit = (blk == 0 && n == 0);
-            if (doInit)
-            {
-                l2normKernel<ExecSpace, true>(size, maskptr, xptr, out);
-            }
-            else
-            {
-                l2normKernel<ExecSpace, false>(size, maskptr, xptr, out);
-            }
+            l2normKernel<ExecSpace, false>(size, maskptr, xptr, out, streamID);
 
             xptr += size;
         }
@@ -1245,6 +1345,15 @@ void l2norm(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
 {
     using MemSpace = typename ExecSpace::memory_space;
 
+    if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+    {
+        *out = 0.0;
+    }
+    else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+    {
+        deviceMemset(out, 0, sizeof(TData), 0);
+    }
+
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         WARNINGL1(mask.GetBlocks()[blk].GetInterleaveWidth() ==
@@ -1252,20 +1361,16 @@ void l2norm(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
                   "MathKernels::l2norm - Inconsistent interleave format "
                   "between input Fields");
 
+        const unsigned int streamID = blk + 1;
+
         auto maskptr =
-            mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+            mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
         auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
-        if (blk == 0)
-        {
-            l2normKernel<ExecSpace, true>(size, maskptr, xptr, out);
-        }
-        else
-        {
-            l2normKernel<ExecSpace, false>(size, maskptr, xptr, out);
-        }
+        l2normKernel<ExecSpace, false>(size, maskptr, xptr, out);
     }
 }
 
@@ -1286,9 +1391,21 @@ void lpnorm(const unsigned int p, Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
+    if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+    {
+        *out = 0.0;
+    }
+    else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+    {
+        deviceMemset(out, 0, sizeof(TData), 0);
+    }
+
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto xptr    = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
         auto &block  = x.GetBlocks()[blk];
         auto maskptr = internalMathKernelMask<MemSpace>::GetInstance(block);
         auto size    = block.CompSize();
@@ -1296,15 +1413,8 @@ void lpnorm(const unsigned int p, Field<TData, TFieldState> &x, TData *out)
 
         for (unsigned int n = 0; n < ncomp; ++n)
         {
-            auto doInit = (blk == 0 && n == 0);
-            if (doInit)
-            {
-                lpnormKernel<ExecSpace, true>(size, p, maskptr, xptr, out);
-            }
-            else
-            {
-                lpnormKernel<ExecSpace, false>(size, p, maskptr, xptr, out);
-            }
+            lpnormKernel<ExecSpace, false>(size, p, maskptr, xptr, out,
+                                           streamID);
 
             xptr += size;
         }
@@ -1328,6 +1438,15 @@ void lpnorm(const unsigned int p, Field<uint8_t, TFieldState> &mask,
 {
     using MemSpace = typename ExecSpace::memory_space;
 
+    if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+    {
+        *out = 0.0;
+    }
+    else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+    {
+        deviceMemset(out, 0, sizeof(TData), 0);
+    }
+
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         WARNINGL1(mask.GetBlocks()[blk].GetInterleaveWidth() ==
@@ -1335,20 +1454,16 @@ void lpnorm(const unsigned int p, Field<uint8_t, TFieldState> &mask,
                   "MathKernels::lpnorm - Inconsistent interleave format "
                   "between input Fields");
 
+        const unsigned int streamID = blk + 1;
+
         auto maskptr =
-            mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+            mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
         auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
-        if (blk == 0)
-        {
-            lpnormKernel<ExecSpace, true>(size, p, maskptr, xptr, out);
-        }
-        else
-        {
-            lpnormKernel<ExecSpace, false>(size, p, maskptr, xptr, out);
-        }
+        lpnormKernel<ExecSpace, false>(size, p, maskptr, xptr, out, streamID);
     }
 }
 
@@ -1370,9 +1485,21 @@ void linfnorm(Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
+    if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+    {
+        *out = 0.0;
+    }
+    else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+    {
+        deviceMemset(out, 0, sizeof(TData), 0);
+    }
+
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto xptr    = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
         auto &block  = x.GetBlocks()[blk];
         auto maskptr = internalMathKernelMask<MemSpace>::GetInstance(block);
         auto size    = block.CompSize();
@@ -1380,15 +1507,8 @@ void linfnorm(Field<TData, TFieldState> &x, TData *out)
 
         for (unsigned int n = 0; n < ncomp; ++n)
         {
-            auto doInit = (blk == 0 && n == 0);
-            if (doInit)
-            {
-                linfnormKernel<ExecSpace, true>(size, maskptr, xptr, out);
-            }
-            else
-            {
-                linfnormKernel<ExecSpace, false>(size, maskptr, xptr, out);
-            }
+            linfnormKernel<ExecSpace, false>(size, maskptr, xptr, out,
+                                             streamID);
 
             xptr += size;
         }
@@ -1412,6 +1532,15 @@ void linfnorm(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
 {
     using MemSpace = typename ExecSpace::memory_space;
 
+    if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+    {
+        *out = 0.0;
+    }
+    else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+    {
+        deviceMemset(out, 0, sizeof(TData), 0);
+    }
+
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
         WARNINGL1(mask.GetBlocks()[blk].GetInterleaveWidth() ==
@@ -1419,20 +1548,16 @@ void linfnorm(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
                   "MathKernels::linfnorm - Inconsistent interleave format "
                   "between input Fields");
 
+        const unsigned int streamID = blk + 1;
+
         auto maskptr =
-            mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto xptr = x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
+            mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
         auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
                     x.GetNumHomoModes();
 
-        if (blk == 0)
-        {
-            linfnormKernel<ExecSpace, true>(size, maskptr, xptr, out);
-        }
-        else
-        {
-            linfnormKernel<ExecSpace, false>(size, maskptr, xptr, out);
-        }
+        linfnormKernel<ExecSpace, false>(size, maskptr, xptr, out, streamID);
     }
 }
 

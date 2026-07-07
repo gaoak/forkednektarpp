@@ -204,6 +204,8 @@ protected:
             for (unsigned int blk = 0;
                  blk < this->m_solutions[n].GetBlocks().size(); ++blk)
             {
+                const unsigned int streamID = blk + 1;
+
                 // Determine shape and type of the element.
                 auto &block = this->m_solutions[n].GetBlocks()[blk];
                 auto nsize  = block.GetNumElementsWithPadding() *
@@ -214,45 +216,45 @@ protected:
                 if (n == 1)
                 {
                     IterateIMEXSDCSolutionKernel<ExecSpace>(
-                        nsize, dtn,
+                        streamID, nsize, dtn,
                         this->m_solutions[n - 1]
                             .GetBlocks()[blk]
-                            .template GetPtr<MemSpace, ReadOnly>(),
+                            .template GetPtr<MemSpace, ReadOnly>(streamID),
                         this->m_SFint[n]
                             .GetBlocks()[blk]
-                            .template GetPtr<MemSpace, ReadOnly>(),
+                            .template GetPtr<MemSpace, ReadOnly>(streamID),
                         this->m_implicits[n]
                             .GetBlocks()[blk]
-                            .template GetPtr<MemSpace, ReadWrite>());
+                            .template GetPtr<MemSpace, ReadWrite>(streamID));
                 }
                 else
                 {
                     IterateIMEXSDCSolutionKernel<ExecSpace>(
-                        nsize, dtn,
+                        streamID, nsize, dtn,
                         this->m_solutions[n - 1]
                             .GetBlocks()[blk]
-                            .template GetPtr<MemSpace, ReadOnly>(),
+                            .template GetPtr<MemSpace, ReadOnly>(streamID),
                         this->m_explicits[n - 1]
                             .GetBlocks()[blk]
-                            .template GetPtr<MemSpace, ReadOnly>(),
+                            .template GetPtr<MemSpace, ReadOnly>(streamID),
                         this->m_SFint[n]
                             .GetBlocks()[blk]
-                            .template GetPtr<MemSpace, ReadOnly>(),
+                            .template GetPtr<MemSpace, ReadOnly>(streamID),
                         this->m_implicits[n]
                             .GetBlocks()[blk]
-                            .template GetPtr<MemSpace, ReadWrite>());
+                            .template GetPtr<MemSpace, ReadWrite>(streamID));
                 }
 
                 if (n < this->m_nQuadPts - 1)
                 {
                     UpdateIMEXIntegratedResidualKernel<ExecSpace>(
-                        nsize, dtnp,
+                        streamID, nsize, dtnp,
                         this->m_explicits[n]
                             .GetBlocks()[blk]
-                            .template GetPtr<MemSpace, ReadOnly>(),
+                            .template GetPtr<MemSpace, ReadOnly>(streamID),
                         this->m_SFint[n + 1]
                             .GetBlocks()[blk]
-                            .template GetPtr<MemSpace, ReadWrite>());
+                            .template GetPtr<MemSpace, ReadWrite>(streamID));
                 }
             }
 

@@ -35,11 +35,6 @@
 #include "Operators/Common/Memory/MemoryAlloc.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 
-void NekBlasSetStream(cublasHandle_t handle, const unsigned int streamID)
-{
-    CUBLAS_CHECK(cublasSetStream(handle, CUDAStream::GetInstance(streamID)));
-}
-
 template <typename THandle, typename TData>
 typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type NekGemm(
     THandle handle, std::string transposeA, std::string transposeB, const int M,

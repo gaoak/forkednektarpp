@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include <map>
 #include <sycl/sycl.hpp>
+#include <unordered_map>
 
 extern unsigned int internalSYCLDeviceId;
 
@@ -66,7 +66,8 @@ public:
         return *queue[id];
     }
 
-    static std::map<unsigned int, sycl::queue *> &GetAllInstances(void)
+    static std::unordered_map<unsigned int, sycl::queue *> &GetAllInstances(
+        void)
     {
         return queue;
     }
@@ -87,12 +88,12 @@ public:
         return event[id];
     }
 
-    static std::map<unsigned int, sycl::event> &GetAllEvents(void)
+    static std::unordered_map<unsigned int, sycl::event> &GetAllEvents(void)
     {
         return event;
     }
 
 private:
-    static std::map<unsigned int, sycl::queue *> queue;
-    static std::map<unsigned int, sycl::event> event;
+    static std::unordered_map<unsigned int, sycl::queue *> queue;
+    static std::unordered_map<unsigned int, sycl::event> event;
 };

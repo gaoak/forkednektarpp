@@ -4,10 +4,6 @@
 # Sets up cmake variables needed for using SYCL in Nektar++
 #
 
-IF (USE_SYCL_BUILTIN_REDUCER)
-    ADD_DEFINITIONS(-DUSE_SYCL_BUILTIN_REDUCER)
-ENDIF()
-
 IF(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
     SET(EXTRA_FLAGS -Wno-enum-constexpr-conversion)
 ENDIF()

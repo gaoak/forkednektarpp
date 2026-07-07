@@ -41,8 +41,10 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorKernel(
     const unsigned nqTot, const unsigned ncoord, const unsigned dimension,
     const size_t nelmt, const unsigned nhomo, const size_t inoffset,
     const size_t outoffset, const TData *dfptr, const TData *inptr,
-    TData *outptr)
+    TData *outptr, const unsigned int streamID)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     const auto ndf   = ncoord * dimension;
     const auto nsize = nqTot * nelmt * nhomo;
 
@@ -92,14 +94,19 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorKernel(
                 }
             });
     }
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 template <typename ExecSpace, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void MultiplyByDerivDirFactorKernel(
     const unsigned dir, const unsigned nqTot, const unsigned ncoord,
     const unsigned dimension, const size_t nelmt, const size_t inoffset,
-    const TData *dfptr, const TData *inptr, TData *outptr)
+    const TData *dfptr, const TData *inptr, TData *outptr,
+    const unsigned int streamID)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     const auto ndf   = ncoord * dimension;
     const auto nsize = nqTot * nelmt;
 
@@ -152,4 +159,6 @@ NEK_FORCE_INLINE static void MultiplyByDerivDirFactorKernel(
                 }
             });
     }
+
+    Nektar::LoopExecutionSetStreamID(0);
 }

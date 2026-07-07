@@ -129,13 +129,17 @@ protected:
     {
         for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             auto &inblock    = in.GetBlocks()[blk];
             auto &derivblock = deriv.GetBlocks()[blk];
             auto &outblock   = out.GetBlocks()[blk];
 
-            auto inbase  = inblock.template GetPtr<MemSpace, ReadOnly>();
-            auto qbase   = derivblock.template GetPtr<MemSpace, ReadOnly>();
-            auto outbase = outblock.template GetPtr<MemSpace, WriteOnly>();
+            auto inbase = inblock.template GetPtr<MemSpace, ReadOnly>(streamID);
+            auto qbase =
+                derivblock.template GetPtr<MemSpace, ReadOnly>(streamID);
+            auto outbase =
+                outblock.template GetPtr<MemSpace, WriteOnly>(streamID);
 
             const size_t npts            = outblock.CompSize();
             const size_t inStride        = inblock.CompSize();
@@ -147,7 +151,7 @@ protected:
                 m_EoS, npts, m_dimension, nvarComps, inStride, derivStride,
                 outStride, this->m_Prandtl, this->m_muRef, this->m_isMuVariable,
                 this->m_oneOverTstar, this->m_TRatioSutherland, inbase, qbase,
-                outbase);
+                outbase, streamID);
         }
     }
 };

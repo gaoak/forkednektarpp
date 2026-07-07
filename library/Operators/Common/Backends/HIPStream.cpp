@@ -34,4 +34,4 @@
 
 #include "HIPStream.hpp"
 
-std::map<unsigned int, hipStream_t> HIPStream::streams;
+std::unordered_map<unsigned int, hipStream_t> HIPStream::streams;

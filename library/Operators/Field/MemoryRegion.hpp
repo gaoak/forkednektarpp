@@ -490,12 +490,14 @@ public:
               class Alloc = std::allocator<TDataIn>>
     static MemoryRegion<TData> FromVector(
         const std::string name, std::vector<TDataIn, Alloc> const &array,
+        const unsigned int streamID      = 0,
         const MemAllocType &memAllocType = eHostPageable,
         const size_t alignment           = NektarSpaces::host_memory_alignment)
     {
         auto mr =
             MemoryRegion<TData>(name, array.size(), memAllocType, alignment);
-        mr.template CopyFromHostPtr<MemSpace>(array.data(), array.size());
+        mr.template CopyFromHostPtr<MemSpace>(array.data(), array.size(), 0,
+                                              streamID);
         return mr;
     }
 
@@ -514,11 +516,12 @@ public:
               class Alloc = std::allocator<TDataIn>>
     static MemoryRegion<TData> FromVector(
         std::vector<TDataIn, Alloc> const &array,
+        const unsigned int streamID      = 0,
         const MemAllocType &memAllocType = eHostPageable,
         const size_t alignment           = NektarSpaces::host_memory_alignment)
     {
         return MemoryRegion<TData>::template FromVector<MemSpace, TDataIn>(
-            "", array, memAllocType, alignment);
+            "", array, streamID, memAllocType, alignment);
     }
 
     /**
@@ -538,12 +541,14 @@ public:
     static MemoryRegion<TData> FromArray(
         const std::string name,
         Nektar::Array<Nektar::OneD, TDataIn> const &array,
+        const unsigned int streamID      = 0,
         const MemAllocType &memAllocType = eHostPageable,
         const size_t alignment           = NektarSpaces::host_memory_alignment)
     {
         auto mr =
             MemoryRegion<TData>(name, array.size(), memAllocType, alignment);
-        mr.template CopyFromHostPtr<MemSpace>(array.data(), array.size());
+        mr.template CopyFromHostPtr<MemSpace>(array.data(), array.size(), 0,
+                                              streamID);
         return mr;
     }
 
@@ -561,11 +566,12 @@ public:
     template <typename MemSpace, typename TDataIn>
     static MemoryRegion<TData> FromArray(
         Nektar::Array<Nektar::OneD, TDataIn> const &array,
+        const unsigned int streamID      = 0,
         const MemAllocType &memAllocType = eHostPageable,
         const size_t alignment           = NektarSpaces::host_memory_alignment)
     {
         return MemoryRegion<TData>::template FromArray<MemSpace, TDataIn>(
-            "", array, memAllocType, alignment);
+            "", array, streamID, memAllocType, alignment);
     }
 
     /**
@@ -577,7 +583,7 @@ public:
      */
     template <typename MemSpace>
     void Initialize(const TData val, const size_t count = 0,
-                    const size_t offset = 0)
+                    const size_t offset = 0, const unsigned int streamID = 0)
     {
         if (!m_instantiated)
         {
@@ -649,8 +655,6 @@ public:
         }
         else if (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
         {
-            const unsigned int streamID = 0; // TODO
-
             // Allocate device memory, if not yet allocated.
             if (!m_device)
             {
@@ -731,7 +735,8 @@ public:
      */
     template <typename MemSpace, typename TDataIn,
               class Alloc = std::allocator<TDataIn>>
-    void CopyVector(const std::vector<TDataIn, Alloc> &array)
+    void CopyVector(const std::vector<TDataIn, Alloc> &array,
+                    const unsigned int streamID = 0)
     {
         if (this->size() != array.size())
         {
@@ -743,7 +748,8 @@ public:
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
         }
 
-        this->CopyFromHostPtr<MemSpace>(array.data(), array.size());
+        this->CopyFromHostPtr<MemSpace>(array.data(), array.size(), 0,
+                                        streamID);
     }
 
     /**
@@ -754,7 +760,8 @@ public:
      *
      */
     template <typename MemSpace, typename TDataIn>
-    void CopyArray(const Nektar::Array<Nektar::OneD, TDataIn> &array)
+    void CopyArray(const Nektar::Array<Nektar::OneD, TDataIn> &array,
+                   const unsigned int streamID = 0)
     {
         if (this->size() != array.size())
         {
@@ -766,7 +773,8 @@ public:
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
         }
 
-        this->CopyFromHostPtr<MemSpace>(array.data(), array.size());
+        this->CopyFromHostPtr<MemSpace>(array.data(), array.size(), 0,
+                                        streamID);
     }
 
     /**
@@ -896,7 +904,8 @@ private:
      */
     template <typename MemSpace, typename TDataIn>
     void CopyFromHostPtr(const TDataIn *src, const size_t size,
-                         const size_t offset = 0)
+                         const size_t offset         = 0,
+                         const unsigned int streamID = 0)
     {
         if (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
         {
@@ -951,8 +960,6 @@ private:
         }
         else if (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
         {
-            const unsigned int streamID = 0; // TODO
-
             // Allocate device memory, if not yet allocated.
             if (!m_device)
             {
@@ -1030,7 +1037,7 @@ private:
      * @brief Perform a device to host copy.
      *
      */
-    void DeviceToHostCopy(const unsigned int streamID = 0)
+    void DeviceToHostCopy(const unsigned int streamID)
     {
         if (!m_host_valid)
         {

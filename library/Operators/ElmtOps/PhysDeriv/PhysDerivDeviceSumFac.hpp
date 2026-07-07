@@ -54,6 +54,8 @@ public:
                          NekDataWarehouseSharedPtr dataWarehouse)
         : PhysDerivBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
+        m_streamID = block_idx + 1;
+
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
         m_isDeformed =
@@ -131,6 +133,7 @@ protected:
             ? NektarSpaces::Device::warpSize
             : 1u;
 
+    unsigned int m_streamID;
     LibUtilities::ShapeType m_shapeType;
     bool m_isDeformed;
     bool m_isModified;
@@ -272,8 +275,8 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -292,23 +295,24 @@ protected:
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
 
             // Calculate derivative.
             DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                 (PhysDeriv1DKernelLauncher<Implementation, DEFORMED>), gridsize,
-                blocksize, 0, sizeParam1D, nelmt, outoffset, m_D[0], m_dfptr,
-                inptr, outptr);
+                blocksize, m_streamID, sizeParam1D, nelmt, outoffset, m_D[0],
+                m_dfptr, inptr, outptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
             for (unsigned int k = 0; k < sizeParam1D.ncoord(); k++)
             {
                 ReshapeStorage<ExecSpace>(
                     interleaveWidth, m_implInterleaveWidth, nelmt,
-                    outblock.GetNumData(), (TData *)outptr + k * outoffset);
+                    outblock.GetNumData(), (TData *)outptr + k * outoffset,
+                    m_streamID);
             }
 
             // Increment pointers.
@@ -355,8 +359,8 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -379,25 +383,26 @@ protected:
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
 
             // Calculate derivative.
             DEVICE_1DGRID_KERNEL_LAUNCHER(
                 (PhysDeriv2DKernelLauncher<SHAPE_TYPE, Implementation,
                                            DEFORMED>),
-                gridsize, blocksize, shmemsize, 0, sizeParam2D, nelmt,
+                gridsize, blocksize, shmemsize, m_streamID, sizeParam2D, nelmt,
                 outoffset, m_D[0], m_D[1], m_f[0], m_f[1], m_dfptr, inptr,
                 outptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
             for (unsigned int k = 0; k < sizeParam2D.ncoord(); k++)
             {
                 ReshapeStorage<ExecSpace>(
                     interleaveWidth, m_implInterleaveWidth, nelmt,
-                    outblock.GetNumData(), (TData *)outptr + k * outoffset);
+                    outblock.GetNumData(), (TData *)outptr + k * outoffset,
+                    m_streamID);
             }
 
             // Increment pointers.
@@ -443,8 +448,8 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -466,26 +471,26 @@ protected:
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
 
             // Calculate derivative.
             DEVICE_1DGRID_KERNEL_LAUNCHER(
                 (PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation,
                                            DEFORMED>),
-                gridsize, blocksize, shmemsize, 0, sizeParam3D, nelmt,
+                gridsize, blocksize, shmemsize, m_streamID, sizeParam3D, nelmt,
                 outoffset, m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2],
                 m_f[3], m_dfptr, inptr, outptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
             for (unsigned int k = 0; k < 3; k++)
             {
                 ReshapeStorage<ExecSpace>(
                     interleaveWidth, m_implInterleaveWidth, nelmt,
                     outblock.GetNumData(),
-                    (TData *)outptr + k * outblock.CompSize());
+                    (TData *)outptr + k * outblock.CompSize(), m_streamID);
             }
 
             // Increment pointers.

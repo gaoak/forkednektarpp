@@ -157,6 +157,8 @@ protected:
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             // Determine shape and type of the element.
             auto &inoutBlock = inout.GetBlocks()[blk];
             auto nsize       = inoutBlock.GetNumElementsWithPadding() *
@@ -166,10 +168,11 @@ protected:
 
             // Compute new solution.
             UpdateSolutionKernel<ExecSpace, Scheme>(
-                nsize, inoutBlock.template GetPtr<MemSpace, ReadWrite>(),
+                streamID, nsize,
+                inoutBlock.template GetPtr<MemSpace, ReadWrite>(streamID),
                 (this->m_explicits[ind]
                      .GetBlocks()[blk]
-                     .template GetPtr<MemSpace, ReadOnly>())...);
+                     .template GetPtr<MemSpace, ReadOnly>(streamID))...);
         }
     }
 };

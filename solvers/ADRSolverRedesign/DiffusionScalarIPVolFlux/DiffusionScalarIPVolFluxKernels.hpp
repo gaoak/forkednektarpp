@@ -44,7 +44,7 @@ template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void DiffusionScalarIPVolFluxKernel(
     const size_t npts, const unsigned int ndim, const unsigned int nvarComps,
     const size_t derivStride, const size_t outStride, const TData *diffCoeff,
-    const TData *derivbase, TData *outbase)
+    const TData *derivbase, TData *outbase, const unsigned int streamID)
 {
     using vec_t =
         typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
@@ -60,6 +60,8 @@ NEK_FORCE_INLINE static void DiffusionScalarIPVolFluxKernel(
 
     const size_t derivVecStride = derivStride / vec_width;
     const size_t outVecStride   = outStride / vec_width;
+
+    Nektar::LoopExecutionSetStreamID(streamID);
 
     Nektar::parallel_for<ExecSpace>(
         0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
@@ -83,6 +85,8 @@ NEK_FORCE_INLINE static void DiffusionScalarIPVolFluxKernel(
                 }
             }
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 } // namespace Nektar::Operators::detail

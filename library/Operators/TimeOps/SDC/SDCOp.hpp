@@ -73,8 +73,8 @@ protected:
     unsigned int m_nQuadPts{0}; /// Number of quadrature points
     TData m_theta{1.0};         /// SDC parameter
     LibUtilities::PointsKey m_pointsKey; /// Object containing quadrature data
-    MemoryRegion<TData const *> m_mr0;
-    MemoryRegion<TData *> m_mr1;
+    std::vector<MemoryRegion<TData const *>> m_mr0;
+    std::vector<MemoryRegion<TData *>> m_mr1;
     std::deque<Field<TData, FieldState::Phys>> m_residuals;
     std::deque<Field<TData, FieldState::Phys>>
         m_SFint;               /// Array containing the integrated residual term
@@ -242,8 +242,14 @@ protected:
             MemoryRegion<TData>::template FromVector<MemSpace>(interp);
 
         // Buffer for memory transfer
-        this->m_mr0 = MemoryRegion<const TData *>(this->m_nQuadPts);
-        this->m_mr1 = MemoryRegion<TData *>(this->m_nQuadPts);
+        auto blockAttributes = GetBlockAttributes<TData, FieldState::Phys>(
+            this->m_expansionList, 1);
+        for (unsigned int i = 0; i < blockAttributes.size(); i++)
+        {
+            this->m_mr0.push_back(
+                MemoryRegion<const TData *>(this->m_nQuadPts));
+            this->m_mr1.push_back(MemoryRegion<TData *>(this->m_nQuadPts));
+        }
     }
 
     template <typename ExecSpace>
@@ -264,6 +270,8 @@ protected:
             // Loop over the blocks.
             for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
             {
+                const unsigned int streamID = blk + 1;
+
                 // Determine shape and type of the element.
                 auto &inoutBlock = inout.GetBlocks()[blk];
                 auto nsize       = inoutBlock.GetNumElementsWithPadding() *
@@ -273,21 +281,24 @@ protected:
 
                 // Initialize pointers.
                 auto hostPtr =
-                    this->m_mr0
-                        .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+                    this->m_mr0[blk]
+                        .template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
+                            streamID);
                 for (unsigned int n = 0; n < this->m_nQuadPts; ++n)
                 {
-                    hostPtr[n] = this->m_solutions[n]
-                                     .GetBlocks()[blk]
-                                     .template GetPtr<MemSpace, ReadOnly>();
+                    hostPtr[n] =
+                        this->m_solutions[n]
+                            .GetBlocks()[blk]
+                            .template GetPtr<MemSpace, ReadOnly>(streamID);
                 }
 
                 // Update solution.
                 detail::UpdateSolutionKernel<ExecSpace>(
-                    nsize, this->m_nQuadPts, interp,
-                    this->m_mr0.template GetPtr<MemSpace, ReadOnly>(),
-                    inout.GetBlocks()[blk]
-                        .template GetPtr<MemSpace, WriteOnly>());
+                    streamID, nsize, this->m_nQuadPts, interp,
+                    this->m_mr0[blk].template GetPtr<MemSpace, ReadOnly>(
+                        streamID),
+                    inout.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(
+                        streamID));
             }
         }
     }
@@ -302,6 +313,8 @@ protected:
         for (unsigned int blk = 0; blk < this->m_SFint[0].GetBlocks().size();
              ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             // Determine shape and type of the element.
             auto &block = this->m_SFint[0].GetBlocks()[blk];
             auto nsize  = block.GetNumElementsWithPadding() *
@@ -310,39 +323,47 @@ protected:
 
             // Initialize pointers.
             auto hostPtr0 =
-                this->m_mr0
-                    .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+                this->m_mr0[blk]
+                    .template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
+                        streamID);
             for (unsigned int n = 0; n < this->m_nQuadPts; ++n)
             {
-                hostPtr0[n] = this->m_residuals[n]
-                                  .GetBlocks()[blk]
-                                  .template GetPtr<MemSpace, ReadOnly>();
+                hostPtr0[n] =
+                    this->m_residuals[n]
+                        .GetBlocks()[blk]
+                        .template GetPtr<MemSpace, ReadOnly>(streamID);
             }
 
             auto hostPtr1 =
-                this->m_mr1
-                    .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+                this->m_mr1[blk]
+                    .template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
+                        streamID);
             for (unsigned int n = 0; n < this->m_nQuadPts; ++n)
             {
-                hostPtr1[n] = this->m_SFint[n]
-                                  .GetBlocks()[blk]
-                                  .template GetPtr<MemSpace, WriteOnly>();
+                hostPtr1[n] =
+                    this->m_SFint[n]
+                        .GetBlocks()[blk]
+                        .template GetPtr<MemSpace, WriteOnly>(streamID);
             }
 
             // Update solution.
             if (this->m_first_quadrature)
             {
                 detail::InitializeIntegratedResidualKernel<ExecSpace, true>(
-                    nsize, this->m_nQuadPts, QMat,
-                    this->m_mr0.template GetPtr<MemSpace, ReadOnly>(),
-                    this->m_mr1.template GetPtr<MemSpace, ReadOnly>());
+                    streamID, nsize, this->m_nQuadPts, QMat,
+                    this->m_mr0[blk].template GetPtr<MemSpace, ReadOnly>(
+                        streamID),
+                    this->m_mr1[blk].template GetPtr<MemSpace, ReadOnly>(
+                        streamID));
             }
             else
             {
                 detail::InitializeIntegratedResidualKernel<ExecSpace, false>(
-                    nsize, this->m_nQuadPts, QMat,
-                    this->m_mr0.template GetPtr<MemSpace, ReadOnly>(),
-                    this->m_mr1.template GetPtr<MemSpace, ReadOnly>());
+                    streamID, nsize, this->m_nQuadPts, QMat,
+                    this->m_mr0[blk].template GetPtr<MemSpace, ReadOnly>(
+                        streamID),
+                    this->m_mr1[blk].template GetPtr<MemSpace, ReadOnly>(
+                        streamID));
             }
         }
     }

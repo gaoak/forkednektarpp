@@ -34,4 +34,4 @@
 
 #include "oneMathHandle.hpp"
 
-oneMathHandle_t *oneMathHandle::handle = nullptr;
+std::unordered_map<unsigned int, oneMathHandle_t *> oneMathHandle::handle;

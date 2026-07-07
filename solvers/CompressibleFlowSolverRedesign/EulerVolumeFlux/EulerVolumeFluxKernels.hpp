@@ -45,7 +45,8 @@ template <typename ExecSpace, typename EqnOfSParams, typename TData>
 NEK_FORCE_INLINE static void EulerVolumeFluxKernel(
     const EqnOfSParams EoS, const unsigned int npts, const unsigned int ndim,
     const unsigned int nvarComps, const unsigned int inStride,
-    const unsigned int outStride, const TData *inbase, TData *outbase)
+    const unsigned int outStride, const TData *inbase, TData *outbase,
+    const unsigned int streamID)
 {
     // Check that we have the right number of variables for Euler
     if (nvarComps != ndim + 2)
@@ -66,6 +67,8 @@ NEK_FORCE_INLINE static void EulerVolumeFluxKernel(
     const size_t outVecStride = outStride / vec_width;
     const auto invec          = reinterpret_cast<const vec_t *>(inbase);
     auto outvec               = reinterpret_cast<vec_t *>(outbase);
+
+    Nektar::LoopExecutionSetStreamID(streamID);
 
     // Parallelize over point groups; each i is independent.
     Nektar::parallel_for<ExecSpace>(
@@ -119,6 +122,8 @@ NEK_FORCE_INLINE static void EulerVolumeFluxKernel(
                     ePlusP * vel[d];
             }
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 } // namespace Nektar::Operators::detail

@@ -36,6 +36,6 @@
 
 namespace Nektar
 {
-void *internalInterleaveDeviceBuffer      = nullptr;
-size_t internalInterleaveDeviceBufferSize = 0;
+std::unordered_map<unsigned int, void *> internalInterleaveDeviceBuffer;
+std::unordered_map<unsigned int, size_t> internalInterleaveDeviceBufferSize;
 } // namespace Nektar

@@ -69,13 +69,17 @@ protected:
     {
         for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             auto &inblock  = in.GetBlocks()[blk];
             auto &outblock = out.GetBlocks()[blk];
             auto &velblock = this->m_advectVel.GetBlocks()[blk];
 
-            auto inbase  = inblock.template GetPtr<MemSpace, ReadOnly>();
-            auto outbase = outblock.template GetPtr<MemSpace, WriteOnly>();
-            auto velbase = velblock.template GetPtr<MemSpace, ReadOnly>();
+            auto inbase = inblock.template GetPtr<MemSpace, ReadOnly>(streamID);
+            auto outbase =
+                outblock.template GetPtr<MemSpace, WriteOnly>(streamID);
+            auto velbase =
+                velblock.template GetPtr<MemSpace, ReadOnly>(streamID);
 
             const auto npts      = outblock.CompSize();
             const auto inStride  = inblock.CompSize();
@@ -85,9 +89,9 @@ protected:
             const auto nvarComps = inblock.GetNumComponents();
             const auto velComps  = velblock.GetNumComponents();
 
-            LinearAdvVolumeFluxKernel<ExecSpace>(npts, velComps, nvarComps,
-                                                 velStride, inStride, outStride,
-                                                 velbase, inbase, outbase);
+            LinearAdvVolumeFluxKernel<ExecSpace>(
+                npts, velComps, nvarComps, velStride, inStride, outStride,
+                velbase, inbase, outbase, streamID);
         }
     }
 };

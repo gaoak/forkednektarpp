@@ -37,7 +37,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <iostream>
-#include <map>
+#include <unordered_map>
 
 #define CHECK_LAST_HIPCUDA_ERROR()                                             \
     {                                                                          \
@@ -83,5 +83,5 @@ public:
     }
 
 private:
-    static std::map<unsigned int, cudaStream_t> streams;
+    static std::unordered_map<unsigned int, cudaStream_t> streams;
 };

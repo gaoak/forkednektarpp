@@ -41,7 +41,8 @@ namespace Nektar::Operators
 
 template <typename TData, FieldState TState>
 void BlockAccessor<TData, TState>::ReshapeStorage(
-    const unsigned int &interleaveWidth, const std::string &execSpace)
+    const unsigned int &interleaveWidth, const std::string &execSpace,
+    [[maybe_unused]] const unsigned int streamID)
 {
     if (execSpace == "Serial")
     {
@@ -82,7 +83,7 @@ void BlockAccessor<TData, TState>::ReshapeStorage(
             ::Nektar::Operators::ReshapeStorage<NektarSpaces::Device>(
                 interleaveWidth, this->GetInterleaveWidth(),
                 this->GetNumElementsWithPadding(), this->GetNumData(),
-                ptr + n * this->CompSize());
+                ptr + n * this->CompSize(), streamID);
         }
         this->template SetInterleaveWidth<TData>(interleaveWidth);
     }
@@ -94,11 +95,15 @@ void BlockAccessor<TData, TState>::ReshapeStorage(
 }
 
 template void BlockAccessor<float, FieldState::Phys>::ReshapeStorage(
-    const unsigned int &interleaveWidth, const std::string &execSpace);
+    const unsigned int &interleaveWidth, const std::string &execSpace,
+    const unsigned int streamID);
 template void BlockAccessor<float, FieldState::Coeff>::ReshapeStorage(
-    const unsigned int &interleaveWidth, const std::string &execSpace);
+    const unsigned int &interleaveWidth, const std::string &execSpace,
+    const unsigned int streamID);
 template void BlockAccessor<double, FieldState::Phys>::ReshapeStorage(
-    const unsigned int &interleaveWidth, const std::string &execSpace);
+    const unsigned int &interleaveWidth, const std::string &execSpace,
+    const unsigned int streamID);
 template void BlockAccessor<double, FieldState::Coeff>::ReshapeStorage(
-    const unsigned int &interleaveWidth, const std::string &execSpace);
+    const unsigned int &interleaveWidth, const std::string &execSpace,
+    const unsigned int streamID);
 } // namespace Nektar::Operators

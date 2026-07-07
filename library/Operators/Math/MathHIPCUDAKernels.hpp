@@ -329,28 +329,6 @@ __global__ __launch_bounds__(blockSize) void daxpyKernel(const size_t nsize,
     }
 }
 
-template <typename TData,
-          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void sumNMatrixKernel(
-    const size_t nsize, const size_t n, const TData *x, TData *y)
-{
-    const size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
-    const size_t stride = blockDim.x * gridDim.x;
-
-    for (size_t idx = idx0; idx < nsize; idx += stride)
-    {
-
-        TData sum = TData(0);
-
-        for (int i = 0; i < n; i++)
-        {
-            sum += x[idx + i * nsize];
-        }
-
-        y[idx] = sum;
-    }
-}
-
 template <bool init, typename TData,
           unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
 __global__ __launch_bounds__(blockSize) void reduceSumKernel(const size_t nsize,
@@ -1550,36 +1528,35 @@ __global__ __launch_bounds__(blockSize) void linfnormKernel(const size_t nsize,
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-zeroKernel(const size_t nsize, TData *x)
+zeroKernel(const size_t nsize, TData *x, const unsigned int streamID = 0)
 {
-    const unsigned int streamID = internalMathKernelStreamID;
     deviceMemset(x, 0, nsize * sizeof(TData), streamID);
 }
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-fillKernel(const size_t nsize, const TData &val, TData *x)
+fillKernel(const size_t nsize, const TData &val, TData *x,
+           const unsigned int streamID = 0)
 {
-    const unsigned int streamID = internalMathKernelStreamID;
     deviceFill(x, val, nsize, streamID);
 }
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-copyKernel(const size_t nsize, const TData *x, TData *y)
+copyKernel(const size_t nsize, const TData *x, TData *y,
+           const unsigned int streamID = 0)
 {
-    const unsigned int streamID = internalMathKernelStreamID;
     deviceMemcpy<DeviceToDevice>(y, x, nsize * sizeof(TData), streamID);
 }
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-absKernel(const size_t nsize, const TData *x, TData *y)
+absKernel(const size_t nsize, const TData *x, TData *y,
+          const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -1596,9 +1573,9 @@ absKernel(const size_t nsize, const TData *x, TData *y)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-negKernel(const size_t nsize, const TData *x, TData *y)
+negKernel(const size_t nsize, const TData *x, TData *y,
+          const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -1615,9 +1592,9 @@ negKernel(const size_t nsize, const TData *x, TData *y)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-sqrtKernel(const size_t nsize, const TData *x, TData *y)
+sqrtKernel(const size_t nsize, const TData *x, TData *y,
+           const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -1634,9 +1611,9 @@ sqrtKernel(const size_t nsize, const TData *x, TData *y)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-addKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
+addKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
+          const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -1653,9 +1630,9 @@ addKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-subKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
+subKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
+          const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -1672,9 +1649,9 @@ subKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-mulKernel(const size_t nsize, const TData alpha, const TData *x, TData *y)
+mulKernel(const size_t nsize, const TData alpha, const TData *x, TData *y,
+          const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -1691,9 +1668,9 @@ mulKernel(const size_t nsize, const TData alpha, const TData *x, TData *y)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-mulKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
+mulKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
+          const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -1710,9 +1687,9 @@ mulKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-divKernel(const size_t nsize, const TData alpha, const TData *x, TData *y)
+divKernel(const size_t nsize, const TData alpha, const TData *x, TData *y,
+          const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -1729,9 +1706,9 @@ divKernel(const size_t nsize, const TData alpha, const TData *x, TData *y)
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-divKernel(const size_t nsize, const TData *x, const TData *y, TData *z)
+divKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
+          const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -1749,9 +1726,8 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
-            const TData *y, TData *z)
+            const TData *y, TData *z, const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -1765,31 +1741,12 @@ daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-sumNMatrixKernel(const size_t nsize, const size_t n, const TData *x, TData *y)
-{
-    const unsigned int streamID  = internalMathKernelStreamID;
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
-#if defined(NEKTAR_ENABLE_CUDA)
-    auto stream = CUDAStream::GetInstance(streamID);
-#elif defined(NEKTAR_ENABLE_HIP)
-    auto stream = HIPStream::GetInstance(streamID);
-#endif
-
-    sumNMatrixKernel<<<gridSize, blockSize, 0, stream>>>(nsize, n, x, y);
-    CHECK_LAST_HIPCUDA_ERROR();
-}
-
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-reduceSumKernel(const size_t nsize, const TData *x, TData *out)
+reduceSumKernel(const size_t nsize, const TData *x, TData *out,
+                const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1799,13 +1756,14 @@ reduceSumKernel(const size_t nsize, const TData *x, TData *out)
     auto stream = HIPStream::GetInstance(streamID);
 #endif
 
-    if (internalMemoryBuffer == nullptr)
+    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
+        deviceMalloc(&internalMemoryBufferMap[streamID],
+                     internalMemoryBufferSize, streamID);
     }
 
-    TData *buffer = (TData *)internalMemoryBuffer;
+    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     reduceSumKernel<true><<<gridSize, blockSize, 0, stream>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
     reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
@@ -1816,9 +1774,8 @@ template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 reduceSumKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-                TData *out)
+                TData *out, const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1828,13 +1785,14 @@ reduceSumKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     auto stream = HIPStream::GetInstance(streamID);
 #endif
 
-    if (internalMemoryBuffer == nullptr)
+    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
+        deviceMalloc(&internalMemoryBufferMap[streamID],
+                     internalMemoryBufferSize, streamID);
     }
 
-    TData *buffer = (TData *)internalMemoryBuffer;
+    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     reduceSumKernel<true>
         <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
@@ -1845,9 +1803,9 @@ reduceSumKernel(const size_t nsize, const uint8_t *mask, const TData *x,
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
+reduceMaxKernel(const size_t nsize, const TData *x, TData *out,
+                const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1857,13 +1815,14 @@ reduceMaxKernel(const size_t nsize, const TData *x, TData *out)
     auto stream = HIPStream::GetInstance(streamID);
 #endif
 
-    if (internalMemoryBuffer == nullptr)
+    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
+        deviceMalloc(&internalMemoryBufferMap[streamID],
+                     internalMemoryBufferSize, streamID);
     }
 
-    TData *buffer = (TData *)internalMemoryBuffer;
+    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     reduceMaxKernel<true><<<gridSize, blockSize, 0, stream>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
     reduceMaxKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
@@ -1874,9 +1833,8 @@ template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 reduceMaxKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-                TData *out)
+                TData *out, const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1886,13 +1844,14 @@ reduceMaxKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     auto stream = HIPStream::GetInstance(streamID);
 #endif
 
-    if (internalMemoryBuffer == nullptr)
+    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
+        deviceMalloc(&internalMemoryBufferMap[streamID],
+                     internalMemoryBufferSize, streamID);
     }
 
-    TData *buffer = (TData *)internalMemoryBuffer;
+    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     reduceMaxKernel<true>
         <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
@@ -1903,9 +1862,9 @@ reduceMaxKernel(const size_t nsize, const uint8_t *mask, const TData *x,
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-reduceMinKernel(const size_t nsize, const TData *x, TData *out)
+reduceMinKernel(const size_t nsize, const TData *x, TData *out,
+                const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1915,13 +1874,14 @@ reduceMinKernel(const size_t nsize, const TData *x, TData *out)
     auto stream = HIPStream::GetInstance(streamID);
 #endif
 
-    if (internalMemoryBuffer == nullptr)
+    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
+        deviceMalloc(&internalMemoryBufferMap[streamID],
+                     internalMemoryBufferSize, streamID);
     }
 
-    TData *buffer = (TData *)internalMemoryBuffer;
+    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     reduceMinKernel<true><<<gridSize, blockSize, 0, stream>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
     reduceMinKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
@@ -1932,9 +1892,8 @@ template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 reduceMinKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-                TData *out)
+                TData *out, const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1944,13 +1903,14 @@ reduceMinKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     auto stream = HIPStream::GetInstance(streamID);
 #endif
 
-    if (internalMemoryBuffer == nullptr)
+    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
+        deviceMalloc(&internalMemoryBufferMap[streamID],
+                     internalMemoryBufferSize, streamID);
     }
 
-    TData *buffer = (TData *)internalMemoryBuffer;
+    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     reduceMinKernel<true>
         <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
@@ -1961,9 +1921,9 @@ reduceMinKernel(const size_t nsize, const uint8_t *mask, const TData *x,
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
+ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out,
+           const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1973,13 +1933,14 @@ ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out)
     auto stream = HIPStream::GetInstance(streamID);
 #endif
 
-    if (internalMemoryBuffer == nullptr)
+    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
+        deviceMalloc(&internalMemoryBufferMap[streamID],
+                     internalMemoryBufferSize, streamID);
     }
 
-    TData *buffer = (TData *)internalMemoryBuffer;
+    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     ddotKernel<true><<<gridSize, blockSize, 0, stream>>>(nsize, x, y, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
     reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
@@ -1990,9 +1951,8 @@ template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-           const TData *y, TData *out)
+           const TData *y, TData *out, const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -2002,13 +1962,14 @@ ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     auto stream = HIPStream::GetInstance(streamID);
 #endif
 
-    if (internalMemoryBuffer == nullptr)
+    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
+        deviceMalloc(&internalMemoryBufferMap[streamID],
+                     internalMemoryBufferSize, streamID);
     }
 
-    TData *buffer = (TData *)internalMemoryBuffer;
+    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     ddotKernel<true>
         <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, y, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
@@ -2019,9 +1980,9 @@ ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-l1normKernel(const size_t nsize, const TData *x, TData *out)
+l1normKernel(const size_t nsize, const TData *x, TData *out,
+             const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -2031,13 +1992,14 @@ l1normKernel(const size_t nsize, const TData *x, TData *out)
     auto stream = HIPStream::GetInstance(streamID);
 #endif
 
-    if (internalMemoryBuffer == nullptr)
+    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
+        deviceMalloc(&internalMemoryBufferMap[streamID],
+                     internalMemoryBufferSize, streamID);
     }
 
-    TData *buffer = (TData *)internalMemoryBuffer;
+    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     l1normKernel<true><<<gridSize, blockSize, 0, stream>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
     reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
@@ -2048,9 +2010,8 @@ template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 l1normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-             TData *out)
+             TData *out, const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -2060,13 +2021,14 @@ l1normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     auto stream = HIPStream::GetInstance(streamID);
 #endif
 
-    if (internalMemoryBuffer == nullptr)
+    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
+        deviceMalloc(&internalMemoryBufferMap[streamID],
+                     internalMemoryBufferSize, streamID);
     }
 
-    TData *buffer = (TData *)internalMemoryBuffer;
+    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     l1normKernel<true>
         <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
@@ -2077,9 +2039,9 @@ l1normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-l2normKernel(const size_t nsize, const TData *x, TData *out)
+l2normKernel(const size_t nsize, const TData *x, TData *out,
+             const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -2089,13 +2051,14 @@ l2normKernel(const size_t nsize, const TData *x, TData *out)
     auto stream = HIPStream::GetInstance(streamID);
 #endif
 
-    if (internalMemoryBuffer == nullptr)
+    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
+        deviceMalloc(&internalMemoryBufferMap[streamID],
+                     internalMemoryBufferSize, streamID);
     }
 
-    TData *buffer = (TData *)internalMemoryBuffer;
+    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     l2normKernel<true><<<gridSize, blockSize, 0, stream>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
     reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
@@ -2106,9 +2069,8 @@ template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 l2normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-             TData *out)
+             TData *out, const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -2118,13 +2080,14 @@ l2normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     auto stream = HIPStream::GetInstance(streamID);
 #endif
 
-    if (internalMemoryBuffer == nullptr)
+    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
+        deviceMalloc(&internalMemoryBufferMap[streamID],
+                     internalMemoryBufferSize, streamID);
     }
 
-    TData *buffer = (TData *)internalMemoryBuffer;
+    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     l2normKernel<true>
         <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
@@ -2136,9 +2099,8 @@ template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
-             TData *out)
+             TData *out, const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -2148,13 +2110,14 @@ lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
     auto stream = HIPStream::GetInstance(streamID);
 #endif
 
-    if (internalMemoryBuffer == nullptr)
+    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
+        deviceMalloc(&internalMemoryBufferMap[streamID],
+                     internalMemoryBufferSize, streamID);
     }
 
-    TData *buffer = (TData *)internalMemoryBuffer;
+    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     lpnormKernel<true><<<gridSize, blockSize, 0, stream>>>(nsize, p, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
     reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
@@ -2165,9 +2128,8 @@ template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 lpnormKernel(const size_t nsize, const unsigned int p, const uint8_t *mask,
-             const TData *x, TData *out)
+             const TData *x, TData *out, const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -2177,13 +2139,14 @@ lpnormKernel(const size_t nsize, const unsigned int p, const uint8_t *mask,
     auto stream = HIPStream::GetInstance(streamID);
 #endif
 
-    if (internalMemoryBuffer == nullptr)
+    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
+        deviceMalloc(&internalMemoryBufferMap[streamID],
+                     internalMemoryBufferSize, streamID);
     }
 
-    TData *buffer = (TData *)internalMemoryBuffer;
+    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     lpnormKernel<true>
         <<<gridSize, blockSize, 0, stream>>>(nsize, p, mask, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
@@ -2194,9 +2157,9 @@ lpnormKernel(const size_t nsize, const unsigned int p, const uint8_t *mask,
 template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
-linfnormKernel(const size_t nsize, const TData *x, TData *out)
+linfnormKernel(const size_t nsize, const TData *x, TData *out,
+               const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -2206,13 +2169,14 @@ linfnormKernel(const size_t nsize, const TData *x, TData *out)
     auto stream = HIPStream::GetInstance(streamID);
 #endif
 
-    if (internalMemoryBuffer == nullptr)
+    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
+        deviceMalloc(&internalMemoryBufferMap[streamID],
+                     internalMemoryBufferSize, streamID);
     }
 
-    TData *buffer = (TData *)internalMemoryBuffer;
+    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     linfnormKernel<true><<<gridSize, blockSize, 0, stream>>>(nsize, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
     reduceMaxKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
@@ -2223,9 +2187,8 @@ template <typename ExecSpace, bool init, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
                                void>::type
 linfnormKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-               TData *out)
+               TData *out, const unsigned int streamID = 0)
 {
-    const unsigned int streamID  = internalMathKernelStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -2235,13 +2198,14 @@ linfnormKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     auto stream = HIPStream::GetInstance(streamID);
 #endif
 
-    if (internalMemoryBuffer == nullptr)
+    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
         const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
-        deviceMalloc(&internalMemoryBuffer, internalMemoryBufferSize, streamID);
+        deviceMalloc(&internalMemoryBufferMap[streamID],
+                     internalMemoryBufferSize, streamID);
     }
 
-    TData *buffer = (TData *)internalMemoryBuffer;
+    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     linfnormKernel<true>
         <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, buffer);
     CHECK_LAST_HIPCUDA_ERROR();

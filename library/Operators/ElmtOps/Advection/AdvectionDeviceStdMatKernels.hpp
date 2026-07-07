@@ -42,8 +42,10 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorAndAdvecVelKernel(
     const unsigned int dimension, const size_t nelmt, const unsigned int nhomo,
     const size_t inoffset, const TData *dfptr, const TData *advVel,
     const size_t advelsize, const TData *inptr, TData *outptr,
-    const TData scale)
+    const TData scale, const unsigned int streamID)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     const auto ndf   = ncoord * dimension;
     const auto nsize = nqTot * nelmt * nhomo;
 
@@ -105,4 +107,6 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorAndAdvecVelKernel(
                 }
             });
     }
+
+    Nektar::LoopExecutionSetStreamID(0);
 }

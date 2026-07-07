@@ -204,11 +204,11 @@ __global__ void UpdateSolutionKernelLauncher(
 
 template <typename ExecSpace, typename Scheme, unsigned int IntOrder,
           typename TData, typename... TDatas>
-NEK_FORCE_INLINE static void UpdateStageKernel(const size_t nsize, TData *inout,
+NEK_FORCE_INLINE static void UpdateStageKernel(const unsigned int streamID,
+                                               const size_t nsize, TData *inout,
                                                const TData *solution,
                                                const TDatas *...solutions)
 {
-    const unsigned int streamID  = 0; // TODO
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -227,11 +227,11 @@ NEK_FORCE_INLINE static void UpdateStageKernel(const size_t nsize, TData *inout,
 template <typename ExecSpace, typename Scheme, unsigned int ImpStage,
           unsigned int ExpStage, unsigned int IntOrder, typename TData,
           typename... TDatas>
-NEK_FORCE_INLINE static void UpdateStageKernel(const size_t nsize, TData *inout,
+NEK_FORCE_INLINE static void UpdateStageKernel(const unsigned int streamID,
+                                               const size_t nsize, TData *inout,
                                                const TData *solution,
                                                const TDatas *...solutions)
 {
-    const unsigned int streamID  = 0; // TODO
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -249,11 +249,11 @@ NEK_FORCE_INLINE static void UpdateStageKernel(const size_t nsize, TData *inout,
 
 template <typename ExecSpace, typename Scheme, typename TData,
           typename... TDatas>
-NEK_FORCE_INLINE static void UpdateSolutionKernel(const size_t nsize,
+NEK_FORCE_INLINE static void UpdateSolutionKernel(const unsigned int streamID,
+                                                  const size_t nsize,
                                                   TData *inout,
                                                   const TDatas *...solutions)
 {
-    const unsigned int streamID  = 0; // TODO
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -270,12 +270,12 @@ NEK_FORCE_INLINE static void UpdateSolutionKernel(const size_t nsize,
 
 template <typename ExecSpace, typename Scheme, unsigned int IntOrder,
           typename TData, typename... TDatas>
-NEK_FORCE_INLINE static void UpdateSolutionKernel(const size_t nsize,
+NEK_FORCE_INLINE static void UpdateSolutionKernel(const unsigned int streamID,
+                                                  const size_t nsize,
                                                   TData *inout,
                                                   const TData *solution,
                                                   const TDatas *...solutions)
 {
-    const unsigned int streamID  = 0; // TODO
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -294,12 +294,12 @@ NEK_FORCE_INLINE static void UpdateSolutionKernel(const size_t nsize,
 template <typename ExecSpace, typename Scheme, unsigned int ImpStage,
           unsigned int ExpStage, unsigned int IntOrder, typename TData,
           typename... TDatas>
-NEK_FORCE_INLINE static void UpdateSolutionKernel(const size_t nsize,
+NEK_FORCE_INLINE static void UpdateSolutionKernel(const unsigned int streamID,
+                                                  const size_t nsize,
                                                   TData *inout,
                                                   const TData *solution,
                                                   const TDatas *...solutions)
 {
-    const unsigned int streamID  = 0; // TODO
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
@@ -318,10 +318,13 @@ NEK_FORCE_INLINE static void UpdateSolutionKernel(const size_t nsize,
 #else
 template <typename ExecSpace, typename Scheme, unsigned int IntOrder,
           typename TData, typename... TDatas>
-NEK_FORCE_INLINE static void UpdateStageKernel(const size_t nsize, TData *inout,
+NEK_FORCE_INLINE static void UpdateStageKernel(const unsigned int streamID,
+                                               const size_t nsize, TData *inout,
                                                const TData *solution,
                                                const TDatas *...solutions)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0, nsize, NEKTAR_LAMBDA(const size_t idx) {
             UpdateStageKernelImpl<Scheme, IntOrder>(
@@ -330,15 +333,20 @@ NEK_FORCE_INLINE static void UpdateStageKernel(const size_t nsize, TData *inout,
                                            sizeof...(solutions)>(),
                 solutions...);
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 template <typename ExecSpace, typename Scheme, unsigned int ImpStage,
           unsigned int ExpStage, unsigned int IntOrder, typename TData,
           typename... TDatas>
-NEK_FORCE_INLINE static void UpdateStageKernel(const size_t nsize, TData *inout,
+NEK_FORCE_INLINE static void UpdateStageKernel(const unsigned int streamID,
+                                               const size_t nsize, TData *inout,
                                                const TData *solution,
                                                const TDatas *...solutions)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0, nsize, NEKTAR_LAMBDA(const size_t idx) {
             UpdateStageKernelImpl<Scheme, ImpStage, ExpStage, IntOrder>(
@@ -347,14 +355,19 @@ NEK_FORCE_INLINE static void UpdateStageKernel(const size_t nsize, TData *inout,
                                            sizeof...(solutions)>(),
                 solutions...);
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 template <typename ExecSpace, typename Scheme, typename TData,
           typename... TDatas>
-NEK_FORCE_INLINE static void UpdateSolutionKernel(const size_t nsize,
+NEK_FORCE_INLINE static void UpdateSolutionKernel(const unsigned int streamID,
+                                                  const size_t nsize,
                                                   TData *inout,
                                                   const TDatas *...solutions)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0, nsize, NEKTAR_LAMBDA(const size_t idx) {
             UpdateSolutionKernelImpl<Scheme>(
@@ -363,15 +376,20 @@ NEK_FORCE_INLINE static void UpdateSolutionKernel(const size_t nsize,
                                            sizeof...(solutions)>(),
                 solutions...);
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 template <typename ExecSpace, typename Scheme, unsigned int IntOrder,
           typename TData, typename... TDatas>
-NEK_FORCE_INLINE static void UpdateSolutionKernel(const size_t nsize,
+NEK_FORCE_INLINE static void UpdateSolutionKernel(const unsigned int streamID,
+                                                  const size_t nsize,
                                                   TData *inout,
                                                   const TData *solution,
                                                   const TDatas *...solutions)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0, nsize, NEKTAR_LAMBDA(const size_t idx) {
             UpdateSolutionKernelImpl<Scheme, IntOrder>(
@@ -380,16 +398,21 @@ NEK_FORCE_INLINE static void UpdateSolutionKernel(const size_t nsize,
                                            sizeof...(solutions)>(),
                 solutions...);
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 template <typename ExecSpace, typename Scheme, unsigned int ImpStage,
           unsigned int ExpStage, unsigned int IntOrder, typename TData,
           typename... TDatas>
-NEK_FORCE_INLINE static void UpdateSolutionKernel(const size_t nsize,
+NEK_FORCE_INLINE static void UpdateSolutionKernel(const unsigned int streamID,
+                                                  const size_t nsize,
                                                   TData *inout,
                                                   const TData *solution,
                                                   const TDatas *...solutions)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0, nsize, NEKTAR_LAMBDA(const size_t idx) {
             UpdateSolutionKernelImpl<Scheme, ImpStage, ExpStage, IntOrder>(
@@ -398,6 +421,8 @@ NEK_FORCE_INLINE static void UpdateSolutionKernel(const size_t nsize,
                                            sizeof...(solutions)>(),
                 solutions...);
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 #endif
 

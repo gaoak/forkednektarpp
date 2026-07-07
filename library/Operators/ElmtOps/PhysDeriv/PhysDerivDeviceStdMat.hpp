@@ -54,6 +54,8 @@ public:
                          NekDataWarehouseSharedPtr dataWarehouse)
         : PhysDerivBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
+        m_streamID = block_idx + 1;
+
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
         m_isDeformed =
@@ -97,6 +99,7 @@ public:
 protected:
     static constexpr unsigned int m_implInterleaveWidth = 1u;
 
+    unsigned int m_streamID;
     LibUtilities::ShapeType m_shapeType;
     bool m_isDeformed;
     unsigned int m_dimension;
@@ -109,7 +112,7 @@ protected:
     void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
                  BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
-        auto handle = NekHandle<ExecSpace>::GetInstance();
+        auto handle = NekHandle<ExecSpace>::GetInstance(m_streamID);
 
         const auto nhomo = inblock.GetNumHomoModes();
         const auto nelmt = inblock.GetNumElementsWithPadding();
@@ -117,8 +120,8 @@ protected:
             inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes();
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -131,7 +134,7 @@ protected:
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
                                       nelmtTot, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
 
             // Perform matrix-matrix multiply.
             for (unsigned int d = 0; d < m_dimension; d++)
@@ -147,20 +150,20 @@ protected:
             {
                 MultiplyByDerivFactorKernel<ExecSpace, true>(
                     m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, outoffset,
-                    outoffset, m_dfptr, outptr, outptr);
+                    outoffset, m_dfptr, outptr, outptr, m_streamID);
             }
             else
             {
                 MultiplyByDerivFactorKernel<ExecSpace, false>(
                     m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, outoffset,
-                    outoffset, m_dfptr, outptr, outptr);
+                    outoffset, m_dfptr, outptr, outptr, m_streamID);
             }
 
             for (unsigned int k = 0; k < m_coordDim; k++)
             {
                 ReshapeStorage<ExecSpace>(
                     interleaveWidth, m_implInterleaveWidth, nelmtTot, m_nqTot,
-                    (TData *)outptr + k * outoffset);
+                    (TData *)outptr + k * outoffset, m_streamID);
             }
 
             // Increment pointer.

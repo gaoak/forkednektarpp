@@ -34,9 +34,12 @@
 
 #pragma once
 
+#include <iostream>
 #include <stdio.h>
 
-#include "hipblas/hipblas.h"
+#include <hipblas/hipblas.h>
+
+#include <Operators/Common/Backends/HIPStream.hpp>
 
 #define HIPBLAS_CHECK(condition)                                               \
     {                                                                          \
@@ -53,7 +56,7 @@
 class hipBlasHandle
 {
 public:
-    static hipblasHandle_t &GetInstance()
+    static hipblasHandle_t &GetInstance(const unsigned int streamID)
     {
         if (!handle)
         {
@@ -63,6 +66,8 @@ public:
             }
         }
 
+        HIPBLAS_CHECK(
+            hipblasSetStream(handle, HIPStream::GetInstance(streamID)));
         return handle;
     }
 

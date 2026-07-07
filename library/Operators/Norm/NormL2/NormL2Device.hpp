@@ -56,6 +56,7 @@ public:
                       NekDataWarehouseSharedPtr dataWarehouse)
         : NormL2BlockOp<TData>(block_idx, exp, dataWarehouse)
     {
+        m_streamID  = block_idx + 1;
         m_shapeType = exp->DetShapeType();
         m_isDeformed =
             exp->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed;
@@ -101,6 +102,7 @@ protected:
     static constexpr unsigned int m_implInterleaveWidth =
         NektarSpaces::Device::warpSize;
 
+    unsigned int m_streamID;
     LibUtilities::ShapeType m_shapeType;
     bool m_isDeformed        = false;
     unsigned int m_nqTot     = 0;
@@ -151,8 +153,8 @@ protected:
         const auto nelmt       = inblock.GetNumElements();
         const auto paddedNelmt = inblock.GetNumElementsWithPadding();
 
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto redptr = data.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto redptr = data.template GetPtr<MemSpace, ReadWrite>(m_streamID);
 
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
@@ -172,14 +174,16 @@ protected:
             if (m_isDeformed)
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Volume1DKernelLauncher<true>), gridsize, blocksize, 0,
-                    sizeParam1D, nelmt, m_W[0], m_jacptr, redptr + nComp);
+                    (Volume1DKernelLauncher<true>), gridsize, blocksize,
+                    m_streamID, sizeParam1D, nelmt, m_W[0], m_jacptr,
+                    redptr + nComp);
             }
             else
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Volume1DKernelLauncher<false>), gridsize, blocksize, 0,
-                    sizeParam1D, nelmt, m_W[0], m_jacptr, redptr + nComp);
+                    (Volume1DKernelLauncher<false>), gridsize, blocksize,
+                    m_streamID, sizeParam1D, nelmt, m_W[0], m_jacptr,
+                    redptr + nComp);
             }
         }
 
@@ -189,25 +193,27 @@ protected:
             // SumFac kernels expect point-major, warp-lane-minor storage.
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
                                       paddedNelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
 
             if (m_isDeformed)
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Norm1DKernelLauncher<true>), gridsize, blocksize, 0,
-                    sizeParam1D, nelmt, m_W[0], m_jacptr, inptr, redptr + nc);
+                    (Norm1DKernelLauncher<true>), gridsize, blocksize,
+                    m_streamID, sizeParam1D, nelmt, m_W[0], m_jacptr, inptr,
+                    redptr + nc);
             }
             else
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Norm1DKernelLauncher<false>), gridsize, blocksize, 0,
-                    sizeParam1D, nelmt, m_W[0], m_jacptr, inptr, redptr + nc);
+                    (Norm1DKernelLauncher<false>), gridsize, blocksize,
+                    m_streamID, sizeParam1D, nelmt, m_W[0], m_jacptr, inptr,
+                    redptr + nc);
             }
 
             // Restore the original field layout for downstream operators.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       paddedNelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
 
             // Increment pointers.
             inptr += inblock.CompSize();
@@ -223,8 +229,8 @@ protected:
         const auto nelmt       = inblock.GetNumElements();
         const auto paddedNelmt = inblock.GetNumElementsWithPadding();
 
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto redptr = data.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto redptr = data.template GetPtr<MemSpace, ReadWrite>(m_streamID);
 
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
@@ -242,15 +248,15 @@ protected:
             if (m_isDeformed)
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Volume2DKernelLauncher<true>), gridsize, blocksize, 0,
-                    sizeParam2D, nelmt, m_W[0], m_W[1], m_jacptr,
+                    (Volume2DKernelLauncher<true>), gridsize, blocksize,
+                    m_streamID, sizeParam2D, nelmt, m_W[0], m_W[1], m_jacptr,
                     redptr + nComp);
             }
             else
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Volume2DKernelLauncher<false>), gridsize, blocksize, 0,
-                    sizeParam2D, nelmt, m_W[0], m_W[1], m_jacptr,
+                    (Volume2DKernelLauncher<false>), gridsize, blocksize,
+                    m_streamID, sizeParam2D, nelmt, m_W[0], m_W[1], m_jacptr,
                     redptr + nComp);
             }
         }
@@ -260,26 +266,26 @@ protected:
         {
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
                                       paddedNelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
 
             if (m_isDeformed)
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Norm2DKernelLauncher<true>), gridsize, blocksize, 0,
-                    sizeParam2D, nelmt, m_W[0], m_W[1], m_jacptr, inptr,
-                    redptr + nc);
+                    (Norm2DKernelLauncher<true>), gridsize, blocksize,
+                    m_streamID, sizeParam2D, nelmt, m_W[0], m_W[1], m_jacptr,
+                    inptr, redptr + nc);
             }
             else
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Norm2DKernelLauncher<false>), gridsize, blocksize, 0,
-                    sizeParam2D, nelmt, m_W[0], m_W[1], m_jacptr, inptr,
-                    redptr + nc);
+                    (Norm2DKernelLauncher<false>), gridsize, blocksize,
+                    m_streamID, sizeParam2D, nelmt, m_W[0], m_W[1], m_jacptr,
+                    inptr, redptr + nc);
             }
 
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       paddedNelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
 
             inptr += inblock.CompSize();
         }
@@ -294,8 +300,8 @@ protected:
         const auto nelmt       = inblock.GetNumElements();
         const auto paddedNelmt = inblock.GetNumElementsWithPadding();
 
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto redptr = data.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto redptr = data.template GetPtr<MemSpace, ReadWrite>(m_streamID);
 
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
@@ -313,16 +319,16 @@ protected:
             if (m_isDeformed)
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Volume3DKernelLauncher<true>), gridsize, blocksize, 0,
-                    sizeParam3D, nelmt, m_W[0], m_W[1], m_W[2], m_jacptr,
-                    redptr + nComp);
+                    (Volume3DKernelLauncher<true>), gridsize, blocksize,
+                    m_streamID, sizeParam3D, nelmt, m_W[0], m_W[1], m_W[2],
+                    m_jacptr, redptr + nComp);
             }
             else
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Volume3DKernelLauncher<false>), gridsize, blocksize, 0,
-                    sizeParam3D, nelmt, m_W[0], m_W[1], m_W[2], m_jacptr,
-                    redptr + nComp);
+                    (Volume3DKernelLauncher<false>), gridsize, blocksize,
+                    m_streamID, sizeParam3D, nelmt, m_W[0], m_W[1], m_W[2],
+                    m_jacptr, redptr + nComp);
             }
         }
 
@@ -331,26 +337,26 @@ protected:
         {
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
                                       paddedNelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
 
             if (m_isDeformed)
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Norm3DKernelLauncher<true>), gridsize, blocksize, 0,
-                    sizeParam3D, nelmt, m_W[0], m_W[1], m_W[2], m_jacptr, inptr,
-                    redptr + nc);
+                    (Norm3DKernelLauncher<true>), gridsize, blocksize,
+                    m_streamID, sizeParam3D, nelmt, m_W[0], m_W[1], m_W[2],
+                    m_jacptr, inptr, redptr + nc);
             }
             else
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Norm3DKernelLauncher<false>), gridsize, blocksize, 0,
-                    sizeParam3D, nelmt, m_W[0], m_W[1], m_W[2], m_jacptr, inptr,
-                    redptr + nc);
+                    (Norm3DKernelLauncher<false>), gridsize, blocksize,
+                    m_streamID, sizeParam3D, nelmt, m_W[0], m_W[1], m_W[2],
+                    m_jacptr, inptr, redptr + nc);
             }
 
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       paddedNelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
 
             inptr += inblock.CompSize();
         }

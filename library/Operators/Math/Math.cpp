@@ -39,9 +39,8 @@
 
 namespace Nektar
 {
-unsigned int internalMathKernelStreamID = 0;
 #if defined(NEKTAR_ENABLE_DEVICE)
-void *internalMemoryBuffer           = nullptr;
+std::unordered_map<unsigned int, void *> internalMemoryBufferMap;
 void *internalDeviceBuffer           = nullptr;
 void *internalHostBuffer             = nullptr;
 unsigned int internalMaxDataSizeByte = 16;

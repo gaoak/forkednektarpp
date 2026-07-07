@@ -52,6 +52,8 @@ public:
                     NekDataWarehouseSharedPtr dataWarehouse)
         : MassBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
+        m_streamID = block_idx + 1;
+
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
         m_isDeformed =
@@ -113,6 +115,7 @@ public:
 protected:
     static constexpr unsigned int m_implInterleaveWidth = 1u;
 
+    unsigned int m_streamID;
     LibUtilities::ShapeType m_shapeType;
     bool m_isDeformed;
     unsigned int m_dimension;
@@ -127,7 +130,7 @@ protected:
     void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
                  BlockAccessor<TData, FieldState::Coeff> &outblock) override
     {
-        auto handle = NekHandle<ExecSpace>::GetInstance();
+        auto handle = NekHandle<ExecSpace>::GetInstance(m_streamID);
 
         const auto nhomo = inblock.GetNumHomoModes();
         const auto nelmt = inblock.GetNumElementsWithPadding();
@@ -135,13 +138,13 @@ protected:
             inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes();
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get static workspace pointer.
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                nelmtTot * m_nqTot);
+                nelmtTot * m_nqTot, m_streamID);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -152,7 +155,7 @@ protected:
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
                                       nelmtTot, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
 
             if (m_isDeformed)
             {
@@ -165,7 +168,7 @@ protected:
                 // Multiply by jacobian.
                 MultiplyByJacobian<ExecSpace, true>(nelmt, m_nqTot, nhomo,
                                                     m_jacptr, wspptr, wspptr,
-                                                    (TData)1.0);
+                                                    (TData)1.0, m_streamID);
 
                 // Step 2: IProduct
                 // Perform matrix-matrix multiply.
@@ -183,15 +186,16 @@ protected:
                 // Multiply by jacobian.
                 MultiplyByJacobian<ExecSpace, false>(nelmt, m_nmTot, nhomo,
                                                      m_jacptr, outptr, outptr,
-                                                     (TData)1.0);
+                                                     (TData)1.0, m_streamID);
             }
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmtTot, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmtTot, outblock.GetNumData(), outptr);
+                                      nelmtTot, outblock.GetNumData(), outptr,
+                                      m_streamID);
 
             // Increment pointers.
             inptr += inblock.CompSize() * inblock.GetNumHomoModes();

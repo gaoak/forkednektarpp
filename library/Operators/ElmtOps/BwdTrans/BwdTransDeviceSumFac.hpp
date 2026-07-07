@@ -54,6 +54,8 @@ public:
                         NekDataWarehouseSharedPtr dataWarehouse)
         : BwdTransBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
+        m_streamID = block_idx + 1;
+
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
         m_isDeformed =
@@ -143,6 +145,7 @@ protected:
             ? NektarSpaces::Device::warpSize
             : 1u;
 
+    unsigned int m_streamID;
     LibUtilities::ShapeType m_shapeType;
     bool m_isDeformed;
     bool m_isModified;
@@ -283,10 +286,11 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = (this->m_append)
-                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
-                          : outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr =
+            (this->m_append)
+                ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
+                : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
@@ -308,34 +312,35 @@ protected:
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, inInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
             if (this->m_append)
             {
                 ReshapeStorage<ExecSpace>(
                     m_implInterleaveWidth, outInterleaveWidth, nelmt,
-                    outblock.GetNumData(), (TData *)outptr);
+                    outblock.GetNumData(), (TData *)outptr, m_streamID);
 
                 // BwdTrans kernel.
                 DEVICE_1DGRID_KERNEL_LAUNCHER(
                     (BwdTrans1DKernelLauncher<Implementation, true>), gridsize,
-                    blocksize, shmemsize, 0, sizeParam1D, nelmt, m_B[0], inptr,
-                    outptr);
+                    blocksize, shmemsize, m_streamID, sizeParam1D, nelmt,
+                    m_B[0], inptr, outptr);
             }
             else
             {
                 // BwdTrans kernel.
                 DEVICE_1DGRID_KERNEL_LAUNCHER(
                     (BwdTrans1DKernelLauncher<Implementation, false>), gridsize,
-                    blocksize, shmemsize, 0, sizeParam1D, nelmt, m_B[0], inptr,
-                    outptr);
+                    blocksize, shmemsize, m_streamID, sizeParam1D, nelmt,
+                    m_B[0], inptr, outptr);
             }
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
             ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(), outptr);
+                                      nelmt, outblock.GetNumData(), outptr,
+                                      m_streamID);
 
             // Increment pointers.
             inptr += inblock.CompSize();
@@ -385,17 +390,18 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = (this->m_append)
-                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
-                          : outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr =
+            (this->m_append)
+                ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
+                : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get static workspace pointer.
         auto wspSize = BwdTransWorkSpaceSize<Implementation>(
             SHAPE_TYPE, nelmt, sizeParam2D.nm0(), sizeParam2D.nm1());
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize);
+                wspSize, m_streamID);
 
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
@@ -419,20 +425,20 @@ protected:
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, inInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
             if (this->m_append)
             {
                 ReshapeStorage<ExecSpace>(
                     m_implInterleaveWidth, outInterleaveWidth, nelmt,
-                    outblock.GetNumData(), (TData *)outptr);
+                    outblock.GetNumData(), (TData *)outptr, m_streamID);
 
                 // BwdTrans kernel.
                 DEVICE_1DGRID_KERNEL_LAUNCHER(
                     (BwdTrans2DKernelLauncher<SHAPE_TYPE, Implementation,
                                               true>),
-                    gridsize, blocksize, shmemsize, 0, sizeParam2D, nelmt,
-                    m_isModified, m_B[0], m_B[1], m_nodToMod, inptr, outptr,
-                    wspptr);
+                    gridsize, blocksize, shmemsize, m_streamID, sizeParam2D,
+                    nelmt, m_isModified, m_B[0], m_B[1], m_nodToMod, inptr,
+                    outptr, wspptr);
             }
             else
             {
@@ -440,17 +446,18 @@ protected:
                 DEVICE_1DGRID_KERNEL_LAUNCHER(
                     (BwdTrans2DKernelLauncher<SHAPE_TYPE, Implementation,
                                               false>),
-                    gridsize, blocksize, shmemsize, 0, sizeParam2D, nelmt,
-                    m_isModified, m_B[0], m_B[1], m_nodToMod, inptr, outptr,
-                    wspptr);
+                    gridsize, blocksize, shmemsize, m_streamID, sizeParam2D,
+                    nelmt, m_isModified, m_B[0], m_B[1], m_nodToMod, inptr,
+                    outptr, wspptr);
             }
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
             ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(), outptr);
+                                      nelmt, outblock.GetNumData(), outptr,
+                                      m_streamID);
 
             // Increment pointers.
             inptr += inblock.CompSize();
@@ -500,10 +507,11 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = (this->m_append)
-                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
-                          : outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr =
+            (this->m_append)
+                ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
+                : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get static workspace pointer.
         auto wspSize = BwdTransWorkSpaceSize<Implementation>(
@@ -511,7 +519,7 @@ protected:
             sizeParam3D.nm2());
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize);
+                wspSize, m_streamID);
 
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
@@ -534,19 +542,19 @@ protected:
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, inInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
             if (this->m_append)
             {
                 ReshapeStorage<ExecSpace>(
                     m_implInterleaveWidth, outInterleaveWidth, nelmt,
-                    outblock.GetNumData(), (TData *)outptr);
+                    outblock.GetNumData(), (TData *)outptr, m_streamID);
 
                 // BwdTrans kernel.
                 DEVICE_1DGRID_KERNEL_LAUNCHER(
                     (BwdTrans3DKernelLauncher<SHAPE_TYPE, Implementation,
                                               true>),
-                    gridsize, blocksize, shmemsize, 0, sizeParam3D, nelmt,
-                    m_isModified, m_index[0], m_index[1], m_B[0], m_B[1],
+                    gridsize, blocksize, shmemsize, m_streamID, sizeParam3D,
+                    nelmt, m_isModified, m_index[0], m_index[1], m_B[0], m_B[1],
                     m_B[2], m_nodToMod, inptr, outptr, wspptr);
             }
             else
@@ -555,17 +563,18 @@ protected:
                 DEVICE_1DGRID_KERNEL_LAUNCHER(
                     (BwdTrans3DKernelLauncher<SHAPE_TYPE, Implementation,
                                               false>),
-                    gridsize, blocksize, shmemsize, 0, sizeParam3D, nelmt,
-                    m_isModified, m_index[0], m_index[1], m_B[0], m_B[1],
+                    gridsize, blocksize, shmemsize, m_streamID, sizeParam3D,
+                    nelmt, m_isModified, m_index[0], m_index[1], m_B[0], m_B[1],
                     m_B[2], m_nodToMod, inptr, outptr, wspptr);
             }
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
             ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(), outptr);
+                                      nelmt, outblock.GetNumData(), outptr,
+                                      m_streamID);
 
             // Increment pointers.
             inptr += inblock.CompSize();

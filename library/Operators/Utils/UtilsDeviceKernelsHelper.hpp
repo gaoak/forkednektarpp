@@ -33,9 +33,11 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <cstddef>
+#include <unordered_map>
 
 namespace Nektar
 {
-extern void *internalInterleaveDeviceBuffer;
-extern size_t internalInterleaveDeviceBufferSize;
+extern std::unordered_map<unsigned int, void *> internalInterleaveDeviceBuffer;
+extern std::unordered_map<unsigned int, size_t>
+    internalInterleaveDeviceBufferSize;
 } // namespace Nektar

@@ -83,19 +83,23 @@ protected:
     {
         for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             auto &inblock    = in.GetBlocks()[blk];
             auto &derivblock = deriv.GetBlocks()[blk];
             auto &outblock   = out.GetBlocks()[blk];
 
-            auto derivbase = derivblock.template GetPtr<MemSpace, ReadOnly>();
-            auto outbase   = outblock.template GetPtr<MemSpace, WriteOnly>();
+            auto derivbase =
+                derivblock.template GetPtr<MemSpace, ReadOnly>(streamID);
+            auto outbase =
+                outblock.template GetPtr<MemSpace, WriteOnly>(streamID);
             auto diffCoeffBase =
-                m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
+                m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(streamID);
 
             DiffusionScalarIPVolFluxKernel<ExecSpace>(
                 outblock.CompSize(), m_nDim, inblock.GetNumComponents(),
                 derivblock.CompSize(), outblock.CompSize(), diffCoeffBase,
-                derivbase, outbase);
+                derivbase, outbase, streamID);
         }
     }
 

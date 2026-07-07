@@ -55,28 +55,26 @@
 
 #include "Operators/Common/Spaces.hpp"
 
-void NekBlasSetStream(blasHandle_t handle, const unsigned int streamID);
-
 template <typename ExecSpace> class NekHandle
 {
 public:
     typedef int index_type;
 
-    static blasHandle_t GetInstance(void)
+    static blasHandle_t GetInstance(
+        [[maybe_unused]] const unsigned int streamID)
     {
         return blasHandle::GetInstance();
     }
 };
 
 #if defined(NEKTAR_ENABLE_SIMD)
-void NekBlasSetStream(xsmmHandle_t handle, const unsigned int streamID);
-
 template <> class NekHandle<NektarSpaces::AVX>
 {
 public:
     typedef int index_type;
 
-    static xsmmHandle_t GetInstance(void)
+    static xsmmHandle_t GetInstance(
+        [[maybe_unused]] const unsigned int streamID)
     {
         return xsmmHandle::GetInstance();
     }
@@ -89,49 +87,42 @@ template <> class NekHandle<NektarSpaces::Device>
 public:
     typedef int index_type;
 
-    static magma_queue_t GetInstance(void)
+    static magma_queue_t GetInstance(const unsigned int streamID)
     {
-        return magmaHandle::GetInstance();
+        return magmaHandle::GetInstance(streamID);
     }
 };
 #elif defined(NEKTAR_ENABLE_CUDA)
-void NekBlasSetStream(cublasHandle_t handle, const unsigned int streamID);
-
 template <> class NekHandle<NektarSpaces::Device>
 {
 public:
     typedef int index_type;
 
-    static cublasHandle_t GetInstance(void)
+    static cublasHandle_t GetInstance(const unsigned int streamID)
     {
-        return cuBlasHandle::GetInstance();
+        return cuBlasHandle::GetInstance(streamID);
     }
 };
 #elif defined(NEKTAR_ENABLE_HIP)
-void NekBlasSetStream(hipblasHandle_t handle, const unsigned int streamID);
-
 template <> class NekHandle<NektarSpaces::Device>
 {
 public:
     typedef int index_type;
 
-    static hipblasHandle_t GetInstance(void)
+    static hipblasHandle_t GetInstance(const unsigned int streamID)
     {
-        return hipBlasHandle::GetInstance();
+        return hipBlasHandle::GetInstance(streamID);
     }
 };
 #elif defined(NEKTAR_ENABLE_SYCL)
-extern unsigned int internalOneMathStreamID;
-void NekBlasSetStream(oneMathHandle_t handle, const unsigned int streamID);
-
 template <> class NekHandle<NektarSpaces::Device>
 {
 public:
     typedef std::int64_t index_type;
 
-    static oneMathHandle_t GetInstance(void)
+    static oneMathHandle_t GetInstance(const unsigned int streamID)
     {
-        return oneMathHandle::GetInstance();
+        return oneMathHandle::GetInstance(streamID);
     }
 };
 #endif

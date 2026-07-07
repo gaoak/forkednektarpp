@@ -54,6 +54,8 @@ public:
                                   NekDataWarehouseSharedPtr dataWarehouse)
         : LinAdvDiffReactionBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
+        m_streamID = block_idx + 1;
+
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
         m_isDeformed =
@@ -214,6 +216,7 @@ protected:
             ? NektarSpaces::Device::warpSize
             : 1u;
 
+    unsigned int m_streamID;
     LibUtilities::ShapeType m_shapeType;
     bool m_isDeformed;
     bool m_isModified;
@@ -305,13 +308,14 @@ protected:
     void v_SetAdvVel(BlockAccessor<TData, FieldState::Phys> &advVel) override
     {
         const auto interleaveWidth = advVel.GetInterleaveWidth();
-        this->m_advVel = advVel.template GetPtr<MemSpace, ReadWrite>();
+        this->m_advVel =
+            advVel.template GetPtr<MemSpace, ReadWrite>(m_streamID);
         for (unsigned int n = 0; n < this->m_exp->GetCoordim(); n++)
         {
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                      advVel.GetNumElementsWithPadding(),
-                                      advVel.GetNumData(),
-                                      this->m_advVel + n * advVel.CompSize());
+            ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, interleaveWidth,
+                advVel.GetNumElementsWithPadding(), advVel.GetNumData(),
+                this->m_advVel + n * advVel.CompSize(), m_streamID);
         }
         advVel.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
@@ -374,12 +378,11 @@ protected:
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
-        auto diffCoeffPtr =
-            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
-
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
+        auto diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(m_streamID);
 
         // Initialize advVel pointers.
         auto advVelptr  = m_advVel;
@@ -391,7 +394,7 @@ protected:
             sizeParam1D.nm0());
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize);
+                wspSize, m_streamID);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -412,23 +415,25 @@ protected:
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
 
             // LinAdvDiffReaction kernel.
             DEVICE_1DGRID_KERNEL_LAUNCHER(
                 (LinAdvDiffReaction1DKernelLauncher<Implementation, DEFORMED>),
-                gridsize, blocksize, shmemsize, 0, sizeParam1D, m_coordDim,
-                nelmt, m_B[0], m_D[0], m_W[0], m_dfptr, m_jacptr, diffCoeffPtr,
-                advVelptr, advVelptr + advVelSize, advVelptr + 2 * advVelSize,
+                gridsize, blocksize, shmemsize, m_streamID, sizeParam1D,
+                m_coordDim, nelmt, m_B[0], m_D[0], m_W[0], m_dfptr, m_jacptr,
+                diffCoeffPtr, advVelptr, advVelptr + advVelSize,
+                advVelptr + 2 * advVelSize,
 
                 inptr, outptr, wspptr, this->m_lambda);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(), outptr);
+                                      nelmt, outblock.GetNumData(), outptr,
+                                      m_streamID);
 
             // Increment pointers.
             inptr += inblock.CompSize();
@@ -480,12 +485,11 @@ protected:
 
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
-        auto diffCoeffPtr =
-            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
-
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
+        auto diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(m_streamID);
 
         // Initialize advVel pointers.
         auto advVelptr  = m_advVel;
@@ -497,7 +501,7 @@ protected:
             sizeParam2D.nm0(), sizeParam2D.nm1());
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize);
+                wspSize, m_streamID);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -520,25 +524,26 @@ protected:
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
 
             // LinAdvDiffReaction kernel.
             DEVICE_1DGRID_KERNEL_LAUNCHER(
                 (LinAdvDiffReaction2DKernelLauncher<SHAPE_TYPE, Implementation,
                                                     DEFORMED>),
-                gridsize, blocksize, shmemsize, 0, sizeParam2D, m_coordDim,
-                nelmt, m_isModified, m_index[0], m_B[0], m_B[1], m_D[0], m_D[1],
-                m_W[0], m_W[1], m_f[0], m_f[1], m_nodToMod, m_dfptr, m_jacptr,
-                diffCoeffPtr, advVelptr, advVelptr + advVelSize,
-                advVelptr + 2 * advVelSize, inptr, outptr, wspptr,
-                this->m_lambda);
+                gridsize, blocksize, shmemsize, m_streamID, sizeParam2D,
+                m_coordDim, nelmt, m_isModified, m_index[0], m_B[0], m_B[1],
+                m_D[0], m_D[1], m_W[0], m_W[1], m_f[0], m_f[1], m_nodToMod,
+                m_dfptr, m_jacptr, diffCoeffPtr, advVelptr,
+                advVelptr + advVelSize, advVelptr + 2 * advVelSize, inptr,
+                outptr, wspptr, this->m_lambda);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(), outptr);
+                                      nelmt, outblock.GetNumData(), outptr,
+                                      m_streamID);
 
             // Increment pointers.
             inptr += inblock.CompSize();
@@ -590,12 +595,11 @@ protected:
 
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
-        auto diffCoeffPtr =
-            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
-
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
+        auto diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(m_streamID);
 
         // Initialize advVel pointers.
         auto advVelptr  = m_advVel;
@@ -608,7 +612,7 @@ protected:
             sizeParam3D.nm2());
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize);
+                wspSize, m_streamID);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -630,13 +634,13 @@ protected:
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
 
             // LinAdvDiffReaction kernel.
             DEVICE_1DGRID_KERNEL_LAUNCHER(
                 (LinAdvDiffReaction3DKernelLauncher<SHAPE_TYPE, Implementation,
                                                     DEFORMED>),
-                gridsize, blocksize, shmemsize, 0, sizeParam3D, nelmt,
+                gridsize, blocksize, shmemsize, m_streamID, sizeParam3D, nelmt,
                 m_isModified, m_index[0], m_index[1], m_index[2], m_index[3],
                 m_B[0], m_B[1], m_B[2], m_D[0], m_D[1], m_D[2], m_W[0], m_W[1],
                 m_W[2], m_f[0], m_f[1], m_f[2], m_f[3], m_nodToMod, m_dfptr,
@@ -647,9 +651,10 @@ protected:
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(), outptr);
+                                      nelmt, outblock.GetNumData(), outptr,
+                                      m_streamID);
 
             // Increment pointers.
             inptr += inblock.CompSize();

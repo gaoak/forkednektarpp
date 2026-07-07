@@ -54,6 +54,8 @@ public:
                          NekDataWarehouseSharedPtr dataWarehouse)
         : HelmholtzBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
+        m_streamID = block_idx + 1;
+
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
         m_isDeformed =
@@ -110,6 +112,7 @@ public:
 protected:
     static constexpr unsigned int m_implInterleaveWidth = 1u;
 
+    unsigned int m_streamID;
     LibUtilities::ShapeType m_shapeType;
     bool m_isDeformed;
     unsigned int m_dimension;
@@ -126,7 +129,7 @@ protected:
     void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
                  BlockAccessor<TData, FieldState::Coeff> &outblock) override
     {
-        auto handle = NekHandle<ExecSpace>::GetInstance();
+        auto handle = NekHandle<ExecSpace>::GetInstance(m_streamID);
 
         const auto nhomo = inblock.GetNumHomoModes();
         const auto nelmt = inblock.GetNumElementsWithPadding();
@@ -134,15 +137,16 @@ protected:
             inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes();
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
         auto diffCoeffPtr =
-            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(m_streamID);
 
         // Get static workspace pointer.
         auto bwdptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                nelmtTot * m_nqTot + m_dimension * nelmtTot * m_nqTot);
+                nelmtTot * m_nqTot + m_dimension * nelmtTot * m_nqTot,
+                m_streamID);
         auto derivptr = bwdptr + nelmtTot * m_nqTot;
 
         // Get interleave parameter.
@@ -160,7 +164,7 @@ protected:
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
                                       nelmtTot, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
 
             // Step 1: BwdTrans
             // Perform matrix-matrix multiply.
@@ -186,16 +190,16 @@ protected:
             if (m_isDeformed)
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (ApplyMetricKernel<true>), gridSize, blockSize, 0, m_nqTot,
-                    m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
+                    (ApplyMetricKernel<true>), gridSize, blockSize, m_streamID,
+                    m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
                     derivoffset, diffCoeffPtr, m_jacptr, m_dfptr, derivptr,
                     derivptr, bwdptr, this->m_lambda);
             }
             else
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (ApplyMetricKernel<false>), gridSize, blockSize, 0, m_nqTot,
-                    m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
+                    (ApplyMetricKernel<false>), gridSize, blockSize, m_streamID,
+                    m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
                     derivoffset, diffCoeffPtr, m_jacptr, m_dfptr, derivptr,
                     derivptr, bwdptr, this->m_lambda);
             }
@@ -225,9 +229,10 @@ protected:
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmtTot, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmtTot, outblock.GetNumData(), outptr);
+                                      nelmtTot, outblock.GetNumData(), outptr,
+                                      m_streamID);
 
             // Increment pointers.
             inptr += inblock.CompSize() * inblock.GetNumHomoModes();

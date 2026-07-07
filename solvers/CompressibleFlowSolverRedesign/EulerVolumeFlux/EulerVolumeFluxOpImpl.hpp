@@ -79,11 +79,14 @@ protected:
     {
         for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             auto &inblock  = in.GetBlocks()[blk];
             auto &outblock = out.GetBlocks()[blk];
 
-            auto inbase  = inblock.template GetPtr<MemSpace, ReadOnly>();
-            auto outbase = outblock.template GetPtr<MemSpace, WriteOnly>();
+            auto inbase = inblock.template GetPtr<MemSpace, ReadOnly>(streamID);
+            auto outbase =
+                outblock.template GetPtr<MemSpace, WriteOnly>(streamID);
 
             const auto npts      = outblock.CompSize();
             const auto inStride  = inblock.CompSize();
@@ -93,7 +96,7 @@ protected:
 
             EulerVolumeFluxKernel<ExecSpace, EqnOfSParams>(
                 m_EoS, npts, m_dimension, nvarComps, inStride, outStride,
-                inbase, outbase);
+                inbase, outbase, streamID);
         }
     }
 };

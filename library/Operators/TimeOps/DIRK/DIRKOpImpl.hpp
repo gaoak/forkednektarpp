@@ -213,6 +213,8 @@ protected:
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < out.GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             // Determine shape and type of the element.
             auto &outBlock = out.GetBlocks()[blk];
             auto nsize     = outBlock.GetNumElementsWithPadding() *
@@ -221,13 +223,14 @@ protected:
 
             // Compute stage solution.
             UpdateStageKernel<ExecSpace, Scheme, IntOrder>(
-                nsize, outBlock.template GetPtr<MemSpace, WriteOnly>(),
+                streamID, nsize,
+                outBlock.template GetPtr<MemSpace, WriteOnly>(streamID),
                 this->m_solutions[0]
                     .GetBlocks()[blk]
-                    .template GetPtr<MemSpace, ReadOnly>(),
+                    .template GetPtr<MemSpace, ReadOnly>(streamID),
                 (this->m_implicits[ind]
                      .GetBlocks()[blk]
-                     .template GetPtr<MemSpace, ReadOnly>())...);
+                     .template GetPtr<MemSpace, ReadOnly>(streamID))...);
         }
     }
 
@@ -238,6 +241,8 @@ protected:
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < out.GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             // Determine shape and type of the element.
             auto &outBlock = out.GetBlocks()[blk];
             auto nsize     = outBlock.GetNumElementsWithPadding() *
@@ -246,13 +251,14 @@ protected:
 
             // Compute new solution.
             UpdateSolutionKernel<ExecSpace, Scheme, IntOrder>(
-                nsize, outBlock.template GetPtr<MemSpace, WriteOnly>(),
+                streamID, nsize,
+                outBlock.template GetPtr<MemSpace, WriteOnly>(streamID),
                 this->m_solutions[0]
                     .GetBlocks()[blk]
-                    .template GetPtr<MemSpace, ReadOnly>(),
+                    .template GetPtr<MemSpace, ReadOnly>(streamID),
                 (this->m_implicits[ind]
                      .GetBlocks()[blk]
-                     .template GetPtr<MemSpace, ReadOnly>())...);
+                     .template GetPtr<MemSpace, ReadOnly>(streamID))...);
         }
     }
 };

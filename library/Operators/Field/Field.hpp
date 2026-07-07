@@ -279,7 +279,9 @@ public:
     {
         for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
         {
-            this->GetBlocks()[blk].ReshapeStorage(interleaveWidth, execSpace);
+            const unsigned int streamID = blk + 1;
+            this->GetBlocks()[blk].ReshapeStorage(interleaveWidth, execSpace,
+                                                  streamID);
         }
     }
 
@@ -303,8 +305,10 @@ public:
 
         for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
             this->GetBlocks()[blk]
-                .m_memory_region.template Initialize<MemSpace>(val);
+                .m_memory_region.template Initialize<MemSpace>(val, 0, 0,
+                                                               streamID);
         }
     }
 
@@ -460,8 +464,9 @@ public:
 
         for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
             this->GetBlocks()[blk].m_memory_region.template Copy<MemSpace>(
-                field.GetBlocks()[blk].m_memory_region);
+                field.GetBlocks()[blk].m_memory_region, streamID);
             this->GetBlocks()[blk].template SetInterleaveWidth<TData>(
                 field.GetBlocks()[blk].GetInterleaveWidth());
         }
@@ -511,6 +516,8 @@ public:
         auto src = array.data();
         for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             auto offset       = 0;
             const auto nSize  = this->GetBlocks()[blk].CompSize();
             const auto nElmts = this->GetBlocks()[blk].GetNumElements();
@@ -520,7 +527,7 @@ public:
             {
                 this->GetBlocks()[blk]
                     .m_memory_region.template CopyFromHostPtr<MemSpace>(
-                        src + n * compSize, nElmts * nPts, offset);
+                        src + n * compSize, nElmts * nPts, offset, streamID);
                 offset += nSize;
             }
             src += nElmts * nPts;
@@ -570,6 +577,8 @@ public:
         auto src = array.data();
         for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             auto offset       = 0;
             const auto nSize  = this->GetBlocks()[blk].CompSize();
             const auto nElmts = this->GetBlocks()[blk].GetNumElements();
@@ -579,7 +588,7 @@ public:
             {
                 this->GetBlocks()[blk]
                     .m_memory_region.template CopyFromHostPtr<MemSpace>(
-                        src + n * compSize, nElmts * nPts, offset);
+                        src + n * compSize, nElmts * nPts, offset, streamID);
                 offset += nSize;
             }
             src += nElmts * nPts;

@@ -47,15 +47,24 @@ NEK_FORCE_INLINE static void UpdateConjGradSearchDirection(
 
     for (unsigned int blk = 0; blk < out.GetBlocks().size(); ++blk)
     {
+        const unsigned int streamID = blk + 1;
+
         auto size = out.GetBlocks()[blk].CompSize() * out.GetNumComponents() *
                     out.GetNumHomoModes();
-        auto wptr = w.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto sptr = s.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
-        auto pptr = p.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>();
-        auto qptr = q.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>();
-        auto rptr = r.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>();
+        auto wptr =
+            w.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto sptr =
+            s.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto pptr =
+            p.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(streamID);
+        auto qptr =
+            q.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(streamID);
+        auto rptr =
+            r.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(streamID);
         auto outptr =
-            out.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>();
+            out.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(streamID);
+
+        Nektar::LoopExecutionSetStreamID(streamID);
 
         Nektar::parallel_for<ExecSpace>(
             0, size, NEKTAR_LAMBDA(const size_t idx) {
@@ -74,4 +83,6 @@ NEK_FORCE_INLINE static void UpdateConjGradSearchDirection(
                 qptr[idx] = q0;
             });
     }
+
+    Nektar::LoopExecutionSetStreamID(0);
 }

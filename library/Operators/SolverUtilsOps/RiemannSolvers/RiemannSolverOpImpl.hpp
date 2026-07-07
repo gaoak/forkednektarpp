@@ -46,7 +46,8 @@ template <template <typename> typename RiemannKernel, typename ExecSpace,
 NEK_FORCE_INLINE static void RiemannKernelLauncher(
     const size_t blksize, const unsigned int velComps,
     const unsigned int fluxComps, const TData *velbase, const TData *normbase,
-    const TData *fwdbase, const TData *bwdbase, TData *fluxbase)
+    const TData *fwdbase, const TData *bwdbase, TData *fluxbase,
+    const unsigned int streamID)
 {
     // Explicit vectorisation for AVX backend,
     // vec_t = tinysimd::simd<TData> for AVX,
@@ -60,6 +61,8 @@ NEK_FORCE_INLINE static void RiemannKernelLauncher(
 
     const size_t groupsize = blksize / vec_width;
 
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
             RiemannKernel<ExecSpace>()(
@@ -67,6 +70,8 @@ NEK_FORCE_INLINE static void RiemannKernelLauncher(
                 normbase + i * vec_width, fwdbase + i * vec_width,
                 bwdbase + i * vec_width, fluxbase + i * vec_width);
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 template <template <typename> typename RiemannKernel, typename ExecSpace,
@@ -103,6 +108,8 @@ protected:
         // Loop over blocks
         for (unsigned int blk = 0; blk < flux.GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             // Get block references
             auto &velblock    = this->m_traceAdvVel.GetBlocks()[blk];
             auto &normalblock = this->m_traceNormals.GetBlocks()[blk];
@@ -111,11 +118,16 @@ protected:
             auto &fluxblock   = flux.GetBlocks()[blk];
 
             // Base pointers in MemSpace corresponding to ExecSpace
-            auto velbase  = velblock.template GetPtr<MemSpace, ReadOnly>();
-            auto normbase = normalblock.template GetPtr<MemSpace, ReadOnly>();
-            auto fwdbase  = fwdblock.template GetPtr<MemSpace, ReadOnly>();
-            auto bwdbase  = bwdblock.template GetPtr<MemSpace, ReadOnly>();
-            auto fluxbase = fluxblock.template GetPtr<MemSpace, WriteOnly>();
+            auto velbase =
+                velblock.template GetPtr<MemSpace, ReadOnly>(streamID);
+            auto normbase =
+                normalblock.template GetPtr<MemSpace, ReadOnly>(streamID);
+            auto fwdbase =
+                fwdblock.template GetPtr<MemSpace, ReadOnly>(streamID);
+            auto bwdbase =
+                bwdblock.template GetPtr<MemSpace, ReadOnly>(streamID);
+            auto fluxbase =
+                fluxblock.template GetPtr<MemSpace, WriteOnly>(streamID);
 
             // Sizes / strides
             const auto blksize   = fluxblock.CompSize();
@@ -125,7 +137,7 @@ protected:
             // Launch kernel
             RiemannKernelLauncher<RiemannKernel, ExecSpace>(
                 blksize, velComps, fluxComps, velbase, normbase, fwdbase,
-                bwdbase, fluxbase);
+                bwdbase, fluxbase, streamID);
         }
     }
 };

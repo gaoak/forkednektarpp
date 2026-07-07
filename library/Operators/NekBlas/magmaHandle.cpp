@@ -34,4 +34,4 @@
 
 #include "magmaHandle.hpp"
 
-magma_queue_t magmaHandle::handle = nullptr;
+std::unordered_map<unsigned int, magma_queue_t> magmaHandle::handle;

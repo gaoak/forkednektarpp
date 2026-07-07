@@ -238,7 +238,8 @@ public:
     }
 
     void ReshapeStorage(const unsigned int &interleaveWidth,
-                        const std::string &execSpace);
+                        const std::string &execSpace,
+                        const unsigned int streamID = 0);
 
     /**
      * @brief Get the pointer to the host/device memory.
@@ -287,9 +288,10 @@ public:
      */
     template <typename MemSpace>
     void Initialize(const TData val, const size_t count = 0,
-                    const size_t offset = 0)
+                    const size_t offset = 0, const unsigned int streamID = 0)
     {
-        m_memory_region.template Initialize<MemSpace>(val, count, offset);
+        m_memory_region.template Initialize<MemSpace>(val, count, offset,
+                                                      streamID);
     }
 
 private:

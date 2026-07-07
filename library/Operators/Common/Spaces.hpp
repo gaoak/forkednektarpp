@@ -43,6 +43,7 @@
 #include <iostream>
 #include <limits.h>
 #include <string>
+#include <unordered_map>
 #include <utility>
 
 #if defined(_MSC_VER)
@@ -301,7 +302,7 @@ namespace Nektar
 {
 
 #if defined(NEKTAR_ENABLE_DEVICE)
-extern void *internalMemoryBuffer;
+extern std::unordered_map<unsigned int, void *> internalMemoryBufferMap;
 extern void *internalDeviceBuffer;
 extern void *internalHostBuffer;
 extern unsigned int internalMaxDataSizeByte;

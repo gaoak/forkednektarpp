@@ -41,8 +41,11 @@ NEK_FORCE_INLINE static void JacobianDerivFactorKernel(
     const unsigned int nqTot, const unsigned int ncoord,
     const unsigned int dimension, const size_t nelmt, const unsigned int nhomo,
     const size_t inoffset, const size_t outoffset, const TData *jacptr,
-    const TData *dfptr, const TData *inptr, TData *outptr)
+    const TData *dfptr, const TData *inptr, TData *outptr,
+    const unsigned int streamID)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     const auto ndf   = ncoord * dimension;
     const auto nsize = nqTot * nelmt * nhomo;
 
@@ -91,6 +94,8 @@ NEK_FORCE_INLINE static void JacobianDerivFactorKernel(
                 }
             });
     }
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 template <typename ExecSpace, bool DEFORMED, typename TData>
@@ -98,8 +103,11 @@ NEK_FORCE_INLINE static void JacobianDerivFactorWeightsKernel(
     const unsigned int nqTot, const unsigned int ncoord,
     const unsigned int dimension, const size_t nelmt, const unsigned int nhomo,
     const size_t inoffset, const size_t outoffset, const TData *jacptr,
-    const TData *dfptr, const TData *weights, const TData *inptr, TData *outptr)
+    const TData *dfptr, const TData *weights, const TData *inptr, TData *outptr,
+    const unsigned int streamID)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     const auto ndf   = ncoord * dimension;
     const auto nsize = nqTot * nelmt * nhomo;
 
@@ -153,4 +161,6 @@ NEK_FORCE_INLINE static void JacobianDerivFactorWeightsKernel(
                 }
             });
     }
+
+    Nektar::LoopExecutionSetStreamID(0);
 }

@@ -43,10 +43,12 @@ template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void CopyBwdDerivTraceFromFwdOnBndKernel(
     const size_t nBndPts, const unsigned int nComps,
     const unsigned int compStride, const size_t *bndTraceOffset,
-    const TData *fwdbase, TData *bwdbase)
+    const TData *fwdbase, TData *bwdbase, const unsigned streamID)
 {
     // Derivative traces do not have physical boundary data of their own. On
     // physical boundaries legacy DiffusionIP uses dq^- = dq^+ before the IP
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     // penalty term is added, while periodic traces are handled separately.
     Nektar::parallel_for<ExecSpace>(
         0u, nBndPts, NEKTAR_LAMBDA(const size_t i) {
@@ -57,6 +59,8 @@ NEK_FORCE_INLINE static void CopyBwdDerivTraceFromFwdOnBndKernel(
                     fwdbase[c * compStride + offset];
             }
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 } // namespace Nektar::Operators::detail

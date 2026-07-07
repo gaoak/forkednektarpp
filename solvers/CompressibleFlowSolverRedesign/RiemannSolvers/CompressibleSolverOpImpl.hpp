@@ -50,7 +50,7 @@ NEK_FORCE_INLINE static void RiemannKernelLauncher(
     const EoSParamType &EoS, const size_t blksize, const TData *normalPtr,
     const TData *rotMatPtr, TData *rotStorage1Ptr, TData *rotStorage2Ptr,
     TData *rotStorage3Ptr, const TData *fwdPtr, const TData *bwdPtr,
-    TData *fluxPtr)
+    TData *fluxPtr, const unsigned int streamID)
 {
     using namespace Nektar::Operators::detail;
 
@@ -65,6 +65,8 @@ NEK_FORCE_INLINE static void RiemannKernelLauncher(
             : 1;
 
     const size_t groupsize = blksize / vec_width;
+
+    Nektar::LoopExecutionSetStreamID(streamID);
 
     if (NDIM == 3 && ROTMAT)
     {
@@ -119,6 +121,8 @@ NEK_FORCE_INLINE static void RiemannKernelLauncher(
                     rotMatPtr + i * vec_width, fluxPtr + i * vec_width);
             });
     }
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 template <template <typename, typename, unsigned int> typename RiemannKernel,
@@ -225,6 +229,8 @@ protected:
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < Fwd.GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             // Initialize pointers.
             auto &fwdBlk         = Fwd.GetBlocks()[blk];
             auto &bwdBlk         = Bwd.GetBlocks()[blk];
@@ -234,40 +240,45 @@ protected:
             auto &rotStorage2Blk = m_rotStorage2.GetBlocks()[blk];
             auto &rotStorage3Blk = m_rotStorage3.GetBlocks()[blk];
 
-            auto fwdPtr    = fwdBlk.template GetPtr<MemSpace, ReadOnly>();
-            auto bwdPtr    = bwdBlk.template GetPtr<MemSpace, ReadOnly>();
-            auto fluxPtr   = fluxBlk.template GetPtr<MemSpace, WriteOnly>();
-            auto normalPtr = normalBlk.template GetPtr<MemSpace, ReadOnly>();
+            auto fwdPtr = fwdBlk.template GetPtr<MemSpace, ReadOnly>(streamID);
+            auto bwdPtr = bwdBlk.template GetPtr<MemSpace, ReadOnly>(streamID);
+            auto fluxPtr =
+                fluxBlk.template GetPtr<MemSpace, WriteOnly>(streamID);
+            auto normalPtr =
+                normalBlk.template GetPtr<MemSpace, ReadOnly>(streamID);
             auto rotStorage1Ptr =
-                rotStorage1Blk.template GetPtr<MemSpace, WriteOnly>();
+                rotStorage1Blk.template GetPtr<MemSpace, WriteOnly>(streamID);
             auto rotStorage2Ptr =
-                rotStorage2Blk.template GetPtr<MemSpace, WriteOnly>();
+                rotStorage2Blk.template GetPtr<MemSpace, WriteOnly>(streamID);
             auto rotStorage3Ptr =
-                rotStorage3Blk.template GetPtr<MemSpace, WriteOnly>();
+                rotStorage3Blk.template GetPtr<MemSpace, WriteOnly>(streamID);
 
             const auto blksize = fwdBlk.CompSize();
 
             auto rotMatPtr =
-                (NDIM == 3) ? (m_updateRotMat)
-                                  ? m_rotMat.GetBlocks()[blk]
-                                        .template GetPtr<MemSpace, WriteOnly>()
-                                  : m_rotMat.GetBlocks()[blk]
-                                        .template GetPtr<MemSpace, ReadOnly>()
-                            : normalPtr;
+                (NDIM == 3)
+                    ? (m_updateRotMat)
+                          ? m_rotMat.GetBlocks()[blk]
+                                .template GetPtr<MemSpace, WriteOnly>(streamID)
+                          : m_rotMat.GetBlocks()[blk]
+                                .template GetPtr<MemSpace, ReadOnly>(streamID)
+                    : normalPtr;
 
             if (m_updateRotMat)
             {
                 RiemannKernelLauncher<RiemannKernel, EoSParamType, ExecSpace,
                                       NDIM, true>(
                     m_EoS, blksize, normalPtr, rotMatPtr, rotStorage1Ptr,
-                    rotStorage2Ptr, rotStorage3Ptr, fwdPtr, bwdPtr, fluxPtr);
+                    rotStorage2Ptr, rotStorage3Ptr, fwdPtr, bwdPtr, fluxPtr,
+                    streamID);
             }
             else
             {
                 RiemannKernelLauncher<RiemannKernel, EoSParamType, ExecSpace,
                                       NDIM, false>(
                     m_EoS, blksize, normalPtr, rotMatPtr, rotStorage1Ptr,
-                    rotStorage2Ptr, rotStorage3Ptr, fwdPtr, bwdPtr, fluxPtr);
+                    rotStorage2Ptr, rotStorage3Ptr, fwdPtr, bwdPtr, fluxPtr,
+                    streamID);
             }
         }
 

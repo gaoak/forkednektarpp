@@ -153,12 +153,15 @@ protected:
         // Reshape mask if required.
         for (unsigned blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             auto &inblk   = in.GetBlocks()[blk];
             auto &maskblk = m_mask.GetBlocks()[blk];
 
             if (inblk.GetInterleaveWidth() != maskblk.GetInterleaveWidth())
             {
-                auto maskPtr = maskblk.template GetPtr<MemSpace, ReadWrite>();
+                auto maskPtr =
+                    maskblk.template GetPtr<MemSpace, ReadWrite>(streamID);
                 auto numComp = maskblk.GetNumComponents();
 
                 for (unsigned nc = 0; nc < numComp; ++nc)
@@ -167,8 +170,8 @@ protected:
                         inblk.GetInterleaveWidth(),
                         maskblk.GetInterleaveWidth(),
                         maskblk.GetNumElementsWithPadding(),
-                        maskblk.GetNumData(),
-                        maskPtr + nc * maskblk.CompSize());
+                        maskblk.GetNumData(), maskPtr + nc * maskblk.CompSize(),
+                        streamID);
                 }
                 maskblk.template SetInterleaveWidth<TData>(
                     inblk.GetInterleaveWidth());

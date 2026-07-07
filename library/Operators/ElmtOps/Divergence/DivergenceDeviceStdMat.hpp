@@ -54,6 +54,8 @@ public:
                           NekDataWarehouseSharedPtr dataWarehouse)
         : DivergenceBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
+        m_streamID = block_idx + 1;
+
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
         m_isDeformed =
@@ -101,6 +103,7 @@ public:
 protected:
     static constexpr unsigned int m_implInterleaveWidth = 1u;
 
+    unsigned int m_streamID;
     LibUtilities::ShapeType m_shapeType;
     bool m_isDeformed;
     unsigned int m_dimension;
@@ -113,7 +116,7 @@ protected:
     void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
                  BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
-        auto handle = NekHandle<ExecSpace>::GetInstance();
+        auto handle = NekHandle<ExecSpace>::GetInstance(m_streamID);
 
         ASSERTL0(inblock.GetNumHomoModes() == 1,
                  "Currently only setup for one homogenous plane");
@@ -121,13 +124,13 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get static workspace pointer.
         auto derivptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                m_dimension * nelmt * m_nqTot);
+                m_dimension * nelmt * m_nqTot, m_streamID);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -141,7 +144,8 @@ protected:
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr + d * inoffset);
+                                      (TData *)inptr + d * inoffset,
+                                      m_streamID);
 
             // Perform matrix-matrix multiply.
             NekGemm(handle, "N", "N", m_nqTot, nelmt, m_nqTot, (TData)1.0,
@@ -155,36 +159,36 @@ protected:
         {
             MultiplyByDerivDirFactorKernel<ExecSpace, false, true>(
                 0, m_nqTot, m_coordDim, m_dimension, nelmt, derivoffset,
-                m_dfptr, derivptr, outptr);
+                m_dfptr, derivptr, outptr, m_streamID);
 
             for (unsigned int d = 1; d < m_dimension; d++)
             {
                 MultiplyByDerivDirFactorKernel<ExecSpace, true, true>(
                     d, m_nqTot, m_coordDim, m_dimension, nelmt, derivoffset,
-                    m_dfptr, derivptr, outptr);
+                    m_dfptr, derivptr, outptr, m_streamID);
             }
         }
         else
         {
             MultiplyByDerivDirFactorKernel<ExecSpace, false, false>(
                 0, m_nqTot, m_coordDim, m_dimension, nelmt, derivoffset,
-                m_dfptr, derivptr, outptr);
+                m_dfptr, derivptr, outptr, m_streamID);
             for (unsigned int d = 1; d < m_dimension; d++)
             {
                 MultiplyByDerivDirFactorKernel<ExecSpace, true, false>(
                     d, m_nqTot, m_coordDim, m_dimension, nelmt, derivoffset,
-                    m_dfptr, derivptr, outptr);
+                    m_dfptr, derivptr, outptr, m_streamID);
             }
         }
 
         for (unsigned int k = 0; k < m_coordDim; k++)
         {
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, m_nqTot,
-                                      (TData *)inptr + k * inoffset);
+            ReshapeStorage<ExecSpace>(
+                interleaveWidth, m_implInterleaveWidth, nelmt, m_nqTot,
+                (TData *)inptr + k * inoffset, m_streamID);
         }
         ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
-                                  m_nqTot, (TData *)outptr);
+                                  m_nqTot, (TData *)outptr, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);

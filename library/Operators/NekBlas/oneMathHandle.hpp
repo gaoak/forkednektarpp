@@ -34,23 +34,45 @@
 
 #pragma once
 
+#include <Operators/Common/Backends/SYCLQueue.hpp>
+
 class oneMathHandle_t
 {
+public:
+    oneMathHandle_t(sycl::queue &queue, const unsigned streamID)
+        : queue(queue), streamID(streamID)
+    {
+    }
+
+    sycl::queue &GetQueue(void)
+    {
+        return queue;
+    }
+
+    unsigned int GetStreamID(void) const
+    {
+        return streamID;
+    }
+
+private:
+    sycl::queue &queue;
+    const unsigned int streamID;
 };
 
 class oneMathHandle
 {
 public:
-    static oneMathHandle_t &GetInstance()
+    static oneMathHandle_t &GetInstance(const unsigned int streamID)
     {
-        if (!handle)
+        if (handle.find(streamID) == handle.end())
         {
-            handle = new oneMathHandle_t;
+            handle[streamID] =
+                new oneMathHandle_t(SYCLQueue::GetInstance(streamID), streamID);
         }
 
-        return *handle;
+        return *handle[streamID];
     }
 
 private:
-    static oneMathHandle_t *handle;
+    static std::unordered_map<unsigned int, oneMathHandle_t *> handle;
 };

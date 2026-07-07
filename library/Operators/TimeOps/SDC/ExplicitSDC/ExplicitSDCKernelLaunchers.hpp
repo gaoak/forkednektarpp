@@ -41,21 +41,28 @@ namespace Nektar::Operators::detail
 
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void IterateExplicitSDCSolutionKernel(
-    const unsigned int nsize, const TData *in, const TData *sfint, TData *out)
+    const unsigned int streamID, const unsigned int nsize, const TData *in,
+    const TData *sfint, TData *out)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0, nsize, NEKTAR_LAMBDA(const size_t idx) {
             TData tmp = in[idx];
             tmp += sfint[idx];
             out[idx] = tmp;
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void IterateExplicitSDCSolutionKernel(
-    const unsigned int nsize, const TData dtn, const TData *in,
-    const TData *explicits, const TData *sfint, TData *out)
+    const unsigned int streamID, const unsigned int nsize, const TData dtn,
+    const TData *in, const TData *explicits, const TData *sfint, TData *out)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0, nsize, NEKTAR_LAMBDA(const size_t idx) {
             TData tmp = in[idx];
@@ -63,18 +70,24 @@ NEK_FORCE_INLINE static void IterateExplicitSDCSolutionKernel(
             tmp += dtn * explicits[idx];
             out[idx] = tmp;
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void UpdateExplicitIntegratedResidualKernel(
-    const unsigned int nsize, const TData dtn, const TData *explicits,
-    TData *out)
+    const unsigned int streamID, const unsigned int nsize, const TData dtn,
+    const TData *explicits, TData *out)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0, nsize, NEKTAR_LAMBDA(const size_t idx) {
             // Add explicit contribution to SFint
             out[idx] -= dtn * explicits[idx];
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 } // namespace Nektar::Operators::detail

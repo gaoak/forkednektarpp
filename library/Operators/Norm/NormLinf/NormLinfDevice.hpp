@@ -54,6 +54,7 @@ public:
                         NekDataWarehouseSharedPtr dataWarehouse)
         : NormLinfBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
+        m_streamID = block_idx + 1;
     }
 
     static std::string className;
@@ -71,6 +72,8 @@ protected:
     static constexpr unsigned int m_implInterleaveWidth =
         NektarSpaces::Device::warpSize;
 
+    unsigned int m_streamID;
+
     void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
                  MemoryRegion<TData> &data) override
     {
@@ -85,8 +88,8 @@ protected:
         const auto ndata           = inblock.GetNumData();
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
-        auto inptr   = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto dataptr = data.template GetPtr<MemSpace, ReadWrite>();
+        auto inptr   = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto dataptr = data.template GetPtr<MemSpace, ReadWrite>(m_streamID);
 
         const unsigned int shmemsize = 0;
         const unsigned int blocksize = GetDeviceBlockSize<SumFac>(ndata);
@@ -98,8 +101,8 @@ protected:
              ++nc)
         {
             DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                LinfKernelLauncher, gridsize, blocksize, 0, nelmt, ndata,
-                interleaveWidth, inptr, dataptr + nc);
+                LinfKernelLauncher, gridsize, blocksize, m_streamID, nelmt,
+                ndata, interleaveWidth, inptr, dataptr + nc);
 
             inptr += inblock.CompSize();
         }

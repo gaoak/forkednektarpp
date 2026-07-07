@@ -40,12 +40,15 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static void UpdateSolutionKernel(const unsigned int nsize,
+NEK_FORCE_INLINE static void UpdateSolutionKernel(const unsigned int streamID,
+                                                  const unsigned int nsize,
                                                   const unsigned int nQuadPts,
                                                   const TData *interp,
                                                   const TData *const *solutions,
                                                   TData *out)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0, nsize, NEKTAR_LAMBDA(const size_t idx) {
             TData tmp = 0.0;
@@ -55,13 +58,18 @@ NEK_FORCE_INLINE static void UpdateSolutionKernel(const unsigned int nsize,
             }
             out[idx] = tmp;
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 template <typename ExecSpace, bool firstQuadrature, typename TData>
 NEK_FORCE_INLINE static void InitializeIntegratedResidualKernel(
-    const unsigned int nsize, const unsigned int nQuadPts, const TData *QMat,
+    const unsigned int streamID, const unsigned int nsize,
+    const unsigned int nQuadPts, const TData *QMat,
     const TData *const *explicits, TData *const *out)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     constexpr unsigned int offset = firstQuadrature ? 0 : 1;
     Nektar::parallel_for<ExecSpace>(
         0, nsize, NEKTAR_LAMBDA(const size_t idx) {
@@ -78,6 +86,8 @@ NEK_FORCE_INLINE static void InitializeIntegratedResidualKernel(
                 out[n][idx] = tmp;
             }
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 } // namespace Nektar::Operators::detail

@@ -190,8 +190,11 @@ protected:
         // Loop over blocks to reshape output storage
         for (unsigned int blk = 0; blk < out.GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             auto &outblock = out.GetBlocks()[blk];
-            auto outptr    = outblock.template GetPtr<MemSpace, WriteOnly>();
+            auto outptr =
+                outblock.template GetPtr<MemSpace, WriteOnly>(streamID);
             // Loop over components.
             for (unsigned int n = 0;
                  n < outblock.GetNumComponents() * outblock.GetNumHomoModes();
@@ -201,7 +204,7 @@ protected:
                 ReshapeStorage<ExecSpace>(
                     m_implInterleaveWidth, outblock.GetInterleaveWidth(),
                     outblock.GetNumElementsWithPadding(), outblock.GetNumData(),
-                    (TData *)outptr);
+                    (TData *)outptr, streamID);
                 // Increment pointers.
                 outptr += outblock.CompSize();
             }
@@ -292,6 +295,8 @@ protected:
         for (unsigned int blk = 0; blk < m_derivTraceBwd.GetBlocks().size();
              ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             if (m_numDerivBndTracePts[blk] == 0)
             {
                 continue;
@@ -300,14 +305,16 @@ protected:
             auto &fwdBlk = m_derivTraceFwd.GetBlocks()[blk];
             auto &bwdBlk = m_derivTraceBwd.GetBlocks()[blk];
 
-            auto fwdBase    = fwdBlk.template GetPtr<MemSpace, ReadOnly>();
-            auto bwdBase    = bwdBlk.template GetPtr<MemSpace, ReadWrite>();
-            auto offsetBase = m_derivBndTraceOffset[blk]
-                                  .template GetPtr<MemSpace, ReadOnly>();
+            auto fwdBase = fwdBlk.template GetPtr<MemSpace, ReadOnly>(streamID);
+            auto bwdBase =
+                bwdBlk.template GetPtr<MemSpace, ReadWrite>(streamID);
+            auto offsetBase =
+                m_derivBndTraceOffset[blk].template GetPtr<MemSpace, ReadOnly>(
+                    streamID);
 
             CopyBwdDerivTraceFromFwdOnBndKernel<ExecSpace>(
                 m_numDerivBndTracePts[blk], m_nDim * m_nComp, bwdBlk.CompSize(),
-                offsetBase, fwdBase, bwdBase);
+                offsetBase, fwdBase, bwdBase, streamID);
         }
     }
 

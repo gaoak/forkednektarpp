@@ -121,6 +121,8 @@ public:
                         NekDataWarehouseSharedPtr dataWarehouse)
         : CurlCurlBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
+        m_streamID = block_idx + 1;
+
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
         m_isDeformed =
@@ -204,6 +206,7 @@ protected:
             ? NektarSpaces::Device::warpSize
             : 1u;
 
+    unsigned int m_streamID;
     LibUtilities::ShapeType m_shapeType;
     bool m_isDeformed;
     bool m_isModified;
@@ -345,8 +348,8 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -365,21 +368,21 @@ protected:
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
 
             // Calculate derivative.
             DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                 (CurlCurl1DKernelLauncher<Implementation, DEFORMED>), gridsize,
-                blocksize, 0, sizeParam1D, nelmt, inoffset, m_D[0], m_dfptr,
-                inptr, outptr);
+                blocksize, m_streamID, sizeParam1D, nelmt, inoffset, m_D[0],
+                m_dfptr, inptr, outptr);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(),
-                                      (TData *)outptr);
+                                      nelmt, outblock.GetNumData(), outptr,
+                                      m_streamID);
 
             // Increment pointers.
             inptr += inblock.CompSize();
@@ -421,8 +424,8 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -439,7 +442,7 @@ protected:
 
         const auto inoffset = outblock.CompSize();
         auto wsp = BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-            7u * inoffset);
+            7u * inoffset, m_streamID);
         auto grad0     = wsp;
         auto grad1     = grad0 + 2u * inoffset;
         auto omega     = grad1 + 2u * inoffset;
@@ -447,46 +450,51 @@ protected:
 
         // Reshape u-component, if necessary.
         ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth, nelmt,
-                                  inblock.GetNumData(), (TData *)inptr);
+                                  inblock.GetNumData(), (TData *)inptr,
+                                  m_streamID);
 
         // Reshape v-component, if necessary.
         ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth, nelmt,
                                   inblock.GetNumData(),
-                                  (TData *)inptr + inoffset);
+                                  (TData *)inptr + inoffset, m_streamID);
 
         DEVICE_1DGRID_KERNEL_LAUNCHER(
             (PhysDeriv2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            gridsize, blocksize, shmemsize, 0, sizeParam2D, nelmt, inoffset,
-            m_D[0], m_D[1], m_f[0], m_f[1], m_dfptr, inptr, grad0);
+            gridsize, blocksize, shmemsize, m_streamID, sizeParam2D, nelmt,
+            inoffset, m_D[0], m_D[1], m_f[0], m_f[1], m_dfptr, inptr, grad0);
         DEVICE_1DGRID_KERNEL_LAUNCHER(
             (PhysDeriv2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            gridsize, blocksize, shmemsize, 0, sizeParam2D, nelmt, inoffset,
-            m_D[0], m_D[1], m_f[0], m_f[1], m_dfptr, inptr + inoffset, grad1);
+            gridsize, blocksize, shmemsize, m_streamID, sizeParam2D, nelmt,
+            inoffset, m_D[0], m_D[1], m_f[0], m_f[1], m_dfptr, inptr + inoffset,
+            grad1);
         DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(CombineOmega2DKernel, gridsize,
-                                              blocksize, 0, inoffset, inoffset,
-                                              grad0, grad1, omega);
+                                              blocksize, m_streamID, inoffset,
+                                              inoffset, grad0, grad1, omega);
         DEVICE_1DGRID_KERNEL_LAUNCHER(
             (PhysDeriv2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            gridsize, blocksize, shmemsize, 0, sizeParam2D, nelmt, inoffset,
-            m_D[0], m_D[1], m_f[0], m_f[1], m_dfptr, omega, gradOmega);
-        DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(AssembleCurlCurl2DKernel,
-                                              gridsize, blocksize, 0, inoffset,
-                                              inoffset, gradOmega, outptr);
+            gridsize, blocksize, shmemsize, m_streamID, sizeParam2D, nelmt,
+            inoffset, m_D[0], m_D[1], m_f[0], m_f[1], m_dfptr, omega,
+            gradOmega);
+        DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+            AssembleCurlCurl2DKernel, gridsize, blocksize, m_streamID, inoffset,
+            inoffset, gradOmega, outptr);
 
         // Reshape back, if necessary.
         ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
-                                  inblock.GetNumData(), (TData *)inptr);
+                                  inblock.GetNumData(), (TData *)inptr,
+                                  m_streamID);
 
         // Reshape back, if necessary.
         ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
                                   inblock.GetNumData(),
-                                  (TData *)inptr + inoffset);
+                                  (TData *)inptr + inoffset, m_streamID);
 
         ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
-                                  outblock.GetNumData(), (TData *)outptr);
+                                  outblock.GetNumData(), (TData *)outptr,
+                                  m_streamID);
         ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
                                   outblock.GetNumData(),
-                                  (TData *)outptr + inoffset);
+                                  (TData *)outptr + inoffset, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
@@ -522,8 +530,8 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -540,7 +548,7 @@ protected:
 
         const auto inoffset = outblock.CompSize();
         auto wsp = BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-            21u * inoffset);
+            21u * inoffset, m_streamID);
         auto grad0      = wsp;
         auto grad1      = grad0 + 3u * inoffset;
         auto grad2      = grad1 + 3u * inoffset;
@@ -551,77 +559,80 @@ protected:
 
         // Reshape u-component, if necessary.
         ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth, nelmt,
-                                  inblock.GetNumData(), (TData *)inptr);
+                                  inblock.GetNumData(), (TData *)inptr,
+                                  m_streamID);
 
         // Reshape v-component, if necessary.
         ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth, nelmt,
                                   inblock.GetNumData(),
-                                  (TData *)inptr + inoffset);
+                                  (TData *)inptr + inoffset, m_streamID);
 
         // Reshape w-component, if necessary.
         ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth, nelmt,
                                   inblock.GetNumData(),
-                                  (TData *)inptr + 2u * inoffset);
+                                  (TData *)inptr + 2u * inoffset, m_streamID);
 
         DEVICE_1DGRID_KERNEL_LAUNCHER(
             (PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            gridsize, blocksize, shmemsize, 0, sizeParam3D, nelmt, inoffset,
-            m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3], m_dfptr,
-            inptr, grad0);
+            gridsize, blocksize, shmemsize, m_streamID, sizeParam3D, nelmt,
+            inoffset, m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3],
+            m_dfptr, inptr, grad0);
         DEVICE_1DGRID_KERNEL_LAUNCHER(
             (PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            gridsize, blocksize, shmemsize, 0, sizeParam3D, nelmt, inoffset,
-            m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3], m_dfptr,
-            inptr + inoffset, grad1);
+            gridsize, blocksize, shmemsize, m_streamID, sizeParam3D, nelmt,
+            inoffset, m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3],
+            m_dfptr, inptr + inoffset, grad1);
         DEVICE_1DGRID_KERNEL_LAUNCHER(
             (PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            gridsize, blocksize, shmemsize, 0, sizeParam3D, nelmt, inoffset,
-            m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3], m_dfptr,
-            inptr + 2u * inoffset, grad2);
-        DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(CombineOmega3DKernel, gridsize,
-                                              blocksize, 0, inoffset, inoffset,
-                                              grad0, grad1, grad2, omega);
-        DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            gridsize, blocksize, shmemsize, 0, sizeParam3D, nelmt, inoffset,
-            m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3], m_dfptr,
-            omega, gradOmega0);
-        DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            gridsize, blocksize, shmemsize, 0, sizeParam3D, nelmt, inoffset,
-            m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3], m_dfptr,
-            omega + inoffset, gradOmega1);
-        DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            gridsize, blocksize, shmemsize, 0, sizeParam3D, nelmt, inoffset,
-            m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3], m_dfptr,
-            omega + 2u * inoffset, gradOmega2);
+            gridsize, blocksize, shmemsize, m_streamID, sizeParam3D, nelmt,
+            inoffset, m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3],
+            m_dfptr, inptr + 2u * inoffset, grad2);
         DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-            AssembleCurlCurl3DKernel, gridsize, blocksize, 0, inoffset,
+            CombineOmega3DKernel, gridsize, blocksize, m_streamID, inoffset,
+            inoffset, grad0, grad1, grad2, omega);
+        DEVICE_1DGRID_KERNEL_LAUNCHER(
+            (PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
+            gridsize, blocksize, shmemsize, m_streamID, sizeParam3D, nelmt,
+            inoffset, m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3],
+            m_dfptr, omega, gradOmega0);
+        DEVICE_1DGRID_KERNEL_LAUNCHER(
+            (PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
+            gridsize, blocksize, shmemsize, m_streamID, sizeParam3D, nelmt,
+            inoffset, m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3],
+            m_dfptr, omega + inoffset, gradOmega1);
+        DEVICE_1DGRID_KERNEL_LAUNCHER(
+            (PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
+            gridsize, blocksize, shmemsize, m_streamID, sizeParam3D, nelmt,
+            inoffset, m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3],
+            m_dfptr, omega + 2u * inoffset, gradOmega2);
+        DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+            AssembleCurlCurl3DKernel, gridsize, blocksize, m_streamID, inoffset,
             inoffset, gradOmega0, gradOmega1, gradOmega2, outptr);
 
         // Reshape back, if necessary.
         ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
-                                  inblock.GetNumData(), (TData *)inptr);
+                                  inblock.GetNumData(), (TData *)inptr,
+                                  m_streamID);
 
         // Reshape back, if necessary.
         ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
                                   inblock.GetNumData(),
-                                  (TData *)inptr + inoffset);
+                                  (TData *)inptr + inoffset, m_streamID);
 
         // Reshape back, if necessary.
         ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
                                   inblock.GetNumData(),
-                                  (TData *)inptr + 2u * inoffset);
+                                  (TData *)inptr + 2u * inoffset, m_streamID);
 
         ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
-                                  outblock.GetNumData(), (TData *)outptr);
+                                  outblock.GetNumData(), (TData *)outptr,
+                                  m_streamID);
         ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
                                   outblock.GetNumData(),
-                                  (TData *)outptr + inoffset);
+                                  (TData *)outptr + inoffset, m_streamID);
         ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
                                   outblock.GetNumData(),
-                                  (TData *)outptr + 2u * inoffset);
+                                  (TData *)outptr + 2u * inoffset, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);

@@ -143,8 +143,11 @@ protected:
         // Loop over blocks to reshape output storage
         for (unsigned int blk = 0; blk < out.GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             auto &outblock = out.GetBlocks()[blk];
-            auto outptr    = outblock.template GetPtr<MemSpace, WriteOnly>();
+            auto outptr =
+                outblock.template GetPtr<MemSpace, WriteOnly>(streamID);
             // Loop over components.
             for (unsigned int n = 0;
                  n < outblock.GetNumComponents() * outblock.GetNumHomoModes();
@@ -154,7 +157,7 @@ protected:
                 ReshapeStorage<ExecSpace>(
                     m_implInterleaveWidth, outblock.GetInterleaveWidth(),
                     outblock.GetNumElementsWithPadding(), outblock.GetNumData(),
-                    (TData *)outptr);
+                    (TData *)outptr, streamID);
                 // Increment pointers.
                 outptr += outblock.CompSize();
             }

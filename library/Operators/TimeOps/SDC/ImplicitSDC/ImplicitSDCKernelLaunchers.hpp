@@ -41,9 +41,11 @@ namespace Nektar::Operators::detail
 
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void IterateImplicitSDCSolutionKernel(
-    const unsigned int nsize, const TData dtn, const TData *in,
-    const TData *implicits, const TData *sfint, TData *out)
+    const unsigned int streamID, const unsigned int nsize, const TData dtn,
+    const TData *in, const TData *implicits, const TData *sfint, TData *out)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0, nsize, NEKTAR_LAMBDA(const size_t idx) {
             TData tmp = in[idx];
@@ -51,6 +53,8 @@ NEK_FORCE_INLINE static void IterateImplicitSDCSolutionKernel(
             tmp += sfint[idx];
             out[idx] = tmp;
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 } // namespace Nektar::Operators::detail

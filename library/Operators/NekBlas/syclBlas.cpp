@@ -44,12 +44,29 @@ using namespace oneapi::math;
 using namespace oneapi::mkl;
 #endif
 
-unsigned int internalOneMathStreamID = 0;
-
-void NekBlasSetStream([[maybe_unused]] oneMathHandle_t handle,
-                      const unsigned int streamID)
+static std::vector<sycl::event> inline setOneMathExecutionDependency(
+    const unsigned int streamID)
 {
-    internalOneMathStreamID = streamID;
+    // Set SYCL depedencies to reproduce CUDA/HIP default stream behavior.
+    std::vector<sycl::event> dependencies;
+    if (streamID == 0)
+    {
+        // Tasks in the "default" queue depend on all "non-default" queue.
+        for (auto &item : SYCLQueue::GetAllEvents())
+        {
+            if (item.first != 0)
+            {
+                dependencies.push_back(item.second);
+            }
+        }
+    }
+    else
+    {
+        // Tasks in "non-default" queue depend on the "default" queue.
+        dependencies.push_back(SYCLQueue::GetEvent(0));
+    }
+
+    return dependencies;
 }
 
 template <typename THandle, typename TData>
@@ -60,17 +77,30 @@ NekGemm([[maybe_unused]] THandle handle, std::string transposeA,
         const std::int64_t lda, const TData *b, const std::int64_t ldb,
         const TData beta, TData *c, const std::int64_t ldc)
 {
-    sycl::queue &Q = SYCLQueue::GetInstance(internalOneMathStreamID);
+    sycl::queue &Q = handle.GetQueue();
 #if __has_include("oneapi/mkl.hpp") || __has_include("oneapi/math.hpp")
-    auto transA = (transposeA == "N") ? transpose::N : transpose::T;
-    auto transB = (transposeB == "N") ? transpose::N : transpose::T;
-    blas::column_major::gemm(Q, transA, transB, M, N, K, alpha, a, lda, b, ldb,
-                             beta, c, ldc);
+    auto transA   = (transposeA == "N") ? transpose::N : transpose::T;
+    auto transB   = (transposeB == "N") ? transpose::N : transpose::T;
+    sycl::event e = blas::column_major::gemm(
+        Q, transA, transB, M, N, K, alpha, a, lda, b, ldb, beta, c, ldc,
+        setOneMathExecutionDependency(handle.GetStreamID()));
 #else
-    Q.wait();
+    // clang-format off
+    sycl::event e = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(handle.GetStreamID(), cgh);
+#if defined(__ADAPTIVECPP__)
+        cgh.AdaptiveCpp_enqueue_custom_operation(
+            [=]([[maybe_unused]] sycl::interop_handle ih) {
+#else
+        cgh.host_task([=]([[maybe_unused]] sycl::interop_handle ih) {
+#endif
     NekGemm(blasHandle_t(), transposeA, transposeB, M, N, K, alpha, a, lda, b,
             ldb, beta, c, ldc);
+            });
+    });
+    // clang-format on
 #endif
+    SYCLQueue::SetEvent(handle.GetStreamID(), e);
 }
 
 template <typename THandle, typename TData>
@@ -84,19 +114,32 @@ NekGemmStridedBatched([[maybe_unused]] THandle handle, std::string transposeA,
                       const TData beta, TData *c, const std::int64_t ldc,
                       const std::int64_t strideC, const std::int64_t batchSize)
 {
-    sycl::queue &Q = SYCLQueue::GetInstance(internalOneMathStreamID);
+    sycl::queue &Q = handle.GetQueue();
 #if __has_include("oneapi/mkl.hpp") || __has_include("oneapi/math.hpp")
-    auto transA = (transposeA == "N") ? transpose::N : transpose::T;
-    auto transB = (transposeB == "N") ? transpose::N : transpose::T;
-    blas::column_major::gemm_batch(Q, transA, transB, M, N, K, alpha, a, lda,
-                                   strideA, b, ldb, strideB, beta, c, ldc,
-                                   strideC, batchSize);
+    auto transA   = (transposeA == "N") ? transpose::N : transpose::T;
+    auto transB   = (transposeB == "N") ? transpose::N : transpose::T;
+    sycl::event e = blas::column_major::gemm_batch(
+        Q, transA, transB, M, N, K, alpha, a, lda, strideA, b, ldb, strideB,
+        beta, c, ldc, strideC, batchSize,
+        setOneMathExecutionDependency(handle.GetStreamID()));
 #else
-    Q.wait();
+    // clang-format off
+    sycl::event e = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(handle.GetStreamID(), cgh);
+#if defined(__ADAPTIVECPP__)
+        cgh.AdaptiveCpp_enqueue_custom_operation(
+            [=]([[maybe_unused]] sycl::interop_handle ih) {
+#else
+        cgh.host_task([=]([[maybe_unused]] sycl::interop_handle ih) {
+#endif
     NekGemmStridedBatched(blasHandle_t(), transposeA, transposeB, M, N, K,
                           alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc,
                           strideC, batchSize);
+            });
+    });
+    // clang-format on
 #endif
+    SYCLQueue::SetEvent(handle.GetStreamID(), e);
 }
 
 template <typename THandle, typename TData>
@@ -107,17 +150,30 @@ NekGemv([[maybe_unused]] THandle handle, std::string transpose,
         const std::int64_t incx, const TData beta, TData *y,
         const std::int64_t incy)
 {
-    sycl::queue &Q = SYCLQueue::GetInstance(internalOneMathStreamID);
+    sycl::queue &Q = handle.GetQueue();
 #if __has_include("oneapi/mkl.hpp") || __has_include("oneapi/math.hpp")
     auto trans = (transpose == "N") ? transpose::N : transpose::T;
 
-    blas::column_major::gemv(Q, trans, M, N, alpha, a, lda, x, incx, beta, y,
-                             incy);
+    sycl::event e = blas::column_major::gemv(
+        Q, trans, M, N, alpha, a, lda, x, incx, beta, y, incy,
+        setOneMathExecutionDependency(handle.GetStreamID()));
 #else
-    Q.wait();
+    // clang-format off
+    sycl::event e = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(handle.GetStreamID(), cgh);
+#if defined(__ADAPTIVECPP__)
+        cgh.AdaptiveCpp_enqueue_custom_operation(
+            [=]([[maybe_unused]] sycl::interop_handle ih) {
+#else
+        cgh.host_task([=]([[maybe_unused]] sycl::interop_handle ih) {
+#endif
     NekGemv(blasHandle_t(), transpose, M, N, alpha, a, lda, x, incx, beta, y,
             incy);
+            });
+    });
+    // clang-format on
 #endif
+    SYCLQueue::SetEvent(handle.GetStreamID(), e);
 }
 
 template <typename THandle, typename TData>
@@ -130,22 +186,35 @@ NekGemvStridedBatched([[maybe_unused]] THandle handle, std::string transpose,
                       const TData beta, TData *y, const std::int64_t incy,
                       const std::int64_t strideY, const std::int64_t batchSize)
 {
-    sycl::queue &Q = SYCLQueue::GetInstance(internalOneMathStreamID);
+    sycl::queue &Q = handle.GetQueue();
 #if __has_include("oneapi/mkl.hpp") || __has_include("oneapi/math.hpp")
 #if __has_include("oneapi/math.hpp")
     ASSERTL0(false, "gemv_batch not yet implemented in oneMath")
 #endif
     auto trans = (transpose == "N") ? transpose::N : transpose::T;
 
-    blas::column_major::gemv_batch(Q, trans, M, N, alpha, a, lda, strideA, x,
-                                   incx, strideX, beta, y, incy, strideY,
-                                   batchSize);
+    sycl::event e = blas::column_major::gemv_batch(
+        Q, trans, M, N, alpha, a, lda, strideA, x, incx, strideX, beta, y, incy,
+        strideY, batchSize,
+        setOneMathExecutionDependency(handle.GetStreamID()));
 #else
-    Q.wait();
+    // clang-format off
+    sycl::event e = Q.submit([=](sycl::handler &cgh) {
+        setSYCLExecutionDependency(handle.GetStreamID(), cgh);
+#if defined(__ADAPTIVECPP__)
+        cgh.AdaptiveCpp_enqueue_custom_operation(
+            [=]([[maybe_unused]] sycl::interop_handle ih) {
+#else
+        cgh.host_task([=]([[maybe_unused]] sycl::interop_handle ih) {
+#endif
     NekGemvStridedBatched(blasHandle_t(), transpose, M, N, alpha, a, lda,
                           strideA, x, incx, strideX, beta, y, incy, strideY,
                           batchSize);
+            });
+    });
+    // clang-format on
 #endif
+    SYCLQueue::SetEvent(handle.GetStreamID(), e);
 }
 
 template void NekGemm<oneMathHandle_t, float>(
