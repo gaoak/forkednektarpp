@@ -41,11 +41,16 @@ namespace Nektar::Operators::detail
 
 template <typename ExecSpace, typename TData>
 void DGDirBndCondKernel(const size_t nsize, const size_t *mapPtr,
-                        const TData *inptr, TData *outptr)
+                        const TData *inptr, TData *outptr,
+                        const unsigned int streamID)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0u, nsize,
         NEKTAR_LAMBDA(const size_t i) { outptr[mapPtr[i]] = inptr[i]; });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 } // namespace Nektar::Operators::detail

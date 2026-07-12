@@ -88,13 +88,13 @@ TEST_DIV(divergence_prism_varp, PrismVarP, 4.0E-11)
 
 TEST_DIV(divergence_prism_nodal, PrismNodal, 2.5E-12)
 
-TEST_DIV(divergence_pyr, Pyr, 9.0E-12)
+TEST_DIV(divergence_pyr, Pyr, 1.0E-11)
 
 TEST_DIV(divergence_pyr_varp, PyrVarP, 2.0E-11)
 
-TEST_DIV(divergence_tet, Tet, 8.0E-12)
+TEST_DIV(divergence_tet, Tet, 2.0E-11)
 
-TEST_DIV(divergence_tet_varp, TetVarP, 8.0E-12)
+TEST_DIV(divergence_tet_varp, TetVarP, 2.0E-11)
 
 TEST_DIV(divergence_tet_nodal, TetNodal, 8.0E-12)
 

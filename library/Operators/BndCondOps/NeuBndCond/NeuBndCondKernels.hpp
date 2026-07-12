@@ -43,24 +43,34 @@ namespace Nektar::Operators::detail
 
 template <typename ExecSpace, typename TData>
 void NeuBndCondKernel(const size_t bndExpSize, const size_t *mapPtr,
-                      const TData *inptr, TData *outptr)
+                      const TData *inptr, TData *outptr,
+                      const unsigned int streamID)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0u, bndExpSize, NEKTAR_LAMBDA(const size_t i) {
             Nektar::atomic_add<ExecSpace, NektarSpaces::GlobalScope>(
                 outptr + mapPtr[i], inptr[i]);
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 template <typename ExecSpace, typename TData>
 void NeuBndCondKernel(const size_t bndExpSize, const TData *signPtr,
-                      const size_t *mapPtr, const TData *inptr, TData *outptr)
+                      const size_t *mapPtr, const TData *inptr, TData *outptr,
+                      const unsigned int streamID)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0u, bndExpSize, NEKTAR_LAMBDA(const size_t i) {
             Nektar::atomic_add<ExecSpace, NektarSpaces::GlobalScope>(
                 outptr + mapPtr[i], signPtr[i] * inptr[i]);
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 } // namespace Nektar::Operators::detail

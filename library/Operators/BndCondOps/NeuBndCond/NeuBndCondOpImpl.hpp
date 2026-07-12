@@ -483,12 +483,15 @@ protected:
 
         for (unsigned int blk = 0; blk < m_bndCoeff.size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             auto &bndCoeffBlock = m_bndCoeffHost[blk];
             for (size_t i = 0; i < m_bndCoeffSrc[blk].size(); ++i)
             {
                 bndCoeffBlock[i] = m_compactBndCoeff[m_bndCoeffSrc[blk][i]];
             }
-            m_bndCoeff[blk].template CopyVector<MemSpace, TData>(bndCoeffBlock);
+            m_bndCoeff[blk].template CopyVector<MemSpace, TData>(bndCoeffBlock,
+                                                                 streamID);
         }
     }
 
@@ -503,18 +506,22 @@ protected:
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             auto &inoutBlk   = inout.GetBlocks()[blk];
             auto inoutWidth  = inoutBlk.GetInterleaveWidth();
             unsigned blksize = inoutBlk.CompSize();
 
             // Initialize pointers.
-            auto inoutPtr    = inoutBlk.template GetPtr<MemSpace, ReadWrite>();
-            auto mapPtrBlock = m_map[blk].template GetPtr<MemSpace, ReadOnly>();
+            auto inoutPtr =
+                inoutBlk.template GetPtr<MemSpace, ReadWrite>(streamID);
+            auto mapPtrBlock =
+                m_map[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
             auto bndcoeffPtrBlock =
-                m_bndCoeff[blk].template GetPtr<MemSpace, ReadOnly>();
+                m_bndCoeff[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
             const TData *signPtrBlock =
                 m_anySignChange
-                    ? m_sign[blk].template GetPtr<MemSpace, ReadOnly>()
+                    ? m_sign[blk].template GetPtr<MemSpace, ReadOnly>(streamID)
                     : nullptr;
 
             // Add weak boundary condition forcing.
@@ -530,7 +537,7 @@ protected:
                 // mapping set up assuming serial alignment
                 ReshapeStorage<ExecSpace>(
                     1u, inoutWidth, inoutBlk.GetNumElementsWithPadding(),
-                    inoutBlk.GetNumData(), inoutPtr + nc * blksize);
+                    inoutBlk.GetNumData(), inoutPtr + nc * blksize, streamID);
 
                 const size_t offset = m_compOffsets[blk][nc];
                 auto mapPtr         = mapPtrBlock + offset;
@@ -540,21 +547,21 @@ protected:
 
                 if (m_signChange[nc])
                 {
-                    NeuBndCondKernel<ExecSpace>(nbndCoeffBlk, signPtr, mapPtr,
-                                                bndcoeffPtr,
-                                                inoutPtr + nc * blksize);
+                    NeuBndCondKernel<ExecSpace>(
+                        nbndCoeffBlk, signPtr, mapPtr, bndcoeffPtr,
+                        inoutPtr + nc * blksize, streamID);
                 }
                 else
                 {
-                    NeuBndCondKernel<ExecSpace>(nbndCoeffBlk, mapPtr,
-                                                bndcoeffPtr,
-                                                inoutPtr + nc * blksize);
+                    NeuBndCondKernel<ExecSpace>(
+                        nbndCoeffBlk, mapPtr, bndcoeffPtr,
+                        inoutPtr + nc * blksize, streamID);
                 }
 
                 // Reshape back, if necessary.
                 ReshapeStorage<ExecSpace>(
                     inoutWidth, 1u, inoutBlk.GetNumElementsWithPadding(),
-                    inoutBlk.GetNumData(), inoutPtr + nc * blksize);
+                    inoutBlk.GetNumData(), inoutPtr + nc * blksize, streamID);
             }
         }
     }

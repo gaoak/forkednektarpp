@@ -179,20 +179,24 @@ protected:
         }
 
         const auto nTraceBlk = in.GetBlocks().size();
-        auto &inBlock        = in.GetBlocks()[0];
-        auto &outBlock       = out.GetBlocks()[0];
-        auto inptr           = inBlock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr          = outBlock.template GetPtr<MemSpace, WriteOnly>();
-        size_t traceSize     = in.GetBlocks()[0].CompSize();
 
         // Synchronize memory for all blocks.
+        const unsigned int streamID0 = 1;
+
+        auto &inBlock  = in.GetBlocks()[0];
+        auto &outBlock = out.GetBlocks()[0];
+        auto inptr     = inBlock.template GetPtr<MemSpace, ReadOnly>(streamID0);
+        auto outptr = outBlock.template GetPtr<MemSpace, WriteOnly>(streamID0);
+        size_t traceSize = in.GetBlocks()[0].CompSize();
         for (unsigned int traceBlk = 1; traceBlk < nTraceBlk; ++traceBlk)
         {
+            const unsigned int streamID = traceBlk + 1;
+
             traceSize += in.GetBlocks()[traceBlk].CompSize();
             auto &inBlock  = in.GetBlocks()[traceBlk];
             auto &outBlock = out.GetBlocks()[traceBlk];
-            inBlock.template GetPtr<MemSpace, ReadOnly>();
-            outBlock.template GetPtr<MemSpace, ReadWrite>();
+            inBlock.template GetPtr<MemSpace, ReadOnly>(streamID);
+            outBlock.template GetPtr<MemSpace, ReadWrite>(streamID);
         }
 
         auto periodicFwdCopyOffsetPtr =
