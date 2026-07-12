@@ -290,31 +290,46 @@ protected:
         // set up assuming serial alignment
         for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             auto &inBlk  = in.GetBlocks()[blk];
             auto &outBlk = out.GetBlocks()[blk];
-            auto inPtr   = inBlk.template GetPtr<MemSpace, ReadWrite>();
-            auto outPtr  = outBlk.template GetPtr<MemSpace, ReadWrite>();
+            auto inPtr   = inBlk.template GetPtr<MemSpace, ReadWrite>(streamID);
+            auto outPtr = outBlk.template GetPtr<MemSpace, ReadWrite>(streamID);
 
             auto inWidth = inBlk.GetInterleaveWidth();
             ReshapeStorage<ExecSpace>(1u, inWidth,
                                       inBlk.GetNumElementsWithPadding(),
-                                      inBlk.GetNumData(), inPtr);
+                                      inBlk.GetNumData(), inPtr, streamID);
             auto outWidth = outBlk.GetInterleaveWidth();
             ReshapeStorage<ExecSpace>(1u, outWidth,
                                       outBlk.GetNumElementsWithPadding(),
-                                      outBlk.GetNumData(), outPtr);
+                                      outBlk.GetNumData(), outPtr, streamID);
         }
 
         // Get pointers.
-        auto inPtr   = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>();
-        auto matPtr  = m_mat.template GetPtr<MemSpace, ReadOnly>();
-        auto mapPtr  = m_map.template GetPtr<MemSpace, ReadOnly>();
-        auto signPtr = m_sign.template GetPtr<MemSpace, ReadOnly>();
+        auto matPtr       = m_mat.template GetPtr<MemSpace, ReadOnly>();
+        auto mapPtr       = m_map.template GetPtr<MemSpace, ReadOnly>();
+        auto signPtr      = m_sign.template GetPtr<MemSpace, ReadOnly>();
         auto ncoeffPtr    = m_nEdgeCoeff.template GetPtr<MemSpace, ReadOnly>();
         auto offsetPtr    = m_offset.template GetPtr<MemSpace, ReadOnly>();
         auto matOffsetPtr = m_matOffset.template GetPtr<MemSpace, ReadOnly>();
         auto mapOffsetPtr = m_mapOffset.template GetPtr<MemSpace, ReadOnly>();
-        auto outPtr = out.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>();
+
+        // Synchronize memory for all blocks.
+        const unsigned int streamID0 = 1;
+
+        auto inPtr =
+            in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(streamID0);
+        auto outPtr =
+            out.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>(streamID0);
+        for (unsigned int blk = 1; blk < in.GetBlocks().size(); ++blk)
+        {
+            const unsigned int streamID = blk + 1;
+
+            in.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+            out.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
+        }
 
         // Apply Robin boundary conditions.
         auto dimension = this->m_expansionList->GetExp(0)->GetShapeDimension();
@@ -333,18 +348,20 @@ protected:
         // Reshape back, if necessary.
         for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             auto &inBlk  = in.GetBlocks()[blk];
             auto &outBlk = out.GetBlocks()[blk];
-            auto inPtr   = inBlk.template GetPtr<MemSpace, ReadWrite>();
-            auto outPtr  = outBlk.template GetPtr<MemSpace, ReadWrite>();
+            auto inPtr   = inBlk.template GetPtr<MemSpace, ReadWrite>(streamID);
+            auto outPtr = outBlk.template GetPtr<MemSpace, ReadWrite>(streamID);
 
             auto inWidth = inBlk.GetInterleaveWidth();
             ReshapeStorage<ExecSpace>(inWidth, 1u,
                                       inBlk.GetNumElementsWithPadding(),
-                                      inBlk.GetNumData(), inPtr);
+                                      inBlk.GetNumData(), inPtr, streamID);
             ReshapeStorage<ExecSpace>(inWidth, 1u,
                                       outBlk.GetNumElementsWithPadding(),
-                                      outBlk.GetNumData(), outPtr);
+                                      outBlk.GetNumData(), outPtr, streamID);
             outBlk.template SetInterleaveWidth<TData>(inWidth);
         }
     }

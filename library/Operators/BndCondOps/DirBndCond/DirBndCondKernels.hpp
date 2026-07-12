@@ -41,41 +41,60 @@ namespace Nektar::Operators::detail
 
 template <typename ExecSpace, typename TData>
 void DirBndCondKernel(const size_t nsize, const size_t *mapPtr,
-                      const TData *inptr, TData *outptr)
+                      const TData *inptr, TData *outptr,
+                      const unsigned int streamID)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0u, nsize,
         NEKTAR_LAMBDA(const size_t i) { outptr[mapPtr[i]] = inptr[i]; });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 template <typename ExecSpace, typename TData>
 void DirBndCondKernel(const size_t nsize, const TData *signPtr,
-                      const size_t *mapPtr, const TData *inptr, TData *outptr)
+                      const size_t *mapPtr, const TData *inptr, TData *outptr,
+                      const unsigned int streamID)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0u, nsize, NEKTAR_LAMBDA(const size_t i) {
             outptr[mapPtr[i]] = signPtr[i] * inptr[i];
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 template <typename ExecSpace, typename TData>
 void ParallelDirBndSignKernel(const size_t nsize, const int *signPtr,
-                              TData *outptr)
+                              TData *outptr, const unsigned int streamID)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0u, nsize, NEKTAR_LAMBDA(const size_t i) { outptr[signPtr[i]] *= -1; });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 template <typename ExecSpace, typename TData>
 void LocalDirBndCondKernel(const size_t nsize, const size_t *id0Ptr,
                            const size_t *id1Ptr, const TData *signPtr,
-                           const TData *inptr, TData *outptr)
+                           const TData *inptr, TData *outptr,
+                           const unsigned int streamID)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     // Note: inptr and outptr might alias each other.
     Nektar::parallel_for<ExecSpace>(
         0u, nsize, NEKTAR_LAMBDA(const size_t i) {
             outptr[id0Ptr[i]] = inptr[id1Ptr[i]] * signPtr[i];
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 } // namespace Nektar::Operators::detail

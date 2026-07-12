@@ -403,10 +403,13 @@ protected:
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             auto &inoutBlk = inout.GetBlocks()[blk];
 
             // Initialize pointers.
-            auto inoutPtr = inoutBlk.template GetPtr<MemSpace, ReadWrite>();
+            auto inoutPtr =
+                inoutBlk.template GetPtr<MemSpace, ReadWrite>(streamID);
 
             // if block is interlaced deInterleave block since currently mapping
             // set up assuming serial alignment
@@ -418,14 +421,16 @@ protected:
                 {
                     ReshapeStorage<ExecSpace>(
                         1u, inoutWidth, inoutBlk.GetNumElementsWithPadding(),
-                        inoutBlk.GetNumData(), inoutPtr + nc * blksize);
+                        inoutBlk.GetNumData(), inoutPtr + nc * blksize,
+                        streamID);
                 }
                 inoutBlk.template SetInterleaveWidth<TData>(1);
             }
 
-            auto mapPtrBlock = m_map[blk].template GetPtr<MemSpace, ReadOnly>();
+            auto mapPtrBlock =
+                m_map[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
             auto bndPhysPtrBlock =
-                m_bndPhys[blk].template GetPtr<MemSpace, ReadOnly>();
+                m_bndPhys[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
 
             for (unsigned nc = 0; nc < inout.GetNumComponents(); ++nc)
             {
@@ -440,7 +445,8 @@ protected:
                 auto bndPhysPtr     = bndPhysPtrBlock + offset;
 
                 DGDirBndCondKernel<ExecSpace>(nbndPhysBlk, mapPtr, bndPhysPtr,
-                                              inoutPtr + nc * blksize);
+                                              inoutPtr + nc * blksize,
+                                              streamID);
             }
         }
     }

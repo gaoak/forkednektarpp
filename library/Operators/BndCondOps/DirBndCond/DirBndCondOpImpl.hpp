@@ -651,12 +651,15 @@ protected:
 
         for (unsigned int blk = 0; blk < m_bndCoeff.size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             auto &bndCoeffBlock = m_bndCoeffHost[blk];
             for (size_t i = 0; i < m_bndCoeffSrc[blk].size(); ++i)
             {
                 bndCoeffBlock[i] = m_compactBndCoeff[m_bndCoeffSrc[blk][i]];
             }
-            m_bndCoeff[blk].template CopyVector<MemSpace, TData>(bndCoeffBlock);
+            m_bndCoeff[blk].template CopyVector<MemSpace, TData>(bndCoeffBlock,
+                                                                 streamID);
         }
     }
 
@@ -671,10 +674,13 @@ protected:
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             auto &inoutBlk = inout.GetBlocks()[blk];
 
             // Initialize pointers.
-            auto inoutPtr    = inoutBlk.template GetPtr<MemSpace, ReadWrite>();
+            auto inoutPtr =
+                inoutBlk.template GetPtr<MemSpace, ReadWrite>(streamID);
             auto inoutWidth  = inoutBlk.GetInterleaveWidth();
             unsigned blksize = inoutBlk.CompSize();
 
@@ -684,15 +690,16 @@ protected:
             {
                 ReshapeStorage<ExecSpace>(
                     1u, inoutWidth, inoutBlk.GetNumElementsWithPadding(),
-                    inoutBlk.GetNumData(), inoutPtr + nc * blksize);
+                    inoutBlk.GetNumData(), inoutPtr + nc * blksize, streamID);
             }
 
-            auto mapPtrBlock = m_map[blk].template GetPtr<MemSpace, ReadOnly>();
+            auto mapPtrBlock =
+                m_map[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
             auto bndcoeffPtrBlock =
-                m_bndCoeff[blk].template GetPtr<MemSpace, ReadOnly>();
+                m_bndCoeff[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
             const TData *signPtrBlock =
                 m_anySignChange
-                    ? m_sign[blk].template GetPtr<MemSpace, ReadOnly>()
+                    ? m_sign[blk].template GetPtr<MemSpace, ReadOnly>(streamID)
                     : nullptr;
 
             // Add Dirichlet boundary conditions.
@@ -712,15 +719,15 @@ protected:
 
                 if (m_signChange[nc])
                 {
-                    DirBndCondKernel<ExecSpace>(nbndCoeffBlk, signPtr, mapPtr,
-                                                bndcoeffPtr,
-                                                inoutPtr + nc * blksize);
+                    DirBndCondKernel<ExecSpace>(
+                        nbndCoeffBlk, signPtr, mapPtr, bndcoeffPtr,
+                        inoutPtr + nc * blksize, streamID);
                 }
                 else
                 {
-                    DirBndCondKernel<ExecSpace>(nbndCoeffBlk, mapPtr,
-                                                bndcoeffPtr,
-                                                inoutPtr + nc * blksize);
+                    DirBndCondKernel<ExecSpace>(
+                        nbndCoeffBlk, mapPtr, bndcoeffPtr,
+                        inoutPtr + nc * blksize, streamID);
                 }
             }
         }
@@ -734,21 +741,25 @@ protected:
 
             for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
             {
+                const unsigned int streamID = blk + 1;
+
                 auto nParDirBndSignBlock = m_parDirCounts[blk][nc];
                 if (nParDirBndSignBlock == 0)
                 {
                     continue;
                 }
 
-                auto inoutptr = inout.GetBlocks()[blk]
-                                    .template GetPtr<MemSpace, ReadWrite>();
+                auto inoutptr =
+                    inout.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(
+                        streamID);
                 auto parDirBndSignPtr =
-                    m_parDirBndSign[blk].template GetPtr<MemSpace, ReadOnly>() +
+                    m_parDirBndSign[blk].template GetPtr<MemSpace, ReadOnly>(
+                        streamID) +
                     m_parDirOffsets[blk][nc];
                 auto blksize = inout.GetBlocks()[blk].CompSize();
-                ParallelDirBndSignKernel<ExecSpace>(nParDirBndSignBlock,
-                                                    parDirBndSignPtr,
-                                                    inoutptr + nc * blksize);
+                ParallelDirBndSignKernel<ExecSpace>(
+                    nParDirBndSignBlock, parDirBndSignPtr,
+                    inoutptr + nc * blksize, streamID);
             }
         }
 
@@ -776,22 +787,26 @@ protected:
 
             for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
             {
+                const unsigned int streamID = blk + 1;
+
                 auto nParDirBndSignBlock = m_parDirCounts[blk][nc];
                 if (nParDirBndSignBlock == 0)
                 {
                     continue;
                 }
 
-                auto inoutptr = inout.GetBlocks()[blk]
-                                    .template GetPtr<MemSpace, ReadWrite>();
+                auto inoutptr =
+                    inout.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(
+                        streamID);
                 auto parDirBndSignPtr =
-                    m_parDirBndSign[blk].template GetPtr<MemSpace, ReadOnly>() +
+                    m_parDirBndSign[blk].template GetPtr<MemSpace, ReadOnly>(
+                        streamID) +
                     m_parDirOffsets[blk][nc];
 
                 auto blksize = inout.GetBlocks()[blk].CompSize();
-                ParallelDirBndSignKernel<ExecSpace>(nParDirBndSignBlock,
-                                                    parDirBndSignPtr,
-                                                    inoutptr + nc * blksize);
+                ParallelDirBndSignKernel<ExecSpace>(
+                    nParDirBndSignBlock, parDirBndSignPtr,
+                    inoutptr + nc * blksize, streamID);
             }
         }
 
@@ -804,8 +819,9 @@ protected:
 
             for (unsigned int blk1 = 0; blk1 < inout.GetBlocks().size(); ++blk1)
             {
-                auto inptr = inout.GetBlocks()[blk1]
-                                 .template GetPtr<MemSpace, ReadOnly>();
+                const unsigned int streamID = 0;
+                // const unsigned int streamID = blk1 + 1; FIXME
+
                 auto blksize1 = inout.GetBlocks()[blk1].CompSize();
                 for (unsigned int blk0 = 0; blk0 < inout.GetBlocks().size();
                      ++blk0)
@@ -816,36 +832,44 @@ protected:
                         continue;
                     }
 
-                    auto outptr = inout.GetBlocks()[blk0]
-                                      .template GetPtr<MemSpace, WriteOnly>();
+                    auto inptr =
+                        inout.GetBlocks()[blk1]
+                            .template GetPtr<MemSpace, ReadOnly>(streamID);
+                    auto outptr =
+                        inout.GetBlocks()[blk0]
+                            .template GetPtr<MemSpace, WriteOnly>(streamID);
                     const size_t offset = m_locOffsets[blk1][blk0][nc];
                     auto locid0Ptr =
                         m_locid0[blk1][blk0]
-                            .template GetPtr<MemSpace, ReadOnly>() +
+                            .template GetPtr<MemSpace, ReadOnly>(streamID) +
                         offset;
                     auto locid1Ptr =
                         m_locid1[blk1][blk0]
-                            .template GetPtr<MemSpace, ReadOnly>() +
+                            .template GetPtr<MemSpace, ReadOnly>(streamID) +
                         offset;
                     auto locsignPtr =
                         m_locsign[blk1][blk0]
-                            .template GetPtr<MemSpace, ReadOnly>() +
+                            .template GetPtr<MemSpace, ReadOnly>(streamID) +
                         offset;
 
                     auto blksize0 = inout.GetBlocks()[blk0].CompSize();
                     LocalDirBndCondKernel<ExecSpace>(
                         nLocCoeffBlock, locid0Ptr, locid1Ptr, locsignPtr,
-                        inptr + nc * blksize1, outptr + nc * blksize0);
+                        inptr + nc * blksize1, outptr + nc * blksize0,
+                        streamID);
                 }
             }
         }
 
         for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
         {
+            const unsigned int streamID = blk + 1;
+
             auto &inoutBlk = inout.GetBlocks()[blk];
 
             // Initialize pointers.
-            auto inoutPtr    = inoutBlk.template GetPtr<MemSpace, ReadWrite>();
+            auto inoutPtr =
+                inoutBlk.template GetPtr<MemSpace, ReadWrite>(streamID);
             auto inoutWidth  = inoutBlk.GetInterleaveWidth();
             unsigned blksize = inoutBlk.CompSize();
 
@@ -854,7 +878,7 @@ protected:
             {
                 ReshapeStorage<ExecSpace>(
                     inoutWidth, 1u, inoutBlk.GetNumElementsWithPadding(),
-                    inoutBlk.GetNumData(), inoutPtr + nc * blksize);
+                    inoutBlk.GetNumData(), inoutPtr + nc * blksize, streamID);
             }
         }
     }

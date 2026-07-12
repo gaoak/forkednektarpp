@@ -55,6 +55,8 @@ public:
                           NekDataWarehouseSharedPtr dataWarehouse)
         : FwdTransBCBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
+        m_streamID = block_idx + 1;
+
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
         m_isDeformed =
@@ -244,6 +246,7 @@ public:
 protected:
     static constexpr unsigned int m_implInterleaveWidth = 1u;
 
+    unsigned int m_streamID;
     LibUtilities::ShapeType m_shapeType;
     bool m_isDeformed;
     bool m_isModified;
@@ -361,8 +364,8 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -374,18 +377,19 @@ protected:
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
 
             // Simple copy for 0D points. No loop required.
             size_t nsize = m_nqTot * nelmt;
-            copyKernel<ExecSpace, TData>(nsize, inptr, outptr);
+            copyKernel<ExecSpace, TData>(nsize, inptr, outptr, m_streamID);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(), outptr);
+                                      nelmt, outblock.GetNumData(), outptr,
+                                      m_streamID);
 
             // Increment pointers.
             inptr += inblock.CompSize() * inblock.GetNumHomoModes();
@@ -408,8 +412,8 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -428,29 +432,30 @@ protected:
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
 
             // Simple copy for collocated data. Copy per component
             if (m_isCollocation)
             {
                 size_t nsize = m_nqTot * nelmt;
-                copyKernel<ExecSpace, TData>(nsize, inptr, outptr);
+                copyKernel<ExecSpace, TData>(nsize, inptr, outptr, m_streamID);
             }
             else
             {
                 // Launch FwdTransBC kernel
                 DEVICE_1DGRID_KERNEL_LAUNCHER(
                     (FwdTransBC1DKernelLauncher<DEFORMED>), gridsize, blocksize,
-                    shmemsize, 0, nm0, nq0, nelmt, m_B[0], m_W[0], m_offset_seg,
-                    m_massint_seg[0], m_jacptr, inptr, outptr);
+                    shmemsize, m_streamID, nm0, nq0, nelmt, m_B[0], m_W[0],
+                    m_offset_seg, m_massint_seg[0], m_jacptr, inptr, outptr);
             }
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(), outptr);
+                                      nelmt, outblock.GetNumData(), outptr,
+                                      m_streamID);
 
             // Increment pointers.
             inptr += inblock.CompSize() * inblock.GetNumHomoModes();
@@ -478,12 +483,13 @@ protected:
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Fetch deformed mass matrix.
         const TData *massintptr =
-            (DEFORMED) ? this->m_dinvmass.template GetPtr<MemSpace, ReadOnly>()
+            (DEFORMED) ? this->m_dinvmass.template GetPtr<MemSpace, ReadOnly>(
+                             m_streamID)
                        : m_massint;
 
         // Get interleave parameter.
@@ -506,20 +512,20 @@ protected:
             // Reshape, if necessary.
             ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
 
             // Simple copy for collocated data. Copy per component
             if (m_isCollocation)
             {
                 size_t nsize = nqTot * nelmt;
-                copyKernel<ExecSpace, TData>(nsize, inptr, outptr);
+                copyKernel<ExecSpace, TData>(nsize, inptr, outptr, m_streamID);
             }
             else
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER(
                     (FwdTransBC2DKernelLauncher<SHAPE_TYPE, DEFORMED>),
-                    gridsize, blocksize, shmemsize, 0, nm0, nm1, nmTot, nq0,
-                    nq1, nelmt, m_isModified, m_index[0], m_B[0], m_B[1],
+                    gridsize, blocksize, shmemsize, m_streamID, nm0, nm1, nmTot,
+                    nq0, nq1, nelmt, m_isModified, m_index[0], m_B[0], m_B[1],
                     m_W[0], m_W[1], m_interp1to0, m_offset_seg,
                     m_massint_seg[0], m_massint_seg[1], m_jacTraceptr,
                     m_traceElmtMapptr, m_traceElmtSignptr, m_nmTotInt,
@@ -529,9 +535,10 @@ protected:
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                       nelmt, inblock.GetNumData(),
-                                      (TData *)inptr);
+                                      (TData *)inptr, m_streamID);
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(), outptr);
+                                      nelmt, outblock.GetNumData(), outptr,
+                                      m_streamID);
 
             // Increment pointers.
             inptr += inblock.CompSize() * inblock.GetNumHomoModes();
@@ -545,7 +552,8 @@ protected:
     void v_SetInvMassMatrix(std::vector<TData> &invmass) override
     {
         this->m_dinvmass =
-            MemoryRegion<TData>::template FromVector<MemSpace, TData>(invmass);
+            MemoryRegion<TData>::template FromVector<MemSpace, TData>(
+                invmass, m_streamID);
     }
 };
 
