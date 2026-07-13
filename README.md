@@ -135,21 +135,6 @@ Note:
 The `gfxzzz` value can also be queried using the following command:
 `rocm-smi --showproductname | grep gfx`
 
-### Intel SYCL (CUDA)
-```
-cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
-         -DNEKTAR_ENABLE_DEVICE=SYCL-CUDA \
-         -DNEKTAR_DEVICE_ARCH=sm_xx \ 
-         -DCMAKE_CXX_COMPILER="/path-to-intel-compiler/bin/icpx" 
-```
-
-Note:
-- For V100, please use `sm_xx=sm_70`
-- For A100, please use `sm_xx=sm_80` 
-- For A40, please use `sm_xx=sm_86`
-- For H100, please use `sm_xx=sm_90` 
-- For B100, please use `sm_xx=sm_100` 
-
 ### AdaptiveCpp SYCL (CUDA)
 ```
 cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
@@ -158,6 +143,17 @@ cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
  ```
 
 Note: 
+- Just-in-time compilation does not work properly on `sm_90` architecture. To 
+  enable ahead-of-time compilation, the architecture must be specified explictly
+  as fellow:
+
+```
+cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
+         -DNEKTAR_ENABLE_DEVICE=SYCL-CUDA \
+         -DNEKTAR_DEVICE_ARCH=sm_90 \
+         -DCMAKE_CXX_COMPILER="/path-to-adaptivecpp-compiler/bin/acpp" 
+ ```
+
 - Due to massive library size, linking problems may occur when using the AdaptiveCpp compiler. Using the lld linker instead of the GNU linker (bfd) can fix the problem:
 
 ```
@@ -167,6 +163,38 @@ cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
          -DCMAKE_LINKER=lld \
          -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld"
 ```     
+
+- Possible fix for a `Could NOT find MPI_CXX (missing: MPI_CXX_WORKS)` error is provied below:
+
+```
+export OMPI_CC=/path-to-llvm/bin/clang
+export OMPI_CXX=/path-to-adaptivecpp-compiler/bin/acpp
+
+cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
+         -DNEKTAR_ENABLE_DEVICE=SYCL-CUDA \
+         -DNEKTAR_USE_MPI=ON \
+         -DCMAKE_C_COMPILER=mpicc \
+         -DCMAKE_CXX_COMPILER=mpicxx 
+```
+
+### AdaptiveCpp SYCL (HIP)
+```
+cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
+         -DNEKTAR_ENABLE_DEVICE=SYCL-HIP \
+         -DNEKTAR_DEVICE_ARCH=gfx90a \
+         -DROCM_PATH="path-to-rocm" \
+         -DCMAKE_CXX_COMPILER="/path-to-adaptivecpp-compiler/bin/acpp" 
+```
+
+Note:
+- For MI100, please use `gfxzzz=gfx908` 
+- For MI210, please use `gfxzzz=gfx90a` 
+- For MI250, please use `gfxzzz=gfx90a` 
+- For MI300, please use `gfxzzz=gfx942` 
+- For MI325, please use `gfxzzz=gfx942` 
+- For MI350, please use `gfxzzz=gfx950` 
+- For MI355, please use `gfxzzz=gfx950` 
+
 
 Installation
 ------------

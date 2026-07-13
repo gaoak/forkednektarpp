@@ -53,6 +53,7 @@ IF ( NEKTAR_USE_CWIPI )
         ELSE()
             SET(CWIPI_PATCH_COMMAND ${PATCH} -p1 < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/cwipi-disable-warnings.patch) 
         ENDIF()
+
         EXTERNALPROJECT_ADD(
             cwipi-0.11.1
             URL ${TPURL}/cwipi-0.11.1.tgz
@@ -69,11 +70,11 @@ IF ( NEKTAR_USE_CWIPI )
             CONFIGURE_COMMAND
                 CFLAGS=-w
                 CXXFLAGS=-w
-                CC=${MPI_C_COMPILER}
-                CXX=${MPI_CXX_COMPILER}
-                FC=${MPI_Fortran_COMPILER}
-                ${CMAKE_COMMAND}
+                CC=mpicc
+                CXX=mpicxx
+                ${CMAKE_COMMAND} 
                     ${NEKTAR_EXTERNAL_PROJECT_CMAKE_GENERATOR_ARGS}
+                    -DCMAKE_POSITION_INDEPENDENT_CODE=ON
                     -DCMAKE_INSTALL_PREFIX=${TPDIST}
                     ${TPSRC}/cwipi-0.11.1
            BUILD_COMMAND ${CMAKE_MAKE_PROGRAM}
