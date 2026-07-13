@@ -38,6 +38,7 @@
 #include <cuda_runtime.h>
 #include <iostream>
 #include <unordered_map>
+#include <vector>
 
 #define CHECK_LAST_HIPCUDA_ERROR()                                             \
     {                                                                          \
@@ -82,6 +83,41 @@ public:
         return streams[id];
     }
 
+    static std::unordered_map<unsigned int, cudaStream_t> &GetAllInstances(void)
+    {
+        return streams;
+    }
+
+    static void RecordEvent(unsigned int id)
+    {
+        if (events.find(id) == events.end())
+        {
+            cudaEvent_t e;
+            CHECK_HIPCUDA_ERROR(
+                cudaEventCreateWithFlags(&e, cudaEventDisableTiming));
+            events[id] = e;
+        }
+
+        CHECK_HIPCUDA_ERROR(
+            cudaEventRecord(events[id], CUDAStream::GetInstance(id)));
+    }
+
+    static cudaEvent_t &GetEvent(unsigned int id)
+    {
+        if (events.find(id) == events.end())
+        {
+            events[id] = nullptr;
+        }
+
+        return events[id];
+    }
+
+    static std::unordered_map<unsigned int, cudaEvent_t> &GetAllEvents(void)
+    {
+        return events;
+    }
+
 private:
     static std::unordered_map<unsigned int, cudaStream_t> streams;
+    static std::unordered_map<unsigned int, cudaEvent_t> events;
 };

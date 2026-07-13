@@ -819,13 +819,12 @@ protected:
 
             for (unsigned int blk1 = 0; blk1 < inout.GetBlocks().size(); ++blk1)
             {
-                const unsigned int streamID = 0;
-                // const unsigned int streamID = blk1 + 1; FIXME
-
                 auto blksize1 = inout.GetBlocks()[blk1].CompSize();
                 for (unsigned int blk0 = 0; blk0 < inout.GetBlocks().size();
                      ++blk0)
                 {
+                    const unsigned int streamID = blk0 + 1;
+
                     auto nLocCoeffBlock = m_locCounts[blk1][blk0][nc];
                     if (nLocCoeffBlock == 0)
                     {
@@ -861,9 +860,19 @@ protected:
             }
         }
 
+        // Set dependencies.
+        std::vector<unsigned int> eventIDs;
+        for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
+        {
+            const unsigned int eventID = blk + 1;
+            eventIDs.push_back(eventID);
+        }
+
         for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
         {
             const unsigned int streamID = blk + 1;
+
+            SetStreamDependencies<ExecSpace>(streamID, eventIDs);
 
             auto &inoutBlk = inout.GetBlocks()[blk];
 

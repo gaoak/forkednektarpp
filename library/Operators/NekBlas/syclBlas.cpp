@@ -44,8 +44,9 @@ using namespace oneapi::math;
 using namespace oneapi::mkl;
 #endif
 
-static std::vector<sycl::event> inline setOneMathExecutionDependency(
-    const unsigned int streamID)
+[[maybe_unused]] static std::vector<
+    sycl::event> inline setOneMathExecutionDependency(const unsigned int
+                                                          streamID)
 {
     // Set SYCL depedencies to reproduce CUDA/HIP default stream behavior.
     std::vector<sycl::event> dependencies;

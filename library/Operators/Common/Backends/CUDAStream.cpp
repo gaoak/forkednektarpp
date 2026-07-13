@@ -35,3 +35,4 @@
 #include "CUDAStream.hpp"
 
 std::unordered_map<unsigned int, cudaStream_t> CUDAStream::streams;
+std::unordered_map<unsigned int, cudaEvent_t> CUDAStream::events;
