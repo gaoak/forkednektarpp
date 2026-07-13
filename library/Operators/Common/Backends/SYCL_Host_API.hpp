@@ -37,6 +37,16 @@
 #if defined(NEKTAR_ENABLE_SYCL)
 #include "Operators/Common/Backends/SYCLQueue.hpp"
 
+#if defined(SYCL_ENABLE_CUDA) && defined(__ADAPTIVECPP__)
+#define sycl_backend sycl::backend::cuda
+#elif defined(SYCL_ENABLE_CUDA)
+#define sycl_backend sycl::backend::ext_oneapi_cuda
+#elif defined(SYCL_ENABLE_HIP) && defined(__ADAPTIVECPP__)
+#define sycl_backend sycl::backend::hip
+#elif defined(SYCL_ENABLE_HIP)
+#define sycl_backend sycl::backend::ext_oneapi_hip
+#endif
+
 static void inline setSYCLExecutionDependency(const unsigned int streamID,
                                               sycl::handler &cgh)
 {

@@ -40,15 +40,7 @@
 #if defined(SYCL_ENABLE_CPU) || defined(NEKTAR_ENABLE_DEVICEONHOST)
 #include "Operators/ElmtOps/Expression/ExpressionSerialAVXGeneric.hpp"
 #else
-#if defined(SYCL_ENABLE_CUDA) && defined(__ADAPTIVECPP__)
-#define sycl_backend sycl::backend::cuda
-#elif defined(SYCL_ENABLE_CUDA)
-#define sycl_backend sycl::backend::ext_oneapi_cuda
-#elif defined(SYCL_ENABLE_HIP) && defined(__ADAPTIVECPP__)
-#define sycl_backend sycl::backend::hip
-#elif defined(SYCL_ENABLE_HIP)
-#define sycl_backend sycl::backend::ext_oneapi_hip
-#elif defined(NEKTAR_ENABLE_CUDA)
+#if defined(NEKTAR_ENABLE_CUDA)
 #define stream_t cudaStream_t
 #elif defined(NEKTAR_ENABLE_HIP)
 #define stream_t hipStream_t

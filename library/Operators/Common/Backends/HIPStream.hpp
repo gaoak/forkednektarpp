@@ -37,6 +37,7 @@
 #include <hip/hip_runtime.h>
 #include <iostream>
 #include <unordered_map>
+#include <vector>
 
 #define CHECK_LAST_HIPCUDA_ERROR()                                             \
     {                                                                          \
@@ -81,6 +82,41 @@ public:
         return streams[id];
     }
 
+    static std::unordered_map<unsigned int, hipStream_t> &GetAllInstances(void)
+    {
+        return streams;
+    }
+
+    static void RecordEvent(unsigned int id)
+    {
+        if (events.find(id) == events.end())
+        {
+            hipEvent_t e;
+            CHECK_HIPCUDA_ERROR(
+                hipEventCreateWithFlags(&e, hipEventDisableTiming));
+            events[id] = e;
+        }
+
+        CHECK_HIPCUDA_ERROR(
+            hipEventRecord(events[id], HIPStream::GetInstance(id)));
+    }
+
+    static hipEvent_t &GetEvent(unsigned int id)
+    {
+        if (events.find(id) == events.end())
+        {
+            events[id] = nullptr;
+        }
+
+        return events[id];
+    }
+
+    static std::unordered_map<unsigned int, hipEvent_t> &GetAllEvents(void)
+    {
+        return events;
+    }
+
 private:
     static std::unordered_map<unsigned int, hipStream_t> streams;
+    static std::unordered_map<unsigned int, hipEvent_t> events;
 };

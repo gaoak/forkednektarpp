@@ -95,6 +95,13 @@ void LocalDirBndCondKernel(const size_t nsize, const size_t *id0Ptr,
         });
 
     Nektar::LoopExecutionSetStreamID(0);
+
+    // Record event for synchronization.
+#if defined(NEKTAR_ENABLE_CUDA)
+    CUDAStream::RecordEvent(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    HIPStream::RecordEvent(streamID);
+#endif
 }
 
 } // namespace Nektar::Operators::detail

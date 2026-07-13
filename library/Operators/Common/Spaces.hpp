@@ -382,6 +382,124 @@ extern unsigned int internalMaxDataSizeByte;
 #endif
 }
 
+template <typename ExecSpace>
+static typename std::enable_if<!std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
+SetStreamDependencies([[maybe_unused]] unsigned int streamID,
+                      [[maybe_unused]] unsigned int eventID)
+{
+}
+
+template <typename ExecSpace>
+static typename std::enable_if<!std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
+SetStreamDependencies([[maybe_unused]] unsigned int streamID,
+                      [[maybe_unused]] std::vector<unsigned int> &eventIDs)
+{
+}
+
+template <typename ExecSpace>
+static typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
+SetStreamDependencies([[maybe_unused]] unsigned int streamID,
+                      [[maybe_unused]] unsigned int eventID)
+{
+#if defined(NEKTAR_ENABLE_CUDA)
+    if (streamID != eventID)
+    {
+        auto stream = CUDAStream::GetInstance(streamID);
+        auto e      = CUDAStream::GetEvent(eventID);
+        if (e != nullptr)
+        {
+            CHECK_HIPCUDA_ERROR(cudaStreamWaitEvent(stream, e));
+        }
+    }
+#elif defined(NEKTAR_ENABLE_HIP)
+    if (streamID != eventID)
+    {
+        auto stream = HIPStream::GetInstance(streamID);
+        auto e      = HIPStream::GetEvent(eventID);
+        if (e != nullptr)
+        {
+            CHECK_HIPCUDA_ERROR(hipStreamWaitEvent(stream, e));
+        }
+    }
+#elif defined(NEKTAR_ENABLE_SYCL)
+    if (streamID != eventID)
+    {
+        sycl::event event = SYCLQueue::GetEvent(eventID);
+#if defined(__ADAPTIVECPP__)
+        sycl::event e =
+            SYCLQueue::GetInstance(streamID).submit([&](sycl::handler &cgh) {
+                cgh.depends_on(event);
+                cgh.AdaptiveCpp_enqueue_custom_operation(
+                    [=]([[maybe_unused]] sycl::interop_handle ih) {});
+            });
+#else
+        sycl::event e = SYCLQueue::GetInstance(streamID).submit(
+            [&](sycl::handler &cgh) { cgh.ext_oneapi_barrier({event}); });
+#endif
+        SYCLQueue::SetEvent(streamID, e);
+    }
+#endif
+}
+
+template <typename ExecSpace>
+static typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
+                               void>::type
+SetStreamDependencies([[maybe_unused]] unsigned int streamID,
+                      [[maybe_unused]] std::vector<unsigned int> &eventIDs)
+{
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+    for (auto eventID : eventIDs)
+    {
+        if (streamID != eventID)
+        {
+            auto e = CUDAStream::GetEvent(eventID);
+            if (e != nullptr)
+            {
+                CHECK_HIPCUDA_ERROR(cudaStreamWaitEvent(stream, e));
+            }
+        }
+    }
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+    for (auto eventID : eventIDs)
+    {
+        if (streamID != eventID)
+        {
+            auto e = HIPStream::GetEvent(eventID);
+            if (e != nullptr)
+            {
+                CHECK_HIPCUDA_ERROR(hipStreamWaitEvent(stream, e));
+            }
+        }
+    }
+#elif defined(NEKTAR_ENABLE_SYCL)
+    std::vector<sycl::event> events;
+    for (auto eventID : eventIDs)
+    {
+        if (streamID != eventID)
+        {
+            events.push_back(SYCLQueue::GetEvent(eventID));
+        }
+    }
+#if defined(__ADAPTIVECPP__)
+    sycl::event e =
+        SYCLQueue::GetInstance(streamID).submit([&](sycl::handler &cgh) {
+            cgh.depends_on(events);
+            cgh.AdaptiveCpp_enqueue_custom_operation(
+                [=]([[maybe_unused]] sycl::interop_handle ih) {});
+        });
+#else
+    sycl::event e = SYCLQueue::GetInstance(streamID).submit(
+        [&](sycl::handler &cgh) { cgh.ext_oneapi_barrier(events); });
+#endif
+    SYCLQueue::SetEvent(streamID, e);
+#endif
+}
+
 } // namespace Nektar
 
 #include "Operators/Common/Backends/DeviceOnHost_Device_API.hpp"

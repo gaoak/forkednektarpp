@@ -36,5 +36,5 @@
 
 unsigned int internalSYCLDeviceId = 0;
 
-std::unordered_map<unsigned int, sycl::queue *> SYCLQueue::queue;
-std::unordered_map<unsigned int, sycl::event> SYCLQueue::event;
+std::unordered_map<unsigned int, sycl::queue *> SYCLQueue::queues;
+std::unordered_map<unsigned int, sycl::event> SYCLQueue::events;

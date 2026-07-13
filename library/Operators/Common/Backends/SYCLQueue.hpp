@@ -36,6 +36,7 @@
 
 #include <sycl/sycl.hpp>
 #include <unordered_map>
+#include <vector>
 
 extern unsigned int internalSYCLDeviceId;
 
@@ -50,50 +51,50 @@ class SYCLQueue
 public:
     static sycl::queue &GetInstance(unsigned int id)
     {
-        if (queue.find(id) == queue.end())
+        if (queues.find(id) == queues.end())
         {
 #if defined(SYCL_ENABLE_CPU)
-            queue[id] = new sycl::queue(sycl::cpu_selector_v,
-                                        sycl::property::queue::in_order());
+            queues[id] = new sycl::queue(sycl::cpu_selector_v,
+                                         sycl::property::queue::in_order());
 #else
             std::vector<sycl::device> gpu_devices =
                 sycl::device::get_devices(sycl::info::device_type::gpu);
-            queue[id] = new sycl::queue(gpu_devices[internalSYCLDeviceId],
-                                        sycl::property::queue::in_order());
+            queues[id] = new sycl::queue(gpu_devices[internalSYCLDeviceId],
+                                         sycl::property::queue::in_order());
 #endif
         }
 
-        return *queue[id];
+        return *queues[id];
     }
 
     static std::unordered_map<unsigned int, sycl::queue *> &GetAllInstances(
         void)
     {
-        return queue;
+        return queues;
     }
 
     static void SetEvent(unsigned int id, sycl::event &e)
     {
-        event[id] = e;
+        events[id] = e;
     }
 
     static sycl::event &GetEvent(unsigned int id)
     {
-        if (queue.find(id) == queue.end())
+        if (queues.find(id) == queues.end())
         {
             sycl::event e;
-            event[id] = e;
+            events[id] = e;
         }
 
-        return event[id];
+        return events[id];
     }
 
     static std::unordered_map<unsigned int, sycl::event> &GetAllEvents(void)
     {
-        return event;
+        return events;
     }
 
 private:
-    static std::unordered_map<unsigned int, sycl::queue *> queue;
-    static std::unordered_map<unsigned int, sycl::event> event;
+    static std::unordered_map<unsigned int, sycl::queue *> queues;
+    static std::unordered_map<unsigned int, sycl::event> events;
 };
