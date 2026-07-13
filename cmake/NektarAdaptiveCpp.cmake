@@ -33,7 +33,11 @@ ENDIF()
 IF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CPU")
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --acpp-targets=${ACPP_TARGETS} -O3 -march=native -Wno-nan-infinity-disabled -Wno-pass-failed ")
 ELSE()
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --acpp-targets=${ACPP_TARGETS} -O3 -Wno-nan-infinity-disabled -Wno-pass-failed ")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --acpp-targets=${ACPP_TARGETS} -O3 -Wno-nan-infinity-disabled -Wno-pass-failed")
+ENDIF()
+
+IF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" AND _SYSTEM_PROCESSOR STREQUAL "aarch64")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__SVFloat32_t=float -D__SVFloat64_t=double -D__SVBool_t=unsigned")
 ENDIF()
 
 IF (CMAKE_BUILD_TYPE STREQUAL "Debug")
