@@ -122,13 +122,15 @@ public:
     template <class T> void Send(int pProc, T &pData);
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
-    void Send(int pProc, Operators::MemoryRegion<T> &pData);
+    void Send(int pProc, Operators::MemoryRegion<T> &pData,
+              const unsigned int streamID = 0);
 #endif
 
     template <class T> void Recv(int pProc, T &pData);
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
-    void Recv(int pProc, Operators::MemoryRegion<T> &pData);
+    void Recv(int pProc, Operators::MemoryRegion<T> &pData,
+              const unsigned int streamID = 0);
 #endif
 
     template <class T>
@@ -136,7 +138,8 @@ public:
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
     void SendRecv(int pSendProc, Operators::MemoryRegion<T> &pSendData,
-                  int pRecvProc, Operators::MemoryRegion<T> &pRecvData);
+                  int pRecvProc, Operators::MemoryRegion<T> &pRecvData,
+                  const unsigned int streamID = 0);
 #endif
 
     template <class T> void AllReduce(T &pData, enum ReduceOperator pOp);
@@ -147,20 +150,24 @@ public:
     void AllReduceEnd(T &pData, CommRequestSharedPtr request);
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
-    void AllReduce(Operators::MemoryRegion<T> &pData, enum ReduceOperator pOp);
+    void AllReduce(Operators::MemoryRegion<T> &pData, enum ReduceOperator pOp,
+                   const unsigned int streamID = 0);
     template <class MemSpace, class T>
     void AllReduceBegin(Operators::MemoryRegion<T> &pData,
-                        enum ReduceOperator pOp, CommRequestSharedPtr request);
+                        enum ReduceOperator pOp, CommRequestSharedPtr request,
+                        const unsigned int streamID = 0);
     template <class MemSpace, class T>
     void AllReduceEnd(Operators::MemoryRegion<T> &pData,
-                      CommRequestSharedPtr request);
+                      CommRequestSharedPtr request,
+                      const unsigned int streamID = 0);
 #endif
 
     template <class T> void AlltoAll(T &pSendData, T &pRecvData);
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
     void AlltoAll(Operators::MemoryRegion<T> &pSendData,
-                  Operators::MemoryRegion<T> &pRecvData);
+                  Operators::MemoryRegion<T> &pRecvData,
+                  const unsigned int streamID = 0);
 #endif
     template <class T1, class T2>
     void AlltoAllv(T1 &pSendData, T2 &pSendDataSizeMap, T2 &pSendDataOffsetMap,
@@ -172,14 +179,16 @@ public:
                    Operators::MemoryRegion<int> &pSendDataOffsetMap,
                    Operators::MemoryRegion<T> &pRecvData,
                    Operators::MemoryRegion<int> &pRecvDataSizeMap,
-                   Operators::MemoryRegion<int> &pRecvDataOffsetMap);
+                   Operators::MemoryRegion<int> &pRecvDataOffsetMap,
+                   const unsigned int streamID = 0);
 #endif
 
     template <class T> void AllGather(T &pSendData, T &pRecvData);
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
     void AllGather(Operators::MemoryRegion<T> &pSendData,
-                   Operators::MemoryRegion<T> &pRecvData);
+                   Operators::MemoryRegion<T> &pRecvData,
+                   const unsigned int streamID = 0);
 #endif
     template <class T>
     void AllGatherv(T &pSendData, T &pRecvData,
@@ -190,7 +199,8 @@ public:
     void AllGatherv(Operators::MemoryRegion<T> &pSendData,
                     Operators::MemoryRegion<T> &pRecvData,
                     Operators::MemoryRegion<int> &pRecvDataSizeMap,
-                    Operators::MemoryRegion<int> &pRecvDataOffsetMap);
+                    Operators::MemoryRegion<int> &pRecvDataOffsetMap,
+                    const unsigned int streamID = 0);
 #endif
     template <class T>
     void AllGatherv(T &pRecvData, Array<OneD, int> &pRecvDataSizeMap,
@@ -199,27 +209,31 @@ public:
     template <class MemSpace, class T>
     void AllGatherv(Operators::MemoryRegion<T> &pRecvData,
                     Operators::MemoryRegion<int> &pRecvDataSizeMap,
-                    Operators::MemoryRegion<int> &pRecvDataOffsetMap);
+                    Operators::MemoryRegion<int> &pRecvDataOffsetMap,
+                    const unsigned int streamID = 0);
 #endif
 
     template <class T> void Bcast(T &pData, int pRoot);
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
-    void Bcast(Operators::MemoryRegion<T> &pData, int pRoot);
+    void Bcast(Operators::MemoryRegion<T> &pData, int pRoot,
+               const unsigned int streamID = 0);
 #endif
 
     template <class T> T Gather(int rootProc, T &val);
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
     Operators::MemoryRegion<T> Gather(int rootProc,
-                                      Operators::MemoryRegion<T> &val);
+                                      Operators::MemoryRegion<T> &val,
+                                      const unsigned int streamID = 0);
 #endif
 
     template <class T> T Scatter(int rootProc, T &pData);
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
     Operators::MemoryRegion<T> Scatter(int rootProc,
-                                       Operators::MemoryRegion<T> &pData);
+                                       Operators::MemoryRegion<T> &pData,
+                                       const unsigned int streamID = 0);
 #endif
 
     template <class T>
@@ -228,7 +242,7 @@ public:
     template <class MemSpace, class T>
     void DistGraphCreateAdjacent(Operators::MemoryRegion<T> &sources,
                                  Operators::MemoryRegion<T> &sourceweights,
-                                 int reorder);
+                                 int reorder, const unsigned int streamID = 0);
 #endif
 
     template <class T1, class T2>
@@ -242,7 +256,8 @@ public:
                            Operators::MemoryRegion<int> &pSendDataOffsetMap,
                            Operators::MemoryRegion<T> &pRecvData,
                            Operators::MemoryRegion<int> &pRecvDataSizeMap,
-                           Operators::MemoryRegion<int> &pRecvDataOffsetMap);
+                           Operators::MemoryRegion<int> &pRecvDataOffsetMap,
+                           const unsigned int streamID = 0);
 #endif
 
     template <class T>
@@ -460,22 +475,24 @@ template <class T> void Comm::Send(int pProc, T &pData)
  *
  */
 template <class MemSpace, class T>
-void Comm::Send(int pProc, Operators::MemoryRegion<T> &pData)
+void Comm::Send(int pProc, Operators::MemoryRegion<T> &pData,
+                const unsigned int streamID)
 {
     if (m_gpu_aware)
     {
         // Synchronize stream before communication.
-        nekStreamSynchronize(0);
+        nekStreamSynchronize(streamID);
 
-        v_Send(pData.template GetPtr<MemSpace, ReadOnly>(), pData.size(),
-               CommDataTypeTraits<T>::GetDataType(), pProc);
+        v_Send(pData.template GetPtr<MemSpace, ReadOnly>(streamID),
+               pData.size(), CommDataTypeTraits<T>::GetDataType(), pProc);
     }
     else
     {
         // MPI is NOT GPU-aware, data must be copied to the host before data
         // transfer.
-        v_Send(pData.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-               pData.size(), CommDataTypeTraits<T>::GetDataType(), pProc);
+        v_Send(
+            pData.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(streamID),
+            pData.size(), CommDataTypeTraits<T>::GetDataType(), pProc);
     }
 }
 #endif
@@ -495,21 +512,23 @@ template <class T> void Comm::Recv(int pProc, T &pData)
  *
  */
 template <class MemSpace, class T>
-void Comm::Recv(int pProc, Operators::MemoryRegion<T> &pData)
+void Comm::Recv(int pProc, Operators::MemoryRegion<T> &pData,
+                const unsigned int streamID)
 {
     if (m_gpu_aware)
     {
-        v_Recv(pData.template GetPtr<MemSpace, WriteOnly>(), pData.size(),
-               CommDataTypeTraits<T>::GetDataType(), pProc);
+        v_Recv(pData.template GetPtr<MemSpace, WriteOnly>(streamID),
+               pData.size(), CommDataTypeTraits<T>::GetDataType(), pProc);
     }
     else
     {
         // MPI is NOT GPU-aware, data is received from the host.
-        v_Recv(pData.template GetPtr<NektarSpaces::HostSpace, WriteOnly>(),
-               pData.size(), CommDataTypeTraits<T>::GetDataType(), pProc);
+        v_Recv(
+            pData.template GetPtr<NektarSpaces::HostSpace, WriteOnly>(streamID),
+            pData.size(), CommDataTypeTraits<T>::GetDataType(), pProc);
         // MPI is NOT GPU-aware, data must be copied back to MemSpace after data
         // transfer.
-        pData.template GetPtr<MemSpace, ReadOnly>();
+        pData.template GetPtr<MemSpace, ReadOnly>(streamID);
     }
 }
 #endif
@@ -534,31 +553,34 @@ void Comm::SendRecv(int pSendProc, T &pSendData, int pRecvProc, T &pRecvData)
  */
 template <class MemSpace, class T>
 void Comm::SendRecv(int pSendProc, Operators::MemoryRegion<T> &pSendData,
-                    int pRecvProc, Operators::MemoryRegion<T> &pRecvData)
+                    int pRecvProc, Operators::MemoryRegion<T> &pRecvData,
+                    const unsigned int streamID)
 {
     if (m_gpu_aware)
     {
         // Synchronize stream before communication.
-        nekStreamSynchronize(0);
+        nekStreamSynchronize(streamID);
 
-        v_SendRecv(pSendData.template GetPtr<MemSpace, ReadOnly>(),
-                   pSendData.size(), CommDataTypeTraits<T>::GetDataType(),
-                   pSendProc, pRecvData.template GetPtr<MemSpace, WriteOnly>(),
-                   pRecvData.size(), CommDataTypeTraits<T>::GetDataType(),
-                   pRecvProc);
+        v_SendRecv(
+            pSendData.template GetPtr<MemSpace, ReadOnly>(streamID),
+            pSendData.size(), CommDataTypeTraits<T>::GetDataType(), pSendProc,
+            pRecvData.template GetPtr<MemSpace, WriteOnly>(streamID),
+            pRecvData.size(), CommDataTypeTraits<T>::GetDataType(), pRecvProc);
     }
     else
     {
         // MPI is NOT GPU-aware, data must be copied to the host before data
         // transfer.
         v_SendRecv(
-            pSendData.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+            pSendData.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
+                streamID),
             pSendData.size(), CommDataTypeTraits<T>::GetDataType(), pSendProc,
-            pRecvData.template GetPtr<NektarSpaces::HostSpace, WriteOnly>(),
+            pRecvData.template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
+                streamID),
             pRecvData.size(), CommDataTypeTraits<T>::GetDataType(), pRecvProc);
         // MPI is NOT GPU-aware, data must be copied back to MemSpace after data
         // transfer.
-        pRecvData.template GetPtr<MemSpace, ReadOnly>();
+        pRecvData.template GetPtr<MemSpace, ReadOnly>(streamID);
     }
 }
 #endif
@@ -599,20 +621,22 @@ void Comm::AllReduceEnd([[maybe_unused]] T &pData, CommRequestSharedPtr request)
  *
  */
 template <class MemSpace, class T>
-void Comm::AllReduce(Operators::MemoryRegion<T> &pData, enum ReduceOperator pOp)
+void Comm::AllReduce(Operators::MemoryRegion<T> &pData, enum ReduceOperator pOp,
+                     const unsigned int streamID)
 {
     if (m_gpu_aware)
     {
         // Synchronize stream before communication.
-        nekStreamSynchronize(0);
+        nekStreamSynchronize(streamID);
 
-        v_AllReduce(pData.template GetPtr<MemSpace, ReadWrite>(), pData.size(),
-                    CommDataTypeTraits<T>::GetDataType(), pOp);
+        v_AllReduce(pData.template GetPtr<MemSpace, ReadWrite>(streamID),
+                    pData.size(), CommDataTypeTraits<T>::GetDataType(), pOp);
     }
     else
     {
-        v_AllReduce(pData.template GetPtr<NektarSpaces::HostSpace, ReadWrite>(),
-                    pData.size(), CommDataTypeTraits<T>::GetDataType(), pOp);
+        v_AllReduce(
+            pData.template GetPtr<NektarSpaces::HostSpace, ReadWrite>(streamID),
+            pData.size(), CommDataTypeTraits<T>::GetDataType(), pOp);
     }
 }
 
@@ -621,21 +645,22 @@ void Comm::AllReduce(Operators::MemoryRegion<T> &pData, enum ReduceOperator pOp)
  */
 template <class MemSpace, class T>
 void Comm::AllReduceBegin(Operators::MemoryRegion<T> &pData,
-                          enum ReduceOperator pOp, CommRequestSharedPtr request)
+                          enum ReduceOperator pOp, CommRequestSharedPtr request,
+                          const unsigned int streamID)
 {
     if (m_gpu_aware)
     {
         // Synchronize stream before communication.
-        nekStreamSynchronize(0);
+        nekStreamSynchronize(streamID);
 
-        v_AllReduceBegin(pData.template GetPtr<MemSpace, ReadWrite>(),
+        v_AllReduceBegin(pData.template GetPtr<MemSpace, ReadWrite>(streamID),
                          pData.size(), CommDataTypeTraits<T>::GetDataType(),
                          pOp, request);
     }
     else
     {
         v_AllReduceBegin(
-            pData.template GetPtr<NektarSpaces::HostSpace, ReadWrite>(),
+            pData.template GetPtr<NektarSpaces::HostSpace, ReadWrite>(streamID),
             pData.size(), CommDataTypeTraits<T>::GetDataType(), pOp, request);
     }
 }
@@ -645,7 +670,8 @@ void Comm::AllReduceBegin(Operators::MemoryRegion<T> &pData,
  */
 template <class MemSpace, class T>
 void Comm::AllReduceEnd([[maybe_unused]] Operators::MemoryRegion<T> &pData,
-                        CommRequestSharedPtr request)
+                        CommRequestSharedPtr request,
+                        [[maybe_unused]] const unsigned int streamID)
 {
     if (m_gpu_aware)
     {
@@ -686,7 +712,8 @@ template <class T> void Comm::AlltoAll(T &pSendData, T &pRecvData)
  */
 template <class MemSpace, class T>
 void Comm::AlltoAll(Operators::MemoryRegion<T> &pSendData,
-                    Operators::MemoryRegion<T> &pRecvData)
+                    Operators::MemoryRegion<T> &pRecvData,
+                    const unsigned int streamID)
 {
     int sendSize = pSendData.size();
     int recvSize = pRecvData.size();
@@ -700,25 +727,27 @@ void Comm::AlltoAll(Operators::MemoryRegion<T> &pSendData,
     if (m_gpu_aware)
     {
         // Synchronize stream before communication.
-        nekStreamSynchronize(0);
+        nekStreamSynchronize(streamID);
 
-        v_AlltoAll(pSendData.template GetPtr<MemSpace, ReadOnly>(), count,
-                   CommDataTypeTraits<T>::GetDataType(),
-                   pRecvData.template GetPtr<MemSpace, WriteOnly>(), count,
-                   CommDataTypeTraits<T>::GetDataType());
+        v_AlltoAll(pSendData.template GetPtr<MemSpace, ReadOnly>(streamID),
+                   count, CommDataTypeTraits<T>::GetDataType(),
+                   pRecvData.template GetPtr<MemSpace, WriteOnly>(streamID),
+                   count, CommDataTypeTraits<T>::GetDataType());
     }
     else
     {
         // MPI is NOT GPU-aware, data must be copied to the host before data
         // transfer.
         v_AlltoAll(
-            pSendData.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+            pSendData.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
+                streamID),
             count, CommDataTypeTraits<T>::GetDataType(),
-            pRecvData.template GetPtr<NektarSpaces::HostSpace, WriteOnly>(),
+            pRecvData.template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
+                streamID),
             count, CommDataTypeTraits<T>::GetDataType());
         // MPI is NOT GPU-aware, data must be copied back to MemSpace after data
         // transfer.
-        pRecvData.template GetPtr<MemSpace, ReadOnly>();
+        pRecvData.template GetPtr<MemSpace, ReadOnly>(streamID);
     }
 }
 #endif
@@ -756,42 +785,46 @@ void Comm::AlltoAllv(Operators::MemoryRegion<T> &pSendData,
                      Operators::MemoryRegion<int> &pSendDataOffsetMap,
                      Operators::MemoryRegion<T> &pRecvData,
                      Operators::MemoryRegion<int> &pRecvDataSizeMap,
-                     Operators::MemoryRegion<int> &pRecvDataOffsetMap)
+                     Operators::MemoryRegion<int> &pRecvDataOffsetMap,
+                     const unsigned int streamID)
 {
     if (m_gpu_aware)
     {
         // Synchronize stream before communication.
-        nekStreamSynchronize(0);
+        nekStreamSynchronize(streamID);
 
-        v_AlltoAllv(pSendData.template GetPtr<MemSpace, ReadOnly>(),
-                    pSendDataSizeMap.template GetPtr<MemSpace, ReadOnly>(),
-                    pSendDataOffsetMap.template GetPtr<MemSpace, ReadOnly>(),
-                    CommDataTypeTraits<T>::GetDataType(),
-                    pRecvData.template GetPtr<MemSpace, WriteOnly>(),
-                    pRecvDataSizeMap.template GetPtr<MemSpace, ReadOnly>(),
-                    pRecvDataOffsetMap.template GetPtr<MemSpace, ReadOnly>(),
-                    CommDataTypeTraits<T>::GetDataType());
+        v_AlltoAllv(
+            pSendData.template GetPtr<MemSpace, ReadOnly>(streamID),
+            pSendDataSizeMap.template GetPtr<MemSpace, ReadOnly>(streamID),
+            pSendDataOffsetMap.template GetPtr<MemSpace, ReadOnly>(streamID),
+            CommDataTypeTraits<T>::GetDataType(),
+            pRecvData.template GetPtr<MemSpace, WriteOnly>(streamID),
+            pRecvDataSizeMap.template GetPtr<MemSpace, ReadOnly>(streamID),
+            pRecvDataOffsetMap.template GetPtr<MemSpace, ReadOnly>(streamID),
+            CommDataTypeTraits<T>::GetDataType());
     }
     else
     {
         // MPI is NOT GPU-aware, data must be copied to the host before data
         // transfer.
         v_AlltoAllv(
-            pSendData.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-            pSendDataSizeMap
-                .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+            pSendData.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
+                streamID),
+            pSendDataSizeMap.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
+                streamID),
             pSendDataOffsetMap
-                .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+                .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(streamID),
             CommDataTypeTraits<T>::GetDataType(),
-            pRecvData.template GetPtr<NektarSpaces::HostSpace, WriteOnly>(),
-            pRecvDataSizeMap
-                .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+            pRecvData.template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
+                streamID),
+            pRecvDataSizeMap.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
+                streamID),
             pRecvDataOffsetMap
-                .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+                .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(streamID),
             CommDataTypeTraits<T>::GetDataType());
         // MPI is NOT GPU-aware, data must be copied back to MemSpace after data
         // transfer.
-        pRecvData.template GetPtr<MemSpace, ReadOnly>();
+        pRecvData.template GetPtr<MemSpace, ReadOnly>(streamID);
     }
 }
 #endif
@@ -822,7 +855,8 @@ template <class T> void Comm::AllGather(T &pSendData, T &pRecvData)
  */
 template <class MemSpace, class T>
 void Comm::AllGather(Operators::MemoryRegion<T> &pSendData,
-                     Operators::MemoryRegion<T> &pRecvData)
+                     Operators::MemoryRegion<T> &pRecvData,
+                     const unsigned int streamID)
 {
     int sendSize = pSendData.size();
     int recvSize = sendSize;
@@ -830,25 +864,27 @@ void Comm::AllGather(Operators::MemoryRegion<T> &pSendData,
     if (m_gpu_aware)
     {
         // Synchronize stream before communication.
-        nekStreamSynchronize(0);
+        nekStreamSynchronize(streamID);
 
-        v_AllGather(pSendData.template GetPtr<MemSpace, ReadOnly>(), sendSize,
-                    CommDataTypeTraits<T>::GetDataType(),
-                    pRecvData.template GetPtr<MemSpace, WriteOnly>(), recvSize,
-                    CommDataTypeTraits<T>::GetDataType());
+        v_AllGather(pSendData.template GetPtr<MemSpace, ReadOnly>(streamID),
+                    sendSize, CommDataTypeTraits<T>::GetDataType(),
+                    pRecvData.template GetPtr<MemSpace, WriteOnly>(streamID),
+                    recvSize, CommDataTypeTraits<T>::GetDataType());
     }
     else
     {
         // MPI is NOT GPU-aware, data must be copied to the host before data
         // transfer.
         v_AllGather(
-            pSendData.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+            pSendData.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
+                streamID),
             sendSize, CommDataTypeTraits<T>::GetDataType(),
-            pRecvData.template GetPtr<NektarSpaces::HostSpace, WriteOnly>(),
+            pRecvData.template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
+                streamID),
             recvSize, CommDataTypeTraits<T>::GetDataType());
         // MPI is NOT GPU-aware, data must be copied back to MemSpace after data
         // transfer.
-        pRecvData.template GetPtr<MemSpace, ReadOnly>();
+        pRecvData.template GetPtr<MemSpace, ReadOnly>(streamID);
     }
 }
 #endif
@@ -882,38 +918,42 @@ template <class MemSpace, class T>
 void Comm::AllGatherv(Operators::MemoryRegion<T> &pSendData,
                       Operators::MemoryRegion<T> &pRecvData,
                       Operators::MemoryRegion<int> &pRecvDataSizeMap,
-                      Operators::MemoryRegion<int> &pRecvDataOffsetMap)
+                      Operators::MemoryRegion<int> &pRecvDataOffsetMap,
+                      const unsigned int streamID)
 {
     int sendSize = pSendData.size();
 
     if (m_gpu_aware)
     {
         // Synchronize stream before communication.
-        nekStreamSynchronize(0);
+        nekStreamSynchronize(streamID);
 
-        v_AllGatherv(pSendData.template GetPtr<MemSpace, ReadOnly>(), sendSize,
-                     CommDataTypeTraits<T>::GetDataType(),
-                     pRecvData.template GetPtr<MemSpace, WriteOnly>(),
-                     pRecvDataSizeMap.template GetPtr<MemSpace, ReadOnly>(),
-                     pRecvDataOffsetMap.template GetPtr<MemSpace, ReadOnly>(),
-                     CommDataTypeTraits<T>::GetDataType());
+        v_AllGatherv(
+            pSendData.template GetPtr<MemSpace, ReadOnly>(streamID), sendSize,
+            CommDataTypeTraits<T>::GetDataType(),
+            pRecvData.template GetPtr<MemSpace, WriteOnly>(streamID),
+            pRecvDataSizeMap.template GetPtr<MemSpace, ReadOnly>(streamID),
+            pRecvDataOffsetMap.template GetPtr<MemSpace, ReadOnly>(streamID),
+            CommDataTypeTraits<T>::GetDataType());
     }
     else
     {
         // MPI is NOT GPU-aware, data must be copied to the host before data
         // transfer.
         v_AllGatherv(
-            pSendData.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+            pSendData.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
+                streamID),
             sendSize, CommDataTypeTraits<T>::GetDataType(),
-            pRecvData.template GetPtr<NektarSpaces::HostSpace, WriteOnly>(),
-            pRecvDataSizeMap
-                .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+            pRecvData.template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
+                streamID),
+            pRecvDataSizeMap.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
+                streamID),
             pRecvDataOffsetMap
-                .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+                .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(streamID),
             CommDataTypeTraits<T>::GetDataType());
         // MPI is NOT GPU-aware, data must be copied back to MemSpace after data
         // transfer.
-        pRecvData.template GetPtr<MemSpace, ReadOnly>();
+        pRecvData.template GetPtr<MemSpace, ReadOnly>(streamID);
     }
 }
 #endif
@@ -941,32 +981,35 @@ void Comm::AllGatherv(T &pRecvData, Array<OneD, int> &pRecvDataSizeMap,
 template <class MemSpace, class T>
 void Comm::AllGatherv(Operators::MemoryRegion<T> &pRecvData,
                       Operators::MemoryRegion<int> &pRecvDataSizeMap,
-                      Operators::MemoryRegion<int> &pRecvDataOffsetMap)
+                      Operators::MemoryRegion<int> &pRecvDataOffsetMap,
+                      const unsigned int streamID)
 {
     if (m_gpu_aware)
     {
         // Synchronize stream before communication.
-        nekStreamSynchronize(0);
+        nekStreamSynchronize(streamID);
 
-        v_AllGatherv(pRecvData.template GetPtr<MemSpace, ReadWrite>(),
-                     pRecvDataSizeMap.template GetPtr<MemSpace, ReadOnly>(),
-                     pRecvDataOffsetMap.template GetPtr<MemSpace, ReadOnly>(),
-                     CommDataTypeTraits<T>::GetDataType());
+        v_AllGatherv(
+            pRecvData.template GetPtr<MemSpace, ReadWrite>(streamID),
+            pRecvDataSizeMap.template GetPtr<MemSpace, ReadOnly>(streamID),
+            pRecvDataOffsetMap.template GetPtr<MemSpace, ReadOnly>(streamID),
+            CommDataTypeTraits<T>::GetDataType());
     }
     else
     {
         // MPI is NOT GPU-aware, data must be copied to the host before data
         // transfer.
         v_AllGatherv(
-            pRecvData.template GetPtr<NektarSpaces::HostSpace, ReadWrite>(),
-            pRecvDataSizeMap
-                .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+            pRecvData.template GetPtr<NektarSpaces::HostSpace, ReadWrite>(
+                streamID),
+            pRecvDataSizeMap.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
+                streamID),
             pRecvDataOffsetMap
-                .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+                .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(streamID),
             CommDataTypeTraits<T>::GetDataType());
         // MPI is NOT GPU-aware, data must be copied back to MemSpace after data
         // transfer.
-        pRecvData.template GetPtr<MemSpace, ReadOnly>();
+        pRecvData.template GetPtr<MemSpace, ReadOnly>(streamID);
     }
 }
 #endif
@@ -986,34 +1029,36 @@ template <class T> void Comm::Bcast(T &pData, int pRoot)
  *
  */
 template <class MemSpace, class T>
-void Comm::Bcast(Operators::MemoryRegion<T> &pData, int pRoot)
+void Comm::Bcast(Operators::MemoryRegion<T> &pData, int pRoot,
+                 const unsigned int streamID)
 {
     if (m_gpu_aware)
     {
         // Synchronize memory on the root process.
         if (GetRank() == pRoot)
         {
-            nekStreamSynchronize(0);
-            pData.template GetPtr<MemSpace, ReadOnly>();
+            nekStreamSynchronize(streamID);
+            pData.template GetPtr<MemSpace, ReadOnly>(streamID);
         }
 
-        v_Bcast(pData.template GetPtr<MemSpace, WriteOnly>(), pData.size(),
-                CommDataTypeTraits<T>::GetDataType(), pRoot);
+        v_Bcast(pData.template GetPtr<MemSpace, WriteOnly>(streamID),
+                pData.size(), CommDataTypeTraits<T>::GetDataType(), pRoot);
     }
     else
     {
         // Synchronize memory on the root process.
         if (GetRank() == pRoot)
         {
-            pData.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            pData.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(streamID);
         }
-        v_Bcast(pData.template GetPtr<NektarSpaces::HostSpace, WriteOnly>(),
-                pData.size(), CommDataTypeTraits<T>::GetDataType(), pRoot);
+        v_Bcast(
+            pData.template GetPtr<NektarSpaces::HostSpace, WriteOnly>(streamID),
+            pData.size(), CommDataTypeTraits<T>::GetDataType(), pRoot);
         // MPI is NOT GPU-aware, data must be copied back to MemSpace after data
         // transfer.
         if (GetRank() != pRoot)
         {
-            pData.template GetPtr<MemSpace, ReadOnly>();
+            pData.template GetPtr<MemSpace, ReadOnly>(streamID);
         }
     }
 }
@@ -1047,7 +1092,8 @@ template <class T> T Comm::Gather(const int rootProc, T &val)
  */
 template <class MemSpace, class T>
 Operators::MemoryRegion<T> Comm::Gather(const int rootProc,
-                                        Operators::MemoryRegion<T> &val)
+                                        Operators::MemoryRegion<T> &val,
+                                        const unsigned int streamID)
 {
     bool amRoot  = (GetRank() == rootProc);
     unsigned nEl = val.size();
@@ -1061,12 +1107,13 @@ Operators::MemoryRegion<T> Comm::Gather(const int rootProc,
         // Synchronize stream before communication.
         if (!amRoot)
         {
-            nekStreamSynchronize(0);
+            nekStreamSynchronize(streamID);
         }
 
-        void *recvbuf =
-            amRoot ? ans.template GetPtr<MemSpace, WriteOnly>() : nullptr;
-        v_Gather(val.template GetPtr<MemSpace, ReadOnly>(), nEl,
+        void *recvbuf = amRoot
+                            ? ans.template GetPtr<MemSpace, WriteOnly>(streamID)
+                            : nullptr;
+        v_Gather(val.template GetPtr<MemSpace, ReadOnly>(streamID), nEl,
                  CommDataTypeTraits<T>::GetDataType(), recvbuf, nEl,
                  CommDataTypeTraits<T>::GetDataType(), rootProc);
     }
@@ -1075,16 +1122,18 @@ Operators::MemoryRegion<T> Comm::Gather(const int rootProc,
         // MPI is NOT GPU-aware, data must be copied to the host before data
         // transfer.
         void *recvbuf =
-            amRoot ? ans.template GetPtr<NektarSpaces::HostSpace, WriteOnly>()
+            amRoot ? ans.template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
+                         streamID)
                    : nullptr;
-        v_Gather(val.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(), nEl,
-                 CommDataTypeTraits<T>::GetDataType(), recvbuf, nEl,
-                 CommDataTypeTraits<T>::GetDataType(), rootProc);
+        v_Gather(
+            val.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(streamID),
+            nEl, CommDataTypeTraits<T>::GetDataType(), recvbuf, nEl,
+            CommDataTypeTraits<T>::GetDataType(), rootProc);
         // MPI is NOT GPU-aware, data must be copied back to MemSpace after data
         // transfer.
         if (amRoot)
         {
-            ans.template GetPtr<MemSpace, ReadOnly>();
+            ans.template GetPtr<MemSpace, ReadOnly>(streamID);
         }
     }
     return ans;
@@ -1118,7 +1167,8 @@ template <class T> T Comm::Scatter(const int rootProc, T &pData)
  */
 template <class MemSpace, class T>
 Operators::MemoryRegion<T> Comm::Scatter(const int rootProc,
-                                         Operators::MemoryRegion<T> &pData)
+                                         Operators::MemoryRegion<T> &pData,
+                                         const unsigned int streamID)
 {
     bool amRoot  = (GetRank() == rootProc);
     unsigned nEl = pData.size() / GetSize();
@@ -1131,13 +1181,14 @@ Operators::MemoryRegion<T> Comm::Scatter(const int rootProc,
         // Synchronize stream before communication.
         if (amRoot)
         {
-            nekStreamSynchronize(0);
+            nekStreamSynchronize(streamID);
         }
 
         const void *sendbuf =
-            amRoot ? pData.template GetPtr<MemSpace, ReadOnly>() : nullptr;
+            amRoot ? pData.template GetPtr<MemSpace, ReadOnly>(streamID)
+                   : nullptr;
         v_Scatter(sendbuf, nEl, CommDataTypeTraits<T>::GetDataType(),
-                  ans.template GetPtr<MemSpace, WriteOnly>(), nEl,
+                  ans.template GetPtr<MemSpace, WriteOnly>(streamID), nEl,
                   CommDataTypeTraits<T>::GetDataType(), rootProc);
     }
     else
@@ -1145,14 +1196,16 @@ Operators::MemoryRegion<T> Comm::Scatter(const int rootProc,
         // MPI is NOT GPU-aware, data must be copied to the host before data
         // transfer.
         const void *sendbuf =
-            amRoot ? pData.template GetPtr<NektarSpaces::HostSpace, ReadOnly>()
+            amRoot ? pData.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
+                         streamID)
                    : nullptr;
-        v_Scatter(sendbuf, nEl, CommDataTypeTraits<T>::GetDataType(),
-                  ans.template GetPtr<NektarSpaces::HostSpace, WriteOnly>(),
-                  nEl, CommDataTypeTraits<T>::GetDataType(), rootProc);
+        v_Scatter(
+            sendbuf, nEl, CommDataTypeTraits<T>::GetDataType(),
+            ans.template GetPtr<NektarSpaces::HostSpace, WriteOnly>(streamID),
+            nEl, CommDataTypeTraits<T>::GetDataType(), rootProc);
         // MPI is NOT GPU-aware, data must be copied back to MemSpace after data
         // transfer.
-        ans.template GetPtr<MemSpace, ReadOnly>();
+        ans.template GetPtr<MemSpace, ReadOnly>(streamID);
     }
     return ans;
 }
@@ -1193,7 +1246,7 @@ void Comm::DistGraphCreateAdjacent(T &sources, T &sourceweights, int reorder)
 template <class MemSpace, class T>
 void Comm::DistGraphCreateAdjacent(Operators::MemoryRegion<T> &sources,
                                    Operators::MemoryRegion<T> &sourceweights,
-                                   int reorder)
+                                   int reorder, const unsigned int streamID)
 {
     ASSERTL0(sources.size() == sourceweights.size(),
              "Sources and weights array sizes don't match");
@@ -1203,18 +1256,21 @@ void Comm::DistGraphCreateAdjacent(Operators::MemoryRegion<T> &sources,
     if (m_gpu_aware)
     {
         // Synchronize stream before communication.
-        nekStreamSynchronize(0);
+        nekStreamSynchronize(streamID);
 
         v_DistGraphCreateAdjacent(
-            indegree, sources.template GetPtr<MemSpace, ReadOnly>(),
-            sourceweights.template GetPtr<MemSpace, ReadOnly>(), reorder);
+            indegree, sources.template GetPtr<MemSpace, ReadOnly>(streamID),
+            sourceweights.template GetPtr<MemSpace, ReadOnly>(streamID),
+            reorder);
     }
     else
     {
         v_DistGraphCreateAdjacent(
             indegree,
-            sources.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-            sourceweights.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+            sources.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
+                streamID),
+            sourceweights.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
+                streamID),
             reorder);
     }
 }
@@ -1268,21 +1324,22 @@ void Comm::NeighborAlltoAllv(Operators::MemoryRegion<T> &pSendData,
                              Operators::MemoryRegion<int> &pSendDataOffsetMap,
                              Operators::MemoryRegion<T> &pRecvData,
                              Operators::MemoryRegion<int> &pRecvDataSizeMap,
-                             Operators::MemoryRegion<int> &pRecvDataOffsetMap)
+                             Operators::MemoryRegion<int> &pRecvDataOffsetMap,
+                             const unsigned int streamID)
 {
     if (m_gpu_aware)
     {
         // Synchronize stream before communication.
-        nekStreamSynchronize(0);
+        nekStreamSynchronize(streamID);
 
         v_NeighborAlltoAllv(
-            pSendData.template GetPtr<MemSpace, ReadOnly>(),
-            pSendDataSizeMap.template GetPtr<MemSpace, ReadOnly>(),
-            pSendDataOffsetMap.template GetPtr<MemSpace, ReadOnly>(),
+            pSendData.template GetPtr<MemSpace, ReadOnly>(streamID),
+            pSendDataSizeMap.template GetPtr<MemSpace, ReadOnly>(streamID),
+            pSendDataOffsetMap.template GetPtr<MemSpace, ReadOnly>(streamID),
             CommDataTypeTraits<T>::GetDataType(),
-            pRecvData.template GetPtr<MemSpace, WriteOnly>(),
-            pRecvDataSizeMap.template GetPtr<MemSpace, ReadOnly>(),
-            pRecvDataOffsetMap.template GetPtr<MemSpace, ReadOnly>(),
+            pRecvData.template GetPtr<MemSpace, WriteOnly>(streamID),
+            pRecvDataSizeMap.template GetPtr<MemSpace, ReadOnly>(streamID),
+            pRecvDataOffsetMap.template GetPtr<MemSpace, ReadOnly>(streamID),
             CommDataTypeTraits<T>::GetDataType());
     }
     else
@@ -1290,21 +1347,23 @@ void Comm::NeighborAlltoAllv(Operators::MemoryRegion<T> &pSendData,
         // MPI is NOT GPU-aware, data must be copied to the host before data
         // transfer.
         v_NeighborAlltoAllv(
-            pSendData.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-            pSendDataSizeMap
-                .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+            pSendData.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
+                streamID),
+            pSendDataSizeMap.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
+                streamID),
             pSendDataOffsetMap
-                .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+                .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(streamID),
             CommDataTypeTraits<T>::GetDataType(),
-            pRecvData.template GetPtr<NektarSpaces::HostSpace, WriteOnly>(),
-            pRecvDataSizeMap
-                .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+            pRecvData.template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
+                streamID),
+            pRecvDataSizeMap.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
+                streamID),
             pRecvDataOffsetMap
-                .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+                .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(streamID),
             CommDataTypeTraits<T>::GetDataType());
         // MPI is NOT GPU-aware, data must be copied back to MemSpace after data
         // transfer.
-        pRecvData.template GetPtr<MemSpace, ReadOnly>();
+        pRecvData.template GetPtr<MemSpace, ReadOnly>(streamID);
     }
 }
 #endif
