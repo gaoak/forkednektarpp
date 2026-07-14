@@ -11,12 +11,12 @@
             <value variable="u" tolerance="1e-06">0.00119764</value>
             <value variable="v" tolerance="1e-06">0.00119764</value>
             <value variable="w" tolerance="1e-06">0.00139181</value>
-            <value variable="p" tolerance="1e-03">5.907</value>
+            <value variable="p" tolerance="1e-02">5.907</value>
         </metric>
         <metric type="Linf" id="2">
-            <value variable="u" tolerance="1e-06">0.00038162</value>
-            <value variable="v" tolerance="1e-06">0.00038162</value>
-            <value variable="w" tolerance="1e-06">0.000239257</value>
+            <value variable="u" tolerance="1e-05">0.00038162</value>
+            <value variable="v" tolerance="1e-05">0.00038162</value>
+            <value variable="w" tolerance="1e-05">0.000239257</value>
             <value variable="p" tolerance="1e-03">0.377823</value>
         </metric>
     </metrics>

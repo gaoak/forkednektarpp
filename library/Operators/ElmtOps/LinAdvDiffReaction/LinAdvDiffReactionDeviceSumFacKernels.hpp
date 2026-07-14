@@ -147,15 +147,21 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction1DSumFacKernel(
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *jacptr =
             DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
-        const TData *inptr = in + nm0 * warpsize * iwarp;
-        TData *outptr      = out + nm0 * warpsize * iwarp;
-        TData *bwd         = wsp + nq0 * warpsize * iwarp;
-        TData *deriv       = wsp + nq0 * nelmt + nq0 * warpsize * iwarp;
+        const TData *inptr      = in + nm0 * warpsize * iwarp;
+        TData *outptr           = out + nm0 * warpsize * iwarp;
+        TData *bwd              = wsp + nq0 * warpsize * iwarp;
+        TData *deriv            = wsp + nq0 * nelmt + nq0 * warpsize * iwarp;
+        const TData *advVel0ptr = advVel0 + nq0 * warpsize * iwarp;
+        const TData *advVel1ptr =
+            ncoord > 1 ? advVel1 + nq0 * warpsize * iwarp : advVel1;
+        const TData *advVel2ptr =
+            ncoord > 2 ? advVel2 + nq0 * warpsize * iwarp : advVel2;
+
         BwdTransSegSumFacKernel<false>(ilane, nm0, nq0, basis0, inptr, bwd);
         PhysDeriv1DSumFacKernel<DEFORMED>(ilane, ncoord, nq0, nelmt * nq0, D0,
                                           dfptr, bwd, deriv);
-        AddAdvection1DKernel(ilane, ncoord, nq0, advVel0, advVel1, advVel2,
-                             deriv, deriv + nq0 * nelmt,
+        AddAdvection1DKernel(ilane, ncoord, nq0, advVel0ptr, advVel1ptr,
+                             advVel2ptr, deriv, deriv + nq0 * nelmt,
                              deriv + 2 * nq0 * nelmt, bwd, lambda);
         ApplyMetric1DSumFacKernel<DEFORMED>(ilane, ncoord, nq0, nelmt * nq0, w0,
                                             dfptr, jacptr, coeff, deriv, deriv,
@@ -232,6 +238,10 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction2DSumFacKernel(
         TData *deriv       = wsp + nqTot * nelmt + nqTot * warpsize * iwarp;
         TData *deriv0      = wsp + nqTot * nelmt + nqTot * warpsize * iwarp;
         TData *deriv1      = wsp + 2 * nqTot * nelmt + nqTot * warpsize * iwarp;
+        const TData *advVel0ptr = advVel0 + nqTot * warpsize * iwarp;
+        const TData *advVel1ptr = advVel1 + nqTot * warpsize * iwarp;
+        const TData *advVel2ptr =
+            ncoord == 3 ? advVel2 + nqTot * warpsize * iwarp : advVel2;
 
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
@@ -264,8 +274,8 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction2DSumFacKernel(
         PhysDeriv2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, ncoord, nq0, nq1, nelmt * nqTot, D0, D1, s_f0, s_f1, dfptr,
             bwd, deriv);
-        AddAdvection2DKernel(ilane, ncoord, nq0, nq1, advVel0, advVel1, advVel2,
-                             deriv, deriv + nqTot * nelmt,
+        AddAdvection2DKernel(ilane, ncoord, nq0, nq1, advVel0ptr, advVel1ptr,
+                             advVel2ptr, deriv, deriv + nqTot * nelmt,
                              deriv + 2 * nqTot * nelmt, bwd, lambda);
         ApplyMetric2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, ncoord, nq0, nq1, nelmt * nqTot, w0, w1, s_f0, s_f1, dfptr,
@@ -423,6 +433,9 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction3DSumFacKernel(
         TData *deriv0      = wsp + nqTot * nelmt + nqTot * warpsize * iwarp;
         TData *deriv1      = wsp + 2 * nqTot * nelmt + nqTot * warpsize * iwarp;
         TData *deriv2      = wsp + 3 * nqTot * nelmt + nqTot * warpsize * iwarp;
+        const TData *advVel0ptr = advVel0 + nqTot * warpsize * iwarp;
+        const TData *advVel1ptr = advVel1 + nqTot * warpsize * iwarp;
+        const TData *advVel2ptr = advVel2 + nqTot * warpsize * iwarp;
 
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
@@ -495,8 +508,8 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction3DSumFacKernel(
         PhysDeriv3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, nq0, nq1, nq2, nelmt * nqTot, D0, D1, D2, s_f0, s_f1, s_f1m,
             s_f2, dfptr, bwd, deriv);
-        AddAdvection3DKernel(ilane, nq0, nq1, nq2, advVel0, advVel1, advVel2,
-                             deriv0, deriv1, deriv2, bwd, lambda);
+        AddAdvection3DKernel(ilane, nq0, nq1, nq2, advVel0ptr, advVel1ptr,
+                             advVel2ptr, deriv0, deriv1, deriv2, bwd, lambda);
         ApplyMetric3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, nq0, nq1, nq2, nelmt * nqTot, w0, w1, w2, s_f0, s_f1, s_f1m,
             s_f2, dfptr, jacptr, coeff, deriv, deriv0, deriv1, deriv2, bwd,

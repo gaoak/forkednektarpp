@@ -35,6 +35,29 @@
 
 #include <IncNavierStokesSolverRedesign/EquationSystems/VelocityCorrectionScheme.h>
 
+#include <Operators/ElmtOps/Advection/AdvectionOp.hpp>
+#include <Operators/ElmtOps/BwdTrans/BwdTransOp.hpp>
+#include <Operators/ElmtOps/Divergence/DivergenceOp.hpp>
+#include <Operators/ElmtOps/PhysDeriv/PhysDerivOp.hpp>
+#include <Operators/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp>
+#include <Operators/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp>
+#include <Operators/GlobalLinSysOps/LinearSystems/HelmSolve/HelmSolveOp.hpp>
+#include <Operators/GlobalLinSysOps/LinearSystems/LinearADRSolve/LinearADRSolveOp.hpp>
+#include <Operators/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp>
+#include <Operators/GlobalLinSysOps/LinearSystems/PoissonSolve/PoissonSolveOp.hpp>
+#include <Operators/Norm/NormL2/NormL2Op.hpp>
+#include <Operators/Norm/NormLinf/NormLinfOp.hpp>
+#include <Operators/PreconOps/PreconOp.hpp>
+#include <SolverCore/Core/SessionFunction.h>
+#include <SpatialDomains/Conditions.h>
+
+#include <algorithm>
+#include <cctype>
+#include <iostream>
+#include <iterator>
+#include <sstream>
+#include <utility>
+
 namespace Nektar
 {
 using namespace Operators;
@@ -42,7 +65,7 @@ using namespace Operators;
 std::string VelocityCorrectionScheme::className =
     GetEquationSystemFactory().RegisterCreatorFunction(
         "VelocityCorrectionScheme", VelocityCorrectionScheme::create,
-        "Velocity correciton scheme for solving incompressible Navier-Stokes "
+        "Velocity correction scheme for solving incompressible Navier-Stokes "
         "in segregated form.");
 
 VelocityCorrectionScheme::VelocityCorrectionScheme(
@@ -105,12 +128,13 @@ void VelocityCorrectionScheme::v_InitObject(bool declareExpansionLists)
     }
     m_expansionLists[m_pressureIndex]->SetDataWarehouse();
 
+    // Load formulation and physical parameters before field allocation since
+    // the linear-implicit formulation requires additional workspaces.
+    InitialiseParameters();
+
     /// Create Field for solution m_fields and others
     // Note we use expansionList for velocity (and added scalar) fields
     InitialiseFields();
-
-    // Load physical parameters
-    InitialiseParameters();
 
     // Set up diffusion Coeff.
     SetDiffusionCoeff();
@@ -125,6 +149,10 @@ void VelocityCorrectionScheme::v_InitObject(bool declareExpansionLists)
         &VelocityCorrectionScheme::SolveUnsteadyStokesSystem, this);
     m_timeOp->DefineExplicitRhs(
         &VelocityCorrectionScheme::EvaluateAdvection_SetPressureBCs, this);
+    if (m_implicitAdvection)
+    {
+        m_timeOp->EnableExplicitContributionExtrapolation();
+    }
 }
 
 void VelocityCorrectionScheme::v_GenerateSummary(SummaryList &s)
@@ -133,7 +161,14 @@ void VelocityCorrectionScheme::v_GenerateSummary(SummaryList &s)
 
     AddSummaryItem(s, "Equations", "Incompressible Navier-Stokes");
     AddSummaryItem(s, "Algorithm", "Velocity correction scheme");
-    AddSummaryItem(s, "Formulation", "Semi-implicit");
+    if (m_implicitAdvection)
+    {
+        AddSummaryItem(s, "Formulation", "Linear-implicit");
+    }
+    else
+    {
+        AddSummaryItem(s, "Formulation", "Semi-implicit");
+    }
 
     std::stringstream ss;
     ss << R"(
@@ -177,8 +212,23 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
     [[maybe_unused]] Field<double, FieldState::Phys> &out, const double &time,
     const double &dt_inv_gamma)
 {
+    // Choose RHS for either semiimplicit or linearimplicit formulation
+    Field<double, FieldState::Phys> &fieldRhs =
+        m_implicitAdvection ? m_wsp_fields_rhs : in;
+
+    if (m_implicitAdvection)
+    {
+        m_math.copy(in, fieldRhs);
+        auto &advectionRhsHistory = GetAdvectionRhsHistory(
+            m_timeOp->GetExplicitContributionHistoryId());
+        m_timeOp->ExtrapolateExplicitContribution(advectionRhsHistory,
+                                                  m_wsp_explicit_adv_rhs);
+        m_math.daxpy(-1.0, m_wsp_explicit_adv_rhs, fieldRhs, fieldRhs);
+    }
+
     /// Set up forcing term for pressure Poisson equation
-    // Compute divergence of RHS
+    // Compute divergence of RHS. Keep the explicit advection contribution in
+    // this RHS because the pressure projection requires it.
     // TODO this should only apply to the velocity components!
     m_divergenceOp->Apply(in, m_wsp_phys_1c);
 
@@ -214,36 +264,63 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
     // Compute derivative \nabla p^{n+1}
     m_physDerivPressureOp->Apply(m_wsp_phys_1c, m_wsp_phys_deriv_pressure);
 
-    // Subtract inarray/(aii_dt) and divide by kinvis
-    m_math.daxpy(-1 / dt_inv_gamma, in, m_wsp_phys_deriv_pressure, m_wsp_phys);
+    // Subtract the field-solve RHS/(aii_dt) and divide by kinvis. For the
+    // linear-implicit formulation this RHS excludes explicit advection; the
+    // pressure RHS above still includes it.
+    m_math.daxpy(-1 / dt_inv_gamma, fieldRhs, m_wsp_phys_deriv_pressure,
+                 m_wsp_phys);
     m_math.mul(1 / m_kinvis, m_wsp_phys, m_wsp_phys);
 
     /// Solve velocity systems
     // Update \lambda = \gamma / \Delta t / \nu
     m_lambda = 1.0 / dt_inv_gamma / m_kinvis;
-    m_helmSolveOp->SetLambda(m_lambda);
+
+    // Update LinearSystem
+    if (m_implicitAdvection)
+    {
+        std::dynamic_pointer_cast<LinearADRSolveOp<double>>(m_fieldsSolveOp)
+            ->SetLambda(m_lambda);
+
+        // Update advection velocity. The ADR solve is formulated after
+        // dividing the momentum equation by the kinematic viscosity.
+        m_math.mul(1.0 / m_kinvis, m_advVel, m_advVel);
+        std::dynamic_pointer_cast<LinearADRSolveOp<double>>(m_fieldsSolveOp)
+            ->SetAdvVel(m_advVel);
+    }
+    else
+    {
+        std::dynamic_pointer_cast<HelmSolveOp<double>>(m_fieldsSolveOp)
+            ->SetLambda(m_lambda);
+    }
 
     // Update or re-use preconditioner
-    if (m_preconFieldsOpMap.find(dt_inv_gamma) == m_preconFieldsOpMap.end())
+    if (m_preconFieldsOpMap.find(dt_inv_gamma) == m_preconFieldsOpMap.end() ||
+        m_implicitAdvection)
     {
-        // Configure and cache preconditioner
-        m_preconFieldsOpMap.insert(
-            {dt_inv_gamma,
-             PreconOp<double>::Create(m_expansionLists[0], m_variablesFields)});
-        m_helmSolveOp->SetPrecon(m_preconFieldsOpMap[dt_inv_gamma]);
-        m_helmSolveOp->UpdatePrecon();
+        // Create and cache preconditioner
+        // Note linear-implicit formulation always updates preconditioner.
+        // Hence, caching is not useful
+        auto preconOp =
+            PreconOp<double>::Create(m_expansionLists[0], m_variablesFields);
+        if (!m_implicitAdvection)
+        {
+            m_preconFieldsOpMap.insert({dt_inv_gamma, preconOp});
+        }
+
+        // Configure new preconditioner
+        m_fieldsSolveOp->SetPrecon(preconOp);
+        m_fieldsSolveOp->UpdatePrecon();
     }
     else
     {
         // Re-use preconditioner
-        m_helmSolveOp->SetPrecon(m_preconFieldsOpMap[dt_inv_gamma]);
+        m_fieldsSolveOp->SetPrecon(m_preconFieldsOpMap[dt_inv_gamma]);
     }
 
     // Solve diffusion problem for each component
     m_math.zero(m_fields_coeff);
-
-    m_helmSolveOp->UpdateBndCoeffs(time);
-    m_helmSolveOp->Apply(m_wsp_phys, m_fields_coeff);
+    m_fieldsSolveOp->UpdateBndCoeffs(time);
+    m_fieldsSolveOp->Apply(m_wsp_phys, m_fields_coeff);
 
     // Transform to physical space
     m_bwdTransOp->Apply(m_fields_coeff, out);
@@ -267,12 +344,11 @@ void VelocityCorrectionScheme::EvaluateAdvection_SetPressureBCs(
     Field<double, FieldState::Phys> &in, Field<double, FieldState::Phys> &out,
     const double &time, const double &dt)
 {
-    m_math.zero(out);
-
-    m_advectionOp->SetScale(-dt);
-    m_math.copy(in, m_advVel);
-    m_advectionOp->SetAdvVel(m_advVel);
-    m_advectionOp->Apply(in, out);
+    EvaluateAdvectionContribution(in, out, time, dt);
+    if (m_implicitAdvection)
+    {
+        UpdateAdvectionRhsHistory(out);
+    }
 
     // Evaluate and add forcing terms. Advection has already written to out, so
     // all configured forcings append their contribution to the explicit RHS.
@@ -285,6 +361,55 @@ void VelocityCorrectionScheme::EvaluateAdvection_SetPressureBCs(
     // TODO Calculate High-Order pressure boundary conditions
     // m_extrapolation->EvaluatePressureBCs(inarray, outarray, m_kinvis);
     // m_IncNavierStokesBCs->Update(inarray, outarray, params);
+}
+
+void VelocityCorrectionScheme::EvaluateAdvectionContribution(
+    Field<double, FieldState::Phys> &in, Field<double, FieldState::Phys> &out,
+    [[maybe_unused]] const double &time, const double &dt)
+{
+    m_math.zero(out);
+    m_advectionOp->SetScale(-dt);
+    m_math.copy(in, m_advVel);
+    m_advectionOp->SetAdvVel(m_advVel);
+    m_advectionOp->Apply(in, out);
+}
+
+std::deque<Field<double, FieldState::Phys>> &VelocityCorrectionScheme::
+    GetAdvectionRhsHistory(unsigned int historyId)
+{
+    ASSERTL0(m_implicitAdvection,
+             "Advection RHS history is only used by the linear-implicit "
+             "formulation.");
+
+    auto [it, inserted] = m_advectionRhsHistories.try_emplace(historyId);
+    auto &history       = it->second;
+    if (inserted)
+    {
+        constexpr unsigned int maxAdvectionRhsHistory = 4;
+        auto bAtrPhys =
+            GetBlockAttributes<double, FieldState::Phys>(m_expansionLists[0]);
+        for (unsigned int i = 0; i < maxAdvectionRhsHistory; ++i)
+        {
+            history.emplace_back("advection rhs history " + std::to_string(i),
+                                 bAtrPhys, m_variablesFields.size(),
+                                 m_npointsZ);
+            m_math.zero(history.back());
+        }
+    }
+
+    return history;
+}
+
+void VelocityCorrectionScheme::UpdateAdvectionRhsHistory(
+    Field<double, FieldState::Phys> &advRhs)
+{
+    auto &history =
+        GetAdvectionRhsHistory(m_timeOp->GetExplicitContributionHistoryId());
+
+    auto tmp = std::move(history.back());
+    history.pop_back();
+    history.push_front(std::move(tmp));
+    m_math.copy(advRhs, history.front());
 }
 
 /**
@@ -347,18 +472,31 @@ void VelocityCorrectionScheme::v_InitialiseOperators()
     EquationSystem::v_InitialiseOperators();
 
     // Create velocity operators
-    m_linearSolverFieldsOp = LinearSolverOp<double>::Create(
-        m_expansionLists[0], m_variablesFields, "ConjGrad");
     m_advectionOp =
         AdvectionOp<double>::Create(m_expansionLists[0], m_variablesFields);
     m_divergenceOp =
         DivergenceOp<double>::Create(m_expansionLists[0], m_variablesFields);
-    m_helmSolveOp =
-        HelmSolveOp<double>::Create(m_expansionLists[0], m_variablesFields);
 
-    // Configure HelmSolve
-    m_helmSolveOp->SetLinearSolver(m_linearSolverFieldsOp);
-    m_helmSolveOp->SetDiffCoeff(m_diffCoeff);
+    if (m_implicitAdvection)
+    {
+        m_linearSolverFieldsOp = LinearSolverOp<double>::Create(
+            m_expansionLists[0], m_variablesFields, "GMRES");
+        auto linearADRSolveOp = LinearADRSolveOp<double>::Create(
+            m_expansionLists[0], m_variablesFields);
+        linearADRSolveOp->SetLinearSolver(m_linearSolverFieldsOp);
+        linearADRSolveOp->SetDiffCoeff(m_diffCoeff);
+        m_fieldsSolveOp = linearADRSolveOp;
+    }
+    else
+    {
+        m_linearSolverFieldsOp = LinearSolverOp<double>::Create(
+            m_expansionLists[0], m_variablesFields, "ConjGrad");
+        auto helmSolveOp =
+            HelmSolveOp<double>::Create(m_expansionLists[0], m_variablesFields);
+        helmSolveOp->SetLinearSolver(m_linearSolverFieldsOp);
+        helmSolveOp->SetDiffCoeff(m_diffCoeff);
+        m_fieldsSolveOp = helmSolveOp;
+    }
 
     // Create pressure operators
     m_bwdTransPressureOp = BwdTransOp<double>::Create(
@@ -398,6 +536,15 @@ void VelocityCorrectionScheme::v_InitialiseFields()
     m_advVel = Field<double, FieldState::Phys>("explicit advection velocity",
                                                bAtr_phys, m_variablesVel.size(),
                                                m_npointsZ);
+
+    if (m_implicitAdvection)
+    {
+        m_wsp_fields_rhs = Field<double, FieldState::Phys>(
+            "wsp_fields_rhs", bAtr_phys, m_variablesFields.size(), m_npointsZ);
+        m_wsp_explicit_adv_rhs = Field<double, FieldState::Phys>(
+            "wsp_explicit_adv_rhs", bAtr_phys, m_variablesFields.size(),
+            m_npointsZ);
+    }
 
     /// Create fields for pressure.
     // Get block attributes
@@ -553,6 +700,26 @@ void VelocityCorrectionScheme::InitialiseParameters()
 {
     // Get gamma parameter from session file.
     m_session->LoadParameter("Kinvis", m_kinvis, 1.0);
+
+    // Get semi-implicit or linear-implicit time-stepping
+    auto formulation = m_session->GetSolverInfo("FORMULATION");
+    std::transform(formulation.begin(), formulation.end(), formulation.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    if (formulation == "linearimplicit")
+    {
+        m_implicitAdvection = true;
+    }
+    else if (formulation == "semiimplicit")
+    {
+        m_implicitAdvection = false;
+    }
+    else
+    {
+        std::stringstream ss;
+        ss << "Unknown formulation: " << formulation
+           << ". Valid entries are 'semiimplicit' and 'linearimplicit'.";
+        NEKERROR(ErrorUtil::efatal, ss.str());
+    }
 }
 
 /*
