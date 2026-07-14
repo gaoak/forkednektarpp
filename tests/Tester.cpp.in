@@ -53,6 +53,7 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -71,6 +72,76 @@ using namespace Nektar;
 
 // Define some namespace aliases
 namespace po = boost::program_options;
+
+std::string ShellQuote(const std::string &value)
+{
+#ifdef _WIN32
+    std::string ret          = "\"";
+    unsigned int backslashes = 0;
+    for (char c : value)
+    {
+        if (c == '\\')
+        {
+            ret += c;
+            ++backslashes;
+        }
+        else if (c == '"')
+        {
+            ret.append(backslashes, '\\');
+            ret += "\\\"";
+            backslashes = 0;
+        }
+        else
+        {
+            ret += c;
+            backslashes = 0;
+        }
+    }
+    ret.append(backslashes, '\\');
+    ret += "\"";
+    return ret;
+#else
+    std::string ret = "'";
+    for (char c : value)
+    {
+        if (c == '\'')
+        {
+            ret += "'\\''";
+        }
+        else
+        {
+            ret += c;
+        }
+    }
+    ret += "'";
+    return ret;
+#endif
+}
+
+void AppendForwardedArguments(std::string &command,
+                              const std::vector<std::string> &arguments)
+{
+    for (const auto &argument : arguments)
+    {
+        command += " " + ShellQuote(argument);
+    }
+}
+
+std::vector<std::string> SplitForwardedOptions(
+    const std::vector<std::string> &options)
+{
+    std::vector<std::string> ret;
+    for (const auto &option : options)
+    {
+        std::istringstream stream(option);
+        std::string token;
+        while (stream >> token)
+        {
+            ret.push_back(token);
+        }
+    }
+    return ret;
+}
 
 #ifdef _WIN32
 // Define a setenv function for Windows
@@ -96,8 +167,9 @@ int RunTest(TestData *test, bool verbose, po::variables_map &vm,
 {
     int status = 0;
     string command;
-    bool SetExecSpace = vm.count("opExecSpace");
-    bool SetImpl      = vm.count("opImpl");
+    bool SetExecSpace     = vm.count("opExecSpace");
+    bool SetImpl          = vm.count("opImpl");
+    bool SetSolverOptions = vm.count("solver-options");
 
     if (verbose && test->GetNumMetrics() > 0)
     {
@@ -392,6 +464,14 @@ int RunTest(TestData *test, bool verbose, po::variables_map &vm,
                 command += vm["opImpl"].as<string>();
             }
 
+            if (SetSolverOptions)
+            {
+                AppendForwardedArguments(
+                    command,
+                    SplitForwardedOptions(
+                        vm["solver-options"].as<std::vector<std::string>>()));
+            }
+
             command += " ";
             command += cmd.m_parameters;
             command += " 1>output.out 2>output.err";
@@ -590,7 +670,9 @@ int main(int argc, char *argv[])
         "generate-all-metrics,a", "Generate all metrics.")(
         "executable,e", po::value<string>(), "Use specified executable.")(
         "opExecSpace,s", po::value<string>(), "Use specified ExecSpace")(
-        "opImpl,i", po::value<string>(), "Use specified implementation");
+        "opImpl,i", po::value<string>(), "Use specified implementation")(
+        "solver-options", po::value<vector<string>>()->composing(),
+        "Forward an option string to the executable");
 
     po::options_description hidden("Hidden options");
     hidden.add_options()("input-file", po::value<string>(), "Input filename");

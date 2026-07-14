@@ -35,22 +35,31 @@
 
 #pragma once
 
-#include <Operators/ElmtOps/Advection/AdvectionOp.hpp>
-#include <Operators/ElmtOps/BwdTrans/BwdTransOp.hpp>
-#include <Operators/ElmtOps/Divergence/DivergenceOp.hpp>
-#include <Operators/ElmtOps/PhysDeriv/PhysDerivOp.hpp>
 #include <Operators/Field/Field.hpp>
-#include <Operators/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp>
-#include <Operators/GlobalLinSysOps/LinearSystems/HelmSolve/HelmSolveOp.hpp>
-#include <Operators/GlobalLinSysOps/LinearSystems/PoissonSolve/PoissonSolveOp.hpp>
-#include <Operators/Norm/NormL2/NormL2Op.hpp>
-#include <Operators/Norm/NormLinf/NormLinfOp.hpp>
-#include <SolverCore/Core/SessionFunction.h>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 #include <SolverCore/Forcing/Forcing.h>
 
+#include <deque>
+#include <iosfwd>
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
+
 namespace Nektar
 {
+namespace Operators
+{
+template <typename TData> class AdvectionOp;
+template <typename TData> class BwdTransOp;
+template <typename TData> class DivergenceOp;
+template <typename TData> class PhysDerivOp;
+template <typename TData> class LinearSystemOp;
+template <typename TData> class LinearSolverOp;
+template <typename TData> class PoissonSolveOp;
+template <typename TData> class PreconOp;
+} // namespace Operators
+
 using namespace SolverCore;
 using namespace Operators;
 
@@ -75,6 +84,9 @@ public:
     static std::string className;
 
 protected:
+    // true = linear-implicit, false = semi-implicit scheme
+    bool m_implicitAdvection = false;
+
     // Kinematic viscosity
     double m_kinvis;
 
@@ -96,15 +108,19 @@ protected:
     Field<double, FieldState::Phys> m_pressure;
     Field<double, FieldState::Phys> m_advVel;
     Field<double, FieldState::Phys> m_wsp_phys;
+    Field<double, FieldState::Phys> m_wsp_fields_rhs;
+    Field<double, FieldState::Phys> m_wsp_explicit_adv_rhs;
     Field<double, FieldState::Phys> m_wsp_phys_deriv_pressure;
     Field<double, FieldState::Phys> m_wsp_phys_1c;
     Field<double, FieldState::Coeff> m_pressure_coeff;
+    std::map<unsigned int, std::deque<Field<double, FieldState::Phys>>>
+        m_advectionRhsHistories;
 
     // Initialise operators
     std::shared_ptr<BwdTransOp<double>> m_bwdTransPressureOp;
     std::shared_ptr<AdvectionOp<double>> m_advectionOp;
     std::shared_ptr<PhysDerivOp<double>> m_physDerivPressureOp;
-    std::shared_ptr<HelmSolveOp<double>> m_helmSolveOp;
+    std::shared_ptr<LinearSystemOp<double>> m_fieldsSolveOp;
     std::shared_ptr<LinearSolverOp<double>> m_linearSolverFieldsOp;
     std::shared_ptr<LinearSolverOp<double>> m_linearSolverPressureOp;
     std::map<double, std::shared_ptr<PreconOp<double>>> m_preconFieldsOpMap;
@@ -127,6 +143,14 @@ protected:
     void EvaluateAdvection_SetPressureBCs(Field<double, FieldState::Phys> &in,
                                           Field<double, FieldState::Phys> &out,
                                           const double &time, const double &dt);
+
+    void EvaluateAdvectionContribution(Field<double, FieldState::Phys> &in,
+                                       Field<double, FieldState::Phys> &out,
+                                       const double &time, const double &dt);
+    std::deque<Field<double, FieldState::Phys>> &GetAdvectionRhsHistory(
+        unsigned int historyId);
+
+    void UpdateAdvectionRhsHistory(Field<double, FieldState::Phys> &advRhs);
 
     void v_InitObject(bool declareExpansionLists = true) override;
     void v_PrintNorms(std::ostream &out) override;

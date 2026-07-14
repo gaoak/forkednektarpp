@@ -162,9 +162,17 @@ protected:
                                               TData>()[Stage - 1];
 
             // Update solution.
+            if (this->m_useExplicitContributionExtrapolation)
+            {
+                SetStageExplicitContributionCoefficients<Stage>();
+            }
             this->DoImplicit(this->m_implicits[Stage - 1], inout,
                              this->m_time + coeff1 * this->m_timestep,
                              lambda1 * this->m_timestep);
+            if (this->m_useExplicitContributionExtrapolation)
+            {
+                this->ClearExplicitContributionCoefficients();
+            }
 
             // Compute implicit terms.
             sub<ExecSpace>(inout, this->m_implicits[Stage - 1],
@@ -179,6 +187,25 @@ protected:
             // Do next stage.
             Staging<Stage + 1>(inout);
         }
+    }
+
+    template <unsigned int Stage>
+    void SetStageExplicitContributionCoefficients()
+    {
+        constexpr auto coeff =
+            GetIMEXdirkStageCoefficients<ImpStage, ExpStage, IntOrder, TData>();
+
+        const unsigned int indStart =
+            Stage * (Stage - 1) / 2 + (Stage - 1) * (Stage - 2) / 2;
+        const unsigned int explicitStart = indStart + Stage - 1;
+
+        std::vector<TData> outCoeff(Stage);
+        for (unsigned int i = 0; i < Stage; ++i)
+        {
+            outCoeff[i] = coeff[explicitStart + Stage - 1 - i];
+        }
+
+        this->SetExplicitContributionCoefficients(std::move(outCoeff));
     }
 
     template <unsigned int... ind0, unsigned int... ind1>

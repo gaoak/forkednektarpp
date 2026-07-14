@@ -36,7 +36,9 @@
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <SolverCore/Driver/Driver.h>
 #include <SpatialDomains/MeshGraphIO.h>
+#include <iostream>
 #include <stdexcept>
+#include <string>
 
 using namespace Nektar;
 using namespace Nektar::SolverCore;

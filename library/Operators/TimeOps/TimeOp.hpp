@@ -35,12 +35,30 @@
 #pragma once
 
 #include "Operators/Common/Operator.hpp"
+#include "Operators/Math/Math.hpp"
 #include "Operators/Math/MathKernels.hpp"
+
+#include <deque>
+#include <memory>
+#include <vector>
 
 namespace Nektar::Operators
 {
 
 template <typename TData> class TimeOp;
+
+enum class TimeOpExtrapolationType
+{
+    StateExtrapolation,
+    BdfHistory,
+    ExplicitContribution
+};
+
+enum class TimeOpExtrapolationMode
+{
+    Assign,
+    Append
+};
 
 // Typename alias for the factory
 template <typename TData>
@@ -225,6 +243,11 @@ public:
                  "DoExplicitRhs functor should be defined for this time "
                  "integration scheme. Use DefineExplicitRhs() within "
                  "solver definition.");
+        if (m_useExplicitContributionExtrapolation)
+        {
+            GetExplicitContributionContext().historyId =
+                m_explicitContributionHistoryId;
+        }
         m_explicitRhsFunctor(in, out, time, factor);
     }
 
@@ -261,13 +284,93 @@ public:
         m_implicitFunctor(in, out, time, lambda);
     }
 
-    void CopyFunctorsFrom(const TimeOp<TData> &src)
+    void CopyFunctorsFrom(TimeOp<TData> &src)
     {
         // functors and relevant booleans
         this->m_implicitFunctor    = src.m_implicitFunctor;
         this->m_explicitRhsFunctor = src.m_explicitRhsFunctor;
         this->m_implicitRhsFunctor = src.m_implicitRhsFunctor;
         this->m_projectionFunctor  = src.m_projectionFunctor;
+        this->m_useExplicitContributionExtrapolation =
+            src.m_useExplicitContributionExtrapolation;
+        this->m_explicitContributionParentContext =
+            src.m_useExplicitContributionExtrapolation
+                ? &src.GetExplicitContributionContext()
+                : nullptr;
+    }
+
+    void EnableExplicitContributionExtrapolation()
+    {
+        m_useExplicitContributionExtrapolation = true;
+        m_explicitContributionParentContext    = nullptr;
+    }
+
+    std::vector<TData> GetExtrapolationCoefficients(
+        const TimeOpExtrapolationType type, const unsigned int historySize)
+    {
+        return v_GetExtrapolationCoefficients(type, historySize);
+    }
+
+    void ExtrapolateHistory(
+        std::deque<Field<TData, FieldState::Phys>> &history,
+        Field<TData, FieldState::Phys> &out, const TimeOpExtrapolationType type,
+        const TimeOpExtrapolationMode mode = TimeOpExtrapolationMode::Assign,
+        const TData scale                  = 1.0)
+    {
+        ExtrapolateHistory(history, out,
+                           v_GetExtrapolationCoefficients(
+                               type, static_cast<unsigned int>(history.size())),
+                           mode, scale);
+    }
+
+    void ExtrapolateHistory(
+        std::deque<Field<TData, FieldState::Phys>> &history,
+        Field<TData, FieldState::Phys> &out, const std::vector<TData> &coeffs,
+        const TimeOpExtrapolationMode mode = TimeOpExtrapolationMode::Assign,
+        const TData scale                  = 1.0)
+    {
+        v_ExtrapolateHistory(history, out, coeffs, mode, scale);
+    }
+
+    void ExtrapolateExplicitContribution(
+        std::deque<Field<TData, FieldState::Phys>> &history,
+        Field<TData, FieldState::Phys> &out,
+        const TimeOpExtrapolationMode mode = TimeOpExtrapolationMode::Assign,
+        const TData scale                  = 1.0)
+    {
+        ASSERTL0(m_useExplicitContributionExtrapolation,
+                 "Explicit contribution extrapolation has not been enabled "
+                 "for this time integration operator.");
+        const auto &coeffs = GetExplicitContributionContext().coefficients;
+        ASSERTL0(!coeffs.empty(),
+                 "No explicit contribution coefficients are available for "
+                 "this implicit solve.");
+        ASSERTL0(history.size() >= coeffs.size(),
+                 "Explicit contribution history is shorter than the current "
+                 "coefficient list.");
+
+        const auto execSpace = Operator<TData>::GetOpExecSpace(
+            this->m_expansionList->GetSession());
+        Math math(execSpace);
+
+        if (mode == TimeOpExtrapolationMode::Assign)
+        {
+            math.zero(out);
+        }
+
+        for (unsigned int i = 0; i < coeffs.size(); ++i)
+        {
+            const TData coeff = coeffs[i];
+            if (coeff != (TData)0.0)
+            {
+                math.daxpy(scale * coeff, history[i], out, out);
+            }
+        }
+    }
+
+    unsigned int GetExplicitContributionHistoryId() const
+    {
+        return GetExplicitContributionContext().historyId;
     }
 
     // Move‐out
@@ -365,9 +468,23 @@ protected:
     functorType2 m_implicitRhsFunctor;
     functorType2 m_implicitFunctor;
 
+    struct ExplicitContributionContext
+    {
+        std::vector<TData> coefficients;
+        unsigned int historyId = 0;
+    };
+
+    mutable ExplicitContributionContext m_explicitContributionContextStorage;
+    mutable ExplicitContributionContext *m_explicitContributionParentContext =
+        nullptr;
+    bool m_useExplicitContributionExtrapolation                    = false;
+    unsigned int m_explicitContributionHistoryId                   = 0;
+    inline static unsigned int m_nextExplicitContributionHistoryId = 0;
+
     TimeOp(const MultiRegions::ExpListSharedPtr &expansionList,
            const std::vector<std::string> components)
-        : Operator<TData>(expansionList, components)
+        : Operator<TData>(expansionList, components),
+          m_explicitContributionHistoryId(++m_nextExplicitContributionHistoryId)
     {
         this->m_timestep =
             expansionList->GetSession()->GetParameter("TimeStep");
@@ -378,7 +495,8 @@ protected:
            const std::vector<std::string> components,
            [[maybe_unused]] const unsigned int &order,
            [[maybe_unused]] const std::string &variant)
-        : Operator<TData>(expansionList, components)
+        : Operator<TData>(expansionList, components),
+          m_explicitContributionHistoryId(++m_nextExplicitContributionHistoryId)
     {
         this->m_timestep =
             expansionList->GetSession()->GetParameter("TimeStep");
@@ -390,13 +508,76 @@ protected:
            [[maybe_unused]] const unsigned int &order,
            [[maybe_unused]] const std::string &variant,
            [[maybe_unused]] const std::vector<TData> &freeParams)
-        : Operator<TData>(expansionList, components)
+        : Operator<TData>(expansionList, components),
+          m_explicitContributionHistoryId(++m_nextExplicitContributionHistoryId)
     {
         this->m_timestep =
             expansionList->GetSession()->GetParameter("TimeStep");
     }
 
     virtual void v_Apply(Field<TData, FieldState::Phys> &inout) = 0;
+
+    void SetExplicitContributionCoefficients(std::vector<TData> coeffs)
+    {
+        if (!m_useExplicitContributionExtrapolation)
+        {
+            return;
+        }
+        auto &context        = GetExplicitContributionContext();
+        context.historyId    = m_explicitContributionHistoryId;
+        context.coefficients = std::move(coeffs);
+    }
+
+    void ClearExplicitContributionCoefficients()
+    {
+        if (!m_useExplicitContributionExtrapolation)
+        {
+            return;
+        }
+        GetExplicitContributionContext().coefficients.clear();
+    }
+
+    ExplicitContributionContext &GetExplicitContributionContext() const
+    {
+        return m_explicitContributionParentContext
+                   ? *m_explicitContributionParentContext
+                   : m_explicitContributionContextStorage;
+    }
+
+    virtual std::vector<TData> v_GetExtrapolationCoefficients(
+        [[maybe_unused]] const TimeOpExtrapolationType type,
+        [[maybe_unused]] const unsigned int historySize)
+    {
+        ASSERTL0(false, "This time integration operator does not provide "
+                        "extrapolation coefficients.");
+        return {};
+    }
+
+    virtual void v_ExtrapolateHistory(
+        std::deque<Field<TData, FieldState::Phys>> &history,
+        Field<TData, FieldState::Phys> &out, const std::vector<TData> &coeffs,
+        const TimeOpExtrapolationMode mode, const TData scale)
+    {
+        ASSERTL0(history.size() == coeffs.size(),
+                 "History size must match extrapolation coefficient count.");
+
+        const auto execSpace = Operator<TData>::GetOpExecSpace(
+            this->m_expansionList->GetSession());
+        Math math(execSpace);
+
+        if (mode == TimeOpExtrapolationMode::Assign)
+        {
+            math.zero(out);
+        }
+
+        for (unsigned int i = 0; i < history.size(); ++i)
+        {
+            if (coeffs[i] != (TData)0.0)
+            {
+                math.daxpy(scale * coeffs[i], history[i], out, out);
+            }
+        }
+    }
 
     /*
      *  Roll over solutions for next time step.

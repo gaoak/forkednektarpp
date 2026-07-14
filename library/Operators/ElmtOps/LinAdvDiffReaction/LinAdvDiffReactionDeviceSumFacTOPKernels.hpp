@@ -136,18 +136,21 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction1DSumFacTOPKernel(
     size_t e = getBlockIdx(threadBlock);
     while (e < nelmt)
     {
-        const TData *dfptr  = df + ndf * dfsize * e;
-        const TData *jacptr = jac + jacsize * e;
-        const TData *inptr  = in + nm0 * e;
-        TData *outptr       = out + nm0 * e;
+        const TData *dfptr      = df + ndf * dfsize * e;
+        const TData *jacptr     = jac + jacsize * e;
+        const TData *inptr      = in + nm0 * e;
+        TData *outptr           = out + nm0 * e;
+        const TData *advVel0ptr = advVel0 + nq0 * e;
+        const TData *advVel1ptr = ncoord > 1 ? advVel1 + nq0 * e : advVel1;
+        const TData *advVel2ptr = ncoord > 2 ? advVel2 + nq0 * e : advVel2;
 
         BwdTransSegSumFacTOPKernel<false>(nm0, nq0, basis0, inptr, bwd,
                                           threadBlock);
         PhysDeriv1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, nq0, D0, dfptr, bwd,
                                              deriv, threadBlock);
-        AddAdvection1DSumFacTOPKernel(ncoord, nq0, advVel0, advVel1, advVel2,
-                                      deriv, deriv + nq0, deriv + 2 * nq0, bwd,
-                                      lambda, threadBlock);
+        AddAdvection1DSumFacTOPKernel(
+            ncoord, nq0, advVel0ptr, advVel1ptr, advVel2ptr, deriv, deriv + nq0,
+            deriv + 2 * nq0, bwd, lambda, threadBlock);
         ApplyMetric1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, nq0, w0, dfptr,
                                                jacptr, coeff, deriv, deriv, bwd,
                                                (TData)1.0, threadBlock);
@@ -261,9 +264,12 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction2DSumFacTOPKernel(
         PhysDeriv2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
             ncoord, nq0, nq1, nqTot, D0, D1, f0, f1, dfptr, bwd, deriv,
             threadBlock);
+        const TData *advVel0ptr = advVel0 + nqTot * e;
+        const TData *advVel1ptr = advVel1 + nqTot * e;
+        const TData *advVel2ptr = ncoord == 3 ? advVel2 + nqTot * e : advVel2;
         AddAdvection2DSumFacTOPKernel(
-            ncoord, nq0, nq1, advVel0, advVel1, advVel2, deriv, deriv + nqTot,
-            deriv + 2 * nqTot, bwd, lambda, threadBlock);
+            ncoord, nq0, nq1, advVel0ptr, advVel1ptr, advVel2ptr, deriv,
+            deriv + nqTot, deriv + 2 * nqTot, bwd, lambda, threadBlock);
         if constexpr (DEFORMED)
         {
             TData dmetric[6];
@@ -457,9 +463,12 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction3DSumFacTOPKernel(
         PhysDeriv3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
             nq0, nq1, nq2, nqTot, D0, D1, D2, f0, f1, f1m, f2, dfptr, bwd,
             deriv, threadBlock);
-        AddAdvection3DSumFacTOPKernel(nq0, nq1, nq2, advVel0, advVel1, advVel2,
-                                      deriv0, deriv1, deriv2, bwd, lambda,
-                                      threadBlock);
+        const TData *advVel0ptr = advVel0 + nqTot * e;
+        const TData *advVel1ptr = advVel1 + nqTot * e;
+        const TData *advVel2ptr = advVel2 + nqTot * e;
+        AddAdvection3DSumFacTOPKernel(nq0, nq1, nq2, advVel0ptr, advVel1ptr,
+                                      advVel2ptr, deriv0, deriv1, deriv2, bwd,
+                                      lambda, threadBlock);
         if constexpr (DEFORMED)
         {
             TData dmetric[9];
