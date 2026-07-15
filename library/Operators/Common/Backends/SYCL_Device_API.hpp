@@ -435,7 +435,7 @@ NEK_DEVICE_INLINE static void atomic_add(TData *const dest, const TData val)
     {
         sycl::atomic_ref<TData, sycl::memory_order::relaxed,
                          sycl::memory_scope_work_group,
-                         sycl::access::address_space::local_space>(*dest)
+                         sycl::access::address_space::generic_space>(*dest)
             .fetch_add(val);
     }
 }
@@ -454,7 +454,7 @@ NEK_DEVICE_INLINE static void atomic_sub(TData *const dest, const TData val)
     {
         sycl::atomic_ref<TData, sycl::memory_order::relaxed,
                          sycl::memory_scope_work_group,
-                         sycl::access::address_space::local_space>(*dest)
+                         sycl::access::address_space::generic_space>(*dest)
             .fetch_sub(val);
     }
 }
@@ -473,7 +473,7 @@ NEK_DEVICE_INLINE static void atomic_max(TData *const dest, const TData val)
     {
         sycl::atomic_ref<TData, sycl::memory_order::relaxed,
                          sycl::memory_scope_work_group,
-                         sycl::access::address_space::local_space>(*dest)
+                         sycl::access::address_space::generic_space>(*dest)
             .fetch_max(val);
     }
 }
@@ -492,7 +492,7 @@ NEK_DEVICE_INLINE static void atomic_min(TData *const dest, const TData val)
     {
         sycl::atomic_ref<TData, sycl::memory_order::relaxed,
                          sycl::memory_scope_work_group,
-                         sycl::access::address_space::local_space>(*dest)
+                         sycl::access::address_space::generic_space>(*dest)
             .fetch_min(val);
     }
 }
@@ -511,7 +511,7 @@ NEK_DEVICE_INLINE static void atomic_or(TData *const dest, const TData val)
     {
         sycl::atomic_ref<TData, sycl::memory_order::relaxed,
                          sycl::memory_scope_work_group,
-                         sycl::access::address_space::local_space>(*dest)
+                         sycl::access::address_space::generic_space>(*dest)
             .fetch_or(val);
     }
 }
@@ -530,7 +530,7 @@ NEK_DEVICE_INLINE static void atomic_and(TData *const dest, const TData val)
     {
         sycl::atomic_ref<TData, sycl::memory_order::relaxed,
                          sycl::memory_scope_work_group,
-                         sycl::access::address_space::local_space>(*dest)
+                         sycl::access::address_space::generic_space>(*dest)
             .fetch_and(val);
     }
 }
@@ -582,7 +582,7 @@ NEK_DEVICE_INLINE static void blockReduceSum(
     auto tmp = warpReduceSum(val, threadBlock);
     if (getLaneIdx(threadBlock) == 0)
     {
-        atomic_add<NektarSpaces::GlobalScope>(red, tmp);
+        atomic_add<NektarSpaces::LocalScope>(red, tmp);
     }
 }
 
@@ -593,7 +593,7 @@ NEK_DEVICE_INLINE static void blockReduceMax(
     auto tmp = warpReduceMax(val, threadBlock);
     if (getLaneIdx(threadBlock) == 0)
     {
-        atomic_max<NektarSpaces::GlobalScope>(red, tmp);
+        atomic_max<NektarSpaces::LocalScope>(red, tmp);
     }
 }
 
@@ -604,7 +604,7 @@ NEK_DEVICE_INLINE static void blockReduceMin(
     auto tmp = warpReduceMin(val, threadBlock);
     if (getLaneIdx(threadBlock) == 0)
     {
-        atomic_min<NektarSpaces::GlobalScope>(red, tmp);
+        atomic_min<NektarSpaces::LocalScope>(red, tmp);
     }
 }
 
@@ -615,7 +615,7 @@ NEK_DEVICE_INLINE static void blockReduceOr(
     auto tmp = warpReduceOr(val, threadBlock);
     if (getLaneIdx(threadBlock) == 0)
     {
-        atomic_or<NektarSpaces::GlobalScope>(red, tmp);
+        atomic_or<NektarSpaces::LocalScope>(red, tmp);
     }
 }
 
@@ -626,7 +626,7 @@ NEK_DEVICE_INLINE static void blockReduceAnd(
     auto tmp = warpReduceAnd(val, threadBlock);
     if (getLaneIdx(threadBlock) == 0)
     {
-        atomic_and<NektarSpaces::GlobalScope>(red, tmp);
+        atomic_and<NektarSpaces::LocalScope>(red, tmp);
     }
 }
 

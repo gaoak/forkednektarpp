@@ -83,7 +83,7 @@ absKernel(const size_t nsize, const TData *x, TData *y,
 
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                           [=](sycl::nd_item<1> indx) {
                              size_t idx0   = indx.get_global_id(0);
@@ -106,7 +106,7 @@ negKernel(const size_t nsize, const TData *x, TData *y,
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize),
                           [=](sycl::id<1> indx) { y[indx] = -x[indx]; });
     });
@@ -124,7 +124,7 @@ sqrtKernel(const size_t nsize, const TData *x, TData *y,
 
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
                           [=](sycl::nd_item<1> indx) {
                              size_t idx0   = indx.get_global_id(0);
@@ -149,7 +149,7 @@ addKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize), [=](sycl::id<1> indx) {
             z[indx] = x[indx] + y[indx];
         });
@@ -165,7 +165,7 @@ subKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize), [=](sycl::id<1> indx) {
             z[indx] = x[indx] - y[indx];
         });
@@ -181,7 +181,7 @@ mulKernel(const size_t nsize, const TData alpha, const TData *x, TData *y,
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize),
                           [=](sycl::id<1> indx) { y[indx] = alpha * x[indx]; });
     });
@@ -196,7 +196,7 @@ mulKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize), [=](sycl::id<1> indx) {
             z[indx] = x[indx] * y[indx];
         });
@@ -212,7 +212,7 @@ divKernel(const size_t nsize, const TData alpha, const TData *x, TData *y,
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize),
                           [=](sycl::id<1> indx) { y[indx] = alpha / x[indx]; });
     });
@@ -227,7 +227,7 @@ divKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize), [=](sycl::id<1> indx) {
             z[indx] = x[indx] / y[indx];
         });
@@ -243,7 +243,7 @@ daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize), [=](sycl::id<1> indx) {
             z[indx] = alpha * x[indx] + y[indx];
         });
@@ -258,12 +258,16 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
-        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
-
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        sycl::local_accessor<TData, 1> scratchpad(sycl::range<1>(blockSize),
+                                                   cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
+                auto scratch =
+                    scratchpad
+                        .template get_multi_ptr<sycl::access::decorated::yes>()
+                        .get();
                 const size_t lid = indx.get_local_id(0);
                 size_t gid       = indx.get_global_id(0);
 
@@ -312,11 +316,16 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
-        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        sycl::local_accessor<TData, 1> scratchpad(sycl::range<1>(blockSize),
+                                                   cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
+                auto scratch =
+                    scratchpad
+                        .template get_multi_ptr<sycl::access::decorated::yes>()
+                        .get();
                 const size_t lid = indx.get_local_id(0);
                 size_t gid       = indx.get_global_id(0);
 
@@ -367,11 +376,16 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
 
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
-        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        sycl::local_accessor<TData, 1> scratchpad(sycl::range<1>(blockSize),
+                                                   cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
+                auto scratch =
+                    scratchpad
+                        .template get_multi_ptr<sycl::access::decorated::yes>()
+                        .get();
                 const size_t lid = indx.get_local_id(0);
                 size_t gid       = indx.get_global_id(0);
 
@@ -423,11 +437,16 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
 
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
-        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        sycl::local_accessor<TData, 1> scratchpad(sycl::range<1>(blockSize),
+                                                   cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
+                auto scratch =
+                    scratchpad
+                        .template get_multi_ptr<sycl::access::decorated::yes>()
+                        .get();
                 const size_t lid = indx.get_local_id(0);
                 size_t gid       = indx.get_global_id(0);
 
@@ -479,11 +498,16 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
 
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
-        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        sycl::local_accessor<TData, 1> scratchpad(sycl::range<1>(blockSize),
+                                                   cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
+                auto scratch =
+                    scratchpad
+                        .template get_multi_ptr<sycl::access::decorated::yes>()
+                        .get();
                 const size_t lid = indx.get_local_id(0);
                 size_t gid       = indx.get_global_id(0);
 
@@ -535,11 +559,16 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
 
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
-        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        sycl::local_accessor<TData, 1> scratchpad(sycl::range<1>(blockSize),
+                                                   cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
+                auto scratch =
+                    scratchpad
+                        .template get_multi_ptr<sycl::access::decorated::yes>()
+                        .get();
                 const size_t lid = indx.get_local_id(0);
                 size_t gid       = indx.get_global_id(0);
 
@@ -589,11 +618,16 @@ void ddotKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
-        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        sycl::local_accessor<TData, 1> scratchpad(sycl::range<1>(blockSize),
+                                                   cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
+                auto scratch =
+                    scratchpad
+                        .template get_multi_ptr<sycl::access::decorated::yes>()
+                        .get();
                 const size_t lid = indx.get_local_id(0);
                 size_t gid       = indx.get_global_id(0);
 
@@ -642,11 +676,16 @@ void ddotKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
-        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        sycl::local_accessor<TData, 1> scratchpad(sycl::range<1>(blockSize),
+                                                   cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
+                auto scratch =
+                    scratchpad
+                        .template get_multi_ptr<sycl::access::decorated::yes>()
+                        .get();
                 const size_t lid = indx.get_local_id(0);
                 size_t gid       = indx.get_global_id(0);
 
@@ -695,11 +734,16 @@ void l1normKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
-        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        sycl::local_accessor<TData, 1> scratchpad(sycl::range<1>(blockSize),
+                                                   cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
+                auto scratch =
+                    scratchpad
+                        .template get_multi_ptr<sycl::access::decorated::yes>()
+                        .get();
                 const size_t lid = indx.get_local_id(0);
                 size_t gid       = indx.get_global_id(0);
 
@@ -748,11 +792,16 @@ void l1normKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
-        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        sycl::local_accessor<TData, 1> scratchpad(sycl::range<1>(blockSize),
+                                                   cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
+                auto scratch =
+                    scratchpad
+                        .template get_multi_ptr<sycl::access::decorated::yes>()
+                        .get();
                 const size_t lid = indx.get_local_id(0);
                 size_t gid       = indx.get_global_id(0);
 
@@ -801,11 +850,16 @@ void l2normKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
-        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        sycl::local_accessor<TData, 1> scratchpad(sycl::range<1>(blockSize),
+                                                   cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
+                auto scratch =
+                    scratchpad
+                        .template get_multi_ptr<sycl::access::decorated::yes>()
+                        .get();
                 const size_t lid = indx.get_local_id(0);
                 size_t gid       = indx.get_global_id(0);
 
@@ -854,11 +908,16 @@ void l2normKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
-        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        sycl::local_accessor<TData, 1> scratchpad(sycl::range<1>(blockSize),
+                                                   cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
+                auto scratch =
+                    scratchpad
+                        .template get_multi_ptr<sycl::access::decorated::yes>()
+                        .get();
                 const size_t lid = indx.get_local_id(0);
                 size_t gid       = indx.get_global_id(0);
 
@@ -907,11 +966,16 @@ void lpnormKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
-        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        sycl::local_accessor<TData, 1> scratchpad(sycl::range<1>(blockSize),
+                                                   cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
+                auto scratch =
+                    scratchpad
+                        .template get_multi_ptr<sycl::access::decorated::yes>()
+                        .get();
                 const size_t lid = indx.get_local_id(0);
                 size_t gid       = indx.get_global_id(0);
 
@@ -960,11 +1024,16 @@ void lpnormKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
-        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        sycl::local_accessor<TData, 1> scratchpad(sycl::range<1>(blockSize),
+                                                   cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
+                auto scratch =
+                    scratchpad
+                        .template get_multi_ptr<sycl::access::decorated::yes>()
+                        .get();
                 const size_t lid = indx.get_local_id(0);
                 size_t gid       = indx.get_global_id(0);
 
@@ -1015,11 +1084,16 @@ void linfnormKernel(const unsigned int gridSize, const unsigned int blockSize,
 
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
-        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        sycl::local_accessor<TData, 1> scratchpad(sycl::range<1>(blockSize),
+                                                   cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
+                auto scratch =
+                    scratchpad
+                        .template get_multi_ptr<sycl::access::decorated::yes>()
+                        .get();
                 const size_t lid = indx.get_local_id(0);
                 size_t gid       = indx.get_global_id(0);
 
@@ -1071,11 +1145,16 @@ void linfnormKernel(const unsigned int gridSize, const unsigned int blockSize,
 
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
-        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        sycl::local_accessor<TData, 1> scratchpad(sycl::range<1>(blockSize),
+                                                   cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
+                auto scratch =
+                    scratchpad
+                        .template get_multi_ptr<sycl::access::decorated::yes>()
+                        .get();
                 const size_t lid = indx.get_local_id(0);
                 size_t gid       = indx.get_global_id(0);
 
@@ -1131,7 +1210,7 @@ reduceSumKernel(const size_t nsize, const TData *x, TData *out,
                                        initialize_to_identity{}}
              : sycl::property_list{};
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(
             sycl::range<1>(nsize),
             sycl::reduction(out, sycl::plus<>(), initializer),
@@ -1166,7 +1245,7 @@ reduceSumKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                                        initialize_to_identity{}}
              : sycl::property_list{};
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize),
                          sycl::reduction(out, sycl::plus<>(), initializer),
                          [=](sycl::id<1> indx, auto &reducer) {
@@ -1203,7 +1282,7 @@ reduceMaxKernel(const size_t nsize, const TData *x, TData *out,
                                        initialize_to_identity{}}
              : sycl::property_list{};
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(
             sycl::range<1>(nsize),
             sycl::reduction(out, sycl::maximum<>(), initializer),
@@ -1238,7 +1317,7 @@ reduceMaxKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                                        initialize_to_identity{}}
              : sycl::property_list{};
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize),
                          sycl::reduction(out, sycl::maximum<>(), initializer),
                          [=](sycl::id<1> indx, auto &reducer) {
@@ -1278,7 +1357,7 @@ reduceMinKernel(const size_t nsize, const TData *x, TData *out,
                                        initialize_to_identity{}}
              : sycl::property_list{};
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(
             sycl::range<1>(nsize),
             sycl::reduction(out, sycl::minimum<>(), initializer),
@@ -1313,7 +1392,7 @@ reduceMinKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                                        initialize_to_identity{}}
              : sycl::property_list{};
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize),
                          sycl::reduction(out, sycl::minimum<>(), initializer),
                          [=](sycl::id<1> indx, auto &reducer) {
@@ -1353,7 +1432,7 @@ ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out,
                                        initialize_to_identity{}}
              : sycl::property_list{};
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize),
                          sycl::reduction(out, sycl::plus<>(), initializer),
                          [=](sycl::id<1> indx, auto &reducer) {
@@ -1389,7 +1468,7 @@ ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                                        initialize_to_identity{}}
              : sycl::property_list{};
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize),
                          sycl::reduction(out, sycl::plus<>(), initializer),
                          [=](sycl::id<1> indx, auto &reducer) {
@@ -1425,7 +1504,7 @@ l1normKernel(const size_t nsize, const TData *x, TData *out,
                                        initialize_to_identity{}}
              : sycl::property_list{};
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize),
                          sycl::reduction(out, sycl::plus<>(), initializer),
                          [=](sycl::id<1> indx, auto &reducer) {
@@ -1461,7 +1540,7 @@ l1normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                                        initialize_to_identity{}}
              : sycl::property_list{};
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize),
                          sycl::reduction(out, sycl::plus<>(), initializer),
                          [=](sycl::id<1> indx, auto &reducer) {
@@ -1497,7 +1576,7 @@ l2normKernel(const size_t nsize, const TData *x, TData *out,
                                        initialize_to_identity{}}
              : sycl::property_list{};
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize),
                          sycl::reduction(out, sycl::plus<>(), initializer),
                          [=](sycl::id<1> indx, auto &reducer) {
@@ -1533,7 +1612,7 @@ l2normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                                        initialize_to_identity{}}
              : sycl::property_list{};
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize),
                          sycl::reduction(out, sycl::plus<>(), initializer),
                          [=](sycl::id<1> indx, auto &reducer) {
@@ -1569,7 +1648,7 @@ lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
                                        initialize_to_identity{}}
              : sycl::property_list{};
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize),
                          sycl::reduction(out, sycl::plus<>(), initializer),
                          [=](sycl::id<1> indx, auto &reducer) {
@@ -1605,7 +1684,7 @@ lpnormKernel(const size_t nsize, const unsigned int p, const uint8_t *mask,
                                        initialize_to_identity{}}
              : sycl::property_list{};
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize),
                          sycl::reduction(out, sycl::plus<>(), initializer),
                          [=](sycl::id<1> indx, auto &reducer) {
@@ -1643,7 +1722,7 @@ linfnormKernel(const size_t nsize, const TData *x, TData *out,
                                        initialize_to_identity{}}
              : sycl::property_list{};
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize),
                          sycl::reduction(out, sycl::maximum<>(), initializer),
                          [=](sycl::id<1> indx, auto &reducer) {
@@ -1679,7 +1758,7 @@ linfnormKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                                        initialize_to_identity{}}
              : sycl::property_list{};
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(nsize),
                          sycl::reduction(out, sycl::maximum<>(), initializer),
                          [=](sycl::id<1> indx, auto &reducer) {

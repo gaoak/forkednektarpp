@@ -46,6 +46,14 @@
 namespace Nektar
 {
 
+#if (defined(NEKTAR_ENABLE_HIP) && defined(DEVICE_COMPILE_ONLY))
+NEK_DEVICE_INLINE static bool __isShared(const void *ptr)
+{
+    return __builtin_amdgcn_is_shared(
+        (__attribute__((address_space(0))) const void *)ptr);
+}
+#endif
+
 // Optional optimisation decorator for a NEK_DEVICE_KERNEL kernel function. This
 // should NOT be used in a NEK_DEVCICE_INLINE function. This allows register
 // usage optimisation for CUDA/HIP backend by specifying the maximum GPU
@@ -565,7 +573,11 @@ NEK_DEVICE_INLINE static void atomic_add(TData *const dest, const TData val)
     }
     else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
     {
+#if defined(__CUDACC__)
         atomicAdd_block(dest, val);
+#elif defined(__HIPCC__)
+        atomicAdd(dest, val);
+#endif
     }
 }
 
@@ -578,7 +590,11 @@ NEK_DEVICE_INLINE static void atomic_sub(TData *const dest, const TData val)
     }
     else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
     {
+#if defined(__CUDACC__)
         atomicAdd_block(dest, -val);
+#elif defined(__HIPCC__)
+        atomicAdd(dest, -val);
+#endif
     }
 }
 
@@ -591,7 +607,11 @@ NEK_DEVICE_INLINE static void atomic_max(TData *const dest, const TData val)
     }
     else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
     {
+#if defined(__CUDACC__)
         atomicMax_block(dest, val);
+#elif defined(__HIPCC__)
+        atomicMax(dest, val);
+#endif
     }
 }
 
@@ -604,7 +624,11 @@ NEK_DEVICE_INLINE static void atomic_min(TData *const dest, const TData val)
     }
     else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
     {
+#if defined(__CUDACC__)
         atomicMin_block(dest, val);
+#elif defined(__HIPCC__)
+        atomicMin(dest, val);
+#endif
     }
 }
 
@@ -617,7 +641,11 @@ NEK_DEVICE_INLINE static void atomic_or(TData *const dest, const TData val)
     }
     else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
     {
+#if defined(__CUDACC__)
         atomicOr_block(dest, val);
+#elif defined(__HIPCC__)
+        atomicOr(dest, val);
+#endif
     }
 }
 
@@ -630,7 +658,11 @@ NEK_DEVICE_INLINE static void atomic_and(TData *const dest, const TData val)
     }
     else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
     {
+#if defined(__CUDACC__)
         atomicAnd_block(dest, val);
+#elif defined(__HIPCC__)
+        atomicAnd(dest, val);
+#endif
     }
 }
 
@@ -822,7 +854,7 @@ NEK_DEVICE_INLINE static void blockReduceSum(
     auto tmp = warpReduceSum(val, threadBlock);
     if (getLaneIdx(threadBlock) == 0)
     {
-        atomic_add<NektarSpaces::GlobalScope>(red, tmp);
+        atomic_add<NektarSpaces::LocalScope>(red, tmp);
     }
 }
 
@@ -834,7 +866,7 @@ NEK_DEVICE_INLINE static void blockReduceMax(
     auto tmp = warpReduceMax(val, threadBlock);
     if (getLaneIdx(threadBlock) == 0)
     {
-        atomic_max<NektarSpaces::GlobalScope>(red, tmp);
+        atomic_max<NektarSpaces::LocalScope>(red, tmp);
     }
 }
 
@@ -846,7 +878,7 @@ NEK_DEVICE_INLINE static void blockReduceMin(
     auto tmp = warpReduceMin(val, threadBlock);
     if (getLaneIdx(threadBlock) == 0)
     {
-        atomic_min<NektarSpaces::GlobalScope>(red, tmp);
+        atomic_min<NektarSpaces::LocalScope>(red, tmp);
     }
 }
 
@@ -858,7 +890,7 @@ NEK_DEVICE_INLINE static void blockReduceOr(
     auto tmp = warpReduceOr(val, threadBlock);
     if (getLaneIdx(threadBlock) == 0)
     {
-        atomic_or<NektarSpaces::GlobalScope>(red, tmp);
+        atomic_or<NektarSpaces::LocalScope>(red, tmp);
     }
 }
 
@@ -870,7 +902,7 @@ NEK_DEVICE_INLINE static void blockReduceAnd(
     auto tmp = warpReduceAnd(val, threadBlock);
     if (getLaneIdx(threadBlock) == 0)
     {
-        atomic_and<NektarSpaces::GlobalScope>(red, tmp);
+        atomic_and<NektarSpaces::LocalScope>(red, tmp);
     }
 }
 

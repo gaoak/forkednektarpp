@@ -247,8 +247,9 @@ protected:
         for (unsigned int i = 0; i < blockAttributes.size(); i++)
         {
             this->m_mr0.push_back(
-                MemoryRegion<const TData *>(this->m_nQuadPts));
-            this->m_mr1.push_back(MemoryRegion<TData *>(this->m_nQuadPts));
+                MemoryRegion<const TData *>(this->m_nQuadPts, eHostPinned));
+            this->m_mr1.push_back(
+                MemoryRegion<TData *>(this->m_nQuadPts, eHostPinned));
         }
     }
 
@@ -291,6 +292,10 @@ protected:
                             .GetBlocks()[blk]
                             .template GetPtr<MemSpace, ReadOnly>(streamID);
                 }
+
+                // Synchronize memory.
+                this->m_mr0[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+                nekStreamSynchronize(streamID);
 
                 // Update solution.
                 detail::UpdateSolutionKernel<ExecSpace>(
@@ -345,6 +350,11 @@ protected:
                         .GetBlocks()[blk]
                         .template GetPtr<MemSpace, WriteOnly>(streamID);
             }
+
+            // Synchronize memory.
+            this->m_mr0[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+            this->m_mr1[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+            nekStreamSynchronize(streamID);
 
             // Update solution.
             if (this->m_first_quadrature)
