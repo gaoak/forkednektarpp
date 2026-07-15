@@ -148,7 +148,7 @@ NEK_DEVICE_INLINE static void PhysDerivDir1DSumFacKernel(
         }
         else
         {
-            out[index] += d0 * df[DIR * warpsize + dfindex];
+            out[index] = d0 * df[DIR * warpsize + dfindex];
         }
     }
 }
