@@ -48,7 +48,7 @@ parallel_for(const size_t begin, const size_t end, const Functor &functor)
     const unsigned int streamID = internalLoopExecutionStreamID;
     sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
     sycl::event e               = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.parallel_for(sycl::range<1>(end - begin),
                                        [=](sycl::id<1> indx) { functor(begin + indx); });
     });
@@ -64,11 +64,16 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
     const unsigned int streamID = internalLoopExecutionStreamID;
     sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
     sycl::event e               = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
-        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        sycl::local_accessor<TData, 1> scratchpad(sycl::range<1>(blockSize),
+                                                                cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
+                auto scratch =
+                    scratchpad
+                        .template get_multi_ptr<sycl::access::decorated::yes>()
+                        .get();
                 const size_t lid = indx.get_local_id(0);
                 size_t gid       = begin + indx.get_global_id(0);
 
@@ -102,7 +107,8 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                 if (lid == 0)
                 {
-                    buffer[indx.get_group(0)] += scratch[0];
+                    atomic_add<NektarSpaces::LocalScope>(
+                        buffer + indx.get_group(0), scratch[0]);
                 }
             });
     });
@@ -119,11 +125,16 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
     const unsigned int streamID = internalLoopExecutionStreamID;
     sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
     sycl::event e               = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
-        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        sycl::local_accessor<TData, 1> scratchpad(sycl::range<1>(blockSize),
+                                                                cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
+                auto scratch =
+                    scratchpad
+                        .template get_multi_ptr<sycl::access::decorated::yes>()
+                        .get();
                 const size_t lid = indx.get_local_id(0);
                 size_t gid       = begin + indx.get_global_id(0);
 
@@ -158,8 +169,8 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                 if (lid == 0)
                 {
-                    buffer[indx.get_group(0)] =
-                        sycl::fmax(buffer[indx.get_group(0)], scratch[0]);
+                    atomic_max<NektarSpaces::LocalScope>(
+                        buffer + indx.get_group(0), scratch[0]);
                 }
             });
     });
@@ -176,11 +187,16 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
     const unsigned int streamID = internalLoopExecutionStreamID;
     sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
     sycl::event e               = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
-        sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        sycl::local_accessor<TData, 1> scratchpad(sycl::range<1>(blockSize),
+                                                                cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) {
+                auto scratch =
+                    scratchpad
+                        .template get_multi_ptr<sycl::access::decorated::yes>()
+                        .get();
                 const size_t lid = indx.get_local_id(0);
                 size_t gid       = begin + indx.get_global_id(0);
 
@@ -215,8 +231,8 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                 if (lid == 0)
                 {
-                    buffer[indx.get_group(0)] =
-                        sycl::fmin(buffer[indx.get_group(0)], scratch[0]);
+                    atomic_min<NektarSpaces::LocalScope>(
+                        buffer + indx.get_group(0), scratch[0]);
                 }
             });
     });

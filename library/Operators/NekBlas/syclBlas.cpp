@@ -88,12 +88,12 @@ NekGemm([[maybe_unused]] THandle handle, std::string transposeA,
 #else
     // clang-format off
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(handle.GetStreamID(), cgh);
+        setSYCLDefaultExecutionDependency(handle.GetStreamID(), cgh);
 #if defined(__ADAPTIVECPP__)
         cgh.AdaptiveCpp_enqueue_custom_operation(
             [=]([[maybe_unused]] sycl::interop_handle ih) {
 #else
-        cgh.host_task([=]([[maybe_unused]] sycl::interop_handle ih) {
+        cgh.host_task([=]() {
 #endif
     NekGemm(blasHandle_t(), transposeA, transposeB, M, N, K, alpha, a, lda, b,
             ldb, beta, c, ldc);
@@ -126,12 +126,12 @@ NekGemmStridedBatched([[maybe_unused]] THandle handle, std::string transposeA,
 #else
     // clang-format off
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(handle.GetStreamID(), cgh);
+        setSYCLDefaultExecutionDependency(handle.GetStreamID(), cgh);
 #if defined(__ADAPTIVECPP__)
         cgh.AdaptiveCpp_enqueue_custom_operation(
             [=]([[maybe_unused]] sycl::interop_handle ih) {
 #else
-        cgh.host_task([=]([[maybe_unused]] sycl::interop_handle ih) {
+        cgh.host_task([=]() {
 #endif
     NekGemmStridedBatched(blasHandle_t(), transposeA, transposeB, M, N, K,
                           alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc,
@@ -161,12 +161,12 @@ NekGemv([[maybe_unused]] THandle handle, std::string transpose,
 #else
     // clang-format off
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(handle.GetStreamID(), cgh);
+        setSYCLDefaultExecutionDependency(handle.GetStreamID(), cgh);
 #if defined(__ADAPTIVECPP__)
         cgh.AdaptiveCpp_enqueue_custom_operation(
             [=]([[maybe_unused]] sycl::interop_handle ih) {
 #else
-        cgh.host_task([=]([[maybe_unused]] sycl::interop_handle ih) {
+        cgh.host_task([=]() {
 #endif
     NekGemv(blasHandle_t(), transpose, M, N, alpha, a, lda, x, incx, beta, y,
             incy);
@@ -201,12 +201,12 @@ NekGemvStridedBatched([[maybe_unused]] THandle handle, std::string transpose,
 #else
     // clang-format off
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
-        setSYCLExecutionDependency(handle.GetStreamID(), cgh);
+        setSYCLDefaultExecutionDependency(handle.GetStreamID(), cgh);
 #if defined(__ADAPTIVECPP__)
         cgh.AdaptiveCpp_enqueue_custom_operation(
             [=]([[maybe_unused]] sycl::interop_handle ih) {
 #else
-        cgh.host_task([=]([[maybe_unused]] sycl::interop_handle ih) {
+        cgh.host_task([=]() {
 #endif
     NekGemvStridedBatched(blasHandle_t(), transpose, M, N, alpha, a, lda,
                           strideA, x, incx, strideX, beta, y, incy, strideY,

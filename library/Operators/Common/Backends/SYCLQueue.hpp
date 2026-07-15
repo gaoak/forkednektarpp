@@ -49,22 +49,39 @@ extern unsigned int internalSYCLDeviceId;
 class SYCLQueue
 {
 public:
-    static sycl::queue &GetInstance(unsigned int id)
+    static sycl::queue &GetInstance([[maybe_unused]] unsigned int id)
     {
-        if (queues.find(id) == queues.end())
-        {
 #if defined(SYCL_ENABLE_CPU)
-            queues[id] = new sycl::queue(sycl::cpu_selector_v,
-                                         sycl::property::queue::in_order());
+        // Use single queue for SYCL-CPU backend
+        if (queues.find(0) == queues.end())
+        {
+            queues[0] = new sycl::queue(sycl::cpu_selector_v,
+                                        sycl::property::queue::in_order());
+        }
+
+        return *queues[0];
 #else
+        // Create default queue first.
+        if (queues.find(0) == queues.end())
+        {
             std::vector<sycl::device> gpu_devices =
                 sycl::device::get_devices(sycl::info::device_type::gpu);
-            queues[id] = new sycl::queue(gpu_devices[internalSYCLDeviceId],
+            queues[0] = new sycl::queue(gpu_devices[internalSYCLDeviceId],
+                                        sycl::property::queue::in_order());
+        }
+
+        if (queues.find(id) == queues.end())
+        {
+            // Use the context from the default queue as shared context.
+            sycl::context ctx = queues[0]->get_context();
+            std::vector<sycl::device> gpu_devices =
+                sycl::device::get_devices(sycl::info::device_type::gpu);
+            queues[id] = new sycl::queue(ctx, gpu_devices[internalSYCLDeviceId],
                                          sycl::property::queue::in_order());
-#endif
         }
 
         return *queues[id];
+#endif
     }
 
     static std::unordered_map<unsigned int, sycl::queue *> &GetAllInstances(
@@ -73,13 +90,27 @@ public:
         return queues;
     }
 
-    static void SetEvent(unsigned int id, sycl::event &e)
+    static void SetEvent([[maybe_unused]] unsigned int id,
+                         [[maybe_unused]] sycl::event &e)
     {
+#if defined(SYCL_ENABLE_CPU)
+        // Do nothing.
+#else
         events[id] = e;
+#endif
     }
 
-    static sycl::event &GetEvent(unsigned int id)
+    static sycl::event &GetEvent([[maybe_unused]] unsigned int id)
     {
+#if defined(SYCL_ENABLE_CPU)
+        if (queues.find(0) == queues.end())
+        {
+            sycl::event e;
+            events[0] = e;
+        }
+
+        return events[0];
+#else
         if (queues.find(id) == queues.end())
         {
             sycl::event e;
@@ -87,6 +118,7 @@ public:
         }
 
         return events[id];
+#endif
     }
 
     static std::unordered_map<unsigned int, sycl::event> &GetAllEvents(void)

@@ -125,6 +125,9 @@ inline void hostMallocPinned(TData **src, const size_t size)
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance(0);
         *src           = (TData *)sycl::malloc_host(size, Q);
+#if defined(SYCL_ENABLE_CPU)
+        Q.wait();
+#endif
 #else
         *src = (TData *)malloc(size);
 #endif
@@ -182,6 +185,9 @@ inline void deviceMalloc(
         sycl::queue &Q = SYCLQueue::GetInstance(streamID);
         *src           = (TData *)sycl::malloc_device(size, Q);
         GetDeviceProperties::TotalGlobalMemory() -= size;
+#if defined(SYCL_ENABLE_CPU)
+        Q.wait();
+#endif
 #else
         *src = (TData *)malloc(size);
 #endif
@@ -302,7 +308,7 @@ inline void deviceMemset(TData *dst, const int val, const size_t size,
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([&](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.memset((void *)dst, val, size);
     });
     SYCLQueue::SetEvent(streamID, e);
@@ -327,7 +333,7 @@ inline void deviceFill(TData *dst, const TData val, const size_t size,
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
     sycl::event e  = Q.submit([&](sycl::handler &cgh) {
-        setSYCLExecutionDependency(streamID, cgh);
+        setSYCLDefaultExecutionDependency(streamID, cgh);
         cgh.fill(dst, val, size);
     });
     SYCLQueue::SetEvent(streamID, e);
@@ -364,7 +370,7 @@ inline void deviceMemcpy(TData *dst, const TData *src, const size_t size,
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance(streamID);
         sycl::event e  = Q.submit([&](sycl::handler &cgh) {
-            setSYCLExecutionDependency(streamID, cgh);
+            setSYCLDefaultExecutionDependency(streamID, cgh);
             cgh.memcpy(dst, src, size);
         });
         SYCLQueue::SetEvent(streamID, e);
@@ -386,13 +392,10 @@ inline void deviceMemcpy(TData *dst, const TData *src, const size_t size,
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance(streamID);
         sycl::event e  = Q.submit([&](sycl::handler &cgh) {
-            setSYCLExecutionDependency(streamID, cgh);
+            setSYCLDefaultExecutionDependency(streamID, cgh);
             cgh.memcpy(dst, src, size);
         });
         SYCLQueue::SetEvent(streamID, e);
-#if defined(SYCL_ENABLE_CPU)
-        Q.wait();
-#endif
 #else
         memcpy(dst, src, size);
 #endif
@@ -410,7 +413,7 @@ inline void deviceMemcpy(TData *dst, const TData *src, const size_t size,
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance(streamID);
         sycl::event e  = Q.submit([&](sycl::handler &cgh) {
-            setSYCLExecutionDependency(streamID, cgh);
+            setSYCLDefaultExecutionDependency(streamID, cgh);
             cgh.memcpy(dst, src, size);
         });
         SYCLQueue::SetEvent(streamID, e);

@@ -985,9 +985,12 @@ private:
                 deviceMemcpy<HostToDevice>(dst, tmp.data(),
                                            size * sizeof(TData), streamID);
             }
-
             m_host_valid   = false;
             m_device_valid = true;
+
+            // Synchronize stream to avoid host memory going out of scope before
+            // memory copy is complete.
+            nekStreamSynchronize(streamID);
         }
     }
 

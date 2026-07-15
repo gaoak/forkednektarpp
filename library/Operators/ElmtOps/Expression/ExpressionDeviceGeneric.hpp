@@ -74,15 +74,16 @@ public:
         this->m_nqTot     = exp->GetTotPoints();
 
         // Initialise CUDA/HIP context for JIT.
-#if defined(NEKTAR_ENABLE_CUDA) || defined(SYCL_ENABLE_CUDA)
+#if defined(NEKTAR_ENABLE_CUDA)
         CHECK_HIPCUDA_ERROR(cudaFree(0));
-#elif defined(NEKTAR_ENABLE_HIP) || defined(SYCL_ENABLE_HIP)
+#elif defined(NEKTAR_ENABLE_HIP)
         CHECK_HIPCUDA_ERROR(hipFree(0));
 #endif
     }
 
     ~ExpressionBlockOpImpl(void)
     {
+        nekDeviceSynchronize();
         CHECK_HIPCUDA_DRIVER_ERROR(nekModuleUnload(m_nekModule));
     }
 
@@ -126,6 +127,9 @@ protected:
                  "calling Apply().")
 
         const auto compSize = inblock.CompSize();
+        const auto inmode   = inblock.GetNumHomoModes();
+        const auto outmode  = outblock.GetNumHomoModes();
+        const auto noutcomp = outblock.GetNumComponents();
 
         // Initialize pointers.
         auto inptr =
@@ -152,7 +156,7 @@ protected:
             CoordKey<TData>(this->m_block_idx, inInterleaveWidth, false));
 
         // Loop over components.
-        for (unsigned int n = 0; n < inblock.GetNumHomoModes(); ++n)
+        for (unsigned int n = 0; n < inmode; ++n)
         {
             // Reshape, if necessary.
             for (unsigned int nc = 0; nc < inblock.GetNumComponents(); ++nc)
@@ -163,8 +167,7 @@ protected:
                         inInterleaveWidth, outInterleaveWidth,
                         outblock.GetNumElementsWithPadding(),
                         outblock.GetNumData(),
-                        (TData *)outptr +
-                            (n + nc * outblock.GetNumHomoModes()) * compSize,
+                        (TData *)outptr + (n + nc * outmode) * compSize,
                         m_streamID);
                 }
             }
@@ -179,57 +182,19 @@ protected:
                 }
             }
 
-            // Set input parameters.
-            unsigned int numEvar = this->m_numEvars[0];
-            void **args          = new void *[numEvar + numOutVar];
-            args[0]              = (void *)&compSize;
-            args[1]              = (void *)&this->m_scale;
-            args[2]              = (void *)&coordptr;
-            args[3]              = (void *)&this->m_time;
-
-            // Set input pointers.
-            void **ptr = new void *[numEvar + numOutVar - 4];
-            for (unsigned int i = 0; i < numEvar - 4; i++)
-            {
-                ptr[i] = (void *)(inptr + (n + i * inblock.GetNumHomoModes()) *
-                                              compSize);
-                args[4 + i] = &ptr[i];
-            }
-
-            // Set output pointers.
-            for (unsigned int nc = 0, cnt = 0; nc < outblock.GetNumComponents();
-                 ++nc)
-            {
-                // Check component mask
-                if (this->m_cmask[nc])
-                {
-                    ptr[numEvar - 4 + cnt] =
-                        (void *)(outptr +
-                                 (n + nc * outblock.GetNumHomoModes()) *
-                                     compSize);
-                    args[numEvar + cnt] = &ptr[numEvar - 4 + cnt];
-                    cnt++;
-                }
-            }
-
-            // Launch kernel.
-            auto kernel_handle =
-                (inInterleaveWidth == 1)
-                    ? (this->m_append) ? m_kernel_handle1 : m_kernel_handle2
-                : (this->m_append) ? m_kernel_handle3
-                                   : m_kernel_handle4;
             // clang-format off
 #if defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
             sycl::queue &Q = SYCLQueue::GetInstance(m_streamID);
             sycl::event e = Q.submit([=](sycl::handler &cgh) {
-                    setSYCLExecutionDependency(m_streamID, cgh);
+                    setSYCLDefaultExecutionDependency(m_streamID, cgh);
 #if defined(__ADAPTIVECPP__)
                 cgh.AdaptiveCpp_enqueue_custom_operation(
                     [=](sycl::interop_handle ih) {
+                    auto stream = ih.get_native_queue<sycl_backend>();
 #else
                 cgh.host_task([=](sycl::interop_handle ih) {
-#endif
                     auto stream = ih.get_native_queue<sycl_backend>();
+#endif
 #else
 #if defined(NEKTAR_ENABLE_CUDA) 
                     stream_t stream = CUDAStream::GetInstance(m_streamID);
@@ -237,17 +202,58 @@ protected:
                     stream_t stream = HIPStream::GetInstance(m_streamID);
 #endif
 #endif
+                    // Set input parameters.
+                    unsigned int numEvar = this->m_numEvars[0];
+                    void **args          = new void *[numEvar + numOutVar];
+                    args[0]              = (void *)&compSize;
+                    args[1]              = (void *)&this->m_scale;
+                    args[2]              = (void *)&coordptr;
+                    args[3]              = (void *)&this->m_time;
+
+                    // Set input pointers.
+                    void **ptr = new void *[numEvar + numOutVar - 4];
+                    for (unsigned int i = 0; i < numEvar - 4; i++)
+                    {
+                        ptr[i] = (void *)(inptr + (n + i * inmode) *
+                                                      compSize);
+                        args[4 + i] = &ptr[i];
+                    }
+
+                    // Set output pointers.
+                    for (unsigned int nc = 0, cnt = 0; nc < noutcomp; ++nc)
+                    {
+                        // Check component mask
+                        if (this->m_cmask[nc])
+                        {
+                            ptr[numEvar - 4 + cnt] =
+                                (void *)(outptr +
+                                         (n + nc * outmode) *
+                                             compSize);
+                            args[numEvar + cnt] = &ptr[numEvar - 4 + cnt];
+                            cnt++;
+                        }
+                    }
+
+                    // Launch kernel.
+                    auto kernel_handle =
+                        (inInterleaveWidth == 1)
+                            ? (this->m_append) ? m_kernel_handle1
+                                               : m_kernel_handle2
+                            : (this->m_append) ? m_kernel_handle3
+                                               : m_kernel_handle4;
+
                     CHECK_HIPCUDA_DRIVER_ERROR(nekLaunchKernel(
                         kernel_handle, gridSize, 1, 1, blockSize, 1, 1, 0,
                         stream, args, nullptr));
+
+                    delete[] ptr;
+                    delete[] args;
 #if defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
                 });
             });
             SYCLQueue::SetEvent(m_streamID, e);
 #endif
             // clang-format on
-            delete[] ptr;
-            delete[] args;
         }
 
         // Set output block to input interleave.
@@ -261,12 +267,12 @@ protected:
 #if defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
         sycl::queue &Q = SYCLQueue::GetInstance(m_streamID);
         sycl::event e = Q.submit([=](sycl::handler &cgh) {
-                    setSYCLExecutionDependency(m_streamID, cgh);
+                    setSYCLDefaultExecutionDependency(m_streamID, cgh);
 #if defined(__ADAPTIVECPP__)
             cgh.AdaptiveCpp_enqueue_custom_operation(
-                [=]([[maybe_unused]] sycl::interop_handle ih) {
+                    [=]([[maybe_unused]] sycl::interop_handle ih) {
 #else
-            cgh.host_task([=]([[maybe_unused]] sycl::interop_handle ih) {
+            cgh.host_task([=]() {
 #endif
 #endif
                 SetDeviceExpressions(exprs);

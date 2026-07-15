@@ -409,14 +409,14 @@ debian-trixie-full-clang19-build-and-test:
     DISABLE_CWIPI: true
     BUILD_DEVICE: DEVICEONHOST
 
-#debian-trixie-full-acpp-build-and-test:
-#  <<: *build-and-test-template
-#  needs: ["debian-trixie-full-build-env"]
-#  variables:
-#    DOCKER_FLAGS: "-v /apps:/apps"
-#    DISABLE_CWIPI: true
-#    BUILD_CXX: acpp
-#    BUILD_DEVICE: SYCL-CPU
+debian-trixie-full-acpp-build-and-test:
+  <<: *build-and-test-template
+  needs: ["debian-trixie-full-build-env"]
+  variables:
+    DOCKER_FLAGS: "-v /apps:/apps"
+    DISABLE_CWIPI: true
+    BUILD_CXX: acpp
+    BUILD_DEVICE: SYCL-CPU
 
 debian-bookworm-default-build-and-test:
   <<: *build-and-test-template
@@ -483,9 +483,9 @@ debian-trixie-full-clang19-warnings:
   <<: *compiler-warning-template
   needs: ["debian-trixie-full-clang19-build-and-test"]
 
-#debian-trixie-full-acpp-warnings:
-#  <<: *compiler-warning-template
-#  needs: ["debian-trixie-full-acpp-build-and-test"]
+debian-trixie-full-acpp-warnings:
+  <<: *compiler-warning-template
+  needs: ["debian-trixie-full-acpp-build-and-test"]
 
 debian-bookworm-default-warnings:
   <<: *compiler-warning-template
