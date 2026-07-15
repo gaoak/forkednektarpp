@@ -109,8 +109,8 @@ NEK_DEVICE_INLINE static void Divergence1DSumFacKernel(
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *inptr = in + nq0 * warpsize * iwarp;
         TData *outptr      = out + nq0 * warpsize * iwarp;
-        PhysDerivDir1DSumFacKernel<false, DEFORMED, 0>(ilane, 1, nq0, D0, dfptr,
-                                                       inptr, outptr);
+        PhysDerivDir1DSumFacKernel<false, DEFORMED, 0>(ilane, ncoord, nq0, D0,
+                                                       dfptr, inptr, outptr);
         e += getGlobalRange(threadBlock);
     }
 }
