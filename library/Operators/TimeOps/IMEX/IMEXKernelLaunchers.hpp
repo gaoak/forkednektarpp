@@ -40,7 +40,7 @@ namespace Nektar::Operators::detail
 class IMEXScheme;
 
 template <unsigned int IntOrder, typename TData>
-NEK_DEVICE_INLINE static constexpr auto GetIMEXCoefficients(void)
+NEK_HOSTDEVICE_INLINE static constexpr auto GetIMEXCoefficients(void)
 {
     // 1st order
     if constexpr (IntOrder == 1)

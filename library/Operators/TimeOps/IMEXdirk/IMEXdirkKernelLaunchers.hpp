@@ -153,7 +153,7 @@ static constexpr auto GetIMEXdirkLambdaCoefficients(void)
 
 template <unsigned int ImpStage, unsigned int ExpStage, unsigned int IntOrder,
           typename TData>
-NEK_DEVICE_INLINE static constexpr auto GetIMEXdirkStageCoefficients(void)
+NEK_HOSTDEVICE_INLINE static constexpr auto GetIMEXdirkStageCoefficients(void)
 {
     // IMEX Dirk 1 1 1 : Forward - Backward Euler IMEX
     if constexpr (ImpStage == 1 && ExpStage == 1 && IntOrder == 1)
@@ -291,7 +291,7 @@ NEK_DEVICE_INLINE static constexpr auto GetIMEXdirkStageCoefficients(void)
 
 template <unsigned int ImpStage, unsigned int ExpStage, unsigned int IntOrder,
           typename TData>
-NEK_DEVICE_INLINE static constexpr auto GetIMEXdirkCoefficients(void)
+NEK_HOSTDEVICE_INLINE static constexpr auto GetIMEXdirkCoefficients(void)
 {
     // IMEX Dirk 1 1 1 : Forward - Backward Euler IMEX
     if constexpr (ImpStage == 1 && ExpStage == 1 && IntOrder == 1)
