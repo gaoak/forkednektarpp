@@ -33,7 +33,9 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <LibUtilities/BasicUtils/Likwid.hpp>
 #include <LibUtilities/LinearAlgebra/NekLinSysIterCG.h>
+#include <LibUtilities/SimdLib/tinysimd.hpp>
 
 using namespace std;
 
@@ -56,7 +58,7 @@ NekLinSysIterCG::NekLinSysIterCG(
     : NekLinSysIter(pSession, vRowComm, nDimen, pKey)
 {
     m_flexible = pSession->DefinesParameter("FlexibleConjugateGradient")
-                     ? pSession->GetParameter("FlexibleConjugateGradient")
+                     ? bool(pSession->GetParameter("FlexibleConjugateGradient"))
                      : false;
 }
 
@@ -73,8 +75,10 @@ int NekLinSysIterCG::v_SolveSystem(const int nGlobal,
                                    Array<OneD, NekDouble> &pOutput,
                                    const int nDir)
 {
+    std::string tag = "DoConjugateGradient";
+    LIKWID_MARKER_START(tag.c_str());
     DoConjugateGradient(nGlobal, pInput, pOutput, nDir);
-
+    LIKWID_MARKER_STOP(tag.c_str());
     return m_totalIterations;
 }
 
@@ -83,7 +87,17 @@ void NekLinSysIterCG::v_DoIterate(const int nGlobal,
                                   Array<OneD, NekDouble> &x, const int nDir,
                                   NekDouble &err, int &iter)
 {
-    DoConjugateGradient(nGlobal, rhs, x, nDir);
+    auto nNonDir = nGlobal - nDir;
+    Array<OneD, NekDouble> r(nGlobal, 0.0);
+    Array<OneD, NekDouble> dx(nGlobal, 0.0);
+    // Get residual r = rhs - Ax
+    m_operator.DoNekSysLhsEval(x, r);
+    Vmath::Vsub(nNonDir, &rhs[0] + nDir, 1, &r[0] + nDir, 1, &r[0] + nDir, 1);
+    // Get dx
+    DoConjugateGradient(nGlobal, r, dx, nDir);
+    // Update solution x = x + dx
+    Vmath::Vadd(nNonDir, &x[0] + nDir, 1, &dx[0] + nDir, 1, &x[0] + nDir, 1);
+
     iter = m_totalIterations;
     err  = m_finalError;
 }
@@ -125,6 +139,15 @@ void NekLinSysIterCG::DoConjugateGradient(
     NekDouble eps;
     Array<OneD, NekDouble> vExchange(4, 0.0);
 
+    // Arrays to store CG coefficients for EV estimation routine.
+    Array<OneD, NekDouble> alpha_list;
+    Array<OneD, NekDouble> beta_list;
+    if (m_isComputeEigenvalues)
+    {
+        alpha_list = Array<OneD, NekDouble>(m_NekLinSysMaxIterations, 0.0);
+        beta_list  = Array<OneD, NekDouble>(m_NekLinSysMaxIterations, 0.0);
+    }
+
     // Copy initial residual from input
     Vmath::Vcopy(nNonDir, pInput + nDir, 1, r_A, 1);
 
@@ -142,10 +165,11 @@ void NekLinSysIterCG::DoConjugateGradient(
 
     if (m_rhs_magnitude == NekConstants::kNekUnsetDouble)
     {
-        Set_Rhs_Magnitude(pInput);
+        Set_Rhs_Magnitude(pInput, nGlobal);
     }
 
     m_totalIterations = 0;
+    m_eps_old         = sqrt(eps / m_rhs_magnitude);
 
     // If input residual is less than tolerance skip solve.
     if (eps < m_NekLinSysTolerance * m_NekLinSysTolerance * m_rhs_magnitude)
@@ -153,6 +177,10 @@ void NekLinSysIterCG::DoConjugateGradient(
         m_finalError = sqrt(eps / m_rhs_magnitude);
         if (m_verbose && m_root)
         {
+            if (m_flexible)
+            {
+                cout << "Flexible ";
+            }
             cout << "CG iterations made = " << m_totalIterations
                  << " using tolerance of " << m_NekLinSysTolerance
                  << " (error = " << m_finalError
@@ -176,14 +204,24 @@ void NekLinSysIterCG::DoConjugateGradient(
     alpha             = rho / mu;
     m_totalIterations = 1;
 
+    std::string precon_tag        = "CGPrecondition";
+    std::string lhs_tag           = "CGLhsEval";
+    std::string before_precon_tag = "CGBeforePrecon";
+    std::string after_lhs_tag     = "CGAfterLhsEval";
+
     // Continue until convergence
     while (true)
     {
+        LIKWID_MARKER_START(before_precon_tag.c_str());
         if (m_totalIterations > m_NekLinSysMaxIterations)
         {
             m_finalError = sqrt(eps / m_rhs_magnitude);
             if (m_root)
             {
+                if (m_flexible)
+                {
+                    cout << "Flexible ";
+                }
                 cout << "CG iterations made = " << m_totalIterations
                      << " using tolerance of " << m_NekLinSysTolerance
                      << " (error = " << m_finalError
@@ -191,6 +229,12 @@ void NekLinSysIterCG::DoConjugateGradient(
                      << " WARNING: Exceeded maxIt" << endl;
             }
             break;
+        }
+
+        if (m_isComputeEigenvalues)
+        {
+            // Store the current solution coefficient for EV estimation.
+            alpha_list[m_totalIterations - 1] = alpha;
         }
 
         // Compute new search direction p_k, q_k
@@ -219,11 +263,19 @@ void NekLinSysIterCG::DoConjugateGradient(
             }
         }
 
+        LIKWID_MARKER_STOP(before_precon_tag.c_str());
+
+        LIKWID_MARKER_START(precon_tag.c_str());
         // Apply preconditioner
         m_operator.DoNekSysPrecon(r_A, tmp = w_A + nDir);
+        LIKWID_MARKER_STOP(precon_tag.c_str());
 
+        LIKWID_MARKER_START(lhs_tag.c_str());
         // Perform the method-specific matrix-vector multiply operation.
         m_operator.DoNekSysLhsEval(w_A, s_A);
+        LIKWID_MARKER_STOP(lhs_tag.c_str());
+
+        LIKWID_MARKER_START(after_lhs_tag.c_str());
 
         if (m_mapIsOnes)
         {
@@ -267,12 +319,33 @@ void NekLinSysIterCG::DoConjugateGradient(
 
         m_totalIterations++;
 
+        // print iteration progress
+        if (m_verbose && m_root)
+        {
+            NekDouble rel_err = sqrt(eps / m_rhs_magnitude);
+            if (log(m_eps_old / rel_err) > log(10.0) * m_printThreshold)
+            {
+                if (m_flexible)
+                {
+                    cout << "Flexible ";
+                }
+                cout << "CG iteration = " << m_totalIterations
+                     << ", error = " << rel_err
+                     << ", rhs_mag = " << sqrt(m_rhs_magnitude) << endl;
+                m_eps_old = rel_err;
+            }
+        }
+
         // Test if norm is within tolerance
         if (eps < m_NekLinSysTolerance * m_NekLinSysTolerance * m_rhs_magnitude)
         {
             m_finalError = sqrt(eps / m_rhs_magnitude);
             if (m_verbose && m_root)
             {
+                if (m_flexible)
+                {
+                    cout << "Flexible ";
+                }
                 cout << "CG iterations made = " << m_totalIterations
                      << " using tolerance of " << m_NekLinSysTolerance
                      << " (error = " << m_finalError
@@ -282,9 +355,88 @@ void NekLinSysIterCG::DoConjugateGradient(
         }
 
         // Compute search direction and solution coefficients
-        beta  = (rho_new - rho_star) / rho;
+        beta = (rho_new - rho_star) / rho;
+        if (m_isComputeEigenvalues)
+        {
+            beta_list[m_totalIterations - 2] = beta;
+        }
         alpha = rho_new / (mu - rho_new * beta / alpha);
         rho   = rho_new;
+        LIKWID_MARKER_STOP(after_lhs_tag.c_str());
+    }
+
+    if (m_isComputeEigenvalues)
+    {
+        ComputeEigenvalues(m_totalIterations - 1, alpha_list, beta_list);
     }
 }
+
+// Function to get EVs for a tridiagonal matrix using Lapack::Dsterf
+// Input: Take list of alphas and betas from CG routine
+// Step1: Create the TriDiag matrix using alpha, beta list
+// Step2: Use the Lapack::Dsterf routine for calculating EVs
+void NekLinSysIterCG::ComputeEigenvalues(
+    const int length, const Array<OneD, NekDouble> &alpha_list,
+    const Array<OneD, NekDouble> &beta_list)
+{
+    // Rank of the matrix for EV estimation
+    m_eigenvalues = Array<OneD, NekDouble>(length, 0.0);
+    Array<OneD, NekDouble> mainDiag(m_eigenvalues);
+    Array<OneD, NekDouble> subDiag(length - 1, 0.0);
+
+    // Create the Tridiagonal matrix neeeded for EV estimation
+    // Fill subDiag,mainDiag with TriDiag information
+    for (int i = 0; i < length; ++i)
+    {
+        // filling Diagonal information
+        if (i == 0) // does not have the second term
+        {
+            // Handle the special case when i = 0
+            mainDiag[i] = 1 / alpha_list[i];
+        }
+        else
+        {
+            // Perform element-wise division for i > 0
+            mainDiag[i] =
+                1.0 / alpha_list[i] + beta_list[i - 1] / alpha_list[i - 1];
+        }
+        // filling subDiagonal information, same on both sides
+        if (i < length - 1) // Stop on the second last iteration
+        {
+            subDiag[i] = std::sqrt(beta_list[i]) / alpha_list[i];
+        }
+    }
+
+    // use LAPACK:dsterf for calculating the EVs for TriDiag matrix
+    // solves for symmetric TriDiag matrix
+    int info = 0;
+    Lapack::Dsterf(length, mainDiag.data(), subDiag.data(), info);
+
+    if (m_root && m_verbose)
+    {
+        cout << "\nEigenvalues: " << endl;
+        // print the last 10 values, which includes the max eigenv
+        int m = min(length, 10);
+        for (int j = 0; j < m; j++)
+        {
+            cout << mainDiag[length - 1 - j] << ' ';
+        }
+        cout << endl;
+    }
+
+    if (m_isOutputEigenvalues)
+    {
+        FILE *pFile;
+        int myRank           = m_rowComm->GetRank();
+        std::string filename = std::string("Eigenvalues_") +
+                               std::to_string(myRank) + std::string(".txt");
+        pFile = fopen(filename.c_str(), "w");
+        for (int j = 0; j < length; j++)
+        {
+            fprintf(pFile, "%e\n", mainDiag[j]);
+        }
+        fclose(pFile);
+    }
+}
+
 } // namespace Nektar::LibUtilities

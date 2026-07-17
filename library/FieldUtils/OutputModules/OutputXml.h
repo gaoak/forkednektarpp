@@ -45,16 +45,23 @@ class OutputXml : public OutputModule
 {
 public:
     /// Creates an instance of this class
-    static std::shared_ptr<Module> create(FieldSharedPtr f)
+    static std::shared_ptr<Module> createXml(FieldSharedPtr f)
     {
-        return MemoryManager<OutputXml>::AllocateSharedPtr(f);
+        return MemoryManager<OutputXml>::AllocateSharedPtr(f, false);
+    }
+    static std::shared_ptr<Module> createHDF5(FieldSharedPtr f)
+    {
+        return MemoryManager<OutputXml>::AllocateSharedPtr(f, true);
     }
     static ModuleKey m_className;
+    static ModuleKey m_className2;
 
-    OutputXml(FieldSharedPtr f);
+    OutputXml(FieldSharedPtr f, bool hdf5);
     ~OutputXml() override;
 
 protected:
+    bool m_hdf5 = false;
+
     /// Write fld to output file.
     void v_Process(po::variables_map &vm) override;
 

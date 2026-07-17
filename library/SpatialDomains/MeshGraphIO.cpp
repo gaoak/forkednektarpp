@@ -48,6 +48,20 @@ MeshGraphIOFactory &GetMeshGraphIOFactory()
     return instance;
 }
 
+MeshGraphIO::MeshGraphIO()
+{
+    // Create a map that gets around the issue of mapping faces -> F and edges
+    // -> E inside the tag.
+    m_compMap[LibUtilities::ePoint]         = std::make_pair('V', 'V');
+    m_compMap[LibUtilities::eSegment]       = std::make_pair('S', 'E');
+    m_compMap[LibUtilities::eQuadrilateral] = std::make_pair('Q', 'F');
+    m_compMap[LibUtilities::eTriangle]      = std::make_pair('T', 'F');
+    m_compMap[LibUtilities::eTetrahedron]   = std::make_pair('A', 'A');
+    m_compMap[LibUtilities::ePyramid]       = std::make_pair('P', 'P');
+    m_compMap[LibUtilities::ePrism]         = std::make_pair('R', 'R');
+    m_compMap[LibUtilities::eHexahedron]    = std::make_pair('H', 'H');
+}
+
 MeshGraphSharedPtr MeshGraphIO::Read(
     const LibUtilities::SessionReaderSharedPtr session,
     LibUtilities::DomainRangeShPtr rng, bool fillGraph,
@@ -267,6 +281,14 @@ CompositeDescriptor MeshGraphIO::CreateCompositeDescriptor()
     return ret;
 }
 
+char MeshGraphIO::GetCompositeTag(Geometry *geom)
+{
+    int shapeDim   = geom->GetShapeDim();
+    auto shapeType = geom->GetShapeType();
+    auto it        = m_compMap[shapeType];
+    return (shapeDim < m_meshGraph->GetMeshDimension()) ? it.second : it.first;
+}
+
 /**
  * @brief Returns a string representation of a composite.
  */
@@ -277,33 +299,15 @@ std::string MeshGraphIO::GetCompositeString(CompositeSharedPtr comp)
         return "";
     }
 
-    // Create a map that gets around the issue of mapping faces -> F and edges
-    // -> E inside the tag.
-    std::map<LibUtilities::ShapeType, std::pair<std::string, std::string>>
-        compMap;
-    compMap[LibUtilities::ePoint]         = std::make_pair("V", "V");
-    compMap[LibUtilities::eSegment]       = std::make_pair("S", "E");
-    compMap[LibUtilities::eQuadrilateral] = std::make_pair("Q", "F");
-    compMap[LibUtilities::eTriangle]      = std::make_pair("T", "F");
-    compMap[LibUtilities::eTetrahedron]   = std::make_pair("A", "A");
-    compMap[LibUtilities::ePyramid]       = std::make_pair("P", "P");
-    compMap[LibUtilities::ePrism]         = std::make_pair("R", "R");
-    compMap[LibUtilities::eHexahedron]    = std::make_pair("H", "H");
-
     std::stringstream s;
-
-    Geometry *firstGeom = comp->m_geomVec[0];
-    int shapeDim        = firstGeom->GetShapeDim();
-    std::string tag     = (shapeDim < m_meshGraph->GetMeshDimension())
-                              ? compMap[firstGeom->GetShapeType()].second
-                              : compMap[firstGeom->GetShapeType()].first;
 
     std::vector<unsigned int> idxList;
     std::transform(comp->m_geomVec.begin(), comp->m_geomVec.end(),
                    std::back_inserter(idxList),
                    [](Geometry *geom) { return geom->GetGlobalID(); });
 
-    s << " " << tag << "[" << ParseUtils::GenerateSeqString(idxList) << "] ";
+    s << " " << GetCompositeTag(comp->m_geomVec[0]) << "["
+      << ParseUtils::GenerateSeqString(idxList) << "] ";
     return s.str();
 }
 

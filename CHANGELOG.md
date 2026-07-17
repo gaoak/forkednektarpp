@@ -1,7 +1,15 @@
 Changelog
 =========
+
+v5.11.0
+-------
+**Library**
+- Add parallel HDF5 mesh output (!2588)
+- Add Eigen value estimation to ConjGrad and GMRES (!2578)
+- Fix HDF5 thirdparty compilation with MPI (!2610)
+
 v5.10.0
-------
+-------
 **Library**
 - Tidy check for nonsymmetric linear system (!2259)
 - Set default quadrature of Pyr to nq, nq nq-1 for modified basis (!2297)

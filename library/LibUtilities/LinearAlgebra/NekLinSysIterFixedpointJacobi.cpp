@@ -82,7 +82,7 @@ int NekLinSysIterFixedpointJacobi::v_SolveSystem(
         m_totalIterations++;
         if (m_totalIterations % m_errorCheckInterval == 0)
         {
-            ConvergenceCheck(r);
+            ConvergenceCheck(r, nGlobal);
             if (m_converged)
             {
                 break;

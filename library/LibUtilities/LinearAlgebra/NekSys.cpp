@@ -50,7 +50,7 @@ NekSys::NekSys(const LibUtilities::SessionReaderSharedPtr &pSession,
     m_rowComm      = vRowComm;
     m_root         = m_rowComm->GetRank() == 0;
     m_FlagWarnings = true;
-    m_verbose      = pSession->DefinesCmdLineArgument("verbose");
+    m_verbose      = pSession->GetVerbose();
     m_converged    = false;
     m_SysDimen     = nDimen;
 }

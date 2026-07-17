@@ -90,6 +90,10 @@ private:
     void DoConjugateGradient(const int pNumRows,
                              const Array<OneD, const NekDouble> &pInput,
                              Array<OneD, NekDouble> &pOutput);
+    // Function to get EVs for a tridiagonal matrix using Lapack::DSTERF
+    void ComputeEigenvalues(const int nNonzeros,
+                            const Array<OneD, NekDouble> &alpha_list,
+                            const Array<OneD, NekDouble> &beta_list);
 };
 } // namespace Nektar::LibUtilities
 

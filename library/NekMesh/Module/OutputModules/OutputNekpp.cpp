@@ -263,10 +263,11 @@ void OutputNekpp::Process()
             filenames[0] = filename;
         }
 
+        // Fake command line argument for SessionReader construction
         LibUtilities::CppCommandLine cmd({"NekMesh"});
         LibUtilities::SessionReaderSharedPtr vSession =
             LibUtilities::SessionReader::CreateInstance(
-                1, cmd.GetArgv(), filenames, m_mesh->m_comm);
+                cmd.GetArgc(), cmd.GetArgv(), filenames, m_mesh->m_comm);
         SpatialDomains::MeshGraphSharedPtr graph =
             SpatialDomains::MeshGraphIO::Read(vSession);
 

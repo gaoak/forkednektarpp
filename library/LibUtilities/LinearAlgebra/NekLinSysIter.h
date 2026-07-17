@@ -93,6 +93,18 @@ public:
         m_errorCheckInterval = in;
     }
 
+    LIB_UTILITIES_EXPORT void SetEigenValueFlags(const bool computeEV,
+                                                 const bool outputEV)
+    {
+        m_isComputeEigenvalues = computeEV;
+        m_isOutputEigenvalues  = outputEV;
+    }
+
+    LIB_UTILITIES_EXPORT const Array<OneD, NekDouble> &GetEigenValues()
+    {
+        return m_eigenvalues;
+    }
+
     LIB_UTILITIES_EXPORT int GetNekLinSysTolerance()
     {
         return m_NekLinSysTolerance;
@@ -136,13 +148,24 @@ protected:
     // Boolean to identify if iteration acts on local storage
     bool m_isLocal;
 
+    // print residual regularly: if rel_err = sqrt(eps/rhs_mag) decreases by
+    // a factor of 10^m_printThreshold since the last print
+    NekDouble m_printThreshold = 100.0;
+    NekDouble m_eps_old        = 99999.0;
+
+    // Boolean to trigger calculation of approx eigenvalues of Kyrlov method
+    bool m_isComputeEigenvalues = false;
+    bool m_isOutputEigenvalues  = false;
+    Array<OneD, NekDouble> m_eigenvalues;
+
     void v_InitObject() override;
 
     void SetUniversalUniqueMap();
 
-    void Set_Rhs_Magnitude(const Array<OneD, NekDouble> &pIn);
+    void Set_Rhs_Magnitude(const Array<OneD, NekDouble> &pIn, const int n);
 
-    void ConvergenceCheck(const Array<OneD, const NekDouble> &Residual);
+    void ConvergenceCheck(const Array<OneD, const NekDouble> &Residual,
+                          const int n);
 
     virtual void v_DoIterate([[maybe_unused]] const int nGlobal,
                              [[maybe_unused]] const Array<OneD, NekDouble> &rhs,

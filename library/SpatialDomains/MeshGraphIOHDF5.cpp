@@ -36,6 +36,7 @@
 #include <tinyxml.h>
 #include <type_traits>
 
+#include <LibUtilities/BasicUtils/CppCommandLine.hpp>
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <LibUtilities/BasicUtils/Timer.h>
@@ -55,14 +56,116 @@ using namespace Nektar::LibUtilities;
 namespace Nektar::SpatialDomains
 {
 
-/// Version of the Nektar++ HDF5 geometry format, which is embedded into the
-/// main NEKTAR/GEOMETRY group as an attribute.
+/**
+ * @class MeshGraphIOHDF5
+ *
+ * @brief Reader and writer for the Nektar++ HDF5 mesh format.
+ *
+ * @par On-disk layout
+ *
+ * The geometry is stored in a single HDF5 file (conventionally `*.nekg`)
+ * under the following group hierarchy:
+ *
+ * @code
+ *   NEKTAR/                         (group)
+ *   └── GEOMETRY/                   (group; attribute FORMAT_VERSION : uint)
+ *       ├── MESH/                   (group: the geometric/topological payload)
+ *       │   ├── VERT                vertex coordinates
+ *       │   ├── SEG                 segment  -> vertex IDs
+ *       │   ├── TRI, QUAD           2D faces -> edge (segment) IDs
+ *       │   ├── TET, PYR, PRISM, HEX  3D elements -> face IDs
+ *       │   ├── CURVE_EDGE          curved-edge descriptors
+ *       │   ├── CURVE_FACE          curved-face descriptors
+ *       │   ├── CURVE_NODES         curve point coordinates
+ *       │   ├── COMPOSITE           composite definition strings
+ *       │   └── DOMAIN              domain definition strings
+ *       └── MAPS/                   (group: row -> global ID lookups)
+ *           ├── VERT, SEG, TRI, ...   one int ID per row of the MESH dataset
+ *           ├── CURVE_EDGE, CURVE_FACE
+ *           ├── COMPOSITE
+ *           └── DOMAIN
+ * @endcode
+ *
+ * The central design idea is that every dataset in `MESH/` is keyed purely by
+ * its *row index*, and the matching dataset in `MAPS/` (with the same name)
+ * supplies the global Nektar++ ID for each row. Datasets therefore never need
+ * to be stored in ID order, which is what allows each MPI rank to write a
+ * disjoint, contiguous hyperslab of rows independently (see
+ * GetGeomWriteLayout() and WriteGeometryMap()). References *between* datasets
+ * (e.g. a `SEG` row naming its two vertices) are always by global ID, resolved
+ * on read through the `MAPS/` tables.
+ *
+ * @par Geometry datasets (`MESH/VERT`, `SEG`, `TRI`, ...)
+ *
+ * Each is a 2D array of shape `[nEntitiesGlobal, nGeomData]`. The column count
+ * @c nGeomData is fixed per shape type and given by GetGeomDataDim():
+ *   - `VERT`  : 3 doubles  — the (x, y, z) coordinates of the point;
+ *   - `SEG`   : 2 ints     — the global IDs of the two bounding vertices;
+ *   - `TRI`   : 3 ints, `QUAD` : 4 ints — global IDs of the bounding edges;
+ *   - `TET`   : 4 ints, `PYR`/`PRISM` : 5 ints, `HEX` : 6 ints — global IDs of
+ *     the bounding faces.
+ *
+ * The companion `MAPS/<shape>` dataset is a 1D `[nEntitiesGlobal]` int array
+ * giving the global ID of the entity in each row.
+ *
+ * @par Curve datasets (`MESH/CURVE_EDGE`, `CURVE_FACE`, `CURVE_NODES`)
+ *
+ * `CURVE_EDGE` and `CURVE_FACE` are 2D `[nCurvesGlobal, 3]` int arrays. Each
+ * row describes one curved entity:
+ *   - col 0: number of points defining the curve;
+ *   - col 1: the LibUtilities::PointsType distribution of those points;
+ *   - col 2: the row offset into `CURVE_NODES` at which this curve's points
+ *     begin.
+ *
+ * The matching `MAPS/CURVE_EDGE` / `MAPS/CURVE_FACE` 1D int arrays give the
+ * global edge/face ID owning each curve. `CURVE_NODES` is a single shared 2D
+ * `[nPointsGlobal, 3]` double array holding the (x, y, z) coordinates of every
+ * curve point in the mesh, concatenated; individual curves slice into it using
+ * the offset in column 2 and the count in column 0.
+ *
+ * @par Composite and domain datasets (`MESH/COMPOSITE`, `DOMAIN`)
+ *
+ * Both are 1D variable-length string datasets, with companion `MAPS/`
+ * int-ID arrays. A `COMPOSITE` entry is a string such as `" T[0-5,7] "`: a
+ * single-character shape tag followed by a bracketed, run-length-compressed
+ * sequence of geometry IDs. The recognised tags are
+ *   `V` (vertex), `S`/`E` (segment/edge), `Q` (quad), `T` (triangle),
+ *   `F` (mixed face), `A` (tet), `P` (pyramid), `R` (prism), `H` (hex).
+ * A `DOMAIN` entry (format version 2) is a compressed sequence string of the
+ * composite IDs forming that domain; in format version 1 a single entry held
+ * the entire domain. Because variable-length strings cannot be written
+ * collectively, these two datasets are gathered to and written by rank 0 only
+ * (see WriteComposites() and WriteDomain()).
+ */
+
+/**
+ * @brief Version of the Nektar++ HDF5 geometry format.
+ *
+ * This is embedded into the main `NEKTAR/GEOMETRY` group as the
+ * `FORMAT_VERSION` attribute when a mesh is written, and checked on read so
+ * that newer files are not silently misinterpreted by an older binary
+ * (v_PartitionMesh() asserts that the file version does not exceed this
+ * value). The reader retains backwards compatibility with version 1, which
+ * differs only in the layout of the `DOMAIN` dataset (see ReadDomain()).
+ */
 const unsigned int MeshGraphIOHDF5::FORMAT_VERSION = 2;
 
 std::string MeshGraphIOHDF5::className =
     GetMeshGraphIOFactory().RegisterCreatorFunction(
         "HDF5", MeshGraphIOHDF5::create, "IO with HDF5 geometry");
 
+/**
+ * @brief Read the complete geometry from the HDF5 file into the #MeshGraph.
+ *
+ * This is the serial/post-partition entry point used once the mesh has already
+ * been partitioned: it reads the `COMPOSITE` and `DOMAIN` datasets via
+ * ReadComposites() and ReadDomain(), pulls expansion information from the
+ * accompanying XML, then closes the HDF5 file and (optionally) materialises the
+ * full graph connectivity.
+ *
+ * @param fillGraph  If true, call MeshGraph::FillGraph() once reading is
+ *                   complete to build the derived connectivity maps.
+ */
 void MeshGraphIOHDF5::v_ReadGeometry(bool fillGraph)
 {
     ReadComposites();
@@ -106,35 +209,70 @@ std::pair<size_t, size_t> SplitWork(size_t vecsize, int rank, int nprocs)
     }
 }
 
+/**
+ * @brief Return the number of columns (`nGeomData`) used to store a geometry of
+ * type @tparam T in its `MESH/<shape>` dataset.
+ *
+ * This is the per-row width of the geometry datasets described in the file
+ * overview, and is selected at compile time on the entity's topological
+ * dimension `T::kDim`:
+ *   - 0D (points): 3, the (x, y, z) coordinates;
+ *   - 1D (segments): `T::kNverts`, the bounding vertex count;
+ *   - 2D (faces): `T::kNedges`, the bounding edge count;
+ *   - 3D (elements): `T::kNfaces`, the bounding face count.
+ *
+ * @tparam T  Geometry type (e.g. PointGeom, SegGeom, TriGeom, HexGeom).
+ * @return The fixed number of data columns for that geometry type.
+ */
 template <class T, typename std::enable_if<T::kDim == 0, int>::type = 0>
 inline int GetGeomDataDim([[maybe_unused]] GeomMapView<T> &geomMap)
 {
     return 3;
 }
 
+/// @copydoc GetGeomDataDim
 template <class T, typename std::enable_if<T::kDim == 1, int>::type = 0>
 inline int GetGeomDataDim([[maybe_unused]] GeomMapView<T> &geomMap)
 {
     return T::kNverts;
 }
 
+/// @copydoc GetGeomDataDim
 template <class T, typename std::enable_if<T::kDim == 2, int>::type = 0>
 inline int GetGeomDataDim([[maybe_unused]] GeomMapView<T> &geomMap)
 {
     return T::kNedges;
 }
 
+/// @copydoc GetGeomDataDim
 template <class T, typename std::enable_if<T::kDim == 3, int>::type = 0>
 inline int GetGeomDataDim([[maybe_unused]] GeomMapView<T> &geomMap)
 {
     return T::kNfaces;
 }
 
+/**
+ * @brief Recursion terminator for UniqueValues().
+ *
+ * @see UniqueValues(std::unordered_set<int>&, const std::vector<int>&, T&...)
+ */
 template <class... T>
 inline void UniqueValues([[maybe_unused]] std::unordered_set<int> &unique)
 {
 }
 
+/**
+ * @brief Accumulate the union of one or more integer vectors into a set.
+ *
+ * Used when recursing down the geometry hierarchy to collect, without
+ * duplicates, the set of sub-entity IDs referenced by a batch of just-read
+ * entities (e.g. the unique face IDs named by all local 3D elements), which
+ * then becomes the read list for the next dimension down.
+ *
+ * @param unique  Set accumulating the distinct values (modified in place).
+ * @param input   The next vector whose entries are inserted into @p unique.
+ * @param args    Any further vectors, processed by recursion.
+ */
 template <class... T>
 inline void UniqueValues(std::unordered_set<int> &unique,
                          const std::vector<int> &input, T &...args)
@@ -153,11 +291,34 @@ std::string MeshGraphIOHDF5::cmdSwitch =
         "Use a per-node communicator for HDF5 partitioning.");
 
 /**
- * @brief Partition the mesh
+ * @brief Read and partition the mesh in parallel directly from HDF5.
+ *
+ * This is the parallel read path. It opens the HDF5 file (collectively, using
+ * MPI-IO when built with parallel HDF5), reads the `FORMAT_VERSION` attribute
+ * and the top-dimensional element connectivity needed to build the dual graph,
+ * and hands that graph to a parallel partitioner (PtScotch, or ParMetis if
+ * available). Each rank then determines the set of element rows it owns and
+ * recurses *down* the dimensional hierarchy — elements to faces to edges to
+ * vertices — using ReadGeometryData() to read only the rows it needs, and
+ * ReadCurveMap() for the associated curvature, before constructing the local
+ * Geometry objects with FillGeomMap().
+ *
+ * An optional two-level partitioning scheme is available via the
+ * `--use-hdf5-node-comm` command-line flag: the global communicator is split
+ * into a per-node (inner) and inter-node (outer) communicator so that the
+ * expensive graph partitioning is performed once per node and the result
+ * scattered to the node-local ranks, reducing the partitioner's communication
+ * cost on many-core nodes.
+ *
+ * Unlike the XML reader, every rank parses the session file here, since the
+ * cost is negligible compared with avoiding repeated metadata broadcasts.
+ *
+ * @param session  The session reader providing the communicator, command-line
+ *                 options and the `NEKTAR/GEOMETRY` XML stub that names the
+ *                 HDF5 file and its mesh/space dimensions.
  */
 void MeshGraphIOHDF5::v_PartitionMesh(
     LibUtilities::SessionReaderSharedPtr session)
-
 {
     LibUtilities::Timer all;
     all.Start();
@@ -826,6 +987,27 @@ void MeshGraphIOHDF5::v_PartitionMesh(
     TIME_RESULT(verbRoot, "total time", all);
 }
 
+/**
+ * @brief Construct a single Geometry object of type #T from one row of
+ * raw dataset data and register it with the #MeshGraph.
+ *
+ * One explicit specialisation exists per geometry type. Each interprets the
+ * `nGeomData` values of a `MESH/<shape>` row according to the format described
+ * in the file overview — coordinates for points, bounding vertex IDs for
+ * segments, bounding edge IDs for 2D faces, bounding face IDs for 3D elements —
+ * resolving the referenced sub-entity IDs against the already-constructed
+ * lower-dimensional geometries. The unspecialised primary template is a no-op.
+ *
+ * @tparam T         Geometry type to construct.
+ * @tparam DataType  Element type of @p data (NekDouble for points, int
+ *                   otherwise).
+ * @param  geomMap   View of the map this geometry belongs to (unused; present
+ *                   for template deduction).
+ * @param  id        Global ID to assign to the new geometry.
+ * @param  data      Pointer to this entity's row of dataset values.
+ * @param  curve     Associated curvature for the entity, or nullptr if straight
+ *                   sided (used only by the 1D/2D specialisations).
+ */
 template <class T, typename DataType>
 void MeshGraphIOHDF5::ConstructGeomObject(
     [[maybe_unused]] GeomMapView<T> &geomMap, [[maybe_unused]] int id,
@@ -833,6 +1015,7 @@ void MeshGraphIOHDF5::ConstructGeomObject(
 {
 }
 
+/// @copydoc MeshGraphIOHDF5::ConstructGeomObject
 template <>
 void MeshGraphIOHDF5::ConstructGeomObject(
     [[maybe_unused]] GeomMapView<PointGeom> &geomMap, int id, NekDouble *data,
@@ -842,6 +1025,7 @@ void MeshGraphIOHDF5::ConstructGeomObject(
                                  data[1], data[2]);
 }
 
+/// @copydoc MeshGraphIOHDF5::ConstructGeomObject
 template <>
 void MeshGraphIOHDF5::ConstructGeomObject(
     [[maybe_unused]] GeomMapView<SegGeom> &geomMap, int id, int *data,
@@ -854,6 +1038,7 @@ void MeshGraphIOHDF5::ConstructGeomObject(
                                curve);
 }
 
+/// @copydoc MeshGraphIOHDF5::ConstructGeomObject
 template <>
 void MeshGraphIOHDF5::ConstructGeomObject(
     [[maybe_unused]] GeomMapView<TriGeom> &geomMap, int id, int *data,
@@ -865,6 +1050,7 @@ void MeshGraphIOHDF5::ConstructGeomObject(
     m_meshGraph->CreateTriGeom(id, segs, curve);
 }
 
+/// @copydoc MeshGraphIOHDF5::ConstructGeomObject
 template <>
 void MeshGraphIOHDF5::ConstructGeomObject(
     [[maybe_unused]] GeomMapView<QuadGeom> &geomMap, int id, int *data,
@@ -876,6 +1062,7 @@ void MeshGraphIOHDF5::ConstructGeomObject(
     m_meshGraph->CreateQuadGeom(id, segs, curve);
 }
 
+/// @copydoc MeshGraphIOHDF5::ConstructGeomObject
 template <>
 void MeshGraphIOHDF5::ConstructGeomObject(
     [[maybe_unused]] GeomMapView<TetGeom> &geomMap, int id, int *data,
@@ -889,6 +1076,7 @@ void MeshGraphIOHDF5::ConstructGeomObject(
     m_meshGraph->PopulateFaceToElMap(geom, TetGeom::kNfaces);
 }
 
+/// @copydoc MeshGraphIOHDF5::ConstructGeomObject
 template <>
 void MeshGraphIOHDF5::ConstructGeomObject(
     [[maybe_unused]] GeomMapView<PyrGeom> &geomMap, int id, int *data,
@@ -904,6 +1092,7 @@ void MeshGraphIOHDF5::ConstructGeomObject(
     m_meshGraph->PopulateFaceToElMap(geom, PyrGeom::kNfaces);
 }
 
+/// @copydoc MeshGraphIOHDF5::ConstructGeomObject
 template <>
 void MeshGraphIOHDF5::ConstructGeomObject(
     [[maybe_unused]] GeomMapView<PrismGeom> &geomMap, int id, int *data,
@@ -919,6 +1108,7 @@ void MeshGraphIOHDF5::ConstructGeomObject(
     m_meshGraph->PopulateFaceToElMap(geom, PrismGeom::kNfaces);
 }
 
+/// @copydoc MeshGraphIOHDF5::ConstructGeomObject
 template <>
 void MeshGraphIOHDF5::ConstructGeomObject(
     [[maybe_unused]] GeomMapView<HexGeom> &geomMap, int id, int *data,
@@ -933,6 +1123,25 @@ void MeshGraphIOHDF5::ConstructGeomObject(
     m_meshGraph->PopulateFaceToElMap(geom, HexGeom::kNfaces);
 }
 
+/**
+ * @brief Construct every Geometry object for one shape type from the raw data
+ * read out of its `MESH/<shape>` dataset.
+ *
+ * Walks the flat @p geomData buffer in strides of `nGeomData` (one stride per
+ * entity), pairing each row with its global ID from @p ids and any matching
+ * curvature from @p curveMap, and delegates per-entity construction to
+ * ConstructGeomObject(). A fast path is taken when no curvature is present so
+ * that the per-row map lookup is skipped.
+ *
+ * @tparam T         Geometry type being constructed.
+ * @tparam DataType  Element type of @p geomData (NekDouble for points, int
+ *                   otherwise).
+ * @param  geomMap   Destination geometry map for this shape type.
+ * @param  curveMap  Curvature for the entities, keyed by global ID; may be
+ *                   empty.
+ * @param  ids       Global IDs, one per entity, in row order.
+ * @param  geomData  Flattened dataset values, `nGeomData` per entity.
+ */
 template <class T, typename DataType>
 void MeshGraphIOHDF5::FillGeomMap(GeomMapView<T> &geomMap,
                                   const CurveMap &curveMap,
@@ -963,6 +1172,27 @@ void MeshGraphIOHDF5::FillGeomMap(GeomMapView<T> &geomMap,
     }
 }
 
+/**
+ * @brief Selectively read the rows of a `MESH/<shape>` dataset whose global IDs
+ * are required by this rank.
+ *
+ * Reads the full `MAPS/<shape>` ID list (which is small — one int per entity),
+ * scans it for IDs present in @p readIds, and builds an HDF5 point selection
+ * (a list of `(row, col)` coordinate pairs) so that only the matching rows of
+ * the 2D `MESH/<shape>` data array are actually read off disk. The collected
+ * global IDs are returned in @p ids and the corresponding flattened geometry
+ * values in @p geomData, in matching row order. If the dataset is absent (e.g.
+ * a shape type not present in this mesh) the function returns immediately.
+ *
+ * @tparam T         Geometry type associated with @p dataSet.
+ * @tparam DataType  Element type read back (NekDouble for `VERT`, int
+ *                   otherwise).
+ * @param  geomMap   View used to determine the per-row column count.
+ * @param  dataSet   Dataset name (`"VERT"`, `"SEG"`, `"TRI"`, ...).
+ * @param  readIds   Set of global IDs this rank needs.
+ * @param[out] ids       Global IDs actually read, in row order.
+ * @param[out] geomData  Flattened values for the read rows.
+ */
 template <class T, typename DataType>
 void MeshGraphIOHDF5::ReadGeometryData(GeomMapView<T> &geomMap,
                                        std::string dataSet,
@@ -1019,6 +1249,28 @@ void MeshGraphIOHDF5::ReadGeometryData(GeomMapView<T> &geomMap,
     data->Read(geomData, space, m_readPL);
 }
 
+/**
+ * @brief Read curvature for a selected set of edges or faces from a
+ * `CURVE_EDGE`/`CURVE_FACE` dataset and its shared `CURVE_NODES` store.
+ *
+ * Proceeds in two selective reads. First the `MAPS/<dsName>` IDs are scanned
+ * against @p readIds to pick out the descriptor rows of interest; each such row
+ * yields a point count, a LibUtilities::PointsType and an offset into
+ * `CURVE_NODES` (the three columns described in the file overview). The point
+ * counts and offsets are then turned into a second HDF5 point selection that
+ * reads exactly the required coordinate rows from the shared `CURVE_NODES`
+ * dataset, which are used to populate the Curve objects' point lists.
+ *
+ * A collective reduction over the number of curves to be read is performed so
+ * that, under collective MPI-IO, all ranks agree on whether any read takes
+ * place; if no rank requires any curve the function returns early. Absence of
+ * the dataset (an uncurved mesh) is likewise handled by an early return.
+ *
+ * @param[out] curveMap  Destination map of global ID -> Curve, populated here.
+ * @param  dsName    Curve descriptor dataset name (`"CURVE_EDGE"` or
+ *                   `"CURVE_FACE"`).
+ * @param  readIds   Global edge/face IDs whose curvature is required.
+ */
 void MeshGraphIOHDF5::ReadCurveMap(CurveMap &curveMap, std::string dsName,
                                    const std::unordered_set<int> &readIds)
 {
@@ -1142,6 +1394,20 @@ void MeshGraphIOHDF5::ReadCurveMap(CurveMap &curveMap, std::string dsName,
     }
 }
 
+/**
+ * @brief Read the `DOMAIN` dataset and rebuild the #MeshGraph domain map.
+ *
+ * Each entry of the variable-length string `MESH/DOMAIN` dataset is expanded
+ * (via MeshGraph::GetCompositeList()) into the set of composites forming a
+ * domain, and keyed by the domain ID taken from the companion `MAPS/DOMAIN`
+ * dataset.
+ *
+ * Two on-disk layouts are supported for backwards compatibility:
+ *   - format version 1: a single string describing the entire domain, stored
+ *     under domain ID 0;
+ *   - format version 2 (current): one string per domain, each a compressed
+ *     sequence of composite IDs, with explicit domain IDs in `MAPS/DOMAIN`.
+ */
 void MeshGraphIOHDF5::ReadDomain()
 {
     auto &domain = m_meshGraph->GetDomain();
@@ -1184,6 +1450,18 @@ void MeshGraphIOHDF5::ReadDomain()
     }
 }
 
+/**
+ * @brief Populate the trace ID set of a composite-based domain range from the
+ * `COMPOSITE` dataset.
+ *
+ * When a domain range restricts the read to a list of composites
+ * (`rng->m_compElmts`), this reads the `COMPOSITE` strings and their IDs, and
+ * for every requested composite expands its bracketed ID sequence into
+ * @c rng->m_traceIDs so that the range can later be applied during element
+ * construction. Returns immediately if no composite range is in use.
+ *
+ * @param rng  The domain range to populate (modified in place).
+ */
 void MeshGraphIOHDF5::SetupCompositeRange(LibUtilities::DomainRangeShPtr &rng)
 {
     if (!rng || rng->m_compElmts == false)
@@ -1240,6 +1518,22 @@ void MeshGraphIOHDF5::SetupCompositeRange(LibUtilities::DomainRangeShPtr &rng)
     }
 }
 
+/**
+ * @brief Read the `COMPOSITE` dataset and build the #MeshGraph composite map.
+ *
+ * Reads the variable-length composite strings from `MESH/COMPOSITE` and their
+ * IDs from `MAPS/COMPOSITE`. Each string is parsed into its shape tag and
+ * bracketed, run-length-encoded ID sequence (see the file overview for the tag
+ * meanings). The sequence is recorded in the composite ordering and then
+ * resolved against the already-constructed geometry maps, gathering the matched
+ * Geometry pointers into a Composite. Range checking via
+ * MeshGraph::CheckRange() is applied for the 2D/3D shapes so that a composite
+ * spanning a clipped region only retains entities actually present locally.
+ * Empty composites are dropped.
+ *
+ * Note the `'F'` (mixed face) tag is resolved against both the triangle and
+ * quadrilateral maps, and `'S'`/`'E'` are treated identically as segments.
+ */
 void MeshGraphIOHDF5::ReadComposites()
 {
     auto &vertSet                = m_meshGraph->GetGeomMap<PointGeom>();
@@ -1421,6 +1715,23 @@ void MeshGraphIOHDF5::ReadComposites()
     }
 }
 
+/**
+ * @brief Build a lightweight composite descriptor from the `COMPOSITE` dataset
+ * for use by the mesh partitioner.
+ *
+ * Reads and parses the composite strings exactly as ReadComposites() does, but
+ * instead of constructing geometry it produces, per composite ID, a
+ * `(ShapeType, [entity IDs])` pair. The entity ID list is filtered through
+ * @p id2row so that only entities visible in the current contiguous partition
+ * ordering are retained; composites left empty after filtering are skipped.
+ * Because this descriptor is only used for partitioning, the distinction
+ * between the `'Q'` and `'F'` face tags is unimportant and both map to
+ * LibUtilities::eQuadrilateral.
+ *
+ * @param id2row  Map from global entity ID to partition row index; entities not
+ *                present are excluded.
+ * @return Map from composite ID to its shape type and filtered entity IDs.
+ */
 CompositeDescriptor MeshGraphIOHDF5::CreateCompositeDescriptor(
     std::unordered_map<int, int> &id2row)
 {
@@ -1517,48 +1828,178 @@ CompositeDescriptor MeshGraphIOHDF5::CreateCompositeDescriptor(
     return ret;
 }
 
+/**
+ * @brief Return the @p i-th data value to be written for a geometry @p geom of
+ * type @tparam T.
+ *
+ * This is the write-side counterpart of the `MESH/<shape>` row layout: it
+ * yields, in order, the values that fill one row of the dataset. The
+ * overload is selected on `T::kDim`:
+ *   - 0D: the @p i-th coordinate of the point (NekDouble);
+ *   - 1D: the global ID of the @p i-th bounding vertex;
+ *   - 2D: the global ID of the @p i-th bounding edge;
+ *   - 3D: the global ID of the @p i-th bounding face.
+ *
+ * @tparam T  Geometry type.
+ * @param geom  The geometry whose data is being serialised.
+ * @param i     Column index within the row, in `[0, nGeomData)`.
+ * @return The value for column @p i (NekDouble for points, int otherwise).
+ */
 template <class T, typename std::enable_if<T::kDim == 0, int>::type = 0>
 inline NekDouble GetGeomData(T *geom, int i)
 {
     return (*geom)(i);
 }
 
+/// @copydoc GetGeomData
 template <class T, typename std::enable_if<T::kDim == 1, int>::type = 0>
 inline int GetGeomData(T *geom, int i)
 {
     return geom->GetVid(i);
 }
 
+/// @copydoc GetGeomData
 template <class T, typename std::enable_if<T::kDim == 2, int>::type = 0>
 inline int GetGeomData(T *geom, int i)
 {
     return geom->GetEid(i);
 }
 
+/// @copydoc GetGeomData
 template <class T, typename std::enable_if<T::kDim == 3, int>::type = 0>
 inline int GetGeomData(T *geom, int i)
 {
     return geom->GetFid(i);
 }
 
+/**
+ * @brief Assign a unique owner to each entity and compute this rank's
+ * contiguous write offset for a collective dataset write.
+ *
+ * In parallel a geometry (especially a shared vertex, edge or face) may be held
+ * by several ranks, but each must be written to the dataset exactly once. This
+ * routine establishes a globally consistent ownership: when @p checkUnique is
+ * set it uses a gslib unique reduction (Gs::Unique) over the entity IDs so that
+ * for every shared ID exactly one rank is left as owner. It then forms the
+ * exclusive prefix sum of per-rank owned counts to give @p writeOffset, the
+ * first global row this rank writes, so that all ranks' owned rows tile the
+ * dataset contiguously without gaps or overlap.
+ *
+ * @param  idMap        Global IDs of the entities held locally.
+ * @param  checkUnique  If true, deduplicate shared entities across ranks; pass
+ *                      false for entities known to be rank-exclusive.
+ * @param  comm         Communicator over which ownership is resolved.
+ * @param[out] owned       Per-local-entity flag: true if this rank owns it.
+ * @param[out] writeOffset This rank's first global row index in the dataset.
+ * @return The total (global) number of owned rows, i.e. the dataset length.
+ */
+hsize_t MeshGraphIOHDF5::GetGeomWriteLayout(
+    const std::vector<int> &idMap, bool checkUnique,
+    const LibUtilities::CommSharedPtr &comm, std::vector<bool> &owned,
+    hsize_t &writeOffset)
+{
+    const size_t nLocal = idMap.size();
+    owned.assign(nLocal, true);
+
+    if (checkUnique)
+    {
+        // +1 so genuine IDs are strictly positive: gslib ignores 0 and treats
+        // sign specially.
+        Array<OneD, long> gsId(nLocal);
+        for (size_t i = 0; i < nLocal; ++i)
+        {
+            gsId[i] = static_cast<long>(idMap[i]) + 1;
+        }
+
+        // Negates all but one occurrence of each shared ID across ranks;
+        // the rank left positive is the unique owner (globally consistent).
+        Gs::Unique(gsId, comm);
+
+        // If the ID is positive then it is owned by this rank, mark the entry
+        // as true
+        for (size_t i = 0; i < nLocal; ++i)
+        {
+            owned[i] = gsId[i] > 0;
+        }
+    }
+
+    // Compute number of owned ids on this rank
+    const unsigned long nOwned = std::count(owned.begin(), owned.end(), true);
+
+    // Exclusive prefix sum of owned counts -> this rank's first global
+    // row. Could be replaced by MPI_Exscan if we had a wrapper
+    const int nProc = comm->GetSize();
+    const int rank  = comm->GetRank();
+    Array<OneD, unsigned long> counts(nProc, 0ul);
+    counts[rank] = nOwned;
+    comm->AllReduce(counts, LibUtilities::ReduceSum);
+
+    writeOffset   = 0;
+    hsize_t total = 0;
+    for (int p = 0; p < nProc; ++p)
+    {
+        if (p < rank)
+        {
+            writeOffset += counts[p];
+        }
+        total += counts[p];
+    }
+    return total;
+}
+
+/**
+ * @brief Collectively write the `MESH/<datasetName>` and `MAPS/<datasetName>`
+ * datasets for one geometry shape type.
+ *
+ * Gathers the local entities of type @tparam T into a flat data buffer (using
+ * GetGeomData() for the per-row values) and an ID list, resolves single
+ * ownership and the contiguous per-rank write offset via GetGeomWriteLayout(),
+ * then writes each rank's owned rows into its own hyperslab of the two
+ * datasets:
+ *   - `MESH/<datasetName>` : 2D `[nGlobal, nGeomData]` of coordinates (points)
+ *     or sub-entity IDs (everything else);
+ *   - `MAPS/<datasetName>` : 1D `[nGlobal]` of the entities' global IDs.
+ *
+ * Ranks owning no rows still participate in the (collective) dataset creation
+ * and write with an empty selection. When @p checkUnique is set, the resolved
+ * ownership is cached in #m_geomOwners so the subsequent curve write can reuse
+ * the same owner for each edge/face. If no rank holds any entity of this type
+ * the datasets are not created.
+ *
+ * @tparam T           Geometry type being written.
+ * @param  geomMap     Local map of entities of this type.
+ * @param  datasetName Dataset base name (`"VERT"`, `"SEG"`, ...), shared by the
+ *                     `MESH/` and `MAPS/` groups.
+ * @param  checkUnique Whether entities may be shared across ranks and so need
+ *                     ownership deduplication (true for facets, false for
+ *                     top-level elements).
+ * @param  comm        Communicator over which the collective write is made.
+ */
 template <class T>
 void MeshGraphIOHDF5::WriteGeometryMap(GeomMapView<T> &geomMap,
-                                       std::string datasetName)
+                                       std::string datasetName,
+                                       bool checkUnique,
+                                       LibUtilities::CommSharedPtr &comm)
 {
     typedef typename std::conditional<std::is_same_v<T, PointGeom>, NekDouble,
                                       int>::type DataType;
 
     const int nGeomData = GetGeomDataDim(geomMap);
-    const size_t nGeom  = geomMap.size();
+    const size_t nLocal = geomMap.size();
 
-    if (nGeom == 0)
+    // Compute number of geometries of this type across all processors
+    size_t nGlobal = nLocal;
+    comm->AllReduce(nGlobal, LibUtilities::ReduceSum);
+
+    // If we have no geometries to write across all processors, then return.
+    if (nGlobal == 0)
     {
         return;
     }
 
-    // Construct a map storing IDs
-    std::vector<int> idMap(nGeom);
-    std::vector<DataType> data(nGeom * nGeomData);
+    // Construct maps for storage of geometry IDs & geometry data.
+    std::vector<int> idMap(nLocal);
+    std::vector<DataType> data(nLocal * nGeomData);
 
     int cnt1 = 0, cnt2 = 0;
     for (auto [id, geom] : geomMap)
@@ -1573,40 +2014,138 @@ void MeshGraphIOHDF5::WriteGeometryMap(GeomMapView<T> &geomMap,
         cnt2 += nGeomData;
     }
 
-    std::vector<hsize_t> dims = {static_cast<hsize_t>(nGeom),
-                                 static_cast<hsize_t>(nGeomData)};
-    H5::DataTypeSharedPtr tp  = H5::DataType::OfObject(data[0]);
-    H5::DataSpaceSharedPtr ds =
-        std::shared_ptr<H5::DataSpace>(new H5::DataSpace(dims));
-    H5::DataSetSharedPtr dst = m_mesh->CreateDataSet(datasetName, tp, ds);
-    dst->Write(data, ds);
+    std::vector<bool> owned;
+    hsize_t writeOffset = 0;
+    hsize_t nRowsGlobal =
+        GetGeomWriteLayout(idMap, checkUnique, comm, owned, writeOffset);
 
-    tp   = H5::DataType::OfObject(idMap[0]);
-    dims = {nGeom};
-    ds   = std::shared_ptr<H5::DataSpace>(new H5::DataSpace(dims));
-    dst  = m_maps->CreateDataSet(datasetName, tp, ds);
-    dst->Write(idMap, ds);
+    // Compact to owned-only, data and idMap in lockstep.
+    std::vector<int> ownedIds;
+    std::vector<DataType> ownedData;
+    for (size_t i = 0; i < nLocal; ++i)
+    {
+        if (!owned[i])
+        {
+            continue;
+        }
+        ownedIds.push_back(idMap[i]);
+        ownedData.insert(ownedData.end(), data.begin() + i * nGeomData,
+                         data.begin() + (i + 1) * nGeomData);
+    }
+
+    // Store ownership for later potential use in curve data
+    if (checkUnique)
+    {
+        auto &s = m_geomOwners[datasetName];
+        for (size_t i = 0; i < nLocal; ++i)
+        {
+            if (owned[i])
+            {
+                s.insert(idMap[i]);
+            }
+        }
+    }
+
+    const hsize_t nOwned = ownedIds.size();
+
+    // Write out maps dataset
+    {
+        std::vector<hsize_t> dims = {nRowsGlobal, (hsize_t)nGeomData};
+        H5::DataTypeSharedPtr tp  = H5::DataType::OfObject(DataType{});
+        H5::DataSpaceSharedPtr ds = std::make_shared<H5::DataSpace>(dims);
+        H5::DataSetSharedPtr dst  = m_mesh->CreateDataSet(datasetName, tp, ds);
+
+        H5::DataSpaceSharedPtr fs = dst->GetSpace();
+        if (nOwned)
+        {
+            fs->SelectRange({writeOffset, 0}, {nOwned, (hsize_t)nGeomData});
+        }
+        else
+        {
+            // still join the collective call even if nothing to write
+            fs->ClearRange();
+        }
+        dst->Write(ownedData, fs);
+    }
+
+    // Write out ids dataset
+    {
+        std::vector<hsize_t> dims = {nRowsGlobal};
+        H5::DataTypeSharedPtr tp  = H5::DataType::OfObject(nGeomData);
+        H5::DataSpaceSharedPtr ds = std::make_shared<H5::DataSpace>(dims);
+        H5::DataSetSharedPtr dst  = m_maps->CreateDataSet(datasetName, tp, ds);
+
+        H5::DataSpaceSharedPtr fs = dst->GetSpace();
+        if (nOwned)
+        {
+            fs->SelectRange(writeOffset, nOwned);
+        }
+        else
+        {
+            // still join the collective call even if nothing to write
+            fs->ClearRange();
+        }
+        dst->Write(ownedIds, fs);
+    }
 }
 
+/**
+ * @brief Collectively write one curve descriptor dataset (`CURVE_EDGE` or
+ * `CURVE_FACE`) and stage its points for the shared `CURVE_NODES` write.
+ *
+ * Iterates the locally held curves, keeping only those whose owning edge/face
+ * this rank owns (@p owned, as cached by WriteGeometryMap()), so each curve is
+ * written exactly once. For each owned curve it appends a descriptor row
+ * `[npoints, PointsType, CURVE_NODES offset]` and accumulates the curve's
+ * point coordinates into @p curvedPts with globally consistent indices. The
+ * descriptor rows are written into this rank's contiguous hyperslab
+ * `[rowOffset, nRowsGlobal)` of `MESH/<dsName>`, and the owning IDs into the
+ * matching `MAPS/<dsName>` dataset. The actual coordinates are written later by
+ * WriteCurvePoints(). Returns immediately if no curves exist globally.
+ *
+ * @param  curves       Local curve map (global ID -> Curve).
+ * @param  dsName       Descriptor dataset name (`"CURVE_EDGE"`/`"CURVE_FACE"`).
+ * @param[in,out] curvedPts  Accumulator of point coordinates and their global
+ *                           `CURVE_NODES` indices, shared across calls.
+ * @param[in,out] ptOffset   Running global `CURVE_NODES` row offset, advanced
+ *                           by the number of points written here.
+ * @param[in,out] newIdx     Running global `CURVE_NODES` index assigned to each
+ *                           point.
+ * @param  owned        Global IDs of edges/faces this rank owns.
+ * @param  rowOffset    This rank's first descriptor row in `MESH/<dsName>`.
+ * @param  nRowsGlobal  Global descriptor row count (the dataset length).
+ */
 void MeshGraphIOHDF5::WriteCurveMap(CurveMap &curves, std::string dsName,
                                     MeshCurvedPts &curvedPts, int &ptOffset,
-                                    int &newIdx)
+                                    int &newIdx,
+                                    const std::unordered_set<int> &owned,
+                                    hsize_t rowOffset, hsize_t nRowsGlobal)
 {
-    std::vector<int> data, map;
+    // No curves to write (globally), return immediately
+    if (nRowsGlobal == 0)
+    {
+        return;
+    }
 
-    // Compile curve data.
+    std::vector<int> data, map;
     for (auto &c : curves)
     {
+        // Ensure curve owner writes once
+        if (!owned.count(c.first))
+        {
+            continue;
+        }
         map.push_back(c.first);
-        data.push_back(c.second->m_points.size());
+        data.push_back((int)c.second->m_points.size());
         data.push_back(c.second->m_ptype);
-        data.push_back(ptOffset);
-
-        ptOffset += c.second->m_points.size();
+        data.push_back(ptOffset); // this is the offset into CURVE_NODES
+        ptOffset += (int)c.second->m_points.size();
 
         for (auto &pt : c.second->m_points)
         {
             MeshVertex v;
+
+            // v.id is the global CURVE_NODES row across all ranks
             v.id = newIdx;
             pt->GetCoords(v.x, v.y, v.z);
             curvedPts.pts.push_back(v);
@@ -1614,25 +2153,77 @@ void MeshGraphIOHDF5::WriteCurveMap(CurveMap &curves, std::string dsName,
         }
     }
 
-    // Write data.
-    std::vector<hsize_t> dims = {data.size() / 3, 3};
-    H5::DataTypeSharedPtr tp  = H5::DataType::OfObject(data[0]);
-    H5::DataSpaceSharedPtr ds =
-        std::shared_ptr<H5::DataSpace>(new H5::DataSpace(dims));
-    H5::DataSetSharedPtr dst = m_mesh->CreateDataSet(dsName, tp, ds);
-    dst->Write(data, ds);
+    const hsize_t nLocalRows = map.size();
 
-    tp   = H5::DataType::OfObject(map[0]);
-    dims = {map.size()};
-    ds   = std::shared_ptr<H5::DataSpace>(new H5::DataSpace(dims));
-    dst  = m_maps->CreateDataSet(dsName, tp, ds);
-    dst->Write(map, ds);
+    // records: nRowsGlobal x 3
+    {
+        std::vector<hsize_t> dims = {nRowsGlobal, 3};
+        H5::DataTypeSharedPtr tp  = H5::DataType::OfObject(int{});
+        H5::DataSpaceSharedPtr ds = std::make_shared<H5::DataSpace>(dims);
+        H5::DataSetSharedPtr dst  = m_mesh->CreateDataSet(dsName, tp, ds);
+        H5::DataSpaceSharedPtr fs = dst->GetSpace();
+
+        if (nLocalRows)
+        {
+            fs->SelectRange({rowOffset, 0}, {nLocalRows, 3});
+        }
+        else
+        {
+            fs->ClearRange();
+        }
+
+        dst->Write(data, fs, m_writePL);
+    }
+    // id map: nRowsGlobal
+    {
+        std::vector<hsize_t> dims = {nRowsGlobal};
+        H5::DataTypeSharedPtr tp  = H5::DataType::OfObject(int{});
+        H5::DataSpaceSharedPtr ds = std::make_shared<H5::DataSpace>(dims);
+        H5::DataSetSharedPtr dst  = m_maps->CreateDataSet(dsName, tp, ds);
+        H5::DataSpaceSharedPtr fs = dst->GetSpace();
+
+        if (nLocalRows)
+        {
+            fs->SelectRange(rowOffset, nLocalRows);
+        }
+        else
+        {
+            fs->ClearRange();
+        }
+
+        dst->Write(map, fs, m_writePL);
+    }
 }
 
-void MeshGraphIOHDF5::WriteCurvePoints(MeshCurvedPts &curvedPts)
+/**
+ * @brief Collectively write the shared `CURVE_NODES` coordinate dataset.
+ *
+ * Flattens the point coordinates accumulated by WriteCurveMap() (for both
+ * curved edges and curved faces) into an `[nPoints, 3]` double buffer and
+ * writes this rank's points into its contiguous hyperslab
+ * `[ptBase, ptBase + myPts)` of the global `MESH/CURVE_NODES` dataset. The
+ * offsets stored in column 2 of the `CURVE_EDGE`/`CURVE_FACE` descriptors index
+ * into this dataset. Ranks with no points still join the collective write with
+ * an empty selection; if there are no curve points globally the dataset is not
+ * created.
+ *
+ * @param  curvedPts  The staged curve points for this rank.
+ * @param  ptBase     This rank's first row in `CURVE_NODES`.
+ * @param  totalPts   Global number of curve points (the dataset length).
+ */
+void MeshGraphIOHDF5::WriteCurvePoints(MeshCurvedPts &curvedPts, hsize_t ptBase,
+                                       hsize_t totalPts)
 {
-    std::vector<double> vertData(curvedPts.pts.size() * 3);
+    if (totalPts == 0)
+    {
+        // No points to write, return immediately.
+        return;
+    }
 
+    // Create a buffer that will store all of the curved point information
+    // (since this MeshCurvedPts stores non-POD representation of each point).
+    const hsize_t myPts = curvedPts.pts.size();
+    std::vector<double> vertData(myPts * 3);
     int cnt = 0;
     for (auto &pt : curvedPts.pts)
     {
@@ -1641,71 +2232,313 @@ void MeshGraphIOHDF5::WriteCurvePoints(MeshCurvedPts &curvedPts)
         vertData[cnt++] = pt.z;
     }
 
-    std::vector<hsize_t> dims = {curvedPts.pts.size(), 3};
-    H5::DataTypeSharedPtr tp  = H5::DataType::OfObject(vertData[0]);
-    H5::DataSpaceSharedPtr ds =
-        std::shared_ptr<H5::DataSpace>(new H5::DataSpace(dims));
-    H5::DataSetSharedPtr dst = m_mesh->CreateDataSet("CURVE_NODES", tp, ds);
-    dst->Write(vertData, ds);
+    // Write out curved points.
+    std::vector<hsize_t> dims = {totalPts, 3};
+    H5::DataTypeSharedPtr tp  = H5::DataType::OfObject(double{});
+    H5::DataSpaceSharedPtr ds = std::make_shared<H5::DataSpace>(dims);
+    H5::DataSetSharedPtr dst  = m_mesh->CreateDataSet("CURVE_NODES", tp, ds);
+
+    if (totalPts)
+    {
+        H5::DataSpaceSharedPtr fs = dst->GetSpace();
+
+        // Ensure each rank participates in the write, even if they have no data
+        // to write.
+        if (myPts)
+        {
+            fs->SelectRange({ptBase, 0}, {myPts, 3});
+        }
+        else
+        {
+            fs->ClearRange();
+        }
+        dst->Write(vertData, fs, m_writePL);
+    }
 }
 
-void MeshGraphIOHDF5::WriteComposites(CompositeMap &composites)
+/**
+ * @brief Write the `COMPOSITE` dataset describing every composite in the mesh.
+ *
+ * Composites are stored as variable-length strings, which HDF5 cannot write
+ * collectively, so the data is gathered to rank 0 which performs the write.
+ * Each rank packs its locally held composites into a flat int buffer of the
+ * form `[nComps, {compId, tag, nIds, id0, id1, ...}, ...]`, where `tag` is the
+ * shape character (`'V'`, `'S'`, `'T'`, `'F'`, ...). These buffers are
+ * length-exchanged and gathered to every rank; rank 0 then merges the
+ * contributions per composite ID (a single composite may be split across
+ * ranks), deduplicates and sorts the entity IDs, and emits one
+ * run-length-compressed string such as `" T[0-5,7] "` per composite.
+ *
+ * Rank 0 writes:
+ *   - `MESH/COMPOSITE` : 1D variable-length string array, one per composite;
+ *   - `MAPS/COMPOSITE` : 1D int array of the corresponding composite IDs.
+ *
+ * The merged composite tags/strings are also cached in #m_globalComps for the
+ * subsequent default-expansion XML generation.
+ *
+ * @note Rank 0 ends up holding every composite, which is a potential
+ *       scalability bottleneck; a Gatherv to root (rather than the current
+ *       AllReduce-based gather) would avoid replicating the data onto every
+ *       rank.
+ *
+ * @param composites  This rank's local composite map.
+ * @param comm        Communicator over which composites are gathered.
+ */
+void MeshGraphIOHDF5::WriteComposites(CompositeMap &composites,
+                                      LibUtilities::CommSharedPtr &comm)
 {
-    std::vector<std::string> comps;
+    const int nProc = comm->GetSize(), rank = comm->GetRank();
 
-    // dont need location map only a id map
-    // will filter the composites per parition on read, its easier
-    // composites do not need to be written in paralell.
-    std::vector<int> c_map;
+    // In parallel we need to tell every process which geometry IDs are included
+    // in each composite. Most of this code therefore communicates this
+    // information between ranks. Note that rank 0 is the only process to
+    // actually write data to the dataset, so it will contain information about
+    // every composite in the mesh which is a potential scalability issue.
 
-    for (auto &cIt : composites)
+    // First pack data about each composite into an array.
+    //
+    // layout: [ nComps, {compId, tag, nIds, id0, id1, ...}, ... ]
+    // where 'tag' is e.g. 'T' for triangles, 'F' for faces, etc.
+    std::vector<int> local;
     {
-        if (cIt.second->m_geomVec.size() == 0)
+        int nComps = 0;
+        std::vector<int> body;
+        for (auto &cIt : composites)
         {
-            continue;
-        }
+            auto &gv = cIt.second->m_geomVec;
+            if (gv.empty())
+            {
+                // nothing in this composite for some reason
+                continue;
+            }
 
-        comps.push_back(GetCompositeString(cIt.second));
-        c_map.push_back(cIt.first);
+            ++nComps;
+            body.push_back(cIt.first);
+            body.push_back(static_cast<int>(GetCompositeTag(gv[0])));
+            body.push_back(static_cast<int>(gv.size()));
+            for (Geometry *g : gv)
+            {
+                body.push_back(g->GetGlobalID());
+            }
+        }
+        local.push_back(nComps);
+        local.insert(local.end(), body.begin(), body.end());
     }
 
+    // Communicate lengths of local packing array.
+    Array<OneD, int> lens(nProc, 0);
+    lens[rank] = static_cast<int>(local.size());
+    comm->AllReduce(lens, LibUtilities::ReduceSum);
+
+    // Compute offsets for next step of communicating data.
+    Array<OneD, int> offs(nProc, 0);
+    int total = 0;
+    for (int p = 0; p < nProc; ++p)
+    {
+        offs[p] = total;
+        total += lens[p];
+    }
+
+    // TODO: replace with Gatherv to root so only rank 0 holds information.
+    Array<OneD, int> gathered(total, 0);
+    for (int i = 0; i < static_cast<int>(local.size()); ++i)
+    {
+        gathered[offs[rank] + i] = local[i];
+    }
+    comm->AllReduce(gathered, LibUtilities::ReduceSum);
+
+    // Now rank 0 will deduplicate composites (since >1 rank may hold a geometry
+    // ID in its composite) and sort/compress.
+    std::vector<std::string> comps;
+    std::vector<int> c_map;
+
+    if (rank == 0)
+    {
+        std::map<int, std::pair<char, std::set<unsigned int>>> merged;
+        for (int p = 0; p < nProc; ++p)
+        {
+            if (lens[p] == 0)
+            {
+                continue;
+            }
+            int pos    = offs[p];
+            int nComps = gathered[pos++];
+            for (int c = 0; c < nComps; ++c)
+            {
+                int cid    = gathered[pos++];
+                char tag   = static_cast<char>(gathered[pos++]);
+                int nIds   = gathered[pos++];
+                auto &slot = merged[cid];
+                slot.first = tag;
+                for (int k = 0; k < nIds; ++k)
+                {
+                    slot.second.insert((unsigned int)gathered[pos++]);
+                }
+            }
+        }
+
+        // Now that this is deduplicated we compress and construct the composite
+        // string.
+        for (auto &m : merged)
+        {
+            std::vector<unsigned int> ids(m.second.second.begin(),
+                                          m.second.second.end());
+
+            // construct composite string
+            std::stringstream ss;
+            ss << " " << m.second.first << "["
+               << ParseUtils::GenerateSeqString(ids) << "] ";
+
+            comps.push_back(ss.str());
+            c_map.push_back(m.first);
+
+            m_globalComps[m.first] = std::make_pair(m.second.first, ss.str());
+        }
+    }
+
+    // We're done with collective part, rank 0 will write out the composite
+    // strings.
+    if (rank != 0)
+    {
+        return;
+    }
+
+    int nGlobal = (int)comps.size();
+
     H5::DataTypeSharedPtr tp  = H5::DataType::String();
-    H5::DataSpaceSharedPtr ds = H5::DataSpace::OneD(comps.size());
+    H5::DataSpaceSharedPtr ds = H5::DataSpace::OneD(nGlobal);
     H5::DataSetSharedPtr dst  = m_mesh->CreateDataSet("COMPOSITE", tp, ds);
     dst->WriteVectorString(comps, ds, tp);
 
-    tp  = H5::DataType::OfObject(c_map[0]);
-    ds  = H5::DataSpace::OneD(c_map.size());
+    tp  = H5::DataType::OfObject(int{});
+    ds  = H5::DataSpace::OneD(nGlobal);
     dst = m_maps->CreateDataSet("COMPOSITE", tp, ds);
     dst->Write(c_map, ds);
 }
 
-void MeshGraphIOHDF5::WriteDomain(std::map<int, CompositeMap> &domain)
+/**
+ * @brief Write the `DOMAIN` dataset describing the composites forming each
+ * domain.
+ *
+ * Like WriteComposites(), domains are variable-length strings written by rank 0
+ * only. Each rank packs its local domains as
+ * `[nDom, {domId, nComp, c0, c1, ...}, ...]`. Because a domain's composites may
+ * be distributed across ranks (e.g. domain 0 on rank 0, domain 1 on rank 1),
+ * the per-rank buffers are gathered with an `AllGatherv` (sizes exchanged
+ * first) and rank 0 unions the composite IDs per domain ID before writing. The
+ * gather is plain MPI, so this runs safely in the serial phase after the
+ * collective HDF5 file has been closed and reopened by rank 0.
+ *
+ * Rank 0 writes:
+ *   - `MESH/DOMAIN` : 1D variable-length string array, one compressed composite
+ *     sequence per domain;
+ *   - `MAPS/DOMAIN` : 1D int array of the corresponding domain IDs.
+ *
+ * @note As with WriteComposites(), `AllGatherv` replicates the (small) payload
+ *       onto every rank; a root-only Gatherv would be preferable if this idiom
+ *       were ever reused for element-scale data.
+ *
+ * @param domain  This rank's local map of domain ID -> composite map.
+ * @param comm    Communicator over which domains are gathered.
+ */
+void MeshGraphIOHDF5::WriteDomain(std::map<int, CompositeMap> &domain,
+                                  LibUtilities::CommSharedPtr &comm)
 {
-    // dont need location map only a id map
-    // will filter the composites per parition on read, its easier
-    // composites do not need to be written in paralell.
-    std::vector<int> d_map;
-    std::vector<std::vector<unsigned int>> idxList;
+    // Called by ALL ranks in the serial phase: the AllReduce gather is MPI, not
+    // HDF5, so it's fine after the collective close/reopen. Only rank 0 holds
+    // the file handle and writes. Domains can partition across ranks (domain 0
+    // on rank 0, domain 1 on rank 1), so rank 0's local map is incomplete - we
+    // union per domain ID across all ranks first.
 
-    int cnt = 0;
-    for (auto &dIt : domain)
+    const int nProc = comm->GetSize();
+    const int rank  = comm->GetRank();
+
+    // Pack: [ nDom, {domId, nComp, c0, c1, ...}, ... ]
+    std::vector<int> local;
     {
-        idxList.push_back(std::vector<unsigned int>());
-        for (auto cIt = dIt.second.begin(); cIt != dIt.second.end(); ++cIt)
+        int nDom = 0;
+        std::vector<int> body;
+        for (auto &dIt : domain)
         {
-            idxList[cnt].push_back(cIt->first);
+            ++nDom;
+            body.push_back(dIt.first);
+            body.push_back(static_cast<int>(dIt.second.size()));
+            for (auto &cIt : dIt.second)
+            {
+                body.push_back(static_cast<int>(cIt.first));
+            }
         }
-
-        ++cnt;
-        d_map.push_back(dIt.first);
+        local.push_back(nDom);
+        local.insert(local.end(), body.begin(), body.end());
     }
 
-    std::stringstream domString;
-    std::vector<std::string> doms;
-    for (auto &cIt : idxList)
+    // --- size handshake: nProc ints, the only collective on metadata-sized
+    //     data. Everyone needs all lengths to build the offset map. ---
+    Array<OneD, int> recvSizes(nProc, 0);
+    recvSizes[rank] = static_cast<int>(local.size());
+    comm->AllReduce(recvSizes, LibUtilities::ReduceSum); // sizes only: tiny
+
+    Array<OneD, int> recvOffsets(nProc, 0);
+    int total = 0;
+    for (int p = 0; p < nProc; ++p)
     {
-        doms.push_back(ParseUtils::GenerateSeqString(cIt));
+        recvOffsets[p] = total;
+        total += recvSizes[p];
+    }
+
+    // --- Gatherv: concatenate payloads, no zero-pad, no reduction. ---
+    // NB AllGatherv replicates onto every rank. For the small composite/domain
+    // payload that's fine. If a root-only Gatherv exists in the wrapper, prefer
+    // it here so non-root ranks don't hold `total` — matters if this idiom is
+    // ever reused for element-scale data.
+    Array<OneD, int> sendData(local.size());
+    for (int i = 0; i < (int)local.size(); ++i)
+    {
+        sendData[i] = local[i];
+    }
+
+    Array<OneD, int> gathered(total, 0);
+    comm->AllGatherv(sendData, gathered, recvSizes, recvOffsets);
+
+    if (rank != 0)
+    {
+        return;
+    }
+
+    // Merge: union composite IDs per domain ID (set => dedup + sort).
+    std::map<int, std::set<unsigned int>> merged;
+    for (int p = 0; p < nProc; ++p)
+    {
+        if (recvSizes[p] == 0)
+        {
+            continue;
+        }
+        int pos  = recvOffsets[p];
+        int nDom = gathered[pos++];
+        for (int d = 0; d < nDom; ++d)
+        {
+            int domId  = gathered[pos++];
+            int nComp  = gathered[pos++];
+            auto &slot = merged[domId];
+            for (int k = 0; k < nComp; ++k)
+            {
+                slot.insert((unsigned int)gathered[pos++]);
+            }
+        }
+    }
+
+    if (merged.empty())
+    {
+        return;
+    }
+
+    std::vector<int> d_map;
+    std::vector<std::string> doms;
+    for (auto &dIt : merged)
+    {
+        std::vector<unsigned int> ids(dIt.second.begin(), dIt.second.end());
+        doms.push_back(ParseUtils::GenerateSeqString(ids));
+        d_map.push_back(dIt.first);
     }
 
     H5::DataTypeSharedPtr tp  = H5::DataType::String();
@@ -1719,10 +2552,72 @@ void MeshGraphIOHDF5::WriteDomain(std::map<int, CompositeMap> &domain)
     dst->Write(d_map, ds);
 }
 
+/**
+ * @brief Write the full mesh geometry to an HDF5 file (plus a companion XML
+ * stub).
+ *
+ * This is the top-level write entry point. The output base name yields a
+ * `.nekg` HDF5 file and a `.xml` stub. The HDF5 file is created collectively
+ * (with MPI-IO under parallel HDF5) and the `NEKTAR/GEOMETRY` group is built
+ * with its `FORMAT_VERSION` attribute and the `MESH` and `MAPS` subgroups. The
+ * write then proceeds in two phases:
+ *
+ *   1. *Collective phase.* The geometry maps are written with
+ *      WriteGeometryMap() (vertices, segments, then 2D/3D shapes as dictated by
+ *      the mesh dimension), which also records facet ownership. Owned
+ *      edges/faces are tallied so that the `CURVE_EDGE`, `CURVE_FACE` and
+ *      `CURVE_NODES` datasets can be laid out with per-rank contiguous offsets
+ *      and written collectively by WriteCurveMap() and WriteCurvePoints().
+ *
+ *   2. *Serial phase.* Composites and domains are variable-length strings that
+ *      cannot be written collectively, so all ranks close the file, rank 0
+ *      reopens it, and WriteComposites()/WriteDomain() gather the data to rank
+ *      0 for writing. (These two are still called on all ranks because the
+ *      gather is collective.)
+ *
+ * Finally, rank 0 writes/updates the XML stub: it records the mesh/space
+ * dimensions and the HDF5 file name, optionally emits a default `EXPANSIONS`
+ * block (one modified C0 expansion per top-dimensional composite) when
+ * @p defaultExp is set and no expansions already exist, and appends any
+ * non-conformal movement information.
+ *
+ * @param outfilename  Output base name; the extension is replaced to form the
+ *                     `.nekg` and `.xml` paths.
+ * @param defaultExp   If true, generate a default expansion definition in the
+ *                     XML for meshes that do not already define one.
+ * @param metadata     Field metadata map (currently unused for geometry write).
+ */
 void MeshGraphIOHDF5::v_WriteGeometry(
     const std::string &outfilename, bool defaultExp,
     [[maybe_unused]] const LibUtilities::FieldMetaDataMap &metadata)
 {
+    // It is possible that we were given an empty graph without a session set;
+    // in this case construct a communicator. Note we have to construct an MPI
+    // communicator if we are using MPI-enabled HDF5, otherwise dataset writes
+    // will not work (since it expects MPI to be initialised).
+    LibUtilities::CommSharedPtr comm, commMesh;
+
+    if (!m_meshGraph->GetSession())
+    {
+        LibUtilities::CppCommandLine cmd({"MeshGraphIO"});
+        std::string commType = "Serial";
+        if (LibUtilities::GetCommFactory().ModuleExists("ParallelMPI"))
+        {
+            commType = "ParallelMPI";
+        }
+
+        comm = LibUtilities::GetCommFactory().CreateInstance(
+            commType, cmd.GetArgc(), cmd.GetArgv());
+        commMesh = comm;
+    }
+    else
+    {
+        comm     = m_meshGraph->GetSession()->GetComm();
+        commMesh = comm->GetRowComm();
+    }
+
+    const bool isRoot = comm->TreatAsRankZero();
+
     auto &vertSet                = m_meshGraph->GetGeomMap<PointGeom>();
     auto &segGeoms               = m_meshGraph->GetGeomMap<SegGeom>();
     auto &triGeoms               = m_meshGraph->GetGeomMap<TriGeom>();
@@ -1741,9 +2636,197 @@ void MeshGraphIOHDF5::v_WriteGeometry(
     std::string filenameXml  = tmp[0] + ".xml";
     std::string filenameHdf5 = tmp[0] + ".nekg";
 
+    ///////////////////////
+    // HDF5 part (parallel)
+    ///////////////////////
+
+    LibUtilities::H5::PListSharedPtr parallelProps = H5::PList::Default();
+    m_writePL                                      = H5::PList::Default();
+
+#if defined(NEKTAR_USE_MPI) && defined(NEKTAR_HDF5_PARALLEL)
+    if (commMesh->GetSize() > 1)
+    {
+        // Use MPI/O to access the file
+        parallelProps = H5::PList::FileAccess();
+        parallelProps->SetMpio(commMesh);
+        // Use collective IO
+        m_writePL = H5::PList::DatasetXfer();
+        m_writePL->SetDxMpioCollective();
+    }
+#endif
+
+#if !defined(NEKTAR_HDF5_PARALLEL)
+    ASSERTL0(commMesh->GetSize() == 1,
+             "Parallel HDF5 mesh output only supported when using a parallel "
+             "version of HDF5");
+#endif
+
+    m_file = H5::File::Create(filenameHdf5, H5F_ACC_TRUNC, H5::PList::Default(),
+                              parallelProps);
+    auto hdfRoot  = m_file->CreateGroup("NEKTAR");
+    auto hdfRoot2 = hdfRoot->CreateGroup("GEOMETRY");
+
+    // Write format version.
+    hdfRoot2->SetAttribute("FORMAT_VERSION", FORMAT_VERSION);
+
+    // Create main groups.
+    m_mesh = hdfRoot2->CreateGroup("MESH");
+    m_maps = hdfRoot2->CreateGroup("MAPS");
+
+    int meshDim = m_meshGraph->GetMeshDimension();
+
+    WriteGeometryMap(vertSet, "VERT", meshDim > 1, commMesh);
+    WriteGeometryMap(segGeoms, "SEG", meshDim > 1, commMesh);
+    if (meshDim > 1)
+    {
+        WriteGeometryMap(triGeoms, "TRI", meshDim > 1, commMesh);
+        WriteGeometryMap(quadGeoms, "QUAD", meshDim > 1, commMesh);
+    }
+    if (meshDim > 2)
+    {
+        WriteGeometryMap(tetGeoms, "TET", meshDim > 1, commMesh);
+        WriteGeometryMap(pyrGeoms, "PYR", meshDim > 1, commMesh);
+        WriteGeometryMap(prismGeoms, "PRISM", meshDim > 1, commMesh);
+        WriteGeometryMap(hexGeoms, "HEX", meshDim > 1, commMesh);
+    }
+
+    // Write curve output. We'll use the stored data from WriteGeometryMap which
+    // determines which rank 'owns' an edge in order to dump out curvature
+    // collectively.
+
+    // First assemble some sets of owned edges (can use directly the stored
+    // information) and owned faces (need to distinguish between TRI/QUAD
+    // datasets).
+    const std::unordered_set<int> &ownedEdges = m_geomOwners["SEG"];
+    std::unordered_set<int> ownedFaces;
+    for (const std::string n : {"TRI", "QUAD"})
+    {
+        auto it = m_geomOwners.find(n);
+        if (it != m_geomOwners.end())
+        {
+            ownedFaces.insert(it->second.begin(), it->second.end());
+        }
+    }
+
+    // Small functor that takes our curved map and figures out how many curves
+    // and points we need to store.
+    auto tally = [](CurveMap &cm, const std::unordered_set<int> &owned,
+                    int &nCurves, int &nPts) {
+        nCurves = 0;
+        nPts    = 0;
+        for (auto &c : cm)
+        {
+            if (owned.count(c.first))
+            {
+                ++nCurves;
+                nPts += (int)c.second->m_points.size();
+            }
+        }
+    };
+
+    // Compute number of curved edges, faces and points locally
+    int neC, nePts, nfC, nfPts;
+    tally(curvedEdges, ownedEdges, neC, nePts);
+    tally(curvedFaces, ownedFaces, nfC, nfPts);
+
+    // Total number of curve points to store.
+    const int myPts = nePts + nfPts;
+
+    // Tell every rank how many edges/faces/points we own.
+    const int nProc = commMesh->GetSize();
+    const int rank  = commMesh->GetRank();
+    Array<OneD, int> tallies(nProc * 3, 0);
+    tallies[rank * 3 + 0] = neC;
+    tallies[rank * 3 + 1] = nfC;
+    tallies[rank * 3 + 2] = myPts;
+    commMesh->AllReduce(tallies, LibUtilities::ReduceSum);
+
+    // Compute the offsets where we need to put data for CURVE_EDGE, CURVE_FACE
+    // and CURVE_POINTS datasets.
+    hsize_t edgeRowOffset = 0, edgeRowsGlobal = 0;
+    hsize_t faceRowOffset = 0, faceRowsGlobal = 0;
+    hsize_t ptBase = 0, totalPts = 0;
+    for (int p = 0; p < nProc; ++p)
+    {
+        if (p < rank)
+        {
+            edgeRowOffset += tallies[p * 3 + 0];
+        }
+        if (p < rank)
+        {
+            faceRowOffset += tallies[p * 3 + 1];
+        }
+        if (p < rank)
+        {
+            ptBase += tallies[p * 3 + 2];
+        }
+
+        edgeRowsGlobal += tallies[p * 3 + 0];
+        faceRowsGlobal += tallies[p * 3 + 1];
+        totalPts += tallies[p * 3 + 2];
+    }
+
+    // Now write out the data into chunks inside the datasets.
+    int ptOffset = (int)ptBase, newIdx = (int)ptBase;
+    MeshCurvedPts curvePts;
+    WriteCurveMap(curvedEdges, "CURVE_EDGE", curvePts, ptOffset, newIdx,
+                  ownedEdges, edgeRowOffset, edgeRowsGlobal);
+    WriteCurveMap(curvedFaces, "CURVE_FACE", curvePts, ptOffset, newIdx,
+                  ownedFaces, faceRowOffset, faceRowsGlobal);
+    WriteCurvePoints(curvePts, ptBase, totalPts);
+
+    // At this point, what we can do collectively is finished. We need to write
+    // composites and domains, but these are stored as variable-length strings
+    // which can't be done collectively. So now we close the file on all
+    // processors, but rank 0 will reopen it so that we can add the COMPOSITES
+    // and DOMAIN datasets. Note that functions still need to be called
+    // collectively so that we can assemble the required information.
+
+    // Release our hold on the groups we opened.
+    hdfRoot->Close();
+    hdfRoot2->Close();
+
+    // Note creation of empty shared_ptrs below avoids double-closing files in
+    // rank != 0 when MeshGraphIOHDF5 destructor is called.
+    m_writePL = LibUtilities::H5::PListSharedPtr();
+    m_mesh    = LibUtilities::H5::GroupSharedPtr();
+    m_maps    = LibUtilities::H5::GroupSharedPtr();
+    m_file    = LibUtilities::H5::FileSharedPtr();
+
+    // Root now reopens the file.
+    if (isRoot)
+    {
+        m_file =
+            H5::File::Open(filenameHdf5, H5F_ACC_RDWR, H5::PList::Default());
+
+        hdfRoot = m_file->OpenGroup("NEKTAR");
+        ASSERTL0(hdfRoot, "Cannot find NEKTAR group in HDF5 file.");
+
+        hdfRoot2 = hdfRoot->OpenGroup("GEOMETRY");
+        ASSERTL0(hdfRoot2, "Cannot find NEKTAR/GEOMETRY group in HDF5 file.");
+
+        m_mesh = hdfRoot2->OpenGroup("MESH");
+        ASSERTL0(m_mesh,
+                 "Cannot find NEKTAR/GEOMETRY/MESH group in HDF5 file.");
+
+        m_maps = hdfRoot2->OpenGroup("MAPS");
+        ASSERTL0(m_maps,
+                 "Cannot find NEKTAR/GEOMETRY/MAPS group in HDF5 file.");
+    }
+
+    // Write composites and domain. Called collectively because we'll need to
+    // send composite information to rank 0.
+    WriteComposites(meshComposites, commMesh);
+    WriteDomain(domain, commMesh);
+
     //////////////////
     // XML part
     //////////////////
+
+    if (!isRoot)
+    {
+        return;
+    }
 
     // Check to see if a xml of the same name exists
     // if might have boundary conditions etc, we will just alter the
@@ -1780,18 +2863,22 @@ void MeshGraphIOHDF5::v_WriteGeometry(
 
     geomTag->Clear();
 
+    std::map<char, int> tagToShapeDim = {{'V', 0}, {'S', 1}, {'Q', 2},
+                                         {'T', 2}, {'F', 2}, {'A', 3},
+                                         {'R', 3}, {'P', 3}, {'H', 3}};
+
     if (defaultExp)
     {
         TiXmlElement *expTag = new TiXmlElement("EXPANSIONS");
 
-        for (auto it = meshComposites.begin(); it != meshComposites.end(); it++)
+        for (auto &cIt : m_globalComps)
         {
-            if (it->second->m_geomVec[0]->GetShapeDim() ==
+            if (tagToShapeDim[cIt.second.first] ==
                 m_meshGraph->GetMeshDimension())
             {
                 TiXmlElement *exp = new TiXmlElement("E");
                 exp->SetAttribute("COMPOSITE",
-                                  "C[" + std::to_string(it->first) + "]");
+                                  "C[" + std::to_string(cIt.first) + "]");
                 exp->SetAttribute("NUMMODES", 4);
                 exp->SetAttribute("TYPE", "MODIFIED");
                 exp->SetAttribute("FIELDS", "u");
@@ -1809,48 +2896,6 @@ void MeshGraphIOHDF5::v_WriteGeometry(
     }
 
     doc->SaveFile(filenameXml);
-
-    //////////////////
-    // HDF5 part
-    //////////////////
-
-    // This is serial IO so we will just override any existing file.
-    m_file        = H5::File::Create(filenameHdf5, H5F_ACC_TRUNC);
-    auto hdfRoot  = m_file->CreateGroup("NEKTAR");
-    auto hdfRoot2 = hdfRoot->CreateGroup("GEOMETRY");
-
-    // Write format version.
-    hdfRoot2->SetAttribute("FORMAT_VERSION", FORMAT_VERSION);
-
-    // Create main groups.
-    m_mesh = hdfRoot2->CreateGroup("MESH");
-    m_maps = hdfRoot2->CreateGroup("MAPS");
-
-    WriteGeometryMap(vertSet, "VERT");
-    WriteGeometryMap(segGeoms, "SEG");
-    if (m_meshGraph->GetMeshDimension() > 1)
-    {
-        WriteGeometryMap(triGeoms, "TRI");
-        WriteGeometryMap(quadGeoms, "QUAD");
-    }
-    if (m_meshGraph->GetMeshDimension() > 2)
-    {
-        WriteGeometryMap(tetGeoms, "TET");
-        WriteGeometryMap(pyrGeoms, "PYR");
-        WriteGeometryMap(prismGeoms, "PRISM");
-        WriteGeometryMap(hexGeoms, "HEX");
-    }
-
-    // Write curves
-    int ptOffset = 0, newIdx = 0;
-    MeshCurvedPts curvePts;
-    WriteCurveMap(curvedEdges, "CURVE_EDGE", curvePts, ptOffset, newIdx);
-    WriteCurveMap(curvedFaces, "CURVE_FACE", curvePts, ptOffset, newIdx);
-    WriteCurvePoints(curvePts);
-
-    // Write composites and domain.
-    WriteComposites(meshComposites);
-    WriteDomain(domain);
 }
 
 } // namespace Nektar::SpatialDomains

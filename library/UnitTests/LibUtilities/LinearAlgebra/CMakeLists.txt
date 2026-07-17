@@ -20,6 +20,7 @@ SET(LinearAlgebraUnitTestsSources
     TestLowerTriangularMatrix.cpp
     TestNekMatrixMultiplication.cpp
     TestNekMatrixOperations.cpp
+    TestNekLinSysIterEigenvalues.cpp
     TestUpperTriangularMatrix.cpp
     ../../util.cpp
 )

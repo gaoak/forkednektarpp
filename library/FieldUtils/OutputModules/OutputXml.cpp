@@ -43,10 +43,17 @@ namespace Nektar::FieldUtils
 {
 
 ModuleKey OutputXml::m_className = GetModuleFactory().RegisterCreatorFunction(
-    ModuleKey(eOutputModule, "xml"), OutputXml::create, "Writes an XML file.");
+    ModuleKey(eOutputModule, "xml"), OutputXml::createXml,
+    "Writes an XML file.");
+ModuleKey OutputXml::m_className2 = GetModuleFactory().RegisterCreatorFunction(
+    ModuleKey(eOutputModule, "nekg"), OutputXml::createHDF5,
+    "Writes a HDF5 mesh file.");
 
-OutputXml::OutputXml(FieldSharedPtr f) : OutputModule(f)
+OutputXml::OutputXml(FieldSharedPtr f, bool hdf5)
+    : OutputModule(f), m_hdf5(hdf5)
 {
+    m_config["writedefaultexp"] =
+        ConfigOption(true, "0", "Write a default expansion.");
 }
 
 OutputXml::~OutputXml()
@@ -65,10 +72,25 @@ void OutputXml::v_Process(po::variables_map &vm)
     // Extract the output filename and extension
     string filename = m_config["outfile"].as<string>();
 
+    std::string outputFmt = "Xml";
+    if (m_hdf5)
+    {
+        ASSERTL0(SpatialDomains::GetMeshGraphIOFactory().ModuleExists("HDF5"),
+                 "Nektar++ must be compiled with HDF5 support to output in "
+                 ".nekg format");
+
+        outputFmt = "HDF5";
+    }
+
     auto graphIO =
-        SpatialDomains::GetMeshGraphIOFactory().CreateInstance("Xml");
+        SpatialDomains::GetMeshGraphIOFactory().CreateInstance(outputFmt);
     graphIO->SetMeshGraph(m_f->m_graph);
-    graphIO->WriteGeometry(filename);
-    cout << "Written file: " << filename << endl;
+    graphIO->WriteGeometry(filename, m_config["writedefaultexp"].m_beenSet);
+
+    if ((!graphIO->HasMultifileOutput() && m_f->m_comm->TreatAsRankZero()) ||
+        graphIO->HasMultifileOutput())
+    {
+        cout << "Written file: " << filename << endl;
+    }
 }
 } // namespace Nektar::FieldUtils
