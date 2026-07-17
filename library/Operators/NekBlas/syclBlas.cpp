@@ -33,7 +33,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "Operators/Common/Backends/SYCLQueue.hpp"
-#include "Operators/Common/Memory/MemoryAlloc.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 
 #if __has_include("oneapi/math.hpp")
@@ -85,16 +84,12 @@ NekGemm([[maybe_unused]] THandle handle, std::string transposeA,
     sycl::event e = blas::column_major::gemm(
         Q, transA, transB, M, N, K, alpha, a, lda, b, ldb, beta, c, ldc,
         setOneMathExecutionDependency(handle.GetStreamID()));
-#else
+#elif defined(__ADAPTIVECPP__)
     // clang-format off
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
         setSYCLDefaultExecutionDependency(handle.GetStreamID(), cgh);
-#if defined(__ADAPTIVECPP__)
         cgh.AdaptiveCpp_enqueue_custom_operation(
             [=]([[maybe_unused]] sycl::interop_handle ih) {
-#else
-        cgh.host_task([=]() {
-#endif
     NekGemm(blasHandle_t(), transposeA, transposeB, M, N, K, alpha, a, lda, b,
             ldb, beta, c, ldc);
             });
@@ -123,16 +118,12 @@ NekGemmStridedBatched([[maybe_unused]] THandle handle, std::string transposeA,
         Q, transA, transB, M, N, K, alpha, a, lda, strideA, b, ldb, strideB,
         beta, c, ldc, strideC, batchSize,
         setOneMathExecutionDependency(handle.GetStreamID()));
-#else
+#elif defined(__ADAPTIVECPP__)
     // clang-format off
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
         setSYCLDefaultExecutionDependency(handle.GetStreamID(), cgh);
-#if defined(__ADAPTIVECPP__)
         cgh.AdaptiveCpp_enqueue_custom_operation(
             [=]([[maybe_unused]] sycl::interop_handle ih) {
-#else
-        cgh.host_task([=]() {
-#endif
     NekGemmStridedBatched(blasHandle_t(), transposeA, transposeB, M, N, K,
                           alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc,
                           strideC, batchSize);
@@ -153,21 +144,16 @@ NekGemv([[maybe_unused]] THandle handle, std::string transpose,
 {
     sycl::queue &Q = handle.GetQueue();
 #if __has_include("oneapi/mkl.hpp") || __has_include("oneapi/math.hpp")
-    auto trans = (transpose == "N") ? transpose::N : transpose::T;
-
+    auto trans    = (transpose == "N") ? transpose::N : transpose::T;
     sycl::event e = blas::column_major::gemv(
         Q, trans, M, N, alpha, a, lda, x, incx, beta, y, incy,
         setOneMathExecutionDependency(handle.GetStreamID()));
-#else
+#elif defined(__ADAPTIVECPP__)
     // clang-format off
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
         setSYCLDefaultExecutionDependency(handle.GetStreamID(), cgh);
-#if defined(__ADAPTIVECPP__)
         cgh.AdaptiveCpp_enqueue_custom_operation(
             [=]([[maybe_unused]] sycl::interop_handle ih) {
-#else
-        cgh.host_task([=]() {
-#endif
     NekGemv(blasHandle_t(), transpose, M, N, alpha, a, lda, x, incx, beta, y,
             incy);
             });
@@ -192,22 +178,17 @@ NekGemvStridedBatched([[maybe_unused]] THandle handle, std::string transpose,
 #if __has_include("oneapi/math.hpp")
     ASSERTL0(false, "gemv_batch not yet implemented in oneMath")
 #endif
-    auto trans = (transpose == "N") ? transpose::N : transpose::T;
-
+    auto trans    = (transpose == "N") ? transpose::N : transpose::T;
     sycl::event e = blas::column_major::gemv_batch(
         Q, trans, M, N, alpha, a, lda, strideA, x, incx, strideX, beta, y, incy,
         strideY, batchSize,
         setOneMathExecutionDependency(handle.GetStreamID()));
-#else
+#elif defined(__ADAPTIVECPP__)
     // clang-format off
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
         setSYCLDefaultExecutionDependency(handle.GetStreamID(), cgh);
-#if defined(__ADAPTIVECPP__)
         cgh.AdaptiveCpp_enqueue_custom_operation(
             [=]([[maybe_unused]] sycl::interop_handle ih) {
-#else
-        cgh.host_task([=]() {
-#endif
     NekGemvStridedBatched(blasHandle_t(), transpose, M, N, alpha, a, lda,
                           strideA, x, incx, strideX, beta, y, incy, strideY,
                           batchSize);
