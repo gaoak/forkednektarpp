@@ -109,6 +109,10 @@ MACRO(SET_COMMON_PROPERTIES name)
             TARGET_COMPILE_OPTIONS(${name} PRIVATE -diag-disable 654)
         ENDIF()
 
+        IF (CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
+            TARGET_COMPILE_OPTIONS(${name} PRIVATE -fno-fast-math)
+        ENDIF()
+
         IF ( NEKTAR_ERROR_ON_WARNINGS )
             TARGET_COMPILE_OPTIONS(${name} PRIVATE -Werror)
         ENDIF()
