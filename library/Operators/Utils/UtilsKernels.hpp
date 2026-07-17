@@ -82,24 +82,57 @@ void ReshapeStorage(const unsigned int targInterleaveWidth,
     }
 }
 
-NEK_HOSTDEVICE_INLINE static const unsigned int *GetDiffCoeffMapPtr(
-    const unsigned int ncoord)
+NEK_HOSTDEVICE_INLINE unsigned int GetDiffCoeffMap(const unsigned int ncoord,
+                                                   const unsigned int index)
 {
-    if (ncoord == 1)
+    const unsigned int offset = (ncoord == 1) ? 0 : (ncoord == 2) ? 1 : 5;
+
+#if defined(SYCL_ENABLE_CPU) && !defined(__ADAPTIVECPP__)
+    switch (offset + index)
     {
-        static const std::array<unsigned int, 1> diffCoeff1DMap{0};
-        return &diffCoeff1DMap[0];
+        case 0:
+            return 0;
+        case 1:
+            return 0;
+        case 2:
+            return 1;
+        case 3:
+            return 1;
+        case 4:
+            return 2;
+        case 5:
+            return 0;
+        case 6:
+            return 1;
+        case 7:
+            return 3;
+        case 8:
+            return 1;
+        case 9:
+            return 2;
+        case 10:
+            return 4;
+        case 11:
+            return 3;
+        case 12:
+            return 4;
+        case 13:
+            return 5;
+        default:
+            return 0;
     }
-    else if (ncoord == 2)
+#else
+    // clang-format off
+    static constexpr unsigned int diffCoeffMap[14] = 
     {
-        static const std::array<unsigned int, 4> diffCoeff2DMap{0, 1, 1, 2};
-        return &diffCoeff2DMap[0];
-    }
-    else
-    {
-        static const std::array<unsigned int, 9> diffCoeff3DMap{0, 1, 3, 1, 2,
-                                                                4, 3, 4, 5};
-        return &diffCoeff3DMap[0];
-    }
+        0,                        // 1D indexing 
+        0, 1, 1, 2,               // 2D indexing
+        0, 1, 3, 1, 2, 4, 3, 4, 5 // 3D indexing
+    };
+    
+    return diffCoeffMap[offset + index];
+    // clang-format on
+#endif
 }
+
 } // namespace Nektar::Operators

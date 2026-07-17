@@ -65,8 +65,6 @@ NEK_FORCE_INLINE static void DiffusionScalarIPVolFluxKernel(
 
     Nektar::parallel_for<ExecSpace>(
         0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
-            const auto diffCoeffMapPtr = GetDiffCoeffMapPtr(ndim);
-
             for (unsigned int f = 0; f < nvarComps; ++f)
             {
                 for (unsigned int outDir = 0; outDir < ndim; ++outDir)
@@ -75,7 +73,7 @@ NEK_FORCE_INLINE static void DiffusionScalarIPVolFluxKernel(
                     for (unsigned int derivDir = 0; derivDir < ndim; ++derivDir)
                     {
                         const auto diffIdx =
-                            diffCoeffMapPtr[outDir * ndim + derivDir];
+                            GetDiffCoeffMap(ndim, outDir * ndim + derivDir);
                         const size_t derivIdx =
                             (f * ndim + derivDir) * derivVecStride + i;
                         flux += vec_t(diffCoeff[diffIdx]) * derivvec[derivIdx];
