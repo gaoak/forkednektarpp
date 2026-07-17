@@ -80,9 +80,8 @@ NEK_FORCE_INLINE static void DiffuseScalarTraceFluxKernel(
 
     Nektar::parallel_for<ExecSpace>(
         0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
-            const auto diffCoeffMapPtr = GetDiffCoeffMapPtr(ndim);
-            const vec_t bWeightAver    = bwdAverVec[i];
-            const vec_t bWeightJump    = bwdJumpVec[i];
+            const vec_t bWeightAver = bwdAverVec[i];
+            const vec_t bWeightJump = bwdJumpVec[i];
 
             const vec_t fWeightAver = vec_t(1.0) - bWeightAver;
             const vec_t fWeightJump = vec_t(2.0) - bWeightJump;
@@ -106,7 +105,8 @@ NEK_FORCE_INLINE static void DiffuseScalarTraceFluxKernel(
                 {
                     normalDiffusionStrength +=
                         normal0 *
-                        vec_t(diffCoeff[diffCoeffMapPtr[n0 * ndim + n1]]) *
+                        vec_t(
+                            diffCoeff[GetDiffCoeffMap(ndim, n0 * ndim + n1)]) *
                         normvec[n1 * traceVecStride + i];
                 }
             }
@@ -142,7 +142,7 @@ NEK_FORCE_INLINE static void DiffuseScalarTraceFluxKernel(
                     for (unsigned int n = 0; n < ndim; ++n)
                     {
                         const unsigned int coeffId =
-                            diffCoeffMapPtr[n * ndim + d];
+                            GetDiffCoeffMap(ndim, n * ndim + d);
                         normalDiffCoeff += normvec[n * traceVecStride + i] *
                                            vec_t(diffCoeff[coeffId]);
                     }
@@ -183,10 +183,9 @@ NEK_FORCE_INLINE static void AddScalarSymmetricTraceFluxCoeffKernel(
 
     Nektar::parallel_for<ExecSpace>(
         0u, nWork, NEKTAR_LAMBDA(const size_t i) {
-            const auto diffCoeffMapPtr = GetDiffCoeffMapPtr(nDim);
-            const unsigned int coeff   = i % nCoeffs;
-            const unsigned int comp    = (i / nCoeffs) % nComps;
-            const size_t el            = i / (nCoeffs * nComps);
+            const unsigned int coeff = i % nCoeffs;
+            const unsigned int comp  = (i / nCoeffs) % nComps;
+            const size_t el          = i / (nCoeffs * nComps);
 
             TData val = TData(0.0);
 
@@ -225,7 +224,8 @@ NEK_FORCE_INLINE static void AddScalarSymmetricTraceFluxCoeffKernel(
                             for (unsigned int n = 0; n < nDim; ++n)
                             {
                                 diffNormal +=
-                                    diffCoeff[diffCoeffMapPtr[d * nDim + n]] *
+                                    diffCoeff[GetDiffCoeffMap(nDim,
+                                                              d * nDim + n)] *
                                     traceNormalBase[n * traceBlockCompSize +
                                                     traceBlockPoint];
                             }

@@ -47,9 +47,8 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
     const TData *dfptr, const TData *inptr, TData *outptr, TData *bwdptr,
     const TScalar scale)
 {
-    const auto diffCoeffMapPtr = GetDiffCoeffMapPtr(ncoord);
-    const auto ndf             = ncoord * dimension;
-    const auto nsize           = nqTot * nelmt;
+    const auto ndf   = ncoord * dimension;
+    const auto nsize = nqTot * nelmt;
 
     if constexpr (DEFORMED)
     {
@@ -76,13 +75,13 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
             {
                 for (unsigned int k = 0; k < ncoord; ++k)
                 {
-                    metric[k] =
-                        dfptr[ndf * idx + d] * diffCoeff[diffCoeffMapPtr[k]];
+                    metric[k] = dfptr[ndf * idx + d] *
+                                diffCoeff[GetDiffCoeffMap(ncoord, k)];
                     for (unsigned int l = 1; l < ncoord; ++l)
                     {
                         metric[k].fma(
                             dfptr[ndf * idx + l * dimension + d],
-                            diffCoeff[diffCoeffMapPtr[l * ncoord + k]]);
+                            diffCoeff[GetDiffCoeffMap(ncoord, l * ncoord + k)]);
                     }
                 }
                 tmp0 = metric[0] * tmp[0];
@@ -106,13 +105,13 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
             {
                 for (unsigned int k = 0; k < ncoord; ++k)
                 {
-                    metric[k] =
-                        dfptr[ndf * e + d] * diffCoeff[diffCoeffMapPtr[k]];
+                    metric[k] = dfptr[ndf * e + d] *
+                                diffCoeff[GetDiffCoeffMap(ncoord, k)];
                     for (unsigned int l = 1; l < ncoord; ++l)
                     {
                         metric[k].fma(
                             dfptr[ndf * e + l * dimension + d],
-                            diffCoeff[diffCoeffMapPtr[l * ncoord + k]]);
+                            diffCoeff[GetDiffCoeffMap(ncoord, l * ncoord + k)]);
                     }
                 }
                 for (unsigned int k = 0; k < dimension; ++k)
