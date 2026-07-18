@@ -60,76 +60,84 @@ public:
     /// ModuleKey for class.
     static NekMesh::ModuleKey className;
 
-    string GetModuleName() override
+    std::string GetModuleName() override
     {
         return "InputCGNS";
     }
 
 private:
     void SetupElements();
-    void ResetNodes(vector<NodeSharedPtr> &Vnodes,
-                    Array<OneD, vector<int>> &ElementFaces,
-                    std::unordered_map<int, vector<int>> &FaceNodes,
-                    vector<pair<ElementType_t, vector<int>>> &elemInfo,
-                    vector<int> &VolumeElems);
+    void ResetNodes(
+        std::vector<NodeSharedPtr> &Vnodes,
+        Array<OneD, std::vector<int>> &ElementFaces,
+        std::unordered_map<int, std::vector<int>> &FaceNodes,
+        std::vector<std::pair<ElementType_t, std::vector<int>>> &elemInfo,
+        std::vector<int> &VolumeElems);
 
     Array<OneD, int> SortFaceNodes(
-        vector<NodeSharedPtr> &Vnodes, vector<int> &ElementFaces,
-        std::unordered_map<int, vector<int>> &FaceNodes);
+        std::vector<NodeSharedPtr> &Vnodes, std::vector<int> &ElementFaces,
+        std::unordered_map<int, std::vector<int>> &FaceNodes);
 
-    void GenElement2D(vector<NodeSharedPtr> &VertNodes, vector<int> elemNodes,
+    void GenElement2D(std::vector<NodeSharedPtr> &VertNodes,
+                      std::vector<int> elemNodes, ElementType_t elemType,
+                      int nComposite, bool DoOrient);
+
+    void GenElement3D(std::vector<NodeSharedPtr> &VertNodes,
+                      std::vector<int> elemNodes,
+                      std::vector<int> &ElementFaces,
+                      std::unordered_map<int, std::vector<int>> &FaceNodes,
                       ElementType_t elemType, int nComposite, bool DoOrient);
 
-    void GenElement3D(vector<NodeSharedPtr> &VertNodes, vector<int> elemNodes,
-                      vector<int> &ElementFaces,
-                      std::unordered_map<int, vector<int>> &FaceNodes,
-                      ElementType_t elemType, int nComposite, bool DoOrient);
+    std::vector<int> CGNSReordering(LibUtilities::ShapeType shapeType,
+                                    int order);
 
-    vector<int> CGNSReordering(LibUtilities::ShapeType shapeType, int order);
+    Array<OneD, int> SortEdgeNodes(std::vector<NodeSharedPtr> &Vnodes,
+                                   std::vector<int> &FaceNodes);
 
-    Array<OneD, int> SortEdgeNodes(vector<NodeSharedPtr> &Vnodes,
-                                   vector<int> &FaceNodes);
-
-    void ReadFaces(vector<pair<ElementType_t, vector<int>>> &elemInfo,
-                   std::unordered_map<int, vector<int>> &FaceNodes,
-                   Array<OneD, vector<int>> &ElementFaces,
-                   vector<int> &BoundaryElems, vector<int> &VolumeElems);
+    void ReadFaces(
+        std::vector<std::pair<ElementType_t, std::vector<int>>> &elemInfo,
+        std::unordered_map<int, std::vector<int>> &FaceNodes,
+        Array<OneD, std::vector<int>> &ElementFaces,
+        std::vector<int> &BoundaryElems, std::vector<int> &VolumeElems);
 
     void ExtractSeparatedElemInfo(
         cgsize_t elemDataSize, int elemSize, ElementType_t elemType,
-        int sectionInd, vector<pair<ElementType_t, vector<int>>> &elemInfo);
+        int sectionInd,
+        std::vector<std::pair<ElementType_t, std::vector<int>>> &elemInfo);
 
     void ExtractMixedElemInfo(
         cgsize_t elemDataSize, int elemSize, int sectionInd,
-        vector<pair<ElementType_t, vector<int>>> &elemInfo);
+        std::vector<std::pair<ElementType_t, std::vector<int>>> &elemInfo);
 
     void SaveNode(int id, NekDouble x = 0, NekDouble y = 0, NekDouble z = 0);
 
-    void PyramidShielding(vector<NodeSharedPtr> &Vnodes,
-                          Array<OneD, vector<int>> &ElementFaces,
-                          std::unordered_map<int, vector<int>> &FaceNodes,
-                          vector<pair<ElementType_t, vector<int>>> &elemInfo,
-                          vector<int> &VolumeElems, vector<int> &NodeReordering,
-                          int pyraElemIdx);
+    void PyramidShielding(
+        std::vector<NodeSharedPtr> &Vnodes,
+        Array<OneD, std::vector<int>> &ElementFaces,
+        std::unordered_map<int, std::vector<int>> &FaceNodes,
+        std::vector<std::pair<ElementType_t, std::vector<int>>> &elemInfo,
+        std::vector<int> &VolumeElems, std::vector<int> &NodeReordering,
+        int pyraElemIdx);
 
-    void TraversePyraPrismLine(int currElemId, int currFaceId, int currApexNode,
-                               vector<vector<int>> FaceToPrisms,
-                               vector<vector<int>> GlobTriFaces,
-                               vector<NodeSharedPtr> &Vnodes,
-                               Array<OneD, vector<int>> &ElementFaces,
-                               std::unordered_map<int, vector<int>> &FaceNodes,
-                               vector<int> &NodeReordering, int &revNodeid);
+    void TraversePyraPrismLine(
+        int currElemId, int currFaceId, int currApexNode,
+        std::vector<std::vector<int>> FaceToPrisms,
+        std::vector<std::vector<int>> GlobTriFaces,
+        std::vector<NodeSharedPtr> &Vnodes,
+        Array<OneD, std::vector<int>> &ElementFaces,
+        std::unordered_map<int, std::vector<int>> &FaceNodes,
+        std::vector<int> &NodeReordering, int &revNodeid);
 
     int m_fileIndex;
     int m_baseIndex = 1;
     int m_zoneIndex = 1;
-    vector<double> m_x; // x-coordinates from CGNS file
-    vector<double> m_y; // y-coordinates from CGNS file
-    vector<double> m_z; // z-coordinates from CGNS file
+    std::vector<double> m_x; // x-coordinates from CGNS file
+    std::vector<double> m_y; // y-coordinates from CGNS file
+    std::vector<double> m_z; // z-coordinates from CGNS file
 
-    std::unordered_map<ElementType_t, vector<int>> m_orderingMap;
+    std::unordered_map<ElementType_t, std::vector<int>> m_orderingMap;
 
-    std::unordered_map<LibUtilities::ShapeType, vector<vector<int>>>
+    std::unordered_map<LibUtilities::ShapeType, std::vector<std::vector<int>>>
         m_shapeType2LocElemNodes{
             // Gives the ordering of the nodes for each face for each shape
             // type.
@@ -150,7 +158,7 @@ private:
               {4, 7, 6, 5}}},
         };
 
-    map<int, ElementType_t> m_ind2ElemType{
+    std::map<int, ElementType_t> m_ind2ElemType{
         // converts from the element type index to the type
         // {CG_Null, ElementTypeNull},     {CG_UserDefined,
         // ElementTypeUserDefined},
@@ -169,7 +177,7 @@ private:
         {50, PYRA_55},  {51, PENTA_33},   {52, PENTA_66},   {53, PENTA_75},
         {54, HEXA_44},  {55, HEXA_98},    {56, HEXA_125}};
 
-    map<ElementType_t, LibUtilities::ShapeType> m_elemType2ShapeType{
+    std::map<ElementType_t, LibUtilities::ShapeType> m_elemType2ShapeType{
         {NODE, LibUtilities::ePoint},
         {BAR_2, LibUtilities::eSegment},
         {BAR_3, LibUtilities::eSegment},
@@ -224,13 +232,13 @@ private:
         {HEXA_125, LibUtilities::eHexahedron},
     };
 
-    map<LibUtilities::ShapeType, uint> m_shapeType2ExpDim{
+    std::map<LibUtilities::ShapeType, uint> m_shapeType2ExpDim{
         {LibUtilities::ePoint, 0},       {LibUtilities::eSegment, 1},
         {LibUtilities::eTriangle, 2},    {LibUtilities::eQuadrilateral, 2},
         {LibUtilities::eTetrahedron, 3}, {LibUtilities::ePyramid, 3},
         {LibUtilities::ePrism, 3},       {LibUtilities::eHexahedron, 3}};
 
-    map<ElementType_t, int> m_elemType2Order{
+    std::map<ElementType_t, int> m_elemType2Order{
         {NODE, 0},       {BAR_2, 1},    {BAR_3, 2},    {BAR_4, 3},
         {BAR_5, 4},      {TRI_3, 1},    {TRI_6, 2},    {TRI_9, 3},
         {TRI_10, 3},     {TRI_12, 4},   {TRI_15, 4},   {QUAD_4, 1},
@@ -252,7 +260,7 @@ private:
     //                    TETRA_35, PYRA_50, PYRA_55, PENTA_66, PENTA_75,
     //                    HEXA_98, HEXA_125)
     //          false for the rest
-    map<ElementType_t, int> m_elemType2FaceNodes{
+    std::map<ElementType_t, int> m_elemType2FaceNodes{
         // {ElementTypeNull, },   {ElementTypeUserDefined, },
         {NODE, false},    {BAR_2, false},      {BAR_3, false},
         {BAR_4, false},   {BAR_5, false},      {TRI_3, false},
@@ -277,7 +285,7 @@ private:
     // summary: true for (HEXA_27, PYRA_30, PENTA_40, HEXA_64, TETRA_35,
     //                    PYRA_55, PENTA_75, HEXA_125)
     //          false otherwise
-    map<ElementType_t, int> m_elemType2VolNodes{
+    std::map<ElementType_t, int> m_elemType2VolNodes{
         {NODE, false},     {BAR_2, false},      {BAR_3, false},
         {BAR_4, false},    {BAR_5, false},      {TRI_3, false},
         {TRI_6, false},    {TRI_9, false},      {TRI_12, false},
@@ -298,7 +306,7 @@ private:
         {HEXA_125, true},
     };
 
-    map<ElementType_t, ElementType_t> m_pyrShieldingTetType{
+    std::map<ElementType_t, ElementType_t> m_pyrShieldingTetType{
         {PYRA_5, TETRA_4},      {PYRA_13, TETRA_10}, {PYRA_14, TETRA_10},
         {PYRA_21, TETRA_16},    {PYRA_29, TETRA_20}, {PYRA_30, TETRA_20},
         {PYRA_P4_29, TETRA_22}, {PYRA_50, TETRA_34}, {PYRA_55, TETRA_35}};

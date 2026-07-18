@@ -36,13 +36,14 @@
 #include <iostream>
 #include <string>
 #include <vector>
-using namespace std;
 
 #include <boost/algorithm/string.hpp>
 
 #include <LibUtilities/BasicUtils/CompressData.h>
 
 #include "InputSemtex.h"
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

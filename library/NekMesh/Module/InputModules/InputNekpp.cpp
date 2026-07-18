@@ -35,11 +35,12 @@
 #include <LibUtilities/BasicUtils/CppCommandLine.hpp>
 #include <iostream>
 #include <string>
-using namespace std;
 
 #include "InputNekpp.h"
 #include <NekMesh/MeshElements/Element.h>
 #include <SpatialDomains/MeshGraphIO.h>
+
+using namespace std;
 
 namespace Nektar::NekMesh
 {

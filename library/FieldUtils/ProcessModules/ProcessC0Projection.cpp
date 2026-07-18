@@ -34,12 +34,13 @@
 
 #include <iostream>
 #include <string>
-using namespace std;
 
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 
 #include "ProcessC0Projection.h"
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

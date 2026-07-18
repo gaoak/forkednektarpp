@@ -35,13 +35,14 @@
 
 #include <set>
 #include <string>
-using namespace std;
 
 #include <LibUtilities/BasicUtils/CsvIO.h>
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
 #include <LibUtilities/BasicUtils/PtsIO.h>
 
 #include "OutputPts.h"
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

@@ -35,12 +35,13 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-using namespace std;
 
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <MultiRegions/ExpList.h>
 
 #include "ProcessMultiShear.h"
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

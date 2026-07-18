@@ -34,11 +34,12 @@
 
 #include <iostream>
 #include <string>
-using namespace std;
 
 #include "ProcessMeanMode.h"
 
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

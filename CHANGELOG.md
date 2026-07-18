@@ -7,7 +7,10 @@ v5.11.0
 - Add parallel HDF5 mesh output (!2588)
 - Add Eigen value estimation to ConjGrad and GMRES (!2578)
 - Fix HDF5 thirdparty compilation with MPI (!2610)
+
+**Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)
+- Move using namespace std to avoid name clashes (!2618)
 
 v5.10.0
 -------

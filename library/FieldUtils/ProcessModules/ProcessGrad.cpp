@@ -34,7 +34,6 @@
 
 #include <iostream>
 #include <string>
-using namespace std;
 
 #include <GlobalMapping/Mapping.h>
 #include <LibUtilities/BasicUtils/ParseUtils.h>
@@ -42,6 +41,8 @@ using namespace std;
 
 #include "ProcessGrad.h"
 #include "ProcessMapping.h"
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

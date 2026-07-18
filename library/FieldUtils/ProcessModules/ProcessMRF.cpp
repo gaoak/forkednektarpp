@@ -34,11 +34,12 @@
 
 #include <iostream>
 #include <string>
-using namespace std;
 
 #include "ProcessMRF.h"
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

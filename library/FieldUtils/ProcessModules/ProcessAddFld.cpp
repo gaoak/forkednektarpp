@@ -34,11 +34,12 @@
 
 #include <iostream>
 #include <string>
-using namespace std;
 
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 
 #include "ProcessAddFld.h"
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

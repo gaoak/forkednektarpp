@@ -34,12 +34,13 @@
 
 #include <iostream>
 #include <string>
-using namespace std;
 
 #include <GlobalMapping/Deform.h>
 #include <MultiRegions/ExpList.h>
 
 #include "ProcessDeform.h"
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {
