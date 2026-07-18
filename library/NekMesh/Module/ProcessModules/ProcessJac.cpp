@@ -36,8 +36,6 @@
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <NekMesh/MeshElements/Element.h>
 
-using namespace Nektar::NekMesh;
-
 namespace Nektar::NekMesh
 {
 

@@ -34,9 +34,10 @@
 
 #include <iostream>
 #include <string>
-using namespace std;
 
 #include "ProcessSurfDistance.h"
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

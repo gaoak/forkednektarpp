@@ -32,14 +32,16 @@
 //  quadrature points and project to a fld file
 //
 ////////////////////////////////////////////////////////////////////////////////
+
 #include <iostream>
 #include <string>
-using namespace std;
 
 #include "ProcessPointDataToFld.h"
 #include <LibUtilities/BasicUtils/CsvIO.h>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <cmath>
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

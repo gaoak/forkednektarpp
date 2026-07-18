@@ -35,9 +35,10 @@
 #include <SpatialDomains/MeshGraphIO.h>
 #include <set>
 #include <string>
-using namespace std;
 
 #include "OutputXml.h"
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

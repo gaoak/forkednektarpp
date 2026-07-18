@@ -32,13 +32,13 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <boost/format.hpp>
 #include <set>
 #include <string>
-using namespace std;
-
-#include <boost/format.hpp>
 
 #include "OutputStdOut.h"
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

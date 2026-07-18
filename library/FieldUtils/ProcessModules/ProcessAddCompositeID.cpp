@@ -35,11 +35,12 @@
 #include <algorithm>
 #include <iostream>
 #include <string>
-using namespace std;
 
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 
 #include "ProcessAddCompositeID.h"
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

@@ -32,14 +32,16 @@
 //  existing variable
 //
 ///////////////////////////////////////////////////////////////////////////////
+
 #include <iostream>
 #include <string>
-using namespace std;
 
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 
 #include "ProcessFieldFromString.h"
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

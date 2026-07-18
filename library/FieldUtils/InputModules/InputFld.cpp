@@ -34,10 +34,10 @@
 
 #include <iostream>
 #include <string>
-using namespace std;
 
 #include "InputFld.h"
-using namespace Nektar;
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

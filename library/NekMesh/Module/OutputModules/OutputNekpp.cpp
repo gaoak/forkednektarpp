@@ -36,8 +36,6 @@
 #include <string>
 #include <thread>
 
-using namespace std;
-
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/split.hpp>
@@ -57,7 +55,8 @@ namespace io = boost::iostreams;
 
 #include "OutputNekpp.h"
 
-using namespace Nektar::NekMesh;
+using namespace std;
+
 using namespace Nektar::SpatialDomains;
 
 namespace Nektar::NekMesh

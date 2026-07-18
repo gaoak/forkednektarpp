@@ -42,7 +42,6 @@
 #include "InputStarTec.h"
 
 using namespace std;
-using namespace Nektar::NekMesh;
 namespace io = boost::iostreams;
 
 namespace Nektar::NekMesh

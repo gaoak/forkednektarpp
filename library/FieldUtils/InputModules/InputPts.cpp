@@ -34,7 +34,6 @@
 
 #include <iostream>
 #include <string>
-using namespace std;
 
 #include <LibUtilities/BasicUtils/CsvIO.h>
 #include <LibUtilities/BasicUtils/PtsField.h>
@@ -43,6 +42,8 @@ using namespace std;
 #include <tinyxml.h>
 
 #include "InputPts.h"
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

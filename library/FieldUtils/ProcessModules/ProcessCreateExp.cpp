@@ -34,12 +34,13 @@
 
 #include <iostream>
 #include <string>
-using namespace std;
 
 #include "ProcessCreateExp.h"
 
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

@@ -40,7 +40,6 @@
 #include <NekMesh/CADSystem/CFI/CADSurfCFI.h>
 
 using namespace std;
-using namespace Nektar::NekMesh;
 using namespace Nektar::SpatialDomains;
 
 namespace Nektar
