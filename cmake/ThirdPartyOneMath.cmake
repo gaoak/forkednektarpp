@@ -40,6 +40,9 @@ ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR NEKTAR_ENABLE_DEVICE STREQU
         THIRDPARTY_LIBRARY(ONEMATH_LIBRARY SHARED onemath DESCRIPTION "OneMath library")
         IF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA")
             FIND_PACKAGE(CUDAToolkit REQUIRED)
+            IF("${OPENCL_INCLUDE_DIR}" STREQUAL "")
+                SET(OPENCL_INCLUDE_DIR "/usr/include")
+            ENDIF()
             EXTERNALPROJECT_ADD(
                     onemath-v0.9
                     PREFIX ${TPSRC}
@@ -58,6 +61,7 @@ ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR NEKTAR_ENABLE_DEVICE STREQU
                         -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
                         -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
                         -DCUDA_CUDA_LIBRARY=${CUDAToolkit_LIBRARY_DIR}/stubs/libcuda.so
+                        -DOPENCL_INCLUDE_DIR=${OPENCL_INCLUDE_DIR}
                         -DAdaptiveCpp_DIR=${AdaptiveCpp_DIR}
                         -DONEMATH_SYCL_IMPLEMENTATION=${ONEMATH_SYCL_IMPLEMENTATION}
                         -DENABLE_GENERIC_BLAS_BACKEND=OFF

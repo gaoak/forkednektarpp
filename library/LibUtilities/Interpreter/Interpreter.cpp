@@ -43,7 +43,9 @@
 #include <boost/spirit/include/classic_symbols.hpp>
 
 #include <boost/algorithm/string/trim.hpp>
+#if defined(__APPLE__)
 #include <boost/math/special_functions/bessel.hpp>
+#endif
 
 namespace bsp = boost::spirit::classic;
 
@@ -116,37 +118,38 @@ static struct functions : bsp::symbols<func>
 {
     functions()
     {
+        // clang-format off
         // Add all of the functions from math.h
-        add("abs", std::abs) // absolute value
-            ("asin", asin)   // arcsin
-            ("acos", acos)   // arccos
-            ("atan", atan)   // arctan
-            ("atan2", atan2) // arctan2
+        add("abs", +[](double x) -> double { return std::abs(x); }) // absolute value
+            ("asin", +[](double x) -> double { return std::asin(x); })   // arcsin
+            ("acos", +[](double x) -> double { return std::acos(x); })   // arccos
+            ("atan", +[](double x) -> double { return std::atan(x); })   // arctan
+            ("atan2", +[](double x, double y) -> double { return std::atan2(x, y); }) // arctan2
             ("ang", ang)     // angle calculation
-            ("ceil", ceil)   // ceiling
-            ("cos", cos)     // cosine
-            ("cosh", cosh)   // hyperbolic cosine
-            ("exp", exp)     // exponential
-            ("fabs", fabs)   // absolute value
-            ("floor", floor) // floor
-            ("fmax", fmax)   // max function
-            ("fmin", fmin)   // min function
-            ("fmod", static_cast<double (*)(double, double)>(
-                         &fmod)) // floating-point remainder
-            ("log", log)         // natural log
-            ("log10", log10)     // log base 10
-            ("max", fmax)        // max function
-            ("min", fmin)        // min function
+            ("ceil", +[](double x) -> double { return std::ceil(x); })   // ceiling
+            ("cos", +[](double x) -> double { return std::cos(x); })     // cosine
+            ("cosh", +[](double x) -> double { return std::cosh(x); })   // hyperbolic cosine
+            ("exp", +[](double x) -> double { return std::exp(x); })     // exponential
+            ("fabs", +[](double x) -> double { return std::fabs(x); })   // absolute value
+            ("floor", +[](double x) -> double { return std::floor(x); }) // floor
+            ("fmax", +[](double x, double y) -> double { return std::fmax(x, y); })   // max function
+            ("fmin", +[](double x, double y) -> double { return std::fmin(x, y); })   // min function
+            ("fmod", +[](double x, double y) -> double { return std::fmod(x, y); }) // floating-point remainder
+            ("log", +[](double x) -> double { return std::log(x); })         // natural log
+            ("log10", +[](double x) -> double { return std::log10(x); })     // log base 10
+            ("max", +[](double x, double y) -> double { return std::fmax(x, y); })        // max function
+            ("min", +[](double x, double y) -> double { return std::fmin(x, y); })        // min function
             ("rad", rad)         // radians
-            ("sin", sin)         // sine
-            ("sinh", sinh)       // hyperbolic sine
-            ("sqrt", sqrt)       // square root
-            ("tan", tan)         // tangent
-            ("tanh", tanh)       // hyperbolic tangent
+            ("sin", +[](double x) -> double { return std::sin(x); })         // sine
+            ("sinh", +[](double x) -> double { return std::sinh(x); })       // hyperbolic sine
+            ("sqrt", +[](double x) -> double { return std::sqrt(x); })       // square root
+            ("tan", +[](double x) -> double { return std::tan(x); })         // tangent
+            ("tanh", +[](double x) -> double { return std::tanh(x); })       // hyperbolic tangent
             // and few more custom functions
             ("sign", sign) // sign
             ("awgn", awgn) // white noise
             ;
+        // clang-format on
     }
 } functions_p;
 
@@ -237,31 +240,37 @@ public:
         m_functionMapNameToInstanceType["sign"]   = E_SIGN;
         m_functionMapNameToInstanceType["awgn"]   = E_AWGN;
 
-        m_function[E_ABS]     = std::abs;
-        m_function[E_ASIN]    = asin;
-        m_function[E_ACOS]    = acos;
-        m_function[E_ATAN]    = atan;
-        m_function[E_CEIL]    = ceil;
-        m_function[E_COS]     = cos;
-        m_function[E_COSH]    = cosh;
-        m_function[E_EXP]     = exp;
-        m_function[E_FABS]    = fabs;
-        m_function[E_FLOOR]   = floor;
-        m_function[E_LOG]     = log;
-        m_function[E_LOG10]   = log10;
-        m_function2[E_MAX]    = fmax;
-        m_function2[E_MIN]    = fmin;
-        m_function[E_SIN]     = sin;
-        m_function[E_SINH]    = sinh;
-        m_function[E_SQRT]    = sqrt;
-        m_function[E_TAN]     = tan;
-        m_function[E_TANH]    = tanh;
+        // clang-format off
+        m_function[E_ABS]     = [](double x) -> double { return std::abs(x); };
+        m_function[E_ASIN]    = [](double x) -> double { return std::asin(x); };
+        m_function[E_ACOS]    = [](double x) -> double { return std::acos(x); };
+        m_function[E_ATAN]    = [](double x) -> double { return std::atan(x); };
+        m_function[E_CEIL]    = [](double x) -> double { return std::ceil(x); };
+        m_function[E_COS]     = [](double x) -> double { return std::cos(x); };
+        m_function[E_COSH]    = [](double x) -> double { return std::cosh(x); };
+        m_function[E_EXP]     = [](double x) -> double { return std::exp(x); };
+        m_function[E_FABS]    = [](double x) -> double { return std::fabs(x); };
+        m_function[E_FLOOR]   = [](double x) -> double { return std::floor(x); };
+        m_function[E_LOG]     = [](double x) -> double { return std::log(x); };
+        m_function[E_LOG10]   = [](double x) -> double { return std::log10(x); };
+        m_function2[E_MAX]    = [](double x, double y) -> double { return std::fmax(x, y); };
+        m_function2[E_MIN]    = [](double x, double y) -> double { return std::fmin(x, y); };
+        m_function[E_SIN]     = [](double x) -> double { return std::sin(x); };
+        m_function[E_SINH]    = [](double x) -> double { return std::sinh(x); };
+        m_function[E_SQRT]    = [](double x) -> double { return std::sqrt(x); };
+        m_function[E_TAN]     = [](double x) -> double { return std::tan(x); };
+        m_function[E_TANH]    = [](double x) -> double { return std::tanh(x); };
         m_function[E_SIGN]    = sign;
-        m_function2[E_ATAN2]  = atan2;
+        m_function2[E_ATAN2]  = [](double x, double y) -> double { return std::atan2(x, y); };
         m_function2[E_ANG]    = ang;
         m_function2[E_RAD]    = rad;
+#if defined(__APPLE__)
         m_function2[E_BESSEL] = boost::math::cyl_bessel_j;
-        m_function2[E_FMOD]   = static_cast<double (*)(double, double)>(&fmod);
+#else
+        m_function2[E_BESSEL] = [](double x, double y) -> double { return std::cyl_bessel_j(x, y); };
+#endif
+        m_function2[E_FMOD]   = [](double x, double y) -> double { return std::fmod(x, y); };
+        // clang-format on
 
         // Note that there is no entry in m_function that corresponds to the
         // awgn function. This is intentional as this function need not be
@@ -1858,14 +1867,23 @@ private:
         {
             for (int i = 0; i < n; i++)
             {
+#if defined(__APPLE__)
                 state[storeIdx * n + i] = boost::math::cyl_bessel_j(
                     state[argIdx1 * n + i], state[argIdx2 * n + i]);
+#else
+                state[storeIdx * n + i] = std::cyl_bessel_j(
+                    state[argIdx1 * n + i], state[argIdx2 * n + i]);
+#endif
             }
         }
         void run_once() override
         {
+#if defined(__APPLE__)
             state[storeIdx] =
                 boost::math::cyl_bessel_j(state[argIdx1], state[argIdx2]);
+#else
+            state[storeIdx] = std::cyl_bessel_j(state[argIdx1], state[argIdx2]);
+#endif
         }
     };
     struct EvalCeil : public EvaluationStep
