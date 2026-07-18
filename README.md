@@ -57,7 +57,7 @@ For more detailed operating-system specific instructions, please see the
 User Guide.
 
 
-Redesign
+Device Support
 -----------
 A minimalist compilation command example is shown below for each available backend:
 
@@ -176,6 +176,20 @@ cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
          -DCMAKE_C_COMPILER=mpicc \
          -DCMAKE_CXX_COMPILER=mpicxx 
 ```
+
+- See [guideline](https://github.com/AdaptiveCpp/AdaptiveCpp/blob/develop/doc/installing.md) for instructions to compile AdpativeCpp. An example of configuration is provided below:
+
+```
+cmake .. -DWITH_CUDA_BACKEND=ON \
+         -DWITH_OPENCL_BACKEND=OFF \
+         -DWITH_ROCM_BACKEND=OFF \
+         -DWITH_SSCP_COMPILER=ON \
+         -DCMAKE_C_COMPILER=clang \
+         -DWITH_LEVEL_ZERO_BACKEND=OFF \
+         -DCMAKE_CXX_EXTENSIONS=OFF \
+         -DCMAKE_INSTALL_PREFIX=./
+```
+
 
 ### AdaptiveCpp SYCL (HIP)
 ```
