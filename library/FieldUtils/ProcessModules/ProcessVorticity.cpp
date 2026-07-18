@@ -34,13 +34,14 @@
 
 #include <iostream>
 #include <string>
-using namespace std;
 
 #include <GlobalMapping/Mapping.h>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 
 #include "ProcessMapping.h"
 #include "ProcessVorticity.h"
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

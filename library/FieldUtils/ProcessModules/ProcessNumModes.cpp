@@ -34,12 +34,13 @@
 
 #include <iostream>
 #include <string>
-using namespace std;
 
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <StdRegions/StdQuadExp.h>
 
 #include "ProcessNumModes.h"
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

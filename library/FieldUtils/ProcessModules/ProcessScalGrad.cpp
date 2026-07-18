@@ -34,12 +34,13 @@
 
 #include <iostream>
 #include <string>
-using namespace std;
 
 #include "ProcessScalGrad.h"
 
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <MultiRegions/ExpList.h>
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

@@ -36,7 +36,6 @@
 #include <NekMesh/MeshElements/Element.h>
 
 using namespace std;
-using namespace Nektar::NekMesh;
 
 namespace Nektar::NekMesh
 {

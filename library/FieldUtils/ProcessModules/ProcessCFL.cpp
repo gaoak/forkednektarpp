@@ -36,13 +36,14 @@
 
 #include <iostream>
 #include <string>
-using namespace std;
 
 #include <GlobalMapping/Mapping.h>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 
 #include "ProcessCFL.h"
 #include "ProcessMapping.h"
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

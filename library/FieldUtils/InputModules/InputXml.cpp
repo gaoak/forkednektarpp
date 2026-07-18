@@ -35,14 +35,14 @@
 #include <iomanip>
 #include <iostream>
 #include <string>
-using namespace std;
 
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
 #include "InputXml.h"
-using namespace Nektar;
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

@@ -35,12 +35,13 @@
 #include <iomanip>
 #include <set>
 #include <string>
-using namespace std;
 
 #include <LibUtilities/BasicUtils/PtsField.h>
 #include <LibUtilities/BasicUtils/PtsIO.h>
 
 #include "OutputTecplot.h"
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

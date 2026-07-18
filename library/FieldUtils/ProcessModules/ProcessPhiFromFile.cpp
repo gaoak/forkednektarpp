@@ -36,7 +36,6 @@
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 
-using namespace Nektar;
 using namespace std;
 
 namespace Nektar::FieldUtils

@@ -33,13 +33,14 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <iomanip>
-using namespace std;
 
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
 #include <MultiRegions/ExpList3DHomogeneous1D.h>
 #include <SolverUtils/Filters/FilterLagrangianPoints.h>
 #include <boost/format.hpp>
+
+using namespace std;
 
 namespace Nektar::SolverUtils
 {

@@ -39,11 +39,12 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-using namespace std;
 
 #include "InputCGNS.h"
 #include <NekMesh/MeshElements/Element.h>
 #include <SpatialDomains/MeshGraphIO.h>
+
+using namespace std;
 
 namespace Nektar::NekMesh
 {

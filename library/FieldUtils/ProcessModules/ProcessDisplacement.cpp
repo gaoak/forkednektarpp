@@ -34,7 +34,6 @@
 
 #include <iostream>
 #include <string>
-using namespace std;
 
 #include "ProcessDisplacement.h"
 
@@ -46,6 +45,8 @@ using namespace std;
 #include <StdRegions/StdQuadExp.h>
 #include <StdRegions/StdSegExp.h>
 #include <StdRegions/StdTriExp.h>
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

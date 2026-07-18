@@ -31,9 +31,9 @@
 //  Description: Set up fields as interpolation to equispaced output
 //
 ////////////////////////////////////////////////////////////////////////////////
+
 #include <iostream>
 #include <string>
-using namespace std;
 
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Foundations/Interp.h>
@@ -41,6 +41,8 @@ using namespace std;
 #include <StdRegions/StdTriExp.h>
 
 #include "ProcessEquiSpacedOutput.h"
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

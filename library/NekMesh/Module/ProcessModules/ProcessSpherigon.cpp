@@ -53,7 +53,6 @@ namespace bg  = boost::geometry;
 namespace bgi = boost::geometry::index;
 
 using namespace std;
-using namespace Nektar::NekMesh;
 
 #define TOL_BLEND 1.0e-8
 

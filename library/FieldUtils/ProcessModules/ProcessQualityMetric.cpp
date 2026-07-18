@@ -34,7 +34,6 @@
 
 #include <iostream>
 #include <string>
-using namespace std;
 
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Foundations/Interp.h>
@@ -45,6 +44,8 @@ using namespace std;
 #include <StdRegions/StdTriExp.h>
 
 #include "ProcessQualityMetric.h"
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

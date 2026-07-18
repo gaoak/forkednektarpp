@@ -34,13 +34,14 @@
 
 #include <set>
 #include <string>
-using namespace std;
 
 #include <boost/format.hpp>
 
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
 
 #include "OutputFld.h"
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {
