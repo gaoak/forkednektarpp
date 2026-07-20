@@ -28,6 +28,7 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
         ./EquationSystems/SubSteppingExtrapolateWeakPressure.cpp
         ./EquationSystems/WeakPressureExtrapolate.cpp
         ./EquationSystems/ImplicitExtrapolate.cpp
+        ./EquationSystems/VCSQuasiStaticMHD.cpp
         ./AdvectionTerms/AdjointAdvection.cpp
         ./AdvectionTerms/LinearisedAdvection.cpp
         ./AdvectionTerms/NavierStokesAdvection.cpp
@@ -40,6 +41,7 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
         ./Forcing/ForcingIncNSSyntheticEddy.cpp
         ./Forcing/ForcingMovingBody.cpp
         ./Forcing/ForcingStabilityCoupledLNS.cpp
+        ./Forcing/ForcingLorentz.cpp
         ./BoundaryConditions/IncBoundaryConditions.cpp
         ./BoundaryConditions/IncBaseCondition.cpp
         ./BoundaryConditions/MRFFar.cpp
@@ -75,12 +77,14 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
             EquationSystems/VelocityCorrectionSchemeImplicit.h
             EquationSystems/VelocityCorrectionSchemeWeakPressure.h
             EquationSystems/WeakPressureExtrapolate.h
+            EquationSystems/VCSQuasiStaticMHD.h
             Filters/FilterAeroForcesSPM.h
             Filters/FilterMovingBody.h
             Filters/FilterReynoldsStresses.h
             Forcing/ForcingIncNSSyntheticEddy.h
             Forcing/ForcingMovingBody.h
             Forcing/ForcingStabilityCoupledLNS.h
+            Forcing/ForcingLorentz.h
             BoundaryConditions/IncBoundaryConditions.h
             BoundaryConditions/IncBaseCondition.h
             BoundaryConditions/MRFFar.h

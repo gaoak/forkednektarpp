@@ -80,8 +80,9 @@ void VelocityCorrectionScheme::v_InitObject(bool DeclareField)
     // Set m_pressure to point to last field of m_fields;
     if (boost::iequals(m_session->GetVariable(m_fields.size() - 1), "p"))
     {
-        m_nConvectiveFields = m_fields.size() - 1;
-        m_pressure          = m_fields[m_nConvectiveFields];
+        m_session->LoadParameter("numConvectiveFields", m_nConvectiveFields,
+                                 m_fields.size() - 1);
+        m_pressure = m_fields[m_fields.size() - 1];
     }
     else
     {
