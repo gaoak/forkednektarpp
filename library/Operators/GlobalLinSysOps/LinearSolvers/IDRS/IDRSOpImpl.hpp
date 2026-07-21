@@ -159,14 +159,11 @@ protected:
                         pblk.template GetPtr<MemSpace, ReadWrite>(streamID);
                     auto numComp = pblk.GetNumComponents();
 
-                    for (unsigned nc = 0; nc < numComp; ++nc)
-                    {
-                        ReshapeStorage<ExecSpace>(
-                            inblk.GetInterleaveWidth(),
-                            pblk.GetInterleaveWidth(),
-                            pblk.GetNumElementsWithPadding(), pblk.GetNumData(),
-                            ptr + nc * pblk.CompSize(), streamID);
-                    }
+                    ReshapeStorage<ExecSpace>(
+                        inblk.GetInterleaveWidth(), pblk.GetInterleaveWidth(),
+                        pblk.GetNumElementsWithPadding() * numComp,
+                        pblk.GetNumData(), ptr, streamID);
+
                     pblk.template SetInterleaveWidth<TData>(
                         inblk.GetInterleaveWidth());
                 }

@@ -686,12 +686,10 @@ protected:
 
             // if block is interlaced deInterleave block since currently mapping
             // set up assuming serial alignment
-            for (unsigned nc = 0; nc < inout.GetNumComponents(); ++nc)
-            {
-                ReshapeStorage<ExecSpace>(
-                    1u, inoutWidth, inoutBlk.GetNumElementsWithPadding(),
-                    inoutBlk.GetNumData(), inoutPtr + nc * blksize, streamID);
-            }
+            ReshapeStorage<ExecSpace>(
+                1u, inoutWidth,
+                inoutBlk.GetNumElementsWithPadding() * inout.GetNumComponents(),
+                inoutBlk.GetNumData(), inoutPtr, streamID);
 
             auto mapPtrBlock =
                 m_map[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
@@ -879,16 +877,13 @@ protected:
             // Initialize pointers.
             auto inoutPtr =
                 inoutBlk.template GetPtr<MemSpace, ReadWrite>(streamID);
-            auto inoutWidth  = inoutBlk.GetInterleaveWidth();
-            unsigned blksize = inoutBlk.CompSize();
+            auto inoutWidth = inoutBlk.GetInterleaveWidth();
 
             // Reshape back, if necessary.
-            for (unsigned nc = 0; nc < inout.GetNumComponents(); ++nc)
-            {
-                ReshapeStorage<ExecSpace>(
-                    inoutWidth, 1u, inoutBlk.GetNumElementsWithPadding(),
-                    inoutBlk.GetNumData(), inoutPtr + nc * blksize, streamID);
-            }
+            ReshapeStorage<ExecSpace>(
+                inoutWidth, 1u,
+                inoutBlk.GetNumElementsWithPadding() * inout.GetNumComponents(),
+                inoutBlk.GetNumData(), inoutPtr, streamID);
         }
     }
 };

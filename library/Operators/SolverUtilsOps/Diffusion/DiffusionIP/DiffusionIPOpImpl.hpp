@@ -195,19 +195,13 @@ protected:
             auto &outblock = out.GetBlocks()[blk];
             auto outptr =
                 outblock.template GetPtr<MemSpace, WriteOnly>(streamID);
-            // Loop over components.
-            for (unsigned int n = 0;
-                 n < outblock.GetNumComponents() * outblock.GetNumHomoModes();
-                 ++n)
-            {
-                // Reshape, if necessary.
-                ReshapeStorage<ExecSpace>(
-                    m_implInterleaveWidth, outblock.GetInterleaveWidth(),
-                    outblock.GetNumElementsWithPadding(), outblock.GetNumData(),
-                    (TData *)outptr, streamID);
-                // Increment pointers.
-                outptr += outblock.CompSize();
-            }
+
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, outblock.GetInterleaveWidth(),
+                outblock.GetNumElementsWithPadding() *
+                    outblock.GetNumComponents() * outblock.GetNumHomoModes(),
+                outblock.GetNumData(), (TData *)outptr, streamID);
 
             // Set output block to new interleave.
             outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);

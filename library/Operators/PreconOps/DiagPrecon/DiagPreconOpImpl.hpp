@@ -108,22 +108,21 @@ protected:
 
             // Reshape, if necessary.
             auto in_width = inblock.GetInterleaveWidth();
+            const unsigned int nComp =
+                inblock.GetNumComponents() * inblock.GetNumHomoModes();
             if (in_width != diagblock.GetInterleaveWidth())
             {
                 ReshapeStorage<ExecSpace>(
                     in_width, diagblock.GetInterleaveWidth(),
-                    diagblock.GetNumElementsWithPadding(),
+                    diagblock.GetNumElementsWithPadding() * nComp,
                     diagblock.GetNumData(), (TData *)diagPtr, streamID);
             }
 
             // Apply diagonal preconditioner.
             auto blkSize =
                 outblock.GetNumElementsWithPadding() * outblock.GetNumData();
-            for (auto n = 0; n < outblock.GetNumComponents(); ++n)
-            {
-                mulKernel<ExecSpace>(blkSize, diagPtr, inPtr + n * blkSize,
-                                     outPtr + n * blkSize, streamID);
-            }
+            mulKernel<ExecSpace>(blkSize * nComp, diagPtr, inPtr, outPtr,
+                                 streamID);
 
             // Set output block to input interleave.
             outblock.template SetInterleaveWidth<TData>(in_width);

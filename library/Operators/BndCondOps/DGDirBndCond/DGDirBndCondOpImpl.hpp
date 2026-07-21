@@ -417,13 +417,11 @@ protected:
             unsigned blksize = inoutBlk.CompSize();
             if (inoutWidth != 1)
             {
-                for (unsigned nc = 0; nc < inout.GetNumComponents(); ++nc)
-                {
-                    ReshapeStorage<ExecSpace>(
-                        1u, inoutWidth, inoutBlk.GetNumElementsWithPadding(),
-                        inoutBlk.GetNumData(), inoutPtr + nc * blksize,
-                        streamID);
-                }
+                ReshapeStorage<ExecSpace>(1u, inoutWidth,
+                                          inoutBlk.GetNumElementsWithPadding() *
+                                              inout.GetNumComponents(),
+                                          inoutBlk.GetNumData(), inoutPtr,
+                                          streamID);
                 inoutBlk.template SetInterleaveWidth<TData>(1);
             }
 

@@ -164,15 +164,10 @@ protected:
                     maskblk.template GetPtr<MemSpace, ReadWrite>(streamID);
                 auto numComp = maskblk.GetNumComponents();
 
-                for (unsigned nc = 0; nc < numComp; ++nc)
-                {
-                    ReshapeStorage<ExecSpace>(
-                        inblk.GetInterleaveWidth(),
-                        maskblk.GetInterleaveWidth(),
-                        maskblk.GetNumElementsWithPadding(),
-                        maskblk.GetNumData(), maskPtr + nc * maskblk.CompSize(),
-                        streamID);
-                }
+                ReshapeStorage<ExecSpace>(
+                    inblk.GetInterleaveWidth(), maskblk.GetInterleaveWidth(),
+                    maskblk.GetNumElementsWithPadding() * numComp,
+                    maskblk.GetNumData(), maskPtr, streamID);
                 maskblk.template SetInterleaveWidth<TData>(
                     inblk.GetInterleaveWidth());
             }

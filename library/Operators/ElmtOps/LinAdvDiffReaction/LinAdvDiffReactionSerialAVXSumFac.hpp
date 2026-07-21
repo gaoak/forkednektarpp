@@ -320,13 +320,10 @@ protected:
     {
         const auto interleaveWidth = advVel.GetInterleaveWidth();
         this->m_advVel = advVel.template GetPtr<MemSpace, ReadWrite>();
-        for (unsigned int n = 0; n < this->m_exp->GetCoordim(); n++)
-        {
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                      advVel.GetNumElementsWithPadding(),
-                                      advVel.GetNumData(),
-                                      this->m_advVel + n * advVel.CompSize());
-        }
+        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                  advVel.GetNumElementsWithPadding() *
+                                      this->m_exp->GetCoordim(),
+                                  advVel.GetNumData(), this->m_advVel);
         advVel.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
