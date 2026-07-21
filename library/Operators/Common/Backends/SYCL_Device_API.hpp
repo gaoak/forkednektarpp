@@ -678,7 +678,12 @@ NEK_DEVICE_INLINE static unsigned int warpBallot(
 template <int ndim>
 NEK_DEVICE_INLINE void localBarrier(const sycl::nd_item<ndim> &threadBlock)
 {
+#if defined(__ADAPTIVECPP__)
     threadBlock.barrier(sycl::access::fence_space::local_space);
+#else
+    sycl::group_barrier(threadBlock.get_group(),
+                        sycl::memory_scope::work_group);
+#endif
 }
 
 template <int ndim>

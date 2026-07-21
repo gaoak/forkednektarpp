@@ -80,11 +80,13 @@ static void inline setSYCLDefaultExecutionDependency(
                                       STREAMID, ...)                           \
     {                                                                          \
         sycl::queue &Q = SYCLQueue::GetInstance(STREAMID);                     \
-        auto args      = std::make_tuple(__VA_ARGS__);                         \
+        const auto syclSHMEMSIZE = SHMEMSIZE;                                  \
+        const auto syclSTREAMID  = STREAMID;                                   \
+        const auto args = std::make_tuple(__VA_ARGS__);                        \
         sycl::event e = Q.submit([=](sycl::handler &cgh) {                     \
-            setSYCLDefaultExecutionDependency(STREAMID, cgh);                  \
+            setSYCLDefaultExecutionDependency(syclSTREAMID, cgh);              \
             sycl::local_accessor<unsigned char, 1> shmem(                      \
-                sycl::range<1>(SHMEMSIZE), cgh);                               \
+                sycl::range<1>(syclSHMEMSIZE), cgh);                           \
             cgh.parallel_for(                                                  \
                 sycl::nd_range<1>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),            \
                 [=](sycl::nd_item<1> item_ct1) {                               \
@@ -115,13 +117,15 @@ static void inline setSYCLDefaultExecutionDependency(
                                       STREAMID, ...)                           \
     {                                                                          \
         sycl::queue &Q = SYCLQueue::GetInstance(STREAMID);                     \
-        auto args      = std::make_tuple(__VA_ARGS__);                         \
+        const auto syclSHMEMSIZE = SHMEMSIZE;                                  \
+        const auto syclSTREAMID  = STREAMID;                                   \
+        const auto args = std::make_tuple(__VA_ARGS__);                        \
         sycl::range<2> GRIDSIZE(GRIDSIZEY, GRIDSIZEX);                         \
         sycl::range<2> BLOCKSIZE(BLOCKSIZEY, BLOCKSIZEX);                      \
         sycl::event e = Q.submit([=](sycl::handler &cgh) {                     \
-            setSYCLDefaultExecutionDependency(STREAMID, cgh);                  \
+            setSYCLDefaultExecutionDependency(syclSTREAMID, cgh);              \
             sycl::local_accessor<unsigned char, 1> shmem(                      \
-                sycl::range<1>(SHMEMSIZE), cgh);                               \
+                sycl::range<1>(syclSHMEMSIZE), cgh);                           \
             cgh.parallel_for(                                                  \
                 sycl::nd_range<2>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),            \
                 [=](sycl::nd_item<2> item_ct1) {                               \
@@ -150,13 +154,15 @@ static void inline setSYCLDefaultExecutionDependency(
                                       SHMEMSIZE, STREAMID, ...)                \
     {                                                                          \
         sycl::queue &Q = SYCLQueue::GetInstance(STREAMID);                     \
-        auto args      = std::make_tuple(__VA_ARGS__);                         \
+        const auto syclSHMEMSIZE = SHMEMSIZE;                                  \
+        const auto syclSTREAMID  = STREAMID;                                   \
+        const auto args = std::make_tuple(__VA_ARGS__);                        \
         sycl::range<3> GRIDSIZE(GRIDSIZEZ, GRIDSIZEY, GRIDSIZEX);              \
         sycl::range<3> BLOCKSIZE(BLOCKSIZEZ, BLOCKSIZEY, BLOCKSIZEX);          \
         sycl::event e = Q.submit([=](sycl::handler &cgh) {                     \
-            setSYCLDefaultExecutionDependency(STREAMID, cgh);                  \
+            setSYCLDefaultExecutionDependency(syclSTREAMID, cgh);              \
             sycl::local_accessor<unsigned char, 1> shmem(                      \
-                sycl::range<1>(SHMEMSIZE), cgh);                               \
+                sycl::range<1>(syclSHMEMSIZE), cgh);                           \
             cgh.parallel_for(                                                  \
                 sycl::nd_range<3>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),            \
                 [=](sycl::nd_item<3> item_ct1) {                               \
@@ -183,9 +189,10 @@ static void inline setSYCLDefaultExecutionDependency(
                                               STREAMID, ...)                   \
     {                                                                          \
         sycl::queue &Q = SYCLQueue::GetInstance(STREAMID);                     \
-        auto args      = std::make_tuple(__VA_ARGS__);                         \
+        const auto syclSTREAMID = STREAMID;                                    \
+        const auto args = std::make_tuple(__VA_ARGS__);                        \
         sycl::event e = Q.submit([=](sycl::handler &cgh) {                     \
-            setSYCLDefaultExecutionDependency(STREAMID, cgh);                  \
+            setSYCLDefaultExecutionDependency(syclSTREAMID, cgh);              \
             cgh.parallel_for(                                                  \
                 sycl::nd_range<1>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),            \
                 [=](sycl::nd_item<1> item_ct1) {                               \
@@ -209,11 +216,12 @@ static void inline setSYCLDefaultExecutionDependency(
     KERNEL, GRIDSIZEX, GRIDSIZEY, BLOCKSIZEX, BLOCKSIZEY, STREAMID, ...)       \
     {                                                                          \
         sycl::queue &Q = SYCLQueue::GetInstance(STREAMID);                     \
-        auto args      = std::make_tuple(__VA_ARGS__);                         \
+        const auto syclSTREAMID = STREAMID;                                    \
+        const auto args = std::make_tuple(__VA_ARGS__);                        \
         sycl::range<2> GRIDSIZE(GRIDSIZEY, GRIDSIZEX);                         \
         sycl::range<2> BLOCKSIZE(BLOCKSIZEY, BLOCKSIZEX);                      \
         sycl::event e = Q.submit([=](sycl::handler &cgh) {                     \
-            setSYCLDefaultExecutionDependency(STREAMID, cgh);                  \
+            setSYCLDefaultExecutionDependency(syclSTREAMID, cgh);              \
             cgh.parallel_for(                                                  \
                 sycl::nd_range<2>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),            \
                 [=](sycl::nd_item<2> item_ct1) {                               \
@@ -238,11 +246,12 @@ static void inline setSYCLDefaultExecutionDependency(
     BLOCKSIZEZ, STREAMID, ...)                                                 \
     {                                                                          \
         sycl::queue &Q = SYCLQueue::GetInstance(STREAMID);                     \
-        auto args      = std::make_tuple(__VA_ARGS__);                         \
+        const auto syclSTREAMID = STREAMID;                                    \
+        const auto args = std::make_tuple(__VA_ARGS__);                        \
         sycl::range<3> GRIDSIZE(GRIDSIZEZ, GRIDSIZEY, GRIDSIZEX);              \
         sycl::range<3> BLOCKSIZE(BLOCKSIZEZ, BLOCKSIZEY, BLOCKSIZEX);          \
         sycl::event e = Q.submit([=](sycl::handler &cgh) {                     \
-            setSYCLDefaultExecutionDependency(STREAMID, cgh);                  \
+            setSYCLDefaultExecutionDependency(syclSTREAMID, cgh);              \
             cgh.parallel_for(                                                  \
                 sycl::nd_range<3>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),            \
                 [=](sycl::nd_item<3> item_ct1) {                               \

@@ -35,10 +35,10 @@
 #include "Operators/Common/Backends/SYCLQueue.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 
-#if __has_include("oneapi/math.hpp") && defined(__ADAPTIVECPP__)
+#if defined(NEKTAR_ENABLE_ONEMATH)
 #include "oneapi/math.hpp"
 using namespace oneapi::math;
-#elif __has_include("oneapi/mkl.hpp") && defined(__DPCPP_COMPILER)
+#elif defined(NEKTAR_ENABLE_ONEMKL)
 #include "oneapi/mkl.hpp"
 using namespace oneapi::mkl;
 #endif
@@ -78,8 +78,7 @@ NekGemm([[maybe_unused]] THandle handle, std::string transposeA,
         const TData beta, TData *c, const std::int64_t ldc)
 {
     sycl::queue &Q = handle.GetQueue();
-#if (__has_include("oneapi/mkl.hpp") && defined(__DPCPP_COMPILER)) ||          \
-     (__has_include("oneapi/math.hpp") && defined(__ADAPTIVECPP__))
+#if defined(NEKTAR_ENABLE_ONEMATH) || defined(NEKTAR_ENABLE_ONEMKL)
     auto transA   = (transposeA == "N") ? transpose::N : transpose::T;
     auto transB   = (transposeB == "N") ? transpose::N : transpose::T;
     sycl::event e = blas::column_major::gemm(
@@ -116,8 +115,7 @@ NekGemmStridedBatched([[maybe_unused]] THandle handle, std::string transposeA,
                       const std::int64_t strideC, const std::int64_t batchSize)
 {
     sycl::queue &Q = handle.GetQueue();
-#if (__has_include("oneapi/mkl.hpp") && defined(__DPCPP_COMPILER)) ||          \
-     (__has_include("oneapi/math.hpp") && defined(__ADAPTIVECPP__))
+#if defined(NEKTAR_ENABLE_ONEMATH) || defined(NEKTAR_ENABLE_ONEMKL)
     auto transA   = (transposeA == "N") ? transpose::N : transpose::T;
     auto transB   = (transposeB == "N") ? transpose::N : transpose::T;
     sycl::event e = blas::column_major::gemm_batch(
@@ -153,8 +151,7 @@ NekGemv([[maybe_unused]] THandle handle, std::string transpose,
         const std::int64_t incy)
 {
     sycl::queue &Q = handle.GetQueue();
-#if (__has_include("oneapi/mkl.hpp") && defined(__DPCPP_COMPILER)) ||          \
-     (__has_include("oneapi/math.hpp") && defined(__ADAPTIVECPP__))
+#if defined(NEKTAR_ENABLE_ONEMATH) || defined(NEKTAR_ENABLE_ONEMKL)
     auto trans    = (transpose == "N") ? transpose::N : transpose::T;
     sycl::event e = blas::column_major::gemv(
         Q, trans, M, N, alpha, a, lda, x, incx, beta, y, incy,
@@ -189,9 +186,8 @@ NekGemvStridedBatched([[maybe_unused]] THandle handle, std::string transpose,
                       const std::int64_t strideY, const std::int64_t batchSize)
 {
     sycl::queue &Q = handle.GetQueue();
-#if (__has_include("oneapi/mkl.hpp") && defined(__DPCPP_COMPILER)) ||          \
-     (__has_include("oneapi/math.hpp") && defined(__ADAPTIVECPP__))
-#if __has_include("oneapi/math.hpp")
+#if defined(NEKTAR_ENABLE_ONEMATH) || defined(NEKTAR_ENABLE_ONEMKL)
+#if defined(NEKTAR_ENABLE_ONEMATH)
     ASSERTL0(false, "gemv_batch not yet implemented in oneMath")
 #endif
     auto trans    = (transpose == "N") ? transpose::N : transpose::T;

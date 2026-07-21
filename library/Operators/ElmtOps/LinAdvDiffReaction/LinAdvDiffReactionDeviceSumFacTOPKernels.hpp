@@ -272,7 +272,7 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction2DSumFacTOPKernel(
             deriv + nqTot, deriv + 2 * nqTot, bwd, lambda, threadBlock);
         if constexpr (DEFORMED)
         {
-            TData dmetric[6];
+            TData dmetric[6] = {0.0};
             ApplyMetric2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                 ncoord, nq0, nq1, nqTot, w0, w1, f0, f1, dfptr, jacptr, coeff,
                 deriv, deriv0, deriv1, dmetric, bwd, (TData)1.0, threadBlock);
@@ -471,7 +471,7 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction3DSumFacTOPKernel(
                                       lambda, threadBlock);
         if constexpr (DEFORMED)
         {
-            TData dmetric[9];
+            TData dmetric[9] = {0.0};
             ApplyMetric3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                 nq0, nq1, nq2, nqTot, w0, w1, w2, f0, f1, f1m, f2, dfptr,
                 jacptr, coeff, deriv, deriv0, deriv1, deriv2, dmetric, bwd,

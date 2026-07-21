@@ -82,7 +82,12 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
                     buffer[indx.get_group(0)] = 0.0;
                 }
 
+#if defined(__ADAPTIVECPP__)
                 indx.barrier(sycl::access::fence_space::local_space);
+#else
+                sycl::group_barrier(indx.get_group(),
+                                    sycl::memory_scope::work_group);
+#endif
 
                 TData tmp = 0.0;
                 while (gid < end)
@@ -92,7 +97,12 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
                 }
                 scratch[lid] = tmp;
 
+#if defined(__ADAPTIVECPP__)
                 indx.barrier(sycl::access::fence_space::local_space);
+#else
+                sycl::group_barrier(indx.get_group(),
+                                    sycl::memory_scope::work_group);
+#endif
 
                 unsigned int n = NektarSpaces::Device::maximumBlockSize / 2;
                 while (n > 0)
@@ -101,7 +111,12 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
                     {
                         scratch[lid] += scratch[lid + n];
                     }
+#if defined(__ADAPTIVECPP__)
                     indx.barrier(sycl::access::fence_space::local_space);
+#else
+                    sycl::group_barrier(indx.get_group(),
+                                        sycl::memory_scope::work_group);
+#endif
                     n /= 2;
                 }
 
@@ -143,7 +158,12 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
                     buffer[indx.get_group(0)] = min;
                 }
 
+#if defined(__ADAPTIVECPP__)
                 indx.barrier(sycl::access::fence_space::local_space);
+#else
+                sycl::group_barrier(indx.get_group(),
+                                    sycl::memory_scope::work_group);
+#endif
 
                 TData tmp = min;
                 while (gid < end)
@@ -153,7 +173,12 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
                 }
                 scratch[lid] = tmp;
 
+#if defined(__ADAPTIVECPP__)
                 indx.barrier(sycl::access::fence_space::local_space);
+#else
+                sycl::group_barrier(indx.get_group(),
+                                    sycl::memory_scope::work_group);
+#endif
 
                 unsigned int n = NektarSpaces::Device::maximumBlockSize / 2;
                 while (n > 0)
@@ -163,7 +188,12 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
                         scratch[lid] =
                             sycl::fmax(scratch[lid], scratch[lid + n]);
                     }
+#if defined(__ADAPTIVECPP__)
                     indx.barrier(sycl::access::fence_space::local_space);
+#else
+                    sycl::group_barrier(indx.get_group(),
+                                        sycl::memory_scope::work_group);
+#endif
                     n /= 2;
                 }
 
@@ -205,7 +235,12 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
                     buffer[indx.get_group(0)] = max;
                 }
 
+#if defined(__ADAPTIVECPP__)
                 indx.barrier(sycl::access::fence_space::local_space);
+#else
+                sycl::group_barrier(indx.get_group(),
+                                    sycl::memory_scope::work_group);
+#endif
 
                 TData tmp = max;
                 while (gid < end)
@@ -215,7 +250,12 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
                 }
                 scratch[lid] = tmp;
 
+#if defined(__ADAPTIVECPP__)
                 indx.barrier(sycl::access::fence_space::local_space);
+#else
+                sycl::group_barrier(indx.get_group(),
+                                    sycl::memory_scope::work_group);
+#endif
 
                 unsigned int n = NektarSpaces::Device::maximumBlockSize / 2;
                 while (n > 0)
@@ -225,7 +265,12 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
                         scratch[lid] =
                             sycl::fmin(scratch[lid], scratch[lid + n]);
                     }
+#if defined(__ADAPTIVECPP__)
                     indx.barrier(sycl::access::fence_space::local_space);
+#else
+                    sycl::group_barrier(indx.get_group(),
+                                        sycl::memory_scope::work_group);
+#endif
                     n /= 2;
                 }
 
