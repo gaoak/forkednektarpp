@@ -9,7 +9,7 @@
 
     <CONDITIONS>
         <SOLVERINFO>
-            <I PROPERTY="SolverType" VALUE="VCSQuasiStaticMHD" />
+            <I PROPERTY="SolverType" VALUE="VelocityCorrectionScheme" />
             <I PROPERTY="EQTYPE" VALUE="UnsteadyNavierStokes" />
             <I PROPERTY="AdvectionForm" VALUE="Convective" />
             <I PROPERTY="Projection" VALUE="Galerkin" />
@@ -24,7 +24,6 @@
             <P> TimeStep                 = 0.001 </P>
             <P> NumSteps                 = 10    </P>
             <P> IO_InfoSteps             = 10    </P>
-            <P> IterativeSolverTolerance = 1e-10 </P>
             <P> Kinvis                   = 1.0   </P>
             <P> ElectricConductivity     = 1.0   </P>
             <P> numConvectiveFields      = 2     </P>

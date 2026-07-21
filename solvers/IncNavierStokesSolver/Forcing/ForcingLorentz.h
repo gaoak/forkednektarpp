@@ -36,7 +36,7 @@
 #ifndef NEKTAR_SOLVERUTILS_FORCINGLORENTZ
 #define NEKTAR_SOLVERUTILS_FORCINGLORENTZ
 
-#include <IncNavierStokesSolver/EquationSystems/VCSQuasiStaticMHD.h>
+#include <IncNavierStokesSolver/EquationSystems/VelocityCorrectionScheme.h>
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <MultiRegions/ExpList.h>
@@ -86,10 +86,6 @@ private:
 
     ~ForcingLorentz(void) override;
 
-    void CrossProduct(int N, const Array<OneD, Array<OneD, NekDouble>> &u,
-                      Array<OneD, NekDouble> B0,
-                      const Array<OneD, Array<OneD, NekDouble>> &outarray);
-
     // electric field
     Array<OneD, Array<OneD, NekDouble>> m_Efield;
     // external electric field
@@ -99,7 +95,7 @@ private:
     // electric conductivity
     NekDouble m_sigma;
     int m_spacedim;
-    VCSQuasiStaticMHDSharedPtr m_FluidEq;
+    VelocityCorrectionSchemeSharedPtr m_FluidEq;
 };
 
 } // namespace Nektar::SolverUtils

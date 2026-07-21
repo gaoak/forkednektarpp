@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test>
+    <description>Magnetohydrodynamic flow around a moving circular cylinder</description>
+    <executable>IncNavierStokesSolver</executable>
+    <parameters>FreeFallCyl.xml MHDMovingCylinder.xml</parameters>
+    <files>
+        <file description="Mesh File">FreeFallCyl.xml</file>
+        <file description="Session File">MHDMovingCylinder.xml</file>
+    </files>
+    <metrics>
+        <metric type="L2" id="1">
+            <value variable="u" tolerance="5e-4">0.00736798</value>
+            <value variable="v" tolerance="5e-4">0.00724864</value>
+            <value variable="phi" tolerance="1e-12">0</value>
+            <value variable="p" tolerance="5e-2">0.832004</value>
+        </metric>
+        <metric type="Linf" id="2">
+            <value variable="u" tolerance="2e-3">0.0107678</value>
+            <value variable="v" tolerance="5e-4">0.00911422</value>
+            <value variable="phi" tolerance="1e-12">0</value>
+            <value variable="p" tolerance="5e-2">0.332081</value>
+        </metric>
+    </metrics>
+</test>

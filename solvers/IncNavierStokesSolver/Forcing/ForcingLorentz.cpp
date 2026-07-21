@@ -89,7 +89,7 @@ void ForcingLorentz::v_InitObject(
     m_spacedim = expdim + (isH1d ? 1 : 0) + (isH2d ? 2 : 0);
     auto equ   = m_equ.lock();
     ASSERTL0(equ, "Weak pointer to the equation system is expired");
-    m_FluidEq = std::dynamic_pointer_cast<VCSQuasiStaticMHD>(equ);
+    m_FluidEq = std::dynamic_pointer_cast<VelocityCorrectionScheme>(equ);
     // read electric conductivity
     m_session->LoadParameter("ElectricConductivity", m_sigma, -1.);
     ASSERTL0(m_sigma > 0,

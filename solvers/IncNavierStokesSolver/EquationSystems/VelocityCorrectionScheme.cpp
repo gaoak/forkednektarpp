@@ -82,6 +82,12 @@ void VelocityCorrectionScheme::v_InitObject(bool DeclareField)
     {
         m_session->LoadParameter("numConvectiveFields", m_nConvectiveFields,
                                  m_fields.size() - 1);
+        if (DefinedForcing("ForcingLorentz"))
+        {
+            ASSERTL0(m_nConvectiveFields == m_fields.size() - 2,
+                     "Need to define electric potential field.");
+            m_epotential = m_fields[m_fields.size() - 2];
+        }
         m_pressure = m_fields[m_fields.size() - 1];
     }
     else
@@ -742,6 +748,10 @@ Array<OneD, bool> VelocityCorrectionScheme::v_GetSystemSingularChecks()
     int vVar = m_session->GetVariables().size();
     Array<OneD, bool> vChecks(vVar, false);
     vChecks[vVar - 1] = true;
+    if (DefinedForcing("ForcingLorentz"))
+    {
+        vChecks[vVar - 2] = true;
+    }
     return vChecks;
 }
 
@@ -1294,6 +1304,73 @@ void VelocityCorrectionScheme::AddMovingFrameDataToParams(
         if (std::fabs(movingFrameData[i]) != 0.0)
         {
             params[strFrameData[i]] = movingFrameData[i];
+        }
+    }
+}
+
+/**
+ * Solve total electric field
+ */
+void VelocityCorrectionScheme::SolveEfield(
+    const Array<OneD, Array<OneD, NekDouble>> &movEfield,
+    Array<OneD, Array<OneD, NekDouble>> &totEfield)
+{
+    SetEPInsulatorBCs(movEfield);
+    int physTot = m_fields[0]->GetTotPoints();
+    m_fields[0]->PhysDeriv(MultiRegions::eX, movEfield[0], m_F[0]);
+    for (size_t i = 1; i < m_spacedim; ++i)
+    {
+        // Use Forcing[1] as storage since it is not needed for the pressure
+        m_fields[i]->PhysDeriv(MultiRegions::DirCartesianMap[i], movEfield[i],
+                               m_F[1]);
+        Vmath::Vadd(physTot, m_F[1], 1, m_F[0], 1, m_F[0], 1);
+    }
+    StdRegions::ConstFactorMap factors;
+    // Setup coefficient for equation
+    factors[StdRegions::eFactorLambda] = 0.0;
+
+    // Solver electric potential Poisson Equation
+    m_epotential->HelmSolve(m_F[0], m_epotential->UpdateCoeffs(), factors);
+    m_epotential->BwdTrans(m_epotential->GetCoeffs(),
+                           m_epotential->UpdatePhys());
+    if (m_spacedim == 2)
+    {
+        m_epotential->PhysDeriv(m_epotential->GetPhys(), m_F[0], m_F[1]);
+    }
+    else if (m_spacedim == 3)
+    {
+        m_epotential->PhysDeriv(m_epotential->GetPhys(), m_F[0], m_F[1],
+                                m_F[2]);
+    }
+    for (size_t i = 0; i < m_spacedim; ++i)
+    {
+        Vmath::Vsub(physTot, movEfield[i], 1, m_F[i], 1, totEfield[i], 1);
+    }
+}
+
+void VelocityCorrectionScheme::SetEPInsulatorBCs(
+    const Array<OneD, Array<OneD, NekDouble>> &movEfield)
+{
+    std::string insulatorBCName = "Insulator";
+    Array<OneD, const SpatialDomains::BoundaryConditionShPtr> BndConds =
+        m_epotential->GetBndConditions();
+    Array<OneD, MultiRegions::ExpListSharedPtr> BndExp =
+        m_epotential->GetBndCondExpansions();
+    // calculate electric potential flux
+    for (int n = 0; n < BndConds.size(); ++n)
+    {
+        if (boost::iequals(BndConds[n]->GetUserDefined(), insulatorBCName))
+        {
+            int npts = BndExp[n]->GetTotPoints();
+            // allocate boundary condition storage
+            Array<OneD, Array<OneD, NekDouble>> bcs(m_spacedim);
+            for (int i = 0; i < m_spacedim; ++i)
+            {
+                bcs[i] = Array<OneD, NekDouble>(npts, 0.);
+                m_epotential->ExtractPhysToBnd(n, movEfield[i], bcs[i]);
+            }
+            BndExp[n]->NormVectorIProductWRTBase(bcs,
+                                                 BndExp[n]->UpdateCoeffs());
         }
     }
 }

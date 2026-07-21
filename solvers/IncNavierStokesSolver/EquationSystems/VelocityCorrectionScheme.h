@@ -106,6 +106,9 @@ public:
         v_EvaluateAdvection_SetPressureBCs(inarray, outarray, time);
     }
 
+    void SolveEfield(const Array<OneD, Array<OneD, NekDouble>> &movEfield,
+                     Array<OneD, Array<OneD, NekDouble>> &totEfield);
+
 protected:
     /// bool to identify if spectral vanishing viscosity is active.
     bool m_useHomo1DSpecVanVisc;
@@ -162,6 +165,8 @@ protected:
     int m_flowrateStepsPrecision;
     /// Value of aii_dt used to compute Stokes flowrate solution.
     NekDouble m_flowrateAiidt;
+    /// Pointer to field holding electric potential field
+    MultiRegions::ExpListSharedPtr m_epotential;
 
     Array<OneD, Array<OneD, NekDouble>> m_F;
 
@@ -254,6 +259,9 @@ protected:
         const std::vector<std::string> &strFrameData,
         const Array<OneD, NekDouble> &movingFrameData,
         std::map<std::string, NekDouble> &params);
+
+    void SetEPInsulatorBCs(
+        const Array<OneD, Array<OneD, NekDouble>> &movEfield);
 
 private:
 };
