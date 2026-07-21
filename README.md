@@ -66,37 +66,23 @@ A minimalist compilation command example is shown below for each available backe
 cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON 
 ```
 
-### AVX2 
+### AVX2/AVX512
 ```
 cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
-         -DNEKTAR_ENABLE_SIMD=AVX2 
+         -DNEKTAR_ENABLE_SIMD=AVX2 #AVX512
 ```
 
-### AVX512 
-```
-cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
-         -DNEKTAR_ENABLE_SIMD=AVX512 
-```
 
-### SVE 
+### SVE/SVE2
 ```
 cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
-         -DNEKTAR_ENABLE_SIMD=SVE \
-         -DNEKTAR_SVE_BITS=xxx
+         -DNEKTAR_SVE_BITS=xxx \
+         -DNEKTAR_ENABLE_SIMD=SVE  #SVE2 
 ```
 
 Notes:
  1. xxx can be 128, 256, 512, 1024, or 2048 depending of the architecture
 
-### SVE2 
-```
-cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
-         -DNEKTAR_ENABLE_SIMD=SVE2 \
-         -DNEKTAR_SVE_BITS=xxx
-```
-
-Notes:
- 1. xxx can be 128, 256, 512, 1024, or 2048 depending of the architecture
 
 ### CUDA
 ```
