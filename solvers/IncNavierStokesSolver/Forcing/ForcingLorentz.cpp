@@ -94,21 +94,31 @@ void ForcingLorentz::v_InitObject(
     m_session->LoadParameter("ElectricConductivity", m_sigma, -1.);
     ASSERTL0(m_sigma > 0,
              "ElectricConductivity should be defined and be positive.");
-    // read external magnetic field
-    m_B0                             = Array<OneD, NekDouble>(3, 0.);
-    std::vector<std::string> magVars = {"Bx", "By", "Bz"};
-    std::string magFunc              = "MagneticFields";
+    // Read the constant external electric and magnetic fields.
+    m_E0                              = Array<OneD, NekDouble>(3, 0.);
+    m_B0                              = Array<OneD, NekDouble>(3, 0.);
+    std::vector<std::string> elecVars = {"Ex", "Ey", "Ez"};
+    std::vector<std::string> magVars  = {"Bx", "By", "Bz"};
+    std::string electromagneticFields = "ElectricMagneticFields";
     for (size_t i = 0; i < 3; ++i)
     {
-        if (m_session->DefinesFunction(magFunc, magVars[i]))
+        if (m_session->DefinesFunction(electromagneticFields, elecVars[i]))
         {
-            LibUtilities::EquationSharedPtr equ =
-                m_session->GetFunction(magFunc, magVars[i]);
-            m_B0[i] = equ->Evaluate(0., 0., 0., 0.);
+            LibUtilities::EquationSharedPtr fieldEquation =
+                m_session->GetFunction(electromagneticFields, elecVars[i]);
+            m_E0[i] = fieldEquation->Evaluate(0., 0., 0., 0.);
+        }
+        if (m_session->DefinesFunction(electromagneticFields, magVars[i]))
+        {
+            LibUtilities::EquationSharedPtr fieldEquation =
+                m_session->GetFunction(electromagneticFields, magVars[i]);
+            m_B0[i] = fieldEquation->Evaluate(0., 0., 0., 0.);
         }
     }
-    m_Efield = Array<OneD, Array<OneD, NekDouble>>(m_spacedim);
-    for (size_t i = 0; i < m_spacedim; ++i)
+    // Keep all three components of u x B and J, including the out-of-plane
+    // component required by a two-dimensional flow with an in-plane field.
+    m_Efield = Array<OneD, Array<OneD, NekDouble>>(3);
+    for (size_t i = 0; i < 3; ++i)
     {
         m_Efield[i] = Array<OneD, NekDouble>(pFields[0]->GetTotPoints(), 0.);
     }
@@ -132,6 +142,8 @@ void ForcingLorentz::v_Apply(
     {
         Vmath::Smul(physTot, m_B0[2], inarray[1], 1, m_Efield[0], 1);
         Vmath::Smul(physTot, -m_B0[2], inarray[0], 1, m_Efield[1], 1);
+        Vmath::Svtsvtp(physTot, m_B0[1], inarray[0], 1, -m_B0[0], inarray[1], 1,
+                       m_Efield[2], 1);
     }
     else if (m_spacedim == 3)
     {
@@ -142,6 +154,10 @@ void ForcingLorentz::v_Apply(
         Vmath::Svtsvtp(physTot, m_B0[1], inarray[0], 1, -m_B0[0], inarray[1], 1,
                        m_Efield[2], 1);
     }
+    for (size_t i = 0; i < 3; ++i)
+    {
+        Vmath::Sadd(physTot, m_E0[i], m_Efield[i], 1, m_Efield[i], 1);
+    }
     m_FluidEq->SolveEfield(m_Efield, m_Efield);
     NekDouble SB0[3];
     SB0[0] = m_sigma * m_B0[0];
@@ -151,7 +167,11 @@ void ForcingLorentz::v_Apply(
     {
         Vmath::Svtvp(physTot, SB0[2], m_Efield[1], 1, outarray[0], 1,
                      outarray[0], 1);
+        Vmath::Svtvp(physTot, -SB0[1], m_Efield[2], 1, outarray[0], 1,
+                     outarray[0], 1);
         Vmath::Svtvp(physTot, -SB0[2], m_Efield[0], 1, outarray[1], 1,
+                     outarray[1], 1);
+        Vmath::Svtvp(physTot, SB0[0], m_Efield[2], 1, outarray[1], 1,
                      outarray[1], 1);
     }
     else if (m_spacedim == 3)

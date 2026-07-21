@@ -92,6 +92,8 @@ private:
 
     // electric field
     Array<OneD, Array<OneD, NekDouble>> m_Efield;
+    // external electric field
+    Array<OneD, NekDouble> m_E0;
     // external magnetic field
     Array<OneD, NekDouble> m_B0;
     // electric conductivity
