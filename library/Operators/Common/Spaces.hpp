@@ -435,11 +435,12 @@ SetStreamDependencies([[maybe_unused]] unsigned int streamID,
                 cgh.AdaptiveCpp_enqueue_custom_operation(
                     [=]([[maybe_unused]] sycl::interop_handle ih) {});
             });
-#else
+        SYCLQueue::SetEvent(streamID, e);
+#elif defined(__DPCPP_COMPILER)
         sycl::event e = SYCLQueue::GetInstance(streamID).submit(
             [&](sycl::handler &cgh) { cgh.ext_oneapi_barrier({event}); });
-#endif
         SYCLQueue::SetEvent(streamID, e);
+#endif
     }
 #endif
 }
@@ -492,11 +493,12 @@ SetStreamDependencies([[maybe_unused]] unsigned int streamID,
             cgh.AdaptiveCpp_enqueue_custom_operation(
                 [=]([[maybe_unused]] sycl::interop_handle ih) {});
         });
-#else
+    SYCLQueue::SetEvent(streamID, e);
+#elif defined(__DPCPP_COMPILER)
     sycl::event e = SYCLQueue::GetInstance(streamID).submit(
         [&](sycl::handler &cgh) { cgh.ext_oneapi_barrier(events); });
-#endif
     SYCLQueue::SetEvent(streamID, e);
+#endif
 #endif
 }
 

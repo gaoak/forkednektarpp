@@ -39,11 +39,11 @@
 
 #if defined(SYCL_ENABLE_CUDA) && defined(__ADAPTIVECPP__)
 #define sycl_backend sycl::backend::cuda
-#elif defined(SYCL_ENABLE_CUDA)
+#elif defined(SYCL_ENABLE_CUDA) && defined(__DPCPP_COMPILER)
 #define sycl_backend sycl::backend::ext_oneapi_cuda
 #elif defined(SYCL_ENABLE_HIP) && defined(__ADAPTIVECPP__)
 #define sycl_backend sycl::backend::hip
-#elif defined(SYCL_ENABLE_HIP)
+#elif defined(SYCL_ENABLE_HIP) && defined(__DPCPP_COMPILER)
 #define sycl_backend sycl::backend::ext_oneapi_hip
 #endif
 

@@ -191,7 +191,7 @@ protected:
                 cgh.AdaptiveCpp_enqueue_custom_operation(
                     [=](sycl::interop_handle ih) {
                     auto stream = ih.get_native_queue<sycl_backend>();
-#else
+#elif defined(__DPCPP_COMPILER)
                 cgh.host_task([=](sycl::interop_handle ih) {
                     auto stream = ih.get_native_queue<sycl_backend>();
 #endif
@@ -271,7 +271,7 @@ protected:
 #if defined(__ADAPTIVECPP__)
             cgh.AdaptiveCpp_enqueue_custom_operation(
                     [=]([[maybe_unused]] sycl::interop_handle ih) {
-#else
+#elif defined(__DPCPP_COMPILER)
             cgh.host_task([=]() {
 #endif
 #endif

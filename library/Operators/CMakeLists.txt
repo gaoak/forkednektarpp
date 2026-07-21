@@ -892,12 +892,12 @@ ENDIF()
 IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
-       Common/Backends/CUDAStream.cpp
+       Common/Backends/CUDAStream.hpp
     )
 
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-       Common/Backends/CUDAStream.hpp
+       Common/Backends/CUDAStream.cpp
        Common/Memory/MemoryAlloc.cu
        Math/Math.cu
        Field/BlockHelper.cu
@@ -910,12 +910,12 @@ IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
 ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
-       Common/Backends/HIPStream.cpp
+       Common/Backends/HIPStream.hpp
     )
 
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-       Common/Backends/HIPStream.hpp
+       Common/Backends/HIPStream.cpp
        Common/Memory/MemoryAlloc.hip
        Math/Math.hip
        Field/BlockHelper.hip
@@ -924,6 +924,23 @@ ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
     SET(OPERATORS_DEPENDS
       ${OPERATORS_DEPENDS}
       ${NEKTAR_HIP_DEPENDS})
+# SYCL specific file
+ELSEIF(NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
+    SET(OPERATORS_HEADERS
+      ${OPERATORS_HEADERS}
+       Common/Backends/SYCLQueue.hpp
+    )
+
+    SET(OPERATORS_SOURCES
+      ${OPERATORS_SOURCES}
+       Common/Backends/SYCLQueue.cpp
+       Math/Math.cpp
+       Field/BlockHelper.cpp
+    )
+
+    SET(OPERATORS_DEPENDS
+      ${OPERATORS_DEPENDS}
+      ${NEKTAR_SYCL_DEPENDS})
 ELSE()
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
