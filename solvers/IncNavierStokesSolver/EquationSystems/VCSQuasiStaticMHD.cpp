@@ -114,6 +114,33 @@ void VCSQuasiStaticMHD::SolveEfield(
     }
 }
 
+void VCSQuasiStaticMHD::SetInsulatorBCs(
+    const Array<OneD, Array<OneD, NekDouble>> &movEfield)
+{
+    std::string insulatorBCName = "Insulator";
+    Array<OneD, const SpatialDomains::BoundaryConditionShPtr> BndConds =
+        m_potential->GetBndConditions();
+    Array<OneD, MultiRegions::ExpListSharedPtr> BndExp =
+        m_potential->GetBndCondExpansions();
+    // calculate electric potential flux
+    for (int i = 0; i < BndConds.size(); ++i)
+    {
+        if (boost::iequals(BndConds[i]->GetUserDefined(), insulatorBCName))
+        {
+            int npts = BndExp[i]->GetTotPoints();
+            // allocate boundary condition storage
+            Array<OneD, Array<OneD, NekDouble>> bcs(m_spacedim);
+            for (int i = 0; i < m_spacedim; ++i)
+            {
+                bcs[i] = Array<OneD, NekDouble>(npts, 0.);
+                m_potential->ExtractPhysToBnd(i, movEfield[i], bcs[i]);
+            }
+            BndExp[i]->NormVectorIProductWRTBase(bcs,
+                                                 BndExp[i]->UpdateCoeffs());
+        }
+    }
+}
+
 /**
  * Destructor
  */

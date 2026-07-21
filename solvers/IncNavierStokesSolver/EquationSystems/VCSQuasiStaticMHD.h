@@ -68,6 +68,8 @@ public:
                      Array<OneD, Array<OneD, NekDouble>> &totEfield);
 
 protected:
+    void SetInsulatorBCs(const Array<OneD, Array<OneD, NekDouble>> &movEfield);
+
     static std::string solverTypeLookupId;
 
     /// Pointer to field holding electric potential field
