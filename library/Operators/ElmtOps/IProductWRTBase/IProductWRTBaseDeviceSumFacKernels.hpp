@@ -1694,7 +1694,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase2DSumFacKernel(
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
         {
             TData *out1ptr = wsp + nmTot * warpsize * iwarp;
-            TData *wspptr  = wsp + nmTot * nelmt;
+            TData *wspptr  = wsp + nmTot * nelmt + nq1 * warpsize * iwarp;
 
             IProductWRTBaseTriSumFacKernel<SCALE, false, DEFORMED>(
                 ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, w0, w1,
