@@ -989,7 +989,11 @@ void lpnormKernel(const unsigned int gridSize, const unsigned int blockSize,
                 TData tmp = 0.0;
                 while (gid < nsize)
                 {
+#if defined(__ADAPTIVECPP__) || defined(__DPCPP_COMPILER)
                     tmp += sycl::pown(sycl::fabs(x[gid]), p);
+#else
+                    tmp += sycl::pow(sycl::fabs(x[gid]), p);
+#endif
                     gid += indx.get_global_range(0);
                 }
                 scratch[lid] = tmp;
@@ -1047,7 +1051,11 @@ void lpnormKernel(const unsigned int gridSize, const unsigned int blockSize,
                 TData tmp = 0.0;
                 while (gid < nsize)
                 {
+#if defined(__ADAPTIVECPP__) || defined(__DPCPP_COMPILER)
                     tmp += mask[gid] * sycl::pown(sycl::fabs(x[gid]), p);
+#else
+                    tmp += mask[gid] * sycl::pow(sycl::fabs(x[gid]), p);
+#endif
                     gid += indx.get_global_range(0);
                 }
                 scratch[lid] = tmp;
@@ -1203,7 +1211,8 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 reduceSumKernel(const size_t nsize, const TData *x, TData *out,
                 const unsigned int streamID = 0)
 {
-    /*sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+#if defined(SYCL_ENABLE_CPU)
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
 
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -1216,7 +1225,8 @@ reduceSumKernel(const size_t nsize, const TData *x, TData *out,
             sycl::reduction(out, sycl::plus<>(), initializer),
             [=](sycl::id<1> indx, auto &reducer) { reducer += x[indx]; });
     });
-    SYCLQueue::SetEvent(streamID, e);*/
+    SYCLQueue::SetEvent(streamID, e);
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1230,6 +1240,7 @@ reduceSumKernel(const size_t nsize, const TData *x, TData *out,
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     reduceSumKernel<true>(gridSize, blockSize, streamID, nsize, x, buffer);
     reduceSumKernel<init>(1, gridSize, streamID, gridSize, buffer, out);
+#endif
 }
 
 template <typename ExecSpace, bool init, typename TData>
@@ -1238,7 +1249,8 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 reduceSumKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                 TData *out, const unsigned int streamID = 0)
 {
-    /*sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+#if defined(SYCL_ENABLE_CPU)
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
 
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -1252,7 +1264,8 @@ reduceSumKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                              reducer += mask[indx] * x[indx];
                          });
     });
-    SYCLQueue::SetEvent(streamID, e);*/
+    SYCLQueue::SetEvent(streamID, e);
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1267,6 +1280,7 @@ reduceSumKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     reduceSumKernel<true>(gridSize, blockSize, streamID, nsize, mask, x,
                           buffer);
     reduceSumKernel<init>(1, gridSize, streamID, gridSize, buffer, out);
+#endif
 }
 
 template <typename ExecSpace, bool init, typename TData>
@@ -1275,7 +1289,8 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 reduceMaxKernel(const size_t nsize, const TData *x, TData *out,
                 const unsigned int streamID = 0)
 {
-    /*sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+#if defined(SYCL_ENABLE_CPU)
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
 
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -1288,7 +1303,8 @@ reduceMaxKernel(const size_t nsize, const TData *x, TData *out,
             sycl::reduction(out, sycl::maximum<>(), initializer),
             [=](sycl::id<1> indx, auto &reducer) { reducer.combine(x[indx]); });
     });
-    SYCLQueue::SetEvent(streamID, e);*/
+    SYCLQueue::SetEvent(streamID, e);
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1302,6 +1318,7 @@ reduceMaxKernel(const size_t nsize, const TData *x, TData *out,
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     reduceMaxKernel<true>(gridSize, blockSize, streamID, nsize, x, buffer);
     reduceMaxKernel<init>(1, gridSize, streamID, gridSize, buffer, out);
+#endif
 }
 
 template <typename ExecSpace, bool init, typename TData>
@@ -1310,7 +1327,8 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 reduceMaxKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                 TData *out, const unsigned int streamID = 0)
 {
-    /*sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+#if defined(SYCL_ENABLE_CPU)
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
 
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -1327,7 +1345,8 @@ reduceMaxKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                              }
                          });
     });
-    SYCLQueue::SetEvent(streamID, e);*/
+    SYCLQueue::SetEvent(streamID, e);
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1342,6 +1361,7 @@ reduceMaxKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     reduceMaxKernel<true>(gridSize, blockSize, streamID, nsize, mask, x,
                           buffer);
     reduceMaxKernel<init>(1, gridSize, streamID, gridSize, buffer, out);
+#endif
 }
 
 template <typename ExecSpace, bool init, typename TData>
@@ -1350,7 +1370,8 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 reduceMinKernel(const size_t nsize, const TData *x, TData *out,
                 const unsigned int streamID = 0)
 {
-    /*sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+#if defined(SYCL_ENABLE_CPU)
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
 
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -1363,7 +1384,8 @@ reduceMinKernel(const size_t nsize, const TData *x, TData *out,
             sycl::reduction(out, sycl::minimum<>(), initializer),
             [=](sycl::id<1> indx, auto &reducer) { reducer.combine(x[indx]); });
     });
-    SYCLQueue::SetEvent(streamID, e);*/
+    SYCLQueue::SetEvent(streamID, e);
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1377,6 +1399,7 @@ reduceMinKernel(const size_t nsize, const TData *x, TData *out,
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     reduceMinKernel<true>(gridSize, blockSize, streamID, nsize, x, buffer);
     reduceMinKernel<init>(1, gridSize, streamID, gridSize, buffer, out);
+#endif
 }
 
 template <typename ExecSpace, bool init, typename TData>
@@ -1385,7 +1408,8 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 reduceMinKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                 TData *out, const unsigned int streamID = 0)
 {
-    /*sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+#if defined(SYCL_ENABLE_CPU)
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
 
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -1402,7 +1426,8 @@ reduceMinKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                              }
                          });
     });
-    SYCLQueue::SetEvent(streamID, e);*/
+    SYCLQueue::SetEvent(streamID, e);
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1417,6 +1442,7 @@ reduceMinKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     reduceMinKernel<true>(gridSize, blockSize, streamID, nsize, mask, x,
                           buffer);
     reduceMinKernel<init>(1, gridSize, streamID, gridSize, buffer, out);
+#endif
 }
 
 template <typename ExecSpace, bool init, typename TData>
@@ -1425,7 +1451,8 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out,
            const unsigned int streamID = 0)
 {
-    /*sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+#if defined(SYCL_ENABLE_CPU)
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
 
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -1439,7 +1466,8 @@ ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out,
                              reducer += x[indx] * y[indx];
                          });
     });
-    SYCLQueue::SetEvent(streamID, e);*/
+    SYCLQueue::SetEvent(streamID, e);
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1453,6 +1481,7 @@ ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out,
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     ddotKernel<true>(gridSize, blockSize, streamID, nsize, x, y, buffer);
     reduceSumKernel<init>(1, gridSize, streamID, gridSize, buffer, out);
+#endif
 }
 
 template <typename ExecSpace, bool init, typename TData>
@@ -1461,7 +1490,8 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
            const TData *y, TData *out, const unsigned int streamID = 0)
 {
-    /*sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+#if defined(SYCL_ENABLE_CPU)
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
 
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -1475,7 +1505,8 @@ ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                              reducer += mask[indx] * x[indx] * y[indx];
                          });
     });
-    SYCLQueue::SetEvent(streamID, e);*/
+    SYCLQueue::SetEvent(streamID, e);
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1489,6 +1520,7 @@ ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     ddotKernel<true>(gridSize, blockSize, streamID, nsize, mask, x, y, buffer);
     reduceSumKernel<init>(1, gridSize, streamID, gridSize, buffer, out);
+#endif
 }
 
 template <typename ExecSpace, bool init, typename TData>
@@ -1497,7 +1529,8 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 l1normKernel(const size_t nsize, const TData *x, TData *out,
              const unsigned int streamID = 0)
 {
-    /*sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+#if defined(SYCL_ENABLE_CPU)
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
 
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -1511,7 +1544,8 @@ l1normKernel(const size_t nsize, const TData *x, TData *out,
                              reducer += sycl::fabs(x[indx]);
                          });
     });
-    SYCLQueue::SetEvent(streamID, e);*/
+    SYCLQueue::SetEvent(streamID, e);
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1525,6 +1559,7 @@ l1normKernel(const size_t nsize, const TData *x, TData *out,
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     l1normKernel<true>(gridSize, blockSize, streamID, nsize, x, buffer);
     reduceSumKernel<init>(1, gridSize, streamID, gridSize, buffer, out);
+#endif
 }
 
 template <typename ExecSpace, bool init, typename TData>
@@ -1533,7 +1568,8 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 l1normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
              TData *out, const unsigned int streamID = 0)
 {
-    /*sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+#if defined(SYCL_ENABLE_CPU)
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
 
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -1547,7 +1583,8 @@ l1normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                              reducer += mask[indx] * sycl::fabs(x[indx]);
                          });
     });
-    SYCLQueue::SetEvent(streamID, e);*/
+    SYCLQueue::SetEvent(streamID, e);
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1561,6 +1598,7 @@ l1normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     l1normKernel<true>(gridSize, blockSize, streamID, nsize, mask, x, buffer);
     reduceSumKernel<init>(1, gridSize, streamID, gridSize, buffer, out);
+#endif
 }
 
 template <typename ExecSpace, bool init, typename TData>
@@ -1569,7 +1607,8 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 l2normKernel(const size_t nsize, const TData *x, TData *out,
              const unsigned int streamID = 0)
 {
-    /*sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+#if defined(SYCL_ENABLE_CPU)
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
 
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -1583,7 +1622,8 @@ l2normKernel(const size_t nsize, const TData *x, TData *out,
                              reducer += x[indx] * x[indx];
                          });
     });
-    SYCLQueue::SetEvent(streamID, e);*/
+    SYCLQueue::SetEvent(streamID, e);
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1597,6 +1637,7 @@ l2normKernel(const size_t nsize, const TData *x, TData *out,
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     l2normKernel<true>(gridSize, blockSize, streamID, nsize, x, buffer);
     reduceSumKernel<init>(1, gridSize, streamID, gridSize, buffer, out);
+#endif
 }
 
 template <typename ExecSpace, bool init, typename TData>
@@ -1605,7 +1646,8 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 l2normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
              TData *out, const unsigned int streamID = 0)
 {
-    /*sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+#if defined(SYCL_ENABLE_CPU)
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
 
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -1619,7 +1661,8 @@ l2normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                              reducer += mask[indx] * x[indx] * x[indx];
                          });
     });
-    SYCLQueue::SetEvent(streamID, e);*/
+    SYCLQueue::SetEvent(streamID, e);
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1633,6 +1676,7 @@ l2normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     l2normKernel<true>(gridSize, blockSize, streamID, nsize, mask, x, buffer);
     reduceSumKernel<init>(1, gridSize, streamID, gridSize, buffer, out);
+#endif
 }
 
 template <typename ExecSpace, bool init, typename TData>
@@ -1641,7 +1685,8 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
              TData *out, const unsigned int streamID = 0)
 {
-    /*sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+#if defined(SYCL_ENABLE_CPU)
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
 
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -1652,10 +1697,11 @@ lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
         cgh.parallel_for(sycl::range<1>(nsize),
                          sycl::reduction(out, sycl::plus<>(), initializer),
                          [=](sycl::id<1> indx, auto &reducer) {
-                             reducer += sycl::pown(sycl::fabs(x[indx]), p);
+                             reducer += std::pow(sycl::fabs(x[indx]), p);
                          });
     });
-    SYCLQueue::SetEvent(streamID, e);*/
+    SYCLQueue::SetEvent(streamID, e);
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1669,6 +1715,7 @@ lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     lpnormKernel<true>(gridSize, blockSize, streamID, nsize, p, x, buffer);
     reduceSumKernel<init>(1, gridSize, streamID, gridSize, buffer, out);
+#endif
 }
 
 template <typename ExecSpace, bool init, typename TData>
@@ -1677,7 +1724,8 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 lpnormKernel(const size_t nsize, const unsigned int p, const uint8_t *mask,
              const TData *x, TData *out, const unsigned int streamID = 0)
 {
-    /*sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+#if defined(SYCL_ENABLE_CPU)
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
 
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -1688,11 +1736,12 @@ lpnormKernel(const size_t nsize, const unsigned int p, const uint8_t *mask,
         cgh.parallel_for(sycl::range<1>(nsize),
                          sycl::reduction(out, sycl::plus<>(), initializer),
                          [=](sycl::id<1> indx, auto &reducer) {
-                             reducer += mask[indx] *
-                                        sycl::pown(sycl::fabs(x[indx]), p);
+                             reducer +=
+                                 mask[indx] * std::pow(sycl::fabs(x[indx]), p);
                          });
     });
-    SYCLQueue::SetEvent(streamID, e);*/
+    SYCLQueue::SetEvent(streamID, e);
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1707,6 +1756,7 @@ lpnormKernel(const size_t nsize, const unsigned int p, const uint8_t *mask,
     lpnormKernel<true>(gridSize, blockSize, streamID, nsize, p, mask, x,
                        buffer);
     reduceSumKernel<init>(1, gridSize, streamID, gridSize, buffer, out);
+#endif
 }
 
 template <typename ExecSpace, bool init, typename TData>
@@ -1715,7 +1765,8 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 linfnormKernel(const size_t nsize, const TData *x, TData *out,
                const unsigned int streamID = 0)
 {
-    /*sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+#if defined(SYCL_ENABLE_CPU)
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
 
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -1729,7 +1780,8 @@ linfnormKernel(const size_t nsize, const TData *x, TData *out,
                              reducer.combine(sycl::fabs(x[indx]));
                          });
     });
-    SYCLQueue::SetEvent(streamID, e);*/
+    SYCLQueue::SetEvent(streamID, e);
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1743,6 +1795,7 @@ linfnormKernel(const size_t nsize, const TData *x, TData *out,
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     linfnormKernel<true>(gridSize, blockSize, streamID, nsize, x, buffer);
     reduceMaxKernel<init>(1, gridSize, streamID, gridSize, buffer, out);
+#endif
 }
 
 template <typename ExecSpace, bool init, typename TData>
@@ -1751,7 +1804,8 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
 linfnormKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                TData *out, const unsigned int streamID = 0)
 {
-    /*sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+#if defined(SYCL_ENABLE_CPU)
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
 
     sycl::property_list initializer =
         init ? sycl::property_list{sycl::property::reduction::
@@ -1768,7 +1822,8 @@ linfnormKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                              }
                          });
     });
-    SYCLQueue::SetEvent(streamID, e);*/
+    SYCLQueue::SetEvent(streamID, e);
+#else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
 
@@ -1782,6 +1837,7 @@ linfnormKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     linfnormKernel<true>(gridSize, blockSize, streamID, nsize, mask, x, buffer);
     reduceMaxKernel<init>(1, gridSize, streamID, gridSize, buffer, out);
+#endif
 }
 
 } // namespace Nektar

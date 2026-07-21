@@ -87,7 +87,7 @@ NEK_HOSTDEVICE_INLINE unsigned int GetDiffCoeffMap(const unsigned int ncoord,
 {
     const unsigned int offset = (ncoord == 1) ? 0 : (ncoord == 2) ? 1 : 5;
 
-#if defined(SYCL_ENABLE_CPU) && !defined(__ADAPTIVECPP__)
+#if defined(SYCL_ENABLE_CPU) && defined(__DPCPP_COMPILER)
     switch (offset + index)
     {
         case 0:

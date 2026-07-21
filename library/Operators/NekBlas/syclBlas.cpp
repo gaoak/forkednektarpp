@@ -35,10 +35,10 @@
 #include "Operators/Common/Backends/SYCLQueue.hpp"
 #include "Operators/NekBlas/NekBlas.hpp"
 
-#if __has_include("oneapi/math.hpp")
+#if __has_include("oneapi/math.hpp") && defined(__ADAPTIVECPP__)
 #include "oneapi/math.hpp"
 using namespace oneapi::math;
-#elif __has_include("oneapi/mkl.hpp")
+#elif __has_include("oneapi/mkl.hpp") && defined(__DPCPP_COMPILER)
 #include "oneapi/mkl.hpp"
 using namespace oneapi::mkl;
 #endif
@@ -78,20 +78,25 @@ NekGemm([[maybe_unused]] THandle handle, std::string transposeA,
         const TData beta, TData *c, const std::int64_t ldc)
 {
     sycl::queue &Q = handle.GetQueue();
-#if __has_include("oneapi/mkl.hpp") || __has_include("oneapi/math.hpp")
+#if (__has_include("oneapi/mkl.hpp") && defined(__DPCPP_COMPILER)) ||          \
+     (__has_include("oneapi/math.hpp") && defined(__ADAPTIVECPP__))
     auto transA   = (transposeA == "N") ? transpose::N : transpose::T;
     auto transB   = (transposeB == "N") ? transpose::N : transpose::T;
     sycl::event e = blas::column_major::gemm(
         Q, transA, transB, M, N, K, alpha, a, lda, b, ldb, beta, c, ldc,
         setOneMathExecutionDependency(handle.GetStreamID()));
-#elif defined(__ADAPTIVECPP__)
+#else // SYCL-CPU
     // clang-format off
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
         setSYCLDefaultExecutionDependency(handle.GetStreamID(), cgh);
+#if defined(__ADAPTIVECPP__)
         cgh.AdaptiveCpp_enqueue_custom_operation(
+#else
+        cgh.host_task(
+#endif
             [=]([[maybe_unused]] sycl::interop_handle ih) {
-    NekGemm(blasHandle_t(), transposeA, transposeB, M, N, K, alpha, a, lda, b,
-            ldb, beta, c, ldc);
+                NekGemm(blasHandle_t(), transposeA, transposeB, M, N, K, alpha, 
+                        a, lda, b, ldb, beta, c, ldc);
             });
     });
     // clang-format on
@@ -111,22 +116,27 @@ NekGemmStridedBatched([[maybe_unused]] THandle handle, std::string transposeA,
                       const std::int64_t strideC, const std::int64_t batchSize)
 {
     sycl::queue &Q = handle.GetQueue();
-#if __has_include("oneapi/mkl.hpp") || __has_include("oneapi/math.hpp")
+#if (__has_include("oneapi/mkl.hpp") && defined(__DPCPP_COMPILER)) ||          \
+     (__has_include("oneapi/math.hpp") && defined(__ADAPTIVECPP__))
     auto transA   = (transposeA == "N") ? transpose::N : transpose::T;
     auto transB   = (transposeB == "N") ? transpose::N : transpose::T;
     sycl::event e = blas::column_major::gemm_batch(
         Q, transA, transB, M, N, K, alpha, a, lda, strideA, b, ldb, strideB,
         beta, c, ldc, strideC, batchSize,
         setOneMathExecutionDependency(handle.GetStreamID()));
-#elif defined(__ADAPTIVECPP__)
+#else // SYCL-CPU
     // clang-format off
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
         setSYCLDefaultExecutionDependency(handle.GetStreamID(), cgh);
+#if defined(__ADAPTIVECPP__)
         cgh.AdaptiveCpp_enqueue_custom_operation(
+#else
+        cgh.host_task(
+#endif
             [=]([[maybe_unused]] sycl::interop_handle ih) {
-    NekGemmStridedBatched(blasHandle_t(), transposeA, transposeB, M, N, K,
-                          alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc,
-                          strideC, batchSize);
+                NekGemmStridedBatched(blasHandle_t(), transposeA, transposeB, 
+                    M, N, K, alpha, a, lda, strideA, b, ldb, strideB, beta, c,
+                    ldc, strideC, batchSize);
             });
     });
     // clang-format on
@@ -143,19 +153,24 @@ NekGemv([[maybe_unused]] THandle handle, std::string transpose,
         const std::int64_t incy)
 {
     sycl::queue &Q = handle.GetQueue();
-#if __has_include("oneapi/mkl.hpp") || __has_include("oneapi/math.hpp")
+#if (__has_include("oneapi/mkl.hpp") && defined(__DPCPP_COMPILER)) ||          \
+     (__has_include("oneapi/math.hpp") && defined(__ADAPTIVECPP__))
     auto trans    = (transpose == "N") ? transpose::N : transpose::T;
     sycl::event e = blas::column_major::gemv(
         Q, trans, M, N, alpha, a, lda, x, incx, beta, y, incy,
         setOneMathExecutionDependency(handle.GetStreamID()));
-#elif defined(__ADAPTIVECPP__)
+#else // SYCL-CPU
     // clang-format off
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
         setSYCLDefaultExecutionDependency(handle.GetStreamID(), cgh);
+#if defined(__ADAPTIVECPP__)
         cgh.AdaptiveCpp_enqueue_custom_operation(
+#else
+        cgh.host_task(
+#endif
             [=]([[maybe_unused]] sycl::interop_handle ih) {
-    NekGemv(blasHandle_t(), transpose, M, N, alpha, a, lda, x, incx, beta, y,
-            incy);
+                NekGemv(blasHandle_t(), transpose, M, N, alpha, a, lda, x, incx,
+                        beta, y, incy);
             });
     });
     // clang-format on
@@ -174,7 +189,8 @@ NekGemvStridedBatched([[maybe_unused]] THandle handle, std::string transpose,
                       const std::int64_t strideY, const std::int64_t batchSize)
 {
     sycl::queue &Q = handle.GetQueue();
-#if __has_include("oneapi/mkl.hpp") || __has_include("oneapi/math.hpp")
+#if (__has_include("oneapi/mkl.hpp") && defined(__DPCPP_COMPILER)) ||          \
+     (__has_include("oneapi/math.hpp") && defined(__ADAPTIVECPP__))
 #if __has_include("oneapi/math.hpp")
     ASSERTL0(false, "gemv_batch not yet implemented in oneMath")
 #endif
@@ -183,15 +199,20 @@ NekGemvStridedBatched([[maybe_unused]] THandle handle, std::string transpose,
         Q, trans, M, N, alpha, a, lda, strideA, x, incx, strideX, beta, y, incy,
         strideY, batchSize,
         setOneMathExecutionDependency(handle.GetStreamID()));
-#elif defined(__ADAPTIVECPP__)
+    SYCLQueue::SetEvent(handle.GetStreamID(), e);
+#else // SYCL-CPU
     // clang-format off
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
         setSYCLDefaultExecutionDependency(handle.GetStreamID(), cgh);
+#if defined(__ADAPTIVECPP__)
         cgh.AdaptiveCpp_enqueue_custom_operation(
+#else
+        cgh.host_task(
+#endif
             [=]([[maybe_unused]] sycl::interop_handle ih) {
-    NekGemvStridedBatched(blasHandle_t(), transpose, M, N, alpha, a, lda,
-                          strideA, x, incx, strideX, beta, y, incy, strideY,
-                          batchSize);
+                NekGemvStridedBatched(blasHandle_t(), transpose, M, N, alpha,
+                    a, lda, strideA, x, incx, strideX, beta, y, incy, strideY,
+                    batchSize);
             });
     });
     // clang-format on

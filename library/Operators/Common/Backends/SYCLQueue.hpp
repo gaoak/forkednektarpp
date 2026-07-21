@@ -51,43 +51,58 @@ class SYCLQueue
 public:
     static sycl::queue &GetInstance([[maybe_unused]] unsigned int id)
     {
+        if (queues == nullptr)
+        {
+            queues = new std::unordered_map<unsigned int, sycl::queue *>();
+        }
+
 #if defined(SYCL_ENABLE_CPU)
         // Use single queue for SYCL-CPU backend
-        if (queues.find(0) == queues.end())
+        if (queues->find(0) == queues->end())
         {
-            queues[0] = new sycl::queue(sycl::cpu_selector_v,
-                                        sycl::property::queue::in_order());
+#if defined(__ADAPTIVECPP__) || defined(__DPCPP_COMPILER)
+            (*queues)[0] = new sycl::queue(sycl::cpu_selector_v,
+                                           sycl::property::queue::in_order());
+#else
+            (*queues)[0] = new sycl::queue(sycl::property::queue::in_order());
+#endif
         }
 
-        return *queues[0];
+        return *(*queues)[0];
 #else
         // Create default queue first.
-        if (queues.find(0) == queues.end())
+        if (queues->find(0) == queues->end())
         {
             std::vector<sycl::device> gpu_devices =
                 sycl::device::get_devices(sycl::info::device_type::gpu);
-            queues[0] = new sycl::queue(gpu_devices[internalSYCLDeviceId],
-                                        sycl::property::queue::in_order());
+            (*queues)[0] = new sycl::queue(gpu_devices[internalSYCLDeviceId],
+                                           sycl::property::queue::in_order());
         }
 
-        if (queues.find(id) == queues.end())
+        if (queues->find(id) == queues->end())
         {
             // Use the context from the default queue as shared context.
-            sycl::context ctx = queues[0]->get_context();
+            sycl::context ctx = (*queues)[0]->get_context();
             std::vector<sycl::device> gpu_devices =
                 sycl::device::get_devices(sycl::info::device_type::gpu);
-            queues[id] = new sycl::queue(ctx, gpu_devices[internalSYCLDeviceId],
-                                         sycl::property::queue::in_order());
+            (*queues)[id] =
+                new sycl::queue(ctx, gpu_devices[internalSYCLDeviceId],
+                                sycl::property::queue::in_order());
         }
 
-        return *queues[id];
+        return *(*queues)[id];
 #endif
     }
 
     static std::unordered_map<unsigned int, sycl::queue *> &GetAllInstances(
         void)
     {
-        return queues;
+        if (queues == nullptr)
+        {
+            queues = new std::unordered_map<unsigned int, sycl::queue *>();
+        }
+
+        return *queues;
     }
 
     static void SetEvent([[maybe_unused]] unsigned int id,
@@ -96,37 +111,57 @@ public:
 #if defined(SYCL_ENABLE_CPU)
         // Do nothing.
 #else
-        events[id] = e;
+        if (events == nullptr)
+        {
+            events = new std::unordered_map<unsigned int, sycl::event>();
+        }
+
+        (*events)[id] = e;
 #endif
     }
 
     static sycl::event &GetEvent([[maybe_unused]] unsigned int id)
     {
+        if (queues == nullptr)
+        {
+            queues = new std::unordered_map<unsigned int, sycl::queue *>();
+        }
+
+        if (events == nullptr)
+        {
+            events = new std::unordered_map<unsigned int, sycl::event>();
+        }
+
 #if defined(SYCL_ENABLE_CPU)
-        if (queues.find(0) == queues.end())
+        if (queues->find(0) == queues->end())
         {
             sycl::event e;
-            events[0] = e;
+            (*events)[0] = e;
         }
 
-        return events[0];
+        return (*events)[0];
 #else
-        if (queues.find(id) == queues.end())
+        if (queues->find(id) == queues->end())
         {
             sycl::event e;
-            events[id] = e;
+            (*events)[id] = e;
         }
 
-        return events[id];
+        return (*events)[id];
 #endif
     }
 
     static std::unordered_map<unsigned int, sycl::event> &GetAllEvents(void)
     {
-        return events;
+        if (events == nullptr)
+        {
+            events = new std::unordered_map<unsigned int, sycl::event>();
+        }
+
+        return *events;
     }
 
 private:
-    static std::unordered_map<unsigned int, sycl::queue *> queues;
-    static std::unordered_map<unsigned int, sycl::event> events;
+    static std::unordered_map<unsigned int, sycl::queue *> *queues;
+    static std::unordered_map<unsigned int, sycl::event> *events;
 };
