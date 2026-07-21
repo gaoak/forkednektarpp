@@ -90,7 +90,7 @@
         <FUNCTION NAME="ElectricMagneticFields">
             <E VAR="By" VALUE="1" />
         </FUNCTION>
-        
+
         <FUNCTION NAME="MRFVel">
             <E VAR="u" VALUE="Atest*t" />
         </FUNCTION>
