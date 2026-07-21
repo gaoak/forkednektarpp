@@ -125,24 +125,8 @@ public:
         // reshape this->fixt_out
         if (execStr == "AVX")
         {
-            for (auto &block : this->fixt_out->GetBlocks())
-            {
-                auto ptr =
-                    block.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-                for (unsigned int nc = 0; nc < block.GetNumComponents(); ++nc)
-                {
-                    // reshuffle data into simd_t width for AVX check
-                    ReshapeStorage<NektarSpaces::Serial>(
-                        NektarSpaces::GetVectorWidth<TData>(execStr),
-                        block.GetInterleaveWidth(),
-                        block.GetNumElementsWithPadding(), block.GetNumData(),
-                        ptr);
-                    ptr += block.CompSize();
-                }
-
-                block.template SetInterleaveWidth<TData>(
-                    NektarSpaces::GetVectorWidth<TData>(execStr));
-            }
+            this->fixt_out->ReshapeStorage(
+                NektarSpaces::GetVectorWidth<TData>(execStr), execStr);
         }
 
         precon->Apply(*this->fixt_out, *this->fixt_out);

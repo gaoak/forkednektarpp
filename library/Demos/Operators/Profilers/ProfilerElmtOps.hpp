@@ -508,24 +508,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
     auto interleaveWidth = (implName == "SumFac" || execName == "AVX")
                                ? NektarSpaces::GetVectorWidth<TData>(execName)
                                : 1;
-    for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
-    {
-        auto &inblock = in.GetBlocks()[blk];
-        TData *inptr =
-            inblock.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-        for (unsigned int component = 0; component < inblock.GetNumComponents();
-             component++)
-        {
-            ReshapeStorage<NektarSpaces::Serial>(
-                interleaveWidth, inblock.GetInterleaveWidth(),
-                inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes(),
-                inblock.GetNumData(),
-                inptr +
-                    component * inblock.CompSize() * inblock.GetNumHomoModes());
-        }
-
-        inblock.template SetInterleaveWidth<TData>(interleaveWidth);
-    }
+    in.ReshapeStorage(interleaveWidth, execName);
 
     // Warm-up : fill the cache and memory, and let core temperature/freq
     // stabilized.
@@ -575,25 +558,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
     }
 
     // Reshape to scalar
-    for (unsigned int blk = 0; blk < out.GetBlocks().size(); ++blk)
-    {
-        auto &outblock = out.GetBlocks()[blk];
-        TData *outptr =
-            outblock.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-        for (unsigned int component = 0; component < out.GetNumComponents();
-             component++)
-        {
-            ReshapeStorage<NektarSpaces::Serial>(
-                1, outblock.GetInterleaveWidth(),
-                outblock.GetNumElementsWithPadding() *
-                    outblock.GetNumHomoModes(),
-                outblock.GetNumData(),
-                outptr + component * outblock.CompSize() *
-                             outblock.GetNumHomoModes());
-        }
-
-        outblock.template SetInterleaveWidth<TData>(1);
-    }
+    out.ReshapeStorage(1, execName);
 
     // Then check if results match with expected
     // If we compare float results with double results, then it is

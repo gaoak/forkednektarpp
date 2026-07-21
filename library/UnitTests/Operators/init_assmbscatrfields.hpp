@@ -97,24 +97,8 @@ public:
         // reshape this->fixt_in
         if (execStr == "AVX")
         {
-            for (auto &block : this->fixt_in->GetBlocks())
-            {
-                auto ptr =
-                    block.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-                for (unsigned int nc = 0; nc < block.GetNumComponents(); ++nc)
-                {
-                    // reshuffle data into simd_t width for AVX check
-                    ReshapeStorage<NektarSpaces::Serial>(
-                        NektarSpaces::GetVectorWidth<TData>(execStr),
-                        block.GetInterleaveWidth(),
-                        block.GetNumElementsWithPadding(), block.GetNumData(),
-                        ptr);
-                    ptr += block.CompSize();
-                }
-
-                block.template SetInterleaveWidth<TData>(
-                    NektarSpaces::GetVectorWidth<TData>(execStr));
-            }
+            this->fixt_in->ReshapeStorage(
+                NektarSpaces::GetVectorWidth<TData>(execStr), execStr);
         }
 
         auto op = AssmbScatrOp<double>::Create(this->fixt_explist,
@@ -129,24 +113,8 @@ public:
         // reshape this->fixt_in
         if (execStr == "AVX")
         {
-            for (auto &block : this->fixt_in->GetBlocks())
-            {
-                auto ptr =
-                    block.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-                for (unsigned int nc = 0; nc < block.GetNumComponents(); ++nc)
-                {
-                    // reshuffle data into simd_t width for AVX check
-                    ReshapeStorage<NektarSpaces::Serial>(
-                        NektarSpaces::GetVectorWidth<TData>(execStr),
-                        block.GetInterleaveWidth(),
-                        block.GetNumElementsWithPadding(), block.GetNumData(),
-                        ptr);
-                    ptr += block.CompSize();
-                }
-
-                block.template SetInterleaveWidth<TData>(
-                    NektarSpaces::GetVectorWidth<TData>(execStr));
-            }
+            this->fixt_in->ReshapeStorage(
+                NektarSpaces::GetVectorWidth<TData>(execStr), execStr);
         }
 
         auto op = AssmbScatrZeroDirOp<double>::Create(

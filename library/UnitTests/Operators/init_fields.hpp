@@ -534,25 +534,7 @@ public:
 
     template <FieldState state> void ReshapeToScalar(Field<TData, state> &in)
     {
-        for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
-        {
-            auto &block = in.GetBlocks()[blk];
-            TData *inptr =
-                block.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-            size_t numElmtsPad =
-                block.GetNumElements() + block.GetNumPaddingElements();
-            for (unsigned int component = 0; component < in.GetNumComponents();
-                 component++)
-            {
-                ReshapeStorage<NektarSpaces::Serial>(
-                    1, block.GetInterleaveWidth(),
-                    numElmtsPad * in.GetNumHomoModes(), block.GetNumData(),
-                    inptr +
-                        component * block.CompSize() * in.GetNumHomoModes());
-            }
-
-            block.template SetInterleaveWidth<TData>(1);
-        }
+        in.ReshapeStorage(1, "Serial");
     }
 
 protected:

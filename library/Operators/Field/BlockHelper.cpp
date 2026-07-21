@@ -47,28 +47,22 @@ void BlockAccessor<TData, TState>::ReshapeStorage(
     if (execSpace == "Serial")
     {
         auto *ptr = this->template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-        for (auto n = 0; n < this->GetNumComponents() * this->GetNumHomoModes();
-             n++)
-        {
-            ::Nektar::Operators::ReshapeStorage<NektarSpaces::Serial>(
-                interleaveWidth, this->GetInterleaveWidth(),
-                this->GetNumElementsWithPadding(), this->GetNumData(),
-                ptr + n * this->CompSize());
-        }
+        ::Nektar::Operators::ReshapeStorage<NektarSpaces::Serial>(
+            interleaveWidth, this->GetInterleaveWidth(),
+            this->GetNumElementsWithPadding() * this->GetNumComponents() *
+                this->GetNumHomoModes(),
+            this->GetNumData(), ptr);
         this->template SetInterleaveWidth<TData>(interleaveWidth);
     }
 #if defined(NEKTAR_ENABLE_SIMD)
     else if (execSpace == "AVX")
     {
         auto *ptr = this->template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-        for (auto n = 0; n < this->GetNumComponents() * this->GetNumHomoModes();
-             n++)
-        {
-            ::Nektar::Operators::ReshapeStorage<NektarSpaces::AVX>(
-                interleaveWidth, this->GetInterleaveWidth(),
-                this->GetNumElementsWithPadding(), this->GetNumData(),
-                ptr + n * this->CompSize());
-        }
+        ::Nektar::Operators::ReshapeStorage<NektarSpaces::AVX>(
+            interleaveWidth, this->GetInterleaveWidth(),
+            this->GetNumElementsWithPadding() * this->GetNumComponents() *
+                this->GetNumHomoModes(),
+            this->GetNumData(), ptr);
         this->template SetInterleaveWidth<TData>(interleaveWidth);
     }
 #endif
@@ -77,14 +71,11 @@ void BlockAccessor<TData, TState>::ReshapeStorage(
     {
         auto *ptr =
             this->template GetPtr<NektarSpaces::DeviceSpace, ReadWrite>();
-        for (auto n = 0; n < this->GetNumComponents() * this->GetNumHomoModes();
-             n++)
-        {
-            ::Nektar::Operators::ReshapeStorage<NektarSpaces::Device>(
-                interleaveWidth, this->GetInterleaveWidth(),
-                this->GetNumElementsWithPadding(), this->GetNumData(),
-                ptr + n * this->CompSize(), streamID);
-        }
+        ::Nektar::Operators::ReshapeStorage<NektarSpaces::Device>(
+            interleaveWidth, this->GetInterleaveWidth(),
+            this->GetNumElementsWithPadding() * this->GetNumComponents() *
+                this->GetNumHomoModes(),
+            this->GetNumData(), ptr);
         this->template SetInterleaveWidth<TData>(interleaveWidth);
     }
 #endif

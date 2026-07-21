@@ -290,14 +290,11 @@ protected:
             {
                 auto inoutPtr =
                     inoutblk.template GetPtr<MemSpace, ReadWrite>(streamID);
-                unsigned blksize = inoutblk.CompSize();
-                for (unsigned nc = 0; nc < numComp; ++nc)
-                {
-                    ReshapeStorage<ExecSpace>(
-                        1u, inoutwidth, inoutblk.GetNumElementsWithPadding(),
-                        inoutblk.GetNumData(), inoutPtr + nc * blksize,
-                        streamID);
-                }
+
+                ReshapeStorage<ExecSpace>(
+                    1u, inoutwidth,
+                    inoutblk.GetNumElementsWithPadding() * numComp,
+                    inoutblk.GetNumData(), inoutPtr, streamID);
                 inoutblk.template SetInterleaveWidth<TData>(1);
                 reshapeOutput = true;
             }
@@ -393,14 +390,11 @@ protected:
                     ASSERTL1(width == m_device_width, "Unexpected width value");
                     auto inoutPtr =
                         inoutblk.template GetPtr<MemSpace, ReadWrite>(streamID);
-                    unsigned blksize = inoutblk.CompSize();
-                    for (unsigned nc = 0; nc < numComp; ++nc)
-                    {
-                        ReshapeStorage<ExecSpace>(
-                            width, 1u, inoutblk.GetNumElementsWithPadding(),
-                            inoutblk.GetNumData(), inoutPtr + nc * blksize,
-                            streamID);
-                    }
+
+                    ReshapeStorage<ExecSpace>(
+                        width, 1u,
+                        inoutblk.GetNumElementsWithPadding() * numComp,
+                        inoutblk.GetNumData(), inoutPtr, streamID);
                     inoutblk.template SetInterleaveWidth<TData>(width);
                 }
             }
