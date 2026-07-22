@@ -64,7 +64,6 @@ enum SolverType
     eImplicit,
     eVCSFSI,
     ePressDecompVCSFSI,
-    eVCSQuasiStaticMHD,
 };
 
 enum EquationType
