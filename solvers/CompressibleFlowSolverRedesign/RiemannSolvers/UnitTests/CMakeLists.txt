@@ -12,29 +12,12 @@ TARGET_INCLUDE_DIRECTORIES(RiemannCompOpUnitTests PRIVATE
     "${CMAKE_SOURCE_DIR}/solvers/CompressibleFlowSolverRedesign"
 )
 
-# Macro
-MACRO(SET_UNIT_TEST testname name execspace)
-    IF (CMAKE_BUILD_TYPE STREQUAL "Debug")
-        SET(name-ext "${name}-g")
-    ELSEIF (CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
-        SET(name-ext "${name}-ms")
-    ELSEIF (CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
-        SET(name-ext "${name}-rg")
-    ELSE()
-        SET(name-ext "${name}")
-    ENDIF()
-
-    ADD_TEST(
-          NAME CompressibleFlowSolver${testname} 
-          COMMAND ${name-ext} --detect_memory_leaks=0 -- ${execspace})
-ENDMACRO()
-
-SET_UNIT_TEST(RiemannOpUnitTestsSerial RiemannCompOpUnitTests Serial)
+SET_UNIT_TEST(CompressibleFlowSolverRiemannOpUnitTestsSerial RiemannCompOpUnitTests Serial none FALSE)
 IF (NEKTAR_ENABLE_SIMD)
-    SET_UNIT_TEST(RiemannOpUnitTestsAVX RiemannCompOpUnitTests AVX)
+    SET_UNIT_TEST(CompressibleFlowSolverRiemannOpUnitTestsAVX RiemannCompOpUnitTests AVX none FALSE)
 ENDIF()
 IF(NEKTAR_ENABLE_DEVICE)
-    SET_UNIT_TEST(RiemannOpUnitTestsDevice RiemannCompOpUnitTests Device)
+    SET_UNIT_TEST(CompressibleFlowSolverRiemannOpUnitTestsDevice RiemannCompOpUnitTests Device none FALSE)
 ENDIF()
 
 # Copy XML file to build directory

@@ -409,3 +409,36 @@ MACRO(ADD_NEKPY_TEST name)
              COMMAND Tester ${CMAKE_CURRENT_SOURCE_DIR}/Tests/${name}.tst)
 ENDMACRO(ADD_NEKPY_TEST)
 
+# Device Support
+MACRO(SET_UNIT_TEST testname name execspace implementation mpi_flag)
+    IF (CMAKE_BUILD_TYPE STREQUAL "Debug")
+        SET(name-ext "${name}-g")
+    ELSEIF (CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
+        SET(name-ext "${name}-ms")
+    ELSEIF (CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+        SET(name-ext "${name}-rg")
+    ELSE()
+        SET(name-ext "${name}")
+    ENDIF()
+
+    IF (${mpi_flag} AND NEKTAR_USE_MPI)
+        IF (MSVC)
+            ADD_TEST(
+              NAME Operators${testname}_MPI
+              COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 2 ${name-ext}
+                      --detect_memory_leaks=0 -- ${execspace} ${implementation}
+            )
+        ELSE()
+            ADD_TEST(
+              NAME Operators${testname}_MPI
+              COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 2 ${CMAKE_CURRENT_BINARY_DIR}/${name-ext}
+                      --detect_memory_leaks=0 -- ${execspace} ${implementation}
+            )
+        ENDIF()
+    ELSE()
+        ADD_TEST(
+          NAME Operators${testname} 
+          COMMAND ${name-ext} --detect_memory_leaks=0 -- ${execspace} ${implementation})
+    ENDIF()
+ENDMACRO()
+
