@@ -70,7 +70,6 @@ SET(FieldUtilsHeaders
     ProcessModules/ProcessQualityMetric.h
     ProcessModules/ProcessVortexInducedVelocity.h
     ProcessModules/ProcessZeroHomogeneousPlane.h
-    ProcessModules/ProcessBVF.h
 )
 
 SET(FieldUtilsSources
@@ -144,7 +143,6 @@ SET(FieldUtilsSources
     ProcessModules/ProcessQualityMetric.cpp
     ProcessModules/ProcessVortexInducedVelocity.cpp
     ProcessModules/ProcessZeroHomogeneousPlane.cpp
-    ProcessModules/ProcessBVF.cpp
 )
 
 IF (NEKTAR_USE_VTK)
