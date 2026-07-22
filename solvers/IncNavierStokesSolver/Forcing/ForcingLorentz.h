@@ -52,7 +52,7 @@ public:
     friend class MemoryManager<ForcingLorentz>;
 
     /// Creates an instance of this class
-    SOLVER_UTILS_EXPORT static ForcingSharedPtr create(
+    static ForcingSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const std::weak_ptr<EquationSystem> &pEquation,
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
@@ -68,16 +68,15 @@ public:
     static std::string classNameBody;
 
 protected:
-    SOLVER_UTILS_EXPORT void v_InitObject(
+    void v_InitObject(
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
         const unsigned int &pNumForcingFields,
         const TiXmlElement *pForce) override;
 
-    SOLVER_UTILS_EXPORT void v_Apply(
-        const Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
-        const Array<OneD, Array<OneD, NekDouble>> &inarray,
-        Array<OneD, Array<OneD, NekDouble>> &outarray,
-        const NekDouble &time) override;
+    void v_Apply(const Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
+                 const Array<OneD, Array<OneD, NekDouble>> &inarray,
+                 Array<OneD, Array<OneD, NekDouble>> &outarray,
+                 const NekDouble &time) override;
 
 private:
     ForcingLorentz(const LibUtilities::SessionReaderSharedPtr &pSession,

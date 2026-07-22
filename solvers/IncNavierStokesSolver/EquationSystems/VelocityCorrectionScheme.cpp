@@ -1320,7 +1320,7 @@ void VelocityCorrectionScheme::SolveEfield(
     m_fields[0]->PhysDeriv(MultiRegions::eX, movEfield[0], m_F[0]);
     for (size_t i = 1; i < m_spacedim; ++i)
     {
-        // Use Forcing[1] as storage since it is not needed for the pressure
+        // Use m_F[1] as storage since it is not needed for the m_epotential
         m_fields[i]->PhysDeriv(MultiRegions::DirCartesianMap[i], movEfield[i],
                                m_F[1]);
         Vmath::Vadd(physTot, m_F[1], 1, m_F[0], 1, m_F[0], 1);
