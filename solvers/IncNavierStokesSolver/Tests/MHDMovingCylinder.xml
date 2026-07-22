@@ -1,10 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <NEKTAR>
     <EXPANSIONS>
-        <E COMPOSITE="C[5]" NUMMODES="3, 3" BASISTYPE="Modified_A,Modified_A" POINTSTYPE="GaussLobattoLegendre,GaussLobattoLegendre"   NUMPOINTS="4,4" FIELDS="u,v" />
-        <E COMPOSITE="C[5]" NUMMODES="2, 2" BASISTYPE="Modified_A,Modified_A" POINTSTYPE="GaussLobattoLegendre,GaussLobattoLegendre"   NUMPOINTS="4,4" FIELDS="phi,p" />
-        <E COMPOSITE="C[6]" NUMMODES="3, 3" BASISTYPE="Modified_A,Modified_B" POINTSTYPE="GaussLobattoLegendre,GaussRadauMAlpha1Beta0" NUMPOINTS="4,3" FIELDS="u,v" />
-        <E COMPOSITE="C[6]" NUMMODES="2, 2" BASISTYPE="Modified_A,Modified_B" POINTSTYPE="GaussLobattoLegendre,GaussRadauMAlpha1Beta0" NUMPOINTS="4,3" FIELDS="phi,p" />
+        <E COMPOSITE="C[73]" NUMMODES="3, 3" BASISTYPE="Modified_A,Modified_A" POINTSTYPE="GaussLobattoLegendre,GaussLobattoLegendre"   NUMPOINTS="4,4" FIELDS="u,v" />
+        <E COMPOSITE="C[73]" NUMMODES="2, 2" BASISTYPE="Modified_A,Modified_A" POINTSTYPE="GaussLobattoLegendre,GaussLobattoLegendre"   NUMPOINTS="4,4" FIELDS="phi,p" />
     </EXPANSIONS>
     <CONDITIONS>
         <SOLVERINFO>
@@ -23,7 +21,7 @@
 
         <PARAMETERS>
             <P> Kinvis        = 0.01  </P>
-            <P> Atest      = 0.1  </P>
+            <P> Atest      = -0.1  </P>
             <P> TimeStep      = 0.01 </P>
             <P> NumSteps      = 10 </P>
             <P> IO_InfoSteps  = 10      </P>
@@ -40,11 +38,10 @@
         </VARIABLES>
 
         <BOUNDARYREGIONS>
-            <B ID="0"> C[0] </B>    <!-- Wall -->
-            <B ID="1"> C[1] </B>  <!-- inlet -->
-            <B ID="2"> C[2] </B>  <!-- outlet -->
-            <B ID="3"> C[3] </B>  <!-- sideup -->
-            <B ID="4"> C[4] </B>  <!-- sidedown -->
+            <B ID="0"> C[74] </B>    <!-- Wall -->
+            <B ID="1"> C[75] </B>  <!-- inlet -->
+            <B ID="2"> C[77] </B>  <!-- outlet -->
+            <B ID="3"> C[76] </B>  <!-- side -->
         </BOUNDARYREGIONS>
 
         <BOUNDARYCONDITIONS>
@@ -67,12 +64,6 @@
                 <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
             </REGION>
             <REGION REF="3">
-                <D VAR="u" USERDEFINEDTYPE="MRFFar" VALUE="0" />
-                <D VAR="v" USERDEFINEDTYPE="MRFFar" VALUE="0" />
-                <N VAR="phi" VALUE="0" />
-                <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
-            </REGION>
-            <REGION REF="4">
                 <D VAR="u" USERDEFINEDTYPE="MRFFar" VALUE="0" />
                 <D VAR="v" USERDEFINEDTYPE="MRFFar" VALUE="0" />
                 <N VAR="phi" VALUE="0" />
