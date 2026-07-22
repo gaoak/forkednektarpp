@@ -79,7 +79,7 @@ ForcingLorentz::~ForcingLorentz(void)
 void ForcingLorentz::v_InitObject(
     const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
     [[maybe_unused]] const unsigned int &pNumForcingFields,
-    [[maybe_unused]] const TiXmlElement *pForce)
+    const TiXmlElement *pForce)
 {
     // read space dimention
     bool isH1d, isH2d;
@@ -99,7 +99,15 @@ void ForcingLorentz::v_InitObject(
     m_B0                              = Array<OneD, NekDouble>(3, 0.);
     std::vector<std::string> elecVars = {"Ex", "Ey", "Ez"};
     std::vector<std::string> magVars  = {"Bx", "By", "Bz"};
-    std::string electromagneticFields = "ElectricMagneticFields";
+    const TiXmlElement *funcNameElmt =
+        pForce->FirstChildElement("ELECTRICMAGNETICFIELDS");
+    ASSERTL0(funcNameElmt,
+             "Requires ELECTRICMAGNETICFIELDS tag specifying the function "
+             "that prescribes the external electric and magnetic fields.");
+    std::string electromagneticFields = funcNameElmt->GetText();
+    ASSERTL0(m_session->DefinesFunction(electromagneticFields),
+             "Function '" + electromagneticFields +
+                 "' is not defined in the session.");
     for (size_t i = 0; i < 3; ++i)
     {
         if (m_session->DefinesFunction(electromagneticFields, elecVars[i]))

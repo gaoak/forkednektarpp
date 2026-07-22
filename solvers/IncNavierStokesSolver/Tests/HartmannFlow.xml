@@ -92,7 +92,9 @@
         <FORCE TYPE="Body">
             <BODYFORCE> BodyForce </BODYFORCE>
         </FORCE>
-        <FORCE TYPE="ForcingLorentz" />
+        <FORCE TYPE="ForcingLorentz">
+            <ELECTRICMAGNETICFIELDS> ElectricMagneticFields </ELECTRICMAGNETICFIELDS>
+        </FORCE>
     </FORCING>
 
     <GEOMETRY DIM="2" SPACE="2">

@@ -100,7 +100,8 @@
     <FORCING>
         <FORCE TYPE="MovingReferenceFrame">
         </FORCE>
-        <FORCE TYPE="ForcingLorentz" >
+        <FORCE TYPE="ForcingLorentz">
+            <ELECTRICMAGNETICFIELDS> ElectricMagneticFields </ELECTRICMAGNETICFIELDS>
         </FORCE>
     </FORCING>
 
