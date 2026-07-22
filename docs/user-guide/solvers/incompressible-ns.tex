@@ -2319,6 +2319,35 @@ The meanings of the parameters are:
         \bottomrule
     \end{tabularx}
 \end{center}
+\section{Quasi-static magnetohydrodynamics}
+In magnetohydrodynamics (MHD), a Lorentz force exists in the momentum equation, $\mathbf{j}\times\mathbf{B}$. Here, $\mathbf{j}$ is the current density and $\mathbf{B}$ is the magnetic flux density. For quasi-static MHD, the magnetic diffusion is much stronger than its advection and therefore the flow-induced magnetic field is negligible compared with the external magnetic field. From Ohm's law, the current density is $\mathbf{j} = \sigma (-\nabla\phi+\mathbf{u}\times\mathbf{B})$. Here, $\sigma$ is the electric conductivity. The electric potential $\phi$ is determined from the divergence-free condition of the current density, $\nabla^2\phi=\nabla\cdot(\mathbf{u}\times\mathbf{B})$ with proper boundary conditions.
+
+To activate this feature, the \inltt{ForcingLorentz} should be defined. The strength of external constant electric field is (Ex, Ey, Ez) and that of the magnetic flux density is (Bx, By, Bz). Their default values are zero.
+\begin{lstlisting}[style=XMLStyle]
+<CONDITIONS>
+<FUNCTION NAME="ElectricMagneticFields">
+<E VAR="By" VALUE="4" />
+<E VAR="Ez" VALUE="0" />
+</FUNCTION>
+</CONDITIONS>
+
+<FORCE TYPE="ForcingLorentz">
+<ELECTRICMAGNETICFIELDS> ElectricMagneticFields </ELECTRICMAGNETICFIELDS>
+</FORCE>
+\end{lstlisting}
+
+Two extrac parameters should be provided.
+\begin{center}
+    \begin{tabularx}{0.99\textwidth}{lXr}
+        \toprule
+        \textbf{Parameter} & \textbf{Description} & \textbf{Mandatory}
+        \\
+        \midrule
+        \inltt{ElectricConductivity}      & electric conductivity $\sigma$.  & \inltt{Yes}\\
+        \inltt{numConvectiveFields}      & number of convective fields, should be number of fields minus 2 & \inltt{Yes}\\
+        \bottomrule
+    \end{tabularx}
+\end{center}
 
 \section{Examples}
 \label{s:incns:examples}
