@@ -32,14 +32,14 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "init_fields.hpp"
-
 #include "ADRSolverRedesign/LinearAdvVolumeFlux/LinearAdvVolumeFluxOp.hpp"
 #include "Operators/SolverUtilsOps/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp"
 #include "Operators/SolverUtilsOps/RiemannSolvers/RiemannSolverOp.hpp"
 #include <ADRSolver/EquationSystems/UnsteadyAdvection.h>
 #include <SolverUtils/RiemannSolvers/RiemannSolver.h>
 #include <SolverUtils/RiemannSolvers/UpwindSolver.h>
+
+#include "UnitTests/Operators/init_fields.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
@@ -297,12 +297,13 @@ public:
 // clang-format off
 #if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
 #define TESTFLOAT(type, filename)                                              \
-    class type##float : public AdvectionWeakDG<float>                            \
+    class type##float : public AdvectionWeakDG<float>                          \
     {                                                                          \
     public:                                                                    \
         type##float()                                                          \
         {                                                                      \
-            meshName = filename;                                               \
+            std::string dir = "../../../library/UnitTests/Operators/";         \
+            meshName = dir + filename;                                         \
         }                                                                      \
     };
 #else
@@ -310,12 +311,13 @@ public:
 #endif
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 #define TESTDOUBLE(type, filename)                                             \
-    class type : public AdvectionWeakDG<double>                                  \
+    class type : public AdvectionWeakDG<double>                                \
     {                                                                          \
     public:                                                                    \
         type()                                                                 \
         {                                                                      \
-            meshName = filename;                                               \
+            std::string dir = "../../../library/UnitTests/Operators/";         \
+            meshName = dir + filename;                                         \
         }                                                                      \
     };
 #else
