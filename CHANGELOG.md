@@ -12,6 +12,9 @@ v5.11.0
 - Turn-off fast math for intel compiler (!2617)
 - Move using namespace std to avoid name clashes (!2618)
 
+ **IncNavierStokesSolver**
+- Add a Lorentz force to support quasi-static MHD simulation (!2625) 
+
 v5.10.0
 -------
 **Library**
