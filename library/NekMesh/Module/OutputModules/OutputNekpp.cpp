@@ -36,8 +36,6 @@
 #include <string>
 #include <thread>
 
-using namespace std;
-
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/split.hpp>
@@ -57,7 +55,8 @@ namespace io = boost::iostreams;
 
 #include "OutputNekpp.h"
 
-using namespace Nektar::NekMesh;
+using namespace std;
+
 using namespace Nektar::SpatialDomains;
 
 namespace Nektar::NekMesh
@@ -263,10 +262,11 @@ void OutputNekpp::Process()
             filenames[0] = filename;
         }
 
+        // Fake command line argument for SessionReader construction
         LibUtilities::CppCommandLine cmd({"NekMesh"});
         LibUtilities::SessionReaderSharedPtr vSession =
             LibUtilities::SessionReader::CreateInstance(
-                1, cmd.GetArgv(), filenames, m_mesh->m_comm);
+                cmd.GetArgc(), cmd.GetArgv(), filenames, m_mesh->m_comm);
         SpatialDomains::MeshGraphSharedPtr graph =
             SpatialDomains::MeshGraphIO::Read(vSession);
 

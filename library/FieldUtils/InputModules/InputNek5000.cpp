@@ -36,11 +36,12 @@
 #include <iostream>
 #include <string>
 #include <vector>
-using namespace std;
 
 #include <boost/algorithm/string.hpp>
 
 #include "InputNek5000.h"
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

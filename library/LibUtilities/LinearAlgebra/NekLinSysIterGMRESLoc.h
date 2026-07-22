@@ -139,6 +139,9 @@ private:
                     const Array<OneD, const NekDouble> &b,
                     Array<OneD, NekDouble> &y);
 
+    // Compute eigenvalues of the stored Hessenburg matrix.
+    void ComputeEigenvalues(Array<OneD, NekDouble> &hes_history);
+
     static std::string lookupIds[];
     static std::string def;
 

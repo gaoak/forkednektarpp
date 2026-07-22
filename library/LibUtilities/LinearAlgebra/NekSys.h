@@ -295,12 +295,17 @@ public:
         m_rhs_magnitude = mag;
     }
 
+    LIB_UTILITIES_EXPORT void SetVerboseFlag(const bool verbose)
+    {
+        m_verbose = verbose;
+    }
+
 protected:
     LibUtilities::CommSharedPtr m_rowComm;
     bool m_converged;
     bool m_root;
-    bool m_verbose;
-    bool m_FlagWarnings;
+    bool m_verbose      = false;
+    bool m_FlagWarnings = false;
     int m_SysDimen;
 
     NekSysOperators m_operator;

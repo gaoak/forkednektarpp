@@ -2978,6 +2978,11 @@ void MeshGraphIOXml::WriteDefaultExpansion(TiXmlElement *root)
 
     for (auto it = meshComposites.begin(); it != meshComposites.end(); it++)
     {
+        if (it->second->m_geomVec.size() == 0)
+        {
+            continue;
+        }
+
         if (it->second->m_geomVec[0]->GetShapeDim() == meshDimension)
         {
             TiXmlElement *exp = new TiXmlElement("E");

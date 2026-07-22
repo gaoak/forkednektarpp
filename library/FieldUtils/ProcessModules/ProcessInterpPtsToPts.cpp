@@ -34,7 +34,6 @@
 
 #include <iostream>
 #include <string>
-using namespace std;
 
 #include <FieldUtils/Interpolator.h>
 #include <LibUtilities/BasicUtils/CsvIO.h>
@@ -44,6 +43,8 @@ using namespace std;
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 
 #include "ProcessInterpPtsToPts.h"
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

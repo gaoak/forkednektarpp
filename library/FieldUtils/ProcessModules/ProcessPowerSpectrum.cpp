@@ -32,11 +32,12 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <iostream>
+#include <string>
+
 #include "ProcessPowerSpectrum.h"
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
-#include <iostream>
-#include <string>
 
 using namespace std;
 

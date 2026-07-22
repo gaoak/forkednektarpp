@@ -32,15 +32,16 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <iomanip>
 #include <set>
 #include <string>
-using namespace std;
 
 #include "OutputFileBase.h"
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <boost/format.hpp>
-#include <iomanip>
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {

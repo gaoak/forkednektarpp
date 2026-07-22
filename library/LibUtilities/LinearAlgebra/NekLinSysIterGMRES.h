@@ -213,6 +213,11 @@ private:
                     const Array<OneD, const NekDouble> &b,
                     Array<OneD, NekDouble> &y);
 
+    // Backward calculation to calculate coeficients
+    // of least square problem
+    // To notice, Hessenburg's columnns and rows are reverse
+    void ComputeEigenvalues(Array<OneD, NekDouble> &hes_history);
+
     static std::string lookupIds[];
     static std::string def;
 

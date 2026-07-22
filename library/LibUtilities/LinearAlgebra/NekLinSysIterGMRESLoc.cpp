@@ -33,7 +33,6 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <LibUtilities/BasicUtils/Timer.h>
 #include <LibUtilities/LinearAlgebra/NekLinSysIterGMRESLoc.h>
 
 using namespace std;
@@ -119,14 +118,23 @@ int NekLinSysIterGMRESLoc::v_SolveSystem(
     return niterations;
 }
 
-void NekLinSysIterGMRESLoc::v_DoIterate(const int nGlobal,
+void NekLinSysIterGMRESLoc::v_DoIterate(const int nLocal,
                                         const Array<OneD, NekDouble> &rhs,
                                         Array<OneD, NekDouble> &x,
                                         [[maybe_unused]] const int nDir,
                                         NekDouble &err, int &iter)
 {
-    iter = DoGMRES(nGlobal, rhs, x);
-    err  = m_finalError;
+    Array<OneD, NekDouble> r(nLocal, 0.0);
+    Array<OneD, NekDouble> dx(nLocal, 0.0);
+    // Get residual r = rhs - Ax
+    m_operator.DoNekSysLhsEval(x, r, m_GMRESCentralDifference);
+    Vmath::Vsub(nLocal, &rhs[0], 1, &r[0], 1, &r[0], 1);
+    // Get dx
+    iter = DoGMRES(nLocal, r, dx);
+    // Update solution x = x + dx
+    Vmath::Vadd(nLocal, &x[0], 1, &dx[0], 1, &x[0], 1);
+
+    err = m_finalError;
 }
 
 /**  
@@ -146,9 +154,10 @@ int NekLinSysIterGMRESLoc::DoGMRES(const int nLocal,
                                    Array<OneD, NekDouble> &pOutput)
 {
     m_prec_factor = NekConstants::kNekUnsetDouble;
+    m_eps_old     = 99999.0;
     if (m_rhs_magnitude == NekConstants::kNekUnsetDouble)
     {
-        Set_Rhs_Magnitude(pInput);
+        Set_Rhs_Magnitude(pInput, nLocal);
     }
 
     NekDouble eps = 0.0;
@@ -174,6 +183,8 @@ int NekLinSysIterGMRESLoc::DoGMRES(const int nLocal,
         }
     }
 
+    m_finalError = sqrt(eps / m_rhs_magnitude);
+
     // Verbose print error, iteration count, tolerance, ..
     if (m_verbose)
     {
@@ -196,7 +207,9 @@ int NekLinSysIterGMRESLoc::DoGMRES(const int nLocal,
 
         if (m_root)
         {
-            cout << "GMRES iterations made = " << m_totalIterations
+            m_finalError = sqrt(eps / m_rhs_magnitude);
+
+            cout << " GMRES iterations made = " << m_totalIterations
                  << " using tolerance of " << m_NekLinSysTolerance
                  << " (error = " << m_finalError
                  << ", rhs_mag = " << sqrt(m_rhs_magnitude)
@@ -256,6 +269,14 @@ NekDouble NekLinSysIterGMRESLoc::DoGmresRestart(
     Array<OneD, NekDouble> V2;
     Array<OneD, NekDouble> h1;
     Array<OneD, NekDouble> h2;
+
+    // Variable to store unmodified Hessenburg matrix for EV estimation routine.
+    Array<OneD, NekDouble> hes_history;
+    if (m_isComputeEigenvalues)
+    {
+        hes_history = Array<OneD, NekDouble>(
+            (m_LinSysMaxStorage + 1) * (m_LinSysMaxStorage + 1), 0.0);
+    }
 
     if (nrestart)
     {
@@ -386,6 +407,12 @@ NekDouble NekLinSysIterGMRESLoc::DoGmresRestart(
             starttem = starttem - 1;
         }
 
+        if (m_isComputeEigenvalues)
+        {
+            Vmath::Vcopy(m_LinSysMaxStorage + 1, &h1[0], 1,
+                         &hes_history[idtem * (m_LinSysMaxStorage + 1)], 1);
+        }
+
         h2 = m_Upper[nd];
         Vmath::Vcopy(m_LinSysMaxStorage + 1, &h1[0], 1, &h2[0], 1);
         DoGivensRotation(starttem, endtem, cs, sn, h2, eta);
@@ -407,10 +434,32 @@ NekDouble NekLinSysIterGMRESLoc::DoGmresRestart(
         nswp++;
         m_totalIterations++;
 
+        if (m_verbose && m_root)
+        {
+            NekDouble rel_err = sqrt(eps / m_rhs_magnitude);
+            if (log(m_eps_old / rel_err) > log(10.0) * m_printThreshold)
+            {
+                if (m_flexible)
+                {
+                    cout << " Flexible";
+                }
+                cout << " GMRES iteration = " << m_totalIterations
+                     << ", error = " << rel_err
+                     << ", rhs_mag = " << sqrt(m_rhs_magnitude) << endl;
+                m_eps_old = rel_err;
+            }
+        }
+
         if (m_converged)
         {
             break;
         }
+    }
+
+    if (m_isComputeEigenvalues)
+    {
+        ComputeEigenvalues(hes_history);
+        m_isComputeEigenvalues = false;
     }
 
     DoBackward(nswp, m_Upper, eta, y_total);
@@ -468,11 +517,7 @@ void NekLinSysIterGMRESLoc::DoArnoldi(const int starttem, const int endtem,
                                       Array<OneD, NekDouble> &h)
 {
     NekDouble alpha, beta, vExchange = 0.0;
-    LibUtilities::Timer timer;
-    timer.Start();
     m_operator.DoNekSysLhsEval(V1, w, m_GMRESCentralDifference);
-    timer.Stop();
-    timer.AccumulateRegion("NekSysOperators::DoNekSysLhsEval", 10);
 
     if (m_NekLinSysLeftPrecon)
     {
@@ -582,6 +627,84 @@ void NekLinSysIterGMRESLoc::DoBackward(const int number,
             sum -= y[j] * A[j][i];
         }
         y[i] = sum / A[i][i];
+    }
+}
+
+// Function to get EVs for a restart matrix using Lapack::Dgeev
+// Input: Get the Hessenberg matrix history from GMRES
+// Step1: Reduce the size to (m_totaliterations+1)^2 (yet to implement)
+// Step2: Use the Lapack::Dgeev routine for calculating EVs of the KSP subspace
+void NekLinSysIterGMRESLoc::ComputeEigenvalues(
+    Array<OneD, NekDouble> &hes_history)
+{
+    // boost::ignore_unused(pInput,pOutput,tol,factor);
+    // int nNonDir = nGlobal - nDir;
+
+    // Array<OneD, NekDouble> Mat(nNonDir*nNonDir);
+    ////////////////////////////////////////////////////////
+    // Print History Matrix
+    // FILE *mFile;
+
+    // mFile = fopen("Matrix.txt", "w");
+    // for (int j = 0; j < nNonDir; j++)
+    // {
+    //     for (int k = 0; k < nNonDir; k++)
+    //     {
+    //         if(fabs(Mat[j *nNonDir + k]) < 1e-15)
+    //         {
+    //             Mat[j * nNonDir + k] = 0.0;
+    //         }
+    //         fprintf(mFile, "%e ", Mat[j * nNonDir + k]);
+    //     }
+    //     fprintf(mFile, "\n");
+    // }
+    // fclose(mFile);
+
+    // Rank of the matrix for EV estimation
+    int n = m_LinSysMaxStorage + 1; // hes_history is square of this
+
+    char jobvl = 'N';
+    char jobvr = 'N';
+    int info = 0, lwork = 3 * n;
+    NekDouble dum;
+
+    Array<OneD, NekDouble> EIG_R(n);
+    Array<OneD, NekDouble> EIG_I(n);
+
+    Array<OneD, NekDouble> work(lwork);
+
+    Lapack::Dgeev(jobvl, jobvr, n, hes_history.data(), n, EIG_R.data(),
+                  EIG_I.data(), &dum, 1, &dum, 1, &work[0], lwork, info);
+    ASSERTL0(info == 0, "Error with dgeev");
+
+    m_eigenvalues = Array<OneD, NekDouble>(n, 0.0);
+    Vmath::Vcopy(n, EIG_R.data(), 1, m_eigenvalues.data(), 1);
+
+    ////////////////////////////////////////////////////////
+    // Output of the EigenValues
+    if (m_isOutputEigenvalues)
+    {
+        FILE *pFile;
+        int myRank           = m_rowComm->GetRank();
+        std::string filename = std::string("Eigenvalues_") +
+                               std::to_string(myRank) + std::string(".txt");
+        pFile = fopen(filename.c_str(), "w");
+        for (int j = 0; j < n; j++)
+        {
+            fprintf(pFile, "%e %e\n", EIG_R[j], EIG_I[j]);
+        }
+        fclose(pFile);
+    }
+    if (m_root & m_verbose)
+    {
+        cout << "\nEigenvalues : " << endl;
+        // print the last 10 values, which includes the max eigenv
+        int m = min(n, 10);
+        for (int j = 0; j < m; j++)
+        {
+            cout << EIG_R[j] << "\t" << EIG_I[j] << endl;
+        }
+        cout << endl;
     }
 }
 } // namespace Nektar::LibUtilities

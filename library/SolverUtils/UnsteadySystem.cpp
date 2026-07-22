@@ -34,7 +34,6 @@
 
 #include <iomanip>
 #include <iostream>
-using namespace std;
 
 #include <boost/format.hpp>
 
@@ -42,6 +41,8 @@ using namespace std;
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <MultiRegions/AssemblyMap/AssemblyMapDG.h>
 #include <SolverUtils/UnsteadySystem.h>
+
+using namespace std;
 
 namespace Nektar::SolverUtils
 {

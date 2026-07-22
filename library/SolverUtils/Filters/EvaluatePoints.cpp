@@ -33,7 +33,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <iomanip>
-using namespace std;
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/ParseUtils.h>
@@ -41,6 +40,8 @@ using namespace std;
 #include <MultiRegions/ExpList3DHomogeneous1D.h>
 #include <SolverUtils/Filters/EvaluatePoints.h>
 #include <boost/format.hpp>
+
+using namespace std;
 
 namespace Nektar::SolverUtils
 {

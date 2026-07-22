@@ -84,6 +84,11 @@ public:
     SPATIAL_DOMAINS_EXPORT std::map<int, MeshEntity> CreateMeshEntities();
     SPATIAL_DOMAINS_EXPORT CompositeDescriptor CreateCompositeDescriptor();
 
+    bool HasMultifileOutput()
+    {
+        return v_HasMultifileOutput();
+    }
+
 protected:
     LibUtilities::SessionReaderSharedPtr m_session;
     MeshGraphSharedPtr m_meshGraph;
@@ -91,10 +96,12 @@ protected:
     bool m_meshPartitioned = false;
     CompositeOrdering m_compOrder;
     BndRegionOrdering m_bndRegOrder;
+    std::map<LibUtilities::ShapeType, std::pair<char, char>> m_compMap;
 
+    char GetCompositeTag(Geometry *geom);
     std::string GetCompositeString(CompositeSharedPtr comp);
 
-    SPATIAL_DOMAINS_EXPORT MeshGraphIO() = default;
+    SPATIAL_DOMAINS_EXPORT MeshGraphIO();
 
     SPATIAL_DOMAINS_EXPORT virtual void v_WriteGeometry(
         const std::string &outfilename, bool defaultExp = false,
@@ -105,6 +112,11 @@ protected:
 
     SPATIAL_DOMAINS_EXPORT virtual void v_PartitionMesh(
         LibUtilities::SessionReaderSharedPtr session) = 0;
+
+    virtual bool v_HasMultifileOutput()
+    {
+        return true;
+    }
 };
 
 typedef LibUtilities::NekFactory<std::string, MeshGraphIO> MeshGraphIOFactory;

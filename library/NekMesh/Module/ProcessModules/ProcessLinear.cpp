@@ -40,8 +40,6 @@ using namespace std;
 namespace Nektar::NekMesh
 {
 
-using namespace Nektar::NekMesh;
-
 ModuleKey ProcessLinear::className = GetModuleFactory().RegisterCreatorFunction(
     ModuleKey(eProcessModule, "linearise"), ProcessLinear::create,
     "Linearises mesh.");

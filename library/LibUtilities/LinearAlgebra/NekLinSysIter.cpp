@@ -57,6 +57,7 @@ NekLinSysIter::NekLinSysIter(
     m_NekLinSysTolerance     = fmax(pKey.m_NekLinSysTolerance, 1.0E-16);
     m_NekLinSysMaxIterations = pKey.m_NekLinSysMaxIterations;
     m_isLocal                = false;
+    pSession->LoadParameter("IterSolvePrintThreshold", m_printThreshold, 100.0);
 }
 
 void NekLinSysIter::v_InitObject()
@@ -74,7 +75,7 @@ void NekLinSysIter::SetUniversalUniqueMap(const Array<OneD, const int> &map,
         m_map = Array<OneD, int>(nmap, 0);
     }
     Vmath::Vcopy(nmap, map, 1, m_map, 1);
-    // check if map is all ones, ignore Dirichlet BCs
+    // check if map is all ones
     m_mapIsOnes = true;
     for (int i = nDir; i < nmap; ++i)
     {
@@ -92,19 +93,23 @@ void NekLinSysIter::SetUniversalUniqueMap()
     m_mapIsOnes = true;
 }
 
-void NekLinSysIter::Set_Rhs_Magnitude(const Array<OneD, NekDouble> &pIn)
+void NekLinSysIter::Set_Rhs_Magnitude(const Array<OneD, NekDouble> &pIn,
+                                      const int n)
 {
     NekDouble vExchange(0.0);
 
+    ASSERTL1(n <= pIn.size(),
+             "Input array size is smaller than n in Set_Rhs_Magnitude");
+
     if (m_isLocal)
     {
-        Array<OneD, NekDouble> wk(pIn.size());
+        Array<OneD, NekDouble> wk(n);
         m_operator.DoAssembleLoc(pIn, wk);
-        vExchange = Vmath::Dot(pIn.size(), wk, pIn);
+        vExchange = Vmath::Dot(n, wk, pIn);
     }
     else
     {
-        vExchange = Vmath::Dot2(pIn.size(), pIn, pIn, m_map);
+        vExchange = Vmath::Dot2(n, pIn, pIn, m_map);
     }
 
     m_rowComm->AllReduce(vExchange, LibUtilities::ReduceSum);
@@ -112,9 +117,11 @@ void NekLinSysIter::Set_Rhs_Magnitude(const Array<OneD, NekDouble> &pIn)
 }
 
 void NekLinSysIter::ConvergenceCheck(
-    const Array<OneD, const NekDouble> &Residual)
+    const Array<OneD, const NekDouble> &Residual, const int n)
 {
-    m_finalError = Vmath::Dot(Residual.size(), Residual, Residual);
+    ASSERTL1(n <= Residual.size(),
+             "Input array size is smaller than n in ConvergenceCheck");
+    m_finalError = Vmath::Dot(n, Residual, Residual);
     m_rowComm->AllReduce(m_finalError, Nektar::LibUtilities::ReduceSum);
 
     m_converged = m_finalError <

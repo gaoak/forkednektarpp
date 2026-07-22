@@ -200,6 +200,13 @@ void CommSerial::v_AllGatherv([[maybe_unused]] const void *sendbuf,
                               [[maybe_unused]] const int *recvdispls,
                               [[maybe_unused]] CommDataType recvtype)
 {
+    // Single process: the gather result is just this rank's own send buffer,
+    // placed at its displacement (recvdispls[0]). Mirrors MPI_Allgatherv,
+    // which populates the caller's own slice at size 1.
+    const size_t sendsz = CommDataTypeGetSize(sendtype);
+    const size_t recvsz = CommDataTypeGetSize(recvtype);
+    std::memcpy(static_cast<char *>(recvbuf) + recvdispls[0] * recvsz, sendbuf,
+                sendcount * sendsz);
 }
 
 /**

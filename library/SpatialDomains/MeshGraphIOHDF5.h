@@ -36,6 +36,8 @@
 #define NEKTAR_SPATIALDOMAINS_MGIOHDF5_H
 
 #include <LibUtilities/BasicUtils/H5.h>
+#include <LibUtilities/Communication/GsLib.hpp>
+
 #include <SpatialDomains/MeshGraphIO.h>
 #include <SpatialDomains/MeshPartition.h>
 
@@ -47,6 +49,7 @@ class MeshGraphIOHDF5 : public MeshGraphIO
 public:
     friend class MemoryManager<MeshGraphIOHDF5>;
 
+    /// Create an instance of MeshGraphIOHDF5.
     static MeshGraphIOSharedPtr create()
     {
         return MemoryManager<MeshGraphIOHDF5>::AllocateSharedPtr();
@@ -79,7 +82,8 @@ private:
     void SetupCompositeRange(LibUtilities::DomainRangeShPtr &rng);
 
     template <class T>
-    void WriteGeometryMap(GeomMapView<T> &geomMap, std::string datasetName);
+    void WriteGeometryMap(GeomMapView<T> &geomMap, std::string datasetName,
+                          bool checkUnique, LibUtilities::CommSharedPtr &comm);
 
     template <class T, typename DataType>
     void ReadGeometryData(GeomMapView<T> &geomMap, std::string dataSet,
@@ -97,18 +101,48 @@ private:
         std::unordered_map<int, int> &id2row);
 
     void WriteCurveMap(CurveMap &curves, std::string dsName,
-                       MeshCurvedPts &curvedPts, int &ptOffset, int &newIdx);
-    void WriteCurvePoints(MeshCurvedPts &curvedPts);
+                       MeshCurvedPts &curvedPts, int &ptOffset, int &newIdx,
+                       const std::unordered_set<int> &owned, hsize_t rowOffset,
+                       hsize_t nRowsGlobal);
+    void WriteCurvePoints(MeshCurvedPts &curvedPts, hsize_t ptBase,
+                          hsize_t totalPts);
 
-    void WriteComposites(CompositeMap &comps);
-    void WriteDomain(std::map<int, CompositeMap> &domain);
+    void WriteComposites(CompositeMap &comps,
+                         LibUtilities::CommSharedPtr &comm);
+    void WriteDomain(std::map<int, CompositeMap> &domain,
+                     LibUtilities::CommSharedPtr &comm);
 
+    hsize_t GetGeomWriteLayout(const std::vector<int> &idMap, bool checkUnique,
+                               const LibUtilities::CommSharedPtr &comm,
+                               std::vector<bool> &owned, hsize_t &writeOffset);
+
+    bool v_HasMultifileOutput() override
+    {
+        return false;
+    }
+
+    /// HDF5 file name (stub without extension which is typically `.xml` for the
+    /// session file and `.nekg` for geometry information).
     std::string m_hdf5Name;
+    /// Handle for the HDF5 file.
     LibUtilities::H5::FileSharedPtr m_file;
+    /// Read-related property list for defining parallel access.
     LibUtilities::H5::PListSharedPtr m_readPL;
+    /// Write-related property list for defining parallel access.
+    LibUtilities::H5::PListSharedPtr m_writePL;
+    /// Handle for the `NEKTAR/GEOMETRY/MESH` group inside the HDF5 file.
     LibUtilities::H5::GroupSharedPtr m_mesh;
+    /// Handle for the `NEKTAR/GEOMETRY/MAPS` group inside the HDF5 file.
     LibUtilities::H5::GroupSharedPtr m_maps;
+    /// Read-in version, see #FORMAT_VERSION
     unsigned int m_inFormatVersion;
+    /// A map from geometry type (`SEG`, `QUAD` or `TRI`) to a set, where the
+    /// set indicates all geometries that this rank owns for the purposes of
+    /// writing. See #WriteGeometryMap.
+    std::map<std::string, std::unordered_set<int>> m_geomOwners;
+    /// A map containing lists of all composite strings, which will be held on
+    /// rank 0.
+    std::map<int, std::pair<char, std::string>> m_globalComps;
 
     static const unsigned int FORMAT_VERSION;
 };

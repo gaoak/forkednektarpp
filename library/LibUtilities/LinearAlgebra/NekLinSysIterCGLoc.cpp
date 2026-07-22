@@ -78,13 +78,22 @@ int NekLinSysIterCGLoc::v_SolveSystem(
     return m_totalIterations;
 }
 
-void NekLinSysIterCGLoc::v_DoIterate(const int nGlobal,
+void NekLinSysIterCGLoc::v_DoIterate(const int nLocal,
                                      const Array<OneD, NekDouble> &rhs,
                                      Array<OneD, NekDouble> &x,
                                      [[maybe_unused]] const int nDir,
                                      NekDouble &err, int &iter)
 {
-    DoConjugateGradient(nGlobal, rhs, x);
+    Array<OneD, NekDouble> r(nLocal, 0.0);
+    Array<OneD, NekDouble> dx(nLocal, 0.0);
+    // Get residual r = rhs - Ax
+    m_operator.DoNekSysLhsEval(x, r);
+    Vmath::Vsub(nLocal, &rhs[0], 1, &r[0], 1, &r[0], 1);
+    // Get dx
+    DoConjugateGradient(nLocal, r, dx);
+    // Update solution x = x + dx
+    Vmath::Vadd(nLocal, &x[0], 1, &dx[0], 1, &x[0], 1);
+
     iter = m_totalIterations;
     err  = m_finalError;
 }
@@ -123,6 +132,15 @@ void NekLinSysIterCGLoc::DoConjugateGradient(
     NekDouble eps;
     Array<OneD, NekDouble> vExchange(4, 0.0);
 
+    // Arrays to store CG coefficients for EV estimation routine.
+    Array<OneD, NekDouble> alpha_list;
+    Array<OneD, NekDouble> beta_list;
+    if (m_isComputeEigenvalues)
+    {
+        alpha_list = Array<OneD, NekDouble>(m_NekLinSysMaxIterations, 0.0);
+        beta_list  = Array<OneD, NekDouble>(m_NekLinSysMaxIterations, 0.0);
+    }
+
     // Copy initial residual from input
     Vmath::Vcopy(nLocal, pInput, 1, r_A, 1);
 
@@ -141,10 +159,11 @@ void NekLinSysIterCGLoc::DoConjugateGradient(
 
     if (m_rhs_magnitude == NekConstants::kNekUnsetDouble)
     {
-        Set_Rhs_Magnitude(pInput);
+        Set_Rhs_Magnitude(pInput, nLocal);
     }
 
     m_totalIterations = 0;
+    m_eps_old         = sqrt(eps / m_rhs_magnitude);
 
     // If input residual is less than tolerance skip solve.
     if (eps < m_NekLinSysTolerance * m_NekLinSysTolerance * m_rhs_magnitude)
@@ -190,6 +209,12 @@ void NekLinSysIterCGLoc::DoConjugateGradient(
                      << " WARNING: Exceeded maxIt" << endl;
             }
             break;
+        }
+
+        if (m_isComputeEigenvalues)
+        {
+            // Store the current solution coefficient for EV estimation.
+            alpha_list[m_totalIterations - 1] = alpha;
         }
 
         // Compute new search direction p_k, q_k
@@ -239,6 +264,19 @@ void NekLinSysIterCGLoc::DoConjugateGradient(
 
         m_totalIterations++;
 
+        // print iteration progress
+        if (m_verbose && m_root)
+        {
+            NekDouble rel_err = sqrt(eps / m_rhs_magnitude);
+            if (log(m_eps_old / rel_err) > log(10.0) * m_printThreshold)
+            {
+                cout << "CG iteration = " << m_totalIterations
+                     << ", error = " << rel_err
+                     << ", rhs_mag = " << sqrt(m_rhs_magnitude) << endl;
+                m_eps_old = rel_err;
+            }
+        }
+
         // Test if norm is within tolerance
         if (eps < m_NekLinSysTolerance * m_NekLinSysTolerance * m_rhs_magnitude)
         {
@@ -254,9 +292,86 @@ void NekLinSysIterCGLoc::DoConjugateGradient(
         }
 
         // Compute search direction and solution coefficients
-        beta  = (rho_new - rho_star) / rho;
+        beta = (rho_new - rho_star) / rho;
+        if (m_isComputeEigenvalues)
+        {
+            beta_list[m_totalIterations - 2] = beta;
+        }
         alpha = rho_new / (mu - rho_new * beta / alpha);
         rho   = rho_new;
+    }
+
+    if (m_isComputeEigenvalues)
+    {
+        ComputeEigenvalues(m_totalIterations - 1, alpha_list, beta_list);
+    }
+}
+
+// Function to get EVs for a tridiagonal matrix using Lapack::Dsterf
+// Input: Take list of alphas and betas from CG routine
+// Step1: Create the TriDiag matrix using alpha, beta list
+// Step2: Use the Lapack::Dsterf routine for calculating EVs
+void NekLinSysIterCGLoc::ComputeEigenvalues(
+    const int length, const Array<OneD, NekDouble> &alpha_list,
+    const Array<OneD, NekDouble> &beta_list)
+{
+    // Rank of the matrix for EV estimation
+    m_eigenvalues = Array<OneD, NekDouble>(length, 0.0);
+    Array<OneD, NekDouble> mainDiag(m_eigenvalues);
+    Array<OneD, NekDouble> subDiag(length - 1, 0.0);
+
+    // Create the Tridiagonal matrix neeeded for EV estimation
+    // Fill subDiag,mainDiag with TriDiag information
+    for (int i = 0; i < length; ++i)
+    {
+        // filling Diagonal information
+        if (i == 0) // does not have the second term
+        {
+            // Handle the special case when i = 0
+            mainDiag[i] = 1 / alpha_list[i];
+        }
+        else
+        {
+            // Perform element-wise division for i > 0
+            mainDiag[i] =
+                1.0 / alpha_list[i] + beta_list[i - 1] / alpha_list[i - 1];
+        }
+        // filling subDiagonal information, same on both sides
+        if (i < length - 1) // Stop on the second last iteration
+        {
+            subDiag[i] = std::sqrt(beta_list[i]) / alpha_list[i];
+        }
+    }
+
+    // use LAPACK:dsterf for calculating the EVs for TriDiag matrix
+    // solves for symmetric TriDiag matrix
+    int info = 0;
+    Lapack::Dsterf(length, mainDiag.data(), subDiag.data(), info);
+
+    if (m_root && m_verbose)
+    {
+        cout << "\nEigenvalues: " << endl;
+        // print the last 10 values, which includes the max eigenv
+        int m = min(length, 10);
+        for (int j = 0; j < m; j++)
+        {
+            cout << mainDiag[length - 1 - j] << ' ';
+        }
+        cout << endl;
+    }
+
+    if (m_isOutputEigenvalues)
+    {
+        FILE *pFile;
+        int myRank           = m_rowComm->GetRank();
+        std::string filename = std::string("Eigenvalues_") +
+                               std::to_string(myRank) + std::string(".txt");
+        pFile = fopen(filename.c_str(), "w");
+        for (int j = 0; j < length; j++)
+        {
+            fprintf(pFile, "%e\n", mainDiag[j]);
+        }
+        fclose(pFile);
     }
 }
 } // namespace Nektar::LibUtilities

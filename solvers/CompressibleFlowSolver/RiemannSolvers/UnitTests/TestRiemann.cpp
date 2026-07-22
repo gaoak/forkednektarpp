@@ -75,7 +75,7 @@ BOOST_AUTO_TEST_CASE(RoeAlongXconstSolution)
     Array<OneD, Array<OneD, NekDouble>> normals(spaceDim);
     for (size_t i = 0; i < spaceDim; ++i)
     {
-        normals[i] = Array<OneD, NekDouble>(npts);
+        normals[i] = Array<OneD, NekDouble>(npts, 0.0);
     }
     riemannSolver.SetVector(
         "N", [&normals]() -> const Array<OneD, const Array<OneD, NekDouble>> & {
@@ -178,7 +178,7 @@ BOOST_AUTO_TEST_CASE(RoeAlongYconstSolution)
     Array<OneD, Array<OneD, NekDouble>> normals(spaceDim);
     for (size_t i = 0; i < spaceDim; ++i)
     {
-        normals[i] = Array<OneD, NekDouble>(npts);
+        normals[i] = Array<OneD, NekDouble>(npts, 0.0);
     }
     riemannSolver.SetVector(
         "N", [&normals]() -> const Array<OneD, const Array<OneD, NekDouble>> & {
@@ -274,7 +274,7 @@ BOOST_AUTO_TEST_CASE(RoeAlongZconstSolution)
     Array<OneD, Array<OneD, NekDouble>> normals(spaceDim);
     for (size_t i = 0; i < spaceDim; ++i)
     {
-        normals[i] = Array<OneD, NekDouble>(npts);
+        normals[i] = Array<OneD, NekDouble>(npts, 0.0);
     }
     riemannSolver.SetVector(
         "N", [&normals]() -> const Array<OneD, const Array<OneD, NekDouble>> & {
@@ -370,7 +370,7 @@ BOOST_AUTO_TEST_CASE(RoeAlongXdensityJump)
     Array<OneD, Array<OneD, NekDouble>> normals(spaceDim);
     for (size_t i = 0; i < spaceDim; ++i)
     {
-        normals[i] = Array<OneD, NekDouble>(npts);
+        normals[i] = Array<OneD, NekDouble>(npts, 0.0);
     }
     riemannSolver.SetVector(
         "N", [&normals]() -> const Array<OneD, const Array<OneD, NekDouble>> & {

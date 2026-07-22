@@ -401,6 +401,18 @@ public:
         TiXmlElement *&element, const size_t timeLevel,
         const bool enableCheck = true);
 
+    /// manually override verbose flag
+    LIB_UTILITIES_EXPORT void SetVerbose(bool verbose)
+    {
+        m_verbose = verbose;
+    }
+
+    /// Get verbose flag
+    LIB_UTILITIES_EXPORT bool GetVerbose() const
+    {
+        return m_verbose;
+    }
+
 private:
     boost::program_options::variables_map m_cmdLineOptions;
 

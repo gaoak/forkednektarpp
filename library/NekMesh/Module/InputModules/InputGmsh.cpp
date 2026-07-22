@@ -34,8 +34,6 @@
 
 #include <iostream>
 #include <string>
-using namespace std;
-
 #include <tuple>
 
 #include <NekMesh/MeshElements/Element.h>
@@ -50,7 +48,7 @@ using namespace std;
 
 #include "InputGmsh.h"
 
-using namespace Nektar::NekMesh;
+using namespace std;
 
 namespace Nektar::NekMesh
 {

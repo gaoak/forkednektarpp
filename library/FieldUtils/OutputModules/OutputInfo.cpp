@@ -32,16 +32,16 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <boost/format.hpp>
 #include <set>
 #include <string>
-using namespace std;
-
-#include <boost/format.hpp>
 
 #include <LibUtilities/BasicUtils/FieldIOXml.h>
 #include <SpatialDomains/MeshPartition.h>
 
 #include "OutputInfo.h"
+
+using namespace std;
 
 namespace Nektar::FieldUtils
 {
