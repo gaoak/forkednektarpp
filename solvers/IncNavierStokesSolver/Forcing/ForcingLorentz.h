@@ -28,8 +28,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Allows for a moving frame of reference, through adding c * du/dx
-// to the body force, where c is the frame velocity vector
+// Description: Add the Lorentz force, j x B
 //
 ///////////////////////////////////////////////////////////////////////////////
 

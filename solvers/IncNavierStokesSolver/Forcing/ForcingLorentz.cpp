@@ -28,18 +28,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Solving the absolute flow in a moving body frame,
-// by adding (U0 + Omega X (x - x0)) . grad u - Omega X u
-// as the body force.
-// U0 is the translational velocity of the body frame.
-// Omega is the angular velocity.
-// x0 is the rotation pivot in the body frame.
-// All vectors use the basis of the body frame.
-// Translational motion is allowed for all dimensions.
-// Rotation is not allowed for 1D, 2DH1D, 3DH2D.
-// Rotation in z direction is allowed for 2D and 3DH1D.
-// Rotation in 3 directions are allowed for 3D.
-// TODO: add suport for 3D rotation using Quaternion
+// Description: Add the Lorentz force, j x B
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <IncNavierStokesSolver/Forcing/ForcingLorentz.h>
