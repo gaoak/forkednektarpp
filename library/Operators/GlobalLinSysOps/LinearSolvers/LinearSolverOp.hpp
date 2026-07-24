@@ -34,6 +34,9 @@
 
 #pragma once
 
+#include <ostream>
+#include <sstream>
+
 #include "Operators/AssmbScatr/AssmbScatrOp.hpp"
 #include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
 #include "Operators/AssmbScatr/AssmbScatrZeroDirOp.hpp"
@@ -146,6 +149,7 @@ protected:
     unsigned int m_niter       = 0;
     bool m_leftPreconditioner  = false;
     bool m_rightPreconditioner = false;
+    bool m_verboseOutput       = false;
 
     LinearSolverOp(const MultiRegions::ExpListSharedPtr &expansionList,
                    const std::vector<std::string> &components)
@@ -157,6 +161,61 @@ protected:
 
     virtual void v_Apply(Field<TData, FieldState::Coeff> &in,
                          Field<TData, FieldState::Coeff> &out) = 0;
+
+    std::string GetVerboseName(const std::string &solverName) const
+    {
+        std::stringstream msg;
+        msg << solverName;
+
+        if (!this->m_components.empty())
+        {
+            msg << " components = [";
+            for (unsigned int i = 0; i < this->m_components.size(); ++i)
+            {
+                if (i > 0)
+                {
+                    msg << ", ";
+                }
+                msg << this->m_components[i];
+            }
+            msg << "]";
+        }
+
+        return msg.str();
+    }
+
+    bool IsVerboseOutputEnabled(void) const
+    {
+        return m_verboseOutput;
+    }
+
+    template <typename TExtraPrinter>
+    void PrintVerboseOutput(const std::string &solverName,
+                            const std::string &residualName,
+                            const TData residual, const TData rhsMagnitude,
+                            TExtraPrinter extraPrinter) const
+    {
+        if (!m_verboseOutput || !m_root)
+        {
+            return;
+        }
+
+        std::cout << GetVerboseName(solverName)
+                  << " iterations made = " << m_niter << " using tolerance of "
+                  << m_tol << " " << residualName << " = " << residual
+                  << " rhs_mag = " << std::sqrt(rhsMagnitude);
+        extraPrinter(std::cout);
+        std::cout << std::endl;
+    }
+
+    void PrintVerboseOutput(const std::string &solverName,
+                            const std::string &residualName,
+                            const TData residual,
+                            const TData rhsMagnitude) const
+    {
+        PrintVerboseOutput(solverName, residualName, residual, rhsMagnitude,
+                           [](std::ostream &) {});
+    }
 
     template <typename ExecSpace> void SetLinearSolver(void)
     {
@@ -171,8 +230,9 @@ protected:
                 this->m_expansionList, this->m_components);
         this->m_robBndCondOp = RobBndCondOp<TData>::Create(
             this->m_expansionList, this->m_components, ExecSpace::name);
-        this->m_rowComm = session->GetComm()->GetRowComm();
-        this->m_root    = this->m_rowComm->GetRank() == 0;
+        this->m_rowComm       = session->GetComm()->GetRowComm();
+        this->m_root          = this->m_rowComm->GetRank() == 0;
+        this->m_verboseOutput = session->DefinesCmdLineArgument("verbose");
 
         // Set parameters.
         session->LoadParameter("NekLinSysMaxIterations", this->m_maxIter, 5000);

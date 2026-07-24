@@ -174,7 +174,6 @@ protected:
     MemoryRegion<TData> m_vExchange;
 
     TData rhsMagnitude = NekConstants::kNekUnsetDouble;
-    bool m_verbose     = true;
     bool m_flexible;
     bool m_truncted;
     bool m_isModifiedGramSchmidt = true;
@@ -507,7 +506,7 @@ protected:
         }
 
         // Print output.
-        if (m_verbose)
+        if (this->IsVerboseOutputEnabled())
         {
             TData eps_real;
 
@@ -519,26 +518,15 @@ protected:
             eps_real = this->m_math.ddot(m_w, m_r0);
             this->m_rowComm->AllReduce(eps_real, LibUtilities::ReduceSum);
 
-            if (this->m_root)
-            {
-                std::cout << this->name
-                          << " iterations made = " << this->m_niter
-                          << " using tolerance of " << this->m_tol
-                          << " error = "
-                          << std::sqrt(eps / eps0 * prec_factor / rhsMagnitude)
-                          << " rhs_mag = " << std::sqrt(rhsMagnitude)
-                          << " WITH (GMRES eps = " << eps
-                          << " REAL eps= " << eps_real << ")";
-
-                if (converged)
-                {
-                    std::cout << " CONVERGED" << std::endl;
-                }
-                else
-                {
-                    std::cout << " WARNING: Exceeded maxIt" << std::endl;
-                }
-            }
+            this->PrintVerboseOutput(
+                this->name, "error",
+                std::sqrt(eps / eps0 * prec_factor / rhsMagnitude),
+                rhsMagnitude, [&](std::ostream &out) {
+                    out << " WITH (GMRES eps = " << eps
+                        << " REAL eps= " << eps_real << ")";
+                    out << (converged ? " CONVERGED"
+                                      : " WARNING: Exceeded maxIt");
+                });
         }
 
         WARNINGL1(converged, "GMRES did not converge.");
