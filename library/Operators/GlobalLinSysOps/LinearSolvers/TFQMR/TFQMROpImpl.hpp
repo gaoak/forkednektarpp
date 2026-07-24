@@ -234,15 +234,9 @@ protected:
             eps = tau * tau * (2 * this->m_niter);
             if (eps < this->m_tol * this->m_tol * rhsMagnitude)
             {
-                if (this->m_root)
-                {
-                    std::cout
-                        << this->name << " iterations made = " << this->m_niter
-                        << " using tolerance of " << this->m_tol
-                        << " error = " << tau * std::sqrt(2 * this->m_niter)
-                        << " rhs_mag = " << std::sqrt(rhsMagnitude)
-                        << std::endl;
-                }
+                this->PrintVerboseOutput(this->name, "error",
+                                         tau * std::sqrt(2 * this->m_niter),
+                                         rhsMagnitude);
                 break;
             }
 
@@ -283,15 +277,9 @@ protected:
             eps = tau * tau * (2 * this->m_niter + 1);
             if (eps < this->m_tol * this->m_tol * rhsMagnitude)
             {
-                if (this->m_root)
-                {
-                    std::cout
-                        << this->name << " iterations made = " << this->m_niter
-                        << " using tolerance of " << this->m_tol
-                        << " error = " << tau * std::sqrt(2 * this->m_niter + 1)
-                        << " rhs_mag = " << std::sqrt(rhsMagnitude)
-                        << std::endl;
-                }
+                this->PrintVerboseOutput(this->name, "error",
+                                         tau * std::sqrt(2 * this->m_niter + 1),
+                                         rhsMagnitude);
                 break;
             }
 

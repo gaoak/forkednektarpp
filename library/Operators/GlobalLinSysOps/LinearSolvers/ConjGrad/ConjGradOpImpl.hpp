@@ -315,15 +315,9 @@ protected:
             // Test if norm is within tolerance.
             if (eps < this->m_tol * this->m_tol * rhsMagnitude)
             {
-                if (this->m_root)
-                {
-                    std::cout << this->name
-                              << " iterations made = " << this->m_niter
-                              << " using tolerance of " << this->m_tol
-                              << " error = " << std::sqrt(eps / rhsMagnitude)
-                              << " rhs_mag = " << std::sqrt(rhsMagnitude)
-                              << std::endl;
-                }
+                this->PrintVerboseOutput(this->name, "error",
+                                         std::sqrt(eps / rhsMagnitude),
+                                         rhsMagnitude);
                 break;
             }
 

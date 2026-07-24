@@ -252,15 +252,8 @@ protected:
             // Test if norm is within tolerance.
             if (eta * eta < this->m_tol * this->m_tol * rhsMagnitude)
             {
-                if (this->m_root)
-                {
-                    std::cout << this->name
-                              << " iterations made = " << this->m_niter
-                              << " using tolerance of " << this->m_tol
-                              << " eta = " << std::abs(eta)
-                              << " rhs_mag = " << std::sqrt(rhsMagnitude)
-                              << std::endl;
-                }
+                this->PrintVerboseOutput(this->name, "eta", std::abs(eta),
+                                         rhsMagnitude);
                 break;
             }
 
