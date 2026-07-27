@@ -247,7 +247,7 @@ protected:
                     BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         Operator1D<>(inblock, outblock,
-                     NonTemplated1DSizeParameters(m_nm[0], m_nq[0]));
+                     NonTemplatedSizeParameter1D(m_nm[0], m_nq[0]));
     }
 
     // Size based template version.
@@ -255,14 +255,14 @@ protected:
     void Operator1D(BlockAccessor<TData, FieldState::Phys> &inblock,
                     BlockAccessor<TData, FieldState::Phys> &outblock)
     {
-        Operator1D<>(inblock, outblock, Templated1DSizeParameters<nm0, nq0>());
+        Operator1D<>(inblock, outblock, TemplatedSizeParameter1D<nm0, nq0>());
     }
 
-    template <typename SizeParameter1D>
+    template <typename TSizeParameter1D>
     NEK_FORCE_INLINE void Operator1D(
         BlockAccessor<TData, FieldState::Phys> &inblock,
         BlockAccessor<TData, FieldState::Phys> &outblock,
-        SizeParameter1D sizeParam1D)
+        TSizeParameter1D sizeParam1D)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
@@ -322,8 +322,8 @@ protected:
             LibUtilities::Quad, m_nm[0], m_nm[1]);
 
         Operator2D<>(inblock, outblock,
-                     NonTemplated2DSizeParameters(m_nm[0], m_nm[1], nmTot,
-                                                  m_nq[0], m_nq[1]));
+                     NonTemplatedSizeParameter2D(m_nm[0], m_nm[1], nmTot,
+                                                 m_nq[0], m_nq[1]));
     }
 
     // Size based template version.
@@ -336,14 +336,14 @@ protected:
             LibUtilities::GetNumberOfCoefficients(LibUtilities::Quad, nm0, nm1);
 
         Operator2D<>(inblock, outblock,
-                     Templated2DSizeParameters<nm0, nm1, nmTot, nq0, nq1>());
+                     TemplatedSizeParameter2D<nm0, nm1, nmTot, nq0, nq1>());
     }
 
-    template <typename SizeParameter2D>
+    template <typename TSizeParameter2D>
     NEK_FORCE_INLINE void Operator2D(
         BlockAccessor<TData, FieldState::Phys> &inblock,
         BlockAccessor<TData, FieldState::Phys> &outblock,
-        SizeParameter2D sizeParam2D)
+        TSizeParameter2D sizeParam2D)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
@@ -415,9 +415,9 @@ protected:
             LibUtilities::Hex, m_nm[0], m_nm[1], m_nm[2]);
 
         Operator3D<>(inblock, outblock,
-                     NonTemplated3DSizeParameters(m_nm[0], m_nm[1], m_nm[2],
-                                                  nmTot, m_nq[0], m_nq[1],
-                                                  m_nq[2]));
+                     NonTemplatedSizeParameter3D(m_nm[0], m_nm[1], m_nm[2],
+                                                 nmTot, m_nq[0], m_nq[1],
+                                                 m_nq[2]));
     }
 
     // Size based template version.
@@ -431,14 +431,14 @@ protected:
 
         Operator3D<>(
             inblock, outblock,
-            Templated3DSizeParameters<nm0, nm1, nm2, nmTot, nq0, nq1, nq2>());
+            TemplatedSizeParameter3D<nm0, nm1, nm2, nmTot, nq0, nq1, nq2>());
     }
 
-    template <typename SizeParameter3D>
+    template <typename TSizeParameter3D>
     NEK_FORCE_INLINE void Operator3D(
         BlockAccessor<TData, FieldState::Phys> &inblock,
         BlockAccessor<TData, FieldState::Phys> &outblock,
-        SizeParameter3D sizeParam3D)
+        TSizeParameter3D sizeParam3D)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
 

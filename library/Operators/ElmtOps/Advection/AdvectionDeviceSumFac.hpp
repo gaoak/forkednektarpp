@@ -265,7 +265,7 @@ protected:
     {
         Operator1D<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
-            NonTemplated1DPhysSizeParameters(m_coordDim, m_nq[0]));
+            NonTemplatedPhysSizeParameter1D(m_coordDim, m_nq[0]));
     }
 
     // Size based template version.
@@ -275,15 +275,15 @@ protected:
                     BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         Operator1D<SHAPE_TYPE, DEFORMED>(
-            inblock, outblock, Templated1DPhysSizeParameters<coordDim, nq0>());
+            inblock, outblock, TemplatedPhysSizeParameter1D<coordDim, nq0>());
     }
 
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              typename SizeParameter1D>
+              typename TPhysSizeParameter1D>
     NEK_FORCE_INLINE void Operator1D(
         BlockAccessor<TData, FieldState::Phys> &inblock,
         BlockAccessor<TData, FieldState::Phys> &outblock,
-        SizeParameter1D sizeParam1D)
+        TPhysSizeParameter1D sizeParam1D)
     {
         // Shape size.
         const auto nqTot = sizeParam1D.nq0();
@@ -366,7 +366,7 @@ protected:
     {
         Operator2D<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
-            NonTemplated2DPhysSizeParameters(m_coordDim, m_nq[0], m_nq[1]));
+            NonTemplatedPhysSizeParameter2D(m_coordDim, m_nq[0], m_nq[1]));
     }
 
     // Size based template version.
@@ -377,15 +377,15 @@ protected:
     {
         Operator2D<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
-            Templated2DPhysSizeParameters<coordDim, nq0, nq1>());
+            TemplatedPhysSizeParameter2D<coordDim, nq0, nq1>());
     }
 
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              typename SizeParameter2D>
+              typename TPhysSizeParameter2D>
     NEK_FORCE_INLINE void Operator2D(
         BlockAccessor<TData, FieldState::Phys> &inblock,
         BlockAccessor<TData, FieldState::Phys> &outblock,
-        SizeParameter2D sizeParam2D)
+        TPhysSizeParameter2D sizeParam2D)
     {
         // Shape size.
         const auto nqTot = sizeParam2D.nq0() * sizeParam2D.nq1();
@@ -474,7 +474,7 @@ protected:
     {
         Operator3D<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
-            NonTemplated3DPhysSizeParameters(m_nq[0], m_nq[1], m_nq[2]));
+            NonTemplatedPhysSizeParameter3D(m_nq[0], m_nq[1], m_nq[2]));
     }
 
     // Size based template version.
@@ -484,15 +484,15 @@ protected:
                     BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         Operator3D<SHAPE_TYPE, DEFORMED>(
-            inblock, outblock, Templated3DPhysSizeParameters<nq0, nq1, nq2>());
+            inblock, outblock, TemplatedPhysSizeParameter3D<nq0, nq1, nq2>());
     }
 
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              typename SizeParameter3D>
+              typename TPhysSizeParameter3D>
     NEK_FORCE_INLINE void Operator3D(
         BlockAccessor<TData, FieldState::Phys> &inblock,
         BlockAccessor<TData, FieldState::Phys> &outblock,
-        SizeParameter3D sizeParam3D)
+        TPhysSizeParameter3D sizeParam3D)
     {
         const auto nqTot =
             sizeParam3D.nq0() * sizeParam3D.nq1() * sizeParam3D.nq2();

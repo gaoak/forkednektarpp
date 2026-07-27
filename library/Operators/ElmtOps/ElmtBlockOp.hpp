@@ -221,10 +221,10 @@ NEK_FORCE_INLINE static unsigned int GetDeviceGridSize(
     }
 }
 
-struct NonTemplated1DPhysSizeParameters
+struct NonTemplatedPhysSizeParameter1D
 {
-    NonTemplated1DPhysSizeParameters(const unsigned int ncoord,
-                                     const unsigned int nq0)
+    NonTemplatedPhysSizeParameter1D(const unsigned int ncoord,
+                                    const unsigned int nq0)
         : m_ncoord(ncoord), m_nq0(nq0)
     {
     }
@@ -237,14 +237,28 @@ struct NonTemplated1DPhysSizeParameters
     {
         return m_nq0;
     }
+    NEK_HOSTDEVICE_INLINE unsigned int nqTot(void) const
+    {
+        return m_nq0;
+    }
 
 private:
     unsigned int m_ncoord;
     unsigned int m_nq0;
 };
 
+template <typename T> struct IsNonTemplatedPhysSizeParameter1D : std::false_type
+{
+};
+
+template <>
+struct IsNonTemplatedPhysSizeParameter1D<NonTemplatedPhysSizeParameter1D>
+    : std::true_type
+{
+};
+
 template <unsigned int tncoord, unsigned int tnq0>
-struct Templated1DPhysSizeParameters
+struct TemplatedPhysSizeParameter1D
 {
     static NEK_HOSTDEVICE_INLINE constexpr unsigned int ncoord(void)
     {
@@ -254,13 +268,27 @@ struct Templated1DPhysSizeParameters
     {
         return tnq0;
     }
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nqTot(void)
+    {
+        return tnq0;
+    }
 };
 
-struct NonTemplated2DPhysSizeParameters
+template <typename T> struct IsTemplatedPhysSizeParameter1D : std::false_type
 {
-    NonTemplated2DPhysSizeParameters(const unsigned int ncoord,
-                                     const unsigned int nq0,
-                                     const unsigned int nq1)
+};
+
+template <unsigned int tncoord, unsigned int tnq0>
+struct IsTemplatedPhysSizeParameter1D<
+    TemplatedPhysSizeParameter1D<tncoord, tnq0>> : std::true_type
+{
+};
+
+struct NonTemplatedPhysSizeParameter2D
+{
+    NonTemplatedPhysSizeParameter2D(const unsigned int ncoord,
+                                    const unsigned int nq0,
+                                    const unsigned int nq1)
         : m_ncoord(ncoord), m_nq0(nq0), m_nq1(nq1)
     {
     }
@@ -277,6 +305,10 @@ struct NonTemplated2DPhysSizeParameters
     {
         return m_nq1;
     }
+    NEK_HOSTDEVICE_INLINE unsigned int nqTot(void) const
+    {
+        return m_nq0 * m_nq1;
+    }
 
 private:
     unsigned int m_ncoord;
@@ -284,8 +316,18 @@ private:
     unsigned int m_nq1;
 };
 
+template <typename T> struct IsNonTemplatedPhysSizeParameter2D : std::false_type
+{
+};
+
+template <>
+struct IsNonTemplatedPhysSizeParameter2D<NonTemplatedPhysSizeParameter2D>
+    : std::true_type
+{
+};
+
 template <unsigned int tncoord, unsigned int tnq0, unsigned int tnq1>
-struct Templated2DPhysSizeParameters
+struct TemplatedPhysSizeParameter2D
 {
     static NEK_HOSTDEVICE_INLINE constexpr unsigned int ncoord(void)
     {
@@ -299,13 +341,27 @@ struct Templated2DPhysSizeParameters
     {
         return tnq1;
     }
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nqTot(void)
+    {
+        return tnq0 * tnq1;
+    }
 };
 
-struct NonTemplated3DPhysSizeParameters
+template <typename T> struct IsTemplatedPhysSizeParameter2D : std::false_type
 {
-    NonTemplated3DPhysSizeParameters(const unsigned int nq0,
-                                     const unsigned int nq1,
-                                     const unsigned int nq2)
+};
+
+template <unsigned int tncoord, unsigned int tnq0, unsigned int tnq1>
+struct IsTemplatedPhysSizeParameter2D<
+    TemplatedPhysSizeParameter2D<tncoord, tnq0, tnq1>> : std::true_type
+{
+};
+
+struct NonTemplatedPhysSizeParameter3D
+{
+    NonTemplatedPhysSizeParameter3D(const unsigned int nq0,
+                                    const unsigned int nq1,
+                                    const unsigned int nq2)
         : m_nq0(nq0), m_nq1(nq1), m_nq2(nq2)
     {
     }
@@ -322,6 +378,10 @@ struct NonTemplated3DPhysSizeParameters
     {
         return m_nq2;
     }
+    NEK_HOSTDEVICE_INLINE unsigned int nqTot(void) const
+    {
+        return m_nq0 * m_nq1 * m_nq2;
+    }
 
 private:
     unsigned int m_nq0;
@@ -329,8 +389,18 @@ private:
     unsigned int m_nq2;
 };
 
+template <typename T> struct IsNonTemplatedPhysSizeParameter3D : std::false_type
+{
+};
+
+template <>
+struct IsNonTemplatedPhysSizeParameter3D<NonTemplatedPhysSizeParameter3D>
+    : std::true_type
+{
+};
+
 template <unsigned int tnq0, unsigned int tnq1, unsigned int tnq2>
-struct Templated3DPhysSizeParameters
+struct TemplatedPhysSizeParameter3D
 {
     static NEK_HOSTDEVICE_INLINE constexpr unsigned int nq0(void)
     {
@@ -344,11 +414,25 @@ struct Templated3DPhysSizeParameters
     {
         return tnq2;
     }
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nqTot(void)
+    {
+        return tnq0 * tnq1 * tnq2;
+    }
 };
 
-struct NonTemplated1DSizeParameters
+template <typename T> struct IsTemplatedPhysSizeParameter3D : std::false_type
 {
-    NonTemplated1DSizeParameters(const unsigned int nm0, const unsigned int nq0)
+};
+
+template <unsigned int tnq0, unsigned int tnq1, unsigned int tnq2>
+struct IsTemplatedPhysSizeParameter3D<
+    TemplatedPhysSizeParameter3D<tnq0, tnq1, tnq2>> : std::true_type
+{
+};
+
+struct NonTemplatedSizeParameter1D
+{
+    NonTemplatedSizeParameter1D(const unsigned int nm0, const unsigned int nq0)
         : m_nm0(nm0), m_nq0(nq0)
     {
     }
@@ -357,7 +441,15 @@ struct NonTemplated1DSizeParameters
     {
         return m_nm0;
     }
+    NEK_HOSTDEVICE_INLINE unsigned int nmTot(void) const
+    {
+        return m_nm0;
+    }
     NEK_HOSTDEVICE_INLINE unsigned int nq0(void) const
+    {
+        return m_nq0;
+    }
+    NEK_HOSTDEVICE_INLINE unsigned int nqTot(void) const
     {
         return m_nq0;
     }
@@ -367,9 +459,23 @@ private:
     unsigned int m_nq0;
 };
 
-template <unsigned int tnm0, unsigned int tnq0> struct Templated1DSizeParameters
+template <typename T> struct IsNonTemplatedSizeParameter1D : std::false_type
+{
+};
+
+template <>
+struct IsNonTemplatedSizeParameter1D<NonTemplatedSizeParameter1D>
+    : std::true_type
+{
+};
+
+template <unsigned int tnm0, unsigned int tnq0> struct TemplatedSizeParameter1D
 {
     static NEK_HOSTDEVICE_INLINE constexpr unsigned int nm0(void)
+    {
+        return tnm0;
+    }
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nmTot(void)
     {
         return tnm0;
     }
@@ -377,13 +483,27 @@ template <unsigned int tnm0, unsigned int tnq0> struct Templated1DSizeParameters
     {
         return tnq0;
     }
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nqTot(void)
+    {
+        return tnq0;
+    }
 };
 
-struct NonTemplated2DSizeParameters
+template <typename T> struct IsTemplatedSizeParameter1D : std::false_type
 {
-    NonTemplated2DSizeParameters(const unsigned int nm0, const unsigned int nm1,
-                                 const unsigned int nmTot,
-                                 const unsigned int nq0, const unsigned int nq1)
+};
+
+template <unsigned int tnm0, unsigned int tnq0>
+struct IsTemplatedSizeParameter1D<TemplatedSizeParameter1D<tnm0, tnq0>>
+    : std::true_type
+{
+};
+
+struct NonTemplatedSizeParameter2D
+{
+    NonTemplatedSizeParameter2D(const unsigned int nm0, const unsigned int nm1,
+                                const unsigned int nmTot,
+                                const unsigned int nq0, const unsigned int nq1)
         : m_nm0(nm0), m_nm1(nm1), m_nmTot(nmTot), m_nq0(nq0), m_nq1(nq1)
     {
     }
@@ -408,6 +528,10 @@ struct NonTemplated2DSizeParameters
     {
         return m_nq1;
     }
+    NEK_HOSTDEVICE_INLINE unsigned int nqTot(void) const
+    {
+        return m_nq0 * m_nq1;
+    }
 
 private:
     unsigned int m_nm0;
@@ -417,9 +541,19 @@ private:
     unsigned int m_nq1;
 };
 
+template <typename T> struct IsNonTemplatedSizeParameter2D : std::false_type
+{
+};
+
+template <>
+struct IsNonTemplatedSizeParameter2D<NonTemplatedSizeParameter2D>
+    : std::true_type
+{
+};
+
 template <unsigned int tnm0, unsigned int tnm1, unsigned int tnmTot,
           unsigned int tnq0, unsigned int tnq1>
-struct Templated2DSizeParameters
+struct TemplatedSizeParameter2D
 {
     static NEK_HOSTDEVICE_INLINE constexpr unsigned int nm0(void)
     {
@@ -441,15 +575,30 @@ struct Templated2DSizeParameters
     {
         return tnq1;
     }
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nqTot(void)
+    {
+        return tnq0 * tnq1;
+    }
 };
 
-struct NonTemplated3DSizeParameters
+template <typename T> struct IsTemplatedSizeParameter2D : std::false_type
 {
-    NonTemplated3DSizeParameters(const unsigned int nm0, const unsigned int nm1,
-                                 const unsigned int nm2,
-                                 const unsigned int nmTot,
-                                 const unsigned int nq0, const unsigned int nq1,
-                                 const unsigned int nq2)
+};
+
+template <unsigned int tnm0, unsigned int tnm1, unsigned int tnmTot,
+          unsigned int tnq0, unsigned int tnq1>
+struct IsTemplatedSizeParameter2D<
+    TemplatedSizeParameter2D<tnm0, tnm1, tnmTot, tnq0, tnq1>> : std::true_type
+{
+};
+
+struct NonTemplatedSizeParameter3D
+{
+    NonTemplatedSizeParameter3D(const unsigned int nm0, const unsigned int nm1,
+                                const unsigned int nm2,
+                                const unsigned int nmTot,
+                                const unsigned int nq0, const unsigned int nq1,
+                                const unsigned int nq2)
         : m_nm0(nm0), m_nm1(nm1), m_nm2(nm2), m_nmTot(nmTot), m_nq0(nq0),
           m_nq1(nq1), m_nq2(nq2)
     {
@@ -483,6 +632,10 @@ struct NonTemplated3DSizeParameters
     {
         return m_nq2;
     }
+    NEK_HOSTDEVICE_INLINE unsigned int nqTot(void) const
+    {
+        return m_nq0 * m_nq1 * m_nq2;
+    }
 
 private:
     unsigned int m_nm0;
@@ -494,10 +647,20 @@ private:
     unsigned int m_nq2;
 };
 
+template <typename T> struct IsNonTemplatedSizeParameter3D : std::false_type
+{
+};
+
+template <>
+struct IsNonTemplatedSizeParameter3D<NonTemplatedSizeParameter3D>
+    : std::true_type
+{
+};
+
 template <unsigned int tnm0, unsigned int tnm1, unsigned int tnm2,
           unsigned int tnmTot, unsigned int tnq0, unsigned int tnq1,
           unsigned int tnq2>
-struct Templated3DSizeParameters
+struct TemplatedSizeParameter3D
 {
     static NEK_HOSTDEVICE_INLINE constexpr unsigned int nm0(void)
     {
@@ -527,7 +690,90 @@ struct Templated3DSizeParameters
     {
         return tnq2;
     }
+    static NEK_HOSTDEVICE_INLINE constexpr unsigned int nqTot(void)
+    {
+        return tnq0 * tnq1 * tnq2;
+    }
 };
+
+template <typename T> struct IsTemplatedSizeParameter3D : std::false_type
+{
+};
+
+template <unsigned int tnm0, unsigned int tnm1, unsigned int tnm2,
+          unsigned int tnmTot, unsigned int tnq0, unsigned int tnq1,
+          unsigned int tnq2>
+struct IsTemplatedSizeParameter3D<
+    TemplatedSizeParameter3D<tnm0, tnm1, tnm2, tnmTot, tnq0, tnq1, tnq2>>
+    : std::true_type
+{
+};
+
+// Helper traits
+template <typename T>
+inline constexpr bool IsPhysSizeParameter1D_v =
+    IsNonTemplatedPhysSizeParameter1D<T>::value ||
+    IsTemplatedPhysSizeParameter1D<T>::value;
+
+template <typename T>
+inline constexpr bool IsPhysSizeParameter2D_v =
+    IsNonTemplatedPhysSizeParameter2D<T>::value ||
+    IsTemplatedPhysSizeParameter2D<T>::value;
+
+template <typename T>
+inline constexpr bool IsPhysSizeParameter3D_v =
+    IsNonTemplatedPhysSizeParameter3D<T>::value ||
+    IsTemplatedPhysSizeParameter3D<T>::value;
+
+template <typename T>
+inline constexpr bool IsSizeParameter1D_v =
+    IsNonTemplatedSizeParameter1D<T>::value ||
+    IsTemplatedSizeParameter1D<T>::value;
+
+template <typename T>
+inline constexpr bool IsSizeParameter2D_v =
+    IsNonTemplatedSizeParameter2D<T>::value ||
+    IsTemplatedSizeParameter2D<T>::value;
+
+template <typename T>
+inline constexpr bool IsSizeParameter3D_v =
+    IsNonTemplatedSizeParameter3D<T>::value ||
+    IsTemplatedSizeParameter3D<T>::value;
+
+template <typename Implementation, typename TSizeParameter>
+static constexpr unsigned int GetMaxThreadPerBlock(void)
+{
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+    {
+        constexpr auto warpsize = NektarSpaces::Device::warpSize;
+        return warpsize;
+    }
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
+    {
+        if constexpr (IsTemplatedSizeParameter1D<TSizeParameter>::value ||
+                      IsTemplatedSizeParameter2D<TSizeParameter>::value ||
+                      IsTemplatedSizeParameter3D<TSizeParameter>::value)
+        {
+            return GetDeviceBlockSize<Implementation>(TSizeParameter::nmTot());
+        }
+        else if constexpr (
+            IsTemplatedPhysSizeParameter1D<TSizeParameter>::value ||
+            IsTemplatedPhysSizeParameter2D<TSizeParameter>::value ||
+            IsTemplatedPhysSizeParameter3D<TSizeParameter>::value)
+        {
+            return GetDeviceBlockSize<Implementation>(TSizeParameter::nqTot());
+        }
+        else
+        {
+            return NektarSpaces::Device::defaultBlockSize;
+        }
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 #endif
 
 } // namespace Nektar::Operators

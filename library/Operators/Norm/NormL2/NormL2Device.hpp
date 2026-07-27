@@ -148,7 +148,7 @@ protected:
     void Operator1D(BlockAccessor<TData, FieldState::Phys> &inblock,
                     MemoryRegion<TData> &data)
     {
-        auto sizeParam1D = NonTemplated1DPhysSizeParameters(m_coordim, m_nq[0]);
+        auto sizeParam1D = NonTemplatedPhysSizeParameter1D(m_coordim, m_nq[0]);
 
         const auto nelmt       = inblock.GetNumElements();
         const auto paddedNelmt = inblock.GetNumElementsWithPadding();
@@ -224,7 +224,7 @@ protected:
                     MemoryRegion<TData> &data)
     {
         auto sizeParam2D =
-            NonTemplated2DPhysSizeParameters(m_coordim, m_nq[0], m_nq[1]);
+            NonTemplatedPhysSizeParameter2D(m_coordim, m_nq[0], m_nq[1]);
         const auto nqTot       = m_nq[0] * m_nq[1];
         const auto nelmt       = inblock.GetNumElements();
         const auto paddedNelmt = inblock.GetNumElementsWithPadding();
@@ -295,7 +295,7 @@ protected:
                     MemoryRegion<TData> &data)
     {
         auto sizeParam3D =
-            NonTemplated3DPhysSizeParameters(m_nq[0], m_nq[1], m_nq[2]);
+            NonTemplatedPhysSizeParameter3D(m_nq[0], m_nq[1], m_nq[2]);
         const auto nqTot       = m_nq[0] * m_nq[1] * m_nq[2];
         const auto nelmt       = inblock.GetNumElements();
         const auto paddedNelmt = inblock.GetNumElementsWithPadding();

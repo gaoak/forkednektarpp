@@ -1013,12 +1013,12 @@ NEK_DEVICE_INLINE static void PhysDerivDir3DSumFacKernel(
     }
 }
 
-// Non-size based version.
-template <typename Implementation, bool DEFORMED, typename TthreadBlock,
-          typename TData>
+template <typename Implementation, bool DEFORMED, typename TPhysSizeParameter1D,
+          typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
-    PhysDeriv1DKernelLauncher(NonTemplated1DPhysSizeParameters sizeParam1D,
+    typename std::enable_if<std::is_same_v<Implementation, SumFac> &&
+                            IsPhysSizeParameter1D_v<TPhysSizeParameter1D>>::type
+    PhysDeriv1DKernelLauncher(const TPhysSizeParameter1D sizeParam1D,
                               const size_t nelmt, const size_t outoffset,
                               const TData *NEK_RESTRICT D0,
                               const TData *NEK_RESTRICT df,
@@ -1031,32 +1031,12 @@ NEK_DEVICE_KERNEL
                                       threadBlock);
 }
 
-// Size based template version.
-template <typename Implementation, bool DEFORMED, unsigned int ncoord,
-          unsigned int nq0, typename TthreadBlock,
-          typename TData /*,
-unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)*/
-          >
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
-    /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
-    PhysDeriv1DKernelLauncher(
-        [[maybe_unused]] Templated1DPhysSizeParameters<ncoord, nq0>,
-        const size_t nelmt, const size_t outoffset,
-        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
-        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        const TthreadBlock &threadBlock)
-{
-    PhysDeriv1DSumFacKernel<DEFORMED>(ncoord, nq0, nelmt, outoffset, D0, df, in,
-                                      out, threadBlock);
-}
-
-// Non-size based version.
 template <typename Implementation, bool APPEND, bool DEFORMED, unsigned int DIR,
-          typename TthreadBlock, typename TData>
+          typename TPhysSizeParameter1D, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
-    PhysDerivDir1DKernelLauncher(NonTemplated1DPhysSizeParameters sizeParam1D,
+    typename std::enable_if<std::is_same_v<Implementation, SumFac> &&
+                            IsPhysSizeParameter1D_v<TPhysSizeParameter1D>>::type
+    PhysDerivDir1DKernelLauncher(const TPhysSizeParameter1D sizeParam1D,
                                  const size_t nelmt,
                                  const TData *NEK_RESTRICT D0,
                                  const TData *NEK_RESTRICT df,
@@ -1069,32 +1049,14 @@ NEK_DEVICE_KERNEL
         threadBlock);
 }
 
-// Size based template version.
-template <typename Implementation, bool APPEND, bool DEFORMED, unsigned int DIR,
-          unsigned int ncoord, unsigned int nq0, typename TthreadBlock,
-          typename TData /*,
-unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)*/
-          >
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
-    /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
-    PhysDeriv1DKernelLauncher(
-        [[maybe_unused]] Templated1DPhysSizeParameters<ncoord, nq0>,
-        const size_t nelmt, const TData *NEK_RESTRICT D0,
-        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, const TthreadBlock &threadBlock)
-{
-    PhysDerivDir1DSumFacKernel<APPEND, DEFORMED, DIR>(ncoord, nq0, nelmt, D0,
-                                                      df, in, out, threadBlock);
-}
-
-// Non-size based version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TthreadBlock, typename TData>
+          bool DEFORMED, typename TPhysSizeParameter2D, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+    typename std::enable_if<std::is_same_v<Implementation, SumFac> &&
+                            IsPhysSizeParameter2D_v<TPhysSizeParameter2D>>::type
     PhysDeriv2DKernelLauncher(
-        NonTemplated2DPhysSizeParameters sizeParam2D, const size_t nelmt,
+        const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
         const unsigned int outoffset, const TData *NEK_RESTRICT D0,
         const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
         const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
@@ -1108,40 +1070,14 @@ NEK_DEVICE_KERNEL
         outoffset, D0, D1, f0, f1, df, in, out, shmemptr, threadBlock);
 }
 
-// Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, unsigned int ncoord, unsigned int nq0,
-          unsigned int nq1, typename TthreadBlock, typename TData /*,
-           unsigned int maxThreadPerBlock =
-               GetDeviceBlockSize<Implementation>(nq0 *nq1)*/
-          >
+          bool APPEND, bool DEFORMED, unsigned int DIR,
+          typename TPhysSizeParameter2D, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
-    /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
-    PhysDeriv2DKernelLauncher(
-        [[maybe_unused]] Templated2DPhysSizeParameters<ncoord, nq0, nq1>,
-        const size_t nelmt, const unsigned int outoffset,
-        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
-        const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
-        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, unsigned char *shmemptr,
-        const TthreadBlock &threadBlock)
-{
-    FETCH_SHARED_MEMORY(shmemptr);
-
-    PhysDeriv2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
-        ncoord, nq0, nq1, nelmt, outoffset, D0, D1, f0, f1, df, in, out,
-        shmemptr, threadBlock);
-}
-
-// Non-size based version.
-template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool APPEND, bool DEFORMED, unsigned int DIR, typename TthreadBlock,
-          typename TData>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+    typename std::enable_if<std::is_same_v<Implementation, SumFac> &&
+                            IsPhysSizeParameter2D_v<TPhysSizeParameter2D>>::type
     PhysDerivDir2DKernelLauncher(
-        NonTemplated2DPhysSizeParameters sizeParam2D, const size_t nelmt,
+        const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
         const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
         const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
         const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
@@ -1155,39 +1091,14 @@ NEK_DEVICE_KERNEL
         D1, f0, f1, df, in, out, shmemptr, threadBlock);
 }
 
-// Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool APPEND, bool DEFORMED, unsigned int DIR, unsigned int ncoord, unsigned int nq0,
-          unsigned int nq1, typename TthreadBlock, typename TData/*,
-                                                                   unsigned int maxThreadPerBlock =
-                                                                   GetDeviceBlockSize<Implementation>(nq0 *nq1)*/>
+          bool DEFORMED, typename TPhysSizeParameter3D, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
- /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
-PhysDerivDir2DKernelLauncher(
-        [[maybe_unused]] Templated2DPhysSizeParameters<ncoord, nq0, nq1>,
-const size_t nelmt, const TData *NEK_RESTRICT D0,
-                             const TData *NEK_RESTRICT D1,
-                             const TData *NEK_RESTRICT f0,
-                             const TData *NEK_RESTRICT f1,
-                             const TData *NEK_RESTRICT df,
-                             const TData *NEK_RESTRICT in,
-                             TData *NEK_RESTRICT out, unsigned char* shmemptr, const TthreadBlock &threadBlock)
-{
-    FETCH_SHARED_MEMORY(shmemptr);
-
-    PhysDerivDir2DSumFacKernel<SHAPE_TYPE, APPEND, DEFORMED, DIR>(
-        ncoord, nq0, nq1, nelmt, D0, D1, f0, f1, df, in, out, shmemptr,
-        threadBlock);
-}
-
-// Non-size based version.
-template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+    typename std::enable_if<std::is_same_v<Implementation, SumFac> &&
+                            IsPhysSizeParameter3D_v<TPhysSizeParameter3D>>::type
     PhysDeriv3DKernelLauncher(
-        NonTemplated3DPhysSizeParameters sizeParam3D, const size_t nelmt,
+        const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
         const size_t outoffset, const TData *NEK_RESTRICT D0,
         const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
         const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
@@ -1204,42 +1115,14 @@ NEK_DEVICE_KERNEL
         threadBlock);
 }
 
-// Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, unsigned int nq0, unsigned int nq1, unsigned int nq2,
-          typename TthreadBlock,
-          typename TData /*,
-           unsigned int maxThreadPerBlock =
-               GetDeviceBlockSize<Implementation>(nq0 *nq1 *nq2)*/
-          >
+          bool APPEND, bool DEFORMED, unsigned int DIR,
+          typename TPhysSizeParameter3D, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
-    /*__LAUNCH_BOUNDS__(maxThreadPerBlock)*/
-    PhysDeriv3DKernelLauncher(
-        [[maybe_unused]] Templated3DPhysSizeParameters<nq0, nq1, nq2>,
-        const size_t nelmt, const unsigned int outoffset,
-        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
-        const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
-        const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
-        const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
-        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
-{
-    FETCH_SHARED_MEMORY(shmemptr);
-
-    PhysDeriv3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
-        nq0, nq1, nq2, nelmt, outoffset, D0, D1, D2, f0, f1, f1m, f2, df, in,
-        out, shmemptr, threadBlock);
-}
-
-// Non-size based version.
-template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool APPEND, bool DEFORMED, unsigned int DIR, typename TthreadBlock,
-          typename TData>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+    typename std::enable_if<std::is_same_v<Implementation, SumFac> &&
+                            IsPhysSizeParameter3D_v<TPhysSizeParameter3D>>::type
     PhysDerivDir3DKernelLauncher(
-        NonTemplated3DPhysSizeParameters sizeParam3D, const size_t nelmt,
+        const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
         const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
         const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
         const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
@@ -1254,29 +1137,6 @@ NEK_DEVICE_KERNEL
         D2, f0, f1, f1m, f2, df, in, out, shmemptr, threadBlock);
 }
 
-// Size based template version.
-template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool APPEND, bool DEFORMED, unsigned int DIR, unsigned int nq0,
-          unsigned int nq1, unsigned int nq2, typename TthreadBlock,
-          typename TData>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
-    PhysDerivDir3DKernelLauncher(
-        [[maybe_unused]] Templated3DPhysSizeParameters<nq0, nq1, nq2>,
-        const size_t nelmt, const TData *NEK_RESTRICT D0,
-        const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
-        const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
-        const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
-        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, unsigned char *shmemptr,
-        const TthreadBlock &threadBlock)
-{
-    FETCH_SHARED_MEMORY(shmemptr);
-
-    PhysDerivDir3DSumFacKernel<SHAPE_TYPE, APPEND, DEFORMED, DIR>(
-        nq0, nq1, nq2, nelmt, D0, D1, D2, f0, f1, f1m, f2, df, in, out,
-        shmemptr, threadBlock);
-}
 #endif
 
 } // namespace Nektar::Operators::detail

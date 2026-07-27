@@ -1074,19 +1074,21 @@ NEK_DEVICE_INLINE static void Laplacian3DSumFacKernel(
     }
 }
 
-// Non-size based version.
-template <typename Implementation, bool DEFORMED, typename TthreadBlock,
-          typename TData>
+template <typename Implementation, bool DEFORMED, typename TSizeParameter1D,
+          typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
-    Laplacian1DKernelLauncher(
-        NonTemplated1DSizeParameters sizeParam1D, const unsigned int ncoord,
-        const size_t nelmt, const TData *NEK_RESTRICT basis0,
-        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT w0,
-        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
-        const TData *NEK_RESTRICT coeff, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+    typename std::enable_if<std::is_same_v<Implementation, SumFac> &&
+                            IsSizeParameter1D_v<TSizeParameter1D>>::
+        type __LAUNCH_BOUNDS__(
+            (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
+            Laplacian1DKernelLauncher(
+                const TSizeParameter1D sizeParam1D, const unsigned int ncoord,
+                const size_t nelmt, const TData *NEK_RESTRICT basis0,
+                const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT w0,
+                const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
+                const TData *NEK_RESTRICT coeff, const TData *NEK_RESTRICT in,
+                TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp,
+                unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
@@ -1095,48 +1097,28 @@ NEK_DEVICE_KERNEL
         jac, coeff, in, out, wsp, shmemptr, threadBlock);
 }
 
-// Size based template version.
-template <
-    typename Implementation, bool DEFORMED, unsigned int nm0, unsigned int nq0,
-    typename TthreadBlock, typename TData,
-    unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
-    __LAUNCH_BOUNDS__(maxThreadPerBlock) Laplacian1DKernelLauncher(
-        [[maybe_unused]] Templated1DSizeParameters<nm0, nq0> sizeParam1D,
-        const unsigned int ncoord, const size_t nelmt,
-        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT D0,
-        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT df,
-        const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT coeff,
-        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        TData *NEK_RESTRICT wsp, unsigned char *shmemptr,
-        const TthreadBlock &threadBlock)
-{
-    FETCH_SHARED_MEMORY(shmemptr);
-
-    Laplacian1DSumFacKernel<DEFORMED>(ncoord, nm0, nq0, nelmt, basis0, D0, w0,
-                                      df, jac, coeff, in, out, wsp, shmemptr,
-                                      threadBlock);
-}
-
-// Non-size based version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TthreadBlock, typename TData>
+          bool DEFORMED, typename TSizeParameter2D, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
-    Laplacian2DKernelLauncher(
-        NonTemplated2DSizeParameters sizeParam2D, const unsigned int ncoord,
-        const size_t nelmt, const bool isModified,
-        [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
-        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
-        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
-        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
-        const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
-        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT df,
-        const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT coeff,
-        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        TData *NEK_RESTRICT wsp, unsigned char *shmemptr,
-        const TthreadBlock &threadBlock)
+    typename std::enable_if<std::is_same_v<Implementation, SumFac> &&
+                            IsSizeParameter2D_v<TSizeParameter2D>>::
+        type __LAUNCH_BOUNDS__(
+            (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
+            Laplacian2DKernelLauncher(
+                const TSizeParameter2D sizeParam2D, const unsigned int ncoord,
+                const size_t nelmt, const bool isModified,
+                [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
+                const TData *NEK_RESTRICT basis0,
+                const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT D0,
+                const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT w0,
+                const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT f0,
+                const TData *NEK_RESTRICT f1,
+                const TData *NEK_RESTRICT nodToMod,
+                const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
+                const TData *NEK_RESTRICT coeff, const TData *NEK_RESTRICT in,
+                TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp,
+                unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
@@ -1147,61 +1129,34 @@ NEK_DEVICE_KERNEL
         shmemptr, threadBlock);
 }
 
-// Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, unsigned int nm0, unsigned int nm1, unsigned int nmTot,
-          unsigned int nq0, unsigned int nq1, typename TthreadBlock,
-          typename TData,
-          unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(
-              LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1))>
+          bool DEFORMED, typename TSizeParameter3D, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
-    __LAUNCH_BOUNDS__(maxThreadPerBlock) Laplacian2DKernelLauncher(
-        [[maybe_unused]] Templated2DSizeParameters<nm0, nm1, nmTot, nq0, nq1>
-            sizeParam2D,
-        const unsigned int ncoord, const size_t nelmt, const bool isModified,
-        [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
-        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
-        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
-        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
-        const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
-        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT df,
-        const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT coeff,
-        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        TData *NEK_RESTRICT wsp, unsigned char *shmemptr,
-        const TthreadBlock &threadBlock)
-{
-    FETCH_SHARED_MEMORY(shmemptr);
-
-    Laplacian2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
-        ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0, basis1,
-        D0, D1, w0, w1, f0, f1, nodToMod, df, jac, coeff, in, out, wsp,
-        shmemptr, threadBlock);
-}
-
-// Non-size based version.
-template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
-    Laplacian3DKernelLauncher(
-        NonTemplated3DSizeParameters sizeParam3D, const size_t nelmt,
-        const bool isModified,
-        [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
-        [[maybe_unused]] const unsigned int *NEK_RESTRICT index1,
-        [[maybe_unused]] const unsigned int *NEK_RESTRICT index2,
-        [[maybe_unused]] const unsigned int *NEK_RESTRICT index3,
-        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
-        const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT D0,
-        const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
-        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
-        const TData *NEK_RESTRICT w2, const TData *NEK_RESTRICT f0,
-        const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
-        const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT nodToMod,
-        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
-        const TData *NEK_RESTRICT coeff, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+    typename std::enable_if<std::is_same_v<Implementation, SumFac> &&
+                            IsSizeParameter3D_v<TSizeParameter3D>>::
+        type __LAUNCH_BOUNDS__(
+            (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
+            Laplacian3DKernelLauncher(
+                const TSizeParameter3D sizeParam3D, const size_t nelmt,
+                const bool isModified,
+                [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
+                [[maybe_unused]] const unsigned int *NEK_RESTRICT index1,
+                [[maybe_unused]] const unsigned int *NEK_RESTRICT index2,
+                [[maybe_unused]] const unsigned int *NEK_RESTRICT index3,
+                const TData *NEK_RESTRICT basis0,
+                const TData *NEK_RESTRICT basis1,
+                const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT D0,
+                const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
+                const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+                const TData *NEK_RESTRICT w2, const TData *NEK_RESTRICT f0,
+                const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
+                const TData *NEK_RESTRICT f2,
+                const TData *NEK_RESTRICT nodToMod,
+                const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
+                const TData *NEK_RESTRICT coeff, const TData *NEK_RESTRICT in,
+                TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp,
+                unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
@@ -1213,43 +1168,6 @@ NEK_DEVICE_KERNEL
         shmemptr, threadBlock);
 }
 
-// Size based template version.
-template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, unsigned int nm0, unsigned int nm1, unsigned int nm2,
-          unsigned int nmTot, unsigned int nq0, unsigned int nq1,
-          unsigned int nq2, typename TthreadBlock, typename TData,
-          unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(
-              LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2))>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
-    __LAUNCH_BOUNDS__(maxThreadPerBlock) Laplacian3DKernelLauncher(
-        [[maybe_unused]] Templated3DSizeParameters<nm0, nm1, nm2, nmTot, nq0,
-                                                   nq1, nq2>
-            sizeParam3D,
-        const size_t nelmt, const bool isModified,
-        [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
-        [[maybe_unused]] const unsigned int *NEK_RESTRICT index1,
-        [[maybe_unused]] const unsigned int *NEK_RESTRICT index2,
-        [[maybe_unused]] const unsigned int *NEK_RESTRICT index3,
-        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
-        const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT D0,
-        const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
-        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
-        const TData *NEK_RESTRICT w2, const TData *NEK_RESTRICT f0,
-        const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
-        const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT nodToMod,
-        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
-        const TData *NEK_RESTRICT coeff, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
-{
-    FETCH_SHARED_MEMORY(shmemptr);
-
-    Laplacian3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
-        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0, basis1,
-        basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, nodToMod, df, jac,
-        coeff, in, out, wsp, shmemptr, threadBlock);
-}
 #endif
 
 } // namespace Nektar::Operators::detail

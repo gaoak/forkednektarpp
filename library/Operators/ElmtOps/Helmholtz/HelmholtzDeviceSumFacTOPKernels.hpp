@@ -996,20 +996,22 @@ NEK_DEVICE_INLINE static void Helmholtz3DSumFacTOPKernel(
     }
 }
 
-// Non-size based version.
-template <typename Implementation, bool DEFORMED, typename TthreadBlock,
-          typename TData>
+template <typename Implementation, bool DEFORMED, typename TSizeParameter1D,
+          typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
-    Helmholtz1DKernelLauncher(
-        const NonTemplated1DSizeParameters sizeParam1D,
-        const unsigned int ncoord, const size_t nelmt,
-        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT D0,
-        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT df,
-        const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT coeff,
-        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData lambda,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
+                            IsSizeParameter1D_v<TSizeParameter1D>>::
+        type __LAUNCH_BOUNDS__(
+            (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
+            Helmholtz1DKernelLauncher(
+                const TSizeParameter1D sizeParam1D, const unsigned int ncoord,
+                const size_t nelmt, const TData *NEK_RESTRICT basis0,
+                const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT w0,
+                const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
+                const TData *NEK_RESTRICT coeff, const TData *NEK_RESTRICT in,
+                TData *NEK_RESTRICT out,
+                [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData lambda,
+                unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
@@ -1018,48 +1020,29 @@ NEK_DEVICE_KERNEL
         jac, coeff, in, out, lambda, shmemptr, threadBlock);
 }
 
-// Size based template version.
-template <
-    typename Implementation, bool DEFORMED, unsigned int nm0, unsigned int nq0,
-    typename TthreadBlock, typename TData,
-    unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(nq0)>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
-    __LAUNCH_BOUNDS__(maxThreadPerBlock) Helmholtz1DKernelLauncher(
-        [[maybe_unused]] const Templated1DSizeParameters<nm0, nq0> sizeParam1D,
-        const unsigned int ncoord, const size_t nelmt,
-        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT D0,
-        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT df,
-        const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT coeff,
-        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData lambda,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
-{
-    FETCH_SHARED_MEMORY(shmemptr);
-
-    Helmholtz1DSumFacTOPKernel<DEFORMED>(ncoord, nm0, nq0, nelmt, basis0, D0,
-                                         w0, df, jac, coeff, in, out, lambda,
-                                         shmemptr, threadBlock);
-}
-
-// Non-size based version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TthreadBlock, typename TData>
+          bool DEFORMED, typename TSizeParameter2D, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
-    Helmholtz2DKernelLauncher(
-        const NonTemplated2DSizeParameters sizeParam2D,
-        const unsigned int ncoord, const size_t nelmt, const bool isModified,
-        const unsigned int *NEK_RESTRICT index0,
-        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
-        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
-        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
-        const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
-        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT df,
-        const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT coeff,
-        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData lambda,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
+                            IsSizeParameter2D_v<TSizeParameter2D>>::
+        type __LAUNCH_BOUNDS__(
+            (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
+            Helmholtz2DKernelLauncher(
+                const TSizeParameter2D sizeParam2D, const unsigned int ncoord,
+                const size_t nelmt, const bool isModified,
+                const unsigned int *NEK_RESTRICT index0,
+                const TData *NEK_RESTRICT basis0,
+                const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT D0,
+                const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT w0,
+                const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT f0,
+                const TData *NEK_RESTRICT f1,
+                const TData *NEK_RESTRICT nodToMod,
+                const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
+                const TData *NEK_RESTRICT coeff, const TData *NEK_RESTRICT in,
+                TData *NEK_RESTRICT out,
+                [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData lambda,
+                unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
@@ -1070,62 +1053,34 @@ NEK_DEVICE_KERNEL
         lambda, shmemptr, threadBlock);
 }
 
-// Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, unsigned int nm0, unsigned int nm1, unsigned int nmTot,
-          unsigned int nq0, unsigned int nq1, typename TthreadBlock,
-          typename TData,
-          unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(
-              LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1))>
+          bool DEFORMED, typename TSizeParameter3D, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
-    __LAUNCH_BOUNDS__(maxThreadPerBlock) Helmholtz2DKernelLauncher(
-        [[maybe_unused]] const Templated2DSizeParameters<nm0, nm1, nmTot, nq0,
-                                                         nq1>
-            sizeParam2D,
-        const unsigned int ncoord, const size_t nelmt, const bool isModified,
-        const unsigned int *NEK_RESTRICT index0,
-        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
-        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
-        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
-        const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
-        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT df,
-        const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT coeff,
-        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData lambda,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
-{
-    FETCH_SHARED_MEMORY(shmemptr);
-
-    Helmholtz2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-        ncoord, nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
-        basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, coeff, in, out,
-        lambda, shmemptr, threadBlock);
-}
-
-// Non-size based version.
-template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
-    Helmholtz3DKernelLauncher(
-        const NonTemplated3DSizeParameters sizeParam3D, const size_t nelmt,
-        const bool isModified, const unsigned int *NEK_RESTRICT index0,
-        const unsigned int *NEK_RESTRICT index1,
-        const unsigned int *NEK_RESTRICT index2,
-        const unsigned int *NEK_RESTRICT index3,
-        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
-        const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT D0,
-        const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
-        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
-        const TData *NEK_RESTRICT w2, const TData *NEK_RESTRICT f0,
-        const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
-        const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT nodToMod,
-        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
-        const TData *NEK_RESTRICT coeff, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, [[maybe_unused]] TData *NEK_RESTRICT wsp,
-        const TData lambda, unsigned char *shmemptr,
-        const TthreadBlock &threadBlock)
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
+                            IsSizeParameter3D_v<TSizeParameter3D>>::
+        type __LAUNCH_BOUNDS__(
+            (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
+            Helmholtz3DKernelLauncher(
+                const TSizeParameter3D sizeParam3D, const size_t nelmt,
+                const bool isModified, const unsigned int *NEK_RESTRICT index0,
+                const unsigned int *NEK_RESTRICT index1,
+                const unsigned int *NEK_RESTRICT index2,
+                const unsigned int *NEK_RESTRICT index3,
+                const TData *NEK_RESTRICT basis0,
+                const TData *NEK_RESTRICT basis1,
+                const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT D0,
+                const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
+                const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+                const TData *NEK_RESTRICT w2, const TData *NEK_RESTRICT f0,
+                const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
+                const TData *NEK_RESTRICT f2,
+                const TData *NEK_RESTRICT nodToMod,
+                const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
+                const TData *NEK_RESTRICT coeff, const TData *NEK_RESTRICT in,
+                TData *NEK_RESTRICT out,
+                [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData lambda,
+                unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
 
@@ -1137,45 +1092,6 @@ NEK_DEVICE_KERNEL
         nodToMod, df, jac, coeff, in, out, lambda, shmemptr, threadBlock);
 }
 
-// Size based template version.
-template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, unsigned int nm0, unsigned int nm1, unsigned int nm2,
-          unsigned int nmTot, unsigned int nq0, unsigned int nq1,
-          unsigned int nq2, typename TthreadBlock, typename TData,
-          unsigned int maxThreadPerBlock = GetDeviceBlockSize<Implementation>(
-              LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2))>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
-    __LAUNCH_BOUNDS__(maxThreadPerBlock) Helmholtz3DKernelLauncher(
-        [[maybe_unused]] const Templated3DSizeParameters<nm0, nm1, nm2, nmTot,
-                                                         nq0, nq1, nq2>
-            sizeParam3D,
-        const size_t nelmt, const bool isModified,
-        const unsigned int *NEK_RESTRICT index0,
-        const unsigned int *NEK_RESTRICT index1,
-        const unsigned int *NEK_RESTRICT index2,
-        const unsigned int *NEK_RESTRICT index3,
-        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
-        const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT D0,
-        const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
-        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
-        const TData *NEK_RESTRICT w2, const TData *NEK_RESTRICT f0,
-        const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
-        const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT nodToMod,
-        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
-        const TData *NEK_RESTRICT coeff, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, [[maybe_unused]] TData *NEK_RESTRICT wsp,
-        const TData lambda, unsigned char *shmemptr,
-        const TthreadBlock &threadBlock)
-{
-    FETCH_SHARED_MEMORY(shmemptr);
-
-    Helmholtz3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0, index1,
-        index2, index3, basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1,
-        f1m, f2, nodToMod, df, jac, coeff, in, out, lambda, shmemptr,
-        threadBlock);
-}
 #endif
 
 } // namespace Nektar::Operators::detail
