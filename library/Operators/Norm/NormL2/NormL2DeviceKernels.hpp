@@ -275,7 +275,7 @@ NEK_DEVICE_INLINE static void VolumeSumFac3DKernel(
 // Non-size based versions.
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL void Norm1DKernelLauncher(
-    NonTemplated1DPhysSizeParameters sizeParam1D, const size_t nelmt,
+    NonTemplatedPhysSizeParameter1D sizeParam1D, const size_t nelmt,
     const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT jac,
     const TData *NEK_RESTRICT in, TData *NEK_RESTRICT norm,
     const TthreadBlock &threadBlock)
@@ -286,7 +286,7 @@ NEK_DEVICE_KERNEL void Norm1DKernelLauncher(
 
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL void Volume1DKernelLauncher(
-    NonTemplated1DPhysSizeParameters sizeParam1D, const size_t nelmt,
+    NonTemplatedPhysSizeParameter1D sizeParam1D, const size_t nelmt,
     const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT jac,
     TData *NEK_RESTRICT volume, const TthreadBlock &threadBlock)
 {
@@ -296,7 +296,7 @@ NEK_DEVICE_KERNEL void Volume1DKernelLauncher(
 
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL void Norm2DKernelLauncher(
-    NonTemplated2DPhysSizeParameters sizeParam2D, const size_t nelmt,
+    NonTemplatedPhysSizeParameter2D sizeParam2D, const size_t nelmt,
     const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
     const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
     TData *NEK_RESTRICT norm, const TthreadBlock &threadBlock)
@@ -307,7 +307,7 @@ NEK_DEVICE_KERNEL void Norm2DKernelLauncher(
 
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL void Volume2DKernelLauncher(
-    NonTemplated2DPhysSizeParameters sizeParam2D, const size_t nelmt,
+    NonTemplatedPhysSizeParameter2D sizeParam2D, const size_t nelmt,
     const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
     const TData *NEK_RESTRICT jac, TData *NEK_RESTRICT volume,
     const TthreadBlock &threadBlock)
@@ -318,7 +318,7 @@ NEK_DEVICE_KERNEL void Volume2DKernelLauncher(
 
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL void Norm3DKernelLauncher(
-    NonTemplated3DPhysSizeParameters sizeParam3D, const size_t nelmt,
+    NonTemplatedPhysSizeParameter3D sizeParam3D, const size_t nelmt,
     const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
     const TData *NEK_RESTRICT w2, const TData *NEK_RESTRICT jac,
     const TData *NEK_RESTRICT in, TData *NEK_RESTRICT norm,
@@ -331,7 +331,7 @@ NEK_DEVICE_KERNEL void Norm3DKernelLauncher(
 
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL void Volume3DKernelLauncher(
-    NonTemplated3DPhysSizeParameters sizeParam3D, const size_t nelmt,
+    NonTemplatedPhysSizeParameter3D sizeParam3D, const size_t nelmt,
     const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
     const TData *NEK_RESTRICT w2, const TData *NEK_RESTRICT jac,
     TData *NEK_RESTRICT volume, const TthreadBlock &threadBlock)

@@ -336,7 +336,7 @@ protected:
                     BlockAccessor<TData, TFieldOut> &outblock)
     {
         Operator1D<SHAPE_TYPE, DEFORMED>(
-            inblock, outblock, NonTemplated1DSizeParameters(m_nm[0], m_nq[0]));
+            inblock, outblock, NonTemplatedSizeParameter1D(m_nm[0], m_nq[0]));
     }
 
     // Size based template version.
@@ -346,14 +346,14 @@ protected:
                     BlockAccessor<TData, TFieldOut> &outblock)
     {
         Operator1D<SHAPE_TYPE, DEFORMED>(inblock, outblock,
-                                         Templated1DSizeParameters<nm0, nq0>());
+                                         TemplatedSizeParameter1D<nm0, nq0>());
     }
 
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              typename SizeParameter1D>
+              typename TSizeParameter1D>
     NEK_FORCE_INLINE void Operator1D(
         BlockAccessor<TData, FieldState::Phys> &inblock,
-        BlockAccessor<TData, TFieldOut> &outblock, SizeParameter1D sizeParam1D)
+        BlockAccessor<TData, TFieldOut> &outblock, TSizeParameter1D sizeParam1D)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
@@ -487,8 +487,8 @@ protected:
 
         Operator2D<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
-            NonTemplated2DSizeParameters(m_nm[0], m_nm[1], nmTot, m_nq[0],
-                                         m_nq[1]));
+            NonTemplatedSizeParameter2D(m_nm[0], m_nm[1], nmTot, m_nq[0],
+                                        m_nq[1]));
     }
 
     // Size based template version.
@@ -503,14 +503,14 @@ protected:
 
         Operator2D<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
-            Templated2DSizeParameters<nm0, nm1, nmTot, nq0, nq1>());
+            TemplatedSizeParameter2D<nm0, nm1, nmTot, nq0, nq1>());
     }
 
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              typename SizeParameter2D>
+              typename TSizeParameter2D>
     NEK_FORCE_INLINE void Operator2D(
         BlockAccessor<TData, FieldState::Phys> &inblock,
-        BlockAccessor<TData, TFieldOut> &outblock, SizeParameter2D sizeParam2D)
+        BlockAccessor<TData, TFieldOut> &outblock, TSizeParameter2D sizeParam2D)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
@@ -656,8 +656,8 @@ protected:
 
         Operator3D<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
-            NonTemplated3DSizeParameters(m_nm[0], m_nm[1], m_nm[2], nmTot,
-                                         m_nq[0], m_nq[1], m_nq[2]));
+            NonTemplatedSizeParameter3D(m_nm[0], m_nm[1], m_nm[2], nmTot,
+                                        m_nq[0], m_nq[1], m_nq[2]));
     }
 
     // Size based template version.
@@ -672,14 +672,14 @@ protected:
 
         Operator3D<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
-            Templated3DSizeParameters<nm0, nm1, nm2, nmTot, nq0, nq1, nq2>());
+            TemplatedSizeParameter3D<nm0, nm1, nm2, nmTot, nq0, nq1, nq2>());
     }
 
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              typename SizeParameter3D>
+              typename TSizeParameter3D>
     NEK_FORCE_INLINE void Operator3D(
         BlockAccessor<TData, FieldState::Phys> &inblock,
-        BlockAccessor<TData, TFieldOut> &outblock, SizeParameter3D sizeParam3D)
+        BlockAccessor<TData, TFieldOut> &outblock, TSizeParameter3D sizeParam3D)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
