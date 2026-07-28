@@ -2547,7 +2547,9 @@ void LinearMeshGraph::LinMeshSetUpCompositesDomain(
     }
 
     // Setup Epxansion info as linear expansion
-    m_linMesh->ReadExpansionInfo(SetupLinearExpansionType());
+    auto xmlDoc = SetupLinearExpansionType();
+    m_linMesh->ReadExpansionInfo(xmlDoc);
+    delete xmlDoc;
 
     // loop over first expansion entry
     for (auto &expIt : *m_graph->GetExpansionInfoMap().begin()->second)

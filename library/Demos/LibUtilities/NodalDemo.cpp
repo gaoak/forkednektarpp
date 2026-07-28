@@ -296,5 +296,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    delete util;
+
     return 0;
 }

@@ -60,6 +60,7 @@ class TestFile
 public:
     TestFile(const fs::path &pFilename, po::variables_map &pVm);
     TestFile(const TestFile &pSrc);
+    ~TestFile(void);
 
     void Parse(TiXmlDocument *pDoc);
 

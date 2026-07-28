@@ -74,6 +74,18 @@ TestFile::TestFile(const TestFile &pSrc)
     boost::ignore_unused(pSrc);
 }
 
+TestFile::~TestFile(void)
+{
+    if (m_doc != nullptr)
+    {
+        delete m_doc;
+    }
+    for (auto &test : m_tests)
+    {
+        delete test;
+    }
+}
+
 /// Parse the test file and populate member variables for the test.
 void TestFile::Parse(TiXmlDocument *pDoc)
 {
