@@ -333,20 +333,36 @@ protected:
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator1D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, TFieldOut> &outblock)
+                    BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         Operator1D<SHAPE_TYPE, DEFORMED>(
             inblock, outblock, NonTemplatedSizeParameter1D(m_nm[0], m_nq[0]));
+    }
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
+    void Operator1D(BlockAccessor<TData, FieldState::Phys> &inblock,
+                    BlockAccessor<TData, FieldState::Phys> &outblock)
+    {
+        Operator1D<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock,
+            NonTemplatedPhysSizeParameter1D(m_coordDim, m_nq[0]));
     }
 
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               unsigned int nm0, unsigned int nq0>
     void Operator1D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, TFieldOut> &outblock)
+                    BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         Operator1D<SHAPE_TYPE, DEFORMED>(inblock, outblock,
                                          TemplatedSizeParameter1D<nm0, nq0>());
+    }
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              unsigned int coordDim, unsigned int nq0>
+    void Operator1D(BlockAccessor<TData, FieldState::Phys> &inblock,
+                    BlockAccessor<TData, FieldState::Phys> &outblock)
+    {
+        Operator1D<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock, TemplatedPhysSizeParameter1D<coordDim, nq0>());
     }
 
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
@@ -365,9 +381,19 @@ protected:
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get static workspace pointer.
-        auto wspSize =
-            IProductWRTDerivBaseWorkSpaceSize<Implementation, TFieldOut>(
-                SHAPE_TYPE, nelmt, sizeParam1D.nq0(), sizeParam1D.nm0());
+        size_t wspSize;
+        if constexpr (TFieldOut == FieldState::Phys)
+        {
+            wspSize =
+                IProductWRTDerivBaseWorkSpaceSize<Implementation, TFieldOut>(
+                    SHAPE_TYPE, nelmt, sizeParam1D.nq0(), 0);
+        }
+        else
+        {
+            wspSize =
+                IProductWRTDerivBaseWorkSpaceSize<Implementation, TFieldOut>(
+                    SHAPE_TYPE, nelmt, sizeParam1D.nq0(), sizeParam1D.nm0());
+        }
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize, m_streamID);
@@ -377,10 +403,21 @@ protected:
         const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
-        const unsigned int shmemsize =
-            sizeof(TData) *
-            IProductWRTDerivBaseSharedMemorySize<Implementation, TFieldOut>(
-                sizeParam1D.nq0(), sizeParam1D.nm0());
+        unsigned int shmemsize;
+        if constexpr (TFieldOut == FieldState::Phys)
+        {
+            shmemsize =
+                sizeof(TData) *
+                IProductWRTDerivBaseSharedMemorySize<Implementation, TFieldOut>(
+                    sizeParam1D.nq0(), 0);
+        }
+        else
+        {
+            shmemsize =
+                sizeof(TData) *
+                IProductWRTDerivBaseSharedMemorySize<Implementation, TFieldOut>(
+                    sizeParam1D.nq0(), sizeParam1D.nm0());
+        }
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam1D.nq0());
         const unsigned int gridsize =
@@ -413,8 +450,8 @@ protected:
                         (IProductWRTDerivBasePhys1DKernelLauncher<
                             Implementation, true, DEFORMED>),
                         gridsize, blocksize, shmemsize, m_streamID, sizeParam1D,
-                        m_coordDim, nelmt, inoffset, m_D[0], m_W[0], m_dfptr,
-                        m_jacptr, inptr, outptr, wspptr, this->m_scale);
+                        nelmt, inoffset, m_D[0], m_W[0], m_dfptr, m_jacptr,
+                        inptr, outptr, wspptr, this->m_scale);
                 }
                 else
                 {
@@ -422,8 +459,8 @@ protected:
                         (IProductWRTDerivBasePhys1DKernelLauncher<
                             Implementation, false, DEFORMED>),
                         gridsize, blocksize, shmemsize, m_streamID, sizeParam1D,
-                        m_coordDim, nelmt, inoffset, m_D[0], m_W[0], m_dfptr,
-                        m_jacptr, inptr, outptr, wspptr, this->m_scale);
+                        nelmt, inoffset, m_D[0], m_W[0], m_dfptr, m_jacptr,
+                        inptr, outptr, wspptr, this->m_scale);
                 }
             }
             else // coeff version
@@ -480,7 +517,7 @@ protected:
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator2D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, TFieldOut> &outblock)
+                    BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         const unsigned int nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, m_nm[0], m_nm[1]);
@@ -490,13 +527,21 @@ protected:
             NonTemplatedSizeParameter2D(m_nm[0], m_nm[1], nmTot, m_nq[0],
                                         m_nq[1]));
     }
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
+    void Operator2D(BlockAccessor<TData, FieldState::Phys> &inblock,
+                    BlockAccessor<TData, FieldState::Phys> &outblock)
+    {
+        Operator2D<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock,
+            NonTemplatedPhysSizeParameter2D(m_coordDim, m_nq[0], m_nq[1]));
+    }
 
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               unsigned int nm0, unsigned int nm1, unsigned int nq0,
               unsigned int nq1>
     void Operator2D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, TFieldOut> &outblock)
+                    BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         constexpr unsigned int nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
@@ -504,6 +549,15 @@ protected:
         Operator2D<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
             TemplatedSizeParameter2D<nm0, nm1, nmTot, nq0, nq1>());
+    }
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              unsigned int coordDim, unsigned int nq0, unsigned int nq1>
+    void Operator2D(BlockAccessor<TData, FieldState::Phys> &inblock,
+                    BlockAccessor<TData, FieldState::Phys> &outblock)
+    {
+        Operator2D<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock,
+            TemplatedPhysSizeParameter2D<coordDim, nq0, nq1>());
     }
 
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
@@ -522,10 +576,21 @@ protected:
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get static workspace pointer.
-        auto wspSize =
-            IProductWRTDerivBaseWorkSpaceSize<Implementation, TFieldOut>(
-                SHAPE_TYPE, nelmt, sizeParam2D.nq0(), sizeParam2D.nq1(),
-                sizeParam2D.nm0(), sizeParam2D.nm1());
+        size_t wspSize;
+        if constexpr (TFieldOut == FieldState::Phys)
+        {
+            wspSize =
+                IProductWRTDerivBaseWorkSpaceSize<Implementation, TFieldOut>(
+                    SHAPE_TYPE, nelmt, sizeParam2D.nq0(), sizeParam2D.nq1(), 0,
+                    0);
+        }
+        else
+        {
+            wspSize =
+                IProductWRTDerivBaseWorkSpaceSize<Implementation, TFieldOut>(
+                    SHAPE_TYPE, nelmt, sizeParam2D.nq0(), sizeParam2D.nq1(),
+                    sizeParam2D.nm0(), sizeParam2D.nm1());
+        }
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize, m_streamID);
@@ -535,16 +600,34 @@ protected:
         const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
-        const unsigned int shmemsize =
-            sizeof(TData) *
-            IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation,
-                                                 TFieldOut>(
-                sizeParam2D.nq0(), sizeParam2D.nq1(), sizeParam2D.nm0(),
-                sizeParam2D.nm1());
-        const unsigned int blocksize = GetDeviceBlockSize<Implementation>(
-            TFieldOut == (FieldState::Phys)
-                ? sizeParam2D.nq0() * sizeParam2D.nq1()
-                : sizeParam2D.nmTot());
+        unsigned int shmemsize;
+        if constexpr (TFieldOut == FieldState::Phys)
+        {
+            shmemsize =
+                sizeof(TData) *
+                IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation,
+                                                     TFieldOut>(
+                    sizeParam2D.nq0(), sizeParam2D.nq1(), 0, 0);
+        }
+        else
+        {
+            shmemsize =
+                sizeof(TData) *
+                IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation,
+                                                     TFieldOut>(
+                    sizeParam2D.nq0(), sizeParam2D.nq1(), sizeParam2D.nm0(),
+                    sizeParam2D.nm1());
+        }
+        unsigned int blocksize;
+        if constexpr (TFieldOut == FieldState::Phys)
+        {
+            blocksize = GetDeviceBlockSize<Implementation>(sizeParam2D.nqTot());
+        }
+        else
+        {
+            blocksize = GetDeviceBlockSize<Implementation>(sizeParam2D.nmTot());
+        }
+
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
@@ -575,9 +658,9 @@ protected:
                         (IProductWRTDerivBasePhys2DKernelLauncher<
                             SHAPE_TYPE, Implementation, true, DEFORMED>),
                         gridsize, blocksize, shmemsize, m_streamID, sizeParam2D,
-                        m_coordDim, nelmt, inoffset, m_D[0], m_D[1], m_W[0],
-                        m_W[1], m_f[0], m_f[1], m_dfptr, m_jacptr, inptr,
-                        outptr, wspptr, this->m_scale);
+                        nelmt, inoffset, m_D[0], m_D[1], m_W[0], m_W[1], m_f[0],
+                        m_f[1], m_dfptr, m_jacptr, inptr, outptr, wspptr,
+                        this->m_scale);
                 }
                 else
                 {
@@ -585,9 +668,9 @@ protected:
                         (IProductWRTDerivBasePhys2DKernelLauncher<
                             SHAPE_TYPE, Implementation, false, DEFORMED>),
                         gridsize, blocksize, shmemsize, m_streamID, sizeParam2D,
-                        m_coordDim, nelmt, inoffset, m_D[0], m_D[1], m_W[0],
-                        m_W[1], m_f[0], m_f[1], m_dfptr, m_jacptr, inptr,
-                        outptr, wspptr, this->m_scale);
+                        nelmt, inoffset, m_D[0], m_D[1], m_W[0], m_W[1], m_f[0],
+                        m_f[1], m_dfptr, m_jacptr, inptr, outptr, wspptr,
+                        this->m_scale);
                 }
             }
             else
@@ -649,7 +732,7 @@ protected:
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator3D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, TFieldOut> &outblock)
+                    BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(
             SHAPE_TYPE, m_nm[0], m_nm[1], m_nm[2]);
@@ -659,13 +742,21 @@ protected:
             NonTemplatedSizeParameter3D(m_nm[0], m_nm[1], m_nm[2], nmTot,
                                         m_nq[0], m_nq[1], m_nq[2]));
     }
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
+    void Operator3D(BlockAccessor<TData, FieldState::Phys> &inblock,
+                    BlockAccessor<TData, FieldState::Phys> &outblock)
+    {
+        Operator3D<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock,
+            NonTemplatedPhysSizeParameter3D(m_nq[0], m_nq[1], m_nq[2]));
+    }
 
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               unsigned int nm0, unsigned int nm1, unsigned int nm2,
               unsigned int nq0, unsigned int nq1, unsigned int nq2>
     void Operator3D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, TFieldOut> &outblock)
+                    BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         constexpr unsigned int nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
@@ -673,6 +764,14 @@ protected:
         Operator3D<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
             TemplatedSizeParameter3D<nm0, nm1, nm2, nmTot, nq0, nq1, nq2>());
+    }
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              unsigned int nq0, unsigned int nq1, unsigned int nq2>
+    void Operator3D(BlockAccessor<TData, FieldState::Phys> &inblock,
+                    BlockAccessor<TData, FieldState::Phys> &outblock)
+    {
+        Operator3D<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock, TemplatedPhysSizeParameter3D<nq0, nq1, nq2>());
     }
 
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
@@ -691,11 +790,23 @@ protected:
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get static workspace pointer.
-        auto wspSize =
-            IProductWRTDerivBaseWorkSpaceSize<Implementation, TFieldOut>(
-                SHAPE_TYPE, nelmt, sizeParam3D.nq0(), sizeParam3D.nq1(),
-                sizeParam3D.nq2(), sizeParam3D.nm0(), sizeParam3D.nm1(),
-                sizeParam3D.nm2());
+        size_t wspSize;
+        if constexpr (TFieldOut == FieldState::Phys)
+        {
+            wspSize =
+                IProductWRTDerivBaseWorkSpaceSize<Implementation, TFieldOut>(
+                    SHAPE_TYPE, nelmt, sizeParam3D.nq0(), sizeParam3D.nq1(),
+                    sizeParam3D.nq2(), 0, 0, 0);
+        }
+        else
+        {
+            wspSize =
+                IProductWRTDerivBaseWorkSpaceSize<Implementation, TFieldOut>(
+                    SHAPE_TYPE, nelmt, sizeParam3D.nq0(), sizeParam3D.nq1(),
+                    sizeParam3D.nq2(), sizeParam3D.nm0(), sizeParam3D.nm1(),
+                    sizeParam3D.nq2());
+        }
+
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize, m_streamID);
@@ -705,16 +816,34 @@ protected:
         const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
-        const unsigned int shmemsize =
-            sizeof(TData) *
-            IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation,
-                                                 TFieldOut>(
-                sizeParam3D.nq0(), sizeParam3D.nq1(), sizeParam3D.nq2(),
-                sizeParam3D.nm0(), sizeParam3D.nm1(), sizeParam3D.nm2());
-        const unsigned int blocksize = GetDeviceBlockSize<Implementation>(
-            TFieldOut == (FieldState::Phys)
-                ? sizeParam3D.nq0() * sizeParam3D.nq1() * sizeParam3D.nq2()
-                : sizeParam3D.nmTot());
+        unsigned int shmemsize;
+        if constexpr (TFieldOut == FieldState::Phys)
+        {
+            shmemsize =
+                sizeof(TData) *
+                IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation,
+                                                     TFieldOut>(
+                    sizeParam3D.nq0(), sizeParam3D.nq1(), sizeParam3D.nq2(), 0,
+                    0, 0);
+        }
+        else
+        {
+            shmemsize =
+                sizeof(TData) *
+                IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation,
+                                                     TFieldOut>(
+                    sizeParam3D.nq0(), sizeParam3D.nq1(), sizeParam3D.nq2(),
+                    sizeParam3D.nm0(), sizeParam3D.nm1(), sizeParam3D.nm2());
+        }
+        unsigned int blocksize;
+        if constexpr (TFieldOut == FieldState::Phys)
+        {
+            blocksize = GetDeviceBlockSize<Implementation>(sizeParam3D.nqTot());
+        }
+        else
+        {
+            blocksize = GetDeviceBlockSize<Implementation>(sizeParam3D.nmTot());
+        }
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
