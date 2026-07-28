@@ -843,7 +843,7 @@ void ProcessBL::BoundaryLayer3D()
     splitprism1.intEdgeFace           = helper(3, splitPrism1IntEdgeFace);
     splitprism1.extEdgeFace           = helper(3, splitPrism1ExtEdgeFace);
     splitprism1.blpDir                = 1;
-    splitprism1.gll                   = helper(8, splitprism1gll);
+    splitprism1.gll                   = helper(6, splitprism1gll);
     splitMap[LibUtilities::ePrism][1] = splitprism1;
 
     SplitMapHelper splitprism3;
@@ -863,7 +863,7 @@ void ProcessBL::BoundaryLayer3D()
     splitprism3.intEdgeFace           = helper(3, splitPrism1ExtEdgeFace);
     splitprism3.extEdgeFace           = helper(3, splitPrism1IntEdgeFace);
     splitprism3.blpDir                = 1;
-    splitprism3.gll                   = helper(8, splitprism1gll);
+    splitprism3.gll                   = helper(6, splitprism1gll);
     splitMap[LibUtilities::ePrism][3] = splitprism3;
 
     // edgeMap associates geometry edge IDs to the (nl+1) vertices which are

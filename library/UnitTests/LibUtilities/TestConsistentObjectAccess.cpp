@@ -114,6 +114,9 @@ BOOST_AUTO_TEST_CASE(TestPointerTypes)
                           static_cast<const double *>(nullptr)),
                       ErrorUtil::NekError);
 #endif
+
+    delete d1;
+    delete d2;
 }
 
 BOOST_AUTO_TEST_CASE(TestSharedPointerTypes)
