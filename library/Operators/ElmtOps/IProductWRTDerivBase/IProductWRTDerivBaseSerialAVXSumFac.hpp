@@ -347,22 +347,32 @@ protected:
     void Operator1D(BlockAccessor<TData, FieldState::Phys> &inblock,
                     BlockAccessor<TData, TFieldOut> &outblock)
     {
-        Operator1D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_nm[0], m_nq[0]);
+        Operator1D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_coordDim, m_nm[0],
+                                         m_nq[0]);
     }
 
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               unsigned int nm0, unsigned int nq0>
     void Operator1D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, TFieldOut> &outblock)
+                    BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
-        Operator1D<SHAPE_TYPE, DEFORMED>(inblock, outblock, nm0, nq0);
+        Operator1D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_coordDim, nm0,
+                                         nq0);
+    }
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              unsigned int coordDim, unsigned int nq0>
+    void Operator1D(BlockAccessor<TData, FieldState::Phys> &inblock,
+                    BlockAccessor<TData, FieldState::Phys> &outblock)
+    {
+        Operator1D<SHAPE_TYPE, DEFORMED>(inblock, outblock, coordDim, m_nm[0],
+                                         nq0);
     }
 
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     NEK_FORCE_INLINE void Operator1D(
         BlockAccessor<TData, FieldState::Phys> &inblock,
-        BlockAccessor<TData, TFieldOut> &outblock,
+        BlockAccessor<TData, TFieldOut> &outblock, const unsigned int coordDim,
         [[maybe_unused]] const unsigned int nm0, const unsigned int nq0)
     {
         unsigned int jacSize = 1;
@@ -403,7 +413,7 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    for (unsigned int k = 0; k < m_coordDim; ++k)
+                    for (unsigned int k = 0; k < coordDim; ++k)
                     {
                         ReshapeStorage<ExecSpace>(
                             m_implInterleaveWidth, inInterleaveWidth, chunkSize,
@@ -411,7 +421,7 @@ protected:
                     }
                 }
                 StdAlignDerivBase1D<DEFORMED>(
-                    nq0, m_coordDim, reinterpret_cast<const simd_t *>(dfptr),
+                    nq0, coordDim, reinterpret_cast<const simd_t *>(dfptr),
                     m_df, inoffset_vec, reinterpret_cast<const simd_t *>(inptr),
                     m_tmp0.data(), reinterpret_cast<const simd_t *>(jacptr),
                     m_W[0]);
@@ -471,7 +481,7 @@ protected:
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
-                    for (unsigned int k = 0; k < m_coordDim; ++k)
+                    for (unsigned int k = 0; k < coordDim; ++k)
                     {
                         ReshapeStorage<ExecSpace>(
                             inInterleaveWidth, m_implInterleaveWidth, chunkSize,
@@ -492,14 +502,14 @@ protected:
                 inptr += nq0 * simd_t::width;
                 outptr += outndata * simd_t::width;
                 jacptr += jacSize * simd_t::width;
-                dfptr += jacSize * m_coordDim * simd_t::width;
+                dfptr += jacSize * coordDim * simd_t::width;
             }
 
-            // Advance input by m_coordDim-1 componennts since have already
+            // Advance input by coordDim-1 componennts since have already
             // advanced one component in the above.
             if ((n + 1) % inblock.GetNumHomoModes() == 0)
             {
-                inptr += (m_coordDim - 1) * inoffset;
+                inptr += (coordDim - 1) * inoffset;
             }
         }
 
@@ -512,8 +522,8 @@ protected:
     void Operator2D(BlockAccessor<TData, FieldState::Phys> &inblock,
                     BlockAccessor<TData, TFieldOut> &outblock)
     {
-        Operator2D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_nm[0], m_nm[1],
-                                         m_nq[0], m_nq[1]);
+        Operator2D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_coordDim, m_nm[0],
+                                         m_nm[1], m_nq[0], m_nq[1]);
     }
 
     // Size based template version.
@@ -521,15 +531,24 @@ protected:
               unsigned int nm0, unsigned int nm1, unsigned int nq0,
               unsigned int nq1>
     void Operator2D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, TFieldOut> &outblock)
+                    BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
-        Operator2D<SHAPE_TYPE, DEFORMED>(inblock, outblock, nm0, nm1, nq0, nq1);
+        Operator2D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_coordDim, nm0,
+                                         nm1, nq0, nq1);
+    }
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              unsigned int coordDim, unsigned int nq0, unsigned int nq1>
+    void Operator2D(BlockAccessor<TData, FieldState::Phys> &inblock,
+                    BlockAccessor<TData, FieldState::Phys> &outblock)
+    {
+        Operator2D<SHAPE_TYPE, DEFORMED>(inblock, outblock, coordDim, m_nm[0],
+                                         m_nm[1], nq0, nq1);
     }
 
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     NEK_FORCE_INLINE void Operator2D(
         BlockAccessor<TData, FieldState::Phys> &inblock,
-        BlockAccessor<TData, TFieldOut> &outblock,
+        BlockAccessor<TData, TFieldOut> &outblock, const unsigned int coordDim,
         [[maybe_unused]] const unsigned int nm0,
         [[maybe_unused]] const unsigned int nm1, const unsigned int nq0,
         const unsigned int nq1)
@@ -537,7 +556,7 @@ protected:
         // Shape size.
         const auto nqTot = nq0 * nq1;
 
-        const auto ndf       = 2u * m_coordDim;
+        const auto ndf       = 2u * coordDim;
         unsigned int jacSize = 1;
         if constexpr (DEFORMED)
         {
@@ -581,7 +600,7 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    for (unsigned int k = 0; k < m_coordDim; ++k)
+                    for (unsigned int k = 0; k < coordDim; ++k)
                     {
                         ReshapeStorage<ExecSpace>(
                             m_implInterleaveWidth, inInterleaveWidth, chunkSize,
@@ -590,11 +609,10 @@ protected:
                 }
 
                 StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, m_coordDim,
-                    reinterpret_cast<const simd_t *>(dfptr), m_df, inoffset_vec,
-                    reinterpret_cast<const simd_t *>(inptr), tmpPtr, m_f[0],
-                    m_f[1], reinterpret_cast<const simd_t *>(jacptr), m_W[0],
-                    m_W[1]);
+                    nq0, nq1, coordDim, reinterpret_cast<const simd_t *>(dfptr),
+                    m_df, inoffset_vec, reinterpret_cast<const simd_t *>(inptr),
+                    tmpPtr, m_f[0], m_f[1],
+                    reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1]);
                 SumDerivTensor2DKernel<false>(nq0, nq1, tmpPtr[0], tmpPtr[1],
                                               m_D[0], m_D[1], m_tmp2.data());
 
@@ -654,7 +672,7 @@ protected:
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
-                    for (unsigned int k = 0; k < m_coordDim; ++k)
+                    for (unsigned int k = 0; k < coordDim; ++k)
                     {
                         ReshapeStorage<ExecSpace>(
                             inInterleaveWidth, m_implInterleaveWidth, chunkSize,
@@ -676,11 +694,11 @@ protected:
                 dfptr += jacSize * ndf * simd_t::width;
             }
 
-            // Advance input by m_coordDim-1 componennts since have already
+            // Advance input by coordDim-1 componennts since have already
             // advanced one component in the above.
             if ((n + 1) % inblock.GetNumHomoModes() == 0)
             {
-                inptr += (m_coordDim - 1) * inoffset;
+                inptr += (coordDim - 1) * inoffset;
             }
         }
 
@@ -702,10 +720,18 @@ protected:
               unsigned int nm0, unsigned int nm1, unsigned int nm2,
               unsigned int nq0, unsigned int nq1, unsigned int nq2>
     void Operator3D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, TFieldOut> &outblock)
+                    BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         Operator3D<SHAPE_TYPE, DEFORMED>(inblock, outblock, nm0, nm1, nm2, nq0,
                                          nq1, nq2);
+    }
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              unsigned int nq0, unsigned int nq1, unsigned int nq2>
+    void Operator3D(BlockAccessor<TData, FieldState::Phys> &inblock,
+                    BlockAccessor<TData, FieldState::Phys> &outblock)
+    {
+        Operator3D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_nm[0], m_nm[1],
+                                         m_nm[2], nq0, nq1, nq2);
     }
 
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>

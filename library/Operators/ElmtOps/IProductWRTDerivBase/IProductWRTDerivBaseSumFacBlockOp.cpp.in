@@ -34,7 +34,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 // clang-format off
-#include "Common/SwitchLevel2Defs.h"
 @IMPL_HEADER@
 
 namespace Nektar::Operators::detail
@@ -46,6 +45,9 @@ void IProductWRTDerivBaseBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::@Impl
                 (BlockAccessor<@TData@, FieldState::Phys> &inblock, 
                  BlockAccessor<@TData@, FieldState::Coeff> &outblock)
 {
+#undef NQ
+#undef NQ_M1
+#include "Common/SwitchLevel2Defs.h"
     // The following will use predefined code found in the Operators/Common
     // directory to import boost_pp code to make wrapper code to call
     // Operator1D methods for Segs, Operator2D method for Tris and Quads and
@@ -67,6 +69,9 @@ void IProductWRTDerivBaseBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::@Impl
                 (BlockAccessor<@TData@, FieldState::Phys> &inblock, 
                  BlockAccessor<@TData@, FieldState::Phys> &outblock)
 {
+#undef NQ
+#undef NQ_M1
+#include "Common/SwitchLevel1Defs.h"
     // The following will use predefined code found in the Operators/Common
     // directory to import boost_pp code to make wrapper code to call
     // Operator1D methods for Segs, Operator2D method for Tris and Quads and
@@ -78,7 +83,7 @@ void IProductWRTDerivBaseBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::@Impl
     // option in the compile line.
     
 #define SHAPE_TYPE_@Shape@
-#include "@CMAKE_CURRENT_BINARY_DIR@/include/BlockOpSwitchCode@Shape@.h"
+#include "@CMAKE_CURRENT_BINARY_DIR@/include/BlockOpSwitch1DCoordsCode@Shape@.h"
 }
 } // namespace Nektar::Operators::detail
 // clang-format on
