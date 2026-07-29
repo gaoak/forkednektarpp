@@ -69,7 +69,8 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
                                                                 cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
-            [=](sycl::nd_item<1> indx) {
+            [=](sycl::nd_item<1> indx) SYCL_SUBGROUP_SIZE(
+                NektarSpaces::Device::warpSize) {
                 auto scratch =
                     scratchpad
                         .template get_multi_ptr<sycl::access::decorated::yes>()
@@ -145,7 +146,8 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
                                                                 cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
-            [=](sycl::nd_item<1> indx) {
+            [=](sycl::nd_item<1> indx) SYCL_SUBGROUP_SIZE(
+                NektarSpaces::Device::warpSize) {
                 auto scratch =
                     scratchpad
                         .template get_multi_ptr<sycl::access::decorated::yes>()
@@ -222,7 +224,8 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
                                                                 cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
-            [=](sycl::nd_item<1> indx) {
+            [=](sycl::nd_item<1> indx) SYCL_SUBGROUP_SIZE(
+                NektarSpaces::Device::warpSize) {
                 auto scratch =
                     scratchpad
                         .template get_multi_ptr<sycl::access::decorated::yes>()
