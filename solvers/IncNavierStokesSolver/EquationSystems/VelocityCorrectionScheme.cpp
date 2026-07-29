@@ -936,8 +936,10 @@ void VelocityCorrectionScheme::v_SetUpViscousForcing(
     // need to be updated for the convected fields.
     for (int i = 0; i < m_nConvectiveFields; ++i)
     {
-        Blas::Daxpy(phystot, -aii_dtinv, inarray[i], 1, Forcing[i], 1);
-        Blas::Dscal(phystot, 1.0 / m_diffCoeff[i], &(Forcing[i])[0], 1);
+        Vmath::Svtvp(phystot, -aii_dtinv, inarray[i], 1, Forcing[i], 1,
+                     Forcing[i], 1);
+        Vmath::Smul(phystot, 1.0 / m_diffCoeff[i], &(Forcing[i])[0], 1,
+                    &(Forcing[i])[0], 1);
     }
 }
 

@@ -1799,22 +1799,28 @@ void Expansion3D::v_PhysDeriv(const Array<OneD, const NekDouble> &inarray,
         if (out_d0.size())
         {
             Vmath::Smul(ntot, df[0][0], &Diff0[0], 1, &out_d0[0], 1);
-            Blas::Daxpy(ntot, df[1][0], &Diff1[0], 1, &out_d0[0], 1);
-            Blas::Daxpy(ntot, df[2][0], &Diff2[0], 1, &out_d0[0], 1);
+            Vmath::Svtvp(ntot, df[1][0], &Diff1[0], 1, &out_d0[0], 1,
+                         &out_d0[0], 1);
+            Vmath::Svtvp(ntot, df[2][0], &Diff2[0], 1, &out_d0[0], 1,
+                         &out_d0[0], 1);
         }
 
         if (out_d1.size())
         {
             Vmath::Smul(ntot, df[3][0], &Diff0[0], 1, &out_d1[0], 1);
-            Blas::Daxpy(ntot, df[4][0], &Diff1[0], 1, &out_d1[0], 1);
-            Blas::Daxpy(ntot, df[5][0], &Diff2[0], 1, &out_d1[0], 1);
+            Vmath::Svtvp(ntot, df[4][0], &Diff1[0], 1, &out_d1[0], 1,
+                         &out_d1[0], 1);
+            Vmath::Svtvp(ntot, df[5][0], &Diff2[0], 1, &out_d1[0], 1,
+                         &out_d1[0], 1);
         }
 
         if (out_d2.size())
         {
             Vmath::Smul(ntot, df[6][0], &Diff0[0], 1, &out_d2[0], 1);
-            Blas::Daxpy(ntot, df[7][0], &Diff1[0], 1, &out_d2[0], 1);
-            Blas::Daxpy(ntot, df[8][0], &Diff2[0], 1, &out_d2[0], 1);
+            Vmath::Svtvp(ntot, df[7][0], &Diff1[0], 1, &out_d2[0], 1,
+                         &out_d2[0], 1);
+            Vmath::Svtvp(ntot, df[8][0], &Diff2[0], 1, &out_d2[0], 1,
+                         &out_d2[0], 1);
         }
     }
 }

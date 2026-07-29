@@ -369,7 +369,8 @@ void SmoothedProfileMethod::SolveCorrectedVelocity(
             Vmath::Vsub(physTot, m_fs[i]->GetPhys(), 1, Forcing[i], 1,
                         Forcing[i], 1);
         }
-        Blas::Daxpy(physTot, dt / m_gamma0, Forcing[i], 1, fields[i], 1);
+        Vmath::Svtvp(physTot, dt / m_gamma0, Forcing[i], 1, fields[i], 1,
+                     fields[i], 1);
     }
 }
 
