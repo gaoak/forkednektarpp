@@ -159,14 +159,28 @@ struct Device
     static constexpr unsigned int warpSize         = 32u;
 #elif defined(SYCL_ENABLE_CPU)
     static constexpr unsigned int defaultBlockSize = 256u;
-    static constexpr unsigned int maximumBlockSize = 1024u;
-    static constexpr unsigned int warpSize         = 1u;
+    static constexpr unsigned int maximumBlockSize = 256u;
+#if defined(__ADAPTIVECPP__)
+    static constexpr unsigned int warpSize = 1u;
+#elif defined(__DPCPP_COMPILER)
+    static constexpr unsigned int warpSize = 8u;
+#else
+    static constexpr unsigned int warpSize = 1u;
+#endif
 #else
     static constexpr unsigned int defaultBlockSize = 1u;
     static constexpr unsigned int maximumBlockSize = 1u;
     static constexpr unsigned int warpSize         = 1u;
 #endif
 };
+
+#if defined(__ADAPTIVECPP__)
+#define SYCL_SUBGROUP_SIZE(x)
+#elif defined(__DPCPP_COMPILER)
+#define SYCL_SUBGROUP_SIZE(x) [[sycl::reqd_sub_group_size(x)]]
+#else
+#define SYCL_SUBGROUP_SIZE(x)
+#endif
 
 // Host memory alignment
 #if defined(NEKTAR_ENABLE_SIMD)

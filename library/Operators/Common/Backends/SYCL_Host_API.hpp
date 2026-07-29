@@ -89,7 +89,8 @@ static void inline setSYCLDefaultExecutionDependency(
                 sycl::range<1>(syclSHMEMSIZE), cgh);                           \
             cgh.parallel_for(                                                  \
                 sycl::nd_range<1>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),            \
-                [=](sycl::nd_item<1> item_ct1) {                               \
+                [=](sycl::nd_item<1> item_ct1) SYCL_SUBGROUP_SIZE(             \
+                    NektarSpaces::Device::warpSize) {                          \
                     auto shmemptr = shmem                                      \
                         .template get_multi_ptr<sycl::access::decorated::yes>()\
                         .get();                                                \
@@ -128,7 +129,8 @@ static void inline setSYCLDefaultExecutionDependency(
                 sycl::range<1>(syclSHMEMSIZE), cgh);                           \
             cgh.parallel_for(                                                  \
                 sycl::nd_range<2>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),            \
-                [=](sycl::nd_item<2> item_ct1) {                               \
+                [=](sycl::nd_item<2> item_ct1) SYCL_SUBGROUP_SIZE(             \
+                    NektarSpaces::Device::warpSize) {                          \
                     auto shmemptr = shmem                                      \
                         .template get_multi_ptr<sycl::access::decorated::yes>()\
                         .get();                                                \
@@ -165,7 +167,8 @@ static void inline setSYCLDefaultExecutionDependency(
                 sycl::range<1>(syclSHMEMSIZE), cgh);                           \
             cgh.parallel_for(                                                  \
                 sycl::nd_range<3>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),            \
-                [=](sycl::nd_item<3> item_ct1) {                               \
+                [=](sycl::nd_item<3> item_ct1) SYCL_SUBGROUP_SIZE(             \
+                    NektarSpaces::Device::warpSize) {                          \
                     auto shmemptr = shmem                                      \
                         .template get_multi_ptr<sycl::access::decorated::yes>()\
                         .get();                                                \
@@ -195,7 +198,8 @@ static void inline setSYCLDefaultExecutionDependency(
             setSYCLDefaultExecutionDependency(syclSTREAMID, cgh);              \
             cgh.parallel_for(                                                  \
                 sycl::nd_range<1>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),            \
-                [=](sycl::nd_item<1> item_ct1) {                               \
+                [=](sycl::nd_item<1> item_ct1) SYCL_SUBGROUP_SIZE(             \
+                    NektarSpaces::Device::warpSize) {                          \
                     std::apply(                                                \
                         [&](auto &&...args) {                                  \
                             KERNEL(std::forward<decltype(args)>(args)...,      \
@@ -224,7 +228,8 @@ static void inline setSYCLDefaultExecutionDependency(
             setSYCLDefaultExecutionDependency(syclSTREAMID, cgh);              \
             cgh.parallel_for(                                                  \
                 sycl::nd_range<2>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),            \
-                [=](sycl::nd_item<2> item_ct1) {                               \
+                [=](sycl::nd_item<2> item_ct1) SYCL_SUBGROUP_SIZE(             \
+                    NektarSpaces::Device::warpSize) {                          \
                     std::apply(                                                \
                         [&](auto &&...args) {                                  \
                             KERNEL(std::forward<decltype(args)>(args)...,      \
@@ -254,7 +259,8 @@ static void inline setSYCLDefaultExecutionDependency(
             setSYCLDefaultExecutionDependency(syclSTREAMID, cgh);              \
             cgh.parallel_for(                                                  \
                 sycl::nd_range<3>(GRIDSIZE * BLOCKSIZE, BLOCKSIZE),            \
-                [=](sycl::nd_item<3> item_ct1) {                               \
+                [=](sycl::nd_item<3> item_ct1) SYCL_SUBGROUP_SIZE(             \
+                    NektarSpaces::Device::warpSize) {                          \
                     std::apply(                                                \
                         [&](auto &&...args) {                                  \
                             KERNEL(std::forward<decltype(args)>(args)...,      \
