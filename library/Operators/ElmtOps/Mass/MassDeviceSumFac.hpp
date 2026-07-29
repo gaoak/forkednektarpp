@@ -331,8 +331,8 @@ protected:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get static workspace pointer.
-        auto wspSize = MassWorkSpaceSize<Implementation>(
-            SHAPE_TYPE, nelmt, sizeParam1D.nq0(), sizeParam1D.nm0());
+        auto wspSize =
+            MassWorkSpaceSize<SHAPE_TYPE, Implementation>(nelmt, sizeParam1D);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize, m_streamID);
@@ -342,8 +342,7 @@ protected:
 
         // Set Kernel parameters.
         const unsigned int shmemsize =
-            sizeof(TData) * MassSharedMemorySize<Implementation>(
-                                sizeParam1D.nq0(), sizeParam1D.nm0());
+            sizeof(TData) * MassSharedMemorySize<Implementation>(sizeParam1D);
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam1D.nq0());
         const unsigned int gridsize =
@@ -424,9 +423,8 @@ protected:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get static workspace pointer.
-        auto wspSize = MassWorkSpaceSize<Implementation>(
-            SHAPE_TYPE, nelmt, sizeParam2D.nq0(), sizeParam2D.nq1(),
-            sizeParam2D.nm0(), sizeParam2D.nm1());
+        auto wspSize =
+            MassWorkSpaceSize<SHAPE_TYPE, Implementation>(nelmt, sizeParam2D);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize, m_streamID);
@@ -436,9 +434,8 @@ protected:
 
         // Set Kernel parameters.
         const unsigned int shmemsize =
-            sizeof(TData) * MassSharedMemorySize<SHAPE_TYPE, Implementation>(
-                                sizeParam2D.nq0(), sizeParam2D.nq1(),
-                                sizeParam2D.nm0(), sizeParam2D.nm1());
+            sizeof(TData) *
+            MassSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam2D);
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam2D.nmTot());
         const unsigned int gridsize =
@@ -520,10 +517,8 @@ protected:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get static workspace pointer.
-        auto wspSize = MassWorkSpaceSize<Implementation>(
-            SHAPE_TYPE, nelmt, sizeParam3D.nq0(), sizeParam3D.nq1(),
-            sizeParam3D.nq2(), sizeParam3D.nm0(), sizeParam3D.nm1(),
-            sizeParam3D.nm2());
+        auto wspSize =
+            MassWorkSpaceSize<SHAPE_TYPE, Implementation>(nelmt, sizeParam3D);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize, m_streamID);
@@ -533,10 +528,8 @@ protected:
 
         // Set Kernel parameters.
         const unsigned int shmemsize =
-            sizeof(TData) * MassSharedMemorySize<SHAPE_TYPE, Implementation>(
-                                sizeParam3D.nq0(), sizeParam3D.nq1(),
-                                sizeParam3D.nq2(), sizeParam3D.nm0(),
-                                sizeParam3D.nm1(), sizeParam3D.nm2());
+            sizeof(TData) *
+            MassSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam3D);
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam3D.nmTot());
         const unsigned int gridsize =

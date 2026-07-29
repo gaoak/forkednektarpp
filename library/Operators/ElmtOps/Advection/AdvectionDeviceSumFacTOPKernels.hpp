@@ -45,21 +45,31 @@ namespace Nektar::Operators::detail
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 // Helper function
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TPhysSizeParameter2D,
           typename std::enable_if<
-              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
-inline constexpr unsigned int AdvectionSharedMemorySize(const unsigned int nq0,
-                                                        const unsigned int nq1)
+              std::is_same_v<Implementation, SumFacTOP> &&
+              IsPhysSizeParameter2D_v<TPhysSizeParameter2D>>::type * = nullptr>
+inline constexpr unsigned int AdvectionSharedMemorySize(
+    const TPhysSizeParameter2D sizeParam2D)
 {
+    const unsigned int nq0 = sizeParam2D.nq0();
+    const unsigned int nq1 = sizeParam2D.nq1();
+
     return nq0 * nq1;
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TPhysSizeParameter3D,
           typename std::enable_if<
-              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
-inline constexpr unsigned int AdvectionSharedMemorySize(const unsigned int nq0,
-                                                        const unsigned int nq1,
-                                                        const unsigned int nq2)
+              std::is_same_v<Implementation, SumFacTOP> &&
+              IsPhysSizeParameter3D_v<TPhysSizeParameter3D>>::type * = nullptr>
+inline constexpr unsigned int AdvectionSharedMemorySize(
+    const TPhysSizeParameter3D sizeParam3D)
 {
+    const unsigned int nq0 = sizeParam3D.nq0();
+    const unsigned int nq1 = sizeParam3D.nq1();
+    const unsigned int nq2 = sizeParam3D.nq2();
+
     return nq0 * nq1 * nq2;
 }
 

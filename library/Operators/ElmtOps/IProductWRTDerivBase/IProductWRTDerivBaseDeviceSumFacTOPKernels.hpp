@@ -47,105 +47,121 @@ namespace Nektar::Operators::detail
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 // Helper function
-template <typename Implementation, FieldState TFieldOut,
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TSizeParameter1D,
           typename std::enable_if<
-              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
-inline size_t IProductWRTDerivBaseWorkSpaceSize(
-    [[maybe_unused]] const LibUtilities::ShapeType shapeType,
+              std::is_same_v<Implementation, SumFacTOP> &&
+              (IsSizeParameter1D_v<TSizeParameter1D> ||
+               IsPhysSizeParameter1D_v<TSizeParameter1D>)>::type * = nullptr>
+inline constexpr size_t IProductWRTDerivBaseWorkSpaceSize(
     [[maybe_unused]] const size_t nelmt,
-    [[maybe_unused]] const unsigned int nq0,
-    [[maybe_unused]] const unsigned int nm0)
+    [[maybe_unused]] const TSizeParameter1D sizeParam1D)
 {
     return 0;
 }
 
-template <typename Implementation, FieldState TFieldOut,
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TSizeParameter2D,
           typename std::enable_if<
-              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
-inline size_t IProductWRTDerivBaseWorkSpaceSize(
-    [[maybe_unused]] const LibUtilities::ShapeType shapeType,
+              std::is_same_v<Implementation, SumFacTOP> &&
+              (IsSizeParameter2D_v<TSizeParameter2D> ||
+               IsPhysSizeParameter2D_v<TSizeParameter2D>)>::type * = nullptr>
+inline constexpr size_t IProductWRTDerivBaseWorkSpaceSize(
     [[maybe_unused]] const size_t nelmt,
-    [[maybe_unused]] const unsigned int nq0,
-    [[maybe_unused]] const unsigned int nq1,
-    [[maybe_unused]] const unsigned int nm0,
-    [[maybe_unused]] const unsigned int nm1)
+    [[maybe_unused]] const TSizeParameter2D sizeParam2D)
 {
     return 0;
 }
 
-template <typename Implementation, FieldState TFieldOut,
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TSizeParameter3D,
           typename std::enable_if<
-              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
-inline size_t IProductWRTDerivBaseWorkSpaceSize(
-    [[maybe_unused]] const LibUtilities::ShapeType shapeType,
+              std::is_same_v<Implementation, SumFacTOP> &&
+              (IsSizeParameter3D_v<TSizeParameter3D> ||
+               IsPhysSizeParameter3D_v<TSizeParameter3D>)>::type * = nullptr>
+inline constexpr size_t IProductWRTDerivBaseWorkSpaceSize(
     [[maybe_unused]] const size_t nelmt,
-    [[maybe_unused]] const unsigned int nq0,
-    [[maybe_unused]] const unsigned int nq1,
-    [[maybe_unused]] const unsigned int nq2,
-    [[maybe_unused]] const unsigned int nm0,
-    [[maybe_unused]] const unsigned int nm1,
-    [[maybe_unused]] const unsigned int nm2)
+    [[maybe_unused]] const TSizeParameter3D sizeParam3D)
 {
     return 0;
 }
 
-template <typename Implementation, FieldState TFieldOut,
+template <typename Implementation, typename TSizeParameter1D,
           typename std::enable_if<
-              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
+              std::is_same_v<Implementation, SumFacTOP> &&
+              (IsSizeParameter1D_v<TSizeParameter1D> ||
+               IsPhysSizeParameter1D_v<TSizeParameter1D>)>::type * = nullptr>
 inline unsigned int IProductWRTDerivBaseSharedMemorySize(
-    const unsigned int nq0, [[maybe_unused]] const unsigned int nm0)
+    const TSizeParameter1D sizeParam1D)
 {
+    const unsigned int nq0 = sizeParam1D.nq0();
+
     return nq0;
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          FieldState TFieldOut,
+          typename TSizeParameter2D,
           typename std::enable_if<
-              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
-inline unsigned int IProductWRTDerivBaseSharedMemorySize(const unsigned int nq0,
-                                                         const unsigned int nq1,
-                                                         const unsigned int nm0,
-                                                         const unsigned int nm1)
+              std::is_same_v<Implementation, SumFacTOP> &&
+              (IsSizeParameter2D_v<TSizeParameter2D> ||
+               IsPhysSizeParameter2D_v<TSizeParameter2D>)>::type * = nullptr>
+inline unsigned int IProductWRTDerivBaseSharedMemorySize(
+    const TSizeParameter2D sizeParam2D)
 {
-    if constexpr (TFieldOut == FieldState::Phys)
+    const unsigned int nq0 = sizeParam2D.nq0();
+    const unsigned int nq1 = sizeParam2D.nq1();
+
+    if constexpr (IsPhysSizeParameter2D_v<TSizeParameter2D>)
     {
         return 2 * nq0 * nq1 + nq0 * nq0 + nq1 * nq1;
     }
     else
     {
+        const unsigned int nm0 = sizeParam2D.nm0();
+        const unsigned int nm1 = sizeParam2D.nm1();
+
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
             return nm0 * nq0 + nm1 * nq1 + 3 * nq0 * nq1 + nm0 * nq1;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
-            const unsigned int nmTot =
-                LibUtilities::StdTriData::getNumberOfCoefficients(nm0, nm1);
+            const unsigned int nmTot = sizeParam2D.nmTot();
+
             return nm0 * nq0 + nmTot * nq1 + 3 * nq0 * nq1 + nm0 * nq1;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
         {
-            const unsigned int nmTot =
-                LibUtilities::StdTriData::getNumberOfCoefficients(nm0, nm1);
+            const unsigned int nmTot = sizeParam2D.nmTot();
+
             return nm0 * nq0 + nmTot * nq1 + 3 * nq0 * nq1 + nm0 * nq1 + nmTot;
         }
     }
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          FieldState TFieldOut,
+          typename TSizeParameter3D,
           typename std::enable_if<
-              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
+              std::is_same_v<Implementation, SumFacTOP> &&
+              (IsSizeParameter3D_v<TSizeParameter3D> ||
+               IsPhysSizeParameter3D_v<TSizeParameter3D>)>::type * = nullptr>
 inline unsigned int IProductWRTDerivBaseSharedMemorySize(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2)
+    const TSizeParameter3D sizeParam3D)
 {
-    if constexpr (TFieldOut == FieldState::Phys)
+    const unsigned int nq0 = sizeParam3D.nq0();
+    const unsigned int nq1 = sizeParam3D.nq1();
+    const unsigned int nq2 = sizeParam3D.nq2();
+
+    if constexpr (IsPhysSizeParameter3D_v<TSizeParameter3D>)
     {
         return 3 * nq0 * nq1 * nq2 + nq0 * nq0 + nq1 * nq1 + nq2 * nq2;
     }
     else
     {
+        const unsigned int nm0 = sizeParam3D.nm0();
+        const unsigned int nm1 = sizeParam3D.nm1();
+        const unsigned int nm2 = sizeParam3D.nm2();
+
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
             return nm0 * nq0 + nm1 * nq1 + nm2 * nq2 + 4 * nq0 * nq1 * nq2 +
@@ -153,8 +169,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
-            const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(
-                SHAPE_TYPE, nm0, nm1, nm2);
+            const unsigned int nmTot = sizeParam3D.nmTot();
             const unsigned int nmode2 =
                 nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
             const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
@@ -163,8 +178,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
         {
-            const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(
-                SHAPE_TYPE, nm0, nm1, nm2);
+            const unsigned int nmTot = sizeParam3D.nmTot();
             const unsigned int nmode2 =
                 nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
             const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
@@ -186,8 +200,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(
-                SHAPE_TYPE, nm0, nm1, nm2);
+            const unsigned int nmTot = sizeParam3D.nmTot();
             const unsigned int nmode2 =
                 nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
             return nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 + 4 * nq0 * nq1 * nq2 +

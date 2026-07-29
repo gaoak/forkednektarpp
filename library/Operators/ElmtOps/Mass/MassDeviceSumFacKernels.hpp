@@ -47,93 +47,110 @@ namespace Nektar::Operators::detail
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 // Helper function
-template <typename Implementation,
-          typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TSizeParameter1D,
+          typename std::enable_if<std::is_same_v<Implementation, SumFac> &&
+                                  IsSizeParameter1D_v<TSizeParameter1D>>::type
               * = nullptr>
-inline size_t MassWorkSpaceSize(const LibUtilities::ShapeType shapeType,
-                                const size_t nelmt, const unsigned int nq0,
-                                [[maybe_unused]] const unsigned int nm0)
+inline constexpr size_t MassWorkSpaceSize(const size_t nelmt,
+                                          const TSizeParameter1D sizeParam1D)
 {
     size_t wspsize = 0;
 
-    if (shapeType == LibUtilities::Seg)
+    const unsigned int nq0 = sizeParam1D.nq0();
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Seg)
     {
         wspsize = nq0 * nelmt;
     }
+
     return wspsize;
 }
 
-template <typename Implementation,
-          typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TSizeParameter2D,
+          typename std::enable_if<std::is_same_v<Implementation, SumFac> &&
+                                  IsSizeParameter2D_v<TSizeParameter2D>>::type
               * = nullptr>
-inline size_t MassWorkSpaceSize(const LibUtilities::ShapeType shapeType,
-                                const size_t nelmt, const unsigned int nq0,
-                                const unsigned int nq1, const unsigned int nm0,
-                                [[maybe_unused]] const unsigned int nm1)
+inline constexpr size_t MassWorkSpaceSize(const size_t nelmt,
+                                          const TSizeParameter2D sizeParam2D)
 {
     size_t wspsize = 0;
 
-    if (shapeType == LibUtilities::Quad)
+    const unsigned int nm0 = sizeParam2D.nm0();
+    const unsigned int nq0 = sizeParam2D.nq0();
+    const unsigned int nq1 = sizeParam2D.nq1();
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
         wspsize = (nq0 * nq1 + nq1) * nelmt;
     }
-    else if (shapeType == LibUtilities::Tri)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
     {
         wspsize = (nq0 * nq1 + std::max(nq1, nm0)) * nelmt;
     }
-    else if (shapeType == LibUtilities::NodalTri)
+    else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
     {
-        wspsize =
-            (nq0 * nq1 + std::max(nq1, nm0) + nm0 * (nm0 + 1) / 2) * nelmt;
+        const unsigned int nmTot = sizeParam2D.nmTot();
+
+        wspsize = (nq0 * nq1 + std::max(nq1, nm0) + nmTot) * nelmt;
     }
 
     return wspsize;
 }
 
-template <typename Implementation,
-          typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TSizeParameter3D,
+          typename std::enable_if<std::is_same_v<Implementation, SumFac> &&
+                                  IsSizeParameter3D_v<TSizeParameter3D>>::type
               * = nullptr>
-inline size_t MassWorkSpaceSize(const LibUtilities::ShapeType shapeType,
-                                const size_t nelmt, const unsigned int nq0,
-                                const unsigned int nq1, const unsigned int nq2,
-                                const unsigned int nm0, const unsigned int nm1,
-                                [[maybe_unused]] const unsigned int nm2)
+inline constexpr size_t MassWorkSpaceSize(const size_t nelmt,
+                                          const TSizeParameter3D sizeParam3D)
 {
     size_t wspsize = 0;
 
-    if (shapeType == LibUtilities::Hex)
+    const unsigned int nm0 = sizeParam3D.nm0();
+    const unsigned int nm1 = sizeParam3D.nm1();
+    const unsigned int nq0 = sizeParam3D.nq0();
+    const unsigned int nq1 = sizeParam3D.nq1();
+    const unsigned int nq2 = sizeParam3D.nq2();
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
         wspsize = (nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nelmt;
     }
-    else if (shapeType == LibUtilities::Tet)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
     {
-        unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+        const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
         wspsize =
             (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm01) + std::max(nq2, nm0)) *
             nelmt;
     }
-    else if (shapeType == LibUtilities::NodalTet)
+    else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
     {
-        unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+        const unsigned int nmTot = sizeParam3D.nmTot();
+        const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
         wspsize = (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm01) +
-                   std::max(nq2, nm0) + nm0 * (nm0 + 1) * (nm0 + 2) / 6) *
+                   std::max(nq2, nm0) + nmTot) *
                   nelmt;
     }
-    else if (shapeType == LibUtilities::Prism)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
     {
         wspsize = (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
                    std::max(nq2, nm0)) *
                   nelmt;
     }
-    else if (shapeType == LibUtilities::NodalPrism)
+    else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
     {
+        const unsigned int nmTot = sizeParam3D.nmTot();
+
         wspsize = (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
-                   std::max(nq2, nm0) + nm0 * (nm0 + 1) * nm0 / 2) *
+                   std::max(nq2, nm0) + nmTot) *
                   nelmt;
     }
-    else if (shapeType == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
         wspsize = (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
                    std::max(nq2, nm0)) *
@@ -143,38 +160,34 @@ inline size_t MassWorkSpaceSize(const LibUtilities::ShapeType shapeType,
     return wspsize;
 }
 
-template <typename Implementation,
-          typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+template <typename Implementation, typename TSizeParameter1D,
+          typename std::enable_if<std::is_same_v<Implementation, SumFac> &&
+                                  IsSizeParameter1D_v<TSizeParameter1D>>::type
               * = nullptr>
-inline unsigned int MassSharedMemorySize(
-    [[maybe_unused]] const unsigned int nq0,
-    [[maybe_unused]] const unsigned int nm0)
+inline constexpr unsigned int MassSharedMemorySize(
+    [[maybe_unused]] const TSizeParameter1D sizeParam1D)
 {
     return 0;
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+          typename TSizeParameter2D,
+          typename std::enable_if<std::is_same_v<Implementation, SumFac> &&
+                                  IsSizeParameter2D_v<TSizeParameter2D>>::type
               * = nullptr>
-inline unsigned int MassSharedMemorySize(
-    [[maybe_unused]] const unsigned int nq0,
-    [[maybe_unused]] const unsigned int nq1,
-    [[maybe_unused]] const unsigned int nm0,
-    [[maybe_unused]] const unsigned int nm1)
+inline constexpr unsigned int MassSharedMemorySize(
+    [[maybe_unused]] const TSizeParameter2D sizeParam2D)
 {
     return 0;
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
+          typename TSizeParameter3D,
+          typename std::enable_if<std::is_same_v<Implementation, SumFac> &&
+                                  IsSizeParameter3D_v<TSizeParameter3D>>::type
               * = nullptr>
-inline unsigned int MassSharedMemorySize(
-    [[maybe_unused]] const unsigned int nq0,
-    [[maybe_unused]] const unsigned int nq1,
-    [[maybe_unused]] const unsigned int nq2,
-    [[maybe_unused]] const unsigned int nm0,
-    [[maybe_unused]] const unsigned int nm1,
-    [[maybe_unused]] const unsigned int nm2)
+inline constexpr unsigned int MassSharedMemorySize(
+    [[maybe_unused]] const TSizeParameter3D sizeParam3D)
 {
     return 0;
 }

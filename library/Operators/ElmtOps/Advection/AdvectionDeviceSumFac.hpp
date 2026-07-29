@@ -408,10 +408,9 @@ protected:
         // Set Kernel parameters.
         const unsigned int shmemsize =
             sizeof(TData) *
-            AdvectionSharedMemorySize<SHAPE_TYPE, Implementation>(
-                sizeParam2D.nq0(), sizeParam2D.nq1());
-        const unsigned int blocksize = GetDeviceBlockSize<Implementation>(
-            sizeParam2D.nq0() * sizeParam2D.nq1());
+            AdvectionSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam2D);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(sizeParam2D.nqTot());
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
@@ -515,10 +514,9 @@ protected:
         // Set Kernel parameters.
         const unsigned int shmemsize =
             sizeof(TData) *
-            AdvectionSharedMemorySize<SHAPE_TYPE, Implementation>(
-                sizeParam3D.nq0(), sizeParam3D.nq1(), sizeParam3D.nq2());
-        const unsigned int blocksize = GetDeviceBlockSize<Implementation>(
-            sizeParam3D.nq0() * sizeParam3D.nq1() * sizeParam3D.nq2());
+            AdvectionSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam3D);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(sizeParam3D.nqTot());
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 

@@ -44,61 +44,68 @@ namespace Nektar::Operators::detail
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 // Helper function
-template <typename Implementation,
-          typename std::enable_if<
-              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
-inline size_t BwdTransWorkSpaceSize(
-    [[maybe_unused]] const LibUtilities::ShapeType shapeType,
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TSizeParameter1D,
+          typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
+                                  IsSizeParameter1D_v<TSizeParameter1D>>::type
+              * = nullptr>
+inline constexpr size_t BwdTransWorkSpaceSize(
     [[maybe_unused]] const size_t nelmt,
-    [[maybe_unused]] const unsigned int nm0)
+    [[maybe_unused]] const TSizeParameter1D sizeParam1D)
 {
     return 0;
 }
 
-template <typename Implementation,
-          typename std::enable_if<
-              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
-inline size_t BwdTransWorkSpaceSize(
-    [[maybe_unused]] const LibUtilities::ShapeType shapeType,
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TSizeParameter2D,
+          typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
+                                  IsSizeParameter2D_v<TSizeParameter2D>>::type
+              * = nullptr>
+inline constexpr size_t BwdTransWorkSpaceSize(
     [[maybe_unused]] const size_t nelmt,
-    [[maybe_unused]] const unsigned int nm0,
-    [[maybe_unused]] const unsigned int nm1)
+    [[maybe_unused]] const TSizeParameter2D sizeParam2D)
 {
     return 0;
 }
 
-template <typename Implementation,
-          typename std::enable_if<
-              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
-inline size_t BwdTransWorkSpaceSize(
-    [[maybe_unused]] const LibUtilities::ShapeType shapeType,
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TSizeParameter3D,
+          typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
+                                  IsSizeParameter3D_v<TSizeParameter3D>>::type
+              * = nullptr>
+inline constexpr size_t BwdTransWorkSpaceSize(
     [[maybe_unused]] const size_t nelmt,
-    [[maybe_unused]] const unsigned int nm0,
-    [[maybe_unused]] const unsigned int nm1,
-    [[maybe_unused]] const unsigned int nm2)
+    [[maybe_unused]] const TSizeParameter3D sizeParam3D)
 {
     return 0;
 }
 
-template <typename Implementation,
-          typename std::enable_if<
-              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
-inline unsigned int BwdTransSharedMemorySize(const unsigned int nq0,
-                                             const unsigned int nm0)
+template <typename Implementation, typename TSizeParameter1D,
+          typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
+                                  IsSizeParameter1D_v<TSizeParameter1D>>::type
+              * = nullptr>
+inline constexpr unsigned int BwdTransSharedMemorySize(
+    const TSizeParameter1D sizeParam1D)
 {
+    const unsigned int nm0 = sizeParam1D.nm0();
+    const unsigned int nq0 = sizeParam1D.nq0();
+
     return nm0 + nm0 * nq0;
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename std::enable_if<
-              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
-inline unsigned int BwdTransSharedMemorySize(const unsigned int nq0,
-                                             const unsigned int nq1,
-                                             const unsigned int nm0,
-                                             const unsigned int nm1)
+          typename TSizeParameter2D,
+          typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
+                                  IsSizeParameter2D_v<TSizeParameter2D>>::type
+              * = nullptr>
+inline constexpr unsigned int BwdTransSharedMemorySize(
+    const TSizeParameter2D sizeParam2D)
 {
-    const unsigned int nmTot =
-        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+    const unsigned int nm0   = sizeParam2D.nm0();
+    const unsigned int nm1   = sizeParam2D.nm1();
+    const unsigned int nmTot = sizeParam2D.nmTot();
+    const unsigned int nq0   = sizeParam2D.nq0();
+    const unsigned int nq1   = sizeParam2D.nq1();
 
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
@@ -112,16 +119,22 @@ inline unsigned int BwdTransSharedMemorySize(const unsigned int nq0,
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename std::enable_if<
-              std::is_same_v<Implementation, SumFacTOP>>::type * = nullptr>
-inline unsigned int BwdTransSharedMemorySize(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2)
+          typename TSizeParameter3D,
+          typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
+                                  IsSizeParameter3D_v<TSizeParameter3D>>::type
+              * = nullptr>
+inline constexpr unsigned int BwdTransSharedMemorySize(
+    const TSizeParameter3D sizeParam3D)
 {
-    const unsigned int nmTot =
-        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
-    const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-    const unsigned int nm12 = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
+    const unsigned int nm0   = sizeParam3D.nm0();
+    const unsigned int nm1   = sizeParam3D.nm1();
+    const unsigned int nm2   = sizeParam3D.nm2();
+    const unsigned int nmTot = sizeParam3D.nmTot();
+    const unsigned int nq0   = sizeParam3D.nq0();
+    const unsigned int nq1   = sizeParam3D.nq1();
+    const unsigned int nq2   = sizeParam3D.nq2();
+    const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+    const unsigned int nm12  = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
