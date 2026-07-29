@@ -188,7 +188,6 @@ SET(InterpreterSources
 
 SET(LinearAlgebraHeaders
 ./LinearAlgebra/Arpack.hpp
-./LinearAlgebra/BlasArray.hpp
 ./LinearAlgebra/Blas.hpp
 ./LinearAlgebra/BlockMatrix.hpp
 ./LinearAlgebra/CanGetRawPtr.hpp

@@ -961,8 +961,10 @@ void TriExp::v_ComputeLaplacianMetric()
     Array<OneD, const NekDouble> gfac0 = GetStdFac(fackey);
     for (i = 0; i < nquad1; i++)
     {
-        Blas::Dscal(nquad0, gfac0[i], &dEta_dXi[0][0] + i * nquad0, 1);
-        Blas::Dscal(nquad0, gfac0[i], &dEta_dXi[1][0] + i * nquad0, 1);
+        Vmath::Smul(nquad0, gfac0[i], &dEta_dXi[0][0] + i * nquad0, 1,
+                    &dEta_dXi[0][0] + i * nquad0, 1);
+        Vmath::Smul(nquad0, gfac0[i], &dEta_dXi[1][0] + i * nquad0, 1,
+                    &dEta_dXi[1][0] + i * nquad0, 1);
     }
 
     // get geometric facotr: 0.5*(1-z0)
@@ -971,7 +973,8 @@ void TriExp::v_ComputeLaplacianMetric()
     Array<OneD, const NekDouble> gfac1 = GetStdFac(fackey1);
     for (i = 0; i < nquad0; i++)
     {
-        Blas::Dscal(nquad1, gfac1[i], &dEta_dXi[1][0] + i, nquad0);
+        Vmath::Smul(nquad1, gfac1[i], &dEta_dXi[1][0] + i, nquad0,
+                    &dEta_dXi[1][0] + i, nquad0);
     }
 
     Array<OneD, NekDouble> tmp(nqtot);

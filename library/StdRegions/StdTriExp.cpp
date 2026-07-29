@@ -109,7 +109,8 @@ void StdTriExp::v_StdPhysDeriv(const Array<OneD, const NekDouble> &inarray,
 
         for (i = 0; i < nquad1; ++i)
         {
-            Blas::Dscal(nquad0, wsp[i], &out_d0[0] + i * nquad0, 1);
+            Vmath::Smul(nquad0, wsp[i], &out_d0[0] + i * nquad0, 1,
+                        &out_d0[0] + i * nquad0, 1);
         }
 
         // if no d1 required do not need to calculate both deriv
@@ -134,7 +135,8 @@ void StdTriExp::v_StdPhysDeriv(const Array<OneD, const NekDouble> &inarray,
 
         for (i = 0; i < nquad1; ++i)
         {
-            Blas::Dscal(nquad0, wsp[i], &diff0[0] + i * nquad0, 1);
+            Vmath::Smul(nquad0, wsp[i], &diff0[0] + i * nquad0, 1,
+                        &diff0[0] + i * nquad0, 1);
         }
 
         Vmath::Sadd(nquad0, 1.0, z0, 1, wsp, 1);

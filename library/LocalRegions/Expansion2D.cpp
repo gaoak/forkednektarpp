@@ -774,19 +774,19 @@ void Expansion2D::v_PhysDeriv(const Array<OneD, const NekDouble> &inarray,
         if (out_d0.size())
         {
             Vmath::Smul(nqtot, df[0][0], diff0, 1, out_d0, 1);
-            Blas::Daxpy(nqtot, df[1][0], diff1, 1, out_d0, 1);
+            Vmath::Svtvp(nqtot, df[1][0], diff1, 1, out_d0, 1, out_d0, 1);
         }
 
         if (out_d1.size())
         {
             Vmath::Smul(nqtot, df[2][0], diff0, 1, out_d1, 1);
-            Blas::Daxpy(nqtot, df[3][0], diff1, 1, out_d1, 1);
+            Vmath::Svtvp(nqtot, df[3][0], diff1, 1, out_d1, 1, out_d1, 1);
         }
 
         if (out_d2.size())
         {
             Vmath::Smul(nqtot, df[4][0], diff0, 1, out_d2, 1);
-            Blas::Daxpy(nqtot, df[5][0], diff1, 1, out_d2, 1);
+            Vmath::Svtvp(nqtot, df[5][0], diff1, 1, out_d2, 1, out_d2, 1);
         }
     }
 }
