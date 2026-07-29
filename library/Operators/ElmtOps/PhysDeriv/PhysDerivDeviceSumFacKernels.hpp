@@ -45,10 +45,12 @@ namespace Nektar::Operators::detail
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 // Helper function
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
-              * = nullptr>
-inline constexpr unsigned int PhysDerivSharedMemorySize(const unsigned int nq0,
-                                                        const unsigned int nq1)
+          typename TPhysSizeParameter2D,
+          typename std::enable_if<
+              std::is_same_v<Implementation, SumFac> &&
+              IsPhysSizeParameter2D_v<TPhysSizeParameter2D>>::type * = nullptr>
+inline constexpr unsigned int PhysDerivSharedMemorySize(
+    [[maybe_unused]] const TPhysSizeParameter2D sizeParam2D)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
@@ -57,17 +59,25 @@ inline constexpr unsigned int PhysDerivSharedMemorySize(const unsigned int nq0,
     else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                        SHAPE_TYPE == LibUtilities::NodalTri)
     {
+        const unsigned int nq0 = sizeParam2D.nq0();
+        const unsigned int nq1 = sizeParam2D.nq1();
+
         return nq0 + nq1;
     }
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
-              * = nullptr>
-inline constexpr unsigned int PhysDerivSharedMemorySize(const unsigned int nq0,
-                                                        const unsigned int nq1,
-                                                        const unsigned int nq2)
+          typename TPhysSizeParameter3D,
+          typename std::enable_if<
+              std::is_same_v<Implementation, SumFac> &&
+              IsPhysSizeParameter3D_v<TPhysSizeParameter3D>>::type * = nullptr>
+inline constexpr unsigned int PhysDerivSharedMemorySize(
+    const TPhysSizeParameter3D sizeParam3D)
 {
+    const unsigned int nq0 = sizeParam3D.nq0();
+    const unsigned int nq1 = sizeParam3D.nq1();
+    const unsigned int nq2 = sizeParam3D.nq2();
+
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
         return 0;

@@ -275,8 +275,8 @@ protected:
 
         // Set Kernel parameters.
         const unsigned int shmemsize =
-            sizeof(TData) * BwdTransSharedMemorySize<Implementation>(
-                                sizeParam1D.nq0(), sizeParam1D.nm0());
+            sizeof(TData) *
+            BwdTransSharedMemorySize<Implementation>(sizeParam1D);
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam1D.nq0());
         const unsigned int gridsize =
@@ -352,8 +352,9 @@ protected:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get static workspace pointer.
-        auto wspSize = BwdTransWorkSpaceSize<Implementation>(
-            LibUtilities::Quad, nelmt, sizeParam2D.nm0(), sizeParam2D.nm1());
+        auto wspSize =
+            BwdTransWorkSpaceSize<LibUtilities::Quad, Implementation>(
+                nelmt, sizeParam2D);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize, m_streamID);
@@ -367,8 +368,7 @@ protected:
         const unsigned int shmemsize =
             sizeof(TData) *
             BwdTransSharedMemorySize<LibUtilities::Quad, Implementation>(
-                sizeParam2D.nq0(), sizeParam2D.nq1(), sizeParam2D.nm0(),
-                sizeParam2D.nm1());
+                sizeParam2D);
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam2D.nmTot());
         const unsigned int gridsize =
@@ -447,9 +447,8 @@ protected:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get static workspace pointer.
-        auto wspSize = BwdTransWorkSpaceSize<Implementation>(
-            LibUtilities::Hex, nelmt, sizeParam3D.nm0(), sizeParam3D.nm1(),
-            sizeParam3D.nm2());
+        auto wspSize = BwdTransWorkSpaceSize<LibUtilities::Hex, Implementation>(
+            nelmt, sizeParam3D);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize, m_streamID);
@@ -463,8 +462,7 @@ protected:
         const unsigned int shmemsize =
             sizeof(TData) *
             BwdTransSharedMemorySize<LibUtilities::Hex, Implementation>(
-                sizeParam3D.nq0(), sizeParam3D.nq1(), sizeParam3D.nq2(),
-                sizeParam3D.nm0(), sizeParam3D.nm1(), sizeParam3D.nm2());
+                sizeParam3D);
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam3D.nmTot());
         const unsigned int gridsize =

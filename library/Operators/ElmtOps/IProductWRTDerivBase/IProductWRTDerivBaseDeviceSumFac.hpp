@@ -381,19 +381,9 @@ protected:
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get static workspace pointer.
-        size_t wspSize;
-        if constexpr (TFieldOut == FieldState::Phys)
-        {
-            wspSize =
-                IProductWRTDerivBaseWorkSpaceSize<Implementation, TFieldOut>(
-                    SHAPE_TYPE, nelmt, sizeParam1D.nq0(), 0);
-        }
-        else
-        {
-            wspSize =
-                IProductWRTDerivBaseWorkSpaceSize<Implementation, TFieldOut>(
-                    SHAPE_TYPE, nelmt, sizeParam1D.nq0(), sizeParam1D.nm0());
-        }
+        const size_t wspSize =
+            IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                nelmt, sizeParam1D);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize, m_streamID);
@@ -403,21 +393,9 @@ protected:
         const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
-        unsigned int shmemsize;
-        if constexpr (TFieldOut == FieldState::Phys)
-        {
-            shmemsize =
-                sizeof(TData) *
-                IProductWRTDerivBaseSharedMemorySize<Implementation, TFieldOut>(
-                    sizeParam1D.nq0(), 0);
-        }
-        else
-        {
-            shmemsize =
-                sizeof(TData) *
-                IProductWRTDerivBaseSharedMemorySize<Implementation, TFieldOut>(
-                    sizeParam1D.nq0(), sizeParam1D.nm0());
-        }
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTDerivBaseSharedMemorySize<Implementation>(sizeParam1D);
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam1D.nq0());
         const unsigned int gridsize =
@@ -576,21 +554,9 @@ protected:
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get static workspace pointer.
-        size_t wspSize;
-        if constexpr (TFieldOut == FieldState::Phys)
-        {
-            wspSize =
-                IProductWRTDerivBaseWorkSpaceSize<Implementation, TFieldOut>(
-                    SHAPE_TYPE, nelmt, sizeParam2D.nq0(), sizeParam2D.nq1(), 0,
-                    0);
-        }
-        else
-        {
-            wspSize =
-                IProductWRTDerivBaseWorkSpaceSize<Implementation, TFieldOut>(
-                    SHAPE_TYPE, nelmt, sizeParam2D.nq0(), sizeParam2D.nq1(),
-                    sizeParam2D.nm0(), sizeParam2D.nm1());
-        }
+        const size_t wspSize =
+            IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                nelmt, sizeParam2D);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize, m_streamID);
@@ -600,24 +566,10 @@ protected:
         const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
-        unsigned int shmemsize;
-        if constexpr (TFieldOut == FieldState::Phys)
-        {
-            shmemsize =
-                sizeof(TData) *
-                IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation,
-                                                     TFieldOut>(
-                    sizeParam2D.nq0(), sizeParam2D.nq1(), 0, 0);
-        }
-        else
-        {
-            shmemsize =
-                sizeof(TData) *
-                IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation,
-                                                     TFieldOut>(
-                    sizeParam2D.nq0(), sizeParam2D.nq1(), sizeParam2D.nm0(),
-                    sizeParam2D.nm1());
-        }
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
+                sizeParam2D);
         unsigned int blocksize;
         if constexpr (TFieldOut == FieldState::Phys)
         {
@@ -790,23 +742,9 @@ protected:
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get static workspace pointer.
-        size_t wspSize;
-        if constexpr (TFieldOut == FieldState::Phys)
-        {
-            wspSize =
-                IProductWRTDerivBaseWorkSpaceSize<Implementation, TFieldOut>(
-                    SHAPE_TYPE, nelmt, sizeParam3D.nq0(), sizeParam3D.nq1(),
-                    sizeParam3D.nq2(), 0, 0, 0);
-        }
-        else
-        {
-            wspSize =
-                IProductWRTDerivBaseWorkSpaceSize<Implementation, TFieldOut>(
-                    SHAPE_TYPE, nelmt, sizeParam3D.nq0(), sizeParam3D.nq1(),
-                    sizeParam3D.nq2(), sizeParam3D.nm0(), sizeParam3D.nm1(),
-                    sizeParam3D.nq2());
-        }
-
+        const size_t wspSize =
+            IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                nelmt, sizeParam3D);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize, m_streamID);
@@ -816,25 +754,10 @@ protected:
         const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
-        unsigned int shmemsize;
-        if constexpr (TFieldOut == FieldState::Phys)
-        {
-            shmemsize =
-                sizeof(TData) *
-                IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation,
-                                                     TFieldOut>(
-                    sizeParam3D.nq0(), sizeParam3D.nq1(), sizeParam3D.nq2(), 0,
-                    0, 0);
-        }
-        else
-        {
-            shmemsize =
-                sizeof(TData) *
-                IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation,
-                                                     TFieldOut>(
-                    sizeParam3D.nq0(), sizeParam3D.nq1(), sizeParam3D.nq2(),
-                    sizeParam3D.nm0(), sizeParam3D.nm1(), sizeParam3D.nm2());
-        }
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
+                sizeParam3D);
         unsigned int blocksize;
         if constexpr (TFieldOut == FieldState::Phys)
         {
