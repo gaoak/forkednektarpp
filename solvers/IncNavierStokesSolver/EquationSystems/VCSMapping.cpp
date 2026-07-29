@@ -399,8 +399,10 @@ void VCSMapping::v_SetUpViscousForcing(
     // need to be updated for the convected fields.
     for (size_t i = 0; i < nvel; ++i)
     {
-        Blas::Daxpy(physTot, -aii_dtinv, inarray[i], 1, Forcing[i], 1);
-        Blas::Dscal(physTot, 1.0 / m_kinvis, &(Forcing[i])[0], 1);
+        Vmath::Svtvp(physTot, -aii_dtinv, inarray[i], 1, Forcing[i], 1,
+                     Forcing[i], 1);
+        Vmath::Smul(physTot, 1.0 / m_kinvis, &(Forcing[i])[0], 1,
+                    &(Forcing[i])[0], 1);
     }
 }
 

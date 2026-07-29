@@ -611,15 +611,16 @@ void SubSteppingExtrapolate::SubStepExtrapolateField(
 
         for (j = 1; j <= ord; ++j)
         {
-            Blas::Daxpy(npts, l[j], m_previousVelFields[j * nvel + i], 1,
-                        ExtVel[i], 1);
+            Vmath::Svtvp(npts, l[j], m_previousVelFields[j * nvel + i], 1,
+                         ExtVel[i], 1, ExtVel[i], 1);
         }
     }
 
     Vmath::Smul(ntracepts, l[0], m_previousVnFields[0], 1, ExtVn, 1);
     for (j = 1; j <= ord; ++j)
     {
-        Blas::Daxpy(ntracepts, l[j], m_previousVnFields[j], 1, ExtVn, 1);
+        Vmath::Svtvp(ntracepts, l[j], m_previousVnFields[j], 1, ExtVn, 1, ExtVn,
+                     1);
     }
     timer.Stop();
     timer.AccumulateRegion("SubSteppingExtrapolate:SubStepExtrapolateFields",

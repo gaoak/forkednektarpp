@@ -536,8 +536,8 @@ void StdSegExp::v_HelmholtzMatrixOp(const Array<OneD, const NekDouble> &inarray,
                 NullNekDouble1DArray);
     v_IProductWRTBaseKernel(m_base[0]->GetDbdata(), dPhysValuesdx, outarray,
                             one, false);
-    Blas::Daxpy(m_ncoeffs, mkey.GetConstFactor(eFactorLambda), wsp.data(), 1,
-                outarray.data(), 1);
+    Vmath::Svtvp(m_ncoeffs, mkey.GetConstFactor(eFactorLambda), wsp.data(), 1,
+                 outarray.data(), 1, outarray.data(), 1);
 }
 
 void StdSegExp::v_SVVLaplacianFilter(Array<OneD, NekDouble> &array,

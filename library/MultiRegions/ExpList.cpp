@@ -3001,7 +3001,8 @@ DNekMatSharedPtr ExpList::GenGlobalMatrixFull(
             const NekDouble *dat = loc_mat->GetRawPtr();
             DNekMatSharedPtr new_mat =
                 MemoryManager<DNekMat>::AllocateSharedPtr(rows, cols, dat);
-            Blas::Dscal(rows * cols, loc_mat->Scale(), new_mat->GetRawPtr(), 1);
+            Vmath::Smul(rows * cols, loc_mat->Scale(), new_mat->GetRawPtr(), 1,
+                        new_mat->GetRawPtr(), 1);
 
             // add local matrix contribution
             for (rBC = RobinBCInfo.find(n)->second; rBC; rBC = rBC->next)

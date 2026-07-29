@@ -355,7 +355,8 @@ DNekScalMatSharedPtr GlobalLinSys::v_GetBlock(unsigned int n)
         const NekDouble *dat = loc_mat->GetRawPtr();
         DNekMatSharedPtr new_mat =
             MemoryManager<DNekMat>::AllocateSharedPtr(rows, cols, dat);
-        Blas::Dscal(rows * cols, loc_mat->Scale(), new_mat->GetRawPtr(), 1);
+        Vmath::Smul(rows * cols, loc_mat->Scale(), new_mat->GetRawPtr(), 1,
+                    new_mat->GetRawPtr(), 1);
 
         // add local matrix contribution
         for (rBC = m_robinBCInfo.find(n)->second; rBC; rBC = rBC->next)
@@ -400,7 +401,8 @@ DNekScalBlkMatSharedPtr GlobalLinSys::v_GetStaticCondBlock(unsigned int n)
         const NekDouble *dat = tmp_mat->GetRawPtr();
         DNekMatSharedPtr new_mat =
             MemoryManager<DNekMat>::AllocateSharedPtr(rows, cols, dat);
-        Blas::Dscal(rows * cols, tmp_mat->Scale(), new_mat->GetRawPtr(), 1);
+        Vmath::Smul(rows * cols, tmp_mat->Scale(), new_mat->GetRawPtr(), 1,
+                    new_mat->GetRawPtr(), 1);
 
         // add local matrix contribution
         for (rBC = m_robinBCInfo.find(n)->second; rBC; rBC = rBC->next)

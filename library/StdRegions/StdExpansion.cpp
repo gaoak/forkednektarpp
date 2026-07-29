@@ -621,7 +621,8 @@ std::shared_ptr<Array<OneD, const NekDouble>> StdExpansion::CreateStdFac(
             if (m_base[1]->GetPointsType() ==
                 LibUtilities::eGaussRadauMAlpha1Beta0)
             {
-                Blas::Dscal(nquad1, 0.5, returnval.data(), 1);
+                Vmath::Smul(nquad1, 0.5, returnval.data(), 1, returnval.data(),
+                            1);
             }
             else
             {
@@ -651,7 +652,8 @@ std::shared_ptr<Array<OneD, const NekDouble>> StdExpansion::CreateStdFac(
                 if (m_base[2]->GetPointsType() ==
                     LibUtilities::eGaussRadauMAlpha1Beta0)
                 {
-                    Blas::Dscal(nquad2, 0.5, returnval.data(), 1);
+                    Vmath::Smul(nquad2, 0.5, returnval.data(), 1,
+                                returnval.data(), 1);
                 }
                 else
                 {
@@ -669,7 +671,8 @@ std::shared_ptr<Array<OneD, const NekDouble>> StdExpansion::CreateStdFac(
                         // (2,0) Jacobi inner product.
                     case LibUtilities::eGaussRadauMAlpha2Beta0:
                     {
-                        Blas::Dscal(nquad2, 0.25, returnval.data(), 1);
+                        Vmath::Smul(nquad2, 0.25, returnval.data(), 1,
+                                    returnval.data(), 1);
                     }
                     break;
                         // (1,0) Jacobi inner product.
@@ -1253,7 +1256,7 @@ void StdExpansion::HelmholtzMatrixOp_MatFree_GenericImpl(
     MassMatrixOp(inarray, tmp, mkeymass);
     LaplacianMatrixOp(inarray, outarray, mkeylap);
 
-    Blas::Daxpy(m_ncoeffs, lambda, tmp, 1, outarray, 1);
+    Vmath::Svtvp(m_ncoeffs, lambda, tmp, 1, outarray, 1, outarray, 1);
 }
 
 // VIRTUAL INLINE FUNCTIONS FROM HEADER FILE

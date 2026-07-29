@@ -104,6 +104,13 @@ MeshGraph::MeshGraph()
 
 MeshGraph::~MeshGraph()
 {
+    for (auto &refInfo : m_refRegion)
+    {
+        if (refInfo.second != nullptr)
+        {
+            delete refInfo.second;
+        }
+    }
 }
 
 void MeshGraph::SetPartition(SpatialDomains::MeshGraphSharedPtr graph)

@@ -467,7 +467,8 @@ void StdHexExp::v_FillMode(const int mode, Array<OneD, NekDouble> &outarray)
 
     for (int i = 0; i < nquad2; i++)
     {
-        Blas::Dscal(nquad0 * nquad1, base2[mode2 * nquad2 + i],
+        Vmath::Smul(nquad0 * nquad1, base2[mode2 * nquad2 + i],
+                    &outarray[0] + i * nquad0 * nquad1, 1,
                     &outarray[0] + i * nquad0 * nquad1, 1);
     }
 }

@@ -7,10 +7,12 @@ v5.11.0
 - Add parallel HDF5 mesh output (!2588)
 - Add Eigen value estimation to ConjGrad and GMRES (!2578)
 - Fix HDF5 thirdparty compilation with MPI (!2610)
+- Replace Blas::Dscal and Blas::Daxpy call by VMath calls (!2630)
 
 **Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)
 - Move using namespace std to avoid name clashes (!2618)
+- Fix various memory leaks (!2626)
 
 v5.10.0
 -------

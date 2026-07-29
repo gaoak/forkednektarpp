@@ -896,7 +896,8 @@ void PrismExp::v_LaplacianMatrixOp_MatFree_Kernel(
     }
     for (i = 0; i < nquad0; i++)
     {
-        Blas::Dscal(nquad1 * nquad2, 0.5 * (1 + z0[i]), &h1[0] + i, nquad0);
+        Vmath::Smul(nquad1 * nquad2, 0.5 * (1 + z0[i]), &h1[0] + i, nquad0,
+                    &h1[0] + i, nquad0);
     }
 
     // Step 3. Construct combined metric terms for physical space to

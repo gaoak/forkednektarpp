@@ -545,7 +545,8 @@ void SegExp::v_LaplacianMatrixOp(
             }
             else
             {
-                Blas::Dscal(nquad, gmat[0][0], dPhysValuesdx.data(), 1);
+                Vmath::Smul(nquad, gmat[0][0], dPhysValuesdx.data(), 1,
+                            dPhysValuesdx.data(), 1);
             }
         }
         break;
@@ -565,9 +566,10 @@ void SegExp::v_LaplacianMatrixOp(
             }
             else
             {
-                Blas::Dscal(nquad, gmat[0][0], dPhysValuesdx.data(), 1);
-                Blas::Daxpy(nquad, gmat[1][0], dPhysValuesdy.data(), 1,
+                Vmath::Smul(nquad, gmat[0][0], dPhysValuesdx.data(), 1,
                             dPhysValuesdx.data(), 1);
+                Vmath::Svtvp(nquad, gmat[1][0], dPhysValuesdy.data(), 1,
+                             dPhysValuesdx.data(), 1, dPhysValuesdx.data(), 1);
             }
         }
         break;
@@ -590,11 +592,12 @@ void SegExp::v_LaplacianMatrixOp(
             }
             else
             {
-                Blas::Dscal(nquad, gmat[0][0], dPhysValuesdx.data(), 1);
-                Blas::Daxpy(nquad, gmat[1][0], dPhysValuesdy.data(), 1,
+                Vmath::Smul(nquad, gmat[0][0], dPhysValuesdx.data(), 1,
                             dPhysValuesdx.data(), 1);
-                Blas::Daxpy(nquad, gmat[2][0], dPhysValuesdz.data(), 1,
-                            dPhysValuesdx.data(), 1);
+                Vmath::Svtvp(nquad, gmat[1][0], dPhysValuesdy.data(), 1,
+                             dPhysValuesdx.data(), 1, dPhysValuesdx.data(), 1);
+                Vmath::Svtvp(nquad, gmat[2][0], dPhysValuesdz.data(), 1,
+                             dPhysValuesdx.data(), 1, dPhysValuesdx.data(), 1);
             }
         }
         break;
@@ -650,7 +653,8 @@ void SegExp::v_HelmholtzMatrixOp(const Array<OneD, const NekDouble> &inarray,
             }
             else
             {
-                Blas::Dscal(nquad, gmat[0][0], dPhysValuesdx.data(), 1);
+                Vmath::Smul(nquad, gmat[0][0], dPhysValuesdx.data(), 1,
+                            dPhysValuesdx.data(), 1);
             }
         }
         break;
@@ -670,9 +674,10 @@ void SegExp::v_HelmholtzMatrixOp(const Array<OneD, const NekDouble> &inarray,
             }
             else
             {
-                Blas::Dscal(nquad, gmat[0][0], dPhysValuesdx.data(), 1);
-                Blas::Daxpy(nquad, gmat[1][0], dPhysValuesdy.data(), 1,
+                Vmath::Smul(nquad, gmat[0][0], dPhysValuesdx.data(), 1,
                             dPhysValuesdx.data(), 1);
+                Vmath::Svtvp(nquad, gmat[1][0], dPhysValuesdy.data(), 1,
+                             dPhysValuesdx.data(), 1, dPhysValuesdx.data(), 1);
             }
         }
         break;
@@ -695,11 +700,12 @@ void SegExp::v_HelmholtzMatrixOp(const Array<OneD, const NekDouble> &inarray,
             }
             else
             {
-                Blas::Dscal(nquad, gmat[0][0], dPhysValuesdx.data(), 1);
-                Blas::Daxpy(nquad, gmat[1][0], dPhysValuesdy.data(), 1,
+                Vmath::Smul(nquad, gmat[0][0], dPhysValuesdx.data(), 1,
                             dPhysValuesdx.data(), 1);
-                Blas::Daxpy(nquad, gmat[2][0], dPhysValuesdz.data(), 1,
-                            dPhysValuesdx.data(), 1);
+                Vmath::Svtvp(nquad, gmat[1][0], dPhysValuesdy.data(), 1,
+                             dPhysValuesdx.data(), 1, dPhysValuesdx.data(), 1);
+                Vmath::Svtvp(nquad, gmat[2][0], dPhysValuesdz.data(), 1,
+                             dPhysValuesdx.data(), 1, dPhysValuesdx.data(), 1);
             }
         }
         break;
@@ -713,7 +719,8 @@ void SegExp::v_HelmholtzMatrixOp(const Array<OneD, const NekDouble> &inarray,
         m_geomFactors->GetGtype() == SpatialDomains::eDeformed;
     v_IProductWRTBaseKernel(m_base[0]->GetDbdata(), dPhysValuesdx, outarray,
                             jac, Deformed);
-    Blas::Daxpy(m_ncoeffs, lambda, wsp.data(), 1, outarray.data(), 1);
+    Vmath::Svtvp(m_ncoeffs, lambda, wsp.data(), 1, outarray.data(), 1,
+                 outarray.data(), 1);
 }
 
 //-----------------------------
