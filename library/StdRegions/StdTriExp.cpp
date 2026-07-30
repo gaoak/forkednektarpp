@@ -187,20 +187,19 @@ void StdTriExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
 // Default case
 #undef BWDTRANS_DEF
 #define BWDTRANS_DEF                                                           \
-    BwdTransTriKernel(nmodes0, nmodes1, nquad0, nquad1, isModified,            \
-                      (const vec_t *)base0.data(),                             \
-                      (const vec_t *)base1.data(), wsp0.data(),                \
-                      (const vec_t *)inarray.data(), (vec_t *)outarray.data())
+    BwdTransTriKernel<false>(nmodes0, nmodes1, nquad0, nquad1, isModified,     \
+                             base0.data(), base1.data(), wsp0.data(),          \
+                             (const vec_t *)inarray.data(),                    \
+                             (vec_t *)outarray.data())
 
 // Inner loop case over quarature points
 #undef BWDTRANS_Q
 #define BWDTRANS_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        BwdTransTriKernel(NM(i), NM(i), NQ(i), NQ_M1(i), isModified,           \
-                          (const vec_t *)base0.data(),                         \
-                          (const vec_t *)base1.data(), wsp0.data(),            \
-                          (const vec_t *)inarray.data(),                       \
-                          (vec_t *)outarray.data());                           \
+        BwdTransTriKernel<false>(NM(i), NM(i), NQ(i), NQ_M1(i), isModified,    \
+                                 base0.data(), base1.data(), wsp0.data(),      \
+                                 (const vec_t *)inarray.data(),                \
+                                 (vec_t *)outarray.data());                    \
         break;
 
 // outer loop case over modes
@@ -379,9 +378,8 @@ void StdTriExp::v_IProductWRTBaseKernel(
 #define IPRODUCTWRTBASE_DEF                                                    \
     IProductTriKernel<false, false, true>(                                     \
         order0, order1, nquad0, nquad1, isModified,                            \
-        (const vec_t *)inarray.data(), (const vec_t *)base0.data(),            \
-        (const vec_t *)base1.data(), (const vec_t *)m_weights[0].data(),       \
-        (const vec_t *)m_weights[1].data(), (const vec_t *)jac.data(),         \
+        (const vec_t *)inarray.data(), base0.data(), base1.data(),             \
+        m_weights[0].data(), m_weights[1].data(), (const vec_t *)jac.data(),   \
         (vec_t *)wsp0.data(), (vec_t *)outarray.data())
 
         // Inner loop case over quarature points
@@ -390,10 +388,10 @@ void StdTriExp::v_IProductWRTBaseKernel(
     case NQ(i):                                                                \
         IProductTriKernel<false, false, true>(                                 \
             NM(i), NM(i), NQ(i), NQ_M1(i), isModified,                         \
-            (const vec_t *)inarray.data(), (const vec_t *)base0.data(),        \
-            (const vec_t *)base1.data(), (const vec_t *)m_weights[0].data(),   \
-            (const vec_t *)m_weights[1].data(), (const vec_t *)jac.data(),     \
-            (vec_t *)wsp0.data(), (vec_t *)outarray.data());                   \
+            (const vec_t *)inarray.data(), base0.data(), base1.data(),         \
+            m_weights[0].data(), m_weights[1].data(),                          \
+            (const vec_t *)jac.data(), (vec_t *)wsp0.data(),                   \
+            (vec_t *)outarray.data());                                         \
         break;
 
         // outer loop case over modes
@@ -436,9 +434,8 @@ void StdTriExp::v_IProductWRTBaseKernel(
 #define IPRODUCTWRTBASE_DEF                                                    \
     IProductTriKernel<false, false, false>(                                    \
         order0, order1, nquad0, nquad1, isModified,                            \
-        (const vec_t *)inarray.data(), (const vec_t *)base0.data(),            \
-        (const vec_t *)base1.data(), (const vec_t *)m_weights[0].data(),       \
-        (const vec_t *)m_weights[1].data(), (const vec_t *)jac.data(),         \
+        (const vec_t *)inarray.data(), base0.data(), base1.data(),             \
+        m_weights[0].data(), m_weights[1].data(), (const vec_t *)jac.data(),   \
         (vec_t *)wsp0.data(), (vec_t *)outarray.data())
 
         // Inner loop case over quarature points
@@ -447,10 +444,10 @@ void StdTriExp::v_IProductWRTBaseKernel(
     case NQ(i):                                                                \
         IProductTriKernel<false, false, false>(                                \
             NM(i), NM(i), NQ(i), NQ_M1(i), isModified,                         \
-            (const vec_t *)inarray.data(), (const vec_t *)base0.data(),        \
-            (const vec_t *)base1.data(), (const vec_t *)m_weights[0].data(),   \
-            (const vec_t *)m_weights[1].data(), (const vec_t *)jac.data(),     \
-            (vec_t *)wsp0.data(), (vec_t *)outarray.data());                   \
+            (const vec_t *)inarray.data(), base0.data(), base1.data(),         \
+            m_weights[0].data(), m_weights[1].data(),                          \
+            (const vec_t *)jac.data(), (vec_t *)wsp0.data(),                   \
+            (vec_t *)outarray.data());                                         \
         break;
 
         // outer loop case over modes
