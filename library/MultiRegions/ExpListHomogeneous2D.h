@@ -176,6 +176,8 @@ protected:
         std::vector<LibUtilities::FieldDefinitionsSharedPtr> &fielddef)
         override;
 
+    using ExpList::v_AppendFieldData;
+
     void v_AppendFieldData(LibUtilities::FieldDefinitionsSharedPtr &fielddef,
                            std::vector<NekDouble> &fielddata) override;
 
@@ -212,6 +214,7 @@ protected:
         const Array<OneD, Array<OneD, NekDouble>> &inarray2,
         Array<OneD, Array<OneD, NekDouble>> &outarray) override;
 
+    using ExpList::v_PhysDeriv;
     void v_PhysDeriv(const Array<OneD, const NekDouble> &inarray,
                      Array<OneD, NekDouble> &out_d0,
                      Array<OneD, NekDouble> &out_d1,

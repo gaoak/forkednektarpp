@@ -843,12 +843,12 @@ int AssemblyMapDG::v_GetGlobalToUniversalMapUnique(const int i) const
     return m_globalToUniversalBndMapUnique[i];
 }
 
-const Array<OneD, const int> &AssemblyMapDG::v_GetLocalToGlobalMap()
+const Array<OneD, const int> &AssemblyMapDG::v_GetLocalToGlobalMap() const
 {
     return m_localToGlobalBndMap;
 }
 
-const Array<OneD, const int> &AssemblyMapDG::v_GetGlobalToUniversalMap()
+const Array<OneD, const int> &AssemblyMapDG::v_GetGlobalToUniversalMap() const
 {
     return m_globalToUniversalBndMap;
 }

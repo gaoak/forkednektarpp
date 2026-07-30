@@ -85,9 +85,11 @@ public:
 
     MULTI_REGIONS_EXPORT int GetGlobalToUniversalMapUnique(const int i) const;
 
-    MULTI_REGIONS_EXPORT const Array<OneD, const int> &GetLocalToGlobalMap();
+    MULTI_REGIONS_EXPORT const Array<OneD, const int> &GetLocalToGlobalMap()
+        const;
 
-    MULTI_REGIONS_EXPORT const Array<OneD, const int> &GetGlobalToUniversalMap();
+    MULTI_REGIONS_EXPORT const Array<OneD, const int> &GetGlobalToUniversalMap()
+        const;
 
     MULTI_REGIONS_EXPORT const Array<OneD, const int> &
     GetGlobalToUniversalMapUnique();
@@ -460,9 +462,9 @@ protected:
 
     virtual int v_GetGlobalToUniversalMapUnique(const int i) const;
 
-    virtual const Array<OneD, const int> &v_GetLocalToGlobalMap();
+    virtual const Array<OneD, const int> &v_GetLocalToGlobalMap() const;
 
-    virtual const Array<OneD, const int> &v_GetGlobalToUniversalMap();
+    virtual const Array<OneD, const int> &v_GetGlobalToUniversalMap() const;
 
     virtual const Array<OneD, const int> &v_GetGlobalToUniversalMapUnique();
 

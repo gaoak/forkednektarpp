@@ -14,6 +14,7 @@ v5.11.0
 - Turn-off fast math for intel compiler (!2617)
 - Move using namespace std to avoid name clashes (!2618)
 - Fix various memory leaks (!2626)
+- Fix some partial override of overloaded function (!2643)
 
 v5.10.0
 -------
