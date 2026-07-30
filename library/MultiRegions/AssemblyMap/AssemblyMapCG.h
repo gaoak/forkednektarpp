@@ -169,10 +169,10 @@ protected:
         const int i) const override;
 
     MULTI_REGIONS_EXPORT const Array<OneD, const int> &v_GetLocalToGlobalMap()
-        override;
+        const override;
 
     MULTI_REGIONS_EXPORT const Array<OneD, const int> &v_GetGlobalToUniversalMap()
-        override;
+        const override;
 
     MULTI_REGIONS_EXPORT const Array<OneD, const int> &
     v_GetGlobalToUniversalMapUnique() override;

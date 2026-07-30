@@ -150,6 +150,8 @@ protected:
                        const Array<OneD, NekDouble> &TotField,
                        int BndID) override;
 
+    using ExpList3DHomogeneous1D::v_NormVectorIProductWRTBase;
+
     void v_NormVectorIProductWRTBase(Array<OneD, const NekDouble> &V1,
                                      Array<OneD, const NekDouble> &V2,
                                      Array<OneD, NekDouble> &outarray,

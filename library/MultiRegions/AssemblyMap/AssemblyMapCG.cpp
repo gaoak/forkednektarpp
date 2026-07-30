@@ -2652,8 +2652,10 @@ AssemblyMapSharedPtr AssemblyMapCG::v_LinearSpaceMap(const ExpList &locexp,
         {
             tmp[i] = returnval->m_globalToUniversalMap[i];
         }
+
         returnval->m_gsh = Gs::Init(tmp, vRowComm, verbose);
         Gs::Unique(tmp, vRowComm);
+
         for (unsigned int i = 0; i < nglocoeffs; ++i)
         {
             returnval->m_globalToUniversalMapUnique[i] = (tmp[i] >= 0 ? 1 : 0);
@@ -2736,12 +2738,13 @@ int AssemblyMapCG::v_GetGlobalToUniversalMapUnique(const int i) const
     return m_globalToUniversalMapUnique[i];
 }
 
-const Array<OneD, const int> &AssemblyMapCG::v_GetLocalToGlobalMap(void)
+const Array<OneD, const int> &AssemblyMapCG::v_GetLocalToGlobalMap(void) const
 {
     return m_localToGlobalMap;
 }
 
-const Array<OneD, const int> &AssemblyMapCG::v_GetGlobalToUniversalMap(void)
+const Array<OneD, const int> &AssemblyMapCG::v_GetGlobalToUniversalMap(
+    void) const
 {
     return m_globalToUniversalMap;
 }
