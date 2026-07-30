@@ -8,6 +8,7 @@ v5.11.0
 - Add Eigen value estimation to ConjGrad and GMRES (!2578)
 - Fix HDF5 thirdparty compilation with MPI (!2610)
 - Replace Blas::Dscal and Blas::Daxpy call by VMath calls (!2630)
+- Update StdRegion for consistency with redesign (!2642)
 
 **Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)

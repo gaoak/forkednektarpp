@@ -435,7 +435,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffHexKernel(
         df7 = df_ptr[7];
         df8 = df_ptr[8];
 
-        if (!isConstVarDiff && !isConstVarDiff)
+        if (!isConstVarDiff && !isVarDiff)
         {
             metric00 = df0 * df0;
             metric00.fma(df3, df3);
