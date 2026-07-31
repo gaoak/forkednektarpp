@@ -544,8 +544,7 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction3DSumFacTOPKernel(
 template <typename Implementation, bool DEFORMED, typename TSizeParameter1D,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                            IsSizeParameter1D_v<TSizeParameter1D>>::
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::
         type __LAUNCH_BOUNDS__(
             (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
             LinAdvDiffReaction1DKernelLauncher(
@@ -561,6 +560,10 @@ NEK_DEVICE_KERNEL
                 [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData lambda,
                 unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
+    static_assert(IsSizeParameter1D_v<TSizeParameter1D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter1D or TemplatedSizeParameter1D.");
+
     FETCH_SHARED_MEMORY(shmemptr);
 
     LinAdvDiffReaction1DSumFacTOPKernel<DEFORMED>(
@@ -573,8 +576,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TSizeParameter2D, typename TthreadBlock,
           typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                            IsSizeParameter2D_v<TSizeParameter2D>>::
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::
         type __LAUNCH_BOUNDS__(
             (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
             LinAdvDiffReaction2DKernelLauncher(
@@ -596,6 +598,10 @@ NEK_DEVICE_KERNEL
                 [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData lambda,
                 unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
+    static_assert(IsSizeParameter2D_v<TSizeParameter2D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter2D or TemplatedSizeParameter2D.");
+
     FETCH_SHARED_MEMORY(shmemptr);
 
     LinAdvDiffReaction2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
@@ -609,8 +615,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TSizeParameter3D, typename TthreadBlock,
           typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                            IsSizeParameter3D_v<TSizeParameter3D>>::
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::
         type __LAUNCH_BOUNDS__(
             (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
             LinAdvDiffReaction3DKernelLauncher(
@@ -637,6 +642,10 @@ NEK_DEVICE_KERNEL
                 [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData lambda,
                 unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
+    static_assert(IsSizeParameter3D_v<TSizeParameter3D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter3D or TemplatedSizeParameter3D.");
+
     FETCH_SHARED_MEMORY(shmemptr);
 
     LinAdvDiffReaction3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(

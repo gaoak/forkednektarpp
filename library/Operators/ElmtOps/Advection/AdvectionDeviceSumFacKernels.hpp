@@ -532,8 +532,7 @@ NEK_DEVICE_INLINE static void AdvectionSumFac3DKernel(
 template <typename Implementation, bool APPEND, bool DEFORMED,
           typename TPhysSizeParameter1D, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac> &&
-                            IsPhysSizeParameter1D_v<TPhysSizeParameter1D>>::type
+    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
     Advection1DKernelLauncher(const TPhysSizeParameter1D sizeParam1D,
                               const size_t nelmt, const TData *NEK_RESTRICT D0,
                               const TData *NEK_RESTRICT df,
@@ -543,6 +542,11 @@ NEK_DEVICE_KERNEL
                               TData *NEK_RESTRICT out, const TData scale,
                               const TthreadBlock &threadBlock)
 {
+    static_assert(
+        IsPhysSizeParameter1D_v<TPhysSizeParameter1D>,
+        "Template argument must be either of type "
+        "NonTemplatedPhysSizeParameter1D or TemplatedPhysSizeParameter1D.");
+
     AdvectionSumFac1DKernel<APPEND, DEFORMED>(
         sizeParam1D.ncoord(), sizeParam1D.nq0(), nelmt, D0, df, advVel_ptr,
         adVecoffset, in, out, scale, threadBlock);
@@ -552,8 +556,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TPhysSizeParameter2D,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac> &&
-                            IsPhysSizeParameter2D_v<TPhysSizeParameter2D>>::type
+    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
     Advection2DKernelLauncher(
         const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
         const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
@@ -563,6 +566,11 @@ NEK_DEVICE_KERNEL
         TData *NEK_RESTRICT out, const TData scale, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
+    static_assert(
+        IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
+        "Template argument must be either of type "
+        "NonTemplatedPhysSizeParameter2D or TemplatedPhysSizeParameter2D.");
+
     FETCH_SHARED_MEMORY(shmemptr);
 
     AdvectionSumFac2DKernel<SHAPE_TYPE, APPEND, DEFORMED>(
@@ -575,8 +583,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TPhysSizeParameter3D,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac> &&
-                            IsPhysSizeParameter3D_v<TPhysSizeParameter3D>>::type
+    typename std::enable_if<std::is_same_v<Implementation, SumFac>>::type
     Advection3DKernelLauncher(
         const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
         const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
@@ -588,6 +595,11 @@ NEK_DEVICE_KERNEL
         const TData scale, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
+    static_assert(
+        IsPhysSizeParameter3D_v<TPhysSizeParameter3D>,
+        "Template argument must be either of type "
+        "NonTemplatedPhysSizeParameter3D or TemplatedPhysSizeParameter3D.");
+
     FETCH_SHARED_MEMORY(shmemptr);
 
     AdvectionSumFac3DKernel<SHAPE_TYPE, APPEND, DEFORMED>(

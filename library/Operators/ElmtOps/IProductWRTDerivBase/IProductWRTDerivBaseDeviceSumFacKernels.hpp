@@ -961,20 +961,22 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBasePhys3DSumFacKernel(
 
 template <typename Implementation, bool APPEND, bool DEFORMED,
           typename TSizeParameter1D, typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac> &&
-                            IsSizeParameter1D_v<TSizeParameter1D>>::
-        type __LAUNCH_BOUNDS__(
-            (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
-            IProductWRTDerivBase1DKernelLauncher(
-                const TSizeParameter1D sizeParam1D, const unsigned int ncoord,
-                const size_t nelmt, const unsigned int inoffset,
-                const TData *NEK_RESTRICT dbasis0, const TData *NEK_RESTRICT w0,
-                const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
-                const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-                TData *NEK_RESTRICT wsp, TData scale, unsigned char *shmemptr,
-                const TthreadBlock &threadBlock)
+NEK_DEVICE_KERNEL typename std::
+    enable_if<std::is_same_v<Implementation, SumFac>>::type __LAUNCH_BOUNDS__(
+        (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
+        IProductWRTDerivBase1DKernelLauncher(
+            const TSizeParameter1D sizeParam1D, const unsigned int ncoord,
+            const size_t nelmt, const unsigned int inoffset,
+            const TData *NEK_RESTRICT dbasis0, const TData *NEK_RESTRICT w0,
+            const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
+            const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+            TData *NEK_RESTRICT wsp, TData scale, unsigned char *shmemptr,
+            const TthreadBlock &threadBlock)
 {
+    static_assert(IsSizeParameter1D_v<TSizeParameter1D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter1D or TemplatedSizeParameter1D.");
+
     FETCH_SHARED_MEMORY(shmemptr);
 
     IProductWRTDerivBase1DSumFacKernel<APPEND, DEFORMED>(
@@ -984,19 +986,22 @@ NEK_DEVICE_KERNEL
 
 template <typename Implementation, bool APPEND, bool DEFORMED,
           typename TPhysSizeParameter1D, typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac> &&
-                            IsPhysSizeParameter1D_v<TPhysSizeParameter1D>>::
-        type __LAUNCH_BOUNDS__(
-            (GetMaxThreadPerBlock<Implementation, TPhysSizeParameter1D>()))
-            IProductWRTDerivBasePhys1DKernelLauncher(
-                const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
-                const unsigned int inoffset, const TData *NEK_RESTRICT D0,
-                const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT df,
-                const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-                TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, TData scale,
-                unsigned char *shmemptr, const TthreadBlock &threadBlock)
+NEK_DEVICE_KERNEL typename std::
+    enable_if<std::is_same_v<Implementation, SumFac>>::type __LAUNCH_BOUNDS__(
+        (GetMaxThreadPerBlock<Implementation, TPhysSizeParameter1D>()))
+        IProductWRTDerivBasePhys1DKernelLauncher(
+            const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
+            const unsigned int inoffset, const TData *NEK_RESTRICT D0,
+            const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT df,
+            const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+            TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, TData scale,
+            unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
+    static_assert(
+        IsPhysSizeParameter1D_v<TPhysSizeParameter1D>,
+        "Template argument must be either of type "
+        "NonTemplatedPhysSizeParameter1D or TemplatedPhysSizeParameter1D.");
+
     FETCH_SHARED_MEMORY(shmemptr);
 
     IProductWRTDerivBasePhys1DSumFacKernel<APPEND, DEFORMED>(
@@ -1007,27 +1012,27 @@ NEK_DEVICE_KERNEL
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TSizeParameter2D,
           typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac> &&
-                            IsSizeParameter2D_v<TSizeParameter2D>>::
-        type __LAUNCH_BOUNDS__(
-            (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
-            IProductWRTDerivBase2DKernelLauncher(
-                const TSizeParameter2D sizeParam2D, const unsigned int ncoord,
-                const size_t nelmt, const unsigned int inoffset,
-                const bool isModified,
-                [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
-                const TData *NEK_RESTRICT basis0,
-                const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT D0,
-                const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT w0,
-                const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT f0,
-                const TData *NEK_RESTRICT f1,
-                const TData *NEK_RESTRICT nodToMod,
-                const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
-                const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-                TData *NEK_RESTRICT wsp, TData scale, unsigned char *shmemptr,
-                const TthreadBlock &threadBlock)
+NEK_DEVICE_KERNEL typename std::
+    enable_if<std::is_same_v<Implementation, SumFac>>::type __LAUNCH_BOUNDS__(
+        (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
+        IProductWRTDerivBase2DKernelLauncher(
+            const TSizeParameter2D sizeParam2D, const unsigned int ncoord,
+            const size_t nelmt, const unsigned int inoffset,
+            const bool isModified,
+            [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
+            const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+            const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+            const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+            const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+            const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT df,
+            const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+            TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, TData scale,
+            unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
+    static_assert(IsSizeParameter2D_v<TSizeParameter2D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter2D or TemplatedSizeParameter2D.");
+
     FETCH_SHARED_MEMORY(shmemptr);
 
     IProductWRTDerivBase2DSumFacKernel<SHAPE_TYPE, APPEND, DEFORMED>(
@@ -1040,21 +1045,24 @@ NEK_DEVICE_KERNEL
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TPhysSizeParameter2D,
           typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac> &&
-                            IsPhysSizeParameter2D_v<TPhysSizeParameter2D>>::
-        type __LAUNCH_BOUNDS__(
-            (GetMaxThreadPerBlock<Implementation, TPhysSizeParameter2D>()))
-            IProductWRTDerivBasePhys2DKernelLauncher(
-                const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
-                const unsigned int inoffset, const TData *NEK_RESTRICT D0,
-                const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT w0,
-                const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT f0,
-                const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
-                const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-                TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, TData scale,
-                unsigned char *shmemptr, const TthreadBlock &threadBlock)
+NEK_DEVICE_KERNEL typename std::
+    enable_if<std::is_same_v<Implementation, SumFac>>::type __LAUNCH_BOUNDS__(
+        (GetMaxThreadPerBlock<Implementation, TPhysSizeParameter2D>()))
+        IProductWRTDerivBasePhys2DKernelLauncher(
+            const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
+            const unsigned int inoffset, const TData *NEK_RESTRICT D0,
+            const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT w0,
+            const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT f0,
+            const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
+            const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+            TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, TData scale,
+            unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
+    static_assert(
+        IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
+        "Template argument must be either of type "
+        "NonTemplatedPhysSizeParameter2D or TemplatedPhysSizeParameter2D.");
+
     FETCH_SHARED_MEMORY(shmemptr);
 
     IProductWRTDerivBasePhys2DSumFacKernel<SHAPE_TYPE, APPEND, DEFORMED>(
@@ -1066,31 +1074,31 @@ NEK_DEVICE_KERNEL
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TSizeParameter3D,
           typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac> &&
-                            IsSizeParameter3D_v<TSizeParameter3D>>::
-        type __LAUNCH_BOUNDS__(
-            (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
-            IProductWRTDerivBase3DKernelLauncher(
-                const TSizeParameter3D sizeParam3D, const size_t nelmt,
-                const unsigned int inoffset, const bool isModified,
-                [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
-                [[maybe_unused]] const unsigned int *NEK_RESTRICT index1,
-                [[maybe_unused]] const unsigned int *NEK_RESTRICT index2,
-                const TData *NEK_RESTRICT basis0,
-                const TData *NEK_RESTRICT basis1,
-                const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT D0,
-                const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
-                const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
-                const TData *NEK_RESTRICT w2, const TData *NEK_RESTRICT f0,
-                const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
-                const TData *NEK_RESTRICT f2,
-                const TData *NEK_RESTRICT nodToMod,
-                const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
-                const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-                TData *NEK_RESTRICT wsp, TData scale, unsigned char *shmemptr,
-                const TthreadBlock &threadBlock)
+NEK_DEVICE_KERNEL typename std::
+    enable_if<std::is_same_v<Implementation, SumFac>>::type __LAUNCH_BOUNDS__(
+        (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
+        IProductWRTDerivBase3DKernelLauncher(
+            const TSizeParameter3D sizeParam3D, const size_t nelmt,
+            const unsigned int inoffset, const bool isModified,
+            [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
+            [[maybe_unused]] const unsigned int *NEK_RESTRICT index1,
+            [[maybe_unused]] const unsigned int *NEK_RESTRICT index2,
+            const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+            const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT D0,
+            const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
+            const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+            const TData *NEK_RESTRICT w2, const TData *NEK_RESTRICT f0,
+            const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
+            const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT nodToMod,
+            const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
+            const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+            TData *NEK_RESTRICT wsp, TData scale, unsigned char *shmemptr,
+            const TthreadBlock &threadBlock)
 {
+    static_assert(IsSizeParameter3D_v<TSizeParameter3D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter3D or TemplatedSizeParameter3D.");
+
     FETCH_SHARED_MEMORY(shmemptr);
 
     IProductWRTDerivBase3DSumFacKernel<SHAPE_TYPE, APPEND, DEFORMED>(
@@ -1104,23 +1112,26 @@ NEK_DEVICE_KERNEL
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TPhysSizeParameter3D,
           typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFac> &&
-                            IsPhysSizeParameter3D_v<TPhysSizeParameter3D>>::
-        type __LAUNCH_BOUNDS__(
-            (GetMaxThreadPerBlock<Implementation, TPhysSizeParameter3D>()))
-            IProductWRTDerivBasePhys3DKernelLauncher(
-                const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
-                const unsigned int inoffset, const TData *NEK_RESTRICT D0,
-                const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
-                const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
-                const TData *NEK_RESTRICT w2, const TData *NEK_RESTRICT f0,
-                const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
-                const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
-                const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-                TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, TData scale,
-                unsigned char *shmemptr, const TthreadBlock &threadBlock)
+NEK_DEVICE_KERNEL typename std::
+    enable_if<std::is_same_v<Implementation, SumFac>>::type __LAUNCH_BOUNDS__(
+        (GetMaxThreadPerBlock<Implementation, TPhysSizeParameter3D>()))
+        IProductWRTDerivBasePhys3DKernelLauncher(
+            const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
+            const unsigned int inoffset, const TData *NEK_RESTRICT D0,
+            const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
+            const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+            const TData *NEK_RESTRICT w2, const TData *NEK_RESTRICT f0,
+            const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
+            const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
+            const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+            TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, TData scale,
+            unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
+    static_assert(
+        IsPhysSizeParameter3D_v<TPhysSizeParameter3D>,
+        "Template argument must be either of type "
+        "NonTemplatedPhysSizeParameter3D or TemplatedPhysSizeParameter3D.");
+
     FETCH_SHARED_MEMORY(shmemptr);
 
     IProductWRTDerivBasePhys3DSumFacKernel<SHAPE_TYPE, APPEND, DEFORMED>(
