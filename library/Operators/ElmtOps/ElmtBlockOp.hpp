@@ -710,35 +710,53 @@ struct IsTemplatedSizeParameter3D<
 };
 
 // Helper traits
+template <typename T> struct IsPhysSizeParameter1D
+{
+    static constexpr bool value = IsNonTemplatedPhysSizeParameter1D<T>::value ||
+                                  IsTemplatedPhysSizeParameter1D<T>::value;
+};
 template <typename T>
-inline constexpr bool IsPhysSizeParameter1D_v =
-    IsNonTemplatedPhysSizeParameter1D<T>::value ||
-    IsTemplatedPhysSizeParameter1D<T>::value;
+inline constexpr bool IsPhysSizeParameter1D_v = IsPhysSizeParameter1D<T>::value;
 
+template <typename T> struct IsPhysSizeParameter2D
+{
+    static constexpr bool value = IsNonTemplatedPhysSizeParameter2D<T>::value ||
+                                  IsTemplatedPhysSizeParameter2D<T>::value;
+};
 template <typename T>
-inline constexpr bool IsPhysSizeParameter2D_v =
-    IsNonTemplatedPhysSizeParameter2D<T>::value ||
-    IsTemplatedPhysSizeParameter2D<T>::value;
+inline constexpr bool IsPhysSizeParameter2D_v = IsPhysSizeParameter2D<T>::value;
 
+template <typename T> struct IsPhysSizeParameter3D
+{
+    static constexpr bool value = IsNonTemplatedPhysSizeParameter3D<T>::value ||
+                                  IsTemplatedPhysSizeParameter3D<T>::value;
+};
 template <typename T>
-inline constexpr bool IsPhysSizeParameter3D_v =
-    IsNonTemplatedPhysSizeParameter3D<T>::value ||
-    IsTemplatedPhysSizeParameter3D<T>::value;
+inline constexpr bool IsPhysSizeParameter3D_v = IsPhysSizeParameter3D<T>::value;
 
+template <typename T> struct IsSizeParameter1D
+{
+    static constexpr bool value = IsNonTemplatedSizeParameter1D<T>::value ||
+                                  IsTemplatedSizeParameter1D<T>::value;
+};
 template <typename T>
-inline constexpr bool IsSizeParameter1D_v =
-    IsNonTemplatedSizeParameter1D<T>::value ||
-    IsTemplatedSizeParameter1D<T>::value;
+inline constexpr bool IsSizeParameter1D_v = IsSizeParameter1D<T>::value;
 
+template <typename T> struct IsSizeParameter2D
+{
+    static constexpr bool value = IsNonTemplatedSizeParameter2D<T>::value ||
+                                  IsTemplatedSizeParameter2D<T>::value;
+};
 template <typename T>
-inline constexpr bool IsSizeParameter2D_v =
-    IsNonTemplatedSizeParameter2D<T>::value ||
-    IsTemplatedSizeParameter2D<T>::value;
+inline constexpr bool IsSizeParameter2D_v = IsSizeParameter2D<T>::value;
 
+template <typename T> struct IsSizeParameter3D
+{
+    static constexpr bool value = IsNonTemplatedSizeParameter3D<T>::value ||
+                                  IsTemplatedSizeParameter3D<T>::value;
+};
 template <typename T>
-inline constexpr bool IsSizeParameter3D_v =
-    IsNonTemplatedSizeParameter3D<T>::value ||
-    IsTemplatedSizeParameter3D<T>::value;
+inline constexpr bool IsSizeParameter3D_v = IsSizeParameter3D<T>::value;
 
 template <typename Implementation, typename TSizeParameter>
 static constexpr unsigned int GetMaxThreadPerBlock(void)

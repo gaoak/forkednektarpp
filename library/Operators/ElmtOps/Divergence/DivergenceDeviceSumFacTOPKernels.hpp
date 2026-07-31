@@ -235,8 +235,7 @@ NEK_DEVICE_INLINE static void Divergence3DSumFacTOPKernel(
 template <typename Implementation, bool DEFORMED, typename TPhysSizeParameter1D,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                            IsPhysSizeParameter1D_v<TPhysSizeParameter1D>>::type
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     Divergence1DKernelLauncher(const TPhysSizeParameter1D sizeParam1D,
                                const size_t nelmt, const size_t inoffset,
                                const TData *NEK_RESTRICT D0,
@@ -245,6 +244,11 @@ NEK_DEVICE_KERNEL
                                TData *NEK_RESTRICT out,
                                const TthreadBlock &threadBlock)
 {
+    static_assert(
+        IsPhysSizeParameter1D_v<TPhysSizeParameter1D>,
+        "Template argument must be either of type "
+        "NonTemplatedPhysSizeParameter1D or TemplatedPhysSizeParameter1D.");
+
     Divergence1DSumFacTOPKernel<DEFORMED>(sizeParam1D.ncoord(),
                                           sizeParam1D.nq0(), nelmt, inoffset,
                                           D0, df, in, out, threadBlock);
@@ -254,8 +258,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TPhysSizeParameter2D, typename TthreadBlock,
           typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                            IsPhysSizeParameter2D_v<TPhysSizeParameter2D>>::type
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     Divergence2DKernelLauncher(
         const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
         const size_t inoffset, const TData *NEK_RESTRICT D0,
@@ -264,6 +267,11 @@ NEK_DEVICE_KERNEL
         const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
         unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
+    static_assert(
+        IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
+        "Template argument must be either of type "
+        "NonTemplatedPhysSizeParameter2D or TemplatedPhysSizeParameter2D.");
+
     FETCH_SHARED_MEMORY(shmemptr);
 
     Divergence2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
@@ -275,8 +283,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TPhysSizeParameter3D, typename TthreadBlock,
           typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                            IsPhysSizeParameter3D_v<TPhysSizeParameter3D>>::type
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
     Divergence3DKernelLauncher(
         const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
         const size_t inoffset, const TData *NEK_RESTRICT D0,
@@ -287,6 +294,11 @@ NEK_DEVICE_KERNEL
         TData *NEK_RESTRICT out, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
+    static_assert(
+        IsPhysSizeParameter3D_v<TPhysSizeParameter3D>,
+        "Template argument must be either of type "
+        "NonTemplatedPhysSizeParameter3D or TemplatedPhysSizeParameter3D.");
+
     FETCH_SHARED_MEMORY(shmemptr);
 
     Divergence3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(

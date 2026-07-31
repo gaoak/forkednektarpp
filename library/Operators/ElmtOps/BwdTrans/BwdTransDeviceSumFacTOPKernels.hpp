@@ -933,8 +933,7 @@ NEK_DEVICE_INLINE static void BwdTrans3DSumFacTOPKernel(
 template <typename Implementation, bool APPEND, typename TSizeParameter1D,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                            IsSizeParameter1D_v<TSizeParameter1D>>::
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::
         type __LAUNCH_BOUNDS__(
             (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
             BwdTrans1DKernelLauncher(const TSizeParameter1D sizeParam1D,
@@ -945,6 +944,10 @@ NEK_DEVICE_KERNEL
                                      unsigned char *shmemptr,
                                      const TthreadBlock &threadBlock)
 {
+    static_assert(IsSizeParameter1D_v<TSizeParameter1D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter1D or TemplatedSizeParameter1D.");
+
     FETCH_SHARED_MEMORY(shmemptr);
 
     BwdTrans1DSumFacTOPKernel<APPEND>(sizeParam1D.nm0(), sizeParam1D.nq0(),
@@ -956,8 +959,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, typename TSizeParameter2D, typename TthreadBlock,
           typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                            IsSizeParameter2D_v<TSizeParameter2D>>::
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::
         type __LAUNCH_BOUNDS__(
             (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
             BwdTrans2DKernelLauncher(const TSizeParameter2D sizeParam2D,
@@ -971,6 +973,10 @@ NEK_DEVICE_KERNEL
                                      unsigned char *shmemptr,
                                      const TthreadBlock &threadBlock)
 {
+    static_assert(IsSizeParameter2D_v<TSizeParameter2D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter2D or TemplatedSizeParameter2D.");
+
     FETCH_SHARED_MEMORY(shmemptr);
 
     BwdTrans2DSumFacTOPKernel<SHAPE_TYPE, APPEND>(
@@ -983,8 +989,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, typename TSizeParameter3D, typename TthreadBlock,
           typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                            IsSizeParameter3D_v<TSizeParameter3D>>::
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::
         type __LAUNCH_BOUNDS__(
             (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
             BwdTrans3DKernelLauncher(
@@ -998,6 +1003,10 @@ NEK_DEVICE_KERNEL
                 [[maybe_unused]] TData *NEK_RESTRICT wsp,
                 unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
+    static_assert(IsSizeParameter3D_v<TSizeParameter3D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter3D or TemplatedSizeParameter3D.");
+
     FETCH_SHARED_MEMORY(shmemptr);
 
     BwdTrans3DSumFacTOPKernel<SHAPE_TYPE, APPEND>(

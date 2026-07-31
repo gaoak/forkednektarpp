@@ -833,8 +833,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBasePhys3DSumFacTOPKernel(
 template <typename Implementation, bool APPEND, bool DEFORMED,
           typename TSizeParameter1D, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                            IsSizeParameter1D_v<TSizeParameter1D>>::
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::
         type __LAUNCH_BOUNDS__(
             (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
             IProductWRTDerivBase1DKernelLauncher(
@@ -846,6 +845,10 @@ NEK_DEVICE_KERNEL
                 [[maybe_unused]] TData *NEK_RESTRICT wsp, TData scale,
                 unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
+    static_assert(IsSizeParameter1D_v<TSizeParameter1D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter1D or TemplatedSizeParameter1D.");
+
     FETCH_SHARED_MEMORY(shmemptr);
 
     IProductWRTDerivBase1DSumFacTOPKernel<APPEND, DEFORMED>(
@@ -856,8 +859,7 @@ NEK_DEVICE_KERNEL
 template <typename Implementation, bool APPEND, bool DEFORMED,
           typename TPhysSizeParameter1D, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                            IsPhysSizeParameter1D_v<TPhysSizeParameter1D>>::
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::
         type __LAUNCH_BOUNDS__(
             (GetMaxThreadPerBlock<Implementation, TPhysSizeParameter1D>()))
             IProductWRTDerivBasePhys1DKernelLauncher(
@@ -869,6 +871,11 @@ NEK_DEVICE_KERNEL
                 [[maybe_unused]] TData *NEK_RESTRICT wsp, TData scale,
                 unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
+    static_assert(
+        IsPhysSizeParameter1D_v<TPhysSizeParameter1D>,
+        "Template argument must be either of type "
+        "NonTemplatedPhysSizeParameter1D or TemplatedPhysSizeParameter1D.");
+
     FETCH_SHARED_MEMORY(shmemptr);
 
     IProductWRTDerivBasePhys1DSumFacTOPKernel<APPEND, DEFORMED>(
@@ -880,8 +887,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TSizeParameter2D,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                            IsSizeParameter2D_v<TSizeParameter2D>>::
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::
         type __LAUNCH_BOUNDS__(
             (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
             IProductWRTDerivBase2DKernelLauncher(
@@ -899,6 +905,10 @@ NEK_DEVICE_KERNEL
                 [[maybe_unused]] TData *NEK_RESTRICT wsp, TData scale,
                 unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
+    static_assert(IsSizeParameter2D_v<TSizeParameter2D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter2D or TemplatedSizeParameter2D.");
+
     FETCH_SHARED_MEMORY(shmemptr);
 
     IProductWRTDerivBase2DSumFacTOPKernel<SHAPE_TYPE, APPEND, DEFORMED>(
@@ -912,8 +922,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TPhysSizeParameter2D,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                            IsPhysSizeParameter2D_v<TPhysSizeParameter2D>>::
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::
         type __LAUNCH_BOUNDS__(
             (GetMaxThreadPerBlock<Implementation, TPhysSizeParameter2D>()))
             IProductWRTDerivBasePhys2DKernelLauncher(
@@ -927,6 +936,11 @@ NEK_DEVICE_KERNEL
                 [[maybe_unused]] TData *NEK_RESTRICT wsp, TData scale,
                 unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
+    static_assert(
+        IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
+        "Template argument must be either of type "
+        "NonTemplatedPhysSizeParameter2D or TemplatedPhysSizeParameter2D.");
+
     FETCH_SHARED_MEMORY(shmemptr);
 
     IProductWRTDerivBasePhys2DSumFacTOPKernel<SHAPE_TYPE, APPEND, DEFORMED>(
@@ -939,8 +953,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TSizeParameter3D,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                            IsSizeParameter3D_v<TSizeParameter3D>>::
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::
         type __LAUNCH_BOUNDS__(
             (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
             IProductWRTDerivBase3DKernelLauncher(
@@ -963,6 +976,10 @@ NEK_DEVICE_KERNEL
                 [[maybe_unused]] TData *NEK_RESTRICT wsp, TData scale,
                 unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
+    static_assert(IsSizeParameter3D_v<TSizeParameter3D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter3D or TemplatedSizeParameter3D.");
+
     FETCH_SHARED_MEMORY(shmemptr);
 
     IProductWRTDerivBase3DSumFacTOPKernel<SHAPE_TYPE, APPEND, DEFORMED>(
@@ -977,8 +994,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TPhysSizeParameter3D,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                            IsPhysSizeParameter3D_v<TPhysSizeParameter3D>>::
+    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::
         type __LAUNCH_BOUNDS__(
             (GetMaxThreadPerBlock<Implementation, TPhysSizeParameter3D>()))
             IProductWRTDerivBasePhys3DKernelLauncher(
@@ -994,6 +1010,11 @@ NEK_DEVICE_KERNEL
                 [[maybe_unused]] TData *NEK_RESTRICT wsp, TData scale,
                 unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
+    static_assert(
+        IsPhysSizeParameter3D_v<TPhysSizeParameter3D>,
+        "Template argument must be either of type "
+        "NonTemplatedPhysSizeParameter3D or TemplatedPhysSizeParameter3D.");
+
     FETCH_SHARED_MEMORY(shmemptr);
 
     IProductWRTDerivBasePhys3DSumFacTOPKernel<SHAPE_TYPE, APPEND, DEFORMED>(
