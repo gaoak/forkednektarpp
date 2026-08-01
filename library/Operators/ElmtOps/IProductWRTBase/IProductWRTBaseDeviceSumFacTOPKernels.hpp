@@ -47,9 +47,10 @@ namespace Nektar::Operators::detail
 // Helper function
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter1D,
-          typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                                  IsSizeParameter1D_v<TSizeParameter1D>>::type
-              * = nullptr>
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
+                               IsSizeParameter1D_v<TSizeParameter1D>,
+                           bool>
+              Enable = true>
 inline constexpr size_t IProductWRTBaseWorkSpaceSize(
     [[maybe_unused]] const size_t nelmt,
     [[maybe_unused]] const TSizeParameter1D sizeParam1D)
@@ -59,9 +60,10 @@ inline constexpr size_t IProductWRTBaseWorkSpaceSize(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter2D,
-          typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                                  IsSizeParameter2D_v<TSizeParameter2D>>::type
-              * = nullptr>
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
+                               IsSizeParameter2D_v<TSizeParameter2D>,
+                           bool>
+              Enable = true>
 inline constexpr size_t IProductWRTBaseWorkSpaceSize(
     [[maybe_unused]] const size_t nelmt,
     [[maybe_unused]] const TSizeParameter2D sizeParam2D)
@@ -71,9 +73,10 @@ inline constexpr size_t IProductWRTBaseWorkSpaceSize(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter3D,
-          typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                                  IsSizeParameter3D_v<TSizeParameter3D>>::type
-              * = nullptr>
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
+                               IsSizeParameter3D_v<TSizeParameter3D>,
+                           bool>
+              Enable = true>
 inline constexpr size_t IProductWRTBaseWorkSpaceSize(
     [[maybe_unused]] const size_t nelmt,
     [[maybe_unused]] const TSizeParameter3D sizeParam3D)
@@ -82,9 +85,10 @@ inline constexpr size_t IProductWRTBaseWorkSpaceSize(
 }
 
 template <typename Implementation, typename TSizeParameter1D,
-          typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                                  IsSizeParameter1D_v<TSizeParameter1D>>::type
-              * = nullptr>
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
+                               IsSizeParameter1D_v<TSizeParameter1D>,
+                           bool>
+              Enable = true>
 inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
     const TSizeParameter1D sizeParam1D)
 {
@@ -95,9 +99,10 @@ inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter2D,
-          typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                                  IsSizeParameter2D_v<TSizeParameter2D>>::type
-              * = nullptr>
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
+                               IsSizeParameter2D_v<TSizeParameter2D>,
+                           bool>
+              Enable = true>
 inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
     const TSizeParameter2D sizeParam2D)
 {
@@ -123,9 +128,10 @@ inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter3D,
-          typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                                  IsSizeParameter3D_v<TSizeParameter3D>>::type
-              * = nullptr>
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
+                               IsSizeParameter3D_v<TSizeParameter3D>,
+                           bool>
+              Enable = true>
 inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
     const TSizeParameter3D sizeParam3D)
 {
@@ -1467,17 +1473,17 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DSumFacTOPKernel(
 }
 
 template <typename Implementation, bool SCALE, bool APPEND, bool DEFORMED,
-          typename TSizeParameter1D, typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::
-        type __LAUNCH_BOUNDS__(
-            (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
-            IProductWRTBase1DKernelLauncher(
-                const TSizeParameter1D sizeParam1D, const size_t nelmt,
-                const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT w0,
-                const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-                TData *NEK_RESTRICT out, const TData scale,
-                unsigned char *shmemptr, const TthreadBlock &threadBlock)
+          typename TSizeParameter1D, typename TthreadBlock, typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
+    IProductWRTBase1DKernelLauncher(
+        const TSizeParameter1D sizeParam1D, const size_t nelmt,
+        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT w0,
+        const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, const TData scale, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter1D_v<TSizeParameter1D>,
                   "Template argument must be either of type "
@@ -1492,16 +1498,18 @@ NEK_DEVICE_KERNEL
 
 // No quadrature
 template <typename Implementation, bool SCALE, bool APPEND,
-          typename TSizeParameter1D, typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::
-        type __LAUNCH_BOUNDS__(
-            (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
-            IProductWRTBase1DKernelLauncher(
-                const TSizeParameter1D sizeParam1D, const size_t nelmt,
-                const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT in,
-                TData *NEK_RESTRICT out, const TData scale,
-                unsigned char *shmemptr, const TthreadBlock &threadBlock)
+          typename TSizeParameter1D, typename TthreadBlock, typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
+    IProductWRTBase1DKernelLauncher(const TSizeParameter1D sizeParam1D,
+                                    const size_t nelmt,
+                                    const TData *NEK_RESTRICT basis0,
+                                    const TData *NEK_RESTRICT in,
+                                    TData *NEK_RESTRICT out, const TData scale,
+                                    unsigned char *shmemptr,
+                                    const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter1D_v<TSizeParameter1D>,
                   "Template argument must be either of type "
@@ -1516,22 +1524,20 @@ NEK_DEVICE_KERNEL
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool SCALE, bool APPEND, bool DEFORMED, typename TSizeParameter2D,
-          typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::
-        type __LAUNCH_BOUNDS__(
-            (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
-            IProductWRTBase2DKernelLauncher(
-                const TSizeParameter2D sizeParam2D, const size_t nelmt,
-                const bool isModified, const unsigned int *NEK_RESTRICT index0,
-                const TData *NEK_RESTRICT basis0,
-                const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT w0,
-                const TData *NEK_RESTRICT w1,
-                const TData *NEK_RESTRICT nodToMod,
-                const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-                TData *NEK_RESTRICT out,
-                [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData scale,
-                unsigned char *shmemptr, const TthreadBlock &threadBlock)
+          typename TthreadBlock, typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
+    IProductWRTBase2DKernelLauncher(
+        const TSizeParameter2D sizeParam2D, const size_t nelmt,
+        const bool isModified, const unsigned int *NEK_RESTRICT index0,
+        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT jac,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData scale,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter2D_v<TSizeParameter2D>,
                   "Template argument must be either of type "
@@ -1548,20 +1554,19 @@ NEK_DEVICE_KERNEL
 // No quadrature
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool SCALE, bool APPEND, typename TSizeParameter2D,
-          typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::
-        type __LAUNCH_BOUNDS__(
-            (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
-            IProductWRTBase2DKernelLauncher(
-                const TSizeParameter2D sizeParam2D, const size_t nelmt,
-                const bool isModified, const unsigned int *NEK_RESTRICT index0,
-                const TData *NEK_RESTRICT basis0,
-                const TData *NEK_RESTRICT basis1,
-                const TData *NEK_RESTRICT nodToMod,
-                const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-                [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData scale,
-                unsigned char *shmemptr, const TthreadBlock &threadBlock)
+          typename TthreadBlock, typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
+    IProductWRTBase2DKernelLauncher(
+        const TSizeParameter2D sizeParam2D, const size_t nelmt,
+        const bool isModified, const unsigned int *NEK_RESTRICT index0,
+        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, [[maybe_unused]] TData *NEK_RESTRICT wsp,
+        const TData scale, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter2D_v<TSizeParameter2D>,
                   "Template argument must be either of type "
@@ -1577,25 +1582,23 @@ NEK_DEVICE_KERNEL
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool SCALE, bool APPEND, bool DEFORMED, typename TSizeParameter3D,
-          typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::
-        type __LAUNCH_BOUNDS__(
-            (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
-            IProductWRTBase3DKernelLauncher(
-                const TSizeParameter3D sizeParam3D, const size_t nelmt,
-                const bool isModified, const unsigned int *NEK_RESTRICT index0,
-                const unsigned int *NEK_RESTRICT index1,
-                const unsigned int *NEK_RESTRICT index2,
-                const TData *NEK_RESTRICT basis0,
-                const TData *NEK_RESTRICT basis1,
-                const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT w0,
-                const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
-                const TData *NEK_RESTRICT nodToMod,
-                const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-                TData *NEK_RESTRICT out,
-                [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData scale,
-                unsigned char *shmemptr, const TthreadBlock &threadBlock)
+          typename TthreadBlock, typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
+    IProductWRTBase3DKernelLauncher(
+        const TSizeParameter3D sizeParam3D, const size_t nelmt,
+        const bool isModified, const unsigned int *NEK_RESTRICT index0,
+        const unsigned int *NEK_RESTRICT index1,
+        const unsigned int *NEK_RESTRICT index2,
+        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+        const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT w0,
+        const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
+        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT jac,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData scale,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter3D_v<TSizeParameter3D>,
                   "Template argument must be either of type "
@@ -1614,23 +1617,21 @@ NEK_DEVICE_KERNEL
 // No quadrature
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool SCALE, bool APPEND, typename TSizeParameter3D,
-          typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::
-        type __LAUNCH_BOUNDS__(
-            (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
-            IProductWRTBase3DKernelLauncher(
-                const TSizeParameter3D sizeParam3D, const size_t nelmt,
-                const bool isModified, const unsigned int *NEK_RESTRICT index0,
-                const unsigned int *NEK_RESTRICT index1,
-                const unsigned int *NEK_RESTRICT index2,
-                const TData *NEK_RESTRICT basis0,
-                const TData *NEK_RESTRICT basis1,
-                const TData *NEK_RESTRICT basis2,
-                const TData *NEK_RESTRICT nodToMod,
-                const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-                [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData scale,
-                unsigned char *shmemptr, const TthreadBlock &threadBlock)
+          typename TthreadBlock, typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
+    IProductWRTBase3DKernelLauncher(
+        const TSizeParameter3D sizeParam3D, const size_t nelmt,
+        const bool isModified, const unsigned int *NEK_RESTRICT index0,
+        const unsigned int *NEK_RESTRICT index1,
+        const unsigned int *NEK_RESTRICT index2,
+        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+        const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT nodToMod,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData scale,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter3D_v<TSizeParameter3D>,
                   "Template argument must be either of type "

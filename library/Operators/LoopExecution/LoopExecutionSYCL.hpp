@@ -40,10 +40,12 @@ namespace Nektar
 {
 
 // Parallel for launchers.
-template <typename ExecSpace, typename Functor>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-parallel_for(const size_t begin, const size_t end, const Functor &functor)
+template <
+    typename ExecSpace, typename Functor,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void parallel_for(const size_t begin, const size_t end,
+                         const Functor &functor)
 {
     const unsigned int streamID = internalLoopExecutionStreamID;
     sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
@@ -288,11 +290,13 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
 }
 
 // Parallel reduction launchers without device-to-host copy.
-template <typename ExecSpace, bool init, typename Reduction, typename Functor>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
-                typename Reduction::value_type *out)
+template <
+    typename ExecSpace, bool init, typename Reduction, typename Functor,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void parallel_reduce(const size_t begin, const size_t end,
+                            const Functor &functor,
+                            typename Reduction::value_type *out)
 {
     using TData = typename Reduction::value_type;
 
@@ -332,11 +336,13 @@ parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
 }
 
 // Parallel reduction launchers with device-to-host copy.
-template <typename ExecSpace, typename Reduction, typename Functor>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-parallel_reduce(const size_t begin, const size_t end, const Functor &functor,
-                typename Reduction::value_type &out)
+template <
+    typename ExecSpace, typename Reduction, typename Functor,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void parallel_reduce(const size_t begin, const size_t end,
+                            const Functor &functor,
+                            typename Reduction::value_type &out)
 {
     using TData = typename Reduction::value_type;
 

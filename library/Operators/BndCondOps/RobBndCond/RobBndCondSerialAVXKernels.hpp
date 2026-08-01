@@ -37,14 +37,14 @@
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    RobBndCond1DKernel(const size_t nsize, const size_t *offsetPtr,
-                       const TData *matPtr, const size_t *mapPtr,
-                       const TData *incoeffPtr, TData *coeffPtr)
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                               std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                           bool>
+              Enable = true>
+NEK_FORCE_INLINE static void RobBndCond1DKernel(
+    const size_t nsize, const size_t *offsetPtr, const TData *matPtr,
+    const size_t *mapPtr, const TData *incoeffPtr, TData *coeffPtr)
 {
     for (size_t i = 0; i < nsize; i++)
     {
@@ -54,17 +54,17 @@ NEK_FORCE_INLINE static
     }
 }
 
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    RobBndCond2DKernel(const unsigned int nmaxcoeff, const size_t nsize,
-                       const unsigned int *ncoeffPtr, const size_t *offsetPtr,
-                       const size_t *matOffsetPtr, const size_t *mapOffsetPtr,
-                       const TData *matPtr, const size_t *mapPtr,
-                       const int *signPtr, const TData *incoeffPtr,
-                       TData *coeffPtr)
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                               std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                           bool>
+              Enable = true>
+NEK_FORCE_INLINE static void RobBndCond2DKernel(
+    const unsigned int nmaxcoeff, const size_t nsize,
+    const unsigned int *ncoeffPtr, const size_t *offsetPtr,
+    const size_t *matOffsetPtr, const size_t *mapOffsetPtr, const TData *matPtr,
+    const size_t *mapPtr, const int *signPtr, const TData *incoeffPtr,
+    TData *coeffPtr)
 {
     std::vector<TData> vEdgeCoeffs(nmaxcoeff);
     for (size_t j = 0; j < nsize; j++)

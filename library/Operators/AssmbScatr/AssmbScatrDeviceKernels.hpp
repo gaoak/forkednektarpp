@@ -149,13 +149,13 @@ NEK_DEVICE_KERNEL static void AssembleFromBndKernel(
     }
 }
 
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    AssembleScatrKernel(const unsigned nvals, const unsigned *nassemble,
-                        const unsigned *index, const unsigned *offset,
-                        const int *sign, TData *inoutptr)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+NEK_FORCE_INLINE static void AssembleScatrKernel(
+    const unsigned nvals, const unsigned *nassemble, const unsigned *index,
+    const unsigned *offset, const int *sign, TData *inoutptr)
 {
     const unsigned blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned gridSize  = (nvals + blockSize - 1) / blockSize;
@@ -165,14 +165,14 @@ NEK_FORCE_INLINE static
                                           offset, sign, inoutptr);
 }
 
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    AssembleScatrBndKernel(const unsigned nvals, const unsigned *nassemble,
-                           const unsigned *nbndvals, const unsigned *index,
-                           const unsigned *offset, const int *sign,
-                           TData *inoutptr, TData *bndptr)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+NEK_FORCE_INLINE static void AssembleScatrBndKernel(
+    const unsigned nvals, const unsigned *nassemble, const unsigned *nbndvals,
+    const unsigned *index, const unsigned *offset, const int *sign,
+    TData *inoutptr, TData *bndptr)
 {
     const unsigned blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned gridSize  = (nvals + blockSize - 1) / blockSize;
@@ -182,15 +182,14 @@ NEK_FORCE_INLINE static
         nbndvals, index, offset, sign, inoutptr, bndptr);
 }
 
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    AssembleFromBndKernel(const unsigned nvals, const unsigned *nassemble,
-                          const unsigned *nbndvals, const unsigned *index,
-                          const unsigned *offset, const int *sign,
-                          const unsigned *norder, const TData *bndptr,
-                          TData *inoutptr)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+NEK_FORCE_INLINE static void AssembleFromBndKernel(
+    const unsigned nvals, const unsigned *nassemble, const unsigned *nbndvals,
+    const unsigned *index, const unsigned *offset, const int *sign,
+    const unsigned *norder, const TData *bndptr, TData *inoutptr)
 {
     const unsigned blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned gridSize  = (nvals + blockSize - 1) / blockSize;

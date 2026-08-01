@@ -49,38 +49,38 @@ namespace Nektar
 // NOTE: Those AVX Math kernels assumed aligned memory. Using non-aligned memory
 // would result in memory fault.
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-zeroKernel(const size_t nsize, TData *x,
-           [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void zeroKernel(const size_t nsize, TData *x,
+                       [[maybe_unused]] const unsigned int streamID = 0)
 {
     std::memset(x, 0, nsize * sizeof(TData));
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-fillKernel(const size_t nsize, const TData &val, TData *x,
-           [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void fillKernel(const size_t nsize, const TData &val, TData *x,
+                       [[maybe_unused]] const unsigned int streamID = 0)
 {
     std::fill(x, x + nsize, val);
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-copyKernel(const size_t nsize, const TData *x, TData *y,
-           [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void copyKernel(const size_t nsize, const TData *x, TData *y,
+                       [[maybe_unused]] const unsigned int streamID = 0)
 {
     std::memcpy(y, x, nsize * sizeof(TData));
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-absKernel(const size_t nsize, const TData *x, TData *y,
-          [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void absKernel(const size_t nsize, const TData *x, TData *y,
+                      [[maybe_unused]] const unsigned int streamID = 0)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
@@ -153,11 +153,11 @@ absKernel(const size_t nsize, const TData *x, TData *y,
     }
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-negKernel(const size_t nsize, const TData *x, TData *y,
-          [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void negKernel(const size_t nsize, const TData *x, TData *y,
+                      [[maybe_unused]] const unsigned int streamID = 0)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
@@ -244,11 +244,11 @@ negKernel(const size_t nsize, const TData *x, TData *y,
     }
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-sqrtKernel(const size_t nsize, const TData *x, TData *y,
-           [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void sqrtKernel(const size_t nsize, const TData *x, TData *y,
+                       [[maybe_unused]] const unsigned int streamID = 0)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
@@ -293,11 +293,12 @@ sqrtKernel(const size_t nsize, const TData *x, TData *y,
     }
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-addKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
-          [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void addKernel(const size_t nsize, const TData *x, const TData *y,
+                      TData *z,
+                      [[maybe_unused]] const unsigned int streamID = 0)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
@@ -400,11 +401,12 @@ addKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
     }
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-subKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
-          [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void subKernel(const size_t nsize, const TData *x, const TData *y,
+                      TData *z,
+                      [[maybe_unused]] const unsigned int streamID = 0)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
@@ -507,11 +509,12 @@ subKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
     }
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-mulKernel(const size_t nsize, const TData alpha, const TData *x, TData *y,
-          [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void mulKernel(const size_t nsize, const TData alpha, const TData *x,
+                      TData *y,
+                      [[maybe_unused]] const unsigned int streamID = 0)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
@@ -601,11 +604,12 @@ mulKernel(const size_t nsize, const TData alpha, const TData *x, TData *y,
     }
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-mulKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
-          [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void mulKernel(const size_t nsize, const TData *x, const TData *y,
+                      TData *z,
+                      [[maybe_unused]] const unsigned int streamID = 0)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
@@ -708,11 +712,12 @@ mulKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
     }
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-divKernel(const size_t nsize, const TData alpha, const TData *x, TData *y,
-          [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void divKernel(const size_t nsize, const TData alpha, const TData *x,
+                      TData *y,
+                      [[maybe_unused]] const unsigned int streamID = 0)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
@@ -802,11 +807,12 @@ divKernel(const size_t nsize, const TData alpha, const TData *x, TData *y,
     }
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-divKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
-          [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void divKernel(const size_t nsize, const TData *x, const TData *y,
+                      TData *z,
+                      [[maybe_unused]] const unsigned int streamID = 0)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
@@ -909,12 +915,12 @@ divKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
     }
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
-            const TData *y, TData *z,
-            [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
+                        const TData *y, TData *z,
+                        [[maybe_unused]] const unsigned int streamID = 0)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
@@ -1017,11 +1023,11 @@ daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
     }
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-reduceSumKernel(const size_t nsize, const TData *x, TData *out,
-                [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, bool init, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void reduceSumKernel(const size_t nsize, const TData *x, TData *out,
+                            [[maybe_unused]] const unsigned int streamID = 0)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
@@ -1115,22 +1121,23 @@ reduceSumKernel(const size_t nsize, const TData *x, TData *out,
     }
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-reduceSumKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-                TData *out, [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, bool init, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void reduceSumKernel(const size_t nsize, const uint8_t *mask,
+                            const TData *x, TData *out,
+                            [[maybe_unused]] const unsigned int streamID = 0)
 {
     // TODO: SIMD/AVX
     TData initializer = init ? 0.0 : *out;
     *out              = std::inner_product(mask, mask + nsize, x, initializer);
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-reduceMaxKernel(const size_t nsize, const TData *x, TData *out,
-                [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, bool init, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void reduceMaxKernel(const size_t nsize, const TData *x, TData *out,
+                            [[maybe_unused]] const unsigned int streamID = 0)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
@@ -1224,11 +1231,12 @@ reduceMaxKernel(const size_t nsize, const TData *x, TData *out,
     }
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-reduceMaxKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-                TData *out, [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, bool init, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void reduceMaxKernel(const size_t nsize, const uint8_t *mask,
+                            const TData *x, TData *out,
+                            [[maybe_unused]] const unsigned int streamID = 0)
 {
     // TODO: SIMD/AVX
     if (init)
@@ -1242,11 +1250,11 @@ reduceMaxKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     }
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-reduceMinKernel(const size_t nsize, const TData *x, TData *out,
-                [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, bool init, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void reduceMinKernel(const size_t nsize, const TData *x, TData *out,
+                            [[maybe_unused]] const unsigned int streamID = 0)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
@@ -1340,11 +1348,12 @@ reduceMinKernel(const size_t nsize, const TData *x, TData *out,
     }
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-reduceMinKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-                TData *out, [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, bool init, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void reduceMinKernel(const size_t nsize, const uint8_t *mask,
+                            const TData *x, TData *out,
+                            [[maybe_unused]] const unsigned int streamID = 0)
 {
     // TODO: SIMD/AVX
     if (init)
@@ -1358,11 +1367,12 @@ reduceMinKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     }
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out,
-           [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, bool init, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void ddotKernel(const size_t nsize, const TData *x, const TData *y,
+                       TData *out,
+                       [[maybe_unused]] const unsigned int streamID = 0)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
@@ -1473,12 +1483,12 @@ ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out,
     }
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-           const TData *y, TData *out,
-           [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, bool init, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
+                       const TData *y, TData *out,
+                       [[maybe_unused]] const unsigned int streamID = 0)
 {
     // TODO: SIMD/AVX
     if (init)
@@ -1492,11 +1502,11 @@ ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     }
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-l1normKernel(const size_t nsize, const TData *x, TData *out,
-             [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, bool init, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void l1normKernel(const size_t nsize, const TData *x, TData *out,
+                         [[maybe_unused]] const unsigned int streamID = 0)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
@@ -1590,11 +1600,12 @@ l1normKernel(const size_t nsize, const TData *x, TData *out,
     }
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-l1normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-             TData *out, [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, bool init, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void l1normKernel(const size_t nsize, const uint8_t *mask,
+                         const TData *x, TData *out,
+                         [[maybe_unused]] const unsigned int streamID = 0)
 {
     // TODO: SIMD/AVX
     if (init)
@@ -1608,11 +1619,11 @@ l1normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     }
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-l2normKernel(const size_t nsize, const TData *x, TData *out,
-             [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, bool init, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void l2normKernel(const size_t nsize, const TData *x, TData *out,
+                         [[maybe_unused]] const unsigned int streamID = 0)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
@@ -1706,11 +1717,12 @@ l2normKernel(const size_t nsize, const TData *x, TData *out,
     }
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-l2normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-             TData *out, [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, bool init, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void l2normKernel(const size_t nsize, const uint8_t *mask,
+                         const TData *x, TData *out,
+                         [[maybe_unused]] const unsigned int streamID = 0)
 {
     // TODO: SIMD/AVX
     if (init)
@@ -1724,11 +1736,12 @@ l2normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     }
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
-             TData *out, [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, bool init, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void lpnormKernel(const size_t nsize, const unsigned int p,
+                         const TData *x, TData *out,
+                         [[maybe_unused]] const unsigned int streamID = 0)
 {
     // TODO: SIMD/AVX
     TData initializer = init ? 0.0 : *out;
@@ -1738,12 +1751,12 @@ lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
                            });
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-lpnormKernel(const size_t nsize, const unsigned int p, const uint8_t *mask,
-             const TData *x, TData *out,
-             [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, bool init, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void lpnormKernel(const size_t nsize, const unsigned int p,
+                         const uint8_t *mask, const TData *x, TData *out,
+                         [[maybe_unused]] const unsigned int streamID = 0)
 {
     // TODO: SIMD/AVX
     if (init)
@@ -1757,11 +1770,11 @@ lpnormKernel(const size_t nsize, const unsigned int p, const uint8_t *mask,
     }
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-linfnormKernel(const size_t nsize, const TData *x, TData *out,
-               [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, bool init, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void linfnormKernel(const size_t nsize, const TData *x, TData *out,
+                           [[maybe_unused]] const unsigned int streamID = 0)
 {
     using namespace tinysimd;
     using simd_t = simd<TData>;
@@ -1855,11 +1868,12 @@ linfnormKernel(const size_t nsize, const TData *x, TData *out,
     }
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                               void>::type
-linfnormKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-               TData *out, [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, bool init, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void linfnormKernel(const size_t nsize, const uint8_t *mask,
+                           const TData *x, TData *out,
+                           [[maybe_unused]] const unsigned int streamID = 0)
 {
     // TODO: SIMD/AVX
     if (init)

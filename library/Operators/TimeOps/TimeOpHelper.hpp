@@ -41,69 +41,63 @@ namespace Nektar::Operators::detail
 
 class Noscheme;
 
-template <typename Scheme, unsigned int IntOrder, typename TData,
-          unsigned int... ind, typename... TDatas>
-NEK_DEVICE_INLINE static
-    typename std::enable_if<std::is_same_v<Scheme, Noscheme>, void>::type
-    UpdateStageKernelImpl(
-        [[maybe_unused]] const size_t idx,
-        [[maybe_unused]] TData *__restrict inout,
-        [[maybe_unused]] const TData *__restrict solution,
-        std::integer_sequence<unsigned int, ind...>,
-        [[maybe_unused]] const TDatas *__restrict... solutions)
+template <
+    typename Scheme, unsigned int IntOrder, typename TData, unsigned int... ind,
+    typename... TDatas,
+    std::enable_if_t<std::is_same_v<Scheme, Noscheme>, bool> Enable = true>
+NEK_DEVICE_INLINE static void UpdateStageKernelImpl(
+    [[maybe_unused]] const size_t idx, [[maybe_unused]] TData *__restrict inout,
+    [[maybe_unused]] const TData *__restrict solution,
+    std::integer_sequence<unsigned int, ind...>,
+    [[maybe_unused]] const TDatas *__restrict... solutions)
 {
 }
 
-template <typename Scheme, unsigned int ImpStage, unsigned int ExpStage,
-          unsigned int IntOrder, typename TData, unsigned int... ind,
-          typename... TDatas>
-NEK_DEVICE_INLINE static
-    typename std::enable_if<std::is_same_v<Scheme, Noscheme>, void>::type
-    UpdateStageKernelImpl(
-        [[maybe_unused]] const size_t idx,
-        [[maybe_unused]] TData *__restrict inout,
-        [[maybe_unused]] const TData *__restrict solution,
-        std::integer_sequence<unsigned int, ind...>,
-        [[maybe_unused]] const TDatas *__restrict... solutions)
+template <
+    typename Scheme, unsigned int ImpStage, unsigned int ExpStage,
+    unsigned int IntOrder, typename TData, unsigned int... ind,
+    typename... TDatas,
+    std::enable_if_t<std::is_same_v<Scheme, Noscheme>, bool> Enable = true>
+NEK_DEVICE_INLINE static void UpdateStageKernelImpl(
+    [[maybe_unused]] const size_t idx, [[maybe_unused]] TData *__restrict inout,
+    [[maybe_unused]] const TData *__restrict solution,
+    std::integer_sequence<unsigned int, ind...>,
+    [[maybe_unused]] const TDatas *__restrict... solutions)
 {
 }
 
-template <typename Scheme, typename TData, unsigned int... ind,
-          typename... TDatas>
-NEK_DEVICE_INLINE static
-    typename std::enable_if<std::is_same_v<Scheme, Noscheme>, void>::type
-    UpdateSolutionKernelImpl(
-        [[maybe_unused]] const size_t idx,
-        [[maybe_unused]] TData *__restrict inout,
-        std::integer_sequence<unsigned int, ind...>,
-        [[maybe_unused]] const TDatas *__restrict... solutions)
+template <
+    typename Scheme, typename TData, unsigned int... ind, typename... TDatas,
+    std::enable_if_t<std::is_same_v<Scheme, Noscheme>, bool> Enable = true>
+NEK_DEVICE_INLINE static void UpdateSolutionKernelImpl(
+    [[maybe_unused]] const size_t idx, [[maybe_unused]] TData *__restrict inout,
+    std::integer_sequence<unsigned int, ind...>,
+    [[maybe_unused]] const TDatas *__restrict... solutions)
 {
 }
 
-template <typename Scheme, unsigned int IntOrder, typename TData,
-          unsigned int... ind, typename... TDatas>
-NEK_DEVICE_INLINE static
-    typename std::enable_if<std::is_same_v<Scheme, Noscheme>, void>::type
-    UpdateSolutionKernelImpl(
-        [[maybe_unused]] const size_t idx,
-        [[maybe_unused]] TData *__restrict inout,
-        [[maybe_unused]] const TData *__restrict solution,
-        std::integer_sequence<unsigned int, ind...>,
-        [[maybe_unused]] const TDatas *__restrict... solutions)
+template <
+    typename Scheme, unsigned int IntOrder, typename TData, unsigned int... ind,
+    typename... TDatas,
+    std::enable_if_t<std::is_same_v<Scheme, Noscheme>, bool> Enable = true>
+NEK_DEVICE_INLINE static void UpdateSolutionKernelImpl(
+    [[maybe_unused]] const size_t idx, [[maybe_unused]] TData *__restrict inout,
+    [[maybe_unused]] const TData *__restrict solution,
+    std::integer_sequence<unsigned int, ind...>,
+    [[maybe_unused]] const TDatas *__restrict... solutions)
 {
 }
 
-template <typename Scheme, unsigned int ImpStage, unsigned int ExpStage,
-          unsigned int IntOrder, typename TData, unsigned int... ind,
-          typename... TDatas>
-NEK_DEVICE_INLINE static
-    typename std::enable_if<std::is_same_v<Scheme, Noscheme>, void>::type
-    UpdateSolutionKernelImpl(
-        [[maybe_unused]] const size_t idx,
-        [[maybe_unused]] TData *__restrict inout,
-        [[maybe_unused]] const TData *__restrict solution,
-        std::integer_sequence<unsigned int, ind...>,
-        [[maybe_unused]] const TDatas *__restrict... solutions)
+template <
+    typename Scheme, unsigned int ImpStage, unsigned int ExpStage,
+    unsigned int IntOrder, typename TData, unsigned int... ind,
+    typename... TDatas,
+    std::enable_if_t<std::is_same_v<Scheme, Noscheme>, bool> Enable = true>
+NEK_DEVICE_INLINE static void UpdateSolutionKernelImpl(
+    [[maybe_unused]] const size_t idx, [[maybe_unused]] TData *__restrict inout,
+    [[maybe_unused]] const TData *__restrict solution,
+    std::integer_sequence<unsigned int, ind...>,
+    [[maybe_unused]] const TDatas *__restrict... solutions)
 {
 }
 

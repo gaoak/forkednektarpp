@@ -61,15 +61,15 @@ NEK_DEVICE_KERNEL static void AddTraceIntegralKernel(
 }
 
 // Kernel Launchers.
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    AddTraceIntegralKernel(const size_t nsize,
-                           const size_t *traceCoeffsToElmtMapPtr,
-                           const int *traceCoeffsToElmtSignPtr,
-                           const size_t *traceCoeffsToElmtTracePtr,
-                           const TData *tracePtr, TData *outptr)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+NEK_FORCE_INLINE static void AddTraceIntegralKernel(
+    const size_t nsize, const size_t *traceCoeffsToElmtMapPtr,
+    const int *traceCoeffsToElmtSignPtr,
+    const size_t *traceCoeffsToElmtTracePtr, const TData *tracePtr,
+    TData *outptr)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;

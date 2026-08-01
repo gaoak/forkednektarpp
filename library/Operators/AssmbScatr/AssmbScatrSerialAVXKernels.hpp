@@ -36,13 +36,12 @@
 
 namespace Nektar::Operators::detail
 {
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    AssembleScatrKernel(const unsigned nvals, const unsigned *nassemble,
-                        const unsigned *index, const unsigned *offset,
-                        const int *sign, TData *inoutptr)
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+NEK_FORCE_INLINE static void AssembleScatrKernel(
+    const unsigned nvals, const unsigned *nassemble, const unsigned *index,
+    const unsigned *offset, const int *sign, TData *inoutptr)
 {
     constexpr unsigned int vector_width =
         NektarSpaces::vector_width<NektarSpaces::AVX, TData>::value;
@@ -70,14 +69,13 @@ NEK_FORCE_INLINE static
     }
 }
 
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
-                            void>::type
-    AssembleScatrKernel(const unsigned nvals, const unsigned *nassemble,
-                        const unsigned *ind,
-                        [[maybe_unused]] const unsigned *offset,
-                        const int *sign, TData *inoutptr)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial>, bool>
+        Enable = true>
+NEK_FORCE_INLINE static void AssembleScatrKernel(
+    const unsigned nvals, const unsigned *nassemble, const unsigned *ind,
+    [[maybe_unused]] const unsigned *offset, const int *sign, TData *inoutptr)
 
 {
     unsigned cnt = 0;
@@ -99,15 +97,15 @@ NEK_FORCE_INLINE static
     }
 }
 
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    AssembleScatrBndKernel(const unsigned nvals, const unsigned *nassemble,
-                           const unsigned *nbndvals, const unsigned *index,
-                           const unsigned *offset, const int *sign,
-                           TData *inoutptr, TData *bndptr)
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                               std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                           bool>
+              Enable = true>
+NEK_FORCE_INLINE static void AssembleScatrBndKernel(
+    const unsigned nvals, const unsigned *nassemble, const unsigned *nbndvals,
+    const unsigned *index, const unsigned *offset, const int *sign,
+    TData *inoutptr, TData *bndptr)
 {
     for (unsigned idx = 0; idx < nvals; ++idx)
     {
@@ -133,16 +131,15 @@ NEK_FORCE_INLINE static
     }
 }
 
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    AssembleFromBndKernel(const unsigned nvals, const unsigned *nassemble,
-                          const unsigned *nbndvals, const unsigned *index,
-                          const unsigned *offset, const int *sign,
-                          const unsigned *norder, const TData *bndptr,
-                          TData *inoutptr)
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                               std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                           bool>
+              Enable = true>
+NEK_FORCE_INLINE static void AssembleFromBndKernel(
+    const unsigned nvals, const unsigned *nassemble, const unsigned *nbndvals,
+    const unsigned *index, const unsigned *offset, const int *sign,
+    const unsigned *norder, const TData *bndptr, TData *inoutptr)
 {
     for (unsigned idx = 0; idx < nvals; ++idx)
     {

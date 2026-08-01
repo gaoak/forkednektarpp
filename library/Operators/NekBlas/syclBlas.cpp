@@ -69,13 +69,13 @@ using namespace oneapi::mkl;
     return dependencies;
 }
 
-template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, oneMathHandle_t>, void>::type
-NekGemm([[maybe_unused]] THandle handle, std::string transposeA,
-        std::string transposeB, const std::int64_t M, const std::int64_t N,
-        const std::int64_t K, const TData alpha, const TData *a,
-        const std::int64_t lda, const TData *b, const std::int64_t ldb,
-        const TData beta, TData *c, const std::int64_t ldc)
+template <typename THandle, typename TData,
+          std::enable_if_t<std::is_same_v<THandle, oneMathHandle_t>, bool>>
+void NekGemm([[maybe_unused]] THandle handle, std::string transposeA,
+             std::string transposeB, const std::int64_t M, const std::int64_t N,
+             const std::int64_t K, const TData alpha, const TData *a,
+             const std::int64_t lda, const TData *b, const std::int64_t ldb,
+             const TData beta, TData *c, const std::int64_t ldc)
 {
     sycl::queue &Q = handle.GetQueue();
 #if defined(NEKTAR_ENABLE_ONEMATH) || defined(NEKTAR_ENABLE_ONEMKL)
@@ -103,16 +103,18 @@ NekGemm([[maybe_unused]] THandle handle, std::string transposeA,
     SYCLQueue::SetEvent(handle.GetStreamID(), e);
 }
 
-template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, oneMathHandle_t>, void>::type
-NekGemmStridedBatched([[maybe_unused]] THandle handle, std::string transposeA,
-                      std::string transposeB, const std::int64_t M,
-                      const std::int64_t N, const std::int64_t K,
-                      const TData alpha, const TData *a, const std::int64_t lda,
-                      const std::int64_t strideA, const TData *b,
-                      const std::int64_t ldb, const std::int64_t strideB,
-                      const TData beta, TData *c, const std::int64_t ldc,
-                      const std::int64_t strideC, const std::int64_t batchSize)
+template <typename THandle, typename TData,
+          std::enable_if_t<std::is_same_v<THandle, oneMathHandle_t>, bool>>
+void NekGemmStridedBatched([[maybe_unused]] THandle handle,
+                           std::string transposeA, std::string transposeB,
+                           const std::int64_t M, const std::int64_t N,
+                           const std::int64_t K, const TData alpha,
+                           const TData *a, const std::int64_t lda,
+                           const std::int64_t strideA, const TData *b,
+                           const std::int64_t ldb, const std::int64_t strideB,
+                           const TData beta, TData *c, const std::int64_t ldc,
+                           const std::int64_t strideC,
+                           const std::int64_t batchSize)
 {
     sycl::queue &Q = handle.GetQueue();
 #if defined(NEKTAR_ENABLE_ONEMATH) || defined(NEKTAR_ENABLE_ONEMKL)
@@ -142,13 +144,13 @@ NekGemmStridedBatched([[maybe_unused]] THandle handle, std::string transposeA,
     SYCLQueue::SetEvent(handle.GetStreamID(), e);
 }
 
-template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, oneMathHandle_t>, void>::type
-NekGemv([[maybe_unused]] THandle handle, std::string transpose,
-        const std::int64_t M, const std::int64_t N, const TData alpha,
-        const TData *a, const std::int64_t lda, const TData *x,
-        const std::int64_t incx, const TData beta, TData *y,
-        const std::int64_t incy)
+template <typename THandle, typename TData,
+          std::enable_if_t<std::is_same_v<THandle, oneMathHandle_t>, bool>>
+void NekGemv([[maybe_unused]] THandle handle, std::string transpose,
+             const std::int64_t M, const std::int64_t N, const TData alpha,
+             const TData *a, const std::int64_t lda, const TData *x,
+             const std::int64_t incx, const TData beta, TData *y,
+             const std::int64_t incy)
 {
     sycl::queue &Q = handle.GetQueue();
 #if defined(NEKTAR_ENABLE_ONEMATH) || defined(NEKTAR_ENABLE_ONEMKL)
@@ -175,15 +177,17 @@ NekGemv([[maybe_unused]] THandle handle, std::string transpose,
     SYCLQueue::SetEvent(handle.GetStreamID(), e);
 }
 
-template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, oneMathHandle_t>, void>::type
-NekGemvStridedBatched([[maybe_unused]] THandle handle, std::string transpose,
-                      const std::int64_t M, const std::int64_t N,
-                      const TData alpha, const TData *a, const std::int64_t lda,
-                      const std::int64_t strideA, const TData *x,
-                      const std::int64_t incx, const std::int64_t strideX,
-                      const TData beta, TData *y, const std::int64_t incy,
-                      const std::int64_t strideY, const std::int64_t batchSize)
+template <typename THandle, typename TData,
+          std::enable_if_t<std::is_same_v<THandle, oneMathHandle_t>, bool>>
+void NekGemvStridedBatched([[maybe_unused]] THandle handle,
+                           std::string transpose, const std::int64_t M,
+                           const std::int64_t N, const TData alpha,
+                           const TData *a, const std::int64_t lda,
+                           const std::int64_t strideA, const TData *x,
+                           const std::int64_t incx, const std::int64_t strideX,
+                           const TData beta, TData *y, const std::int64_t incy,
+                           const std::int64_t strideY,
+                           const std::int64_t batchSize)
 {
     sycl::queue &Q = handle.GetQueue();
 #if defined(NEKTAR_ENABLE_ONEMATH) || defined(NEKTAR_ENABLE_ONEMKL)

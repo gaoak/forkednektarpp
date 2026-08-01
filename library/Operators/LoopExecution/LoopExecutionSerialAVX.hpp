@@ -38,12 +38,13 @@ namespace Nektar
 {
 
 // Parallel for launchers.
-template <typename ExecSpace, typename Functor>
-inline
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    parallel_for(const size_t begin, const size_t end, const Functor &functor)
+template <typename ExecSpace, typename Functor,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                               std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                           bool>
+              Enable = true>
+inline void parallel_for(const size_t begin, const size_t end,
+                         const Functor &functor)
 {
     for (size_t i = begin; i < end; ++i)
     {
@@ -52,13 +53,14 @@ inline
 }
 
 // Parallel reduction launchers.
-template <typename ExecSpace, bool init, typename Reduction, typename Functor>
-inline
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    parallel_reduce(const size_t begin, const size_t end,
-                    const Functor &functor, typename Reduction::value_type *red)
+template <typename ExecSpace, bool init, typename Reduction, typename Functor,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                               std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                           bool>
+              Enable = true>
+inline void parallel_reduce(const size_t begin, const size_t end,
+                            const Functor &functor,
+                            typename Reduction::value_type *red)
 {
     using TData = typename Reduction::value_type;
 
@@ -96,13 +98,14 @@ inline
 }
 
 // Parallel reduction launchers.
-template <typename ExecSpace, typename Reduction, typename Functor>
-inline
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    parallel_reduce(const size_t begin, const size_t end,
-                    const Functor &functor, typename Reduction::value_type &red)
+template <typename ExecSpace, typename Reduction, typename Functor,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                               std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                           bool>
+              Enable = true>
+inline void parallel_reduce(const size_t begin, const size_t end,
+                            const Functor &functor,
+                            typename Reduction::value_type &red)
 {
     parallel_reduce<ExecSpace, true, Reduction>(begin, end, functor, &red);
 }

@@ -57,14 +57,15 @@ NEK_FORCE_INLINE static void MatVecKernel(const unsigned int n,
     }
 }
 
-template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    interleave(const unsigned int interleaveWidth, const size_t numElmtGroups,
-               const unsigned int npts, TData *inout,
-               [[maybe_unused]] const unsigned int streamID)
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                               std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                           bool>
+              Enable = true>
+inline void interleave(const unsigned int interleaveWidth,
+                       const size_t numElmtGroups, const unsigned int npts,
+                       TData *inout,
+                       [[maybe_unused]] const unsigned int streamID)
 {
     const unsigned int elmtGroupSize = npts * interleaveWidth;
     std::vector<TData> wsp(elmtGroupSize);
@@ -85,14 +86,15 @@ inline
     }
 }
 
-template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    deInterleave(const unsigned int interleaveWidth, const size_t numElmtGroups,
-                 const unsigned int npts, TData *inout,
-                 [[maybe_unused]] const unsigned int streamID)
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                               std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                           bool>
+              Enable = true>
+inline void deInterleave(const unsigned int interleaveWidth,
+                         const size_t numElmtGroups, const unsigned int npts,
+                         TData *inout,
+                         [[maybe_unused]] const unsigned int streamID)
 {
     const unsigned int elmtGroupSize = npts * interleaveWidth;
     std::vector<TData> wsp(elmtGroupSize);
@@ -113,15 +115,15 @@ inline
     }
 }
 
-template <typename ExecSpace, bool DEFORMED, typename TData, typename TScalar>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    MultiplyByJacobian(const size_t nelmt, const unsigned int nqTot,
-                       const TData *jacptr, const TData *inptr, TData *outptr,
-                       const TScalar scale,
-                       [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, bool DEFORMED, typename TData, typename TScalar,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                               std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                           bool>
+              Enable = true>
+NEK_FORCE_INLINE static void MultiplyByJacobian(
+    const size_t nelmt, const unsigned int nqTot, const TData *jacptr,
+    const TData *inptr, TData *outptr, const TScalar scale,
+    [[maybe_unused]] const unsigned int streamID = 0)
 {
     if constexpr (DEFORMED)
     {
@@ -143,14 +145,15 @@ NEK_FORCE_INLINE static
     }
 }
 
-template <typename ExecSpace, bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    DivideByJacobian(const size_t nelmt, const unsigned int nqTot,
-                     const TData *jacptr, const TData *inptr, TData *outptr,
-                     [[maybe_unused]] const unsigned int streamID = 0)
+template <typename ExecSpace, bool DEFORMED, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                               std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                           bool>
+              Enable = true>
+NEK_FORCE_INLINE static void DivideByJacobian(
+    const size_t nelmt, const unsigned int nqTot, const TData *jacptr,
+    const TData *inptr, TData *outptr,
+    [[maybe_unused]] const unsigned int streamID = 0)
 {
     if constexpr (DEFORMED)
     {

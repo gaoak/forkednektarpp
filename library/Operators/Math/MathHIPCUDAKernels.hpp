@@ -1525,37 +1525,42 @@ __global__ __launch_bounds__(blockSize) void linfnormKernel(const size_t nsize,
 
 // Launchers for the kernels
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-zeroKernel(const size_t nsize, TData *x, const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void zeroKernel(const size_t nsize, TData *x,
+                       const unsigned int streamID = 0)
 {
     deviceMemset(x, 0, nsize * sizeof(TData), streamID);
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-fillKernel(const size_t nsize, const TData &val, TData *x,
-           const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void fillKernel(const size_t nsize, const TData &val, TData *x,
+                       const unsigned int streamID = 0)
 {
     deviceFill(x, val, nsize, streamID);
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-copyKernel(const size_t nsize, const TData *x, TData *y,
-           const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void copyKernel(const size_t nsize, const TData *x, TData *y,
+                       const unsigned int streamID = 0)
 {
     deviceMemcpy<DeviceToDevice>(y, x, nsize * sizeof(TData), streamID);
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-absKernel(const size_t nsize, const TData *x, TData *y,
-          const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void absKernel(const size_t nsize, const TData *x, TData *y,
+                      const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -1570,11 +1575,12 @@ absKernel(const size_t nsize, const TData *x, TData *y,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-negKernel(const size_t nsize, const TData *x, TData *y,
-          const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void negKernel(const size_t nsize, const TData *x, TData *y,
+                      const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -1589,11 +1595,12 @@ negKernel(const size_t nsize, const TData *x, TData *y,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-sqrtKernel(const size_t nsize, const TData *x, TData *y,
-           const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void sqrtKernel(const size_t nsize, const TData *x, TData *y,
+                       const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -1608,11 +1615,12 @@ sqrtKernel(const size_t nsize, const TData *x, TData *y,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-addKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
-          const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void addKernel(const size_t nsize, const TData *x, const TData *y,
+                      TData *z, const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -1627,11 +1635,12 @@ addKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-subKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
-          const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void subKernel(const size_t nsize, const TData *x, const TData *y,
+                      TData *z, const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -1646,11 +1655,12 @@ subKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-mulKernel(const size_t nsize, const TData alpha, const TData *x, TData *y,
-          const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void mulKernel(const size_t nsize, const TData alpha, const TData *x,
+                      TData *y, const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -1665,11 +1675,12 @@ mulKernel(const size_t nsize, const TData alpha, const TData *x, TData *y,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-mulKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
-          const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void mulKernel(const size_t nsize, const TData *x, const TData *y,
+                      TData *z, const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -1684,11 +1695,12 @@ mulKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-divKernel(const size_t nsize, const TData alpha, const TData *x, TData *y,
-          const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void divKernel(const size_t nsize, const TData alpha, const TData *x,
+                      TData *y, const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -1703,11 +1715,12 @@ divKernel(const size_t nsize, const TData alpha, const TData *x, TData *y,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-divKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
-          const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void divKernel(const size_t nsize, const TData *x, const TData *y,
+                      TData *z, const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -1722,11 +1735,13 @@ divKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
-            const TData *y, TData *z, const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
+                        const TData *y, TData *z,
+                        const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -1741,11 +1756,12 @@ daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-reduceSumKernel(const size_t nsize, const TData *x, TData *out,
-                const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void reduceSumKernel(const size_t nsize, const TData *x, TData *out,
+                            const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1770,11 +1786,13 @@ reduceSumKernel(const size_t nsize, const TData *x, TData *out,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-reduceSumKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-                TData *out, const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void reduceSumKernel(const size_t nsize, const uint8_t *mask,
+                            const TData *x, TData *out,
+                            const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1800,11 +1818,12 @@ reduceSumKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-reduceMaxKernel(const size_t nsize, const TData *x, TData *out,
-                const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void reduceMaxKernel(const size_t nsize, const TData *x, TData *out,
+                            const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1829,11 +1848,13 @@ reduceMaxKernel(const size_t nsize, const TData *x, TData *out,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-reduceMaxKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-                TData *out, const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void reduceMaxKernel(const size_t nsize, const uint8_t *mask,
+                            const TData *x, TData *out,
+                            const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1859,11 +1880,12 @@ reduceMaxKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-reduceMinKernel(const size_t nsize, const TData *x, TData *out,
-                const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void reduceMinKernel(const size_t nsize, const TData *x, TData *out,
+                            const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1888,11 +1910,13 @@ reduceMinKernel(const size_t nsize, const TData *x, TData *out,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-reduceMinKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-                TData *out, const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void reduceMinKernel(const size_t nsize, const uint8_t *mask,
+                            const TData *x, TData *out,
+                            const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1918,11 +1942,12 @@ reduceMinKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out,
-           const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void ddotKernel(const size_t nsize, const TData *x, const TData *y,
+                       TData *out, const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1947,11 +1972,13 @@ ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-           const TData *y, TData *out, const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
+                       const TData *y, TData *out,
+                       const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -1977,11 +2004,12 @@ ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-l1normKernel(const size_t nsize, const TData *x, TData *out,
-             const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void l1normKernel(const size_t nsize, const TData *x, TData *out,
+                         const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -2006,11 +2034,13 @@ l1normKernel(const size_t nsize, const TData *x, TData *out,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-l1normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-             TData *out, const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void l1normKernel(const size_t nsize, const uint8_t *mask,
+                         const TData *x, TData *out,
+                         const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -2036,11 +2066,12 @@ l1normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-l2normKernel(const size_t nsize, const TData *x, TData *out,
-             const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void l2normKernel(const size_t nsize, const TData *x, TData *out,
+                         const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -2065,11 +2096,13 @@ l2normKernel(const size_t nsize, const TData *x, TData *out,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-l2normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-             TData *out, const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void l2normKernel(const size_t nsize, const uint8_t *mask,
+                         const TData *x, TData *out,
+                         const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -2095,11 +2128,13 @@ l2normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
-             TData *out, const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void lpnormKernel(const size_t nsize, const unsigned int p,
+                         const TData *x, TData *out,
+                         const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -2124,11 +2159,13 @@ lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-lpnormKernel(const size_t nsize, const unsigned int p, const uint8_t *mask,
-             const TData *x, TData *out, const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void lpnormKernel(const size_t nsize, const unsigned int p,
+                         const uint8_t *mask, const TData *x, TData *out,
+                         const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -2154,11 +2191,12 @@ lpnormKernel(const size_t nsize, const unsigned int p, const uint8_t *mask,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-linfnormKernel(const size_t nsize, const TData *x, TData *out,
-               const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void linfnormKernel(const size_t nsize, const TData *x, TData *out,
+                           const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
@@ -2183,11 +2221,13 @@ linfnormKernel(const size_t nsize, const TData *x, TData *out,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-linfnormKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-               TData *out, const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void linfnormKernel(const size_t nsize, const uint8_t *mask,
+                           const TData *x, TData *out,
+                           const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;

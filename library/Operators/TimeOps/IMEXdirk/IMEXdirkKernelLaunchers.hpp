@@ -409,13 +409,13 @@ NEK_HOSTDEVICE_INLINE static constexpr auto GetIMEXdirkCoefficients(void)
 
 template <typename Scheme, unsigned int ImpStage, unsigned int ExpStage,
           unsigned int IntOrder, typename TData, unsigned int... ind,
-          typename... TDatas>
-NEK_DEVICE_INLINE static
-    typename std::enable_if<std::is_same_v<Scheme, IMEXdirkScheme>, void>::type
-    UpdateStageKernelImpl(const size_t idx, TData *__restrict out,
-                          const TData *__restrict solution,
-                          std::integer_sequence<unsigned int, ind...>,
-                          const TDatas *__restrict... residuals)
+          typename... TDatas,
+          std::enable_if_t<std::is_same_v<Scheme, IMEXdirkScheme>, bool>
+              Enable = true>
+NEK_DEVICE_INLINE static void UpdateStageKernelImpl(
+    const size_t idx, TData *__restrict out, const TData *__restrict solution,
+    std::integer_sequence<unsigned int, ind...>,
+    const TDatas *__restrict... residuals)
 {
     constexpr unsigned int stage = (sizeof...(residuals) + 1) / 2;
     constexpr unsigned int indStart =
@@ -429,13 +429,13 @@ NEK_DEVICE_INLINE static
 
 template <typename Scheme, unsigned int ImpStage, unsigned int ExpStage,
           unsigned int IntOrder, typename TData, unsigned int... ind,
-          typename... TDatas>
-NEK_DEVICE_INLINE static
-    typename std::enable_if<std::is_same_v<Scheme, IMEXdirkScheme>, void>::type
-    UpdateSolutionKernelImpl(const size_t idx, TData *__restrict out,
-                             const TData *__restrict solution,
-                             std::integer_sequence<unsigned int, ind...>,
-                             const TDatas *__restrict... residuals)
+          typename... TDatas,
+          std::enable_if_t<std::is_same_v<Scheme, IMEXdirkScheme>, bool>
+              Enable = true>
+NEK_DEVICE_INLINE static void UpdateSolutionKernelImpl(
+    const size_t idx, TData *__restrict out, const TData *__restrict solution,
+    std::integer_sequence<unsigned int, ind...>,
+    const TDatas *__restrict... residuals)
 {
     constexpr auto coeff =
         GetIMEXdirkCoefficients<ImpStage, ExpStage, IntOrder, TData>();

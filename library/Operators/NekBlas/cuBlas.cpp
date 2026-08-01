@@ -34,11 +34,12 @@
 
 #include "Operators/NekBlas/NekBlas.hpp"
 
-template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type NekGemm(
-    THandle handle, std::string transposeA, std::string transposeB, const int M,
-    const int N, const int K, const TData alpha, const TData *a, const int lda,
-    const TData *b, const int ldb, const TData beta, TData *c, const int ldc)
+template <typename THandle, typename TData,
+          std::enable_if_t<std::is_same_v<THandle, cublasHandle_t>, bool>>
+void NekGemm(THandle handle, std::string transposeA, std::string transposeB,
+             const int M, const int N, const int K, const TData alpha,
+             const TData *a, const int lda, const TData *b, const int ldb,
+             const TData beta, TData *c, const int ldc)
 {
     auto transA = (transposeA == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
     auto transB = (transposeB == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
@@ -55,15 +56,15 @@ typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type Nek
     }
 }
 
-template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type
-NekGemmStridedBatched(THandle handle, std::string transposeA,
-                      std::string transposeB, const int M, const int N,
-                      const int K, const TData alpha, const TData *a,
-                      const int lda, const int strideA, const TData *b,
-                      const int ldb, const int strideB, const TData beta,
-                      TData *c, const int ldc, const int strideC,
-                      const int batchSize)
+template <typename THandle, typename TData,
+          std::enable_if_t<std::is_same_v<THandle, cublasHandle_t>, bool>>
+void NekGemmStridedBatched(THandle handle, std::string transposeA,
+                           std::string transposeB, const int M, const int N,
+                           const int K, const TData alpha, const TData *a,
+                           const int lda, const int strideA, const TData *b,
+                           const int ldb, const int strideB, const TData beta,
+                           TData *c, const int ldc, const int strideC,
+                           const int batchSize)
 {
     auto transA = (transposeA == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
     auto transB = (transposeB == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
@@ -82,11 +83,11 @@ NekGemmStridedBatched(THandle handle, std::string transposeA,
     }
 }
 
-template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type NekGemv(
-    THandle handle, std::string transpose, const int M, const int N,
-    const TData alpha, const TData *a, const int lda, const TData *x,
-    const int incx, const TData beta, TData *y, const int incy)
+template <typename THandle, typename TData,
+          std::enable_if_t<std::is_same_v<THandle, cublasHandle_t>, bool>>
+void NekGemv(THandle handle, std::string transpose, const int M, const int N,
+             const TData alpha, const TData *a, const int lda, const TData *x,
+             const int incx, const TData beta, TData *y, const int incy)
 {
     auto trans = (transpose == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
 
@@ -102,14 +103,14 @@ typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type Nek
     }
 }
 
-template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type
-NekGemvStridedBatched(THandle handle, std::string transpose, const int M,
-                      const int N, const TData alpha, const TData *a,
-                      const int lda, const int strideA, const TData *x,
-                      const int incx, const int strideX, const TData beta,
-                      TData *y, const int incy, const int strideY,
-                      const int batchSize)
+template <typename THandle, typename TData,
+          std::enable_if_t<std::is_same_v<THandle, cublasHandle_t>, bool>>
+void NekGemvStridedBatched(THandle handle, std::string transpose, const int M,
+                           const int N, const TData alpha, const TData *a,
+                           const int lda, const int strideA, const TData *x,
+                           const int incx, const int strideX, const TData beta,
+                           TData *y, const int incy, const int strideY,
+                           const int batchSize)
 {
     auto trans = (transpose == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
 

@@ -70,13 +70,13 @@ NEK_HOSTDEVICE_INLINE static constexpr auto GetIMEXCoefficients(void)
     }
 }
 
-template <typename Scheme, typename TData, unsigned int... ind,
-          typename... TDatas>
-NEK_DEVICE_INLINE static
-    typename std::enable_if<std::is_same_v<Scheme, IMEXScheme>, void>::type
-    UpdateSolutionKernelImpl(const size_t idx, TData *__restrict inout,
-                             std::integer_sequence<unsigned int, ind...>,
-                             const TDatas *__restrict... solutions)
+template <
+    typename Scheme, typename TData, unsigned int... ind, typename... TDatas,
+    std::enable_if_t<std::is_same_v<Scheme, IMEXScheme>, bool> Enable = true>
+NEK_DEVICE_INLINE static void UpdateSolutionKernelImpl(
+    const size_t idx, TData *__restrict inout,
+    std::integer_sequence<unsigned int, ind...>,
+    const TDatas *__restrict... solutions)
 {
     constexpr unsigned int nSolution = sizeof...(solutions);
     constexpr unsigned int IntOrder  = (nSolution + 1) / 2;

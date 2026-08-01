@@ -42,12 +42,12 @@ void NekBlasSetStreamID([[maybe_unused]] xsmmHandle_t handle,
 {
 }
 
-template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, xsmmHandle_t>, void>::type NekGemm(
-    [[maybe_unused]] THandle handle, std::string transposeA,
-    std::string transposeB, const int M, const int N, const int K,
-    const TData alpha, const TData *a, const int lda, const TData *b,
-    const int ldb, const TData beta, TData *c, const int ldc)
+template <typename THandle, typename TData,
+          std::enable_if_t<std::is_same_v<THandle, xsmmHandle_t>, bool>>
+void NekGemm([[maybe_unused]] THandle handle, std::string transposeA,
+             std::string transposeB, const int M, const int N, const int K,
+             const TData alpha, const TData *a, const int lda, const TData *b,
+             const int ldb, const TData beta, TData *c, const int ldc)
 {
     ASSERTL0(transposeA == "N" && transposeB == "N",
              "libxsmm: matrix tranpose is not supported");
@@ -75,15 +75,16 @@ typename std::enable_if<std::is_same_v<THandle, xsmmHandle_t>, void>::type NekGe
     }
 }
 
-template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, xsmmHandle_t>, void>::type
-NekGemmStridedBatched([[maybe_unused]] THandle handle, std::string transposeA,
-                      std::string transposeB, const int M, const int N,
-                      const int K, const TData alpha, const TData *a,
-                      const int lda, const int strideA, const TData *b,
-                      const int ldb, const int strideB, const TData beta,
-                      TData *c, const int ldc, const int strideC,
-                      const int batchSize)
+template <typename THandle, typename TData,
+          std::enable_if_t<std::is_same_v<THandle, xsmmHandle_t>, bool>>
+void NekGemmStridedBatched([[maybe_unused]] THandle handle,
+                           std::string transposeA, std::string transposeB,
+                           const int M, const int N, const int K,
+                           const TData alpha, const TData *a, const int lda,
+                           const int strideA, const TData *b, const int ldb,
+                           const int strideB, const TData beta, TData *c,
+                           const int ldc, const int strideC,
+                           const int batchSize)
 {
     ASSERTL0(transposeA == "N" && transposeB == "N",
              "libxsmm: matrix tranpose is not supported");
@@ -114,11 +115,12 @@ NekGemmStridedBatched([[maybe_unused]] THandle handle, std::string transposeA,
     }
 }
 
-template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, xsmmHandle_t>, void>::type NekGemv(
-    [[maybe_unused]] THandle, std::string transpose, const int M, const int N,
-    const TData alpha, const TData *A, const int lda, const TData *x,
-    const int incx, const TData beta, TData *y, const int incy)
+template <typename THandle, typename TData,
+          std::enable_if_t<std::is_same_v<THandle, xsmmHandle_t>, bool>>
+void NekGemv([[maybe_unused]] THandle, std::string transpose, const int M,
+             const int N, const TData alpha, const TData *A, const int lda,
+             const TData *x, const int incx, const TData beta, TData *y,
+             const int incy)
 {
     ASSERTL0(transpose == "N", "libxsmm: transpose not supported in Gemv");
 
@@ -131,14 +133,15 @@ typename std::enable_if<std::is_same_v<THandle, xsmmHandle_t>, void>::type NekGe
                  y, &incy0);
 }
 
-template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, xsmmHandle_t>, void>::type
-NekGemvStridedBatched([[maybe_unused]] THandle handle, std::string transpose,
-                      const int M, const int N, const TData alpha,
-                      const TData *a, const int lda, const int strideA,
-                      const TData *x, const int incx, const int strideX,
-                      const TData beta, TData *y, const int incy,
-                      const int strideY, const int batchSize)
+template <typename THandle, typename TData,
+          std::enable_if_t<std::is_same_v<THandle, xsmmHandle_t>, bool>>
+void NekGemvStridedBatched([[maybe_unused]] THandle handle,
+                           std::string transpose, const int M, const int N,
+                           const TData alpha, const TData *a, const int lda,
+                           const int strideA, const TData *x, const int incx,
+                           const int strideX, const TData beta, TData *y,
+                           const int incy, const int strideY,
+                           const int batchSize)
 {
     ASSERTL0(transpose == "N", "libxsmm: transpose not supported in Gemv");
 

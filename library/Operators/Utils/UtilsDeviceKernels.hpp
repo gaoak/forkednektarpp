@@ -463,11 +463,13 @@ NEK_DEVICE_KERNEL static void deInterleaveKernel(
                  threadBlock);
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-interleave(const unsigned int interleaveWidth, const size_t numElmtGroups,
-           const unsigned int npts, TData *inout, const unsigned int streamID)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void interleave(const unsigned int interleaveWidth,
+                       const size_t numElmtGroups, const unsigned int npts,
+                       TData *inout, const unsigned int streamID)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = numElmtGroups;
@@ -569,11 +571,13 @@ interleave(const unsigned int interleaveWidth, const size_t numElmtGroups,
     }
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-deInterleave(const unsigned int interleaveWidth, size_t numElmtGroups,
-             const unsigned int npts, TData *inout, const unsigned int streamID)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void deInterleave(const unsigned int interleaveWidth,
+                         size_t numElmtGroups, const unsigned int npts,
+                         TData *inout, const unsigned int streamID)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = numElmtGroups;
@@ -677,14 +681,14 @@ deInterleave(const unsigned int interleaveWidth, size_t numElmtGroups,
     }
 }
 
-template <typename ExecSpace, bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    MultiplyByJacobian(const size_t nelmt, const unsigned int nqTot,
-                       const unsigned int nhomo, const TData *jacptr,
-                       const TData *inptr, TData *outptr, const TData scale,
-                       const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool DEFORMED, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+NEK_FORCE_INLINE static void MultiplyByJacobian(
+    const size_t nelmt, const unsigned int nqTot, const unsigned int nhomo,
+    const TData *jacptr, const TData *inptr, TData *outptr, const TData scale,
+    const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize =
@@ -695,14 +699,16 @@ NEK_FORCE_INLINE static
         nelmt, nqTot, nhomo, jacptr, inptr, outptr, scale);
 }
 
-template <typename ExecSpace, bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    DivideByJacobian(const size_t nelmt, const unsigned int nqTot,
-                     const unsigned int nhomo, const TData *jacptr,
-                     const TData *inptr, TData *outptr,
-                     const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool DEFORMED, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+NEK_FORCE_INLINE static void DivideByJacobian(const size_t nelmt,
+                                              const unsigned int nqTot,
+                                              const unsigned int nhomo,
+                                              const TData *jacptr,
+                                              const TData *inptr, TData *outptr,
+                                              const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize =

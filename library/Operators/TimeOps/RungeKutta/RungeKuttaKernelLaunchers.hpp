@@ -263,15 +263,15 @@ NEK_DEVICE_INLINE static constexpr auto GetRungeKuttaCoefficients(void)
 }
 
 template <typename Scheme, unsigned int IntOrder, typename TData,
-          unsigned int... ind, typename... TDatas>
-NEK_DEVICE_INLINE static
-    typename std::enable_if<std::is_same_v<Scheme, RungeKuttaScheme> ||
-                                std::is_same_v<Scheme, RungeKuttaSSPScheme>,
-                            void>::type
-    UpdateStageKernelImpl(const size_t idx, TData *__restrict out,
-                          const TData *__restrict solution,
-                          std::integer_sequence<unsigned int, ind...>,
-                          const TDatas *__restrict... explicits)
+          unsigned int... ind, typename... TDatas,
+          std::enable_if_t<std::is_same_v<Scheme, RungeKuttaScheme> ||
+                               std::is_same_v<Scheme, RungeKuttaSSPScheme>,
+                           bool>
+              Enable = true>
+NEK_DEVICE_INLINE static void UpdateStageKernelImpl(
+    const size_t idx, TData *__restrict out, const TData *__restrict solution,
+    std::integer_sequence<unsigned int, ind...>,
+    const TDatas *__restrict... explicits)
 {
     constexpr unsigned int stage    = sizeof...(explicits);
     constexpr unsigned int indStart = (stage * (stage - 1)) / 2;
@@ -283,15 +283,15 @@ NEK_DEVICE_INLINE static
 }
 
 template <typename Scheme, unsigned int IntOrder, typename TData,
-          unsigned int... ind, typename... TDatas>
-NEK_DEVICE_INLINE static
-    typename std::enable_if<std::is_same_v<Scheme, RungeKuttaScheme> ||
-                                std::is_same_v<Scheme, RungeKuttaSSPScheme>,
-                            void>::type
-    UpdateSolutionKernelImpl(const size_t idx, TData *__restrict out,
-                             const TData *__restrict solution,
-                             std::integer_sequence<unsigned int, ind...>,
-                             const TDatas *__restrict... explicits)
+          unsigned int... ind, typename... TDatas,
+          std::enable_if_t<std::is_same_v<Scheme, RungeKuttaScheme> ||
+                               std::is_same_v<Scheme, RungeKuttaSSPScheme>,
+                           bool>
+              Enable = true>
+NEK_DEVICE_INLINE static void UpdateSolutionKernelImpl(
+    const size_t idx, TData *__restrict out, const TData *__restrict solution,
+    std::integer_sequence<unsigned int, ind...>,
+    const TDatas *__restrict... explicits)
 {
     constexpr auto coeff = GetRungeKuttaCoefficients<Scheme, IntOrder, TData>();
 
