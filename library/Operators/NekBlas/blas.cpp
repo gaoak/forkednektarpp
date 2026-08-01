@@ -41,12 +41,12 @@ void NekBlasSetStreamID([[maybe_unused]] blasHandle_t handle,
 {
 }
 
-template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, blasHandle_t>, void>::type NekGemm(
-    [[maybe_unused]] THandle handle, std::string transposeA,
-    std::string transposeB, const int M, const int N, const int K,
-    const TData alpha, const TData *a, const int lda, const TData *b,
-    const int ldb, const TData beta, TData *c, const int ldc)
+template <typename THandle, typename TData,
+          std::enable_if_t<std::is_same_v<THandle, blasHandle_t>, bool>>
+void NekGemm([[maybe_unused]] THandle handle, std::string transposeA,
+             std::string transposeB, const int M, const int N, const int K,
+             const TData alpha, const TData *a, const int lda, const TData *b,
+             const int ldb, const TData beta, TData *c, const int ldc)
 {
     auto transA = *transposeA.c_str();
     auto transB = *transposeB.c_str();
@@ -54,15 +54,16 @@ typename std::enable_if<std::is_same_v<THandle, blasHandle_t>, void>::type NekGe
     Blas::Gemm(transA, transB, M, N, K, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
-template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, blasHandle_t>, void>::type
-NekGemmStridedBatched([[maybe_unused]] THandle handle, std::string transposeA,
-                      std::string transposeB, const int M, const int N,
-                      const int K, const TData alpha, const TData *a,
-                      const int lda, const int strideA, const TData *b,
-                      const int ldb, const int strideB, const TData beta,
-                      TData *c, const int ldc, const int strideC,
-                      const int batchSize)
+template <typename THandle, typename TData,
+          std::enable_if_t<std::is_same_v<THandle, blasHandle_t>, bool>>
+void NekGemmStridedBatched([[maybe_unused]] THandle handle,
+                           std::string transposeA, std::string transposeB,
+                           const int M, const int N, const int K,
+                           const TData alpha, const TData *a, const int lda,
+                           const int strideA, const TData *b, const int ldb,
+                           const int strideB, const TData beta, TData *c,
+                           const int ldc, const int strideC,
+                           const int batchSize)
 {
     auto transA = *transposeA.c_str();
     auto transB = *transposeB.c_str();
@@ -74,25 +75,27 @@ NekGemmStridedBatched([[maybe_unused]] THandle handle, std::string transposeA,
     }
 }
 
-template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, blasHandle_t>, void>::type NekGemv(
-    [[maybe_unused]] THandle handle, std::string transpose, const int M,
-    const int N, const TData alpha, const TData *a, const int lda,
-    const TData *x, const int incx, const TData beta, TData *y, const int incy)
+template <typename THandle, typename TData,
+          std::enable_if_t<std::is_same_v<THandle, blasHandle_t>, bool>>
+void NekGemv([[maybe_unused]] THandle handle, std::string transpose,
+             const int M, const int N, const TData alpha, const TData *a,
+             const int lda, const TData *x, const int incx, const TData beta,
+             TData *y, const int incy)
 {
     auto trans = *transpose.c_str();
 
     Blas::Gemv(trans, M, N, alpha, a, lda, x, incx, beta, y, incy);
 }
 
-template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, blasHandle_t>, void>::type
-NekGemvStridedBatched([[maybe_unused]] THandle handle, std::string transpose,
-                      const int M, const int N, const TData alpha,
-                      const TData *a, const int lda, const int strideA,
-                      const TData *x, const int incx, const int strideX,
-                      const TData beta, TData *y, const int incy,
-                      const int strideY, const int batchSize)
+template <typename THandle, typename TData,
+          std::enable_if_t<std::is_same_v<THandle, blasHandle_t>, bool>>
+void NekGemvStridedBatched([[maybe_unused]] THandle handle,
+                           std::string transpose, const int M, const int N,
+                           const TData alpha, const TData *a, const int lda,
+                           const int strideA, const TData *x, const int incx,
+                           const int strideX, const TData beta, TData *y,
+                           const int incy, const int strideY,
+                           const int batchSize)
 {
     auto trans = *transpose.c_str();
 

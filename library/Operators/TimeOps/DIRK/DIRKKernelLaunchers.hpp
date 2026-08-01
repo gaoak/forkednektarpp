@@ -381,9 +381,10 @@ NEK_DEVICE_INLINE static constexpr auto GetDIRKCoefficients(void)
 }
 
 template <typename Scheme, unsigned int IntOrder, typename TData,
-          unsigned int... ind, typename... TDatas>
+          unsigned int... ind, typename... TDatas,
+          std::enable_if_t<std::is_same_v<Scheme, DIRKScheme> || std::is_same_v<Scheme, DIRK_ESScheme>, bool> Enable = true>
 NEK_DEVICE_INLINE static
-    typename std::enable_if<std::is_same_v<Scheme, DIRKScheme> || std::is_same_v<Scheme, DIRK_ESScheme>, void>::type
+    void
     UpdateStageKernelImpl(const size_t idx, TData *__restrict out,
                           const TData *__restrict solution,
                           std::integer_sequence<unsigned int, ind...>,
@@ -399,9 +400,10 @@ NEK_DEVICE_INLINE static
 }
 
 template <typename Scheme, unsigned int IntOrder, typename TData,
-          unsigned int... ind, typename... TDatas>
+          unsigned int... ind, typename... TDatas,
+          std::enable_if_t<std::is_same_v<Scheme, DIRKScheme> || std::is_same_v<Scheme, DIRK_ESScheme>, bool> Enable = true>
 NEK_DEVICE_INLINE static
-    typename std::enable_if<std::is_same_v<Scheme, DIRKScheme> || std::is_same_v<Scheme, DIRK_ESScheme>, void>::type
+    void
     UpdateSolutionKernelImpl(const size_t idx, TData *__restrict out,
                              const TData *__restrict solution,
                              std::integer_sequence<unsigned int, ind...>,

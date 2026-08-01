@@ -39,16 +39,16 @@
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                            void>::type
-    AddTraceIntegralKernel(const size_t nsize,
-                           const size_t *traceCoeffsToElmtMapPtr,
-                           const int *traceCoeffsToElmtSignPtr,
-                           const size_t *traceCoeffsToElmtTracePtr,
-                           const TData *tracePtr, TData *outptr)
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                               std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                           bool>
+              Enable = true>
+NEK_FORCE_INLINE static void AddTraceIntegralKernel(
+    const size_t nsize, const size_t *traceCoeffsToElmtMapPtr,
+    const int *traceCoeffsToElmtSignPtr,
+    const size_t *traceCoeffsToElmtTracePtr, const TData *tracePtr,
+    TData *outptr)
 {
     for (size_t i = 0; i < nsize; i++)
     {

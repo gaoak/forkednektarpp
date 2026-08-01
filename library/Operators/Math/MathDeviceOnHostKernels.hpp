@@ -45,167 +45,192 @@
 namespace Nektar
 {
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-zeroKernel(const size_t nsize, TData *x,
-           [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void zeroKernel(const size_t nsize, TData *x,
+                       [[maybe_unused]] const unsigned int streamID = 0)
 {
     std::memset(x, 0, nsize * sizeof(TData));
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-fillKernel(const size_t nsize, const TData &val, TData *x,
-           [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void fillKernel(const size_t nsize, const TData &val, TData *x,
+                       [[maybe_unused]] const unsigned int streamID = 0)
 {
     std::fill(x, x + nsize, val);
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-copyKernel(const size_t nsize, const TData *x, TData *y,
-           [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void copyKernel(const size_t nsize, const TData *x, TData *y,
+                       [[maybe_unused]] const unsigned int streamID = 0)
 {
     std::memcpy(y, x, nsize * sizeof(TData));
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-absKernel(const size_t nsize, const TData *x, TData *y,
-          [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void absKernel(const size_t nsize, const TData *x, TData *y,
+                      [[maybe_unused]] const unsigned int streamID = 0)
 {
     std::transform(x, x + nsize, y,
                    [](const TData &xi) { return std::abs(xi); });
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-negKernel(const size_t nsize, const TData *x, TData *y,
-          [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void negKernel(const size_t nsize, const TData *x, TData *y,
+                      [[maybe_unused]] const unsigned int streamID = 0)
 {
     std::transform(x, x + nsize, y, std::negate<TData>());
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-sqrtKernel(const size_t nsize, const TData *x, TData *y,
-           [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void sqrtKernel(const size_t nsize, const TData *x, TData *y,
+                       [[maybe_unused]] const unsigned int streamID = 0)
 {
     std::transform(x, x + nsize, y,
                    [](const TData &xi) { return std::sqrt(xi); });
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-addKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
-          [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void addKernel(const size_t nsize, const TData *x, const TData *y,
+                      TData *z,
+                      [[maybe_unused]] const unsigned int streamID = 0)
 {
     std::transform(x, x + nsize, y, z,
                    [](const TData &xi, const TData &yi) { return xi + yi; });
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-subKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
-          [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void subKernel(const size_t nsize, const TData *x, const TData *y,
+                      TData *z,
+                      [[maybe_unused]] const unsigned int streamID = 0)
 {
     std::transform(x, x + nsize, y, z,
                    [](const TData &xi, const TData &yi) { return xi - yi; });
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-mulKernel(const size_t nsize, const TData alpha, const TData *x, TData *y,
-          [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void mulKernel(const size_t nsize, const TData alpha, const TData *x,
+                      TData *y,
+                      [[maybe_unused]] const unsigned int streamID = 0)
 {
     std::transform(x, x + nsize, y, [&alpha](TData xi) { return alpha * xi; });
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-mulKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
-          [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void mulKernel(const size_t nsize, const TData *x, const TData *y,
+                      TData *z,
+                      [[maybe_unused]] const unsigned int streamID = 0)
 {
     std::transform(x, x + nsize, y, z,
                    [](TData xi, TData yi) { return xi * yi; });
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-divKernel(const size_t nsize, const TData alpha, const TData *x, TData *y,
-          [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void divKernel(const size_t nsize, const TData alpha, const TData *x,
+                      TData *y,
+                      [[maybe_unused]] const unsigned int streamID = 0)
 {
     std::transform(x, x + nsize, y, [&alpha](TData xi) { return alpha / xi; });
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-divKernel(const size_t nsize, const TData *x, const TData *y, TData *z,
-          [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void divKernel(const size_t nsize, const TData *x, const TData *y,
+                      TData *z,
+                      [[maybe_unused]] const unsigned int streamID = 0)
 {
     std::transform(x, x + nsize, y, z,
                    [](TData xi, TData yi) { return xi / yi; });
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
-            const TData *y, TData *z,
-            [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
+                        const TData *y, TData *z,
+                        [[maybe_unused]] const unsigned int streamID = 0)
 {
     std::transform(x, x + nsize, y, z, [&](const TData &xi, const TData &yi) {
         return alpha * xi + yi;
     });
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-reduceSumKernel(const size_t nsize, const TData *x, TData *out,
-                [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void reduceSumKernel(const size_t nsize, const TData *x, TData *out,
+                            [[maybe_unused]] const unsigned int streamID = 0)
 {
     TData initializer = init ? 0.0 : *out;
     *out              = std::accumulate(x, x + nsize, initializer);
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-reduceSumKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-                TData *out, [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void reduceSumKernel(const size_t nsize, const uint8_t *mask,
+                            const TData *x, TData *out,
+                            [[maybe_unused]] const unsigned int streamID = 0)
 {
     TData initializer = init ? 0.0 : *out;
     *out              = std::inner_product(mask, mask + nsize, x, initializer);
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-reduceMaxKernel(const size_t nsize, const TData *x, TData *out,
-                [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void reduceMaxKernel(const size_t nsize, const TData *x, TData *out,
+                            [[maybe_unused]] const unsigned int streamID = 0)
 {
     TData initializer = init ? std::numeric_limits<TData>::lowest() : *out;
     *out = std::max(initializer, *(std::max_element(x, x + nsize)));
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-reduceMaxKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-                TData *out, [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void reduceMaxKernel(const size_t nsize, const uint8_t *mask,
+                            const TData *x, TData *out,
+                            [[maybe_unused]] const unsigned int streamID = 0)
 {
     if (init)
     {
@@ -218,21 +243,24 @@ reduceMaxKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     }
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-reduceMinKernel(const size_t nsize, const TData *x, TData *out,
-                [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void reduceMinKernel(const size_t nsize, const TData *x, TData *out,
+                            [[maybe_unused]] const unsigned int streamID = 0)
 {
     TData initializer = init ? std::numeric_limits<TData>::max() : *out;
     *out = std::min(initializer, *(std::min_element(x, x + nsize)));
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-reduceMinKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-                TData *out, [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void reduceMinKernel(const size_t nsize, const uint8_t *mask,
+                            const TData *x, TData *out,
+                            [[maybe_unused]] const unsigned int streamID = 0)
 {
     if (init)
     {
@@ -245,22 +273,25 @@ reduceMinKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     }
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-ddotKernel(const size_t nsize, const TData *x, const TData *y, TData *out,
-           [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void ddotKernel(const size_t nsize, const TData *x, const TData *y,
+                       TData *out,
+                       [[maybe_unused]] const unsigned int streamID = 0)
 {
     TData initializer = init ? 0.0 : *out;
     *out              = std::inner_product(x, x + nsize, y, initializer);
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-           const TData *y, TData *out,
-           [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
+                       const TData *y, TData *out,
+                       [[maybe_unused]] const unsigned int streamID = 0)
 {
     if (init)
     {
@@ -273,11 +304,12 @@ ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     }
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-l1normKernel(const size_t nsize, const TData *x, TData *out,
-             [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void l1normKernel(const size_t nsize, const TData *x, TData *out,
+                         [[maybe_unused]] const unsigned int streamID = 0)
 {
     TData initializer = init ? 0.0 : *out;
     *out              = std::accumulate(
@@ -285,11 +317,13 @@ l1normKernel(const size_t nsize, const TData *x, TData *out,
         [](const TData &acc, const TData &val) { return acc + std::abs(val); });
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-l1normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-             TData *out, [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void l1normKernel(const size_t nsize, const uint8_t *mask,
+                         const TData *x, TData *out,
+                         [[maybe_unused]] const unsigned int streamID = 0)
 {
     if (init)
     {
@@ -302,11 +336,12 @@ l1normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     }
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-l2normKernel(const size_t nsize, const TData *x, TData *out,
-             [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void l2normKernel(const size_t nsize, const TData *x, TData *out,
+                         [[maybe_unused]] const unsigned int streamID = 0)
 {
     TData initializer = init ? 0.0 : *out;
     *out              = std::accumulate(
@@ -314,11 +349,13 @@ l2normKernel(const size_t nsize, const TData *x, TData *out,
         [](const TData &acc, const TData &val) { return acc + val * val; });
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-l2normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-             TData *out, [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void l2normKernel(const size_t nsize, const uint8_t *mask,
+                         const TData *x, TData *out,
+                         [[maybe_unused]] const unsigned int streamID = 0)
 {
     if (init)
     {
@@ -331,11 +368,13 @@ l2normKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     }
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
-             TData *out, [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void lpnormKernel(const size_t nsize, const unsigned int p,
+                         const TData *x, TData *out,
+                         [[maybe_unused]] const unsigned int streamID = 0)
 {
     TData initializer = init ? 0.0 : *out;
     *out              = std::accumulate(x, x + nsize, initializer,
@@ -344,12 +383,13 @@ lpnormKernel(const size_t nsize, const unsigned int p, const TData *x,
                            });
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-lpnormKernel(const size_t nsize, const unsigned int p, const uint8_t *mask,
-             const TData *x, TData *out,
-             [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void lpnormKernel(const size_t nsize, const unsigned int p,
+                         const uint8_t *mask, const TData *x, TData *out,
+                         [[maybe_unused]] const unsigned int streamID = 0)
 {
     if (init)
     {
@@ -362,11 +402,12 @@ lpnormKernel(const size_t nsize, const unsigned int p, const uint8_t *mask,
     }
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-linfnormKernel(const size_t nsize, const TData *x, TData *out,
-               [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void linfnormKernel(const size_t nsize, const TData *x, TData *out,
+                           [[maybe_unused]] const unsigned int streamID = 0)
 {
     TData initializer = init ? 0.0 : *out;
     *out              = std::accumulate(x, x + nsize, initializer,
@@ -375,11 +416,13 @@ linfnormKernel(const size_t nsize, const TData *x, TData *out,
                            });
 }
 
-template <typename ExecSpace, bool init, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-linfnormKernel(const size_t nsize, const uint8_t *mask, const TData *x,
-               TData *out, [[maybe_unused]] const unsigned int streamID = 0)
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void linfnormKernel(const size_t nsize, const uint8_t *mask,
+                           const TData *x, TData *out,
+                           [[maybe_unused]] const unsigned int streamID = 0)
 {
     if (init)
     {

@@ -215,11 +215,11 @@ NEK_DEVICE_INLINE static void GenerateRotationMatrices(
     }
 }
 
-template <typename ExecSpace, unsigned int NDIM, typename TScalar>
-NEK_DEVICE_INLINE static typename std::enable_if<NDIM == 1>::type
-RotateToNormalKernel([[maybe_unused]] const size_t blksize,
-                     const TScalar *inptr, const TScalar *normalsptr,
-                     TScalar *outptr)
+template <typename ExecSpace, unsigned int NDIM, typename TScalar,
+          std::enable_if_t<NDIM == 1, bool> Enable = true>
+NEK_DEVICE_INLINE static void RotateToNormalKernel(
+    [[maybe_unused]] const size_t blksize, const TScalar *inptr,
+    const TScalar *normalsptr, TScalar *outptr)
 {
     // Explicit vectorisation for AVX backend, vec_t = tinysimd::simd<TScalar>
     // for AVX, vec_t = TScalar otherwise.
@@ -235,18 +235,22 @@ RotateToNormalKernel([[maybe_unused]] const size_t blksize,
     outvecptr[0] = invecptr[0] * nx[0];
 }
 
-template <typename ExecSpace, unsigned int NDIM, typename TScalar>
-NEK_DEVICE_INLINE static typename std::enable_if<NDIM == 1>::type
-RotateFromNormalKernel(const size_t blksize, const TScalar *inptr,
-                       const TScalar *normalsptr, TScalar *outptr)
+template <typename ExecSpace, unsigned int NDIM, typename TScalar,
+          std::enable_if_t<NDIM == 1, bool> Enable = true>
+NEK_DEVICE_INLINE static void RotateFromNormalKernel(const size_t blksize,
+                                                     const TScalar *inptr,
+                                                     const TScalar *normalsptr,
+                                                     TScalar *outptr)
 {
     RotateToNormalKernel<ExecSpace, 1>(blksize, inptr, normalsptr, outptr);
 }
 
-template <typename ExecSpace, unsigned int NDIM, typename TScalar>
-NEK_DEVICE_INLINE static typename std::enable_if<NDIM == 2>::type
-RotateToNormalKernel(const size_t blksize, const TScalar *inptr,
-                     const TScalar *normalsptr, TScalar *outptr)
+template <typename ExecSpace, unsigned int NDIM, typename TScalar,
+          std::enable_if_t<NDIM == 2, bool> Enable = true>
+NEK_DEVICE_INLINE static void RotateToNormalKernel(const size_t blksize,
+                                                   const TScalar *inptr,
+                                                   const TScalar *normalsptr,
+                                                   TScalar *outptr)
 {
     // Explicit vectorisation for AVX backend, vec_t = tinysimd::simd<TScalar>
     // for AVX, vec_t = TScalar otherwise.
@@ -284,10 +288,12 @@ RotateToNormalKernel(const size_t blksize, const TScalar *inptr,
     rhovOut[0] = rhovIn[0] * nx[0] - rhouIn[0] * ny[0]; // u_t
 }
 
-template <typename ExecSpace, unsigned int NDIM, typename TScalar>
-NEK_DEVICE_INLINE static typename std::enable_if<NDIM == 2>::type
-RotateFromNormalKernel(const size_t blksize, const TScalar *inptr,
-                       const TScalar *normalsptr, TScalar *outptr)
+template <typename ExecSpace, unsigned int NDIM, typename TScalar,
+          std::enable_if_t<NDIM == 2, bool> Enable = true>
+NEK_DEVICE_INLINE static void RotateFromNormalKernel(const size_t blksize,
+                                                     const TScalar *inptr,
+                                                     const TScalar *normalsptr,
+                                                     TScalar *outptr)
 {
     // Explicit vectorisation for AVX backend, vec_t = tinysimd::simd<TScalar>
     // for AVX, vec_t = TScalar otherwise.
@@ -325,10 +331,12 @@ RotateFromNormalKernel(const size_t blksize, const TScalar *inptr,
     rhovOut[0] = rhovIn[0] * nx[0] + rhouIn[0] * ny[0];
 }
 
-template <typename ExecSpace, unsigned int NDIM, typename TScalar>
-NEK_DEVICE_INLINE static typename std::enable_if<NDIM == 3>::type
-RotateToNormalKernel(const size_t blksize, const TScalar *inptr,
-                     const TScalar *rotMatPtr, TScalar *outptr)
+template <typename ExecSpace, unsigned int NDIM, typename TScalar,
+          std::enable_if_t<NDIM == 3, bool> Enable = true>
+NEK_DEVICE_INLINE static void RotateToNormalKernel(const size_t blksize,
+                                                   const TScalar *inptr,
+                                                   const TScalar *rotMatPtr,
+                                                   TScalar *outptr)
 {
     // Explicit vectorisation for AVX backend, vec_t = tinysimd::simd<TScalar>
     // for AVX, vec_t = TScalar otherwise.
@@ -385,10 +393,12 @@ RotateToNormalKernel(const size_t blksize, const TScalar *inptr,
     rhowOut[0] = rhou * R20[0] + rhov * R21[0] + rhow * R22[0];
 }
 
-template <typename ExecSpace, unsigned int NDIM, typename TScalar>
-NEK_DEVICE_INLINE static typename std::enable_if<NDIM == 3>::type
-RotateFromNormalKernel(const size_t blksize, const TScalar *inptr,
-                       const TScalar *rotMatPtr, TScalar *outptr)
+template <typename ExecSpace, unsigned int NDIM, typename TScalar,
+          std::enable_if_t<NDIM == 3, bool> Enable = true>
+NEK_DEVICE_INLINE static void RotateFromNormalKernel(const size_t blksize,
+                                                     const TScalar *inptr,
+                                                     const TScalar *rotMatPtr,
+                                                     TScalar *outptr)
 {
     // Explicit vectorisation for AVX backend, vec_t = tinysimd::simd<TScalar>
     // for AVX, vec_t = TScalar otherwise.

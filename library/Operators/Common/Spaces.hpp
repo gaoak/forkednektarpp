@@ -396,27 +396,31 @@ extern unsigned int internalMaxDataSizeByte;
 #endif
 }
 
-template <typename ExecSpace>
-static typename std::enable_if<!std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-SetStreamDependencies([[maybe_unused]] unsigned int streamID,
-                      [[maybe_unused]] unsigned int eventID)
+template <
+    typename ExecSpace,
+    std::enable_if_t<!std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+static void SetStreamDependencies([[maybe_unused]] unsigned int streamID,
+                                  [[maybe_unused]] unsigned int eventID)
 {
 }
 
-template <typename ExecSpace>
-static typename std::enable_if<!std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-SetStreamDependencies([[maybe_unused]] unsigned int streamID,
-                      [[maybe_unused]] std::vector<unsigned int> &eventIDs)
+template <
+    typename ExecSpace,
+    std::enable_if_t<!std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+static void SetStreamDependencies(
+    [[maybe_unused]] unsigned int streamID,
+    [[maybe_unused]] std::vector<unsigned int> &eventIDs)
 {
 }
 
-template <typename ExecSpace>
-static typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-SetStreamDependencies([[maybe_unused]] unsigned int streamID,
-                      [[maybe_unused]] unsigned int eventID)
+template <
+    typename ExecSpace,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+static void SetStreamDependencies([[maybe_unused]] unsigned int streamID,
+                                  [[maybe_unused]] unsigned int eventID)
 {
 #if defined(NEKTAR_ENABLE_CUDA)
     if (streamID != eventID)
@@ -459,11 +463,13 @@ SetStreamDependencies([[maybe_unused]] unsigned int streamID,
 #endif
 }
 
-template <typename ExecSpace>
-static typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                               void>::type
-SetStreamDependencies([[maybe_unused]] unsigned int streamID,
-                      [[maybe_unused]] std::vector<unsigned int> &eventIDs)
+template <
+    typename ExecSpace,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+static void SetStreamDependencies(
+    [[maybe_unused]] unsigned int streamID,
+    [[maybe_unused]] std::vector<unsigned int> &eventIDs)
 {
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);

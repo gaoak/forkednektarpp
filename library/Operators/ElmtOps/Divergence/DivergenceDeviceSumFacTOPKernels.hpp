@@ -48,9 +48,10 @@ namespace Nektar::Operators::detail
 // Helper function
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TPhysSizeParameter2D,
-          typename std::enable_if<
-              std::is_same_v<Implementation, SumFacTOP> &&
-              IsPhysSizeParameter2D_v<TPhysSizeParameter2D>>::type * = nullptr>
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
+                               IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
+                           bool>
+              Enable = true>
 inline constexpr unsigned int DivergenceSharedMemorySize(
     const TPhysSizeParameter2D sizeParam2D)
 {
@@ -62,9 +63,10 @@ inline constexpr unsigned int DivergenceSharedMemorySize(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TPhysSizeParameter3D,
-          typename std::enable_if<
-              std::is_same_v<Implementation, SumFacTOP> &&
-              IsPhysSizeParameter3D_v<TPhysSizeParameter3D>>::type * = nullptr>
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
+                               IsPhysSizeParameter3D_v<TPhysSizeParameter3D>,
+                           bool>
+              Enable = true>
 inline constexpr unsigned int DivergenceSharedMemorySize(
     const TPhysSizeParameter3D sizeParam3D)
 {
@@ -233,16 +235,14 @@ NEK_DEVICE_INLINE static void Divergence3DSumFacTOPKernel(
 }
 
 template <typename Implementation, bool DEFORMED, typename TPhysSizeParameter1D,
-          typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
-    Divergence1DKernelLauncher(const TPhysSizeParameter1D sizeParam1D,
-                               const size_t nelmt, const size_t inoffset,
-                               const TData *NEK_RESTRICT D0,
-                               const TData *NEK_RESTRICT df,
-                               const TData *NEK_RESTRICT in,
-                               TData *NEK_RESTRICT out,
-                               const TthreadBlock &threadBlock)
+          typename TthreadBlock, typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void Divergence1DKernelLauncher(
+    const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
+    const size_t inoffset, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter1D_v<TPhysSizeParameter1D>,
@@ -256,16 +256,16 @@ NEK_DEVICE_KERNEL
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TPhysSizeParameter2D, typename TthreadBlock,
-          typename TData>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
-    Divergence2DKernelLauncher(
-        const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
-        const size_t inoffset, const TData *NEK_RESTRICT D0,
-        const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
-        const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
-        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+          typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void Divergence2DKernelLauncher(
+    const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
+    const size_t inoffset, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
+    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
@@ -281,18 +281,18 @@ NEK_DEVICE_KERNEL
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TPhysSizeParameter3D, typename TthreadBlock,
-          typename TData>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::type
-    Divergence3DKernelLauncher(
-        const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
-        const size_t inoffset, const TData *NEK_RESTRICT D0,
-        const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
-        const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
-        const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
-        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, unsigned char *shmemptr,
-        const TthreadBlock &threadBlock)
+          typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void Divergence3DKernelLauncher(
+    const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
+    const size_t inoffset, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter3D_v<TPhysSizeParameter3D>,

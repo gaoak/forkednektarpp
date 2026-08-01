@@ -116,13 +116,13 @@ NEK_DEVICE_KERNEL static void RobBndCond2DKernel(
     }
 }
 
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    RobBndCond1DKernel(const size_t nsize, const size_t *offsetPtr,
-                       const TData *matPtr, const size_t *mapPtr,
-                       const TData *incoeffPtr, TData *coeffPtr)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+NEK_FORCE_INLINE static void RobBndCond1DKernel(
+    const size_t nsize, const size_t *offsetPtr, const TData *matPtr,
+    const size_t *mapPtr, const TData *incoeffPtr, TData *coeffPtr)
 {
     const unsigned int blockSize = NektarSpaces::Device::warpSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -132,16 +132,16 @@ NEK_FORCE_INLINE static
                                           matPtr, mapPtr, incoeffPtr, coeffPtr);
 }
 
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Device>,
-                            void>::type
-    RobBndCond2DKernel(const unsigned int nmaxcoeff, const size_t nsize,
-                       const unsigned int *ncoeffPtr, const size_t *offsetPtr,
-                       const size_t *matOffsetPtr, const size_t *mapOffsetPtr,
-                       const TData *matPtr, const size_t *mapPtr,
-                       const int *signPtr, const TData *incoeffPtr,
-                       TData *coeffPtr)
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+NEK_FORCE_INLINE static void RobBndCond2DKernel(
+    const unsigned int nmaxcoeff, const size_t nsize,
+    const unsigned int *ncoeffPtr, const size_t *offsetPtr,
+    const size_t *matOffsetPtr, const size_t *mapOffsetPtr, const TData *matPtr,
+    const size_t *mapPtr, const int *signPtr, const TData *incoeffPtr,
+    TData *coeffPtr)
 {
     const unsigned int shmemsize = sizeof(TData) * nmaxcoeff;
     const unsigned int blockSize = NektarSpaces::Device::warpSize;

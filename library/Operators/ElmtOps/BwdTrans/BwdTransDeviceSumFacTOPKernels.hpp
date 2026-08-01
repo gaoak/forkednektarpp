@@ -46,9 +46,10 @@ namespace Nektar::Operators::detail
 // Helper function
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter1D,
-          typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                                  IsSizeParameter1D_v<TSizeParameter1D>>::type
-              * = nullptr>
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
+                               IsSizeParameter1D_v<TSizeParameter1D>,
+                           bool>
+              Enable = true>
 inline constexpr size_t BwdTransWorkSpaceSize(
     [[maybe_unused]] const size_t nelmt,
     [[maybe_unused]] const TSizeParameter1D sizeParam1D)
@@ -58,9 +59,10 @@ inline constexpr size_t BwdTransWorkSpaceSize(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter2D,
-          typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                                  IsSizeParameter2D_v<TSizeParameter2D>>::type
-              * = nullptr>
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
+                               IsSizeParameter2D_v<TSizeParameter2D>,
+                           bool>
+              Enable = true>
 inline constexpr size_t BwdTransWorkSpaceSize(
     [[maybe_unused]] const size_t nelmt,
     [[maybe_unused]] const TSizeParameter2D sizeParam2D)
@@ -70,9 +72,10 @@ inline constexpr size_t BwdTransWorkSpaceSize(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter3D,
-          typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                                  IsSizeParameter3D_v<TSizeParameter3D>>::type
-              * = nullptr>
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
+                               IsSizeParameter3D_v<TSizeParameter3D>,
+                           bool>
+              Enable = true>
 inline constexpr size_t BwdTransWorkSpaceSize(
     [[maybe_unused]] const size_t nelmt,
     [[maybe_unused]] const TSizeParameter3D sizeParam3D)
@@ -81,9 +84,10 @@ inline constexpr size_t BwdTransWorkSpaceSize(
 }
 
 template <typename Implementation, typename TSizeParameter1D,
-          typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                                  IsSizeParameter1D_v<TSizeParameter1D>>::type
-              * = nullptr>
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
+                               IsSizeParameter1D_v<TSizeParameter1D>,
+                           bool>
+              Enable = true>
 inline constexpr unsigned int BwdTransSharedMemorySize(
     const TSizeParameter1D sizeParam1D)
 {
@@ -95,9 +99,10 @@ inline constexpr unsigned int BwdTransSharedMemorySize(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter2D,
-          typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                                  IsSizeParameter2D_v<TSizeParameter2D>>::type
-              * = nullptr>
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
+                               IsSizeParameter2D_v<TSizeParameter2D>,
+                           bool>
+              Enable = true>
 inline constexpr unsigned int BwdTransSharedMemorySize(
     const TSizeParameter2D sizeParam2D)
 {
@@ -120,9 +125,10 @@ inline constexpr unsigned int BwdTransSharedMemorySize(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter3D,
-          typename std::enable_if<std::is_same_v<Implementation, SumFacTOP> &&
-                                  IsSizeParameter3D_v<TSizeParameter3D>>::type
-              * = nullptr>
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
+                               IsSizeParameter3D_v<TSizeParameter3D>,
+                           bool>
+              Enable = true>
 inline constexpr unsigned int BwdTransSharedMemorySize(
     const TSizeParameter3D sizeParam3D)
 {
@@ -931,18 +937,17 @@ NEK_DEVICE_INLINE static void BwdTrans3DSumFacTOPKernel(
 }
 
 template <typename Implementation, bool APPEND, typename TSizeParameter1D,
-          typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::
-        type __LAUNCH_BOUNDS__(
-            (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
-            BwdTrans1DKernelLauncher(const TSizeParameter1D sizeParam1D,
-                                     const size_t nelmt,
-                                     const TData *NEK_RESTRICT basis0,
-                                     const TData *NEK_RESTRICT in,
-                                     TData *NEK_RESTRICT out,
-                                     unsigned char *shmemptr,
-                                     const TthreadBlock &threadBlock)
+          typename TthreadBlock, typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
+    BwdTrans1DKernelLauncher(const TSizeParameter1D sizeParam1D,
+                             const size_t nelmt,
+                             const TData *NEK_RESTRICT basis0,
+                             const TData *NEK_RESTRICT in,
+                             TData *NEK_RESTRICT out, unsigned char *shmemptr,
+                             const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter1D_v<TSizeParameter1D>,
                   "Template argument must be either of type "
@@ -957,21 +962,18 @@ NEK_DEVICE_KERNEL
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, typename TSizeParameter2D, typename TthreadBlock,
-          typename TData>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::
-        type __LAUNCH_BOUNDS__(
-            (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
-            BwdTrans2DKernelLauncher(const TSizeParameter2D sizeParam2D,
-                                     const size_t nelmt, const bool isModified,
-                                     const TData *NEK_RESTRICT basis0,
-                                     const TData *NEK_RESTRICT basis1,
-                                     const TData *NEK_RESTRICT nodToMod,
-                                     const TData *NEK_RESTRICT in,
-                                     TData *NEK_RESTRICT out,
-                                     [[maybe_unused]] TData *NEK_RESTRICT wsp,
-                                     unsigned char *shmemptr,
-                                     const TthreadBlock &threadBlock)
+          typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
+    BwdTrans2DKernelLauncher(
+        const TSizeParameter2D sizeParam2D, const size_t nelmt,
+        const bool isModified, const TData *NEK_RESTRICT basis0,
+        const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT nodToMod,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter2D_v<TSizeParameter2D>,
                   "Template argument must be either of type "
@@ -987,21 +989,19 @@ NEK_DEVICE_KERNEL
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, typename TSizeParameter3D, typename TthreadBlock,
-          typename TData>
-NEK_DEVICE_KERNEL
-    typename std::enable_if<std::is_same_v<Implementation, SumFacTOP>>::
-        type __LAUNCH_BOUNDS__(
-            (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
-            BwdTrans3DKernelLauncher(
-                const TSizeParameter3D sizeParam3D, const size_t nelmt,
-                const bool isModified, const unsigned int *index0,
-                const unsigned int *index1, const TData *NEK_RESTRICT basis0,
-                const TData *NEK_RESTRICT basis1,
-                const TData *NEK_RESTRICT basis2,
-                const TData *NEK_RESTRICT nodToMod,
-                const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-                [[maybe_unused]] TData *NEK_RESTRICT wsp,
-                unsigned char *shmemptr, const TthreadBlock &threadBlock)
+          typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
+    BwdTrans3DKernelLauncher(
+        const TSizeParameter3D sizeParam3D, const size_t nelmt,
+        const bool isModified, const unsigned int *index0,
+        const unsigned int *index1, const TData *NEK_RESTRICT basis0,
+        const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT basis2,
+        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, [[maybe_unused]] TData *NEK_RESTRICT wsp,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter3D_v<TSizeParameter3D>,
                   "Template argument must be either of type "
