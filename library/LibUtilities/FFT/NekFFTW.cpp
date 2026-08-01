@@ -40,81 +40,145 @@
 
 namespace Nektar::LibUtilities
 {
-std::string NekFFTW::className =
-    GetNektarFFTFactory().RegisterCreatorFunction("NekFFTW", NekFFTW::create);
 
-NekFFTW::NekFFTW(int N) : NektarFFT(N)
+template <>
+std::string NekFFTWImpl<double>::className =
+    GetNektarFFTFactory().RegisterCreatorFunction("NekFFTW",
+                                                  NekFFTWImpl<double>::create);
+
+#ifdef NEKTAR_HAVE_FFTW_FLOAT
+template <>
+std::string NekFFTWImpl<float>::className =
+    GetNektarFFTFloatFactory().RegisterCreatorFunction(
+        "NekFFTW", NekFFTWImpl<float>::create);
+#endif
+
+template <typename TData>
+NekFFTWImpl<TData>::NekFFTWImpl(int N) : NektarFFT<TData>(N)
 {
-    m_wsp = Array<OneD, NekDouble>(m_N);
+    m_wsp = Array<OneD, TData>(this->m_N);
 
-    m_plan_forward =
-        fftw_plan_r2r_1d(m_N, nullptr, nullptr, FFTW_R2HC, FFTW_ESTIMATE);
-    m_plan_backward =
-        fftw_plan_r2r_1d(m_N, nullptr, nullptr, FFTW_HC2R, FFTW_ESTIMATE);
-
-    m_FFTW_w     = Array<OneD, NekDouble>(m_N);
-    m_FFTW_w_inv = Array<OneD, NekDouble>(m_N);
-
-    m_FFTW_w[0] = 1.0 / (NekDouble)m_N;
-    m_FFTW_w[1] = 0.0;
-
-    m_FFTW_w_inv[0] = 1.0;
-    m_FFTW_w_inv[1] = 0.0;
-
-    for (int i = 2; i < m_N; i++)
+    if constexpr (std::is_same_v<TData, double>)
     {
-        m_FFTW_w[i]     = m_FFTW_w[0] * 2;
-        m_FFTW_w_inv[i] = m_FFTW_w_inv[0] / 2;
+        m_plan_forward  = fftw_plan_r2r_1d(this->m_N, nullptr, nullptr,
+                                           FFTW_R2HC, FFTW_ESTIMATE);
+        m_plan_backward = fftw_plan_r2r_1d(this->m_N, nullptr, nullptr,
+                                           FFTW_HC2R, FFTW_ESTIMATE);
+    }
+    else
+    {
+        m_plan_forward  = fftwf_plan_r2r_1d(this->m_N, nullptr, nullptr,
+                                            FFTW_R2HC, FFTW_ESTIMATE);
+        m_plan_backward = fftwf_plan_r2r_1d(this->m_N, nullptr, nullptr,
+                                            FFTW_HC2R, FFTW_ESTIMATE);
+    }
+
+    m_FFTW_w     = Array<OneD, TData>(this->m_N);
+    m_FFTW_w_inv = Array<OneD, TData>(this->m_N);
+
+    m_FFTW_w[0] = TData(1) / static_cast<TData>(this->m_N);
+    m_FFTW_w[1] = TData(0);
+
+    m_FFTW_w_inv[0] = TData(1);
+    m_FFTW_w_inv[1] = TData(0);
+
+    for (int i = 2; i < this->m_N; i++)
+    {
+        m_FFTW_w[i]     = m_FFTW_w[0] * TData(2);
+        m_FFTW_w_inv[i] = m_FFTW_w_inv[0] / TData(2);
     }
 }
 
-// Destructor
-NekFFTW::~NekFFTW()
+template <typename TData> NekFFTWImpl<TData>::~NekFFTWImpl()
 {
-    fftw_destroy_plan((fftw_plan)m_plan_forward);
-    fftw_destroy_plan((fftw_plan)m_plan_backward);
+    if constexpr (std::is_same_v<TData, double>)
+    {
+        fftw_destroy_plan((fftw_plan)m_plan_forward);
+        fftw_destroy_plan((fftw_plan)m_plan_backward);
+    }
+    else
+    {
+        fftwf_destroy_plan((fftwf_plan)m_plan_forward);
+        fftwf_destroy_plan((fftwf_plan)m_plan_backward);
+    }
 }
 
-// Forward transformation
-void NekFFTW::v_FFTFwdTrans(Array<OneD, NekDouble> &inarray,
-                            Array<OneD, NekDouble> &outarray)
+template <typename TData>
+void NekFFTWImpl<TData>::v_FFTFwdTrans(TData *inarray, TData *outarray)
 {
-    // FFTW_R2HC
-    fftw_execute_r2r((fftw_plan)m_plan_forward, inarray.data(), m_wsp.data());
+    const int halfN = this->m_N / 2;
 
-    // Reshuffle
-    int halfN = m_N / 2;
+    if constexpr (std::is_same_v<TData, double>)
+    {
+        fftw_execute_r2r((fftw_plan)m_plan_forward, inarray, m_wsp.data());
+    }
+    else
+    {
+        fftwf_execute_r2r((fftwf_plan)m_plan_forward, inarray, m_wsp.data());
+    }
 
+    // Reshuffle from half-complex to Nektar++ coefficient layout.
     outarray[1] = m_FFTW_w[1] * m_wsp[halfN];
 
-    Vmath::Vmul(halfN, m_wsp, 1, m_FFTW_w, 2, outarray, 2);
+    if constexpr (std::is_same_v<TData, double>)
+    {
+        Vmath::Vmul(halfN, m_wsp.data(), 1, m_FFTW_w.data(), 2, outarray, 2);
+    }
+    else
+    {
+        for (int i = 0; i < halfN; ++i)
+        {
+            outarray[2 * i] = m_wsp[i] * m_FFTW_w[2 * i];
+        }
+    }
 
     for (int i = 0; i < halfN - 1; i++)
     {
-        outarray[(m_N - 1) - 2 * i] =
-            m_FFTW_w[(m_N - 1) - 2 * i] * m_wsp[halfN + 1 + i];
+        outarray[(this->m_N - 1) - 2 * i] =
+            m_FFTW_w[(this->m_N - 1) - 2 * i] * m_wsp[halfN + 1 + i];
     }
 }
 
-// Backward transformation
-void NekFFTW::v_FFTBwdTrans(Array<OneD, NekDouble> &inarray,
-                            Array<OneD, NekDouble> &outarray)
+template <typename TData>
+void NekFFTWImpl<TData>::v_FFTBwdTrans(TData *inarray, TData *outarray)
 {
-    // Reshuffle
-    int halfN = m_N / 2;
+    const int halfN = this->m_N / 2;
 
+    // Reshuffle from Nektar++ coefficient layout to half-complex.
     m_wsp[halfN] = m_FFTW_w_inv[1] * inarray[1];
 
-    Vmath::Vmul(halfN, inarray, 2, m_FFTW_w_inv, 2, m_wsp, 1);
+    if constexpr (std::is_same_v<TData, double>)
+    {
+        Vmath::Vmul(halfN, inarray, 2, m_FFTW_w_inv.data(), 2, m_wsp.data(), 1);
+    }
+    else
+    {
+        for (int i = 0; i < halfN; ++i)
+        {
+            m_wsp[i] = inarray[2 * i] * m_FFTW_w_inv[2 * i];
+        }
+    }
 
     for (int i = 0; i < (halfN - 1); i++)
     {
-        m_wsp[halfN + 1 + i] =
-            m_FFTW_w_inv[(m_N - 1) - 2 * i] * inarray[(m_N - 1) - 2 * i];
+        m_wsp[halfN + 1 + i] = m_FFTW_w_inv[(this->m_N - 1) - 2 * i] *
+                               inarray[(this->m_N - 1) - 2 * i];
     }
 
-    // FFTW_HC2R
-    fftw_execute_r2r((fftw_plan)m_plan_backward, m_wsp.data(), outarray.data());
+    if constexpr (std::is_same_v<TData, double>)
+    {
+        fftw_execute_r2r((fftw_plan)m_plan_backward, m_wsp.data(), outarray);
+    }
+    else
+    {
+        fftwf_execute_r2r((fftwf_plan)m_plan_backward, m_wsp.data(), outarray);
+    }
 }
+
+// Explicit instantiations.
+template class NekFFTWImpl<double>;
+#ifdef NEKTAR_HAVE_FFTW_FLOAT
+template class NekFFTWImpl<float>;
+#endif
 
 } // namespace Nektar::LibUtilities
