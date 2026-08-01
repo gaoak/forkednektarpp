@@ -10,6 +10,7 @@ v5.11.0
 - Add dual-precision (float/double) templating for NektarFFT and NekFFTW (!2632)
 - Replace Blas::Dscal and Blas::Daxpy call by VMath calls (!2630)
 - Update StdRegion for consistency with redesign (!2642)
+- Fix FFTW ThirdParty build for single precision (!2650)
 
 **Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)

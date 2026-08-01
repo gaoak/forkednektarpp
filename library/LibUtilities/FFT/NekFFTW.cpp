@@ -46,12 +46,10 @@ std::string NekFFTWImpl<double>::className =
     GetNektarFFTFactory().RegisterCreatorFunction("NekFFTW",
                                                   NekFFTWImpl<double>::create);
 
-#ifdef NEKTAR_HAVE_FFTW_FLOAT
 template <>
 std::string NekFFTWImpl<float>::className =
     GetNektarFFTFloatFactory().RegisterCreatorFunction(
         "NekFFTW", NekFFTWImpl<float>::create);
-#endif
 
 template <typename TData>
 NekFFTWImpl<TData>::NekFFTWImpl(int N) : NektarFFT<TData>(N)
@@ -177,8 +175,6 @@ void NekFFTWImpl<TData>::v_FFTBwdTrans(TData *inarray, TData *outarray)
 
 // Explicit instantiations.
 template class NekFFTWImpl<double>;
-#ifdef NEKTAR_HAVE_FFTW_FLOAT
 template class NekFFTWImpl<float>;
-#endif
 
 } // namespace Nektar::LibUtilities
