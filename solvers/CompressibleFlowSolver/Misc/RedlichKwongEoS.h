@@ -97,26 +97,32 @@ private:
     ~RedlichKwongEoS(void) override = default;
 
     // Alpha term of Redlich-Kwong EoS ( 1.0/sqrt(Tr))
-    template <class T, typename = typename std::enable_if<
-                           std::is_floating_point_v<T> ||
-                           tinysimd::is_vector_floating_point_v<T>>::type>
+    template <class T,
+              std::enable_if_t<std::is_floating_point_v<T> ||
+                                   tinysimd::is_vector_floating_point_v<T>,
+                               bool>
+                  Enable = true>
     inline T Alpha(const T &temp)
     {
         return 1.0 / sqrt(temp / m_Tc);
     }
 
     // Log term term of Peng-Robinson EoS
-    template <class T, typename = typename std::enable_if<
-                           std::is_floating_point_v<T> ||
-                           tinysimd::is_vector_floating_point_v<T>>::type>
+    template <class T,
+              std::enable_if_t<std::is_floating_point_v<T> ||
+                                   tinysimd::is_vector_floating_point_v<T>,
+                               bool>
+                  Enable = true>
     inline T LogTerm(const T &rho)
     {
         return log(1.0 + m_b * rho);
     }
 
-    template <class T, typename = typename std::enable_if<
-                           std::is_floating_point_v<T> ||
-                           tinysimd::is_vector_floating_point_v<T>>::type>
+    template <class T,
+              std::enable_if_t<std::is_floating_point_v<T> ||
+                                   tinysimd::is_vector_floating_point_v<T>,
+                               bool>
+                  Enable = true>
     inline T GetTemperatureKernel(const T &rho, const T &e)
     {
         // First we need to evaluate the log term
@@ -157,9 +163,11 @@ private:
         return sqrtT * sqrtT;
     }
 
-    template <class T, typename = typename std::enable_if<
-                           std::is_floating_point_v<T> ||
-                           tinysimd::is_vector_floating_point_v<T>>::type>
+    template <class T,
+              std::enable_if_t<std::is_floating_point_v<T> ||
+                                   tinysimd::is_vector_floating_point_v<T>,
+                               bool>
+                  Enable = true>
     inline T GetPressureKernel(const T &rho, const T &e)
     {
         T temp    = GetTemperatureKernel(rho, e);
