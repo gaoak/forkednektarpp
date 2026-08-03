@@ -22,14 +22,17 @@ IF (NEKTAR_USE_FFTW)
 
     # Set some common FFTW search paths for the library.
     SET(FFTW_SEARCH_PATHS $ENV{LD_LIBRARY_PATH} $ENV{FFTW_HOME}/lib)
-    FIND_LIBRARY(FFTW_LIBRARY NAMES fftw3 fftw3f PATHS ${FFTW_SEARCH_PATHS})
+    # Double precision
+    FIND_LIBRARY(FFTW_LIBRARY NAMES fftw3 PATHS ${FFTW_SEARCH_PATHS})
+    # Single precision
+    FIND_LIBRARY(FFTWF_LIBRARY NAMES fftw3f PATHS ${FFTW_SEARCH_PATHS})
 
-    FIND_PATH(FFTW_INCLUDE_DIR NAMES fftw3.h CACHE FILEPATH 
+    FIND_PATH(FFTW_INCLUDE_DIR NAMES fftw3.h CACHE FILEPATH
         "FFTW include directory.")
 
     SET(CMAKE_FIND_LIBRARY_SUFFIXES ${ORIG_SUFFIXES})
 
-    IF (FFTW_LIBRARY AND FFTW_INCLUDE_DIR)
+    IF (FFTW_LIBRARY AND FFTWF_LIBRARY AND FFTW_INCLUDE_DIR)
         SET(BUILD_FFTW OFF)
     ELSE()
         SET(BUILD_FFTW ON)
@@ -42,6 +45,7 @@ IF (NEKTAR_USE_FFTW)
     IF (THIRDPARTY_BUILD_FFTW)
         INCLUDE(ExternalProject)
         THIRDPARTY_LIBRARY(FFTW_LIBRARY STATIC fftw3 DESCRIPTION "FFTW library")
+        THIRDPARTY_LIBRARY(FFTWF_LIBRARY STATIC fftw3f DESCRIPTION "FFTWF library")
 
         IF(APPLE)
             UNSET(PATCH CACHE)
@@ -76,6 +80,7 @@ IF (NEKTAR_USE_FFTW)
             SET(FFTW_CONFIG "CFLAGS=-w" "CPPFLAGS=-w")
         ENDIF()
         MARK_AS_ADVANCED(PATCH)
+        # Double precision
         EXTERNALPROJECT_ADD(
             fftw-3.2.2
             URL ${TPURL}/fftw-3.2.2.tar.gz
@@ -99,19 +104,48 @@ IF (NEKTAR_USE_FFTW)
                 --enable-shared
                 --disable-dependency-tracking
         )
+        # Single precision
+        EXTERNALPROJECT_ADD(
+            fftwf-3.2.2
+            URL ${TPURL}/fftw-3.2.2.tar.gz
+            URL_MD5 "b616e5c91218cc778b5aa735fefb61ae"
+            STAMP_DIR ${TPBUILD}/stamp
+            DOWNLOAD_DIR ${TPSRC}
+            SOURCE_DIR ${TPSRC}/fftwf-3.2.2
+            BINARY_DIR ${TPBUILD}/fftwf-3.2.2
+            TMP_DIR ${TPBUILD}/fftwf-3.2.2-tmp
+            INSTALL_DIR ${TPDIST}
+            BUILD_BYPRODUCTS ${FFTWF_LIBRARY}
+	    PATCH_COMMAND ${FFTW_PATCH_COMMAND}
+            CONFIGURE_COMMAND
+                CC=${CMAKE_C_COMPILER}
+                ${TPSRC}/fftwf-3.2.2/configure
+                ${FFTW_CONFIG}
+                --prefix=${TPDIST}
+                --libdir=${TPDIST}/lib
+                --quiet
+                --enable-static
+                --enable-shared
+                --enable-float
+                --disable-dependency-tracking
+        )
 
         SET(FFTW_INCLUDE_DIR ${TPDIST}/include CACHE FILEPATH
             "FFTW include" FORCE)
 
         MESSAGE(STATUS "Build FFTW: ${TPDIST}/lib/${FFTW_LIBRARY}")
+        MESSAGE(STATUS "Build FFTWF: ${TPDIST}/lib/${FFTWF_LIBRARY}")
         SET(FFTW_CONFIG_INCLUDE_DIR ${TPINC})
     ELSE ()
         ADD_CUSTOM_TARGET(fftw-3.2.2 ALL)
+        ADD_CUSTOM_TARGET(fftwf-3.2.2 ALL)
         MESSAGE(STATUS "Found FFTW: ${FFTW_LIBRARY}")
+        MESSAGE(STATUS "Found FFTWF: ${FFTWF_LIBRARY}")
         SET(FFTW_CONFIG_INCLUDE_DIR ${FFTW_INCLUDE_DIR})
     ENDIF()
 
     ADD_DEPENDENCIES(thirdparty fftw-3.2.2)
+    ADD_DEPENDENCIES(thirdparty fftwf-3.2.2)
 
     # Test if FFTW path is a system path. Only add to include path if not an
     # implicitly defined CXX include path (due to GCC 6.x now providing its own
@@ -125,5 +159,6 @@ IF (NEKTAR_USE_FFTW)
     ENDIF()
 
     MARK_AS_ADVANCED(FFTW_LIBRARY)
+    MARK_AS_ADVANCED(FFTWF_LIBRARY)
     MARK_AS_ADVANCED(FFTW_INCLUDE_DIR)
 ENDIF( NEKTAR_USE_FFTW )
