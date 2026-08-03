@@ -83,8 +83,8 @@ public:
         return cast_impl(arr, policy, parent);
     }
 
-    template <typename U                                      = T,
-              std::enable_if_t<std::is_arithmetic_v<U>, bool> = true>
+    template <typename U                                             = T,
+              std::enable_if_t<std::is_arithmetic_v<U>, bool> Enable = true>
     bool load_impl(handle src, bool)
     {
         if (!array_t<U>::check_(src))
@@ -131,8 +131,8 @@ public:
         obj.dec_ref();
     }
 
-    template <typename U                                      = T,
-              std::enable_if_t<std::is_arithmetic_v<U>, bool> = true>
+    template <typename U                                             = T,
+              std::enable_if_t<std::is_arithmetic_v<U>, bool> Enable = true>
     static handle cast_impl(Nektar::Array<Nektar::OneD, T> const &arr,
                             return_value_policy, handle)
     {
@@ -160,7 +160,8 @@ public:
               std::enable_if_t<
                   is_shared_ptr<typename std::remove_const<U>::type>::value ||
                       is_nekarray_oned<U>::value,
-                  bool> = true>
+                  bool>
+                  Enable = true>
     bool load_impl(handle src, bool)
     {
         if (!py::isinstance<py::list>(src))
@@ -197,7 +198,8 @@ public:
               std::enable_if_t<
                   is_shared_ptr<typename std::remove_const<U>::type>::value ||
                       is_nekarray_oned<U>::value,
-                  bool> = true>
+                  bool>
+                  Enable = true>
     static handle cast_impl(Nektar::Array<Nektar::OneD, U> const &arr,
                             return_value_policy, handle)
     {

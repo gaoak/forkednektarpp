@@ -190,16 +190,17 @@ template <typename T> struct avx512Int16
     }
 
     template <class flag,
-              typename std::enable_if<is_requiring_alignment_v<flag> &&
-                                          !is_streaming_v<flag>,
-                                      bool>::type = 0>
+              std::enable_if_t<
+                  is_requiring_alignment_v<flag> && !is_streaming_v<flag>, bool>
+                  Enable = true>
     inline void store(scalarType *p, flag) const
     {
         _mm512_store_epi32(p, _data);
     }
 
-    template <class flag, typename std::enable_if<
-                              !is_requiring_alignment_v<flag>, bool>::type = 0>
+    template <
+        class flag,
+        std::enable_if_t<!is_requiring_alignment_v<flag>, bool> Enable = true>
     inline void store(scalarType *p, flag) const
     {
         _mm512_storeu_epi32(p, _data);
@@ -211,16 +212,17 @@ template <typename T> struct avx512Int16
     }
 
     template <class flag,
-              typename std::enable_if<is_requiring_alignment_v<flag> &&
-                                          !is_streaming_v<flag>,
-                                      bool>::type = 0>
+              std::enable_if_t<
+                  is_requiring_alignment_v<flag> && !is_streaming_v<flag>, bool>
+                  Enable = true>
     inline void load(const scalarType *p, flag)
     {
         _data = _mm512_load_epi32(p);
     }
 
-    template <class flag, typename std::enable_if<
-                              !is_requiring_alignment_v<flag>, bool>::type = 0>
+    template <
+        class flag,
+        std::enable_if_t<!is_requiring_alignment_v<flag>, bool> Enable = true>
     inline void load(const scalarType *p, flag)
     {
         // even though the intel intrisic manual lists
@@ -260,7 +262,7 @@ inline avx512Int16<T> operator+(avx512Int16<T> lhs, avx512Int16<T> rhs)
 }
 
 template <typename T, typename U,
-          typename = typename std::enable_if<std::is_arithmetic_v<U>>::type>
+          std::enable_if_t<std::is_arithmetic_v<U>, bool> Enable = true>
 inline avx512Int16<T> operator+(avx512Int16<T> lhs, U rhs)
 {
     return _mm512_add_epi32(lhs._data, _mm512_set1_epi32(rhs));
@@ -308,16 +310,17 @@ template <typename T> struct avx512Long8
     }
 
     template <class flag,
-              typename std::enable_if<is_requiring_alignment_v<flag> &&
-                                          !is_streaming_v<flag>,
-                                      bool>::type = 0>
+              std::enable_if_t<
+                  is_requiring_alignment_v<flag> && !is_streaming_v<flag>, bool>
+                  Enable = true>
     inline void store(scalarType *p, flag) const
     {
         _mm512_store_epi64(p, _data);
     }
 
-    template <class flag, typename std::enable_if<
-                              !is_requiring_alignment_v<flag>, bool>::type = 0>
+    template <
+        class flag,
+        std::enable_if_t<!is_requiring_alignment_v<flag>, bool> Enable = true>
     inline void store(scalarType *p, flag) const
     {
         _mm512_storeu_epi64(p, _data);
@@ -329,16 +332,17 @@ template <typename T> struct avx512Long8
     }
 
     template <class flag,
-              typename std::enable_if<is_requiring_alignment_v<flag> &&
-                                          !is_streaming_v<flag>,
-                                      bool>::type = 0>
+              std::enable_if_t<
+                  is_requiring_alignment_v<flag> && !is_streaming_v<flag>, bool>
+                  Enable = true>
     inline void load(const scalarType *p, flag)
     {
         _data = _mm512_load_epi64(p);
     }
 
-    template <class flag, typename std::enable_if<
-                              !is_requiring_alignment_v<flag>, bool>::type = 0>
+    template <
+        class flag,
+        std::enable_if_t<!is_requiring_alignment_v<flag>, bool> Enable = true>
     inline void load(const scalarType *p, flag)
     {
         // even though the intel intrisic manual lists
@@ -378,7 +382,7 @@ inline avx512Long8<T> operator+(avx512Long8<T> lhs, avx512Long8<T> rhs)
 }
 
 template <typename T, typename U,
-          typename = typename std::enable_if<std::is_arithmetic_v<U>>::type>
+          std::enable_if_t<std::is_arithmetic_v<U>, bool> Enable = true>
 inline avx512Long8<T> operator+(avx512Long8<T> lhs, U rhs)
 {
     return _mm512_add_epi64(lhs._data, _mm512_set1_epi64(rhs));
@@ -420,23 +424,24 @@ struct avx512Double8
     }
 
     template <class flag,
-              typename std::enable_if<is_requiring_alignment_v<flag> &&
-                                          !is_streaming_v<flag>,
-                                      bool>::type = 0>
+              std::enable_if_t<
+                  is_requiring_alignment_v<flag> && !is_streaming_v<flag>, bool>
+                  Enable = true>
     inline void store(scalarType *p, flag) const
     {
         _mm512_store_pd(p, _data);
     }
 
-    template <class flag, typename std::enable_if<
-                              !is_requiring_alignment_v<flag>, bool>::type = 0>
+    template <
+        class flag,
+        std::enable_if_t<!is_requiring_alignment_v<flag>, bool> Enable = true>
     inline void store(scalarType *p, flag) const
     {
         _mm512_storeu_pd(p, _data);
     }
 
     template <class flag,
-              typename std::enable_if<is_streaming_v<flag>, bool>::type = 0>
+              std::enable_if_t<is_streaming_v<flag>, bool> Enable = true>
     inline void store(scalarType *p, flag) const
     {
         _mm512_stream_pd(p, _data);
@@ -448,15 +453,16 @@ struct avx512Double8
         _data = _mm512_load_pd(p);
     }
 
-    template <class flag, typename std::enable_if<
-                              is_requiring_alignment_v<flag>, bool>::type = 0>
+    template <class flag, std::enable_if_t<is_requiring_alignment_v<flag>, bool>
+                              Enable = true>
     inline void load(const scalarType *p, flag)
     {
         _data = _mm512_load_pd(p);
     }
 
-    template <class flag, typename std::enable_if<
-                              !is_requiring_alignment_v<flag>, bool>::type = 0>
+    template <
+        class flag,
+        std::enable_if_t<!is_requiring_alignment_v<flag>, bool> Enable = true>
     inline void load(const scalarType *p, flag)
     {
         _data = _mm512_loadu_pd(p);
@@ -817,23 +823,24 @@ struct avx512Float16
     }
 
     template <class flag,
-              typename std::enable_if<is_requiring_alignment_v<flag> &&
-                                          !is_streaming_v<flag>,
-                                      bool>::type = 0>
+              std::enable_if_t<
+                  is_requiring_alignment_v<flag> && !is_streaming_v<flag>, bool>
+                  Enable = true>
     inline void store(scalarType *p, flag) const
     {
         _mm512_store_ps(p, _data);
     }
 
-    template <class flag, typename std::enable_if<
-                              !is_requiring_alignment_v<flag>, bool>::type = 0>
+    template <
+        class flag,
+        std::enable_if_t<!is_requiring_alignment_v<flag>, bool> Enable = true>
     inline void store(scalarType *p, flag) const
     {
         _mm512_storeu_ps(p, _data);
     }
 
     template <class flag,
-              typename std::enable_if<is_streaming_v<flag>, bool>::type = 0>
+              std::enable_if_t<is_streaming_v<flag>, bool> Enable = true>
     inline void store(scalarType *p, flag) const
     {
         _mm512_stream_ps(p, _data);
@@ -845,15 +852,16 @@ struct avx512Float16
         _data = _mm512_load_ps(p);
     }
 
-    template <class flag, typename std::enable_if<
-                              is_requiring_alignment_v<flag>, bool>::type = 0>
+    template <class flag, std::enable_if_t<is_requiring_alignment_v<flag>, bool>
+                              Enable = true>
     inline void load(const scalarType *p, flag)
     {
         _data = _mm512_load_ps(p);
     }
 
-    template <class flag, typename std::enable_if<
-                              !is_requiring_alignment_v<flag>, bool>::type = 0>
+    template <
+        class flag,
+        std::enable_if_t<!is_requiring_alignment_v<flag>, bool> Enable = true>
     inline void load(const scalarType *p, flag)
     {
         _data = _mm512_loadu_ps(p);

@@ -225,7 +225,7 @@ template <typename SimdType, unsigned int Width> struct long_simd
     }
 
     template <class flag,
-              typename std::enable_if<is_load_tag_v<flag>, bool>::type = 0>
+              std::enable_if_t<is_load_tag_v<flag>, bool> Enable = true>
     inline void store(scalarType *p, flag f) const
     {
         TINYSIMD_PRAGMA_UNROLL
@@ -245,7 +245,7 @@ template <typename SimdType, unsigned int Width> struct long_simd
     }
 
     template <class flag,
-              typename std::enable_if<is_load_tag_v<flag>, bool>::type = 0>
+              std::enable_if_t<is_load_tag_v<flag>, bool> Enable = true>
     inline void load(const scalarType *p, flag f)
     {
         TINYSIMD_PRAGMA_UNROLL
@@ -314,23 +314,23 @@ template <typename SimdType, unsigned int Width> struct long_simd
     }
 
     template <typename U,
-              typename std::enable_if<std::is_arithmetic_v<U>, bool>::type = 0>
+              std::enable_if_t<std::is_arithmetic_v<U>, bool> Enable = true>
     inline void fma(const long_simd &a, U b)
     {
         fma(a, chunkType(static_cast<scalarType>(b)));
     }
 
     template <typename U,
-              typename std::enable_if<std::is_arithmetic_v<U>, bool>::type = 0>
+              std::enable_if_t<std::is_arithmetic_v<U>, bool> Enable = true>
     inline void fma(U a, const long_simd &b)
     {
         fma(chunkType(static_cast<scalarType>(a)), b);
     }
 
-    template <
-        typename U, typename V,
-        typename std::enable_if<
-            std::is_arithmetic_v<U> && std::is_arithmetic_v<V>, bool>::type = 0>
+    template <typename U, typename V,
+              std::enable_if_t<
+                  std::is_arithmetic_v<U> && std::is_arithmetic_v<V>, bool>
+                  Enable = true>
     inline void fma(U a, V b)
     {
         fma(chunkType(static_cast<scalarType>(a)),
@@ -369,7 +369,7 @@ template <typename SimdType, unsigned int Width> struct long_simd
     }
 
     template <typename U,
-              typename std::enable_if<std::is_arithmetic_v<U>, bool>::type = 0>
+              std::enable_if_t<std::is_arithmetic_v<U>, bool> Enable = true>
     inline void operator+=(U rhs)
     {
         *this += chunkType(static_cast<scalarType>(rhs));
@@ -394,7 +394,7 @@ template <typename SimdType, unsigned int Width> struct long_simd
     }
 
     template <typename U,
-              typename std::enable_if<std::is_arithmetic_v<U>, bool>::type = 0>
+              std::enable_if_t<std::is_arithmetic_v<U>, bool> Enable = true>
     inline void operator-=(U rhs)
     {
         *this -= chunkType(static_cast<scalarType>(rhs));
@@ -419,7 +419,7 @@ template <typename SimdType, unsigned int Width> struct long_simd
     }
 
     template <typename U,
-              typename std::enable_if<std::is_arithmetic_v<U>, bool>::type = 0>
+              std::enable_if_t<std::is_arithmetic_v<U>, bool> Enable = true>
     inline void operator*=(U rhs)
     {
         *this *= chunkType(static_cast<scalarType>(rhs));
@@ -444,7 +444,7 @@ template <typename SimdType, unsigned int Width> struct long_simd
     }
 
     template <typename U,
-              typename std::enable_if<std::is_arithmetic_v<U>, bool>::type = 0>
+              std::enable_if_t<std::is_arithmetic_v<U>, bool> Enable = true>
     inline void operator/=(U rhs)
     {
         *this /= chunkType(static_cast<scalarType>(rhs));
@@ -520,7 +520,7 @@ inline details::long_simd<SimdType, Width> operator+(
 }
 
 template <typename SimdType, unsigned int Width, typename U,
-          typename std::enable_if<std::is_arithmetic_v<U>, bool>::type = 0>
+          std::enable_if_t<std::is_arithmetic_v<U>, bool> Enable = true>
 inline details::long_simd<SimdType, Width> operator+(
     details::long_simd<SimdType, Width> lhs, U rhs)
 {
@@ -529,7 +529,7 @@ inline details::long_simd<SimdType, Width> operator+(
 }
 
 template <typename SimdType, unsigned int Width, typename U,
-          typename std::enable_if<std::is_arithmetic_v<U>, bool>::type = 0>
+          std::enable_if_t<std::is_arithmetic_v<U>, bool> Enable = true>
 inline details::long_simd<SimdType, Width> operator+(
     U lhs, details::long_simd<SimdType, Width> rhs)
 {
@@ -571,7 +571,7 @@ inline details::long_simd<SimdType, Width> operator-(
 }
 
 template <typename SimdType, unsigned int Width, typename U,
-          typename std::enable_if<std::is_arithmetic_v<U>, bool>::type = 0>
+          std::enable_if_t<std::is_arithmetic_v<U>, bool> Enable = true>
 inline details::long_simd<SimdType, Width> operator-(
     details::long_simd<SimdType, Width> lhs, U rhs)
 {
@@ -580,7 +580,7 @@ inline details::long_simd<SimdType, Width> operator-(
 }
 
 template <typename SimdType, unsigned int Width, typename U,
-          typename std::enable_if<std::is_arithmetic_v<U>, bool>::type = 0>
+          std::enable_if_t<std::is_arithmetic_v<U>, bool> Enable = true>
 inline details::long_simd<SimdType, Width> operator-(
     U lhs, details::long_simd<SimdType, Width> rhs)
 {
@@ -630,7 +630,7 @@ inline details::long_simd<SimdType, Width> operator*(
 }
 
 template <typename SimdType, unsigned int Width, typename U,
-          typename std::enable_if<std::is_arithmetic_v<U>, bool>::type = 0>
+          std::enable_if_t<std::is_arithmetic_v<U>, bool> Enable = true>
 inline details::long_simd<SimdType, Width> operator*(
     details::long_simd<SimdType, Width> lhs, U rhs)
 {
@@ -639,7 +639,7 @@ inline details::long_simd<SimdType, Width> operator*(
 }
 
 template <typename SimdType, unsigned int Width, typename U,
-          typename std::enable_if<std::is_arithmetic_v<U>, bool>::type = 0>
+          std::enable_if_t<std::is_arithmetic_v<U>, bool> Enable = true>
 inline details::long_simd<SimdType, Width> operator*(
     U lhs, details::long_simd<SimdType, Width> rhs)
 {
@@ -681,7 +681,7 @@ inline details::long_simd<SimdType, Width> operator/(
 }
 
 template <typename SimdType, unsigned int Width, typename U,
-          typename std::enable_if<std::is_arithmetic_v<U>, bool>::type = 0>
+          std::enable_if_t<std::is_arithmetic_v<U>, bool> Enable = true>
 inline details::long_simd<SimdType, Width> operator/(
     details::long_simd<SimdType, Width> lhs, U rhs)
 {
@@ -690,7 +690,7 @@ inline details::long_simd<SimdType, Width> operator/(
 }
 
 template <typename SimdType, unsigned int Width, typename U,
-          typename std::enable_if<std::is_arithmetic_v<U>, bool>::type = 0>
+          std::enable_if_t<std::is_arithmetic_v<U>, bool> Enable = true>
 inline details::long_simd<SimdType, Width> operator/(
     U lhs, details::long_simd<SimdType, Width> rhs)
 {

@@ -15,6 +15,7 @@ v5.11.0
 - Move using namespace std to avoid name clashes (!2618)
 - Fix various memory leaks (!2626)
 - Fix some partial override of overloaded function (!2643)
+- Use std::enable_if_t<...> instead of std::enable_if<...>::type (!2645)
 
 v5.10.0
 -------

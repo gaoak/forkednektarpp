@@ -143,9 +143,9 @@ void NekMultiplyFullMatrixFullMatrix(
     NekMatrix<LhsDataType, StandardMatrixTag> &result,
     const NekMatrix<LhsDataType, LhsMatrixType> &lhs,
     const NekMatrix<RhsDataType, RhsMatrixType> &rhs,
-    [[maybe_unused]] typename std::enable_if<
+    [[maybe_unused]] std::enable_if_t<
         CanGetRawPtr<NekMatrix<LhsDataType, LhsMatrixType>>::value &&
-        CanGetRawPtr<NekMatrix<RhsDataType, RhsMatrixType>>::value>::type *p =
+        CanGetRawPtr<NekMatrix<RhsDataType, RhsMatrixType>>::value> *p =
         nullptr)
 {
     ASSERTL1(lhs.GetType() == eFULL && rhs.GetType() == eFULL,
@@ -182,11 +182,11 @@ template <typename RhsInnerType, typename RhsMatrixType>
 void MultiplyEqual(
     NekMatrix<RhsInnerType, StandardMatrixTag> &result,
     const NekMatrix<RhsInnerType, RhsMatrixType> &rhs,
-    [[maybe_unused]] typename std::enable_if<
-        std::is_same<RawType_t<typename NekMatrix<RhsInnerType,
-                                                  RhsMatrixType>::NumberType>,
-                     RhsInnerType>::value &&
-        CanGetRawPtr<NekMatrix<RhsInnerType, RhsMatrixType>>::value>::type *t =
+    [[maybe_unused]] std::enable_if_t<
+        std::is_same_v<RawType_t<typename NekMatrix<RhsInnerType,
+                                                    RhsMatrixType>::NumberType>,
+                       RhsInnerType> &&
+        CanGetRawPtr<NekMatrix<RhsInnerType, RhsMatrixType>>::value> *t =
         nullptr)
 {
     ASSERTL0(result.GetType() == eFULL && rhs.GetType() == eFULL,
@@ -219,12 +219,11 @@ template <typename DataType, typename RhsInnerType, typename RhsMatrixType>
 void MultiplyEqual(
     NekMatrix<DataType, StandardMatrixTag> &result,
     const NekMatrix<RhsInnerType, RhsMatrixType> &rhs,
-    [[maybe_unused]] typename std::enable_if<
-        !std::is_same<RawType_t<typename NekMatrix<RhsInnerType,
-                                                   RhsMatrixType>::NumberType>,
-                      DataType>::value ||
-        !CanGetRawPtr<NekMatrix<RhsInnerType, RhsMatrixType>>::value>::type *t =
-        0)
+    [[maybe_unused]] std::enable_if_t<
+        !std::is_same_v<RawType_t<typename NekMatrix<
+                            RhsInnerType, RhsMatrixType>::NumberType>,
+                        DataType> ||
+        !CanGetRawPtr<NekMatrix<RhsInnerType, RhsMatrixType>>::value> *t = 0)
 {
     ASSERTL1(result.GetColumns() == rhs.GetRows(),
              std::string("A left side matrix with column count ") +
