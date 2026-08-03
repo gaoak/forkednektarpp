@@ -199,7 +199,7 @@ template <typename T> struct sveInt32
     // sve has no requirements on alignment
     // nevertheless we should accept valid tags for compatibility
     template <typename TAG,
-              typename std::enable_if<is_load_tag_v<TAG>, bool>::type = 0>
+              std::enable_if_t<is_load_tag_v<TAG>, bool> Enable = true>
     inline void store(scalarType *p, TAG) const
     {
         svst1(svptrue_b32(), p, _data);
@@ -214,7 +214,7 @@ template <typename T> struct sveInt32
     // sve has no requirements on alignment
     // nevertheless we should accept valid tags for compatibility
     template <typename TAG,
-              typename std::enable_if<is_load_tag_v<TAG>, bool>::type = 0>
+              std::enable_if_t<is_load_tag_v<TAG>, bool> Enable = true>
     inline void load(const scalarType *p, TAG)
     {
         _data = svld1(svptrue_b32(), p);
@@ -363,7 +363,7 @@ template <typename T> struct sveInt64
     // sve has no requirements on alignment
     // nevertheless we should accept valid tags for compatibility
     template <typename TAG,
-              typename std::enable_if<is_load_tag_v<TAG>, bool>::type = 0>
+              std::enable_if_t<is_load_tag_v<TAG>, bool> Enable = true>
     inline void store(scalarType *p, TAG) const
     {
         svst1(svptrue_b64(), p, _data);
@@ -378,45 +378,48 @@ template <typename T> struct sveInt64
     // sve has no requirements on alignment
     // nevertheless we should accept valid tags for compatibility
     template <typename TAG,
-              typename std::enable_if<is_load_tag_v<TAG>, bool>::type = 0>
+              std::enable_if_t<is_load_tag_v<TAG>, bool> Enable = true>
     inline void load(const scalarType *p, TAG)
     {
         _data = svld1(svptrue_b64(), p);
     }
 
     // load packed from 32 bit
-    template <typename I32,
-              typename std::enable_if<std::is_integral_v<I32> &&
-                                          std::is_signed_v<scalarType> &&
-                                          sizeof(I32) == 4,
-                                      bool>::type = 0>
+    template <typename I32, std::enable_if_t<std::is_integral_v<I32> &&
+                                                 std::is_signed_v<scalarType> &&
+                                                 sizeof(I32) == 4,
+                                             bool>
+                                Enable = true>
     inline void load(const I32 *p)
     {
         _data = svld1sw_s64(svptrue_b64(), p);
     }
-    template <typename I32,
-              typename std::enable_if<std::is_integral_v<I32> &&
-                                          !std::is_signed_v<scalarType> &&
-                                          sizeof(I32) == 4,
-                                      bool>::type = 0>
+    template <
+        typename I32,
+        std::enable_if_t<std::is_integral_v<I32> &&
+                             !std::is_signed_v<scalarType> && sizeof(I32) == 4,
+                         bool>
+            Enable = true>
     inline void load(const I32 *p)
     {
         _data = svld1uw_s64(svptrue_b64(), p);
     }
-    template <typename I32, typename TAG,
-              typename std::enable_if<
-                  is_load_tag_v<TAG> && std::is_integral_v<I32> &&
-                      std::is_signed_v<scalarType> && sizeof(I32) == 4,
-                  bool>::type = 0>
+    template <
+        typename I32, typename TAG,
+        std::enable_if_t<is_load_tag_v<TAG> && std::is_integral_v<I32> &&
+                             std::is_signed_v<scalarType> && sizeof(I32) == 4,
+                         bool>
+            Enable = true>
     inline void load(const I32 *p, TAG)
     {
         _data = svld1sw_s64(svptrue_b64(), p);
     }
-    template <typename I32, typename TAG,
-              typename std::enable_if<
-                  is_load_tag_v<TAG> && std::is_integral_v<I32> &&
-                      !std::is_signed_v<scalarType> && sizeof(I32) == 4,
-                  bool>::type = 0>
+    template <
+        typename I32, typename TAG,
+        std::enable_if_t<is_load_tag_v<TAG> && std::is_integral_v<I32> &&
+                             !std::is_signed_v<scalarType> && sizeof(I32) == 4,
+                         bool>
+            Enable = true>
     inline void load(const I32 *p, TAG)
     {
         _data = svld1uw_s64(svptrue_b64(), p);
@@ -600,7 +603,7 @@ struct sveFloat32
     // sve has no requirements on alignment
     // nevertheless we should accept valid tags for compatibility
     template <typename T,
-              typename std::enable_if<is_load_tag_v<T>, bool>::type = 0>
+              std::enable_if_t<is_load_tag_v<T>, bool> Enable = true>
     inline void store(scalarType *p, T) const
     {
         svst1_f32(svptrue_b32(), p, _data);
@@ -615,7 +618,7 @@ struct sveFloat32
     // sve has no requirements on alignment
     // nevertheless we should accept valid tags for compatibility
     template <typename T,
-              typename std::enable_if<is_load_tag_v<T>, bool>::type = 0>
+              std::enable_if_t<is_load_tag_v<T>, bool> Enable = true>
     inline void load(const scalarType *p, T)
     {
         _data = svld1_f32(svptrue_b32(), p);
@@ -924,7 +927,7 @@ struct sveFloat64
     // sve has no requirements on alignment
     // nevertheless we should accept valid tags for compatibility
     template <typename T,
-              typename std::enable_if<is_load_tag_v<T>, bool>::type = 0>
+              std::enable_if_t<is_load_tag_v<T>, bool> Enable = true>
     inline void store(scalarType *p, T) const
     {
         svst1_f64(svptrue_b64(), p, _data);
@@ -939,7 +942,7 @@ struct sveFloat64
     // sve has no requirements on alignment
     // nevertheless we should accept valid tags for compatibility
     template <typename T,
-              typename std::enable_if<is_load_tag_v<T>, bool>::type = 0>
+              std::enable_if_t<is_load_tag_v<T>, bool> Enable = true>
     inline void load(const scalarType *p, T)
     {
         _data = svld1_f64(svptrue_b64(), p);

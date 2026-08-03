@@ -90,19 +90,19 @@ template <class StdExp, int dim> class XmapFactory
         }
     };
 
-    template <int d, typename std::enable_if<d == 1, int>::type = 0>
+    template <int d, std::enable_if_t<d == 1, bool> Enable = true>
     std::shared_ptr<StdExp> CreateStdExp(const key_t &args)
     {
         return std::make_shared<StdExp>(args[0]);
     }
 
-    template <int d, typename std::enable_if<d == 2, int>::type = 0>
+    template <int d, std::enable_if_t<d == 2, bool> Enable = true>
     std::shared_ptr<StdExp> CreateStdExp(const key_t &args)
     {
         return std::make_shared<StdExp>(args[0], args[1]);
     }
 
-    template <int d, typename std::enable_if<d == 3, int>::type = 0>
+    template <int d, std::enable_if_t<d == 3, bool> Enable = true>
     std::shared_ptr<StdExp> CreateStdExp(const key_t &args)
     {
         return std::make_shared<StdExp>(args[0], args[1], args[2]);

@@ -221,9 +221,10 @@ typedef LibUtilities::NekFactory<std::string, RiemannSolver,
     RiemannSolverFactory;
 SOLVER_UTILS_EXPORT RiemannSolverFactory &GetRiemannSolverFactory();
 
-template <class T, typename = typename std::enable_if<
-                       std::is_floating_point_v<T> ||
-                       tinysimd::is_vector_floating_point_v<T>>::type>
+template <class T, std::enable_if_t<std::is_floating_point_v<T> ||
+                                        tinysimd::is_vector_floating_point_v<T>,
+                                    bool>
+                       Enable = true>
 inline void rotateToNormalKernel(T *in, T *rotMat, T *out)
 {
 
@@ -235,9 +236,10 @@ inline void rotateToNormalKernel(T *in, T *rotMat, T *out)
     out[2] = in[0] * rotMat[6] + in[1] * rotMat[7] + in[2] * rotMat[8];
 }
 
-template <class T, typename = typename std::enable_if<
-                       std::is_floating_point_v<T> ||
-                       tinysimd::is_vector_floating_point_v<T>>::type>
+template <class T, std::enable_if_t<std::is_floating_point_v<T> ||
+                                        tinysimd::is_vector_floating_point_v<T>,
+                                    bool>
+                       Enable = true>
 inline void rotateFromNormalKernel(T *in, T *rotMat, T *out)
 {
 

@@ -44,7 +44,7 @@ namespace tinysimd
 {
 
 template <class T,
-          typename = typename std::enable_if<tinysimd::is_vector_v<T>>::type>
+          std::enable_if_t<tinysimd::is_vector_v<T>, bool> Enable = true>
 std::ostream &operator<<(std::ostream &os, const T &avec)
 {
     // Note the type cast to 'unsigned int' is only necessary to

@@ -224,28 +224,28 @@ std::pair<size_t, size_t> SplitWork(size_t vecsize, int rank, int nprocs)
  * @tparam T  Geometry type (e.g. PointGeom, SegGeom, TriGeom, HexGeom).
  * @return The fixed number of data columns for that geometry type.
  */
-template <class T, typename std::enable_if<T::kDim == 0, int>::type = 0>
+template <class T, std::enable_if_t<T::kDim == 0, bool> Enable = true>
 inline int GetGeomDataDim([[maybe_unused]] GeomMapView<T> &geomMap)
 {
     return 3;
 }
 
 /// @copydoc GetGeomDataDim
-template <class T, typename std::enable_if<T::kDim == 1, int>::type = 0>
+template <class T, std::enable_if_t<T::kDim == 1, bool> Enable = true>
 inline int GetGeomDataDim([[maybe_unused]] GeomMapView<T> &geomMap)
 {
     return T::kNverts;
 }
 
 /// @copydoc GetGeomDataDim
-template <class T, typename std::enable_if<T::kDim == 2, int>::type = 0>
+template <class T, std::enable_if_t<T::kDim == 2, bool> Enable = true>
 inline int GetGeomDataDim([[maybe_unused]] GeomMapView<T> &geomMap)
 {
     return T::kNedges;
 }
 
 /// @copydoc GetGeomDataDim
-template <class T, typename std::enable_if<T::kDim == 3, int>::type = 0>
+template <class T, std::enable_if_t<T::kDim == 3, bool> Enable = true>
 inline int GetGeomDataDim([[maybe_unused]] GeomMapView<T> &geomMap)
 {
     return T::kNfaces;
@@ -1845,28 +1845,28 @@ CompositeDescriptor MeshGraphIOHDF5::CreateCompositeDescriptor(
  * @param i     Column index within the row, in `[0, nGeomData)`.
  * @return The value for column @p i (NekDouble for points, int otherwise).
  */
-template <class T, typename std::enable_if<T::kDim == 0, int>::type = 0>
+template <class T, std::enable_if_t<T::kDim == 0, bool> Enable = true>
 inline NekDouble GetGeomData(T *geom, int i)
 {
     return (*geom)(i);
 }
 
 /// @copydoc GetGeomData
-template <class T, typename std::enable_if<T::kDim == 1, int>::type = 0>
+template <class T, std::enable_if_t<T::kDim == 1, bool> Enable = true>
 inline int GetGeomData(T *geom, int i)
 {
     return geom->GetVid(i);
 }
 
 /// @copydoc GetGeomData
-template <class T, typename std::enable_if<T::kDim == 2, int>::type = 0>
+template <class T, std::enable_if_t<T::kDim == 2, bool> Enable = true>
 inline int GetGeomData(T *geom, int i)
 {
     return geom->GetEid(i);
 }
 
 /// @copydoc GetGeomData
-template <class T, typename std::enable_if<T::kDim == 3, int>::type = 0>
+template <class T, std::enable_if_t<T::kDim == 3, bool> Enable = true>
 inline int GetGeomData(T *geom, int i)
 {
     return geom->GetFid(i);

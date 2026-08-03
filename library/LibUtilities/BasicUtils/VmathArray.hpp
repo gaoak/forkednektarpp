@@ -382,9 +382,10 @@ void Svtsvtp(int n, const T alpha, const Array<OneD, const T> &x,
 /************ Misc routine from Veclib (and extras)  ************/
 
 /// \brief Gather vector z[i] = x[y[i]]
-template <class T, class I,
-          typename = typename std::enable_if<std::is_floating_point_v<T> &&
-                                             std::is_integral_v<I>>::type>
+template <
+    class T, class I,
+    std::enable_if_t<std::is_floating_point_v<T> && std::is_integral_v<I>, bool>
+        Enable = true>
 void Gathr(I n, const Array<OneD, const T> &x, const Array<OneD, I> &y,
            Array<OneD, T> &z)
 {

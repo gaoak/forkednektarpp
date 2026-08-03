@@ -44,9 +44,9 @@ namespace Nektar::LibUtilities
 /// checked cast from float types only to int types
 template <
     class To, class Ti,
-    class = typename std::enable_if<
+    class = std::enable_if_t<
         std::is_floating_point_v<typename std::remove_reference<Ti>::type> &&
-        std::is_integral_v<typename std::remove_reference<To>::type>>::type>
+        std::is_integral_v<typename std::remove_reference<To>::type>>>
 inline To checked_cast(const Ti param)
 {
     Ti min = std::numeric_limits<To>::min();

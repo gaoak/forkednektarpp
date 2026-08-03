@@ -501,9 +501,10 @@ inline void Vstvpp(int n, const T alpha, const T *v, int incv, const T *w,
 /************ Misc routine from Veclib (and extras)  ************/
 
 /// \brief Gather vector z[i] = x[y[i]]
-template <class T, class I,
-          typename = typename std::enable_if<std::is_floating_point_v<T> &&
-                                             std::is_integral_v<I>>::type>
+template <
+    class T, class I,
+    std::enable_if_t<std::is_floating_point_v<T> && std::is_integral_v<I>, bool>
+        Enable = true>
 inline void Gathr(I n, const T *x, const I *y, T *z)
 {
     while (n--)
