@@ -88,7 +88,7 @@ NEK_DEVICE_INLINE static void CurlCurl1DSumFacTOPKernel(
     const unsigned int ndf    = ncoord;
     const unsigned int dfsize = DEFORMED ? nq0 : 1u;
 
-    size_t e = getBlockIdx(threadBlock);
+    size_t e = getBlockIdx<0>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr = df + ndf * dfsize * e;
@@ -96,7 +96,7 @@ NEK_DEVICE_INLINE static void CurlCurl1DSumFacTOPKernel(
         TData *outptr      = out + nq0 * e;
         PhysDerivDir1DSumFacTOPKernel<DEFORMED, 0, false>(
             ncoord, nq0, D0, dfptr, inptr, outptr, threadBlock);
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -116,10 +116,10 @@ NEK_DEVICE_INLINE static void CurlCurl2DSumFacTOPKernel(
 
     TData *s_wsp0             = (TData *)shmemptr;
     TData *s_wsp1             = (TData *)shmemptr + nqTot;
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    size_t e = getBlockIdx(threadBlock);
+    size_t e = getBlockIdx<0>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr = df + ndf * dfsize * e;
@@ -156,7 +156,7 @@ NEK_DEVICE_INLINE static void CurlCurl2DSumFacTOPKernel(
             outptr[idx] = s_wsp1[idx];
         }
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -178,10 +178,10 @@ NEK_DEVICE_INLINE static void CurlCurl3DSumFacTOPKernel(
 
     TData *s_wsp0             = (TData *)shmemptr;
     TData *s_wsp1             = (TData *)shmemptr + nqTot;
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    size_t e = getBlockIdx(threadBlock); // use size_t to prevent overflow
+    size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
     while (e < nelmt)
     {
         const TData *dfptr = df + ndf * dfsize * e;
@@ -230,7 +230,7 @@ NEK_DEVICE_INLINE static void CurlCurl3DSumFacTOPKernel(
             outptr[idx] = s_wsp1[idx];
         }
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 

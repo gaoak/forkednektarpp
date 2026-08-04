@@ -84,8 +84,8 @@ NEK_DEVICE_INLINE static void PhysDeriv1DSumFacTOPKernel(
 {
     const unsigned int dfsize = DEFORMED ? nq0 : 1u;
 
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int i = idx0; i < nq0; i += stride)
     {
@@ -119,8 +119,8 @@ NEK_DEVICE_INLINE static void PhysDerivDir1DSumFacTOPKernel(
 {
     const unsigned int dfsize = DEFORMED ? nq0 : 1u;
 
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int i = idx0; i < nq0; i += stride)
     {
@@ -154,8 +154,8 @@ NEK_DEVICE_INLINE static void SumDerivTensor1DSumFacTOPKernel(
     const TData *NEK_RESTRICT in0, TData *NEK_RESTRICT out, const TData scale,
     const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int i = idx0; i < nq0; i += stride)
     {
@@ -199,8 +199,8 @@ NEK_DEVICE_INLINE static void PhysDeriv2DSumFacTOPKernel(
     const unsigned int nqTot  = nq0 * nq1;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
@@ -261,8 +261,8 @@ NEK_DEVICE_INLINE static void PhysDerivDir2DSumFacTOPKernel(
     const unsigned int nqTot  = nq0 * nq1;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
@@ -349,8 +349,8 @@ NEK_DEVICE_INLINE static void SumDerivTensor2DSumFacTOPKernel(
 {
     const unsigned int nqTot = nq0 * nq1;
 
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
@@ -415,8 +415,8 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacTOPKernel(
     const unsigned int nqTot  = nq0 * nq1 * nq2;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
@@ -503,8 +503,8 @@ NEK_DEVICE_INLINE static void PhysDerivDir3DSumFacTOPKernel(
     const unsigned int nqTot  = nq0 * nq1 * nq2;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
@@ -590,8 +590,8 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DSumFacTOPKernel(
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
@@ -661,15 +661,18 @@ NEK_DEVICE_INLINE static void PhysDeriv1DSumFacTOPKernel(
     const unsigned int ndf    = ncoord;
     const unsigned int dfsize = DEFORMED ? nq0 : 1u;
 
-    size_t e = getBlockIdx(threadBlock);
+    size_t e                 = getBlockIdx<0>(threadBlock);
+    const unsigned int m     = getBlockIdx<1>(threadBlock);
+    const unsigned int c     = getBlockIdx<2>(threadBlock);
+    const unsigned int nmode = getBlockRange<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr = df + ndf * dfsize * e;
-        const TData *inptr = in + nq0 * e;
-        TData *outptr      = out + nq0 * e;
+        const TData *inptr = in + nq0 * nelmt * (nmode * c + m) + nq0 * e;
+        TData *outptr = out + nq0 * nelmt * (ncoord * nmode * c + m) + nq0 * e;
         PhysDeriv1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, outoffset, D0, dfptr,
                                              inptr, outptr, threadBlock);
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -684,15 +687,16 @@ NEK_DEVICE_INLINE static void PhysDerivDir1DSumFacTOPKernel(
     const unsigned int ndf    = ncoord;
     const unsigned int dfsize = DEFORMED ? nq0 : 1u;
 
-    size_t e = getBlockIdx(threadBlock);
+    size_t e             = getBlockIdx<0>(threadBlock);
+    const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr = df + ndf * dfsize * e;
-        const TData *inptr = in + nq0 * e;
-        TData *outptr      = out + nq0 * e;
+        const TData *inptr = in + nq0 * nelmt * c + nq0 * e;
+        TData *outptr      = out + nq0 * nelmt * c + nq0 * e;
         PhysDerivDir1DSumFacTOPKernel<APPEND, DEFORMED, DIR>(
             ncoord, nq0, outoffset, D0, dfptr, inptr, outptr, threadBlock);
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -712,15 +716,19 @@ NEK_DEVICE_INLINE static void PhysDeriv2DSumFacTOPKernel(
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
     TData *s_wsp0             = (TData *)shmemptr;
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    size_t e = getBlockIdx(threadBlock);
+    size_t e                 = getBlockIdx<0>(threadBlock);
+    const unsigned int m     = getBlockIdx<1>(threadBlock);
+    const unsigned int c     = getBlockIdx<2>(threadBlock);
+    const unsigned int nmode = getBlockRange<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr = df + ndf * dfsize * e;
-        const TData *inptr = in + nqTot * e;
-        TData *outptr      = out + nqTot * e;
+        const TData *inptr = in + nqTot * nelmt * (nmode * c + m) + nqTot * e;
+        TData *outptr =
+            out + nqTot * nelmt * (ncoord * nmode * c + m) + nqTot * e;
 
         // Copy to shared memory.
         for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -734,7 +742,7 @@ NEK_DEVICE_INLINE static void PhysDeriv2DSumFacTOPKernel(
             ncoord, nq0, nq1, outoffset, D0, D1, f0, f1, dfptr, s_wsp0, outptr,
             threadBlock);
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -753,15 +761,16 @@ NEK_DEVICE_INLINE static void PhysDerivDir2DSumFacTOPKernel(
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
     TData *s_wsp0             = (TData *)shmemptr;
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    size_t e = getBlockIdx(threadBlock);
+    size_t e             = getBlockIdx<0>(threadBlock);
+    const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr = df + ndf * dfsize * e;
-        const TData *inptr = in + nqTot * e;
-        TData *outptr      = out + nqTot * e;
+        const TData *inptr = in + nqTot * nelmt * c + nqTot * e;
+        TData *outptr      = out + nqTot * nelmt * c + nqTot * e;
 
         // Copy to shared memory.
         for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -774,7 +783,7 @@ NEK_DEVICE_INLINE static void PhysDerivDir2DSumFacTOPKernel(
         PhysDerivDir2DSumFacTOPKernel<SHAPE_TYPE, APPEND, DEFORMED, DIR>(
             nq0, nq1, D0, D1, f0, f1, dfptr, s_wsp0, outptr, threadBlock);
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -795,15 +804,18 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacTOPKernel(
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
 
     TData *s_wsp0             = (TData *)shmemptr;
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    size_t e = getBlockIdx(threadBlock); // use size_t to prevent overflow
+    size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
+    const unsigned int m     = getBlockIdx<1>(threadBlock);
+    const unsigned int c     = getBlockIdx<2>(threadBlock);
+    const unsigned int nmode = getBlockRange<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr = df + ndf * dfsize * e;
-        const TData *inptr = in + nqTot * e;
-        TData *outptr      = out + nqTot * e;
+        const TData *inptr = in + nqTot * nelmt * (nmode * c + m) + nqTot * e;
+        TData *outptr = out + nqTot * nelmt * (3 * nmode * c + m) + nqTot * e;
 
         // Copy to shared memory.
         for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -817,7 +829,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacTOPKernel(
             nq0, nq1, nq2, outoffset, D0, D1, D2, f0, f1, f1m, f2, dfptr,
             s_wsp0, outptr, threadBlock);
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -838,15 +850,16 @@ NEK_DEVICE_INLINE static void PhysDerivDir3DSumFacTOPKernel(
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
 
     TData *s_wsp0             = (TData *)shmemptr;
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    size_t e = getBlockIdx(threadBlock); // use size_t to prevent overflow
+    size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
+    const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr = df + ndf * dfsize * e;
-        const TData *inptr = in + nqTot * e;
-        TData *outptr      = out + nqTot * e;
+        const TData *inptr = in + nqTot * nelmt * c + nqTot * e;
+        TData *outptr      = out + nqTot * nelmt * c + nqTot * e;
 
         // Copy to shared memory.
         for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -860,7 +873,7 @@ NEK_DEVICE_INLINE static void PhysDerivDir3DSumFacTOPKernel(
             nq0, nq1, nq2, D0, D1, D2, f0, f1, f1m, f2, dfptr, s_wsp0, outptr,
             threadBlock);
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 

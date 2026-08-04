@@ -675,7 +675,9 @@ NEK_DEVICE_INLINE static void Laplacian1DSumFacKernel(
 
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
-    size_t e = getGlobalIdx(threadBlock);
+    size_t e                 = getGlobalIdx<0>(threadBlock);
+    const unsigned int c     = getBlockIdx<1>(threadBlock);
+    const unsigned int ncomp = getBlockRange<1>(threadBlock);
     while (e < nelmt)
     {
         const size_t ilane = e % warpsize;
@@ -683,10 +685,11 @@ NEK_DEVICE_INLINE static void Laplacian1DSumFacKernel(
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *jacptr =
             DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
-        const TData *inptr = in + nm0 * warpsize * iwarp;
-        TData *outptr      = out + nm0 * warpsize * iwarp;
-        TData *bwd         = wsp + nq0 * warpsize * iwarp;
-        TData *deriv       = wsp + nq0 * nelmt + nq0 * warpsize * iwarp;
+        const TData *inptr = in + nm0 * (nelmt * c + warpsize * iwarp);
+        TData *outptr      = out + nm0 * (nelmt * c + warpsize * iwarp);
+        TData *bwd         = wsp + nq0 * (nelmt * c + warpsize * iwarp);
+        TData *deriv       = wsp + nq0 * nelmt * ncomp +
+                       nq0 * (ncoord * nelmt * c + warpsize * iwarp);
         BwdTransSegSumFacKernel<false>(ilane, nm0, nq0, basis0, inptr, bwd);
         PhysDeriv1DSumFacKernel<DEFORMED>(ilane, ncoord, nq0, nelmt * nq0, D0,
                                           dfptr, bwd, deriv);
@@ -696,7 +699,7 @@ NEK_DEVICE_INLINE static void Laplacian1DSumFacKernel(
                                              (TData)1.0);
         IProductWRTBaseSegSumFacKernel<false, false>(ilane, nm0, nq0, basis0,
                                                      bwd, outptr, (TData)1.0);
-        e += getGlobalRange(threadBlock);
+        e += getGlobalRange<0>(threadBlock);
     }
 }
 
@@ -726,8 +729,8 @@ NEK_DEVICE_INLINE static void Laplacian2DSumFacKernel(
     TData *s_f1 = nullptr;
 
     // Pre-compute factor.
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                   SHAPE_TYPE == LibUtilities::NodalTri)
@@ -748,7 +751,9 @@ NEK_DEVICE_INLINE static void Laplacian2DSumFacKernel(
         localBarrier(threadBlock);
     }
 
-    size_t e = getGlobalIdx(threadBlock);
+    size_t e                 = getGlobalIdx<0>(threadBlock);
+    const unsigned int c     = getBlockIdx<1>(threadBlock);
+    const unsigned int ncomp = getBlockRange<1>(threadBlock);
     while (e < nelmt)
     {
         const size_t ilane = e % warpsize;
@@ -756,34 +761,37 @@ NEK_DEVICE_INLINE static void Laplacian2DSumFacKernel(
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *jacptr =
             DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
-        const TData *inptr = in + nmTot * warpsize * iwarp;
-        TData *outptr      = out + nmTot * warpsize * iwarp;
-        TData *bwd         = wsp + nqTot * warpsize * iwarp;
-        TData *deriv       = wsp + nqTot * nelmt + nqTot * warpsize * iwarp;
-        TData *deriv0      = wsp + nqTot * nelmt + nqTot * warpsize * iwarp;
-        TData *deriv1      = wsp + 2 * nqTot * nelmt + nqTot * warpsize * iwarp;
+        const TData *inptr = in + nmTot * (nelmt * c + warpsize * iwarp);
+        TData *outptr      = out + nmTot * (nelmt * c + warpsize * iwarp);
+        TData *bwd         = wsp + nqTot * (nelmt * c + warpsize * iwarp);
+        TData *deriv       = wsp + nqTot * nelmt * ncomp +
+                       nqTot * (ncoord * nelmt * c + warpsize * iwarp);
+        TData *deriv0 = wsp + nqTot * nelmt * ncomp +
+                        nqTot * (ncoord * nelmt * c + warpsize * iwarp);
+        TData *deriv1 = wsp + nqTot * nelmt * (ncomp + 1) +
+                        nqTot * (ncoord * nelmt * c + warpsize * iwarp);
 
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
-            TData *wsp0 =
-                wsp + (1 + ncoord) * nqTot * nelmt + nq1 * warpsize * iwarp;
+            TData *wsp0 = wsp + (1 + ncoord) * nqTot * nelmt * ncomp +
+                          nq1 * (nelmt * c + warpsize * iwarp);
             BwdTransQuadSumFacKernel<false>(ilane, nm0, nm1, nq0, nq1, basis0,
                                             basis1, inptr, bwd, wsp0);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
-            TData *wsp0 = wsp + (1 + ncoord) * nqTot * nelmt +
-                          std::max(nq1, nm0) * warpsize * iwarp;
+            TData *wsp0 = wsp + (1 + ncoord) * nqTot * nelmt * ncomp +
+                          std::max(nq1, nm0) * (nelmt * c + warpsize * iwarp);
             BwdTransTriSumFacKernel<false>(ilane, nm0, nm1, nq0, nq1,
                                            isModified, basis0, basis1, inptr,
                                            bwd, wsp0);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
         {
-            TData *in1ptr =
-                wsp + (1 + ncoord) * nqTot * nelmt + nmTot * warpsize * iwarp;
-            TData *wsp0 = wsp + ((1 + ncoord) * nqTot + nmTot) * nelmt +
-                          std::max(nq1, nm0) * warpsize * iwarp;
+            TData *in1ptr = wsp + (1 + ncoord) * nqTot * nelmt * ncomp +
+                            nmTot * (nelmt * c + warpsize * iwarp);
+            TData *wsp0 = wsp + ((1 + ncoord) * nqTot + nmTot) * nelmt * ncomp +
+                          std::max(nq1, nm0) * (nelmt * c + warpsize * iwarp);
 
             MatVecKernel(ilane, nmTot, nodToMod, inptr, in1ptr);
             BwdTransTriSumFacKernel<false>(ilane, nm0, nm1, nq0, nq1,
@@ -801,26 +809,26 @@ NEK_DEVICE_INLINE static void Laplacian2DSumFacKernel(
                                              deriv1, bwd);
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
-            TData *wsp0 =
-                wsp + (1 + ncoord) * nqTot * nelmt + nq1 * warpsize * iwarp;
+            TData *wsp0 = wsp + (1 + ncoord) * nqTot * nelmt * ncomp +
+                          nq1 * (nelmt * c + warpsize * iwarp);
             IProductWRTBaseQuadSumFacKernel<false, false>(
                 ilane, nm0, nm1, nq0, nq1, basis0, basis1, bwd, outptr, wsp0,
                 (TData)1.0);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
-            TData *wsp0 = wsp + (1 + ncoord) * nqTot * nelmt +
-                          std::max(nq1, nm0) * warpsize * iwarp;
+            TData *wsp0 = wsp + (1 + ncoord) * nqTot * nelmt * ncomp +
+                          std::max(nq1, nm0) * (nelmt * c + warpsize * iwarp);
             IProductWRTBaseTriSumFacKernel<false, false>(
                 ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, bwd,
                 outptr, wsp0, (TData)1.0);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
         {
-            TData *out1ptr =
-                wsp + (1 + ncoord) * nqTot * nelmt + nmTot * warpsize * iwarp;
-            TData *wsp0 = wsp + ((1 + ncoord) * nqTot + nmTot) * nelmt +
-                          std::max(nq1, nm0) * warpsize * iwarp;
+            TData *out1ptr = wsp + (1 + ncoord) * nqTot * nelmt * ncomp +
+                             nmTot * (nelmt * c + warpsize * iwarp);
+            TData *wsp0 = wsp + ((1 + ncoord) * nqTot + nmTot) * nelmt * ncomp +
+                          std::max(nq1, nm0) * (nelmt * c + warpsize * iwarp);
             IProductWRTBaseTriSumFacKernel<false, false>(
                 ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, bwd,
                 out1ptr, wsp0, (TData)1.0);
@@ -828,7 +836,7 @@ NEK_DEVICE_INLINE static void Laplacian2DSumFacKernel(
             // Multiply by transpose notToMod to transform coeffs.
             MatVecKernel<false, true>(ilane, nmTot, nodToMod, out1ptr, outptr);
         }
-        e += getGlobalRange(threadBlock);
+        e += getGlobalRange<0>(threadBlock);
     }
 }
 
@@ -863,8 +871,8 @@ NEK_DEVICE_INLINE static void Laplacian3DSumFacKernel(
     TData *s_f2  = nullptr;
 
     // Pre-compute factor.
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
     if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                   SHAPE_TYPE == LibUtilities::NodalTet)
     {
@@ -933,7 +941,9 @@ NEK_DEVICE_INLINE static void Laplacian3DSumFacKernel(
         localBarrier(threadBlock);
     }
 
-    size_t e = getGlobalIdx(threadBlock); // use size_t to prevent overflow
+    size_t e = getGlobalIdx<0>(threadBlock); // use size_t to prevent overflow
+    const unsigned int c     = getBlockIdx<1>(threadBlock);
+    const unsigned int ncomp = getBlockRange<1>(threadBlock);
     while (e < nelmt)
     {
         const size_t ilane = e % warpsize;
@@ -941,41 +951,47 @@ NEK_DEVICE_INLINE static void Laplacian3DSumFacKernel(
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *jacptr =
             DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
-        const TData *inptr = in + nmTot * warpsize * iwarp;
-        TData *outptr      = out + nmTot * warpsize * iwarp;
-        TData *bwd         = wsp + nqTot * warpsize * iwarp;
-        TData *deriv       = wsp + nqTot * nelmt + nqTot * warpsize * iwarp;
-        TData *deriv0      = wsp + nqTot * nelmt + nqTot * warpsize * iwarp;
-        TData *deriv1      = wsp + 2 * nqTot * nelmt + nqTot * warpsize * iwarp;
-        TData *deriv2      = wsp + 3 * nqTot * nelmt + nqTot * warpsize * iwarp;
+        const TData *inptr = in + nmTot * (nelmt * c + warpsize * iwarp);
+        TData *outptr      = out + nmTot * (nelmt * c + warpsize * iwarp);
+        TData *bwd         = wsp + nqTot * (nelmt * c + warpsize * iwarp);
+        TData *deriv       = wsp + nqTot * nelmt * ncomp +
+                       nqTot * (3 * nelmt * c + warpsize * iwarp);
+        TData *deriv0 = wsp + nqTot * nelmt * ncomp +
+                        nqTot * (3 * nelmt * c + warpsize * iwarp);
+        TData *deriv1 = wsp + nqTot * nelmt * (ncomp + 1) +
+                        nqTot * (3 * nelmt * c + warpsize * iwarp);
+        TData *deriv2 = wsp + nqTot * nelmt * (ncomp + 2) +
+                        nqTot * (3 * nelmt * c + warpsize * iwarp);
 
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            TData *wsp0 =
-                wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
-            TData *wsp1 =
-                wsp + (4 * nqTot + nq1 * nq2) * nelmt + nq2 * warpsize * iwarp;
+            TData *wsp0 = wsp + 4 * nqTot * nelmt * ncomp +
+                          nq1 * nq2 * (nelmt * c + warpsize * iwarp);
+            TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2) * nelmt * ncomp +
+                          nq2 * (nelmt * c + warpsize * iwarp);
             BwdTransHexSumFacKernel<false>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
                                            basis0, basis1, basis2, inptr, bwd,
                                            wsp0, wsp1);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
-            TData *wsp0 =
-                wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
-            TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2) * nelmt +
-                          std::max(nq2, nm0) * warpsize * iwarp;
+            TData *wsp0 = wsp + 4 * nqTot * nelmt * ncomp +
+                          nq1 * nq2 * (nelmt * c + warpsize * iwarp);
+            TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2) * nelmt * ncomp +
+                          std::max(nq2, nm0) * (nelmt * c + warpsize * iwarp);
             BwdTransTetSumFacKernel<false>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
                                            isModified, basis0, basis1, basis2,
                                            inptr, bwd, wsp0, wsp1);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
         {
-            TData *in1ptr = wsp + 4 * nqTot * nelmt + nmTot * warpsize * iwarp;
-            TData *wsp0   = wsp + (nmTot + 4 * nqTot) * nelmt +
-                          nq1 * nq2 * warpsize * iwarp;
-            TData *wsp1 = wsp + (nmTot + 4 * nqTot + nq1 * nq2) * nelmt +
-                          std::max(nq2, nm0) * warpsize * iwarp;
+            TData *in1ptr = wsp + 4 * nqTot * nelmt * ncomp +
+                            nmTot * (nelmt * c + warpsize * iwarp);
+            TData *wsp0 = wsp + (nmTot + 4 * nqTot) * nelmt * ncomp +
+                          nq1 * nq2 * (nelmt * c + warpsize * iwarp);
+            TData *wsp1 = wsp +
+                          (nmTot + 4 * nqTot + nq1 * nq2) * nelmt * ncomp +
+                          std::max(nq2, nm0) * (nelmt * c + warpsize * iwarp);
             MatVecKernel(ilane, nmTot, nodToMod, inptr, in1ptr);
             BwdTransTetSumFacKernel<false>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
                                            isModified, basis0, basis1, basis2,
@@ -983,24 +999,28 @@ NEK_DEVICE_INLINE static void Laplacian3DSumFacKernel(
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
-            TData *wsp0 = wsp + 4 * nqTot * nelmt +
-                          std::max(nq1 * nq2, nm0 * nm1) * warpsize * iwarp;
-            TData *wsp1 = wsp +
-                          (4 * nqTot + std::max(nq1 * nq2, nm0 * nm1)) * nelmt +
-                          std::max(nq2, nm0) * warpsize * iwarp;
+            TData *wsp0 =
+                wsp + 4 * nqTot * nelmt * ncomp +
+                std::max(nq1 * nq2, nm0 * nm1) * (nelmt * c + warpsize * iwarp);
+            TData *wsp1 =
+                wsp +
+                (4 * nqTot + std::max(nq1 * nq2, nm0 * nm1)) * nelmt * ncomp +
+                std::max(nq2, nm0) * (nelmt * c + warpsize * iwarp);
             BwdTransPrismSumFacKernel<false>(ilane, nm0, nm1, nm2, nq0, nq1,
                                              nq2, isModified, basis0, basis1,
                                              basis2, inptr, bwd, wsp0, wsp1);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
         {
-            TData *in1ptr = wsp + 4 * nqTot * nelmt + nmTot * warpsize * iwarp;
-            TData *wsp0   = wsp + (nmTot + 4 * nqTot) * nelmt +
-                          std::max(nq1 * nq2, nm0 * nm1) * warpsize * iwarp;
-            TData *wsp1 =
-                wsp +
-                (nmTot + 4 * nqTot + std::max(nq1 * nq2, nm0 * nm1)) * nelmt +
-                std::max(nq2, nm0) * warpsize * iwarp;
+            TData *in1ptr = wsp + 4 * nqTot * nelmt * ncomp +
+                            nmTot * (nelmt * c + warpsize * iwarp);
+            TData *wsp0 =
+                wsp + (nmTot + 4 * nqTot) * nelmt * ncomp +
+                std::max(nq1 * nq2, nm0 * nm1) * (nelmt * c + warpsize * iwarp);
+            TData *wsp1 = wsp +
+                          (nmTot + 4 * nqTot + std::max(nq1 * nq2, nm0 * nm1)) *
+                              nelmt * ncomp +
+                          std::max(nq2, nm0) * (nelmt * c + warpsize * iwarp);
             MatVecKernel(ilane, nmTot, nodToMod, inptr, in1ptr);
             BwdTransPrismSumFacKernel<false>(ilane, nm0, nm1, nm2, nq0, nq1,
                                              nq2, isModified, basis0, basis1,
@@ -1008,11 +1028,13 @@ NEK_DEVICE_INLINE static void Laplacian3DSumFacKernel(
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            TData *wsp0 = wsp + 4 * nqTot * nelmt +
-                          std::max(nq1 * nq2, nm0 * nm1) * warpsize * iwarp;
-            TData *wsp1 = wsp +
-                          (4 * nqTot + std::max(nq1 * nq2, nm0 * nm1)) * nelmt +
-                          std::max(nq2, nm0) * warpsize * iwarp;
+            TData *wsp0 =
+                wsp + 4 * nqTot * nelmt * ncomp +
+                std::max(nq1 * nq2, nm0 * nm1) * (nelmt * c + warpsize * iwarp);
+            TData *wsp1 =
+                wsp +
+                (4 * nqTot + std::max(nq1 * nq2, nm0 * nm1)) * nelmt * ncomp +
+                std::max(nq2, nm0) * (nelmt * c + warpsize * iwarp);
             BwdTransPyrSumFacKernel<false>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
                                            isModified, basis0, basis1, basis2,
                                            inptr, bwd, wsp0, wsp1);
@@ -1027,31 +1049,33 @@ NEK_DEVICE_INLINE static void Laplacian3DSumFacKernel(
                                              deriv0, deriv1, deriv2, bwd);
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            TData *wsp0 =
-                wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
-            TData *wsp1 =
-                wsp + (4 * nqTot + nq1 * nq2) * nelmt + nq2 * warpsize * iwarp;
+            TData *wsp0 = wsp + 4 * nqTot * nelmt * ncomp +
+                          nq1 * nq2 * (nelmt * c + warpsize * iwarp);
+            TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2) * nelmt * ncomp +
+                          nq2 * (nelmt * c + warpsize * iwarp);
             IProductWRTBaseHexSumFacKernel<false, false>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, basis0, basis1, basis2,
                 bwd, outptr, wsp0, wsp1, (TData)1.0);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
-            TData *wsp0 =
-                wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
-            TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2) * nelmt +
-                          std::max(nq2, nm0) * warpsize * iwarp;
+            TData *wsp0 = wsp + 4 * nqTot * nelmt * ncomp +
+                          nq1 * nq2 * (nelmt * c + warpsize * iwarp);
+            TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2) * nelmt * ncomp +
+                          std::max(nq2, nm0) * (nelmt * c + warpsize * iwarp);
             IProductWRTBaseTetSumFacKernel<false, false>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
                 basis2, bwd, outptr, wsp0, wsp1, (TData)1.0);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
         {
-            TData *out1ptr = wsp + 4 * nqTot * nelmt + nmTot * warpsize * iwarp;
-            TData *wsp0    = wsp + (nmTot + 4 * nqTot) * nelmt +
-                          nq1 * nq2 * warpsize * iwarp;
-            TData *wsp1 = wsp + (nmTot + 4 * nqTot + nq1 * nq2) * nelmt +
-                          std::max(nq2, nm0) * warpsize * iwarp;
+            TData *out1ptr = wsp + 4 * nqTot * nelmt * ncomp +
+                             nmTot * (nelmt * c + warpsize * iwarp);
+            TData *wsp0 = wsp + (nmTot + 4 * nqTot) * nelmt * ncomp +
+                          nq1 * nq2 * (nelmt * c + warpsize * iwarp);
+            TData *wsp1 = wsp +
+                          (nmTot + 4 * nqTot + nq1 * nq2) * nelmt * ncomp +
+                          std::max(nq2, nm0) * (nelmt * c + warpsize * iwarp);
             IProductWRTBaseTetSumFacKernel<false, false>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
                 basis2, bwd, out1ptr, wsp0, wsp1, (TData)1.0);
@@ -1061,24 +1085,28 @@ NEK_DEVICE_INLINE static void Laplacian3DSumFacKernel(
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
-            TData *wsp0 = wsp + 4 * nqTot * nelmt +
-                          std::max(nq1 * nq2, nm0 * nm1) * warpsize * iwarp;
-            TData *wsp1 = wsp +
-                          (4 * nqTot + std::max(nq1 * nq2, nm0 * nm1)) * nelmt +
-                          std::max(nq2, nm0) * warpsize * iwarp;
+            TData *wsp0 =
+                wsp + 4 * nqTot * nelmt * ncomp +
+                std::max(nq1 * nq2, nm0 * nm1) * (nelmt * c + warpsize * iwarp);
+            TData *wsp1 =
+                wsp +
+                (4 * nqTot + std::max(nq1 * nq2, nm0 * nm1)) * nelmt * ncomp +
+                std::max(nq2, nm0) * (nelmt * c + warpsize * iwarp);
             IProductWRTBasePrismSumFacKernel<false, false>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
                 basis2, bwd, outptr, wsp0, wsp1, (TData)1.0);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
         {
-            TData *out1ptr = wsp + 4 * nqTot * nelmt + nmTot * warpsize * iwarp;
-            TData *wsp0    = wsp + (nmTot + 4 * nqTot) * nelmt +
-                          std::max(nq1 * nq2, nm0 * nm1) * warpsize * iwarp;
-            TData *wsp1 =
-                wsp +
-                (nmTot + 4 * nqTot + std::max(nq1 * nq2, nm0 * nm1)) * nelmt +
-                std::max(nq2, nm0) * warpsize * iwarp;
+            TData *out1ptr = wsp + 4 * nqTot * nelmt * ncomp +
+                             nmTot * (nelmt * c + warpsize * iwarp);
+            TData *wsp0 =
+                wsp + (nmTot + 4 * nqTot) * nelmt * ncomp +
+                std::max(nq1 * nq2, nm0 * nm1) * (nelmt * c + warpsize * iwarp);
+            TData *wsp1 = wsp +
+                          (nmTot + 4 * nqTot + std::max(nq1 * nq2, nm0 * nm1)) *
+                              nelmt * ncomp +
+                          std::max(nq2, nm0) * (nelmt * c + warpsize * iwarp);
             IProductWRTBasePrismSumFacKernel<false, false>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
                 basis2, bwd, out1ptr, wsp0, wsp1, (TData)1.0);
@@ -1088,16 +1116,18 @@ NEK_DEVICE_INLINE static void Laplacian3DSumFacKernel(
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            TData *wsp0 = wsp + 4 * nqTot * nelmt +
-                          std::max(nq1 * nq2, nm0 * nm1) * warpsize * iwarp;
-            TData *wsp1 = wsp +
-                          (4 * nqTot + std::max(nq1 * nq2, nm0 * nm1)) * nelmt +
-                          std::max(nq2, nm0) * warpsize * iwarp;
+            TData *wsp0 =
+                wsp + 4 * nqTot * nelmt * ncomp +
+                std::max(nq1 * nq2, nm0 * nm1) * (nelmt * c + warpsize * iwarp);
+            TData *wsp1 =
+                wsp +
+                (4 * nqTot + std::max(nq1 * nq2, nm0 * nm1)) * nelmt * ncomp +
+                std::max(nq2, nm0) * (nelmt * c + warpsize * iwarp);
             IProductWRTBasePyrSumFacKernel<false, false>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
                 basis2, bwd, outptr, wsp0, wsp1, (TData)1.0);
         }
-        e += getGlobalRange(threadBlock);
+        e += getGlobalRange<0>(threadBlock);
     }
 }
 

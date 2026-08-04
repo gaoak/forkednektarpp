@@ -224,8 +224,8 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase1DSumFacTOPKernel(
 {
     const unsigned int dfsize = DEFORMED ? nq0 : 1u;
 
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int i = idx0; i < nq0; i += stride)
     {
@@ -264,8 +264,8 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacTOPKernel(
     const unsigned int nqTot  = nq0 * nq1;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
@@ -329,8 +329,8 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacTOPKernel(
     const unsigned int nqTot  = nq0 * nq1 * nq2;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
@@ -410,13 +410,17 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase1DSumFacTOPKernel(
 
     TData *deriv = (TData *)shmemptr;
 
-    size_t e = getBlockIdx(threadBlock);
+    size_t e                 = getBlockIdx<0>(threadBlock);
+    const unsigned int m     = getBlockIdx<1>(threadBlock);
+    const unsigned int c     = getBlockIdx<2>(threadBlock);
+    const unsigned int nmode = getBlockRange<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr  = df + ndf * dfsize * e;
         const TData *jacptr = jac + jacsize * e;
-        const TData *inptr  = in + nq0 * e;
-        TData *outptr       = out + nm0 * e;
+        const TData *inptr =
+            in + nq0 * nelmt * (ncoord * nmode * c + m) + nq0 * e;
+        TData *outptr = out + nm0 * nelmt * (nmode * c + m) + nm0 * e;
 
         StdAlignDerivBase1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, inoffset, w0,
                                                      dfptr, jacptr, inptr,
@@ -424,7 +428,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase1DSumFacTOPKernel(
         IProductWRTBaseSegSumFacTOPKernel<true, APPEND>(
             nm0, nq0, dbasis0, deriv, outptr, scale, threadBlock);
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -443,13 +447,17 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBasePhys1DSumFacTOPKernel(
 
     TData *deriv = (TData *)shmemptr;
 
-    size_t e = getBlockIdx(threadBlock);
+    size_t e                 = getBlockIdx<0>(threadBlock);
+    const unsigned int m     = getBlockIdx<1>(threadBlock);
+    const unsigned int c     = getBlockIdx<2>(threadBlock);
+    const unsigned int nmode = getBlockRange<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr  = df + ndf * dfsize * e;
         const TData *jacptr = jac + jacsize * e;
-        const TData *inptr  = in + nq0 * e;
-        TData *outptr       = out + nq0 * e;
+        const TData *inptr =
+            in + nq0 * nelmt * (ncoord * nmode * c + m) + nq0 * e;
+        TData *outptr = out + nq0 * nelmt * (nmode * c + m) + nq0 * e;
 
         StdAlignDerivBase1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, inoffset, w0,
                                                      dfptr, jacptr, inptr,
@@ -457,7 +465,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBasePhys1DSumFacTOPKernel(
         SumDerivTensor1DSumFacTOPKernel<true, APPEND>(nq0, D0, deriv, outptr,
                                                       scale, threadBlock);
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -505,8 +513,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DSumFacTOPKernel(
     TData *s_out1ptr = s_basis1 + nmode1 * nq1;
 
     // Copy to shared memory.
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
     {
@@ -518,13 +526,17 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DSumFacTOPKernel(
         s_basis1[idx] = basis1[idx];
     }
 
-    size_t e = getBlockIdx(threadBlock);
+    size_t e                 = getBlockIdx<0>(threadBlock);
+    const unsigned int m     = getBlockIdx<1>(threadBlock);
+    const unsigned int c     = getBlockIdx<2>(threadBlock);
+    const unsigned int nmode = getBlockRange<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr  = df + ndf * dfsize * e;
         const TData *jacptr = jac + jacsize * e;
-        const TData *inptr  = in + nqTot * e;
-        TData *outptr       = out + nmTot * e;
+        const TData *inptr =
+            in + nqTot * nelmt * (ncoord * nmode * c + m) + nqTot * e;
+        TData *outptr = out + nmTot * nelmt * (nmode * c + m) + nmTot * e;
 
         StdAlignDerivBase2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
             ncoord, nq0, nq1, inoffset, w0, w1, f0, f1, dfptr, jacptr, inptr,
@@ -555,7 +567,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DSumFacTOPKernel(
                                                 outptr, threadBlock);
         }
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -582,8 +594,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBasePhys2DSumFacTOPKernel(
     TData *s_D1   = s_D0 + nq0 * nq0;
 
     // Copy to shared memory.
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nq0 * nq0; idx += stride)
     {
@@ -595,13 +607,17 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBasePhys2DSumFacTOPKernel(
         s_D1[idx] = D1[idx];
     }
 
-    size_t e = getBlockIdx(threadBlock);
+    size_t e                 = getBlockIdx<0>(threadBlock);
+    const unsigned int m     = getBlockIdx<1>(threadBlock);
+    const unsigned int c     = getBlockIdx<2>(threadBlock);
+    const unsigned int nmode = getBlockRange<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr  = df + ndf * dfsize * e;
         const TData *jacptr = jac + jacsize * e;
-        const TData *inptr  = in + nqTot * e;
-        TData *outptr       = out + nqTot * e;
+        const TData *inptr =
+            in + nqTot * nelmt * (ncoord * nmode * c + m) + nqTot * e;
+        TData *outptr = out + nqTot * nelmt * (nmode * c + m) + nqTot * e;
 
         StdAlignDerivBase2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
             ncoord, nq0, nq1, inoffset, w0, w1, f0, f1, dfptr, jacptr, inptr,
@@ -609,7 +625,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBasePhys2DSumFacTOPKernel(
         SumDerivTensor2DSumFacTOPKernel<true, APPEND>(
             nq0, nq1, s_D0, s_D1, deriv0, deriv1, outptr, scale, threadBlock);
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -686,8 +702,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacTOPKernel(
     TData *s_out1ptr = s_basis2 + nmode2 * nq2;
 
     // Copy to shared memory.
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
     {
@@ -704,13 +720,17 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacTOPKernel(
         s_basis2[idx] = basis2[idx];
     }
 
-    size_t e = getBlockIdx(threadBlock); // use size_t to prevent overflow
+    size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
+    const unsigned int m     = getBlockIdx<1>(threadBlock);
+    const unsigned int c     = getBlockIdx<2>(threadBlock);
+    const unsigned int nmode = getBlockRange<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr  = df + ndf * dfsize * e;
         const TData *jacptr = jac + jacsize * e;
-        const TData *inptr  = in + nqTot * e;
-        TData *outptr       = out + nmTot * e;
+        const TData *inptr =
+            in + nqTot * nelmt * (3 * nmode * c + m) + nqTot * e;
+        TData *outptr = out + nmTot * nelmt * (nmode * c + m) + nmTot * e;
 
         StdAlignDerivBase3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
             nq0, nq1, nq2, inoffset, w0, w1, w2, f0, f1, f1m, f2, dfptr, jacptr,
@@ -768,7 +788,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacTOPKernel(
                 s_wsp1, scale, threadBlock);
         }
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -799,8 +819,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBasePhys3DSumFacTOPKernel(
     TData *s_D2   = s_D1 + nq1 * nq1;
 
     // Copy to shared memory.
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nq0 * nq0; idx += stride)
     {
@@ -817,13 +837,17 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBasePhys3DSumFacTOPKernel(
         s_D2[idx] = D2[idx];
     }
 
-    size_t e = getBlockIdx(threadBlock); // use size_t to prevent overflow
+    size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
+    const unsigned int m     = getBlockIdx<1>(threadBlock);
+    const unsigned int c     = getBlockIdx<2>(threadBlock);
+    const unsigned int nmode = getBlockRange<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr  = df + ndf * dfsize * e;
         const TData *jacptr = jac + jacsize * e;
-        const TData *inptr  = in + nqTot * e;
-        TData *outptr       = out + nqTot * e;
+        const TData *inptr =
+            in + nqTot * nelmt * (3 * nmode * c + m) + nqTot * e;
+        TData *outptr = out + nqTot * nelmt * (nmode * c + m) + nqTot * e;
 
         StdAlignDerivBase3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
             nq0, nq1, nq2, inoffset, w0, w1, w2, f0, f1, f1m, f2, dfptr, jacptr,
@@ -832,7 +856,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBasePhys3DSumFacTOPKernel(
             nq0, nq1, nq2, s_D0, s_D1, s_D2, deriv0, deriv1, deriv2, outptr,
             scale, threadBlock);
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 

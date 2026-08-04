@@ -54,8 +54,8 @@ NEK_DEVICE_INLINE static void AddAdvection1DSumFacTOPKernel(
     const TData *NEK_RESTRICT deriv1, const TData *NEK_RESTRICT deriv2,
     TData *NEK_RESTRICT out, const TData scale, const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int i = idx0; i < nq0; i += stride)
     {
@@ -81,8 +81,8 @@ NEK_DEVICE_INLINE static void AddAdvection2DSumFacTOPKernel(
     const TData *NEK_RESTRICT deriv1, const TData *NEK_RESTRICT deriv2,
     TData *NEK_RESTRICT out, const TData scale, const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int i = idx0; i < nq0 * nq1; i += stride)
     {
@@ -104,8 +104,8 @@ NEK_DEVICE_INLINE static void AddAdvection3DSumFacTOPKernel(
     const TData *NEK_RESTRICT deriv1, const TData *NEK_RESTRICT deriv2,
     TData *NEK_RESTRICT out, const TData scale, const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int i = idx0; i < nq0 * nq1 * nq2; i += stride)
     {
@@ -133,13 +133,14 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction1DSumFacTOPKernel(
     TData *bwd   = (TData *)shmemptr;
     TData *deriv = bwd + nq0;
 
-    size_t e = getBlockIdx(threadBlock);
+    size_t e             = getBlockIdx<0>(threadBlock);
+    const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr      = df + ndf * dfsize * e;
         const TData *jacptr     = jac + jacsize * e;
-        const TData *inptr      = in + nm0 * e;
-        TData *outptr           = out + nm0 * e;
+        const TData *inptr      = in + nm0 * nelmt * c + nm0 * e;
+        TData *outptr           = out + nm0 * nelmt * c + nm0 * e;
         const TData *advVel0ptr = advVel0 + nq0 * e;
         const TData *advVel1ptr = ncoord > 1 ? advVel1 + nq0 * e : advVel1;
         const TData *advVel2ptr = ncoord > 2 ? advVel2 + nq0 * e : advVel2;
@@ -159,7 +160,7 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction1DSumFacTOPKernel(
         IProductWRTBaseSegSumFacTOPKernel<false, false>(
             nm0, nq0, basis0, bwd, outptr, (TData)1.0, threadBlock);
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -211,8 +212,8 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction2DSumFacTOPKernel(
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
 
     // Copy to shared memory.
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
     {
@@ -224,13 +225,14 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction2DSumFacTOPKernel(
         s_basis1[idx] = basis1[idx];
     }
 
-    size_t e = getBlockIdx(threadBlock);
+    size_t e             = getBlockIdx<0>(threadBlock);
+    const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr  = df + ndf * dfsize * e;
         const TData *jacptr = jac + jacsize * e;
-        const TData *inptr  = in + nmTot * e;
-        TData *outptr       = out + nmTot * e;
+        const TData *inptr  = in + nmTot * nelmt * c + nmTot * e;
+        TData *outptr       = out + nmTot * nelmt * c + nmTot * e;
 
         if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
         {
@@ -308,7 +310,7 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction2DSumFacTOPKernel(
                                                threadBlock);
         }
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -390,8 +392,8 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction3DSumFacTOPKernel(
     TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
     // Copy to shared memory.
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
     {
@@ -408,13 +410,14 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction3DSumFacTOPKernel(
         s_basis2[idx] = basis2[idx];
     }
 
-    size_t e = getBlockIdx(threadBlock); // use size_t to prevent overflow
+    size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
+    const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr  = df + ndf * dfsize * e;
         const TData *jacptr = jac + jacsize * e;
-        const TData *inptr  = in + nmTot * e;
-        TData *outptr       = out + nmTot * e;
+        const TData *inptr  = in + nmTot * nelmt * c + nmTot * e;
+        TData *outptr       = out + nmTot * nelmt * c + nmTot * e;
 
         // Copy to shared memory.
         if constexpr (SHAPE_TYPE == LibUtilities::NodalTet ||
@@ -537,7 +540,7 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction3DSumFacTOPKernel(
                 s_wsp0, (TData)1.0, threadBlock);
         }
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 

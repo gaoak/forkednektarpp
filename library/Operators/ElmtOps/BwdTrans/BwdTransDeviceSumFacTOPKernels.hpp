@@ -174,8 +174,8 @@ NEK_DEVICE_INLINE static void BwdTransSegSumFacTOPKernel(
     const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT in,
     TData *NEK_RESTRICT out, const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int i = idx0; i < nq0; i += stride)
     {
@@ -207,8 +207,8 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacTOPKernel(
     const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
     TData *NEK_RESTRICT wsp, const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     // direction 0
     for (unsigned int idx = idx0; idx < nq0 * nm1; idx += stride)
@@ -263,8 +263,8 @@ NEK_DEVICE_INLINE static void BwdTransTriSumFacTOPKernel(
     const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
     TData *NEK_RESTRICT wsp, const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     // direction 1
     for (unsigned int idx = idx0; idx < nm0 * nq1; idx += stride)
@@ -327,8 +327,8 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacTOPKernel(
     TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1,
     const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     // direction 0
     for (unsigned int idx = idx0; idx < nq0 * nm1 * nm2; idx += stride)
@@ -410,8 +410,8 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacTOPKernel(
 {
     const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     // direction 2
     for (unsigned int idx = idx0; idx < nm01 * nq2; idx += stride)
@@ -518,8 +518,8 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacTOPKernel(
     TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1,
     const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     // direction 2
     for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
@@ -609,8 +609,8 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacTOPKernel(
     TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1,
     const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     // direction 2
     for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
@@ -707,14 +707,15 @@ NEK_DEVICE_INLINE static void BwdTrans1DSumFacTOPKernel(
     [[maybe_unused]] unsigned char *NEK_RESTRICT shmemptr,
     const TthreadBlock &threadBlock)
 {
-    size_t e = getBlockIdx(threadBlock);
+    size_t e             = getBlockIdx<0>(threadBlock);
+    const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
-        const TData *inptr = in + nm0 * e;
-        TData *outptr      = out + nq0 * e;
+        const TData *inptr = in + nm0 * nelmt * c + nm0 * e;
+        TData *outptr      = out + nq0 * nelmt * c + nq0 * e;
         BwdTransSegSumFacTOPKernel<APPEND>(nm0, nq0, basis0, inptr, outptr,
                                            threadBlock);
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -751,8 +752,8 @@ NEK_DEVICE_INLINE static void BwdTrans2DSumFacTOPKernel(
     TData *s_basis1 = s_basis0 + nm0 * nq0;
 
     // Copy to shared memory.
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
     {
@@ -764,11 +765,12 @@ NEK_DEVICE_INLINE static void BwdTrans2DSumFacTOPKernel(
         s_basis1[idx] = basis1[idx];
     }
 
-    size_t e = getBlockIdx(threadBlock);
+    size_t e             = getBlockIdx<0>(threadBlock);
+    const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
-        const TData *inptr = in + nmTot * e;
-        TData *outptr      = out + nqTot * e;
+        const TData *inptr = in + nmTot * nelmt * c + nmTot * e;
+        TData *outptr      = out + nqTot * nelmt * c + nqTot * e;
 
         if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
         {
@@ -799,7 +801,7 @@ NEK_DEVICE_INLINE static void BwdTrans2DSumFacTOPKernel(
                 s_wsp0, outptr, s_wsp1, threadBlock);
         }
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -862,8 +864,8 @@ NEK_DEVICE_INLINE static void BwdTrans3DSumFacTOPKernel(
     TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
     // Copy to shared memory.
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
     {
@@ -880,11 +882,12 @@ NEK_DEVICE_INLINE static void BwdTrans3DSumFacTOPKernel(
         s_basis2[idx] = basis2[idx];
     }
 
-    size_t e = getBlockIdx(threadBlock); // use size_t to prevent overflow
+    size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
+    const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
-        const TData *inptr = in + nmTot * e;
-        TData *outptr      = out + nqTot * e;
+        const TData *inptr = in + nmTot * nelmt * c + nmTot * e;
+        TData *outptr      = out + nqTot * nelmt * c + nqTot * e;
 
         if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism ||
                       SHAPE_TYPE == LibUtilities::NodalTet)
@@ -932,7 +935,7 @@ NEK_DEVICE_INLINE static void BwdTrans3DSumFacTOPKernel(
                 threadBlock);
         }
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 

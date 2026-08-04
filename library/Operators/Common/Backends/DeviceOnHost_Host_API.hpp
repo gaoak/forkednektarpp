@@ -35,6 +35,19 @@
 #pragma once
 
 #if defined(NEKTAR_ENABLE_DEVICEONHOST)
+static unsigned int deviceOnHostLocalIdxX = 0;
+static unsigned int deviceOnHostLocalIdxY = 0;
+static unsigned int deviceOnHostLocalIdxZ = 0;
+static unsigned int deviceOnHostBlockIdxX = 0;
+static unsigned int deviceOnHostBlockIdxY = 0;
+static unsigned int deviceOnHostBlockIdxZ = 0;
+static unsigned int deviceOnHostBlockDimX = 1;
+static unsigned int deviceOnHostBlockDimY = 1;
+static unsigned int deviceOnHostBlockDimZ = 1;
+static unsigned int deviceOnHostGridDimX  = 1;
+static unsigned int deviceOnHostGridDimY  = 1;
+static unsigned int deviceOnHostGridDimZ  = 1;
+
 template <unsigned int ndim> class deviceOnHostBlock
 {
 };
@@ -64,11 +77,18 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
 #define DEVICE_1DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
                                       STREAMID, ...)                           \
     {                                                                          \
-        nektar_unused(GRIDSIZE);                                               \
-        nektar_unused(BLOCKSIZE);                                              \
-        nektar_unused(STREAMID);                                               \
+        deviceOnHostGridDimX  = GRIDSIZE;                                      \
+        deviceOnHostBlockDimX = BLOCKSIZE;                                     \
         std::vector<unsigned char> shmem(SHMEMSIZE);                           \
-        KERNEL(__VA_ARGS__, shmem.data(), deviceOnHostBlock<1>());             \
+        for (unsigned int i = 0; i < deviceOnHostGridDimX; i++)                \
+        {                                                                      \
+            for (unsigned int ii = 0; ii < deviceOnHostBlockDimX; ii++)        \
+            {                                                                  \
+                deviceOnHostLocalIdxX = ii;                                    \
+                deviceOnHostBlockIdxX = i;                                     \
+                KERNEL(__VA_ARGS__, shmem.data(), deviceOnHostBlock<1>());     \
+            }                                                                  \
+        }                                                                      \
     }
 
 // Kernel launcher on a two-dimensional GPU grid with shared memory provision.
@@ -81,13 +101,31 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
                                       BLOCKSIZEX, BLOCKSIZEY, SHMEMSIZE,       \
                                       STREAMID, ...)                           \
     {                                                                          \
-        nektar_unused(GRIDSIZEX);                                              \
-        nektar_unused(GRIDSIZEY);                                              \
-        nektar_unused(BLOCKSIZEX);                                             \
-        nektar_unused(BLOCKSIZEY);                                             \
+        deviceOnHostGridDimX  = GRIDSIZEX;                                     \
+        deviceOnHostGridDimY  = GRIDSIZEY;                                     \
+        deviceOnHostBlockDimX = BLOCKSIZEX;                                    \
+        deviceOnHostBlockDimY = BLOCKSIZEY;                                    \
         nektar_unused(STREAMID);                                               \
         std::vector<unsigned char> shmem(SHMEMSIZE);                           \
-        KERNEL(__VA_ARGS__, shmem.data(), deviceOnHostBlock<2>());             \
+        for (unsigned int j = 0; j < deviceOnHostGridDimY; j++)                \
+        {                                                                      \
+            for (unsigned int i = 0; i < deviceOnHostGridDimX; i++)            \
+            {                                                                  \
+                for (unsigned int jj = 0; jj < deviceOnHostBlockDimY; jj++)    \
+                {                                                              \
+                    for (unsigned int ii = 0; ii < deviceOnHostBlockDimX;      \
+                         ii++)                                                 \
+                    {                                                          \
+                        deviceOnHostLocalIdxX = ii;                            \
+                        deviceOnHostLocalIdxY = jj;                            \
+                        deviceOnHostBlockIdxX = i;                             \
+                        deviceOnHostBlockIdxY = j;                             \
+                        KERNEL(__VA_ARGS__, shmem.data(),                      \
+                               deviceOnHostBlock<2>());                        \
+                    }                                                          \
+                }                                                              \
+            }                                                                  \
+        }                                                                      \
     }
 
 // Kernel launcher on a three-dimensional GPU grid with shared memory provision.
@@ -98,17 +136,45 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
 // to the appropriate type before use (e.g. auto ptr = (TData *)shmemptr).
 #define DEVICE_3DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZEX, GRIDSIZEY, GRIDSIZEZ, \
                                       BLOCKSIZEX, BLOCKSIZEY, BLOCKSIZEZ,      \
-                                      STREAMID, ...)                           \
+                                      SHMEMSIZE, STREAMID, ...)                \
     {                                                                          \
-        nektar_unused(GRIDSIZEX);                                              \
-        nektar_unused(GRIDSIZEY);                                              \
-        nektar_unused(GRIDSIZEZ);                                              \
-        nektar_unused(BLOCKSIZEX);                                             \
-        nektar_unused(BLOCKSIZEY);                                             \
-        nektar_unused(BLOCKSIZEZ);                                             \
+        deviceOnHostGridDimX  = GRIDSIZEX;                                     \
+        deviceOnHostGridDimY  = GRIDSIZEY;                                     \
+        deviceOnHostGridDimZ  = GRIDSIZEZ;                                     \
+        deviceOnHostBlockDimX = BLOCKSIZEX;                                    \
+        deviceOnHostBlockDimY = BLOCKSIZEY;                                    \
+        deviceOnHostBlockDimZ = BLOCKSIZEZ;                                    \
         nektar_unused(STREAMID);                                               \
         std::vector<unsigned char> shmem(SHMEMSIZE);                           \
-        KERNEL(__VA_ARGS__, shmem.data(), deviceOnHostBlock<3>());             \
+        for (unsigned int k = 0; k < deviceOnHostGridDimZ; k++)                \
+        {                                                                      \
+            for (unsigned int j = 0; j < deviceOnHostGridDimY; j++)            \
+            {                                                                  \
+                for (unsigned int i = 0; i < deviceOnHostGridDimX; i++)        \
+                {                                                              \
+                    for (unsigned int kk = 0; kk < deviceOnHostBlockDimZ;      \
+                         kk++)                                                 \
+                    {                                                          \
+                        for (unsigned int jj = 0; jj < deviceOnHostBlockDimY;  \
+                             jj++)                                             \
+                        {                                                      \
+                            for (unsigned int ii = 0;                          \
+                                 ii < deviceOnHostBlockDimX; ii++)             \
+                            {                                                  \
+                                deviceOnHostLocalIdxX = ii;                    \
+                                deviceOnHostLocalIdxY = jj;                    \
+                                deviceOnHostLocalIdxZ = kk;                    \
+                                deviceOnHostBlockIdxX = i;                     \
+                                deviceOnHostBlockIdxY = j;                     \
+                                deviceOnHostBlockIdxZ = k;                     \
+                                KERNEL(__VA_ARGS__, shmem.data(),              \
+                                       deviceOnHostBlock<3>());                \
+                            }                                                  \
+                        }                                                      \
+                    }                                                          \
+                }                                                              \
+            }                                                                  \
+        }                                                                      \
     }
 
 // Kernel launcher on a one-dimensional GPU grid without shared memory
@@ -118,10 +184,18 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
 #define DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
                                               STREAMID, ...)                   \
     {                                                                          \
-        nektar_unused(GRIDSIZE);                                               \
-        nektar_unused(BLOCKSIZE);                                              \
+        deviceOnHostGridDimX  = GRIDSIZE;                                      \
+        deviceOnHostBlockDimX = BLOCKSIZE;                                     \
         nektar_unused(STREAMID);                                               \
-        KERNEL(__VA_ARGS__, deviceOnHostBlock<1>());                           \
+        for (unsigned int i = 0; i < deviceOnHostGridDimX; i++)                \
+        {                                                                      \
+            for (unsigned int ii = 0; ii < deviceOnHostBlockDimX; ii++)        \
+            {                                                                  \
+                deviceOnHostLocalIdxX = ii;                                    \
+                deviceOnHostBlockIdxX = i;                                     \
+                KERNEL(__VA_ARGS__, deviceOnHostBlock<1>());                   \
+            }                                                                  \
+        }                                                                      \
     }
 
 // Kernel launcher on a two-dimensional GPU grid without shared memory
@@ -131,12 +205,29 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
 #define DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(                                 \
     KERNEL, GRIDSIZEX, GRIDSIZEY, BLOCKSIZEX, BLOCKSIZEY, STREAMID, ...)       \
     {                                                                          \
-        nektar_unused(GRIDSIZEX);                                              \
-        nektar_unused(GRIDSIZEY);                                              \
-        nektar_unused(BLOCKSIZEX);                                             \
-        nektar_unused(BLOCKSIZEY);                                             \
+        deviceOnHostGridDimX  = GRIDSIZEX;                                     \
+        deviceOnHostGridDimY  = GRIDSIZEY;                                     \
+        deviceOnHostBlockDimX = BLOCKSIZEX;                                    \
+        deviceOnHostBlockDimY = BLOCKSIZEY;                                    \
         nektar_unused(STREAMID);                                               \
-        KERNEL(__VA_ARGS__, deviceOnHostBlock<2>());                           \
+        for (unsigned int j = 0; j < deviceOnHostGridDimY; j++)                \
+        {                                                                      \
+            for (unsigned int i = 0; i < deviceOnHostGridDimX; i++)            \
+            {                                                                  \
+                for (unsigned int jj = 0; jj < deviceOnHostBlockDimY; jj++)    \
+                {                                                              \
+                    for (unsigned int ii = 0; ii < deviceOnHostBlockDimX;      \
+                         ii++)                                                 \
+                    {                                                          \
+                        deviceOnHostLocalIdxX = ii;                            \
+                        deviceOnHostLocalIdxY = jj;                            \
+                        deviceOnHostBlockIdxX = i;                             \
+                        deviceOnHostBlockIdxY = j;                             \
+                        KERNEL(__VA_ARGS__, deviceOnHostBlock<2>());           \
+                    }                                                          \
+                }                                                              \
+            }                                                                  \
+        }                                                                      \
     }
 
 // Kernel launcher on a three-dimensional GPU grid without shared memory
@@ -147,13 +238,40 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
     KERNEL, GRIDSIZEX, GRIDSIZEY, GRIDSIZEZ, BLOCKSIZEX, BLOCKSIZEY,           \
     BLOCKSIZEZ, STREAMID, ...)                                                 \
     {                                                                          \
-        nektar_unused(GRIDSIZEX);                                              \
-        nektar_unused(GRIDSIZEY);                                              \
-        nektar_unused(GRIDSIZEZ);                                              \
-        nektar_unused(BLOCKSIZEX);                                             \
-        nektar_unused(BLOCKSIZEY);                                             \
-        nektar_unused(BLOCKSIZEZ);                                             \
+        deviceOnHostGridDimX  = GRIDSIZEX;                                     \
+        deviceOnHostGridDimY  = GRIDSIZEY;                                     \
+        deviceOnHostGridDimZ  = GRIDSIZEZ;                                     \
+        deviceOnHostBlockDimX = BLOCKSIZEX;                                    \
+        deviceOnHostBlockDimY = BLOCKSIZEY;                                    \
+        deviceOnHostBlockDimZ = BLOCKSIZEZ;                                    \
         nektar_unused(STREAMID);                                               \
-        KERNEL(__VA_ARGS__, deviceOnHostBlock<3>());                           \
+        for (unsigned int k = 0; k < deviceOnHostGridDimZ; k++)                \
+        {                                                                      \
+            for (unsigned int j = 0; j < deviceOnHostGridDimY; j++)            \
+            {                                                                  \
+                for (unsigned int i = 0; i < deviceOnHostGridDimX; i++)        \
+                {                                                              \
+                    for (unsigned int kk = 0; kk < deviceOnHostBlockDimZ;      \
+                         kk++)                                                 \
+                    {                                                          \
+                        for (unsigned int jj = 0; jj < deviceOnHostBlockDimY;  \
+                             jj++)                                             \
+                        {                                                      \
+                            for (unsigned int ii = 0;                          \
+                                 ii < deviceOnHostBlockDimX; ii++)             \
+                            {                                                  \
+                                deviceOnHostLocalIdxX = ii;                    \
+                                deviceOnHostLocalIdxY = jj;                    \
+                                deviceOnHostLocalIdxZ = kk;                    \
+                                deviceOnHostBlockIdxX = i;                     \
+                                deviceOnHostBlockIdxY = j;                     \
+                                deviceOnHostBlockIdxZ = k;                     \
+                                KERNEL(__VA_ARGS__, deviceOnHostBlock<3>());   \
+                            }                                                  \
+                        }                                                      \
+                    }                                                          \
+                }                                                              \
+            }                                                                  \
+        }                                                                      \
     }
 #endif

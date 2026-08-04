@@ -282,47 +282,33 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
+        const unsigned int ncomp =
+            inblock.GetNumComponents() * inblock.GetNumHomoModes();
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam1D.nq0());
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, 0);
 
-        // Loop over components.
         const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
-        for (unsigned int n = 0;
-             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
-        {
-            // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
 
-            // Calculate derivative.
-            DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                (PhysDeriv1DKernelLauncher<Implementation, DEFORMED>), gridsize,
-                blocksize, m_streamID, sizeParam1D, nelmt, outoffset, m_D[0],
-                m_dfptr, inptr, outptr);
+        // Reshape, if necessary.
+        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                  nelmt * ncomp, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
 
-            // Reshape back, if necessary.
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
-            for (unsigned int k = 0; k < sizeParam1D.ncoord(); k++)
-            {
-                ReshapeStorage<ExecSpace>(
-                    interleaveWidth, m_implInterleaveWidth, nelmt,
-                    outblock.GetNumData(), (TData *)outptr + k * outoffset,
-                    m_streamID);
-            }
+        // Calculate derivative.
+        DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(
+            (PhysDeriv1DKernelLauncher<Implementation, DEFORMED>), gridsize,
+            inblock.GetNumHomoModes(), inblock.GetNumComponents(), blocksize, 1,
+            1, m_streamID, sizeParam1D, nelmt, outoffset, m_D[0], m_dfptr,
+            inptr, outptr);
 
-            // Increment pointers.
-            inptr += inblock.CompSize();
-            outptr += outblock.CompSize();
-            if ((n + 1) % outblock.GetNumHomoModes() == 0)
-            {
-                outptr += (sizeParam1D.ncoord() - 1) * outoffset;
-            }
-        }
+        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                  nelmt * ncomp, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
+        ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp * m_coordDim,
+            outblock.GetNumData(), (TData *)outptr, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
@@ -366,6 +352,8 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
+        const unsigned int ncomp =
+            inblock.GetNumComponents() * inblock.GetNumHomoModes();
         const unsigned int shmemsize =
             sizeof(TData) *
             PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam2D);
@@ -374,44 +362,27 @@ protected:
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
-        // Loop over components.
         const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
-        for (unsigned int n = 0;
-             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
-        {
-            // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
 
-            // Calculate derivative.
-            DEVICE_1DGRID_KERNEL_LAUNCHER(
-                (PhysDeriv2DKernelLauncher<SHAPE_TYPE, Implementation,
-                                           DEFORMED>),
-                gridsize, blocksize, shmemsize, m_streamID, sizeParam2D, nelmt,
-                outoffset, m_D[0], m_D[1], m_f[0], m_f[1], m_dfptr, inptr,
-                outptr);
+        // Reshape, if necessary.
+        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                  nelmt * ncomp, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
 
-            // Reshape back, if necessary.
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
-            for (unsigned int k = 0; k < sizeParam2D.ncoord(); k++)
-            {
-                ReshapeStorage<ExecSpace>(
-                    interleaveWidth, m_implInterleaveWidth, nelmt,
-                    outblock.GetNumData(), (TData *)outptr + k * outoffset,
-                    m_streamID);
-            }
+        // Calculate derivative.
+        DEVICE_3DGRID_KERNEL_LAUNCHER(
+            (PhysDeriv2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
+            gridsize, inblock.GetNumHomoModes(), inblock.GetNumComponents(),
+            blocksize, 1, 1, shmemsize, m_streamID, sizeParam2D, nelmt,
+            outoffset, m_D[0], m_D[1], m_f[0], m_f[1], m_dfptr, inptr, outptr);
 
-            // Increment pointers.
-            inptr += inblock.CompSize();
-            outptr += outblock.CompSize();
-            if ((n + 1) % outblock.GetNumHomoModes() == 0)
-            {
-                outptr += (sizeParam2D.ncoord() - 1) * outoffset;
-            }
-        }
+        // Reshape back, if necessary.
+        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                  nelmt * ncomp, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
+        ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp * m_coordDim,
+            outblock.GetNumData(), (TData *)outptr, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
@@ -454,6 +425,8 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
+        const unsigned int ncomp =
+            inblock.GetNumComponents() * inblock.GetNumHomoModes();
         const unsigned int shmemsize =
             sizeof(TData) *
             PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam3D);
@@ -462,39 +435,28 @@ protected:
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
-        // Loop over components.
         const auto outoffset = outblock.CompSize();
-        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
-        {
-            // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
 
-            // Calculate derivative.
-            DEVICE_1DGRID_KERNEL_LAUNCHER(
-                (PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation,
-                                           DEFORMED>),
-                gridsize, blocksize, shmemsize, m_streamID, sizeParam3D, nelmt,
-                outoffset, m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2],
-                m_f[3], m_dfptr, inptr, outptr);
+        // Reshape, if necessary.
+        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                  nelmt * ncomp, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
 
-            // Reshape back, if necessary.
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
-            for (unsigned int k = 0; k < 3; k++)
-            {
-                ReshapeStorage<ExecSpace>(
-                    interleaveWidth, m_implInterleaveWidth, nelmt,
-                    outblock.GetNumData(),
-                    (TData *)outptr + k * outblock.CompSize(), m_streamID);
-            }
+        // Calculate derivative.
+        DEVICE_3DGRID_KERNEL_LAUNCHER(
+            (PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
+            gridsize, inblock.GetNumHomoModes(), inblock.GetNumComponents(),
+            blocksize, 1, 1, shmemsize, m_streamID, sizeParam3D, nelmt,
+            outoffset, m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3],
+            m_dfptr, inptr, outptr);
 
-            // Increment pointers.
-            inptr += inblock.CompSize();
-            outptr += 3 * outblock.CompSize();
-        }
+        // Reshape back, if necessary.
+        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                  nelmt * ncomp, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
+        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                  3 * nelmt * ncomp, outblock.GetNumData(),
+                                  (TData *)outptr, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);

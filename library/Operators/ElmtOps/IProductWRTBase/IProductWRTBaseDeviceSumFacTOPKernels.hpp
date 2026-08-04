@@ -191,8 +191,8 @@ NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacTOPKernel(
     const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT in,
     TData *NEK_RESTRICT out, const TData scale, const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int p = idx0; p < nm0; p += stride)
     {
@@ -230,8 +230,8 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacTOPKernel(
     TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, const TData scale,
     const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nm0 * nq1; idx += stride)
     {
@@ -291,8 +291,8 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacTOPKernel(
     TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, const TData scale,
     const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nm0 * nq1; idx += stride)
     {
@@ -376,8 +376,8 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacTOPKernel(
     TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1, const TData scale,
     const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
     {
@@ -462,8 +462,8 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacTOPKernel(
 {
     const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
     {
@@ -655,8 +655,8 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacTOPKernel(
     TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1, const TData scale,
     const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
     {
@@ -802,8 +802,8 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacTOPKernel(
     TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1, const TData scale,
     const TthreadBlock &threadBlock)
 {
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
     {
@@ -913,15 +913,16 @@ NEK_DEVICE_INLINE static void IProductWRTBase1DSumFacTOPKernel(
 
     TData *s_wsp0 = (TData *)shmemptr;
 
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    size_t e = getBlockIdx(threadBlock);
+    size_t e             = getBlockIdx<0>(threadBlock);
+    const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *jacptr = jac + jacsize * e;
-        const TData *inptr  = in + nq0 * e;
-        TData *outptr       = out + nm0 * e;
+        const TData *inptr  = in + nq0 * nelmt * c + nq0 * e;
+        TData *outptr       = out + nm0 * nelmt * c + nm0 * e;
 
         for (unsigned int i = idx0; i < nq0; i += stride)
         {
@@ -939,7 +940,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase1DSumFacTOPKernel(
 
         IProductWRTBaseSegSumFacTOPKernel<SCALE, APPEND>(
             nm0, nq0, basis0, s_wsp0, outptr, scale, threadBlock);
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -953,14 +954,15 @@ NEK_DEVICE_INLINE static void IProductWRTBase1DSumFacTOPKernel(
 {
     TData *s_wsp0 = (TData *)shmemptr;
 
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    size_t e = getBlockIdx(threadBlock);
+    size_t e             = getBlockIdx<0>(threadBlock);
+    const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
-        const TData *inptr = in + nq0 * e;
-        TData *outptr      = out + nm0 * e;
+        const TData *inptr = in + nq0 * nelmt * c + nq0 * e;
+        TData *outptr      = out + nm0 * nelmt * c + nm0 * e;
 
         for (unsigned int i = idx0; i < nq0; i += stride)
         {
@@ -971,7 +973,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase1DSumFacTOPKernel(
 
         IProductWRTBaseSegSumFacTOPKernel<SCALE, APPEND>(
             nm0, nq0, basis0, s_wsp0, outptr, scale, threadBlock);
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -1012,8 +1014,8 @@ NEK_DEVICE_INLINE static void IProductWRTBase2DSumFacTOPKernel(
     TData *s_out1ptr = s_basis1 + nmode1 * nq1;
 
     // Copy to shared memory.
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
     {
@@ -1025,12 +1027,13 @@ NEK_DEVICE_INLINE static void IProductWRTBase2DSumFacTOPKernel(
         s_basis1[idx] = basis1[idx];
     }
 
-    size_t e = getBlockIdx(threadBlock);
+    size_t e             = getBlockIdx<0>(threadBlock);
+    const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *jacptr = jac + jacsize * e;
-        const TData *inptr  = in + nqTot * e;
-        TData *outptr       = out + nmTot * e;
+        const TData *inptr  = in + nqTot * nelmt * c + nqTot * e;
+        TData *outptr       = out + nmTot * nelmt * c + nmTot * e;
 
         for (unsigned int idx = idx0; idx < nqTot; idx += stride)
         {
@@ -1071,7 +1074,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase2DSumFacTOPKernel(
                                                 outptr, threadBlock);
         }
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -1111,8 +1114,8 @@ NEK_DEVICE_INLINE static void IProductWRTBase2DSumFacTOPKernel(
     TData *s_out1ptr = s_basis1 + nmode1 * nq1;
 
     // Copy to shared memory.
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
     {
@@ -1124,11 +1127,12 @@ NEK_DEVICE_INLINE static void IProductWRTBase2DSumFacTOPKernel(
         s_basis1[idx] = basis1[idx];
     }
 
-    size_t e = getBlockIdx(threadBlock);
+    size_t e             = getBlockIdx<0>(threadBlock);
+    const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
-        const TData *inptr = in + nqTot * e;
-        TData *outptr      = out + nmTot * e;
+        const TData *inptr = in + nqTot * nelmt * c + nqTot * e;
+        TData *outptr      = out + nmTot * nelmt * c + nmTot * e;
 
         for (unsigned int idx = idx0; idx < nqTot; idx += stride)
         {
@@ -1160,7 +1164,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase2DSumFacTOPKernel(
                                                 outptr, threadBlock);
         }
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -1228,8 +1232,8 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DSumFacTOPKernel(
     TData *s_out1ptr = s_basis2 + nmode2 * nq2;
 
     // Copy to shared memory.
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
     {
@@ -1246,12 +1250,13 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DSumFacTOPKernel(
         s_basis2[idx] = basis2[idx];
     }
 
-    size_t e = getBlockIdx(threadBlock); // use size_t to prevent overflow
+    size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
+    const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *jacptr = jac + jacsize * e;
-        const TData *inptr  = in + nqTot * e;
-        TData *outptr       = out + nmTot * e;
+        const TData *inptr  = in + nqTot * nelmt * c + nqTot * e;
+        TData *outptr       = out + nmTot * nelmt * c + nmTot * e;
 
         // Copy to shared memory.
         for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -1321,7 +1326,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DSumFacTOPKernel(
                 s_wsp2, scale, threadBlock);
         }
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -1386,8 +1391,8 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DSumFacTOPKernel(
     TData *s_out1ptr = s_basis2 + nmode2 * nq2;
 
     // Copy to shared memory.
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
     {
@@ -1404,11 +1409,12 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DSumFacTOPKernel(
         s_basis2[idx] = basis2[idx];
     }
 
-    size_t e = getBlockIdx(threadBlock); // use size_t to prevent overflow
+    size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
+    const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
-        const TData *inptr = in + nqTot * e;
-        TData *outptr      = out + nmTot * e;
+        const TData *inptr = in + nqTot * nelmt * c + nqTot * e;
+        TData *outptr      = out + nmTot * nelmt * c + nmTot * e;
 
         // Copy to shared memory.
         for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -1468,7 +1474,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DSumFacTOPKernel(
                 s_wsp2, scale, threadBlock);
         }
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
