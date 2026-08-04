@@ -262,15 +262,16 @@ NEK_DEVICE_INLINE static void Mass1DSumFacTOPKernel(
 
     TData *bwd = (TData *)shmemptr;
 
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    size_t e = getBlockIdx(threadBlock);
+    size_t e             = getBlockIdx<0>(threadBlock);
+    const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *jacptr = jac + jacsize * e;
-        const TData *inptr  = in + nm0 * e;
-        TData *outptr       = out + nm0 * e;
+        const TData *inptr  = in + nm0 * nelmt * c + nm0 * e;
+        TData *outptr       = out + nm0 * nelmt * c + nm0 * e;
         BwdTransSegSumFacTOPKernel<false>(nm0, nq0, basis0, inptr, bwd,
                                           threadBlock);
 
@@ -290,7 +291,7 @@ NEK_DEVICE_INLINE static void Mass1DSumFacTOPKernel(
 
         IProductWRTBaseSegSumFacTOPKernel<false, false>(
             nm0, nq0, basis0, bwd, outptr, (TData)1.0, threadBlock);
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -331,8 +332,8 @@ NEK_DEVICE_INLINE static void Mass2DSumFacTOPKernel(
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
 
     // Copy to shared memory.
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
     {
@@ -344,12 +345,13 @@ NEK_DEVICE_INLINE static void Mass2DSumFacTOPKernel(
         s_basis1[idx] = basis1[idx];
     }
 
-    size_t e = getBlockIdx(threadBlock);
+    size_t e             = getBlockIdx<0>(threadBlock);
+    const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *jacptr = jac + jacsize * e;
-        const TData *inptr  = in + nmTot * e;
-        TData *outptr       = out + nmTot * e;
+        const TData *inptr  = in + nmTot * nelmt * c + nmTot * e;
+        TData *outptr       = out + nmTot * nelmt * c + nmTot * e;
 
         if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
         {
@@ -362,6 +364,7 @@ NEK_DEVICE_INLINE static void Mass2DSumFacTOPKernel(
             {
                 tmp[idx] = inptr[idx];
             }
+
             localBarrier(threadBlock);
         }
 
@@ -418,7 +421,7 @@ NEK_DEVICE_INLINE static void Mass2DSumFacTOPKernel(
                                                threadBlock);
         }
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -487,8 +490,8 @@ NEK_DEVICE_INLINE static void Mass3DSumFacTOPKernel(
     TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
     // Copy to shared memory.
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
     {
@@ -505,12 +508,13 @@ NEK_DEVICE_INLINE static void Mass3DSumFacTOPKernel(
         s_basis2[idx] = basis2[idx];
     }
 
-    size_t e = getBlockIdx(threadBlock); // use size_t to prevent overflow
+    size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
+    const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *jacptr = jac + jacsize * e;
-        const TData *inptr  = in + nmTot * e;
-        TData *outptr       = out + nmTot * e;
+        const TData *inptr  = in + nmTot * nelmt * c + nmTot * e;
+        TData *outptr       = out + nmTot * nelmt * c + nmTot * e;
 
         if constexpr (SHAPE_TYPE == LibUtilities::NodalTet ||
                       SHAPE_TYPE == LibUtilities::NodalPrism)
@@ -624,7 +628,7 @@ NEK_DEVICE_INLINE static void Mass3DSumFacTOPKernel(
                 s_wsp0, (TData)1.0, threadBlock);
         }
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 

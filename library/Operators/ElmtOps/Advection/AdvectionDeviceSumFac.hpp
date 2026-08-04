@@ -298,62 +298,54 @@ protected:
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Initialize advVel pointers.
-        auto advVelPtr = m_advVel;
+        auto advVelPtr          = m_advVel;
+        const auto advVelOffset = nelmt * nqTot;
 
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
         const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
+        const unsigned int ncomp =
+            inblock.GetNumComponents() * inblock.GetNumHomoModes();
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam1D.nq0());
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, 0);
 
-        // Loop over components.
-        const auto advVelOffset = nelmt * nqTot;
-        for (unsigned int n = 0;
-             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
+        // Reshape, if necessary.
+        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, inInterleaveWidth,
+                                  nelmt * ncomp, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
+        if (this->m_append)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, inInterleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
-            if (this->m_append)
-            {
-                // Reshape, if necessary.
-                ReshapeStorage<ExecSpace>(
-                    m_implInterleaveWidth, outInterleaveWidth, nelmt,
-                    outblock.GetNumData(), (TData *)outptr, m_streamID);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, outInterleaveWidth,
+                                      nelmt * ncomp, outblock.GetNumData(),
+                                      (TData *)outptr, m_streamID);
 
-                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Advection1DKernelLauncher<Implementation, true, DEFORMED>),
-                    gridsize, blocksize, m_streamID, sizeParam1D, nelmt, m_D[0],
-                    m_dfptr, advVelPtr, advVelOffset, inptr, outptr,
-                    this->m_scale);
-            }
-            else
-            {
-                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Advection1DKernelLauncher<Implementation, false,
-                                               DEFORMED>),
-                    gridsize, blocksize, m_streamID, sizeParam1D, nelmt, m_D[0],
-                    m_dfptr, advVelPtr, advVelOffset, inptr, outptr,
-                    this->m_scale);
-            }
-
-            // Reshape back, if necessary.
-            ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
-            ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(), outptr,
-                                      m_streamID);
-
-            // Increment pointers.
-            inptr += inblock.CompSize();
-            outptr += outblock.CompSize();
+            DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                (Advection1DKernelLauncher<Implementation, true, DEFORMED>),
+                gridsize, ncomp, blocksize, 1, m_streamID, sizeParam1D, nelmt,
+                m_D[0], m_dfptr, advVelPtr, advVelOffset, inptr, outptr,
+                this->m_scale);
         }
+        else
+        {
+            DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                (Advection1DKernelLauncher<Implementation, false, DEFORMED>),
+                gridsize, ncomp, blocksize, 1, m_streamID, sizeParam1D, nelmt,
+                m_D[0], m_dfptr, advVelPtr, advVelOffset, inptr, outptr,
+                this->m_scale);
+        }
+
+        // Reshape back, if necessary.
+        ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
+                                  nelmt * ncomp, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
+        ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
+                                  nelmt * ncomp, outblock.GetNumData(), outptr,
+                                  m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
@@ -399,13 +391,16 @@ protected:
                 ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
-        auto advVelPtr = m_advVel;
+        auto advVelPtr          = m_advVel;
+        const auto advVelOffset = nelmt * nqTot;
 
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
         const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
+        const unsigned int ncomp =
+            inblock.GetNumComponents() * inblock.GetNumHomoModes();
         const unsigned int shmemsize =
             sizeof(TData) *
             AdvectionSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam2D);
@@ -414,53 +409,43 @@ protected:
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
-        // Loop over components.
-        const auto advVelOffset = nelmt * nqTot;
-        for (unsigned int n = 0;
-             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
+        // Reshape, if necessary.
+        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, inInterleaveWidth,
+                                  nelmt * ncomp, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
+
+        // Calculate derivative.
+        if (this->m_append)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, inInterleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, outInterleaveWidth,
+                                      nelmt * ncomp, outblock.GetNumData(),
+                                      (TData *)outptr, m_streamID);
 
-            // Calculate derivative.
-            if (this->m_append)
-            {
-                // Reshape, if necessary.
-                ReshapeStorage<ExecSpace>(
-                    m_implInterleaveWidth, outInterleaveWidth, nelmt,
-                    outblock.GetNumData(), (TData *)outptr, m_streamID);
-
-                DEVICE_1DGRID_KERNEL_LAUNCHER(
-                    (Advection2DKernelLauncher<SHAPE_TYPE, Implementation, true,
-                                               DEFORMED>),
-                    gridsize, blocksize, shmemsize, m_streamID, sizeParam2D,
-                    nelmt, m_D[0], m_D[1], m_f[0], m_f[1], m_dfptr, advVelPtr,
-                    advVelOffset, inptr, outptr, this->m_scale);
-            }
-            else
-            {
-                DEVICE_1DGRID_KERNEL_LAUNCHER(
-                    (Advection2DKernelLauncher<SHAPE_TYPE, Implementation,
-                                               false, DEFORMED>),
-                    gridsize, blocksize, shmemsize, m_streamID, sizeParam2D,
-                    nelmt, m_D[0], m_D[1], m_f[0], m_f[1], m_dfptr, advVelPtr,
-                    advVelOffset, inptr, outptr, this->m_scale);
-            }
-
-            // Reshape back, if necessary.
-            ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
-            ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(), outptr,
-                                      m_streamID);
-
-            // Increment pointers.
-            inptr += inblock.CompSize();
-            outptr += outblock.CompSize();
+            DEVICE_2DGRID_KERNEL_LAUNCHER(
+                (Advection2DKernelLauncher<SHAPE_TYPE, Implementation, true,
+                                           DEFORMED>),
+                gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
+                sizeParam2D, nelmt, m_D[0], m_D[1], m_f[0], m_f[1], m_dfptr,
+                advVelPtr, advVelOffset, inptr, outptr, this->m_scale);
         }
+        else
+        {
+            DEVICE_2DGRID_KERNEL_LAUNCHER(
+                (Advection2DKernelLauncher<SHAPE_TYPE, Implementation, false,
+                                           DEFORMED>),
+                gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
+                sizeParam2D, nelmt, m_D[0], m_D[1], m_f[0], m_f[1], m_dfptr,
+                advVelPtr, advVelOffset, inptr, outptr, this->m_scale);
+        }
+
+        // Reshape back, if necessary.
+        ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
+                                  nelmt * ncomp, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
+        ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
+                                  nelmt * ncomp, outblock.GetNumData(), outptr,
+                                  m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
@@ -505,13 +490,16 @@ protected:
                 ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
-        auto advVelPtr = m_advVel;
+        auto advVelPtr          = m_advVel;
+        const auto advVelOffset = nelmt * nqTot;
 
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
         const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
+        const unsigned int ncomp =
+            inblock.GetNumComponents() * inblock.GetNumHomoModes();
         const unsigned int shmemsize =
             sizeof(TData) *
             AdvectionSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam3D);
@@ -520,54 +508,45 @@ protected:
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
-        // Loop over components.
-        const auto advVelOffset = nelmt * nqTot;
-        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
+        // Reshape, if necessary.
+        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, inInterleaveWidth,
+                                  nelmt * ncomp, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
+
+        // Calculate derivative.
+        if (this->m_append)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, inInterleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
+            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, outInterleaveWidth,
+                                      nelmt * ncomp, outblock.GetNumData(),
+                                      (TData *)outptr, m_streamID);
 
-            // Calculate derivative.
-            if (this->m_append)
-            {
-                // Reshape, if necessary.
-                ReshapeStorage<ExecSpace>(
-                    m_implInterleaveWidth, outInterleaveWidth, nelmt,
-                    outblock.GetNumData(), (TData *)outptr, m_streamID);
-
-                DEVICE_1DGRID_KERNEL_LAUNCHER(
-                    (Advection3DKernelLauncher<SHAPE_TYPE, Implementation, true,
-                                               DEFORMED>),
-                    gridsize, blocksize, shmemsize, m_streamID, sizeParam3D,
-                    nelmt, m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2],
-                    m_f[3], m_dfptr, advVelPtr, advVelOffset, inptr, outptr,
-                    this->m_scale);
-            }
-            else
-            {
-                DEVICE_1DGRID_KERNEL_LAUNCHER(
-                    (Advection3DKernelLauncher<SHAPE_TYPE, Implementation,
-                                               false, DEFORMED>),
-                    gridsize, blocksize, shmemsize, m_streamID, sizeParam3D,
-                    nelmt, m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2],
-                    m_f[3], m_dfptr, advVelPtr, advVelOffset, inptr, outptr,
-                    this->m_scale);
-            }
-
-            // Reshape back, if necessary.
-            ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
-            ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(), outptr,
-                                      m_streamID);
-
-            // Increment pointers.
-            inptr += inblock.CompSize();
-            outptr += outblock.CompSize();
+            DEVICE_2DGRID_KERNEL_LAUNCHER(
+                (Advection3DKernelLauncher<SHAPE_TYPE, Implementation, true,
+                                           DEFORMED>),
+                gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
+                sizeParam3D, nelmt, m_D[0], m_D[1], m_D[2], m_f[0], m_f[1],
+                m_f[2], m_f[3], m_dfptr, advVelPtr, advVelOffset, inptr, outptr,
+                this->m_scale);
         }
+        else
+        {
+            DEVICE_2DGRID_KERNEL_LAUNCHER(
+                (Advection3DKernelLauncher<SHAPE_TYPE, Implementation, false,
+                                           DEFORMED>),
+                gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
+                sizeParam3D, nelmt, m_D[0], m_D[1], m_D[2], m_f[0], m_f[1],
+                m_f[2], m_f[3], m_dfptr, advVelPtr, advVelOffset, inptr, outptr,
+                this->m_scale);
+        }
+
+        // Reshape back, if necessary.
+        ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
+                                  nelmt * ncomp, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
+        ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
+                                  nelmt * ncomp, outblock.GetNumData(), outptr,
+                                  m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);

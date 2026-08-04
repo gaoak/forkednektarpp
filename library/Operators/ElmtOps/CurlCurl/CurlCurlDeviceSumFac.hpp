@@ -51,11 +51,11 @@ NEK_DEVICE_KERNEL void CombineOmega2DKernel(const size_t npts,
                                             TData *NEK_RESTRICT omega,
                                             const TthreadBlock &threadBlock)
 {
-    size_t idx = getGlobalIdx(threadBlock);
+    size_t idx = getGlobalIdx<0>(threadBlock);
     while (idx < npts)
     {
         omega[idx] = grad1[idx] - grad0[outoffset + idx];
-        idx += getGlobalRange(threadBlock);
+        idx += getGlobalRange<0>(threadBlock);
     }
 }
 
@@ -65,12 +65,12 @@ NEK_DEVICE_KERNEL void AssembleCurlCurl2DKernel(
     const TData *NEK_RESTRICT gradOmega, TData *NEK_RESTRICT out,
     const TthreadBlock &threadBlock)
 {
-    size_t idx = getGlobalIdx(threadBlock);
+    size_t idx = getGlobalIdx<0>(threadBlock);
     while (idx < npts)
     {
         out[idx]             = gradOmega[outoffset + idx];
         out[outoffset + idx] = -gradOmega[idx];
-        idx += getGlobalRange(threadBlock);
+        idx += getGlobalRange<0>(threadBlock);
     }
 }
 
@@ -80,13 +80,13 @@ NEK_DEVICE_KERNEL void CombineOmega3DKernel(
     const TData *NEK_RESTRICT grad1, const TData *NEK_RESTRICT grad2,
     TData *NEK_RESTRICT omega, const TthreadBlock &threadBlock)
 {
-    size_t idx = getGlobalIdx(threadBlock);
+    size_t idx = getGlobalIdx<0>(threadBlock);
     while (idx < npts)
     {
         omega[idx] = grad2[outoffset + idx] - grad1[2u * outoffset + idx];
         omega[outoffset + idx]      = grad0[2u * outoffset + idx] - grad2[idx];
         omega[2u * outoffset + idx] = grad1[idx] - grad0[outoffset + idx];
-        idx += getGlobalRange(threadBlock);
+        idx += getGlobalRange<0>(threadBlock);
     }
 }
 
@@ -97,7 +97,7 @@ NEK_DEVICE_KERNEL void AssembleCurlCurl3DKernel(
     const TData *NEK_RESTRICT gradOmega2, TData *NEK_RESTRICT out,
     const TthreadBlock &threadBlock)
 {
-    size_t idx = getGlobalIdx(threadBlock);
+    size_t idx = getGlobalIdx<0>(threadBlock);
     while (idx < npts)
     {
         out[idx] =
@@ -106,7 +106,7 @@ NEK_DEVICE_KERNEL void AssembleCurlCurl3DKernel(
             gradOmega0[2u * outoffset + idx] - gradOmega2[idx];
         out[2u * outoffset + idx] =
             gradOmega1[idx] - gradOmega0[outoffset + idx];
-        idx += getGlobalRange(threadBlock);
+        idx += getGlobalRange<0>(threadBlock);
     }
 }
 

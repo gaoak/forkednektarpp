@@ -381,12 +381,14 @@ protected:
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get static workspace pointer.
+        const unsigned int ncomp =
+            outblock.GetNumComponents() * outblock.GetNumHomoModes();
         const size_t wspSize =
             IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
                 nelmt, sizeParam1D);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize, m_streamID);
+                wspSize * ncomp, m_streamID);
 
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
@@ -403,90 +405,77 @@ protected:
 
         // Loop over components.
         const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
-        for (unsigned int n = 0;
-             n < outblock.GetNumComponents() * outblock.GetNumHomoModes(); ++n)
+        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, inInterleaveWidth,
+                                  nelmt * ncomp * m_coordDim,
+                                  inblock.GetNumData(), (TData *)inptr,
+                                  m_streamID);
+
+        // IProduct kernel.
+        if constexpr (TFieldOut == FieldState::Phys)
         {
-            // Reshape, if necessary.
-            for (unsigned int k = 0; k < m_coordDim; ++k)
+            if (this->m_append)
             {
                 ReshapeStorage<ExecSpace>(
-                    m_implInterleaveWidth, inInterleaveWidth, nelmt,
-                    inblock.GetNumData(), (TData *)inptr + k * inoffset,
-                    m_streamID);
-            }
+                    m_implInterleaveWidth, outInterleaveWidth, nelmt * ncomp,
+                    outblock.GetNumData(), (TData *)outptr, m_streamID);
 
-            // IProduct kernel.
-            if constexpr (TFieldOut == FieldState::Phys)
-            {
-                if (this->m_append)
-                {
-                    ReshapeStorage<ExecSpace>(
-                        m_implInterleaveWidth, outInterleaveWidth, nelmt,
-                        outblock.GetNumData(), (TData *)outptr, m_streamID);
-
-                    DEVICE_1DGRID_KERNEL_LAUNCHER(
-                        (IProductWRTDerivBasePhys1DKernelLauncher<
-                            Implementation, true, DEFORMED>),
-                        gridsize, blocksize, shmemsize, m_streamID, sizeParam1D,
-                        nelmt, inoffset, m_D[0], m_W[0], m_dfptr, m_jacptr,
-                        inptr, outptr, wspptr, this->m_scale);
-                }
-                else
-                {
-                    DEVICE_1DGRID_KERNEL_LAUNCHER(
-                        (IProductWRTDerivBasePhys1DKernelLauncher<
-                            Implementation, false, DEFORMED>),
-                        gridsize, blocksize, shmemsize, m_streamID, sizeParam1D,
-                        nelmt, inoffset, m_D[0], m_W[0], m_dfptr, m_jacptr,
-                        inptr, outptr, wspptr, this->m_scale);
-                }
-            }
-            else // coeff version
-            {
-                if (this->m_append)
-                {
-                    ReshapeStorage<ExecSpace>(
-                        m_implInterleaveWidth, outInterleaveWidth, nelmt,
-                        outblock.GetNumData(), (TData *)outptr, m_streamID);
-
-                    DEVICE_1DGRID_KERNEL_LAUNCHER(
-                        (IProductWRTDerivBase1DKernelLauncher<Implementation,
+                DEVICE_3DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTDerivBasePhys1DKernelLauncher<Implementation,
                                                               true, DEFORMED>),
-                        gridsize, blocksize, shmemsize, m_streamID, sizeParam1D,
-                        m_coordDim, nelmt, inoffset, m_DB[0], m_W[0], m_dfptr,
-                        m_jacptr, inptr, outptr, wspptr, this->m_scale);
-                }
-                else
-                {
-                    DEVICE_1DGRID_KERNEL_LAUNCHER(
-                        (IProductWRTDerivBase1DKernelLauncher<Implementation,
+                    gridsize, outblock.GetNumHomoModes(),
+                    outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
+                    m_streamID, sizeParam1D, nelmt, inoffset, m_D[0], m_W[0],
+                    m_dfptr, m_jacptr, inptr, outptr, wspptr, this->m_scale);
+            }
+            else
+            {
+                DEVICE_3DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTDerivBasePhys1DKernelLauncher<Implementation,
                                                               false, DEFORMED>),
-                        gridsize, blocksize, shmemsize, m_streamID, sizeParam1D,
-                        m_coordDim, nelmt, inoffset, m_DB[0], m_W[0], m_dfptr,
-                        m_jacptr, inptr, outptr, wspptr, this->m_scale);
-                }
-            }
-
-            // Reshape back, if necessary.
-            for (unsigned int k = 0; k < m_coordDim; ++k)
-            {
-                ReshapeStorage<ExecSpace>(
-                    inInterleaveWidth, m_implInterleaveWidth, nelmt,
-                    inblock.GetNumData(), (TData *)inptr + k * inoffset,
-                    m_streamID);
-            }
-            ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(), outptr,
-                                      m_streamID);
-
-            // Increment pointers.
-            inptr += inblock.CompSize();
-            outptr += outblock.CompSize();
-            if ((n + 1) % inblock.GetNumHomoModes() == 0)
-            {
-                inptr += (m_coordDim - 1) * inoffset;
+                    gridsize, outblock.GetNumHomoModes(),
+                    outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
+                    m_streamID, sizeParam1D, nelmt, inoffset, m_D[0], m_W[0],
+                    m_dfptr, m_jacptr, inptr, outptr, wspptr, this->m_scale);
             }
         }
+        else // coeff version
+        {
+            if (this->m_append)
+            {
+                ReshapeStorage<ExecSpace>(
+                    m_implInterleaveWidth, outInterleaveWidth, nelmt * ncomp,
+                    outblock.GetNumData(), (TData *)outptr, m_streamID);
+
+                DEVICE_3DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTDerivBase1DKernelLauncher<Implementation, true,
+                                                          DEFORMED>),
+                    gridsize, outblock.GetNumHomoModes(),
+                    outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
+                    m_streamID, sizeParam1D, m_coordDim, nelmt, inoffset,
+                    m_DB[0], m_W[0], m_dfptr, m_jacptr, inptr, outptr, wspptr,
+                    this->m_scale);
+            }
+            else
+            {
+                DEVICE_3DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTDerivBase1DKernelLauncher<Implementation, false,
+                                                          DEFORMED>),
+                    gridsize, outblock.GetNumHomoModes(),
+                    outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
+                    m_streamID, sizeParam1D, m_coordDim, nelmt, inoffset,
+                    m_DB[0], m_W[0], m_dfptr, m_jacptr, inptr, outptr, wspptr,
+                    this->m_scale);
+            }
+        }
+
+        // Reshape back, if necessary.
+        ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
+                                  nelmt * ncomp * m_coordDim,
+                                  inblock.GetNumData(), (TData *)inptr,
+                                  m_streamID);
+        ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
+                                  nelmt * ncomp, outblock.GetNumData(), outptr,
+                                  m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
@@ -554,12 +543,14 @@ protected:
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get static workspace pointer.
+        const unsigned int ncomp =
+            outblock.GetNumComponents() * outblock.GetNumHomoModes();
         const size_t wspSize =
             IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
                 nelmt, sizeParam2D);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize, m_streamID);
+                wspSize * ncomp, m_streamID);
 
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
@@ -585,97 +576,82 @@ protected:
 
         // Loop over components.
         const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
-        for (unsigned int n = 0;
-             n < outblock.GetNumComponents() * outblock.GetNumHomoModes(); ++n)
+        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, inInterleaveWidth,
+                                  nelmt * ncomp * m_coordDim,
+                                  inblock.GetNumData(), (TData *)inptr,
+                                  m_streamID);
+
+        if constexpr (TFieldOut == FieldState::Phys)
         {
-            // Reshape, if necessary.
-            for (unsigned int k = 0; k < m_coordDim; ++k)
+            // IProduct kernel.
+            if (this->m_append)
             {
                 ReshapeStorage<ExecSpace>(
-                    m_implInterleaveWidth, inInterleaveWidth, nelmt,
-                    inblock.GetNumData(), (TData *)inptr + k * inoffset,
-                    m_streamID);
-            }
+                    m_implInterleaveWidth, outInterleaveWidth, nelmt * ncomp,
+                    outblock.GetNumData(), (TData *)outptr, m_streamID);
 
-            if constexpr (TFieldOut == FieldState::Phys)
-            {
-                // IProduct kernel.
-                if (this->m_append)
-                {
-                    ReshapeStorage<ExecSpace>(
-                        m_implInterleaveWidth, outInterleaveWidth, nelmt,
-                        outblock.GetNumData(), (TData *)outptr, m_streamID);
-
-                    DEVICE_1DGRID_KERNEL_LAUNCHER(
-                        (IProductWRTDerivBasePhys2DKernelLauncher<
-                            SHAPE_TYPE, Implementation, true, DEFORMED>),
-                        gridsize, blocksize, shmemsize, m_streamID, sizeParam2D,
-                        nelmt, inoffset, m_D[0], m_D[1], m_W[0], m_W[1], m_f[0],
-                        m_f[1], m_dfptr, m_jacptr, inptr, outptr, wspptr,
-                        this->m_scale);
-                }
-                else
-                {
-                    DEVICE_1DGRID_KERNEL_LAUNCHER(
-                        (IProductWRTDerivBasePhys2DKernelLauncher<
-                            SHAPE_TYPE, Implementation, false, DEFORMED>),
-                        gridsize, blocksize, shmemsize, m_streamID, sizeParam2D,
-                        nelmt, inoffset, m_D[0], m_D[1], m_W[0], m_W[1], m_f[0],
-                        m_f[1], m_dfptr, m_jacptr, inptr, outptr, wspptr,
-                        this->m_scale);
-                }
+                DEVICE_3DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTDerivBasePhys2DKernelLauncher<
+                        SHAPE_TYPE, Implementation, true, DEFORMED>),
+                    gridsize, outblock.GetNumHomoModes(),
+                    outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
+                    m_streamID, sizeParam2D, nelmt, inoffset, m_D[0], m_D[1],
+                    m_W[0], m_W[1], m_f[0], m_f[1], m_dfptr, m_jacptr, inptr,
+                    outptr, wspptr, this->m_scale);
             }
             else
             {
-                // IProduct kernel.
-                if (this->m_append)
-                {
-                    ReshapeStorage<ExecSpace>(
-                        m_implInterleaveWidth, outInterleaveWidth, nelmt,
-                        outblock.GetNumData(), (TData *)outptr, m_streamID);
-
-                    DEVICE_1DGRID_KERNEL_LAUNCHER(
-                        (IProductWRTDerivBase2DKernelLauncher<
-                            SHAPE_TYPE, Implementation, true, DEFORMED>),
-                        gridsize, blocksize, shmemsize, m_streamID, sizeParam2D,
-                        m_coordDim, nelmt, inoffset, m_isModified, m_index[0],
-                        m_B[0], m_B[1], m_D[0], m_D[1], m_W[0], m_W[1], m_f[0],
-                        m_f[1], m_nodToMod, m_dfptr, m_jacptr, inptr, outptr,
-                        wspptr, this->m_scale);
-                }
-                else
-                {
-                    DEVICE_1DGRID_KERNEL_LAUNCHER(
-                        (IProductWRTDerivBase2DKernelLauncher<
-                            SHAPE_TYPE, Implementation, false, DEFORMED>),
-                        gridsize, blocksize, shmemsize, m_streamID, sizeParam2D,
-                        m_coordDim, nelmt, inoffset, m_isModified, m_index[0],
-                        m_B[0], m_B[1], m_D[0], m_D[1], m_W[0], m_W[1], m_f[0],
-                        m_f[1], m_nodToMod, m_dfptr, m_jacptr, inptr, outptr,
-                        wspptr, this->m_scale);
-                }
-            }
-
-            // Reshape back, if necessary.
-            for (unsigned int k = 0; k < m_coordDim; ++k)
-            {
-                ReshapeStorage<ExecSpace>(
-                    inInterleaveWidth, m_implInterleaveWidth, nelmt,
-                    inblock.GetNumData(), (TData *)inptr + k * inoffset,
-                    m_streamID);
-            }
-            ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(), outptr,
-                                      m_streamID);
-
-            // Increment pointers.
-            inptr += inblock.CompSize();
-            outptr += outblock.CompSize();
-            if ((n + 1) % inblock.GetNumHomoModes() == 0)
-            {
-                inptr += (m_coordDim - 1) * inoffset;
+                DEVICE_3DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTDerivBasePhys2DKernelLauncher<
+                        SHAPE_TYPE, Implementation, false, DEFORMED>),
+                    gridsize, outblock.GetNumHomoModes(),
+                    outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
+                    m_streamID, sizeParam2D, nelmt, inoffset, m_D[0], m_D[1],
+                    m_W[0], m_W[1], m_f[0], m_f[1], m_dfptr, m_jacptr, inptr,
+                    outptr, wspptr, this->m_scale);
             }
         }
+        else
+        {
+            // IProduct kernel.
+            if (this->m_append)
+            {
+                ReshapeStorage<ExecSpace>(
+                    m_implInterleaveWidth, outInterleaveWidth, nelmt * ncomp,
+                    outblock.GetNumData(), (TData *)outptr, m_streamID);
+
+                DEVICE_3DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTDerivBase2DKernelLauncher<
+                        SHAPE_TYPE, Implementation, true, DEFORMED>),
+                    gridsize, outblock.GetNumHomoModes(),
+                    outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
+                    m_streamID, sizeParam2D, m_coordDim, nelmt, inoffset,
+                    m_isModified, m_index[0], m_B[0], m_B[1], m_D[0], m_D[1],
+                    m_W[0], m_W[1], m_f[0], m_f[1], m_nodToMod, m_dfptr,
+                    m_jacptr, inptr, outptr, wspptr, this->m_scale);
+            }
+            else
+            {
+                DEVICE_3DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTDerivBase2DKernelLauncher<
+                        SHAPE_TYPE, Implementation, false, DEFORMED>),
+                    gridsize, outblock.GetNumHomoModes(),
+                    outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
+                    m_streamID, sizeParam2D, m_coordDim, nelmt, inoffset,
+                    m_isModified, m_index[0], m_B[0], m_B[1], m_D[0], m_D[1],
+                    m_W[0], m_W[1], m_f[0], m_f[1], m_nodToMod, m_dfptr,
+                    m_jacptr, inptr, outptr, wspptr, this->m_scale);
+            }
+        }
+
+        // Reshape back, if necessary.
+        ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
+                                  nelmt * ncomp * m_coordDim,
+                                  inblock.GetNumData(), (TData *)inptr,
+                                  m_streamID);
+        ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
+                                  nelmt * ncomp, outblock.GetNumData(), outptr,
+                                  m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
@@ -742,12 +718,14 @@ protected:
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get static workspace pointer.
+        const unsigned int ncomp =
+            outblock.GetNumComponents() * outblock.GetNumHomoModes();
         const size_t wspSize =
             IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
                 nelmt, sizeParam3D);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize, m_streamID);
+                wspSize * ncomp, m_streamID);
 
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
@@ -770,96 +748,86 @@ protected:
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
-        // Loop over components.
         const auto inoffset = inblock.CompSize();
-        for (unsigned int nc = 0; nc < outblock.GetNumComponents(); ++nc)
+        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, inInterleaveWidth,
+                                  nelmt * ncomp * m_coordDim,
+                                  inblock.GetNumData(), (TData *)inptr,
+                                  m_streamID);
+
+        if constexpr (TFieldOut == FieldState::Phys)
         {
-            // Reshape, if necessary.
-            for (unsigned int k = 0; k < m_coordDim; ++k)
+            // IProduct kernel.
+            if (this->m_append)
             {
                 ReshapeStorage<ExecSpace>(
-                    m_implInterleaveWidth, inInterleaveWidth, nelmt,
-                    inblock.GetNumData(),
-                    (TData *)inptr + k * inblock.CompSize(), m_streamID);
-            }
+                    m_implInterleaveWidth, outInterleaveWidth, nelmt * ncomp,
+                    outblock.GetNumData(), (TData *)outptr, m_streamID);
 
-            if constexpr (TFieldOut == FieldState::Phys)
-            {
-                // IProduct kernel.
-                if (this->m_append)
-                {
-                    ReshapeStorage<ExecSpace>(
-                        m_implInterleaveWidth, outInterleaveWidth, nelmt,
-                        outblock.GetNumData(), (TData *)outptr, m_streamID);
-
-                    DEVICE_1DGRID_KERNEL_LAUNCHER(
-                        (IProductWRTDerivBasePhys3DKernelLauncher<
-                            SHAPE_TYPE, Implementation, true, DEFORMED>),
-                        gridsize, blocksize, shmemsize, m_streamID, sizeParam3D,
-                        nelmt, inoffset, m_D[0], m_D[1], m_D[2], m_W[0], m_W[1],
-                        m_W[2], m_f[0], m_f[1], m_f[2], m_f[3], m_dfptr,
-                        m_jacptr, inptr, outptr, wspptr, this->m_scale);
-                }
-                else
-                {
-                    DEVICE_1DGRID_KERNEL_LAUNCHER(
-                        (IProductWRTDerivBasePhys3DKernelLauncher<
-                            SHAPE_TYPE, Implementation, false, DEFORMED>),
-                        gridsize, blocksize, shmemsize, m_streamID, sizeParam3D,
-                        nelmt, inoffset, m_D[0], m_D[1], m_D[2], m_W[0], m_W[1],
-                        m_W[2], m_f[0], m_f[1], m_f[2], m_f[3], m_dfptr,
-                        m_jacptr, inptr, outptr, wspptr, this->m_scale);
-                }
+                DEVICE_3DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTDerivBasePhys3DKernelLauncher<
+                        SHAPE_TYPE, Implementation, true, DEFORMED>),
+                    gridsize, outblock.GetNumHomoModes(),
+                    outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
+                    m_streamID, sizeParam3D, nelmt, inoffset, m_D[0], m_D[1],
+                    m_D[2], m_W[0], m_W[1], m_W[2], m_f[0], m_f[1], m_f[2],
+                    m_f[3], m_dfptr, m_jacptr, inptr, outptr, wspptr,
+                    this->m_scale);
             }
             else
             {
-                // IProduct kernel.
-                if (this->m_append)
-                {
-                    ReshapeStorage<ExecSpace>(
-                        m_implInterleaveWidth, outInterleaveWidth, nelmt,
-                        outblock.GetNumData(), (TData *)outptr, m_streamID);
-
-                    DEVICE_1DGRID_KERNEL_LAUNCHER(
-                        (IProductWRTDerivBase3DKernelLauncher<
-                            SHAPE_TYPE, Implementation, true, DEFORMED>),
-                        gridsize, blocksize, shmemsize, m_streamID, sizeParam3D,
-                        nelmt, inoffset, m_isModified, m_index[0], m_index[1],
-                        m_index[2], m_B[0], m_B[1], m_B[2], m_D[0], m_D[1],
-                        m_D[2], m_W[0], m_W[1], m_W[2], m_f[0], m_f[1], m_f[2],
-                        m_f[3], m_nodToMod, m_dfptr, m_jacptr, inptr, outptr,
-                        wspptr, this->m_scale);
-                }
-                else
-                {
-                    DEVICE_1DGRID_KERNEL_LAUNCHER(
-                        (IProductWRTDerivBase3DKernelLauncher<
-                            SHAPE_TYPE, Implementation, false, DEFORMED>),
-                        gridsize, blocksize, shmemsize, m_streamID, sizeParam3D,
-                        nelmt, inoffset, m_isModified, m_index[0], m_index[1],
-                        m_index[2], m_B[0], m_B[1], m_B[2], m_D[0], m_D[1],
-                        m_D[2], m_W[0], m_W[1], m_W[2], m_f[0], m_f[1], m_f[2],
-                        m_f[3], m_nodToMod, m_dfptr, m_jacptr, inptr, outptr,
-                        wspptr, this->m_scale);
-                }
+                DEVICE_3DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTDerivBasePhys3DKernelLauncher<
+                        SHAPE_TYPE, Implementation, false, DEFORMED>),
+                    gridsize, outblock.GetNumHomoModes(),
+                    outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
+                    m_streamID, sizeParam3D, nelmt, inoffset, m_D[0], m_D[1],
+                    m_D[2], m_W[0], m_W[1], m_W[2], m_f[0], m_f[1], m_f[2],
+                    m_f[3], m_dfptr, m_jacptr, inptr, outptr, wspptr,
+                    this->m_scale);
             }
-
-            // Reshape back, if necessary.
-            for (unsigned int k = 0; k < m_coordDim; ++k)
+        }
+        else
+        {
+            // IProduct kernel.
+            if (this->m_append)
             {
                 ReshapeStorage<ExecSpace>(
-                    inInterleaveWidth, m_implInterleaveWidth, nelmt,
-                    inblock.GetNumData(),
-                    (TData *)inptr + k * inblock.CompSize(), m_streamID);
-            }
-            ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(), outptr,
-                                      m_streamID);
+                    m_implInterleaveWidth, outInterleaveWidth, nelmt * ncomp,
+                    outblock.GetNumData(), (TData *)outptr, m_streamID);
 
-            // Increment pointers.
-            inptr += m_coordDim * inblock.CompSize();
-            outptr += outblock.CompSize();
+                DEVICE_3DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTDerivBase3DKernelLauncher<
+                        SHAPE_TYPE, Implementation, true, DEFORMED>),
+                    gridsize, outblock.GetNumHomoModes(),
+                    outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
+                    m_streamID, sizeParam3D, nelmt, inoffset, m_isModified,
+                    m_index[0], m_index[1], m_index[2], m_B[0], m_B[1], m_B[2],
+                    m_D[0], m_D[1], m_D[2], m_W[0], m_W[1], m_W[2], m_f[0],
+                    m_f[1], m_f[2], m_f[3], m_nodToMod, m_dfptr, m_jacptr,
+                    inptr, outptr, wspptr, this->m_scale);
+            }
+            else
+            {
+                DEVICE_3DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTDerivBase3DKernelLauncher<
+                        SHAPE_TYPE, Implementation, false, DEFORMED>),
+                    gridsize, outblock.GetNumHomoModes(),
+                    outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
+                    m_streamID, sizeParam3D, nelmt, inoffset, m_isModified,
+                    m_index[0], m_index[1], m_index[2], m_B[0], m_B[1], m_B[2],
+                    m_D[0], m_D[1], m_D[2], m_W[0], m_W[1], m_W[2], m_f[0],
+                    m_f[1], m_f[2], m_f[3], m_nodToMod, m_dfptr, m_jacptr,
+                    inptr, outptr, wspptr, this->m_scale);
+            }
         }
+
+        ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
+                                  nelmt * ncomp * m_coordDim,
+                                  inblock.GetNumData(), (TData *)inptr,
+                                  m_streamID);
+        ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
+                                  nelmt * ncomp, outblock.GetNumData(), outptr,
+                                  m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);

@@ -344,19 +344,20 @@ NEK_DEVICE_INLINE static void AdvectionSumFac1DKernel(
 
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
-    size_t e = getGlobalIdx(threadBlock);
+    size_t e             = getGlobalIdx<0>(threadBlock);
+    const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const size_t ilane     = e % warpsize;
         const size_t iwarp     = e / warpsize;
         const TData *dfptr     = df + ndf * dfsize * warpsize * iwarp;
-        const TData *inptr     = in + nq0 * warpsize * iwarp;
-        TData *outptr          = out + nq0 * warpsize * iwarp;
+        const TData *inptr     = in + nq0 * (nelmt * c + warpsize * iwarp);
+        TData *outptr          = out + nq0 * (nelmt * c + warpsize * iwarp);
         const TData *advVelPtr = advVel_ptr + nq0 * warpsize * iwarp;
         Advection1DSumFacKernel<APPEND, DEFORMED>(ilane, ncoord, nq0, D0, dfptr,
                                                   advVelPtr, adVecoffset, inptr,
                                                   outptr, scale);
-        e += getGlobalRange(threadBlock);
+        e += getGlobalRange<0>(threadBlock);
     }
 }
 
@@ -381,8 +382,8 @@ NEK_DEVICE_INLINE static void AdvectionSumFac2DKernel(
     TData *s_f1 = nullptr;
 
     // Precompute geometric factors.
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                   SHAPE_TYPE == LibUtilities::NodalTri)
@@ -403,19 +404,20 @@ NEK_DEVICE_INLINE static void AdvectionSumFac2DKernel(
         localBarrier(threadBlock);
     }
 
-    size_t e = getGlobalIdx(threadBlock);
+    size_t e             = getGlobalIdx<0>(threadBlock);
+    const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const size_t ilane     = e % warpsize;
         const size_t iwarp     = e / warpsize;
         const TData *dfptr     = df + ndf * dfsize * warpsize * iwarp;
-        const TData *inptr     = in + nqTot * warpsize * iwarp;
-        TData *outptr          = out + nqTot * warpsize * iwarp;
+        const TData *inptr     = in + nqTot * (nelmt * c + warpsize * iwarp);
+        TData *outptr          = out + nqTot * (nelmt * c + warpsize * iwarp);
         const TData *advVelPtr = advVel_ptr + nqTot * warpsize * iwarp;
         Advection2DSumFacKernel<SHAPE_TYPE, APPEND, DEFORMED>(
             ilane, ncoord, nq0, nq1, D0, D1, s_f0, s_f1, dfptr, advVelPtr,
             adVecoffset, inptr, outptr, scale);
-        e += getGlobalRange(threadBlock);
+        e += getGlobalRange<0>(threadBlock);
     }
 }
 
@@ -444,8 +446,8 @@ NEK_DEVICE_INLINE static void AdvectionSumFac3DKernel(
     TData *s_f2  = nullptr;
 
     // Precompute geometric factors.
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                   SHAPE_TYPE == LibUtilities::NodalTet)
@@ -515,19 +517,20 @@ NEK_DEVICE_INLINE static void AdvectionSumFac3DKernel(
         localBarrier(threadBlock);
     }
 
-    size_t e = getGlobalIdx(threadBlock); // use size_t to prevent overflow
+    size_t e = getGlobalIdx<0>(threadBlock); // use size_t to prevent overflow
+    const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const size_t ilane     = e % warpsize;
         const size_t iwarp     = e / warpsize;
         const TData *dfptr     = df + ndf * dfsize * warpsize * iwarp;
-        const TData *inptr     = in + nqTot * warpsize * iwarp;
-        TData *outptr          = out + nqTot * warpsize * iwarp;
+        const TData *inptr     = in + nqTot * (nelmt * c + warpsize * iwarp);
+        TData *outptr          = out + nqTot * (nelmt * c + warpsize * iwarp);
         const TData *advVelPtr = advVel_ptr + nqTot * warpsize * iwarp;
         Advection3DSumFacKernel<SHAPE_TYPE, APPEND, DEFORMED>(
             ilane, nq0, nq1, nq2, D0, D1, D2, s_f0, s_f1, s_f1m, s_f2, dfptr,
             advVelPtr, adVecoffset, inptr, outptr, scale);
-        e += getGlobalRange(threadBlock);
+        e += getGlobalRange<0>(threadBlock);
     }
 }
 

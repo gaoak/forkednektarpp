@@ -425,7 +425,10 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase1DSumFacKernel(
 
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
-    size_t e = getGlobalIdx(threadBlock);
+    size_t e                 = getGlobalIdx<0>(threadBlock);
+    const unsigned int m     = getBlockIdx<1>(threadBlock);
+    const unsigned int c     = getBlockIdx<2>(threadBlock);
+    const unsigned int nmode = getBlockRange<1>(threadBlock);
     while (e < nelmt)
     {
         const size_t ilane = e % warpsize;
@@ -433,14 +436,17 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase1DSumFacKernel(
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *jacptr =
             DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
-        const TData *inptr = in + nq0 * warpsize * iwarp;
-        TData *deriv       = wsp + nq0 * warpsize * iwarp;
-        TData *outptr      = out + nm0 * warpsize * iwarp;
+        const TData *inptr =
+            in + nq0 * (nelmt * (ncoord * nmode * c + m) + warpsize * iwarp);
+        TData *outptr =
+            out + nm0 * (nelmt * (nmode * c + m) + warpsize * iwarp);
+        TData *deriv = wsp + nq0 * (nelmt * (nmode * c + m) + warpsize * iwarp);
+
         StdAlignDerivBase1DSumFacKernel<DEFORMED>(
             ilane, ncoord, nq0, inoffset, w0, dfptr, jacptr, inptr, deriv);
         IProductWRTBaseSegSumFacKernel<true, APPEND>(ilane, nm0, nq0, dbasis0,
                                                      deriv, outptr, scale);
-        e += getGlobalRange(threadBlock);
+        e += getGlobalRange<0>(threadBlock);
     }
 }
 
@@ -460,7 +466,10 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBasePhys1DSumFacKernel(
 
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
-    size_t e = getGlobalIdx(threadBlock);
+    size_t e                 = getGlobalIdx<0>(threadBlock);
+    const unsigned int m     = getBlockIdx<1>(threadBlock);
+    const unsigned int c     = getBlockIdx<2>(threadBlock);
+    const unsigned int nmode = getBlockRange<1>(threadBlock);
     while (e < nelmt)
     {
         const size_t ilane = e % warpsize;
@@ -468,15 +477,18 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBasePhys1DSumFacKernel(
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *jacptr =
             DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
-        const TData *inptr = in + nq0 * warpsize * iwarp;
-        TData *deriv       = wsp + nq0 * warpsize * iwarp;
-        TData *outptr      = out + nq0 * warpsize * iwarp;
+        const TData *inptr =
+            in + nq0 * (nelmt * (ncoord * nmode * c + m) + warpsize * iwarp);
+        TData *outptr =
+            out + nq0 * (nelmt * (nmode * c + m) + warpsize * iwarp);
+        TData *deriv = wsp + nq0 * (nelmt * (nmode * c + m) + warpsize * iwarp);
+
         StdAlignDerivBase1DSumFacKernel<DEFORMED>(
             ilane, ncoord, nq0, inoffset, w0, dfptr, jacptr, inptr, deriv);
         SumDerivTensor1DKernel<true, APPEND>(ilane, nq0, D0, deriv, outptr,
                                              scale);
 
-        e += getGlobalRange(threadBlock);
+        e += getGlobalRange<0>(threadBlock);
     }
 }
 
@@ -512,8 +524,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DSumFacKernel(
         s_f0 = (TData *)shmemptr;
         s_f1 = s_f0 + nq0;
 
-        const unsigned int idx0   = getLocalIdx(threadBlock);
-        const unsigned int stride = getLocalRange(threadBlock);
+        const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+        const unsigned int stride = getLocalRange<0>(threadBlock);
 
         for (unsigned int idx = idx0; idx < nq0; idx += stride)
         {
@@ -528,7 +540,11 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DSumFacKernel(
         localBarrier(threadBlock);
     }
 
-    size_t e = getGlobalIdx(threadBlock);
+    size_t e                 = getGlobalIdx<0>(threadBlock);
+    const unsigned int m     = getBlockIdx<1>(threadBlock);
+    const unsigned int c     = getBlockIdx<2>(threadBlock);
+    const unsigned int nmode = getBlockRange<1>(threadBlock);
+    const unsigned int ncomp = getBlockRange<2>(threadBlock);
     while (e < nelmt)
     {
         const size_t ilane = e % warpsize;
@@ -536,11 +552,16 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DSumFacKernel(
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *jacptr =
             DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
-        const TData *inptr = in + nqTot * warpsize * iwarp;
-        TData *outptr      = out + nmTot * warpsize * iwarp;
-        TData *deriv0      = wsp + nqTot * warpsize * iwarp;
-        TData *deriv1      = wsp + nqTot * nelmt + nqTot * warpsize * iwarp;
-        TData *deriv       = wsp + 2 * nqTot * nelmt + nqTot * warpsize * iwarp;
+        const TData *inptr =
+            in + nqTot * (nelmt * (ncoord * nmode * c + m) + warpsize * iwarp);
+        TData *outptr =
+            out + nmTot * (nelmt * (nmode * c + m) + warpsize * iwarp);
+        TData *deriv0 =
+            wsp + nqTot * (nelmt * (nmode * c + m) + warpsize * iwarp);
+        TData *deriv1 = wsp + nqTot * nelmt * nmode * ncomp +
+                        nqTot * (nelmt * (nmode * c + m) + warpsize * iwarp);
+        TData *deriv = wsp + 2 * nqTot * nelmt * nmode * ncomp +
+                       nqTot * (nelmt * (nmode * c + m) + warpsize * iwarp);
 
         StdAlignDerivBase2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, ncoord, nq0, nq1, inoffset, w0, w1, s_f0, s_f1, dfptr,
@@ -549,23 +570,27 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DSumFacKernel(
                                              deriv1, deriv, scale);
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
-            TData *wsp0 = wsp + 3 * nqTot * nelmt + nq1 * warpsize * iwarp;
+            TData *wsp0 = wsp + 3 * nqTot * nelmt * nmode * ncomp +
+                          nq1 * (nelmt * (nmode * c + m) + warpsize * iwarp);
             IProductWRTBaseQuadSumFacKernel<true, APPEND>(
                 ilane, nm0, nm1, nq0, nq1, basis0, basis1, deriv, outptr, wsp0,
                 scale);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
-            TData *wsp0 = wsp + 3 * nqTot * nelmt + nq1 * warpsize * iwarp;
+            TData *wsp0 = wsp + 3 * nqTot * nelmt * nmode * ncomp +
+                          nq1 * (nelmt * (nmode * c + m) + warpsize * iwarp);
             IProductWRTBaseTriSumFacKernel<true, APPEND>(
                 ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, deriv,
                 outptr, wsp0, scale);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
         {
-            TData *out1ptr = wsp + 3 * nqTot * nelmt + nmTot * warpsize * iwarp;
-            TData *wsp0 =
-                wsp + (nmTot + 3 * nqTot) * nelmt + nq1 * warpsize * iwarp;
+            TData *out1ptr =
+                wsp + 3 * nqTot * nelmt * nmode * ncomp +
+                nmTot * (nelmt * (nmode * c + m) + warpsize * iwarp);
+            TData *wsp0 = wsp + (nmTot + 3 * nqTot) * nelmt * nmode * ncomp +
+                          nq1 * (nelmt * (nmode * c + m) + warpsize * iwarp);
             IProductWRTBaseTriSumFacKernel<true, false>(
                 ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, deriv,
                 out1ptr, wsp0, scale);
@@ -573,7 +598,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase2DSumFacKernel(
             // Multiply by transpose notToMod to transform coeffs.
             MatVecKernel<APPEND, true>(ilane, nmTot, nodToMod, out1ptr, outptr);
         }
-        e += getGlobalRange(threadBlock);
+        e += getGlobalRange<0>(threadBlock);
     }
 }
 
@@ -607,8 +632,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBasePhys2DSumFacKernel(
         s_f0 = (TData *)shmemptr;
         s_f1 = s_f0 + nq0;
 
-        const unsigned int idx0   = getLocalIdx(threadBlock);
-        const unsigned int stride = getLocalRange(threadBlock);
+        const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+        const unsigned int stride = getLocalRange<0>(threadBlock);
 
         for (unsigned int idx = idx0; idx < nq0; idx += stride)
         {
@@ -623,7 +648,11 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBasePhys2DSumFacKernel(
         localBarrier(threadBlock);
     }
 
-    size_t e = getGlobalIdx(threadBlock);
+    size_t e                 = getGlobalIdx<0>(threadBlock);
+    const unsigned int m     = getBlockIdx<1>(threadBlock);
+    const unsigned int c     = getBlockIdx<2>(threadBlock);
+    const unsigned int nmode = getBlockRange<1>(threadBlock);
+    const unsigned int ncomp = getBlockRange<2>(threadBlock);
     while (e < nelmt)
     {
         const size_t ilane = e % warpsize;
@@ -631,10 +660,14 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBasePhys2DSumFacKernel(
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *jacptr =
             DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
-        const TData *inptr = in + nqTot * warpsize * iwarp;
-        TData *outptr      = out + nqTot * warpsize * iwarp;
-        TData *deriv0      = wsp + nqTot * warpsize * iwarp;
-        TData *deriv1      = wsp + nqTot * nelmt + nqTot * warpsize * iwarp;
+        const TData *inptr =
+            in + nqTot * (nelmt * (ncoord * nmode * c + m) + warpsize * iwarp);
+        TData *outptr =
+            out + nqTot * (nelmt * (nmode * c + m) + warpsize * iwarp);
+        TData *deriv0 =
+            wsp + nqTot * (nelmt * (nmode * c + m) + warpsize * iwarp);
+        TData *deriv1 = wsp + nqTot * nelmt * nmode * ncomp +
+                        nqTot * (nelmt * (nmode * c + m) + warpsize * iwarp);
 
         StdAlignDerivBase2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, ncoord, nq0, nq1, inoffset, w0, w1, s_f0, s_f1, dfptr,
@@ -642,7 +675,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBasePhys2DSumFacKernel(
         SumDerivTensor2DKernel<true, APPEND>(ilane, nq0, nq1, D0, D1, deriv0,
                                              deriv1, outptr, scale);
 
-        e += getGlobalRange(threadBlock);
+        e += getGlobalRange<0>(threadBlock);
     }
 }
 
@@ -677,8 +710,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacKernel(
     TData *s_f2  = nullptr;
 
     // Pre-compute factor.
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
     if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                   SHAPE_TYPE == LibUtilities::NodalTet)
     {
@@ -747,7 +780,11 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacKernel(
         localBarrier(threadBlock);
     }
 
-    size_t e = getGlobalIdx(threadBlock); // use size_t to prevent overflow
+    size_t e = getGlobalIdx<0>(threadBlock); // use size_t to prevent overflow
+    const unsigned int m     = getBlockIdx<1>(threadBlock);
+    const unsigned int c     = getBlockIdx<2>(threadBlock);
+    const unsigned int nmode = getBlockRange<1>(threadBlock);
+    const unsigned int ncomp = getBlockRange<2>(threadBlock);
     while (e < nelmt)
     {
         const size_t ilane = e % warpsize;
@@ -755,13 +792,18 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacKernel(
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *jacptr =
             DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
-        const TData *inptr = in + nqTot * warpsize * iwarp;
-        TData *outptr      = out + nmTot * warpsize * iwarp;
-
-        TData *deriv0 = wsp + nqTot * warpsize * iwarp;
-        TData *deriv1 = wsp + nqTot * nelmt + nqTot * warpsize * iwarp;
-        TData *deriv2 = wsp + 2 * nqTot * nelmt + nqTot * warpsize * iwarp;
-        TData *deriv  = wsp + 3 * nqTot * nelmt + nqTot * warpsize * iwarp;
+        const TData *inptr =
+            in + nqTot * (nelmt * (3 * nmode * c + m) + warpsize * iwarp);
+        TData *outptr =
+            out + nmTot * (nelmt * (nmode * c + m) + warpsize * iwarp);
+        TData *deriv0 =
+            wsp + nqTot * (nelmt * (nmode * c + m) + warpsize * iwarp);
+        TData *deriv1 = wsp + nqTot * nelmt * nmode * ncomp +
+                        nqTot * (nelmt * (nmode * c + m) + warpsize * iwarp);
+        TData *deriv2 = wsp + 2 * nqTot * nelmt * nmode * ncomp +
+                        nqTot * (nelmt * (nmode * c + m) + warpsize * iwarp);
+        TData *deriv = wsp + 3 * nqTot * nelmt * nmode * ncomp +
+                       nqTot * (nelmt * (nmode * c + m) + warpsize * iwarp);
 
         StdAlignDerivBase3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, nq0, nq1, nq2, inoffset, w0, w1, w2, s_f0, s_f1, s_f1m, s_f2,
@@ -772,9 +814,11 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacKernel(
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
             TData *wsp0 =
-                wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
-            TData *wsp1 =
-                wsp + (4 * nqTot + nq1 * nq2) * nelmt + nq2 * warpsize * iwarp;
+                wsp + 4 * nqTot * nelmt * nmode * ncomp +
+                nq1 * nq2 * (nelmt * (nmode * c + m) + warpsize * iwarp);
+            TData *wsp1 = wsp +
+                          (4 * nqTot + nq1 * nq2) * nelmt * nmode * ncomp +
+                          nq2 * (nelmt * (nmode * c + m) + warpsize * iwarp);
             IProductWRTBaseHexSumFacKernel<true, APPEND>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, basis0, basis1, basis2,
                 deriv, outptr, wsp0, wsp1, scale);
@@ -782,20 +826,24 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacKernel(
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
             TData *wsp0 =
-                wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
-            TData *wsp1 =
-                wsp + (4 * nqTot + nq1 * nq2) * nelmt + nq2 * warpsize * iwarp;
+                wsp + 4 * nqTot * nelmt * nmode * ncomp +
+                nq1 * nq2 * (nelmt * (nmode * c + m) + warpsize * iwarp);
+            TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2) * nelmt +
+                          nq2 * (nelmt * (nmode * c + m) + warpsize * iwarp);
             IProductWRTBaseTetSumFacKernel<true, APPEND>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
                 basis2, deriv, outptr, wsp0, wsp1, scale);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
         {
-            TData *out1ptr = wsp + 4 * nqTot * nelmt + nmTot * warpsize * iwarp;
-            TData *wsp0    = wsp + (4 * nqTot + nmTot) * nelmt +
-                          nq1 * nq2 * warpsize * iwarp;
+            TData *out1ptr =
+                wsp + 4 * nqTot * nelmt * nmode * ncomp +
+                nmTot * (nelmt * (nmode * c + m) + warpsize * iwarp);
+            TData *wsp0 =
+                wsp + (4 * nqTot + nmTot) * nelmt * nmode * ncomp +
+                nq1 * nq2 * (nelmt * (nmode * c + m) + warpsize * iwarp);
             TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2 + nmTot) * nelmt +
-                          nq2 * warpsize * iwarp;
+                          nq2 * (nelmt * (nmode * c + m) + warpsize * iwarp);
             IProductWRTBaseTetSumFacKernel<true, false>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
                 basis2, deriv, out1ptr, wsp0, wsp1, scale);
@@ -806,20 +854,26 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacKernel(
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
             TData *wsp0 =
-                wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
-            TData *wsp1 =
-                wsp + (4 * nqTot + nq1 * nq2) * nelmt + nq2 * warpsize * iwarp;
+                wsp + 4 * nqTot * nelmt * nmode * ncomp +
+                nq1 * nq2 * (nelmt * (nmode * c + m) + warpsize * iwarp);
+            TData *wsp1 = wsp +
+                          (4 * nqTot + nq1 * nq2) * nelmt * nmode * ncomp +
+                          nq2 * (nelmt * (nmode * c + m) + warpsize * iwarp);
             IProductWRTBasePrismSumFacKernel<true, APPEND>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
                 basis2, deriv, outptr, wsp0, wsp1, scale);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
         {
-            TData *out1ptr = wsp + 4 * nqTot * nelmt + nmTot * warpsize * iwarp;
-            TData *wsp0    = wsp + (4 * nqTot + nmTot) * nelmt +
-                          nq1 * nq2 * warpsize * iwarp;
-            TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2 + nmTot) * nelmt +
-                          nq2 * warpsize * iwarp;
+            TData *out1ptr =
+                wsp + 4 * nqTot * nelmt * nmode * ncomp +
+                nmTot * (nelmt * (nmode * c + m) + warpsize * iwarp);
+            TData *wsp0 =
+                wsp + (4 * nqTot + nmTot) * nelmt * nmode * ncomp +
+                nq1 * nq2 * (nelmt * (nmode * c + m) + warpsize * iwarp);
+            TData *wsp1 =
+                wsp + (4 * nqTot + nq1 * nq2 + nmTot) * nelmt * nmode * ncomp +
+                nq2 * (nelmt * (nmode * c + m) + warpsize * iwarp);
             IProductWRTBasePrismSumFacKernel<true, false>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
                 basis2, deriv, out1ptr, wsp0, wsp1, scale);
@@ -830,14 +884,15 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBase3DSumFacKernel(
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
             TData *wsp0 =
-                wsp + 4 * nqTot * nelmt + nq1 * nq2 * warpsize * iwarp;
-            TData *wsp1 =
-                wsp + (4 * nqTot + nq1 * nq2) * nelmt + nq2 * warpsize * iwarp;
+                wsp + 4 * nqTot * nelmt * nmode * ncomp +
+                nq1 * nq2 * (nelmt * (nmode * c + m) + warpsize * iwarp);
+            TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2) * nelmt +
+                          nq2 * (nelmt * (nmode * c + m) + warpsize * iwarp);
             IProductWRTBasePyrSumFacKernel<true, APPEND>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
                 basis2, deriv, outptr, wsp0, wsp1, scale);
         }
-        e += getGlobalRange(threadBlock);
+        e += getGlobalRange<0>(threadBlock);
     }
 }
 
@@ -869,8 +924,8 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBasePhys3DSumFacKernel(
     TData *s_f2  = nullptr;
 
     // Pre-compute factor.
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
     if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                   SHAPE_TYPE == LibUtilities::NodalTet)
     {
@@ -939,7 +994,11 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBasePhys3DSumFacKernel(
         localBarrier(threadBlock);
     }
 
-    size_t e = getGlobalIdx(threadBlock); // use size_t to prevent overflow
+    size_t e = getGlobalIdx<0>(threadBlock); // use size_t to prevent overflow
+    const unsigned int m     = getBlockIdx<1>(threadBlock);
+    const unsigned int c     = getBlockIdx<2>(threadBlock);
+    const unsigned int nmode = getBlockRange<1>(threadBlock);
+    const unsigned int ncomp = getBlockRange<2>(threadBlock);
     while (e < nelmt)
     {
         const size_t ilane = e % warpsize;
@@ -947,12 +1006,16 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBasePhys3DSumFacKernel(
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *jacptr =
             DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
-        const TData *inptr = in + nqTot * warpsize * iwarp;
-        TData *outptr      = out + nqTot * warpsize * iwarp;
-
-        TData *deriv0 = wsp + nqTot * warpsize * iwarp;
-        TData *deriv1 = wsp + nqTot * nelmt + nqTot * warpsize * iwarp;
-        TData *deriv2 = wsp + 2 * nqTot * nelmt + nqTot * warpsize * iwarp;
+        const TData *inptr =
+            in + nqTot * (nelmt * (3 * nmode * c + m) + warpsize * iwarp);
+        TData *outptr =
+            out + nqTot * (nelmt * (nmode * c + m) + warpsize * iwarp);
+        TData *deriv0 =
+            wsp + nqTot * (nelmt * (nmode * c + m) + warpsize * iwarp);
+        TData *deriv1 = wsp + nqTot * nelmt * nmode * ncomp +
+                        nqTot * (nelmt * (nmode * c + m) + warpsize * iwarp);
+        TData *deriv2 = wsp + 2 * nqTot * nelmt * nmode * ncomp +
+                        nqTot * (nelmt * (nmode * c + m) + warpsize * iwarp);
 
         StdAlignDerivBase3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, nq0, nq1, nq2, inoffset, w0, w1, w2, s_f0, s_f1, s_f1m, s_f2,
@@ -961,7 +1024,7 @@ NEK_DEVICE_INLINE static void IProductWRTDerivBasePhys3DSumFacKernel(
                                              deriv0, deriv1, deriv2, outptr,
                                              scale);
 
-        e += getGlobalRange(threadBlock);
+        e += getGlobalRange<0>(threadBlock);
     }
 }
 

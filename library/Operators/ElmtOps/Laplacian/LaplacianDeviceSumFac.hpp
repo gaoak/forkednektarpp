@@ -368,11 +368,13 @@ protected:
             this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(m_streamID);
 
         // Get static workspace pointer.
+        const unsigned int ncomp =
+            inblock.GetNumComponents() * inblock.GetNumHomoModes();
         auto wspSize = LaplacianWorkSpaceSize<SHAPE_TYPE, Implementation>(
             nelmt, m_coordDim, sizeParam1D);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize, m_streamID);
+                wspSize * ncomp, m_streamID);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -386,34 +388,25 @@ protected:
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
-        // Loop over components.
-        for (unsigned int n = 0;
-             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
-        {
-            // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
+        // Reshape, if necessary.
+        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                  nelmt * ncomp, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
 
-            // Laplacian kernel.
-            DEVICE_1DGRID_KERNEL_LAUNCHER(
-                (Laplacian1DKernelLauncher<Implementation, DEFORMED>), gridsize,
-                blocksize, shmemsize, m_streamID, sizeParam1D, m_coordDim,
-                nelmt, m_B[0], m_D[0], m_W[0], m_dfptr, m_jacptr, diffCoeffPtr,
-                inptr, outptr, wspptr);
+        // Laplacian kernel.
+        DEVICE_2DGRID_KERNEL_LAUNCHER(
+            (Laplacian1DKernelLauncher<Implementation, DEFORMED>), gridsize,
+            ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam1D, m_coordDim,
+            nelmt, m_B[0], m_D[0], m_W[0], m_dfptr, m_jacptr, diffCoeffPtr,
+            inptr, outptr, wspptr);
 
-            // Reshape back, if necessary.
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(), outptr,
-                                      m_streamID);
-
-            // Increment pointers.
-            inptr += inblock.CompSize();
-            outptr += outblock.CompSize();
-        }
+        // Reshape back, if necessary.
+        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                  nelmt * ncomp, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
+        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                  nelmt * ncomp, outblock.GetNumData(), outptr,
+                                  m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
@@ -464,11 +457,13 @@ protected:
             this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(m_streamID);
 
         // Get static workspace pointer.
+        const unsigned int ncomp =
+            inblock.GetNumComponents() * inblock.GetNumHomoModes();
         auto wspSize = LaplacianWorkSpaceSize<SHAPE_TYPE, Implementation>(
             nelmt, m_coordDim, sizeParam2D);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize, m_streamID);
+                wspSize * ncomp, m_streamID);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -482,36 +477,26 @@ protected:
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
-        // Loop over components.
-        for (unsigned int n = 0;
-             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
-        {
-            // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
+        // Reshape, if necessary.
+        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                  nelmt * ncomp, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
 
-            // Laplacian kernel.
-            DEVICE_1DGRID_KERNEL_LAUNCHER(
-                (Laplacian2DKernelLauncher<SHAPE_TYPE, Implementation,
-                                           DEFORMED>),
-                gridsize, blocksize, shmemsize, m_streamID, sizeParam2D,
-                m_coordDim, nelmt, m_isModified, m_index[0], m_B[0], m_B[1],
-                m_D[0], m_D[1], m_W[0], m_W[1], m_f[0], m_f[1], m_nodToMod,
-                m_dfptr, m_jacptr, diffCoeffPtr, inptr, outptr, wspptr);
+        // Laplacian kernel.
+        DEVICE_2DGRID_KERNEL_LAUNCHER(
+            (Laplacian2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
+            gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam2D,
+            m_coordDim, nelmt, m_isModified, m_index[0], m_B[0], m_B[1], m_D[0],
+            m_D[1], m_W[0], m_W[1], m_f[0], m_f[1], m_nodToMod, m_dfptr,
+            m_jacptr, diffCoeffPtr, inptr, outptr, wspptr);
 
-            // Reshape back, if necessary.
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(), outptr,
-                                      m_streamID);
-
-            // Increment pointers.
-            inptr += inblock.CompSize();
-            outptr += outblock.CompSize();
-        }
+        // Reshape back, if necessary.
+        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                  nelmt * ncomp, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
+        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                  nelmt * ncomp, outblock.GetNumData(), outptr,
+                                  m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
@@ -562,11 +547,13 @@ protected:
             this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(m_streamID);
 
         // Get static workspace pointer.
+        const unsigned int ncomp =
+            inblock.GetNumComponents() * inblock.GetNumHomoModes();
         auto wspSize = LaplacianWorkSpaceSize<SHAPE_TYPE, Implementation>(
             nelmt, sizeParam3D);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize, m_streamID);
+                wspSize * ncomp, m_streamID);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -580,36 +567,27 @@ protected:
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
-        // Loop over components.
-        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
-        {
-            // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
+        // Reshape, if necessary.
+        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                  nelmt * ncomp, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
 
-            // Laplacian kernel.
-            DEVICE_1DGRID_KERNEL_LAUNCHER(
-                (Laplacian3DKernelLauncher<SHAPE_TYPE, Implementation,
-                                           DEFORMED>),
-                gridsize, blocksize, shmemsize, m_streamID, sizeParam3D, nelmt,
-                m_isModified, m_index[0], m_index[1], m_index[2], m_index[3],
-                m_B[0], m_B[1], m_B[2], m_D[0], m_D[1], m_D[2], m_W[0], m_W[1],
-                m_W[2], m_f[0], m_f[1], m_f[2], m_f[3], m_nodToMod, m_dfptr,
-                m_jacptr, diffCoeffPtr, inptr, outptr, wspptr);
+        // Laplacian kernel.
+        DEVICE_2DGRID_KERNEL_LAUNCHER(
+            (Laplacian3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
+            gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam3D,
+            nelmt, m_isModified, m_index[0], m_index[1], m_index[2], m_index[3],
+            m_B[0], m_B[1], m_B[2], m_D[0], m_D[1], m_D[2], m_W[0], m_W[1],
+            m_W[2], m_f[0], m_f[1], m_f[2], m_f[3], m_nodToMod, m_dfptr,
+            m_jacptr, diffCoeffPtr, inptr, outptr, wspptr);
 
-            // Reshape back, if necessary.
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(), outptr,
-                                      m_streamID);
-
-            // Increment pointers.
-            inptr += inblock.CompSize();
-            outptr += outblock.CompSize();
-        }
+        // Reshape back, if necessary.
+        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                  nelmt * ncomp, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
+        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                  nelmt * ncomp, outblock.GetNumData(), outptr,
+                                  m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);

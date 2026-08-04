@@ -53,126 +53,340 @@ template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getLocalIdx(
     [[maybe_unused]] const deviceOnHostBlock<1> &threadBlock)
 {
-    return 0;
+    if constexpr (dim == 0)
+    {
+        return deviceOnHostLocalIdxX;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getLocalIdx(
     [[maybe_unused]] const deviceOnHostBlock<2> &threadBlock)
 {
-    return 0;
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return deviceOnHostLocalIdxX;
+    }
+    else if constexpr (dim == 1)
+    {
+        return deviceOnHostLocalIdxY;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getLocalIdx(
     [[maybe_unused]] const deviceOnHostBlock<3> &threadBlock)
 {
-    return 0;
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return deviceOnHostLocalIdxX;
+    }
+    else if constexpr (dim == 1)
+    {
+        return deviceOnHostLocalIdxY;
+    }
+    else if constexpr (dim == 2)
+    {
+        return deviceOnHostLocalIdxZ;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getLocalRange(
     [[maybe_unused]] const deviceOnHostBlock<1> &threadBlock)
 {
-    return 1;
+    if constexpr (dim == 0)
+    {
+        return deviceOnHostBlockDimX;
+    }
+    else
+    {
+        return 1;
+    }
 }
 
 template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getLocalRange(
     [[maybe_unused]] const deviceOnHostBlock<2> &threadBlock)
 {
-    return 1;
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return deviceOnHostBlockDimX;
+    }
+    else if constexpr (dim == 1)
+    {
+        return deviceOnHostBlockDimY;
+    }
+    else
+    {
+        return 1;
+    }
 }
 
 template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getLocalRange(
     [[maybe_unused]] const deviceOnHostBlock<3> &threadBlock)
 {
-    return 1;
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return deviceOnHostBlockDimX;
+    }
+    else if constexpr (dim == 1)
+    {
+        return deviceOnHostBlockDimY;
+    }
+    else if constexpr (dim == 2)
+    {
+        return deviceOnHostBlockDimZ;
+    }
+    else
+    {
+        return 1;
+    }
 }
 
 template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static size_t getGlobalIdx(
     [[maybe_unused]] const deviceOnHostBlock<1> &threadBlock)
 {
-    return 0;
+    if constexpr (dim == 0)
+    {
+        return deviceOnHostBlockDimX * deviceOnHostBlockIdxX +
+               deviceOnHostLocalIdxX;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static size_t getGlobalIdx(
     [[maybe_unused]] const deviceOnHostBlock<2> &threadBlock)
 {
-    return 0;
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return deviceOnHostBlockDimX * deviceOnHostBlockIdxX +
+               deviceOnHostLocalIdxX;
+    }
+    else if constexpr (dim == 1)
+    {
+        return deviceOnHostBlockDimY * deviceOnHostBlockIdxY +
+               deviceOnHostLocalIdxY;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static size_t getGlobalIdx(
     [[maybe_unused]] const deviceOnHostBlock<3> &threadBlock)
 {
-    return 0;
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return deviceOnHostBlockDimX * deviceOnHostBlockIdxX +
+               deviceOnHostLocalIdxX;
+    }
+    else if constexpr (dim == 1)
+    {
+        return deviceOnHostBlockDimY * deviceOnHostBlockIdxY +
+               deviceOnHostLocalIdxY;
+    }
+    else if constexpr (dim == 2)
+    {
+        return deviceOnHostBlockDimZ * deviceOnHostBlockIdxZ +
+               deviceOnHostLocalIdxZ;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static size_t getGlobalRange(
     [[maybe_unused]] const deviceOnHostBlock<1> &threadBlock)
 {
-    return 1;
+    if constexpr (dim == 0)
+    {
+        return deviceOnHostGridDimX * deviceOnHostBlockDimX;
+    }
+    else
+    {
+        return 1;
+    }
 }
 
 template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static size_t getGlobalRange(
     [[maybe_unused]] const deviceOnHostBlock<2> &threadBlock)
 {
-    return 1;
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return deviceOnHostGridDimX * deviceOnHostBlockDimX;
+    }
+    else if constexpr (dim == 1)
+    {
+        return deviceOnHostGridDimY * deviceOnHostBlockDimY;
+    }
+    else
+    {
+        return 1;
+    }
 }
 
 template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static size_t getGlobalRange(
     [[maybe_unused]] const deviceOnHostBlock<3> &threadBlock)
 {
-    return 1;
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return deviceOnHostGridDimX * deviceOnHostBlockDimX;
+    }
+    else if constexpr (dim == 1)
+    {
+        return deviceOnHostGridDimY * deviceOnHostBlockDimY;
+    }
+    else if constexpr (dim == 2)
+    {
+        return deviceOnHostGridDimZ * deviceOnHostBlockDimZ;
+    }
+    else
+    {
+        return 1;
+    }
 }
 
 template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getBlockIdx(
     [[maybe_unused]] const deviceOnHostBlock<1> &threadBlock)
 {
-    return 0;
+    if constexpr (dim == 0)
+    {
+        return deviceOnHostBlockIdxX;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getBlockIdx(
     [[maybe_unused]] const deviceOnHostBlock<2> &threadBlock)
 {
-    return 0;
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return deviceOnHostBlockIdxX;
+    }
+    else if constexpr (dim == 1)
+    {
+        return deviceOnHostBlockIdxY;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getBlockIdx(
     [[maybe_unused]] const deviceOnHostBlock<3> &threadBlock)
 {
-    return 0;
+    if constexpr (dim == 0)
+    {
+        // Fastest moving.
+        return deviceOnHostBlockIdxX;
+    }
+    else if constexpr (dim == 1)
+    {
+        return deviceOnHostBlockIdxY;
+    }
+    else if constexpr (dim == 2)
+    {
+        return deviceOnHostBlockIdxZ;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getBlockRange(
     [[maybe_unused]] const deviceOnHostBlock<1> &threadBlock)
 {
-    return 1;
+    if constexpr (dim == 0)
+    {
+        return deviceOnHostGridDimX;
+    }
+    else
+    {
+        return 1;
+    }
 }
 
 template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getBlockRange(
     [[maybe_unused]] const deviceOnHostBlock<2> &threadBlock)
 {
-    return 1;
+    if constexpr (dim == 0)
+    {
+        return deviceOnHostGridDimX;
+    }
+    else if constexpr (dim == 1)
+    {
+        return deviceOnHostGridDimY;
+    }
+    else
+    {
+        return 1;
+    }
 }
 
 template <unsigned int dim = 0>
 NEK_DEVICE_INLINE static unsigned int getBlockRange(
     [[maybe_unused]] const deviceOnHostBlock<3> &threadBlock)
 {
-    return 1;
+    if constexpr (dim == 0)
+    {
+        return deviceOnHostGridDimX;
+    }
+    else if constexpr (dim == 1)
+    {
+        return deviceOnHostGridDimY;
+    }
+    else if constexpr (dim == 2)
+    {
+        return deviceOnHostGridDimZ;
+    }
+    else
+    {
+        return 1;
+    }
 }
 
 template <unsigned int ndim>

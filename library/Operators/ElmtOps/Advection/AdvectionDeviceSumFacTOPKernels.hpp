@@ -85,8 +85,8 @@ NEK_DEVICE_INLINE static void Advection1DSumFacTOPKernel(
 {
     const unsigned int dfsize = DEFORMED ? nq0 : 1u;
 
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int i = idx0; i < nq0; i += stride)
     {
@@ -134,8 +134,8 @@ NEK_DEVICE_INLINE static void Advection2DSumFacTOPKernel(
     const unsigned int nqTot  = nq0 * nq1;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
@@ -214,8 +214,8 @@ NEK_DEVICE_INLINE static void Advection3DSumFacTOPKernel(
     const unsigned int nqTot  = nq0 * nq1 * nq2;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
@@ -315,17 +315,18 @@ NEK_DEVICE_INLINE static void AdvectionSumFacTOP1DKernel(
     const unsigned int ndf    = ncoord;
     const unsigned int dfsize = DEFORMED ? nq0 : 1u;
 
-    size_t e = getBlockIdx(threadBlock);
+    size_t e             = getBlockIdx<0>(threadBlock);
+    const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr     = df + ndf * dfsize * e;
-        const TData *inptr     = in + nq0 * e;
-        TData *outptr          = out + nq0 * e;
+        const TData *inptr     = in + nq0 * nelmt * c + nq0 * e;
+        TData *outptr          = out + nq0 * nelmt * c + nq0 * e;
         const TData *advVelPtr = advVel_ptr + nq0 * e;
         Advection1DSumFacTOPKernel<APPEND, DEFORMED>(
             ncoord, nq0, D0, dfptr, advVelPtr, adVecoffset, inptr, outptr,
             scale, threadBlock);
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -345,15 +346,16 @@ NEK_DEVICE_INLINE static void AdvectionSumFacTOP2DKernel(
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
     TData *s_wsp0             = (TData *)shmemptr;
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    size_t e = getBlockIdx(threadBlock);
+    size_t e             = getBlockIdx<0>(threadBlock);
+    const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr     = df + ndf * dfsize * e;
-        const TData *inptr     = in + nqTot * e;
-        TData *outptr          = out + nqTot * e;
+        const TData *inptr     = in + nqTot * nelmt * c + nqTot * e;
+        TData *outptr          = out + nqTot * nelmt * c + nqTot * e;
         const TData *advVelPtr = advVel_ptr + nqTot * e;
 
         // Copy to shared memory.
@@ -368,7 +370,7 @@ NEK_DEVICE_INLINE static void AdvectionSumFacTOP2DKernel(
             ncoord, nq0, nq1, D0, D1, f0, f1, dfptr, advVelPtr, adVecoffset,
             s_wsp0, outptr, scale, threadBlock);
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 
@@ -390,15 +392,16 @@ NEK_DEVICE_INLINE static void AdvectionSumFacTOP3DKernel(
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
 
     TData *s_wsp0             = (TData *)shmemptr;
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    size_t e = getBlockIdx(threadBlock); // use size_t to prevent overflow
+    size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
+    const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr     = df + ndf * dfsize * e;
-        const TData *inptr     = in + nqTot * e;
-        TData *outptr          = out + nqTot * e;
+        const TData *inptr     = in + nqTot * nelmt * c + nqTot * e;
+        TData *outptr          = out + nqTot * nelmt * c + nqTot * e;
         const TData *advVelPtr = advVel_ptr + nqTot * e;
 
         // Copy to shared memory.
@@ -413,7 +416,7 @@ NEK_DEVICE_INLINE static void AdvectionSumFacTOP3DKernel(
             nq0, nq1, nq2, D0, D1, D2, f0, f1, f1m, f2, dfptr, advVelPtr,
             adVecoffset, s_wsp0, outptr, scale, threadBlock);
 
-        e += getBlockRange(threadBlock);
+        e += getBlockRange<0>(threadBlock);
     }
 }
 

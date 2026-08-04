@@ -114,7 +114,7 @@ NEK_DEVICE_INLINE static void Divergence1DSumFacKernel(
 
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
-    size_t e = getGlobalIdx(threadBlock);
+    size_t e = getGlobalIdx<0>(threadBlock);
     while (e < nelmt)
     {
         const size_t ilane = e % warpsize;
@@ -124,7 +124,7 @@ NEK_DEVICE_INLINE static void Divergence1DSumFacKernel(
         TData *outptr      = out + nq0 * warpsize * iwarp;
         PhysDerivDir1DSumFacKernel<false, DEFORMED, 0>(ilane, ncoord, nq0, D0,
                                                        dfptr, inptr, outptr);
-        e += getGlobalRange(threadBlock);
+        e += getGlobalRange<0>(threadBlock);
     }
 }
 
@@ -148,8 +148,8 @@ NEK_DEVICE_INLINE static void Divergence2DSumFacKernel(
     TData *s_f1 = nullptr;
 
     // Precompute geometric factors.
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                   SHAPE_TYPE == LibUtilities::NodalTri)
@@ -170,7 +170,7 @@ NEK_DEVICE_INLINE static void Divergence2DSumFacKernel(
         localBarrier(threadBlock);
     }
 
-    size_t e = getGlobalIdx(threadBlock);
+    size_t e = getGlobalIdx<0>(threadBlock);
     while (e < nelmt)
     {
         const size_t ilane = e % warpsize;
@@ -184,7 +184,7 @@ NEK_DEVICE_INLINE static void Divergence2DSumFacKernel(
         PhysDerivDir2DSumFacKernel<SHAPE_TYPE, true, DEFORMED, 1>(
             ilane, ncoord, nq0, nq1, D0, D1, s_f0, s_f1, dfptr,
             inptr + inoffset, outptr);
-        e += getGlobalRange(threadBlock);
+        e += getGlobalRange<0>(threadBlock);
     }
 }
 
@@ -212,8 +212,8 @@ NEK_DEVICE_INLINE static void Divergence3DSumFacKernel(
     TData *s_f2  = nullptr;
 
     // Precompute geometric factors.
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                   SHAPE_TYPE == LibUtilities::NodalTet)
@@ -283,7 +283,7 @@ NEK_DEVICE_INLINE static void Divergence3DSumFacKernel(
         localBarrier(threadBlock);
     }
 
-    size_t e = getGlobalIdx(threadBlock); // use size_t to prevent overflow
+    size_t e = getGlobalIdx<0>(threadBlock); // use size_t to prevent overflow
     while (e < nelmt)
     {
         const size_t ilane = e % warpsize;
@@ -300,7 +300,7 @@ NEK_DEVICE_INLINE static void Divergence3DSumFacKernel(
         PhysDerivDir3DSumFacKernel<SHAPE_TYPE, true, DEFORMED, 2>(
             ilane, nq0, nq1, nq2, D0, D1, D2, s_f0, s_f1, s_f1m, s_f2, dfptr,
             inptr + 2 * inoffset, outptr);
-        e += getGlobalRange(threadBlock);
+        e += getGlobalRange<0>(threadBlock);
     }
 }
 
