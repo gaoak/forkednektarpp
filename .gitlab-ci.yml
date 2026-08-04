@@ -118,13 +118,14 @@ include:
     - >
         echo "Container exit code: $exit_code"
     - if [[ $DO_COVERAGE != "" ]]; then docker cp ${CONTAINER_NAME}:/home/nektar/nektar/coverage coverage; fi
-    - if [ $exit_code -ne 0 ];
-      then
+    - if [ "$exit_code" -ne 0 ] && [ -n "$DEBUG_IMAGES" ]; then
         export FAIL_IMAGE=$CI_REGISTRY_IMAGE:pipeline_${CI_PIPELINE_ID}_${OS_VERSION}_${BUILD_TYPE};
-        echo FAIL $FAIL_IMAGE;
-        docker commit $CONTAINER_NAME $FAIL_IMAGE;
-        docker push $FAIL_IMAGE; 
-        docker rmi $FAIL_IMAGE;
+        echo "Creating debug image $FAIL_IMAGE";
+        docker commit "$CONTAINER_NAME" "$FAIL_IMAGE";
+        docker push "$FAIL_IMAGE";
+        docker rmi "$FAIL_IMAGE";
+      elif [ "$exit_code" -ne 0 ]; then
+        echo "Build failed, but DEBUG_IMAGES is not set. Skipping debug image creation.";
       fi
     - docker rm $CONTAINER_NAME
     - exit $exit_code;

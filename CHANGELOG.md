@@ -10,6 +10,9 @@ v5.11.0
 - Replace Blas::Dscal and Blas::Daxpy call by VMath calls (!2630)
 - Update StdRegion for consistency with redesign (!2642)
 
+**CI**
+- Added DEBUG_IMAGES option to reduce load on registry storage (2648)
+
 **Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)
 - Move using namespace std to avoid name clashes (!2618)
