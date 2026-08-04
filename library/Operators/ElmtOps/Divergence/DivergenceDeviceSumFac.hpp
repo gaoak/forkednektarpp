@@ -373,15 +373,10 @@ protected:
         // Loop over components.
         const auto inoffset = outblock.CompSize();
 
-        // Reshape u-component, if necessary.
-        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth, nelmt,
-                                  inblock.GetNumData(), (TData *)inptr,
-                                  m_streamID);
-
-        // Reshape v-component, if necessary.
-        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth, nelmt,
-                                  inblock.GetNumData(),
-                                  (TData *)inptr + inoffset, m_streamID);
+        // Reshape, if necessary.
+        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                  2 * nelmt, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
 
         // Calculate derivative du/dx
         DEVICE_1DGRID_KERNEL_LAUNCHER(
@@ -390,15 +385,9 @@ protected:
             inoffset, m_D[0], m_D[1], m_f[0], m_f[1], m_dfptr, inptr, outptr);
 
         // Reshape back, if necessary.
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
-                                  inblock.GetNumData(), (TData *)inptr,
-                                  m_streamID);
-
-        // Reshape back, if necessary.
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
-                                  inblock.GetNumData(),
-                                  (TData *)inptr + inoffset, m_streamID);
-
+        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                  2 * nelmt, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
         ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
                                   outblock.GetNumData(), (TData *)outptr,
                                   m_streamID);
@@ -455,20 +444,10 @@ protected:
         // Loop over components.
         const auto inoffset = outblock.CompSize();
 
-        // Reshape u-component, if necessary.
-        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth, nelmt,
-                                  inblock.GetNumData(), (TData *)inptr,
-                                  m_streamID);
-
-        // Reshape v-component, if necessary.
-        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth, nelmt,
-                                  inblock.GetNumData(),
-                                  (TData *)inptr + inoffset, m_streamID);
-
-        // Reshape w-component, if necessary.
-        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth, nelmt,
-                                  inblock.GetNumData(),
-                                  (TData *)inptr + 2u * inoffset, m_streamID);
+        // Reshape, if necessary.
+        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                  3 * nelmt, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
 
         // Calculate derivative du/dx
         DEVICE_1DGRID_KERNEL_LAUNCHER(
@@ -478,20 +457,9 @@ protected:
             m_dfptr, inptr, outptr);
 
         // Reshape back, if necessary.
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
-                                  inblock.GetNumData(), (TData *)inptr,
-                                  m_streamID);
-
-        // Reshape back, if necessary.
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
-                                  inblock.GetNumData(),
-                                  (TData *)inptr + inoffset, m_streamID);
-
-        // Reshape back, if necessary.
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
-                                  inblock.GetNumData(),
-                                  (TData *)inptr + 2u * inoffset, m_streamID);
-
+        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                  3 * nelmt, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
         ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
                                   outblock.GetNumData(), (TData *)outptr,
                                   m_streamID);

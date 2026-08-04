@@ -447,15 +447,10 @@ protected:
         auto omega     = grad1 + 2u * inoffset;
         auto gradOmega = omega + inoffset;
 
-        // Reshape u-component, if necessary.
-        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth, nelmt,
-                                  inblock.GetNumData(), (TData *)inptr,
-                                  m_streamID);
-
-        // Reshape v-component, if necessary.
-        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth, nelmt,
-                                  inblock.GetNumData(),
-                                  (TData *)inptr + inoffset, m_streamID);
+        // Reshape, if necessary.
+        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                  2 * nelmt, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
 
         DEVICE_1DGRID_KERNEL_LAUNCHER(
             (PhysDeriv2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
@@ -479,21 +474,13 @@ protected:
             inoffset, gradOmega, outptr);
 
         // Reshape back, if necessary.
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
-                                  inblock.GetNumData(), (TData *)inptr,
-                                  m_streamID);
+        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                  2 * nelmt, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
 
-        // Reshape back, if necessary.
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
-                                  inblock.GetNumData(),
-                                  (TData *)inptr + inoffset, m_streamID);
-
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
-                                  outblock.GetNumData(), (TData *)outptr,
-                                  m_streamID);
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
-                                  outblock.GetNumData(),
-                                  (TData *)outptr + inoffset, m_streamID);
+        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                  2 * nelmt, outblock.GetNumData(),
+                                  (TData *)outptr, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
@@ -555,20 +542,10 @@ protected:
         auto gradOmega1 = gradOmega0 + 3u * inoffset;
         auto gradOmega2 = gradOmega1 + 3u * inoffset;
 
-        // Reshape u-component, if necessary.
-        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth, nelmt,
-                                  inblock.GetNumData(), (TData *)inptr,
-                                  m_streamID);
-
-        // Reshape v-component, if necessary.
-        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth, nelmt,
-                                  inblock.GetNumData(),
-                                  (TData *)inptr + inoffset, m_streamID);
-
-        // Reshape w-component, if necessary.
-        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth, nelmt,
-                                  inblock.GetNumData(),
-                                  (TData *)inptr + 2u * inoffset, m_streamID);
+        // Reshape, if necessary.
+        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
+                                  3 * nelmt, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
 
         DEVICE_1DGRID_KERNEL_LAUNCHER(
             (PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
@@ -608,29 +585,13 @@ protected:
             inoffset, gradOmega0, gradOmega1, gradOmega2, outptr);
 
         // Reshape back, if necessary.
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
-                                  inblock.GetNumData(), (TData *)inptr,
-                                  m_streamID);
+        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                  3 * nelmt, inblock.GetNumData(),
+                                  (TData *)inptr, m_streamID);
 
-        // Reshape back, if necessary.
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
-                                  inblock.GetNumData(),
-                                  (TData *)inptr + inoffset, m_streamID);
-
-        // Reshape back, if necessary.
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
-                                  inblock.GetNumData(),
-                                  (TData *)inptr + 2u * inoffset, m_streamID);
-
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
-                                  outblock.GetNumData(), (TData *)outptr,
-                                  m_streamID);
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
-                                  outblock.GetNumData(),
-                                  (TData *)outptr + inoffset, m_streamID);
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth, nelmt,
-                                  outblock.GetNumData(),
-                                  (TData *)outptr + 2u * inoffset, m_streamID);
+        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                  3 * nelmt, outblock.GetNumData(),
+                                  (TData *)outptr, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
