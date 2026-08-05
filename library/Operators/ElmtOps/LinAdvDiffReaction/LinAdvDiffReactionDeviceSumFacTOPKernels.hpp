@@ -115,17 +115,32 @@ NEK_DEVICE_INLINE static void AddAdvection3DSumFacTOPKernel(
     localBarrier(threadBlock);
 }
 
-template <bool DEFORMED, typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void LinAdvDiffReaction1DSumFacTOPKernel(
-    const unsigned int ncoord, const unsigned int nm0, const unsigned int nq0,
-    const size_t nelmt, const TData *NEK_RESTRICT basis0,
-    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT w0,
-    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
-    const TData *NEK_RESTRICT coeff, const TData *NEK_RESTRICT advVel0,
-    const TData *NEK_RESTRICT advVel1, const TData *NEK_RESTRICT advVel2,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out, const TData lambda,
-    unsigned char *NEK_RESTRICT shmemptr, const TthreadBlock &threadBlock)
+template <typename Implementation, bool DEFORMED, typename TSizeParameter1D,
+          typename TthreadBlock, typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
+    LinAdvDiffReaction1DKernelLauncher(
+        const TSizeParameter1D sizeParam1D, const unsigned int ncoord,
+        const size_t nelmt, const TData *NEK_RESTRICT basis0,
+        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT w0,
+        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
+        const TData *NEK_RESTRICT coeff, const TData *NEK_RESTRICT advVel0,
+        const TData *NEK_RESTRICT advVel1, const TData *NEK_RESTRICT advVel2,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData lambda,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
+    static_assert(IsSizeParameter1D_v<TSizeParameter1D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter1D or TemplatedSizeParameter1D.");
+
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    const unsigned int nm0 = sizeParam1D.nm0();
+    const unsigned int nq0 = sizeParam1D.nq0();
+
     const unsigned int ndf     = ncoord;
     const unsigned int dfsize  = DEFORMED ? nq0 : 1u;
     const unsigned int jacsize = DEFORMED ? nq0 : 1u;
@@ -164,23 +179,41 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction1DSumFacTOPKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-          typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void LinAdvDiffReaction2DSumFacTOPKernel(
-    const unsigned int ncoord, const unsigned int nm0, const unsigned int nm1,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const size_t nelmt, const bool isModified,
-    const unsigned int *NEK_RESTRICT index0, const TData *NEK_RESTRICT basis0,
-    const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT D0,
-    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT w0,
-    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT f0,
-    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT nodToMod,
-    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
-    const TData *NEK_RESTRICT coeff, const TData *NEK_RESTRICT advVel0,
-    const TData *NEK_RESTRICT advVel1, const TData *NEK_RESTRICT advVel2,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out, const TData lambda,
-    unsigned char *NEK_RESTRICT shmemptr, const TthreadBlock &threadBlock)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TSizeParameter2D, typename TthreadBlock,
+          typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
+    LinAdvDiffReaction2DKernelLauncher(
+        const TSizeParameter2D sizeParam2D, const unsigned int ncoord,
+        const size_t nelmt, const bool isModified,
+        const unsigned int *NEK_RESTRICT index0,
+        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+        const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT df,
+        const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT coeff,
+        const TData *NEK_RESTRICT advVel0, const TData *NEK_RESTRICT advVel1,
+        const TData *NEK_RESTRICT advVel2, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, [[maybe_unused]] TData *NEK_RESTRICT wsp,
+        const TData lambda, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
+    static_assert(IsSizeParameter2D_v<TSizeParameter2D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter2D or TemplatedSizeParameter2D.");
+
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    const unsigned int nm0   = sizeParam2D.nm0();
+    const unsigned int nm1   = sizeParam2D.nm1();
+    const unsigned int nmTot = sizeParam2D.nmTot();
+    const unsigned int nq0   = sizeParam2D.nq0();
+    const unsigned int nq1   = sizeParam2D.nq1();
+
     const unsigned int ndf     = 2 * ncoord;
     const unsigned int nqTot   = nq0 * nq1;
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
@@ -314,29 +347,47 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction2DSumFacTOPKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-          typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void LinAdvDiffReaction3DSumFacTOPKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const size_t nelmt, const bool isModified,
-    const unsigned int *NEK_RESTRICT index0,
-    const unsigned int *NEK_RESTRICT index1,
-    const unsigned int *NEK_RESTRICT index2,
-    const unsigned int *NEK_RESTRICT index3, const TData *NEK_RESTRICT basis0,
-    const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT basis2,
-    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
-    const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT w0,
-    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
-    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
-    const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
-    const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT df,
-    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT coeff,
-    const TData *NEK_RESTRICT advVel0, const TData *NEK_RESTRICT advVel1,
-    const TData *NEK_RESTRICT advVel2, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, const TData lambda,
-    unsigned char *NEK_RESTRICT shmemptr, const TthreadBlock &threadBlock)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TSizeParameter3D, typename TthreadBlock,
+          typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
+    LinAdvDiffReaction3DKernelLauncher(
+        const TSizeParameter3D sizeParam3D, const size_t nelmt,
+        const bool isModified, const unsigned int *NEK_RESTRICT index0,
+        const unsigned int *NEK_RESTRICT index1,
+        const unsigned int *NEK_RESTRICT index2,
+        const unsigned int *NEK_RESTRICT index3,
+        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+        const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT D0,
+        const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
+        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+        const TData *NEK_RESTRICT w2, const TData *NEK_RESTRICT f0,
+        const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
+        const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT nodToMod,
+        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
+        const TData *NEK_RESTRICT coeff, const TData *NEK_RESTRICT advVel0,
+        const TData *NEK_RESTRICT advVel1, const TData *NEK_RESTRICT advVel2,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData lambda,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
+    static_assert(IsSizeParameter3D_v<TSizeParameter3D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter3D or TemplatedSizeParameter3D.");
+
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    const unsigned int nm0   = sizeParam3D.nm0();
+    const unsigned int nm1   = sizeParam3D.nm1();
+    const unsigned int nm2   = sizeParam3D.nm2();
+    const unsigned int nmTot = sizeParam3D.nmTot();
+    const unsigned int nq0   = sizeParam3D.nq0();
+    const unsigned int nq1   = sizeParam3D.nq1();
+    const unsigned int nq2   = sizeParam3D.nq2();
+
     constexpr unsigned int ndf = 9u;
     const unsigned int nqTot   = nq0 * nq1 * nq2;
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
@@ -542,113 +593,6 @@ NEK_DEVICE_INLINE static void LinAdvDiffReaction3DSumFacTOPKernel(
 
         e += getBlockRange<0>(threadBlock);
     }
-}
-
-template <typename Implementation, bool DEFORMED, typename TSizeParameter1D,
-          typename TthreadBlock, typename TData,
-          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
-              Enable = true>
-NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
-    (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
-    LinAdvDiffReaction1DKernelLauncher(
-        const TSizeParameter1D sizeParam1D, const unsigned int ncoord,
-        const size_t nelmt, const TData *NEK_RESTRICT basis0,
-        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT w0,
-        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
-        const TData *NEK_RESTRICT coeff, const TData *NEK_RESTRICT advVel0,
-        const TData *NEK_RESTRICT advVel1, const TData *NEK_RESTRICT advVel2,
-        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData lambda,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
-{
-    static_assert(IsSizeParameter1D_v<TSizeParameter1D>,
-                  "Template argument must be either of type "
-                  "NonTemplatedSizeParameter1D or TemplatedSizeParameter1D.");
-
-    FETCH_SHARED_MEMORY(shmemptr);
-
-    LinAdvDiffReaction1DSumFacTOPKernel<DEFORMED>(
-        ncoord, sizeParam1D.nm0(), sizeParam1D.nq0(), nelmt, basis0, D0, w0, df,
-        jac, coeff, advVel0, advVel1, advVel2, in, out, lambda, shmemptr,
-        threadBlock);
-}
-
-template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TSizeParameter2D, typename TthreadBlock,
-          typename TData,
-          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
-              Enable = true>
-NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
-    (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
-    LinAdvDiffReaction2DKernelLauncher(
-        const TSizeParameter2D sizeParam2D, const unsigned int ncoord,
-        const size_t nelmt, const bool isModified,
-        const unsigned int *NEK_RESTRICT index0,
-        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
-        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
-        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
-        const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
-        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT df,
-        const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT coeff,
-        const TData *NEK_RESTRICT advVel0, const TData *NEK_RESTRICT advVel1,
-        const TData *NEK_RESTRICT advVel2, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, [[maybe_unused]] TData *NEK_RESTRICT wsp,
-        const TData lambda, unsigned char *shmemptr,
-        const TthreadBlock &threadBlock)
-{
-    static_assert(IsSizeParameter2D_v<TSizeParameter2D>,
-                  "Template argument must be either of type "
-                  "NonTemplatedSizeParameter2D or TemplatedSizeParameter2D.");
-
-    FETCH_SHARED_MEMORY(shmemptr);
-
-    LinAdvDiffReaction2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-        ncoord, sizeParam2D.nm0(), sizeParam2D.nm1(), sizeParam2D.nmTot(),
-        sizeParam2D.nq0(), sizeParam2D.nq1(), nelmt, isModified, index0, basis0,
-        basis1, D0, D1, w0, w1, f0, f1, nodToMod, df, jac, coeff, advVel0,
-        advVel1, advVel2, in, out, lambda, shmemptr, threadBlock);
-}
-
-template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TSizeParameter3D, typename TthreadBlock,
-          typename TData,
-          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
-              Enable = true>
-NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
-    (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
-    LinAdvDiffReaction3DKernelLauncher(
-        const TSizeParameter3D sizeParam3D, const size_t nelmt,
-        const bool isModified, const unsigned int *NEK_RESTRICT index0,
-        const unsigned int *NEK_RESTRICT index1,
-        const unsigned int *NEK_RESTRICT index2,
-        const unsigned int *NEK_RESTRICT index3,
-        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
-        const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT D0,
-        const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
-        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
-        const TData *NEK_RESTRICT w2, const TData *NEK_RESTRICT f0,
-        const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
-        const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT nodToMod,
-        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
-        const TData *NEK_RESTRICT coeff, const TData *NEK_RESTRICT advVel0,
-        const TData *NEK_RESTRICT advVel1, const TData *NEK_RESTRICT advVel2,
-        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData lambda,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
-{
-    static_assert(IsSizeParameter3D_v<TSizeParameter3D>,
-                  "Template argument must be either of type "
-                  "NonTemplatedSizeParameter3D or TemplatedSizeParameter3D.");
-
-    FETCH_SHARED_MEMORY(shmemptr);
-
-    LinAdvDiffReaction3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-        sizeParam3D.nm0(), sizeParam3D.nm1(), sizeParam3D.nm2(),
-        sizeParam3D.nmTot(), sizeParam3D.nq0(), sizeParam3D.nq1(),
-        sizeParam3D.nq2(), nelmt, isModified, index0, index1, index2, index3,
-        basis0, basis1, basis2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2,
-        nodToMod, df, jac, coeff, advVel0, advVel1, advVel2, in, out, lambda,
-        shmemptr, threadBlock);
 }
 
 #endif

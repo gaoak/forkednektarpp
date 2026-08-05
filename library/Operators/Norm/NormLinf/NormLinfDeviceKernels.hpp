@@ -41,14 +41,13 @@ namespace Nektar::Operators::detail
 {
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
-
 template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void LinfKernel(const size_t nelmt,
-                                         const unsigned int ndata,
-                                         const unsigned int interleaveWidth,
-                                         const TData *NEK_RESTRICT in,
-                                         TData *NEK_RESTRICT norm,
-                                         const TthreadBlock &threadBlock)
+NEK_DEVICE_KERNEL void LinfKernelLauncher(const size_t nelmt,
+                                          const unsigned int ndata,
+                                          const unsigned int interleaveWidth,
+                                          const TData *NEK_RESTRICT in,
+                                          TData *NEK_RESTRICT norm,
+                                          const TthreadBlock &threadBlock)
 {
     TData acc = 0.0;
     size_t e  = getGlobalIdx(threadBlock);
@@ -69,17 +68,6 @@ NEK_DEVICE_INLINE static void LinfKernel(const size_t nelmt,
     }
 
     blockReduceMax(acc, threadBlock, norm);
-}
-
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL void LinfKernelLauncher(const size_t nelmt,
-                                          const unsigned int ndata,
-                                          const unsigned int interleaveWidth,
-                                          const TData *NEK_RESTRICT in,
-                                          TData *NEK_RESTRICT norm,
-                                          const TthreadBlock &threadBlock)
-{
-    LinfKernel(nelmt, ndata, interleaveWidth, in, norm, threadBlock);
 }
 
 #endif
