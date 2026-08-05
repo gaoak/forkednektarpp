@@ -699,14 +699,29 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacTOPKernel(
     localBarrier(threadBlock);
 }
 
-template <bool APPEND, typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void BwdTrans1DSumFacTOPKernel(
-    const unsigned int nm0, const unsigned int nq0, const size_t nelmt,
-    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out,
-    [[maybe_unused]] unsigned char *NEK_RESTRICT shmemptr,
-    const TthreadBlock &threadBlock)
+template <typename Implementation, bool APPEND, typename TSizeParameter1D,
+          typename TthreadBlock, typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
+    BwdTrans1DKernelLauncher(const TSizeParameter1D sizeParam1D,
+                             const size_t nelmt,
+                             const TData *NEK_RESTRICT basis0,
+                             const TData *NEK_RESTRICT in,
+                             TData *NEK_RESTRICT out,
+                             [[maybe_unused]] unsigned char *shmemptr,
+                             const TthreadBlock &threadBlock)
 {
+    static_assert(IsSizeParameter1D_v<TSizeParameter1D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter1D or TemplatedSizeParameter1D.");
+
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    const unsigned int nm0 = sizeParam1D.nm0();
+    const unsigned int nq0 = sizeParam1D.nq0();
+
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
@@ -719,16 +734,33 @@ NEK_DEVICE_INLINE static void BwdTrans1DSumFacTOPKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND,
-          typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void BwdTrans2DSumFacTOPKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
-    const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
-    const bool isModified, const TData *NEK_RESTRICT basis0,
-    const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT nodToMod,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-    unsigned char *NEK_RESTRICT shmemptr, const TthreadBlock &threadBlock)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool APPEND, typename TSizeParameter2D, typename TthreadBlock,
+          typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
+    BwdTrans2DKernelLauncher(
+        const TSizeParameter2D sizeParam2D, const size_t nelmt,
+        const bool isModified, const TData *NEK_RESTRICT basis0,
+        const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT nodToMod,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
+    static_assert(IsSizeParameter2D_v<TSizeParameter2D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter2D or TemplatedSizeParameter2D.");
+
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    const unsigned int nm0   = sizeParam2D.nm0();
+    const unsigned int nm1   = sizeParam2D.nm1();
+    const unsigned int nmTot = sizeParam2D.nmTot();
+    const unsigned int nq0   = sizeParam2D.nq0();
+    const unsigned int nq1   = sizeParam2D.nq1();
+
     const unsigned int nqTot = nq0 * nq1;
 
     unsigned int offset{0}, nmode0{0}, nmode1{0};
@@ -805,19 +837,36 @@ NEK_DEVICE_INLINE static void BwdTrans2DSumFacTOPKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND,
-          typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void BwdTrans3DSumFacTOPKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const size_t nelmt, const bool isModified,
-    const unsigned int *NEK_RESTRICT index0,
-    const unsigned int *NEK_RESTRICT index1, const TData *NEK_RESTRICT basis0,
-    const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT basis2,
-    const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, unsigned char *NEK_RESTRICT shmemptr,
-    const TthreadBlock &threadBlock)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool APPEND, typename TSizeParameter3D, typename TthreadBlock,
+          typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
+    BwdTrans3DKernelLauncher(
+        const TSizeParameter3D sizeParam3D, const size_t nelmt,
+        const bool isModified, const unsigned int *index0,
+        const unsigned int *index1, const TData *NEK_RESTRICT basis0,
+        const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT basis2,
+        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, [[maybe_unused]] TData *NEK_RESTRICT wsp,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
+    static_assert(IsSizeParameter3D_v<TSizeParameter3D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter3D or TemplatedSizeParameter3D.");
+
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    const unsigned int nm0   = sizeParam3D.nm0();
+    const unsigned int nm1   = sizeParam3D.nm1();
+    const unsigned int nm2   = sizeParam3D.nm2();
+    const unsigned int nmTot = sizeParam3D.nmTot();
+    const unsigned int nq0   = sizeParam3D.nq0();
+    const unsigned int nq1   = sizeParam3D.nq1();
+    const unsigned int nq2   = sizeParam3D.nq2();
+
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
     unsigned int offset0{0}, offset1{0}, nmode0{0}, nmode1{0}, nmode2{0};
@@ -937,86 +986,6 @@ NEK_DEVICE_INLINE static void BwdTrans3DSumFacTOPKernel(
 
         e += getBlockRange<0>(threadBlock);
     }
-}
-
-template <typename Implementation, bool APPEND, typename TSizeParameter1D,
-          typename TthreadBlock, typename TData,
-          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
-              Enable = true>
-NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
-    (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
-    BwdTrans1DKernelLauncher(const TSizeParameter1D sizeParam1D,
-                             const size_t nelmt,
-                             const TData *NEK_RESTRICT basis0,
-                             const TData *NEK_RESTRICT in,
-                             TData *NEK_RESTRICT out, unsigned char *shmemptr,
-                             const TthreadBlock &threadBlock)
-{
-    static_assert(IsSizeParameter1D_v<TSizeParameter1D>,
-                  "Template argument must be either of type "
-                  "NonTemplatedSizeParameter1D or TemplatedSizeParameter1D.");
-
-    FETCH_SHARED_MEMORY(shmemptr);
-
-    BwdTrans1DSumFacTOPKernel<APPEND>(sizeParam1D.nm0(), sizeParam1D.nq0(),
-                                      nelmt, basis0, in, out, shmemptr,
-                                      threadBlock);
-}
-
-template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool APPEND, typename TSizeParameter2D, typename TthreadBlock,
-          typename TData,
-          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
-              Enable = true>
-NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
-    (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
-    BwdTrans2DKernelLauncher(
-        const TSizeParameter2D sizeParam2D, const size_t nelmt,
-        const bool isModified, const TData *NEK_RESTRICT basis0,
-        const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT nodToMod,
-        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        [[maybe_unused]] TData *NEK_RESTRICT wsp, unsigned char *shmemptr,
-        const TthreadBlock &threadBlock)
-{
-    static_assert(IsSizeParameter2D_v<TSizeParameter2D>,
-                  "Template argument must be either of type "
-                  "NonTemplatedSizeParameter2D or TemplatedSizeParameter2D.");
-
-    FETCH_SHARED_MEMORY(shmemptr);
-
-    BwdTrans2DSumFacTOPKernel<SHAPE_TYPE, APPEND>(
-        sizeParam2D.nm0(), sizeParam2D.nm1(), sizeParam2D.nmTot(),
-        sizeParam2D.nq0(), sizeParam2D.nq1(), nelmt, isModified, basis0, basis1,
-        nodToMod, in, out, shmemptr, threadBlock);
-}
-
-template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool APPEND, typename TSizeParameter3D, typename TthreadBlock,
-          typename TData,
-          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
-              Enable = true>
-NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
-    (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
-    BwdTrans3DKernelLauncher(
-        const TSizeParameter3D sizeParam3D, const size_t nelmt,
-        const bool isModified, const unsigned int *index0,
-        const unsigned int *index1, const TData *NEK_RESTRICT basis0,
-        const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT basis2,
-        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, [[maybe_unused]] TData *NEK_RESTRICT wsp,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
-{
-    static_assert(IsSizeParameter3D_v<TSizeParameter3D>,
-                  "Template argument must be either of type "
-                  "NonTemplatedSizeParameter3D or TemplatedSizeParameter3D.");
-
-    FETCH_SHARED_MEMORY(shmemptr);
-
-    BwdTrans3DSumFacTOPKernel<SHAPE_TYPE, APPEND>(
-        sizeParam3D.nm0(), sizeParam3D.nm1(), sizeParam3D.nm2(),
-        sizeParam3D.nmTot(), sizeParam3D.nq0(), sizeParam3D.nq1(),
-        sizeParam3D.nq2(), nelmt, isModified, index0, index1, basis0, basis1,
-        basis2, nodToMod, in, out, shmemptr, threadBlock);
 }
 
 #endif
