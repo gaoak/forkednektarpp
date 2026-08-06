@@ -5,6 +5,7 @@ boost-devel
 ccache
 cmake
 fftw-devel
+bison
 flex
 gcc-c++
 gcc-gfortran
