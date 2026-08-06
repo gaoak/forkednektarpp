@@ -197,8 +197,27 @@ development team using the {\nek} gitlab website:
   
 \url{https://gitlab.nektar.info/nektar/nektar/merge\_requests}
   
-Submitting a merge request will automatically trigger the continuous integration (CI) system, which will build and test your code on a range of platforms. You can monitor the progress of these tests from the merge request page. Selecting individual workers will take you to the buildbot website from which you can examine any failures which have occurred.
-  
+Submitting a merge request will automatically trigger the continuous integration (CI) system, which will build and test your code on a range of platforms, if your merge request is not marked as \emph{Draft}. You can monitor the progress of these tests from the merge request page. Selecting individual workers will take you to the buildbot website from which you can examine any failures which have occurred.
+
+\begin{tipbox}
+	We encourage developers to open merge requests early, but initially submit them as \emph{Draft}. This should only be removed once the code is actually finished, has been checked, and is ready for review. This is because pushing further changes will trigger the pipeline to run which puts unnecessary load on the CI system.
+\end{tipbox}
+
+\subsubsection{Continuous Integration (CI) options}
+The CI system will automatically build the code and run the test suite across a range of platforms and build configurations. When running the pipeline manually, using the GitLab UI, the following variables can be set to modify the workflow or its behaviour:
+
+\begin{tabularx}{\textwidth}{llX}
+\hline
+Variable & Value & Comment \\
+\hline
+    \texttt{DEBUG\_IMAGES} & (any) & Docker images of failed builds are
+    generated and pushed to the GitLab server. These can be used locally for
+    debugging compilation errors or test failures. \newline
+    If this variable is not defined (default), Docker images of failed builds
+    are not generated. \\
+\hline
+\end{tabularx}
+
 
 \section{Documentation and Tutorials}
 
