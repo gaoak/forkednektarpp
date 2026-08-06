@@ -19,6 +19,7 @@ v5.11.0
 - Turn-off fast math for intel compiler (!2617)
 - Move using namespace std to avoid name clashes (!2618)
 - Fix various memory leaks (!2626)
+- Update scotch thirdparty build to 7.0.1 (!2590)
 - Fix some partial override of overloaded function (!2643)
 - Use std::enable_if_t<...> instead of std::enable_if<...>::type (!2645)
 
