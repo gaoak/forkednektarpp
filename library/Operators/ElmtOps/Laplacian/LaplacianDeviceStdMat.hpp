@@ -34,8 +34,8 @@
 
 #pragma once
 
+#include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 #include "Operators/ElmtOps/Laplacian/LaplacianBlockOp.hpp"
-#include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/Laplacian/LaplacianDeviceStdMatKernels.hpp"

@@ -32,8 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/Common/Backends/SYCLQueue.hpp"
-#include "Operators/NekBlas/NekBlas.hpp"
+#include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 
 #if defined(NEKTAR_ENABLE_ONEMATH)
 #include "oneapi/math.hpp"

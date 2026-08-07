@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: xsmm.cpp
+// File: blas.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,51 +32,30 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/NekBlas/NekBlas.hpp"
+#include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 
-#include "LibUtilities/BasicUtils/ErrorUtil.hpp"
-#include "libxsmm.h"
+#include <LibUtilities/LinearAlgebra/Blas.hpp>
 
-void NekBlasSetStreamID([[maybe_unused]] xsmmHandle_t handle,
+void NekBlasSetStreamID([[maybe_unused]] blasHandle_t handle,
                         [[maybe_unused]] const unsigned int streamID)
 {
 }
 
 template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, xsmmHandle_t>, bool>>
+          std::enable_if_t<std::is_same_v<THandle, blasHandle_t>, bool>>
 void NekGemm([[maybe_unused]] THandle handle, std::string transposeA,
              std::string transposeB, const int M, const int N, const int K,
              const TData alpha, const TData *a, const int lda, const TData *b,
              const int ldb, const TData beta, TData *c, const int ldc)
 {
-    ASSERTL0(transposeA == "N" && transposeB == "N",
-             "libxsmm: matrix tranpose is not supported");
-    ASSERTL0(alpha == 1.0, "libxsmm: alpha must be equal to 1.0");
-    ASSERTL0(beta == 0.0 || beta == 1.0,
-             "libxsmm: beta must be equal to 0.0 or 1.0");
-    if (alpha != 1.0)
-    {
-        ASSERTL0(beta == 0.0,
-                 "libxsmm: beta must be equal to 0.0 when alpha != 1.0");
-    }
+    auto transA = *transposeA.c_str();
+    auto transB = *transposeB.c_str();
 
-    // Dispatch kernel.
-    int lda0 = static_cast<int>(lda);
-    int ldb0 = static_cast<int>(ldb);
-    int ldc0 = static_cast<int>(ldc);
-    libxsmm_gemm(nullptr, nullptr, M, N, K, &alpha, a, &lda0, b, &ldb0, &beta,
-                 c, &ldc0);
-    if (alpha != 1.0 && beta == 0.0)
-    {
-        for (int i = 0; i < M * N; i++)
-        {
-            c[i] *= alpha;
-        }
-    }
+    Blas::Gemm(transA, transB, M, N, K, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
 template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, xsmmHandle_t>, bool>>
+          std::enable_if_t<std::is_same_v<THandle, blasHandle_t>, bool>>
 void NekGemmStridedBatched([[maybe_unused]] THandle handle,
                            std::string transposeA, std::string transposeB,
                            const int M, const int N, const int K,
@@ -86,55 +65,30 @@ void NekGemmStridedBatched([[maybe_unused]] THandle handle,
                            const int ldc, const int strideC,
                            const int batchSize)
 {
-    ASSERTL0(transposeA == "N" && transposeB == "N",
-             "libxsmm: matrix tranpose is not supported");
-    ASSERTL0(alpha == 1.0, "libxsmm: alpha must be equal to 1.0");
-    ASSERTL0(beta == 0.0 || beta == 1.0,
-             "libxsmm: beta must be equal to 0.0 or 1.0");
-    if (alpha != 1.0)
-    {
-        ASSERTL0(beta == 0.0,
-                 "libxsmm: beta must be equal to 0.0 when alpha != 1.0");
-    }
+    auto transA = *transposeA.c_str();
+    auto transB = *transposeB.c_str();
 
-    // Dispatch kernel.
-    int lda0 = static_cast<int>(lda);
-    int ldb0 = static_cast<int>(ldb);
-    int ldc0 = static_cast<int>(ldc);
     for (int i = 0; i < batchSize; i++)
     {
-        libxsmm_gemm(nullptr, nullptr, M, N, K, &alpha, a + strideA * i, &lda0,
-                     b + strideB * i, &ldb0, &beta, c + strideC * i, &ldc0);
-        if (alpha != 1.0 && beta == 0.0)
-        {
-            for (int j = 0; j < M * N; j++)
-            {
-                c[strideC * i + j] *= alpha;
-            }
-        }
+        Blas::Gemm(transA, transB, M, N, K, alpha, a + strideA * i, lda,
+                   b + strideB * i, ldb, beta, c + strideC * i, ldc);
     }
 }
 
 template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, xsmmHandle_t>, bool>>
-void NekGemv([[maybe_unused]] THandle, std::string transpose, const int M,
-             const int N, const TData alpha, const TData *A, const int lda,
-             const TData *x, const int incx, const TData beta, TData *y,
-             const int incy)
+          std::enable_if_t<std::is_same_v<THandle, blasHandle_t>, bool>>
+void NekGemv([[maybe_unused]] THandle handle, std::string transpose,
+             const int M, const int N, const TData alpha, const TData *a,
+             const int lda, const TData *x, const int incx, const TData beta,
+             TData *y, const int incy)
 {
-    ASSERTL0(transpose == "N", "libxsmm: transpose not supported in Gemv");
+    auto trans = *transpose.c_str();
 
-    // Gemv is just Gemm with a single column vector
-    int lda0  = lda;
-    int incx0 = incx;
-    int incy0 = incy;
-    int n     = 1;
-    libxsmm_gemm(nullptr, nullptr, M, n, N, &alpha, A, &lda0, x, &incx0, &beta,
-                 y, &incy0);
+    Blas::Gemv(trans, M, N, alpha, a, lda, x, incx, beta, y, incy);
 }
 
 template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, xsmmHandle_t>, bool>>
+          std::enable_if_t<std::is_same_v<THandle, blasHandle_t>, bool>>
 void NekGemvStridedBatched([[maybe_unused]] THandle handle,
                            std::string transpose, const int M, const int N,
                            const TData alpha, const TData *a, const int lda,
@@ -143,64 +97,59 @@ void NekGemvStridedBatched([[maybe_unused]] THandle handle,
                            const int incy, const int strideY,
                            const int batchSize)
 {
-    ASSERTL0(transpose == "N", "libxsmm: transpose not supported in Gemv");
+    auto trans = *transpose.c_str();
 
     for (int i = 0; i < batchSize; i++)
     {
-        // Gemv is just Gemm with a single column vector
-        int lda0  = lda;
-        int incx0 = incx;
-        int incy0 = incy;
-        int n     = 1;
-        libxsmm_gemm(nullptr, nullptr, M, n, N, &alpha, a + strideA * i, &lda0,
-                     x + strideX * i, &incx0, &beta, y + strideY * i, &incy0);
+        Blas::Gemv(trans, M, N, alpha, a + strideA * i, lda, x + strideX * i,
+                   incx, beta, y + strideY * i, incy);
     }
 }
 
-template void NekGemm<xsmmHandle_t, float>(
-    xsmmHandle_t handle, std::string transposeA, std::string transposeB,
+template void NekGemm<blasHandle_t, float>(
+    blasHandle_t handle, std::string transposeA, std::string transposeB,
     const int M, const int N, const int K, const float alpha, const float *a,
     const int lda, const float *b, const int ldb, const float beta, float *c,
     const int ldc);
 
-template void NekGemm<xsmmHandle_t, double>(
-    xsmmHandle_t handle, std::string transposeA, std::string transposeB,
+template void NekGemm<blasHandle_t, double>(
+    blasHandle_t handle, std::string transposeA, std::string transposeB,
     const int M, const int N, const int K, const double alpha, const double *a,
     const int lda, const double *b, const int ldb, const double beta, double *c,
     const int ldc);
 
-template void NekGemmStridedBatched<xsmmHandle_t, float>(
-    xsmmHandle_t handle, std::string transposeA, std::string transposeB,
+template void NekGemmStridedBatched<blasHandle_t, float>(
+    blasHandle_t handle, std::string transposeA, std::string transposeB,
     const int M, const int N, const int K, const float alpha, const float *a,
     const int lda, const int strideA, const float *b, const int ldb,
     const int strideB, const float beta, float *c, const int ldc,
     const int strideC, const int batchSize);
 
-template void NekGemmStridedBatched<xsmmHandle_t, double>(
-    xsmmHandle_t handle, std::string transposeA, std::string transposeB,
+template void NekGemmStridedBatched<blasHandle_t, double>(
+    blasHandle_t handle, std::string transposeA, std::string transposeB,
     const int M, const int N, const int K, const double alpha, const double *a,
     const int lda, const int strideA, const double *b, const int ldb,
     const int strideB, const double beta, double *c, const int ldc,
     const int strideC, const int batchSize);
 
-template void NekGemv<xsmmHandle_t, float>(xsmmHandle_t, std::string, int, int,
-                                           float, const float *, int,
-                                           const float *, int, float, float *,
-                                           int);
+template void NekGemv<blasHandle_t, float>(
+    blasHandle_t handle, std::string transpose, const int M, const int N,
+    const float alpha, const float *a, const int lda, const float *x,
+    const int incx, const float beta, float *y, const int incy);
 
-template void NekGemv<xsmmHandle_t, double>(xsmmHandle_t, std::string, int, int,
-                                            double, const double *, int,
-                                            const double *, int, double,
-                                            double *, int);
+template void NekGemv<blasHandle_t, double>(
+    blasHandle_t handle, std::string transpose, const int M, const int N,
+    const double alpha, const double *a, const int lda, const double *x,
+    const int incx, const double beta, double *y, const int incy);
 
-template void NekGemvStridedBatched<xsmmHandle_t, float>(
-    xsmmHandle_t handle, std::string transpose, const int M, const int N,
+template void NekGemvStridedBatched<blasHandle_t, float>(
+    blasHandle_t handle, std::string transpose, const int M, const int N,
     const float alpha, const float *a, const int lda, const int strideA,
     const float *x, const int incx, const int strideX, const float beta,
     float *y, const int incy, const int strideY, const int batchSize);
 
-template void NekGemvStridedBatched<xsmmHandle_t, double>(
-    xsmmHandle_t handle, std::string transpose, const int M, const int N,
+template void NekGemvStridedBatched<blasHandle_t, double>(
+    blasHandle_t handle, std::string transpose, const int M, const int N,
     const double alpha, const double *a, const int lda, const int strideA,
     const double *x, const int incx, const int strideX, const double beta,
     double *y, const int incy, const int strideY, const int batchSize);

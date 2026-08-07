@@ -32,8 +32,9 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
+
 #include "LibUtilities/BasicUtils/ErrorUtil.hpp"
-#include "Operators/NekBlas/NekBlas.hpp"
 
 template <typename THandle, typename TData,
           std::enable_if_t<std::is_same_v<THandle, hipblasHandle_t>, bool>>

@@ -45,12 +45,12 @@ SET(CMAKE_CUDA_FLAGS "--extended-lambda --expt-relaxed-constexpr")
 FIND_PACKAGE(CUDAToolkit ${CUDA_MIN_VERSION} REQUIRED)
 INCLUDE_DIRECTORIES(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 SET(NEKTAR_CUDA_DEPENDS
-  CUDA::cudart
-  CUDA::cuda_driver
-  CUDA::nvrtc
-  CUDA::cublas
-  CUDA::cusparse
-  CUDA::cusolver
-  CUDA::cufft
-  CUDA::curand
-  )
+    CUDA::cudart
+    CUDA::cuda_driver
+    CUDA::nvrtc
+    CUDA::cusparse
+    CUDA::cusolver
+    CUDA::cufft
+    CUDA::curand
+)
+SET(CUBLAS_LIBRARY CUDA::cublas)

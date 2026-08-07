@@ -52,12 +52,12 @@ FIND_PACKAGE(HIPFFT REQUIRED)
 FIND_PACKAGE(HIPRAND REQUIRED)
 FIND_LIBRARY(HIPRTC_LIB hiprtc HINTS ${HIP_PATH}/lib /opt/rocm/lib)
 SET(NEKTAR_HIP_DEPENDS
-  hip::host
-  hip::device
-  roc::hipblas
-  roc::hipsparse
-  roc::hipsolver
-  hip::hipfft
-  hip::hiprand
-  ${HIPRTC_LIB}
-  )
+    hip::host
+    hip::device
+    roc::hipsparse
+    roc::hipsolver
+    hip::hipfft
+    hip::hiprand
+    ${HIPRTC_LIB}
+)
+SET(HIPBLAS_LIBRARY roc::hipblas)

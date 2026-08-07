@@ -37,8 +37,8 @@
 
 #include <LocalRegions/Expansion.h>
 
+#include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 #include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassBlockOp.hpp"
-#include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail

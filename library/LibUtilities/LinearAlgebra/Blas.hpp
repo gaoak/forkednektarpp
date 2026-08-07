@@ -35,7 +35,6 @@
 #ifndef NEKTAR_LIB_UTILITIES_LINEAR_ALGEBRA_BLAS_HPP
 #define NEKTAR_LIB_UTILITIES_LINEAR_ALGEBRA_BLAS_HPP
 
-#include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/LinearAlgebra/TransF77.hpp>
 
 // Translations for using Fortran version of blas

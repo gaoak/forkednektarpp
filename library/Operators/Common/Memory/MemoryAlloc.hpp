@@ -134,7 +134,7 @@ inline void hostMallocPinned(TData **src, const size_t size)
     }
     else
     {
-        src = nullptr;
+        *src = nullptr;
     }
 }
 
