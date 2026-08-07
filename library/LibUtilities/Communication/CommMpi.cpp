@@ -91,6 +91,9 @@ CommMpi::CommMpi(int narg, char *arg[]) : Comm(narg, arg)
         auto num_device  = nekGetNumDevice();
         auto device_rank = local_rank % num_device;
         nekSetDevice(device_rank);
+
+        // Free communicator.
+        MPI_Comm_free(&local_comm);
 #endif
     }
     else

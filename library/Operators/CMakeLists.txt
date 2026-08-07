@@ -632,10 +632,8 @@ SET(OPERATORS_HEADERS
     Field/Field.hpp
     ElmtOps/ElmtBlockOp.hpp
     Math/Math.hpp
-    NekBlas/NekBlas.hpp
-    NekBlas/blasHandle.hpp
     TimeOps/TimeOp.hpp
-    )
+)
 
 # Common source file.
 SET(OPERATORS_SOURCES
@@ -649,10 +647,8 @@ SET(OPERATORS_SOURCES
     Common/DataWarehouse/StdMatDataWarehouse.cpp
     Common/DataWarehouse/TraceDataWarehouse.cpp
     Field/Block.cpp
-    NekBlas/blas.cpp
-    NekBlas/blasHandle.cpp
     TimeOps/TimeOp.cpp
-    )
+)
 
 # Only these cpp files go into the group set below.
 SET(GROUP_SOURCES ${OPERATORS_SOURCES})
@@ -665,7 +661,7 @@ FILE(GLOB children AddTraceIntegral BndCondOps/* ElmtOps/*
      SolverUtilsOps/Advection/* SolverUtilsOps/Diffusion/*)
 
 FOREACH(child ${children})
-   MESSAGE("Child : " "${child}")
+    MESSAGE("Child : " "${child}")
     ADD_OPERATOR(${child})
 ENDFOREACH()
 
@@ -748,12 +744,12 @@ ENDFOREACH()
 # Add this operator's implemenations to the global operator source
 # and header files.
 SET(OPERATORS_HEADERS
-        ${OPERATORS_HEADERS}
-        ${${NAME_HEADERS}}
+    ${OPERATORS_HEADERS}
+    ${${NAME_HEADERS}}
 )
 SET(OPERATORS_SOURCES
-        ${OPERATORS_SOURCES}
-        ${${NAME_SOURCES}}
+    ${OPERATORS_SOURCES}
+    ${${NAME_SOURCES}}
 )
 
   #MESSAGE("Sources 0 : " "${OPERATORS_SOURCES}")
@@ -807,140 +803,31 @@ FOREACH(child ${children})
     ADD_TIME_OPERATOR(${child})
 ENDFOREACH()
 
-SET(OPERATORS_DEPENDS
-    MultiRegions)
+SET(OPERATORS_DEPENDS MultiRegions LibUtilities)
     
-# LIBXSMM specific file
-IF(NEKTAR_ENABLE_SIMD)
-    SET(OPERATORS_HEADERS
-      ${OPERATORS_HEADERS}
-       NekBlas/xsmmHandle.hpp
-    )
-
-    SET(OPERATORS_SOURCES
-      ${OPERATORS_SOURCES}
-      NekBlas/xsmmHandle.cpp
-    )
-
-    IF(_SYSTEM_PROCESSOR STREQUAL "x86_64")
-        SET(OPERATORS_SOURCES
-          ${OPERATORS_SOURCES}
-          NekBlas/xsmm.cpp
-        )
-    ENDIF()
-ENDIF()
-
-# MAGMA specific file
-IF(NEKTAR_USE_MAGMA)
-    SET(OPERATORS_HEADERS
-      ${OPERATORS_HEADERS}
-       NekBlas/magmaHandle.hpp
-    )
-
-    SET(OPERATORS_SOURCES
-      ${OPERATORS_SOURCES}
-       NekBlas/magmaHandle.cpp
-       NekBlas/magma.cpp
-    )
-# CUBLAS specific file
-ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-    SET(OPERATORS_HEADERS
-      ${OPERATORS_HEADERS}
-      NekBlas/cuBlasHandle.hpp
-    )
-
-    SET(OPERATORS_SOURCES
-      ${OPERATORS_SOURCES}
-      NekBlas/cuBlasHandle.cpp
-      NekBlas/cuBlas.cpp
-    )
-# HIPBLAS specific file
-ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
-    SET(OPERATORS_HEADERS
-      ${OPERATORS_HEADERS}
-      NekBlas/hipBlasHandle.hpp
-    )
-
-    SET(OPERATORS_SOURCES
-      ${OPERATORS_SOURCES}
-      NekBlas/hipBlasHandle.cpp
-      NekBlas/hipBlas.cpp
-    )
-# MKL/OneMath specific file
-ELSEIF(NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
-    SET(OPERATORS_HEADERS
-      ${OPERATORS_HEADERS}
-      NekBlas/oneMathHandle.hpp
-    )
-
-    SET(OPERATORS_SOURCES
-      ${OPERATORS_SOURCES}
-      NekBlas/oneMathHandle.cpp
-      NekBlas/syclBlas.cpp
-    )
-ENDIF()
-
-# AVX specific file
-IF(NEKTAR_ENABLE_SIMD)
-    SET(OPERATORS_HEADERS
-      ${OPERATORS_HEADERS}
-      NekBlas/libXSMMDispatchWrapper.hpp
-    )
-ENDIF()
-
 # CUDA specific file
 IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-    SET(OPERATORS_HEADERS
-      ${OPERATORS_HEADERS}
-       Common/Backends/CUDAStream.hpp
-    )
-
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-       Common/Backends/CUDAStream.cpp
        Common/Memory/MemoryAlloc.cu
        Math/Math.cu
        Field/BlockHelper.cu
     )
-
-    SET(OPERATORS_DEPENDS
-      ${OPERATORS_DEPENDS}
-      ${NEKTAR_CUDA_DEPENDS})
 # HIP specific file
 ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
-    SET(OPERATORS_HEADERS
-      ${OPERATORS_HEADERS}
-       Common/Backends/HIPStream.hpp
-    )
-
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-       Common/Backends/HIPStream.cpp
        Common/Memory/MemoryAlloc.hip
        Math/Math.hip
        Field/BlockHelper.hip
     )
-
-    SET(OPERATORS_DEPENDS
-      ${OPERATORS_DEPENDS}
-      ${NEKTAR_HIP_DEPENDS})
 # SYCL specific file
 ELSEIF(NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
-    SET(OPERATORS_HEADERS
-      ${OPERATORS_HEADERS}
-       Common/Backends/SYCLQueue.hpp
-    )
-
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-       Common/Backends/SYCLQueue.cpp
        Math/Math.cpp
        Field/BlockHelper.cpp
     )
-
-    SET(OPERATORS_DEPENDS
-      ${OPERATORS_DEPENDS}
-      ${NEKTAR_SYCL_DEPENDS})
 ELSE()
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
@@ -974,26 +861,6 @@ ADD_NEKTAR_LIBRARY(Operators
     DEPENDS ${OPERATORS_DEPENDS}
     SUMMARY "Nektar++ Operators library"
     DESCRIPTION "This library provides classes related to operators for Nektar++.")
-
-# ONEMATH
-IF(NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
-    TARGET_LINK_LIBRARIES(Operators LINK_PRIVATE ${ONEMATH_LIBRARY})
-    IF(NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-HIP")
-        ADD_DEPENDENCIES(Operators onemath-v0.9)
-    ENDIF()
-ENDIF()
-
-# MAGMA
-IF(NEKTAR_USE_MAGMA)
-    TARGET_LINK_LIBRARIES(Operators LINK_PUBLIC ${MAGMA_LIBRARY})
-    ADD_DEPENDENCIES(Operators magma-v2.10.0)
-ENDIF()
-
-# LIBXSMM
-IF(_SYSTEM_PROCESSOR STREQUAL "x86_64" AND NEKTAR_ENABLE_SIMD)
-    TARGET_LINK_LIBRARIES(Operators LINK_PRIVATE ${LIBXSMM_LIBRARY})
-    ADD_DEPENDENCIES(Operators libxsmm-1.17)
-ENDIF()
 
 INSTALL(DIRECTORY ./
   DESTINATION ${NEKTAR_INCLUDE_DIR}/Operators

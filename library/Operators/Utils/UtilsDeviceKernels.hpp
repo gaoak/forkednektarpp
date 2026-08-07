@@ -34,9 +34,9 @@
 
 #pragma once
 
+#include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 #include "Operators/Common/Memory/MemoryAlloc.hpp"
 #include "Operators/Common/Spaces.hpp"
-#include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsDeviceKernelsHelper.hpp"
 
 namespace Nektar

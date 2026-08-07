@@ -37,8 +37,8 @@
 #include "Operators/BndCondOps/FwdTransBC/FwdTransBCBlockOp.hpp"
 #include "Operators/BndCondOps/FwdTransBC/FwdTransBCDeviceKernels.hpp"
 
+#include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 #include "Operators/Math/MathKernels.hpp"
-#include "Operators/NekBlas/NekBlas.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail

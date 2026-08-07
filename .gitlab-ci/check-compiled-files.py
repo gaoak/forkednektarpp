@@ -58,16 +58,16 @@ ignore_sources = [
     # CardiacEPSolver CellMLToNektar template file
     "solvers/CardiacEPSolver/Utilities/CellMLToNektar/nektar/template/model.cpp",
     # NekBlas
-    "library/Operators/NekBlas/magma.cpp",
-    "library/Operators/NekBlas/magmaHandle.cpp",
-    "library/Operators/NekBlas/xsmm.cpp",
-    "library/Operators/NekBlas/xsmmHandle.cpp",
-    "library/Operators/NekBlas/cuBlas.cpp",
-    "library/Operators/NekBlas/cuBlasHandle.cpp",
-    "library/Operators/NekBlas/hipBlas.cpp",
-    "library/Operators/NekBlas/hipBlasHandle.cpp",
-    "library/Operators/NekBlas/syclBlas.cpp",
-    "library/Operators/NekBlas/oneMathHandle.cpp",
+    "library/LibUtilities/LinearAlgebra/NekBlas/magma.cpp",
+    "library/LibUtilities/LinearAlgebra/NekBlas/magmaHandle.cpp",
+    "library/LibUtilities/LinearAlgebra/NekBlas/xsmm.cpp",
+    "library/LibUtilities/LinearAlgebra/NekBlas/xsmmHandle.cpp",
+    "library/LibUtilities/LinearAlgebra/NekBlas/cuBlas.cpp",
+    "library/LibUtilities/LinearAlgebra/NekBlas/cuBlasHandle.cpp",
+    "library/LibUtilities/LinearAlgebra/NekBlas/hipBlas.cpp",
+    "library/LibUtilities/LinearAlgebra/NekBlas/hipBlasHandle.cpp",
+    "library/LibUtilities/LinearAlgebra/NekBlas/syclBlas.cpp",
+    "library/LibUtilities/LinearAlgebra/NekBlas/oneMathHandle.cpp",
     # Others
     "library/Operators/MathKernels/Math.cpp",
 ]

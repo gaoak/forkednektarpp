@@ -36,21 +36,22 @@
 
 #include <string>
 
-#include "Operators/NekBlas/libXSMMDispatchWrapper.hpp"
+#include "LibUtilities/LinearAlgebra/NekBlas/libXSMMDispatchWrapper.hpp"
 
-#include "Operators/NekBlas/blasHandle.hpp"
+#include "LibUtilities/LinearAlgebra/NekBlas/blasHandle.hpp"
+
 #if defined(NEKTAR_ENABLE_SIMD)
-#include "Operators/NekBlas/xsmmHandle.hpp"
+#include "LibUtilities/LinearAlgebra/NekBlas/xsmmHandle.hpp"
 #endif
 
 #if defined(NEKTAR_USE_MAGMA)
-#include "Operators/NekBlas/magmaHandle.hpp"
+#include "LibUtilities/LinearAlgebra/NekBlas/magmaHandle.hpp"
 #elif defined(NEKTAR_ENABLE_CUDA)
-#include "Operators/NekBlas/cuBlasHandle.hpp"
+#include "LibUtilities/LinearAlgebra/NekBlas/cuBlasHandle.hpp"
 #elif defined(NEKTAR_ENABLE_HIP)
-#include "Operators/NekBlas/hipBlasHandle.hpp"
+#include "LibUtilities/LinearAlgebra/NekBlas/hipBlasHandle.hpp"
 #elif defined(NEKTAR_ENABLE_SYCL)
-#include "Operators/NekBlas/oneMathHandle.hpp"
+#include "LibUtilities/LinearAlgebra/NekBlas/oneMathHandle.hpp"
 #endif
 
 #include "Operators/Common/Spaces.hpp"

@@ -46,6 +46,8 @@
 
 #include <LibUtilities/LinearAlgebra/Blas.hpp>
 
+#include <LibUtilities/BasicUtils/SharedArray.hpp>
+
 namespace Vmath
 {
 /***************** Math routines  ***************/

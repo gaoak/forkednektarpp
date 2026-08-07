@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: cuBlas.cpp
+// File: magma.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,32 +32,32 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/NekBlas/NekBlas.hpp"
+#include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 
 template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, cublasHandle_t>, bool>>
+          std::enable_if_t<std::is_same_v<THandle, magma_queue_t>, bool>>
 void NekGemm(THandle handle, std::string transposeA, std::string transposeB,
              const int M, const int N, const int K, const TData alpha,
              const TData *a, const int lda, const TData *b, const int ldb,
              const TData beta, TData *c, const int ldc)
 {
-    auto transA = (transposeA == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
-    auto transB = (transposeB == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
+    auto transA = (transposeA == "N") ? MagmaNoTrans : MagmaTrans;
+    auto transB = (transposeB == "N") ? MagmaNoTrans : MagmaTrans;
 
     if constexpr (std::is_same_v<TData, float>)
     {
-        CUBLAS_CHECK(cublasSgemm(handle, transA, transB, M, N, K, &alpha, a,
-                                 lda, b, ldb, &beta, c, ldc));
+        magma_sgemm(transA, transB, M, N, K, alpha, a, lda, b, ldb, beta, c,
+                    ldc, handle);
     }
     else if constexpr (std::is_same_v<TData, double>)
     {
-        CUBLAS_CHECK(cublasDgemm(handle, transA, transB, M, N, K, &alpha, a,
-                                 lda, b, ldb, &beta, c, ldc));
+        magma_dgemm(transA, transB, M, N, K, alpha, a, lda, b, ldb, beta, c,
+                    ldc, handle);
     }
 }
 
 template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, cublasHandle_t>, bool>>
+          std::enable_if_t<std::is_same_v<THandle, magma_queue_t>, bool>>
 void NekGemmStridedBatched(THandle handle, std::string transposeA,
                            std::string transposeB, const int M, const int N,
                            const int K, const TData alpha, const TData *a,
@@ -66,45 +66,43 @@ void NekGemmStridedBatched(THandle handle, std::string transposeA,
                            TData *c, const int ldc, const int strideC,
                            const int batchSize)
 {
-    auto transA = (transposeA == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
-    auto transB = (transposeB == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
+    auto transA = (transposeA == "N") ? MagmaNoTrans : MagmaTrans;
+    auto transB = (transposeB == "N") ? MagmaNoTrans : MagmaTrans;
 
     if constexpr (std::is_same_v<TData, float>)
     {
-        CUBLAS_CHECK(cublasSgemmStridedBatched(
-            handle, transA, transB, M, N, K, &alpha, a, lda, strideA, b, ldb,
-            strideB, &beta, c, ldc, strideC, batchSize));
+        magmablas_sgemm_batched_strided(transA, transB, M, N, K, alpha, a, lda,
+                                        strideA, b, ldb, strideB, beta, c, ldc,
+                                        strideC, batchSize, handle);
     }
     else if constexpr (std::is_same_v<TData, double>)
     {
-        CUBLAS_CHECK(cublasDgemmStridedBatched(
-            handle, transA, transB, M, N, K, &alpha, a, lda, strideA, b, ldb,
-            strideB, &beta, c, ldc, strideC, batchSize));
+        magmablas_dgemm_batched_strided(transA, transB, M, N, K, alpha, a, lda,
+                                        strideA, b, ldb, strideB, beta, c, ldc,
+                                        strideC, batchSize, handle);
     }
 }
 
 template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, cublasHandle_t>, bool>>
+          std::enable_if_t<std::is_same_v<THandle, magma_queue_t>, bool>>
 void NekGemv(THandle handle, std::string transpose, const int M, const int N,
              const TData alpha, const TData *a, const int lda, const TData *x,
              const int incx, const TData beta, TData *y, const int incy)
 {
-    auto trans = (transpose == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
+    auto trans = (transpose == "N") ? MagmaNoTrans : MagmaTrans;
 
     if constexpr (std::is_same_v<TData, float>)
     {
-        CUBLAS_CHECK(cublasSgemv(handle, trans, M, N, &alpha, a, lda, x, incx,
-                                 &beta, y, incy));
+        magma_sgemv(trans, M, N, alpha, a, lda, x, incx, beta, y, incy, handle);
     }
     else if constexpr (std::is_same_v<TData, double>)
     {
-        CUBLAS_CHECK(cublasDgemv(handle, trans, M, N, &alpha, a, lda, x, incx,
-                                 &beta, y, incy));
+        magma_dgemv(trans, M, N, alpha, a, lda, x, incx, beta, y, incy, handle);
     }
 }
 
 template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, cublasHandle_t>, bool>>
+          std::enable_if_t<std::is_same_v<THandle, magma_queue_t>, bool>>
 void NekGemvStridedBatched(THandle handle, std::string transpose, const int M,
                            const int N, const TData alpha, const TData *a,
                            const int lda, const int strideA, const TData *x,
@@ -112,66 +110,66 @@ void NekGemvStridedBatched(THandle handle, std::string transpose, const int M,
                            TData *y, const int incy, const int strideY,
                            const int batchSize)
 {
-    auto trans = (transpose == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
+    auto trans = (transpose == "N") ? MagmaNoTrans : MagmaTrans;
 
     if constexpr (std::is_same_v<TData, float>)
     {
-        CUBLAS_CHECK(cublasSgemvStridedBatched(
-            handle, trans, M, N, &alpha, a, lda, strideA, x, incx, strideX,
-            &beta, y, incy, strideY, batchSize));
+        magmablas_sgemv_batched_strided(trans, M, N, alpha, a, lda, strideA, x,
+                                        incx, strideX, beta, y, incy, strideY,
+                                        batchSize, handle);
     }
     else if constexpr (std::is_same_v<TData, double>)
     {
-        CUBLAS_CHECK(cublasDgemvStridedBatched(
-            handle, trans, M, N, &alpha, a, lda, strideA, x, incx, strideX,
-            &beta, y, incy, strideY, batchSize));
+        magmablas_dgemv_batched_strided(trans, M, N, alpha, a, lda, strideA, x,
+                                        incx, strideX, beta, y, incy, strideY,
+                                        batchSize, handle);
     }
 }
 
-template void NekGemm<cublasHandle_t, float>(
-    cublasHandle_t handle, std::string transposeA, std::string transposeB,
+template void NekGemm<magma_queue_t, float>(
+    magma_queue_t handle, std::string transposeA, std::string transposeB,
     const int M, const int N, const int K, const float alpha, const float *a,
     const int lda, const float *b, const int ldb, const float beta, float *c,
     const int ldc);
 
-template void NekGemm<cublasHandle_t, double>(
-    cublasHandle_t handle, std::string transposeA, std::string transposeB,
+template void NekGemm<magma_queue_t, double>(
+    magma_queue_t handle, std::string transposeA, std::string transposeB,
     const int M, const int N, const int K, const double alpha, const double *a,
     const int lda, const double *b, const int ldb, const double beta, double *c,
     const int ldc);
 
-template void NekGemmStridedBatched<cublasHandle_t, float>(
-    cublasHandle_t handle, std::string transposeA, std::string transposeB,
+template void NekGemmStridedBatched<magma_queue_t, float>(
+    magma_queue_t handle, std::string transposeA, std::string transposeB,
     const int M, const int N, const int K, const float alpha, const float *a,
     const int lda, const int strideA, const float *b, const int ldb,
     const int strideB, const float beta, float *c, const int ldc,
     const int strideC, const int batchSize);
 
-template void NekGemmStridedBatched<cublasHandle_t, double>(
-    cublasHandle_t handle, std::string transposeA, std::string transposeB,
+template void NekGemmStridedBatched<magma_queue_t, double>(
+    magma_queue_t handle, std::string transposeA, std::string transposeB,
     const int M, const int N, const int K, const double alpha, const double *a,
     const int lda, const int strideA, const double *b, const int ldb,
     const int strideB, const double beta, double *c, const int ldc,
     const int strideC, const int batchSize);
 
-template void NekGemv<cublasHandle_t, float>(
-    cublasHandle_t handle, std::string transpose, const int M, const int N,
+template void NekGemv<magma_queue_t, float>(
+    magma_queue_t handle, std::string transpose, const int M, const int N,
     const float alpha, const float *a, const int lda, const float *x,
     const int incx, const float beta, float *y, const int incy);
 
-template void NekGemv<cublasHandle_t, double>(
-    cublasHandle_t handle, std::string transpose, const int M, const int N,
+template void NekGemv<magma_queue_t, double>(
+    magma_queue_t handle, std::string transpose, const int M, const int N,
     const double alpha, const double *a, const int lda, const double *x,
     const int incx, const double beta, double *y, const int incy);
 
-template void NekGemvStridedBatched<cublasHandle_t, float>(
-    cublasHandle_t handle, std::string transpose, const int M, const int N,
+template void NekGemvStridedBatched<magma_queue_t, float>(
+    magma_queue_t handle, std::string transpose, const int M, const int N,
     const float alpha, const float *a, const int lda, const int strideA,
     const float *x, const int incx, const int strideX, const float beta,
     float *y, const int incy, const int strideY, const int batchSize);
 
-template void NekGemvStridedBatched<cublasHandle_t, double>(
-    cublasHandle_t handle, std::string transpose, const int M, const int N,
+template void NekGemvStridedBatched<magma_queue_t, double>(
+    magma_queue_t handle, std::string transpose, const int M, const int N,
     const double alpha, const double *a, const int lda, const int strideA,
     const double *x, const int incx, const int strideX, const double beta,
     double *y, const int incy, const int strideY, const int batchSize);
