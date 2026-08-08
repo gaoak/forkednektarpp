@@ -3,9 +3,11 @@ blas-devel
 boost-devel
 ccache
 cmake
+bison
 flex
 gcc-c++
 gcc-gfortran
+git
 lapack-devel
 libXmu-devel
 make

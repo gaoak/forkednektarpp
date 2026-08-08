@@ -123,7 +123,7 @@ IF (NEKTAR_USE_SCOTCH)
                 ${SCOTCH_LIBRARY} ${SCOTCHERR_LIBRARY})
         ENDIF()
     ENDIF()
-    ADD_DEPENDENCIES(SpatialDomains scotch-6.0.4)
+    ADD_DEPENDENCIES(SpatialDomains scotch-7.0.1)
 ENDIF()
 
 IF (NEKTAR_BUILD_PYTHON)

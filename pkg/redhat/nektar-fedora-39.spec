@@ -13,8 +13,8 @@ BuildRequires:  blas-devel
 BuildRequires:  boost-devel
 BuildRequires:  chrpath
 BuildRequires:  cmake
-BuildRequires:  fftw-devel
 BuildRequires:  flex
+BuildRequires:  fftw-devel
 BuildRequires:  gcc-c++
 BuildRequires:  gcc-gfortran
 BuildRequires:  lapack-devel
