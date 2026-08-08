@@ -56,23 +56,24 @@ double optdiff(double xl, double xr)
 {
     double m_xln, m_xrn;
     int m_expn;
-    int m_digits = static_cast<int>(fabs(floor(log10(DBL_EPSILON))) - 1);
+    int m_digits = static_cast<int>(fabs(std::floor(log10(DBL_EPSILON))) - 1);
 
     if (fabs(xl - xr) < 1.e-4)
     {
 
-        m_expn = static_cast<int>(floor(log10(fabs(xl - xr))));
-        m_xln  = xl * powl(10.0L, -m_expn) -
-                floor(xl * powl(10.0L,
-                                -m_expn)); // substract the digits overlap part
+        m_expn = static_cast<int>(std::floor(log10(fabs(xl - xr))));
+        m_xln =
+            xl * powl(10.0L, -m_expn) -
+            std::floor(xl * powl(10.0L,
+                                 -m_expn)); // substract the digits overlap part
         m_xrn =
             xr * powl(10.0L, -m_expn) -
-            floor(xl *
-                  powl(10.0L,
-                       -m_expn)); // substract the common digits overlap part
-        m_xln =
-            round(m_xln * powl(10.0L, m_digits + m_expn)); // git rid of rubbish
-        m_xrn = round(m_xrn * powl(10.0L, m_digits + m_expn));
+            std::floor(
+                xl * powl(10.0L,
+                          -m_expn)); // substract the common digits overlap part
+        m_xln = std::round(
+            m_xln * powl(10.0L, m_digits + m_expn)); // git rid of rubbish
+        m_xrn = std::round(m_xrn * powl(10.0L, m_digits + m_expn));
 
         return powl(10.0L, -m_digits) * (m_xln - m_xrn);
     }
@@ -326,7 +327,7 @@ void zwgk(double *z, double *w, const int npt, const double alpha,
     int kpoints = 2 * np + 1;
 
     // Define the number of required recurrence coefficents
-    int ncoeffs = (int)floor(3.0 * (np + 1) / 2);
+    int ncoeffs = (int)std::floor(3.0 * (np + 1) / 2);
 
     // Define arrays  for the recurrence coefficients
     // We will use these arrays for the Kronrod results too, hence the
@@ -1876,7 +1877,7 @@ void JKMatrix(int n, double *a, double *b)
 {
     int i, j, k, m;
     // Working storage
-    int size  = (int)floor(n / 2.0) + 2;
+    int size  = (int)std::floor(n / 2.0) + 2;
     double *s = new double[size];
     double *t = new double[size];
 
@@ -1891,7 +1892,7 @@ void JKMatrix(int n, double *a, double *b)
     for (m = 0; m <= n - 2; m++)
     {
         double u = 0.0;
-        for (k = (int)floor((m + 1) / 2.0); k >= 0; k--)
+        for (k = (int)std::floor((m + 1) / 2.0); k >= 0; k--)
         {
             int l = m - k;
             u     = u + (a[k + n + 1] - a[l]) * t[k + 1] + b[k + n + 1] * s[k] -
@@ -1905,7 +1906,7 @@ void JKMatrix(int n, double *a, double *b)
         t            = hold;
     }
 
-    for (j = (int)floor(n / 2.0); j >= 0; j--)
+    for (j = (int)std::floor(n / 2.0); j >= 0; j--)
     {
         s[j + 1] = s[j];
     }
@@ -1913,7 +1914,7 @@ void JKMatrix(int n, double *a, double *b)
     for (m = n - 1; m <= 2 * n - 3; m++)
     {
         double u = 0;
-        for (k = m + 1 - n; k <= floor((m - 1) / 2.0); k++)
+        for (k = m + 1 - n; k <= std::floor((m - 1) / 2.0); k++)
         {
             int l = m - k;
             j     = n - 1 - l;
