@@ -49,7 +49,7 @@ public:
         int id = -1;
         CHECK_HIPCUDA_ERROR(cudaGetDevice(&id));
         FetchDeviceProperties(id);
-        return prop[id].sharedMemPerBlock;
+        return (*prop)[id].sharedMemPerBlock;
     }
 
     static const size_t &SharedMemoryPerMultiprocessor(void)
@@ -57,7 +57,7 @@ public:
         int id = -1;
         CHECK_HIPCUDA_ERROR(cudaGetDevice(&id));
         FetchDeviceProperties(id);
-        return prop[id].sharedMemPerMultiprocessor;
+        return (*prop)[id].sharedMemPerMultiprocessor;
     }
 
     static size_t &TotalGlobalMemory(void)
@@ -65,7 +65,7 @@ public:
         int id = -1;
         CHECK_HIPCUDA_ERROR(cudaGetDevice(&id));
         FetchDeviceProperties(id);
-        return prop[id].totalGlobalMem;
+        return (*prop)[id].totalGlobalMem;
     }
 
     static const int &NumMultiProcessors(void)
@@ -73,7 +73,7 @@ public:
         int id = -1;
         CHECK_HIPCUDA_ERROR(cudaGetDevice(&id));
         FetchDeviceProperties(id);
-        return prop[id].multiProcessorCount;
+        return (*prop)[id].multiProcessorCount;
     }
 
     static const int &MaxThreadsPerMultiprocessor(void)
@@ -81,7 +81,7 @@ public:
         int id = -1;
         CHECK_HIPCUDA_ERROR(cudaGetDevice(&id));
         FetchDeviceProperties(id);
-        return prop[id].maxThreadsPerMultiProcessor;
+        return (*prop)[id].maxThreadsPerMultiProcessor;
     }
 
     static void CheckSharedMemoryUsage(const size_t shmemsize)
@@ -104,14 +104,19 @@ public:
     }
 
 private:
-    static std::unordered_map<unsigned int, cudaDeviceProp> prop;
+    static std::unordered_map<unsigned int, cudaDeviceProp> *prop;
 
     static void FetchDeviceProperties(const unsigned int id)
     {
-        if (prop.find(id) == prop.end())
+        if (prop == nullptr)
         {
-            prop.emplace(id, cudaDeviceProp{});
-            CHECK_HIPCUDA_ERROR(cudaGetDeviceProperties(&prop[id], id));
+            prop = new std::unordered_map<unsigned int, cudaDeviceProp>;
+        }
+
+        if (prop->find(id) == prop->end())
+        {
+            prop->emplace(id, cudaDeviceProp{});
+            CHECK_HIPCUDA_ERROR(cudaGetDeviceProperties(&(*prop)[id], id));
         }
     }
 };
@@ -161,7 +166,7 @@ public:
         int id = -1;
         CHECK_HIPCUDA_ERROR(hipGetDevice(&id));
         FetchDeviceProperties(id);
-        return prop[id].sharedMemPerBlock;
+        return (*prop)[id].sharedMemPerBlock;
     }
 
     static const size_t &SharedMemoryPerMultiprocessor(void)
@@ -169,7 +174,7 @@ public:
         int id = -1;
         CHECK_HIPCUDA_ERROR(hipGetDevice(&id));
         FetchDeviceProperties(id);
-        return prop[id].sharedMemPerMultiprocessor;
+        return (*prop)[id].sharedMemPerMultiprocessor;
     }
 
     static size_t &TotalGlobalMemory(void)
@@ -177,7 +182,7 @@ public:
         int id = -1;
         CHECK_HIPCUDA_ERROR(hipGetDevice(&id));
         FetchDeviceProperties(id);
-        return prop[id].totalGlobalMem;
+        return (*prop)[id].totalGlobalMem;
     }
 
     static const int &NumMultiProcessors(void)
@@ -185,7 +190,7 @@ public:
         int id = -1;
         CHECK_HIPCUDA_ERROR(hipGetDevice(&id));
         FetchDeviceProperties(id);
-        return prop[id].multiProcessorCount;
+        return (*prop)[id].multiProcessorCount;
     }
 
     static const int &MaxThreadsPerMultiprocessor(void)
@@ -193,7 +198,7 @@ public:
         int id = -1;
         CHECK_HIPCUDA_ERROR(hipGetDevice(&id));
         FetchDeviceProperties(id);
-        return prop[id].maxThreadsPerMultiProcessor;
+        return (*prop)[id].maxThreadsPerMultiProcessor;
     }
 
     static void CheckSharedMemoryUsage(const size_t shmemsize)
@@ -216,14 +221,19 @@ public:
     }
 
 private:
-    static std::unordered_map<unsigned int, hipDeviceProp_t> prop;
+    static std::unordered_map<unsigned int, hipDeviceProp_t> *prop;
 
     static void FetchDeviceProperties(const unsigned int id)
     {
-        if (prop.find(id) == prop.end())
+        if (prop == nullptr)
         {
-            prop.emplace(id, hipDeviceProp_t{});
-            CHECK_HIPCUDA_ERROR(hipGetDeviceProperties(&prop[id], id));
+            prop = new std::unordered_map<unsigned int, cudaDeviceProp>;
+        }
+
+        if (prop->find(id) == prop->end())
+        {
+            prop->emplace(id, hipDeviceProp_t{});
+            CHECK_HIPCUDA_ERROR(hipGetDeviceProperties(&(*prop)[id], id));
         }
     }
 };
