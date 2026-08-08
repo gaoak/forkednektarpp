@@ -11,6 +11,8 @@ v5.11.0
 - Replace Blas::Dscal and Blas::Daxpy call by VMath calls (!2630)
 - Update StdRegion for consistency with redesign (!2642)
 - Fix FFTW ThirdParty build for single precision (!2650)
+- Fix GeomFactors for Points (!2658)
+- Fix v_FwdTransBndConstrained in TriExp.cpp (!2658)
 
 **CI**
 - Added DEBUG_IMAGES option to reduce load on registry storage (2648)

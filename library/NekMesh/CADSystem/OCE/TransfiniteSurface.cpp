@@ -32,6 +32,11 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-variable"
+#endif
+
 #include "TransfiniteSurface.h"
 
 /*
@@ -46,3 +51,7 @@ IMPLEMENT_STANDARD_HANDLE(Geom_TransfiniteSurface, Geom_BoundedSurface)
 
 IMPLEMENT_STANDARD_RTTIEXT(Geom_TransfiniteCurve, Geom_BoundedCurve)
 IMPLEMENT_STANDARD_RTTIEXT(Geom_TransfiniteSurface, Geom_BoundedSurface)
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
