@@ -562,7 +562,7 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
         SET(NEKBLAS_SOURCES
             ${NEKBLAS_SOURCES}
             ./LinearAlgebra/NekBlas/oneMathHandle.cpp
-            ./LinearAlgebra/NekBlas/syclBlas.cpp
+            ./LinearAlgebra/NekBlas/oneMath.cpp
         )
     ENDIF()
 
