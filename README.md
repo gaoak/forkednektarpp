@@ -239,7 +239,7 @@ cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
 ```
 
 Note:
-1. See [guideline](https://github.com/intel/llvm/blob/sycl/sycl/doc/GetStartedGuide.md) for instructions to compile Intel LLVM with CUDA backend. Nektar++ has been tested with Intel LLVM v6.3.0. An example of configuration command is provided below:
+1. See [guideline](https://github.com/intel/llvm/blob/sycl/sycl/doc/GetStartedGuide.md) for instructions to compile Intel LLVM with CUDA backend. Nektar++ has been tested with Intel LLVM v6.3.0 on Ubuntu 22.04 and LLVM v7.0.0 on Ubuntun 24.04. An example of configuration command is provided below:
 
 ```
 python3 $DPCPP_HOME/llvm/buildbot/configure.py --cuda --obj-dir=$DPCPP_HOME/llvm/build 
@@ -282,7 +282,7 @@ Note:
 The `gfxzzz` value can also be queried using the following command:
 `rocm-smi --showproductname | grep gfx`
 
-2. See [guideline](https://github.com/intel/llvm/blob/sycl/sycl/doc/GetStartedGuide.md) for instructions to compile Intel LLVM with HIP/ROCm backend. Nektar++ has been tested with Intel LLVM v6.3.0. An example of configuration command is provided below:
+2. See [guideline](https://github.com/intel/llvm/blob/sycl/sycl/doc/GetStartedGuide.md) for instructions to compile Intel LLVM with HIP/ROCm backend. Nektar++ has been tested with Intel LLVM v6.3.0 on Debian Trixie. An example of configuration command is provided below:
 
 ```
 python3 $DPCPP_HOME/llvm/buildbot/configure.py --hip --obj-dir=$DPCPP_HOME/llvm/build --llvm-external-projects compiler-rt
