@@ -34,4 +34,7 @@
 
 #include "cuBlasHandle.hpp"
 
+namespace Nektar::NekBlas
+{
 cublasHandle_t cuBlasHandle::handle = nullptr;
+}

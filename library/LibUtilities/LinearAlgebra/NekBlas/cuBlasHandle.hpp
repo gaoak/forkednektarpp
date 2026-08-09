@@ -42,6 +42,8 @@
 
 #include <Operators/Common/Backends/CUDAStream.hpp>
 
+namespace Nektar::NekBlas
+{
 #define CUBLAS_CHECK(condition)                                                \
     {                                                                          \
         const cublasStatus_t status = condition;                               \
@@ -76,3 +78,4 @@ public:
 private:
     static cublasHandle_t handle;
 };
+} // namespace Nektar::NekBlas

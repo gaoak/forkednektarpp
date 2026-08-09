@@ -34,4 +34,7 @@
 
 #include "hipBlasHandle.hpp"
 
+namespace Nektar::NekBlas
+{
 hipblasHandle_t hipBlasHandle::handle = nullptr;
+}

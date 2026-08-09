@@ -34,4 +34,7 @@
 
 #include "oneMathHandle.hpp"
 
+namespace Nektar::NekBlas
+{
 std::unordered_map<unsigned int, oneMathHandle_t *> oneMathHandle::handle;
+}

@@ -34,6 +34,8 @@
 
 #pragma once
 
+namespace Nektar::NekBlas
+{
 class blasHandle_t
 {
 };
@@ -54,3 +56,4 @@ public:
 private:
     static blasHandle_t *handle;
 };
+} // namespace Nektar::NekBlas

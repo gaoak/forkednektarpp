@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MemoryAlloc.hip
+// File: MemoryAlloc.cu
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <Operators/Common/Memory/MemoryAlloc.hpp>
+#include <LibUtilities/Memory/MemoryAlloc.hpp>
 #include <Operators/Common/Spaces.hpp>
 
 namespace Nektar
@@ -55,7 +55,7 @@ template <typename TData>
 void deviceFillKernelLauncher(TData *dst, const TData val, const size_t size,
                               const unsigned int streamID)
 {
-    auto stream                  = HIPStream::GetInstance(streamID);
+    auto stream                  = CUDAStream::GetInstance(streamID);
     const unsigned int blocksize = NektarSpaces::Device::maximumBlockSize;
     const unsigned int gridsize  = (size + blocksize - 1) / blocksize;
     deviceFillKernel<<<gridsize, blocksize, 0, stream>>>(dst, val, size);

@@ -112,7 +112,7 @@ protected:
     void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
                  BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
-        auto handle = NekHandle<ExecSpace>::GetInstance(m_streamID);
+        auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
         const auto nhomo = inblock.GetNumHomoModes();
         const auto nelmt = inblock.GetNumElementsWithPadding();
@@ -140,10 +140,10 @@ protected:
             // Perform matrix-matrix multiply.
             for (unsigned int d = 0; d < m_dimension; d++)
             {
-                NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nqTot,
-                        (TData)1.0, m_matptr + d * m_nqTot * m_nqTot, m_nqTot,
-                        inptr, m_nqTot, (TData)0.0, outptr + d * outoffset,
-                        m_nqTot);
+                NekBlas::Gemm(handle, "N", "N", m_nqTot, nelmtTot, m_nqTot,
+                              (TData)1.0, m_matptr + d * m_nqTot * m_nqTot,
+                              m_nqTot, inptr, m_nqTot, (TData)0.0,
+                              outptr + d * outoffset, m_nqTot);
             }
 
             // Multiply by derivative factor.

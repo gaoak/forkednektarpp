@@ -56,7 +56,9 @@
 
 #include "Operators/Common/Spaces.hpp"
 
-template <typename ExecSpace> class NekHandle
+namespace Nektar::NekBlas
+{
+template <typename ExecSpace> class Handle
 {
 public:
     typedef int index_type;
@@ -69,7 +71,7 @@ public:
 };
 
 #if defined(NEKTAR_ENABLE_SIMD)
-template <> class NekHandle<NektarSpaces::AVX>
+template <> class Handle<NektarSpaces::AVX>
 {
 public:
     typedef int index_type;
@@ -83,7 +85,7 @@ public:
 #endif
 
 #if defined(NEKTAR_USE_MAGMA)
-template <> class NekHandle<NektarSpaces::Device>
+template <> class Handle<NektarSpaces::Device>
 {
 public:
     typedef int index_type;
@@ -94,7 +96,7 @@ public:
     }
 };
 #elif defined(NEKTAR_ENABLE_CUDA)
-template <> class NekHandle<NektarSpaces::Device>
+template <> class Handle<NektarSpaces::Device>
 {
 public:
     typedef int index_type;
@@ -105,7 +107,7 @@ public:
     }
 };
 #elif defined(NEKTAR_ENABLE_HIP)
-template <> class NekHandle<NektarSpaces::Device>
+template <> class Handle<NektarSpaces::Device>
 {
 public:
     typedef int index_type;
@@ -116,7 +118,7 @@ public:
     }
 };
 #elif defined(NEKTAR_ENABLE_SYCL)
-template <> class NekHandle<NektarSpaces::Device>
+template <> class Handle<NektarSpaces::Device>
 {
 public:
     typedef std::int64_t index_type;
@@ -128,22 +130,22 @@ public:
 };
 #endif
 
-// NekGemm
+// Gemm
 template <
     typename THandle, typename TData,
     std::enable_if_t<std::is_same_v<THandle, blasHandle_t>, bool> Enable = true>
-void NekGemm(THandle handle, std::string transposeA, std::string transposeB,
-             const int M, const int N, const int K, const TData alpha,
-             const TData *a, const int lda, const TData *b, const int ldb,
-             const TData beta, TData *c, const int ldc);
+void Gemm(THandle handle, std::string transposeA, std::string transposeB,
+          const int M, const int N, const int K, const TData alpha,
+          const TData *a, const int lda, const TData *b, const int ldb,
+          const TData beta, TData *c, const int ldc);
 #if defined(NEKTAR_ENABLE_SIMD)
 template <
     typename THandle, typename TData,
     std::enable_if_t<std::is_same_v<THandle, xsmmHandle_t>, bool> Enable = true>
-void NekGemm(THandle handle, std::string transposeA, std::string transposeB,
-             const int M, const int N, const int K, const TData alpha,
-             const TData *a, const int lda, const TData *b, const int ldb,
-             const TData beta, TData *c, const int ldc);
+void Gemm(THandle handle, std::string transposeA, std::string transposeB,
+          const int M, const int N, const int K, const TData alpha,
+          const TData *a, const int lda, const TData *b, const int ldb,
+          const TData beta, TData *c, const int ldc);
 #endif
 template <
     typename THandle, typename TData,
@@ -160,43 +162,43 @@ template <
         true
 #endif
     >
-void NekGemm(THandle handle, std::string transposeA, std::string transposeB,
-             const int M, const int N, const int K, const TData alpha,
-             const TData *a, const int lda, const TData *b, const int ldb,
-             const TData beta, TData *c, const int ldc);
+void Gemm(THandle handle, std::string transposeA, std::string transposeB,
+          const int M, const int N, const int K, const TData alpha,
+          const TData *a, const int lda, const TData *b, const int ldb,
+          const TData beta, TData *c, const int ldc);
 #if defined(NEKTAR_ENABLE_SYCL)
 template <typename THandle, typename TData,
           std::enable_if_t<std::is_same_v<THandle, oneMathHandle_t>, bool>
               Enable = true>
-void NekGemm(THandle handle, std::string transposeA, std::string transposeB,
-             const std::int64_t M, const std::int64_t N, const std::int64_t K,
-             const TData alpha, const TData *a, const std::int64_t lda,
-             const TData *b, const std::int64_t ldb, const TData beta, TData *c,
-             const std::int64_t ldc);
+void Gemm(THandle handle, std::string transposeA, std::string transposeB,
+          const std::int64_t M, const std::int64_t N, const std::int64_t K,
+          const TData alpha, const TData *a, const std::int64_t lda,
+          const TData *b, const std::int64_t ldb, const TData beta, TData *c,
+          const std::int64_t ldc);
 #endif
 
-// NekGemmStridedBatched
+// GemmStridedBatched
 template <
     typename THandle, typename TData,
     std::enable_if_t<std::is_same_v<THandle, blasHandle_t>, bool> Enable = true>
-void NekGemmStridedBatched(THandle handle, std::string transposeA,
-                           std::string transposeB, const int M, const int N,
-                           const int K, const TData alpha, const TData *a,
-                           const int lda, const int strideA, const TData *b,
-                           const int ldb, const int strideB, const TData beta,
-                           TData *c, const int ldc, const int strideC,
-                           const int batchSize);
+void GemmStridedBatched(THandle handle, std::string transposeA,
+                        std::string transposeB, const int M, const int N,
+                        const int K, const TData alpha, const TData *a,
+                        const int lda, const int strideA, const TData *b,
+                        const int ldb, const int strideB, const TData beta,
+                        TData *c, const int ldc, const int strideC,
+                        const int batchSize);
 #if defined(NEKTAR_ENABLE_SIMD)
 template <
     typename THandle, typename TData,
     std::enable_if_t<std::is_same_v<THandle, xsmmHandle_t>, bool> Enable = true>
-void NekGemmStridedBatched(THandle handle, std::string transposeA,
-                           std::string transposeB, const int M, const int N,
-                           const int K, const TData alpha, const TData *a,
-                           const int lda, const int strideA, const TData *b,
-                           const int ldb, const int strideB, const TData beta,
-                           TData *c, const int ldc, const int strideC,
-                           const int batchSize);
+void GemmStridedBatched(THandle handle, std::string transposeA,
+                        std::string transposeB, const int M, const int N,
+                        const int K, const TData alpha, const TData *a,
+                        const int lda, const int strideA, const TData *b,
+                        const int ldb, const int strideB, const TData beta,
+                        TData *c, const int ldc, const int strideC,
+                        const int batchSize);
 #endif
 template <
     typename THandle, typename TData,
@@ -213,43 +215,42 @@ template <
         true
 #endif
     >
-void NekGemmStridedBatched(THandle handle, std::string transposeA,
-                           std::string transposeB, const int M, const int N,
-                           const int K, const TData alpha, const TData *a,
-                           const int lda, const int strideA, const TData *b,
-                           const int ldb, const int strideB, const TData beta,
-                           TData *c, const int ldc, const int strideC,
-                           const int batchSize);
+void GemmStridedBatched(THandle handle, std::string transposeA,
+                        std::string transposeB, const int M, const int N,
+                        const int K, const TData alpha, const TData *a,
+                        const int lda, const int strideA, const TData *b,
+                        const int ldb, const int strideB, const TData beta,
+                        TData *c, const int ldc, const int strideC,
+                        const int batchSize);
 #if defined(NEKTAR_ENABLE_SYCL)
 template <typename THandle, typename TData,
           std::enable_if_t<std::is_same_v<THandle, oneMathHandle_t>, bool>
               Enable = true>
-void NekGemmStridedBatched(THandle handle, std::string transposeA,
-                           std::string transposeB, const std::int64_t M,
-                           const std::int64_t N, const std::int64_t K,
-                           const TData alpha, const TData *a,
-                           const std::int64_t lda, const std::int64_t strideA,
-                           const TData *b, const std::int64_t ldb,
-                           const std::int64_t strideB, const TData beta,
-                           TData *c, const std::int64_t ldc,
-                           const std::int64_t strideC,
-                           const std::int64_t batchSize);
+void GemmStridedBatched(THandle handle, std::string transposeA,
+                        std::string transposeB, const std::int64_t M,
+                        const std::int64_t N, const std::int64_t K,
+                        const TData alpha, const TData *a,
+                        const std::int64_t lda, const std::int64_t strideA,
+                        const TData *b, const std::int64_t ldb,
+                        const std::int64_t strideB, const TData beta, TData *c,
+                        const std::int64_t ldc, const std::int64_t strideC,
+                        const std::int64_t batchSize);
 #endif
 
-// NekGemv
+// Gemv
 template <
     typename THandle, typename TData,
     std::enable_if_t<std::is_same_v<THandle, blasHandle_t>, bool> Enable = true>
-void NekGemv(THandle handle, std::string transpose, const int M, const int N,
-             const TData alpha, const TData *a, const int lda, const TData *x,
-             const int incx, const TData beta, TData *y, const int incy);
+void Gemv(THandle handle, std::string transpose, const int M, const int N,
+          const TData alpha, const TData *a, const int lda, const TData *x,
+          const int incx, const TData beta, TData *y, const int incy);
 #if defined(NEKTAR_ENABLE_SIMD)
 template <
     typename THandle, typename TData,
     std::enable_if_t<std::is_same_v<THandle, xsmmHandle_t>, bool> Enable = true>
-void NekGemv(THandle handle, std::string transpose, const int M, const int N,
-             const TData alpha, const TData *a, const int lda, const TData *x,
-             const int incx, const TData beta, TData *y, const int incy);
+void Gemv(THandle handle, std::string transpose, const int M, const int N,
+          const TData alpha, const TData *a, const int lda, const TData *x,
+          const int incx, const TData beta, TData *y, const int incy);
 #endif
 template <
     typename THandle, typename TData,
@@ -266,39 +267,39 @@ template <
         true
 #endif
     >
-void NekGemv(THandle handle, std::string transpose, const int M, const int N,
-             const TData alpha, const TData *a, const int lda, const TData *x,
-             const int incx, const TData beta, TData *y, const int incy);
+void Gemv(THandle handle, std::string transpose, const int M, const int N,
+          const TData alpha, const TData *a, const int lda, const TData *x,
+          const int incx, const TData beta, TData *y, const int incy);
 #if defined(NEKTAR_ENABLE_SYCL)
 template <typename THandle, typename TData,
           std::enable_if_t<std::is_same_v<THandle, oneMathHandle_t>, bool>
               Enable = true>
-void NekGemv(THandle handle, std::string transpose, const std::int64_t M,
-             const std::int64_t N, const TData alpha, const TData *a,
-             const std::int64_t lda, const TData *x, const std::int64_t incx,
-             const TData beta, TData *y, const std::int64_t incy);
+void Gemv(THandle handle, std::string transpose, const std::int64_t M,
+          const std::int64_t N, const TData alpha, const TData *a,
+          const std::int64_t lda, const TData *x, const std::int64_t incx,
+          const TData beta, TData *y, const std::int64_t incy);
 #endif
 
-// NekGemvStridedBatched
+// GemvStridedBatched
 template <
     typename THandle, typename TData,
     std::enable_if_t<std::is_same_v<THandle, blasHandle_t>, bool> Enable = true>
-void NekGemvStridedBatched(THandle handle, std::string transpose, const int M,
-                           const int N, const TData alpha, const TData *a,
-                           const int lda, const int strideA, const TData *x,
-                           const int incx, const int strideX, const TData beta,
-                           TData *y, const int incy, const int strideY,
-                           const int batchSize);
+void GemvStridedBatched(THandle handle, std::string transpose, const int M,
+                        const int N, const TData alpha, const TData *a,
+                        const int lda, const int strideA, const TData *x,
+                        const int incx, const int strideX, const TData beta,
+                        TData *y, const int incy, const int strideY,
+                        const int batchSize);
 #if defined(NEKTAR_ENABLE_SIMD)
 template <
     typename THandle, typename TData,
     std::enable_if_t<std::is_same_v<THandle, xsmmHandle_t>, bool> Enable = true>
-void NekGemvStridedBatched(THandle handle, std::string transpose, const int M,
-                           const int N, const TData alpha, const TData *a,
-                           const int lda, const int strideA, const TData *x,
-                           const int incx, const int strideX, const TData beta,
-                           TData *y, const int incy, const int strideY,
-                           const int batchSize);
+void GemvStridedBatched(THandle handle, std::string transpose, const int M,
+                        const int N, const TData alpha, const TData *a,
+                        const int lda, const int strideA, const TData *x,
+                        const int incx, const int strideX, const TData beta,
+                        TData *y, const int incy, const int strideY,
+                        const int batchSize);
 #endif
 template <
     typename THandle, typename TData,
@@ -315,23 +316,23 @@ template <
         true
 #endif
     >
-void NekGemvStridedBatched(THandle handle, std::string transpose, const int M,
-                           const int N, const TData alpha, const TData *a,
-                           const int lda, const int strideA, const TData *x,
-                           const int incx, const int strideX, const TData beta,
-                           TData *y, const int incy, const int strideY,
-                           const int batchSize);
+void GemvStridedBatched(THandle handle, std::string transpose, const int M,
+                        const int N, const TData alpha, const TData *a,
+                        const int lda, const int strideA, const TData *x,
+                        const int incx, const int strideX, const TData beta,
+                        TData *y, const int incy, const int strideY,
+                        const int batchSize);
 #if defined(NEKTAR_ENABLE_SYCL)
 template <typename THandle, typename TData,
           std::enable_if_t<std::is_same_v<THandle, oneMathHandle_t>, bool>
               Enable = true>
-void NekGemvStridedBatched(THandle handle, std::string transpose,
-                           const std::int64_t M, const std::int64_t N,
-                           const TData alpha, const TData *a,
-                           const std::int64_t lda, const std::int64_t strideA,
-                           const TData *x, const std::int64_t incx,
-                           const std::int64_t strideX, const TData beta,
-                           TData *y, const std::int64_t incy,
-                           const std::int64_t strideY,
-                           const std::int64_t batchSize);
+void GemvStridedBatched(THandle handle, std::string transpose,
+                        const std::int64_t M, const std::int64_t N,
+                        const TData alpha, const TData *a,
+                        const std::int64_t lda, const std::int64_t strideA,
+                        const TData *x, const std::int64_t incx,
+                        const std::int64_t strideX, const TData beta, TData *y,
+                        const std::int64_t incy, const std::int64_t strideY,
+                        const std::int64_t batchSize);
 #endif
+} // namespace Nektar::NekBlas

@@ -42,6 +42,8 @@
 
 #if defined(NEKTAR_ENABLE_CUDA)
 #include <Operators/Common/Backends/CUDAStream.hpp>
+namespace Nektar::NekBlas
+{
 #define CUBLAS_CHECK(condition)                                                \
     {                                                                          \
         const cublasStatus_t status = condition;                               \
@@ -53,8 +55,11 @@
             exit(0);                                                           \
         }                                                                      \
     }
+} // namespace Nektar::NekBlas
 #elif defined(NEKTAR_ENABLE_HIP)
 #include <Operators/Common/Backends/HIPStream.hpp>
+namespace Nektar::NekBlas
+{
 #define HIPBLAS_CHECK(condition)                                               \
     {                                                                          \
         const hipblasStatus_t status = condition;                              \
@@ -66,8 +71,11 @@
             exit(0);                                                           \
         }                                                                      \
     }
+} // namespace Nektar::NekBlas
 #endif
 
+namespace Nektar::NekBlas
+{
 class magmaHandle
 {
 public:
@@ -109,3 +117,4 @@ public:
 private:
     static std::unordered_map<unsigned int, magma_queue_t> handle;
 };
+} // namespace Nektar::NekBlas

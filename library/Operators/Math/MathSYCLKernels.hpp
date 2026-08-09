@@ -36,7 +36,7 @@
 
 #if defined(NEKTAR_ENABLE_SYCL)
 
-#include "Operators/Common/Memory/MemoryAlloc.hpp"
+#include "LibUtilities/Memory/MemoryAlloc.hpp"
 #include "Operators/Common/Spaces.hpp"
 
 #include <cmath>

@@ -120,7 +120,7 @@ protected:
     void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
                  BlockAccessor<TData, FieldState::Coeff> &outblock) override
     {
-        auto handle = NekHandle<ExecSpace>::GetInstance(m_streamID);
+        auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
         const auto nhomo = inblock.GetNumHomoModes();
         const auto nelmt = inblock.GetNumElementsWithPadding();
@@ -166,16 +166,16 @@ protected:
                 }
 
                 // Perform matrix-matrix multiply.
-                NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot,
-                        (TData)1.0, m_matptr, m_nmTot, wspptr, m_nqTot,
-                        (TData)0.0, outptr, m_nmTot);
+                NekBlas::Gemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot,
+                              (TData)1.0, m_matptr, m_nmTot, wspptr, m_nqTot,
+                              (TData)0.0, outptr, m_nmTot);
             }
             else
             {
                 // Just perform matrix-matrix multiply of B^T
-                NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot,
-                        this->m_scale, m_BT_matptr, m_nmTot, inptr, m_nqTot,
-                        (TData)0.0, outptr, m_nmTot);
+                NekBlas::Gemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot,
+                              this->m_scale, m_BT_matptr, m_nmTot, inptr,
+                              m_nqTot, (TData)0.0, outptr, m_nmTot);
             }
 
             // Reshape back, if necessary.

@@ -41,7 +41,7 @@
 #include <cstddef>
 #include <limits>
 
-#include "Operators/Common/Memory/MemoryAlloc.hpp"
+#include "LibUtilities/Memory/MemoryAlloc.hpp"
 #include "Operators/Common/OperatorsDeclspec.hpp"
 #include "Operators/Common/Spaces.hpp"
 
