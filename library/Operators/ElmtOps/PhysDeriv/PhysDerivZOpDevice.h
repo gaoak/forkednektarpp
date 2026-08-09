@@ -67,9 +67,6 @@ namespace Nektar::Operators
 ///
 /// Requires NEKTAR_ENABLE_CUDA. The cuFFTDx variant is
 /// PhysDerivZOpDeviceDx (below).
-///
-/// \tparam TData Element type. Only double is supported by the cuFFT path;
-///               a static_assert in Launch enforces this.
 template <typename TData>
 class PhysDerivZOpDevice : public PhysDerivZOpBase<TData>
 {
@@ -89,7 +86,7 @@ public:
     }
 
 protected:
-    void v_Init(double beta) override
+    void v_Init(TData beta) override
     {
         int leastPriority    = 0;
         int greatestPriority = 0;
@@ -107,9 +104,6 @@ protected:
         Field<TData, FieldState::Phys> &in, Field<TData, FieldState::Phys> &out,
         unsigned int nhomo, const std::vector<int> &blockNXY) override
     {
-        static_assert(std::is_same_v<TData, double>,
-                      "PhysDerivZOpDevice requires TData=double.");
-
 #if !defined(NEKTAR_ENABLE_CUDA)
         ASSERTL0(false, "PhysDerivZOp: execStr \"" + execStr +
                             "\" requires NEKTAR_ENABLE_CUDA.");
@@ -165,12 +159,12 @@ protected:
                 auto &inblock        = in.GetBlocks()[blk];
                 auto &outblock       = out.GetBlocks()[blk];
                 const int compStride = static_cast<int>(inblock.CompSize());
-                const double *phiPtr =
+                const TData *phiPtr =
                     inblock.template GetPtr<NektarSpaces::DeviceSpace,
                                             ReadOnly>() +
                     static_cast<std::ptrdiff_t>(n) * compStride *
                         static_cast<std::ptrdiff_t>(nhomo);
-                double *dzPtr =
+                TData *dzPtr =
                     outblock.template GetPtr<NektarSpaces::DeviceSpace,
                                              WriteOnly>() +
                     static_cast<std::ptrdiff_t>(n * 3 + 2) * compStride *
@@ -231,7 +225,7 @@ private:
     cudaGraphExec_t m_graphExec = nullptr;
     bool m_hasGraph             = false;
     bool m_pendingCapture       = false;
-    double m_beta               = 0.0;
+    TData m_beta                = 0.0;
 
     /// \brief Make m_stream wait on every per-block producer stream
     ///        (block_idx + 1) before it reads their data.
@@ -264,9 +258,6 @@ private:
 ///
 /// Requires NEKTAR_ENABLE_CUDA and NEKTAR_USE_CUFFTDX. Reachable only
 /// via execStr == "DeviceDx" in PhysDerivZOpBase::Create().
-///
-/// \tparam TData Element type. Only double is supported; a static_assert
-///               in Launch enforces this.
 template <typename TData>
 class PhysDerivZOpDeviceDx : public PhysDerivZOpBase<TData>
 {
@@ -286,7 +277,7 @@ public:
     }
 
 protected:
-    void v_Init(double beta) override
+    void v_Init(TData beta) override
     {
         int least    = 0;
         int greatest = 0;
@@ -303,9 +294,6 @@ protected:
         Field<TData, FieldState::Phys> &in, Field<TData, FieldState::Phys> &out,
         unsigned int nhomo, const std::vector<int> &blockNXY) override
     {
-        static_assert(std::is_same_v<TData, double>,
-                      "PhysDerivZOpDeviceDx requires TData=double.");
-
 #if !defined(NEKTAR_ENABLE_CUDA)
         ASSERTL0(false, "PhysDerivZOp: execStr \"" + execStr +
                             "\" requires NEKTAR_ENABLE_CUDA.");
@@ -361,12 +349,12 @@ protected:
                 auto &inblock        = in.GetBlocks()[blk];
                 auto &outblock       = out.GetBlocks()[blk];
                 const int compStride = static_cast<int>(inblock.CompSize());
-                const double *phiPtr =
+                const TData *phiPtr =
                     inblock.template GetPtr<NektarSpaces::DeviceSpace,
                                             ReadOnly>() +
                     static_cast<std::ptrdiff_t>(n) * compStride *
                         static_cast<std::ptrdiff_t>(nhomo);
-                double *dzPtr =
+                TData *dzPtr =
                     outblock.template GetPtr<NektarSpaces::DeviceSpace,
                                              WriteOnly>() +
                     static_cast<std::ptrdiff_t>(n * 3 + 2) * compStride *
@@ -427,7 +415,7 @@ private:
     cudaGraphExec_t m_graphExec = nullptr;
     bool m_hasGraph             = false;
     bool m_pendingCapture       = false;
-    double m_beta               = 0.0;
+    TData m_beta                = 0.0;
 
     /// \brief Make m_stream wait on every per-block producer stream
     ///        (block_idx + 1) before it reads their data.

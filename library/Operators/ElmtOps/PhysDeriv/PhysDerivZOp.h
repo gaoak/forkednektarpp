@@ -72,7 +72,7 @@ public:
     /// \brief Initialise backend state. Called once after Create() when
     ///        nhomo > 1.
     /// \param beta  Wavenumber factor 2*pi/Lz.
-    void Init(double beta)
+    void Init(TData beta)
     {
         v_Init(beta);
     }
@@ -96,7 +96,7 @@ public:
     }
 
 protected:
-    virtual void v_Init(double beta) = 0;
+    virtual void v_Init(TData beta) = 0;
 
     virtual void v_Launch(
         std::vector<std::shared_ptr<PhysDerivBlockOp<TData>>> &blockOp,
@@ -145,33 +145,13 @@ std::shared_ptr<PhysDerivZOpBase<TData>> PhysDerivZOpBase<TData>::Create(
 #if defined(NEKTAR_ENABLE_CUDA)
     if (execStr == "Device")
     {
-        // cuFFT backend only supports double; guard instantiation so that
-        // a float build with NEKTAR_ENABLE_CUDA does not trigger the
-        // static_assert inside PhysDerivZOpDevice<float>::Launch.
-        if constexpr (std::is_same_v<TData, double>)
-        {
-            return std::make_shared<PhysDerivZOpDevice<TData>>();
-        }
-        else
-        {
-            ASSERTL0(false,
-                     "PhysDerivZOp: execStr \"Device\" requires TData=double.");
-        }
+        return std::make_shared<PhysDerivZOpDevice<TData>>();
     }
 
 #if defined(NEKTAR_USE_CUFFTDX)
     if (execStr == "DeviceDx")
     {
-        if constexpr (std::is_same_v<TData, double>)
-        {
-            return std::make_shared<PhysDerivZOpDeviceDx<TData>>();
-        }
-        else
-        {
-            ASSERTL0(
-                false,
-                "PhysDerivZOp: execStr \"DeviceDx\" requires TData=double.");
-        }
+        return std::make_shared<PhysDerivZOpDeviceDx<TData>>();
     }
 #else
     if (execStr == "DeviceDx")

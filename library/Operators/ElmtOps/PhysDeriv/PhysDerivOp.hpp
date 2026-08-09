@@ -144,7 +144,7 @@ public:
 protected:
     std::vector<std::shared_ptr<PhysDerivBlockOp<TData>>> m_blockOp;
 
-    double m_beta = 0.0;
+    TData m_beta = 0.0;
     std::vector<int> m_blockNXY;
     int m_totalNXY = 0;
 
