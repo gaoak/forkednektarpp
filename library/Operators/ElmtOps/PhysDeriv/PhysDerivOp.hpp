@@ -37,12 +37,25 @@
 #include "Operators/ElmtOps/ElmtOp.hpp"
 
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivBlockOp.hpp"
+#include "Operators/ElmtOps/PhysDeriv/PhysDerivZOp.h"
+
+#include <MultiRegions/ExpListHomogeneous1D.h>
 
 namespace Nektar::Operators
 {
 
-// PhysDeriv base class
-// Defines the apply operator to enforce apply parameter types
+/// \brief Element-block operator that computes the physical-space derivative
+/// \f$\nabla u\f$ over a collection of elements.
+///
+/// The backend for the homogeneous z-derivative in 3DH1 configurations is
+/// selected at Create() time via the \p execStr argument:
+///   - "" / "Serial" / "Host" -- FFTW-based serial path (always built).
+///   - "Device"               -- cuFFT pipeline (requires NEKTAR_ENABLE_CUDA).
+///   - "DeviceDx"             -- fused cuFFTDx kernel (additionally
+///                               NEKTAR_USE_CUFFTDX).
+///
+/// v_Apply() makes one unconditional call to m_zOp->Launch(), which owns
+/// both the xy block loop and the z-FFT.
 template <typename TData>
 class PhysDerivOp : public ElmtOp<FieldState::Phys, FieldState::Phys, TData>
 {
@@ -54,15 +67,88 @@ public:
         const std::vector<std::string> &components,
         const std::string &execStr = "", const std::string &implStr = "")
     {
-        return ElmtOp<FieldState::Phys, FieldState::Phys, TData>::
-            template Create<PhysDerivOp, PhysDerivBlockOp>(
-                expansionList, components, execStr, implStr);
+        auto session = expansionList->GetSession();
+
+        // execStr0: the resolved exec space (from session if not explicit).
+        const std::string execStr0 =
+            execStr.empty() ? Operator<TData>::GetOpExecSpace(session)
+                            : execStr;
+
+        // DeviceDx z-kernels share the same xy block ops as Device.
+        const std::string blockExecStr =
+            (execStr0 == "DeviceDx") ? std::string("Device") : execStr0;
+
+        const std::string implStr0 =
+            implStr.empty()
+                ? ElmtOp<FieldState::Phys, FieldState::Phys, TData>::GetOpImpl(
+                      PhysDerivOp::name, blockExecStr, session)
+                : implStr;
+
+        auto op = std::shared_ptr<PhysDerivOp<TData>>(
+            new PhysDerivOp<TData>(expansionList, components));
+
+        auto blockAttr =
+            GetBlockAttributes<TData, FieldState::Phys>(expansionList);
+        for (unsigned int blkIdx = 0;
+             blkIdx < static_cast<unsigned int>(blockAttr.size()); ++blkIdx)
+        {
+            const auto expId = GetCollection(expansionList, blkIdx)
+                                   .GetExpVector()[0]
+                                   ->GetElmtId();
+            const auto exp = expansionList->GetExp(expId);
+            op->m_blockOp.push_back(PhysDerivBlockOp<TData>::Create(
+                blkIdx, exp, expansionList->GetDataWarehouseSharedPtr(),
+                blockExecStr, implStr0));
+        }
+
+        // Always create a z-op so v_Apply can call Launch() unconditionally.
+        op->m_zOp = PhysDerivZOpBase<TData>::Create(execStr0, expansionList);
+
+        // For 3DH1 problems, configure blockNXY and call Init on the z-op.
+        auto homo =
+            std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
+                expansionList);
+        if (homo)
+        {
+            const unsigned int nhomo =
+                static_cast<unsigned int>(expansionList->GetTotPoints() /
+                                          homo->GetPlane(0)->GetTotPoints());
+
+            if (nhomo > 1)
+            {
+                ASSERTL1(
+                    blockAttr.size() == op->m_blockOp.size(),
+                    "Block attribute count does not match block op count.");
+
+                for (std::size_t i = 0; i < blockAttr.size(); ++i)
+                {
+                    const int NXY = static_cast<int>(
+                        blockAttr[i].GetNumElementsWithPadding() *
+                        blockAttr[i].GetNumData());
+                    op->m_blockNXY.push_back(NXY);
+                    op->m_totalNXY += NXY;
+                }
+
+                op->m_beta = 2.0 * M_PI / homo->GetHomoLen();
+                op->m_zOp->Init(op->m_beta);
+            }
+        }
+
+        return op;
     }
 
     static inline const std::string name = "PhysDeriv";
 
+    ~PhysDerivOp() override = default;
+
 protected:
     std::vector<std::shared_ptr<PhysDerivBlockOp<TData>>> m_blockOp;
+
+    double m_beta = 0.0;
+    std::vector<int> m_blockNXY;
+    int m_totalNXY = 0;
+
+    std::shared_ptr<PhysDerivZOpBase<TData>> m_zOp;
 
     PhysDerivOp(const MultiRegions::ExpListSharedPtr &expansionList,
                 const std::vector<std::string> &components)
@@ -71,27 +157,41 @@ protected:
     {
     }
 
-    ~PhysDerivOp() override = default;
-
     void v_Apply(Field<TData, FieldState::Phys> &in,
                  Field<TData, FieldState::Phys> &out) override
     {
+        const unsigned int nhomo = in.GetNumHomoModes();
+
+        // m_blockNXY is non-empty only for 3DH1 (set in Create when
+        // dynamic_cast to ExpListHomogeneous1D succeeds). For 2D/3D/3DH2
+        // use coordim to determine the output-component ratio.
         ASSERTL1(in.GetNumComponents() ==
                      out.GetNumComponents() /
-                         this->m_expansionList->GetCoordim(0),
+                         (!m_blockNXY.empty()
+                              ? 3u
+                              : static_cast<unsigned int>(
+                                    this->m_expansionList->GetCoordim(0))),
                  "Number of input and output components differ");
 
         ASSERTL1(in.GetNumHomoModes() == out.GetNumHomoModes(),
                  "Number of input and output homogeneous modes differ");
 
-        // Loop over the blocks.
-        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
+        // For backward compatilbity for non-CUDA device backend.
+        if (nhomo == 1)
         {
-            // Block dependent.
-            auto &inblock  = in.GetBlocks()[blk];
-            auto &outblock = out.GetBlocks()[blk];
+            // Loop over the blocks.
+            for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
+            {
+                // Block dependent.
+                auto &inblock  = in.GetBlocks()[blk];
+                auto &outblock = out.GetBlocks()[blk];
 
-            this->m_blockOp[blk]->Apply(inblock, outblock);
+                this->m_blockOp[blk]->Apply(inblock, outblock);
+            }
+        }
+        else
+        {
+            m_zOp->Launch(m_blockOp, in, out, nhomo, m_blockNXY);
         }
     }
 };

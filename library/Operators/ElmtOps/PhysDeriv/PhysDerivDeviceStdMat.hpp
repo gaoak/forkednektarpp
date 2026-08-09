@@ -127,6 +127,7 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Loop over components.
+        const auto outDim = (outblock.GetNumHomoModes() > 1) ? 3u : m_coordDim;
         const auto inoffset  = inblock.CompSize() * inblock.GetNumHomoModes();
         const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
@@ -159,16 +160,18 @@ protected:
                     outoffset, m_dfptr, outptr, outptr, m_streamID);
             }
 
-            for (unsigned int k = 0; k < m_coordDim; k++)
+            for (unsigned int k = 0; k < outDim; k++)
             {
                 ReshapeStorage<ExecSpace>(
                     interleaveWidth, m_implInterleaveWidth, nelmtTot, m_nqTot,
                     (TData *)outptr + k * outoffset, m_streamID);
             }
 
-            // Increment pointer.
+            // In 3DH1 (nhomo > 1) the output has 3 slots per component
+            // (x, y, z) regardless of base mesh coordDim, leaving slot 2
+            // free for the z-derivative written by PhysDerivZOpHost/Device.
             inptr += inoffset;
-            outptr += m_coordDim * outoffset;
+            outptr += outDim * outoffset;
         }
 
         // Set output block to input interleave.

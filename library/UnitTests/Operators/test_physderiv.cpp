@@ -59,7 +59,7 @@
     {                                                                          \
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
-        Configure3DH1(4);                                                      \
+        Configure3DH1(16);                                                     \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
@@ -68,12 +68,12 @@
         }                                                                      \
     }
 
-#define TEST_PHYSDERIV3DH2(test_name, test, tol)                               \
+#define TEST_PHYSDERIV3DH1_DX(test_name, test, tol)                            \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
-        Configure3DH2(4, 4);                                                   \
+        Configure3DH1(16);                                                     \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
@@ -91,13 +91,9 @@ TEST_PHYSDERIV(physderiv_seg_sem, SegSEM, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_seg_3d, Seg3D, 1.0E-12)
 
-TEST_PHYSDERIV3DH2(physderiv_seg_sem_3dh2, SegSEM, 1.0E-12)
-
 TEST_PHYSDERIV(physderiv_quad, Quad, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_quad_3d, Quad3D, 1.0E-12)
-
-TEST_PHYSDERIV3DH1(physderiv_quad_3dh1, Quad, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_quad_sem, QuadSEM, 1.0E-12)
 
@@ -107,16 +103,11 @@ TEST_PHYSDERIV(physderiv_tri, Tri, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_tri_3d, Tri3D, 1.0E-12)
 
-TEST_PHYSDERIV3DH1(physderiv_tri_3dh1, Tri, 1.0E-12)
-
 TEST_PHYSDERIV(physderiv_tri_varp, TriVarP, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_tri_nodal, TriNodal, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_square_all_elements, SquareAllElements, 1.0E-12)
-
-TEST_PHYSDERIV3DH1(physderiv_square_all_elements_3dh1, SquareAllElements,
-                   1.0E-12)
 
 TEST_PHYSDERIV(physderiv_hex, Hex, 1.0E-12)
 
@@ -143,6 +134,29 @@ TEST_PHYSDERIV(physderiv_tet_nodal, TetNodal, 2.0E-12)
 TEST_PHYSDERIV(physderiv_cube_prism_hex, CubePrismHex, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_cube_all_elements, CubeAllElements, 1.0E-12)
-#endif
+
+// cuFFT z-derivative tests (3DH1)
+#if defined(NEKTAR_ENABLE_CUDA)
+TEST_PHYSDERIV3DH1(physderiv_quad_3dh1_gpu, QuadFFT, 1.0E-10)
+
+TEST_PHYSDERIV3DH1(physderiv_tri_3dh1_gpu, TriFFT, 1.0E-10)
+
+TEST_PHYSDERIV3DH1(physderiv_square_all_elements_3dh1_gpu, SquareAllElementsFFT,
+                   1.0E-10)
+#endif // NEKTAR_ENABLE_CUDA
+
+// cuFFTDx z-derivative tests (3DH1)
+#if defined(NEKTAR_USE_CUFFTDX)
+#if defined(NEKTAR_ENABLE_CUDA)
+TEST_PHYSDERIV3DH1_DX(physderiv_quad_3dh1_dx, QuadFFT, 1.0E-10)
+
+TEST_PHYSDERIV3DH1_DX(physderiv_tri_3dh1_dx, TriFFT, 1.0E-10)
+
+TEST_PHYSDERIV3DH1_DX(physderiv_square_all_elements_3dh1_dx,
+                      SquareAllElementsFFT, 1.0E-10)
+#endif // NEKTAR_ENABLE_CUDA
+#endif // NEKTAR_USE_CUFFTDX
+
+#endif // NEKTAR_ENABLE_DOUBLE_PRECISION
 
 BOOST_AUTO_TEST_SUITE_END()

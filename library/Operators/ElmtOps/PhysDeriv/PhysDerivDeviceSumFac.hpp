@@ -289,6 +289,7 @@ protected:
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, 0);
 
+        const auto outDim = (outblock.GetNumHomoModes() > 1) ? 3u : m_coordDim;
         const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
 
         // Reshape, if necessary.
@@ -306,9 +307,9 @@ protected:
         ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                   nelmt * ncomp, inblock.GetNumData(),
                                   (TData *)inptr, m_streamID);
-        ReshapeStorage<ExecSpace>(
-            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp * m_coordDim,
-            outblock.GetNumData(), (TData *)outptr, m_streamID);
+        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                  nelmt * ncomp * outDim, outblock.GetNumData(),
+                                  (TData *)outptr, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
@@ -362,6 +363,7 @@ protected:
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
+        const auto outDim = (outblock.GetNumHomoModes() > 1) ? 3u : m_coordDim;
         const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
 
         // Reshape, if necessary.
@@ -380,9 +382,9 @@ protected:
         ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
                                   nelmt * ncomp, inblock.GetNumData(),
                                   (TData *)inptr, m_streamID);
-        ReshapeStorage<ExecSpace>(
-            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp * m_coordDim,
-            outblock.GetNumData(), (TData *)outptr, m_streamID);
+        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
+                                  nelmt * ncomp * outDim, outblock.GetNumData(),
+                                  (TData *)outptr, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);

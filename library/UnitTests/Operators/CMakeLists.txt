@@ -129,6 +129,14 @@ ADD_NEKTAR_EXECUTABLE(test_nullprecon
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon.cpp)
 ADD_NEKTAR_EXECUTABLE(test_physderiv
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv.cpp)
+IF(NEKTAR_USE_CUFFTDX)
+    target_include_directories(test_physderiv PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CUFFTDX_INCLUDE_DIR})
+    target_compile_definitions(test_physderiv PRIVATE
+        NEKTAR_USE_CUFFTDX
+        CUFFTDX_TARGET_SM=${CUFFTDX_TARGET_SM})
+ENDIF()
 ADD_NEKTAR_EXECUTABLE(test_advection
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_advection.cpp)
 ADD_NEKTAR_EXECUTABLE(test_divergence

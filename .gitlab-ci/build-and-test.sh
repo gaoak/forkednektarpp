@@ -85,6 +85,7 @@ elif [[ $BUILD_TYPE == "full" ]]; then
         # Enable CUDA in CMake configuration
         CMAKEARGS+=("-DNEKTAR_ENABLE_DEVICE:STRING=CUDA")
         CMAKEARGS+=("-DNEKTAR_DEVICE_ARCH=sm_86")
+        CMAKEARGS+=("-DNEKTAR_USE_CUFFTDX:BOOL=ON")
     elif [[ $BUILD_DEVICE == "SYCL-CPU" ]]; then
         if [[ $BUILD_CXX == "acpp" ]]; then
             # Load AdaptiveCpp compiler module for SYCL support on Linux

@@ -660,10 +660,11 @@ NEK_DEVICE_KERNEL void PhysDeriv1DKernelLauncher(
 
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
-    size_t e                 = getGlobalIdx<0>(threadBlock);
-    const unsigned int m     = getBlockIdx<1>(threadBlock);
-    const unsigned int c     = getBlockIdx<2>(threadBlock);
-    const unsigned int nmode = getBlockRange<1>(threadBlock);
+    size_t e                  = getGlobalIdx<0>(threadBlock);
+    const unsigned int m      = getBlockIdx<1>(threadBlock);
+    const unsigned int c      = getBlockIdx<2>(threadBlock);
+    const unsigned int nmode  = getBlockRange<1>(threadBlock);
+    const unsigned int outDim = (nmode > 1) ? 3u : ncoord;
     while (e < nelmt)
     {
         const size_t ilane = e % warpsize;
@@ -672,7 +673,7 @@ NEK_DEVICE_KERNEL void PhysDeriv1DKernelLauncher(
         const TData *inptr =
             in + nq0 * (nelmt * (nmode * c + m) + warpsize * iwarp);
         TData *outptr =
-            out + nq0 * (nelmt * (ncoord * nmode * c + m) + warpsize * iwarp);
+            out + nq0 * (nelmt * (outDim * nmode * c + m) + warpsize * iwarp);
         PhysDeriv1DSumFacKernel<DEFORMED>(ilane, ncoord, nq0, outoffset, D0,
                                           dfptr, inptr, outptr);
         e += getGlobalRange<0>(threadBlock);
@@ -773,10 +774,11 @@ NEK_DEVICE_KERNEL void PhysDeriv2DKernelLauncher(
         localBarrier(threadBlock);
     }
 
-    size_t e                 = getGlobalIdx<0>(threadBlock);
-    const unsigned int m     = getBlockIdx<1>(threadBlock);
-    const unsigned int c     = getBlockIdx<2>(threadBlock);
-    const unsigned int nmode = getBlockRange<1>(threadBlock);
+    size_t e                  = getGlobalIdx<0>(threadBlock);
+    const unsigned int m      = getBlockIdx<1>(threadBlock);
+    const unsigned int c      = getBlockIdx<2>(threadBlock);
+    const unsigned int nmode  = getBlockRange<1>(threadBlock);
+    const unsigned int outDim = (nmode > 1) ? 3u : ncoord;
     while (e < nelmt)
     {
         const size_t ilane = e % warpsize;
@@ -785,7 +787,7 @@ NEK_DEVICE_KERNEL void PhysDeriv2DKernelLauncher(
         const TData *inptr =
             in + nqTot * (nelmt * (nmode * c + m) + warpsize * iwarp);
         TData *outptr =
-            out + nqTot * (nelmt * (ncoord * nmode * c + m) + warpsize * iwarp);
+            out + nqTot * (nelmt * (outDim * nmode * c + m) + warpsize * iwarp);
         PhysDeriv2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, ncoord, nq0, nq1, outoffset, D0, D1, s_f0, s_f1, dfptr,
             inptr, outptr);

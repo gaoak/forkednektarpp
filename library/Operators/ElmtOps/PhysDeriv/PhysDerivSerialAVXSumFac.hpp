@@ -300,11 +300,13 @@ protected:
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Loop over components.
+        const unsigned int outDim =
+            (outblock.GetNumHomoModes() > 1) ? 3u : coordDim;
         const auto compOffset =
             outblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot *
             outblock.GetNumHomoModes();
         simd_t *outvec[3];
-        for (unsigned int k = 0; k < coordDim; ++k)
+        for (unsigned int k = 0; k < ((outDim > 1) ? 3u : coordDim); ++k)
         {
             outvec[k] = reinterpret_cast<simd_t *>(outptr) + k * compOffset;
         }
@@ -341,7 +343,7 @@ protected:
                         nqTot,
                         (TData *)inptr -
                             (width_ratio - 1) * nqTot * simd_t::width);
-                    for (unsigned int k = 0; k < coordDim; k++)
+                    for (unsigned int k = 0; k < outDim; k++)
                     {
                         ReshapeStorage<ExecSpace>(
                             interleaveWidth, m_implInterleaveWidth, chunkSize,
@@ -354,7 +356,7 @@ protected:
                 // Increment pointers for the next elmt group.
                 dfptr += dfsize * simd_t::width;
                 inptr += nqTot * simd_t::width;
-                for (unsigned int k = 0; k < coordDim; ++k)
+                for (unsigned int k = 0; k < outDim; ++k)
                 {
                     outvec[k] += nqTot;
                 }
@@ -364,9 +366,9 @@ protected:
             // advanced one component in the above.
             if ((n + 1) % outblock.GetNumHomoModes() == 0)
             {
-                for (unsigned int k = 0; k < coordDim; ++k)
+                for (unsigned int k = 0; k < outDim; ++k)
                 {
-                    outvec[k] += (coordDim - 1) * compOffset;
+                    outvec[k] += (outDim - 1) * compOffset;
                 }
             }
         }
@@ -421,11 +423,13 @@ protected:
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Loop over components.
+        const unsigned int outDim =
+            (outblock.GetNumHomoModes() > 1) ? 3u : coordDim;
         const auto compOffset =
             outblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot *
             outblock.GetNumHomoModes();
         simd_t *outvec[3];
-        for (unsigned int k = 0; k < coordDim; ++k)
+        for (unsigned int k = 0; k < outDim; ++k)
         {
             outvec[k] = reinterpret_cast<simd_t *>(outptr) + k * compOffset;
         }
@@ -462,7 +466,7 @@ protected:
                         nqTot,
                         (TData *)inptr -
                             (width_ratio - 1) * nqTot * simd_t::width);
-                    for (unsigned int k = 0; k < coordDim; k++)
+                    for (unsigned int k = 0; k < outDim; k++)
                     {
                         ReshapeStorage<ExecSpace>(
                             interleaveWidth, m_implInterleaveWidth, chunkSize,
@@ -475,7 +479,7 @@ protected:
                 // Increment pointers for the next elmt group.
                 dfptr += dfsize * simd_t::width;
                 inptr += nqTot * simd_t::width;
-                for (unsigned int k = 0; k < coordDim; ++k)
+                for (unsigned int k = 0; k < outDim; ++k)
                 {
                     outvec[k] += nqTot;
                 }
@@ -485,9 +489,9 @@ protected:
             // advanced one component in the above.
             if ((n + 1) % outblock.GetNumHomoModes() == 0)
             {
-                for (unsigned int k = 0; k < coordDim; ++k)
+                for (unsigned int k = 0; k < outDim; ++k)
                 {
-                    outvec[k] += (coordDim - 1) * compOffset;
+                    outvec[k] += (outDim - 1) * compOffset;
                 }
             }
         }

@@ -49,22 +49,27 @@ public:
     {
     }
 
+    // 3DH1 paths need 3 output components per input, all other paths use
+    // coordim.
     void SetFixture(const unsigned int nhomo) override
     {
+        const bool is3DH1 =
+            std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
+                this->fixt_explist) != nullptr;
         auto nin  = this->session->GetVariables().size();
-        auto nout = this->session->GetVariables().size() *
-                    this->fixt_explist->GetCoordim(0);
-        auto inblockAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
-        auto outblockAttr =
+        auto nout = nin * (is3DH1 && nhomo > 1
+                               ? 3u
+                               : static_cast<unsigned int>(
+                                     this->fixt_explist->GetCoordim(0)));
+        auto blockAttr =
             GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
 
         auto f_in =
-            Field<TData, FieldState::Phys>("f_in", inblockAttr, nin, nhomo);
+            Field<TData, FieldState::Phys>("f_in", blockAttr, nin, nhomo);
         auto f_out =
-            Field<TData, FieldState::Phys>("f_out", outblockAttr, nout, nhomo);
+            Field<TData, FieldState::Phys>("f_out", blockAttr, nout, nhomo);
         auto f_expected = Field<TData, FieldState::Phys>(
-            "f_expected", outblockAttr, nout, nhomo);
+            "f_expected", blockAttr, nout, nhomo);
         this->fixt_in  = new Field<TData, FieldState::Phys>(std::move(f_in));
         this->fixt_out = new Field<TData, FieldState::Phys>(std::move(f_out));
         this->fixt_expected =
@@ -158,24 +163,51 @@ public:
 
     void ExpectedSolution()
     {
-        // Calculate expected result from Nektar++
         const unsigned int numComp = this->fixt_in->GetNumComponents();
         const unsigned int coordim = this->fixt_explist->GetCoordim(0);
+        const unsigned int nhomo   = this->fixt_in->GetNumHomoModes();
         const size_t nphys         = this->fixt_explist->GetTotPoints();
         Array<OneD, TData> inphys  = this->fixt_in->ToArray();
-        Array<OneD, TData> outphys(numComp * coordim * nphys);
 
-        for (unsigned int i = 0; i < numComp; ++i)
+        const bool is3DH1 =
+            std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
+                this->fixt_explist) != nullptr;
+
+        if (is3DH1 && nhomo > 1)
         {
-            Array<OneD, TData> outphys0 = outphys + i * nphys * coordim;
-            Array<OneD, TData> outphys1 = outphys0 + nphys;
-            Array<OneD, TData> outphys2 = outphys1 + nphys;
-            this->fixt_explist->PhysDeriv(inphys + i * nphys, outphys0,
-                                          outphys1, outphys2);
+            // 3DH1: input is in physical space, SetExpList3DH1 leaves
+            // WaveSpace=true, so temporarily disable it for PhysDeriv.
+            Array<OneD, TData> outphys(numComp * 3 * nphys);
+            this->fixt_explist->SetWaveSpace(false);
+            for (unsigned int i = 0; i < numComp; ++i)
+            {
+                Array<OneD, TData> d0 = outphys + i * nphys * 3;
+                Array<OneD, TData> d1 = d0 + nphys;
+                Array<OneD, TData> d2 = d1 + nphys;
+                this->fixt_explist->PhysDeriv(inphys + i * nphys, d0, d1, d2);
+            }
+            this->fixt_explist->SetWaveSpace(true);
+            this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
+                outphys);
         }
-        this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
-            outphys);
+        else
+        {
+            Array<OneD, TData> outphys(numComp * coordim * nphys);
+            for (unsigned int i = 0; i < numComp; ++i)
+            {
+                Array<OneD, TData> outphys0 = outphys + i * nphys * coordim;
+                Array<OneD, TData> outphys1 = outphys0 + nphys;
+                Array<OneD, TData> outphys2 = outphys1 + nphys;
+                this->fixt_explist->PhysDeriv(inphys + i * nphys, outphys0,
+                                              outphys1, outphys2);
+            }
+            this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
+                outphys);
+        }
     }
+
+private:
+    bool m_hasDeviceFFT = false;
 };
 
 // clang-format off
@@ -259,3 +291,42 @@ TEST(TetNodal, "run/tet_nodal.xml")
 TEST(CubePrismHex, "run/cube_prismhex.xml")
 
 TEST(CubeAllElements, "run/cube_all_elements.xml")
+
+template <typename TData> class PhysDerivFFTField : public PhysDerivField<TData>
+{
+public:
+    PhysDerivFFTField() : PhysDerivField<TData>()
+    {
+    }
+};
+
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TEST_FFTFLOAT(type, filename)                                          \
+    class type##float : public PhysDerivFFTField<float>{                       \
+        public : type##float(){meshName = filename;                            \
+    }                                                                          \
+    }                                                                          \
+    ;
+#else
+#define TEST_FFTFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TEST_FFTDOUBLE(type, filename)                                         \
+    class type : public PhysDerivFFTField<double>                              \
+    {                                                                          \
+    public:                                                                    \
+        type()                                                                 \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TEST_FFTDOUBLE(type, filename)
+#endif
+#define TEST_FFT(type, filename)                                               \
+    TEST_FFTFLOAT(type, filename)                                              \
+    TEST_FFTDOUBLE(type, filename)
+
+TEST_FFT(QuadFFT, "run/square.xml")
+TEST_FFT(TriFFT, "run/tri.xml")
+TEST_FFT(SquareAllElementsFFT, "run/square_all_elements.xml")
