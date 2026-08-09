@@ -130,7 +130,7 @@ protected:
     void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
                  BlockAccessor<TData, FieldState::Coeff> &outblock) override
     {
-        auto handle = NekHandle<ExecSpace>::GetInstance(m_streamID);
+        auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
         const auto nhomo = inblock.GetNumHomoModes();
         const auto nelmt = inblock.GetNumElementsWithPadding();
@@ -174,19 +174,19 @@ protected:
             // Perform matrix-matrix multiply.
             if (this->m_lambda != 0.0)
             {
-                NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot,
-                        (TData)1.0, m_bwdmat, m_nqTot, inptr, m_nmTot,
-                        (TData)0.0, bwdptr, m_nqTot);
+                NekBlas::Gemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot,
+                              (TData)1.0, m_bwdmat, m_nqTot, inptr, m_nmTot,
+                              (TData)0.0, bwdptr, m_nqTot);
             }
 
             // Step 2: Deriv
             // Perform matrix-matrix multiply.
             for (unsigned int d = 0; d < m_dimension; d++)
             {
-                NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot,
-                        (TData)1.0, m_derivmat + d * m_nqTot * m_nmTot, m_nqTot,
-                        inptr, m_nmTot, (TData)0.0,
-                        derivptr + d * m_nqTot * nelmtTot, m_nqTot);
+                NekBlas::Gemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot,
+                              (TData)1.0, m_derivmat + d * m_nqTot * m_nmTot,
+                              m_nqTot, inptr, m_nmTot, (TData)0.0,
+                              derivptr + d * m_nqTot * nelmtTot, m_nqTot);
             }
 
             // Step 3: Multiply by diffusion coefficient, derivative
@@ -210,18 +210,18 @@ protected:
 
             // Step 4: IProduct
             // Perform matrix-matrix multiply.
-            NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, (TData)1.0,
-                    m_ipbmat, m_nmTot, bwdptr, m_nqTot, (TData)0.0, outptr,
-                    m_nmTot);
+            NekBlas::Gemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot,
+                          (TData)1.0, m_ipbmat, m_nmTot, bwdptr, m_nqTot,
+                          (TData)0.0, outptr, m_nmTot);
 
             // Step 5: IProductWRTDerivBase
             // Perform matrix-matrix multiply.
             for (unsigned int d = 0; d < m_dimension; d++)
             {
-                NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot,
-                        (TData)1.0, m_ipdmat + d * m_nqTot * m_nmTot, m_nmTot,
-                        derivptr + d * nelmtTot * m_nqTot, m_nqTot, (TData)1.0,
-                        outptr, m_nmTot);
+                NekBlas::Gemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot,
+                              (TData)1.0, m_ipdmat + d * m_nqTot * m_nmTot,
+                              m_nmTot, derivptr + d * nelmtTot * m_nqTot,
+                              m_nqTot, (TData)1.0, outptr, m_nmTot);
             }
 
             // Reshape back, if necessary.

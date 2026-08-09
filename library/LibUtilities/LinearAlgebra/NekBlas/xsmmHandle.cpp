@@ -34,4 +34,7 @@
 
 #include "xsmmHandle.hpp"
 
+namespace Nektar::NekBlas
+{
 xsmmHandle_t *xsmmHandle::handle = nullptr;
+}

@@ -34,6 +34,8 @@
 
 #pragma once
 
+namespace Nektar::NekBlas
+{
 class xsmmHandle_t
 {
 };
@@ -54,3 +56,4 @@ public:
 private:
     static xsmmHandle_t *handle;
 };
+} // namespace Nektar::NekBlas

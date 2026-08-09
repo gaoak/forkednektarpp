@@ -37,7 +37,7 @@
 #if (defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)) ||           \
     (defined(NEKTAR_ENABLE_HIP) && defined(DEVICE_COMPILE_ONLY))
 
-#include "Operators/Common/Memory/MemoryAlloc.hpp"
+#include "LibUtilities/Memory/MemoryAlloc.hpp"
 #include "Operators/Common/Spaces.hpp"
 
 namespace Nektar

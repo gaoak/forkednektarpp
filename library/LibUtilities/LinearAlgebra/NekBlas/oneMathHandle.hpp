@@ -36,6 +36,8 @@
 
 #include <Operators/Common/Backends/SYCLQueue.hpp>
 
+namespace Nektar::NekBlas
+{
 class oneMathHandle_t
 {
 public:
@@ -76,3 +78,4 @@ public:
 private:
     static std::unordered_map<unsigned int, oneMathHandle_t *> handle;
 };
+} // namespace Nektar::NekBlas

@@ -35,7 +35,7 @@
 #pragma once
 
 #include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
-#include "Operators/Common/Memory/MemoryAlloc.hpp"
+#include "LibUtilities/Memory/MemoryAlloc.hpp"
 #include "Operators/Common/Spaces.hpp"
 #include "Operators/Utils/UtilsDeviceKernelsHelper.hpp"
 
@@ -520,11 +520,12 @@ inline void interleave(const unsigned int interleaveWidth,
         if constexpr (std::is_floating_point_v<TData>)
         {
 #if defined(NEKTAR_USE_MAGMA)
-            auto queue = NekHandle<NektarSpaces::Device>::GetInstance(streamID);
+            auto queue =
+                NekBlas::Handle<NektarSpaces::Device>::GetInstance(streamID);
             auto handle = magma_queue_get_hipblas_handle(queue);
 #else
             auto handle =
-                NekHandle<NektarSpaces::Device>::GetInstance(streamID);
+                NekBlas::Handle<NektarSpaces::Device>::GetInstance(streamID);
 #endif
 
             TData alpha   = 1.0;
@@ -628,11 +629,12 @@ inline void deInterleave(const unsigned int interleaveWidth,
         if constexpr (std::is_floating_point_v<TData>)
         {
 #if defined(NEKTAR_USE_MAGMA)
-            auto queue = NekHandle<NektarSpaces::Device>::GetInstance(streamID);
+            auto queue =
+                NekBlas::Handle<NektarSpaces::Device>::GetInstance(streamID);
             auto handle = magma_queue_get_hipblas_handle(queue);
 #else
             auto handle =
-                NekHandle<NektarSpaces::Device>::GetInstance(streamID);
+                NekBlas::Handle<NektarSpaces::Device>::GetInstance(streamID);
 #endif
 
             TData alpha   = 1.0;

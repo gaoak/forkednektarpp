@@ -137,7 +137,7 @@ protected:
     void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
                  BlockAccessor<TData, TFieldOut> &outblock) override
     {
-        auto handle = NekHandle<ExecSpace>::GetInstance(m_streamID);
+        auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
         const auto nhomo = inblock.GetNumHomoModes();
         const auto nelmt = inblock.GetNumElementsWithPadding();
@@ -224,10 +224,10 @@ protected:
                 TData alpha = this->m_scale;
                 TData beta  = (d != 0 || this->m_append);
 
-                NekGemm(handle, "N", "N", m_outTot, nelmtTot, m_nqTot, alpha,
-                        m_matptr + d * m_nqTot * m_outTot, m_outTot,
-                        wspptr + d * nelmtTot * m_nqTot, m_nqTot, beta, outptr,
-                        m_outTot);
+                NekBlas::Gemm(handle, "N", "N", m_outTot, nelmtTot, m_nqTot,
+                              alpha, m_matptr + d * m_nqTot * m_outTot,
+                              m_outTot, wspptr + d * nelmtTot * m_nqTot,
+                              m_nqTot, beta, outptr, m_outTot);
             }
 
             // Reshape back, if necessary.

@@ -621,7 +621,6 @@ SET(OPERATORS_HEADERS
     Common/BlockOperator.hpp
     Common/Operator.hpp
     Common/DeviceProperties.hpp
-    Common/Memory/MemoryAlloc.hpp
     Common/DataWarehouse/BasisDataWarehouse.hpp
     Common/DataWarehouse/GeometricDataWarehouse.hpp
     Common/DataWarehouse/LocalToGlobalDataWarehouse.hpp
@@ -809,7 +808,6 @@ SET(OPERATORS_DEPENDS MultiRegions LibUtilities)
 IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-       Common/Memory/MemoryAlloc.cu
        Math/Math.cu
        Field/BlockHelper.cu
     )
@@ -817,7 +815,6 @@ IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
 ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-       Common/Memory/MemoryAlloc.hip
        Math/Math.hip
        Field/BlockHelper.hip
     )

@@ -110,7 +110,7 @@ protected:
     void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
                  BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
-        auto handle = NekHandle<ExecSpace>::GetInstance(m_streamID);
+        auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
         const auto nelmtTot =
             inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes();
@@ -141,9 +141,9 @@ protected:
             }
 
             // Perform matrix-matrix multiply.
-            NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot, (TData)1.0,
-                    m_matptr, m_nqTot, inptr, m_nmTot, (TData)this->m_append,
-                    outptr, m_nqTot);
+            NekBlas::Gemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot,
+                          (TData)1.0, m_matptr, m_nqTot, inptr, m_nmTot,
+                          (TData)this->m_append, outptr, m_nqTot);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,

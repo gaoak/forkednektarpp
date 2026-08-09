@@ -122,7 +122,7 @@ protected:
     void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
                  BlockAccessor<TData, FieldState::Coeff> &outblock) override
     {
-        auto handle = NekHandle<ExecSpace>::GetInstance(m_streamID);
+        auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
         const auto nhomo = inblock.GetNumHomoModes();
         const auto nelmt = inblock.GetNumElementsWithPadding();
@@ -152,7 +152,7 @@ protected:
                         m_streamID);
 
                 // Perform batched matrix-vector multiply.
-                NekGemmStridedBatched(
+                NekBlas::GemmStridedBatched(
                     handle, "N", "N", m_nmTot, 1, m_nmTot, (TData)1.0, dmatptr,
                     m_nmTot, m_nmTot * m_nmTot, inptr, m_nmTot, m_nmTot,
                     (TData)0.0, outptr, m_nmTot, m_nmTot, nelmtTot);
@@ -160,9 +160,9 @@ protected:
             else
             {
                 // Perform matrix-matrix multiply.
-                NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nmTot,
-                        (TData)1.0, m_invmassptr, m_nmTot, inptr, m_nmTot,
-                        (TData)0.0, outptr, m_nmTot);
+                NekBlas::Gemm(handle, "N", "N", m_nmTot, nelmtTot, m_nmTot,
+                              (TData)1.0, m_invmassptr, m_nmTot, inptr, m_nmTot,
+                              (TData)0.0, outptr, m_nmTot);
 
                 // Divide by Jacobian.
                 DivideByJacobian<ExecSpace, false>(nelmt, m_nmTot, nhomo,

@@ -37,7 +37,7 @@
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 
-#include "Operators/Common/Memory/MemoryAlloc.hpp"
+#include "LibUtilities/Memory/MemoryAlloc.hpp"
 
 /**
  * @brief Possible states for Field data.

@@ -34,4 +34,7 @@
 
 #include "magmaHandle.hpp"
 
+namespace Nektar::NekBlas
+{
 std::unordered_map<unsigned int, magma_queue_t> magmaHandle::handle;
+}

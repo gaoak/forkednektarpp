@@ -36,12 +36,14 @@
 
 #include "LibUtilities/BasicUtils/ErrorUtil.hpp"
 
+namespace Nektar::NekBlas
+{
 template <typename THandle, typename TData,
           std::enable_if_t<std::is_same_v<THandle, hipblasHandle_t>, bool>>
-void NekGemm(THandle handle, std::string transposeA, std::string transposeB,
-             const int M, const int N, const int K, const TData alpha,
-             const TData *a, const int lda, const TData *b, const int ldb,
-             const TData beta, TData *c, const int ldc)
+void Gemm(THandle handle, std::string transposeA, std::string transposeB,
+          const int M, const int N, const int K, const TData alpha,
+          const TData *a, const int lda, const TData *b, const int ldb,
+          const TData beta, TData *c, const int ldc)
 {
     auto transA = (transposeA == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
     auto transB = (transposeB == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
@@ -60,13 +62,13 @@ void NekGemm(THandle handle, std::string transposeA, std::string transposeB,
 
 template <typename THandle, typename TData,
           std::enable_if_t<std::is_same_v<THandle, hipblasHandle_t>, bool>>
-void NekGemmStridedBatched(THandle handle, std::string transposeA,
-                           std::string transposeB, const int M, const int N,
-                           const int K, const TData alpha, const TData *a,
-                           const int lda, const int strideA, const TData *b,
-                           const int ldb, const int strideB, const TData beta,
-                           TData *c, const int ldc, const int strideC,
-                           const int batchSize)
+void GemmStridedBatched(THandle handle, std::string transposeA,
+                        std::string transposeB, const int M, const int N,
+                        const int K, const TData alpha, const TData *a,
+                        const int lda, const int strideA, const TData *b,
+                        const int ldb, const int strideB, const TData beta,
+                        TData *c, const int ldc, const int strideC,
+                        const int batchSize)
 {
     auto transA = (transposeA == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
     auto transB = (transposeB == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
@@ -87,9 +89,9 @@ void NekGemmStridedBatched(THandle handle, std::string transposeA,
 
 template <typename THandle, typename TData,
           std::enable_if_t<std::is_same_v<THandle, hipblasHandle_t>, bool>>
-void NekGemv(THandle handle, std::string transpose, const int M, const int N,
-             const TData alpha, const TData *a, const int lda, const TData *x,
-             const int incx, const TData beta, TData *y, const int incy)
+void Gemv(THandle handle, std::string transpose, const int M, const int N,
+          const TData alpha, const TData *a, const int lda, const TData *x,
+          const int incx, const TData beta, TData *y, const int incy)
 {
     auto trans = (transpose == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
 
@@ -107,12 +109,12 @@ void NekGemv(THandle handle, std::string transpose, const int M, const int N,
 
 template <typename THandle, typename TData,
           std::enable_if_t<std::is_same_v<THandle, hipblasHandle_t>, bool>>
-void NekGemvStridedBatched(THandle handle, std::string transpose, const int M,
-                           const int N, const TData alpha, const TData *a,
-                           const int lda, const int strideA, const TData *x,
-                           const int incx, const int strideX, const TData beta,
-                           TData *y, const int incy, const int strideY,
-                           const int batchSize)
+void GemvStridedBatched(THandle handle, std::string transpose, const int M,
+                        const int N, const TData alpha, const TData *a,
+                        const int lda, const int strideA, const TData *x,
+                        const int incx, const int strideX, const TData beta,
+                        TData *y, const int incy, const int strideY,
+                        const int batchSize)
 {
     auto trans = (transpose == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
 
@@ -130,50 +132,51 @@ void NekGemvStridedBatched(THandle handle, std::string transpose, const int M,
     }
 }
 
-template void NekGemm<hipblasHandle_t, float>(
+template void Gemm<hipblasHandle_t, float>(
     hipblasHandle_t handle, std::string transposeA, std::string transposeB,
     const int M, const int N, const int K, const float alpha, const float *a,
     const int lda, const float *b, const int ldb, const float beta, float *c,
     const int ldc);
 
-template void NekGemm<hipblasHandle_t, double>(
+template void Gemm<hipblasHandle_t, double>(
     hipblasHandle_t handle, std::string transposeA, std::string transposeB,
     const int M, const int N, const int K, const double alpha, const double *a,
     const int lda, const double *b, const int ldb, const double beta, double *c,
     const int ldc);
 
-template void NekGemmStridedBatched<hipblasHandle_t, float>(
+template void GemmStridedBatched<hipblasHandle_t, float>(
     hipblasHandle_t handle, std::string transposeA, std::string transposeB,
     const int M, const int N, const int K, const float alpha, const float *a,
     const int lda, const int strideA, const float *b, const int ldb,
     const int strideB, const float beta, float *c, const int ldc,
     const int strideC, const int batchSize);
 
-template void NekGemmStridedBatched<hipblasHandle_t, double>(
+template void GemmStridedBatched<hipblasHandle_t, double>(
     hipblasHandle_t handle, std::string transposeA, std::string transposeB,
     const int M, const int N, const int K, const double alpha, const double *a,
     const int lda, const int strideA, const double *b, const int ldb,
     const int strideB, const double beta, double *c, const int ldc,
     const int strideC, const int batchSize);
 
-template void NekGemv<hipblasHandle_t, float>(
+template void Gemv<hipblasHandle_t, float>(
     hipblasHandle_t handle, std::string transpose, const int M, const int N,
     const float alpha, const float *a, const int lda, const float *x,
     const int incx, const float beta, float *y, const int incy);
 
-template void NekGemv<hipblasHandle_t, double>(
+template void Gemv<hipblasHandle_t, double>(
     hipblasHandle_t handle, std::string transpose, const int M, const int N,
     const double alpha, const double *a, const int lda, const double *x,
     const int incx, const double beta, double *y, const int incy);
 
-template void NekGemvStridedBatched<hipblasHandle_t, float>(
+template void GemvStridedBatched<hipblasHandle_t, float>(
     hipblasHandle_t handle, std::string transpose, const int M, const int N,
     const float alpha, const float *a, const int lda, const int strideA,
     const float *x, const int incx, const int strideX, const float beta,
     float *y, const int incy, const int strideY, const int batchSize);
 
-template void NekGemvStridedBatched<hipblasHandle_t, double>(
+template void GemvStridedBatched<hipblasHandle_t, double>(
     hipblasHandle_t handle, std::string transpose, const int M, const int N,
     const double alpha, const double *a, const int lda, const int strideA,
     const double *x, const int incx, const int strideX, const double beta,
     double *y, const int incy, const int strideY, const int batchSize);
+} // namespace Nektar::NekBlas

@@ -331,14 +331,38 @@ SET(BaseHeaders
 )
 
 IF (NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-    SET(DeviceSupportHeaders ../Operators/Common/Backends/CUDAStream.hpp)
-    SET(DeviceSupportSources ../Operators/Common/Backends/CUDAStream.cpp)
+    SET(DeviceSupportHeaders 
+        ./Memory/MemoryAlloc.hpp
+        ../Operators/Common/Backends/CUDAStream.hpp
+    )
+    SET(DeviceSupportSources 
+        ./Memory/MemoryAlloc.cu
+        ../Operators/Common/Backends/CUDAStream.cpp
+    )
 ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
-    SET(DeviceSupportHeaders ../Operators/Common/Backends/HIPStream.hpp)
-    SET(DeviceSupportSources ../Operators/Common/Backends/HIPStream.cpp)
+    SET(DeviceSupportHeaders 
+        ./Memory/MemoryAlloc.hpp
+        ../Operators/Common/Backends/HIPStream.hpp
+    )
+    SET(DeviceSupportSources 
+        ./Memory/MemoryAlloc.hip
+        ../Operators/Common/Backends/HIPStream.cpp
+    )
 ELSEIF (NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
-    SET(DeviceSupportHeaders ../Operators/Common/Backends/SYCLQueue.hpp)
-    SET(DeviceSupportSources ../Operators/Common/Backends/SYCLQueue.cpp)
+    SET(DeviceSupportHeaders 
+        ./Memory/MemoryAlloc.hpp
+        ../Operators/Common/Backends/SYCLQueue.hpp
+    )
+    SET(DeviceSupportSources 
+        ./Memory/MemoryAlloc.hpp
+        ../Operators/Common/Backends/SYCLQueue.cpp
+    )
+ELSE()
+    SET(DeviceSupportHeaders 
+        ./Memory/MemoryAlloc.hpp
+    )
+    SET(DeviceSupportSources 
+    )
 ENDIF()
 
 SOURCE_GROUP("Basic Const" FILES ${BasicConstHeaders})

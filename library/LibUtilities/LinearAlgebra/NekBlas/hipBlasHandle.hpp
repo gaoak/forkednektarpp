@@ -41,6 +41,8 @@
 
 #include <Operators/Common/Backends/HIPStream.hpp>
 
+namespace Nektar::NekBlas
+{
 #define HIPBLAS_CHECK(condition)                                               \
     {                                                                          \
         const hipblasStatus_t status = condition;                              \
@@ -74,3 +76,4 @@ public:
 private:
     static hipblasHandle_t handle;
 };
+} // namespace Nektar::NekBlas

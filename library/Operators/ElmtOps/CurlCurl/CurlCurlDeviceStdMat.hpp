@@ -190,7 +190,7 @@ protected:
     void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
                  BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
-        auto handle = NekHandle<ExecSpace>::GetInstance(m_streamID);
+        auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
         ASSERTL0(inblock.GetNumHomoModes() == 1,
                  "Currently only setup for one homogenous plane");
@@ -226,10 +226,10 @@ protected:
         auto computePhysDeriv = [&](const TData *fieldptr, TData *physOut) {
             for (unsigned int d = 0; d < m_dimension; d++)
             {
-                NekGemm(handle, "N", "N", m_nqTot, nelmt, m_nqTot, (TData)1.0,
-                        m_matptr + d * m_nqTot * m_nqTot, m_nqTot, fieldptr,
-                        m_nqTot, (TData)0.0, derivRef + d * derivoffset,
-                        m_nqTot);
+                NekBlas::Gemm(handle, "N", "N", m_nqTot, nelmt, m_nqTot,
+                              (TData)1.0, m_matptr + d * m_nqTot * m_nqTot,
+                              m_nqTot, fieldptr, m_nqTot, (TData)0.0,
+                              derivRef + d * derivoffset, m_nqTot);
             }
 
             if (m_isDeformed)

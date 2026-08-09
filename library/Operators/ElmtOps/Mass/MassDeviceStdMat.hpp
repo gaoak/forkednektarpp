@@ -130,7 +130,7 @@ protected:
     void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
                  BlockAccessor<TData, FieldState::Coeff> &outblock) override
     {
-        auto handle = NekHandle<ExecSpace>::GetInstance(m_streamID);
+        auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
         const auto nhomo = inblock.GetNumHomoModes();
         const auto nelmt = inblock.GetNumElementsWithPadding();
@@ -161,9 +161,9 @@ protected:
             {
                 // Step 1: BwdTrans
                 // Perform matrix-matrix multiply.
-                NekGemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot,
-                        (TData)1.0, m_bwdmat, m_nqTot, inptr, m_nmTot,
-                        (TData)0.0, wspptr, m_nqTot);
+                NekBlas::Gemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot,
+                              (TData)1.0, m_bwdmat, m_nqTot, inptr, m_nmTot,
+                              (TData)0.0, wspptr, m_nqTot);
 
                 // Multiply by jacobian.
                 MultiplyByJacobian<ExecSpace, true>(nelmt, m_nqTot, nhomo,
@@ -172,16 +172,16 @@ protected:
 
                 // Step 2: IProduct
                 // Perform matrix-matrix multiply.
-                NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot,
-                        (TData)1.0, m_ipbmat, m_nmTot, wspptr, m_nqTot,
-                        (TData)0.0, outptr, m_nmTot);
+                NekBlas::Gemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot,
+                              (TData)1.0, m_ipbmat, m_nmTot, wspptr, m_nqTot,
+                              (TData)0.0, outptr, m_nmTot);
             }
             else
             {
                 // Perform matrix-matrix multiply.
-                NekGemm(handle, "N", "N", m_nmTot, nelmtTot, m_nmTot,
-                        (TData)1.0, m_massmat, m_nmTot, inptr, m_nmTot,
-                        (TData)0.0, outptr, m_nmTot);
+                NekBlas::Gemm(handle, "N", "N", m_nmTot, nelmtTot, m_nmTot,
+                              (TData)1.0, m_massmat, m_nmTot, inptr, m_nmTot,
+                              (TData)0.0, outptr, m_nmTot);
 
                 // Multiply by jacobian.
                 MultiplyByJacobian<ExecSpace, false>(nelmt, m_nmTot, nhomo,
