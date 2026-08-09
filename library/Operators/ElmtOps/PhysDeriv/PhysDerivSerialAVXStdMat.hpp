@@ -130,6 +130,7 @@ protected:
             simd_t::width, m_nqTot, m_nqTot, 1.0, 0.0);
 
         // Loop over components.
+        const auto outDim = (outblock.GetNumHomoModes() > 1) ? 3u : m_coordDim;
         const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
         const auto outoffset_vec =
             outblock.CompSize() * outblock.GetNumHomoModes() / simd_t::width;
@@ -185,7 +186,7 @@ protected:
                         m_nqTot,
                         (TData *)inptr -
                             (width_ratio - 1) * m_nqTot * simd_t::width);
-                    for (unsigned int k = 0; k < m_coordDim; k++)
+                    for (unsigned int k = 0; k < outDim; k++)
                     {
                         ReshapeStorage<ExecSpace>(
                             interleaveWidth, m_implInterleaveWidth, chunkSize,
@@ -202,7 +203,7 @@ protected:
 
             if ((n + 1) % outblock.GetNumHomoModes() == 0)
             {
-                outptr += (m_coordDim - 1) * outoffset;
+                outptr += (outDim - 1) * outoffset;
             }
         }
 

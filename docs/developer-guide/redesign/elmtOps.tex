@@ -1087,4 +1087,43 @@ The arguments and their meanings of the BwdTransQuadSumFacTOPKernel function for
 \bottomrule
 \end{tabularx}
 \end{table}
+
+\section{PhysDeriv z-derivative GPU acceleration (3DH1D)}
+
+In three-dimensional configurations with one homogeneous direction (3DH1D),
+computing $\partial u / \partial z$ requires a Fourier-space wavenumber
+multiplication that is independent of the per-element operators used for the
+$x$ and $y$ directions. Two GPU backends are provided and selected via the
+\texttt{ExecSpace} template parameter of \texttt{PhysDerivOp}:
+
+\begin{description}
+  \item[\texttt{DeviceSpace}] Uses \texttt{PhysDerivZCuFFT} to execute a
+    batched cuFFT D2Z transform, multiply each Fourier mode by
+    $i k_z \beta$ (with $\beta = 2\pi/L_z$), and an inverse Z2D transform
+    entirely on the GPU.  The pipeline is captured as a CUDA graph on the
+    second call and replayed on subsequent calls. Enabled when CMake is
+    configured with \texttt{NEKTAR\_ENABLE\_DEVICE=CUDA}.
+
+  \item[\texttt{DeviceDxSpace}] Uses \texttt{NekCuFFTDx} to execute the
+    same D2Z + multiply + Z2D pipeline via a fused cuFFTDx kernel, avoiding
+    the overhead of separate cuFFT plan launches. Requires
+    \texttt{NEKTAR\_USE\_CUFFTDX=ON} and a CUDA toolkit with cuFFTDx support.
+\end{description}
+
+Both backends are wired into \texttt{PhysDerivZOp} via template
+specialisations in \texttt{PhysDerivZOpDevice.h} and
+\texttt{PhysDerivZOpDeviceDx.h} respectively. The host fallback
+(\texttt{HostSpace}) delegates the z-derivative to the existing FFTW-based
+\texttt{ExpListHomogeneous1D} pipeline.
+
+\subsection{CMake options}
+
+\begin{description}
+  \item[\texttt{NEKTAR\_USE\_CUFFT\_STATIC}] Link cuFFT statically
+    (default: \texttt{OFF}).  Required to enable cuFFT store-callback
+    support in \texttt{NekCuFFT}.
+  \item[\texttt{NEKTAR\_USE\_CUFFTDX}] Enable the fused cuFFTDx kernel
+    path (\texttt{DeviceDxSpace}).  Requires the cuFFTDx header-only
+    library and a compatible GPU architecture.
+\end{description}
 %%TODO: describe difference between shared and non-shared wsp in sumfactop and sumfac

@@ -112,6 +112,18 @@ IF(NEKTAR_USE_FFTW)
     SET(FFTSources ${FFTSources} ./FFT/NekFFTW.cpp)
 ENDIF(NEKTAR_USE_FFTW)
 
+IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+    SET(FFTHeaders ${FFTHeaders} ./FFT/NekDeviceFFT.h ./FFT/NekCuFFT.h ./FFT/PhysDerivZCuFFT.h
+        ../Operators/Common/DeviceProperties.hpp)
+    SET(FFTSources ${FFTSources} ./FFT/NekCuFFT.cu ./FFT/PhysDerivZCuFFT.cu
+        ../Operators/Common/DeviceProperties.cpp)
+
+    IF(NEKTAR_USE_CUFFTDX)
+        SET(FFTHeaders ${FFTHeaders} ./FFT/NekCuFFTDx.h)
+        SET(FFTSources ${FFTSources} ./FFT/NekCuFFTDx.cu)
+    ENDIF()
+ENDIF()
+
 SET(FoundationHeaders
     ./Foundations/Basis.h
     ./Foundations/BasisType.h
@@ -480,8 +492,8 @@ IF(THIRDPARTY_BUILD_BLAS_LAPACK)
     ADD_DEPENDENCIES(LibUtilities lapack-3.7.1)
 ENDIF()
 
-# NekBlas
 IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
+    # NekBlas
     SET(NEKBLAS_HEADERS
         ${NEKBLAS_HEADERS}
         ./LinearAlgebra/Blas.hpp
@@ -607,10 +619,82 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
     ENDIF()
 
     TARGET_LINK_LIBRARIES(LibUtilities LINK_PUBLIC NekBlas)
+
+    # CUFFT
+    IF (NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+        option(NEKTAR_ENABLE_NVTX "Enable NVTX profiling markers in NekDeviceFFT (CUDA backend)" OFF)
+        if(NEKTAR_ENABLE_NVTX)
+            find_path(NVTX_INCLUDE_DIR
+                    NAMES nvtx3/nvToolsExt.h nvToolsExt.h
+                    HINTS ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+            find_library(NVTX_LIBRARY
+                    NAMES nvToolsExt
+                    HINTS ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
+            if(NOT NVTX_INCLUDE_DIR)
+                message(FATAL_ERROR
+                        "NEKTAR_ENABLE_NVTX: could not find NVTX headers. "
+                        "Ensure the CUDA module is loaded.")
+            endif()
+            target_include_directories(LibUtilities PRIVATE ${NVTX_INCLUDE_DIR})
+            if(NVTX_LIBRARY)
+                target_link_libraries(LibUtilities PRIVATE ${NVTX_LIBRARY})
+            endif()
+            target_compile_definitions(LibUtilities PRIVATE NEKTAR_ENABLE_NVTX)
+            message(STATUS "NekDeviceFFT: NVTX markers enabled (${NVTX_INCLUDE_DIR})")
+        endif()
+        IF(NEKTAR_USE_CUFFT_STATIC)
+            target_compile_definitions(LibUtilities PRIVATE NEKTAR_USE_CUFFT_STATIC)
+            set_target_properties(LibUtilities PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS OFF)
+
+            IF(CMAKE_CUDA_ARCHITECTURES STREQUAL "native")
+                SET(_cufft_arch_flags "-arch=native")
+            ELSE()
+                SET(_cufft_arch_flags "")
+                FOREACH(_a ${CMAKE_CUDA_ARCHITECTURES})
+                    LIST(APPEND _cufft_arch_flags
+                        "-gencode" "arch=compute_${_a},code=sm_${_a}")
+                ENDFOREACH()
+            ENDIF()
+
+            # NekCuFFT.cu.o path under the CMake Makefile generator
+            SET(_nekcufft_obj
+                "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/LibUtilities.dir/FFT/NekCuFFT.cu.o")
+            SET(_merged_dlink
+                "${CMAKE_CURRENT_BINARY_DIR}/cufft_merged_device_link.o")
+
+            ADD_CUSTOM_COMMAND(
+                OUTPUT  "${_merged_dlink}"
+                COMMAND "${CMAKE_CUDA_COMPILER}"
+                        ${_cufft_arch_flags}
+                        --compiler-options=-fPIC
+                        -dlink
+                        "${_nekcufft_obj}"
+                        "$<TARGET_FILE:CUDA::cufft_static>"
+                        -o "${_merged_dlink}"
+                DEPENDS "${_nekcufft_obj}" "$<TARGET_FILE:CUDA::cufft_static>"
+                COMMENT "nvlink: merged device-link NekCuFFT.cu + libcufft_static (callback fat-binary)"
+                VERBATIM
+            )
+            ADD_CUSTOM_TARGET(cufft_merged_dlink DEPENDS "${_merged_dlink}")
+            ADD_DEPENDENCIES(LibUtilities cufft_merged_dlink)
+            TARGET_LINK_LIBRARIES(LibUtilities PRIVATE "${_merged_dlink}")
+        ENDIF()
+
+        if(NEKTAR_USE_CUFFTDX)
+            TARGET_INCLUDE_DIRECTORIES(LibUtilities PUBLIC $<BUILD_INTERFACE:${CUFFTDX_INCLUDE_DIR}>)
+            TARGET_INCLUDE_DIRECTORIES(LibUtilities PUBLIC
+                    $<BUILD_INTERFACE:${CUFFTDX_INCLUDE_DIR}/../external/cutlass/include>)
+            TARGET_COMPILE_DEFINITIONS(LibUtilities PUBLIC NEKTAR_USE_CUFFTDX)
+            TARGET_COMPILE_DEFINITIONS(LibUtilities PRIVATE
+                CUFFTDX_TARGET_SM=${CUFFTDX_TARGET_SM})
+            MESSAGE(STATUS "NekCuFFTDx: enabled (${CUFFTDX_INCLUDE_DIR}), SM=${CUFFTDX_TARGET_SM}")
+        endif()
+        TARGET_LINK_LIBRARIES(LibUtilities LINK_PUBLIC ${CUFFT_LIBRARY})
+    ENDIF()
+
     TARGET_LINK_LIBRARIES(LibUtilities LINK_PUBLIC ${NEKTAR_CUDA_DEPENDS})
     TARGET_LINK_LIBRARIES(LibUtilities LINK_PUBLIC ${NEKTAR_HIP_DEPENDS})
     TARGET_LINK_LIBRARIES(LibUtilities LINK_PUBLIC ${NEKTAR_SYCL_DEPENDS})
-
 ENDIF()
 
 IF( NEKTAR_USE_PETSC )

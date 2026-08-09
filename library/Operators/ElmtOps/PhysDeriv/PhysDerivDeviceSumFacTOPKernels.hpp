@@ -672,15 +672,16 @@ NEK_DEVICE_KERNEL void PhysDeriv1DKernelLauncher(
     const unsigned int ndf    = ncoord;
     const unsigned int dfsize = DEFORMED ? nq0 : 1u;
 
-    size_t e                 = getBlockIdx<0>(threadBlock);
-    const unsigned int m     = getBlockIdx<1>(threadBlock);
-    const unsigned int c     = getBlockIdx<2>(threadBlock);
-    const unsigned int nmode = getBlockRange<1>(threadBlock);
+    size_t e                  = getBlockIdx<0>(threadBlock);
+    const unsigned int m      = getBlockIdx<1>(threadBlock);
+    const unsigned int c      = getBlockIdx<2>(threadBlock);
+    const unsigned int nmode  = getBlockRange<1>(threadBlock);
+    const unsigned int outDim = (nmode > 1) ? 3u : ncoord;
     while (e < nelmt)
     {
         const TData *dfptr = df + ndf * dfsize * e;
         const TData *inptr = in + nq0 * nelmt * (nmode * c + m) + nq0 * e;
-        TData *outptr = out + nq0 * nelmt * (ncoord * nmode * c + m) + nq0 * e;
+        TData *outptr = out + nq0 * nelmt * (outDim * nmode * c + m) + nq0 * e;
         PhysDeriv1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, outoffset, D0, dfptr,
                                              inptr, outptr, threadBlock);
         e += getBlockRange<0>(threadBlock);
@@ -753,16 +754,17 @@ NEK_DEVICE_KERNEL void PhysDeriv2DKernelLauncher(
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    size_t e                 = getBlockIdx<0>(threadBlock);
-    const unsigned int m     = getBlockIdx<1>(threadBlock);
-    const unsigned int c     = getBlockIdx<2>(threadBlock);
-    const unsigned int nmode = getBlockRange<1>(threadBlock);
+    size_t e                  = getBlockIdx<0>(threadBlock);
+    const unsigned int m      = getBlockIdx<1>(threadBlock);
+    const unsigned int c      = getBlockIdx<2>(threadBlock);
+    const unsigned int nmode  = getBlockRange<1>(threadBlock);
+    const unsigned int outDim = (nmode > 1) ? 3u : ncoord;
     while (e < nelmt)
     {
         const TData *dfptr = df + ndf * dfsize * e;
         const TData *inptr = in + nqTot * nelmt * (nmode * c + m) + nqTot * e;
         TData *outptr =
-            out + nqTot * nelmt * (ncoord * nmode * c + m) + nqTot * e;
+            out + nqTot * nelmt * (outDim * nmode * c + m) + nqTot * e;
 
         // Copy to shared memory.
         for (unsigned int idx = idx0; idx < nqTot; idx += stride)
