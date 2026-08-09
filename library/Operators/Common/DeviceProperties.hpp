@@ -227,7 +227,7 @@ private:
     {
         if (prop == nullptr)
         {
-            prop = new std::unordered_map<unsigned int, cudaDeviceProp>;
+            prop = new std::unordered_map<unsigned int, hipDeviceProp_t>;
         }
 
         if (prop->find(id) == prop->end())
