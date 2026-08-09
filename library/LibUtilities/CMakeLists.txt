@@ -622,39 +622,17 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
 
     # CUFFT
     IF (NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-        option(NEKTAR_ENABLE_NVTX "Enable NVTX profiling markers in NekDeviceFFT (CUDA backend)" OFF)
         if(NEKTAR_ENABLE_NVTX)
-            find_path(NVTX_INCLUDE_DIR
-                    NAMES nvtx3/nvToolsExt.h nvToolsExt.h
-                    HINTS ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
-            find_library(NVTX_LIBRARY
-                    NAMES nvToolsExt
-                    HINTS ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
-            if(NOT NVTX_INCLUDE_DIR)
-                message(FATAL_ERROR
-                        "NEKTAR_ENABLE_NVTX: could not find NVTX headers. "
-                        "Ensure the CUDA module is loaded.")
-            endif()
-            target_include_directories(LibUtilities PRIVATE ${NVTX_INCLUDE_DIR})
+            TARGET_INCLUDE_DIRECTORIES(LibUtilities PRIVATE ${NVTX_INCLUDE_DIR})
             if(NVTX_LIBRARY)
-                target_link_libraries(LibUtilities PRIVATE ${NVTX_LIBRARY})
+                TARGET_LINK_LIBRARIES(LibUtilities PRIVATE ${NVTX_LIBRARY})
             endif()
-            target_compile_definitions(LibUtilities PRIVATE NEKTAR_ENABLE_NVTX)
-            message(STATUS "NekDeviceFFT: NVTX markers enabled (${NVTX_INCLUDE_DIR})")
+            TARGET_COMPILE_DEFINITIONS(LibUtilities PRIVATE NEKTAR_ENABLE_NVTX)
+            MESSAGE(STATUS "NekDeviceFFT: NVTX markers enabled (${NVTX_INCLUDE_DIR})")
         endif()
         IF(NEKTAR_USE_CUFFT_STATIC)
-            target_compile_definitions(LibUtilities PRIVATE NEKTAR_USE_CUFFT_STATIC)
-            set_target_properties(LibUtilities PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS OFF)
-
-            IF(CMAKE_CUDA_ARCHITECTURES STREQUAL "native")
-                SET(_cufft_arch_flags "-arch=native")
-            ELSE()
-                SET(_cufft_arch_flags "")
-                FOREACH(_a ${CMAKE_CUDA_ARCHITECTURES})
-                    LIST(APPEND _cufft_arch_flags
-                        "-gencode" "arch=compute_${_a},code=sm_${_a}")
-                ENDFOREACH()
-            ENDIF()
+            TARGET_COMPILE_DEFINITIONS(LibUtilities PRIVATE NEKTAR_USE_CUFFT_STATIC)
+            SET_TARGET_PROPERTIES(LibUtilities PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS OFF)
 
             # NekCuFFT.cu.o path under the CMake Makefile generator
             SET(_nekcufft_obj
@@ -665,7 +643,7 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
             ADD_CUSTOM_COMMAND(
                 OUTPUT  "${_merged_dlink}"
                 COMMAND "${CMAKE_CUDA_COMPILER}"
-                        ${_cufft_arch_flags}
+                        ${CUFFT_ARCH_FLAGS}
                         --compiler-options=-fPIC
                         -dlink
                         "${_nekcufft_obj}"

@@ -64,11 +64,27 @@ inline void checkCufft(cufftResult err, const char *msg)
                                  " (cufftResult=" + std::to_string(err) + ")");
 }
 
+template <typename T> struct cufftComplexData;
+
+template <> struct cufftComplexData<double>
+{
+    using type = cufftDoubleComplex;
+};
+
+template <> struct cufftComplexData<float>
+{
+    using type = cufftComplex;
+};
+
+template <typename T>
+using cufftComplexData_t = typename cufftComplexData<T>::type;
+
 // Multiplies by i*k*beta*normScale in-place. DC and Nyquist are zeroed.
 // Batch goes in x, wavenumber range in y.
+template <typename TData>
 __global__ static void WavenumberMultiplyKernel(
-    cufftDoubleComplex *__restrict__ d_cmplx, int halfN, double beta,
-    double normScale)
+    cufftComplexData_t<TData> *__restrict__ d_cmplx, int halfN, TData beta,
+    TData normScale)
 {
     const int b = static_cast<int>(blockIdx.x);
     const int k = static_cast<int>(blockIdx.y) * blockDim.x + threadIdx.x;
@@ -83,8 +99,8 @@ __global__ static void WavenumberMultiplyKernel(
         return;
     }
 
-    const cufftDoubleComplex cx  = d_cmplx[b * (halfN + 1) + k];
-    const double scale           = static_cast<double>(k) * beta * normScale;
+    const cufftComplexData_t<TData> cx = d_cmplx[b * (halfN + 1) + k];
+    const TData scale            = static_cast<TData>(k) * beta * normScale;
     d_cmplx[b * (halfN + 1) + k] = {-cx.y * scale, cx.x * scale};
 }
 
@@ -124,17 +140,17 @@ struct DirectPlanKeyHash
     }
 };
 
-struct DirectPlanEntry
+template <typename TData> struct DirectPlanEntry
 {
-    cufftHandle planFwd         = 0;
-    cufftHandle planBwd         = 0;
-    cufftDoubleComplex *d_cmplx = nullptr;
-    void *d_workspace           = nullptr;
-    int halfN                   = 0;
-    int blockSizeWave           = 0;
+    cufftHandle planFwd                = 0;
+    cufftHandle planBwd                = 0;
+    cufftComplexData_t<TData> *d_cmplx = nullptr;
+    void *d_workspace                  = nullptr;
+    int halfN                          = 0;
+    int blockSizeWave                  = 0;
 };
 
-class DirectPlanCache
+template <typename TData> class DirectPlanCache
 {
 public:
     static DirectPlanCache &Instance()
@@ -143,7 +159,7 @@ public:
         return instance;
     }
 
-    bool Lookup(const DirectPlanKey &key, DirectPlanEntry &entry) const
+    bool Lookup(const DirectPlanKey &key, DirectPlanEntry<TData> &entry) const
     {
         auto it = m_map.find(key);
         if (it == m_map.end())
@@ -154,7 +170,7 @@ public:
         return true;
     }
 
-    void Register(const DirectPlanKey &key, const DirectPlanEntry &entry)
+    void Register(const DirectPlanKey &key, const DirectPlanEntry<TData> &entry)
     {
         m_map[key] = entry;
     }
@@ -162,18 +178,20 @@ public:
 private:
     DirectPlanCache() = default;
 
-    std::unordered_map<DirectPlanKey, DirectPlanEntry, DirectPlanKeyHash> m_map;
+    std::unordered_map<DirectPlanKey, DirectPlanEntry<TData>, DirectPlanKeyHash>
+        m_map;
 };
 
-DirectPlanEntry CreateEntry(int nhomo, int NXY, int compStride,
-                            cudaStream_t stream)
+template <typename TData>
+DirectPlanEntry<TData> CreateEntry(int nhomo, int NXY, int compStride,
+                                   cudaStream_t stream)
 {
-    DirectPlanEntry e;
+    DirectPlanEntry<TData> e;
     e.halfN = nhomo / 2;
 
     const std::size_t nCmplx = static_cast<std::size_t>(NXY) * (e.halfN + 1);
     checkCuda(cudaMalloc(reinterpret_cast<void **>(&e.d_cmplx),
-                         nCmplx * sizeof(cufftDoubleComplex)),
+                         nCmplx * sizeof(cufftComplexData_t<TData>)),
               "NekCuFFTDirect: cudaMalloc d_cmplx");
 
     checkCufft(cufftCreate(&e.planFwd), "NekCuFFTDirect: cufftCreate forward");
@@ -226,23 +244,34 @@ DirectPlanEntry CreateEntry(int nhomo, int NXY, int compStride,
     {
         int dummy;
         checkCuda(cudaOccupancyMaxPotentialBlockSize(
-                      &dummy, &e.blockSizeWave, WavenumberMultiplyKernel, 0, 0),
+                      &dummy, &e.blockSizeWave, WavenumberMultiplyKernel<TData>,
+                      0, 0),
                   "NekCuFFTDirect: cudaOccupancyMaxPotentialBlockSize");
         (void)dummy;
     }
 
-    double *d_tmp = nullptr;
+    TData *d_tmp = nullptr;
     const std::size_t nPhys =
         static_cast<std::size_t>(nhomo) * static_cast<std::size_t>(compStride);
     checkCuda(
-        cudaMalloc(reinterpret_cast<void **>(&d_tmp), nPhys * sizeof(double)),
+        cudaMalloc(reinterpret_cast<void **>(&d_tmp), nPhys * sizeof(TData)),
         "NekCuFFTDirect: cudaMalloc warm-up buffer");
-    checkCuda(cudaMemset(d_tmp, 0, nPhys * sizeof(double)),
+    checkCuda(cudaMemset(d_tmp, 0, nPhys * sizeof(TData)),
               "NekCuFFTDirect: cudaMemset warm-up buffer");
-    checkCufft(cufftExecD2Z(e.planFwd, d_tmp, e.d_cmplx),
-               "NekCuFFTDirect: warm-up D2Z");
-    checkCufft(cufftExecZ2D(e.planBwd, e.d_cmplx, d_tmp),
-               "NekCuFFTDirect: warm-up Z2D");
+    if constexpr (std::is_same_v<TData, double>)
+    {
+        checkCufft(cufftExecD2Z(e.planFwd, d_tmp, e.d_cmplx),
+                   "NekCuFFTDirect: warm-up D2Z");
+        checkCufft(cufftExecZ2D(e.planBwd, e.d_cmplx, d_tmp),
+                   "NekCuFFTDirect: warm-up Z2D");
+    }
+    else if constexpr (std::is_same_v<TData, float>)
+    {
+        checkCufft(cufftExecR2C(e.planFwd, d_tmp, e.d_cmplx),
+                   "NekCuFFTDirect: warm-up R2C");
+        checkCufft(cufftExecC2R(e.planBwd, e.d_cmplx, d_tmp),
+                   "NekCuFFTDirect: warm-up C2R");
+    }
     checkCuda(cudaStreamSynchronize(stream), "NekCuFFTDirect: warm-up sync");
     checkCuda(cudaFree(d_tmp), "NekCuFFTDirect: warm-up buffer free");
 
@@ -251,26 +280,36 @@ DirectPlanEntry CreateEntry(int nhomo, int NXY, int compStride,
 
 } // anonymous namespace
 
-void PhysDerivZDirect(const double *d_in, double *d_out, int nhomo, int NXY,
-                      int compStride, double beta, cudaStream_t stream)
+template <typename TData>
+void PhysDerivZDirect(const TData *d_in, TData *d_out, int nhomo, int NXY,
+                      int compStride, TData beta, cudaStream_t stream)
 {
     int deviceId = 0;
     checkCuda(cudaGetDevice(&deviceId), "NekCuFFTDirect: cudaGetDevice");
 
     const DirectPlanKey key{deviceId, nhomo, NXY, compStride, stream};
 
-    DirectPlanEntry entry;
-    if (!DirectPlanCache::Instance().Lookup(key, entry))
+    DirectPlanEntry<TData> entry;
+    if (!DirectPlanCache<TData>::Instance().Lookup(key, entry))
     {
-        entry = CreateEntry(nhomo, NXY, compStride, stream);
-        DirectPlanCache::Instance().Register(key, entry);
+        entry = CreateEntry<TData>(nhomo, NXY, compStride, stream);
+        DirectPlanCache<TData>::Instance().Register(key, entry);
     }
 
-    checkCufft(
-        cufftExecD2Z(entry.planFwd, const_cast<double *>(d_in), entry.d_cmplx),
-        "NekCuFFTDirect: cufftExecD2Z");
+    if constexpr (std::is_same_v<TData, double>)
+    {
+        checkCufft(cufftExecD2Z(entry.planFwd, const_cast<TData *>(d_in),
+                                entry.d_cmplx),
+                   "NekCuFFTDirect: cufftExecD2Z");
+    }
+    else if constexpr (std::is_same_v<TData, float>)
+    {
+        checkCufft(cufftExecR2C(entry.planFwd, const_cast<TData *>(d_in),
+                                entry.d_cmplx),
+                   "NekCuFFTDirect: cufftExecR2C");
+    }
 
-    const double invN = 1.0 / static_cast<double>(nhomo);
+    const TData invN = 1.0 / static_cast<TData>(nhomo);
     const dim3 grid(
         static_cast<unsigned>(NXY),
         static_cast<unsigned>((entry.halfN + 1 + entry.blockSizeWave - 1) /
@@ -278,9 +317,24 @@ void PhysDerivZDirect(const double *d_in, double *d_out, int nhomo, int NXY,
     WavenumberMultiplyKernel<<<grid, entry.blockSizeWave, 0, stream>>>(
         entry.d_cmplx, entry.halfN, beta, invN);
 
-    checkCufft(cufftExecZ2D(entry.planBwd, entry.d_cmplx, d_out),
-               "NekCuFFTDirect: cufftExecZ2D");
+    if constexpr (std::is_same_v<TData, double>)
+    {
+        checkCufft(cufftExecZ2D(entry.planBwd, entry.d_cmplx, d_out),
+                   "NekCuFFTDirect: cufftExecZ2D");
+    }
+    else if constexpr (std::is_same_v<TData, float>)
+    {
+        checkCufft(cufftExecC2R(entry.planBwd, entry.d_cmplx, d_out),
+                   "NekCuFFTDirect: cufftExecZ2D");
+    }
 }
+
+template void PhysDerivZDirect<double>(const double *d_in, double *d_out,
+                                       int nhomo, int NXY, int compStride,
+                                       double beta, cudaStream_t stream);
+template void PhysDerivZDirect<float>(const float *d_in, float *d_out,
+                                      int nhomo, int NXY, int compStride,
+                                      float beta, cudaStream_t stream);
 
 } // namespace Nektar::LibUtilities
 

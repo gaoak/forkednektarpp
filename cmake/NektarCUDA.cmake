@@ -25,19 +25,6 @@ ADD_COMPILE_OPTIONS($<$<COMPILE_LANGUAGE:CUDA>:--diag_suppress=550>)
 
 SET(CUDA_SEPARABLE_COMPILATION ON)
 
-OPTION(NEKTAR_USE_CUFFT_STATIC
-        "Link cuFFT statically to enable store-callback support in NekCuFFT"
-        OFF)
-
-IF(NEKTAR_USE_CUFFT_STATIC)
-    SET(CMAKE_CUDA_RUNTIME_LIBRARY Static)
-    SET(CUFFT_LIBRARY CUDA::cufft_static CUDA::culibos)
-    MESSAGE(STATUS "NekCuFFT: static cuFFT linkage enabled (callbacks supported)")
-ELSE()
-    SET(CMAKE_CUDA_RUNTIME_LIBRARY SHARED)
-    SET(CUFFT_LIBRARY CUDA::cufft)
-ENDIF()
-
 IF (NEKTAR_DEVICE_ARCH)
     STRING(REPLACE "_" ";" ARCH ${NEKTAR_DEVICE_ARCH})
     LIST(GET ARCH 1 ARCH)
@@ -57,8 +44,31 @@ SET(CMAKE_CUDA_FLAGS "--extended-lambda --expt-relaxed-constexpr")
 FIND_PACKAGE(CUDAToolkit ${CUDA_MIN_VERSION} REQUIRED)
 INCLUDE_DIRECTORIES(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
-OPTION(NEKTAR_USE_CUFFTDX "Use cuFFTDx" OFF)
+OPTION(NEKTAR_USE_CUFFT_STATIC
+    "Link cuFFT statically to enable store-callback support in NekCuFFT"
+    OFF)
+MARK_AS_ADVANCED(NEKTAR_USE_CUFFT_STATIC)
+IF(NEKTAR_USE_CUFFT_STATIC)
+    SET(CMAKE_CUDA_RUNTIME_LIBRARY Static)
+    SET(CUFFT_LIBRARY CUDA::cufft_static CUDA::culibos)
+    MESSAGE(STATUS "NekCuFFT: static cuFFT linkage enabled (callbacks supported)")
 
+    IF(CMAKE_CUDA_ARCHITECTURES STREQUAL "native")
+        SET(CUFFT_ARCH_FLAGS "-arch=native")
+    ELSE()
+        SET(CUFFT_ARCH_FLAGS "")
+        FOREACH(_a ${CMAKE_CUDA_ARCHITECTURES})
+            LIST(APPEND CUFFT_ARCH_FLAGS
+                "-gencode" "arch=compute_${_a},code=sm_${_a}")
+        ENDFOREACH()
+    ENDIF()
+ELSE()
+    SET(CMAKE_CUDA_RUNTIME_LIBRARY SHARED)
+    SET(CUFFT_LIBRARY CUDA::cufft)
+ENDIF()
+
+OPTION(NEKTAR_USE_CUFFTDX "Use cuFFTDx" OFF)
+MARK_AS_ADVANCED(NEKTAR_USE_CUFFTDX)
 IF(NEKTAR_USE_CUFFTDX)
     FIND_PATH(CUFFTDX_INCLUDE_DIR cufftdx/cufftdx.hpp
               HINTS "$ENV{CUFFTDX_HOME}/include"
@@ -107,6 +117,22 @@ IF(NEKTAR_USE_CUFFTDX)
             ENDIF()
         ENDIF()
         MATH(EXPR CUFFTDX_TARGET_SM "${_cufftdx_arch_2digit} * 10")
+    ENDIF()
+ENDIF()
+
+OPTION(NEKTAR_ENABLE_NVTX "Enable NVTX profiling markers in NekDeviceFFT (CUDA backend)" OFF)
+MARK_AS_ADVANCED(NEKTAR_ENABLE_NVTX)
+if(NEKTAR_ENABLE_NVTX)
+    FIND_PATH(NVTX_INCLUDE_DIR
+            NAMES nvtx3/nvToolsExt.h nvToolsExt.h
+            HINTS ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+    FIND_LIBRARY(NVTX_LIBRARY
+            NAMES nvToolsExt
+            HINTS ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
+    IF(NOT NVTX_INCLUDE_DIR)
+        MESSAGE(FATAL_ERROR
+                "NEKTAR_ENABLE_NVTX: could not find NVTX headers. "
+                "Ensure the CUDA module is loaded.")
     ENDIF()
 ENDIF()
 

@@ -53,8 +53,9 @@ namespace Nektar::LibUtilities
 ///                   (>= NXY; equals NXY when there is no padding).
 /// \param beta       Wavenumber factor \f$2\pi/L_z\f$.
 /// \param stream     CUDA stream on which all work is submitted.
-void PhysDerivZDirect(const double *d_in, double *d_out, int nhomo, int NXY,
-                      int compStride, double beta, cudaStream_t stream);
+template <typename TData>
+void PhysDerivZDirect(const TData *d_in, TData *d_out, int nhomo, int NXY,
+                      int compStride, TData beta, cudaStream_t stream);
 
 } // namespace Nektar::LibUtilities
 

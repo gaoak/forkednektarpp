@@ -41,8 +41,6 @@
 
 #include <MultiRegions/ExpListHomogeneous1D.h>
 
-#include <LibUtilities/BasicUtils/Vmath.hpp>
-
 namespace Nektar::Operators
 {
 
@@ -163,17 +161,18 @@ protected:
             m_homoExpList->Homogeneous1DTrans(nTotal, gathered, coef, true);
 
             // Wavenumber multiply.
-            Vmath::Zero(nTotal, waveCoef.data(), 1);
+            std::memset(waveCoef.data(), 0, nTotal * sizeof(double));
             double sign = -1.0;
             for (int i = 0; i < iNhomo; ++i)
             {
                 const double betaI = -sign * 2.0 * M_PI *
                                      m_homoExpList->m_transposition->GetK(i) /
                                      lhom;
-                Vmath::Smul(planePts, betaI, coef.data() + i * planePts, 1,
-                            waveCoef.data() +
-                                (i - static_cast<int>(sign)) * planePts,
-                            1);
+                for (size_t j = 0; j < planePts; j++)
+                {
+                    waveCoef[(i - static_cast<int>(sign)) * planePts + j] =
+                        betaI * coef[i * planePts + j];
+                }
                 sign = -sign;
             }
 
