@@ -41,7 +41,7 @@
 #include <magma_v2.h>
 
 #if defined(NEKTAR_ENABLE_CUDA)
-#include <Operators/Common/Backends/CUDAStream.hpp>
+#include <LibUtilities/Backends/CUDAStream.hpp>
 namespace Nektar::NekBlas
 {
 #define CUBLAS_CHECK(condition)                                                \
@@ -57,7 +57,7 @@ namespace Nektar::NekBlas
     }
 } // namespace Nektar::NekBlas
 #elif defined(NEKTAR_ENABLE_HIP)
-#include <Operators/Common/Backends/HIPStream.hpp>
+#include <LibUtilities/Backends/HIPStream.hpp>
 namespace Nektar::NekBlas
 {
 #define HIPBLAS_CHECK(condition)                                               \

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: CUDA_Host_API.hpp
+// File: HIP_Host_API.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,49 +34,53 @@
 
 #pragma once
 
-#include <Operators/Common/Backends/CUDAStream.hpp>
-#include <nvrtc.h>
-// Helper to check CUDA driver errors
+#include <LibUtilities/Backends/HIPStream.hpp>
+#include <hip/hiprtc.h>
+
+namespace Nektar
+{
+
+// Helper to check HIP driver errors
 #define CHECK_HIPCUDA_DRIVER_ERROR(err)                                        \
+    if (err != hipSuccess)                                                     \
     {                                                                          \
-        if (err != CUDA_SUCCESS)                                               \
-        {                                                                      \
-            const char *errStr;                                                \
-            cuGetErrorString(err, &errStr);                                    \
-            fprintf(stderr, "CUDA Driver API Error: %s %s %d\n", errStr,       \
-                    __FILE__, __LINE__);                                       \
-            exit(1);                                                           \
-        }                                                                      \
+        std::cerr << "HIP Driver API Error at: " << __FILE__ << ":"            \
+                  << __LINE__ << std::endl;                                    \
+        std::cerr << hipGetErrorString(err) << std::endl;                      \
+        exit(0);                                                               \
     }
-// Helper to check NVRTC errors
+// Helper to check HIPRTC errors
 #define CHECK_NEKRTC_ERROR(err)                                                \
     {                                                                          \
-        if (err != NVRTC_SUCCESS)                                              \
+        if (err != HIPRTC_SUCCESS)                                             \
         {                                                                      \
-            std::cerr << "CUDA Runtime Error at: " << __FILE__ << ":"          \
+            std::cerr << "HIP Runtime Error at: " << __FILE__ << ":"           \
                       << __LINE__ << std::endl;                                \
-            std::cerr << "NVRTC error: " << nvrtcGetErrorString(err)           \
+            std::cerr << "HIPRTC error: " << hiprtcGetErrorString(err)         \
                       << std::endl;                                            \
             exit(1);                                                           \
         }                                                                      \
     }
-#define nekLaunchKernel cuLaunchKernel
-#define nekModuleLoadData cuModuleLoadData
-#define nekModuleGetFunction cuModuleGetFunction
-#define nekModuleUnload cuModuleUnload
-#define NEKdevice CUdevice
-#define NEKmodule CUmodule
-#define NEKfunction CUfunction
-#define nekrtcProgram nvrtcProgram
-#define nekrtcCreateProgram nvrtcCreateProgram
-#define nekrtcDestroyProgram nvrtcDestroyProgram
-#define nekrtcAddNameExpression nvrtcAddNameExpression
-#define nekrtcGetLoweredName nvrtcGetLoweredName
-#define nekrtcCompileProgram nvrtcCompileProgram
-#define nekrtcGetCodeSize nvrtcGetPTXSize
-#define nekrtcGetCode nvrtcGetPTX
+#define nekLaunchKernel hipModuleLaunchKernel
+#define nekModuleLoadData hipModuleLoadData
+#define nekModuleGetFunction hipModuleGetFunction
+#define nekModuleUnload hipModuleUnload
+#define NEKdevice hipDevice_t
+#define NEKmodule hipModule_t
+#define NEKfunction hipFunction_t
+#define nekrtcProgram hiprtcProgram
+#define nekrtcCreateProgram hiprtcCreateProgram
+#define nekrtcDestroyProgram hiprtcDestroyProgram
+#define nekrtcAddNameExpression hiprtcAddNameExpression
+#define nekrtcGetLoweredName hiprtcGetLoweredName
+#define nekrtcCompileProgram hiprtcCompileProgram
+#define nekrtcGetCodeSize hiprtcGetCodeSize
+#define nekrtcGetCode hiprtcGetCode
+} // namespace Nektar
 
-#if defined(NEKTAR_ENABLE_CUDA)
+#if defined(NEKTAR_ENABLE_HIP)
+namespace Nektar
+{
 template <unsigned int ndim> class hipcudaBlock
 {
 };
@@ -90,7 +94,7 @@ template <unsigned int ndim> class hipcudaBlock
 #define DEVICE_1DGRID_KERNEL_LAUNCHER(KERNEL, GRIDSIZE, BLOCKSIZE, SHMEMSIZE,  \
                                       STREAMID, ...)                           \
     {                                                                          \
-        auto STREAM             = CUDAStream::GetInstance(STREAMID);           \
+        auto STREAM             = HIPStream::GetInstance(STREAMID);            \
         unsigned char *shmemptr = nullptr;                                     \
         KERNEL<<<GRIDSIZE, BLOCKSIZE, SHMEMSIZE, STREAM>>>(                    \
             __VA_ARGS__, shmemptr, hipcudaBlock<1>());                         \
@@ -107,7 +111,7 @@ template <unsigned int ndim> class hipcudaBlock
                                       BLOCKSIZEX, BLOCKSIZEY, SHMEMSIZE,       \
                                       STREAMID, ...)                           \
     {                                                                          \
-        auto STREAM             = CUDAStream::GetInstance(STREAMID);           \
+        auto STREAM             = HIPStream::GetInstance(STREAMID);            \
         unsigned char *shmemptr = nullptr;                                     \
         dim3 GRIDSIZE(GRIDSIZEX, GRIDSIZEY, 1);                                \
         dim3 BLOCKSIZE(BLOCKSIZEX, BLOCKSIZEY, 1);                             \
@@ -126,7 +130,7 @@ template <unsigned int ndim> class hipcudaBlock
                                       BLOCKSIZEX, BLOCKSIZEY, BLOCKSIZEZ,      \
                                       SHMEMSIZE, STREAMID, ...)                \
     {                                                                          \
-        auto STREAM             = CUDAStream::GetInstance(STREAMID);           \
+        auto STREAM             = HIPStream::GetInstance(STREAMID);            \
         unsigned char *shmemptr = nullptr;                                     \
         dim3 GRIDSIZE(GRIDSIZEX, GRIDSIZEY, GRIDSIZEZ);                        \
         dim3 BLOCKSIZE(BLOCKSIZEX, BLOCKSIZEY, BLOCKSIZEZ);                    \
@@ -141,7 +145,7 @@ template <unsigned int ndim> class hipcudaBlock
 #define DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(KERNEL, GRIDSIZE, BLOCKSIZE,     \
                                               STREAMID, ...)                   \
     {                                                                          \
-        auto STREAM = CUDAStream::GetInstance(STREAMID);                       \
+        auto STREAM = HIPStream::GetInstance(STREAMID);                        \
         KERNEL<<<GRIDSIZE, BLOCKSIZE, 0, STREAM>>>(__VA_ARGS__,                \
                                                    hipcudaBlock<1>());         \
         CHECK_LAST_HIPCUDA_ERROR();                                            \
@@ -153,7 +157,7 @@ template <unsigned int ndim> class hipcudaBlock
 #define DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(                                 \
     KERNEL, GRIDSIZEX, GRIDSIZEY, BLOCKSIZEX, BLOCKSIZEY, STREAMID, ...)       \
     {                                                                          \
-        auto STREAM = CUDAStream::GetInstance(STREAMID);                       \
+        auto STREAM = HIPStream::GetInstance(STREAMID);                        \
         dim3 GRIDSIZE(GRIDSIZEX, GRIDSIZEY, 1);                                \
         dim3 BLOCKSIZE(BLOCKSIZEX, BLOCKSIZEY, 1);                             \
         KERNEL<<<GRIDSIZE, BLOCKSIZE, 0, STREAM>>>(__VA_ARGS__,                \
@@ -168,11 +172,13 @@ template <unsigned int ndim> class hipcudaBlock
     KERNEL, GRIDSIZEX, GRIDSIZEY, GRIDSIZEZ, BLOCKSIZEX, BLOCKSIZEY,           \
     BLOCKSIZEZ, STREAMID, ...)                                                 \
     {                                                                          \
-        auto STREAM = CUDAStream::GetInstance(STREAMID);                       \
+        auto STREAM = HIPStream::GetInstance(STREAMID);                        \
         dim3 GRIDSIZE(GRIDSIZEX, GRIDSIZEY, GRIDSIZEZ);                        \
         dim3 BLOCKSIZE(BLOCKSIZEX, BLOCKSIZEY, BLOCKSIZEZ);                    \
         KERNEL<<<GRIDSIZE, BLOCKSIZE, 0, STREAM>>>(__VA_ARGS__,                \
                                                    hipcudaBlock<3>());         \
         CHECK_LAST_HIPCUDA_ERROR();                                            \
     }
+
+} // namespace Nektar
 #endif

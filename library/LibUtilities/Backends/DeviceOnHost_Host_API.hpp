@@ -35,6 +35,9 @@
 #pragma once
 
 #if defined(NEKTAR_ENABLE_DEVICEONHOST)
+namespace Nektar
+{
+
 static unsigned int deviceOnHostLocalIdxX = 0;
 static unsigned int deviceOnHostLocalIdxY = 0;
 static unsigned int deviceOnHostLocalIdxZ = 0;
@@ -274,4 +277,6 @@ template <typename TData> static void nektar_unused([[maybe_unused]] TData x)
             }                                                                  \
         }                                                                      \
     }
+
+} // namespace Nektar
 #endif

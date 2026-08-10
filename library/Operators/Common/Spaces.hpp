@@ -52,13 +52,13 @@
 #endif
 
 #if defined(NEKTAR_ENABLE_CUDA)
-#include "Operators/Common/Backends/CUDA_Host_API.hpp"
+#include "LibUtilities/Backends/CUDA_Host_API.hpp"
 #elif defined(NEKTAR_ENABLE_HIP)
-#include "Operators/Common/Backends/HIP_Host_API.hpp"
+#include "LibUtilities/Backends/HIP_Host_API.hpp"
 #elif defined(NEKTAR_ENABLE_SYCL)
-#include "Operators/Common/Backends/SYCL_Host_API.hpp"
+#include "LibUtilities/Backends/SYCL_Host_API.hpp"
 #elif defined(NEKTAR_ENABLE_DEVICEONHOST)
-#include "Operators/Common/Backends/DeviceOnHost_Host_API.hpp"
+#include "LibUtilities/Backends/DeviceOnHost_Host_API.hpp"
 #endif
 
 #if defined(__CUDACC__) || defined(__NEK_HIPCC__) ||                           \
@@ -524,6 +524,6 @@ static void SetStreamDependencies(
 
 } // namespace Nektar
 
-#include "Operators/Common/Backends/DeviceOnHost_Device_API.hpp"
-#include "Operators/Common/Backends/HIPCUDA_Device_API.hpp"
-#include "Operators/Common/Backends/SYCL_Device_API.hpp"
+#include "LibUtilities/Backends/DeviceOnHost_Device_API.hpp"
+#include "LibUtilities/Backends/HIPCUDA_Device_API.hpp"
+#include "LibUtilities/Backends/SYCL_Device_API.hpp"

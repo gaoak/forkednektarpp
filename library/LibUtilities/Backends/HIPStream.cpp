@@ -34,5 +34,10 @@
 
 #include "HIPStream.hpp"
 
+namespace Nektar
+{
+
 std::unordered_map<unsigned int, hipStream_t> HIPStream::streams;
 std::unordered_map<unsigned int, hipEvent_t> HIPStream::events;
+
+} // namespace Nektar

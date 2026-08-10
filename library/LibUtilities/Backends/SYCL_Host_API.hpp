@@ -35,7 +35,10 @@
 #pragma once
 
 #if defined(NEKTAR_ENABLE_SYCL)
-#include "Operators/Common/Backends/SYCLQueue.hpp"
+#include "LibUtilities/Backends/SYCLQueue.hpp"
+
+namespace Nektar
+{
 
 #if defined(SYCL_ENABLE_CUDA) && defined(__ADAPTIVECPP__)
 #define sycl_backend sycl::backend::cuda
@@ -272,4 +275,6 @@ static void inline setSYCLDefaultExecutionDependency(
         SYCLQueue::SetEvent(STREAMID, e);                                      \
     }
 // clang-format on
+
+} // namespace Nektar
 #endif

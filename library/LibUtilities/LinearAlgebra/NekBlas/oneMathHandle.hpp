@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include <Operators/Common/Backends/SYCLQueue.hpp>
+#include <LibUtilities/Backends/SYCLQueue.hpp>
 
 namespace Nektar::NekBlas
 {
