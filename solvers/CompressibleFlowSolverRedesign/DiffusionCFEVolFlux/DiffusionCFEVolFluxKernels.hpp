@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
+#include "LibUtilities/LoopExecution/LoopExecution.hpp"
 
 // header should appear after loop execution.hpp
 #include "EquationOfState/VariableConverters.hpp"

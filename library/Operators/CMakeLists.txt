@@ -835,13 +835,11 @@ ENDIF()
 
 SET(OPERATORS_HEADERS
   ${OPERATORS_HEADERS}
-   LoopExecution/LoopExecution.hpp
    Utils/UtilsDeviceKernelsHelper.hpp
 )
 
 SET(OPERATORS_SOURCES
   ${OPERATORS_SOURCES}
-   LoopExecution/LoopExecution.cpp
    Utils/UtilsDeviceKernels.cpp
 )
 

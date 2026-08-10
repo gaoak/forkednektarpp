@@ -36,9 +36,11 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
+#include "LibUtilities/LoopExecution/LoopExecution.hpp"
 
 namespace Nektar
 {
+
 unsigned int internalLoopExecutionStreamID = 0;
+
 }

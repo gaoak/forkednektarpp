@@ -36,7 +36,7 @@
 
 #include "init_parallel_reduce.hpp"
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
+#include "LibUtilities/LoopExecution/LoopExecution.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

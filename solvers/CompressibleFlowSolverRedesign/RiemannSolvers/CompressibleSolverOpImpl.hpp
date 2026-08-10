@@ -37,7 +37,7 @@
 #include "RiemannSolvers/CompressibleSolverOp.hpp"
 #include <boost/algorithm/string/predicate.hpp>
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
+#include "LibUtilities/LoopExecution/LoopExecution.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail
