@@ -189,8 +189,14 @@ public:
             this->m_expressionOps.back()->SetExpressions(listOfEquations);
         }
 
-        // Return if no Dirichlet boundary coefficients.
-        if (m_numBndCoeffCompSize == 0)
+        // Return if no Dirichlet boundary coefficients. This
+        // must be a global reduction rather than the purely local.
+        size_t hasAnyBndCoeff = m_numBndCoeffCompSize;
+        session->GetComm()->GetRowComm()->AllReduce(hasAnyBndCoeff,
+                                                    LibUtilities::ReduceMax);
+        m_hasAnyBndCoeff = hasAnyBndCoeff > 0;
+
+        if (!m_hasAnyBndCoeff)
         {
             return;
         }
@@ -579,6 +585,12 @@ public:
 protected:
     bool m_anySignChange         = false;
     size_t m_numBndCoeffCompSize = 0;
+    // Whether any rank (not just this one) has local Dirichlet boundary
+    // coefficients. Guards the collective calls in v_Apply() (see
+    // constructor comment); the purely-local m_numBndCoeffCompSize remains
+    // safe to use elsewhere since it only ever skips genuinely empty local
+    // work.
+    bool m_hasAnyBndCoeff = false;
     std::vector<bool> m_signChange;
 
     std::vector<Field<TData, FieldState::Phys>> m_wsp_phys;
@@ -611,7 +623,7 @@ protected:
 
     void v_UpdateBndCoeffs(const TData &time) override
     {
-        if (m_numBndCoeffCompSize == 0)
+        if (!m_hasAnyBndCoeff)
         {
             return;
         }
@@ -663,10 +675,27 @@ protected:
         }
     }
 
+    size_t v_GetNumBndDofs() const override
+    {
+        size_t total = 0;
+        for (auto &counts : m_compCounts)
+        {
+            for (auto count : counts)
+            {
+                total += count;
+            }
+        }
+        return total;
+    }
+
     void v_Apply(Field<TData, FieldState::Coeff> &inout) override
     {
-        // Return if no Dirichlet boundary condition.
-        if (m_numBndCoeffCompSize == 0)
+        // Return if no Dirichlet boundary condition on any rank -- must
+        // match the constructor's global check, since the universal
+        // assembly below exchanges with every neighbouring rank that shares
+        // a Dirichlet dof, regardless of whether this rank has any local
+        // Dirichlet dofs of its own.
+        if (!m_hasAnyBndCoeff)
         {
             return;
         }

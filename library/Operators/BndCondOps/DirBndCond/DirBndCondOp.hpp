@@ -76,6 +76,15 @@ public:
         m_bndCoeffsInitialised = true;
     }
 
+    // Number of boundary coefficients (summed over all components and
+    // execution blocks) with a Dirichlet condition on this rank, i.e. the
+    // number of dofs actually written to by Apply(). Mainly intended for
+    // profiling/introspection.
+    size_t GetNumBndDofs() const
+    {
+        return v_GetNumBndDofs();
+    }
+
 protected:
     bool m_bndCoeffsInitialised      = false;
     bool m_hasTimeDependentBndCoeffs = false;
@@ -91,6 +100,8 @@ protected:
     virtual void v_Apply(Field<TData, FieldState::Coeff> &out) = 0;
 
     virtual void v_UpdateBndCoeffs(const TData &time) = 0;
+
+    virtual size_t v_GetNumBndDofs() const = 0;
 };
 
 } // namespace Nektar::Operators
