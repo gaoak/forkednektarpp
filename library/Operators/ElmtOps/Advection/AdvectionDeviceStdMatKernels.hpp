@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
+#include "LibUtilities/LoopExecution/LoopExecution.hpp"
 
 template <typename ExecSpace, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void MultiplyByDerivFactorAndAdvecVelKernel(

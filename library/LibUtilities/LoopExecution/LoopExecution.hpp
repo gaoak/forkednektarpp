@@ -41,14 +41,14 @@
 #include <cstddef>
 #include <limits>
 
+#include "LibUtilities/LibUtilitiesDeclspec.h"
 #include "LibUtilities/Memory/MemoryAlloc.hpp"
-#include "Operators/Common/OperatorsDeclspec.hpp"
 #include "Operators/Common/Spaces.hpp"
 
 namespace Nektar
 {
 
-extern OPERATORS_EXPORT unsigned int internalLoopExecutionStreamID;
+extern LIB_UTILITIES_EXPORT unsigned int internalLoopExecutionStreamID;
 
 [[maybe_unused]] static void LoopExecutionSetStreamID(
     const unsigned int streamID)
@@ -207,7 +207,7 @@ NEK_DEVICE_INLINE static void atomic_and(TData *const dest, const TData val)
 
 } // namespace Nektar
 
-#include "Operators/LoopExecution/LoopExecutionDeviceOnHost.hpp"
-#include "Operators/LoopExecution/LoopExecutionHIPCUDA.hpp"
-#include "Operators/LoopExecution/LoopExecutionSYCL.hpp"
-#include "Operators/LoopExecution/LoopExecutionSerialAVX.hpp"
+#include "LibUtilities/LoopExecution/LoopExecutionDeviceOnHost.hpp"
+#include "LibUtilities/LoopExecution/LoopExecutionHIPCUDA.hpp"
+#include "LibUtilities/LoopExecution/LoopExecutionSYCL.hpp"
+#include "LibUtilities/LoopExecution/LoopExecutionSerialAVX.hpp"

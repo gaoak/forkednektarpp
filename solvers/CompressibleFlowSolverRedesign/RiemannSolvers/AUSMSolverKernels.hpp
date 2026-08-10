@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
+#include "LibUtilities/LoopExecution/LoopExecution.hpp"
 
 // The dimension and shape kernels. NOTE: They are NOT duplicate
 // templated version based on the array size like the
