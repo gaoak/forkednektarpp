@@ -40,6 +40,9 @@
 #include <limits>
 #include <unordered_map>
 
+namespace Nektar
+{
+
 #if defined(NEKTAR_ENABLE_CUDA)
 class GetDeviceProperties
 {
@@ -450,3 +453,5 @@ private:
 }
 
 #endif
+
+} // namespace Nektar

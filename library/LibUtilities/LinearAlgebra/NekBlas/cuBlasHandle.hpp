@@ -40,7 +40,7 @@
 
 #include <cublas_v2.h>
 
-#include <Operators/Common/Backends/CUDAStream.hpp>
+#include <LibUtilities/Backends/CUDAStream.hpp>
 
 namespace Nektar::NekBlas
 {

@@ -34,6 +34,9 @@
 
 #include <Operators/Common/DeviceProperties.hpp>
 
+namespace Nektar
+{
+
 #if defined(NEKTAR_ENABLE_CUDA)
 std::unordered_map<unsigned int, cudaDeviceProp> *GetDeviceProperties::prop =
     nullptr;
@@ -52,3 +55,5 @@ std::unordered_map<unsigned int, unsigned int>
 std::unordered_map<unsigned int, size_t>
     GetDeviceProperties::m_maxThreadsPerMultiprocessor;
 #endif
+
+} // namespace Nektar

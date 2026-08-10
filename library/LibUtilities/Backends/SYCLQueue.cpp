@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: CUDAStream.cpp
+// File: SYCLQueue.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,7 +32,14 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "CUDAStream.hpp"
+#include "SYCLQueue.hpp"
 
-std::unordered_map<unsigned int, cudaStream_t> CUDAStream::streams;
-std::unordered_map<unsigned int, cudaEvent_t> CUDAStream::events;
+namespace Nektar
+{
+
+unsigned int internalSYCLDeviceId = 0;
+
+std::unordered_map<unsigned int, sycl::queue *> *SYCLQueue::queues = nullptr;
+std::unordered_map<unsigned int, sycl::event> *SYCLQueue::events   = nullptr;
+
+} // namespace Nektar

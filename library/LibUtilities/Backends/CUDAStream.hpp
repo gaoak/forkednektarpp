@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: HIPStream.hpp
+// File: CUDAStream.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,35 +34,39 @@
 
 #pragma once
 
-#include <hip/hip_runtime.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
 #include <iostream>
 #include <unordered_map>
 #include <vector>
 
+namespace Nektar
+{
+
 #define CHECK_LAST_HIPCUDA_ERROR()                                             \
     {                                                                          \
-        hipError_t err = hipGetLastError();                                    \
-        if (err != hipSuccess)                                                 \
+        cudaError_t err = cudaGetLastError();                                  \
+        if (err != cudaSuccess)                                                \
         {                                                                      \
-            std::cerr << "HIP Runtime Error at: " << __FILE__ << ":"           \
+            std::cerr << "CUDA Runtime Error at: " << __FILE__ << ":"          \
                       << __LINE__ << std::endl;                                \
-            std::cerr << hipGetErrorString(err) << std::endl;                  \
+            std::cerr << cudaGetErrorString(err) << std::endl;                 \
             exit(0);                                                           \
         }                                                                      \
     }
 #define CHECK_HIPCUDA_ERROR(err)                                               \
-    if (err != hipSuccess)                                                     \
+    if (err != cudaSuccess)                                                    \
     {                                                                          \
-        std::cerr << "HIP Runtime Error at: " << __FILE__ << ":" << __LINE__   \
+        std::cerr << "CUDA Runtime Error at: " << __FILE__ << ":" << __LINE__  \
                   << std::endl;                                                \
-        std::cerr << hipGetErrorString(err) << std::endl;                      \
+        std::cerr << cudaGetErrorString(err) << std::endl;                     \
         exit(0);                                                               \
     }
 
-class HIPStream
+class CUDAStream
 {
 public:
-    static hipStream_t &GetInstance(unsigned int id)
+    static cudaStream_t &GetInstance(unsigned int id)
     {
         if (streams.find(id) == streams.end())
         {
@@ -73,8 +77,8 @@ public:
             }
             else
             {
-                hipStream_t stream;
-                CHECK_HIPCUDA_ERROR(hipStreamCreate(&stream));
+                cudaStream_t stream;
+                CHECK_HIPCUDA_ERROR(cudaStreamCreate(&stream));
                 streams[id] = stream;
             }
         }
@@ -82,7 +86,7 @@ public:
         return streams[id];
     }
 
-    static std::unordered_map<unsigned int, hipStream_t> &GetAllInstances(void)
+    static std::unordered_map<unsigned int, cudaStream_t> &GetAllInstances(void)
     {
         return streams;
     }
@@ -91,17 +95,17 @@ public:
     {
         if (events.find(id) == events.end())
         {
-            hipEvent_t e;
+            cudaEvent_t e;
             CHECK_HIPCUDA_ERROR(
-                hipEventCreateWithFlags(&e, hipEventDisableTiming));
+                cudaEventCreateWithFlags(&e, cudaEventDisableTiming));
             events[id] = e;
         }
 
         CHECK_HIPCUDA_ERROR(
-            hipEventRecord(events[id], HIPStream::GetInstance(id)));
+            cudaEventRecord(events[id], CUDAStream::GetInstance(id)));
     }
 
-    static hipEvent_t &GetEvent(unsigned int id)
+    static cudaEvent_t &GetEvent(unsigned int id)
     {
         if (events.find(id) == events.end())
         {
@@ -111,12 +115,14 @@ public:
         return events[id];
     }
 
-    static std::unordered_map<unsigned int, hipEvent_t> &GetAllEvents(void)
+    static std::unordered_map<unsigned int, cudaEvent_t> &GetAllEvents(void)
     {
         return events;
     }
 
 private:
-    static std::unordered_map<unsigned int, hipStream_t> streams;
-    static std::unordered_map<unsigned int, hipEvent_t> events;
+    static std::unordered_map<unsigned int, cudaStream_t> streams;
+    static std::unordered_map<unsigned int, cudaEvent_t> events;
 };
+
+} // namespace Nektar

@@ -38,6 +38,9 @@
 #include <unordered_map>
 #include <vector>
 
+namespace Nektar
+{
+
 extern unsigned int internalSYCLDeviceId;
 
 /**
@@ -165,3 +168,5 @@ private:
     static std::unordered_map<unsigned int, sycl::queue *> *queues;
     static std::unordered_map<unsigned int, sycl::event> *events;
 };
+
+} // namespace Nektar

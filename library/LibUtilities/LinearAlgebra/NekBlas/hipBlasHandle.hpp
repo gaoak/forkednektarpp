@@ -39,7 +39,7 @@
 
 #include <hipblas/hipblas.h>
 
-#include <Operators/Common/Backends/HIPStream.hpp>
+#include <LibUtilities/Backends/HIPStream.hpp>
 
 namespace Nektar::NekBlas
 {

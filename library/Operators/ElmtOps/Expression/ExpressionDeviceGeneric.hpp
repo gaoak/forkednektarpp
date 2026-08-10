@@ -47,9 +47,9 @@
 #endif
 
 #if defined(SYCL_ENABLE_CUDA)
-#include "Operators/Common/Backends/CUDA_Host_API.hpp"
+#include "LibUtilities/Backends/CUDA_Host_API.hpp"
 #elif defined(SYCL_ENABLE_HIP)
-#include "Operators/Common/Backends/HIP_Host_API.hpp"
+#include "LibUtilities/Backends/HIP_Host_API.hpp"
 #endif
 
 namespace Nektar::Operators::detail
