@@ -197,8 +197,12 @@ public:
             this->m_expressionOps.back()->SetExpressions(listOfEquations);
         }
 
-        // Return if no Neumann boundary coefficients.
-        if (m_numBndCoeffCompSize == 0)
+        // Return if no Neumann boundary coefficients on any rank. Must be a
+        // global reduction rather than the purely local.
+        size_t hasAnyBndCoeff = m_numBndCoeffCompSize;
+        session->GetComm()->GetRowComm()->AllReduce(hasAnyBndCoeff,
+                                                    LibUtilities::ReduceMax);
+        if (hasAnyBndCoeff == 0)
         {
             return;
         }
@@ -493,6 +497,19 @@ protected:
             m_bndCoeff[blk].template CopyVector<MemSpace, TData>(bndCoeffBlock,
                                                                  streamID);
         }
+    }
+
+    size_t v_GetNumBndDofs() const override
+    {
+        size_t total = 0;
+        for (auto &counts : m_compCounts)
+        {
+            for (auto count : counts)
+            {
+                total += count;
+            }
+        }
+        return total;
     }
 
     void v_Apply(Field<TData, FieldState::Coeff> &inout) override
