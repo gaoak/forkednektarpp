@@ -831,6 +831,7 @@ macos-full-arm-build-and-test:
     - macos-arm
   variables:
     BUILD_TYPE: "full"
+    BUILD_SIMD: neon
     BUILD_DEVICE: DEVICEONHOST
     PYTHON_EXECUTABLE: /opt/local/bin/python
     USE_NINJA: false

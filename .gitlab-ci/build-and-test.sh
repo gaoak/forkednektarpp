@@ -71,10 +71,14 @@ elif [[ $BUILD_TYPE == "full" ]]; then
     if [[ $DISABLE_CWIPI != "true" ]]; then
         CMAKEARGS+=("-DNEKTAR_USE_CWIPI:BOOL=ON")
     fi
-    if [[ $BUILD_SIMD == "avx2" ]]; then
+    if [[ $BUILD_SIMD == "sse2" ]]; then
+        CMAKEARGS+=("-DNEKTAR_ENABLE_SIMD:STRING=SSE2")
+    elif [[ $BUILD_SIMD == "avx2" ]]; then
         CMAKEARGS+=("-DNEKTAR_ENABLE_SIMD:STRING=AVX2")
     elif [[ $BUILD_SIMD == "avx512" ]]; then
         CMAKEARGS+=("-DNEKTAR_ENABLE_SIMD:STRING=AVX512")
+    elif [[ $BUILD_SIMD == "neon" ]]; then
+        CMAKEARGS+=("-DNEKTAR_ENABLE_SIMD:STRING=NEON")
     fi
     if [[ $BUILD_DEVICE == "DEVICEONHOST" ]]; then
         CMAKEARGS+=("-DNEKTAR_ENABLE_DEVICE:STRING=DEVICEONHOST")

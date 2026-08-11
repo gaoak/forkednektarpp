@@ -61,7 +61,13 @@ public:
                 {
                     tmp += a[i + l * m] * b[l + j * k];
                 }
-                c[i + j * m] = alpha * tmp + beta * c[i + j * m];
+                // Follow the BLAS/libxsmm contract: when beta is zero C is
+                // not read on input, so it need not be initialised. Reading
+                // it here would propagate NaN/Inf from uninitialised output
+                // buffers, since 0.0 * NaN is NaN rather than 0.
+                c[i + j * m] = (beta == static_cast<TData>(0.0))
+                                   ? alpha * tmp
+                                   : alpha * tmp + beta * c[i + j * m];
             }
         }
     }

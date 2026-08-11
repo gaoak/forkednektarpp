@@ -77,6 +77,14 @@
 #undef ALIGNMENT
 #define ALIGNMENT __ARM_FEATURE_SVE_BITS / 8
 #undef USING_SCALAR
+#elif defined(__aarch64__) && defined(__ARM_NEON) &&                           \
+    defined(NEKTAR_ENABLE_SIMD_NEON)
+#define USING_NEON
+#undef NUM_LANES_64BITS
+#define NUM_LANES_64BITS 2
+#undef ALIGNMENT
+#define ALIGNMENT 16
+#undef USING_SCALAR
 #endif
 
 namespace Nektar::SimdLibTests
@@ -104,6 +112,9 @@ BOOST_AUTO_TEST_CASE(SimdLibDouble_width_alignment)
 #endif
 #if defined(USING_SVE)
     std::cout << "sve double" << std::endl;
+#endif
+#if defined(USING_NEON)
+    std::cout << "neon double" << std::endl;
 #endif
 
     // double
@@ -349,9 +360,12 @@ BOOST_AUTO_TEST_CASE(SimdLibDouble_gather64)
     // create and fill index
     std::array<size_t, vec_t::width> aindex;
     aindex[0] = 0;
-    if (vec_t::width > 2)
+    if (vec_t::width > 1)
     {
         aindex[1] = 3;
+    }
+    if (vec_t::width > 2)
+    {
         aindex[2] = 5;
         aindex[3] = 6;
     }
@@ -392,9 +406,12 @@ BOOST_AUTO_TEST_CASE(SimdLibDouble_gather32)
     // create and fill index
     std::array<std::uint32_t, vec_t::width> aindex;
     aindex[0] = 0;
-    if (vec_t::width > 2)
+    if (vec_t::width > 1)
     {
         aindex[1] = 3;
+    }
+    if (vec_t::width > 2)
+    {
         aindex[2] = 5;
         aindex[3] = 6;
     }
