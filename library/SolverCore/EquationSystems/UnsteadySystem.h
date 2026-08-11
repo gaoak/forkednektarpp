@@ -104,7 +104,7 @@ protected:
     SOLVER_CORE_EXPORT virtual void v_PrintStatusInformation();
 
     /// Print Summary Statistics
-    SOLVER_CORE_EXPORT virtual void v_PrintSummaryStatistics();
+    SOLVER_CORE_EXPORT virtual void v_PrintSummaryStatistics(double intTime);
 
     /// Sets up initial conditions.
     SOLVER_CORE_EXPORT void v_DoInitialise(

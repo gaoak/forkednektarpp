@@ -73,6 +73,21 @@ cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
 ```
 
 
+### NEON
+```
+cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
+         -DNEKTAR_ENABLE_SIMD=NEON
+```
+
+Notes:
+ 1. AArch64 (64-bit Arm) only. NEON gives 128-bit vectors, so 2 lanes in
+    double precision and 4 lanes in single precision.
+ 2. No extra compiler flags are needed, as NEON is part of the AArch64
+    baseline.
+ 3. This is the option to use on Apple silicon (M1-M4), which implements
+    NEON but not SVE.
+
+
 ### SVE/SVE2
 ```
 cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \

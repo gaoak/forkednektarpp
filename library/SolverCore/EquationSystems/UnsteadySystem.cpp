@@ -164,10 +164,15 @@ void UnsteadySystem::v_InitialiseTimeOp()
  */
 void UnsteadySystem::v_DoSolve()
 {
+    Nektar::LibUtilities::Timer timer;
+    double intTime = 0.0;
+    double elapsed = 0.0;
+
     // Time-integration loop
     while (m_timeOp->GetStep() < m_steps ||
            m_timeOp->GetTime() < m_fintime - NekConstants::kNekZeroTol)
     {
+        timer.Start();
         // Perform any solver-specific pre-integration steps.
         if (v_PreIntegrate())
         {
@@ -176,6 +181,9 @@ void UnsteadySystem::v_DoSolve()
 
         // Do time integration
         m_timeOp->Apply(m_fields);
+        timer.Stop();
+        elapsed = timer.TimePerTest(1);
+        intTime += elapsed;
 
         // Update EquationSystem::m_time
         m_time = m_timeOp->GetTime();
@@ -206,7 +214,7 @@ void UnsteadySystem::v_DoSolve()
     m_time = m_timeOp->GetTime();
 
     // Print out summary statistics.
-    v_PrintSummaryStatistics();
+    v_PrintSummaryStatistics(intTime);
 
     // Finalise all filters
     // TODO move this into UnsteadySystem~ destructor?
@@ -229,12 +237,21 @@ void UnsteadySystem::v_PrintStatusInformation()
     }
 }
 
-void UnsteadySystem::v_PrintSummaryStatistics()
+void UnsteadySystem::v_PrintSummaryStatistics(double intTime)
 {
     if (m_session->GetComm()->GetRank() == 0)
     {
-        std::cout << "Time-integration  : "
-                  << "NO TIMER IMPLEMENTED" << std::endl;
+        if (boost::iequals(
+                m_session->GetCmdLineArgument<std::string>("opExecSpace"),
+                "Device"))
+        {
+            std::cout << "Time-integration  : " << "NO TIMER IMPLEMENTED"
+                      << std::endl;
+        }
+        else
+        {
+            std::cout << "Time-integration  : " << intTime << std::endl;
+        }
     }
 }
 

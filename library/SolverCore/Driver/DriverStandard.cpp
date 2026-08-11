@@ -57,17 +57,35 @@ void DriverStandard::v_InitObject(std::ostream &out)
 
 void DriverStandard::v_Execute(std::ostream &out)
 {
+    Nektar::LibUtilities::Timer timer;
     m_equ[0]->PrintSummary(out);
+
+    timer.Start();
     m_equ[0]->DoInitialise();
     m_equ[0]->DoSolve();
+    timer.Stop();
+
     m_equ[0]->Output();
 
     if (m_comm->GetRank() == 0)
     {
-        out << "-------------------------------------------" << std::endl;
-        out << "Total Computation Time = "
-            << "NO TIMER IMPLEMENTED" << std::endl;
-        out << "-------------------------------------------" << std::endl;
+        NekDouble CpuTime;
+        CpuTime = timer.Elapsed().count();
+        if (boost::iequals(
+                m_session->GetCmdLineArgument<std::string>("opExecSpace"),
+                "Device"))
+        {
+            out << "-------------------------------------------" << std::endl;
+            out << "Total Computation Time = " << "NO TIMER IMPLEMENTED"
+                << std::endl;
+            out << "-------------------------------------------" << std::endl;
+        }
+        else
+        {
+            out << "-------------------------------------------" << std::endl;
+            out << "Total Computation Time = " << CpuTime << std::endl;
+            out << "-------------------------------------------" << std::endl;
+        }
     }
 
     m_equ[0]->PrintNorms(out);
