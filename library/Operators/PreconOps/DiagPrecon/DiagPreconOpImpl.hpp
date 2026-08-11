@@ -81,13 +81,13 @@ protected:
         m_assmbScatrNoSignOp;
     std::shared_ptr<RobBndCondOp<TData>> m_robBCOp;
 
-    Field<TData, FieldState::Coeff> m_invDiag;
+    MultiRegions::Field<TData, FieldState::Coeff> m_invDiag;
 
     size_t m_nGlobal;
     size_t m_nDir;
 
-    void v_Apply(Field<TData, FieldState::Coeff> &in,
-                 Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
+                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
     {
         ASSERTL1(in.size() == out.size(),
                  "Input and output arrays are of different size");
@@ -136,21 +136,22 @@ protected:
     {
         // Create block attributes.
         auto blockAttr =
-            GetBlockAttributes<TData, FieldState::Coeff>(this->m_expansionList);
+            MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                this->m_expansionList);
 
         // Create local diagonal field.
-        m_invDiag = Field<TData, FieldState::Coeff>(
+        m_invDiag = MultiRegions::Field<TData, FieldState::Coeff>(
             "inverse diagonal", blockAttr, this->m_components, 1);
 
         // Create unit vector field to extract diagonal.
-        Field<TData, FieldState::Coeff> unit_vec =
-            Field<TData, FieldState::Coeff>("DiagPrecon unit vec", blockAttr,
-                                            this->m_components, 1);
+        MultiRegions::Field<TData, FieldState::Coeff> unit_vec =
+            MultiRegions::Field<TData, FieldState::Coeff>(
+                "DiagPrecon unit vec", blockAttr, this->m_components, 1);
 
         // Create action field to receive column action from unit vector.
-        Field<TData, FieldState::Coeff> action =
-            Field<TData, FieldState::Coeff>("DiagPrecon action", blockAttr,
-                                            this->m_components, 1);
+        MultiRegions::Field<TData, FieldState::Coeff> action =
+            MultiRegions::Field<TData, FieldState::Coeff>(
+                "DiagPrecon action", blockAttr, this->m_components, 1);
 
         // Intialisating to 1 so padded elements can be inverted.
         m_invDiag.template Initialize<MemSpace>(1);

@@ -101,8 +101,9 @@ protected:
 
     void v_Launch(
         std::vector<std::shared_ptr<PhysDerivBlockOp<TData>>> &blockOp,
-        Field<TData, FieldState::Phys> &in, Field<TData, FieldState::Phys> &out,
-        unsigned int nhomo, const std::vector<int> &blockNXY) override
+        MultiRegions::Field<TData, FieldState::Phys> &in,
+        MultiRegions::Field<TData, FieldState::Phys> &out, unsigned int nhomo,
+        const std::vector<int> &blockNXY) override
     {
 #if !defined(NEKTAR_ENABLE_CUDA)
         ASSERTL0(false, "PhysDerivZOp: execStr \"" + execStr +
@@ -291,8 +292,9 @@ protected:
 
     void v_Launch(
         std::vector<std::shared_ptr<PhysDerivBlockOp<TData>>> &blockOp,
-        Field<TData, FieldState::Phys> &in, Field<TData, FieldState::Phys> &out,
-        unsigned int nhomo, const std::vector<int> &blockNXY) override
+        MultiRegions::Field<TData, FieldState::Phys> &in,
+        MultiRegions::Field<TData, FieldState::Phys> &out, unsigned int nhomo,
+        const std::vector<int> &blockNXY) override
     {
 #if !defined(NEKTAR_ENABLE_CUDA)
         ASSERTL0(false, "PhysDerivZOp: execStr \"" + execStr +

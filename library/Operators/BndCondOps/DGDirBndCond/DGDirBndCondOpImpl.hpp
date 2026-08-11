@@ -39,8 +39,8 @@
 #include "Operators/BndCondOps/DGDirBndCond/DGDirBndCondKernels.hpp"
 #include "Operators/BndCondOps/DGDirBndCond/DGDirBndCondOp.hpp"
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "Operators/ElmtOps/Expression/ExpressionOp.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 using namespace Nektar;
 
@@ -165,9 +165,11 @@ public:
 
             // Create fields for evaluating BCs into
             auto blocks_phys =
-                GetBlockAttributes<TData, FieldState::Phys>(bcExpList);
-            this->m_wsp_phys.push_back(Field<TData, FieldState::Phys>(
-                "Dirichlet BC phys", blocks_phys, nComp, nhomo));
+                MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
+                    bcExpList);
+            this->m_wsp_phys.push_back(
+                MultiRegions::Field<TData, FieldState::Phys>(
+                    "Dirichlet BC phys", blocks_phys, nComp, nhomo));
 
             // Compute number of boundary coefficients.
             for (unsigned int blk = 0; blk < blocks_phys.size(); ++blk)
@@ -209,7 +211,8 @@ public:
         }
 
         // Compute block bound.
-        auto domainBlocks = GetBlockAttributes<TData, FieldState::Phys>(trace);
+        auto domainBlocks =
+            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(trace);
         std::vector<size_t> blockBound(domainBlocks.size());
         size_t bound = 0;
         for (unsigned int blk = 0; blk < domainBlocks.size(); ++blk)
@@ -361,10 +364,11 @@ public:
             ASSERTL1(mapBlockByBlk[blk].size() == bndPhysBlockByBlk[blk].size(),
                      "Mismatch between map and boundary coefficient sizes.");
             m_map.push_back(
-                MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
-                    mapBlockByBlk[blk]));
+                LibUtilities::MemoryRegion<size_t>::template FromVector<
+                    MemSpace, size_t>(mapBlockByBlk[blk]));
             m_bndPhys.push_back(
-                MemoryRegion<TData>::template FromVector<MemSpace, TData>(
+                LibUtilities::MemoryRegion<TData>::template FromVector<MemSpace,
+                                                                       TData>(
                     bndPhysBlockByBlk[blk]));
         }
     }
@@ -384,15 +388,15 @@ public:
 protected:
     size_t m_numBndPhysCompSize = 0;
 
-    std::vector<Field<TData, FieldState::Phys>> m_wsp_phys;
+    std::vector<MultiRegions::Field<TData, FieldState::Phys>> m_wsp_phys;
     std::vector<std::shared_ptr<ExpressionOp<TData>>> m_expressionOps;
 
-    std::vector<MemoryRegion<size_t>> m_map;
-    std::vector<MemoryRegion<TData>> m_bndPhys;
+    std::vector<LibUtilities::MemoryRegion<size_t>> m_map;
+    std::vector<LibUtilities::MemoryRegion<TData>> m_bndPhys;
     std::vector<std::vector<size_t>> m_compOffsets;
     std::vector<std::vector<size_t>> m_compCounts;
 
-    void v_Apply(Field<TData, FieldState::Phys> &inout) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &inout) override
     {
         // Return if no Dirichlet boundary condition.
         if (m_numBndPhysCompSize == 0)

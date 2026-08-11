@@ -76,10 +76,14 @@ struct ReadWrite
 {
 };
 
-namespace Nektar::Operators
+namespace Nektar::MultiRegions
 {
-
 template <typename TData, FieldState TState> class Field;
+
+}
+
+namespace Nektar::LibUtilities
+{
 
 // Use by NekDataWarehouse.hpp
 class MemoryRegionBase
@@ -92,7 +96,8 @@ class MemoryRegionBase
  */
 template <typename TData> class MemoryRegion : public MemoryRegionBase
 {
-    template <typename TDataField, FieldState TState> friend class Field;
+    template <typename TDataField, FieldState TState>
+    friend class MultiRegions::Field;
 
 public:
     MemoryRegion() = default;
@@ -1173,4 +1178,4 @@ private:
                         ///< eHostPinnedDeviceMemoryPool).
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar::LibUtilities

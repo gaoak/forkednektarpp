@@ -54,19 +54,20 @@ public:
         const std::vector<std::string> &components)
         : DiffusionScalarIPTraceFluxOp<TData>(std::move(expansionList),
                                               components),
-          m_traceAver(Field<TData, FieldState::Phys>(
+          m_traceAver(MultiRegions::Field<TData, FieldState::Phys>(
               "Scalar diffusion trace average",
-              GetBlockAttributes<TData, FieldState::Phys>(
+              MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList->GetTrace()),
               components.size(), 1)),
-          m_traceJump(Field<TData, FieldState::Phys>(
+          m_traceJump(MultiRegions::Field<TData, FieldState::Phys>(
               "Scalar diffusion trace jump",
-              GetBlockAttributes<TData, FieldState::Phys>(
+              MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList->GetTrace()),
               components.size(), 1)),
-          m_symmCoeff(Field<TData, FieldState::Coeff>(
+          m_symmCoeff(MultiRegions::Field<TData, FieldState::Coeff>(
               "Scalar diffusion symmetric trace coeff",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components.size(), 1))
     {
         m_nDim  = expansionList->GetCoordim(0);
@@ -103,20 +104,20 @@ protected:
     unsigned int m_nDim;
     unsigned int m_nComp;
     unsigned int m_traceInterleaveWidth;
-    Field<TData, FieldState::Phys> m_traceAver, m_traceJump;
-    Field<TData, FieldState::Coeff> m_symmCoeff;
-    MemoryRegion<TData> m_diffCoeff;
-    std::vector<MemoryRegion<unsigned int>> m_symmTraceBlockId;
-    std::vector<MemoryRegion<size_t>> m_symmTraceOffset;
-    std::vector<MemoryRegion<unsigned int>> m_symmNqOffset;
+    MultiRegions::Field<TData, FieldState::Phys> m_traceAver, m_traceJump;
+    MultiRegions::Field<TData, FieldState::Coeff> m_symmCoeff;
+    LibUtilities::MemoryRegion<TData> m_diffCoeff;
+    std::vector<LibUtilities::MemoryRegion<unsigned int>> m_symmTraceBlockId;
+    std::vector<LibUtilities::MemoryRegion<size_t>> m_symmTraceOffset;
+    std::vector<LibUtilities::MemoryRegion<unsigned int>> m_symmNqOffset;
     std::vector<unsigned int> m_symmNTraces;
     std::vector<unsigned int> m_symmNLocTracePts;
 
-    void v_Apply(Field<TData, FieldState::Phys> &fwd,
-                 Field<TData, FieldState::Phys> &bwd,
-                 Field<TData, FieldState::Phys> &derivFwd,
-                 Field<TData, FieldState::Phys> &derivBwd,
-                 Field<TData, FieldState::Phys> &out) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &fwd,
+                 MultiRegions::Field<TData, FieldState::Phys> &bwd,
+                 MultiRegions::Field<TData, FieldState::Phys> &derivFwd,
+                 MultiRegions::Field<TData, FieldState::Phys> &derivBwd,
+                 MultiRegions::Field<TData, FieldState::Phys> &out) override
     {
         for (unsigned int blk = 0; blk < out.GetBlocks().size(); ++blk)
         {
@@ -179,11 +180,11 @@ protected:
 
     void v_SetDiffCoeff(std::vector<TData> &diffCoeff) override
     {
-        m_diffCoeff = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
-            diffCoeff);
+        m_diffCoeff = LibUtilities::MemoryRegion<TData>::template FromVector<
+            MemSpace, TData>(diffCoeff);
     }
 
-    void v_Apply(Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &out) override
     {
         m_symmCoeff.template Initialize<MemSpace>(TData(0.0));
 
@@ -248,9 +249,11 @@ protected:
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
         const auto blocks =
-            GetBlockAttributes<TData, FieldState::Coeff>(expansionList);
-        const auto traceBlocks = GetBlockAttributes<TData, FieldState::Phys>(
-            expansionList->GetTrace());
+            MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                expansionList);
+        const auto traceBlocks =
+            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
+                expansionList->GetTrace());
 
         std::vector<size_t> traceBlockOffset(1, 0);
         for (const auto &traceBlock : traceBlocks)
@@ -314,16 +317,13 @@ protected:
             m_symmNLocTracePts[blk] = offset;
 
             m_symmTraceBlockId[blk] =
-                MemoryRegion<unsigned int>::template FromVector<MemSpace,
-                                                                unsigned int>(
-                    traceBlockId);
-            m_symmTraceOffset[blk] =
-                MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
-                    traceOffset);
+                LibUtilities::MemoryRegion<unsigned int>::template FromVector<
+                    MemSpace, unsigned int>(traceBlockId);
+            m_symmTraceOffset[blk] = LibUtilities::MemoryRegion<
+                size_t>::template FromVector<MemSpace, size_t>(traceOffset);
             m_symmNqOffset[blk] =
-                MemoryRegion<unsigned int>::template FromVector<MemSpace,
-                                                                unsigned int>(
-                    nqOffset);
+                LibUtilities::MemoryRegion<unsigned int>::template FromVector<
+                    MemSpace, unsigned int>(nqOffset);
         }
     }
 };

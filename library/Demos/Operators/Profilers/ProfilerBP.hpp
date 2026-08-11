@@ -44,7 +44,7 @@
 #include <Operators/ElmtOps/Helmholtz/HelmholtzOp.hpp>
 #include <Operators/ElmtOps/Mass/MassOp.hpp>
 
-#include <Operators/Field/Field.hpp>
+#include <MultiRegions/Field/Field.hpp>
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
@@ -66,8 +66,9 @@
 #endif
 
 using namespace Nektar;
-using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
+using namespace Nektar::MultiRegions;
+using namespace Nektar::Operators;
 
 /// Print the profiler results, computed from the elapsed time and the total
 /// number of dofs.

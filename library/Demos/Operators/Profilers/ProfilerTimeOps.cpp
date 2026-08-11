@@ -39,9 +39,10 @@
 #include <MultiRegions/ExpList.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
-using namespace Nektar::Operators;
-using namespace Nektar::LibUtilities;
 using namespace Nektar;
+using namespace Nektar::LibUtilities;
+using namespace Nektar::MultiRegions;
+using namespace Nektar::Operators;
 
 class DummySolver
 {

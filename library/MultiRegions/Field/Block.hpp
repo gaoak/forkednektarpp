@@ -36,9 +36,9 @@
 
 #include <Collections/Collection.h>
 
-#include "MemoryRegion.hpp"
+#include "LibUtilities/BasicUtils/MemoryRegion.hpp"
+#include "MultiRegions/MultiRegionsDeclspec.h"
 
-// Forward declaration
 namespace Nektar::MultiRegions
 {
 
@@ -47,13 +47,8 @@ class ExpList;
 /// Shared pointer to an ExpList object.
 typedef std::shared_ptr<ExpList> ExpListSharedPtr;
 
-} // namespace Nektar::MultiRegions
-
-namespace Nektar::Operators
-{
-
 // Helper function
-Collections::Collection GetCollection(
+MULTI_REGIONS_EXPORT Collections::Collection GetCollection(
     MultiRegions::ExpListSharedPtr expansionList, unsigned int block_idx);
 
 /**
@@ -155,7 +150,7 @@ private:
  * @return std::vector<BlockAttributes>
  */
 template <typename TPadding, FieldState TState>
-std::vector<BlockAttributes<TState>> GetBlockAttributes(
+MULTI_REGIONS_EXPORT std::vector<BlockAttributes<TState>> GetBlockAttributes(
     const MultiRegions::ExpListSharedPtr explist,
     const unsigned interleave_width = 1);
 
@@ -167,7 +162,7 @@ class BlockAccessor : public BlockAttributes<TState>
 public:
     BlockAccessor() = delete;
     BlockAccessor(const BlockAttributes<TState> blockAttr,
-                  MemoryRegion<TData> &&memory_region,
+                  LibUtilities::MemoryRegion<TData> &&memory_region,
                   Field<TData, TState> *field,
                   const unsigned int num_components,
                   const unsigned int num_homo_modes)
@@ -180,7 +175,7 @@ public:
     BlockAccessor(const size_t num_elements,
                   const size_t num_elements_with_padding,
                   const unsigned int num_data, const unsigned interleave_width,
-                  MemoryRegion<TData> &&memory_region,
+                  LibUtilities::MemoryRegion<TData> &&memory_region,
                   Field<TData, TState> *field,
                   const unsigned int num_components,
                   const unsigned int num_homo_modes)
@@ -237,9 +232,9 @@ public:
         return *this;
     }
 
-    void ReshapeStorage(const unsigned int &interleaveWidth,
-                        const std::string &execSpace,
-                        const unsigned int streamID = 0);
+    MULTI_REGIONS_EXPORT void ReshapeStorage(
+        const unsigned int &interleaveWidth, const std::string &execSpace,
+        const unsigned int streamID = 0);
 
     /**
      * @brief Get the pointer to the host/device memory.
@@ -247,8 +242,9 @@ public:
      * @return    - TData*
      */
     template <typename MemSpace, typename MemAccess>
-    typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *GetPtr(
-        const unsigned int streamID = 0);
+    MULTI_REGIONS_EXPORT
+        typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *
+        GetPtr(const unsigned int streamID = 0);
 
     /**
      * @brief Gets the alignment of the memory region block.
@@ -297,10 +293,10 @@ public:
 private:
     // Note: m_field is a pointer to a Field object from which the current
     // BlockAccessor object belong to.
-    MemoryRegion<TData> m_memory_region;
+    LibUtilities::MemoryRegion<TData> m_memory_region;
     Field<TData, TState> *m_field;
     unsigned int m_num_components = 0;
     unsigned int m_num_homo_modes = 1;
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar::MultiRegions

@@ -57,16 +57,17 @@ public:
 
     static inline const std::string name = "BlockGetFwdBwdTracePhys";
 
-    void Apply(BlockAccessor<TData, FieldState::Phys> &phyBlock,
-               Field<TData, FieldState::Phys> &fwd,
-               Field<TData, FieldState::Phys> &bwd)
+    void Apply(MultiRegions::BlockAccessor<TData, FieldState::Phys> &phyBlock,
+               MultiRegions::Field<TData, FieldState::Phys> &fwd,
+               MultiRegions::Field<TData, FieldState::Phys> &bwd)
     {
         this->v_Apply(phyBlock, fwd, bwd);
     }
 
-    void operator()(BlockAccessor<TData, FieldState::Phys> &phyBlock,
-                    Field<TData, FieldState::Phys> &fwd,
-                    Field<TData, FieldState::Phys> &bwd)
+    void operator()(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &phyBlock,
+        MultiRegions::Field<TData, FieldState::Phys> &fwd,
+        MultiRegions::Field<TData, FieldState::Phys> &bwd)
     {
         this->v_Apply(phyBlock, fwd, bwd);
     }
@@ -91,9 +92,10 @@ protected:
     {
     }
 
-    virtual void v_Apply(BlockAccessor<TData, FieldState::Phys> &phyBlock,
-                         Field<TData, FieldState::Phys> &fwd,
-                         Field<TData, FieldState::Phys> &bwd) = 0;
+    virtual void v_Apply(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &phyBlock,
+        MultiRegions::Field<TData, FieldState::Phys> &fwd,
+        MultiRegions::Field<TData, FieldState::Phys> &bwd) = 0;
 
     virtual void v_SetTracePhysOffset(std::vector<size_t> offset) = 0;
 };

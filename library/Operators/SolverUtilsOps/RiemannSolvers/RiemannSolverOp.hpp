@@ -82,39 +82,41 @@ public:
 
     static inline const std::string name = "";
 
-    void Apply(Field<TData, FieldState::Phys> &Fwd,
-               Field<TData, FieldState::Phys> &Bwd,
-               Field<TData, FieldState::Phys> &flux)
+    void Apply(MultiRegions::Field<TData, FieldState::Phys> &Fwd,
+               MultiRegions::Field<TData, FieldState::Phys> &Bwd,
+               MultiRegions::Field<TData, FieldState::Phys> &flux)
     {
         this->v_Apply(Fwd, Bwd, flux);
     }
 
-    void operator()(Field<TData, FieldState::Phys> &Fwd,
-                    Field<TData, FieldState::Phys> &Bwd,
-                    Field<TData, FieldState::Phys> &flux)
+    void operator()(MultiRegions::Field<TData, FieldState::Phys> &Fwd,
+                    MultiRegions::Field<TData, FieldState::Phys> &Bwd,
+                    MultiRegions::Field<TData, FieldState::Phys> &flux)
     {
         this->v_Apply(Fwd, Bwd, flux);
     }
 
-    void SetTraceAdvVel(Field<TData, FieldState::Phys> &traceAdvVel)
+    void SetTraceAdvVel(
+        MultiRegions::Field<TData, FieldState::Phys> &traceAdvVel)
     {
         this->m_traceAdvVel = std::move(traceAdvVel);
     }
 
-    void SetNormals(Field<TData, FieldState::Phys> &normals)
+    void SetNormals(MultiRegions::Field<TData, FieldState::Phys> &normals)
     {
         this->m_normals = std::move(normals);
     }
 
-    void SetTraceNormals(Field<TData, FieldState::Phys> &traceNormals)
+    void SetTraceNormals(
+        MultiRegions::Field<TData, FieldState::Phys> &traceNormals)
     {
         v_SetTraceNormals(traceNormals);
     }
 
 protected:
-    Field<TData, FieldState::Phys> m_traceAdvVel;
-    Field<TData, FieldState::Phys> m_normals;
-    Field<TData, FieldState::Phys> m_traceNormals;
+    MultiRegions::Field<TData, FieldState::Phys> m_traceAdvVel;
+    MultiRegions::Field<TData, FieldState::Phys> m_normals;
+    MultiRegions::Field<TData, FieldState::Phys> m_traceNormals;
 
     RiemannSolverOp(const MultiRegions::ExpListSharedPtr &expansionList,
                     const std::vector<std::string> &components)
@@ -143,12 +145,13 @@ protected:
         }
 
         // Create blocks.
-        auto blocks_trace = GetBlockAttributes<TData, FieldState::Phys>(
-            expansionList->GetTrace());
+        auto blocks_trace =
+            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
+                expansionList->GetTrace());
 
         // Create fields.
         unsigned int numHomoModes = 1;
-        m_traceNormals            = Field<TData, FieldState::Phys>(
+        m_traceNormals = MultiRegions::Field<TData, FieldState::Phys>(
             "m_traceNormals", blocks_trace, coordDim, numHomoModes);
 
         // Initialise fields
@@ -157,11 +160,13 @@ protected:
 
     ~RiemannSolverOp() override = default;
 
-    virtual void v_Apply(Field<TData, FieldState::Phys> &Fwd,
-                         Field<TData, FieldState::Phys> &Bwd,
-                         Field<TData, FieldState::Phys> &flux) = 0;
+    virtual void v_Apply(
+        MultiRegions::Field<TData, FieldState::Phys> &Fwd,
+        MultiRegions::Field<TData, FieldState::Phys> &Bwd,
+        MultiRegions::Field<TData, FieldState::Phys> &flux) = 0;
 
-    virtual void v_SetTraceNormals(Field<TData, FieldState::Phys> &traceNormals)
+    virtual void v_SetTraceNormals(
+        MultiRegions::Field<TData, FieldState::Phys> &traceNormals)
     {
         this->m_traceNormals = std::move(traceNormals);
     }

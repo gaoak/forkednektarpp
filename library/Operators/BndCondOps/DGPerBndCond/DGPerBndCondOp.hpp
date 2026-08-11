@@ -56,14 +56,14 @@ public:
 
     static inline const std::string name = "DGPerBndCond";
 
-    void Apply(Field<TData, FieldState::Phys> &in,
-               Field<TData, FieldState::Phys> &out)
+    void Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
+               MultiRegions::Field<TData, FieldState::Phys> &out)
     {
         v_Apply(in, out);
     }
 
-    void operator()(Field<TData, FieldState::Phys> &in,
-                    Field<TData, FieldState::Phys> &out)
+    void operator()(MultiRegions::Field<TData, FieldState::Phys> &in,
+                    MultiRegions::Field<TData, FieldState::Phys> &out)
     {
         v_Apply(in, out);
     }
@@ -77,8 +77,8 @@ protected:
 
     ~DGPerBndCondOp() override = default;
 
-    virtual void v_Apply(Field<TData, FieldState::Phys> &in,
-                         Field<TData, FieldState::Phys> &out) = 0;
+    virtual void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
+                         MultiRegions::Field<TData, FieldState::Phys> &out) = 0;
 };
 
 } // namespace Nektar::Operators

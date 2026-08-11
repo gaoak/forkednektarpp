@@ -86,7 +86,8 @@ public:
     using value_type = ModeIndexKey::value_type;
 
     template <typename MemSpace>
-    MemoryRegion<value_type> Create(const ModeIndexKey &modeIndexKey);
+    LibUtilities::MemoryRegion<value_type> Create(
+        const ModeIndexKey &modeIndexKey);
 
     inline static const std::string m_name = "ModeIndexCreator";
 };

@@ -80,20 +80,24 @@ public:
 
         // Allocate memory.
         auto blockAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(this->m_expansionList);
+            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
+                this->m_expansionList);
         this->m_solutions.push_back(
-            Field<TData, FieldState::Phys>(blockAttr, this->m_components, 1));
+            MultiRegions::Field<TData, FieldState::Phys>(
+                blockAttr, this->m_components, 1));
 
         for (unsigned int i = 0; i < ImpStage; i++)
         {
-            this->m_implicits.push_back(Field<TData, FieldState::Phys>(
-                blockAttr, this->m_components, 1));
+            this->m_implicits.push_back(
+                MultiRegions::Field<TData, FieldState::Phys>(
+                    blockAttr, this->m_components, 1));
         }
 
         for (unsigned int i = 0; i < ExpStage; i++)
         {
-            this->m_explicits.push_back(Field<TData, FieldState::Phys>(
-                blockAttr, this->m_components, 1));
+            this->m_explicits.push_back(
+                MultiRegions::Field<TData, FieldState::Phys>(
+                    blockAttr, this->m_components, 1));
         }
     }
 
@@ -111,7 +115,7 @@ public:
     }
 
 protected:
-    void v_Apply(Field<TData, FieldState::Phys> &inout) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &inout) override
     {
         // Check that required functions are defined.
         ASSERTL0(this->m_explicitRhsFunctor,
@@ -135,7 +139,7 @@ protected:
     }
 
     template <unsigned int Stage>
-    void Staging(Field<TData, FieldState::Phys> &inout)
+    void Staging(MultiRegions::Field<TData, FieldState::Phys> &inout)
     {
         constexpr auto coeff0 =
             GetIMEXdirkTimeCoefficients<ImpStage, ExpStage, IntOrder,
@@ -209,7 +213,7 @@ protected:
     }
 
     template <unsigned int... ind0, unsigned int... ind1>
-    void UpdateStage(Field<TData, FieldState::Phys> &inout,
+    void UpdateStage(MultiRegions::Field<TData, FieldState::Phys> &inout,
                      std::integer_sequence<unsigned int, ind0...>,
                      std::integer_sequence<unsigned int, ind1...>)
     {
@@ -242,7 +246,7 @@ protected:
     }
 
     template <unsigned int... ind0, unsigned int... ind1>
-    void UpdateSolution(Field<TData, FieldState::Phys> &inout,
+    void UpdateSolution(MultiRegions::Field<TData, FieldState::Phys> &inout,
                         std::integer_sequence<unsigned int, ind0...>,
                         std::integer_sequence<unsigned int, ind1...>)
     {

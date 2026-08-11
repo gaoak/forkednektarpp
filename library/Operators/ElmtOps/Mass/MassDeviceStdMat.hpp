@@ -34,9 +34,9 @@
 
 #pragma once
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 #include "Operators/ElmtOps/Mass/MassBlockOp.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -127,8 +127,9 @@ protected:
     const TData *m_massmat;
     const TData *m_jacptr;
 
-    void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
-                 BlockAccessor<TData, FieldState::Coeff> &outblock) override
+    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+                 MultiRegions::BlockAccessor<TData, FieldState::Coeff>
+                     &outblock) override
     {
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 

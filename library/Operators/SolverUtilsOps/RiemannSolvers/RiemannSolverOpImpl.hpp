@@ -101,9 +101,9 @@ public:
     }
 
 protected:
-    void v_Apply(Field<TData, FieldState::Phys> &Fwd,
-                 Field<TData, FieldState::Phys> &Bwd,
-                 Field<TData, FieldState::Phys> &flux) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &Fwd,
+                 MultiRegions::Field<TData, FieldState::Phys> &Bwd,
+                 MultiRegions::Field<TData, FieldState::Phys> &flux) override
     {
         // Loop over blocks
         for (unsigned int blk = 0; blk < flux.GetBlocks().size(); ++blk)

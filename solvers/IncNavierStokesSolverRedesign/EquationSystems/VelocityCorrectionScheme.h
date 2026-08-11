@@ -35,7 +35,7 @@
 
 #pragma once
 
-#include <Operators/Field/Field.hpp>
+#include <MultiRegions/Field/Field.hpp>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 #include <SolverCore/Forcing/Forcing.h>
 
@@ -105,15 +105,16 @@ protected:
     std::vector<std::string> m_variablesTotal;
 
     // Setup workspaces
-    Field<double, FieldState::Phys> m_pressure;
-    Field<double, FieldState::Phys> m_advVel;
-    Field<double, FieldState::Phys> m_wsp_phys;
-    Field<double, FieldState::Phys> m_wsp_fields_rhs;
-    Field<double, FieldState::Phys> m_wsp_explicit_adv_rhs;
-    Field<double, FieldState::Phys> m_wsp_phys_deriv_pressure;
-    Field<double, FieldState::Phys> m_wsp_phys_1c;
-    Field<double, FieldState::Coeff> m_pressure_coeff;
-    std::map<unsigned int, std::deque<Field<double, FieldState::Phys>>>
+    MultiRegions::Field<double, FieldState::Phys> m_pressure;
+    MultiRegions::Field<double, FieldState::Phys> m_advVel;
+    MultiRegions::Field<double, FieldState::Phys> m_wsp_phys;
+    MultiRegions::Field<double, FieldState::Phys> m_wsp_fields_rhs;
+    MultiRegions::Field<double, FieldState::Phys> m_wsp_explicit_adv_rhs;
+    MultiRegions::Field<double, FieldState::Phys> m_wsp_phys_deriv_pressure;
+    MultiRegions::Field<double, FieldState::Phys> m_wsp_phys_1c;
+    MultiRegions::Field<double, FieldState::Coeff> m_pressure_coeff;
+    std::map<unsigned int,
+             std::deque<MultiRegions::Field<double, FieldState::Phys>>>
         m_advectionRhsHistories;
 
     // Initialise operators
@@ -135,22 +136,25 @@ protected:
 
     ~VelocityCorrectionScheme() override = default;
 
-    void SolveUnsteadyStokesSystem(Field<double, FieldState::Phys> &in,
-                                   Field<double, FieldState::Phys> &out,
-                                   [[maybe_unused]] const double &time,
-                                   const double &lambda);
+    void SolveUnsteadyStokesSystem(
+        MultiRegions::Field<double, FieldState::Phys> &in,
+        MultiRegions::Field<double, FieldState::Phys> &out,
+        [[maybe_unused]] const double &time, const double &lambda);
 
-    void EvaluateAdvection_SetPressureBCs(Field<double, FieldState::Phys> &in,
-                                          Field<double, FieldState::Phys> &out,
-                                          const double &time, const double &dt);
+    void EvaluateAdvection_SetPressureBCs(
+        MultiRegions::Field<double, FieldState::Phys> &in,
+        MultiRegions::Field<double, FieldState::Phys> &out, const double &time,
+        const double &dt);
 
-    void EvaluateAdvectionContribution(Field<double, FieldState::Phys> &in,
-                                       Field<double, FieldState::Phys> &out,
-                                       const double &time, const double &dt);
-    std::deque<Field<double, FieldState::Phys>> &GetAdvectionRhsHistory(
-        unsigned int historyId);
+    void EvaluateAdvectionContribution(
+        MultiRegions::Field<double, FieldState::Phys> &in,
+        MultiRegions::Field<double, FieldState::Phys> &out, const double &time,
+        const double &dt);
+    std::deque<MultiRegions::Field<double, FieldState::Phys>> &
+    GetAdvectionRhsHistory(unsigned int historyId);
 
-    void UpdateAdvectionRhsHistory(Field<double, FieldState::Phys> &advRhs);
+    void UpdateAdvectionRhsHistory(
+        MultiRegions::Field<double, FieldState::Phys> &advRhs);
 
     void v_InitObject(bool declareExpansionLists = true) override;
     void v_PrintNorms(std::ostream &out) override;

@@ -59,24 +59,24 @@ public:
 
     static inline const std::string name = "AssmbScatrZeroDir";
 
-    void Apply(Field<TData, FieldState::Coeff> &inout)
+    void Apply(MultiRegions::Field<TData, FieldState::Coeff> &inout)
     {
         v_Apply(inout);
     }
 
-    void Apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Coeff> &out)
+    void Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
+               MultiRegions::Field<TData, FieldState::Coeff> &out)
     {
         v_Apply(in, out);
     }
 
-    void operator()(Field<TData, FieldState::Coeff> &inout)
+    void operator()(MultiRegions::Field<TData, FieldState::Coeff> &inout)
     {
         v_Apply(inout);
     }
 
-    void operator()(Field<TData, FieldState::Coeff> &in,
-                    Field<TData, FieldState::Coeff> &out)
+    void operator()(MultiRegions::Field<TData, FieldState::Coeff> &in,
+                    MultiRegions::Field<TData, FieldState::Coeff> &out)
     {
         v_Apply(in, out);
     }
@@ -88,10 +88,12 @@ protected:
     {
     }
 
-    virtual void v_Apply(Field<TData, FieldState::Coeff> &inout) = 0;
+    virtual void v_Apply(
+        MultiRegions::Field<TData, FieldState::Coeff> &inout) = 0;
 
-    virtual void v_Apply(Field<TData, FieldState::Coeff> &in,
-                         Field<TData, FieldState::Coeff> &out) = 0;
+    virtual void v_Apply(
+        MultiRegions::Field<TData, FieldState::Coeff> &in,
+        MultiRegions::Field<TData, FieldState::Coeff> &out) = 0;
 };
 
 } // namespace Nektar::Operators

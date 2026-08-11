@@ -43,16 +43,16 @@ template <typename TData> class DiffusionVolumeFluxOp : public FluxOp<TData>
 {
 public:
     // Build the physical diffusion volume flux from u and grad(u).
-    void Apply(Field<TData, FieldState::Phys> &in,
-               Field<TData, FieldState::Phys> &deriv,
-               Field<TData, FieldState::Phys> &out)
+    void Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
+               MultiRegions::Field<TData, FieldState::Phys> &deriv,
+               MultiRegions::Field<TData, FieldState::Phys> &out)
     {
         this->v_Apply(in, deriv, out);
     }
 
-    void operator()(Field<TData, FieldState::Phys> &in,
-                    Field<TData, FieldState::Phys> &deriv,
-                    Field<TData, FieldState::Phys> &out)
+    void operator()(MultiRegions::Field<TData, FieldState::Phys> &in,
+                    MultiRegions::Field<TData, FieldState::Phys> &deriv,
+                    MultiRegions::Field<TData, FieldState::Phys> &out)
     {
         this->v_Apply(in, deriv, out);
     }
@@ -66,9 +66,9 @@ protected:
 
     ~DiffusionVolumeFluxOp() override = default;
 
-    virtual void v_Apply(Field<TData, FieldState::Phys> &in,
-                         Field<TData, FieldState::Phys> &deriv,
-                         Field<TData, FieldState::Phys> &out) = 0;
+    virtual void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
+                         MultiRegions::Field<TData, FieldState::Phys> &deriv,
+                         MultiRegions::Field<TData, FieldState::Phys> &out) = 0;
 };
 
 template <typename TData>

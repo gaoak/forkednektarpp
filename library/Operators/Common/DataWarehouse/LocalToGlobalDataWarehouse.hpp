@@ -503,61 +503,69 @@ public:
         const std::vector<std::string> &components);
 
     template <typename MemSpace, typename TPadding>
-    MemoryRegion<typename DeviceLocalToGlobalKey<TPadding>::value_type> Create(
-        const DeviceLocalToGlobalKey<TPadding> &LocToGloKey);
+    LibUtilities::MemoryRegion<
+        typename DeviceLocalToGlobalKey<TPadding>::value_type>
+    Create(const DeviceLocalToGlobalKey<TPadding> &LocToGloKey);
 
     template <typename MemSpace, typename TPadding>
-    MemoryRegion<
+    LibUtilities::MemoryRegion<
         typename DeviceLocalToGlobalNumAssembleKey<TPadding>::value_type>
     Create(const DeviceLocalToGlobalNumAssembleKey<TPadding> &LocToGloKey);
 
     template <typename MemSpace, typename TPadding>
-    MemoryRegion<typename DeviceLocalToGlobalIndexKey<TPadding>::value_type> Create(
-        const DeviceLocalToGlobalIndexKey<TPadding> &LocToGloKey);
+    LibUtilities::MemoryRegion<
+        typename DeviceLocalToGlobalIndexKey<TPadding>::value_type>
+    Create(const DeviceLocalToGlobalIndexKey<TPadding> &LocToGloKey);
 
     template <typename MemSpace, typename TPadding>
-    MemoryRegion<
+    LibUtilities::MemoryRegion<
         typename DeviceLocalToGlobalIndexOffsetKey<TPadding>::value_type>
     Create(const DeviceLocalToGlobalIndexOffsetKey<TPadding> &LocToGloKey);
 
     template <typename MemSpace, typename TPadding>
-    MemoryRegion<typename DeviceLocalToGlobalSignKey<TPadding>::value_type> Create(
-        const DeviceLocalToGlobalSignKey<TPadding> &LocToGloKey);
+    LibUtilities::MemoryRegion<
+        typename DeviceLocalToGlobalSignKey<TPadding>::value_type>
+    Create(const DeviceLocalToGlobalSignKey<TPadding> &LocToGloKey);
 
     template <typename MemSpace, typename TPadding>
-    MemoryRegion<typename DeviceBndLocalToGlobalKey<TPadding>::value_type> Create(
-        const DeviceBndLocalToGlobalKey<TPadding> &LocToGloKey);
+    LibUtilities::MemoryRegion<
+        typename DeviceBndLocalToGlobalKey<TPadding>::value_type>
+    Create(const DeviceBndLocalToGlobalKey<TPadding> &LocToGloKey);
 
     template <typename MemSpace, typename TPadding>
-    MemoryRegion<
+    LibUtilities::MemoryRegion<
         typename DeviceBndLocalToGlobalNumAssembleKey<TPadding>::value_type>
     Create(const DeviceBndLocalToGlobalNumAssembleKey<TPadding> &LocToGloKey);
 
     template <typename MemSpace, typename TPadding>
-    MemoryRegion<
+    LibUtilities::MemoryRegion<
         typename DeviceBndLocalToGlobalNumBndValsKey<TPadding>::value_type>
     Create(const DeviceBndLocalToGlobalNumBndValsKey<TPadding> &LocToGloKey);
 
     template <typename MemSpace, typename TPadding>
-    MemoryRegion<typename DeviceBndLocalToGlobalIndexKey<TPadding>::value_type>
+    LibUtilities::MemoryRegion<
+        typename DeviceBndLocalToGlobalIndexKey<TPadding>::value_type>
     Create(const DeviceBndLocalToGlobalIndexKey<TPadding> &LocToGloKey);
 
     template <typename MemSpace, typename TPadding>
-    MemoryRegion<typename DeviceBndLocalToGlobalOffsetKey<TPadding>::value_type>
+    LibUtilities::MemoryRegion<
+        typename DeviceBndLocalToGlobalOffsetKey<TPadding>::value_type>
     Create(const DeviceBndLocalToGlobalOffsetKey<TPadding> &LocToGloKey);
 
     template <typename MemSpace, typename TPadding>
-    MemoryRegion<
+    LibUtilities::MemoryRegion<
         typename DeviceBndLocalToGlobalAssembleOrderKey<TPadding>::value_type>
     Create(const DeviceBndLocalToGlobalAssembleOrderKey<TPadding> &LocToGloKey);
 
     template <typename MemSpace, typename TPadding>
-    MemoryRegion<typename DeviceBndLocalToGlobalSignKey<TPadding>::value_type>
+    LibUtilities::MemoryRegion<
+        typename DeviceBndLocalToGlobalSignKey<TPadding>::value_type>
     Create(const DeviceBndLocalToGlobalSignKey<TPadding> &LocToGloKey);
 
     template <typename MemSpace, typename TPadding>
-    MemoryRegion<typename LocalToGlobalMaskKey<TPadding>::value_type> Create(
-        [[maybe_unused]] const LocalToGlobalMaskKey<TPadding> &LocToGloKey);
+    LibUtilities::MemoryRegion<
+        typename LocalToGlobalMaskKey<TPadding>::value_type>
+    Create([[maybe_unused]] const LocalToGlobalMaskKey<TPadding> &LocToGloKey);
 
     template <typename TPadding>
     void FillSignArray(

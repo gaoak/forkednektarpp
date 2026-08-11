@@ -52,29 +52,35 @@ public:
     MINRESOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                  const std::vector<std::string> &components)
         : MINRESOp<TData>(expansionList, components),
-          m_q(Field<TData, FieldState::Coeff>(
+          m_q(MultiRegions::Field<TData, FieldState::Coeff>(
               "MINRESOp q",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_w(Field<TData, FieldState::Coeff>(
+          m_w(MultiRegions::Field<TData, FieldState::Coeff>(
               "MINRESOp w",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_p0(Field<TData, FieldState::Coeff>(
+          m_p0(MultiRegions::Field<TData, FieldState::Coeff>(
               "MINRESOp p0",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_p1(Field<TData, FieldState::Coeff>(
+          m_p1(MultiRegions::Field<TData, FieldState::Coeff>(
               "MINRESOp p1",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_v0(Field<TData, FieldState::Coeff>(
+          m_v0(MultiRegions::Field<TData, FieldState::Coeff>(
               "MINRESOp r0",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_v1(Field<TData, FieldState::Coeff>(
+          m_v1(MultiRegions::Field<TData, FieldState::Coeff>(
               "MINRESOp r1",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1))
     {
         this->template SetLinearSolver<ExecSpace>();
@@ -108,15 +114,15 @@ public:
     }
 
 protected:
-    Field<TData, FieldState::Coeff> m_q;
-    Field<TData, FieldState::Coeff> m_w;
-    Field<TData, FieldState::Coeff> m_p0;
-    Field<TData, FieldState::Coeff> m_p1;
-    Field<TData, FieldState::Coeff> m_v0;
-    Field<TData, FieldState::Coeff> m_v1;
+    MultiRegions::Field<TData, FieldState::Coeff> m_q;
+    MultiRegions::Field<TData, FieldState::Coeff> m_w;
+    MultiRegions::Field<TData, FieldState::Coeff> m_p0;
+    MultiRegions::Field<TData, FieldState::Coeff> m_p1;
+    MultiRegions::Field<TData, FieldState::Coeff> m_v0;
+    MultiRegions::Field<TData, FieldState::Coeff> m_v1;
 
-    void v_Apply(Field<TData, FieldState::Coeff> &in,
-                 Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
+                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
     {
         // Based on the preconditioned MINRES algorithm (Algorithm 12, p. 58) in
         // "Preconditioning iterative methods for PDE constrained optimization",

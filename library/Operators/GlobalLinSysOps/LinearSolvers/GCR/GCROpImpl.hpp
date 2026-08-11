@@ -52,9 +52,10 @@ public:
     GCROpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
               const std::vector<std::string> &components)
         : GCROp<TData>(expansionList, components),
-          m_r(Field<TData, FieldState::Coeff>(
+          m_r(MultiRegions::Field<TData, FieldState::Coeff>(
               "GCR r",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1))
     {
         this->template SetLinearSolver<ExecSpace>();
@@ -92,14 +93,14 @@ public:
     }
 
 protected:
-    Field<TData, FieldState::Coeff> m_r;
-    std::vector<Field<TData, FieldState::Coeff>> m_Q;
-    std::vector<Field<TData, FieldState::Coeff>> m_P;
+    MultiRegions::Field<TData, FieldState::Coeff> m_r;
+    std::vector<MultiRegions::Field<TData, FieldState::Coeff>> m_Q;
+    std::vector<MultiRegions::Field<TData, FieldState::Coeff>> m_P;
 
     unsigned int m_LinSysMaxStorage;
 
-    void v_Apply(Field<TData, FieldState::Coeff> &in,
-                 Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
+                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
     {
         // Generalized Conjugate Residual algorithm.
         // Implementation follow the GCR(k) algorithm in:
@@ -144,14 +145,14 @@ protected:
 
         if (m_P.size() == 0)
         {
-            m_P.push_back(Field<TData, FieldState::Coeff>(
+            m_P.push_back(MultiRegions::Field<TData, FieldState::Coeff>(
                 "GCR P0",
-                GetBlockAttributes<TData, FieldState::Coeff>(
+                MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                     this->m_expansionList),
                 this->m_components, 1));
-            m_Q.push_back(Field<TData, FieldState::Coeff>(
+            m_Q.push_back(MultiRegions::Field<TData, FieldState::Coeff>(
                 "GCR Q0",
-                GetBlockAttributes<TData, FieldState::Coeff>(
+                MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                     this->m_expansionList),
                 this->m_components, 1));
         }
@@ -231,14 +232,14 @@ protected:
             // Allocate memory, if necessary.
             if (m_P.size() == this->m_niter && m_P.size() < m_LinSysMaxStorage)
             {
-                m_P.push_back(Field<TData, FieldState::Coeff>(
+                m_P.push_back(MultiRegions::Field<TData, FieldState::Coeff>(
                     "GCR P" + std::to_string(this->m_niter),
-                    GetBlockAttributes<TData, FieldState::Coeff>(
+                    MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                         this->m_expansionList),
                     this->m_components, 1));
-                m_Q.push_back(Field<TData, FieldState::Coeff>(
+                m_Q.push_back(MultiRegions::Field<TData, FieldState::Coeff>(
                     "GCR Q" + std::to_string(this->m_niter),
-                    GetBlockAttributes<TData, FieldState::Coeff>(
+                    MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                         this->m_expansionList),
                     this->m_components, 1));
             }

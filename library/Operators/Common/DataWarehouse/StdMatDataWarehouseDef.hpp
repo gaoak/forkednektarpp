@@ -54,11 +54,14 @@
 #undef min
 #endif
 
+using namespace Nektar::LibUtilities;
+
 namespace Nektar::Operators
 {
 
 template <typename MemSpace, typename TData>
-MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
+LibUtilities::MemoryRegion<TData> StdMatDataCreator::Create(
+    const StdMatKey<TData> &stdMatKey)
 {
     using namespace Nektar::LibUtilities;
     using namespace Nektar::StdRegions;
@@ -168,7 +171,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
                 stdExp->BwdTrans(tmp, t = mat + i * nqTot);
             }
 
-            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(mat);
         }
         break;
         case eBwdTransStdMatTranspose:
@@ -184,7 +188,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
                 Vmath::Vcopy(nqTot, &t[0], 1, &mat[i], nmTot);
             }
 
-            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(mat);
         }
         break;
         case ePhysDerivStdMat:
@@ -202,7 +207,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
                 }
             }
 
-            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(mat);
         }
         break;
         case ePhysDerivStdMatTranspose:
@@ -222,7 +228,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
                 }
             }
 
-            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(mat);
         }
         break;
         case eDerivStdMat:
@@ -242,7 +249,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
                 }
             }
 
-            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(mat);
         }
         break;
         case eDerivStdMatTranspose:
@@ -264,7 +272,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
                 }
             }
 
-            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(mat);
         }
         break;
         case eIProductWRTBaseStdMat:
@@ -278,7 +287,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
                 stdExp->IProductWRTBase(tmp, t = mat + i * nmTot);
             }
 
-            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(mat);
         }
         break;
         case eIProductWRTBaseStdMatTranspose:
@@ -294,7 +304,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
                 Vmath::Vcopy(nmTot, &t[0], 1, &mat[i], nqTot);
             }
 
-            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(mat);
         }
         break;
         case eIProductWRTDerivBaseStdMat:
@@ -312,7 +323,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
                 }
             }
 
-            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(mat);
         }
         break;
         case eIProductWRTDerivBaseStdMatTranspose:
@@ -332,7 +344,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
                 }
             }
 
-            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(mat);
         }
         break;
         case ePhysInterpStdMat:
@@ -401,7 +414,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
                 }
             }
 
-            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(mat);
         }
         break;
         case ePhysInterpStdMatTranspose:
@@ -474,7 +488,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
                 }
             }
 
-            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(mat);
         }
         break;
         case eMassStdMat:
@@ -490,7 +505,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
                 stdExp->MassMatrixOp(tmp, t = mat + i * nmTot, mkey);
             }
 
-            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(mat);
         }
         break;
         case eMassStdMatTranspose:
@@ -508,7 +524,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
                 Vmath::Vcopy(nmTot, &t[0], 1, &mat[i], nmTot);
             }
 
-            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(mat);
         }
         break;
         case eInvMassStdMat:
@@ -519,7 +536,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
             Array<OneD, double> mat(nmTot * nmTot);
             std::copy_n(InvMass->GetRawPtr(), nmTot * nmTot, mat.data());
 
-            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(mat);
         }
         break;
         case eInvMassStdMatTranspose:
@@ -535,7 +553,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
                 Vmath::Vcopy(nmTot, &InvMass->GetRawPtr()[i * nmTot], 1,
                              &mat[i], nmTot);
             }
-            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(mat);
         }
         break;
         case eNodalToModal:
@@ -546,7 +565,7 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
                 StdRegions::NullVarFactorsMap, nodaltype);
             auto vdmMat = stdExp->GetStdMatrix(Nkey);
 
-            auto vdm = MemoryRegion<TData>(nmTot * nmTot);
+            auto vdm = LibUtilities::MemoryRegion<TData>(nmTot * nmTot);
             auto vdmptr =
                 vdm.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             unsigned int cnt = 0;
@@ -568,7 +587,7 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
                 StdRegions::NullVarFactorsMap, nodaltype);
             auto vdmMat = stdExp->GetStdMatrix(Nkey);
 
-            auto vdm = MemoryRegion<TData>(nmTot * nmTot);
+            auto vdm = LibUtilities::MemoryRegion<TData>(nmTot * nmTot);
             auto vdmptr =
                 vdm.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             unsigned int cnt = 0;
@@ -590,7 +609,7 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
                 StdRegions::NullVarFactorsMap, nodaltype);
             auto vdmMat = stdExp->GetStdMatrix(Nkey);
 
-            auto vdm = MemoryRegion<TData>(nmTot * nmTot);
+            auto vdm = LibUtilities::MemoryRegion<TData>(nmTot * nmTot);
             auto vdmptr =
                 vdm.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             unsigned int cnt = 0;
@@ -616,7 +635,8 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
             std::copy_n(InvMassInterior->GetRawPtr(),
                         nInteriorDofs * nInteriorDofs, mat.data());
 
-            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(mat);
         }
         break;
         case eInvMassInteriorStdMatTranspose:
@@ -632,12 +652,13 @@ MemoryRegion<TData> StdMatDataCreator::Create(const StdMatKey<TData> &stdMatKey)
             std::copy_n(InvMassInterior->GetRawPtr(),
                         nInteriorDofs * nInteriorDofs, mat.data());
 
-            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(mat);
         }
         break;
         default:
             NEKERROR(ErrorUtil::efatal, "invalid StdMat requested.");
-            return MemoryRegion<TData>(0);
+            return LibUtilities::MemoryRegion<TData>(0);
             break;
     }
 }

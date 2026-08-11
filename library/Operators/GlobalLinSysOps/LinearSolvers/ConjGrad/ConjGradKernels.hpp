@@ -38,10 +38,13 @@
 
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void UpdateConjGradSearchDirection(
-    const TData alpha, const TData beta, Field<TData, FieldState::Coeff> &w,
-    Field<TData, FieldState::Coeff> &s, Field<TData, FieldState::Coeff> &p,
-    Field<TData, FieldState::Coeff> &q, Field<TData, FieldState::Coeff> &r,
-    Field<TData, FieldState::Coeff> &out)
+    const TData alpha, const TData beta,
+    MultiRegions::Field<TData, FieldState::Coeff> &w,
+    MultiRegions::Field<TData, FieldState::Coeff> &s,
+    MultiRegions::Field<TData, FieldState::Coeff> &p,
+    MultiRegions::Field<TData, FieldState::Coeff> &q,
+    MultiRegions::Field<TData, FieldState::Coeff> &r,
+    MultiRegions::Field<TData, FieldState::Coeff> &out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 

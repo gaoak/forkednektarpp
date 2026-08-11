@@ -36,8 +36,8 @@
 
 #include <algorithm>
 
+#include "LibUtilities/Backends/DeviceProperties.hpp"
 #include "Operators/Common/BlockOperator.hpp"
-#include "Operators/Common/DeviceProperties.hpp"
 
 #include "Operators/Common/DataWarehouse/BasisDataWarehouse.hpp"
 #include "Operators/Common/DataWarehouse/GeometricDataWarehouse.hpp"
@@ -116,14 +116,14 @@ public:
                                    dataWarehouse));
     }
 
-    void Apply(BlockAccessor<TData, TFieldIn> &inblock,
-               BlockAccessor<TData, TFieldOut> &outblock)
+    void Apply(MultiRegions::BlockAccessor<TData, TFieldIn> &inblock,
+               MultiRegions::BlockAccessor<TData, TFieldOut> &outblock)
     {
         this->v_Apply(inblock, outblock);
     }
 
-    void operator()(BlockAccessor<TData, TFieldIn> &inblock,
-                    BlockAccessor<TData, TFieldOut> &outblock)
+    void operator()(MultiRegions::BlockAccessor<TData, TFieldIn> &inblock,
+                    MultiRegions::BlockAccessor<TData, TFieldOut> &outblock)
     {
         this->v_Apply(inblock, outblock);
     }
@@ -138,8 +138,9 @@ protected:
     {
     }
 
-    virtual void v_Apply(BlockAccessor<TData, TFieldIn> &inblock,
-                         BlockAccessor<TData, TFieldOut> &outblock) = 0;
+    virtual void v_Apply(
+        MultiRegions::BlockAccessor<TData, TFieldIn> &inblock,
+        MultiRegions::BlockAccessor<TData, TFieldOut> &outblock) = 0;
 };
 
 #if defined(NEKTAR_ENABLE_DEVICE)

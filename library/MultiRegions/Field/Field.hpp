@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "Block.hpp"
+#include <MultiRegions/Field/Block.hpp>
 
-namespace Nektar::Operators
+namespace Nektar::MultiRegions
 {
 
 /**
@@ -103,8 +103,8 @@ public:
         {
             auto nsize =
                 blockAttr[blk].CompSize() * num_components * num_homo_modes;
-            auto mr = MemoryRegion<TData>(name + std::to_string(blk), nsize,
-                                          memAllocType, alignment);
+            auto mr = LibUtilities::MemoryRegion<TData>(
+                name + std::to_string(blk), nsize, memAllocType, alignment);
             this->GetBlocks().push_back(
                 BlockAccessor(blockAttr[blk], std::move(mr), this,
                               num_components, num_homo_modes));
@@ -155,8 +155,8 @@ public:
         {
             auto nsize =
                 blockAttr[blk].CompSize() * components.size() * num_homo_modes;
-            auto mr = MemoryRegion<TData>(name + std::to_string(blk), nsize,
-                                          memAllocType, alignment);
+            auto mr = LibUtilities::MemoryRegion<TData>(
+                name + std::to_string(blk), nsize, memAllocType, alignment);
             this->GetBlocks().push_back(
                 BlockAccessor(blockAttr[blk], std::move(mr), this,
                               components.size(), num_homo_modes));
@@ -774,4 +774,4 @@ protected:
     size_t m_alignment = NektarSpaces::host_memory_alignment;
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar::MultiRegions

@@ -37,7 +37,7 @@
 #include "Operators/GetFwdBwdTracePhys/GetFwdBwdTracePhysBlockOp.hpp"
 #include "Operators/GetFwdBwdTracePhys/GetFwdBwdTracePhysSerialAVXKernels.hpp"
 
-#include "Operators/Utils/UtilsKernels.hpp"
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 namespace Nektar::Operators::detail
 {
 
@@ -65,8 +65,9 @@ public:
             m_tracePts += nq;
         }
 
-        m_nqOffset = MemoryRegion<unsigned int>::template FromVector<
-            MemSpace, unsigned int>(nqOffset);
+        m_nqOffset =
+            LibUtilities::MemoryRegion<unsigned int>::template FromVector<
+                MemSpace, unsigned int>(nqOffset);
 
         m_locTracePhysToElmtMaps =
             this->m_dataWarehouse->template GetData<MemSpace>(
@@ -158,8 +159,8 @@ protected:
     unsigned int m_nTraces;
     unsigned int m_dimension;
     unsigned int m_tracePts = 0;
-    MemoryRegion<unsigned int> m_nqOffset;
-    MemoryRegion<size_t> m_locToTracePhysOffset;
+    LibUtilities::MemoryRegion<unsigned int> m_nqOffset;
+    LibUtilities::MemoryRegion<size_t> m_locToTracePhysOffset;
     const unsigned int *m_locTracePhysToElmtMaps;
     const unsigned int *m_orientationMaps;
     const size_t *m_orientationMapsOffset;
@@ -178,9 +179,10 @@ protected:
     const TData *m_interpEndPtI1;
     const unsigned int *m_interpEndPtI1Offset;
 
-    void v_Apply(BlockAccessor<TData, FieldState::Phys> &physBlock,
-                 Field<TData, FieldState::Phys> &fwd,
-                 Field<TData, FieldState::Phys> &bwd) override
+    void v_Apply(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &physBlock,
+        MultiRegions::Field<TData, FieldState::Phys> &fwd,
+        MultiRegions::Field<TData, FieldState::Phys> &bwd) override
     {
 
         switch (m_dimension)
@@ -205,9 +207,10 @@ protected:
         }
     }
 
-    void Operator1D(BlockAccessor<TData, FieldState::Phys> &physBlock,
-                    Field<TData, FieldState::Phys> &fwd,
-                    Field<TData, FieldState::Phys> &bwd)
+    void Operator1D(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &physBlock,
+        MultiRegions::Field<TData, FieldState::Phys> &fwd,
+        MultiRegions::Field<TData, FieldState::Phys> &bwd)
     {
         // Initialize pointers.
         auto physptr = physBlock.template GetPtr<MemSpace, ReadOnly>();
@@ -308,9 +311,10 @@ protected:
         }
     }
 
-    void Operator2D(BlockAccessor<TData, FieldState::Phys> &physBlock,
-                    Field<TData, FieldState::Phys> &fwd,
-                    Field<TData, FieldState::Phys> &bwd)
+    void Operator2D(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &physBlock,
+        MultiRegions::Field<TData, FieldState::Phys> &fwd,
+        MultiRegions::Field<TData, FieldState::Phys> &bwd)
     {
         // Initialize pointers.
         auto physptr = physBlock.template GetPtr<MemSpace, ReadOnly>();
@@ -419,9 +423,10 @@ protected:
         }
     }
 
-    void Operator3D(BlockAccessor<TData, FieldState::Phys> &physBlock,
-                    Field<TData, FieldState::Phys> &fwd,
-                    Field<TData, FieldState::Phys> &bwd)
+    void Operator3D(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &physBlock,
+        MultiRegions::Field<TData, FieldState::Phys> &fwd,
+        MultiRegions::Field<TData, FieldState::Phys> &bwd)
     {
         // Initialize pointers.
         auto physptr = physBlock.template GetPtr<MemSpace, ReadOnly>();
@@ -546,8 +551,8 @@ protected:
 
     void v_SetTracePhysOffset(std::vector<size_t> offset) override
     {
-        this->m_locToTracePhysOffset =
-            MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(offset);
+        this->m_locToTracePhysOffset = LibUtilities::MemoryRegion<
+            size_t>::template FromVector<MemSpace, size_t>(offset);
     }
 };
 

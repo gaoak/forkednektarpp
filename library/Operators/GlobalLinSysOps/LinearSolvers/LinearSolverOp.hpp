@@ -101,14 +101,14 @@ public:
             factory.CreateInstance(requestedKey, expansionList, components));
     }
 
-    void Apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Coeff> &out)
+    void Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
+               MultiRegions::Field<TData, FieldState::Coeff> &out)
     {
         this->v_Apply(in, out);
     }
 
-    void operator()(Field<TData, FieldState::Coeff> &in,
-                    Field<TData, FieldState::Coeff> &out)
+    void operator()(MultiRegions::Field<TData, FieldState::Coeff> &in,
+                    MultiRegions::Field<TData, FieldState::Coeff> &out)
     {
         this->v_Apply(in, out);
     }
@@ -159,8 +159,9 @@ protected:
 
     ~LinearSolverOp() override = default;
 
-    virtual void v_Apply(Field<TData, FieldState::Coeff> &in,
-                         Field<TData, FieldState::Coeff> &out) = 0;
+    virtual void v_Apply(
+        MultiRegions::Field<TData, FieldState::Coeff> &in,
+        MultiRegions::Field<TData, FieldState::Coeff> &out) = 0;
 
     std::string GetVerboseName(const std::string &solverName) const
     {

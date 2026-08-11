@@ -38,12 +38,12 @@
 
 #include <Operators/BndCondOps/DirBndCond/DirBndCondOp.hpp>
 #include <Operators/BndCondOps/NeuBndCond/NeuBndCondOp.hpp>
-#include <Operators/Field/Field.hpp>
-#include <Operators/Math/MathKernels.hpp>
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <MultiRegions/ContField.h>
+#include <MultiRegions/Field/Field.hpp>
+#include <Operators/Math/MathKernels.hpp>
 #include <SpatialDomains/MeshGraphIO.h>
 
 // Add likwid support
@@ -61,8 +61,9 @@
 #endif
 
 using namespace Nektar;
-using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
+using namespace Nektar::MultiRegions;
+using namespace Nektar::Operators;
 
 /// Print the block information. If _verbose_=true, then print the block
 /// information for each rank. If _verbose_=false, then only print the

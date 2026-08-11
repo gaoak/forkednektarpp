@@ -36,10 +36,10 @@
 #include <iomanip>
 #include <iostream>
 
-#include <Operators/Field/Field.hpp>
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
+#include <MultiRegions/Field/Field.hpp>
 #include <Operators/GetFwdBwdTracePhys/GetFwdBwdTracePhysOp.hpp>
 #include <Operators/Math/MathKernels.hpp>
-#include <Operators/Utils/UtilsKernels.hpp>
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
@@ -61,8 +61,9 @@
 #endif
 
 using namespace Nektar;
-using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
+using namespace Nektar::MultiRegions;
+using namespace Nektar::Operators;
 
 /// Compute the expected results of certain operator from the expList
 void GetExpectedResults(const std::string &opName,

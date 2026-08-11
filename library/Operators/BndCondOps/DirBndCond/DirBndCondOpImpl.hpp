@@ -40,9 +40,9 @@
 #include "Operators/BndCondOps/DirBndCond/DirBndCondOp.hpp"
 #include "Operators/BndCondOps/FwdTransBC/FwdTransBCOp.hpp"
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "Operators/ElmtOps/Expression/ExpressionOp.hpp"
 #include "Operators/Math/MathKernels.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 using namespace Nektar;
 
@@ -142,13 +142,17 @@ public:
 
             // Create fields for evaluating BCs into
             auto blocks_phys =
-                GetBlockAttributes<TData, FieldState::Phys>(bcExpList);
-            this->m_wsp_phys.push_back(Field<TData, FieldState::Phys>(
-                "Dirichlet BC phys", blocks_phys, nComp, nhomo));
+                MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
+                    bcExpList);
+            this->m_wsp_phys.push_back(
+                MultiRegions::Field<TData, FieldState::Phys>(
+                    "Dirichlet BC phys", blocks_phys, nComp, nhomo));
             auto blocks_coeffs =
-                GetBlockAttributes<TData, FieldState::Coeff>(bcExpList);
-            this->m_wsp_coeffs.push_back(Field<TData, FieldState::Coeff>(
-                "Dirichlet BC coeff", blocks_coeffs, nComp, nhomo));
+                MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                    bcExpList);
+            this->m_wsp_coeffs.push_back(
+                MultiRegions::Field<TData, FieldState::Coeff>(
+                    "Dirichlet BC coeff", blocks_coeffs, nComp, nhomo));
 
             // Compute number of boundary coefficients.
             for (unsigned int blk = 0; blk < blocks_coeffs.size(); ++blk)
@@ -203,7 +207,8 @@ public:
 
         // Compute block bound.
         auto domainBlocks =
-            GetBlockAttributes<TData, FieldState::Coeff>(this->m_expansionList);
+            MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                this->m_expansionList);
         std::vector<size_t> blockBound(domainBlocks.size());
         size_t bound = 0;
         for (unsigned int blk = 0; blk < domainBlocks.size(); ++blk)
@@ -533,21 +538,23 @@ public:
                          bndCoeffSrcBlockByBlk[blk].size(),
                      "Mismatch between map and boundary coefficient sizes.");
             m_map.push_back(
-                MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
-                    mapBlockByBlk[blk]));
+                LibUtilities::MemoryRegion<size_t>::template FromVector<
+                    MemSpace, size_t>(mapBlockByBlk[blk]));
             m_bndCoeffSrc.push_back(std::move(bndCoeffSrcBlockByBlk[blk]));
             m_bndCoeffHost.emplace_back(m_bndCoeffSrc.back().size(), 0.0);
             m_bndCoeff.push_back(
-                MemoryRegion<TData>::template FromVector<MemSpace, TData>(
+                LibUtilities::MemoryRegion<TData>::template FromVector<MemSpace,
+                                                                       TData>(
                     m_bndCoeffHost.back()));
             if (m_anySignChange)
             {
                 m_sign.push_back(
-                    MemoryRegion<TData>::template FromVector<MemSpace, TData>(
-                        signBlockByBlk[blk]));
+                    LibUtilities::MemoryRegion<TData>::template FromVector<
+                        MemSpace, TData>(signBlockByBlk[blk]));
             }
             m_parDirBndSign.push_back(
-                MemoryRegion<int>::template FromVector<MemSpace, int>(
+                LibUtilities::MemoryRegion<int>::template FromVector<MemSpace,
+                                                                     int>(
                     parDirBlockByBlk[blk]));
         }
 
@@ -558,14 +565,14 @@ public:
             for (unsigned int blk0 = 0; blk0 < domainBlocks.size(); ++blk0)
             {
                 m_locid0[blk1][blk0] =
-                    MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
-                        locid0BlockByPair[blk1][blk0]);
+                    LibUtilities::MemoryRegion<size_t>::template FromVector<
+                        MemSpace, size_t>(locid0BlockByPair[blk1][blk0]);
                 m_locid1[blk1][blk0] =
-                    MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
-                        locid1BlockByPair[blk1][blk0]);
+                    LibUtilities::MemoryRegion<size_t>::template FromVector<
+                        MemSpace, size_t>(locid1BlockByPair[blk1][blk0]);
                 m_locsign[blk1][blk0] =
-                    MemoryRegion<TData>::template FromVector<MemSpace, TData>(
-                        locsignBlockByPair[blk1][blk0]);
+                    LibUtilities::MemoryRegion<TData>::template FromVector<
+                        MemSpace, TData>(locsignBlockByPair[blk1][blk0]);
             }
         }
     }
@@ -593,16 +600,16 @@ protected:
     bool m_hasAnyBndCoeff = false;
     std::vector<bool> m_signChange;
 
-    std::vector<Field<TData, FieldState::Phys>> m_wsp_phys;
-    std::vector<Field<TData, FieldState::Coeff>> m_wsp_coeffs;
+    std::vector<MultiRegions::Field<TData, FieldState::Phys>> m_wsp_phys;
+    std::vector<MultiRegions::Field<TData, FieldState::Coeff>> m_wsp_coeffs;
     std::vector<std::shared_ptr<ExpressionOp<TData>>> m_expressionOps;
     std::vector<std::shared_ptr<FwdTransBCOp<TData>>> m_fwdTransBCOps;
     std::vector<size_t> m_dirCoeffOffsets;
     std::vector<size_t> m_dirNumCoeffs;
 
-    std::vector<MemoryRegion<size_t>> m_map;
-    std::vector<MemoryRegion<TData>> m_sign;
-    std::vector<MemoryRegion<TData>> m_bndCoeff;
+    std::vector<LibUtilities::MemoryRegion<size_t>> m_map;
+    std::vector<LibUtilities::MemoryRegion<TData>> m_sign;
+    std::vector<LibUtilities::MemoryRegion<TData>> m_bndCoeff;
     std::vector<std::vector<size_t>> m_bndCoeffSrc;
     std::vector<TData> m_compactBndCoeff;
     std::vector<std::vector<TData>> m_bndCoeffHost;
@@ -612,12 +619,12 @@ protected:
     std::vector<size_t> m_nParDirBndSignSize;
     std::vector<size_t> m_localDirSize;
 
-    std::vector<MemoryRegion<int>> m_parDirBndSign;
+    std::vector<LibUtilities::MemoryRegion<int>> m_parDirBndSign;
     std::vector<std::vector<size_t>> m_parDirOffsets;
     std::vector<std::vector<size_t>> m_parDirCounts;
-    std::vector<std::vector<MemoryRegion<size_t>>> m_locid0;
-    std::vector<std::vector<MemoryRegion<size_t>>> m_locid1;
-    std::vector<std::vector<MemoryRegion<TData>>> m_locsign;
+    std::vector<std::vector<LibUtilities::MemoryRegion<size_t>>> m_locid0;
+    std::vector<std::vector<LibUtilities::MemoryRegion<size_t>>> m_locid1;
+    std::vector<std::vector<LibUtilities::MemoryRegion<TData>>> m_locsign;
     std::vector<std::vector<std::vector<size_t>>> m_locOffsets;
     std::vector<std::vector<std::vector<size_t>>> m_locCounts;
 
@@ -688,7 +695,7 @@ protected:
         return total;
     }
 
-    void v_Apply(Field<TData, FieldState::Coeff> &inout) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &inout) override
     {
         // Return if no Dirichlet boundary condition on any rank -- must
         // match the constructor's global check, since the universal

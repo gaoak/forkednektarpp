@@ -208,12 +208,12 @@ void VelocityCorrectionScheme::v_GenerateSummary(SummaryList &s)
  *  param out: = param in
  */
 void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
-    Field<double, FieldState::Phys> &in,
-    [[maybe_unused]] Field<double, FieldState::Phys> &out, const double &time,
-    const double &dt_inv_gamma)
+    MultiRegions::Field<double, FieldState::Phys> &in,
+    [[maybe_unused]] MultiRegions::Field<double, FieldState::Phys> &out,
+    const double &time, const double &dt_inv_gamma)
 {
     // Choose RHS for either semiimplicit or linearimplicit formulation
-    Field<double, FieldState::Phys> &fieldRhs =
+    MultiRegions::Field<double, FieldState::Phys> &fieldRhs =
         m_implicitAdvection ? m_wsp_fields_rhs : in;
 
     if (m_implicitAdvection)
@@ -341,8 +341,9 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
  *             + \frac{\partial p}{\partial \mathbf{n}} |_{\Gamma_N}
  */
 void VelocityCorrectionScheme::EvaluateAdvection_SetPressureBCs(
-    Field<double, FieldState::Phys> &in, Field<double, FieldState::Phys> &out,
-    const double &time, const double &dt)
+    MultiRegions::Field<double, FieldState::Phys> &in,
+    MultiRegions::Field<double, FieldState::Phys> &out, const double &time,
+    const double &dt)
 {
     EvaluateAdvectionContribution(in, out, time, dt);
     if (m_implicitAdvection)
@@ -364,7 +365,8 @@ void VelocityCorrectionScheme::EvaluateAdvection_SetPressureBCs(
 }
 
 void VelocityCorrectionScheme::EvaluateAdvectionContribution(
-    Field<double, FieldState::Phys> &in, Field<double, FieldState::Phys> &out,
+    MultiRegions::Field<double, FieldState::Phys> &in,
+    MultiRegions::Field<double, FieldState::Phys> &out,
     [[maybe_unused]] const double &time, const double &dt)
 {
     m_math.zero(out);
@@ -374,7 +376,7 @@ void VelocityCorrectionScheme::EvaluateAdvectionContribution(
     m_advectionOp->Apply(in, out);
 }
 
-std::deque<Field<double, FieldState::Phys>> &VelocityCorrectionScheme::
+std::deque<MultiRegions::Field<double, FieldState::Phys>> &VelocityCorrectionScheme::
     GetAdvectionRhsHistory(unsigned int historyId)
 {
     ASSERTL0(m_implicitAdvection,
@@ -387,7 +389,8 @@ std::deque<Field<double, FieldState::Phys>> &VelocityCorrectionScheme::
     {
         constexpr unsigned int maxAdvectionRhsHistory = 4;
         auto bAtrPhys =
-            GetBlockAttributes<double, FieldState::Phys>(m_expansionLists[0]);
+            MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+                m_expansionLists[0]);
         for (unsigned int i = 0; i < maxAdvectionRhsHistory; ++i)
         {
             history.emplace_back("advection rhs history " + std::to_string(i),
@@ -401,7 +404,7 @@ std::deque<Field<double, FieldState::Phys>> &VelocityCorrectionScheme::
 }
 
 void VelocityCorrectionScheme::UpdateAdvectionRhsHistory(
-    Field<double, FieldState::Phys> &advRhs)
+    MultiRegions::Field<double, FieldState::Phys> &advRhs)
 {
     auto &history =
         GetAdvectionRhsHistory(m_timeOp->GetExplicitContributionHistoryId());
@@ -527,42 +530,44 @@ void VelocityCorrectionScheme::v_InitialiseFields()
 
     /// Create fields for velocity and passive scalars.
     // Get block attributes
-    auto bAtr_phys =
-        GetBlockAttributes<double, FieldState::Phys>(m_expansionLists[0]);
+    auto bAtr_phys = MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+        m_expansionLists[0]);
 
     // Create fields
-    m_wsp_phys = Field<double, FieldState::Phys>(
+    m_wsp_phys = MultiRegions::Field<double, FieldState::Phys>(
         "wsp_phys", bAtr_phys, m_variablesFields.size(), m_npointsZ);
-    m_advVel = Field<double, FieldState::Phys>("explicit advection velocity",
-                                               bAtr_phys, m_variablesVel.size(),
-                                               m_npointsZ);
+    m_advVel = MultiRegions::Field<double, FieldState::Phys>(
+        "explicit advection velocity", bAtr_phys, m_variablesVel.size(),
+        m_npointsZ);
 
     if (m_implicitAdvection)
     {
-        m_wsp_fields_rhs = Field<double, FieldState::Phys>(
+        m_wsp_fields_rhs = MultiRegions::Field<double, FieldState::Phys>(
             "wsp_fields_rhs", bAtr_phys, m_variablesFields.size(), m_npointsZ);
-        m_wsp_explicit_adv_rhs = Field<double, FieldState::Phys>(
+        m_wsp_explicit_adv_rhs = MultiRegions::Field<double, FieldState::Phys>(
             "wsp_explicit_adv_rhs", bAtr_phys, m_variablesFields.size(),
             m_npointsZ);
     }
 
     /// Create fields for pressure.
     // Get block attributes
-    auto bAtr_phys_pressure = GetBlockAttributes<double, FieldState::Phys>(
-        m_expansionLists[m_pressureIndex]);
-    auto bAtr_coeff_pressure = GetBlockAttributes<double, FieldState::Coeff>(
-        m_expansionLists[m_pressureIndex]);
+    auto bAtr_phys_pressure =
+        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+            m_expansionLists[m_pressureIndex]);
+    auto bAtr_coeff_pressure =
+        MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
+            m_expansionLists[m_pressureIndex]);
     // Create fields
-    m_pressure = Field<double, FieldState::Phys>(
+    m_pressure = MultiRegions::Field<double, FieldState::Phys>(
         "pressure", bAtr_phys_pressure, m_variablesPressure.size(), m_npointsZ);
-    m_pressure_coeff = Field<double, FieldState::Coeff>(
+    m_pressure_coeff = MultiRegions::Field<double, FieldState::Coeff>(
         "pressure coeff", bAtr_coeff_pressure, m_variablesPressure.size(),
         m_npointsZ);
-    m_wsp_phys_deriv_pressure = Field<double, FieldState::Phys>(
+    m_wsp_phys_deriv_pressure = MultiRegions::Field<double, FieldState::Phys>(
         "wsp_phys_deriv_pressure", bAtr_phys_pressure, m_coordim, m_npointsZ);
-    m_wsp_phys_1c =
-        Field<double, FieldState::Phys>("wsp_phys_1c", bAtr_phys_pressure,
-                                        m_variablesPressure.size(), m_npointsZ);
+    m_wsp_phys_1c = MultiRegions::Field<double, FieldState::Phys>(
+        "wsp_phys_1c", bAtr_phys_pressure, m_variablesPressure.size(),
+        m_npointsZ);
 }
 
 /*
@@ -637,9 +642,9 @@ void VelocityCorrectionScheme::v_PrintNorms(std::ostream &out)
 
     /// Print norms for axuiliary pressure field
     // Create workspace Field
-    auto wsp_phys = Field<double, FieldState::Phys>(
+    auto wsp_phys = MultiRegions::Field<double, FieldState::Phys>(
         "exact solution pressure",
-        GetBlockAttributes<double, FieldState::Phys>(
+        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
             m_expansionLists[m_pressureIndex]),
         m_variablesPressure.size(), m_npointsZ);
     m_math.zero(wsp_phys);

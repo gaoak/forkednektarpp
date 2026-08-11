@@ -35,8 +35,8 @@
 #pragma once
 
 #include "Operators/Common/DataWarehouse/TraceDataWarehouse.hpp"
-#include <Operators/Field/Block.hpp>
-#include <Operators/Field/Field.hpp>
+#include <MultiRegions/Field/Block.hpp>
+#include <MultiRegions/Field/Field.hpp>
 
 #include <MultiRegions/DisContField.h>
 #include <MultiRegions/ExpList.h>
@@ -130,12 +130,13 @@ std::vector<TData> GetIPTraceLengthRecip(
 }
 
 template <typename TData, typename FillFunc>
-MemoryRegion<TData> CreateIPTraceBlockData(
+LibUtilities::MemoryRegion<TData> CreateIPTraceBlockData(
     const MultiRegions::ExpListSharedPtr &expansionList,
     const unsigned int blockIdx, FillFunc fill)
 {
-    auto trace  = expansionList->GetTrace();
-    auto blocks = GetBlockAttributes<TData, FieldState::Phys>(trace);
+    auto trace = expansionList->GetTrace();
+    auto blocks =
+        MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(trace);
 
     size_t traceOffset = 0;
     for (unsigned int blk = 0; blk < blockIdx; ++blk)
@@ -145,7 +146,7 @@ MemoryRegion<TData> CreateIPTraceBlockData(
 
     const auto &block     = blocks[blockIdx];
     const size_t nRealPts = block.GetNumElements() * block.GetNumData();
-    auto data             = MemoryRegion<TData>(block.CompSize());
+    auto data             = LibUtilities::MemoryRegion<TData>(block.CompSize());
     auto dataptr = data.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     for (size_t i = 0; i < block.CompSize(); ++i)
@@ -158,7 +159,7 @@ MemoryRegion<TData> CreateIPTraceBlockData(
 } // namespace
 
 template <typename MemSpace, typename TData>
-MemoryRegion<unsigned int> TraceEssentialCreator::Create(
+LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
     const LocTracePhysToElmtMapsKey<TData> &locTracePhysToElmtMapsKey)
 {
     const auto vector_width = NektarSpaces::max_vector_width<TData>::value;
@@ -166,8 +167,8 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
     const auto block_idx        = locTracePhysToElmtMapsKey.m_block_idx;
     const auto interleave_width = locTracePhysToElmtMapsKey.m_interleave_width;
 
-    auto coll               = GetCollection(m_expansionList, block_idx);
-    auto expPtr             = coll.GetExpVector()[0];
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto expPtr = coll.GetExpVector()[0];
     const auto num_elements = coll.GetExpVector().size();
     const auto num_elmt_groups =
         ((num_elements + vector_width - 1) / vector_width) * vector_width /
@@ -189,7 +190,7 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 
     const auto memsize = num_elmt_groups * interleave_width * nTracePts;
     Array<OneD, Array<OneD, int>> mapsArray(interleave_width * nTraces);
-    auto maps    = MemoryRegion<unsigned int>(memsize);
+    auto maps    = LibUtilities::MemoryRegion<unsigned int>(memsize);
     auto mapsptr = maps.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
@@ -230,7 +231,7 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<TData> TraceEssentialCreator::Create(
+LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
     const IPTraceNormalKey<TData> &ipTraceNormalKey)
 {
     const size_t nTracePts  = m_expansionList->GetTrace()->GetTotPoints();
@@ -242,7 +243,7 @@ MemoryRegion<TData> TraceEssentialCreator::Create(
     }
     m_expansionList->GetTrace()->GetNormals(normals);
 
-    auto blocks = GetBlockAttributes<TData, FieldState::Phys>(
+    auto blocks = MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
         m_expansionList->GetTrace());
     const auto &block = blocks[ipTraceNormalKey.m_block_idx];
 
@@ -253,7 +254,7 @@ MemoryRegion<TData> TraceEssentialCreator::Create(
     }
 
     const size_t nRealPts = block.GetNumElements() * block.GetNumData();
-    auto data             = MemoryRegion<TData>(nDim * block.CompSize());
+    auto data    = LibUtilities::MemoryRegion<TData>(nDim * block.CompSize());
     auto dataptr = data.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     for (unsigned int d = 0; d < nDim; ++d)
@@ -269,7 +270,7 @@ MemoryRegion<TData> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<TData> TraceEssentialCreator::Create(
+LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
     const IPTraceScalarKey<TData> &ipTraceScalarKey)
 {
     const size_t nTracePts = m_expansionList->GetTrace()->GetTotPoints();
@@ -317,10 +318,11 @@ MemoryRegion<TData> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<TData> TraceEssentialCreator::Create(
+LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
     const IPTraceDerivBaseKey<TData> &ipTraceDerivBaseKey)
 {
-    auto coll = GetCollection(m_expansionList, ipTraceDerivBaseKey.m_block_idx);
+    auto coll = MultiRegions::GetCollection(m_expansionList,
+                                            ipTraceDerivBaseKey.m_block_idx);
     auto exp  = coll.GetExpVector()[0];
 
     const unsigned int nDim    = m_expansionList->GetCoordim(0);
@@ -332,8 +334,9 @@ MemoryRegion<TData> TraceEssentialCreator::Create(
         nLocTracePts += exp->GetTraceNumPoints(t);
     }
 
-    auto data = MemoryRegion<TData>(nDim * nCoeffs * nLocTracePts);
-    auto ptr  = data.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+    auto data =
+        LibUtilities::MemoryRegion<TData>(nDim * nCoeffs * nLocTracePts);
+    auto ptr = data.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     unsigned int traceOffset = 0;
     for (int t = 0; t < exp->GetNtraces(); ++t)
@@ -373,7 +376,7 @@ MemoryRegion<TData> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<unsigned int> TraceEssentialCreator::Create(
+LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
     const OrientationMapsKey<TData> &orientationMapsKey)
 {
     const auto vector_width = NektarSpaces::max_vector_width<TData>::value;
@@ -381,8 +384,8 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
     const auto block_idx        = orientationMapsKey.m_block_idx;
     const auto interleave_width = orientationMapsKey.m_interleave_width;
 
-    auto coll               = GetCollection(m_expansionList, block_idx);
-    auto expPtr             = coll.GetExpVector()[0];
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto expPtr = coll.GetExpVector()[0];
     const auto num_elements = coll.GetExpVector().size();
     const auto num_elmt_groups =
         ((num_elements + vector_width - 1) / vector_width) * vector_width /
@@ -424,7 +427,7 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
         }
     }
 
-    auto maps    = MemoryRegion<unsigned int>(memsize);
+    auto maps    = LibUtilities::MemoryRegion<unsigned int>(memsize);
     auto mapsptr = maps.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
@@ -475,7 +478,7 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<size_t> TraceEssentialCreator::Create(
+LibUtilities::MemoryRegion<size_t> TraceEssentialCreator::Create(
     const OrientationMapsOffsetKey<TData> &orientationMapsOffsetKey)
 {
     const auto vector_width = NektarSpaces::max_vector_width<TData>::value;
@@ -483,8 +486,8 @@ MemoryRegion<size_t> TraceEssentialCreator::Create(
     const auto block_idx        = orientationMapsOffsetKey.m_block_idx;
     const auto interleave_width = orientationMapsOffsetKey.m_interleave_width;
 
-    auto coll               = GetCollection(m_expansionList, block_idx);
-    auto expPtr             = coll.GetExpVector()[0];
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto expPtr = coll.GetExpVector()[0];
     const auto num_elements = coll.GetExpVector().size();
     const auto num_elmt_groups =
         ((num_elements + vector_width - 1) / vector_width) * vector_width /
@@ -505,7 +508,7 @@ MemoryRegion<size_t> TraceEssentialCreator::Create(
 
     const auto memsize = num_elmt_groups * interleave_width * nTraces;
     Array<OneD, unsigned int> offsetArray(interleave_width * nTraces);
-    auto offset = MemoryRegion<size_t>(memsize);
+    auto offset = LibUtilities::MemoryRegion<size_t>(memsize);
     auto offsetptr =
         offset.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -557,7 +560,7 @@ MemoryRegion<size_t> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<size_t> TraceEssentialCreator::Create(
+LibUtilities::MemoryRegion<size_t> TraceEssentialCreator::Create(
     const LocToTracePhysOffsetKey<TData> &locToTracePhysOffsetKey)
 {
     const auto vector_width = NektarSpaces::max_vector_width<TData>::value;
@@ -565,8 +568,8 @@ MemoryRegion<size_t> TraceEssentialCreator::Create(
     const auto block_idx        = locToTracePhysOffsetKey.m_block_idx;
     const auto interleave_width = locToTracePhysOffsetKey.m_interleave_width;
 
-    auto coll               = GetCollection(m_expansionList, block_idx);
-    auto expPtr             = coll.GetExpVector()[0];
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto expPtr = coll.GetExpVector()[0];
     const auto num_elements = coll.GetExpVector().size();
     const auto num_elmt_groups =
         ((num_elements + vector_width - 1) / vector_width) * vector_width /
@@ -581,7 +584,7 @@ MemoryRegion<size_t> TraceEssentialCreator::Create(
 
     const auto memsize = num_elmt_groups * interleave_width * nTraces;
     Array<OneD, Array<OneD, size_t>> offsetArray(nTraces);
-    auto offset = MemoryRegion<size_t>(memsize);
+    auto offset = LibUtilities::MemoryRegion<size_t>(memsize);
     auto offsetptr =
         offset.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -614,7 +617,7 @@ MemoryRegion<size_t> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<bool> TraceEssentialCreator::Create(
+LibUtilities::MemoryRegion<bool> TraceEssentialCreator::Create(
     const IsLocTraceLeftAdjacentKey<TData> &isLocTraceLeftAdjacentKey)
 {
     const auto vector_width = NektarSpaces::max_vector_width<TData>::value;
@@ -622,8 +625,8 @@ MemoryRegion<bool> TraceEssentialCreator::Create(
     const auto block_idx        = isLocTraceLeftAdjacentKey.m_block_idx;
     const auto interleave_width = isLocTraceLeftAdjacentKey.m_interleave_width;
 
-    auto coll               = GetCollection(m_expansionList, block_idx);
-    auto expPtr             = coll.GetExpVector()[0];
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto expPtr = coll.GetExpVector()[0];
     const auto num_elements = coll.GetExpVector().size();
     const auto num_elmt_groups =
         ((num_elements + vector_width - 1) / vector_width) * vector_width /
@@ -637,7 +640,7 @@ MemoryRegion<bool> TraceEssentialCreator::Create(
         locTraceToTraceMap->GetTraceFieldMapEssential(block_idx);
     const auto memsize = num_elmt_groups * interleave_width * nTraces;
     Array<OneD, Array<OneD, bool>> isLeftArray(nTraces);
-    auto isLeft = MemoryRegion<bool>(memsize);
+    auto isLeft = LibUtilities::MemoryRegion<bool>(memsize);
     auto isLeftptr =
         isLeft.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -673,7 +676,7 @@ MemoryRegion<bool> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<unsigned int> TraceEssentialCreator::Create(
+LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
     const InterpTraceIndexKey<TData> &interpTraceIndexKey)
 {
     const auto vector_width = NektarSpaces::max_vector_width<TData>::value;
@@ -681,8 +684,8 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
     const auto block_idx        = interpTraceIndexKey.m_block_idx;
     const auto interleave_width = interpTraceIndexKey.m_interleave_width;
 
-    auto coll               = GetCollection(m_expansionList, block_idx);
-    auto expPtr             = coll.GetExpVector()[0];
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto expPtr = coll.GetExpVector()[0];
     const auto num_elements = coll.GetExpVector().size();
     const auto num_elmt_groups =
         ((num_elements + vector_width - 1) / vector_width) * vector_width /
@@ -704,7 +707,7 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 
     const auto memsize = num_elmt_groups * interleave_width * nTraces;
     Array<OneD, Array<OneD, unsigned int>> interpTraceIndex(nTraces);
-    auto index    = MemoryRegion<unsigned int>(memsize);
+    auto index    = LibUtilities::MemoryRegion<unsigned int>(memsize);
     auto indexptr = index.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     for (unsigned int i = 0; i < nTraces; ++i)
@@ -743,13 +746,13 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<unsigned int> TraceEssentialCreator::Create(
+LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
     const InterpPointsKey<TData> &interpPointsKey)
 {
 
     const auto block_idx = interpPointsKey.m_block_idx;
 
-    auto coll   = GetCollection(m_expansionList, block_idx);
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
     const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
@@ -767,7 +770,7 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
     // Add one extra tuple for padding
     const auto memsize = (numTuples + 1) * 4;
     Array<OneD, unsigned int> interpPointsArray(memsize);
-    auto interp = MemoryRegion<unsigned int>(memsize);
+    auto interp = LibUtilities::MemoryRegion<unsigned int>(memsize);
     auto interpPointsptr =
         interp.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -801,13 +804,13 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<unsigned int> TraceEssentialCreator::Create(
+LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
     const InterpTypesKey<TData> &interpTypesKey)
 {
 
     const auto block_idx = interpTypesKey.m_block_idx;
 
-    auto coll   = GetCollection(m_expansionList, block_idx);
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
     const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
@@ -823,7 +826,7 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 
     const auto memsize      = 1;
     unsigned int typesArray = numTuples;
-    auto interp             = MemoryRegion<unsigned int>(memsize);
+    auto interp             = LibUtilities::MemoryRegion<unsigned int>(memsize);
     auto interpTypesptr =
         interp.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -833,12 +836,12 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<unsigned int> TraceEssentialCreator::Create(
+LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
     const QuadRangeKey<TData> &quadRangeKey)
 {
     const auto block_idx = quadRangeKey.m_block_idx;
 
-    auto coll   = GetCollection(m_expansionList, block_idx);
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
     const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
@@ -855,7 +858,7 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
     // 4 ints per tuple, 2 directions
     const auto memsize = numTuples * 4 * 2;
     Array<OneD, unsigned int> quadRangeArray(memsize);
-    auto quadRange = MemoryRegion<unsigned int>(memsize);
+    auto quadRange = LibUtilities::MemoryRegion<unsigned int>(memsize);
     auto quadRangeptr =
         quadRange.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -901,12 +904,12 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<MultiRegions::InterpLocTraceToTrace> TraceEssentialCreator::Create(
-    const InterpTraceKey<TData> &interpTraceKey)
+LibUtilities::MemoryRegion<MultiRegions::InterpLocTraceToTrace>
+TraceEssentialCreator::Create(const InterpTraceKey<TData> &interpTraceKey)
 {
     const auto block_idx = interpTraceKey.m_block_idx;
 
-    auto coll   = GetCollection(m_expansionList, block_idx);
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
     const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
@@ -924,7 +927,8 @@ MemoryRegion<MultiRegions::InterpLocTraceToTrace> TraceEssentialCreator::Create(
     const auto memsize = numTypes + 1;
     Array<OneD, MultiRegions::InterpLocTraceToTrace> interpTraceArray(memsize);
     auto interpTrace =
-        MemoryRegion<MultiRegions::InterpLocTraceToTrace>(memsize);
+        LibUtilities::MemoryRegion<MultiRegions::InterpLocTraceToTrace>(
+            memsize);
     auto interpTraceptr =
         interpTrace.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -956,12 +960,12 @@ MemoryRegion<MultiRegions::InterpLocTraceToTrace> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<TData> TraceEssentialCreator::Create(
+LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
     const InterpTraceI0Key<TData> &interpTraceI0Key)
 {
     const auto block_idx = interpTraceI0Key.m_block_idx;
 
-    auto coll   = GetCollection(m_expansionList, block_idx);
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
     const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
@@ -984,7 +988,7 @@ MemoryRegion<TData> TraceEssentialCreator::Create(
     }
 
     // Allocate one contiguous MemoryRegion for all matrix entries
-    auto interpTrace = MemoryRegion<TData>(memsize);
+    auto interpTrace = LibUtilities::MemoryRegion<TData>(memsize);
     auto interpTracePtr =
         interpTrace.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -1012,12 +1016,12 @@ MemoryRegion<TData> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<unsigned int> TraceEssentialCreator::Create(
+LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
     const InterpTraceI0OffsetKey<TData> &interpTraceI0OffsetKey)
 {
     const auto block_idx = interpTraceI0OffsetKey.m_block_idx;
 
-    auto coll   = GetCollection(m_expansionList, block_idx);
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
     const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
@@ -1033,7 +1037,7 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 
     const auto memsize = numTypes;
     Array<OneD, unsigned int> offsetArray(memsize);
-    auto offset = MemoryRegion<unsigned int>(memsize);
+    auto offset = LibUtilities::MemoryRegion<unsigned int>(memsize);
     auto offsetptr =
         offset.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -1063,12 +1067,12 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<TData> TraceEssentialCreator::Create(
+LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
     const InterpTraceI1Key<TData> &interpTraceI1Key)
 {
     const auto block_idx = interpTraceI1Key.m_block_idx;
 
-    auto coll   = GetCollection(m_expansionList, block_idx);
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
     const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
@@ -1091,7 +1095,7 @@ MemoryRegion<TData> TraceEssentialCreator::Create(
     }
 
     // Allocate one contiguous MemoryRegion for all matrix entries
-    auto interpTrace = MemoryRegion<TData>(memsize);
+    auto interpTrace = LibUtilities::MemoryRegion<TData>(memsize);
     auto interpTracePtr =
         interpTrace.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -1118,12 +1122,12 @@ MemoryRegion<TData> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<unsigned int> TraceEssentialCreator::Create(
+LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
     const InterpTraceI1OffsetKey<TData> &interpTraceI1OffsetKey)
 {
     const auto block_idx = interpTraceI1OffsetKey.m_block_idx;
 
-    auto coll   = GetCollection(m_expansionList, block_idx);
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
     const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
@@ -1139,7 +1143,7 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 
     const auto memsize = numTypes;
     Array<OneD, unsigned int> offsetArray(memsize);
-    auto offset = MemoryRegion<unsigned int>(memsize);
+    auto offset = LibUtilities::MemoryRegion<unsigned int>(memsize);
     auto offsetptr =
         offset.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -1168,12 +1172,12 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<DNekMatSharedPtr> TraceEssentialCreator::Create(
+LibUtilities::MemoryRegion<DNekMatSharedPtr> TraceEssentialCreator::Create(
     const InterpFromTraceI0Key<TData> &interpFromTraceI0Key)
 {
     const auto block_idx = interpFromTraceI0Key.m_block_idx;
 
-    auto coll   = GetCollection(m_expansionList, block_idx);
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
     const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
@@ -1189,7 +1193,7 @@ MemoryRegion<DNekMatSharedPtr> TraceEssentialCreator::Create(
 
     const auto memsize = numTypes;
     Array<OneD, DNekMatSharedPtr> interpFromTraceI0Array(memsize);
-    auto interpTrace = MemoryRegion<DNekMatSharedPtr>(memsize);
+    auto interpTrace = LibUtilities::MemoryRegion<DNekMatSharedPtr>(memsize);
     auto interpTraceptr =
         interpTrace.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -1213,12 +1217,12 @@ MemoryRegion<DNekMatSharedPtr> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<DNekMatSharedPtr> TraceEssentialCreator::Create(
+LibUtilities::MemoryRegion<DNekMatSharedPtr> TraceEssentialCreator::Create(
     const InterpFromTraceI1Key<TData> &interpFromTraceI1Key)
 {
     const auto block_idx = interpFromTraceI1Key.m_block_idx;
 
-    auto coll   = GetCollection(m_expansionList, block_idx);
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
     const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
@@ -1234,7 +1238,7 @@ MemoryRegion<DNekMatSharedPtr> TraceEssentialCreator::Create(
 
     const auto memsize = numTypes;
     Array<OneD, DNekMatSharedPtr> interpFromTraceI1Array(memsize);
-    auto interpTrace = MemoryRegion<DNekMatSharedPtr>(memsize);
+    auto interpTrace = LibUtilities::MemoryRegion<DNekMatSharedPtr>(memsize);
     auto interpTraceptr =
         interpTrace.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -1258,12 +1262,12 @@ MemoryRegion<DNekMatSharedPtr> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<TData> TraceEssentialCreator::Create(
+LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
     const InterpEndPtI0Key<TData> &interpEndPtI0Key)
 {
     const auto block_idx = interpEndPtI0Key.m_block_idx;
 
-    auto coll   = GetCollection(m_expansionList, block_idx);
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
     const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
@@ -1283,7 +1287,7 @@ MemoryRegion<TData> TraceEssentialCreator::Create(
     }
 
     Array<OneD, Array<OneD, double>> interpEndPtI0Array(numTypes);
-    auto interpTrace = MemoryRegion<TData>(memsize);
+    auto interpTrace = LibUtilities::MemoryRegion<TData>(memsize);
     auto interpTraceptr =
         interpTrace.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -1309,12 +1313,12 @@ MemoryRegion<TData> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<unsigned int> TraceEssentialCreator::Create(
+LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
     const InterpEndPtI0OffsetKey<TData> &interpEndPtI0OffsetKey)
 {
     const auto block_idx = interpEndPtI0OffsetKey.m_block_idx;
 
-    auto coll   = GetCollection(m_expansionList, block_idx);
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
     const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
@@ -1331,7 +1335,7 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
     Array<OneD, unsigned int> offsetArray(numTypes);
 
     size_t memsize = numTypes;
-    auto offset    = MemoryRegion<unsigned int>(memsize);
+    auto offset    = LibUtilities::MemoryRegion<unsigned int>(memsize);
     auto offsetptr =
         offset.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -1355,12 +1359,12 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<TData> TraceEssentialCreator::Create(
+LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
     const InterpEndPtI1Key<TData> &interpEndPtI1Key)
 {
     const auto block_idx = interpEndPtI1Key.m_block_idx;
 
-    auto coll   = GetCollection(m_expansionList, block_idx);
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
     const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
@@ -1380,7 +1384,7 @@ MemoryRegion<TData> TraceEssentialCreator::Create(
     }
 
     Array<OneD, Array<OneD, double>> interpEndPtI1Array(numTypes);
-    auto interpTrace = MemoryRegion<TData>(memsize);
+    auto interpTrace = LibUtilities::MemoryRegion<TData>(memsize);
     auto interpTraceptr =
         interpTrace.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -1406,12 +1410,12 @@ MemoryRegion<TData> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<unsigned int> TraceEssentialCreator::Create(
+LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
     const InterpEndPtI1OffsetKey<TData> &interpEndPtI1OffsetKey)
 {
     const auto block_idx = interpEndPtI1OffsetKey.m_block_idx;
 
-    auto coll   = GetCollection(m_expansionList, block_idx);
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
     const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
@@ -1428,7 +1432,7 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
     Array<OneD, unsigned int> offsetArray(numTypes);
 
     size_t memsize = numTypes;
-    auto offset    = MemoryRegion<unsigned int>(memsize);
+    auto offset    = LibUtilities::MemoryRegion<unsigned int>(memsize);
     auto offsetptr =
         offset.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -1452,7 +1456,7 @@ MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<TData> TraceEssentialCreator::Create(
+LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
     const Interp1DKey<TData> &interp1DKey)
 {
     using namespace Nektar::LibUtilities;
@@ -1469,11 +1473,11 @@ MemoryRegion<TData> TraceEssentialCreator::Create(
         tmp[i] = 1.0;
         LibUtilities::Interp1D(fromKey, tmp, toKey, t = mat + i * nqe);
     }
-    return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+    return LibUtilities::MemoryRegion<TData>::template FromArray<MemSpace>(mat);
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<TData> TraceEssentialCreator::Create(
+LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
     const Interp2DKey<TData> &interp2DKey)
 {
     using namespace Nektar::LibUtilities;
@@ -1494,7 +1498,7 @@ MemoryRegion<TData> TraceEssentialCreator::Create(
                                t = mat + i * nq_face);
     }
 
-    return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+    return LibUtilities::MemoryRegion<TData>::template FromArray<MemSpace>(mat);
 }
 
 } // namespace Nektar::Operators

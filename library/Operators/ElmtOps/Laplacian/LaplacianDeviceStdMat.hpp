@@ -34,9 +34,9 @@
 
 #pragma once
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 #include "Operators/ElmtOps/Laplacian/LaplacianBlockOp.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/Laplacian/LaplacianDeviceStdMatKernels.hpp"
 
@@ -120,8 +120,9 @@ protected:
     const TData *m_jacptr;
     const TData *m_dfptr;
 
-    void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
-                 BlockAccessor<TData, FieldState::Coeff> &outblock) override
+    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+                 MultiRegions::BlockAccessor<TData, FieldState::Coeff>
+                     &outblock) override
     {
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 

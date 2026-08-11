@@ -605,94 +605,103 @@ public:
     }
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<unsigned int> Create(
+    LibUtilities::MemoryRegion<unsigned int> Create(
         const LocTracePhysToElmtMapsKey<TData> &locTracePhysToElmtMapsKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<unsigned int> Create(
+    LibUtilities::MemoryRegion<unsigned int> Create(
         const OrientationMapsKey<TData> &orientationMapsKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<size_t> Create(
+    LibUtilities::MemoryRegion<size_t> Create(
         const OrientationMapsOffsetKey<TData> &orientationMapsOffsetKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<size_t> Create(
+    LibUtilities::MemoryRegion<size_t> Create(
         const LocToTracePhysOffsetKey<TData> &locToTracePhysOffsetKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<bool> Create(
+    LibUtilities::MemoryRegion<bool> Create(
         const IsLocTraceLeftAdjacentKey<TData> &isLocTraceLeftAdjacentKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<unsigned int> Create(
+    LibUtilities::MemoryRegion<unsigned int> Create(
         const InterpTraceIndexKey<TData> &interpTraceIndexKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<unsigned int> Create(
+    LibUtilities::MemoryRegion<unsigned int> Create(
         const InterpPointsKey<TData> &interpPointsKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<unsigned int> Create(
+    LibUtilities::MemoryRegion<unsigned int> Create(
         const InterpTypesKey<TData> &interpTypesKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<unsigned int> Create(const QuadRangeKey<TData> &quadRangeKey);
+    LibUtilities::MemoryRegion<unsigned int> Create(
+        const QuadRangeKey<TData> &quadRangeKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<MultiRegions::InterpLocTraceToTrace> Create(
+    LibUtilities::MemoryRegion<MultiRegions::InterpLocTraceToTrace> Create(
         const InterpTraceKey<TData> &interpTraceKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<TData> Create(const InterpTraceI0Key<TData> &interpTraceI0Key);
+    LibUtilities::MemoryRegion<TData> Create(
+        const InterpTraceI0Key<TData> &interpTraceI0Key);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<unsigned int> Create(
+    LibUtilities::MemoryRegion<unsigned int> Create(
         const InterpTraceI0OffsetKey<TData> &interpTraceI0OffsetKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<TData> Create(const InterpTraceI1Key<TData> &interpTraceI1Key);
+    LibUtilities::MemoryRegion<TData> Create(
+        const InterpTraceI1Key<TData> &interpTraceI1Key);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<unsigned int> Create(
+    LibUtilities::MemoryRegion<unsigned int> Create(
         const InterpTraceI1OffsetKey<TData> &interpTraceI1OffsetKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<DNekMatSharedPtr> Create(
+    LibUtilities::MemoryRegion<DNekMatSharedPtr> Create(
         const InterpFromTraceI0Key<TData> &interpFromTraceI0Key);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<DNekMatSharedPtr> Create(
+    LibUtilities::MemoryRegion<DNekMatSharedPtr> Create(
         const InterpFromTraceI1Key<TData> &interpFromTraceI1Key);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<TData> Create(const InterpEndPtI0Key<TData> &interpEndPtI0Key);
+    LibUtilities::MemoryRegion<TData> Create(
+        const InterpEndPtI0Key<TData> &interpEndPtI0Key);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<unsigned int> Create(
+    LibUtilities::MemoryRegion<unsigned int> Create(
         const InterpEndPtI0OffsetKey<TData> &interpEndPtI0OffsetKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<TData> Create(const InterpEndPtI1Key<TData> &interpEndPtI1Key);
+    LibUtilities::MemoryRegion<TData> Create(
+        const InterpEndPtI1Key<TData> &interpEndPtI1Key);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<unsigned int> Create(
+    LibUtilities::MemoryRegion<unsigned int> Create(
         const InterpEndPtI1OffsetKey<TData> &interpEndPtI1OffsetKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<TData> Create(const Interp1DKey<TData> &interp1DKey);
+    LibUtilities::MemoryRegion<TData> Create(
+        const Interp1DKey<TData> &interp1DKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<TData> Create(const Interp2DKey<TData> &interp2DKey);
+    LibUtilities::MemoryRegion<TData> Create(
+        const Interp2DKey<TData> &interp2DKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<TData> Create(const IPTraceNormalKey<TData> &ipTraceNormalKey);
+    LibUtilities::MemoryRegion<TData> Create(
+        const IPTraceNormalKey<TData> &ipTraceNormalKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<TData> Create(const IPTraceScalarKey<TData> &ipTraceScalarKey);
+    LibUtilities::MemoryRegion<TData> Create(
+        const IPTraceScalarKey<TData> &ipTraceScalarKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<TData> Create(
+    LibUtilities::MemoryRegion<TData> Create(
         const IPTraceDerivBaseKey<TData> &ipTraceDerivBaseKey);
 
     inline static const std::string m_name = "TraceEssentialCreator";

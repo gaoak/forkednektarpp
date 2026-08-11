@@ -34,8 +34,8 @@
 
 #pragma once
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "LibUtilities/LoopExecution/LoopExecution.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -95,7 +95,8 @@ NEK_FORCE_INLINE static void DiffuseScalarTraceFluxKernel(
             //
             // For isotropic diffusion D = I and unit normals, this is 1.
             // For anisotropic/tensor diffusion, this scales the penalty
-            // according to how strongly diffusion acts across the current face.
+            // according to how strongly diffusion acts across the current
+            // face.
             vec_t normalDiffusionStrength = vec_t(0.0);
             for (unsigned int n0 = 0; n0 < ndim; ++n0)
             {
@@ -126,7 +127,8 @@ NEK_FORCE_INLINE static void DiffuseScalarTraceFluxKernel(
                 avervec[f * traceVecStride + i] = uAverage;
                 jumpvec[f * traceVecStride + i] = bwdMinusFwd;
                 // normalAverageGradientFlux = {D grad(u)} · n
-                // Since D is symmetric, this is equivalently: n^T D {grad(u)}
+                // Since D is symmetric, this is equivalently: n^T D
+                // {grad(u)}
                 vec_t normalAverageGradientFlux = vec_t(0.0);
 
                 for (unsigned int d = 0; d < ndim; ++d)
@@ -150,8 +152,8 @@ NEK_FORCE_INLINE static void DiffuseScalarTraceFluxKernel(
                     normalAverageGradientFlux += normalDiffCoeff * avgDeriv;
                 }
 
-                // Combine flux avg(D grad u).n - C11 * (u_fwd - u_bwd) on the
-                // fwd side.
+                // Combine flux avg(D grad u).n - C11 * (u_fwd - u_bwd) on
+                // the fwd side.
                 fluxvec[f * traceVecStride + i] =
                     normalAverageGradientFlux +
                     penalty * normalDiffusionStrength * bwdMinusFwd;

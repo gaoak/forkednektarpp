@@ -67,15 +67,17 @@ public:
             expansionList, components, execStr0);
 
         auto blockAttr =
-            GetBlockAttributes<TData, FieldState::Coeff>(expansionList);
+            MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                expansionList);
 
         // Loop over the blocks.
         for (unsigned int block_idx = 0; block_idx < blockAttr.size();
              block_idx++)
         {
-            const auto exp_idx = GetCollection(expansionList, block_idx)
-                                     .GetExpVector()[0]
-                                     ->GetElmtId();
+            const auto exp_idx =
+                MultiRegions::GetCollection(expansionList, block_idx)
+                    .GetExpVector()[0]
+                    ->GetElmtId();
             const auto exp = expansionList->GetExp(exp_idx);
             op->m_blockOp.push_back(TBlockOperator<TData>::Create(
                 block_idx, exp, expansionList->GetDataWarehouseSharedPtr(),
@@ -85,12 +87,14 @@ public:
         return op;
     }
 
-    void Apply(Field<TData, TFieldIn> &in, Field<TData, TFieldOut> &out)
+    void Apply(MultiRegions::Field<TData, TFieldIn> &in,
+               MultiRegions::Field<TData, TFieldOut> &out)
     {
         v_Apply(in, out);
     }
 
-    void operator()(Field<TData, TFieldIn> &in, Field<TData, TFieldOut> &out)
+    void operator()(MultiRegions::Field<TData, TFieldIn> &in,
+                    MultiRegions::Field<TData, TFieldOut> &out)
     {
         v_Apply(in, out);
     }
@@ -180,8 +184,8 @@ protected:
     {
     }
 
-    virtual void v_Apply(Field<TData, TFieldIn> &in,
-                         Field<TData, TFieldOut> &out) = 0;
+    virtual void v_Apply(MultiRegions::Field<TData, TFieldIn> &in,
+                         MultiRegions::Field<TData, TFieldOut> &out) = 0;
 };
 
 } // namespace Nektar::Operators

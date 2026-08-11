@@ -34,9 +34,9 @@
 
 #pragma once
 
+#include <MultiRegions/Field/Block.hpp>
+#include <MultiRegions/Field/Field.hpp>
 #include <Operators/Common/DataWarehouse/GeometricDataWarehouse.hpp>
-#include <Operators/Field/Block.hpp>
-#include <Operators/Field/Field.hpp>
 
 #include <MultiRegions/ExpList.h>
 
@@ -45,11 +45,13 @@
 #undef min
 #endif
 
+using namespace Nektar::LibUtilities;
+
 namespace Nektar::Operators
 {
 
 template <typename MemSpace, typename TData>
-MemoryRegion<TData> GeometricDataCreator::Create(
+LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
     const WeightsKey<TData> &weightsKey)
 {
     // Fetch data from key.
@@ -57,12 +59,12 @@ MemoryRegion<TData> GeometricDataCreator::Create(
     const auto interleave_width = weightsKey.m_interleave_width;
 
     // Fetch expansion.
-    auto coll   = GetCollection(m_expansionList, block_idx);
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
     // Allocate memory and get pointer.
     const auto memsize = interleave_width * expPtr->GetTotPoints();
-    auto weights       = MemoryRegion<TData>(memsize);
+    auto weights       = LibUtilities::MemoryRegion<TData>(memsize);
 
     auto wptr = weights.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -132,7 +134,7 @@ MemoryRegion<TData> GeometricDataCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<TData> GeometricDataCreator::Create(
+LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
     const JacobianKey<TData> &jacobianKey)
 {
     // Use maximum vector width for back-ends interoperability.
@@ -143,8 +145,8 @@ MemoryRegion<TData> GeometricDataCreator::Create(
     const auto interleave_width = jacobianKey.m_interleave_width;
 
     // Fetch expansion.
-    auto coll               = GetCollection(m_expansionList, block_idx);
-    auto expPtr             = coll.GetExpVector()[0];
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto expPtr = coll.GetExpVector()[0];
     const auto num_elements = coll.GetExpVector().size();
     const auto exp_idx      = expPtr->GetElmtId();
     const bool isDeformed =
@@ -157,7 +159,7 @@ MemoryRegion<TData> GeometricDataCreator::Create(
     const auto memsize = (isDeformed) ? num_elmt_groups * interleave_width *
                                             expPtr->GetTotPoints()
                                       : num_elmt_groups * interleave_width;
-    auto jac           = MemoryRegion<TData>(memsize);
+    auto jac           = LibUtilities::MemoryRegion<TData>(memsize);
     auto jacptr = jac.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     // Deformed geometry.
@@ -200,7 +202,8 @@ MemoryRegion<TData> GeometricDataCreator::Create(
     // Regular geometry.
     else
     {
-        auto jac    = MemoryRegion<TData>(num_elmt_groups * interleave_width);
+        auto jac    = LibUtilities::MemoryRegion<TData>(num_elmt_groups *
+                                                        interleave_width);
         auto jacptr = jac.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
         // Loop over chunks.
@@ -229,7 +232,7 @@ MemoryRegion<TData> GeometricDataCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<TData> GeometricDataCreator::Create(
+LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
     const DerivFactorKey<TData> &derivFactorKey)
 {
     // Use maximum vector width for back-ends interoperability.
@@ -241,8 +244,8 @@ MemoryRegion<TData> GeometricDataCreator::Create(
     const auto transpose        = derivFactorKey.m_transpose;
 
     // Fetch expansion.
-    auto coll               = GetCollection(m_expansionList, block_idx);
-    auto expPtr             = coll.GetExpVector()[0];
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto expPtr = coll.GetExpVector()[0];
     const auto num_elements = coll.GetExpVector().size();
     const auto exp_idx      = expPtr->GetElmtId();
     const bool isDeformed =
@@ -261,7 +264,7 @@ MemoryRegion<TData> GeometricDataCreator::Create(
         (isDeformed) ? num_elmt_groups * interleave_width *
                            expPtr->GetTotPoints() * nDim * nCoord
                      : num_elmt_groups * interleave_width * nDim * nCoord;
-    auto df    = MemoryRegion<TData>(memsize);
+    auto df    = LibUtilities::MemoryRegion<TData>(memsize);
     auto dfptr = df.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     // Deformed geometry.
@@ -340,7 +343,7 @@ MemoryRegion<TData> GeometricDataCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<TData> GeometricDataCreator::Create(
+LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
     const CoordKey<TData> &coordKey)
 {
     // Use maximum vector width for back-ends interoperability.
@@ -352,8 +355,8 @@ MemoryRegion<TData> GeometricDataCreator::Create(
     const auto transpose        = coordKey.m_transpose;
 
     // Fetch expansion.
-    auto coll               = GetCollection(m_expansionList, block_idx);
-    auto expPtr             = coll.GetExpVector()[0];
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto expPtr = coll.GetExpVector()[0];
     const auto num_elements = coll.GetExpVector().size();
     const auto exp_idx      = expPtr->GetElmtId();
     const auto num_elmt_groups =
@@ -367,7 +370,7 @@ MemoryRegion<TData> GeometricDataCreator::Create(
     // Allocate memory and get pointer.
     const auto memsize =
         num_elmt_groups * interleave_width * expPtr->GetTotPoints() * nDim;
-    auto crds   = MemoryRegion<TData>(memsize);
+    auto crds   = LibUtilities::MemoryRegion<TData>(memsize);
     auto crdptr = crds.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     // Loop over chunks.
@@ -408,7 +411,7 @@ MemoryRegion<TData> GeometricDataCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<unsigned> GeometricDataCreator::Create(
+LibUtilities::MemoryRegion<unsigned> GeometricDataCreator::Create(
     const OrientKey<TData> &orientKey)
 {
     // Use maximum vector width for back-ends interoperability.
@@ -419,8 +422,8 @@ MemoryRegion<unsigned> GeometricDataCreator::Create(
     const auto interleave_width = orientKey.m_interleave_width;
 
     // Fetch expansion.
-    auto coll               = GetCollection(m_expansionList, block_idx);
-    auto expPtr             = coll.GetExpVector()[0];
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto expPtr = coll.GetExpVector()[0];
     const auto num_elements = coll.GetExpVector().size();
     const auto exp_idx      = expPtr->GetElmtId();
     const auto nedge        = expPtr->GetGeom()->GetNumEdges();
@@ -430,7 +433,7 @@ MemoryRegion<unsigned> GeometricDataCreator::Create(
 
     // Allocate memory and get pointer.
     const auto memsize = num_elmt_groups * interleave_width * nedge;
-    auto orients       = MemoryRegion<unsigned int>(memsize);
+    auto orients       = LibUtilities::MemoryRegion<unsigned int>(memsize);
     auto orientptr =
         orients.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -466,7 +469,7 @@ MemoryRegion<unsigned> GeometricDataCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<unsigned> GeometricDataCreator::Create(
+LibUtilities::MemoryRegion<unsigned> GeometricDataCreator::Create(
     const TraceToElmtMapKey<TData> &traceToElmtMapKey)
 {
     // Fetch data from key.
@@ -474,7 +477,7 @@ MemoryRegion<unsigned> GeometricDataCreator::Create(
 
     // Get the reference element.
     // Note the traceToElemtMap is equivalent for all elements within a block.
-    auto coll        = GetCollection(m_expansionList, block_idx);
+    auto coll        = MultiRegions::GetCollection(m_expansionList, block_idx);
     auto expPtr      = coll.GetExpVector()[0];
     const auto nedge = expPtr->GetGeom()->GetNumEdges();
 
@@ -489,7 +492,7 @@ MemoryRegion<unsigned> GeometricDataCreator::Create(
 
     // Allocate memory and get pointer.
     const auto memsize = nmTrace;
-    auto map           = MemoryRegion<unsigned>(memsize);
+    auto map           = LibUtilities::MemoryRegion<unsigned>(memsize);
     auto mapptr = map.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     // Loop over component or points
@@ -513,7 +516,7 @@ MemoryRegion<unsigned> GeometricDataCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<int> GeometricDataCreator::Create(
+LibUtilities::MemoryRegion<int> GeometricDataCreator::Create(
     const TraceToElmtSignKey<TData> &traceToElmtSignKey)
 {
     // Fetch data from key.
@@ -521,7 +524,7 @@ MemoryRegion<int> GeometricDataCreator::Create(
 
     // Get the reference element.
     // Note the sign is equivalent for all elements within a block.
-    auto coll        = GetCollection(m_expansionList, block_idx);
+    auto coll        = MultiRegions::GetCollection(m_expansionList, block_idx);
     auto expPtr      = coll.GetExpVector()[0];
     const auto nedge = expPtr->GetGeom()->GetNumEdges();
 
@@ -534,7 +537,7 @@ MemoryRegion<int> GeometricDataCreator::Create(
 
     // Allocate memory and get pointer.
     const auto memsize = nmTrace;
-    auto sign          = MemoryRegion<int>(memsize);
+    auto sign          = LibUtilities::MemoryRegion<int>(memsize);
     auto signptr = sign.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     // Loop over number of edges
@@ -560,7 +563,7 @@ MemoryRegion<int> GeometricDataCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<unsigned> GeometricDataCreator::Create(
+LibUtilities::MemoryRegion<unsigned> GeometricDataCreator::Create(
     const InteriorMapKey<TData> &interiorMapKey)
 {
     // Fetch data from key.
@@ -568,7 +571,7 @@ MemoryRegion<unsigned> GeometricDataCreator::Create(
 
     // Get the reference element.
     // Note the interior map is equivalent for all elements within a block.
-    auto coll   = GetCollection(m_expansionList, block_idx);
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
     // Get size of interior map
@@ -576,7 +579,7 @@ MemoryRegion<unsigned> GeometricDataCreator::Create(
 
     // Allocate memory and get pointer.
     const auto memsize = numInteriorCoeffs;
-    auto map           = MemoryRegion<unsigned>(memsize);
+    auto map           = LibUtilities::MemoryRegion<unsigned>(memsize);
     auto mapptr = map.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     // Allocate temporary arrays for map and sign
@@ -595,7 +598,7 @@ MemoryRegion<unsigned> GeometricDataCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<TData> GeometricDataCreator::Create(
+LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
     const JacobianTraceKey<TData> &jacobianTraceKey)
 {
     // Use maximum vector width for back-ends interoperability.
@@ -605,8 +608,8 @@ MemoryRegion<TData> GeometricDataCreator::Create(
     const auto block_idx        = jacobianTraceKey.m_block_idx;
     const auto interleave_width = jacobianTraceKey.m_interleave_width;
 
-    auto coll               = GetCollection(m_expansionList, block_idx);
-    auto expPtr             = coll.GetExpVector()[0];
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto expPtr = coll.GetExpVector()[0];
     const auto num_elements = coll.GetExpVector().size();
     const auto exp_idx      = expPtr->GetElmtId();
     // Assume non-deformed edge for now.
@@ -628,7 +631,7 @@ MemoryRegion<TData> GeometricDataCreator::Create(
     const auto memsize =
         (isDeformed) ? num_elmt_groups * interleave_width * nTraceJacPoints
                      : num_elmt_groups * interleave_width * nedge;
-    auto jac    = MemoryRegion<TData>(memsize);
+    auto jac    = LibUtilities::MemoryRegion<TData>(memsize);
     auto jacptr = jac.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     // Deformed geometry.
@@ -715,7 +718,7 @@ MemoryRegion<TData> GeometricDataCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-MemoryRegion<TData> GeometricDataCreator::Create(
+LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
     const JacobianLocTraceKey<TData> &jacobianLocTraceKey)
 {
     // Use maximum vector width for back-ends interoperability.
@@ -724,8 +727,8 @@ MemoryRegion<TData> GeometricDataCreator::Create(
     const auto block_idx        = jacobianLocTraceKey.m_block_idx;
     const auto interleave_width = jacobianLocTraceKey.m_interleave_width;
 
-    auto coll          = GetCollection(m_expansionList, block_idx);
-    auto expPtr        = coll.GetExpVector()[0];
+    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto expPtr = coll.GetExpVector()[0];
     const auto exp_idx = expPtr->GetElmtId();
     const auto nDim    = expPtr->GetShapeDimension();
 
@@ -768,7 +771,7 @@ MemoryRegion<TData> GeometricDataCreator::Create(
     }
 
     const auto memsize = num_elmt_groups * interleave_width * nTraceJacPoints;
-    auto jac           = MemoryRegion<TData>(memsize);
+    auto jac           = LibUtilities::MemoryRegion<TData>(memsize);
     auto jacptr = jac.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     // Loop over chunks.

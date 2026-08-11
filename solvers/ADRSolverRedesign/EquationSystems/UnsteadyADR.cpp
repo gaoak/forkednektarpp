@@ -127,9 +127,9 @@ void UnsteadyADR::v_GenerateSummary(SummaryList &s)
 }
 
 void UnsteadyADR::DoImplicit(
-    Field<double, FieldState::Phys> &in,
-    [[maybe_unused]] Field<double, FieldState::Phys> &out, const double &time,
-    const double &dt_inv_gamma)
+    MultiRegions::Field<double, FieldState::Phys> &in,
+    [[maybe_unused]] MultiRegions::Field<double, FieldState::Phys> &out,
+    const double &time, const double &dt_inv_gamma)
 {
     if (m_session->GetSolverInfo("EQTYPE") == "UnsteadyAdvection")
     {
@@ -221,9 +221,10 @@ void UnsteadyADR::DoImplicit(
  *  Upon output
  *  param out: = \kappa u^{n}
  */
-void UnsteadyADR::DoExplicitRhs(Field<double, FieldState::Phys> &in,
-                                Field<double, FieldState::Phys> &out,
-                                const double &time, const double &dt)
+void UnsteadyADR::DoExplicitRhs(
+    MultiRegions::Field<double, FieldState::Phys> &in,
+    MultiRegions::Field<double, FieldState::Phys> &out, const double &time,
+    const double &dt)
 {
     // Switch on the projection type (Discontinuous or Continuous)
     switch (m_projectionType)
@@ -483,17 +484,21 @@ void UnsteadyADR::v_InitialiseFields()
         case MultiRegions::eDiscontinuous:
         {
             // Create blocks.
-            auto bAtr_phys = GetBlockAttributes<double, FieldState::Phys>(
-                m_expansionLists[0]);
-            auto bAtr_phys_trace = GetBlockAttributes<double, FieldState::Phys>(
-                m_expansionLists[0]->GetTrace());
+            auto bAtr_phys =
+                MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+                    m_expansionLists[0]);
+            auto bAtr_phys_trace =
+                MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+                    m_expansionLists[0]->GetTrace());
 
             if (m_advection)
             {
-                m_advectionVel = Field<double, FieldState::Phys>(
+                m_advectionVel = MultiRegions::Field<double, FieldState::Phys>(
                     "advectionVel", bAtr_phys, m_coordim, numHomoModes);
-                m_traceAdvectionVel = Field<double, FieldState::Phys>(
-                    "traceAdvectVel", bAtr_phys_trace, m_coordim, numHomoModes);
+                m_traceAdvectionVel =
+                    MultiRegions::Field<double, FieldState::Phys>(
+                        "traceAdvectVel", bAtr_phys_trace, m_coordim,
+                        numHomoModes);
             }
             break;
         }
@@ -501,15 +506,17 @@ void UnsteadyADR::v_InitialiseFields()
         case MultiRegions::eGalerkin:
         {
             // Get block Attributes.
-            auto bAtr_phys = GetBlockAttributes<double, FieldState::Phys>(
-                m_expansionLists[0]);
-            auto bAtr_coeff = GetBlockAttributes<double, FieldState::Coeff>(
-                m_expansionLists[0]);
+            auto bAtr_phys =
+                MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+                    m_expansionLists[0]);
+            auto bAtr_coeff =
+                MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
+                    m_expansionLists[0]);
 
             // Create fields.
             if (m_advection)
             {
-                m_advectionVel = Field<double, FieldState::Phys>(
+                m_advectionVel = MultiRegions::Field<double, FieldState::Phys>(
                     "advVel", bAtr_phys, m_coordim, numHomoModes);
             }
             break;

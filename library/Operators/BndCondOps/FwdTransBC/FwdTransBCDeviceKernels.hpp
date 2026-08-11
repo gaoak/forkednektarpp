@@ -36,8 +36,8 @@
 
 #include "ElmtOps/BwdTrans/BwdTransDeviceSumFacTOPKernels.hpp"
 #include "ElmtOps/IProductWRTBase/IProductWRTBaseDeviceSumFacTOPKernels.hpp"
+#include "LibUtilities/BasicUtils/Utils/UtilsDeviceKernels.hpp"
 #include "LibUtilities/LoopExecution/LoopExecution.hpp"
-#include "Operators/Utils/UtilsDeviceKernels.hpp"
 
 namespace Nektar::Operators::detail
 {

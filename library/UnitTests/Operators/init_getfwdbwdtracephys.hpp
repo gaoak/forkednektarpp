@@ -36,10 +36,10 @@
 
 #include "Operators/GetFwdBwdTracePhys/GetFwdBwdTracePhysOp.hpp"
 
-using namespace Nektar::Operators;
+using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
-using namespace Nektar;
+using namespace Nektar::Operators;
 
 template <typename TData>
 class GetFwdBwdTracePhys

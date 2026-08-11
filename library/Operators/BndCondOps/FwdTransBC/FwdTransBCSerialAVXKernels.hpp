@@ -35,9 +35,9 @@
 
 #pragma once
 
+#include "LibUtilities/BasicUtils/Utils/UtilsSerialAVXKernels.hpp"
 #include "StdRegions/Operators/BwdTransSumFacStdKernels.hpp"
 #include "StdRegions/Operators/IProductWRTBaseSumFacStdKernels.hpp"
-#include "Utils/UtilsSerialAVXKernels.hpp"
 
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 

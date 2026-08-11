@@ -36,8 +36,8 @@
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "Operators/ElmtOps/CurlCurl/CurlCurlBlockOp.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/CurlCurl/CurlCurlSerialAVXSumFacKernels.hpp"
 
@@ -185,8 +185,9 @@ protected:
     bool m_warnOnce = false;
 #endif
 
-    void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
-                 BlockAccessor<TData, FieldState::Phys> &outblock) override
+    void v_Apply(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
         WARNINGL1(
             m_warnOnce || (inblock.GetAlignment() % simd_t::alignment == 0 &&
@@ -263,40 +264,51 @@ protected:
         }
     }
 
-    void SegBlock(BlockAccessor<TData, FieldState::Phys> &inblock,
-                  BlockAccessor<TData, FieldState::Phys> &outblock);
+    void SegBlock(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock);
 
-    void TriBlock(BlockAccessor<TData, FieldState::Phys> &inblock,
-                  BlockAccessor<TData, FieldState::Phys> &outblock);
+    void TriBlock(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock);
 
-    void NodalTriBlock(BlockAccessor<TData, FieldState::Phys> &inblock,
-                       BlockAccessor<TData, FieldState::Phys> &outblock);
+    void NodalTriBlock(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock);
 
-    void QuadBlock(BlockAccessor<TData, FieldState::Phys> &inblock,
-                   BlockAccessor<TData, FieldState::Phys> &outblock);
+    void QuadBlock(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock);
 
-    void HexBlock(BlockAccessor<TData, FieldState::Phys> &inblock,
-                  BlockAccessor<TData, FieldState::Phys> &outblock);
+    void HexBlock(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock);
 
-    void PrismBlock(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, FieldState::Phys> &outblock);
+    void PrismBlock(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock);
 
-    void NodalPrismBlock(BlockAccessor<TData, FieldState::Phys> &inblock,
-                         BlockAccessor<TData, FieldState::Phys> &outblock);
+    void NodalPrismBlock(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock);
 
-    void PyrBlock(BlockAccessor<TData, FieldState::Phys> &inblock,
-                  BlockAccessor<TData, FieldState::Phys> &outblock);
+    void PyrBlock(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock);
 
-    void TetBlock(BlockAccessor<TData, FieldState::Phys> &inblock,
-                  BlockAccessor<TData, FieldState::Phys> &outblock);
+    void TetBlock(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock);
 
-    void NodalTetBlock(BlockAccessor<TData, FieldState::Phys> &inblock,
-                       BlockAccessor<TData, FieldState::Phys> &outblock);
+    void NodalTetBlock(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock);
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator1D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, FieldState::Phys> &outblock)
+    void Operator1D(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         Operator1D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_coordDim,
                                          m_nq[0]);
@@ -305,16 +317,17 @@ protected:
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               unsigned int coordDim, unsigned int nq0>
-    void Operator1D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, FieldState::Phys> &outblock)
+    void Operator1D(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         Operator1D<SHAPE_TYPE, DEFORMED>(inblock, outblock, coordDim, nq0);
     }
 
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     NEK_FORCE_INLINE void Operator1D(
-        BlockAccessor<TData, FieldState::Phys> &inblock,
-        BlockAccessor<TData, FieldState::Phys> &outblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock,
         const unsigned int coordDim, const unsigned int nq0)
     {
         // Shape size.
@@ -396,8 +409,9 @@ protected:
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator2D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, FieldState::Phys> &outblock)
+    void Operator2D(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         Operator2D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_coordDim, m_nq[0],
                                          m_nq[1]);
@@ -406,8 +420,9 @@ protected:
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               unsigned int coordDim, unsigned int nq0, unsigned int nq1>
-    void Operator2D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, FieldState::Phys> &outblock)
+    void Operator2D(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         Operator2D<SHAPE_TYPE, DEFORMED>(inblock, outblock, coordDim, nq0, nq1);
     }
@@ -415,8 +430,8 @@ protected:
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     NEK_FORCE_INLINE void Operator2D(
-        BlockAccessor<TData, FieldState::Phys> &inblock,
-        BlockAccessor<TData, FieldState::Phys> &outblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock,
         [[maybe_unused]] const unsigned int coordDim, const unsigned int nq0,
         const unsigned int nq1)
     {
@@ -548,8 +563,9 @@ protected:
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator3D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, FieldState::Phys> &outblock)
+    void Operator3D(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         Operator3D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_nq[0], m_nq[1],
                                          m_nq[2]);
@@ -558,8 +574,9 @@ protected:
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               unsigned int nq0, unsigned int nq1, unsigned int nq2>
-    void Operator3D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, FieldState::Phys> &outblock)
+    void Operator3D(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         Operator3D<SHAPE_TYPE, DEFORMED>(inblock, outblock, nq0, nq1, nq2);
     }
@@ -567,8 +584,8 @@ protected:
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     NEK_FORCE_INLINE void Operator3D(
-        BlockAccessor<TData, FieldState::Phys> &inblock,
-        BlockAccessor<TData, FieldState::Phys> &outblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock,
         const unsigned int nq0, const unsigned int nq1, const unsigned int nq2)
     {
         // Shape size.

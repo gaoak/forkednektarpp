@@ -38,9 +38,9 @@
 
 #include "Operators/AssmbScatr/AssmbScatrOp.hpp"
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "Operators/AssmbScatr/AssmbScatrDeviceKernels.hpp"
 #include "Operators/AssmbScatr/AssmbScatrSerialAVXKernels.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 using namespace Nektar;
 using namespace Nektar::Operators;
@@ -102,9 +102,9 @@ protected:
     /// A pointer to the assembly communication for inter device commonication
     std::unique_ptr<MultiRegions::AssemblyCommCG<TData>> m_assmbCommCG;
     /// Buffer to place send data for inter device communication
-    MemoryRegion<TData> m_send_buffer;
+    LibUtilities::MemoryRegion<TData> m_send_buffer;
     /// Buffer to receive data into  for inter device communication
-    MemoryRegion<TData> m_recv_buffer;
+    LibUtilities::MemoryRegion<TData> m_recv_buffer;
 
     void SetUpMaps(unsigned numComp)
     {
@@ -209,8 +209,10 @@ protected:
 
             auto nbuf = m_assmbCommCG->GetSREntries().size() * numComp;
 
-            m_send_buffer = MemoryRegion<TData>(nbuf, eHostPinned);
-            m_recv_buffer = MemoryRegion<TData>(nbuf, eHostPinned);
+            m_send_buffer =
+                LibUtilities::MemoryRegion<TData>(nbuf, eHostPinned);
+            m_recv_buffer =
+                LibUtilities::MemoryRegion<TData>(nbuf, eHostPinned);
 
             // Assign pointer for future communication requests. Pointers are
             // used here directly, without memory syncronisation by accessing
@@ -247,8 +249,8 @@ protected:
         }
     }
 
-    void v_Apply(Field<TData, FieldState::Coeff> &in,
-                 Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
+                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
     {
         ASSERTL1(in.GetBlocks()[0].CompSize() == out.GetBlocks()[0].CompSize(),
                  "In and out blocks are of different size");
@@ -264,7 +266,7 @@ protected:
         v_Apply(out);
     }
 
-    void v_Apply(Field<TData, FieldState::Coeff> &inout) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &inout) override
     {
         auto numComp = inout.GetNumComponents();
 

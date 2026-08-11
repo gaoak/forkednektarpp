@@ -55,7 +55,7 @@ SessionFunction::SessionFunction(LibUtilities::SessionReaderSharedPtr session,
 
 void SessionFunction::EvaluateFld(
     const std::vector<std::string> &variables,
-    Operators::Field<double, FieldState::Coeff> &coeffs,
+    MultiRegions::Field<double, FieldState::Coeff> &coeffs,
     [[maybe_unused]] double time, [[maybe_unused]] unsigned int domain) const
 {
     ASSERTL0(coeffs.GetNumComponents() == variables.size(),
@@ -118,7 +118,7 @@ void SessionFunction::EvaluateFld(
 
 void SessionFunction::EvaluateExpression(
     const std::vector<std::string> &variables,
-    Operators::Field<double, FieldState::Phys> &phys, double time) const
+    MultiRegions::Field<double, FieldState::Phys> &phys, double time) const
 {
     ASSERTL0(phys.GetNumComponents() == variables.size(),
              "SessionFunction::EvaluateExpression mismatch in supplied number "

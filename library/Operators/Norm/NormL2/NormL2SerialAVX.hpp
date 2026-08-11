@@ -39,10 +39,10 @@
 #include "Operators/Common/DataWarehouse/BasisDataWarehouse.hpp"
 #include "Operators/Common/DataWarehouse/GeometricDataWarehouse.hpp"
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "Operators/Math/MathKernels.hpp"
 #include "Operators/Norm/NormL2/NormL2BlockOp.hpp"
 #include "Operators/Norm/NormL2/NormL2SerialAVXKernels.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -119,8 +119,8 @@ protected:
     bool m_warnOnce = false;
 #endif
 
-    void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
-                 MemoryRegion<TData> &data) override
+    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+                 LibUtilities::MemoryRegion<TData> &data) override
     {
         WARNINGL1(m_warnOnce ||
                       (inblock.GetAlignment() % simd_t::alignment == 0),
@@ -184,8 +184,9 @@ protected:
         }
     }
 
-    void Operator1D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    MemoryRegion<TData> &data)
+    void Operator1D(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::MemoryRegion<TData> &data)
     {
         // Shape size.
         const auto nq0   = m_nq[0];
@@ -303,8 +304,9 @@ protected:
         }
     }
 
-    void Operator2D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    MemoryRegion<TData> &data)
+    void Operator2D(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::MemoryRegion<TData> &data)
     {
         const auto nq0   = m_nq[0];
         const auto nq1   = m_nq[1];
@@ -420,8 +422,9 @@ protected:
         }
     }
 
-    void Operator3D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    MemoryRegion<TData> &data)
+    void Operator3D(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::MemoryRegion<TData> &data)
     {
         const auto nq0   = m_nq[0];
         const auto nq1   = m_nq[1];

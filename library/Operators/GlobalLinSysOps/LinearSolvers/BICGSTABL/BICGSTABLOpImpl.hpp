@@ -52,21 +52,25 @@ public:
     BICGSTABLOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                     const std::vector<std::string> &components)
         : BICGSTABLOp<TData>(expansionList, components),
-          m_w(Field<TData, FieldState::Coeff>(
+          m_w(MultiRegions::Field<TData, FieldState::Coeff>(
               "BICGSTABLOp w",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_acc(Field<TData, FieldState::Coeff>(
+          m_acc(MultiRegions::Field<TData, FieldState::Coeff>(
               "BICGSTABLOp acc",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_rhs(Field<TData, FieldState::Coeff>(
+          m_rhs(MultiRegions::Field<TData, FieldState::Coeff>(
               "BICGSTABLOp rhs",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_rtilde(Field<TData, FieldState::Coeff>(
+          m_rtilde(MultiRegions::Field<TData, FieldState::Coeff>(
               "BICGSTABLOp rtilde",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1))
     {
         this->template SetLinearSolver<ExecSpace>();
@@ -89,20 +93,20 @@ public:
         // Set-up storage.
         for (unsigned int stage = 0; stage <= m_stage; stage++)
         {
-            m_r.push_back(Field<TData, FieldState::Coeff>(
+            m_r.push_back(MultiRegions::Field<TData, FieldState::Coeff>(
                 "BICGSTABLOp r" + std::to_string(stage),
-                GetBlockAttributes<TData, FieldState::Coeff>(
+                MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                     this->m_expansionList),
                 this->m_components, 1));
-            m_u.push_back(Field<TData, FieldState::Coeff>(
+            m_u.push_back(MultiRegions::Field<TData, FieldState::Coeff>(
                 "BICGSTABLOp u" + std::to_string(stage),
-                GetBlockAttributes<TData, FieldState::Coeff>(
+                MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                     this->m_expansionList),
                 this->m_components, 1));
         }
 
-        m_vExchange =
-            MemoryRegion<TData>((m_stage + 2) * (m_stage + 1) / 2, eHostPinned);
+        m_vExchange = LibUtilities::MemoryRegion<TData>(
+            (m_stage + 2) * (m_stage + 1) / 2, eHostPinned);
     }
 
     // className - for OperatorFactory
@@ -118,19 +122,19 @@ public:
     }
 
 protected:
-    std::vector<Field<TData, FieldState::Coeff>> m_u;
-    std::vector<Field<TData, FieldState::Coeff>> m_r;
-    Field<TData, FieldState::Coeff> m_w;
-    Field<TData, FieldState::Coeff> m_acc;
-    Field<TData, FieldState::Coeff> m_rhs;
-    Field<TData, FieldState::Coeff> m_rtilde;
-    MemoryRegion<TData> m_vExchange;
+    std::vector<MultiRegions::Field<TData, FieldState::Coeff>> m_u;
+    std::vector<MultiRegions::Field<TData, FieldState::Coeff>> m_r;
+    MultiRegions::Field<TData, FieldState::Coeff> m_w;
+    MultiRegions::Field<TData, FieldState::Coeff> m_acc;
+    MultiRegions::Field<TData, FieldState::Coeff> m_rhs;
+    MultiRegions::Field<TData, FieldState::Coeff> m_rtilde;
+    LibUtilities::MemoryRegion<TData> m_vExchange;
 
     unsigned int m_stage  = 0;
     bool m_accurateUpdate = true; // Flag for enhanced update
 
-    void v_Apply(Field<TData, FieldState::Coeff> &in,
-                 Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
+                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
     {
         // Reference:
         // Sleijpen, Gerard LG, Henk A. Van der Vorst, and Diederik R. Fokkema.

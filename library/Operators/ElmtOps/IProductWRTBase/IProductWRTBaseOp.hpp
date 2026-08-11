@@ -92,8 +92,8 @@ protected:
 
     ~IProductWRTBaseOp() override = default;
 
-    void v_Apply(Field<TData, FieldState::Phys> &in,
-                 Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
+                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
     {
         ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
                  "Number of input and output components differ");

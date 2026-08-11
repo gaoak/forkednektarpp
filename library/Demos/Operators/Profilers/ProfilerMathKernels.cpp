@@ -39,7 +39,7 @@
 #include "Operators/Math/Math.hpp"
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
-#include <Operators/Field/Field.hpp>
+#include <MultiRegions/Field/Field.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;

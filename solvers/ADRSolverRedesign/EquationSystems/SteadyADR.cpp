@@ -243,22 +243,23 @@ void SteadyADR::v_InitialiseFields()
     EquationSystem::v_InitialiseFields();
 
     // Get block Attributes.
-    auto bAtr_phys =
-        GetBlockAttributes<double, FieldState::Phys>(m_expansionLists[0]);
+    auto bAtr_phys = MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+        m_expansionLists[0]);
     auto bAtr_coeff =
-        GetBlockAttributes<double, FieldState::Coeff>(m_expansionLists[0]);
+        MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
+            m_expansionLists[0]);
 
     // Create fields.
     unsigned int nhomo = m_npointsZ; // Note read in EquationSystem.cpp
 
-    m_wsp_fce = Field<double, FieldState::Phys>("m_wsp_fce", bAtr_phys,
-                                                m_nVariables, nhomo);
+    m_wsp_fce = MultiRegions::Field<double, FieldState::Phys>(
+        "m_wsp_fce", bAtr_phys, m_nVariables, nhomo);
 
     if (m_session->GetSolverInfo("EQTYPE") == "SteadyADR")
     {
         unsigned int coordDim = m_expansionLists[0]->GetCoordim(0);
-        m_advectionVel = Field<double, FieldState::Phys>("advVel", bAtr_phys,
-                                                         coordDim, nhomo);
+        m_advectionVel        = MultiRegions::Field<double, FieldState::Phys>(
+            "advVel", bAtr_phys, coordDim, nhomo);
     }
 
     // Initialise fields

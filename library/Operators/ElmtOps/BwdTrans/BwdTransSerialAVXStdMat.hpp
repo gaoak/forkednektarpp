@@ -36,9 +36,9 @@
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 #include "Operators/ElmtOps/BwdTrans/BwdTransBlockOp.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -109,8 +109,9 @@ protected:
     unsigned int m_nqTot;
     const TData *m_matptr;
 
-    void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
-                 BlockAccessor<TData, FieldState::Phys> &outblock) override
+    void v_Apply(
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();

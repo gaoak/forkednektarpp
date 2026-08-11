@@ -38,8 +38,8 @@
 #include <MultiRegions/DisContField.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
-#include <Operators/Field/Field.hpp>
-#include <Operators/Utils/UtilsKernels.hpp>
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
+#include <MultiRegions/Field/Field.hpp>
 
 #include "../CompressibleSolverOp.hpp"
 
@@ -79,6 +79,8 @@
 #endif
 
 using namespace Nektar;
+using namespace Nektar::LibUtilities;
+using namespace Nektar::MultiRegions;
 using namespace Nektar::Operators;
 
 struct GlobalConfiguration
@@ -396,12 +398,15 @@ static void ApplyRiemannOperator(
     auto traceAttr =
         GetBlockAttributes<TData, FieldState::Phys>(dg->GetTrace());
 
-    Field<TData, FieldState::Phys> fwdField("fwd", traceAttr, nFields, 1);
-    Field<TData, FieldState::Phys> bwdField("bwd", traceAttr, nFields, 1);
-    Field<TData, FieldState::Phys> flxField("flux", traceAttr, nFields, 1);
+    MultiRegions::Field<TData, FieldState::Phys> fwdField("fwd", traceAttr,
+                                                          nFields, 1);
+    MultiRegions::Field<TData, FieldState::Phys> bwdField("bwd", traceAttr,
+                                                          nFields, 1);
+    MultiRegions::Field<TData, FieldState::Phys> flxField("flux", traceAttr,
+                                                          nFields, 1);
 
-    Field<TData, FieldState::Phys> normalsField("traceNormals", traceAttr,
-                                                spaceDim, 1);
+    MultiRegions::Field<TData, FieldState::Phys> normalsField(
+        "traceNormals", traceAttr, spaceDim, 1);
 
     fwdField.template CopyArray<NektarSpaces::HostSpace>(
         FlattenCompMajor(fwd, nFields, npts));

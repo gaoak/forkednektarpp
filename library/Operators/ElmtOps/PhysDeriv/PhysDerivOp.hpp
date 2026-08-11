@@ -88,13 +88,15 @@ public:
             new PhysDerivOp<TData>(expansionList, components));
 
         auto blockAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(expansionList);
+            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
+                expansionList);
         for (unsigned int blkIdx = 0;
              blkIdx < static_cast<unsigned int>(blockAttr.size()); ++blkIdx)
         {
-            const auto expId = GetCollection(expansionList, blkIdx)
-                                   .GetExpVector()[0]
-                                   ->GetElmtId();
+            const auto expId =
+                MultiRegions::GetCollection(expansionList, blkIdx)
+                    .GetExpVector()[0]
+                    ->GetElmtId();
             const auto exp = expansionList->GetExp(expId);
             op->m_blockOp.push_back(PhysDerivBlockOp<TData>::Create(
                 blkIdx, exp, expansionList->GetDataWarehouseSharedPtr(),
@@ -157,8 +159,8 @@ protected:
     {
     }
 
-    void v_Apply(Field<TData, FieldState::Phys> &in,
-                 Field<TData, FieldState::Phys> &out) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
+                 MultiRegions::Field<TData, FieldState::Phys> &out) override
     {
         const unsigned int nhomo = in.GetNumHomoModes();
 

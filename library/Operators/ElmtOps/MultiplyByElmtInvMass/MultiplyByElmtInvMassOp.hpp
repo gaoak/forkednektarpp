@@ -62,12 +62,13 @@ public:
 
         // Loop over the blocks.
         auto blockAttr =
-            GetBlockAttributes<TData, FieldState::Coeff>(expansionList);
+            MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                expansionList);
 
         for (unsigned int blk = 0; blk < op->m_blockOp.size(); ++blk)
         {
             std::vector<TData> dmat;
-            const auto exp_idx = GetCollection(expansionList, blk)
+            const auto exp_idx = MultiRegions::GetCollection(expansionList, blk)
                                      .GetExpVector()[0]
                                      ->GetElmtId();
             const auto exp   = expansionList->GetExp(exp_idx);
@@ -111,8 +112,8 @@ protected:
 
     ~MultiplyByElmtInvMassOp() override = default;
 
-    void v_Apply(Field<TData, FieldState::Coeff> &in,
-                 Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
+                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
     {
         ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
                  "Number of input and output components differ");

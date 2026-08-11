@@ -37,9 +37,9 @@
 
 #include <LocalRegions/Expansion.h>
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 #include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassBlockOp.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -117,10 +117,11 @@ protected:
     unsigned int m_nqTot;
     const TData *m_invmassptr;
     const TData *m_jacptr;
-    MemoryRegion<TData> m_dinvmass;
+    LibUtilities::MemoryRegion<TData> m_dinvmass;
 
-    void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
-                 BlockAccessor<TData, FieldState::Coeff> &outblock) override
+    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+                 MultiRegions::BlockAccessor<TData, FieldState::Coeff>
+                     &outblock) override
     {
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
@@ -189,8 +190,8 @@ protected:
 
     void v_SetInvMassMatrix(std::vector<TData> &invmass) override
     {
-        this->m_dinvmass =
-            MemoryRegion<TData>::template FromVector<MemSpace, TData>(invmass);
+        this->m_dinvmass = LibUtilities::MemoryRegion<
+            TData>::template FromVector<MemSpace, TData>(invmass);
     }
 };
 

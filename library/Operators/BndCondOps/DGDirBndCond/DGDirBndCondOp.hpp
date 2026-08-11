@@ -56,12 +56,12 @@ public:
 
     static inline const std::string name = "DGDirBndCond";
 
-    void Apply(Field<TData, FieldState::Phys> &out)
+    void Apply(MultiRegions::Field<TData, FieldState::Phys> &out)
     {
         v_Apply(out);
     }
 
-    void operator()(Field<TData, FieldState::Phys> &out)
+    void operator()(MultiRegions::Field<TData, FieldState::Phys> &out)
     {
         v_Apply(out);
     }
@@ -75,7 +75,7 @@ protected:
 
     ~DGDirBndCondOp() override = default;
 
-    virtual void v_Apply(Field<TData, FieldState::Phys> &out) = 0;
+    virtual void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &out) = 0;
 };
 
 } // namespace Nektar::Operators

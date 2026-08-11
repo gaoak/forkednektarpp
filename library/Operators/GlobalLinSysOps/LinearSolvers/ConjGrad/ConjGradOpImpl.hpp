@@ -54,31 +54,37 @@ public:
     ConjGradOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                    const std::vector<std::string> &components)
         : ConjGradOp<TData>(expansionList, components),
-          m_w(Field<TData, FieldState::Coeff>(
+          m_w(MultiRegions::Field<TData, FieldState::Coeff>(
               "ConjGrad w",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_s(Field<TData, FieldState::Coeff>(
+          m_s(MultiRegions::Field<TData, FieldState::Coeff>(
               "ConjGrad s",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_r(Field<TData, FieldState::Coeff>(
+          m_r(MultiRegions::Field<TData, FieldState::Coeff>(
               "ConjGrad r",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_q(Field<TData, FieldState::Coeff>(
+          m_q(MultiRegions::Field<TData, FieldState::Coeff>(
               "ConjGrad q",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_p(Field<TData, FieldState::Coeff>(
+          m_p(MultiRegions::Field<TData, FieldState::Coeff>(
               "ConjGrad p",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_mask(Field<std::uint8_t, FieldState::Coeff>(
+          m_mask(MultiRegions::Field<std::uint8_t, FieldState::Coeff>(
               "ConjGrad mask",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_vExchange(MemoryRegion<TData>(4, eHostPinned))
+          m_vExchange(LibUtilities::MemoryRegion<TData>(4, eHostPinned))
     {
         this->template SetLinearSolver<ExecSpace>();
 
@@ -137,18 +143,18 @@ public:
     }
 
 protected:
-    Field<TData, FieldState::Coeff> m_w;
-    Field<TData, FieldState::Coeff> m_s;
-    Field<TData, FieldState::Coeff> m_r;
-    Field<TData, FieldState::Coeff> m_q;
-    Field<TData, FieldState::Coeff> m_p;
-    Field<std::uint8_t, FieldState::Coeff> m_mask;
-    MemoryRegion<TData> m_vExchange;
+    MultiRegions::Field<TData, FieldState::Coeff> m_w;
+    MultiRegions::Field<TData, FieldState::Coeff> m_s;
+    MultiRegions::Field<TData, FieldState::Coeff> m_r;
+    MultiRegions::Field<TData, FieldState::Coeff> m_q;
+    MultiRegions::Field<TData, FieldState::Coeff> m_p;
+    MultiRegions::Field<std::uint8_t, FieldState::Coeff> m_mask;
+    LibUtilities::MemoryRegion<TData> m_vExchange;
 
     bool m_flexible;
 
-    void v_Apply(Field<TData, FieldState::Coeff> &in,
-                 Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
+                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
     {
         // Reshape mask if required.
         for (unsigned blk = 0; blk < in.GetBlocks().size(); ++blk)

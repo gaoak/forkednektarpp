@@ -40,8 +40,8 @@
 #include <string>
 #include <vector>
 
+#include "MultiRegions/Field/Field.hpp"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivBlockOp.hpp"
-#include "Operators/Field/Field.hpp"
 
 #include <MultiRegions/ExpList.h>
 
@@ -88,9 +88,9 @@ public:
     /// \param nhomo     Number of homogeneous planes (1 = no z-FFT).
     /// \param blockNXY  Points per plane for each block.
     void Launch(std::vector<std::shared_ptr<PhysDerivBlockOp<TData>>> &blockOp,
-                Field<TData, FieldState::Phys> &in,
-                Field<TData, FieldState::Phys> &out, unsigned int nhomo,
-                const std::vector<int> &blockNXY)
+                MultiRegions::Field<TData, FieldState::Phys> &in,
+                MultiRegions::Field<TData, FieldState::Phys> &out,
+                unsigned int nhomo, const std::vector<int> &blockNXY)
     {
         v_Launch(blockOp, in, out, nhomo, blockNXY);
     }
@@ -100,8 +100,9 @@ protected:
 
     virtual void v_Launch(
         std::vector<std::shared_ptr<PhysDerivBlockOp<TData>>> &blockOp,
-        Field<TData, FieldState::Phys> &in, Field<TData, FieldState::Phys> &out,
-        unsigned int nhomo, const std::vector<int> &blockNXY) = 0;
+        MultiRegions::Field<TData, FieldState::Phys> &in,
+        MultiRegions::Field<TData, FieldState::Phys> &out, unsigned int nhomo,
+        const std::vector<int> &blockNXY) = 0;
 
 public:
     /// \brief Factory: create a z-op backend matching execStr.

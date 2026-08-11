@@ -39,9 +39,9 @@
 
 #include "Operators/BndCondOps/RobBndCond/RobBndCondOp.hpp"
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "Operators/BndCondOps/RobBndCond/RobBndCondDeviceKernels.hpp"
 #include "Operators/BndCondOps/RobBndCond/RobBndCondSerialAVXKernels.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -63,7 +63,8 @@ public:
 
         std::vector<size_t> alignmentMap(expansionList->GetNcoeffs());
         auto blockAttr =
-            GetBlockAttributes<TData, FieldState::Coeff>(expansionList);
+            MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                expansionList);
         for (auto &block : blockAttr)
         {
             const auto ncoeff    = block.GetNumData();
@@ -124,13 +125,12 @@ public:
                 }
             }
 
-            m_mat =
-                MemoryRegion<TData>::template FromVector<MemSpace, TData>(mat);
-            m_map = MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
-                map);
-            m_offset =
-                MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
-                    offset);
+            m_mat = LibUtilities::MemoryRegion<TData>::template FromVector<
+                MemSpace, TData>(mat);
+            m_map = LibUtilities::MemoryRegion<size_t>::template FromVector<
+                MemSpace, size_t>(map);
+            m_offset = LibUtilities::MemoryRegion<size_t>::template FromVector<
+                MemSpace, size_t>(offset);
         }
         else if (expansionList->GetExp(0)->GetShapeDimension() == 2)
         {
@@ -220,23 +220,22 @@ public:
                 }
             }
 
-            m_mat =
-                MemoryRegion<TData>::template FromVector<MemSpace, TData>(mat);
-            m_map = MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
-                map);
+            m_mat = LibUtilities::MemoryRegion<TData>::template FromVector<
+                MemSpace, TData>(mat);
+            m_map = LibUtilities::MemoryRegion<size_t>::template FromVector<
+                MemSpace, size_t>(map);
             m_sign =
-                MemoryRegion<int>::template FromVector<MemSpace, int>(sign);
-            m_nEdgeCoeff = MemoryRegion<unsigned int>::template FromVector<
-                MemSpace, unsigned int>(nEdgeCoeff);
-            m_offset =
-                MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
-                    offset);
-            m_matOffset =
-                MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
-                    matOffset);
-            m_mapOffset =
-                MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
-                    mapOffset);
+                LibUtilities::MemoryRegion<int>::template FromVector<MemSpace,
+                                                                     int>(sign);
+            m_nEdgeCoeff =
+                LibUtilities::MemoryRegion<unsigned int>::template FromVector<
+                    MemSpace, unsigned int>(nEdgeCoeff);
+            m_offset = LibUtilities::MemoryRegion<size_t>::template FromVector<
+                MemSpace, size_t>(offset);
+            m_matOffset = LibUtilities::MemoryRegion<
+                size_t>::template FromVector<MemSpace, size_t>(matOffset);
+            m_mapOffset = LibUtilities::MemoryRegion<
+                size_t>::template FromVector<MemSpace, size_t>(mapOffset);
         }
         else if (expansionList->GetExp(0)->GetShapeDimension() == 3)
         {
@@ -263,19 +262,19 @@ public:
     }
 
 protected:
-    MemoryRegion<TData> m_mat;
-    MemoryRegion<size_t> m_map;
-    MemoryRegion<int> m_sign;
-    MemoryRegion<unsigned int> m_nEdgeCoeff;
-    MemoryRegion<size_t> m_offset;
-    MemoryRegion<size_t> m_matOffset;
-    MemoryRegion<size_t> m_mapOffset;
+    LibUtilities::MemoryRegion<TData> m_mat;
+    LibUtilities::MemoryRegion<size_t> m_map;
+    LibUtilities::MemoryRegion<int> m_sign;
+    LibUtilities::MemoryRegion<unsigned int> m_nEdgeCoeff;
+    LibUtilities::MemoryRegion<size_t> m_offset;
+    LibUtilities::MemoryRegion<size_t> m_matOffset;
+    LibUtilities::MemoryRegion<size_t> m_mapOffset;
 
     unsigned int m_nmaxcoeff = 0;
     size_t m_nBndEdge        = 0;
 
-    void v_Apply(Field<TData, FieldState::Coeff> &in,
-                 Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
+                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
     {
         // Return if no Robin boundary condition.
         if (m_nBndEdge == 0)

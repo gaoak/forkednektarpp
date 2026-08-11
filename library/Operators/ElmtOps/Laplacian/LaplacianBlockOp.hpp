@@ -59,13 +59,12 @@ public:
 
     void SetDiffCoeff(std::vector<TData> &diffCoeff)
     {
-        this->m_diffCoeff =
-            MemoryRegion<TData>::template FromVector<NektarSpaces::HostSpace>(
-                diffCoeff);
+        this->m_diffCoeff = LibUtilities::MemoryRegion<
+            TData>::template FromVector<NektarSpaces::HostSpace>(diffCoeff);
     }
 
 protected:
-    MemoryRegion<TData> m_diffCoeff;
+    LibUtilities::MemoryRegion<TData> m_diffCoeff;
 
     LaplacianBlockOp(const unsigned int block_idx,
                      const LocalRegions::ExpansionSharedPtr &exp,

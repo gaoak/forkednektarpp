@@ -35,7 +35,7 @@
 #include "init_fields.hpp"
 
 #include "Operators/ElmtOps/Expression/ExpressionOp.hpp"
-#include <Operators/Utils/UtilsKernels.hpp>
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;

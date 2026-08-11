@@ -37,8 +37,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "Operators/Norm/NormLinf/NormLinfBlockOp.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -72,8 +72,8 @@ protected:
         simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                      TData>::type::width;
 
-    void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
-                 MemoryRegion<TData> &data) override
+    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+                 LibUtilities::MemoryRegion<TData> &data) override
     {
         const auto numComp = inblock.GetNumComponents();
 

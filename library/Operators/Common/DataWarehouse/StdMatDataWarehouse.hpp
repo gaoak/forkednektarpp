@@ -126,7 +126,7 @@ public:
     ~StdMatDataCreator() override = default;
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<TData> Create(const StdMatKey<TData> &stdMatKey);
+    LibUtilities::MemoryRegion<TData> Create(const StdMatKey<TData> &stdMatKey);
 
     inline static const std::string m_name = "StdMatDataCreator";
 };

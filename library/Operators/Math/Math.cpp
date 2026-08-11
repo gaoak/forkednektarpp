@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/Field/Field.hpp"
+#include "MultiRegions/Field/Field.hpp"
 
 #include "Operators/Math/Math.hpp"
 #include "Operators/Math/MathKernels.hpp"
@@ -1111,573 +1111,711 @@ typename T::value_type Math::linfnorm(M &mask, T &x,
 }
 
 // zero template specialization.
-template void Math::zero<Field<double, FieldState::Phys>>(
-    Field<double, FieldState::Phys> &x, const std::string &execSpace);
-template void Math::zero<Field<float, FieldState::Phys>>(
-    Field<float, FieldState::Phys> &x, const std::string &execSpace);
-template void Math::zero<Field<double, FieldState::Coeff>>(
-    Field<double, FieldState::Coeff> &x, const std::string &execSpace);
-template void Math::zero<Field<float, FieldState::Coeff>>(
-    Field<float, FieldState::Coeff> &x, const std::string &execSpace);
-template void Math::zero<MemoryRegion<double>>(MemoryRegion<double> &x,
-                                               const std::string &execSpace);
-template void Math::zero<MemoryRegion<float>>(MemoryRegion<float> &x,
-                                              const std::string &execSpace);
+template void Math::zero<MultiRegions::Field<double, FieldState::Phys>>(
+    MultiRegions::Field<double, FieldState::Phys> &x,
+    const std::string &execSpace);
+template void Math::zero<MultiRegions::Field<float, FieldState::Phys>>(
+    MultiRegions::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template void Math::zero<MultiRegions::Field<double, FieldState::Coeff>>(
+    MultiRegions::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template void Math::zero<MultiRegions::Field<float, FieldState::Coeff>>(
+    MultiRegions::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template void Math::zero<LibUtilities::MemoryRegion<double>>(
+    LibUtilities::MemoryRegion<double> &x, const std::string &execSpace);
+template void Math::zero<LibUtilities::MemoryRegion<float>>(
+    LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
 
 // fill template specialization.
-template void Math::fill<double, Field<double, FieldState::Phys>>(
-    const double &val, Field<double, FieldState::Phys> &x,
+template void Math::fill<double, MultiRegions::Field<double, FieldState::Phys>>(
+    const double &val, MultiRegions::Field<double, FieldState::Phys> &x,
     const std::string &execSpace);
-template void Math::fill<float, Field<float, FieldState::Phys>>(
-    const float &val, Field<float, FieldState::Phys> &x,
+template void Math::fill<float, MultiRegions::Field<float, FieldState::Phys>>(
+    const float &val, MultiRegions::Field<float, FieldState::Phys> &x,
     const std::string &execSpace);
-template void Math::fill<double, Field<double, FieldState::Coeff>>(
-    const double &val, Field<double, FieldState::Coeff> &x,
+template void Math::fill<double,
+                         MultiRegions::Field<double, FieldState::Coeff>>(
+    const double &val, MultiRegions::Field<double, FieldState::Coeff> &x,
     const std::string &execSpace);
-template void Math::fill<float, Field<float, FieldState::Coeff>>(
-    const float &val, Field<float, FieldState::Coeff> &x,
+template void Math::fill<float, MultiRegions::Field<float, FieldState::Coeff>>(
+    const float &val, MultiRegions::Field<float, FieldState::Coeff> &x,
     const std::string &execSpace);
-template void Math::fill<double, MemoryRegion<double>>(
-    const double &val, MemoryRegion<double> &x, const std::string &execSpace);
-template void Math::fill<float, MemoryRegion<float>>(
-    const float &val, MemoryRegion<float> &x, const std::string &execSpace);
+template void Math::fill<double, LibUtilities::MemoryRegion<double>>(
+    const double &val, LibUtilities::MemoryRegion<double> &x,
+    const std::string &execSpace);
+template void Math::fill<float, LibUtilities::MemoryRegion<float>>(
+    const float &val, LibUtilities::MemoryRegion<float> &x,
+    const std::string &execSpace);
 
 // copy template specialization.
-template void Math::copy<Field<double, FieldState::Phys>>(
-    Field<double, FieldState::Phys> &x, Field<double, FieldState::Phys> &y,
+template void Math::copy<MultiRegions::Field<double, FieldState::Phys>>(
+    MultiRegions::Field<double, FieldState::Phys> &x,
+    MultiRegions::Field<double, FieldState::Phys> &y,
     const std::string &execSpace);
-template void Math::copy<Field<float, FieldState::Phys>>(
-    Field<float, FieldState::Phys> &x, Field<float, FieldState::Phys> &y,
+template void Math::copy<MultiRegions::Field<float, FieldState::Phys>>(
+    MultiRegions::Field<float, FieldState::Phys> &x,
+    MultiRegions::Field<float, FieldState::Phys> &y,
     const std::string &execSpace);
-template void Math::copy<Field<double, FieldState::Coeff>>(
-    Field<double, FieldState::Coeff> &x, Field<double, FieldState::Coeff> &y,
+template void Math::copy<MultiRegions::Field<double, FieldState::Coeff>>(
+    MultiRegions::Field<double, FieldState::Coeff> &x,
+    MultiRegions::Field<double, FieldState::Coeff> &y,
     const std::string &execSpace);
-template void Math::copy<Field<float, FieldState::Coeff>>(
-    Field<float, FieldState::Coeff> &x, Field<float, FieldState::Coeff> &y,
+template void Math::copy<MultiRegions::Field<float, FieldState::Coeff>>(
+    MultiRegions::Field<float, FieldState::Coeff> &x,
+    MultiRegions::Field<float, FieldState::Coeff> &y,
     const std::string &execSpace);
-template void Math::copy<MemoryRegion<double>>(MemoryRegion<double> &x,
-                                               MemoryRegion<double> &y,
-                                               const std::string &execSpace);
-template void Math::copy<MemoryRegion<float>>(MemoryRegion<float> &x,
-                                              MemoryRegion<float> &y,
-                                              const std::string &execSpace);
+template void Math::copy<LibUtilities::MemoryRegion<double>>(
+    LibUtilities::MemoryRegion<double> &x,
+    LibUtilities::MemoryRegion<double> &y, const std::string &execSpace);
+template void Math::copy<LibUtilities::MemoryRegion<float>>(
+    LibUtilities::MemoryRegion<float> &x, LibUtilities::MemoryRegion<float> &y,
+    const std::string &execSpace);
 
 // abs template specialization.
-template void Math::abs<Field<double, FieldState::Phys>>(
-    Field<double, FieldState::Phys> &x, Field<double, FieldState::Phys> &y,
+template void Math::abs<MultiRegions::Field<double, FieldState::Phys>>(
+    MultiRegions::Field<double, FieldState::Phys> &x,
+    MultiRegions::Field<double, FieldState::Phys> &y,
     const std::string &execSpace);
-template void Math::abs<Field<float, FieldState::Phys>>(
-    Field<float, FieldState::Phys> &x, Field<float, FieldState::Phys> &y,
+template void Math::abs<MultiRegions::Field<float, FieldState::Phys>>(
+    MultiRegions::Field<float, FieldState::Phys> &x,
+    MultiRegions::Field<float, FieldState::Phys> &y,
     const std::string &execSpace);
-template void Math::abs<Field<double, FieldState::Coeff>>(
-    Field<double, FieldState::Coeff> &x, Field<double, FieldState::Coeff> &y,
+template void Math::abs<MultiRegions::Field<double, FieldState::Coeff>>(
+    MultiRegions::Field<double, FieldState::Coeff> &x,
+    MultiRegions::Field<double, FieldState::Coeff> &y,
     const std::string &execSpace);
-template void Math::abs<Field<float, FieldState::Coeff>>(
-    Field<float, FieldState::Coeff> &x, Field<float, FieldState::Coeff> &y,
+template void Math::abs<MultiRegions::Field<float, FieldState::Coeff>>(
+    MultiRegions::Field<float, FieldState::Coeff> &x,
+    MultiRegions::Field<float, FieldState::Coeff> &y,
     const std::string &execSpace);
-template void Math::abs<MemoryRegion<double>>(MemoryRegion<double> &x,
-                                              MemoryRegion<double> &y,
-                                              const std::string &execSpace);
-template void Math::abs<MemoryRegion<float>>(MemoryRegion<float> &x,
-                                             MemoryRegion<float> &y,
-                                             const std::string &execSpace);
+template void Math::abs<LibUtilities::MemoryRegion<double>>(
+    LibUtilities::MemoryRegion<double> &x,
+    LibUtilities::MemoryRegion<double> &y, const std::string &execSpace);
+template void Math::abs<LibUtilities::MemoryRegion<float>>(
+    LibUtilities::MemoryRegion<float> &x, LibUtilities::MemoryRegion<float> &y,
+    const std::string &execSpace);
 
 // neg template specialization.
-template void Math::neg<Field<double, FieldState::Phys>>(
-    Field<double, FieldState::Phys> &x, Field<double, FieldState::Phys> &y,
+template void Math::neg<MultiRegions::Field<double, FieldState::Phys>>(
+    MultiRegions::Field<double, FieldState::Phys> &x,
+    MultiRegions::Field<double, FieldState::Phys> &y,
     const std::string &execSpace);
-template void Math::neg<Field<float, FieldState::Phys>>(
-    Field<float, FieldState::Phys> &x, Field<float, FieldState::Phys> &y,
+template void Math::neg<MultiRegions::Field<float, FieldState::Phys>>(
+    MultiRegions::Field<float, FieldState::Phys> &x,
+    MultiRegions::Field<float, FieldState::Phys> &y,
     const std::string &execSpace);
-template void Math::neg<Field<double, FieldState::Coeff>>(
-    Field<double, FieldState::Coeff> &x, Field<double, FieldState::Coeff> &y,
+template void Math::neg<MultiRegions::Field<double, FieldState::Coeff>>(
+    MultiRegions::Field<double, FieldState::Coeff> &x,
+    MultiRegions::Field<double, FieldState::Coeff> &y,
     const std::string &execSpace);
-template void Math::neg<Field<float, FieldState::Coeff>>(
-    Field<float, FieldState::Coeff> &x, Field<float, FieldState::Coeff> &y,
+template void Math::neg<MultiRegions::Field<float, FieldState::Coeff>>(
+    MultiRegions::Field<float, FieldState::Coeff> &x,
+    MultiRegions::Field<float, FieldState::Coeff> &y,
     const std::string &execSpace);
-template void Math::neg<MemoryRegion<double>>(MemoryRegion<double> &x,
-                                              MemoryRegion<double> &y,
-                                              const std::string &execSpace);
-template void Math::neg<MemoryRegion<float>>(MemoryRegion<float> &x,
-                                             MemoryRegion<float> &y,
-                                             const std::string &execSpace);
+template void Math::neg<LibUtilities::MemoryRegion<double>>(
+    LibUtilities::MemoryRegion<double> &x,
+    LibUtilities::MemoryRegion<double> &y, const std::string &execSpace);
+template void Math::neg<LibUtilities::MemoryRegion<float>>(
+    LibUtilities::MemoryRegion<float> &x, LibUtilities::MemoryRegion<float> &y,
+    const std::string &execSpace);
 
 // sqrt template specialization.
-template void Math::sqrt<Field<double, FieldState::Phys>>(
-    Field<double, FieldState::Phys> &x, Field<double, FieldState::Phys> &y,
+template void Math::sqrt<MultiRegions::Field<double, FieldState::Phys>>(
+    MultiRegions::Field<double, FieldState::Phys> &x,
+    MultiRegions::Field<double, FieldState::Phys> &y,
     const std::string &execSpace);
-template void Math::sqrt<Field<float, FieldState::Phys>>(
-    Field<float, FieldState::Phys> &x, Field<float, FieldState::Phys> &y,
+template void Math::sqrt<MultiRegions::Field<float, FieldState::Phys>>(
+    MultiRegions::Field<float, FieldState::Phys> &x,
+    MultiRegions::Field<float, FieldState::Phys> &y,
     const std::string &execSpace);
-template void Math::sqrt<Field<double, FieldState::Coeff>>(
-    Field<double, FieldState::Coeff> &x, Field<double, FieldState::Coeff> &y,
+template void Math::sqrt<MultiRegions::Field<double, FieldState::Coeff>>(
+    MultiRegions::Field<double, FieldState::Coeff> &x,
+    MultiRegions::Field<double, FieldState::Coeff> &y,
     const std::string &execSpace);
-template void Math::sqrt<Field<float, FieldState::Coeff>>(
-    Field<float, FieldState::Coeff> &x, Field<float, FieldState::Coeff> &y,
+template void Math::sqrt<MultiRegions::Field<float, FieldState::Coeff>>(
+    MultiRegions::Field<float, FieldState::Coeff> &x,
+    MultiRegions::Field<float, FieldState::Coeff> &y,
     const std::string &execSpace);
-template void Math::sqrt<MemoryRegion<double>>(MemoryRegion<double> &x,
-                                               MemoryRegion<double> &y,
-                                               const std::string &execSpace);
-template void Math::sqrt<MemoryRegion<float>>(MemoryRegion<float> &x,
-                                              MemoryRegion<float> &y,
-                                              const std::string &execSpace);
+template void Math::sqrt<LibUtilities::MemoryRegion<double>>(
+    LibUtilities::MemoryRegion<double> &x,
+    LibUtilities::MemoryRegion<double> &y, const std::string &execSpace);
+template void Math::sqrt<LibUtilities::MemoryRegion<float>>(
+    LibUtilities::MemoryRegion<float> &x, LibUtilities::MemoryRegion<float> &y,
+    const std::string &execSpace);
 
 // add template specialization.
-template void Math::add<Field<double, FieldState::Phys>>(
-    Field<double, FieldState::Phys> &x, Field<double, FieldState::Phys> &y,
-    Field<double, FieldState::Phys> &z, const std::string &execSpace);
-template void Math::add<Field<float, FieldState::Phys>>(
-    Field<float, FieldState::Phys> &x, Field<float, FieldState::Phys> &y,
-    Field<float, FieldState::Phys> &z, const std::string &execSpace);
-template void Math::add<Field<double, FieldState::Coeff>>(
-    Field<double, FieldState::Coeff> &x, Field<double, FieldState::Coeff> &y,
-    Field<double, FieldState::Coeff> &z, const std::string &execSpace);
-template void Math::add<Field<float, FieldState::Coeff>>(
-    Field<float, FieldState::Coeff> &x, Field<float, FieldState::Coeff> &y,
-    Field<float, FieldState::Coeff> &z, const std::string &execSpace);
-template void Math::add<MemoryRegion<double>>(MemoryRegion<double> &x,
-                                              MemoryRegion<double> &y,
-                                              MemoryRegion<double> &z,
-                                              const std::string &execSpace);
-template void Math::add<MemoryRegion<float>>(MemoryRegion<float> &x,
-                                             MemoryRegion<float> &y,
-                                             MemoryRegion<float> &z,
-                                             const std::string &execSpace);
+template void Math::add<MultiRegions::Field<double, FieldState::Phys>>(
+    MultiRegions::Field<double, FieldState::Phys> &x,
+    MultiRegions::Field<double, FieldState::Phys> &y,
+    MultiRegions::Field<double, FieldState::Phys> &z,
+    const std::string &execSpace);
+template void Math::add<MultiRegions::Field<float, FieldState::Phys>>(
+    MultiRegions::Field<float, FieldState::Phys> &x,
+    MultiRegions::Field<float, FieldState::Phys> &y,
+    MultiRegions::Field<float, FieldState::Phys> &z,
+    const std::string &execSpace);
+template void Math::add<MultiRegions::Field<double, FieldState::Coeff>>(
+    MultiRegions::Field<double, FieldState::Coeff> &x,
+    MultiRegions::Field<double, FieldState::Coeff> &y,
+    MultiRegions::Field<double, FieldState::Coeff> &z,
+    const std::string &execSpace);
+template void Math::add<MultiRegions::Field<float, FieldState::Coeff>>(
+    MultiRegions::Field<float, FieldState::Coeff> &x,
+    MultiRegions::Field<float, FieldState::Coeff> &y,
+    MultiRegions::Field<float, FieldState::Coeff> &z,
+    const std::string &execSpace);
+template void Math::add<LibUtilities::MemoryRegion<double>>(
+    LibUtilities::MemoryRegion<double> &x,
+    LibUtilities::MemoryRegion<double> &y,
+    LibUtilities::MemoryRegion<double> &z, const std::string &execSpace);
+template void Math::add<LibUtilities::MemoryRegion<float>>(
+    LibUtilities::MemoryRegion<float> &x, LibUtilities::MemoryRegion<float> &y,
+    LibUtilities::MemoryRegion<float> &z, const std::string &execSpace);
 
 // sub template specialization.
-template void Math::sub<Field<double, FieldState::Phys>>(
-    Field<double, FieldState::Phys> &x, Field<double, FieldState::Phys> &y,
-    Field<double, FieldState::Phys> &z, const std::string &execSpace);
-template void Math::sub<Field<float, FieldState::Phys>>(
-    Field<float, FieldState::Phys> &x, Field<float, FieldState::Phys> &y,
-    Field<float, FieldState::Phys> &z, const std::string &execSpace);
-template void Math::sub<Field<double, FieldState::Coeff>>(
-    Field<double, FieldState::Coeff> &x, Field<double, FieldState::Coeff> &y,
-    Field<double, FieldState::Coeff> &z, const std::string &execSpace);
-template void Math::sub<Field<float, FieldState::Coeff>>(
-    Field<float, FieldState::Coeff> &x, Field<float, FieldState::Coeff> &y,
-    Field<float, FieldState::Coeff> &z, const std::string &execSpace);
-template void Math::sub<MemoryRegion<double>>(MemoryRegion<double> &x,
-                                              MemoryRegion<double> &y,
-                                              MemoryRegion<double> &z,
-                                              const std::string &execSpace);
-template void Math::sub<MemoryRegion<float>>(MemoryRegion<float> &x,
-                                             MemoryRegion<float> &y,
-                                             MemoryRegion<float> &z,
-                                             const std::string &execSpace);
+template void Math::sub<MultiRegions::Field<double, FieldState::Phys>>(
+    MultiRegions::Field<double, FieldState::Phys> &x,
+    MultiRegions::Field<double, FieldState::Phys> &y,
+    MultiRegions::Field<double, FieldState::Phys> &z,
+    const std::string &execSpace);
+template void Math::sub<MultiRegions::Field<float, FieldState::Phys>>(
+    MultiRegions::Field<float, FieldState::Phys> &x,
+    MultiRegions::Field<float, FieldState::Phys> &y,
+    MultiRegions::Field<float, FieldState::Phys> &z,
+    const std::string &execSpace);
+template void Math::sub<MultiRegions::Field<double, FieldState::Coeff>>(
+    MultiRegions::Field<double, FieldState::Coeff> &x,
+    MultiRegions::Field<double, FieldState::Coeff> &y,
+    MultiRegions::Field<double, FieldState::Coeff> &z,
+    const std::string &execSpace);
+template void Math::sub<MultiRegions::Field<float, FieldState::Coeff>>(
+    MultiRegions::Field<float, FieldState::Coeff> &x,
+    MultiRegions::Field<float, FieldState::Coeff> &y,
+    MultiRegions::Field<float, FieldState::Coeff> &z,
+    const std::string &execSpace);
+template void Math::sub<LibUtilities::MemoryRegion<double>>(
+    LibUtilities::MemoryRegion<double> &x,
+    LibUtilities::MemoryRegion<double> &y,
+    LibUtilities::MemoryRegion<double> &z, const std::string &execSpace);
+template void Math::sub<LibUtilities::MemoryRegion<float>>(
+    LibUtilities::MemoryRegion<float> &x, LibUtilities::MemoryRegion<float> &y,
+    LibUtilities::MemoryRegion<float> &z, const std::string &execSpace);
 
 // mul template specialization.
-template void Math::mul<Field<double, FieldState::Phys>>(
-    const double alpha, Field<double, FieldState::Phys> &x,
-    Field<double, FieldState::Phys> &y, const std::string &execSpace);
-template void Math::mul<Field<float, FieldState::Phys>>(
-    const float alpha, Field<float, FieldState::Phys> &x,
-    Field<float, FieldState::Phys> &y, const std::string &execSpace);
-template void Math::mul<Field<double, FieldState::Coeff>>(
-    const double alpha, Field<double, FieldState::Coeff> &x,
-    Field<double, FieldState::Coeff> &y, const std::string &execSpace);
-template void Math::mul<Field<float, FieldState::Coeff>>(
-    const float alpha, Field<float, FieldState::Coeff> &x,
-    Field<float, FieldState::Coeff> &y, const std::string &execSpace);
-template void Math::mul<Field<double, FieldState::Phys>>(
-    Field<double, FieldState::Phys> &x, Field<double, FieldState::Phys> &y,
-    Field<double, FieldState::Phys> &z, const std::string &execSpace);
-template void Math::mul<Field<float, FieldState::Phys>>(
-    Field<float, FieldState::Phys> &x, Field<float, FieldState::Phys> &y,
-    Field<float, FieldState::Phys> &z, const std::string &execSpace);
-template void Math::mul<Field<double, FieldState::Coeff>>(
-    Field<double, FieldState::Coeff> &x, Field<double, FieldState::Coeff> &y,
-    Field<double, FieldState::Coeff> &z, const std::string &execSpace);
-template void Math::mul<Field<float, FieldState::Coeff>>(
-    Field<float, FieldState::Coeff> &x, Field<float, FieldState::Coeff> &y,
-    Field<float, FieldState::Coeff> &z, const std::string &execSpace);
-template void Math::mul<MemoryRegion<double>>(const double alpha,
-                                              MemoryRegion<double> &x,
-                                              MemoryRegion<double> &y,
-                                              const std::string &execSpace);
-template void Math::mul<MemoryRegion<float>>(const float alpha,
-                                             MemoryRegion<float> &x,
-                                             MemoryRegion<float> &y,
-                                             const std::string &execSpace);
-template void Math::mul<MemoryRegion<double>>(MemoryRegion<double> &x,
-                                              MemoryRegion<double> &y,
-                                              MemoryRegion<double> &z,
-                                              const std::string &execSpace);
-template void Math::mul<MemoryRegion<float>>(MemoryRegion<float> &x,
-                                             MemoryRegion<float> &y,
-                                             MemoryRegion<float> &z,
-                                             const std::string &execSpace);
+template void Math::mul<MultiRegions::Field<double, FieldState::Phys>>(
+    const double alpha, MultiRegions::Field<double, FieldState::Phys> &x,
+    MultiRegions::Field<double, FieldState::Phys> &y,
+    const std::string &execSpace);
+template void Math::mul<MultiRegions::Field<float, FieldState::Phys>>(
+    const float alpha, MultiRegions::Field<float, FieldState::Phys> &x,
+    MultiRegions::Field<float, FieldState::Phys> &y,
+    const std::string &execSpace);
+template void Math::mul<MultiRegions::Field<double, FieldState::Coeff>>(
+    const double alpha, MultiRegions::Field<double, FieldState::Coeff> &x,
+    MultiRegions::Field<double, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template void Math::mul<MultiRegions::Field<float, FieldState::Coeff>>(
+    const float alpha, MultiRegions::Field<float, FieldState::Coeff> &x,
+    MultiRegions::Field<float, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template void Math::mul<MultiRegions::Field<double, FieldState::Phys>>(
+    MultiRegions::Field<double, FieldState::Phys> &x,
+    MultiRegions::Field<double, FieldState::Phys> &y,
+    MultiRegions::Field<double, FieldState::Phys> &z,
+    const std::string &execSpace);
+template void Math::mul<MultiRegions::Field<float, FieldState::Phys>>(
+    MultiRegions::Field<float, FieldState::Phys> &x,
+    MultiRegions::Field<float, FieldState::Phys> &y,
+    MultiRegions::Field<float, FieldState::Phys> &z,
+    const std::string &execSpace);
+template void Math::mul<MultiRegions::Field<double, FieldState::Coeff>>(
+    MultiRegions::Field<double, FieldState::Coeff> &x,
+    MultiRegions::Field<double, FieldState::Coeff> &y,
+    MultiRegions::Field<double, FieldState::Coeff> &z,
+    const std::string &execSpace);
+template void Math::mul<MultiRegions::Field<float, FieldState::Coeff>>(
+    MultiRegions::Field<float, FieldState::Coeff> &x,
+    MultiRegions::Field<float, FieldState::Coeff> &y,
+    MultiRegions::Field<float, FieldState::Coeff> &z,
+    const std::string &execSpace);
+template void Math::mul<LibUtilities::MemoryRegion<double>>(
+    const double alpha, LibUtilities::MemoryRegion<double> &x,
+    LibUtilities::MemoryRegion<double> &y, const std::string &execSpace);
+template void Math::mul<LibUtilities::MemoryRegion<float>>(
+    const float alpha, LibUtilities::MemoryRegion<float> &x,
+    LibUtilities::MemoryRegion<float> &y, const std::string &execSpace);
+template void Math::mul<LibUtilities::MemoryRegion<double>>(
+    LibUtilities::MemoryRegion<double> &x,
+    LibUtilities::MemoryRegion<double> &y,
+    LibUtilities::MemoryRegion<double> &z, const std::string &execSpace);
+template void Math::mul<LibUtilities::MemoryRegion<float>>(
+    LibUtilities::MemoryRegion<float> &x, LibUtilities::MemoryRegion<float> &y,
+    LibUtilities::MemoryRegion<float> &z, const std::string &execSpace);
 
 // div template specialization.
-template void Math::div<Field<double, FieldState::Phys>>(
-    const double alpha, Field<double, FieldState::Phys> &x,
-    Field<double, FieldState::Phys> &y, const std::string &execSpace);
-template void Math::div<Field<float, FieldState::Phys>>(
-    const float alpha, Field<float, FieldState::Phys> &x,
-    Field<float, FieldState::Phys> &y, const std::string &execSpace);
-template void Math::div<Field<double, FieldState::Coeff>>(
-    const double alpha, Field<double, FieldState::Coeff> &x,
-    Field<double, FieldState::Coeff> &y, const std::string &execSpace);
-template void Math::div<Field<float, FieldState::Coeff>>(
-    const float alpha, Field<float, FieldState::Coeff> &x,
-    Field<float, FieldState::Coeff> &y, const std::string &execSpace);
-template void Math::div<Field<double, FieldState::Phys>>(
-    Field<double, FieldState::Phys> &x, Field<double, FieldState::Phys> &y,
-    Field<double, FieldState::Phys> &z, const std::string &execSpace);
-template void Math::div<Field<float, FieldState::Phys>>(
-    Field<float, FieldState::Phys> &x, Field<float, FieldState::Phys> &y,
-    Field<float, FieldState::Phys> &z, const std::string &execSpace);
-template void Math::div<Field<double, FieldState::Coeff>>(
-    Field<double, FieldState::Coeff> &x, Field<double, FieldState::Coeff> &y,
-    Field<double, FieldState::Coeff> &z, const std::string &execSpace);
-template void Math::div<Field<float, FieldState::Coeff>>(
-    Field<float, FieldState::Coeff> &x, Field<float, FieldState::Coeff> &y,
-    Field<float, FieldState::Coeff> &z, const std::string &execSpace);
-template void Math::div<MemoryRegion<double>>(const double alpha,
-                                              MemoryRegion<double> &x,
-                                              MemoryRegion<double> &y,
-                                              const std::string &execSpace);
-template void Math::div<MemoryRegion<float>>(const float alpha,
-                                             MemoryRegion<float> &x,
-                                             MemoryRegion<float> &y,
-                                             const std::string &execSpace);
-template void Math::div<MemoryRegion<double>>(MemoryRegion<double> &x,
-                                              MemoryRegion<double> &y,
-                                              MemoryRegion<double> &z,
-                                              const std::string &execSpace);
-template void Math::div<MemoryRegion<float>>(MemoryRegion<float> &x,
-                                             MemoryRegion<float> &y,
-                                             MemoryRegion<float> &z,
-                                             const std::string &execSpace);
+template void Math::div<MultiRegions::Field<double, FieldState::Phys>>(
+    const double alpha, MultiRegions::Field<double, FieldState::Phys> &x,
+    MultiRegions::Field<double, FieldState::Phys> &y,
+    const std::string &execSpace);
+template void Math::div<MultiRegions::Field<float, FieldState::Phys>>(
+    const float alpha, MultiRegions::Field<float, FieldState::Phys> &x,
+    MultiRegions::Field<float, FieldState::Phys> &y,
+    const std::string &execSpace);
+template void Math::div<MultiRegions::Field<double, FieldState::Coeff>>(
+    const double alpha, MultiRegions::Field<double, FieldState::Coeff> &x,
+    MultiRegions::Field<double, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template void Math::div<MultiRegions::Field<float, FieldState::Coeff>>(
+    const float alpha, MultiRegions::Field<float, FieldState::Coeff> &x,
+    MultiRegions::Field<float, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template void Math::div<MultiRegions::Field<double, FieldState::Phys>>(
+    MultiRegions::Field<double, FieldState::Phys> &x,
+    MultiRegions::Field<double, FieldState::Phys> &y,
+    MultiRegions::Field<double, FieldState::Phys> &z,
+    const std::string &execSpace);
+template void Math::div<MultiRegions::Field<float, FieldState::Phys>>(
+    MultiRegions::Field<float, FieldState::Phys> &x,
+    MultiRegions::Field<float, FieldState::Phys> &y,
+    MultiRegions::Field<float, FieldState::Phys> &z,
+    const std::string &execSpace);
+template void Math::div<MultiRegions::Field<double, FieldState::Coeff>>(
+    MultiRegions::Field<double, FieldState::Coeff> &x,
+    MultiRegions::Field<double, FieldState::Coeff> &y,
+    MultiRegions::Field<double, FieldState::Coeff> &z,
+    const std::string &execSpace);
+template void Math::div<MultiRegions::Field<float, FieldState::Coeff>>(
+    MultiRegions::Field<float, FieldState::Coeff> &x,
+    MultiRegions::Field<float, FieldState::Coeff> &y,
+    MultiRegions::Field<float, FieldState::Coeff> &z,
+    const std::string &execSpace);
+template void Math::div<LibUtilities::MemoryRegion<double>>(
+    const double alpha, LibUtilities::MemoryRegion<double> &x,
+    LibUtilities::MemoryRegion<double> &y, const std::string &execSpace);
+template void Math::div<LibUtilities::MemoryRegion<float>>(
+    const float alpha, LibUtilities::MemoryRegion<float> &x,
+    LibUtilities::MemoryRegion<float> &y, const std::string &execSpace);
+template void Math::div<LibUtilities::MemoryRegion<double>>(
+    LibUtilities::MemoryRegion<double> &x,
+    LibUtilities::MemoryRegion<double> &y,
+    LibUtilities::MemoryRegion<double> &z, const std::string &execSpace);
+template void Math::div<LibUtilities::MemoryRegion<float>>(
+    LibUtilities::MemoryRegion<float> &x, LibUtilities::MemoryRegion<float> &y,
+    LibUtilities::MemoryRegion<float> &z, const std::string &execSpace);
 
 // daxpy template specialization.
-template void Math::daxpy<Field<double, FieldState::Phys>>(
-    const double alpha, Field<double, FieldState::Phys> &x,
-    Field<double, FieldState::Phys> &y, Field<double, FieldState::Phys> &z,
+template void Math::daxpy<MultiRegions::Field<double, FieldState::Phys>>(
+    const double alpha, MultiRegions::Field<double, FieldState::Phys> &x,
+    MultiRegions::Field<double, FieldState::Phys> &y,
+    MultiRegions::Field<double, FieldState::Phys> &z,
     const std::string &execSpace);
-template void Math::daxpy<Field<float, FieldState::Phys>>(
-    const float alpha, Field<float, FieldState::Phys> &x,
-    Field<float, FieldState::Phys> &y, Field<float, FieldState::Phys> &z,
+template void Math::daxpy<MultiRegions::Field<float, FieldState::Phys>>(
+    const float alpha, MultiRegions::Field<float, FieldState::Phys> &x,
+    MultiRegions::Field<float, FieldState::Phys> &y,
+    MultiRegions::Field<float, FieldState::Phys> &z,
     const std::string &execSpace);
-template void Math::daxpy<Field<double, FieldState::Coeff>>(
-    const double alpha, Field<double, FieldState::Coeff> &x,
-    Field<double, FieldState::Coeff> &y, Field<double, FieldState::Coeff> &z,
+template void Math::daxpy<MultiRegions::Field<double, FieldState::Coeff>>(
+    const double alpha, MultiRegions::Field<double, FieldState::Coeff> &x,
+    MultiRegions::Field<double, FieldState::Coeff> &y,
+    MultiRegions::Field<double, FieldState::Coeff> &z,
     const std::string &execSpace);
-template void Math::daxpy<Field<float, FieldState::Coeff>>(
-    const float alpha, Field<float, FieldState::Coeff> &x,
-    Field<float, FieldState::Coeff> &y, Field<float, FieldState::Coeff> &z,
+template void Math::daxpy<MultiRegions::Field<float, FieldState::Coeff>>(
+    const float alpha, MultiRegions::Field<float, FieldState::Coeff> &x,
+    MultiRegions::Field<float, FieldState::Coeff> &y,
+    MultiRegions::Field<float, FieldState::Coeff> &z,
     const std::string &execSpace);
-template void Math::daxpy<MemoryRegion<double>>(const double alpha,
-                                                MemoryRegion<double> &x,
-                                                MemoryRegion<double> &y,
-                                                MemoryRegion<double> &z,
-                                                const std::string &execSpace);
-template void Math::daxpy<MemoryRegion<float>>(const float alpha,
-                                               MemoryRegion<float> &x,
-                                               MemoryRegion<float> &y,
-                                               MemoryRegion<float> &z,
-                                               const std::string &execSpace);
+template void Math::daxpy<LibUtilities::MemoryRegion<double>>(
+    const double alpha, LibUtilities::MemoryRegion<double> &x,
+    LibUtilities::MemoryRegion<double> &y,
+    LibUtilities::MemoryRegion<double> &z, const std::string &execSpace);
+template void Math::daxpy<LibUtilities::MemoryRegion<float>>(
+    const float alpha, LibUtilities::MemoryRegion<float> &x,
+    LibUtilities::MemoryRegion<float> &y, LibUtilities::MemoryRegion<float> &z,
+    const std::string &execSpace);
 
 // reduceSum template specialization.
-template double Math::reduceSum<Field<double, FieldState::Phys>>(
-    Field<double, FieldState::Phys> &x, const std::string &execSpace);
-template float Math::reduceSum<Field<float, FieldState::Phys>>(
-    Field<float, FieldState::Phys> &x, const std::string &execSpace);
-template double Math::reduceSum<Field<double, FieldState::Coeff>>(
-    Field<double, FieldState::Coeff> &x, const std::string &execSpace);
-template float Math::reduceSum<Field<float, FieldState::Coeff>>(
-    Field<float, FieldState::Coeff> &x, const std::string &execSpace);
-template double Math::reduceSum<MemoryRegion<double>>(
-    MemoryRegion<double> &x, const std::string &execSpace);
-template float Math::reduceSum<MemoryRegion<float>>(
-    MemoryRegion<float> &x, const std::string &execSpace);
-template double Math::reduceSum<Field<uint8_t, FieldState::Phys>,
-                                Field<double, FieldState::Phys>>(
-    Field<uint8_t, FieldState::Phys> &mask, Field<double, FieldState::Phys> &x,
+template double Math::reduceSum<MultiRegions::Field<double, FieldState::Phys>>(
+    MultiRegions::Field<double, FieldState::Phys> &x,
     const std::string &execSpace);
-template float Math::reduceSum<Field<uint8_t, FieldState::Phys>,
-                               Field<float, FieldState::Phys>>(
-    Field<uint8_t, FieldState::Phys> &mask, Field<float, FieldState::Phys> &x,
+template float Math::reduceSum<MultiRegions::Field<float, FieldState::Phys>>(
+    MultiRegions::Field<float, FieldState::Phys> &x,
     const std::string &execSpace);
-template double Math::reduceSum<Field<uint8_t, FieldState::Coeff>,
-                                Field<double, FieldState::Coeff>>(
-    Field<uint8_t, FieldState::Coeff> &mask,
-    Field<double, FieldState::Coeff> &x, const std::string &execSpace);
-template float Math::reduceSum<Field<uint8_t, FieldState::Coeff>,
-                               Field<float, FieldState::Coeff>>(
-    Field<uint8_t, FieldState::Coeff> &mask, Field<float, FieldState::Coeff> &x,
+template double Math::reduceSum<MultiRegions::Field<double, FieldState::Coeff>>(
+    MultiRegions::Field<double, FieldState::Coeff> &x,
     const std::string &execSpace);
-template double Math::reduceSum<MemoryRegion<uint8_t>, MemoryRegion<double>>(
-    MemoryRegion<uint8_t> &mask, MemoryRegion<double> &x,
+template float Math::reduceSum<MultiRegions::Field<float, FieldState::Coeff>>(
+    MultiRegions::Field<float, FieldState::Coeff> &x,
     const std::string &execSpace);
-template float Math::reduceSum<MemoryRegion<uint8_t>, MemoryRegion<float>>(
-    MemoryRegion<uint8_t> &mask, MemoryRegion<float> &x,
+template double Math::reduceSum<LibUtilities::MemoryRegion<double>>(
+    LibUtilities::MemoryRegion<double> &x, const std::string &execSpace);
+template float Math::reduceSum<LibUtilities::MemoryRegion<float>>(
+    LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
+template double Math::reduceSum<MultiRegions::Field<uint8_t, FieldState::Phys>,
+                                MultiRegions::Field<double, FieldState::Phys>>(
+    MultiRegions::Field<uint8_t, FieldState::Phys> &mask,
+    MultiRegions::Field<double, FieldState::Phys> &x,
     const std::string &execSpace);
+template float Math::reduceSum<MultiRegions::Field<uint8_t, FieldState::Phys>,
+                               MultiRegions::Field<float, FieldState::Phys>>(
+    MultiRegions::Field<uint8_t, FieldState::Phys> &mask,
+    MultiRegions::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template double Math::reduceSum<MultiRegions::Field<uint8_t, FieldState::Coeff>,
+                                MultiRegions::Field<double, FieldState::Coeff>>(
+    MultiRegions::Field<uint8_t, FieldState::Coeff> &mask,
+    MultiRegions::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template float Math::reduceSum<MultiRegions::Field<uint8_t, FieldState::Coeff>,
+                               MultiRegions::Field<float, FieldState::Coeff>>(
+    MultiRegions::Field<uint8_t, FieldState::Coeff> &mask,
+    MultiRegions::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template double Math::reduceSum<LibUtilities::MemoryRegion<uint8_t>,
+                                LibUtilities::MemoryRegion<double>>(
+    LibUtilities::MemoryRegion<uint8_t> &mask,
+    LibUtilities::MemoryRegion<double> &x, const std::string &execSpace);
+template float Math::reduceSum<LibUtilities::MemoryRegion<uint8_t>,
+                               LibUtilities::MemoryRegion<float>>(
+    LibUtilities::MemoryRegion<uint8_t> &mask,
+    LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
 
 // reduceMax template specialization.
-template double Math::reduceMax<Field<double, FieldState::Phys>>(
-    Field<double, FieldState::Phys> &x, const std::string &execSpace);
-template float Math::reduceMax<Field<float, FieldState::Phys>>(
-    Field<float, FieldState::Phys> &x, const std::string &execSpace);
-template double Math::reduceMax<Field<double, FieldState::Coeff>>(
-    Field<double, FieldState::Coeff> &x, const std::string &execSpace);
-template float Math::reduceMax<Field<float, FieldState::Coeff>>(
-    Field<float, FieldState::Coeff> &x, const std::string &execSpace);
-template double Math::reduceMax<MemoryRegion<double>>(
-    MemoryRegion<double> &x, const std::string &execSpace);
-template float Math::reduceMax<MemoryRegion<float>>(
-    MemoryRegion<float> &x, const std::string &execSpace);
-template double Math::reduceMax<Field<uint8_t, FieldState::Phys>,
-                                Field<double, FieldState::Phys>>(
-    Field<uint8_t, FieldState::Phys> &mask, Field<double, FieldState::Phys> &x,
+template double Math::reduceMax<MultiRegions::Field<double, FieldState::Phys>>(
+    MultiRegions::Field<double, FieldState::Phys> &x,
     const std::string &execSpace);
-template float Math::reduceMax<Field<uint8_t, FieldState::Phys>,
-                               Field<float, FieldState::Phys>>(
-    Field<uint8_t, FieldState::Phys> &mask, Field<float, FieldState::Phys> &x,
+template float Math::reduceMax<MultiRegions::Field<float, FieldState::Phys>>(
+    MultiRegions::Field<float, FieldState::Phys> &x,
     const std::string &execSpace);
-template double Math::reduceMax<Field<uint8_t, FieldState::Coeff>,
-                                Field<double, FieldState::Coeff>>(
-    Field<uint8_t, FieldState::Coeff> &mask,
-    Field<double, FieldState::Coeff> &x, const std::string &execSpace);
-template float Math::reduceMax<Field<uint8_t, FieldState::Coeff>,
-                               Field<float, FieldState::Coeff>>(
-    Field<uint8_t, FieldState::Coeff> &mask, Field<float, FieldState::Coeff> &x,
+template double Math::reduceMax<MultiRegions::Field<double, FieldState::Coeff>>(
+    MultiRegions::Field<double, FieldState::Coeff> &x,
     const std::string &execSpace);
-template double Math::reduceMax<MemoryRegion<uint8_t>, MemoryRegion<double>>(
-    MemoryRegion<uint8_t> &mask, MemoryRegion<double> &x,
+template float Math::reduceMax<MultiRegions::Field<float, FieldState::Coeff>>(
+    MultiRegions::Field<float, FieldState::Coeff> &x,
     const std::string &execSpace);
-template float Math::reduceMax<MemoryRegion<uint8_t>, MemoryRegion<float>>(
-    MemoryRegion<uint8_t> &mask, MemoryRegion<float> &x,
+template double Math::reduceMax<LibUtilities::MemoryRegion<double>>(
+    LibUtilities::MemoryRegion<double> &x, const std::string &execSpace);
+template float Math::reduceMax<LibUtilities::MemoryRegion<float>>(
+    LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
+template double Math::reduceMax<MultiRegions::Field<uint8_t, FieldState::Phys>,
+                                MultiRegions::Field<double, FieldState::Phys>>(
+    MultiRegions::Field<uint8_t, FieldState::Phys> &mask,
+    MultiRegions::Field<double, FieldState::Phys> &x,
     const std::string &execSpace);
+template float Math::reduceMax<MultiRegions::Field<uint8_t, FieldState::Phys>,
+                               MultiRegions::Field<float, FieldState::Phys>>(
+    MultiRegions::Field<uint8_t, FieldState::Phys> &mask,
+    MultiRegions::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template double Math::reduceMax<MultiRegions::Field<uint8_t, FieldState::Coeff>,
+                                MultiRegions::Field<double, FieldState::Coeff>>(
+    MultiRegions::Field<uint8_t, FieldState::Coeff> &mask,
+    MultiRegions::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template float Math::reduceMax<MultiRegions::Field<uint8_t, FieldState::Coeff>,
+                               MultiRegions::Field<float, FieldState::Coeff>>(
+    MultiRegions::Field<uint8_t, FieldState::Coeff> &mask,
+    MultiRegions::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template double Math::reduceMax<LibUtilities::MemoryRegion<uint8_t>,
+                                LibUtilities::MemoryRegion<double>>(
+    LibUtilities::MemoryRegion<uint8_t> &mask,
+    LibUtilities::MemoryRegion<double> &x, const std::string &execSpace);
+template float Math::reduceMax<LibUtilities::MemoryRegion<uint8_t>,
+                               LibUtilities::MemoryRegion<float>>(
+    LibUtilities::MemoryRegion<uint8_t> &mask,
+    LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
 
 // reduceMin template specialization.
-template double Math::reduceMin<Field<double, FieldState::Phys>>(
-    Field<double, FieldState::Phys> &x, const std::string &execSpace);
-template float Math::reduceMin<Field<float, FieldState::Phys>>(
-    Field<float, FieldState::Phys> &x, const std::string &execSpace);
-template double Math::reduceMin<Field<double, FieldState::Coeff>>(
-    Field<double, FieldState::Coeff> &x, const std::string &execSpace);
-template float Math::reduceMin<Field<float, FieldState::Coeff>>(
-    Field<float, FieldState::Coeff> &x, const std::string &execSpace);
-template double Math::reduceMin<MemoryRegion<double>>(
-    MemoryRegion<double> &x, const std::string &execSpace);
-template float Math::reduceMin<MemoryRegion<float>>(
-    MemoryRegion<float> &x, const std::string &execSpace);
-template double Math::reduceMin<Field<uint8_t, FieldState::Phys>,
-                                Field<double, FieldState::Phys>>(
-    Field<uint8_t, FieldState::Phys> &mask, Field<double, FieldState::Phys> &x,
+template double Math::reduceMin<MultiRegions::Field<double, FieldState::Phys>>(
+    MultiRegions::Field<double, FieldState::Phys> &x,
     const std::string &execSpace);
-template float Math::reduceMin<Field<uint8_t, FieldState::Phys>,
-                               Field<float, FieldState::Phys>>(
-    Field<uint8_t, FieldState::Phys> &mask, Field<float, FieldState::Phys> &x,
+template float Math::reduceMin<MultiRegions::Field<float, FieldState::Phys>>(
+    MultiRegions::Field<float, FieldState::Phys> &x,
     const std::string &execSpace);
-template double Math::reduceMin<Field<uint8_t, FieldState::Coeff>,
-                                Field<double, FieldState::Coeff>>(
-    Field<uint8_t, FieldState::Coeff> &mask,
-    Field<double, FieldState::Coeff> &x, const std::string &execSpace);
-template float Math::reduceMin<Field<uint8_t, FieldState::Coeff>,
-                               Field<float, FieldState::Coeff>>(
-    Field<uint8_t, FieldState::Coeff> &mask, Field<float, FieldState::Coeff> &x,
+template double Math::reduceMin<MultiRegions::Field<double, FieldState::Coeff>>(
+    MultiRegions::Field<double, FieldState::Coeff> &x,
     const std::string &execSpace);
-template double Math::reduceMin<MemoryRegion<uint8_t>, MemoryRegion<double>>(
-    MemoryRegion<uint8_t> &mask, MemoryRegion<double> &x,
+template float Math::reduceMin<MultiRegions::Field<float, FieldState::Coeff>>(
+    MultiRegions::Field<float, FieldState::Coeff> &x,
     const std::string &execSpace);
-template float Math::reduceMin<MemoryRegion<uint8_t>, MemoryRegion<float>>(
-    MemoryRegion<uint8_t> &mask, MemoryRegion<float> &x,
+template double Math::reduceMin<LibUtilities::MemoryRegion<double>>(
+    LibUtilities::MemoryRegion<double> &x, const std::string &execSpace);
+template float Math::reduceMin<LibUtilities::MemoryRegion<float>>(
+    LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
+template double Math::reduceMin<MultiRegions::Field<uint8_t, FieldState::Phys>,
+                                MultiRegions::Field<double, FieldState::Phys>>(
+    MultiRegions::Field<uint8_t, FieldState::Phys> &mask,
+    MultiRegions::Field<double, FieldState::Phys> &x,
     const std::string &execSpace);
+template float Math::reduceMin<MultiRegions::Field<uint8_t, FieldState::Phys>,
+                               MultiRegions::Field<float, FieldState::Phys>>(
+    MultiRegions::Field<uint8_t, FieldState::Phys> &mask,
+    MultiRegions::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template double Math::reduceMin<MultiRegions::Field<uint8_t, FieldState::Coeff>,
+                                MultiRegions::Field<double, FieldState::Coeff>>(
+    MultiRegions::Field<uint8_t, FieldState::Coeff> &mask,
+    MultiRegions::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template float Math::reduceMin<MultiRegions::Field<uint8_t, FieldState::Coeff>,
+                               MultiRegions::Field<float, FieldState::Coeff>>(
+    MultiRegions::Field<uint8_t, FieldState::Coeff> &mask,
+    MultiRegions::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template double Math::reduceMin<LibUtilities::MemoryRegion<uint8_t>,
+                                LibUtilities::MemoryRegion<double>>(
+    LibUtilities::MemoryRegion<uint8_t> &mask,
+    LibUtilities::MemoryRegion<double> &x, const std::string &execSpace);
+template float Math::reduceMin<LibUtilities::MemoryRegion<uint8_t>,
+                               LibUtilities::MemoryRegion<float>>(
+    LibUtilities::MemoryRegion<uint8_t> &mask,
+    LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
 
 // ddot template specialization.
-template double Math::ddot<Field<double, FieldState::Phys>>(
-    Field<double, FieldState::Phys> &x, Field<double, FieldState::Phys> &y,
+template double Math::ddot<MultiRegions::Field<double, FieldState::Phys>>(
+    MultiRegions::Field<double, FieldState::Phys> &x,
+    MultiRegions::Field<double, FieldState::Phys> &y,
     const std::string &execSpace);
-template float Math::ddot<Field<float, FieldState::Phys>>(
-    Field<float, FieldState::Phys> &x, Field<float, FieldState::Phys> &y,
+template float Math::ddot<MultiRegions::Field<float, FieldState::Phys>>(
+    MultiRegions::Field<float, FieldState::Phys> &x,
+    MultiRegions::Field<float, FieldState::Phys> &y,
     const std::string &execSpace);
-template double Math::ddot<Field<double, FieldState::Coeff>>(
-    Field<double, FieldState::Coeff> &x, Field<double, FieldState::Coeff> &y,
+template double Math::ddot<MultiRegions::Field<double, FieldState::Coeff>>(
+    MultiRegions::Field<double, FieldState::Coeff> &x,
+    MultiRegions::Field<double, FieldState::Coeff> &y,
     const std::string &execSpace);
-template float Math::ddot<Field<float, FieldState::Coeff>>(
-    Field<float, FieldState::Coeff> &x, Field<float, FieldState::Coeff> &y,
+template float Math::ddot<MultiRegions::Field<float, FieldState::Coeff>>(
+    MultiRegions::Field<float, FieldState::Coeff> &x,
+    MultiRegions::Field<float, FieldState::Coeff> &y,
     const std::string &execSpace);
-template double Math::ddot<MemoryRegion<double>>(MemoryRegion<double> &x,
-                                                 MemoryRegion<double> &y,
-                                                 const std::string &execSpace);
-template float Math::ddot<MemoryRegion<float>>(MemoryRegion<float> &x,
-                                               MemoryRegion<float> &y,
-                                               const std::string &execSpace);
+template double Math::ddot<LibUtilities::MemoryRegion<double>>(
+    LibUtilities::MemoryRegion<double> &x,
+    LibUtilities::MemoryRegion<double> &y, const std::string &execSpace);
+template float Math::ddot<LibUtilities::MemoryRegion<float>>(
+    LibUtilities::MemoryRegion<float> &x, LibUtilities::MemoryRegion<float> &y,
+    const std::string &execSpace);
 
-template double Math::ddot<Field<uint8_t, FieldState::Phys>,
-                           Field<double, FieldState::Phys>>(
-    Field<uint8_t, FieldState::Phys> &mask, Field<double, FieldState::Phys> &x,
-    Field<double, FieldState::Phys> &y, const std::string &execSpace);
-template float Math::ddot<Field<uint8_t, FieldState::Phys>,
-                          Field<float, FieldState::Phys>>(
-    Field<uint8_t, FieldState::Phys> &mask, Field<float, FieldState::Phys> &x,
-    Field<float, FieldState::Phys> &y, const std::string &execSpace);
-template double Math::ddot<Field<uint8_t, FieldState::Coeff>,
-                           Field<double, FieldState::Coeff>>(
-    Field<uint8_t, FieldState::Coeff> &mask,
-    Field<double, FieldState::Coeff> &x, Field<double, FieldState::Coeff> &y,
+template double Math::ddot<MultiRegions::Field<uint8_t, FieldState::Phys>,
+                           MultiRegions::Field<double, FieldState::Phys>>(
+    MultiRegions::Field<uint8_t, FieldState::Phys> &mask,
+    MultiRegions::Field<double, FieldState::Phys> &x,
+    MultiRegions::Field<double, FieldState::Phys> &y,
     const std::string &execSpace);
-template float Math::ddot<Field<uint8_t, FieldState::Coeff>,
-                          Field<float, FieldState::Coeff>>(
-    Field<uint8_t, FieldState::Coeff> &mask, Field<float, FieldState::Coeff> &x,
-    Field<float, FieldState::Coeff> &y, const std::string &execSpace);
-template double Math::ddot<MemoryRegion<uint8_t>, MemoryRegion<double>>(
-    MemoryRegion<uint8_t> &mask, MemoryRegion<double> &x,
-    MemoryRegion<double> &y, const std::string &execSpace);
-template float Math::ddot<MemoryRegion<uint8_t>, MemoryRegion<float>>(
-    MemoryRegion<uint8_t> &mask, MemoryRegion<float> &x, MemoryRegion<float> &y,
+template float Math::ddot<MultiRegions::Field<uint8_t, FieldState::Phys>,
+                          MultiRegions::Field<float, FieldState::Phys>>(
+    MultiRegions::Field<uint8_t, FieldState::Phys> &mask,
+    MultiRegions::Field<float, FieldState::Phys> &x,
+    MultiRegions::Field<float, FieldState::Phys> &y,
+    const std::string &execSpace);
+template double Math::ddot<MultiRegions::Field<uint8_t, FieldState::Coeff>,
+                           MultiRegions::Field<double, FieldState::Coeff>>(
+    MultiRegions::Field<uint8_t, FieldState::Coeff> &mask,
+    MultiRegions::Field<double, FieldState::Coeff> &x,
+    MultiRegions::Field<double, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template float Math::ddot<MultiRegions::Field<uint8_t, FieldState::Coeff>,
+                          MultiRegions::Field<float, FieldState::Coeff>>(
+    MultiRegions::Field<uint8_t, FieldState::Coeff> &mask,
+    MultiRegions::Field<float, FieldState::Coeff> &x,
+    MultiRegions::Field<float, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template double Math::ddot<LibUtilities::MemoryRegion<uint8_t>,
+                           LibUtilities::MemoryRegion<double>>(
+    LibUtilities::MemoryRegion<uint8_t> &mask,
+    LibUtilities::MemoryRegion<double> &x,
+    LibUtilities::MemoryRegion<double> &y, const std::string &execSpace);
+template float Math::ddot<LibUtilities::MemoryRegion<uint8_t>,
+                          LibUtilities::MemoryRegion<float>>(
+    LibUtilities::MemoryRegion<uint8_t> &mask,
+    LibUtilities::MemoryRegion<float> &x, LibUtilities::MemoryRegion<float> &y,
     const std::string &execSpace);
 
 // l1norm template specialization.
-template double Math::l1norm<Field<double, FieldState::Phys>>(
-    Field<double, FieldState::Phys> &x, const std::string &execSpace);
-template float Math::l1norm<Field<float, FieldState::Phys>>(
-    Field<float, FieldState::Phys> &x, const std::string &execSpace);
-template double Math::l1norm<Field<double, FieldState::Coeff>>(
-    Field<double, FieldState::Coeff> &x, const std::string &execSpace);
-template float Math::l1norm<Field<float, FieldState::Coeff>>(
-    Field<float, FieldState::Coeff> &x, const std::string &execSpace);
-template double Math::l1norm<MemoryRegion<double>>(
-    MemoryRegion<double> &x, const std::string &execSpace);
-template float Math::l1norm<MemoryRegion<float>>(MemoryRegion<float> &x,
-                                                 const std::string &execSpace);
-template double Math::l1norm<Field<uint8_t, FieldState::Phys>,
-                             Field<double, FieldState::Phys>>(
-    Field<uint8_t, FieldState::Phys> &mask, Field<double, FieldState::Phys> &x,
+template double Math::l1norm<MultiRegions::Field<double, FieldState::Phys>>(
+    MultiRegions::Field<double, FieldState::Phys> &x,
     const std::string &execSpace);
-template float Math::l1norm<Field<uint8_t, FieldState::Phys>,
-                            Field<float, FieldState::Phys>>(
-    Field<uint8_t, FieldState::Phys> &mask, Field<float, FieldState::Phys> &x,
+template float Math::l1norm<MultiRegions::Field<float, FieldState::Phys>>(
+    MultiRegions::Field<float, FieldState::Phys> &x,
     const std::string &execSpace);
-template double Math::l1norm<Field<uint8_t, FieldState::Coeff>,
-                             Field<double, FieldState::Coeff>>(
-    Field<uint8_t, FieldState::Coeff> &mask,
-    Field<double, FieldState::Coeff> &x, const std::string &execSpace);
-template float Math::l1norm<Field<uint8_t, FieldState::Coeff>,
-                            Field<float, FieldState::Coeff>>(
-    Field<uint8_t, FieldState::Coeff> &mask, Field<float, FieldState::Coeff> &x,
+template double Math::l1norm<MultiRegions::Field<double, FieldState::Coeff>>(
+    MultiRegions::Field<double, FieldState::Coeff> &x,
     const std::string &execSpace);
-template double Math::l1norm<MemoryRegion<uint8_t>, MemoryRegion<double>>(
-    MemoryRegion<uint8_t> &mask, MemoryRegion<double> &x,
+template float Math::l1norm<MultiRegions::Field<float, FieldState::Coeff>>(
+    MultiRegions::Field<float, FieldState::Coeff> &x,
     const std::string &execSpace);
-template float Math::l1norm<MemoryRegion<uint8_t>, MemoryRegion<float>>(
-    MemoryRegion<uint8_t> &mask, MemoryRegion<float> &x,
+template double Math::l1norm<LibUtilities::MemoryRegion<double>>(
+    LibUtilities::MemoryRegion<double> &x, const std::string &execSpace);
+template float Math::l1norm<LibUtilities::MemoryRegion<float>>(
+    LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
+template double Math::l1norm<MultiRegions::Field<uint8_t, FieldState::Phys>,
+                             MultiRegions::Field<double, FieldState::Phys>>(
+    MultiRegions::Field<uint8_t, FieldState::Phys> &mask,
+    MultiRegions::Field<double, FieldState::Phys> &x,
     const std::string &execSpace);
+template float Math::l1norm<MultiRegions::Field<uint8_t, FieldState::Phys>,
+                            MultiRegions::Field<float, FieldState::Phys>>(
+    MultiRegions::Field<uint8_t, FieldState::Phys> &mask,
+    MultiRegions::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template double Math::l1norm<MultiRegions::Field<uint8_t, FieldState::Coeff>,
+                             MultiRegions::Field<double, FieldState::Coeff>>(
+    MultiRegions::Field<uint8_t, FieldState::Coeff> &mask,
+    MultiRegions::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template float Math::l1norm<MultiRegions::Field<uint8_t, FieldState::Coeff>,
+                            MultiRegions::Field<float, FieldState::Coeff>>(
+    MultiRegions::Field<uint8_t, FieldState::Coeff> &mask,
+    MultiRegions::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template double Math::l1norm<LibUtilities::MemoryRegion<uint8_t>,
+                             LibUtilities::MemoryRegion<double>>(
+    LibUtilities::MemoryRegion<uint8_t> &mask,
+    LibUtilities::MemoryRegion<double> &x, const std::string &execSpace);
+template float Math::l1norm<LibUtilities::MemoryRegion<uint8_t>,
+                            LibUtilities::MemoryRegion<float>>(
+    LibUtilities::MemoryRegion<uint8_t> &mask,
+    LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
 
 // l2norm template specialization.
-template double Math::l2norm<Field<double, FieldState::Phys>>(
-    Field<double, FieldState::Phys> &x, const std::string &execSpace);
-template float Math::l2norm<Field<float, FieldState::Phys>>(
-    Field<float, FieldState::Phys> &x, const std::string &execSpace);
-template double Math::l2norm<Field<double, FieldState::Coeff>>(
-    Field<double, FieldState::Coeff> &x, const std::string &execSpace);
-template float Math::l2norm<Field<float, FieldState::Coeff>>(
-    Field<float, FieldState::Coeff> &x, const std::string &execSpace);
-template double Math::l2norm<MemoryRegion<double>>(
-    MemoryRegion<double> &x, const std::string &execSpace);
-template float Math::l2norm<MemoryRegion<float>>(MemoryRegion<float> &x,
-                                                 const std::string &execSpace);
-template double Math::l2norm<Field<uint8_t, FieldState::Phys>,
-                             Field<double, FieldState::Phys>>(
-    Field<uint8_t, FieldState::Phys> &mask, Field<double, FieldState::Phys> &x,
+template double Math::l2norm<MultiRegions::Field<double, FieldState::Phys>>(
+    MultiRegions::Field<double, FieldState::Phys> &x,
     const std::string &execSpace);
-template float Math::l2norm<Field<uint8_t, FieldState::Phys>,
-                            Field<float, FieldState::Phys>>(
-    Field<uint8_t, FieldState::Phys> &mask, Field<float, FieldState::Phys> &x,
+template float Math::l2norm<MultiRegions::Field<float, FieldState::Phys>>(
+    MultiRegions::Field<float, FieldState::Phys> &x,
     const std::string &execSpace);
-template double Math::l2norm<Field<uint8_t, FieldState::Coeff>,
-                             Field<double, FieldState::Coeff>>(
-    Field<uint8_t, FieldState::Coeff> &mask,
-    Field<double, FieldState::Coeff> &x, const std::string &execSpace);
-template float Math::l2norm<Field<uint8_t, FieldState::Coeff>,
-                            Field<float, FieldState::Coeff>>(
-    Field<uint8_t, FieldState::Coeff> &mask, Field<float, FieldState::Coeff> &x,
+template double Math::l2norm<MultiRegions::Field<double, FieldState::Coeff>>(
+    MultiRegions::Field<double, FieldState::Coeff> &x,
     const std::string &execSpace);
-template double Math::l2norm<MemoryRegion<uint8_t>, MemoryRegion<double>>(
-    MemoryRegion<uint8_t> &mask, MemoryRegion<double> &x,
+template float Math::l2norm<MultiRegions::Field<float, FieldState::Coeff>>(
+    MultiRegions::Field<float, FieldState::Coeff> &x,
     const std::string &execSpace);
-template float Math::l2norm<MemoryRegion<uint8_t>, MemoryRegion<float>>(
-    MemoryRegion<uint8_t> &mask, MemoryRegion<float> &x,
+template double Math::l2norm<LibUtilities::MemoryRegion<double>>(
+    LibUtilities::MemoryRegion<double> &x, const std::string &execSpace);
+template float Math::l2norm<LibUtilities::MemoryRegion<float>>(
+    LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
+template double Math::l2norm<MultiRegions::Field<uint8_t, FieldState::Phys>,
+                             MultiRegions::Field<double, FieldState::Phys>>(
+    MultiRegions::Field<uint8_t, FieldState::Phys> &mask,
+    MultiRegions::Field<double, FieldState::Phys> &x,
     const std::string &execSpace);
+template float Math::l2norm<MultiRegions::Field<uint8_t, FieldState::Phys>,
+                            MultiRegions::Field<float, FieldState::Phys>>(
+    MultiRegions::Field<uint8_t, FieldState::Phys> &mask,
+    MultiRegions::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template double Math::l2norm<MultiRegions::Field<uint8_t, FieldState::Coeff>,
+                             MultiRegions::Field<double, FieldState::Coeff>>(
+    MultiRegions::Field<uint8_t, FieldState::Coeff> &mask,
+    MultiRegions::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template float Math::l2norm<MultiRegions::Field<uint8_t, FieldState::Coeff>,
+                            MultiRegions::Field<float, FieldState::Coeff>>(
+    MultiRegions::Field<uint8_t, FieldState::Coeff> &mask,
+    MultiRegions::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template double Math::l2norm<LibUtilities::MemoryRegion<uint8_t>,
+                             LibUtilities::MemoryRegion<double>>(
+    LibUtilities::MemoryRegion<uint8_t> &mask,
+    LibUtilities::MemoryRegion<double> &x, const std::string &execSpace);
+template float Math::l2norm<LibUtilities::MemoryRegion<uint8_t>,
+                            LibUtilities::MemoryRegion<float>>(
+    LibUtilities::MemoryRegion<uint8_t> &mask,
+    LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
 
 // lpnorm template specialization.
-template double Math::lpnorm<Field<double, FieldState::Phys>>(
-    const unsigned int p, Field<double, FieldState::Phys> &x,
+template double Math::lpnorm<MultiRegions::Field<double, FieldState::Phys>>(
+    const unsigned int p, MultiRegions::Field<double, FieldState::Phys> &x,
     const std::string &execSpace);
-template float Math::lpnorm<Field<float, FieldState::Phys>>(
-    const unsigned int p, Field<float, FieldState::Phys> &x,
+template float Math::lpnorm<MultiRegions::Field<float, FieldState::Phys>>(
+    const unsigned int p, MultiRegions::Field<float, FieldState::Phys> &x,
     const std::string &execSpace);
-template double Math::lpnorm<Field<double, FieldState::Coeff>>(
-    const unsigned int p, Field<double, FieldState::Coeff> &x,
+template double Math::lpnorm<MultiRegions::Field<double, FieldState::Coeff>>(
+    const unsigned int p, MultiRegions::Field<double, FieldState::Coeff> &x,
     const std::string &execSpace);
-template float Math::lpnorm<Field<float, FieldState::Coeff>>(
-    const unsigned int p, Field<float, FieldState::Coeff> &x,
+template float Math::lpnorm<MultiRegions::Field<float, FieldState::Coeff>>(
+    const unsigned int p, MultiRegions::Field<float, FieldState::Coeff> &x,
     const std::string &execSpace);
-template double Math::lpnorm<MemoryRegion<double>>(
-    const unsigned int p, MemoryRegion<double> &x,
+template double Math::lpnorm<LibUtilities::MemoryRegion<double>>(
+    const unsigned int p, LibUtilities::MemoryRegion<double> &x,
     const std::string &execSpace);
-template float Math::lpnorm<MemoryRegion<float>>(const unsigned int p,
-                                                 MemoryRegion<float> &x,
-                                                 const std::string &execSpace);
-template double Math::lpnorm<Field<uint8_t, FieldState::Phys>,
-                             Field<double, FieldState::Phys>>(
-    const unsigned int p, Field<uint8_t, FieldState::Phys> &mask,
-    Field<double, FieldState::Phys> &x, const std::string &execSpace);
-template float Math::lpnorm<Field<uint8_t, FieldState::Phys>,
-                            Field<float, FieldState::Phys>>(
-    const unsigned int p, Field<uint8_t, FieldState::Phys> &mask,
-    Field<float, FieldState::Phys> &x, const std::string &execSpace);
-template double Math::lpnorm<Field<uint8_t, FieldState::Coeff>,
-                             Field<double, FieldState::Coeff>>(
-    const unsigned int p, Field<uint8_t, FieldState::Coeff> &mask,
-    Field<double, FieldState::Coeff> &x, const std::string &execSpace);
-template float Math::lpnorm<Field<uint8_t, FieldState::Coeff>,
-                            Field<float, FieldState::Coeff>>(
-    const unsigned int p, Field<uint8_t, FieldState::Coeff> &mask,
-    Field<float, FieldState::Coeff> &x, const std::string &execSpace);
-template double Math::lpnorm<MemoryRegion<uint8_t>, MemoryRegion<double>>(
-    const unsigned int p, MemoryRegion<uint8_t> &mask, MemoryRegion<double> &x,
+template float Math::lpnorm<LibUtilities::MemoryRegion<float>>(
+    const unsigned int p, LibUtilities::MemoryRegion<float> &x,
     const std::string &execSpace);
-template float Math::lpnorm<MemoryRegion<uint8_t>, MemoryRegion<float>>(
-    const unsigned int p, MemoryRegion<uint8_t> &mask, MemoryRegion<float> &x,
+template double Math::lpnorm<MultiRegions::Field<uint8_t, FieldState::Phys>,
+                             MultiRegions::Field<double, FieldState::Phys>>(
+    const unsigned int p, MultiRegions::Field<uint8_t, FieldState::Phys> &mask,
+    MultiRegions::Field<double, FieldState::Phys> &x,
     const std::string &execSpace);
+template float Math::lpnorm<MultiRegions::Field<uint8_t, FieldState::Phys>,
+                            MultiRegions::Field<float, FieldState::Phys>>(
+    const unsigned int p, MultiRegions::Field<uint8_t, FieldState::Phys> &mask,
+    MultiRegions::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template double Math::lpnorm<MultiRegions::Field<uint8_t, FieldState::Coeff>,
+                             MultiRegions::Field<double, FieldState::Coeff>>(
+    const unsigned int p, MultiRegions::Field<uint8_t, FieldState::Coeff> &mask,
+    MultiRegions::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template float Math::lpnorm<MultiRegions::Field<uint8_t, FieldState::Coeff>,
+                            MultiRegions::Field<float, FieldState::Coeff>>(
+    const unsigned int p, MultiRegions::Field<uint8_t, FieldState::Coeff> &mask,
+    MultiRegions::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template double Math::lpnorm<LibUtilities::MemoryRegion<uint8_t>,
+                             LibUtilities::MemoryRegion<double>>(
+    const unsigned int p, LibUtilities::MemoryRegion<uint8_t> &mask,
+    LibUtilities::MemoryRegion<double> &x, const std::string &execSpace);
+template float Math::lpnorm<LibUtilities::MemoryRegion<uint8_t>,
+                            LibUtilities::MemoryRegion<float>>(
+    const unsigned int p, LibUtilities::MemoryRegion<uint8_t> &mask,
+    LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
 
 // linfnorm template specialization.
-template double Math::linfnorm<Field<double, FieldState::Phys>>(
-    Field<double, FieldState::Phys> &x, const std::string &execSpace);
-template float Math::linfnorm<Field<float, FieldState::Phys>>(
-    Field<float, FieldState::Phys> &x, const std::string &execSpace);
-template double Math::linfnorm<Field<double, FieldState::Coeff>>(
-    Field<double, FieldState::Coeff> &x, const std::string &execSpace);
-template float Math::linfnorm<Field<float, FieldState::Coeff>>(
-    Field<float, FieldState::Coeff> &x, const std::string &execSpace);
-template double Math::linfnorm<MemoryRegion<double>>(
-    MemoryRegion<double> &x, const std::string &execSpace);
-template float Math::linfnorm<MemoryRegion<float>>(
-    MemoryRegion<float> &x, const std::string &execSpace);
-template double Math::linfnorm<Field<uint8_t, FieldState::Phys>,
-                               Field<double, FieldState::Phys>>(
-    Field<uint8_t, FieldState::Phys> &mask, Field<double, FieldState::Phys> &x,
+template double Math::linfnorm<MultiRegions::Field<double, FieldState::Phys>>(
+    MultiRegions::Field<double, FieldState::Phys> &x,
     const std::string &execSpace);
-template float Math::linfnorm<Field<uint8_t, FieldState::Phys>,
-                              Field<float, FieldState::Phys>>(
-    Field<uint8_t, FieldState::Phys> &mask, Field<float, FieldState::Phys> &x,
+template float Math::linfnorm<MultiRegions::Field<float, FieldState::Phys>>(
+    MultiRegions::Field<float, FieldState::Phys> &x,
     const std::string &execSpace);
-template double Math::linfnorm<Field<uint8_t, FieldState::Coeff>,
-                               Field<double, FieldState::Coeff>>(
-    Field<uint8_t, FieldState::Coeff> &mask,
-    Field<double, FieldState::Coeff> &x, const std::string &execSpace);
-template float Math::linfnorm<Field<uint8_t, FieldState::Coeff>,
-                              Field<float, FieldState::Coeff>>(
-    Field<uint8_t, FieldState::Coeff> &mask, Field<float, FieldState::Coeff> &x,
+template double Math::linfnorm<MultiRegions::Field<double, FieldState::Coeff>>(
+    MultiRegions::Field<double, FieldState::Coeff> &x,
     const std::string &execSpace);
-template double Math::linfnorm<MemoryRegion<uint8_t>, MemoryRegion<double>>(
-    MemoryRegion<uint8_t> &mask, MemoryRegion<double> &x,
+template float Math::linfnorm<MultiRegions::Field<float, FieldState::Coeff>>(
+    MultiRegions::Field<float, FieldState::Coeff> &x,
     const std::string &execSpace);
-template float Math::linfnorm<MemoryRegion<uint8_t>, MemoryRegion<float>>(
-    MemoryRegion<uint8_t> &mask, MemoryRegion<float> &x,
+template double Math::linfnorm<LibUtilities::MemoryRegion<double>>(
+    LibUtilities::MemoryRegion<double> &x, const std::string &execSpace);
+template float Math::linfnorm<LibUtilities::MemoryRegion<float>>(
+    LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
+template double Math::linfnorm<MultiRegions::Field<uint8_t, FieldState::Phys>,
+                               MultiRegions::Field<double, FieldState::Phys>>(
+    MultiRegions::Field<uint8_t, FieldState::Phys> &mask,
+    MultiRegions::Field<double, FieldState::Phys> &x,
     const std::string &execSpace);
+template float Math::linfnorm<MultiRegions::Field<uint8_t, FieldState::Phys>,
+                              MultiRegions::Field<float, FieldState::Phys>>(
+    MultiRegions::Field<uint8_t, FieldState::Phys> &mask,
+    MultiRegions::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template double Math::linfnorm<MultiRegions::Field<uint8_t, FieldState::Coeff>,
+                               MultiRegions::Field<double, FieldState::Coeff>>(
+    MultiRegions::Field<uint8_t, FieldState::Coeff> &mask,
+    MultiRegions::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template float Math::linfnorm<MultiRegions::Field<uint8_t, FieldState::Coeff>,
+                              MultiRegions::Field<float, FieldState::Coeff>>(
+    MultiRegions::Field<uint8_t, FieldState::Coeff> &mask,
+    MultiRegions::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template double Math::linfnorm<LibUtilities::MemoryRegion<uint8_t>,
+                               LibUtilities::MemoryRegion<double>>(
+    LibUtilities::MemoryRegion<uint8_t> &mask,
+    LibUtilities::MemoryRegion<double> &x, const std::string &execSpace);
+template float Math::linfnorm<LibUtilities::MemoryRegion<uint8_t>,
+                              LibUtilities::MemoryRegion<float>>(
+    LibUtilities::MemoryRegion<uint8_t> &mask,
+    LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
 
 } // namespace Nektar::Operators

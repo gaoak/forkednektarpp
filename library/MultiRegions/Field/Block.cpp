@@ -36,9 +36,9 @@
 #include <MultiRegions/ExpListHomogeneous1D.h>
 #include <MultiRegions/ExpListHomogeneous2D.h>
 
-#include <Operators/Field/Field.hpp>
+#include <MultiRegions/Field/Field.hpp>
 
-namespace Nektar::Operators
+namespace Nektar::MultiRegions
 {
 
 // Helper function
@@ -237,4 +237,4 @@ template double *BlockAccessor<double, FieldState::Coeff>::GetPtr<
 template double *BlockAccessor<double, FieldState::Coeff>::GetPtr<
     NektarSpaces::DeviceSpace, ReadWrite>(const unsigned int streamID);
 #endif
-} // namespace Nektar::Operators
+} // namespace Nektar::MultiRegions

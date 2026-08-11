@@ -103,7 +103,7 @@ protected:
         }
     }
 
-    void v_Apply(Field<TData, FieldState::Phys> &inout) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &inout) override
     {
         // Check that required functions are defined.
         ASSERTL0(this->m_explicitRhsFunctor,
@@ -142,10 +142,11 @@ protected:
             // Allocate new storage.
             if (this->m_step == 0 && Nimplicit() == 2)
             {
-                this->m_implicits.push_back(Field<TData, FieldState::Phys>(
-                    GetBlockAttributes<TData, FieldState::Phys>(
-                        this->m_expansionList),
-                    this->m_components, inout.GetNumHomoModes()));
+                this->m_implicits.push_back(
+                    MultiRegions::Field<TData, FieldState::Phys>(
+                        MultiRegions::GetBlockAttributes<
+                            TData, FieldState::Phys>(this->m_expansionList),
+                        this->m_components, inout.GetNumHomoModes()));
             }
 
             // Increment step and time.
@@ -158,10 +159,11 @@ protected:
             // Allocate new storage.
             if (this->m_explicits.size() < IntOrder)
             {
-                this->m_explicits.push_back(Field<TData, FieldState::Phys>(
-                    GetBlockAttributes<TData, FieldState::Phys>(
-                        this->m_expansionList),
-                    this->m_components, inout.GetNumHomoModes()));
+                this->m_explicits.push_back(
+                    MultiRegions::Field<TData, FieldState::Phys>(
+                        MultiRegions::GetBlockAttributes<
+                            TData, FieldState::Phys>(this->m_expansionList),
+                        this->m_components, inout.GetNumHomoModes()));
             }
 
             this->RollOver(this->m_explicits);
@@ -195,7 +197,7 @@ protected:
     }
 
     template <unsigned int... ind, unsigned int... ind2>
-    void UpdateSolution(Field<TData, FieldState::Phys> &inout,
+    void UpdateSolution(MultiRegions::Field<TData, FieldState::Phys> &inout,
                         std::integer_sequence<unsigned int, ind...>,
                         std::integer_sequence<unsigned int, ind2...>)
     {

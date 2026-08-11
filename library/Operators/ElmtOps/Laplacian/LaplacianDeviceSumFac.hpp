@@ -34,8 +34,8 @@
 
 #pragma once
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "Operators/ElmtOps/Laplacian/LaplacianBlockOp.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/Laplacian/LaplacianDeviceSumFacKernels.hpp"
 #include "Operators/ElmtOps/Laplacian/LaplacianDeviceSumFacTOPKernels.hpp"
@@ -233,8 +233,9 @@ protected:
     const TData *m_jacptr;
     const TData *m_dfptr;
 
-    void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
-                 BlockAccessor<TData, FieldState::Coeff> &outblock) override
+    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+                 MultiRegions::BlockAccessor<TData, FieldState::Coeff>
+                     &outblock) override
     {
         switch (m_shapeType)
         {
@@ -303,40 +304,51 @@ protected:
         }
     }
 
-    void SegBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
-                  BlockAccessor<TData, FieldState::Coeff> &outblock);
+    void SegBlock(
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock);
 
-    void TriBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
-                  BlockAccessor<TData, FieldState::Coeff> &outblock);
+    void TriBlock(
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock);
 
-    void NodalTriBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
-                       BlockAccessor<TData, FieldState::Coeff> &outblock);
+    void NodalTriBlock(
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock);
 
-    void QuadBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
-                   BlockAccessor<TData, FieldState::Coeff> &outblock);
+    void QuadBlock(
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock);
 
-    void HexBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
-                  BlockAccessor<TData, FieldState::Coeff> &outblock);
+    void HexBlock(
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock);
 
-    void PrismBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
-                    BlockAccessor<TData, FieldState::Coeff> &outblock);
+    void PrismBlock(
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock);
 
-    void NodalPrismBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
-                         BlockAccessor<TData, FieldState::Coeff> &outblock);
+    void NodalPrismBlock(
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock);
 
-    void PyrBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
-                  BlockAccessor<TData, FieldState::Coeff> &outblock);
+    void PyrBlock(
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock);
 
-    void TetBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
-                  BlockAccessor<TData, FieldState::Coeff> &outblock);
+    void TetBlock(
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock);
 
-    void NodalTetBlock(BlockAccessor<TData, FieldState::Coeff> &inblock,
-                       BlockAccessor<TData, FieldState::Coeff> &outblock);
+    void NodalTetBlock(
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock);
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator1D(BlockAccessor<TData, FieldState::Coeff> &inblock,
-                    BlockAccessor<TData, FieldState::Coeff> &outblock)
+    void Operator1D(
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         Operator1D<SHAPE_TYPE, DEFORMED>(
             inblock, outblock, NonTemplatedSizeParameter1D(m_nm[0], m_nq[0]));
@@ -345,8 +357,9 @@ protected:
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               unsigned int nm0, unsigned int nq0>
-    void Operator1D(BlockAccessor<TData, FieldState::Coeff> &inblock,
-                    BlockAccessor<TData, FieldState::Coeff> &outblock)
+    void Operator1D(
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         Operator1D<SHAPE_TYPE, DEFORMED>(inblock, outblock,
                                          TemplatedSizeParameter1D<nm0, nq0>());
@@ -355,8 +368,8 @@ protected:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               typename TSizeParameter1D>
     NEK_FORCE_INLINE void Operator1D(
-        BlockAccessor<TData, FieldState::Coeff> &inblock,
-        BlockAccessor<TData, FieldState::Coeff> &outblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock,
         TSizeParameter1D sizeParam1D)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
@@ -414,8 +427,9 @@ protected:
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator2D(BlockAccessor<TData, FieldState::Coeff> &inblock,
-                    BlockAccessor<TData, FieldState::Coeff> &outblock)
+    void Operator2D(
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         const unsigned int nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, m_nm[0], m_nm[1]);
@@ -430,8 +444,9 @@ protected:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               unsigned int nm0, unsigned int nm1, unsigned int nq0,
               unsigned int nq1>
-    void Operator2D(BlockAccessor<TData, FieldState::Coeff> &inblock,
-                    BlockAccessor<TData, FieldState::Coeff> &outblock)
+    void Operator2D(
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         constexpr unsigned int nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
@@ -444,8 +459,8 @@ protected:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               typename TSizeParameter2D>
     NEK_FORCE_INLINE void Operator2D(
-        BlockAccessor<TData, FieldState::Coeff> &inblock,
-        BlockAccessor<TData, FieldState::Coeff> &outblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock,
         TSizeParameter2D sizeParam2D)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
@@ -504,8 +519,9 @@ protected:
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator3D(BlockAccessor<TData, FieldState::Coeff> &inblock,
-                    BlockAccessor<TData, FieldState::Coeff> &outblock)
+    void Operator3D(
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(
             SHAPE_TYPE, m_nm[0], m_nm[1], m_nm[2]);
@@ -520,8 +536,9 @@ protected:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               unsigned int nm0, unsigned int nm1, unsigned int nm2,
               unsigned int nq0, unsigned int nq1, unsigned int nq2>
-    void Operator3D(BlockAccessor<TData, FieldState::Coeff> &inblock,
-                    BlockAccessor<TData, FieldState::Coeff> &outblock)
+    void Operator3D(
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         constexpr unsigned int nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
@@ -534,8 +551,8 @@ protected:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               typename TSizeParameter3D>
     NEK_FORCE_INLINE void Operator3D(
-        BlockAccessor<TData, FieldState::Coeff> &inblock,
-        BlockAccessor<TData, FieldState::Coeff> &outblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock,
         TSizeParameter3D sizeParam3D)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();

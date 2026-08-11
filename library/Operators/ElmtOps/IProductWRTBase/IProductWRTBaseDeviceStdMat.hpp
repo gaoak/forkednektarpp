@@ -34,9 +34,9 @@
 
 #pragma once
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseBlockOp.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -117,8 +117,9 @@ protected:
     const TData *m_jacptr;
     const TData *m_BT_matptr;
 
-    void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
-                 BlockAccessor<TData, FieldState::Coeff> &outblock) override
+    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+                 MultiRegions::BlockAccessor<TData, FieldState::Coeff>
+                     &outblock) override
     {
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 

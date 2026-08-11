@@ -45,14 +45,14 @@ namespace Nektar::Operators
 template <typename TData> class DiffusionOp : public Operator<TData>
 {
 public:
-    void Apply(Field<TData, FieldState::Phys> &in,
-               Field<TData, FieldState::Phys> &out)
+    void Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
+               MultiRegions::Field<TData, FieldState::Phys> &out)
     {
         this->v_Apply(in, out);
     }
 
-    void operator()(Field<TData, FieldState::Phys> &in,
-                    Field<TData, FieldState::Phys> &out)
+    void operator()(MultiRegions::Field<TData, FieldState::Phys> &in,
+                    MultiRegions::Field<TData, FieldState::Phys> &out)
     {
         this->v_Apply(in, out);
     }
@@ -93,8 +93,8 @@ protected:
 
     ~DiffusionOp() override = default;
 
-    virtual void v_Apply(Field<TData, FieldState::Phys> &in,
-                         Field<TData, FieldState::Phys> &out) = 0;
+    virtual void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
+                         MultiRegions::Field<TData, FieldState::Phys> &out) = 0;
 };
 
 } // namespace Nektar::Operators

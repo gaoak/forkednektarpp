@@ -64,19 +64,18 @@ public:
 
     void SetDiffCoeff(std::vector<TData> &diffCoeff)
     {
-        this->m_diffCoeff =
-            MemoryRegion<TData>::template FromVector<NektarSpaces::HostSpace>(
-                diffCoeff);
+        this->m_diffCoeff = LibUtilities::MemoryRegion<
+            TData>::template FromVector<NektarSpaces::HostSpace>(diffCoeff);
     }
 
-    void SetAdvVel(BlockAccessor<TData, FieldState::Phys> &Vel)
+    void SetAdvVel(MultiRegions::BlockAccessor<TData, FieldState::Phys> &Vel)
     {
         v_SetAdvVel(Vel);
     }
 
 protected:
     TData m_lambda;
-    MemoryRegion<TData> m_diffCoeff;
+    LibUtilities::MemoryRegion<TData> m_diffCoeff;
 
     LinAdvDiffReactionBlockOp(const unsigned int block_idx,
                               const LocalRegions::ExpansionSharedPtr &exp,
@@ -88,7 +87,8 @@ protected:
 
     ~LinAdvDiffReactionBlockOp() override = default;
 
-    virtual void v_SetAdvVel(BlockAccessor<TData, FieldState::Phys> &Vel) = 0;
+    virtual void v_SetAdvVel(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &Vel) = 0;
 };
 
 } // namespace Nektar::Operators

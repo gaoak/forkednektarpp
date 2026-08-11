@@ -75,11 +75,11 @@ public:
 
 protected:
     unsigned int m_nDim;
-    MemoryRegion<TData> m_diffCoeff;
+    LibUtilities::MemoryRegion<TData> m_diffCoeff;
 
-    void v_Apply(Field<TData, FieldState::Phys> &in,
-                 Field<TData, FieldState::Phys> &deriv,
-                 Field<TData, FieldState::Phys> &out) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
+                 MultiRegions::Field<TData, FieldState::Phys> &deriv,
+                 MultiRegions::Field<TData, FieldState::Phys> &out) override
     {
         for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
@@ -110,8 +110,8 @@ protected:
                  "The number of diffusion coefficients must match 1, 3 or 6 "
                  "for a 1D, 2D or 3D case, respectively.");
 
-        m_diffCoeff = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
-            diffCoeff);
+        m_diffCoeff = LibUtilities::MemoryRegion<TData>::template FromVector<
+            MemSpace, TData>(diffCoeff);
     }
 };
 

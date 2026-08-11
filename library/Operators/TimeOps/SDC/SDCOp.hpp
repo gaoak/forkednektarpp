@@ -73,14 +73,16 @@ protected:
     unsigned int m_nQuadPts{0}; /// Number of quadrature points
     TData m_theta{1.0};         /// SDC parameter
     LibUtilities::PointsKey m_pointsKey; /// Object containing quadrature data
-    std::vector<MemoryRegion<TData const *>> m_mr0;
-    std::vector<MemoryRegion<TData *>> m_mr1;
-    std::deque<Field<TData, FieldState::Phys>> m_residuals;
-    std::deque<Field<TData, FieldState::Phys>>
-        m_SFint;               /// Array containing the integrated residual term
-    MemoryRegion<TData> m_tau; /// Array containing the quadrature points
-    MemoryRegion<TData> m_QMat; /// Array containing the integration matrix
-    MemoryRegion<TData>
+    std::vector<LibUtilities::MemoryRegion<TData const *>> m_mr0;
+    std::vector<LibUtilities::MemoryRegion<TData *>> m_mr1;
+    std::deque<MultiRegions::Field<TData, FieldState::Phys>> m_residuals;
+    std::deque<MultiRegions::Field<TData, FieldState::Phys>>
+        m_SFint; /// Array containing the integrated residual term
+    LibUtilities::MemoryRegion<TData>
+        m_tau; /// Array containing the quadrature points
+    LibUtilities::MemoryRegion<TData>
+        m_QMat; /// Array containing the integration matrix
+    LibUtilities::MemoryRegion<TData>
         m_interp; /// Array containing the interpolation coefficients
 
     SDCOp(const MultiRegions::ExpListSharedPtr &expansionList,
@@ -219,7 +221,9 @@ protected:
                             ->GetZ()[i - offset];
             tau[i] = (tmp + 1.0) / 2.0;
         }
-        this->m_tau = MemoryRegion<TData>::template FromVector<MemSpace>(tau);
+        this->m_tau =
+            LibUtilities::MemoryRegion<TData>::template FromVector<MemSpace>(
+                tau);
 
         // Compute integration matrix.
         unsigned int colOffset = this->m_first_quadrature ? 0 : 1;
@@ -229,7 +233,9 @@ protected:
         unsigned int nRows       = this->m_nQuadPts;
         std::vector<double> QMat = std::vector<double>(nRows * nCols, 0.0);
         Polylib::Qg(&QMat[rowOffset], &tau[colOffset], nCols);
-        this->m_QMat = MemoryRegion<TData>::template FromVector<MemSpace>(QMat);
+        this->m_QMat =
+            LibUtilities::MemoryRegion<TData>::template FromVector<MemSpace>(
+                QMat);
 
         // Compute intepolation coefficient.
         std::vector<TData> interp(this->m_nQuadPts);
@@ -239,22 +245,24 @@ protected:
                 Polylib::hgj(i, 1.0, &tau[0], this->m_nQuadPts, 0.0, 0.0);
         }
         this->m_interp =
-            MemoryRegion<TData>::template FromVector<MemSpace>(interp);
+            LibUtilities::MemoryRegion<TData>::template FromVector<MemSpace>(
+                interp);
 
         // Buffer for memory transfer
-        auto blockAttributes = GetBlockAttributes<TData, FieldState::Phys>(
-            this->m_expansionList, 1);
+        auto blockAttributes =
+            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
+                this->m_expansionList, 1);
         for (unsigned int i = 0; i < blockAttributes.size(); i++)
         {
-            this->m_mr0.push_back(
-                MemoryRegion<const TData *>(this->m_nQuadPts, eHostPinned));
-            this->m_mr1.push_back(
-                MemoryRegion<TData *>(this->m_nQuadPts, eHostPinned));
+            this->m_mr0.push_back(LibUtilities::MemoryRegion<const TData *>(
+                this->m_nQuadPts, eHostPinned));
+            this->m_mr1.push_back(LibUtilities::MemoryRegion<TData *>(
+                this->m_nQuadPts, eHostPinned));
         }
     }
 
     template <typename ExecSpace>
-    void UpdateSolution(Field<TData, FieldState::Phys> &inout)
+    void UpdateSolution(MultiRegions::Field<TData, FieldState::Phys> &inout)
     {
         using MemSpace = typename ExecSpace::memory_space;
 

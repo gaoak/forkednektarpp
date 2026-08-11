@@ -1,87 +1,87 @@
 SET(MULTI_REGIONS_SOURCES
-./AssemblyMap/AssemblyCommDG.cpp
-./AssemblyMap/AssemblyMap.cpp
-./AssemblyMap/AssemblyMapCG.cpp
-./AssemblyMap/AssemblyMapDG.cpp
-./AssemblyMap/InterfaceMapDG.cpp
-./AssemblyMap/LocTraceToTraceMap.cpp
-ContField.cpp
-ContField3DHomogeneous1D.cpp
-ContField3DHomogeneous2D.cpp
-DisContField.cpp
-DisContField3DHomogeneous1D.cpp
-DisContField3DHomogeneous2D.cpp
-ExpList.cpp
-ExpListHomogeneous1D.cpp
-ExpListHomogeneous2D.cpp
-ExpList2DHomogeneous1D.cpp
-ExpList2DHomogeneous2D.cpp
-ExpList3DHomogeneous1D.cpp
-ExpList3DHomogeneous2D.cpp
-GJPStabilisation.cpp
-GlobalLinSys.cpp
-GlobalLinSysKey.cpp
-GlobalLinSysDirect.cpp
-GlobalLinSysDirectFull.cpp
-GlobalLinSysDirectStaticCond.cpp
-GlobalLinSysIterative.cpp
-GlobalLinSysIterativeFull.cpp
-GlobalLinSysIterativeStaticCond.cpp
-GlobalLinSysStaticCond.cpp
-GlobalMatrix.cpp
-GlobalMatrixKey.cpp
-Preconditioner.cpp
-PreconditionerDiagonal.cpp
-PreconditionerLowEnergy.cpp
-PreconditionerBlock.cpp
-PreconditionerLOR.cpp
-SubStructuredGraph.cpp
+    ./AssemblyMap/AssemblyCommDG.cpp
+    ./AssemblyMap/AssemblyMap.cpp
+    ./AssemblyMap/AssemblyMapCG.cpp
+    ./AssemblyMap/AssemblyMapDG.cpp
+    ./AssemblyMap/InterfaceMapDG.cpp
+    ./AssemblyMap/LocTraceToTraceMap.cpp
+    ContField.cpp
+    ContField3DHomogeneous1D.cpp
+    ContField3DHomogeneous2D.cpp
+    DisContField.cpp
+    DisContField3DHomogeneous1D.cpp
+    DisContField3DHomogeneous2D.cpp
+    ExpList.cpp
+    ExpListHomogeneous1D.cpp
+    ExpListHomogeneous2D.cpp
+    ExpList2DHomogeneous1D.cpp
+    ExpList2DHomogeneous2D.cpp
+    ExpList3DHomogeneous1D.cpp
+    ExpList3DHomogeneous2D.cpp
+    GJPStabilisation.cpp
+    GlobalLinSys.cpp
+    GlobalLinSysKey.cpp
+    GlobalLinSysDirect.cpp
+    GlobalLinSysDirectFull.cpp
+    GlobalLinSysDirectStaticCond.cpp
+    GlobalLinSysIterative.cpp
+    GlobalLinSysIterativeFull.cpp
+    GlobalLinSysIterativeStaticCond.cpp
+    GlobalLinSysStaticCond.cpp
+    GlobalMatrix.cpp
+    GlobalMatrixKey.cpp
+    Preconditioner.cpp
+    PreconditionerDiagonal.cpp
+    PreconditionerLowEnergy.cpp
+    PreconditionerBlock.cpp
+    PreconditionerLOR.cpp
+    SubStructuredGraph.cpp
 )
 
 SET(MULTI_REGIONS_HEADERS
-ContField.h
-ContField3DHomogeneous1D.h
-ContField3DHomogeneous2D.h
-DisContField.h
-DisContField3DHomogeneous1D.h
-DisContField3DHomogeneous2D.h
-ExpList.h
-ExpListHomogeneous1D.h
-ExpListHomogeneous2D.h
-ExpList2DHomogeneous1D.h
-ExpList2DHomogeneous2D.h
-ExpList3DHomogeneous1D.h
-ExpList3DHomogeneous2D.h
-GJPStabilisation.h
-GlobalLinSys.h
-GlobalLinSysKey.h
-GlobalLinSysDirect.h
-GlobalLinSysDirectFull.h
-GlobalLinSysDirectStaticCond.h
-GlobalLinSysIterative.h
-GlobalLinSysIterativeFull.h
-GlobalLinSysIterativeStaticCond.h
-GlobalLinSysStaticCond.h
-GlobalMatrix.h
-GlobalMatrixKey.h
-MultiRegions.hpp
-MultiRegionsDeclspec.h
-Preconditioner.h
-PreconditionerDiagonal.h
-PreconditionerLowEnergy.h
-PreconditionerBlock.h
-PreconditionerLOR.h
-SubStructuredGraph.h
+    ContField.h
+    ContField3DHomogeneous1D.h
+    ContField3DHomogeneous2D.h
+    DisContField.h
+    DisContField3DHomogeneous1D.h
+    DisContField3DHomogeneous2D.h
+    ExpList.h
+    ExpListHomogeneous1D.h
+    ExpListHomogeneous2D.h
+    ExpList2DHomogeneous1D.h
+    ExpList2DHomogeneous2D.h
+    ExpList3DHomogeneous1D.h
+    ExpList3DHomogeneous2D.h
+    GJPStabilisation.h
+    GlobalLinSys.h
+    GlobalLinSysKey.h
+    GlobalLinSysDirect.h
+    GlobalLinSysDirectFull.h
+    GlobalLinSysDirectStaticCond.h
+    GlobalLinSysIterative.h
+    GlobalLinSysIterativeFull.h
+    GlobalLinSysIterativeStaticCond.h
+    GlobalLinSysStaticCond.h
+    GlobalMatrix.h
+    GlobalMatrixKey.h
+    MultiRegions.hpp
+    MultiRegionsDeclspec.h
+    Preconditioner.h
+    PreconditionerDiagonal.h
+    PreconditionerLowEnergy.h
+    PreconditionerBlock.h
+    PreconditionerLOR.h
+    SubStructuredGraph.h
 )
 
 SET(ASSEMBLY_MAP_HEADERS
-./AssemblyMap/AssemblyCommCG.h
-./AssemblyMap/AssemblyCommDG.h
-./AssemblyMap/AssemblyMap.h
-./AssemblyMap/AssemblyMapCG.h
-./AssemblyMap/AssemblyMapDG.h
-./AssemblyMap/InterfaceMapDG.h
-./AssemblyMap/LocTraceToTraceMap.h
+    ./AssemblyMap/AssemblyCommCG.h
+    ./AssemblyMap/AssemblyCommDG.h
+    ./AssemblyMap/AssemblyMap.h
+    ./AssemblyMap/AssemblyMapCG.h
+    ./AssemblyMap/AssemblyMapDG.h
+    ./AssemblyMap/InterfaceMapDG.h
+    ./AssemblyMap/LocTraceToTraceMap.h
 )
 
 IF(NEKTAR_USE_MPI)
@@ -118,6 +118,37 @@ IF(NEKTAR_USE_PETSC)
     )
 ENDIF(NEKTAR_USE_PETSC)
 
+IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
+    SET(MULTI_REGIONS_HEADERS
+        ${MULTI_REGIONS_HEADERS}
+        ./Field/Block.hpp
+    )
+    SET(MULTI_REGIONS_SOURCES 
+        ${MULTI_REGIONS_SOURCES}
+        ./Field/Block.cpp
+    )
+    IF (NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+        SET(MULTI_REGIONS_SOURCES 
+            ${MULTI_REGIONS_SOURCES}
+            ./Field/BlockHelper.cu
+        )
+    ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+        SET(MULTI_REGIONS_SOURCES
+            ${MULTI_REGIONS_SOURCES}
+            ./Field/BlockHelper.hip
+        )
+    ELSEIF (NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
+        SET(MULTI_REGIONS_SOURCES
+            ${MULTI_REGIONS_SOURCES}
+            ./Field/BlockHelper.cpp
+        )
+    ELSE()
+        SET(MULTI_REGIONS_SOURCES
+            ${MULTI_REGIONS_SOURCES}
+            ./Field/BlockHelper.cpp
+        )
+    ENDIF()
+ENDIF()
 ADD_DEFINITIONS(-DMULTI_REGIONS_EXPORTS)
 
 ADD_NEKTAR_LIBRARY(MultiRegions

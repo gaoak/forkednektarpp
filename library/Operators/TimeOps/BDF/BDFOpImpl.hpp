@@ -78,7 +78,7 @@ public:
 protected:
     TData m_gamma;
 
-    void v_Apply(Field<TData, FieldState::Phys> &inout) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &inout) override
     {
         // Check that required functions are defined.
         ASSERTL0(this->m_implicitFunctor,
@@ -89,11 +89,12 @@ protected:
         if (this->m_step + 1 < IntOrder)
         {
             // Save initial solution.
-            this->m_solutions.push_front(Field<TData, FieldState::Phys>(
-                "timestep n-" + std::to_string(this->m_step + 1),
-                GetBlockAttributes<TData, FieldState::Phys>(
-                    this->m_expansionList),
-                this->m_components, inout.GetNumHomoModes()));
+            this->m_solutions.push_front(
+                MultiRegions::Field<TData, FieldState::Phys>(
+                    "timestep n-" + std::to_string(this->m_step + 1),
+                    MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
+                        this->m_expansionList),
+                    this->m_components, inout.GetNumHomoModes()));
 
             this->m_solutions[0].template Copy<MemSpace>(inout);
 
@@ -141,7 +142,7 @@ protected:
     }
 
     template <unsigned int... ind>
-    void UpdateSolution(Field<TData, FieldState::Phys> &inout,
+    void UpdateSolution(MultiRegions::Field<TData, FieldState::Phys> &inout,
                         std::integer_sequence<unsigned int, ind...>)
     {
         // Loop over the blocks.

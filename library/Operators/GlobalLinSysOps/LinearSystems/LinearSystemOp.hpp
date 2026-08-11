@@ -51,14 +51,14 @@ namespace Nektar::Operators
 template <typename TData> class LinearSystemOp : public Operator<TData>
 {
 public:
-    void Apply(Field<TData, FieldState::Phys> &in,
-               Field<TData, FieldState::Coeff> &out)
+    void Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
+               MultiRegions::Field<TData, FieldState::Coeff> &out)
     {
         this->v_Apply(in, out);
     }
 
-    void operator()(Field<TData, FieldState::Phys> &in,
-                    Field<TData, FieldState::Coeff> &out)
+    void operator()(MultiRegions::Field<TData, FieldState::Phys> &in,
+                    MultiRegions::Field<TData, FieldState::Coeff> &out)
     {
         this->v_Apply(in, out);
     }
@@ -113,27 +113,30 @@ protected:
     std::vector<std::shared_ptr<NeuBndCondOp<TData>>> m_NeuBCOps;
     std::shared_ptr<RobBndCondOp<TData>> m_RobBCOp;
 
-    Field<TData, FieldState::Coeff> m_rhs;
-    Field<TData, FieldState::Coeff> m_tmp;
+    MultiRegions::Field<TData, FieldState::Coeff> m_rhs;
+    MultiRegions::Field<TData, FieldState::Coeff> m_tmp;
 
     LinearSystemOp(const MultiRegions::ExpListSharedPtr &expansionList,
                    const std::vector<std::string> &components)
         : Operator<TData>(expansionList, components),
-          m_rhs(Field<TData, FieldState::Coeff>(
+          m_rhs(MultiRegions::Field<TData, FieldState::Coeff>(
               "LinearSystem RHS",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_tmp(Field<TData, FieldState::Coeff>(
+          m_tmp(MultiRegions::Field<TData, FieldState::Coeff>(
               "LinearSystem TMP",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1))
     {
     }
 
     ~LinearSystemOp() override = default;
 
-    virtual void v_Apply(Field<TData, FieldState::Phys> &in,
-                         Field<TData, FieldState::Coeff> &out) = 0;
+    virtual void v_Apply(
+        MultiRegions::Field<TData, FieldState::Phys> &in,
+        MultiRegions::Field<TData, FieldState::Coeff> &out) = 0;
 };
 
 } // namespace Nektar::Operators

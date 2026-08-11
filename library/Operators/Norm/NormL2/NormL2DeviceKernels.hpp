@@ -35,7 +35,7 @@
 #pragma once
 
 #include "ElmtOps/ElmtBlockOp.hpp"
-#include "Operators/Common/DeviceProperties.hpp"
+#include "LibUtilities/Backends/DeviceProperties.hpp"
 #include "Operators/Common/Spaces.hpp"
 
 namespace Nektar::Operators::detail

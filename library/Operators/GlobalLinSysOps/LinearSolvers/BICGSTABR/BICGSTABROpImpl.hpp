@@ -52,35 +52,42 @@ public:
     BICGSTABROpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                     const std::vector<std::string> &components)
         : BICGSTABROp<TData>(expansionList, components),
-          m_p(Field<TData, FieldState::Coeff>(
+          m_p(MultiRegions::Field<TData, FieldState::Coeff>(
               "BICGSTABROp p",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_v(Field<TData, FieldState::Coeff>(
+          m_v(MultiRegions::Field<TData, FieldState::Coeff>(
               "BICGSTABROp v",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_w(Field<TData, FieldState::Coeff>(
+          m_w(MultiRegions::Field<TData, FieldState::Coeff>(
               "BICGSTABROp w",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_z(Field<TData, FieldState::Coeff>(
+          m_z(MultiRegions::Field<TData, FieldState::Coeff>(
               "BICGSTABROp z",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_s(Field<TData, FieldState::Coeff>(
+          m_s(MultiRegions::Field<TData, FieldState::Coeff>(
               "BICGSTABROp s",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_r(Field<TData, FieldState::Coeff>(
+          m_r(MultiRegions::Field<TData, FieldState::Coeff>(
               "BICGSTABROp r",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_rtilde(Field<TData, FieldState::Coeff>(
+          m_rtilde(MultiRegions::Field<TData, FieldState::Coeff>(
               "BICGSTABROp rtilde",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_vExchange(MemoryRegion<TData>(4, eHostPinned))
+          m_vExchange(LibUtilities::MemoryRegion<TData>(4, eHostPinned))
     {
         this->template SetLinearSolver<ExecSpace>();
 
@@ -110,18 +117,18 @@ public:
     }
 
 protected:
-    Field<TData, FieldState::Coeff> m_p;
-    Field<TData, FieldState::Coeff> m_v;
-    Field<TData, FieldState::Coeff> m_w;
-    Field<TData, FieldState::Coeff> m_z;
-    Field<TData, FieldState::Coeff> m_s;
-    Field<TData, FieldState::Coeff> m_r;
-    Field<TData, FieldState::Coeff> m_rtilde;
+    MultiRegions::Field<TData, FieldState::Coeff> m_p;
+    MultiRegions::Field<TData, FieldState::Coeff> m_v;
+    MultiRegions::Field<TData, FieldState::Coeff> m_w;
+    MultiRegions::Field<TData, FieldState::Coeff> m_z;
+    MultiRegions::Field<TData, FieldState::Coeff> m_s;
+    MultiRegions::Field<TData, FieldState::Coeff> m_r;
+    MultiRegions::Field<TData, FieldState::Coeff> m_rtilde;
 
-    MemoryRegion<TData> m_vExchange;
+    LibUtilities::MemoryRegion<TData> m_vExchange;
 
-    void v_Apply(Field<TData, FieldState::Coeff> &in,
-                 Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
+                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
     {
         // BICGSTAB implementation adpated from  FBiCGStab-R PETSC
         // implementation. This version has only 2 MPI calls per iterations

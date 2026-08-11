@@ -34,9 +34,9 @@
 
 #pragma once
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 #include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionBlockOp.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionDeviceStdMatKernels.hpp"
 
@@ -127,8 +127,9 @@ protected:
     const TData *m_dfptr;
     TData *m_advVel;
 
-    void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
-                 BlockAccessor<TData, FieldState::Coeff> &outblock) override
+    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+                 MultiRegions::BlockAccessor<TData, FieldState::Coeff>
+                     &outblock) override
     {
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
@@ -241,7 +242,8 @@ protected:
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
-    void v_SetAdvVel(BlockAccessor<TData, FieldState::Phys> &advVel) override
+    void v_SetAdvVel(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &advVel) override
     {
         const auto interleaveWidth = advVel.GetInterleaveWidth();
         this->m_advVel =
