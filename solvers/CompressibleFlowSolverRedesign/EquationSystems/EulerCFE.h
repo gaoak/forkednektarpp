@@ -82,8 +82,8 @@ protected:
 
     ~EulerCFE() override = default;
 
-    void DoAdvection(Field<double, FieldState::Phys> &in,
-                     Field<double, FieldState::Phys> &out,
+    void DoAdvection(MultiRegions::Field<double, FieldState::Phys> &in,
+                     MultiRegions::Field<double, FieldState::Phys> &out,
                      [[maybe_unused]] const double &time,
                      [[maybe_unused]] const double &factor);
 

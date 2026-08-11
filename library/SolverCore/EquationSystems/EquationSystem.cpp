@@ -42,7 +42,7 @@
 #include <Operators/Norm/NormLinf/NormLinfOp.hpp>
 #include <vector>
 
-#include "Operators/Field/Block.hpp"
+#include "MultiRegions/Field/Block.hpp"
 
 namespace Nektar::SolverCore
 {
@@ -127,16 +127,17 @@ void EquationSystem::v_Output()
 void EquationSystem::v_InitialiseFields()
 {
     // Create solution fields in physical space (at quadrature points)
-    auto bAtr_phys =
-        GetBlockAttributes<double, FieldState::Phys>(m_expansionLists[0]);
-    m_fields = Field<double, FieldState::Phys>("solution", bAtr_phys,
-                                               m_nVariables, m_npointsZ);
+    auto bAtr_phys = MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+        m_expansionLists[0]);
+    m_fields = MultiRegions::Field<double, FieldState::Phys>(
+        "solution", bAtr_phys, m_nVariables, m_npointsZ);
 
     // Create solution fields in coefficient space (coefficients of polynomial
     // basis function)
     auto bAtr_coeff =
-        GetBlockAttributes<double, FieldState::Coeff>(m_expansionLists[0]);
-    m_fields_coeff = Field<double, FieldState::Coeff>(
+        MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
+            m_expansionLists[0]);
+    m_fields_coeff = MultiRegions::Field<double, FieldState::Coeff>(
         "solution coeff", bAtr_coeff, m_nVariables, m_npointsZ);
 
     // Zero both fields
@@ -175,9 +176,10 @@ void EquationSystem::v_GenerateSummary(SummaryList &summary)
 void EquationSystem::v_PrintNorms(std::ostream &out)
 {
     // Create workspace Field
-    auto wsp_phys = Field<double, FieldState::Phys>(
+    auto wsp_phys = MultiRegions::Field<double, FieldState::Phys>(
         "exact solution",
-        GetBlockAttributes<double, FieldState::Phys>(m_expansionLists[0]),
+        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+            m_expansionLists[0]),
         m_nVariables, m_npointsZ);
     m_math.zero(wsp_phys);
 
@@ -430,9 +432,9 @@ void EquationSystem::CheckHomogeneousDimensions()
  * @param out   CG-projected fields.
  * @param time  Time.
  */
-void EquationSystem::v_DoProjection(Field<double, FieldState::Phys> &in,
-                                    Field<double, FieldState::Phys> &out,
-                                    const double time)
+void EquationSystem::v_DoProjection(
+    MultiRegions::Field<double, FieldState::Phys> &in,
+    MultiRegions::Field<double, FieldState::Phys> &out, const double time)
 {
     // Switch on the projection type (Discontinuous or Continuous)
     switch (m_projectionType)

@@ -36,10 +36,10 @@
 #include <iomanip>
 #include <iostream>
 
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <LibUtilities/LoopExecution/LoopExecution.hpp>
-#include <Operators/Field/Field.hpp>
+#include <MultiRegions/Field/Field.hpp>
 #include <Operators/Math/MathKernels.hpp>
-#include <Operators/Utils/UtilsKernels.hpp>
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
@@ -64,8 +64,9 @@
 #endif
 
 using namespace Nektar;
-using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
+using namespace Nektar::MultiRegions;
+using namespace Nektar::Operators;
 
 // Helpers: flatten/unflatten component-major
 template <typename TData>
@@ -435,17 +436,17 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr const &expList,
     auto traceblockAttr = GetBlockAttributes<TData, state>(expList->GetTrace());
 
     // Create fields.
-    auto fwdField =
-        Field<TData, state>("f_fwd", traceblockAttr, nFields, nHomo);
+    auto fwdField = MultiRegions::Field<TData, state>("f_fwd", traceblockAttr,
+                                                      nFields, nHomo);
 
-    auto bwdField =
-        Field<TData, state>("f_bwd", traceblockAttr, nFields, nHomo);
+    auto bwdField = MultiRegions::Field<TData, state>("f_bwd", traceblockAttr,
+                                                      nFields, nHomo);
 
-    auto fluxField =
-        Field<TData, state>("f_flux", traceblockAttr, nFields, nHomo);
+    auto fluxField = MultiRegions::Field<TData, state>("f_flux", traceblockAttr,
+                                                       nFields, nHomo);
 
-    auto normalsField =
-        Field<TData, state>("traceNormals", traceblockAttr, spaceDim, nHomo);
+    auto normalsField = MultiRegions::Field<TData, state>(
+        "traceNormals", traceblockAttr, spaceDim, nHomo);
 
     fwdField.template CopyArray<NektarSpaces::HostSpace>(
         FlattenCompMajor(fwd, nFields, npts));

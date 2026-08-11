@@ -52,35 +52,42 @@ public:
     PipeConjResOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                       const std::vector<std::string> &components)
         : PipeConjResOp<TData>(expansionList, components),
-          m_w(Field<TData, FieldState::Coeff>(
+          m_w(MultiRegions::Field<TData, FieldState::Coeff>(
               "PipeConjRes w",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_wk(Field<TData, FieldState::Coeff>(
+          m_wk(MultiRegions::Field<TData, FieldState::Coeff>(
               "PipeConjRes wk",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_z(Field<TData, FieldState::Coeff>(
+          m_z(MultiRegions::Field<TData, FieldState::Coeff>(
               "PipeConjRes v",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_s(Field<TData, FieldState::Coeff>(
+          m_s(MultiRegions::Field<TData, FieldState::Coeff>(
               "PipeConjRes s",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_r(Field<TData, FieldState::Coeff>(
+          m_r(MultiRegions::Field<TData, FieldState::Coeff>(
               "PipeConjRes r",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_q(Field<TData, FieldState::Coeff>(
+          m_q(MultiRegions::Field<TData, FieldState::Coeff>(
               "PipeConjRes q",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_p(Field<TData, FieldState::Coeff>(
+          m_p(MultiRegions::Field<TData, FieldState::Coeff>(
               "PipeConjRes p",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_vExchange(MemoryRegion<TData>(3, eHostPinned))
+          m_vExchange(LibUtilities::MemoryRegion<TData>(3, eHostPinned))
     {
         this->template SetLinearSolver<ExecSpace>();
 
@@ -115,19 +122,19 @@ public:
     }
 
 protected:
-    Field<TData, FieldState::Coeff> m_w;
-    Field<TData, FieldState::Coeff> m_wk;
-    Field<TData, FieldState::Coeff> m_z;
-    Field<TData, FieldState::Coeff> m_s;
-    Field<TData, FieldState::Coeff> m_r;
-    Field<TData, FieldState::Coeff> m_q;
-    Field<TData, FieldState::Coeff> m_p;
-    MemoryRegion<TData> m_vExchange;
+    MultiRegions::Field<TData, FieldState::Coeff> m_w;
+    MultiRegions::Field<TData, FieldState::Coeff> m_wk;
+    MultiRegions::Field<TData, FieldState::Coeff> m_z;
+    MultiRegions::Field<TData, FieldState::Coeff> m_s;
+    MultiRegions::Field<TData, FieldState::Coeff> m_r;
+    MultiRegions::Field<TData, FieldState::Coeff> m_q;
+    MultiRegions::Field<TData, FieldState::Coeff> m_p;
+    LibUtilities::MemoryRegion<TData> m_vExchange;
 
     LibUtilities::CommRequestSharedPtr m_request;
 
-    void v_Apply(Field<TData, FieldState::Coeff> &in,
-                 Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
+                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
     {
         // Based on the pipelined conjugate residual method
         //

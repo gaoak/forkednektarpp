@@ -37,8 +37,8 @@
 #include <MultiRegions/DisContField.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
-#include <Operators/Field/Field.hpp>
-#include <Operators/Utils/UtilsKernels.hpp>
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
+#include <MultiRegions/Field/Field.hpp>
 
 #include "../RiemannSolverOp.hpp"
 
@@ -197,17 +197,20 @@ static void ApplyRiemannOperator(
     const Array<OneD, Array<OneD, TData>> &bwd,
     Array<OneD, Array<OneD, TData>> &flx)
 {
-    auto traceAttr =
-        GetBlockAttributes<TData, FieldState::Phys>(dg->GetTrace());
+    auto traceAttr = MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
+        dg->GetTrace());
 
-    Field<TData, FieldState::Phys> fwdField("fwd", traceAttr, nFields, 1);
-    Field<TData, FieldState::Phys> bwdField("bwd", traceAttr, nFields, 1);
-    Field<TData, FieldState::Phys> flxField("flux", traceAttr, nFields, 1);
+    MultiRegions::Field<TData, FieldState::Phys> fwdField("fwd", traceAttr,
+                                                          nFields, 1);
+    MultiRegions::Field<TData, FieldState::Phys> bwdField("bwd", traceAttr,
+                                                          nFields, 1);
+    MultiRegions::Field<TData, FieldState::Phys> flxField("flux", traceAttr,
+                                                          nFields, 1);
 
-    Field<TData, FieldState::Phys> normalsField("traceNormals", traceAttr,
-                                                spaceDim, 1);
-    Field<TData, FieldState::Phys> traceAdvVelField("traceAdvVel", traceAttr,
-                                                    spaceDim, 1);
+    MultiRegions::Field<TData, FieldState::Phys> normalsField(
+        "traceNormals", traceAttr, spaceDim, 1);
+    MultiRegions::Field<TData, FieldState::Phys> traceAdvVelField(
+        "traceAdvVel", traceAttr, spaceDim, 1);
 
     fwdField.template CopyArray<NektarSpaces::HostSpace>(
         FlattenCompMajor(fwd, nFields, npts));

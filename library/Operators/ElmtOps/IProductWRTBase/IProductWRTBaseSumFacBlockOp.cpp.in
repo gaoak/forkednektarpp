@@ -42,8 +42,8 @@ namespace Nektar::Operators::detail
 template <>
 void IProductWRTBaseBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::@Impl@,
                                       @TData@>::@Shape@Block
-                (BlockAccessor<@TData@, FieldState::Phys> &inblock, 
-                 BlockAccessor<@TData@, FieldState::Coeff> &outblock)
+                (MultiRegions::BlockAccessor<@TData@, FieldState::Phys> &inblock, 
+                 MultiRegions::BlockAccessor<@TData@, FieldState::Coeff> &outblock)
 {
     // The following will use predefined code found in the Operators/Common
     // directory to import boost_pp code to make wrapper code to call

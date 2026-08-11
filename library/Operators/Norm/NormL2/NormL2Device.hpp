@@ -34,13 +34,12 @@
 
 #pragma once
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "NormL2DeviceKernels.hpp"
 #include "Operators/Common/DataWarehouse/BasisDataWarehouse.hpp"
 #include "Operators/Common/DataWarehouse/GeometricDataWarehouse.hpp"
 #include "Operators/ElmtOps/ElmtBlockOp.hpp"
-#include "Operators/Field/MemoryRegion.hpp"
 #include "Operators/Norm/NormL2/NormL2BlockOp.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -113,8 +112,8 @@ protected:
     std::vector<unsigned int> m_nm;
     std::vector<const TData *> m_W;
 
-    void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
-                 MemoryRegion<TData> &data) override
+    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+                 LibUtilities::MemoryRegion<TData> &data) override
     {
         if (inblock.GetNumElements() == 0)
         {
@@ -145,8 +144,9 @@ protected:
         }
     }
 
-    void Operator1D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    MemoryRegion<TData> &data)
+    void Operator1D(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::MemoryRegion<TData> &data)
     {
         auto sizeParam1D = NonTemplatedPhysSizeParameter1D(m_coordim, m_nq[0]);
 
@@ -220,8 +220,9 @@ protected:
         }
     }
 
-    void Operator2D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    MemoryRegion<TData> &data)
+    void Operator2D(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::MemoryRegion<TData> &data)
     {
         auto sizeParam2D =
             NonTemplatedPhysSizeParameter2D(m_coordim, m_nq[0], m_nq[1]);
@@ -291,8 +292,9 @@ protected:
         }
     }
 
-    void Operator3D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    MemoryRegion<TData> &data)
+    void Operator3D(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::MemoryRegion<TData> &data)
     {
         auto sizeParam3D =
             NonTemplatedPhysSizeParameter3D(m_nq[0], m_nq[1], m_nq[2]);

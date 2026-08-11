@@ -38,11 +38,10 @@
 
 #include "Operators/BndCondOps/DGPerBndCond/DGPerBndCondOp.hpp"
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "Operators/BndCondOps/DGPerBndCond/DGPerBndCondKernels.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 using namespace Nektar;
-using namespace Nektar::MultiRegions;
 
 namespace Nektar::Operators::detail
 {
@@ -58,7 +57,8 @@ public:
         : DGPerBndCondOp<TData>(expansionList, components)
     {
         auto discontfield =
-            std::dynamic_pointer_cast<DisContField>(this->m_expansionList);
+            std::dynamic_pointer_cast<MultiRegions::DisContField>(
+                this->m_expansionList);
         auto &trace          = expansionList->GetTrace();
         auto periodicFwdCopy = discontfield->GetPeriodicFwdCopy();
         auto periodicBwdCopy = discontfield->GetPeriodicBwdCopy();
@@ -77,7 +77,8 @@ public:
         }
 
         // Compute trace block offset.
-        auto blocks = GetBlockAttributes<TData, FieldState::Phys>(trace);
+        auto blocks =
+            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(trace);
         std::vector<size_t> traceBlockOffset;
         std::vector<size_t> traceTotOffset;
         std::vector<size_t> traceBlockSize;
@@ -145,10 +146,12 @@ public:
         }
 
         m_periodicFwdCopyOffset =
-            MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
+            LibUtilities::MemoryRegion<size_t>::template FromVector<MemSpace,
+                                                                    size_t>(
                 periodicFwdCopyOffset);
         m_periodicBwdCopyOffset =
-            MemoryRegion<size_t>::template FromVector<MemSpace, size_t>(
+            LibUtilities::MemoryRegion<size_t>::template FromVector<MemSpace,
+                                                                    size_t>(
                 periodicBwdCopyOffset);
     }
 
@@ -165,12 +168,12 @@ public:
     }
 
 protected:
-    MemoryRegion<size_t> m_periodicFwdCopyOffset;
-    MemoryRegion<size_t> m_periodicBwdCopyOffset;
+    LibUtilities::MemoryRegion<size_t> m_periodicFwdCopyOffset;
+    LibUtilities::MemoryRegion<size_t> m_periodicBwdCopyOffset;
     size_t m_nBndPhys = 0;
 
-    void v_Apply(Field<TData, FieldState::Phys> &in,
-                 Field<TData, FieldState::Phys> &out) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
+                 MultiRegions::Field<TData, FieldState::Phys> &out) override
     {
         // Return if no Periodic boundary condition.
         if (m_nBndPhys == 0)

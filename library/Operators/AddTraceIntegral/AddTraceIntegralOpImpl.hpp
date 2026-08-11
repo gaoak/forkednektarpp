@@ -34,9 +34,9 @@
 
 #pragma once
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "Operators/AddTraceIntegral/AddTraceIntegralOp.hpp"
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/AddTraceIntegral/AddTraceIntegralDeviceKernels.hpp"
 #include "Operators/AddTraceIntegral/AddTraceIntegralSerialAVXKernels.hpp"
@@ -53,8 +53,8 @@ public:
     AddTraceIntegralOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                            const std::vector<std::string> &components)
         : AddTraceIntegralOp<TData>(expansionList, components),
-          m_trace(Field<TData, FieldState::Coeff>(
-              GetBlockAttributes<TData, FieldState::Coeff>(
+          m_trace(MultiRegions::Field<TData, FieldState::Coeff>(
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList->GetTrace()),
               components, 1))
     {
@@ -79,8 +79,9 @@ public:
         }
 
         // Compute trace block bound.
-        auto traceBlockAttr = GetBlockAttributes<TData, FieldState::Coeff>(
-            expansionList->GetTrace());
+        auto traceBlockAttr =
+            MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                expansionList->GetTrace());
         std::vector<size_t> traceBlockBound(traceBlockAttr.size());
         std::vector<std::vector<size_t>> toInterleavedTraceBlock;
         size_t traceBound = 0;
@@ -120,7 +121,8 @@ public:
 
         // Compute block bound.
         auto blockAttr =
-            GetBlockAttributes<TData, FieldState::Coeff>(expansionList);
+            MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                expansionList);
         std::vector<size_t> blockBound(blockAttr.size());
         std::vector<std::vector<size_t>> toInterleavedBlock;
         size_t bound = 0;
@@ -186,13 +188,15 @@ public:
             blockAttr.size());
         m_nFwdBwdCoeffsBlock =
             std::vector<std::vector<size_t>>(traceBlockAttr.size());
-        m_traceCoeffsToElmtMap = std::vector<std::vector<MemoryRegion<size_t>>>(
-            traceBlockAttr.size());
+        m_traceCoeffsToElmtMap =
+            std::vector<std::vector<LibUtilities::MemoryRegion<size_t>>>(
+                traceBlockAttr.size());
         m_traceCoeffsToElmtTrace =
-            std::vector<std::vector<MemoryRegion<size_t>>>(
+            std::vector<std::vector<LibUtilities::MemoryRegion<size_t>>>(
                 traceBlockAttr.size());
         m_traceCoeffsToElmtSign =
-            std::vector<std::vector<MemoryRegion<int>>>(traceBlockAttr.size());
+            std::vector<std::vector<LibUtilities::MemoryRegion<int>>>(
+                traceBlockAttr.size());
         unsigned int blk0 = 0, blk1 = 0;
         size_t i = 0, offset0 = 0, offset1 = 0;
         while (blk1 < traceBlockAttr.size())
@@ -208,24 +212,22 @@ public:
                 for (auto &traceCoeffsToElmtMap : traceCoeffsToElmtMapBlock)
                 {
                     m_traceCoeffsToElmtMap[blk1].push_back(
-                        MemoryRegion<size_t>::template FromVector<MemSpace,
-                                                                  size_t>(
-                            traceCoeffsToElmtMap));
+                        LibUtilities::MemoryRegion<size_t>::template FromVector<
+                            MemSpace, size_t>(traceCoeffsToElmtMap));
                     traceCoeffsToElmtMap.clear();
                 }
                 for (auto &traceCoeffsToElmtTrace : traceCoeffsToElmtTraceBlock)
                 {
                     m_traceCoeffsToElmtTrace[blk1].push_back(
-                        MemoryRegion<size_t>::template FromVector<MemSpace,
-                                                                  size_t>(
-                            traceCoeffsToElmtTrace));
+                        LibUtilities::MemoryRegion<size_t>::template FromVector<
+                            MemSpace, size_t>(traceCoeffsToElmtTrace));
                     traceCoeffsToElmtTrace.clear();
                 }
                 for (auto &traceCoeffsToElmtSign : traceCoeffsToElmtSignBlock)
                 {
                     m_traceCoeffsToElmtSign[blk1].push_back(
-                        MemoryRegion<int>::template FromVector<MemSpace, int>(
-                            traceCoeffsToElmtSign));
+                        LibUtilities::MemoryRegion<int>::template FromVector<
+                            MemSpace, int>(traceCoeffsToElmtSign));
                     traceCoeffsToElmtSign.clear();
                 }
                 offset1 = traceBlockBound[blk1];
@@ -303,15 +305,18 @@ public:
 
 protected:
     std::shared_ptr<IProductWRTBaseOp<TData>> m_IProductWRTBaseOp;
-    Field<TData, FieldState::Coeff> m_trace;
-    std::vector<std::vector<MemoryRegion<size_t>>> m_traceCoeffsToElmtMap;
-    std::vector<std::vector<MemoryRegion<size_t>>> m_traceCoeffsToElmtTrace;
-    std::vector<std::vector<MemoryRegion<int>>> m_traceCoeffsToElmtSign;
+    MultiRegions::Field<TData, FieldState::Coeff> m_trace;
+    std::vector<std::vector<LibUtilities::MemoryRegion<size_t>>>
+        m_traceCoeffsToElmtMap;
+    std::vector<std::vector<LibUtilities::MemoryRegion<size_t>>>
+        m_traceCoeffsToElmtTrace;
+    std::vector<std::vector<LibUtilities::MemoryRegion<int>>>
+        m_traceCoeffsToElmtSign;
     std::vector<std::vector<size_t>> m_nFwdBwdCoeffsBlock;
     size_t m_nFwdBwdCoeffs;
 
-    void v_Apply(Field<TData, FieldState::Phys> &in,
-                 Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
+                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
     {
         // Step 1: Inner product for trace integral.
         m_IProductWRTBaseOp->Apply(in, m_trace);
@@ -320,7 +325,7 @@ protected:
         AddTraceIntegral(out);
     }
 
-    void AddTraceIntegral(Field<TData, FieldState::Coeff> &out)
+    void AddTraceIntegral(MultiRegions::Field<TData, FieldState::Coeff> &out)
     {
         // Return if no trace coefficient.
         if (m_nFwdBwdCoeffs == 0)

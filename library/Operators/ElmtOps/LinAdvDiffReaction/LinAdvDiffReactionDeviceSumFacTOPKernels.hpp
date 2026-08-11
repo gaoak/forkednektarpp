@@ -36,7 +36,7 @@
 
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 
-#include "Operators/Common/DeviceProperties.hpp"
+#include "LibUtilities/Backends/DeviceProperties.hpp"
 #include "Operators/Common/Spaces.hpp"
 
 // get hold of memory sizing and routines related to collocation Helmholtz op

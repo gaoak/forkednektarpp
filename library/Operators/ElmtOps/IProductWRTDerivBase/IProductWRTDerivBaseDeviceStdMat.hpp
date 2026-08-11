@@ -34,9 +34,9 @@
 
 #pragma once
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseBlockOp.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseDeviceStdMatKernels.hpp"
 
@@ -134,8 +134,9 @@ protected:
     const TData *m_dfptr;
     const TData *m_weights;
 
-    void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
-                 BlockAccessor<TData, TFieldOut> &outblock) override
+    void v_Apply(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, TFieldOut> &outblock) override
     {
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 

@@ -45,7 +45,7 @@
 #undef min
 #endif
 
-using namespace Nektar::Operators;
+using namespace Nektar::LibUtilities;
 
 BOOST_AUTO_TEST_SUITE(TestComm)
 

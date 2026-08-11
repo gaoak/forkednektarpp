@@ -37,43 +37,43 @@
 namespace Nektar::Operators
 {
 
-template MemoryRegion<double> BasisDataCreator::Create<
+template LibUtilities::MemoryRegion<double> BasisDataCreator::Create<
     NektarSpaces::HostSpace, double>(const BasisDataKey<double> &basisDataKey);
-template MemoryRegion<float> BasisDataCreator::Create<
+template LibUtilities::MemoryRegion<float> BasisDataCreator::Create<
     NektarSpaces::HostSpace, float>(const BasisDataKey<float> &basisDataKey);
-template MemoryRegion<tinysimd::scalarT<double>> BasisDataCreator::Create<
-    NektarSpaces::HostSpace, tinysimd::scalarT<double>>(
-    const BasisDataKey<tinysimd::scalarT<double>> &basisDataKey);
-template MemoryRegion<tinysimd::scalarT<float>> BasisDataCreator::Create<
-    NektarSpaces::HostSpace, tinysimd::scalarT<float>>(
-    const BasisDataKey<tinysimd::scalarT<float>> &basisDataKey);
+template LibUtilities::MemoryRegion<tinysimd::scalarT<double>> BasisDataCreator::
+    Create<NektarSpaces::HostSpace, tinysimd::scalarT<double>>(
+        const BasisDataKey<tinysimd::scalarT<double>> &basisDataKey);
+template LibUtilities::MemoryRegion<tinysimd::scalarT<float>> BasisDataCreator::
+    Create<NektarSpaces::HostSpace, tinysimd::scalarT<float>>(
+        const BasisDataKey<tinysimd::scalarT<float>> &basisDataKey);
 #if (NEKTAR_ENABLE_SIMD)
-template MemoryRegion<tinysimd::simd<double>> BasisDataCreator::Create<
-    NektarSpaces::HostSpace, tinysimd::simd<double>>(
-    const BasisDataKey<tinysimd::simd<double>> &basisDataKey);
-template MemoryRegion<tinysimd::simd<float>> BasisDataCreator::Create<
-    NektarSpaces::HostSpace, tinysimd::simd<float>>(
-    const BasisDataKey<tinysimd::simd<float>> &basisDataKey);
+template LibUtilities::MemoryRegion<tinysimd::simd<double>> BasisDataCreator::
+    Create<NektarSpaces::HostSpace, tinysimd::simd<double>>(
+        const BasisDataKey<tinysimd::simd<double>> &basisDataKey);
+template LibUtilities::MemoryRegion<tinysimd::simd<float>> BasisDataCreator::
+    Create<NektarSpaces::HostSpace, tinysimd::simd<float>>(
+        const BasisDataKey<tinysimd::simd<float>> &basisDataKey);
 #endif
 #if defined(NEKTAR_ENABLE_DEVICE)
-template MemoryRegion<double> BasisDataCreator::Create<
+template LibUtilities::MemoryRegion<double> BasisDataCreator::Create<
     NektarSpaces::DeviceSpace, double>(
     const BasisDataKey<double> &basisDataKey);
-template MemoryRegion<float> BasisDataCreator::Create<
+template LibUtilities::MemoryRegion<float> BasisDataCreator::Create<
     NektarSpaces::DeviceSpace, float>(const BasisDataKey<float> &basisDataKey);
-template MemoryRegion<tinysimd::scalarT<double>> BasisDataCreator::Create<
-    NektarSpaces::DeviceSpace, tinysimd::scalarT<double>>(
-    const BasisDataKey<tinysimd::scalarT<double>> &basisDataKey);
-template MemoryRegion<tinysimd::scalarT<float>> BasisDataCreator::Create<
-    NektarSpaces::DeviceSpace, tinysimd::scalarT<float>>(
-    const BasisDataKey<tinysimd::scalarT<float>> &basisDataKey);
+template LibUtilities::MemoryRegion<tinysimd::scalarT<double>> BasisDataCreator::
+    Create<NektarSpaces::DeviceSpace, tinysimd::scalarT<double>>(
+        const BasisDataKey<tinysimd::scalarT<double>> &basisDataKey);
+template LibUtilities::MemoryRegion<tinysimd::scalarT<float>> BasisDataCreator::
+    Create<NektarSpaces::DeviceSpace, tinysimd::scalarT<float>>(
+        const BasisDataKey<tinysimd::scalarT<float>> &basisDataKey);
 #if (NEKTAR_ENABLE_SIMD)
-template MemoryRegion<tinysimd::simd<double>> BasisDataCreator::Create<
-    NektarSpaces::DeviceSpace, tinysimd::simd<double>>(
-    const BasisDataKey<tinysimd::simd<double>> &basisDataKey);
-template MemoryRegion<tinysimd::simd<float>> BasisDataCreator::Create<
-    NektarSpaces::DeviceSpace, tinysimd::simd<float>>(
-    const BasisDataKey<tinysimd::simd<float>> &basisDataKey);
+template LibUtilities::MemoryRegion<tinysimd::simd<double>> BasisDataCreator::
+    Create<NektarSpaces::DeviceSpace, tinysimd::simd<double>>(
+        const BasisDataKey<tinysimd::simd<double>> &basisDataKey);
+template LibUtilities::MemoryRegion<tinysimd::simd<float>> BasisDataCreator::
+    Create<NektarSpaces::DeviceSpace, tinysimd::simd<float>>(
+        const BasisDataKey<tinysimd::simd<float>> &basisDataKey);
 #endif
 #endif
 

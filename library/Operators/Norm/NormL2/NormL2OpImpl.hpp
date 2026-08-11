@@ -61,7 +61,7 @@ public:
                                                                 components);
     }
 
-    void v_Apply(Field<TData, FieldState::Phys> &in) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in) override
     {
         ASSERTL1(in.GetNumHomoModes() == 1,
                  "The NormL2 is not implemented for homogeneous expansions.");
@@ -69,8 +69,8 @@ public:
         auto numComp = in.GetNumComponents();
         if (this->m_data.size() != numComp + 1)
         {
-            this->m_data =
-                MemoryRegion<TData>("NormL2", numComp + 1, eHostPinned);
+            this->m_data = LibUtilities::MemoryRegion<TData>(
+                "NormL2", numComp + 1, eHostPinned);
         }
         this->m_data.template Initialize<MemSpace>(TData{0});
 

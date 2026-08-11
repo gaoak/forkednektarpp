@@ -55,14 +55,14 @@ public:
 
     static inline const std::string name = "RobBndCond";
 
-    void Apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Coeff> &out)
+    void Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
+               MultiRegions::Field<TData, FieldState::Coeff> &out)
     {
         v_Apply(in, out);
     }
 
-    void operator()(Field<TData, FieldState::Coeff> &in,
-                    Field<TData, FieldState::Coeff> &out)
+    void operator()(MultiRegions::Field<TData, FieldState::Coeff> &in,
+                    MultiRegions::Field<TData, FieldState::Coeff> &out)
     {
         v_Apply(in, out);
     }
@@ -76,8 +76,9 @@ protected:
 
     ~RobBndCondOp() override = default;
 
-    virtual void v_Apply(Field<TData, FieldState::Coeff> &in,
-                         Field<TData, FieldState::Coeff> &out) = 0;
+    virtual void v_Apply(
+        MultiRegions::Field<TData, FieldState::Coeff> &in,
+        MultiRegions::Field<TData, FieldState::Coeff> &out) = 0;
 };
 
 } // namespace Nektar::Operators

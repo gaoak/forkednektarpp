@@ -42,14 +42,14 @@
 #include <MultiRegions/ContField.h>
 #include <MultiRegions/GlobalLinSysIterativeFull.h>
 
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <Operators/Common/Spaces.hpp>
-#include <Operators/Utils/UtilsKernels.hpp>
 
-using namespace Nektar::Operators;
-using namespace Nektar::Operators::detail;
+using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
-using namespace Nektar;
+using namespace Nektar::Operators;
+using namespace Nektar::Operators::detail;
 
 template <typename TData>
 class AssmbScatrField

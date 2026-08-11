@@ -36,9 +36,9 @@
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 #include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionBlockOp.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionSerialAVXStdMatKernels.hpp"
 
@@ -131,8 +131,9 @@ protected:
     const TData *m_dfptr;
     TData *m_advVel;
 
-    void v_Apply(BlockAccessor<TData, FieldState::Coeff> &inblock,
-                 BlockAccessor<TData, FieldState::Coeff> &outblock) override
+    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
+                 MultiRegions::BlockAccessor<TData, FieldState::Coeff>
+                     &outblock) override
     {
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -271,7 +272,8 @@ protected:
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
-    void v_SetAdvVel(BlockAccessor<TData, FieldState::Phys> &advVel) override
+    void v_SetAdvVel(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &advVel) override
     {
         const auto interleaveWidth = advVel.GetInterleaveWidth();
         this->m_advVel = advVel.template GetPtr<MemSpace, ReadWrite>();

@@ -43,11 +43,13 @@
 #undef min
 #endif
 
+using namespace Nektar::LibUtilities;
+
 namespace Nektar::Operators
 {
 
 template <typename MemSpace, typename TData>
-MemoryRegion<TData> BasisDataCreator::Create(
+LibUtilities::MemoryRegion<TData> BasisDataCreator::Create(
     const BasisDataKey<TData> &basisDataKey)
 {
     const auto basis = LibUtilities::BasisManager()[basisDataKey.m_basisKey];
@@ -57,14 +59,14 @@ MemoryRegion<TData> BasisDataCreator::Create(
     {
         case eBasis:
         {
-            return MemoryRegion<TData>::template FromArray<MemSpace>(
-                basis->GetBdata());
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(basis->GetBdata());
             break;
         }
         case eBasisDerivative:
         {
-            return MemoryRegion<TData>::template FromArray<MemSpace>(
-                basis->GetDbdata());
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(basis->GetDbdata());
             break;
         }
         case eWeights:
@@ -134,19 +136,20 @@ MemoryRegion<TData> BasisDataCreator::Create(
                 }
             }
 
-            return MemoryRegion<TData>::template FromArray<MemSpace>(wTmp);
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(wTmp);
         }
         break;
         case eZeros:
         {
-            return MemoryRegion<TData>::template FromArray<MemSpace>(
-                basis->GetZ());
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(basis->GetZ());
         }
         break;
         case eDerivative:
         {
-            return MemoryRegion<TData>::template FromArray<MemSpace>(
-                basis->GetD()->GetPtr());
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(basis->GetD()->GetPtr());
         }
         break;
         case eInterp:
@@ -166,7 +169,8 @@ MemoryRegion<TData> BasisDataCreator::Create(
                          ->GetI(toPkey)
                          ->GetPtr();
 
-            return MemoryRegion<TData>::template FromArray<MemSpace>(I);
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(I);
         }
         break;
         case eInterpTranspose:
@@ -197,7 +201,8 @@ MemoryRegion<TData> BasisDataCreator::Create(
                 }
             }
 
-            return MemoryRegion<TData>::template FromArray<MemSpace>(tmpI);
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(tmpI);
         }
         break;
         case eHalfMultOnePlusZero:
@@ -210,7 +215,8 @@ MemoryRegion<TData> BasisDataCreator::Create(
                 Tmp[i] = 0.5 * (1.0 + z[i]);
             }
 
-            return MemoryRegion<TData>::template FromArray<MemSpace>(Tmp);
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(Tmp);
         }
         break;
         case eTwoOverOneMinusZero:
@@ -224,12 +230,13 @@ MemoryRegion<TData> BasisDataCreator::Create(
                 Tmp[i] = 2 / (1.0 - z[i]);
             }
 
-            return MemoryRegion<TData>::template FromArray<MemSpace>(Tmp);
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(Tmp);
         }
         break;
         default:
             NEKERROR(ErrorUtil::efatal, "invalid basis data requested.");
-            return MemoryRegion<TData>(0);
+            return LibUtilities::MemoryRegion<TData>(0);
             break;
     }
 }

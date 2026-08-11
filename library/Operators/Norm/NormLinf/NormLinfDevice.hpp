@@ -34,11 +34,10 @@
 
 #pragma once
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "Operators/ElmtOps/ElmtBlockOp.hpp"
-#include "Operators/Field/MemoryRegion.hpp"
 #include "Operators/Norm/NormLinf/NormLinfBlockOp.hpp"
 #include "Operators/Norm/NormLinf/NormLinfDeviceKernels.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -74,8 +73,8 @@ protected:
 
     unsigned int m_streamID;
 
-    void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
-                 MemoryRegion<TData> &data) override
+    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+                 LibUtilities::MemoryRegion<TData> &data) override
     {
         const auto numComp = inblock.GetNumComponents();
 

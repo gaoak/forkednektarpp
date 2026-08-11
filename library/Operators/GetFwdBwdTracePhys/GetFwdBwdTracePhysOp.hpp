@@ -64,8 +64,9 @@ public:
         auto op = Operator<TData>::template Create<GetFwdBwdTracePhysOp>(
             expansionList, components, execStr0);
 
-        auto traceBlockAttr = GetBlockAttributes<TData, FieldState::Phys>(
-            expansionList->GetTrace());
+        auto traceBlockAttr =
+            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
+                expansionList->GetTrace());
         std::vector<size_t> traceBlockOffset;
         std::vector<size_t> traceTotOffset;
         std::vector<size_t> traceBlockSize;
@@ -86,17 +87,19 @@ public:
             traceBlockSize.push_back(traceBlock.CompSize());
         }
 
-        auto blocks =
-            GetBlockAttributes<TData, FieldState::Phys>(expansionList);
-        auto traceBlocks = GetBlockAttributes<TData, FieldState::Phys>(
-            expansionList->GetTrace());
+        auto blocks = MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
+            expansionList);
+        auto traceBlocks =
+            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
+                expansionList->GetTrace());
 
         // Loop over the blocks.
         for (unsigned int block_idx = 0; block_idx < blocks.size(); block_idx++)
         {
-            const auto exp_idx = GetCollection(expansionList, block_idx)
-                                     .GetExpVector()[0]
-                                     ->GetElmtId();
+            const auto exp_idx =
+                MultiRegions::GetCollection(expansionList, block_idx)
+                    .GetExpVector()[0]
+                    ->GetElmtId();
             const auto exp = expansionList->GetExp(exp_idx);
 
             op->m_blockOp.push_back(GetFwdBwdTracePhysBlockOp<TData>::Create(
@@ -147,16 +150,16 @@ public:
 
     static inline const std::string name = "GetFwdBwdTracePhys";
 
-    void Apply(Field<TData, FieldState::Phys> &phys,
-               Field<TData, FieldState::Phys> &fwd,
-               Field<TData, FieldState::Phys> &bwd)
+    void Apply(MultiRegions::Field<TData, FieldState::Phys> &phys,
+               MultiRegions::Field<TData, FieldState::Phys> &fwd,
+               MultiRegions::Field<TData, FieldState::Phys> &bwd)
     {
         v_Apply(phys, fwd, bwd); // v_Apply(in, out); out = [fwd bwd];
     }
 
-    void operator()(Field<TData, FieldState::Phys> &phys,
-                    Field<TData, FieldState::Phys> &fwd,
-                    Field<TData, FieldState::Phys> &bwd)
+    void operator()(MultiRegions::Field<TData, FieldState::Phys> &phys,
+                    MultiRegions::Field<TData, FieldState::Phys> &fwd,
+                    MultiRegions::Field<TData, FieldState::Phys> &bwd)
     {
         v_Apply(phys, fwd, bwd);
     }
@@ -205,9 +208,9 @@ protected:
 
     ~GetFwdBwdTracePhysOp() override = default;
 
-    virtual void v_Apply(Field<TData, FieldState::Phys> &phys,
-                         Field<TData, FieldState::Phys> &fwd,
-                         Field<TData, FieldState::Phys> &bwd) = 0;
+    virtual void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &phys,
+                         MultiRegions::Field<TData, FieldState::Phys> &fwd,
+                         MultiRegions::Field<TData, FieldState::Phys> &bwd) = 0;
 };
 
 } // namespace Nektar::Operators

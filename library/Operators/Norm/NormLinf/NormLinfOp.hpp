@@ -63,14 +63,15 @@ public:
         auto op = Operator<TData>::template Create<NormLinfOp>(
             expansionList, components, execStr0);
 
-        auto blocks =
-            GetBlockAttributes<TData, FieldState::Phys>(expansionList);
+        auto blocks = MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
+            expansionList);
 
         for (unsigned int block_idx = 0; block_idx < blocks.size(); block_idx++)
         {
-            const auto exp_idx = GetCollection(expansionList, block_idx)
-                                     .GetExpVector()[0]
-                                     ->GetElmtId();
+            const auto exp_idx =
+                MultiRegions::GetCollection(expansionList, block_idx)
+                    .GetExpVector()[0]
+                    ->GetElmtId();
             const auto exp = expansionList->GetExp(exp_idx);
 
             op->m_blockOp.push_back(NormLinfBlockOp<TData>::Create(
@@ -83,12 +84,12 @@ public:
 
     static inline const std::string name = "NormLinf";
 
-    void Apply(Field<TData, FieldState::Phys> &in)
+    void Apply(MultiRegions::Field<TData, FieldState::Phys> &in)
     {
         v_Apply(in);
     }
 
-    void operator()(Field<TData, FieldState::Phys> &in)
+    void operator()(MultiRegions::Field<TData, FieldState::Phys> &in)
     {
         Apply(in);
     }
@@ -100,7 +101,7 @@ public:
     }
 
 protected:
-    MemoryRegion<TData> m_data;
+    LibUtilities::MemoryRegion<TData> m_data;
     std::vector<std::shared_ptr<NormLinfBlockOp<TData>>> m_blockOp;
 
     NormLinfOp(const MultiRegions::ExpListSharedPtr &expansionList,
@@ -109,6 +110,6 @@ protected:
     {
     }
 
-    virtual void v_Apply(Field<TData, FieldState::Phys> &in) = 0;
+    virtual void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in) = 0;
 };
 } // namespace Nektar::Operators

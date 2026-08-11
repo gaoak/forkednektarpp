@@ -37,9 +37,9 @@
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <LocalRegions/Expansion.h>
 
+#include "MultiRegions/Field/Block.hpp"
+#include "MultiRegions/Field/Field.hpp"
 #include "Operators/Common/DataWarehouse/NekDataWarehouse.hpp"
-#include "Operators/Field/Block.hpp"
-#include "Operators/Field/Field.hpp"
 
 namespace Nektar::Operators
 {

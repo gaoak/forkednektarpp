@@ -36,9 +36,9 @@
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 #include "Operators/ElmtOps/Divergence/DivergenceBlockOp.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivSerialAVXStdMatKernels.hpp"
 
@@ -114,8 +114,9 @@ protected:
     const TData *m_matptr;
     const TData *m_dfptr;
 
-    void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
-                 BlockAccessor<TData, FieldState::Phys> &outblock) override
+    void v_Apply(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();

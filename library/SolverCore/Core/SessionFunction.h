@@ -39,7 +39,7 @@
 #include <MultiRegions/ExpList.h>
 
 #include "Operators/ElmtOps/Expression/ExpressionOp.hpp"
-#include <Operators/Field/Field.hpp>
+#include <MultiRegions/Field/Field.hpp>
 
 #include <SolverCore/SolverCoreDeclspec.h>
 
@@ -62,12 +62,12 @@ public:
 
     SOLVER_CORE_EXPORT void EvaluateFld(
         const std::vector<std::string> &variables,
-        Operators::Field<double, FieldState::Coeff> &coeffs,
+        MultiRegions::Field<double, FieldState::Coeff> &coeffs,
         [[maybe_unused]] double time, unsigned int domain = 0) const;
 
     SOLVER_CORE_EXPORT void EvaluateExpression(
         const std::vector<std::string> &variables,
-        Operators::Field<double, FieldState::Phys> &phys, double time) const;
+        MultiRegions::Field<double, FieldState::Phys> &phys, double time) const;
 
     SOLVER_CORE_EXPORT std::string Describe(const std::string &variable,
                                             int domain = 0) const;

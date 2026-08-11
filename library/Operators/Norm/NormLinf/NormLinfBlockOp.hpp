@@ -55,14 +55,15 @@ public:
 
     static inline const std::string name = "BlockNormLinf";
 
-    void Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
-               MemoryRegion<TData> &data)
+    void Apply(MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+               LibUtilities::MemoryRegion<TData> &data)
     {
         this->v_Apply(inblock, data);
     }
 
-    void operator()(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    MemoryRegion<TData> &data)
+    void operator()(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::MemoryRegion<TData> &data)
     {
         this->v_Apply(inblock, data);
     }
@@ -75,8 +76,9 @@ protected:
     {
     }
 
-    virtual void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
-                         MemoryRegion<TData> &data) = 0;
+    virtual void v_Apply(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::MemoryRegion<TData> &data) = 0;
 };
 
 } // namespace Nektar::Operators

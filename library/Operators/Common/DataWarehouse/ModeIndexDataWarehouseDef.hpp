@@ -43,12 +43,14 @@
 #undef min
 #endif
 
+using namespace Nektar::LibUtilities;
+
 namespace Nektar::Operators
 {
 
 template <typename MemSpace>
-MemoryRegion<ModeIndexCreator::value_type> ModeIndexCreator::Create(
-    const ModeIndexKey &modeIndexKey)
+LibUtilities::MemoryRegion<ModeIndexCreator::value_type> ModeIndexCreator::
+    Create(const ModeIndexKey &modeIndexKey)
 {
     using value_type = ModeIndexCreator::value_type;
 
@@ -65,7 +67,7 @@ MemoryRegion<ModeIndexCreator::value_type> ModeIndexCreator::Create(
             const auto nm01 =
                 LibUtilities::GetNumberOfCoefficients(shapeType, nm0, nm1);
 
-            auto index = MemoryRegion<value_type>(nm01);
+            auto index = LibUtilities::MemoryRegion<value_type>(nm01);
             auto ptr =
                 index.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             for (unsigned int p = 0, mode_pq = 0; p < nm0; p++)
@@ -102,7 +104,7 @@ MemoryRegion<ModeIndexCreator::value_type> ModeIndexCreator::Create(
             const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
             if (mode == 0 || mode == 3)
             {
-                auto index = MemoryRegion<value_type>(nm01);
+                auto index = LibUtilities::MemoryRegion<value_type>(nm01);
                 auto ptr =
                     index.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
                 for (unsigned int p = 0, mode_pq = 0; p < nm0; p++)
@@ -124,7 +126,7 @@ MemoryRegion<ModeIndexCreator::value_type> ModeIndexCreator::Create(
             }
             else if (mode == 1 || mode == 2)
             {
-                auto index = MemoryRegion<value_type>(nmTot);
+                auto index = LibUtilities::MemoryRegion<value_type>(nmTot);
                 auto ptr =
                     index.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
                 for (unsigned int p = 0, mode_pq = 0, mode_pqr = 0; p < nm0;
@@ -152,7 +154,7 @@ MemoryRegion<ModeIndexCreator::value_type> ModeIndexCreator::Create(
             else
             {
                 NEKERROR(ErrorUtil::efatal, "invalid data requested.");
-                return MemoryRegion<value_type>(0);
+                return LibUtilities::MemoryRegion<value_type>(0);
             }
         }
         break;
@@ -166,7 +168,7 @@ MemoryRegion<ModeIndexCreator::value_type> ModeIndexCreator::Create(
             const auto nmTot =
                 LibUtilities::GetNumberOfCoefficients(shapeType, nm0, nm1, nm2);
 
-            auto index = MemoryRegion<value_type>(nmTot);
+            auto index = LibUtilities::MemoryRegion<value_type>(nmTot);
             auto ptr =
                 index.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             for (unsigned int p = 0, mode_pqr = 0; p < nm0; p++)
@@ -208,7 +210,7 @@ MemoryRegion<ModeIndexCreator::value_type> ModeIndexCreator::Create(
             const auto nmTot =
                 LibUtilities::GetNumberOfCoefficients(shapeType, nm0, nm1, nm2);
 
-            auto index = MemoryRegion<value_type>(nmTot);
+            auto index = LibUtilities::MemoryRegion<value_type>(nmTot);
             auto ptr =
                 index.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             for (unsigned int p = 0, mode_pqr = 0; p < nm0; p++)
@@ -240,7 +242,7 @@ MemoryRegion<ModeIndexCreator::value_type> ModeIndexCreator::Create(
         break;
         default:
             NEKERROR(ErrorUtil::efatal, "invalid data requested.");
-            return MemoryRegion<value_type>(0);
+            return LibUtilities::MemoryRegion<value_type>(0);
             break;
     }
 }

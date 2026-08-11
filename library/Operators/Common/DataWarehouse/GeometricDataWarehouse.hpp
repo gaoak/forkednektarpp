@@ -284,37 +284,42 @@ public:
     }
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<TData> Create(const WeightsKey<TData> &weightsKey);
+    LibUtilities::MemoryRegion<TData> Create(
+        const WeightsKey<TData> &weightsKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<TData> Create(const JacobianKey<TData> &jacobianKey);
+    LibUtilities::MemoryRegion<TData> Create(
+        const JacobianKey<TData> &jacobianKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<TData> Create(const DerivFactorKey<TData> &derivFactorKey);
+    LibUtilities::MemoryRegion<TData> Create(
+        const DerivFactorKey<TData> &derivFactorKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<TData> Create(const CoordKey<TData> &coordKey);
+    LibUtilities::MemoryRegion<TData> Create(const CoordKey<TData> &coordKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<unsigned int> Create(const OrientKey<TData> &orientKey);
+    LibUtilities::MemoryRegion<unsigned int> Create(
+        const OrientKey<TData> &orientKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<unsigned int> Create(
+    LibUtilities::MemoryRegion<unsigned int> Create(
         const TraceToElmtMapKey<TData> &traceToElmtMapKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<int> Create(
+    LibUtilities::MemoryRegion<int> Create(
         const TraceToElmtSignKey<TData> &traceToElmtSignKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<unsigned int> Create(
+    LibUtilities::MemoryRegion<unsigned int> Create(
         const InteriorMapKey<TData> &interiorMapKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<TData> Create(const JacobianTraceKey<TData> &jacobianTraceKey);
+    LibUtilities::MemoryRegion<TData> Create(
+        const JacobianTraceKey<TData> &jacobianTraceKey);
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<TData> Create(
+    LibUtilities::MemoryRegion<TData> Create(
         const JacobianLocTraceKey<TData> &jacobianLocTraceKey);
 
     inline static const std::string m_name = "GeometricDataCreator";

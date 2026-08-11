@@ -37,8 +37,8 @@
 #include "RiemannSolvers/CompressibleSolverOp.hpp"
 #include <boost/algorithm/string/predicate.hpp>
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "LibUtilities/LoopExecution/LoopExecution.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -136,24 +136,24 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
         : CompressibleSolverOp<TData>(expansionList, components),
-          m_rotStorage1(Field<TData, FieldState::Phys>(
+          m_rotStorage1(MultiRegions::Field<TData, FieldState::Phys>(
               "Fwd Rot Storage",
-              GetBlockAttributes<TData, FieldState::Phys>(
+              MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList->GetTrace()),
               components, 1)),
-          m_rotStorage2(Field<TData, FieldState::Phys>(
+          m_rotStorage2(MultiRegions::Field<TData, FieldState::Phys>(
               "Bwd Rot Storage",
-              GetBlockAttributes<TData, FieldState::Phys>(
+              MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList->GetTrace()),
               components, 1)),
-          m_rotStorage3(Field<TData, FieldState::Phys>(
+          m_rotStorage3(MultiRegions::Field<TData, FieldState::Phys>(
               "Flux Rot Storage",
-              GetBlockAttributes<TData, FieldState::Phys>(
+              MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList->GetTrace()),
               components, 1)),
-          m_rotMat(Field<TData, FieldState::Phys>(
+          m_rotMat(MultiRegions::Field<TData, FieldState::Phys>(
               "Rotation Matrix",
-              GetBlockAttributes<TData, FieldState::Phys>(
+              MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList->GetTrace()),
               9, 1))
     {
@@ -181,15 +181,15 @@ public:
     }
 
 protected:
-    Field<TData, FieldState::Phys> m_rotStorage1, m_rotStorage2, m_rotStorage3,
-        m_rotMat;
+    MultiRegions::Field<TData, FieldState::Phys> m_rotStorage1, m_rotStorage2,
+        m_rotStorage3, m_rotMat;
     unsigned int m_dimension;
     bool m_updateRotMat = true;
     EoSParamType m_EoS;
 
-    void v_Apply(Field<TData, FieldState::Phys> &Fwd,
-                 Field<TData, FieldState::Phys> &Bwd,
-                 Field<TData, FieldState::Phys> &flux) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &Fwd,
+                 MultiRegions::Field<TData, FieldState::Phys> &Bwd,
+                 MultiRegions::Field<TData, FieldState::Phys> &flux) override
     {
         switch (m_dimension)
         {
@@ -215,16 +215,16 @@ protected:
     }
 
     void v_SetTraceNormals(
-        Field<TData, FieldState::Phys> &traceNormals) override
+        MultiRegions::Field<TData, FieldState::Phys> &traceNormals) override
     {
         this->m_traceNormals = std::move(traceNormals);
         m_updateRotMat       = true;
     }
 
     template <unsigned int NDIM>
-    void OperatorND(Field<TData, FieldState::Phys> &Fwd,
-                    Field<TData, FieldState::Phys> &Bwd,
-                    Field<TData, FieldState::Phys> &flux)
+    void OperatorND(MultiRegions::Field<TData, FieldState::Phys> &Fwd,
+                    MultiRegions::Field<TData, FieldState::Phys> &Bwd,
+                    MultiRegions::Field<TData, FieldState::Phys> &flux)
     {
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < Fwd.GetBlocks().size(); ++blk)

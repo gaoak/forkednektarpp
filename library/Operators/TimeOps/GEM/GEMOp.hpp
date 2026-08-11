@@ -58,8 +58,8 @@ public:
 protected:
     unsigned int m_order;
     std::string m_variant;
-    std::deque<Field<TData, FieldState::Phys>> m_T;
-    std::deque<Field<TData, FieldState::Phys>> m_T0;
+    std::deque<MultiRegions::Field<TData, FieldState::Phys>> m_T;
+    std::deque<MultiRegions::Field<TData, FieldState::Phys>> m_T0;
 
     GEMOp(const MultiRegions::ExpListSharedPtr &expansionList,
           const std::vector<std::string> &components, const unsigned int &order,
@@ -72,7 +72,8 @@ protected:
     ~GEMOp() override = default;
 
     template <typename ExecSpace>
-    void ExtrapolateSolution(Field<TData, FieldState::Phys> &inout)
+    void ExtrapolateSolution(
+        MultiRegions::Field<TData, FieldState::Phys> &inout)
     {
         using MemSpace = typename ExecSpace::memory_space;
 

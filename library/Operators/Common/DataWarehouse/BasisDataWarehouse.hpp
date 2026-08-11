@@ -95,7 +95,8 @@ public:
     ~BasisDataCreator() override = default;
 
     template <typename MemSpace, typename TData>
-    MemoryRegion<TData> Create(const BasisDataKey<TData> &basisDataKey);
+    LibUtilities::MemoryRegion<TData> Create(
+        const BasisDataKey<TData> &basisDataKey);
 
     inline static const std::string m_name = "BasisDataCreator";
 };

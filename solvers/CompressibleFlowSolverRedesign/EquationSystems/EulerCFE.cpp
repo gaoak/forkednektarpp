@@ -120,8 +120,8 @@ void EulerCFE::v_GenerateSummary(SummaryList &s)
  *  param in: = u^{n+1}
  *  param out: = param in
  */
-void EulerCFE::DoAdvection(Field<double, FieldState::Phys> &in,
-                           Field<double, FieldState::Phys> &out,
+void EulerCFE::DoAdvection(MultiRegions::Field<double, FieldState::Phys> &in,
+                           MultiRegions::Field<double, FieldState::Phys> &out,
                            [[maybe_unused]] const double &time,
                            const double &dt)
 {

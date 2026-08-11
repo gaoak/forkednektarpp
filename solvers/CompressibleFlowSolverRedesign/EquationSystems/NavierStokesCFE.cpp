@@ -120,10 +120,10 @@ void NavierStokesCFE::v_GenerateSummary(SummaryList &s)
  * The diffusion operator is applied in append mode so its final backward
  * transform accumulates directly into the advective contribution.
  */
-void NavierStokesCFE::DoOdeRhs(Field<double, FieldState::Phys> &in,
-                               Field<double, FieldState::Phys> &out,
-                               [[maybe_unused]] const double &time,
-                               const double &dt)
+void NavierStokesCFE::DoOdeRhs(
+    MultiRegions::Field<double, FieldState::Phys> &in,
+    MultiRegions::Field<double, FieldState::Phys> &out,
+    [[maybe_unused]] const double &time, const double &dt)
 {
     // out = -dt * advection.
     m_advectionWeakDGOp->SetScale(-dt);

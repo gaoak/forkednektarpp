@@ -34,8 +34,8 @@
 
 #pragma once
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "Operators/ElmtOps/Expression/ExpressionBlockOp.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 #if defined(SYCL_ENABLE_CPU) || defined(NEKTAR_ENABLE_DEVICEONHOST)
 #include "Operators/ElmtOps/Expression/ExpressionSerialAVXGeneric.hpp"
@@ -114,8 +114,9 @@ protected:
     NEKfunction m_kernel_handle3;
     NEKfunction m_kernel_handle4;
 
-    void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
-                 BlockAccessor<TData, FieldState::Phys> &outblock) override
+    void v_Apply(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
         ASSERTL1(this->m_expressions.size() == inblock.GetNumComponents() &&
                      this->m_expressions.size() == outblock.GetNumComponents(),

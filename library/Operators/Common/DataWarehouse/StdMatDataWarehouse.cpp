@@ -37,42 +37,42 @@
 namespace Nektar::Operators
 {
 
-template MemoryRegion<double> StdMatDataCreator::Create<
+template LibUtilities::MemoryRegion<double> StdMatDataCreator::Create<
     NektarSpaces::HostSpace, double>(const StdMatKey<double> &stdMatKey);
-template MemoryRegion<float> StdMatDataCreator::Create<
+template LibUtilities::MemoryRegion<float> StdMatDataCreator::Create<
     NektarSpaces::HostSpace, float>(const StdMatKey<float> &stdMatKey);
-template MemoryRegion<tinysimd::scalarT<double>> StdMatDataCreator::Create<
-    NektarSpaces::HostSpace, tinysimd::scalarT<double>>(
-    const StdMatKey<tinysimd::scalarT<double>> &stdMatKey);
-template MemoryRegion<tinysimd::scalarT<float>> StdMatDataCreator::Create<
-    NektarSpaces::HostSpace, tinysimd::scalarT<float>>(
-    const StdMatKey<tinysimd::scalarT<float>> &stdMatKey);
+template LibUtilities::MemoryRegion<tinysimd::scalarT<double>> StdMatDataCreator::
+    Create<NektarSpaces::HostSpace, tinysimd::scalarT<double>>(
+        const StdMatKey<tinysimd::scalarT<double>> &stdMatKey);
+template LibUtilities::MemoryRegion<tinysimd::scalarT<float>> StdMatDataCreator::
+    Create<NektarSpaces::HostSpace, tinysimd::scalarT<float>>(
+        const StdMatKey<tinysimd::scalarT<float>> &stdMatKey);
 #if (NEKTAR_ENABLE_SIMD)
-template MemoryRegion<tinysimd::simd<double>> StdMatDataCreator::Create<
-    NektarSpaces::HostSpace, tinysimd::simd<double>>(
-    const StdMatKey<tinysimd::simd<double>> &stdMatKey);
-template MemoryRegion<tinysimd::simd<float>> StdMatDataCreator::Create<
-    NektarSpaces::HostSpace, tinysimd::simd<float>>(
-    const StdMatKey<tinysimd::simd<float>> &stdMatKey);
+template LibUtilities::MemoryRegion<tinysimd::simd<double>> StdMatDataCreator::
+    Create<NektarSpaces::HostSpace, tinysimd::simd<double>>(
+        const StdMatKey<tinysimd::simd<double>> &stdMatKey);
+template LibUtilities::MemoryRegion<tinysimd::simd<float>> StdMatDataCreator::
+    Create<NektarSpaces::HostSpace, tinysimd::simd<float>>(
+        const StdMatKey<tinysimd::simd<float>> &stdMatKey);
 #endif
 #if defined(NEKTAR_ENABLE_DEVICE)
-template MemoryRegion<double> StdMatDataCreator::Create<
+template LibUtilities::MemoryRegion<double> StdMatDataCreator::Create<
     NektarSpaces::DeviceSpace, double>(const StdMatKey<double> &stdMatKey);
-template MemoryRegion<float> StdMatDataCreator::Create<
+template LibUtilities::MemoryRegion<float> StdMatDataCreator::Create<
     NektarSpaces::DeviceSpace, float>(const StdMatKey<float> &stdMatKey);
-template MemoryRegion<tinysimd::scalarT<double>> StdMatDataCreator::Create<
-    NektarSpaces::DeviceSpace, tinysimd::scalarT<double>>(
-    const StdMatKey<tinysimd::scalarT<double>> &stdMatKey);
-template MemoryRegion<tinysimd::scalarT<float>> StdMatDataCreator::Create<
-    NektarSpaces::DeviceSpace, tinysimd::scalarT<float>>(
-    const StdMatKey<tinysimd::scalarT<float>> &stdMatKey);
+template LibUtilities::MemoryRegion<tinysimd::scalarT<double>> StdMatDataCreator::
+    Create<NektarSpaces::DeviceSpace, tinysimd::scalarT<double>>(
+        const StdMatKey<tinysimd::scalarT<double>> &stdMatKey);
+template LibUtilities::MemoryRegion<tinysimd::scalarT<float>> StdMatDataCreator::
+    Create<NektarSpaces::DeviceSpace, tinysimd::scalarT<float>>(
+        const StdMatKey<tinysimd::scalarT<float>> &stdMatKey);
 #if (NEKTAR_ENABLE_SIMD)
-template MemoryRegion<tinysimd::simd<double>> StdMatDataCreator::Create<
-    NektarSpaces::DeviceSpace, tinysimd::simd<double>>(
-    const StdMatKey<tinysimd::simd<double>> &stdMatKey);
-template MemoryRegion<tinysimd::simd<float>> StdMatDataCreator::Create<
-    NektarSpaces::DeviceSpace, tinysimd::simd<float>>(
-    const StdMatKey<tinysimd::simd<float>> &stdMatKey);
+template LibUtilities::MemoryRegion<tinysimd::simd<double>> StdMatDataCreator::
+    Create<NektarSpaces::DeviceSpace, tinysimd::simd<double>>(
+        const StdMatKey<tinysimd::simd<double>> &stdMatKey);
+template LibUtilities::MemoryRegion<tinysimd::simd<float>> StdMatDataCreator::
+    Create<NektarSpaces::DeviceSpace, tinysimd::simd<float>>(
+        const StdMatKey<tinysimd::simd<float>> &stdMatKey);
 #endif
 #endif
 

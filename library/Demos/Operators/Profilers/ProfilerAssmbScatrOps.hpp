@@ -37,7 +37,7 @@
 #include <iostream>
 
 #include "Operators/AssmbScatr/AssmbScatrZeroDirOp.hpp"
-#include <Operators/Field/Field.hpp>
+#include <MultiRegions/Field/Field.hpp>
 #include <Operators/Math/MathKernels.hpp>
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
@@ -60,8 +60,9 @@
 #endif
 
 using namespace Nektar;
-using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
+using namespace Nektar::MultiRegions;
+using namespace Nektar::Operators;
 
 /// Print the block information. If _verbose_=true, then print the block
 /// information for each rank. If _verbose_=false, then only print the

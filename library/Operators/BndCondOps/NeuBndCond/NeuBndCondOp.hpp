@@ -55,12 +55,12 @@ public:
 
     static inline const std::string name = "NeuBndCond";
 
-    void Apply(Field<TData, FieldState::Coeff> &inout)
+    void Apply(MultiRegions::Field<TData, FieldState::Coeff> &inout)
     {
         v_Apply(inout);
     }
 
-    void operator()(Field<TData, FieldState::Coeff> &inout)
+    void operator()(MultiRegions::Field<TData, FieldState::Coeff> &inout)
     {
         v_Apply(inout);
     }
@@ -96,7 +96,8 @@ protected:
 
     ~NeuBndCondOp() override = default;
 
-    virtual void v_Apply(Field<TData, FieldState::Coeff> &inout) = 0;
+    virtual void v_Apply(
+        MultiRegions::Field<TData, FieldState::Coeff> &inout) = 0;
 
     virtual void v_UpdateBndCoeffs(const TData &time) = 0;
 

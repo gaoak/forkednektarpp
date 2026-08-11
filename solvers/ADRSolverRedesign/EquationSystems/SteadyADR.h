@@ -35,7 +35,7 @@
 
 #pragma once
 
-#include <Operators/Field/Field.hpp>
+#include <MultiRegions/Field/Field.hpp>
 #include <Operators/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp>
 #include <Operators/Math/Math.hpp>
 #include <SolverCore/EquationSystems/EquationSystem.h>
@@ -74,8 +74,8 @@ protected:
     std::vector<double> m_diffCoeff;
 
     // Setup workspaces
-    Field<double, FieldState::Phys> m_wsp_fce;
-    Field<double, FieldState::Phys> m_advectionVel;
+    MultiRegions::Field<double, FieldState::Phys> m_wsp_fce;
+    MultiRegions::Field<double, FieldState::Phys> m_advectionVel;
 
     // Initialise operators
     std::shared_ptr<LinearSystemOp<double>> m_linearSystemOp;

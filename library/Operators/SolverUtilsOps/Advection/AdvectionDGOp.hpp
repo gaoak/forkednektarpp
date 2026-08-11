@@ -46,14 +46,14 @@ namespace Nektar::Operators
 template <typename TData> class AdvectionDGOp : public Operator<TData>
 {
 public:
-    void Apply(Field<TData, FieldState::Phys> &in,
-               Field<TData, FieldState::Phys> &out)
+    void Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
+               MultiRegions::Field<TData, FieldState::Phys> &out)
     {
         this->v_Apply(in, out);
     }
 
-    void operator()(Field<TData, FieldState::Phys> &in,
-                    Field<TData, FieldState::Phys> &out)
+    void operator()(MultiRegions::Field<TData, FieldState::Phys> &in,
+                    MultiRegions::Field<TData, FieldState::Phys> &out)
     {
         this->v_Apply(in, out);
     }
@@ -68,7 +68,7 @@ public:
         v_SetAppend(append);
     }
 
-    void SetAdvectVel(Field<TData, FieldState::Phys> &advectVel)
+    void SetAdvectVel(MultiRegions::Field<TData, FieldState::Phys> &advectVel)
     {
         this->m_advectVel = std::move(advectVel);
     }
@@ -85,7 +85,7 @@ public:
     }
 
 protected:
-    Field<TData, FieldState::Phys> m_advectVel;
+    MultiRegions::Field<TData, FieldState::Phys> m_advectVel;
     std::shared_ptr<RiemannSolverOp<TData>> m_riemannSolverOp;
     std::shared_ptr<AdvectionVolumeFluxOp<TData>> m_volumeFluxOp;
     TData m_scale = 1.0;
@@ -99,8 +99,8 @@ protected:
 
     ~AdvectionDGOp() override = default;
 
-    virtual void v_Apply(Field<TData, FieldState::Phys> &in,
-                         Field<TData, FieldState::Phys> &out) = 0;
+    virtual void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
+                         MultiRegions::Field<TData, FieldState::Phys> &out) = 0;
 
     virtual void v_SetAppend(const bool &append) = 0;
 };

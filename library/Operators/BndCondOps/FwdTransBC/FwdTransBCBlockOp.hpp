@@ -56,14 +56,15 @@ public:
 
     static inline const std::string name = "BlockFwdTransBC";
 
-    void Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
-               BlockAccessor<TData, FieldState::Coeff> &outblock)
+    void Apply(MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+               MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         this->v_Apply(inblock, outblock);
     }
 
-    void operator()(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, FieldState::Coeff> &outblock)
+    void operator()(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         this->v_Apply(inblock, outblock);
     }
@@ -81,8 +82,9 @@ protected:
     {
     }
 
-    virtual void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
-                         BlockAccessor<TData, FieldState::Coeff> &outblock) = 0;
+    virtual void v_Apply(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock) = 0;
 
     virtual void v_SetInvMassMatrix(std::vector<TData> &dmat) = 0;
 };

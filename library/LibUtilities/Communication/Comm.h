@@ -44,8 +44,8 @@
 #include <LibUtilities/LibUtilitiesDeclspec.h>
 
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+#include <LibUtilities/BasicUtils/MemoryRegion.hpp>
 #include <Operators/Common/Spaces.hpp>
-#include <Operators/Field/MemoryRegion.hpp>
 #endif
 #include <LibUtilities/BasicConst/NektarUnivTypeDefs.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
@@ -122,14 +122,14 @@ public:
     template <class T> void Send(int pProc, T &pData);
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
-    void Send(int pProc, Operators::MemoryRegion<T> &pData,
+    void Send(int pProc, LibUtilities::MemoryRegion<T> &pData,
               const unsigned int streamID = 0);
 #endif
 
     template <class T> void Recv(int pProc, T &pData);
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
-    void Recv(int pProc, Operators::MemoryRegion<T> &pData,
+    void Recv(int pProc, LibUtilities::MemoryRegion<T> &pData,
               const unsigned int streamID = 0);
 #endif
 
@@ -137,8 +137,8 @@ public:
     void SendRecv(int pSendProc, T &pSendData, int pRecvProc, T &pRecvData);
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
-    void SendRecv(int pSendProc, Operators::MemoryRegion<T> &pSendData,
-                  int pRecvProc, Operators::MemoryRegion<T> &pRecvData,
+    void SendRecv(int pSendProc, LibUtilities::MemoryRegion<T> &pSendData,
+                  int pRecvProc, LibUtilities::MemoryRegion<T> &pRecvData,
                   const unsigned int streamID = 0);
 #endif
 
@@ -150,14 +150,14 @@ public:
     void AllReduceEnd(T &pData, CommRequestSharedPtr request);
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
-    void AllReduce(Operators::MemoryRegion<T> &pData, enum ReduceOperator pOp,
-                   const unsigned int streamID = 0);
+    void AllReduce(LibUtilities::MemoryRegion<T> &pData,
+                   enum ReduceOperator pOp, const unsigned int streamID = 0);
     template <class MemSpace, class T>
-    void AllReduceBegin(Operators::MemoryRegion<T> &pData,
+    void AllReduceBegin(LibUtilities::MemoryRegion<T> &pData,
                         enum ReduceOperator pOp, CommRequestSharedPtr request,
                         const unsigned int streamID = 0);
     template <class MemSpace, class T>
-    void AllReduceEnd(Operators::MemoryRegion<T> &pData,
+    void AllReduceEnd(LibUtilities::MemoryRegion<T> &pData,
                       CommRequestSharedPtr request,
                       const unsigned int streamID = 0);
 #endif
@@ -165,8 +165,8 @@ public:
     template <class T> void AlltoAll(T &pSendData, T &pRecvData);
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
-    void AlltoAll(Operators::MemoryRegion<T> &pSendData,
-                  Operators::MemoryRegion<T> &pRecvData,
+    void AlltoAll(LibUtilities::MemoryRegion<T> &pSendData,
+                  LibUtilities::MemoryRegion<T> &pRecvData,
                   const unsigned int streamID = 0);
 #endif
     template <class T1, class T2>
@@ -174,20 +174,20 @@ public:
                    T1 &pRecvData, T2 &pRecvDataSizeMap, T2 &pRecvDataOffsetMap);
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
-    void AlltoAllv(Operators::MemoryRegion<T> &pSendData,
-                   Operators::MemoryRegion<int> &pSendDataSizeMap,
-                   Operators::MemoryRegion<int> &pSendDataOffsetMap,
-                   Operators::MemoryRegion<T> &pRecvData,
-                   Operators::MemoryRegion<int> &pRecvDataSizeMap,
-                   Operators::MemoryRegion<int> &pRecvDataOffsetMap,
+    void AlltoAllv(LibUtilities::MemoryRegion<T> &pSendData,
+                   LibUtilities::MemoryRegion<int> &pSendDataSizeMap,
+                   LibUtilities::MemoryRegion<int> &pSendDataOffsetMap,
+                   LibUtilities::MemoryRegion<T> &pRecvData,
+                   LibUtilities::MemoryRegion<int> &pRecvDataSizeMap,
+                   LibUtilities::MemoryRegion<int> &pRecvDataOffsetMap,
                    const unsigned int streamID = 0);
 #endif
 
     template <class T> void AllGather(T &pSendData, T &pRecvData);
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
-    void AllGather(Operators::MemoryRegion<T> &pSendData,
-                   Operators::MemoryRegion<T> &pRecvData,
+    void AllGather(LibUtilities::MemoryRegion<T> &pSendData,
+                   LibUtilities::MemoryRegion<T> &pRecvData,
                    const unsigned int streamID = 0);
 #endif
     template <class T>
@@ -196,10 +196,10 @@ public:
                     Array<OneD, int> &pRecvDataOffsetMap);
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
-    void AllGatherv(Operators::MemoryRegion<T> &pSendData,
-                    Operators::MemoryRegion<T> &pRecvData,
-                    Operators::MemoryRegion<int> &pRecvDataSizeMap,
-                    Operators::MemoryRegion<int> &pRecvDataOffsetMap,
+    void AllGatherv(LibUtilities::MemoryRegion<T> &pSendData,
+                    LibUtilities::MemoryRegion<T> &pRecvData,
+                    LibUtilities::MemoryRegion<int> &pRecvDataSizeMap,
+                    LibUtilities::MemoryRegion<int> &pRecvDataOffsetMap,
                     const unsigned int streamID = 0);
 #endif
     template <class T>
@@ -207,41 +207,41 @@ public:
                     Array<OneD, int> &pRecvDataOffsetMap);
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
-    void AllGatherv(Operators::MemoryRegion<T> &pRecvData,
-                    Operators::MemoryRegion<int> &pRecvDataSizeMap,
-                    Operators::MemoryRegion<int> &pRecvDataOffsetMap,
+    void AllGatherv(LibUtilities::MemoryRegion<T> &pRecvData,
+                    LibUtilities::MemoryRegion<int> &pRecvDataSizeMap,
+                    LibUtilities::MemoryRegion<int> &pRecvDataOffsetMap,
                     const unsigned int streamID = 0);
 #endif
 
     template <class T> void Bcast(T &pData, int pRoot);
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
-    void Bcast(Operators::MemoryRegion<T> &pData, int pRoot,
+    void Bcast(LibUtilities::MemoryRegion<T> &pData, int pRoot,
                const unsigned int streamID = 0);
 #endif
 
     template <class T> T Gather(int rootProc, T &val);
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
-    Operators::MemoryRegion<T> Gather(int rootProc,
-                                      Operators::MemoryRegion<T> &val,
-                                      const unsigned int streamID = 0);
+    LibUtilities::MemoryRegion<T> Gather(int rootProc,
+                                         LibUtilities::MemoryRegion<T> &val,
+                                         const unsigned int streamID = 0);
 #endif
 
     template <class T> T Scatter(int rootProc, T &pData);
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
-    Operators::MemoryRegion<T> Scatter(int rootProc,
-                                       Operators::MemoryRegion<T> &pData,
-                                       const unsigned int streamID = 0);
+    LibUtilities::MemoryRegion<T> Scatter(int rootProc,
+                                          LibUtilities::MemoryRegion<T> &pData,
+                                          const unsigned int streamID = 0);
 #endif
 
     template <class T>
     void DistGraphCreateAdjacent(T &sources, T &sourceweights, int reorder);
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
-    void DistGraphCreateAdjacent(Operators::MemoryRegion<T> &sources,
-                                 Operators::MemoryRegion<T> &sourceweights,
+    void DistGraphCreateAdjacent(LibUtilities::MemoryRegion<T> &sources,
+                                 LibUtilities::MemoryRegion<T> &sourceweights,
                                  int reorder, const unsigned int streamID = 0);
 #endif
 
@@ -251,12 +251,12 @@ public:
                            T2 &pRecvDataSizeMap, T2 &pRecvDataOffsetMap);
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
-    void NeighborAlltoAllv(Operators::MemoryRegion<T> &pSendData,
-                           Operators::MemoryRegion<int> &pSendDataSizeMap,
-                           Operators::MemoryRegion<int> &pSendDataOffsetMap,
-                           Operators::MemoryRegion<T> &pRecvData,
-                           Operators::MemoryRegion<int> &pRecvDataSizeMap,
-                           Operators::MemoryRegion<int> &pRecvDataOffsetMap,
+    void NeighborAlltoAllv(LibUtilities::MemoryRegion<T> &pSendData,
+                           LibUtilities::MemoryRegion<int> &pSendDataSizeMap,
+                           LibUtilities::MemoryRegion<int> &pSendDataOffsetMap,
+                           LibUtilities::MemoryRegion<T> &pRecvData,
+                           LibUtilities::MemoryRegion<int> &pRecvDataSizeMap,
+                           LibUtilities::MemoryRegion<int> &pRecvDataOffsetMap,
                            const unsigned int streamID = 0);
 #endif
 
@@ -475,7 +475,7 @@ template <class T> void Comm::Send(int pProc, T &pData)
  *
  */
 template <class MemSpace, class T>
-void Comm::Send(int pProc, Operators::MemoryRegion<T> &pData,
+void Comm::Send(int pProc, LibUtilities::MemoryRegion<T> &pData,
                 const unsigned int streamID)
 {
     if (m_gpu_aware)
@@ -512,7 +512,7 @@ template <class T> void Comm::Recv(int pProc, T &pData)
  *
  */
 template <class MemSpace, class T>
-void Comm::Recv(int pProc, Operators::MemoryRegion<T> &pData,
+void Comm::Recv(int pProc, LibUtilities::MemoryRegion<T> &pData,
                 const unsigned int streamID)
 {
     if (m_gpu_aware)
@@ -552,8 +552,8 @@ void Comm::SendRecv(int pSendProc, T &pSendData, int pRecvProc, T &pRecvData)
  *
  */
 template <class MemSpace, class T>
-void Comm::SendRecv(int pSendProc, Operators::MemoryRegion<T> &pSendData,
-                    int pRecvProc, Operators::MemoryRegion<T> &pRecvData,
+void Comm::SendRecv(int pSendProc, LibUtilities::MemoryRegion<T> &pSendData,
+                    int pRecvProc, LibUtilities::MemoryRegion<T> &pRecvData,
                     const unsigned int streamID)
 {
     if (m_gpu_aware)
@@ -621,8 +621,8 @@ void Comm::AllReduceEnd([[maybe_unused]] T &pData, CommRequestSharedPtr request)
  *
  */
 template <class MemSpace, class T>
-void Comm::AllReduce(Operators::MemoryRegion<T> &pData, enum ReduceOperator pOp,
-                     const unsigned int streamID)
+void Comm::AllReduce(LibUtilities::MemoryRegion<T> &pData,
+                     enum ReduceOperator pOp, const unsigned int streamID)
 {
     if (m_gpu_aware)
     {
@@ -644,7 +644,7 @@ void Comm::AllReduce(Operators::MemoryRegion<T> &pData, enum ReduceOperator pOp,
  *
  */
 template <class MemSpace, class T>
-void Comm::AllReduceBegin(Operators::MemoryRegion<T> &pData,
+void Comm::AllReduceBegin(LibUtilities::MemoryRegion<T> &pData,
                           enum ReduceOperator pOp, CommRequestSharedPtr request,
                           const unsigned int streamID)
 {
@@ -669,7 +669,7 @@ void Comm::AllReduceBegin(Operators::MemoryRegion<T> &pData,
  *
  */
 template <class MemSpace, class T>
-void Comm::AllReduceEnd([[maybe_unused]] Operators::MemoryRegion<T> &pData,
+void Comm::AllReduceEnd([[maybe_unused]] LibUtilities::MemoryRegion<T> &pData,
                         CommRequestSharedPtr request,
                         [[maybe_unused]] const unsigned int streamID)
 {
@@ -711,8 +711,8 @@ template <class T> void Comm::AlltoAll(T &pSendData, T &pRecvData)
  *
  */
 template <class MemSpace, class T>
-void Comm::AlltoAll(Operators::MemoryRegion<T> &pSendData,
-                    Operators::MemoryRegion<T> &pRecvData,
+void Comm::AlltoAll(LibUtilities::MemoryRegion<T> &pSendData,
+                    LibUtilities::MemoryRegion<T> &pRecvData,
                     const unsigned int streamID)
 {
     int sendSize = pSendData.size();
@@ -780,12 +780,12 @@ void Comm::AlltoAllv(T1 &pSendData, T2 &pSendDataSizeMap,
  *
  */
 template <class MemSpace, class T>
-void Comm::AlltoAllv(Operators::MemoryRegion<T> &pSendData,
-                     Operators::MemoryRegion<int> &pSendDataSizeMap,
-                     Operators::MemoryRegion<int> &pSendDataOffsetMap,
-                     Operators::MemoryRegion<T> &pRecvData,
-                     Operators::MemoryRegion<int> &pRecvDataSizeMap,
-                     Operators::MemoryRegion<int> &pRecvDataOffsetMap,
+void Comm::AlltoAllv(LibUtilities::MemoryRegion<T> &pSendData,
+                     LibUtilities::MemoryRegion<int> &pSendDataSizeMap,
+                     LibUtilities::MemoryRegion<int> &pSendDataOffsetMap,
+                     LibUtilities::MemoryRegion<T> &pRecvData,
+                     LibUtilities::MemoryRegion<int> &pRecvDataSizeMap,
+                     LibUtilities::MemoryRegion<int> &pRecvDataOffsetMap,
                      const unsigned int streamID)
 {
     if (m_gpu_aware)
@@ -854,8 +854,8 @@ template <class T> void Comm::AllGather(T &pSendData, T &pRecvData)
  *
  */
 template <class MemSpace, class T>
-void Comm::AllGather(Operators::MemoryRegion<T> &pSendData,
-                     Operators::MemoryRegion<T> &pRecvData,
+void Comm::AllGather(LibUtilities::MemoryRegion<T> &pSendData,
+                     LibUtilities::MemoryRegion<T> &pRecvData,
                      const unsigned int streamID)
 {
     int sendSize = pSendData.size();
@@ -915,10 +915,10 @@ void Comm::AllGatherv(T &pSendData, T &pRecvData,
  *
  */
 template <class MemSpace, class T>
-void Comm::AllGatherv(Operators::MemoryRegion<T> &pSendData,
-                      Operators::MemoryRegion<T> &pRecvData,
-                      Operators::MemoryRegion<int> &pRecvDataSizeMap,
-                      Operators::MemoryRegion<int> &pRecvDataOffsetMap,
+void Comm::AllGatherv(LibUtilities::MemoryRegion<T> &pSendData,
+                      LibUtilities::MemoryRegion<T> &pRecvData,
+                      LibUtilities::MemoryRegion<int> &pRecvDataSizeMap,
+                      LibUtilities::MemoryRegion<int> &pRecvDataOffsetMap,
                       const unsigned int streamID)
 {
     int sendSize = pSendData.size();
@@ -979,9 +979,9 @@ void Comm::AllGatherv(T &pRecvData, Array<OneD, int> &pRecvDataSizeMap,
  *
  */
 template <class MemSpace, class T>
-void Comm::AllGatherv(Operators::MemoryRegion<T> &pRecvData,
-                      Operators::MemoryRegion<int> &pRecvDataSizeMap,
-                      Operators::MemoryRegion<int> &pRecvDataOffsetMap,
+void Comm::AllGatherv(LibUtilities::MemoryRegion<T> &pRecvData,
+                      LibUtilities::MemoryRegion<int> &pRecvDataSizeMap,
+                      LibUtilities::MemoryRegion<int> &pRecvDataOffsetMap,
                       const unsigned int streamID)
 {
     if (m_gpu_aware)
@@ -1029,7 +1029,7 @@ template <class T> void Comm::Bcast(T &pData, int pRoot)
  *
  */
 template <class MemSpace, class T>
-void Comm::Bcast(Operators::MemoryRegion<T> &pData, int pRoot,
+void Comm::Bcast(LibUtilities::MemoryRegion<T> &pData, int pRoot,
                  const unsigned int streamID)
 {
     if (m_gpu_aware)
@@ -1091,16 +1091,16 @@ template <class T> T Comm::Gather(const int rootProc, T &val)
  * == rootProc
  */
 template <class MemSpace, class T>
-Operators::MemoryRegion<T> Comm::Gather(const int rootProc,
-                                        Operators::MemoryRegion<T> &val,
-                                        const unsigned int streamID)
+LibUtilities::MemoryRegion<T> Comm::Gather(const int rootProc,
+                                           LibUtilities::MemoryRegion<T> &val,
+                                           const unsigned int streamID)
 {
     bool amRoot  = (GetRank() == rootProc);
     unsigned nEl = val.size();
 
     unsigned nOut = amRoot ? GetSize() * nEl : 0;
-    Operators::MemoryRegion<T> ans =
-        Operators::MemoryRegion<T>(nOut, eHostPinned, val.GetAlignment());
+    LibUtilities::MemoryRegion<T> ans =
+        LibUtilities::MemoryRegion<T>(nOut, eHostPinned, val.GetAlignment());
 
     if (m_gpu_aware)
     {
@@ -1166,15 +1166,15 @@ template <class T> T Comm::Scatter(const int rootProc, T &pData)
  * Scatter pData across ranks in chunks of len(pData)/num_ranks
  */
 template <class MemSpace, class T>
-Operators::MemoryRegion<T> Comm::Scatter(const int rootProc,
-                                         Operators::MemoryRegion<T> &pData,
-                                         const unsigned int streamID)
+LibUtilities::MemoryRegion<T> Comm::Scatter(
+    const int rootProc, LibUtilities::MemoryRegion<T> &pData,
+    const unsigned int streamID)
 {
     bool amRoot  = (GetRank() == rootProc);
     unsigned nEl = pData.size() / GetSize();
 
-    Operators::MemoryRegion<T> ans =
-        Operators::MemoryRegion<T>(nEl, eHostPinned, pData.GetAlignment());
+    LibUtilities::MemoryRegion<T> ans =
+        LibUtilities::MemoryRegion<T>(nEl, eHostPinned, pData.GetAlignment());
 
     if (m_gpu_aware)
     {
@@ -1244,8 +1244,8 @@ void Comm::DistGraphCreateAdjacent(T &sources, T &sourceweights, int reorder)
 
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
 template <class MemSpace, class T>
-void Comm::DistGraphCreateAdjacent(Operators::MemoryRegion<T> &sources,
-                                   Operators::MemoryRegion<T> &sourceweights,
+void Comm::DistGraphCreateAdjacent(LibUtilities::MemoryRegion<T> &sources,
+                                   LibUtilities::MemoryRegion<T> &sourceweights,
                                    int reorder, const unsigned int streamID)
 {
     ASSERTL0(sources.size() == sourceweights.size(),
@@ -1319,13 +1319,14 @@ void Comm::NeighborAlltoAllv(T1 &pSendData, T2 &pSendDataSizeMap,
 
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
 template <class MemSpace, class T>
-void Comm::NeighborAlltoAllv(Operators::MemoryRegion<T> &pSendData,
-                             Operators::MemoryRegion<int> &pSendDataSizeMap,
-                             Operators::MemoryRegion<int> &pSendDataOffsetMap,
-                             Operators::MemoryRegion<T> &pRecvData,
-                             Operators::MemoryRegion<int> &pRecvDataSizeMap,
-                             Operators::MemoryRegion<int> &pRecvDataOffsetMap,
-                             const unsigned int streamID)
+void Comm::NeighborAlltoAllv(
+    LibUtilities::MemoryRegion<T> &pSendData,
+    LibUtilities::MemoryRegion<int> &pSendDataSizeMap,
+    LibUtilities::MemoryRegion<int> &pSendDataOffsetMap,
+    LibUtilities::MemoryRegion<T> &pRecvData,
+    LibUtilities::MemoryRegion<int> &pRecvDataSizeMap,
+    LibUtilities::MemoryRegion<int> &pRecvDataOffsetMap,
+    const unsigned int streamID)
 {
     if (m_gpu_aware)
     {

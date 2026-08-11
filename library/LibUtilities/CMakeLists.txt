@@ -38,6 +38,8 @@ SET(BasicUtilsHeaders
     ./BasicUtils/Metis.hpp
     ./BasicUtils/VtkUtil.hpp
     ./BasicUtils/Likwid.hpp
+    ./BasicUtils/Utils/UtilsDeviceKernels.hpp
+    ./BasicUtils/Utils/UtilsDeviceKernelsHelper.hpp
 )
 
 SET(BasicUtilsSources
@@ -56,6 +58,7 @@ SET(BasicUtilsSources
     ./BasicUtils/ThreadStd.cpp
     ./BasicUtils/Timer.cpp
     ./BasicUtils/Vmath.cpp
+    ./BasicUtils/Utils/UtilsDeviceKernels.cpp
 )
 
 # HDF5
@@ -114,9 +117,9 @@ ENDIF(NEKTAR_USE_FFTW)
 
 IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
     SET(FFTHeaders ${FFTHeaders} ./FFT/NekDeviceFFT.h ./FFT/NekCuFFT.h ./FFT/PhysDerivZCuFFT.h
-        ../Operators/Common/DeviceProperties.hpp)
+        ../LibUtilities/Backends/DeviceProperties.hpp)
     SET(FFTSources ${FFTSources} ./FFT/NekCuFFT.cu ./FFT/PhysDerivZCuFFT.cu
-        ../Operators/Common/DeviceProperties.cpp)
+        ../LibUtilities/Backends/DeviceProperties.cpp)
 
     IF(NEKTAR_USE_CUFFTDX)
         SET(FFTHeaders ${FFTHeaders} ./FFT/NekCuFFTDx.h)
@@ -333,42 +336,50 @@ SET(BaseHeaders
 IF (NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
     SET(DeviceSupportHeaders 
         ./Backends/CUDAStream.hpp
+        ./Backends/DeviceProperties.hpp
         ./LoopExecution/LoopExecution.hpp
         ./Memory/MemoryAlloc.hpp
     )
     SET(DeviceSupportSources 
         ./Backends/CUDAStream.cpp
+        ./Backends/DeviceProperties.cpp
         ./LoopExecution/LoopExecution.cpp
         ./Memory/MemoryAlloc.cu
     )
 ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
     SET(DeviceSupportHeaders 
         ./Backends/HIPStream.hpp
+        ./Backends/DeviceProperties.hpp
         ./LoopExecution/LoopExecution.hpp
         ./Memory/MemoryAlloc.hpp
     )
     SET(DeviceSupportSources 
         ./Backends/HIPStream.cpp
+        ./Backends/DeviceProperties.cpp
         ./LoopExecution/LoopExecution.cpp
         ./Memory/MemoryAlloc.hip
     )
 ELSEIF (NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
     SET(DeviceSupportHeaders 
         ./Backends/SYCLQueue.hpp
+        ./Backends/DeviceProperties.hpp
         ./LoopExecution/LoopExecution.hpp
         ./Memory/MemoryAlloc.hpp
     )
     SET(DeviceSupportSources 
         ./Backends/SYCLQueue.cpp
+        ./Backends/DeviceProperties.cpp
         ./LoopExecution/LoopExecution.cpp
         ./Memory/MemoryAlloc.hpp
     )
 ELSE()
     SET(DeviceSupportHeaders 
+        ./Backends/DeviceProperties.hpp
         ./LoopExecution/LoopExecution.hpp
         ./Memory/MemoryAlloc.hpp
     )
     SET(DeviceSupportSources 
+        ./Backends/DeviceProperties.cpp
         ./LoopExecution/LoopExecution.cpp
     )
 ENDIF()

@@ -67,7 +67,7 @@ public:
         this->m_append = append;
     }
 
-    void SetAdvVel(BlockAccessor<TData, FieldState::Phys> &Vel)
+    void SetAdvVel(MultiRegions::BlockAccessor<TData, FieldState::Phys> &Vel)
     {
         v_SetAdvVel(Vel);
     }
@@ -86,7 +86,8 @@ protected:
 
     ~AdvectionBlockOp() override = default;
 
-    virtual void v_SetAdvVel(BlockAccessor<TData, FieldState::Phys> &Vel) = 0;
+    virtual void v_SetAdvVel(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &Vel) = 0;
 };
 
 } // namespace Nektar::Operators

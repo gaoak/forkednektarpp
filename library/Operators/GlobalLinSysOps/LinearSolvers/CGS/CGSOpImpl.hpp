@@ -52,33 +52,40 @@ public:
     CGSOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
               const std::vector<std::string> &components)
         : CGSOp<TData>(expansionList, components),
-          m_q(Field<TData, FieldState::Coeff>(
+          m_q(MultiRegions::Field<TData, FieldState::Coeff>(
               "CGSOp q",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_w(Field<TData, FieldState::Coeff>(
+          m_w(MultiRegions::Field<TData, FieldState::Coeff>(
               "CGSOp w",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_s(Field<TData, FieldState::Coeff>(
+          m_s(MultiRegions::Field<TData, FieldState::Coeff>(
               "CGSOp s",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_u(Field<TData, FieldState::Coeff>(
+          m_u(MultiRegions::Field<TData, FieldState::Coeff>(
               "CGSOp u",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_p(Field<TData, FieldState::Coeff>(
+          m_p(MultiRegions::Field<TData, FieldState::Coeff>(
               "CGSOp p",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_r(Field<TData, FieldState::Coeff>(
+          m_r(MultiRegions::Field<TData, FieldState::Coeff>(
               "CGSOp r",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_rtilde(Field<TData, FieldState::Coeff>(
+          m_rtilde(MultiRegions::Field<TData, FieldState::Coeff>(
               "CGSOp rtilde",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1))
     {
         this->template SetLinearSolver<ExecSpace>();
@@ -109,16 +116,16 @@ public:
     }
 
 protected:
-    Field<TData, FieldState::Coeff> m_q;
-    Field<TData, FieldState::Coeff> m_w;
-    Field<TData, FieldState::Coeff> m_s;
-    Field<TData, FieldState::Coeff> m_u;
-    Field<TData, FieldState::Coeff> m_p;
-    Field<TData, FieldState::Coeff> m_r;
-    Field<TData, FieldState::Coeff> m_rtilde;
+    MultiRegions::Field<TData, FieldState::Coeff> m_q;
+    MultiRegions::Field<TData, FieldState::Coeff> m_w;
+    MultiRegions::Field<TData, FieldState::Coeff> m_s;
+    MultiRegions::Field<TData, FieldState::Coeff> m_u;
+    MultiRegions::Field<TData, FieldState::Coeff> m_p;
+    MultiRegions::Field<TData, FieldState::Coeff> m_r;
+    MultiRegions::Field<TData, FieldState::Coeff> m_rtilde;
 
-    void v_Apply(Field<TData, FieldState::Coeff> &in,
-                 Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
+                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
     {
         // Convergence parameters.
         this->m_niter = 0;

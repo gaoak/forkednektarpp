@@ -59,17 +59,21 @@ public:
         this->template Initialize<ExecSpace>();
 
         auto blockAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(this->m_expansionList);
+            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
+                this->m_expansionList);
         for (unsigned int m = 0; m < this->m_nQuadPts; ++m)
         {
-            this->m_SFint.push_back(Field<TData, FieldState::Phys>(
-                blockAttr, this->m_components, 1));
+            this->m_SFint.push_back(
+                MultiRegions::Field<TData, FieldState::Phys>(
+                    blockAttr, this->m_components, 1));
 
-            this->m_solutions.push_back(Field<TData, FieldState::Phys>(
-                blockAttr, this->m_components, 1));
+            this->m_solutions.push_back(
+                MultiRegions::Field<TData, FieldState::Phys>(
+                    blockAttr, this->m_components, 1));
 
-            this->m_residuals.push_back(Field<TData, FieldState::Phys>(
-                blockAttr, this->m_components, 1));
+            this->m_residuals.push_back(
+                MultiRegions::Field<TData, FieldState::Phys>(
+                    blockAttr, this->m_components, 1));
         }
     }
 
@@ -87,7 +91,7 @@ public:
     }
 
 protected:
-    void v_Apply(Field<TData, FieldState::Phys> &inout) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &inout) override
     {
         // Check that required functions are defined.
         ASSERTL0(

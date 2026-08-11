@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "Operators/Utils/UtilsDeviceKernels.hpp"
-#include "Operators/Utils/UtilsSerialAVXKernels.hpp"
+#include "LibUtilities/BasicUtils/Utils/UtilsDeviceKernels.hpp"
+#include "LibUtilities/BasicUtils/Utils/UtilsSerialAVXKernels.hpp"
 
 namespace Nektar::Operators
 {

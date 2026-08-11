@@ -37,9 +37,9 @@
 #include "Operators/BndCondOps/FwdTransBC/FwdTransBCBlockOp.hpp"
 #include "Operators/BndCondOps/FwdTransBC/FwdTransBCDeviceKernels.hpp"
 
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 #include "Operators/Math/MathKernels.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -268,7 +268,7 @@ protected:
     const int *m_traceElmtSignptr;
     const unsigned int *m_interiorMapptr;
 
-    MemoryRegion<TData> m_dinvmass;
+    LibUtilities::MemoryRegion<TData> m_dinvmass;
 
     // Extension to use Generic routines
     std::vector<unsigned int> m_nm;
@@ -283,8 +283,9 @@ protected:
     const TData *m_nodToModTrans;
     std::vector<const unsigned int *> m_index;
 
-    void v_Apply(BlockAccessor<TData, FieldState::Phys> &inblock,
-                 BlockAccessor<TData, FieldState::Coeff> &outblock) override
+    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+                 MultiRegions::BlockAccessor<TData, FieldState::Coeff>
+                     &outblock) override
     {
         switch (m_shapeType)
         {
@@ -358,8 +359,9 @@ protected:
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE>
-    void Operator0D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, FieldState::Coeff> &outblock)
+    void Operator0D(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
@@ -402,8 +404,9 @@ protected:
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator1D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, FieldState::Coeff> &outblock)
+    void Operator1D(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         // Shape size.
         const auto nm0 = m_nm[0];
@@ -468,8 +471,9 @@ protected:
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator2D(BlockAccessor<TData, FieldState::Phys> &inblock,
-                    BlockAccessor<TData, FieldState::Coeff> &outblock)
+    void Operator2D(
+        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         // Shape size.
         const auto nm0 = m_nm[0];
@@ -551,9 +555,8 @@ protected:
 
     void v_SetInvMassMatrix(std::vector<TData> &invmass) override
     {
-        this->m_dinvmass =
-            MemoryRegion<TData>::template FromVector<MemSpace, TData>(
-                invmass, m_streamID);
+        this->m_dinvmass = LibUtilities::MemoryRegion<
+            TData>::template FromVector<MemSpace, TData>(invmass, m_streamID);
     }
 };
 

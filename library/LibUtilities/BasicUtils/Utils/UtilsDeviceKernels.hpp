@@ -34,10 +34,10 @@
 
 #pragma once
 
+#include "LibUtilities/BasicUtils/Utils/UtilsDeviceKernelsHelper.hpp"
 #include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 #include "LibUtilities/Memory/MemoryAlloc.hpp"
 #include "Operators/Common/Spaces.hpp"
-#include "Operators/Utils/UtilsDeviceKernelsHelper.hpp"
 
 namespace Nektar
 {

@@ -32,11 +32,11 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <Operators/Field/Block.hpp>
+#include <MultiRegions/Field/Block.hpp>
 
-#include "Operators/Utils/UtilsKernels.hpp"
+#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 
-namespace Nektar::Operators
+namespace Nektar::MultiRegions
 {
 
 template <typename TData, FieldState TState>
@@ -97,4 +97,4 @@ template void BlockAccessor<double, FieldState::Phys>::ReshapeStorage(
 template void BlockAccessor<double, FieldState::Coeff>::ReshapeStorage(
     const unsigned int &interleaveWidth, const std::string &execSpace,
     const unsigned int streamID);
-} // namespace Nektar::Operators
+} // namespace Nektar::MultiRegions

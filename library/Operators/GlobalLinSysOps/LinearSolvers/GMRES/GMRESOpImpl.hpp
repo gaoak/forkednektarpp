@@ -52,16 +52,19 @@ public:
     GMRESOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                 const std::vector<std::string> &components)
         : GMRESOp<TData>(expansionList, components),
-          m_w(Field<TData, FieldState::Coeff>(
+          m_w(MultiRegions::Field<TData, FieldState::Coeff>(
               "GMRES w",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_wk(Field<TData, FieldState::Coeff>(
+          m_wk(MultiRegions::Field<TData, FieldState::Coeff>(
               "GMRES wk",
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1)),
-          m_r0(Field<TData, FieldState::Coeff>(
-              GetBlockAttributes<TData, FieldState::Coeff>(expansionList),
+          m_r0(MultiRegions::Field<TData, FieldState::Coeff>(
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
               components, 1))
     {
         this->template SetLinearSolver<ExecSpace>();
@@ -110,7 +113,8 @@ public:
         // Allocate array storage.
         if (!m_isModifiedGramSchmidt)
         {
-            m_vExchange = MemoryRegion<TData>(m_LinSysMaxStorage, eHostPinned);
+            m_vExchange = LibUtilities::MemoryRegion<TData>(m_LinSysMaxStorage,
+                                                            eHostPinned);
         }
 
         m_truncted = (m_KrylovMaxHessMatBand > 0);
@@ -138,9 +142,9 @@ public:
         // Set storage of LGMRES.
         for (unsigned int dir = 0; dir < m_GMRESDeltaDirection; dir++)
         {
-            m_delta.push_back(Field<TData, FieldState::Coeff>(
+            m_delta.push_back(MultiRegions::Field<TData, FieldState::Coeff>(
                 "GMRESOp delta" + std::to_string(dir),
-                GetBlockAttributes<TData, FieldState::Coeff>(
+                MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                     this->m_expansionList),
                 this->m_components, 1));
         }
@@ -159,19 +163,19 @@ public:
     }
 
 protected:
-    Field<TData, FieldState::Coeff> m_w;
-    Field<TData, FieldState::Coeff> m_wk;
-    Field<TData, FieldState::Coeff> m_r0;
-    std::vector<Field<TData, FieldState::Coeff>> m_V;
-    std::vector<Field<TData, FieldState::Coeff>> m_Z;
-    std::deque<Field<TData, FieldState::Coeff>> m_delta;
+    MultiRegions::Field<TData, FieldState::Coeff> m_w;
+    MultiRegions::Field<TData, FieldState::Coeff> m_wk;
+    MultiRegions::Field<TData, FieldState::Coeff> m_r0;
+    std::vector<MultiRegions::Field<TData, FieldState::Coeff>> m_V;
+    std::vector<MultiRegions::Field<TData, FieldState::Coeff>> m_Z;
+    std::deque<MultiRegions::Field<TData, FieldState::Coeff>> m_delta;
     std::vector<std::vector<TData>> m_hes;
     std::vector<std::vector<TData>> m_upper;
     std::vector<unsigned int> m_id;
     std::vector<unsigned int> m_id_start;
     std::vector<unsigned int> m_id_end;
 
-    MemoryRegion<TData> m_vExchange;
+    LibUtilities::MemoryRegion<TData> m_vExchange;
 
     TData rhsMagnitude = NekConstants::kNekUnsetDouble;
     bool m_flexible;
@@ -182,8 +186,8 @@ protected:
     unsigned int m_LinSysMaxStorage;
     unsigned int m_KrylovMaxHessMatBand;
 
-    void v_Apply(Field<TData, FieldState::Coeff> &in,
-                 Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
+                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
     {
         // Allocate array storage.
         // Residual
@@ -221,12 +225,12 @@ protected:
         // Allocate memory, if necessary.
         if (m_V.size() == 0)
         {
-            m_V.push_back(Field<TData, FieldState::Coeff>(
-                GetBlockAttributes<TData, FieldState::Coeff>(
+            m_V.push_back(MultiRegions::Field<TData, FieldState::Coeff>(
+                MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                     this->m_expansionList),
                 this->m_components, 1));
-            m_Z.push_back(Field<TData, FieldState::Coeff>(
-                GetBlockAttributes<TData, FieldState::Coeff>(
+            m_Z.push_back(MultiRegions::Field<TData, FieldState::Coeff>(
+                MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                     this->m_expansionList),
                 this->m_components, 1));
         }
@@ -436,16 +440,18 @@ protected:
                 // Allocate new storage, if necessary.
                 if (m_V.size() == ii)
                 {
-                    m_V.push_back(Field<TData, FieldState::Coeff>(
-                        GetBlockAttributes<TData, FieldState::Coeff>(
-                            this->m_expansionList),
+                    m_V.push_back(MultiRegions::Field<TData, FieldState::Coeff>(
+                        MultiRegions::GetBlockAttributes<
+                            TData, FieldState::Coeff>(this->m_expansionList),
                         this->m_components, 1));
                     if (m_flexible)
                     {
-                        m_Z.push_back(Field<TData, FieldState::Coeff>(
-                            GetBlockAttributes<TData, FieldState::Coeff>(
-                                this->m_expansionList),
-                            this->m_components, 1));
+                        m_Z.push_back(
+                            MultiRegions::Field<TData, FieldState::Coeff>(
+                                MultiRegions::GetBlockAttributes<
+                                    TData, FieldState::Coeff>(
+                                    this->m_expansionList),
+                                this->m_components, 1));
                     }
                 }
 

@@ -53,29 +53,33 @@ public:
         : ExplicitGEMOp<TData>(expansionList, components, order, variant)
     {
         auto blockAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(this->m_expansionList);
+            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
+                this->m_expansionList);
         unsigned int n =
             (this->m_variant == "Midpoint") ? this->m_order / 2 : this->m_order;
         for (unsigned int m = 0; m < n; ++m)
         {
-            this->m_T.push_back(Field<TData, FieldState::Phys>(
+            this->m_T.push_back(MultiRegions::Field<TData, FieldState::Phys>(
                 blockAttr, this->m_components, 1));
 
-            this->m_T0.push_back(Field<TData, FieldState::Phys>(
+            this->m_T0.push_back(MultiRegions::Field<TData, FieldState::Phys>(
                 blockAttr, this->m_components, 1));
         }
 
         for (unsigned int m = 0; m < this->m_order; ++m)
         {
-            this->m_solutions.push_back(Field<TData, FieldState::Phys>(
-                blockAttr, this->m_components, 1));
+            this->m_solutions.push_back(
+                MultiRegions::Field<TData, FieldState::Phys>(
+                    blockAttr, this->m_components, 1));
         }
 
         this->m_explicits.push_back(
-            Field<TData, FieldState::Phys>(blockAttr, this->m_components, 1));
+            MultiRegions::Field<TData, FieldState::Phys>(
+                blockAttr, this->m_components, 1));
 
         this->m_explicits.push_back(
-            Field<TData, FieldState::Phys>(blockAttr, this->m_components, 1));
+            MultiRegions::Field<TData, FieldState::Phys>(
+                blockAttr, this->m_components, 1));
     }
 
     // className - for OperatorFactory
@@ -92,7 +96,7 @@ public:
     }
 
 protected:
-    void v_Apply(Field<TData, FieldState::Phys> &inout) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &inout) override
     {
         // Check that required functions are defined.
         ASSERTL0(

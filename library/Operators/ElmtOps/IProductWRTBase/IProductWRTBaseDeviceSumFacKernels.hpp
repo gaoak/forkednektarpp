@@ -36,9 +36,9 @@
 
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 
-#include "Operators/Common/DeviceProperties.hpp"
+#include "LibUtilities/Backends/DeviceProperties.hpp"
+#include "LibUtilities/BasicUtils/Utils/UtilsDeviceKernels.hpp"
 #include "Operators/Common/Spaces.hpp"
-#include "Operators/Utils/UtilsDeviceKernels.hpp"
 
 namespace Nektar::Operators::detail
 {

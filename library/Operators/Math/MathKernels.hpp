@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/Field/Field.hpp"
+#include "MultiRegions/Field/Field.hpp"
 
 #include "Operators/Math/MathAVXKernels.hpp"
 #include "Operators/Math/MathDeviceOnHostKernels.hpp"
@@ -51,7 +51,8 @@ template <typename MemSpace> class internalMathKernelMask
 {
 public:
     template <typename TData, FieldState TFieldState>
-    static const uint8_t *GetInstance(BlockAccessor<TData, TFieldState> &block)
+    static const uint8_t *GetInstance(
+        MultiRegions::BlockAccessor<TData, TFieldState> &block)
     {
         auto key =
             std::tuple<size_t, size_t, unsigned int, size_t, unsigned int>(
@@ -117,7 +118,7 @@ private:
 };
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void zero(Field<TData, TFieldState> &x)
+void zero(MultiRegions::Field<TData, TFieldState> &x)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -134,7 +135,8 @@ void zero(Field<TData, TFieldState> &x)
     }
 }
 
-template <typename ExecSpace, typename TData> void zero(MemoryRegion<TData> &x)
+template <typename ExecSpace, typename TData>
+void zero(LibUtilities::MemoryRegion<TData> &x)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -145,7 +147,7 @@ template <typename ExecSpace, typename TData> void zero(MemoryRegion<TData> &x)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void fill(const TData &val, Field<TData, TFieldState> &x)
+void fill(const TData &val, MultiRegions::Field<TData, TFieldState> &x)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -163,7 +165,7 @@ void fill(const TData &val, Field<TData, TFieldState> &x)
 }
 
 template <typename ExecSpace, typename TData>
-void fill(const TData &val, MemoryRegion<TData> &x)
+void fill(const TData &val, LibUtilities::MemoryRegion<TData> &x)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -174,7 +176,8 @@ void fill(const TData &val, MemoryRegion<TData> &x)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void copy(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
+void copy(MultiRegions::Field<TData, TFieldState> &x,
+          MultiRegions::Field<TData, TFieldState> &y)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -205,7 +208,8 @@ void copy(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
 }
 
 template <typename ExecSpace, typename TData>
-void copy(MemoryRegion<TData> &x, MemoryRegion<TData> &y)
+void copy(LibUtilities::MemoryRegion<TData> &x,
+          LibUtilities::MemoryRegion<TData> &y)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -225,7 +229,8 @@ void copy(MemoryRegion<TData> &x, MemoryRegion<TData> &y)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void abs(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
+void abs(MultiRegions::Field<TData, TFieldState> &x,
+         MultiRegions::Field<TData, TFieldState> &y)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -256,7 +261,8 @@ void abs(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
 }
 
 template <typename ExecSpace, typename TData>
-void abs(MemoryRegion<TData> &x, MemoryRegion<TData> &y)
+void abs(LibUtilities::MemoryRegion<TData> &x,
+         LibUtilities::MemoryRegion<TData> &y)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -276,7 +282,8 @@ void abs(MemoryRegion<TData> &x, MemoryRegion<TData> &y)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void neg(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
+void neg(MultiRegions::Field<TData, TFieldState> &x,
+         MultiRegions::Field<TData, TFieldState> &y)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -307,7 +314,8 @@ void neg(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
 }
 
 template <typename ExecSpace, typename TData>
-void neg(MemoryRegion<TData> &x, MemoryRegion<TData> &y)
+void neg(LibUtilities::MemoryRegion<TData> &x,
+         LibUtilities::MemoryRegion<TData> &y)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -327,7 +335,8 @@ void neg(MemoryRegion<TData> &x, MemoryRegion<TData> &y)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void sqrt(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
+void sqrt(MultiRegions::Field<TData, TFieldState> &x,
+          MultiRegions::Field<TData, TFieldState> &y)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -358,7 +367,8 @@ void sqrt(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
 }
 
 template <typename ExecSpace, typename TData>
-void sqrt(MemoryRegion<TData> &x, MemoryRegion<TData> &y)
+void sqrt(LibUtilities::MemoryRegion<TData> &x,
+          LibUtilities::MemoryRegion<TData> &y)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -378,8 +388,9 @@ void sqrt(MemoryRegion<TData> &x, MemoryRegion<TData> &y)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void add(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
-         Field<TData, TFieldState> &z)
+void add(MultiRegions::Field<TData, TFieldState> &x,
+         MultiRegions::Field<TData, TFieldState> &y,
+         MultiRegions::Field<TData, TFieldState> &z)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -417,7 +428,9 @@ void add(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
 }
 
 template <typename ExecSpace, typename TData>
-void add(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
+void add(LibUtilities::MemoryRegion<TData> &x,
+         LibUtilities::MemoryRegion<TData> &y,
+         LibUtilities::MemoryRegion<TData> &z)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -438,8 +451,9 @@ void add(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void sub(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
-         Field<TData, TFieldState> &z)
+void sub(MultiRegions::Field<TData, TFieldState> &x,
+         MultiRegions::Field<TData, TFieldState> &y,
+         MultiRegions::Field<TData, TFieldState> &z)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -477,7 +491,9 @@ void sub(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
 }
 
 template <typename ExecSpace, typename TData>
-void sub(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
+void sub(LibUtilities::MemoryRegion<TData> &x,
+         LibUtilities::MemoryRegion<TData> &y,
+         LibUtilities::MemoryRegion<TData> &z)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -498,8 +514,8 @@ void sub(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void mul(const TData alpha, Field<TData, TFieldState> &x,
-         Field<TData, TFieldState> &y)
+void mul(const TData alpha, MultiRegions::Field<TData, TFieldState> &x,
+         MultiRegions::Field<TData, TFieldState> &y)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -530,7 +546,8 @@ void mul(const TData alpha, Field<TData, TFieldState> &x,
 }
 
 template <typename ExecSpace, typename TData>
-void mul(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y)
+void mul(const TData alpha, LibUtilities::MemoryRegion<TData> &x,
+         LibUtilities::MemoryRegion<TData> &y)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -550,8 +567,9 @@ void mul(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void mul(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
-         Field<TData, TFieldState> &z)
+void mul(MultiRegions::Field<TData, TFieldState> &x,
+         MultiRegions::Field<TData, TFieldState> &y,
+         MultiRegions::Field<TData, TFieldState> &z)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -589,7 +607,9 @@ void mul(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
 }
 
 template <typename ExecSpace, typename TData>
-void mul(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
+void mul(LibUtilities::MemoryRegion<TData> &x,
+         LibUtilities::MemoryRegion<TData> &y,
+         LibUtilities::MemoryRegion<TData> &z)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -610,8 +630,8 @@ void mul(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void div(const TData alpha, Field<TData, TFieldState> &x,
-         Field<TData, TFieldState> &y)
+void div(const TData alpha, MultiRegions::Field<TData, TFieldState> &x,
+         MultiRegions::Field<TData, TFieldState> &y)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -642,7 +662,8 @@ void div(const TData alpha, Field<TData, TFieldState> &x,
 }
 
 template <typename ExecSpace, typename TData>
-void div(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y)
+void div(const TData alpha, LibUtilities::MemoryRegion<TData> &x,
+         LibUtilities::MemoryRegion<TData> &y)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -662,8 +683,9 @@ void div(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void div(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
-         Field<TData, TFieldState> &z)
+void div(MultiRegions::Field<TData, TFieldState> &x,
+         MultiRegions::Field<TData, TFieldState> &y,
+         MultiRegions::Field<TData, TFieldState> &z)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -701,7 +723,9 @@ void div(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
 }
 
 template <typename ExecSpace, typename TData>
-void div(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
+void div(LibUtilities::MemoryRegion<TData> &x,
+         LibUtilities::MemoryRegion<TData> &y,
+         LibUtilities::MemoryRegion<TData> &z)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -722,8 +746,9 @@ void div(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void daxpy(const TData alpha, Field<TData, TFieldState> &x,
-           Field<TData, TFieldState> &y, Field<TData, TFieldState> &z)
+void daxpy(const TData alpha, MultiRegions::Field<TData, TFieldState> &x,
+           MultiRegions::Field<TData, TFieldState> &y,
+           MultiRegions::Field<TData, TFieldState> &z)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -761,8 +786,9 @@ void daxpy(const TData alpha, Field<TData, TFieldState> &x,
 }
 
 template <typename ExecSpace, typename TData>
-void daxpy(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y,
-           MemoryRegion<TData> &z)
+void daxpy(const TData alpha, LibUtilities::MemoryRegion<TData> &x,
+           LibUtilities::MemoryRegion<TData> &y,
+           LibUtilities::MemoryRegion<TData> &z)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -783,7 +809,7 @@ void daxpy(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y,
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void reduceSum(Field<TData, TFieldState> &x, TData *out)
+void reduceSum(MultiRegions::Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -818,7 +844,7 @@ void reduceSum(Field<TData, TFieldState> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-void reduceSum(MemoryRegion<TData> &x, TData *out)
+void reduceSum(LibUtilities::MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -829,8 +855,8 @@ void reduceSum(MemoryRegion<TData> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void reduceSum(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
-               TData *out)
+void reduceSum(MultiRegions::Field<uint8_t, TFieldState> &mask,
+               MultiRegions::Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -864,7 +890,8 @@ void reduceSum(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
 }
 
 template <typename ExecSpace, typename TData>
-void reduceSum(MemoryRegion<uint8_t> &mask, MemoryRegion<TData> &x, TData *out)
+void reduceSum(LibUtilities::MemoryRegion<uint8_t> &mask,
+               LibUtilities::MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -876,7 +903,7 @@ void reduceSum(MemoryRegion<uint8_t> &mask, MemoryRegion<TData> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void reduceMax(Field<TData, TFieldState> &x, TData *out)
+void reduceMax(MultiRegions::Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -911,7 +938,7 @@ void reduceMax(Field<TData, TFieldState> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-void reduceMax(MemoryRegion<TData> &x, TData *out)
+void reduceMax(LibUtilities::MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -922,8 +949,8 @@ void reduceMax(MemoryRegion<TData> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void reduceMax(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
-               TData *out)
+void reduceMax(MultiRegions::Field<uint8_t, TFieldState> &mask,
+               MultiRegions::Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -957,7 +984,8 @@ void reduceMax(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
 }
 
 template <typename ExecSpace, typename TData>
-void reduceMax(MemoryRegion<uint8_t> &mask, MemoryRegion<TData> &x, TData *out)
+void reduceMax(LibUtilities::MemoryRegion<uint8_t> &mask,
+               LibUtilities::MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -969,7 +997,7 @@ void reduceMax(MemoryRegion<uint8_t> &mask, MemoryRegion<TData> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void reduceMin(Field<TData, TFieldState> &x, TData *out)
+void reduceMin(MultiRegions::Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1004,7 +1032,7 @@ void reduceMin(Field<TData, TFieldState> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-void reduceMin(MemoryRegion<TData> &x, TData *out)
+void reduceMin(LibUtilities::MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1015,8 +1043,8 @@ void reduceMin(MemoryRegion<TData> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void reduceMin(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
-               TData *out)
+void reduceMin(MultiRegions::Field<uint8_t, TFieldState> &mask,
+               MultiRegions::Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1050,7 +1078,8 @@ void reduceMin(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
 }
 
 template <typename ExecSpace, typename TData>
-void reduceMin(MemoryRegion<uint8_t> &mask, MemoryRegion<TData> &x, TData *out)
+void reduceMin(LibUtilities::MemoryRegion<uint8_t> &mask,
+               LibUtilities::MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1062,8 +1091,8 @@ void reduceMin(MemoryRegion<uint8_t> &mask, MemoryRegion<TData> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
-          TData *out)
+void ddot(MultiRegions::Field<TData, TFieldState> &x,
+          MultiRegions::Field<TData, TFieldState> &y, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1114,7 +1143,8 @@ void ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
 }
 
 template <typename ExecSpace, typename TData>
-void ddot(MemoryRegion<TData> &x, MemoryRegion<TData> &y, TData *out)
+void ddot(LibUtilities::MemoryRegion<TData> &x,
+          LibUtilities::MemoryRegion<TData> &y, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1134,8 +1164,9 @@ void ddot(MemoryRegion<TData> &x, MemoryRegion<TData> &y, TData *out)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void ddot(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
-          Field<TData, TFieldState> &y, TData *out)
+void ddot(MultiRegions::Field<uint8_t, TFieldState> &mask,
+          MultiRegions::Field<TData, TFieldState> &x,
+          MultiRegions::Field<TData, TFieldState> &y, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1181,8 +1212,9 @@ void ddot(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
 }
 
 template <typename ExecSpace, typename TData>
-void ddot(MemoryRegion<uint8_t> &mask, MemoryRegion<TData> &x,
-          MemoryRegion<TData> &y, TData *out)
+void ddot(LibUtilities::MemoryRegion<uint8_t> &mask,
+          LibUtilities::MemoryRegion<TData> &x,
+          LibUtilities::MemoryRegion<TData> &y, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1203,7 +1235,7 @@ void ddot(MemoryRegion<uint8_t> &mask, MemoryRegion<TData> &x,
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void l1norm(Field<TData, TFieldState> &x, TData *out)
+void l1norm(MultiRegions::Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1237,7 +1269,7 @@ void l1norm(Field<TData, TFieldState> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-void l1norm(MemoryRegion<TData> &x, TData *out)
+void l1norm(LibUtilities::MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1248,8 +1280,8 @@ void l1norm(MemoryRegion<TData> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void l1norm(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
-            TData *out)
+void l1norm(MultiRegions::Field<uint8_t, TFieldState> &mask,
+            MultiRegions::Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1283,7 +1315,8 @@ void l1norm(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
 }
 
 template <typename ExecSpace, typename TData>
-void l1norm(MemoryRegion<uint8_t> &mask, MemoryRegion<TData> &x, TData *out)
+void l1norm(LibUtilities::MemoryRegion<uint8_t> &mask,
+            LibUtilities::MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1295,7 +1328,7 @@ void l1norm(MemoryRegion<uint8_t> &mask, MemoryRegion<TData> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void l2norm(Field<TData, TFieldState> &x, TData *out)
+void l2norm(MultiRegions::Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1329,7 +1362,7 @@ void l2norm(Field<TData, TFieldState> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-void l2norm(MemoryRegion<TData> &x, TData *out)
+void l2norm(LibUtilities::MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1340,8 +1373,8 @@ void l2norm(MemoryRegion<TData> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void l2norm(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
-            TData *out)
+void l2norm(MultiRegions::Field<uint8_t, TFieldState> &mask,
+            MultiRegions::Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1375,7 +1408,8 @@ void l2norm(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
 }
 
 template <typename ExecSpace, typename TData>
-void l2norm(MemoryRegion<uint8_t> &mask, MemoryRegion<TData> &x, TData *out)
+void l2norm(LibUtilities::MemoryRegion<uint8_t> &mask,
+            LibUtilities::MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1387,7 +1421,8 @@ void l2norm(MemoryRegion<uint8_t> &mask, MemoryRegion<TData> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void lpnorm(const unsigned int p, Field<TData, TFieldState> &x, TData *out)
+void lpnorm(const unsigned int p, MultiRegions::Field<TData, TFieldState> &x,
+            TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1422,7 +1457,8 @@ void lpnorm(const unsigned int p, Field<TData, TFieldState> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-void lpnorm(const unsigned int p, MemoryRegion<TData> &x, TData *out)
+void lpnorm(const unsigned int p, LibUtilities::MemoryRegion<TData> &x,
+            TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1433,8 +1469,9 @@ void lpnorm(const unsigned int p, MemoryRegion<TData> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void lpnorm(const unsigned int p, Field<uint8_t, TFieldState> &mask,
-            Field<TData, TFieldState> &x, TData *out)
+void lpnorm(const unsigned int p,
+            MultiRegions::Field<uint8_t, TFieldState> &mask,
+            MultiRegions::Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1468,8 +1505,8 @@ void lpnorm(const unsigned int p, Field<uint8_t, TFieldState> &mask,
 }
 
 template <typename ExecSpace, typename TData>
-void lpnorm(const unsigned int p, MemoryRegion<uint8_t> &mask,
-            MemoryRegion<TData> &x, TData *out)
+void lpnorm(const unsigned int p, LibUtilities::MemoryRegion<uint8_t> &mask,
+            LibUtilities::MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1481,7 +1518,7 @@ void lpnorm(const unsigned int p, MemoryRegion<uint8_t> &mask,
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void linfnorm(Field<TData, TFieldState> &x, TData *out)
+void linfnorm(MultiRegions::Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1516,7 +1553,7 @@ void linfnorm(Field<TData, TFieldState> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-void linfnorm(MemoryRegion<TData> &x, TData *out)
+void linfnorm(LibUtilities::MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1527,8 +1564,8 @@ void linfnorm(MemoryRegion<TData> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-void linfnorm(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
-              TData *out)
+void linfnorm(MultiRegions::Field<uint8_t, TFieldState> &mask,
+              MultiRegions::Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -1562,7 +1599,8 @@ void linfnorm(Field<uint8_t, TFieldState> &mask, Field<TData, TFieldState> &x,
 }
 
 template <typename ExecSpace, typename TData>
-void linfnorm(MemoryRegion<uint8_t> &mask, MemoryRegion<TData> &x, TData *out)
+void linfnorm(LibUtilities::MemoryRegion<uint8_t> &mask,
+              LibUtilities::MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 

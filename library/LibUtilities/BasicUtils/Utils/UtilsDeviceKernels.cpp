@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DeviceProperties.cpp
+// File: UtilsDeviceKernels.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,28 +32,10 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <Operators/Common/DeviceProperties.hpp>
+#include "LibUtilities/BasicUtils/Utils/UtilsDeviceKernelsHelper.hpp"
 
 namespace Nektar
 {
-
-#if defined(NEKTAR_ENABLE_CUDA)
-std::unordered_map<unsigned int, cudaDeviceProp> *GetDeviceProperties::prop =
-    nullptr;
-#elif defined(NEKTAR_ENABLE_HIP)
-std::unordered_map<unsigned int, hipDeviceProp_t> *GetDeviceProperties::prop =
-    nullptr;
-#elif defined(NEKTAR_ENABLE_SYCL)
-std::unordered_map<unsigned int, size_t>
-    GetDeviceProperties::m_sharedMemoryPerBlock;
-std::unordered_map<unsigned int, size_t>
-    GetDeviceProperties::m_sharedMemoryPerMultiprocessor;
-std::unordered_map<unsigned int, size_t>
-    GetDeviceProperties::m_totalGlobalMemory;
-std::unordered_map<unsigned int, unsigned int>
-    GetDeviceProperties::m_numMultiProcessors;
-std::unordered_map<unsigned int, size_t>
-    GetDeviceProperties::m_maxThreadsPerMultiprocessor;
-#endif
-
+std::unordered_map<unsigned int, void *> internalInterleaveDeviceBuffer;
+std::unordered_map<unsigned int, size_t> internalInterleaveDeviceBufferSize;
 } // namespace Nektar

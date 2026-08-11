@@ -37,7 +37,6 @@
 
 #include <ADRSolverRedesign/LinearAdvVolumeFlux/LinearAdvVolumeFluxOp.hpp>
 #include <Operators/ElmtOps/Advection/AdvectionOp.hpp>
-#include <Operators/Field/Field.hpp>
 #include <Operators/GetFwdBwdTracePhys/GetFwdBwdTracePhysOp.hpp>
 #include <Operators/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp>
 #include <Operators/SolverUtilsOps/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
@@ -45,6 +44,8 @@
 #include <Operators/SolverUtilsOps/RiemannSolvers/RiemannSolverOp.hpp>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 #include <SolverCore/Forcing/Forcing.h>
+
+#include <MultiRegions/Field/Field.hpp>
 
 namespace Nektar
 {
@@ -87,8 +88,8 @@ protected:
     bool m_implicitDiffusion = false;
 
     // Setup workspaces
-    Field<double, FieldState::Phys> m_advectionVel;
-    Field<double, FieldState::Phys> m_traceAdvectionVel;
+    MultiRegions::Field<double, FieldState::Phys> m_advectionVel;
+    MultiRegions::Field<double, FieldState::Phys> m_traceAdvectionVel;
 
     // Initialise operators
     std::shared_ptr<AdvectionOp<double>> m_advectionCGOp;
@@ -107,13 +108,13 @@ protected:
 
     ~UnsteadyADR() override = default;
 
-    void DoImplicit(Field<double, FieldState::Phys> &inout,
-                    Field<double, FieldState::Phys> &out, const double &time,
-                    const double &lambda);
+    void DoImplicit(MultiRegions::Field<double, FieldState::Phys> &inout,
+                    MultiRegions::Field<double, FieldState::Phys> &out,
+                    const double &time, const double &lambda);
 
-    void DoExplicitRhs(Field<double, FieldState::Phys> &in,
-                       Field<double, FieldState::Phys> &out, const double &time,
-                       const double &dt);
+    void DoExplicitRhs(MultiRegions::Field<double, FieldState::Phys> &in,
+                       MultiRegions::Field<double, FieldState::Phys> &out,
+                       const double &time, const double &dt);
 
     void v_InitObject(bool declareExpansionLists = true) override;
 

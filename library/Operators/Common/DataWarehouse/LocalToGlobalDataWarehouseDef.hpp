@@ -34,8 +34,8 @@
 
 #pragma once
 
+#include "MultiRegions/Field/Field.hpp"
 #include "Operators/Common/DataWarehouse/LocalToGlobalDataWarehouse.hpp"
-#include "Operators/Field/Field.hpp"
 
 #include <MultiRegions/ContField.h>
 
@@ -93,7 +93,8 @@ std::vector<MultiRegions::AssemblyMapCGSharedPtr> &LocalToGlobalDataCreator::
 }
 
 template <typename MemSpace, typename TPadding>
-MemoryRegion<typename DeviceLocalToGlobalKey<TPadding>::value_type>
+LibUtilities::MemoryRegion<
+    typename DeviceLocalToGlobalKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
     const DeviceLocalToGlobalKey<TPadding> &LocToGloKey)
 {
@@ -122,7 +123,8 @@ LocalToGlobalDataCreator::Create(
     // of the assembled data is assumed to be. Not sure what we shoudl do it
     // is float however but legacy code is not set up for this either
     auto blockAttr =
-        GetBlockAttributes<TPadding, FieldState::Coeff>(this->m_expansionList);
+        MultiRegions::GetBlockAttributes<TPadding, FieldState::Coeff>(
+            this->m_expansionList);
 
     auto nblks = blockAttr.size();
     std::map<unsigned, std::vector<std::pair<unsigned, unsigned>>> GloToLoc;
@@ -249,7 +251,7 @@ LocalToGlobalDataCreator::Create(
     }
 
     // Decalare memory for all local to global informaiton.
-    auto LocToGlo = MemoryRegion<value_type>(nvalstot + 2 + nidx);
+    auto LocToGlo = LibUtilities::MemoryRegion<value_type>(nvalstot + 2 + nidx);
     auto ptr = LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     // Fill the pointer
@@ -293,7 +295,8 @@ LocalToGlobalDataCreator::Create(
 }
 
 template <typename MemSpace, typename TPadding>
-MemoryRegion<typename DeviceLocalToGlobalNumAssembleKey<TPadding>::value_type>
+LibUtilities::MemoryRegion<
+    typename DeviceLocalToGlobalNumAssembleKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
     const DeviceLocalToGlobalNumAssembleKey<TPadding> &LocToGloKey)
 {
@@ -314,7 +317,7 @@ LocalToGlobalDataCreator::Create(
         (nvals + (width - 1)) / width * width; // width aligned length
 
     // Decalare memory
-    auto LocToGlo = MemoryRegion<value_type>(nvalswidth);
+    auto LocToGlo = LibUtilities::MemoryRegion<value_type>(nvalswidth);
     auto ptr = LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     for (unsigned i = 0; i < nvals; ++i)
@@ -331,7 +334,8 @@ LocalToGlobalDataCreator::Create(
 }
 
 template <typename MemSpace, typename TPadding>
-MemoryRegion<typename DeviceLocalToGlobalIndexKey<TPadding>::value_type>
+LibUtilities::MemoryRegion<
+    typename DeviceLocalToGlobalIndexKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
     const DeviceLocalToGlobalIndexKey<TPadding> &LocToGloKey)
 {
@@ -357,7 +361,7 @@ LocalToGlobalDataCreator::Create(
     }
 
     // Decalare memory
-    auto LocToGlo = MemoryRegion<value_type>(nidx);
+    auto LocToGlo = LibUtilities::MemoryRegion<value_type>(nidx);
     auto ptr = LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     unsigned offset = nvals + 2;
@@ -401,7 +405,8 @@ LocalToGlobalDataCreator::Create(
 }
 
 template <typename MemSpace, typename TPadding>
-MemoryRegion<typename DeviceLocalToGlobalIndexOffsetKey<TPadding>::value_type>
+LibUtilities::MemoryRegion<
+    typename DeviceLocalToGlobalIndexOffsetKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
     const DeviceLocalToGlobalIndexOffsetKey<TPadding> &LocToGloKey)
 {
@@ -422,7 +427,7 @@ LocalToGlobalDataCreator::Create(
         (nvals + (width - 1)) / width * width; // width aligned length
 
     // Decalare memory
-    auto LocToGlo = MemoryRegion<value_type>(nvalswidth);
+    auto LocToGlo = LibUtilities::MemoryRegion<value_type>(nvalswidth);
     auto ptr = LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     // Determine the offset for index and sign data
@@ -462,7 +467,8 @@ void LocalToGlobalDataCreator::FillSignArray(
             : Array<OneD, double>(this->m_expansionList->GetNcoeffs(), 1.0);
 
     auto blockAttr =
-        GetBlockAttributes<TPadding, FieldState::Coeff>(this->m_expansionList);
+        MultiRegions::GetBlockAttributes<TPadding, FieldState::Coeff>(
+            this->m_expansionList);
 
     auto nblks = blockAttr.size();
     std::vector<unsigned> blkoffset(nblks + 1);
@@ -549,7 +555,8 @@ void LocalToGlobalDataCreator::FillSignArray(
 }
 
 template <typename MemSpace, typename TPadding>
-MemoryRegion<typename DeviceLocalToGlobalSignKey<TPadding>::value_type>
+LibUtilities::MemoryRegion<
+    typename DeviceLocalToGlobalSignKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
     const DeviceLocalToGlobalSignKey<TPadding> &LocToGloKey)
 {
@@ -591,7 +598,7 @@ LocalToGlobalDataCreator::Create(
     }
 
     // Decalare memory for all local to global information.
-    auto LocToGloSign = MemoryRegion<value_type>(nidx);
+    auto LocToGloSign = LibUtilities::MemoryRegion<value_type>(nidx);
     auto ptr =
         LocToGloSign.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -635,7 +642,8 @@ LocalToGlobalDataCreator::Create(
 }
 
 template <typename MemSpace, typename TPadding>
-MemoryRegion<typename DeviceBndLocalToGlobalKey<TPadding>::value_type>
+LibUtilities::MemoryRegion<
+    typename DeviceBndLocalToGlobalKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
     const DeviceBndLocalToGlobalKey<TPadding> &LocToGloKey)
 {
@@ -656,7 +664,8 @@ LocalToGlobalDataCreator::Create(
                                             loc2glo->GetSREntries().end());
 
     auto blockAttr =
-        GetBlockAttributes<TPadding, FieldState::Coeff>(this->m_expansionList);
+        MultiRegions::GetBlockAttributes<TPadding, FieldState::Coeff>(
+            this->m_expansionList);
 
     auto nblks = blockAttr.size();
     std::map<unsigned, std::vector<std::pair<unsigned, unsigned>>> GloToLoc;
@@ -800,7 +809,7 @@ LocalToGlobalDataCreator::Create(
     }
 
     // Decalare memory for all local to global informaiton.
-    auto LocToGlo = MemoryRegion<value_type>(nvalstot + 2 + nidx);
+    auto LocToGlo = LibUtilities::MemoryRegion<value_type>(nvalstot + 2 + nidx);
     auto ptr = LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     // Fill the pointer
@@ -852,7 +861,7 @@ LocalToGlobalDataCreator::Create(
 }
 
 template <typename MemSpace, typename TPadding>
-MemoryRegion<
+LibUtilities::MemoryRegion<
     typename DeviceBndLocalToGlobalNumAssembleKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
     const DeviceBndLocalToGlobalNumAssembleKey<TPadding> &LocToGloKey)
@@ -868,7 +877,7 @@ LocalToGlobalDataCreator::Create(
     auto nvals = gsinfo[0];
 
     // Decalare memory
-    auto LocToGlo = MemoryRegion<value_type>(nvals);
+    auto LocToGlo = LibUtilities::MemoryRegion<value_type>(nvals);
     auto ptr = LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     const unsigned *ind = gsinfo + nvals + 2;
@@ -882,7 +891,8 @@ LocalToGlobalDataCreator::Create(
 }
 
 template <typename MemSpace, typename TPadding>
-MemoryRegion<typename DeviceBndLocalToGlobalNumBndValsKey<TPadding>::value_type>
+LibUtilities::MemoryRegion<
+    typename DeviceBndLocalToGlobalNumBndValsKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
     const DeviceBndLocalToGlobalNumBndValsKey<TPadding> &LocToGloKey)
 {
@@ -897,7 +907,7 @@ LocalToGlobalDataCreator::Create(
     auto nvals = gsinfo[0];
 
     // Decalare memory
-    auto LocToGlo = MemoryRegion<value_type>(nvals);
+    auto LocToGlo = LibUtilities::MemoryRegion<value_type>(nvals);
     auto ptr = LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     const unsigned *ind = gsinfo + nvals + 2;
@@ -911,7 +921,8 @@ LocalToGlobalDataCreator::Create(
 }
 
 template <typename MemSpace, typename TPadding>
-MemoryRegion<typename DeviceBndLocalToGlobalIndexKey<TPadding>::value_type>
+LibUtilities::MemoryRegion<
+    typename DeviceBndLocalToGlobalIndexKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
     const DeviceBndLocalToGlobalIndexKey<TPadding> &LocToGloKey)
 {
@@ -934,7 +945,7 @@ LocalToGlobalDataCreator::Create(
     }
 
     // Decalare memory
-    auto LocToGlo = MemoryRegion<value_type>(nvaltot);
+    auto LocToGlo = LibUtilities::MemoryRegion<value_type>(nvaltot);
     auto ptr = LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     unsigned cnt = 0;
@@ -953,7 +964,8 @@ LocalToGlobalDataCreator::Create(
 }
 
 template <typename MemSpace, typename TPadding>
-MemoryRegion<typename DeviceBndLocalToGlobalOffsetKey<TPadding>::value_type>
+LibUtilities::MemoryRegion<
+    typename DeviceBndLocalToGlobalOffsetKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
     const DeviceBndLocalToGlobalOffsetKey<TPadding> &LocToGloKey)
 {
@@ -969,7 +981,7 @@ LocalToGlobalDataCreator::Create(
     const unsigned *ind = gsinfo + nvals + 2;
 
     // Decalare memory
-    auto LocToGlo = MemoryRegion<value_type>(nvals);
+    auto LocToGlo = LibUtilities::MemoryRegion<value_type>(nvals);
     auto ptr = LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     ptr[0] = 0;
@@ -986,7 +998,7 @@ LocalToGlobalDataCreator::Create(
 }
 
 template <typename MemSpace, typename TPadding>
-MemoryRegion<
+LibUtilities::MemoryRegion<
     typename DeviceBndLocalToGlobalAssembleOrderKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
     const DeviceBndLocalToGlobalAssembleOrderKey<TPadding> &LocToGloKey)
@@ -1003,7 +1015,7 @@ LocalToGlobalDataCreator::Create(
     const unsigned *ind = gsinfo + nvals + 2;
 
     // Decalare memory
-    auto LocToGlo = MemoryRegion<value_type>(nvals);
+    auto LocToGlo = LibUtilities::MemoryRegion<value_type>(nvals);
     auto ptr = LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     for (unsigned i = 0; i < nvals; ++i)
@@ -1019,7 +1031,8 @@ LocalToGlobalDataCreator::Create(
 }
 
 template <typename MemSpace, typename TPadding>
-MemoryRegion<typename DeviceBndLocalToGlobalSignKey<TPadding>::value_type>
+LibUtilities::MemoryRegion<
+    typename DeviceBndLocalToGlobalSignKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
     const DeviceBndLocalToGlobalSignKey<TPadding> &LocToGloKey)
 {
@@ -1056,7 +1069,7 @@ LocalToGlobalDataCreator::Create(
 
     FillSignArray<TPadding>(lids, loc2glo, zeroDir, signChange, sign.data());
 
-    auto LocToGloSign = MemoryRegion<value_type>(ntot);
+    auto LocToGloSign = LibUtilities::MemoryRegion<value_type>(ntot);
     auto signptr =
         LocToGloSign.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
@@ -1081,7 +1094,7 @@ LocalToGlobalDataCreator::Create(
 }
 
 template <typename MemSpace, typename TPadding>
-MemoryRegion<typename LocalToGlobalMaskKey<TPadding>::value_type>
+LibUtilities::MemoryRegion<typename LocalToGlobalMaskKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
     [[maybe_unused]] const LocalToGlobalMaskKey<TPadding> &LocToGloKey)
 {
@@ -1092,7 +1105,8 @@ LocalToGlobalDataCreator::Create(
     auto loc2glo     = loc2gloAll[0];
     auto l2gmap0     = loc2glo->GetLocalToGlobalMap();
     auto blockAttr =
-        GetBlockAttributes<TPadding, FieldState::Coeff>(this->m_expansionList);
+        MultiRegions::GetBlockAttributes<TPadding, FieldState::Coeff>(
+            this->m_expansionList);
     unsigned ntot = 0;
     unsigned blk  = 0;
     for (blk = 0; blk < blockAttr.size(); ++blk)
@@ -1101,7 +1115,7 @@ LocalToGlobalDataCreator::Create(
     }
 
     // Decalare memory for all local to global informaiton.
-    auto LocToGlo = MemoryRegion<value_type>(ntot);
+    auto LocToGlo = LibUtilities::MemoryRegion<value_type>(ntot);
     auto ptr = LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     std::set<unsigned> done;

@@ -50,14 +50,14 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
         : DiffusionCFETraceFluxOp<TData>(std::move(expansionList), components),
-          m_traceAver(Field<TData, FieldState::Phys>(
+          m_traceAver(MultiRegions::Field<TData, FieldState::Phys>(
               "Trace average",
-              GetBlockAttributes<TData, FieldState::Phys>(
+              MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList->GetTrace()),
               components.size(), 1)),
-          m_traceJump(Field<TData, FieldState::Phys>(
+          m_traceJump(MultiRegions::Field<TData, FieldState::Phys>(
               "Trace jump",
-              GetBlockAttributes<TData, FieldState::Phys>(
+              MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList->GetTrace()),
               components.size(), 1))
     {
@@ -136,13 +136,13 @@ protected:
     TData m_TRatioSutherland;
     TData m_oneOverTstar;
 
-    Field<TData, FieldState::Phys> m_traceAver, m_traceJump;
+    MultiRegions::Field<TData, FieldState::Phys> m_traceAver, m_traceJump;
 
-    void v_Apply(Field<TData, FieldState::Phys> &fwd,
-                 Field<TData, FieldState::Phys> &bwd,
-                 Field<TData, FieldState::Phys> &derivFwd,
-                 Field<TData, FieldState::Phys> &derivBwd,
-                 Field<TData, FieldState::Phys> &numflux) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &fwd,
+                 MultiRegions::Field<TData, FieldState::Phys> &bwd,
+                 MultiRegions::Field<TData, FieldState::Phys> &derivFwd,
+                 MultiRegions::Field<TData, FieldState::Phys> &derivBwd,
+                 MultiRegions::Field<TData, FieldState::Phys> &numflux) override
     {
         for (unsigned blk = 0; blk < numflux.GetBlocks().size(); ++blk)
         {
@@ -207,7 +207,7 @@ protected:
         ApplyFluxBndConds();
     }
 
-    void v_Apply(Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &out) override
     {
         // Placeholder for symmetric IP trace term.
         (void)out;

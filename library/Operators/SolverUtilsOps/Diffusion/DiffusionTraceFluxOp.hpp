@@ -44,32 +44,32 @@ template <typename TData> class DiffusionTraceFluxOp : public FluxOp<TData>
 public:
     // Build the physical numerical trace flux. For IP, this is where the
     // penalty term is added to the averaged normal diffusive flux.
-    void Apply(Field<TData, FieldState::Phys> &fwd,
-               Field<TData, FieldState::Phys> &bwd,
-               Field<TData, FieldState::Phys> &derivFwd,
-               Field<TData, FieldState::Phys> &derivBwd,
-               Field<TData, FieldState::Phys> &out)
+    void Apply(MultiRegions::Field<TData, FieldState::Phys> &fwd,
+               MultiRegions::Field<TData, FieldState::Phys> &bwd,
+               MultiRegions::Field<TData, FieldState::Phys> &derivFwd,
+               MultiRegions::Field<TData, FieldState::Phys> &derivBwd,
+               MultiRegions::Field<TData, FieldState::Phys> &out)
     {
         this->v_Apply(fwd, bwd, derivFwd, derivBwd, out);
     }
 
-    void operator()(Field<TData, FieldState::Phys> &fwd,
-                    Field<TData, FieldState::Phys> &bwd,
-                    Field<TData, FieldState::Phys> &derivFwd,
-                    Field<TData, FieldState::Phys> &derivBwd,
-                    Field<TData, FieldState::Phys> &out)
+    void operator()(MultiRegions::Field<TData, FieldState::Phys> &fwd,
+                    MultiRegions::Field<TData, FieldState::Phys> &bwd,
+                    MultiRegions::Field<TData, FieldState::Phys> &derivFwd,
+                    MultiRegions::Field<TData, FieldState::Phys> &derivBwd,
+                    MultiRegions::Field<TData, FieldState::Phys> &out)
     {
         this->v_Apply(fwd, bwd, derivFwd, derivBwd, out);
     }
 
     // Add the coefficient space symmetric IP trace term.
     // ScalarIP implemented, coupledIP not yet implemented.
-    void Apply(Field<TData, FieldState::Coeff> &out)
+    void Apply(MultiRegions::Field<TData, FieldState::Coeff> &out)
     {
         this->v_Apply(out);
     }
 
-    void operator()(Field<TData, FieldState::Coeff> &out)
+    void operator()(MultiRegions::Field<TData, FieldState::Coeff> &out)
     {
         this->v_Apply(out);
     }
@@ -83,13 +83,14 @@ protected:
 
     ~DiffusionTraceFluxOp() override = default;
 
-    virtual void v_Apply(Field<TData, FieldState::Phys> &fwd,
-                         Field<TData, FieldState::Phys> &bwd,
-                         Field<TData, FieldState::Phys> &derivFwd,
-                         Field<TData, FieldState::Phys> &derivBwd,
-                         Field<TData, FieldState::Phys> &out) = 0;
+    virtual void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &fwd,
+                         MultiRegions::Field<TData, FieldState::Phys> &bwd,
+                         MultiRegions::Field<TData, FieldState::Phys> &derivFwd,
+                         MultiRegions::Field<TData, FieldState::Phys> &derivBwd,
+                         MultiRegions::Field<TData, FieldState::Phys> &out) = 0;
 
-    virtual void v_Apply(Field<TData, FieldState::Coeff> &out) = 0;
+    virtual void v_Apply(
+        MultiRegions::Field<TData, FieldState::Coeff> &out) = 0;
 };
 
 template <typename TData>

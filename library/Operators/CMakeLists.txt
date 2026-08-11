@@ -476,8 +476,6 @@ MACRO(ADD_TIME_OPERATOR dir)
 
     # Skip those files.
     IF( ("${name}" STREQUAL "Common") OR
-    ("${name}" STREQUAL "Field") OR
-    ("${name}" STREQUAL "LoopExecution") OR
     ("${name}" STREQUAL "Math"))
         CONTINUE()
     ENDIF()
@@ -620,15 +618,12 @@ ENDMACRO()
 SET(OPERATORS_HEADERS
     Common/BlockOperator.hpp
     Common/Operator.hpp
-    Common/DeviceProperties.hpp
     Common/DataWarehouse/BasisDataWarehouse.hpp
     Common/DataWarehouse/GeometricDataWarehouse.hpp
     Common/DataWarehouse/LocalToGlobalDataWarehouse.hpp
     Common/DataWarehouse/ModeIndexDataWarehouse.hpp
     Common/DataWarehouse/StdMatDataWarehouse.hpp
     Common/DataWarehouse/TraceDataWarehouse.hpp
-    Field/Block.hpp
-    Field/Field.hpp
     ElmtOps/ElmtBlockOp.hpp
     Math/Math.hpp
     TimeOps/TimeOp.hpp
@@ -638,14 +633,12 @@ SET(OPERATORS_HEADERS
 SET(OPERATORS_SOURCES
     Common/BlockOperator.cpp
     Common/Operator.cpp
-    Common/DeviceProperties.cpp
     Common/DataWarehouse/BasisDataWarehouse.cpp
     Common/DataWarehouse/GeometricDataWarehouse.cpp
     Common/DataWarehouse/LocalToGlobalDataWarehouse.cpp
     Common/DataWarehouse/ModeIndexDataWarehouse.cpp
     Common/DataWarehouse/StdMatDataWarehouse.cpp
     Common/DataWarehouse/TraceDataWarehouse.cpp
-    Field/Block.cpp
     TimeOps/TimeOp.cpp
 )
 
@@ -809,39 +802,25 @@ IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
        Math/Math.cu
-       Field/BlockHelper.cu
     )
 # HIP specific file
 ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
        Math/Math.hip
-       Field/BlockHelper.hip
     )
 # SYCL specific file
 ELSEIF(NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
        Math/Math.cpp
-       Field/BlockHelper.cpp
     )
 ELSE()
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
       Math/Math.cpp
-      Field/BlockHelper.cpp
     )
 ENDIF()
-
-SET(OPERATORS_HEADERS
-  ${OPERATORS_HEADERS}
-   Utils/UtilsDeviceKernelsHelper.hpp
-)
-
-SET(OPERATORS_SOURCES
-  ${OPERATORS_SOURCES}
-   Utils/UtilsDeviceKernels.cpp
-)
 
 SOURCE_GROUP(TREE ${CMAKE_CURRENT_SOURCE_DIR}
     FILES ${OPERATORS_HEADERS} ${GROUP_SOURCES})
