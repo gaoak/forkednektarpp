@@ -63,7 +63,9 @@ public:
         else
         {
             m_isDG = std::dynamic_pointer_cast<MultiRegions::DisContField>(
-                         this->m_expansionList) != nullptr;
+                         this->m_expansionList) != nullptr &&
+                     std::dynamic_pointer_cast<MultiRegions::ContField>(
+                         this->m_expansionList) == nullptr;
         }
 
         this->m_IProdOp = IProductWRTBaseOp<TData>::Create(
