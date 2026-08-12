@@ -87,7 +87,8 @@ v5.10.0
 - Fix non-zero Dirichlet BCs with flow rate for inc NS Solver (!2399)
 - Added an option to modify the number of decimal point print out in a constant-rate setup (!2491)
 - Added a stablized velocity correction scheme for fluid-structure interaction of rigid body (!2040)
-
+- Added Level Set Velocity Correction Scheme for two-phase flow simulations (!2555)
+	
 **CI**
 - Add PROCESSORS property to tests to enforce correct parallelism (!2445)
 - Allow multiple tests per `.tst` file (!2509)
