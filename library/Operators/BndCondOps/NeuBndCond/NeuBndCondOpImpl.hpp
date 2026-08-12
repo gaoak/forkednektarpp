@@ -40,9 +40,9 @@
 #include "Operators/BndCondOps/NeuBndCond/NeuBndCondOp.hpp"
 
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include "MultiRegions/Field/Math.hpp"
 #include "Operators/ElmtOps/Expression/ExpressionOp.hpp"
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
-#include "Operators/Math/MathKernels.hpp"
 
 using namespace Nektar;
 
@@ -445,8 +445,8 @@ protected:
             const size_t bndOffset    = m_neuCoeffOffsets[iNeu];
 
             // Zero wsp_phys and wsp_coeff
-            zero<ExecSpace>(m_wsp_phys[iNeu]);
-            zero<ExecSpace>(m_wsp_coeffs[iNeu]);
+            Math::zero<ExecSpace>(m_wsp_phys[iNeu]);
+            Math::zero<ExecSpace>(m_wsp_coeffs[iNeu]);
 
             // Update time
             m_expressionOps[iNeu]->SetTime(time);
@@ -472,7 +472,8 @@ protected:
                     // Note use copyKernel instead of copy because of
                     // FieldState mismatch Phys != Coeff. In 0D, they are
                     // equivalent hence the copy is correct.
-                    copyKernel<ExecSpace>(nBndExpCoeff, physptr, coeffptr);
+                    Math::copyKernel<ExecSpace>(nBndExpCoeff, physptr,
+                                                coeffptr);
                     physptr += m_wsp_phys[iNeu].GetBlocks()[0].CompSize();
                     coeffptr += m_wsp_coeffs[iNeu].GetBlocks()[0].CompSize();
                 }

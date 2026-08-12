@@ -36,8 +36,8 @@
 
 #include <MultiRegions/ContField.h>
 
+#include "LibUtilities/BasicUtils/Math/Math.hpp"
 #include "Operators/Common/Operator.hpp"
-#include "Operators/Math/Math.hpp"
 #include "Operators/Norm/NormLinf/NormLinfBlockOp.hpp"
 
 namespace Nektar::Operators

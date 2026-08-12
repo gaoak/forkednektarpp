@@ -196,10 +196,10 @@ protected:
                                            Nektar::LibUtilities::ReduceSum);
                 for (unsigned int i = ii; i > 0; i--)
                 {
-                    daxpy<ExecSpace>(-beta[i - 1] / scale[i - 1], m_P[i - 1],
-                                     m_P[ii], m_P[ii]);
-                    daxpy<ExecSpace>(-beta[i - 1] / scale[i - 1], m_Q[i - 1],
-                                     m_Q[ii], m_Q[ii]);
+                    Math::daxpy<ExecSpace>(-beta[i - 1] / scale[i - 1],
+                                           m_P[i - 1], m_P[ii], m_P[ii]);
+                    Math::daxpy<ExecSpace>(-beta[i - 1] / scale[i - 1],
+                                           m_Q[i - 1], m_Q[ii], m_Q[ii]);
                 }
             }
 
@@ -212,8 +212,8 @@ protected:
             alpha /= scale[ii];
 
             // Update solutions.
-            daxpy<ExecSpace>(alpha, m_P[ii], out, out);
-            daxpy<ExecSpace>(-alpha, m_Q[ii], m_r, m_r);
+            Math::daxpy<ExecSpace>(alpha, m_P[ii], out, out);
+            Math::daxpy<ExecSpace>(-alpha, m_Q[ii], m_r, m_r);
 
             eps = this->m_math.ddot(m_r, m_r);
             this->m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);

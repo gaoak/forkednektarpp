@@ -39,11 +39,12 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstring>
 #include <functional>
 #include <numeric>
 #include <type_traits>
 
-namespace Nektar
+namespace Nektar::Math
 {
 
 template <
@@ -436,4 +437,4 @@ inline void linfnormKernel(const size_t nsize, const uint8_t *mask,
     }
 }
 
-} // namespace Nektar
+} // namespace Nektar::Math

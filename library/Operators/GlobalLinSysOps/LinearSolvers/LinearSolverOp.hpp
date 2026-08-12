@@ -44,8 +44,8 @@
 #include "Operators/ElmtOps/ElmtOp.hpp"
 #include "Operators/PreconOps/PreconOp.hpp"
 
-#include "Operators/Math/Math.hpp"
-#include "Operators/Math/MathKernels.hpp"
+#include "LibUtilities/BasicUtils/Math/MathHelper.hpp"
+#include "MultiRegions/Field/Math.hpp"
 
 namespace Nektar::Operators
 {
@@ -141,7 +141,7 @@ protected:
     std::shared_ptr<RobBndCondOp<TData>> m_robBndCondOp;
     std::unique_ptr<AssmbScatrOp<TData>> m_assmbScatrOp;
     std::unique_ptr<AssmbScatrOp<TData>> m_assmbScatrZeroDirOp;
-    Math m_math;
+    Math::MathHelper m_math;
     bool m_root;
 
     TData m_tol                = 0.0;
@@ -241,7 +241,7 @@ protected:
                                1.0E-09);
 
         // Set math helper function.
-        this->m_math = Math(ExecSpace::name);
+        this->m_math = Math::MathHelper(ExecSpace::name);
     }
 
     void DirectSolve(std::vector<std::vector<TData>> &A, std::vector<TData> &b)

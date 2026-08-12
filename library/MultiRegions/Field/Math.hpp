@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MathKernels.hpp
+// File: Math.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -36,15 +36,12 @@
 
 #include "MultiRegions/Field/Field.hpp"
 
-#include "Operators/Math/MathAVXKernels.hpp"
-#include "Operators/Math/MathDeviceOnHostKernels.hpp"
-#include "Operators/Math/MathHIPCUDAKernels.hpp"
-#include "Operators/Math/MathSYCLKernels.hpp"
-#include "Operators/Math/MathSerialKernels.hpp"
+#include "LibUtilities/BasicUtils/Math/Math.hpp"
 
-#include "Operators/Common/OperatorsDeclspec.hpp"
-
-namespace Nektar::Operators
+// In-place Field-based Math functions. Should in general NOT be used at the
+// "solver" level, but only at the "Operator" level. Those functions require
+// compile-time definition of the Execution space as a template parameter.
+namespace Nektar::Math
 {
 
 template <typename MemSpace> class internalMathKernelMask
@@ -135,17 +132,6 @@ void zero(MultiRegions::Field<TData, TFieldState> &x)
     }
 }
 
-template <typename ExecSpace, typename TData>
-void zero(LibUtilities::MemoryRegion<TData> &x)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    auto xptr  = x.template GetPtr<MemSpace, WriteOnly>();
-    auto nsize = x.size();
-
-    zeroKernel<ExecSpace>(nsize, xptr);
-}
-
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 void fill(const TData &val, MultiRegions::Field<TData, TFieldState> &x)
 {
@@ -162,17 +148,6 @@ void fill(const TData &val, MultiRegions::Field<TData, TFieldState> &x)
 
         fillKernel<ExecSpace>(size, val, xptr, streamID);
     }
-}
-
-template <typename ExecSpace, typename TData>
-void fill(const TData &val, LibUtilities::MemoryRegion<TData> &x)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    auto xptr  = x.template GetPtr<MemSpace, WriteOnly>();
-    auto nsize = x.size();
-
-    fillKernel<ExecSpace>(nsize, val, xptr);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -207,27 +182,6 @@ void copy(MultiRegions::Field<TData, TFieldState> &x,
     }
 }
 
-template <typename ExecSpace, typename TData>
-void copy(LibUtilities::MemoryRegion<TData> &x,
-          LibUtilities::MemoryRegion<TData> &y)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    if (x.size() != y.size())
-    {
-        std::stringstream msg;
-
-        msg << "MathKernel::copy - Memory size mismatch between Field";
-        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-    }
-
-    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr  = y.template GetPtr<MemSpace, WriteOnly>();
-    auto nsize = x.size();
-
-    copyKernel<ExecSpace>(nsize, xptr, yptr);
-}
-
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 void abs(MultiRegions::Field<TData, TFieldState> &x,
          MultiRegions::Field<TData, TFieldState> &y)
@@ -258,27 +212,6 @@ void abs(MultiRegions::Field<TData, TFieldState> &x,
         y.GetBlocks()[blk].template SetInterleaveWidth<TData>(
             x.GetBlocks()[blk].GetInterleaveWidth());
     }
-}
-
-template <typename ExecSpace, typename TData>
-void abs(LibUtilities::MemoryRegion<TData> &x,
-         LibUtilities::MemoryRegion<TData> &y)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    if (x.size() != y.size())
-    {
-        std::stringstream msg;
-
-        msg << "MathKernel::abs - Memory size mismatch between Field";
-        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-    }
-
-    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr  = y.template GetPtr<MemSpace, WriteOnly>();
-    auto nsize = x.size();
-
-    absKernel<ExecSpace>(nsize, xptr, yptr);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -313,27 +246,6 @@ void neg(MultiRegions::Field<TData, TFieldState> &x,
     }
 }
 
-template <typename ExecSpace, typename TData>
-void neg(LibUtilities::MemoryRegion<TData> &x,
-         LibUtilities::MemoryRegion<TData> &y)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    if (x.size() != y.size())
-    {
-        std::stringstream msg;
-
-        msg << "MathKernel::neg - Memory size mismatch between Field";
-        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-    }
-
-    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr  = y.template GetPtr<MemSpace, WriteOnly>();
-    auto nsize = x.size();
-
-    negKernel<ExecSpace>(nsize, xptr, yptr);
-}
-
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 void sqrt(MultiRegions::Field<TData, TFieldState> &x,
           MultiRegions::Field<TData, TFieldState> &y)
@@ -364,27 +276,6 @@ void sqrt(MultiRegions::Field<TData, TFieldState> &x,
         y.GetBlocks()[blk].template SetInterleaveWidth<TData>(
             x.GetBlocks()[blk].GetInterleaveWidth());
     }
-}
-
-template <typename ExecSpace, typename TData>
-void sqrt(LibUtilities::MemoryRegion<TData> &x,
-          LibUtilities::MemoryRegion<TData> &y)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    if (x.size() != y.size())
-    {
-        std::stringstream msg;
-
-        msg << "MathKernel::sqrt - Memory size mismatch between Field";
-        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-    }
-
-    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr  = y.template GetPtr<MemSpace, WriteOnly>();
-    auto nsize = x.size();
-
-    sqrtKernel<ExecSpace>(nsize, xptr, yptr);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -427,29 +318,6 @@ void add(MultiRegions::Field<TData, TFieldState> &x,
     }
 }
 
-template <typename ExecSpace, typename TData>
-void add(LibUtilities::MemoryRegion<TData> &x,
-         LibUtilities::MemoryRegion<TData> &y,
-         LibUtilities::MemoryRegion<TData> &z)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    if (x.size() != y.size() && y.size() != z.size())
-    {
-        std::stringstream msg;
-
-        msg << "MathKernel::add - Memory size mismatch between Field";
-        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-    }
-
-    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
-    auto zptr  = z.template GetPtr<MemSpace, WriteOnly>();
-    auto nsize = x.size();
-
-    addKernel<ExecSpace>(nsize, xptr, yptr, zptr);
-}
-
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 void sub(MultiRegions::Field<TData, TFieldState> &x,
          MultiRegions::Field<TData, TFieldState> &y,
@@ -490,29 +358,6 @@ void sub(MultiRegions::Field<TData, TFieldState> &x,
     }
 }
 
-template <typename ExecSpace, typename TData>
-void sub(LibUtilities::MemoryRegion<TData> &x,
-         LibUtilities::MemoryRegion<TData> &y,
-         LibUtilities::MemoryRegion<TData> &z)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    if (x.size() != y.size() && y.size() != z.size())
-    {
-        std::stringstream msg;
-
-        msg << "MathKernel::sub - Memory size mismatch between Field";
-        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-    }
-
-    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
-    auto zptr  = z.template GetPtr<MemSpace, WriteOnly>();
-    auto nsize = x.size();
-
-    subKernel<ExecSpace>(nsize, xptr, yptr, zptr);
-}
-
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 void mul(const TData alpha, MultiRegions::Field<TData, TFieldState> &x,
          MultiRegions::Field<TData, TFieldState> &y)
@@ -543,27 +388,6 @@ void mul(const TData alpha, MultiRegions::Field<TData, TFieldState> &x,
         y.GetBlocks()[blk].template SetInterleaveWidth<TData>(
             x.GetBlocks()[blk].GetInterleaveWidth());
     }
-}
-
-template <typename ExecSpace, typename TData>
-void mul(const TData alpha, LibUtilities::MemoryRegion<TData> &x,
-         LibUtilities::MemoryRegion<TData> &y)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    if (x.size() != y.size())
-    {
-        std::stringstream msg;
-
-        msg << "MathKernel::div - Memory size mismatch between Field";
-        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-    }
-
-    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr  = y.template GetPtr<MemSpace, WriteOnly>();
-    auto nsize = x.size();
-
-    mulKernel<ExecSpace>(nsize, alpha, xptr, yptr);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -606,29 +430,6 @@ void mul(MultiRegions::Field<TData, TFieldState> &x,
     }
 }
 
-template <typename ExecSpace, typename TData>
-void mul(LibUtilities::MemoryRegion<TData> &x,
-         LibUtilities::MemoryRegion<TData> &y,
-         LibUtilities::MemoryRegion<TData> &z)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    if (x.size() != y.size() && y.size() != z.size())
-    {
-        std::stringstream msg;
-
-        msg << "MathKernel::div - Memory size mismatch between Field";
-        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-    }
-
-    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
-    auto zptr  = z.template GetPtr<MemSpace, WriteOnly>();
-    auto nsize = x.size();
-
-    mulKernel<ExecSpace>(nsize, xptr, yptr, zptr);
-}
-
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 void div(const TData alpha, MultiRegions::Field<TData, TFieldState> &x,
          MultiRegions::Field<TData, TFieldState> &y)
@@ -659,27 +460,6 @@ void div(const TData alpha, MultiRegions::Field<TData, TFieldState> &x,
         y.GetBlocks()[blk].template SetInterleaveWidth<TData>(
             x.GetBlocks()[blk].GetInterleaveWidth());
     }
-}
-
-template <typename ExecSpace, typename TData>
-void div(const TData alpha, LibUtilities::MemoryRegion<TData> &x,
-         LibUtilities::MemoryRegion<TData> &y)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    if (x.size() != y.size())
-    {
-        std::stringstream msg;
-
-        msg << "MathKernel::div - Memory size mismatch between Field";
-        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-    }
-
-    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr  = y.template GetPtr<MemSpace, WriteOnly>();
-    auto nsize = x.size();
-
-    divKernel<ExecSpace>(nsize, alpha, xptr, yptr);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -722,29 +502,6 @@ void div(MultiRegions::Field<TData, TFieldState> &x,
     }
 }
 
-template <typename ExecSpace, typename TData>
-void div(LibUtilities::MemoryRegion<TData> &x,
-         LibUtilities::MemoryRegion<TData> &y,
-         LibUtilities::MemoryRegion<TData> &z)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    if (x.size() != y.size() && y.size() != z.size())
-    {
-        std::stringstream msg;
-
-        msg << "MathKernel::div - Memory size mismatch between Field";
-        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-    }
-
-    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
-    auto zptr  = z.template GetPtr<MemSpace, WriteOnly>();
-    auto nsize = x.size();
-
-    divKernel<ExecSpace>(nsize, xptr, yptr, zptr);
-}
-
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 void daxpy(const TData alpha, MultiRegions::Field<TData, TFieldState> &x,
            MultiRegions::Field<TData, TFieldState> &y,
@@ -785,29 +542,6 @@ void daxpy(const TData alpha, MultiRegions::Field<TData, TFieldState> &x,
     }
 }
 
-template <typename ExecSpace, typename TData>
-void daxpy(const TData alpha, LibUtilities::MemoryRegion<TData> &x,
-           LibUtilities::MemoryRegion<TData> &y,
-           LibUtilities::MemoryRegion<TData> &z)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    if (x.size() != y.size() && y.size() != z.size())
-    {
-        std::stringstream msg;
-
-        msg << "MathKernel::daxpy - Memory size mismatch between Field";
-        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-    }
-
-    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
-    auto zptr  = z.template GetPtr<MemSpace, WriteOnly>();
-    auto nsize = x.size();
-
-    daxpyKernel<ExecSpace>(nsize, alpha, xptr, yptr, zptr);
-}
-
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 void reduceSum(MultiRegions::Field<TData, TFieldState> &x, TData *out)
 {
@@ -841,17 +575,6 @@ void reduceSum(MultiRegions::Field<TData, TFieldState> &x, TData *out)
             xptr += size;
         }
     }
-}
-
-template <typename ExecSpace, typename TData>
-void reduceSum(LibUtilities::MemoryRegion<TData> &x, TData *out)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto nsize = x.size();
-
-    reduceSumKernel<ExecSpace, true>(nsize, xptr, out);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -889,19 +612,6 @@ void reduceSum(MultiRegions::Field<uint8_t, TFieldState> &mask,
     }
 }
 
-template <typename ExecSpace, typename TData>
-void reduceSum(LibUtilities::MemoryRegion<uint8_t> &mask,
-               LibUtilities::MemoryRegion<TData> &x, TData *out)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    auto maskptr = mask.template GetPtr<MemSpace, ReadOnly>();
-    auto xptr    = x.template GetPtr<MemSpace, ReadOnly>();
-    auto nsize   = x.size();
-
-    reduceSumKernel<ExecSpace, true>(nsize, maskptr, xptr, out);
-}
-
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 void reduceMax(MultiRegions::Field<TData, TFieldState> &x, TData *out)
 {
@@ -935,17 +645,6 @@ void reduceMax(MultiRegions::Field<TData, TFieldState> &x, TData *out)
             xptr += size;
         }
     }
-}
-
-template <typename ExecSpace, typename TData>
-void reduceMax(LibUtilities::MemoryRegion<TData> &x, TData *out)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto nsize = x.size();
-
-    reduceMaxKernel<ExecSpace, true>(nsize, xptr, out);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -983,19 +682,6 @@ void reduceMax(MultiRegions::Field<uint8_t, TFieldState> &mask,
     }
 }
 
-template <typename ExecSpace, typename TData>
-void reduceMax(LibUtilities::MemoryRegion<uint8_t> &mask,
-               LibUtilities::MemoryRegion<TData> &x, TData *out)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    auto maskptr = mask.template GetPtr<MemSpace, ReadOnly>();
-    auto xptr    = x.template GetPtr<MemSpace, ReadOnly>();
-    auto nsize   = x.size();
-
-    reduceMaxKernel<ExecSpace, true>(nsize, maskptr, xptr, out);
-}
-
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 void reduceMin(MultiRegions::Field<TData, TFieldState> &x, TData *out)
 {
@@ -1031,17 +717,6 @@ void reduceMin(MultiRegions::Field<TData, TFieldState> &x, TData *out)
     }
 }
 
-template <typename ExecSpace, typename TData>
-void reduceMin(LibUtilities::MemoryRegion<TData> &x, TData *out)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto nsize = x.size();
-
-    reduceMinKernel<ExecSpace, true>(nsize, xptr, out);
-}
-
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 void reduceMin(MultiRegions::Field<uint8_t, TFieldState> &mask,
                MultiRegions::Field<TData, TFieldState> &x, TData *out)
@@ -1075,19 +750,6 @@ void reduceMin(MultiRegions::Field<uint8_t, TFieldState> &mask,
 
         reduceMinKernel<ExecSpace, false>(size, maskptr, xptr, out, streamID);
     }
-}
-
-template <typename ExecSpace, typename TData>
-void reduceMin(LibUtilities::MemoryRegion<uint8_t> &mask,
-               LibUtilities::MemoryRegion<TData> &x, TData *out)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    auto maskptr = mask.template GetPtr<MemSpace, ReadOnly>();
-    auto xptr    = x.template GetPtr<MemSpace, ReadOnly>();
-    auto nsize   = x.size();
-
-    reduceMinKernel<ExecSpace, true>(nsize, maskptr, xptr, out);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -1142,27 +804,6 @@ void ddot(MultiRegions::Field<TData, TFieldState> &x,
     }
 }
 
-template <typename ExecSpace, typename TData>
-void ddot(LibUtilities::MemoryRegion<TData> &x,
-          LibUtilities::MemoryRegion<TData> &y, TData *out)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    if (x.size() != y.size())
-    {
-        std::stringstream msg;
-
-        msg << "MathKernel::ddot - Memory size mismatch between Field";
-        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-    }
-
-    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
-    auto nsize = x.size();
-
-    ddotKernel<ExecSpace, true>(nsize, xptr, yptr, out);
-}
-
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 void ddot(MultiRegions::Field<uint8_t, TFieldState> &mask,
           MultiRegions::Field<TData, TFieldState> &x,
@@ -1211,29 +852,6 @@ void ddot(MultiRegions::Field<uint8_t, TFieldState> &mask,
     }
 }
 
-template <typename ExecSpace, typename TData>
-void ddot(LibUtilities::MemoryRegion<uint8_t> &mask,
-          LibUtilities::MemoryRegion<TData> &x,
-          LibUtilities::MemoryRegion<TData> &y, TData *out)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    if (x.size() != y.size())
-    {
-        std::stringstream msg;
-
-        msg << "MathKernel::ddot - Memory size mismatch between Field";
-        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-    }
-
-    auto maskptr = mask.template GetPtr<MemSpace, ReadOnly>();
-    auto xptr    = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr    = y.template GetPtr<MemSpace, ReadOnly>();
-    auto nsize   = x.size();
-
-    ddotKernel<ExecSpace, true>(nsize, maskptr, xptr, yptr, out);
-}
-
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 void l1norm(MultiRegions::Field<TData, TFieldState> &x, TData *out)
 {
@@ -1266,17 +884,6 @@ void l1norm(MultiRegions::Field<TData, TFieldState> &x, TData *out)
             xptr += size;
         }
     }
-}
-
-template <typename ExecSpace, typename TData>
-void l1norm(LibUtilities::MemoryRegion<TData> &x, TData *out)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto nsize = x.size();
-
-    l1normKernel<ExecSpace, true>(nsize, xptr, out);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -1314,19 +921,6 @@ void l1norm(MultiRegions::Field<uint8_t, TFieldState> &mask,
     }
 }
 
-template <typename ExecSpace, typename TData>
-void l1norm(LibUtilities::MemoryRegion<uint8_t> &mask,
-            LibUtilities::MemoryRegion<TData> &x, TData *out)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    auto maskptr = mask.template GetPtr<MemSpace, ReadOnly>();
-    auto xptr    = x.template GetPtr<MemSpace, ReadOnly>();
-    auto nsize   = x.size();
-
-    l1normKernel<ExecSpace, true>(nsize, maskptr, xptr, out);
-}
-
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 void l2norm(MultiRegions::Field<TData, TFieldState> &x, TData *out)
 {
@@ -1359,17 +953,6 @@ void l2norm(MultiRegions::Field<TData, TFieldState> &x, TData *out)
             xptr += size;
         }
     }
-}
-
-template <typename ExecSpace, typename TData>
-void l2norm(LibUtilities::MemoryRegion<TData> &x, TData *out)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto nsize = x.size();
-
-    l2normKernel<ExecSpace, true>(nsize, xptr, out);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -1405,19 +988,6 @@ void l2norm(MultiRegions::Field<uint8_t, TFieldState> &mask,
 
         l2normKernel<ExecSpace, false>(size, maskptr, xptr, out);
     }
-}
-
-template <typename ExecSpace, typename TData>
-void l2norm(LibUtilities::MemoryRegion<uint8_t> &mask,
-            LibUtilities::MemoryRegion<TData> &x, TData *out)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    auto maskptr = mask.template GetPtr<MemSpace, ReadOnly>();
-    auto xptr    = x.template GetPtr<MemSpace, ReadOnly>();
-    auto nsize   = x.size();
-
-    l2normKernel<ExecSpace, true>(nsize, maskptr, xptr, out);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -1456,18 +1026,6 @@ void lpnorm(const unsigned int p, MultiRegions::Field<TData, TFieldState> &x,
     }
 }
 
-template <typename ExecSpace, typename TData>
-void lpnorm(const unsigned int p, LibUtilities::MemoryRegion<TData> &x,
-            TData *out)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto nsize = x.size();
-
-    lpnormKernel<ExecSpace, true>(nsize, p, xptr, out);
-}
-
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 void lpnorm(const unsigned int p,
             MultiRegions::Field<uint8_t, TFieldState> &mask,
@@ -1502,19 +1060,6 @@ void lpnorm(const unsigned int p,
 
         lpnormKernel<ExecSpace, false>(size, p, maskptr, xptr, out, streamID);
     }
-}
-
-template <typename ExecSpace, typename TData>
-void lpnorm(const unsigned int p, LibUtilities::MemoryRegion<uint8_t> &mask,
-            LibUtilities::MemoryRegion<TData> &x, TData *out)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    auto maskptr = mask.template GetPtr<MemSpace, ReadOnly>();
-    auto xptr    = x.template GetPtr<MemSpace, ReadOnly>();
-    auto nsize   = x.size();
-
-    lpnormKernel<ExecSpace, true>(nsize, p, maskptr, xptr, out);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
@@ -1552,17 +1097,6 @@ void linfnorm(MultiRegions::Field<TData, TFieldState> &x, TData *out)
     }
 }
 
-template <typename ExecSpace, typename TData>
-void linfnorm(LibUtilities::MemoryRegion<TData> &x, TData *out)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
-    auto nsize = x.size();
-
-    linfnormKernel<ExecSpace, true>(nsize, xptr, out);
-}
-
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 void linfnorm(MultiRegions::Field<uint8_t, TFieldState> &mask,
               MultiRegions::Field<TData, TFieldState> &x, TData *out)
@@ -1598,17 +1132,4 @@ void linfnorm(MultiRegions::Field<uint8_t, TFieldState> &mask,
     }
 }
 
-template <typename ExecSpace, typename TData>
-void linfnorm(LibUtilities::MemoryRegion<uint8_t> &mask,
-              LibUtilities::MemoryRegion<TData> &x, TData *out)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    auto maskptr = mask.template GetPtr<MemSpace, ReadOnly>();
-    auto xptr    = x.template GetPtr<MemSpace, ReadOnly>();
-    auto nsize   = x.size();
-
-    linfnormKernel<ExecSpace, true>(nsize, maskptr, xptr, out);
-}
-
-} // namespace Nektar::Operators
+} // namespace Nektar::Math

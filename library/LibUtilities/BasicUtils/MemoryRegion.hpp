@@ -79,7 +79,6 @@ struct ReadWrite
 namespace Nektar::MultiRegions
 {
 template <typename TData, FieldState TState> class Field;
-
 }
 
 namespace Nektar::LibUtilities

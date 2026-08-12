@@ -34,8 +34,8 @@
 
 #pragma once
 
+#include "MultiRegions/Field/Math.hpp"
 #include "Operators/Common/Operator.hpp"
-#include "Operators/Math/MathKernels.hpp"
 #include "Operators/SolverUtilsOps/Diffusion/DiffusionTraceFluxOp.hpp"
 #include "Operators/SolverUtilsOps/Diffusion/DiffusionVolumeFluxOp.hpp"
 namespace Nektar::Operators

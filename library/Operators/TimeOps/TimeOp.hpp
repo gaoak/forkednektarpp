@@ -34,9 +34,9 @@
 
 #pragma once
 
+#include "LibUtilities/BasicUtils/Math/MathHelper.hpp"
+#include "MultiRegions/Field/Math.hpp"
 #include "Operators/Common/Operator.hpp"
-#include "Operators/Math/Math.hpp"
-#include "Operators/Math/MathKernels.hpp"
 
 #include <deque>
 #include <memory>
@@ -354,7 +354,7 @@ public:
 
         const auto execSpace = Operator<TData>::GetOpExecSpace(
             this->m_expansionList->GetSession());
-        Math math(execSpace);
+        Math::MathHelper math(execSpace);
 
         if (mode == TimeOpExtrapolationMode::Assign)
         {
@@ -571,7 +571,7 @@ protected:
 
         const auto execSpace = Operator<TData>::GetOpExecSpace(
             this->m_expansionList->GetSession());
-        Math math(execSpace);
+        Math::MathHelper math(execSpace);
 
         if (mode == TimeOpExtrapolationMode::Assign)
         {

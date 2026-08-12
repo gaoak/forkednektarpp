@@ -34,8 +34,8 @@
 
 #pragma once
 
+#include "LibUtilities/BasicUtils/Math/MathKernels.hpp"
 #include "Operators/Common/Operator.hpp"
-#include "Operators/Math/MathKernels.hpp"
 
 namespace Nektar::Operators
 {

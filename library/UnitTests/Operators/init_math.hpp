@@ -35,7 +35,7 @@
 #include <MultiRegions/ExpList.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
-#include "Operators/Math/Math.hpp"
+#include "LibUtilities/BasicUtils/Math/MathHelper.hpp"
 #include <MultiRegions/Field/Field.hpp>
 
 // Currently the BOOST_TEST_DYN_LINK is local only to this unit
@@ -195,7 +195,7 @@ public:
 
         std::string execName(
             boost::unit_test::framework::master_test_suite().argv[1]);
-        math = Math(execName);
+        math = Math::MathHelper(execName);
     }
 
     void SetTestCase()
@@ -637,5 +637,5 @@ protected:
     Field<TData, FieldState::Phys> *fixt_expected = nullptr;
     std::shared_ptr<MultiRegions::ExpList> fixt_explist;
     LibUtilities::SessionReaderSharedPtr session;
-    Math math;
+    Math::MathHelper math;
 };

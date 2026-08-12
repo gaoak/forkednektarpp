@@ -35,6 +35,7 @@
 #pragma once
 
 #include <LibUtilities/BasicUtils/FieldIO.h>
+#include <LibUtilities/BasicUtils/Math/MathHelper.hpp>
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <LibUtilities/Communication/Comm.h>
@@ -43,9 +44,6 @@
 #include <SolverCore/Core/SessionFunction.h>
 #include <SpatialDomains/Conditions.h>
 #include <iosfwd>
-
-#include <MultiRegions/Field/Field.hpp>
-#include <Operators/Math/Math.hpp>
 
 #include "Operators/ElmtOps/BwdTrans/BwdTransOp.hpp"
 #include "Operators/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp"
@@ -221,7 +219,7 @@ protected:
     std::vector<bool> m_checkIfSystemSingular;
     std::vector<std::string> m_variables;
 
-    Math m_math;
+    Math::MathHelper m_math;
     MultiRegions::Field<double, FieldState::Phys> m_fields;
     MultiRegions::Field<double, FieldState::Coeff> m_fields_coeff;
 

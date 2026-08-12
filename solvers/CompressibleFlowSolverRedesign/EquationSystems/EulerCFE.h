@@ -37,7 +37,6 @@
 
 #include <CompressibleFlowSolverRedesign/EulerVolumeFlux/EulerVolumeFluxOp.hpp>
 #include <CompressibleFlowSolverRedesign/RiemannSolvers/CompressibleSolverOp.hpp>
-#include <Operators/Math/Math.hpp>
 #include <Operators/SolverUtilsOps/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 

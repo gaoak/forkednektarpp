@@ -37,7 +37,6 @@
 
 #include <MultiRegions/Field/Field.hpp>
 #include <Operators/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp>
-#include <Operators/Math/Math.hpp>
 #include <SolverCore/EquationSystems/EquationSystem.h>
 #include <SolverCore/Forcing/Forcing.h>
 

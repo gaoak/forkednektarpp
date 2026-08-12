@@ -38,8 +38,8 @@
 
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/Field/Field.hpp>
+#include <MultiRegions/Field/Math.hpp>
 #include <Operators/GetFwdBwdTracePhys/GetFwdBwdTracePhysOp.hpp>
-#include <Operators/Math/MathKernels.hpp>
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
@@ -419,7 +419,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr const &expList,
 
     // First check if the output is all zeros.
     TData L2 = 0.0;
-    l2norm<NektarSpaces::Serial>(fwd, &L2);
+    Math::l2norm<NektarSpaces::Serial>(fwd, &L2);
     if (L2 < 1e-9)
     {
         std::cout << "Warning: output does not change!"

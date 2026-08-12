@@ -51,7 +51,7 @@
 
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/Field/Field.hpp>
-#include <Operators/Math/MathKernels.hpp>
+#include <MultiRegions/Field/Math.hpp>
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
@@ -551,7 +551,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
 
     // First check if the output is all zeros.
     TData L2;
-    l2norm<NektarSpaces::Serial>(out, &L2);
+    Math::l2norm<NektarSpaces::Serial>(out, &L2);
     if (L2 < 1e-9)
     {
         std::cout << "Warning: output does not change!"

@@ -39,10 +39,10 @@
 #include <string>
 #include <vector>
 
+#include <LibUtilities/BasicUtils/Math/MathHelper.hpp>
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <MultiRegions/ExpList.h>
 #include <MultiRegions/Field/Field.hpp>
-#include <Operators/Math/Math.hpp>
 #include <SolverCore/Core/SessionFunction.h>
 #include <SolverCore/SolverCoreDeclspec.h>
 
@@ -117,6 +117,6 @@ protected:
     MultiRegions::ExpListSharedPtr m_expList;
     std::vector<std::string> m_variables;
     std::map<std::string, SessionFunctionSharedPtr> m_sessionFunctions;
-    Operators::Math m_math;
+    Math::MathHelper m_math;
 };
 } // namespace Nektar::SolverCore

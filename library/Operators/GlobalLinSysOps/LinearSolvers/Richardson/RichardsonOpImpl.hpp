@@ -152,14 +152,14 @@ protected:
             }
 
             // Update solution.
-            daxpy<ExecSpace>(m_scale, m_w, out, out);
+            Math::daxpy<ExecSpace>(m_scale, m_w, out, out);
 
             // This is A*x
             this->m_lhs->Apply(out, m_r);
             this->m_robBndCondOp->Apply(out, m_r);
 
             // This is r = b-A*x
-            sub<ExecSpace>(in, m_r, m_r);
+            Math::sub<ExecSpace>(in, m_r, m_r);
 
             // This is D^-1 * r
             this->m_assmbScatrZeroDirOp->Apply(m_r);

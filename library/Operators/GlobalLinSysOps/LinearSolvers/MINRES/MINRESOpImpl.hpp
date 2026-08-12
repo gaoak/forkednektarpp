@@ -184,10 +184,11 @@ protected:
             }
 
             // Update search vector.
-            mul<ExecSpace>((TData)1.0 / beta1, m_v0, m_v0);
-            mul<ExecSpace>((TData)1.0 / beta1, m_w, m_w);
+            Math::mul<ExecSpace>((TData)1.0 / beta1, m_v0, m_v0);
+            Math::mul<ExecSpace>((TData)1.0 / beta1, m_w, m_w);
 
-            // Perform the method-specific matrix-vector multiply operation.
+            // Perform the method-specific matrix-vector Math::multiply
+            // operation.
             this->m_lhs->Apply(m_w, m_q);
             this->m_robBndCondOp->Apply(m_w, m_q);
 
@@ -198,14 +199,14 @@ protected:
             // Update search vector.
             if (this->m_niter > 0)
             {
-                mul<ExecSpace>(-beta1, m_v1, m_v1);
-                daxpy<ExecSpace>(-alpha, m_v0, m_v1, m_v1);
+                Math::mul<ExecSpace>(-beta1, m_v1, m_v1);
+                Math::daxpy<ExecSpace>(-alpha, m_v0, m_v1, m_v1);
             }
             else
             {
-                mul<ExecSpace>(-alpha, m_v0, m_v1);
+                Math::mul<ExecSpace>(-alpha, m_v0, m_v1);
             }
-            add<ExecSpace>(m_v1, m_q, m_v1);
+            Math::add<ExecSpace>(m_v1, m_q, m_v1);
 
             // Apply preconditioner.
             this->m_assmbScatrZeroDirOp->Apply(m_v1, m_q);
@@ -234,21 +235,21 @@ protected:
             if (this->m_niter == 0)
             {
                 // m_p1, m_p0 = 0
-                mul<ExecSpace>((TData)1.0 / alpha1, m_w, m_p0);
+                Math::mul<ExecSpace>((TData)1.0 / alpha1, m_w, m_p0);
             }
             else if (this->m_niter == 1)
             {
                 // m_p0 = 0
-                mul<ExecSpace>((TData)1.0 / alpha1, m_w, m_p0);
-                daxpy<ExecSpace>(-alpha2 / alpha1, m_p1, m_p0, m_p0);
+                Math::mul<ExecSpace>((TData)1.0 / alpha1, m_w, m_p0);
+                Math::daxpy<ExecSpace>(-alpha2 / alpha1, m_p1, m_p0, m_p0);
             }
             else
             {
-                mul<ExecSpace>(-alpha3 / alpha1, m_p0, m_p0);
-                daxpy<ExecSpace>(-alpha2 / alpha1, m_p1, m_p0, m_p0);
-                daxpy<ExecSpace>((TData)1.0 / alpha1, m_w, m_p0, m_p0);
+                Math::mul<ExecSpace>(-alpha3 / alpha1, m_p0, m_p0);
+                Math::daxpy<ExecSpace>(-alpha2 / alpha1, m_p1, m_p0, m_p0);
+                Math::daxpy<ExecSpace>((TData)1.0 / alpha1, m_w, m_p0, m_p0);
             }
-            daxpy<ExecSpace>(gamma1 * eta, m_p0, out, out);
+            Math::daxpy<ExecSpace>(gamma1 * eta, m_p0, out, out);
 
             // Update coefficients.
             eta *= -sigma1;

@@ -194,8 +194,8 @@ protected:
                 beta = rho_new / rho;
 
                 // Update vectors.
-                daxpy<ExecSpace>(beta, m_p, m_r, m_p);
-                daxpy<ExecSpace>(beta, m_q, m_s, m_q);
+                Math::daxpy<ExecSpace>(beta, m_p, m_r, m_p);
+                Math::daxpy<ExecSpace>(beta, m_q, m_s, m_q);
             }
 
             // Apply preconditioner
@@ -211,8 +211,8 @@ protected:
             alpha = rho_new / alpha;
 
             // Update solution.
-            daxpy<ExecSpace>(alpha, m_p, out, out);
-            daxpy<ExecSpace>(-alpha, m_w, m_r, m_r);
+            Math::daxpy<ExecSpace>(alpha, m_p, out, out);
+            Math::daxpy<ExecSpace>(-alpha, m_w, m_r, m_r);
 
             // Update residual norm.
             eps = this->m_math.ddot(m_r, m_r);

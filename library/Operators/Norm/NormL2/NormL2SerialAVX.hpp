@@ -40,7 +40,7 @@
 #include "Operators/Common/DataWarehouse/GeometricDataWarehouse.hpp"
 
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "Operators/Math/MathKernels.hpp"
+#include "MultiRegions/Field/Math.hpp"
 #include "Operators/Norm/NormL2/NormL2BlockOp.hpp"
 #include "Operators/Norm/NormL2/NormL2SerialAVXKernels.hpp"
 
@@ -132,7 +132,7 @@ protected:
         if (inblock.GetNumPaddingElements() > 0)
         {
             auto maskptr =
-                internalMathKernelMask<MemSpace>::GetInstance(inblock);
+                Math::internalMathKernelMask<MemSpace>::GetInstance(inblock);
             auto inptr = inblock.template GetPtr<MemSpace, ReadWrite>();
             const auto interleaveWidth = inblock.GetInterleaveWidth();
             const auto numElmt         = inblock.GetNumElements();

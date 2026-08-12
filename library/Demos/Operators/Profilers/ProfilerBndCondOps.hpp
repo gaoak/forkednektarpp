@@ -43,7 +43,7 @@
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <MultiRegions/ContField.h>
 #include <MultiRegions/Field/Field.hpp>
-#include <Operators/Math/MathKernels.hpp>
+#include <MultiRegions/Field/Math.hpp>
 #include <SpatialDomains/MeshGraphIO.h>
 
 // Add likwid support
@@ -424,7 +424,7 @@ void LaunchProfiler(MultiRegions::ContFieldSharedPtr &expList,
     // Device) a kernel that silently was not invoked.
     out.ReshapeStorage(1, execName);
     TData L2 = 0.0;
-    l2norm<NektarSpaces::Serial>(out, &L2);
+    Math::l2norm<NektarSpaces::Serial>(out, &L2);
     if (L2 < 1e-9)
     {
         std::cout << "Warning: output is all zero! Either the mesh has no "

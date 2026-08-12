@@ -153,7 +153,7 @@ protected:
         // Calculate inital rhs magnitude.
         m_r.template Copy<MemSpace>(in);
         this->m_assmbScatrOp->Apply(m_r);
-        ddot<ExecSpace>(in, m_r, exchange + 1);
+        Math::ddot<ExecSpace>(in, m_r, exchange + 1);
 
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
@@ -165,7 +165,7 @@ protected:
             this->m_precon->Apply(m_r, m_r);
         }
 
-        ddot<ExecSpace>(m_r, m_r, exchange + 0);
+        Math::ddot<ExecSpace>(m_r, m_r, exchange + 0);
 
         // Communication.
         this->m_rowComm->template AllReduce<MemSpace>(
@@ -203,8 +203,8 @@ protected:
             // Update search vectors.
             if (this->m_niter > 0)
             {
-                daxpy<ExecSpace>(-omega, m_v, m_p, m_p);
-                daxpy<ExecSpace>(beta, m_p, m_r, m_p);
+                Math::daxpy<ExecSpace>(-omega, m_v, m_p, m_p);
+                Math::daxpy<ExecSpace>(beta, m_p, m_r, m_p);
             }
 
             // Perform the method-specific matrix-vector multiply operation.
@@ -225,9 +225,9 @@ protected:
             m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
             // Reduction.
-            ddot<ExecSpace>(m_r, m_rtilde, exchange + 0);
-            ddot<ExecSpace>(m_v, m_rtilde, exchange + 1);
-            // ddot<ExecSpace>(m_r, m_r, exchange + 2);
+            Math::ddot<ExecSpace>(m_r, m_rtilde, exchange + 0);
+            Math::ddot<ExecSpace>(m_v, m_rtilde, exchange + 1);
+            // Math::ddot<ExecSpace>(m_r, m_r, exchange + 2);
 
             // Communication.
             this->m_rowComm->template AllReduce<MemSpace>(
@@ -245,8 +245,8 @@ protected:
             alpha = tau / sigma;
 
             // Update solution.
-            daxpy<ExecSpace>(alpha, tmp, out, out);
-            daxpy<ExecSpace>(-alpha, m_v, m_r, m_s);
+            Math::daxpy<ExecSpace>(alpha, tmp, out, out);
+            Math::daxpy<ExecSpace>(-alpha, m_v, m_r, m_s);
 
             /*// Test if norm is within tolerance.
             if (eps < this->m_tol * this->m_tol * rhsMagnitude)
@@ -275,10 +275,10 @@ protected:
             m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
             // Reduction.
-            ddot<ExecSpace>(m_s, m_s, exchange + 0);
-            ddot<ExecSpace>(m_z, m_s, exchange + 1);
-            ddot<ExecSpace>(m_z, m_z, exchange + 2);
-            ddot<ExecSpace>(m_z, m_rtilde, exchange + 3);
+            Math::ddot<ExecSpace>(m_s, m_s, exchange + 0);
+            Math::ddot<ExecSpace>(m_z, m_s, exchange + 1);
+            Math::ddot<ExecSpace>(m_z, m_z, exchange + 2);
+            Math::ddot<ExecSpace>(m_z, m_rtilde, exchange + 3);
 
             // Communication.
             this->m_rowComm->template AllReduce<MemSpace>(
@@ -297,8 +297,8 @@ protected:
             eps    = std::abs(exchangeHost[0] - omega0 * omega0 / omega1);
 
             // Update solution.
-            daxpy<ExecSpace>(omega, tmp2, out, out);
-            daxpy<ExecSpace>(-omega, m_z, m_s, m_r);
+            Math::daxpy<ExecSpace>(omega, tmp2, out, out);
+            Math::daxpy<ExecSpace>(-omega, m_z, m_s, m_r);
 
             ++this->m_niter;
 

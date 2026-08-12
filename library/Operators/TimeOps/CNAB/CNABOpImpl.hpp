@@ -186,9 +186,10 @@ protected:
                              gamma() * this->m_timestep);
 
             // Compute implicit terms.
-            sub<ExecSpace>(inout, this->m_implicits[0], this->m_implicits[0]);
-            mul<ExecSpace>((TData)1.0 / gamma(), this->m_implicits[0],
-                           this->m_implicits[0]);
+            Math::sub<ExecSpace>(inout, this->m_implicits[0],
+                                 this->m_implicits[0]);
+            Math::mul<ExecSpace>((TData)1.0 / gamma(), this->m_implicits[0],
+                                 this->m_implicits[0]);
 
             // Increment step and time.
             this->m_time += this->m_timestep;

@@ -222,7 +222,7 @@ BOOST_AUTO_TEST_CASE(ddot_padded_multicomponent)
         }
     }
 
-    Math math;
+    Math::MathHelper math;
     BOOST_TEST(std::abs(math.ddot(x, y) - expected) < 1.0E-12);
 }
 
@@ -261,7 +261,7 @@ BOOST_AUTO_TEST_CASE(masked_ddot_padded_multicomponent)
         }
     }
 
-    Math math;
+    Math::MathHelper math;
     BOOST_TEST(std::abs(math.ddot(mask, x, y) - expected) < 1.0E-12);
 }
 

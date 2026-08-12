@@ -36,21 +36,20 @@
 #include <iomanip>
 #include <iostream>
 
-#include "Operators/Math/Math.hpp"
+#include "LibUtilities/BasicUtils/Math/MathHelper.hpp"
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <MultiRegions/Field/Field.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
-using namespace Nektar::Operators;
 using vec_t = tinysimd::simd<double>;
 
 template <typename TData, bool warmup = false>
 void ProfilerReduction(const size_t size)
 {
     // Initialization.
-    Math math;
+    Math::MathHelper math;
     Timer timer;
     const unsigned int ntests = 40;
     auto x                    = MemoryRegion<TData>("x", size);
@@ -66,7 +65,7 @@ void ProfilerReduction(const size_t size)
     y.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
 
     // Serial.
-    math = Math("Serial");
+    math = Math::MathHelper("Serial");
     TData result_serial;
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
@@ -79,7 +78,7 @@ void ProfilerReduction(const size_t size)
 
     // AVX.
 #if defined(NEKTAR_ENABLE_SIMD)
-    math = Math("AVX");
+    math = Math::MathHelper("AVX");
     TData result_avx;
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
@@ -93,7 +92,7 @@ void ProfilerReduction(const size_t size)
 
     // Device.
 #if defined(NEKTAR_ENABLE_DEVICE)
-    math = Math("Device");
+    math = Math::MathHelper("Device");
     TData result_device;
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
@@ -126,7 +125,7 @@ template <typename TData, bool warmup = false>
 void ProfilerDaxpy(const size_t size)
 {
     // Initialization.
-    Math math;
+    Math::MathHelper math;
     Timer timer;
     const unsigned int ntests = 40;
     auto x                    = MemoryRegion<TData>("x", size);
@@ -144,7 +143,7 @@ void ProfilerDaxpy(const size_t size)
     z.template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>();
 
     // Serial.
-    math = Math("Serial");
+    math = Math::MathHelper("Serial");
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
@@ -155,7 +154,7 @@ void ProfilerDaxpy(const size_t size)
 
     // AVX.
 #if defined(NEKTAR_ENABLE_SIMD)
-    math = Math("AVX");
+    math = Math::MathHelper("AVX");
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {
@@ -167,7 +166,7 @@ void ProfilerDaxpy(const size_t size)
 
     // Device.
 #if defined(NEKTAR_ENABLE_DEVICE)
-    math = Math("Device");
+    math = Math::MathHelper("Device");
     timer.Start();
     for (unsigned int t = 0; t < ntests; ++t)
     {

@@ -40,7 +40,7 @@
 #include "LibUtilities/Memory/MemoryAlloc.hpp"
 #include "Operators/Common/Spaces.hpp"
 
-namespace Nektar
+namespace Nektar::Math
 {
 
 __device__ inline float4 &operator+=(float4 &a, const float4 b)
@@ -2253,6 +2253,6 @@ inline void linfnormKernel(const size_t nsize, const uint8_t *mask,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-} // namespace Nektar
+} // namespace Nektar::Math
 
 #endif

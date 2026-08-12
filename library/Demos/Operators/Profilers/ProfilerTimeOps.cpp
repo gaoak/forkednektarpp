@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/Math/Math.hpp"
+#include "LibUtilities/BasicUtils/Math/Math.hpp"
 #include <Operators/TimeOps/TimeOp.hpp>
 
 #include <LibUtilities/BasicUtils/Timer.h>
@@ -49,7 +49,7 @@ class DummySolver
 public:
     DummySolver(const std::string execName)
     {
-        math = Math(execName);
+        math = Math::MathHelper(execName);
     }
 
     void DoLHS(Field<double, FieldState::Phys> &in,
@@ -93,7 +93,7 @@ protected:
     double m_alpha = 1.0;
     double m_beta  = -1.0;
 
-    Math math;
+    Math::MathHelper math;
 };
 
 int main(int argc, char *argv[])

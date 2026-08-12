@@ -74,7 +74,7 @@ EquationSystem::EquationSystem(
 
     // Initialise Math
     std::string execName = Operator<double>::GetOpExecSpace(m_session);
-    m_math               = Math(execName);
+    m_math               = Math::MathHelper(execName);
 
     // Check and set definitions for homogeneous/Fourier dimensions
     CheckHomogeneousDimensions();

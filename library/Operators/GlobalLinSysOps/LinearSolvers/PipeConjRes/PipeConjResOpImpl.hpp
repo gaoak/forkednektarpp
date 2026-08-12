@@ -159,20 +159,20 @@ protected:
         // Calculate inital rhs magnitude.
         m_r.template Copy<MemSpace>(in);
         this->m_assmbScatrOp->Apply(m_r);
-        ddot<ExecSpace>(in, m_r, exchange + 1);
+        Math::ddot<ExecSpace>(in, m_r, exchange + 1);
 
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
         this->m_assmbScatrZeroDirOp->Apply(m_r);
-        ddot<ExecSpace>(in, m_r, exchange + 0);
+        Math::ddot<ExecSpace>(in, m_r, exchange + 0);
 
         // Apply preconditioner
         if (this->m_leftPreconditioner)
         {
             this->m_precon->Apply(m_r, m_r);
         }
-        ddot<ExecSpace>(m_r, m_r, exchange + 2);
+        Math::ddot<ExecSpace>(m_r, m_r, exchange + 2);
 
         // Communication.
         this->m_rowComm->template AllReduce<MemSpace>(
@@ -217,7 +217,7 @@ protected:
             {
                 this->m_lhs->Apply(out, m_r);
                 this->m_robBndCondOp->Apply(out, m_r);
-                sub<ExecSpace>(in, m_r, m_r);
+                Math::sub<ExecSpace>(in, m_r, m_r);
                 this->m_assmbScatrZeroDirOp->Apply(m_r);
                 if (this->m_leftPreconditioner)
                 {
@@ -228,10 +228,10 @@ protected:
             }
 
             // <r_{k+1}, r_{k+1}>
-            ddot<ExecSpace>(m_r, m_r, exchange + 0);
+            Math::ddot<ExecSpace>(m_r, m_r, exchange + 0);
 
             // <r_{k+1}, w_{k+1}>
-            ddot<ExecSpace>(m_r, m_w, exchange + 1);
+            Math::ddot<ExecSpace>(m_r, m_w, exchange + 1);
 
             // Apply preconditioner.
             this->m_assmbScatrZeroDirOp->Apply(m_w, m_wk);
@@ -241,7 +241,7 @@ protected:
             }
 
             // <w_{k+1}, wk_{k+1}>
-            ddot<ExecSpace>(m_w, m_wk, exchange + 2);
+            Math::ddot<ExecSpace>(m_w, m_wk, exchange + 2);
 
             // Begin communication.
             this->m_rowComm->template AllReduceBegin<MemSpace>(
@@ -289,13 +289,13 @@ protected:
             }
             else
             {
-                daxpy<ExecSpace>(beta, m_z, m_s, m_z);
-                daxpy<ExecSpace>(beta, m_q, m_wk, m_q);
-                daxpy<ExecSpace>(beta, m_p, m_r, m_p);
+                Math::daxpy<ExecSpace>(beta, m_z, m_s, m_z);
+                Math::daxpy<ExecSpace>(beta, m_q, m_wk, m_q);
+                Math::daxpy<ExecSpace>(beta, m_p, m_r, m_p);
             }
-            daxpy<ExecSpace>(alpha, m_p, out, out);
-            daxpy<ExecSpace>(-alpha, m_q, m_r, m_r);
-            daxpy<ExecSpace>(-alpha, m_z, m_w, m_w);
+            Math::daxpy<ExecSpace>(alpha, m_p, out, out);
+            Math::daxpy<ExecSpace>(-alpha, m_q, m_r, m_r);
+            Math::daxpy<ExecSpace>(-alpha, m_z, m_w, m_w);
         }
     }
 };

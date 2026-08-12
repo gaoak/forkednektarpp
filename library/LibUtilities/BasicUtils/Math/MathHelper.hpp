@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: Math.hpp
+// File: MathHelper.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,144 +34,146 @@
 
 #pragma once
 
-#include "Operators/Common/OperatorsDeclspec.hpp"
+#include "LibUtilities/BasicUtils/Math/MathDeclspec.h"
 
 #include <string>
 
-namespace Nektar::Operators
+namespace Nektar::Math
 {
 
-class Math
+// Generic MathHelper class definition.
+class MathHelper
 {
 public:
-    Math(void) : m_defaultExecSpace("Serial")
+    MathHelper(void) : m_defaultExecSpace("Serial")
     {
     }
 
-    Math(const std::string &defaultExecSpace)
+    MathHelper(const std::string &defaultExecSpace)
         : m_defaultExecSpace(defaultExecSpace)
     {
     }
 
-    Math &operator=(const Math &rhs)
+    Math::MathHelper &operator=(const Math::MathHelper &rhs)
     {
         m_defaultExecSpace = rhs.m_defaultExecSpace;
         return *this;
     }
 
+    // For all functions below, T can be either a MemoryRegion of a Field.
     template <typename T>
-    OPERATORS_EXPORT void zero(T &x, const std::string &execSpace = "");
+    LIB_MATH_EXPORT void zero(T &x, const std::string &execSpace = "");
 
     template <typename TData, typename T>
-    OPERATORS_EXPORT void fill(const TData &val, T &x,
-                               const std::string &execSpace = "");
-
-    template <typename T>
-    OPERATORS_EXPORT void copy(T &x, T &y, const std::string &execSpace = "");
-
-    template <typename T>
-    OPERATORS_EXPORT void abs(T &x, T &y, const std::string &execSpace = "");
-
-    template <typename T>
-    OPERATORS_EXPORT void neg(T &x, T &y, const std::string &execSpace = "");
-
-    template <typename T>
-    OPERATORS_EXPORT void sqrt(T &x, T &y, const std::string &execSpace = "");
-
-    template <typename T>
-    OPERATORS_EXPORT void add(T &x, T &y, T &z,
+    LIB_MATH_EXPORT void fill(const TData &val, T &x,
                               const std::string &execSpace = "");
 
     template <typename T>
-    OPERATORS_EXPORT void sub(T &x, T &y, T &z,
-                              const std::string &execSpace = "");
+    LIB_MATH_EXPORT void copy(T &x, T &y, const std::string &execSpace = "");
 
     template <typename T>
-    OPERATORS_EXPORT void mul(const typename T::value_type alpha, T &x, T &y,
-                              const std::string &execSpace = "");
+    LIB_MATH_EXPORT void abs(T &x, T &y, const std::string &execSpace = "");
 
     template <typename T>
-    OPERATORS_EXPORT void mul(T &x, T &y, T &z,
-                              const std::string &execSpace = "");
+    LIB_MATH_EXPORT void neg(T &x, T &y, const std::string &execSpace = "");
 
     template <typename T>
-    OPERATORS_EXPORT void div(const typename T::value_type alpha, T &x, T &y,
-                              const std::string &execSpace = "");
+    LIB_MATH_EXPORT void sqrt(T &x, T &y, const std::string &execSpace = "");
 
     template <typename T>
-    OPERATORS_EXPORT void div(T &x, T &y, T &z,
-                              const std::string &execSpace = "");
+    LIB_MATH_EXPORT void add(T &x, T &y, T &z,
+                             const std::string &execSpace = "");
 
     template <typename T>
-    OPERATORS_EXPORT void daxpy(const typename T::value_type alpha, T &x, T &y,
-                                T &z, const std::string &execSpace = "");
+    LIB_MATH_EXPORT void sub(T &x, T &y, T &z,
+                             const std::string &execSpace = "");
 
     template <typename T>
-    OPERATORS_EXPORT typename T::value_type reduceSum(
+    LIB_MATH_EXPORT void mul(const typename T::value_type alpha, T &x, T &y,
+                             const std::string &execSpace = "");
+
+    template <typename T>
+    LIB_MATH_EXPORT void mul(T &x, T &y, T &z,
+                             const std::string &execSpace = "");
+
+    template <typename T>
+    LIB_MATH_EXPORT void div(const typename T::value_type alpha, T &x, T &y,
+                             const std::string &execSpace = "");
+
+    template <typename T>
+    LIB_MATH_EXPORT void div(T &x, T &y, T &z,
+                             const std::string &execSpace = "");
+
+    template <typename T>
+    LIB_MATH_EXPORT void daxpy(const typename T::value_type alpha, T &x, T &y,
+                               T &z, const std::string &execSpace = "");
+
+    template <typename T>
+    LIB_MATH_EXPORT typename T::value_type reduceSum(
         T &x, const std::string &execSpace = "");
 
     template <typename M, typename T>
-    OPERATORS_EXPORT typename T::value_type reduceSum(
+    LIB_MATH_EXPORT typename T::value_type reduceSum(
         M &mask, T &x, const std::string &execSpace = "");
 
     template <typename T>
-    OPERATORS_EXPORT typename T::value_type reduceMax(
+    LIB_MATH_EXPORT typename T::value_type reduceMax(
         T &x, const std::string &execSpace = "");
 
     template <typename M, typename T>
-    OPERATORS_EXPORT typename T::value_type reduceMax(
+    LIB_MATH_EXPORT typename T::value_type reduceMax(
         M &mask, T &x, const std::string &execSpace = "");
 
     template <typename T>
-    OPERATORS_EXPORT typename T::value_type reduceMin(
+    LIB_MATH_EXPORT typename T::value_type reduceMin(
         T &x, const std::string &execSpace = "");
 
     template <typename M, typename T>
-    OPERATORS_EXPORT typename T::value_type reduceMin(
+    LIB_MATH_EXPORT typename T::value_type reduceMin(
         M &mask, T &x, const std::string &execSpace = "");
 
     template <typename T>
-    OPERATORS_EXPORT typename T::value_type ddot(
+    LIB_MATH_EXPORT typename T::value_type ddot(
         T &x, T &y, const std::string &execSpace = "");
 
     template <typename M, typename T>
-    OPERATORS_EXPORT typename T::value_type ddot(
+    LIB_MATH_EXPORT typename T::value_type ddot(
         M &mask, T &x, T &y, const std::string &execSpace = "");
 
     template <typename T>
-    OPERATORS_EXPORT typename T::value_type l1norm(
+    LIB_MATH_EXPORT typename T::value_type l1norm(
         T &x, const std::string &execSpace = "");
 
     template <typename M, typename T>
-    OPERATORS_EXPORT typename T::value_type l1norm(
+    LIB_MATH_EXPORT typename T::value_type l1norm(
         M &mask, T &x, const std::string &execSpace = "");
 
     template <typename T>
-    OPERATORS_EXPORT typename T::value_type l2norm(
+    LIB_MATH_EXPORT typename T::value_type l2norm(
         T &, const std::string &execSpace = "");
 
     template <typename M, typename T>
-    OPERATORS_EXPORT typename T::value_type l2norm(
+    LIB_MATH_EXPORT typename T::value_type l2norm(
         M &mask, T &, const std::string &execSpace = "");
 
     template <typename T>
-    OPERATORS_EXPORT typename T::value_type lpnorm(
+    LIB_MATH_EXPORT typename T::value_type lpnorm(
         const unsigned int p, T &x, const std::string &execSpace = "");
 
     template <typename M, typename T>
-    OPERATORS_EXPORT typename T::value_type lpnorm(
+    LIB_MATH_EXPORT typename T::value_type lpnorm(
         const unsigned int p, M &mask, T &x, const std::string &execSpace = "");
 
     template <typename T>
-    OPERATORS_EXPORT typename T::value_type linfnorm(
+    LIB_MATH_EXPORT typename T::value_type linfnorm(
         T &x, const std::string &execSpace = "");
 
     template <typename M, typename T>
-    OPERATORS_EXPORT typename T::value_type linfnorm(
+    LIB_MATH_EXPORT typename T::value_type linfnorm(
         M &mask, T &x, const std::string &execSpace = "");
 
 private:
     std::string m_defaultExecSpace;
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar::Math

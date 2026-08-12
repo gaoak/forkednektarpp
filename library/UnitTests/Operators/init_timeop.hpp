@@ -34,7 +34,6 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/Math/Math.hpp"
 #include "Operators/TimeOps/TimeOp.hpp"
 
 using namespace Nektar::Operators;
@@ -53,7 +52,7 @@ public:
     {
         // Initialise math kernel
         std::string execName = Operator<TData>::GetOpExecSpace(this->session);
-        math                 = Math(execName);
+        math                 = Math::MathHelper(execName);
 
         // Set initial value
         for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
@@ -221,7 +220,7 @@ protected:
     TData m_alpha;
     TData m_beta;
 
-    Math math;
+    Math::MathHelper math;
 
     void DoLHS(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Phys> &out,

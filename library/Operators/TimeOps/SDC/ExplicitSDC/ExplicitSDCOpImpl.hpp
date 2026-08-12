@@ -148,9 +148,9 @@ protected:
             if (n < this->m_nQuadPts - 1)
             {
                 TData dtn = (tau[n + 1] - tau[n]);
-                daxpy<ExecSpace>(dtn, this->m_residuals[n],
-                                 this->m_solutions[n],
-                                 this->m_solutions[n + 1]);
+                Math::daxpy<ExecSpace>(dtn, this->m_residuals[n],
+                                       this->m_solutions[n],
+                                       this->m_solutions[n + 1]);
             }
         }
     }

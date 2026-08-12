@@ -246,7 +246,7 @@ protected:
 
         if (this->m_scale != 1.0)
         {
-            mul<ExecSpace>(this->m_scale, out, out);
+            Math::mul<ExecSpace>(this->m_scale, out, out);
         }
     }
 
