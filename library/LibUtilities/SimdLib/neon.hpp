@@ -35,7 +35,8 @@
 #ifndef NEKTAR_LIB_LIBUTILITES_SIMDLIB_NEON_H
 #define NEKTAR_LIB_LIBUTILITES_SIMDLIB_NEON_H
 
-#if defined(__aarch64__) && defined(__ARM_NEON)
+#if defined(__aarch64__) && defined(__ARM_NEON) &&                             \
+    defined(NEKTAR_ENABLE_SIMD_NEON)
 #include <arm_neon.h>
 #endif
 #include "allocator.hpp"
