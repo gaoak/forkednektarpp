@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<NEKTAR>
+    <EXPANSIONS>
+        <E COMPOSITE="C[1]" NUMMODES="3" TYPE="MODIFIED" FIELDS="u,v" />
+        <E COMPOSITE="C[1]" NUMMODES="3" TYPE="MODIFIED" FIELDS="phi"   />
+        <E COMPOSITE="C[1]" NUMMODES="3" TYPE="MODIFIED" FIELDS="rho,visc"   />
+        <E COMPOSITE="C[1]" NUMMODES="3" TYPE="MODIFIED" FIELDS="p"     />
+    </EXPANSIONS>
+
+    <CONDITIONS>
+        <PARAMETERS>
+            <P> FinTime         = 0.25              </P>
+            <P> TimeStep        = 0.001             </P>
+            <P> NumSteps        = FinTime/TimeStep  </P>
+            <P> IO_CheckSteps   = 50                </P>
+            <P> IO_InfoSteps    = 50                </P>
+            <!--Interface width epsilon=(dh^(0.9))/2*p-->
+            <P> epsilon         = ((1/15)^0.9)/4    </P>
+            <!--Surface tension Coefficient N/m-->
+            <P> sigma           = 0                 </P>
+            <P> Re              = 1                 </P>
+            <!-- l=fluid1 f=fluid2-->
+            <!-- density and kinematic viscosity of liquid-->
+            <P> rhol            = 1000              </P>
+            <P> viscl           = 1e-03             </P>
+            <!-- density and kinematic viscosity of gas-->
+            <P> rhof            = 1                 </P>
+            <P> viscf           = 1e-05             </P>
+            <P> Kinvis          = viscl/rhol        </P>
+            <!--INITIAL CONDITION PARAMETERS-->
+            <!--Interface location t=0-->
+            <P> Yint            = 1/3               </P>
+            <!--Interface thickness t=0-->
+            <P> eps             = epsilon           </P>
+            <!--Exact solution at FinTime-->
+            <P> Yintf           = 2/3               </P>
+        </PARAMETERS>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
+
+        <SOLVERINFO>
+            <I PROPERTY="SolverType"            VALUE="VCSLevelSet" />
+            <I PROPERTY="EQTYPE"                VALUE="UnsteadyNavierStokes"     />
+            <I PROPERTY="AdvectiveType"         VALUE="NSLevelSet"                />
+            <I PROPERTY="Projection"            VALUE="Continuous"               />
+            <I PROPERTY="Driver"                VALUE="Standard"                 />
+        </SOLVERINFO>
+
+        <VARIABLES>
+            <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> phi </V>
+            <V ID="3"> rho </V>
+            <V ID="4"> visc </V>
+            <V ID="5"> p </V>
+        </VARIABLES>
+
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[100] </B>
+            <B ID="1"> C[200] </B>
+            <B ID="2"> C[300] </B>
+            <B ID="3"> C[400] </B>
+        </BOUNDARYREGIONS>
+
+        <BOUNDARYCONDITIONS>
+            <!--2D Square domain [length=1 height=1]-->
+            <!--counterclockwise order-->
+            <!--Bottom-->
+            <REGION REF="0">
+                <D VAR="u" VALUE="0"   />
+                <D VAR="v" VALUE="4/3"   />
+                <D VAR="phi" VALUE="1" />
+                <D VAR="rho" VALUE="rhol" />
+                <D VAR="visc" VALUE="viscl/rhol" />
+                <N VAR="p" VALUE="0" />
+            </REGION>
+            <!--Right side-->
+            <REGION REF="1">
+                <N VAR="u" VALUE="0"   />
+                <N VAR="v" VALUE="0"   />
+                <N VAR="phi" VALUE="0" />
+                <N VAR="rho" VALUE="0" />
+                <N VAR="visc" VALUE="0" />
+                <N VAR="p" VALUE="0" />
+            </REGION>
+            <!--Top-->
+            <REGION REF="2">
+                <N VAR="u" VALUE="0"   />
+                <N VAR="v" VALUE="0"   />
+                <N VAR="phi" VALUE="0" />
+                <N VAR="rho" VALUE="0" />
+                <N VAR="visc" VALUE="0" />
+                <D VAR="p" VALUE="0"   />
+            </REGION>
+            <!--Left side-->
+            <REGION REF="3">
+                <N VAR="u" VALUE="0"   />
+                <N VAR="v" VALUE="0"   />
+                <N VAR="phi" VALUE="0" />
+                <N VAR="rho" VALUE="0" />
+                <N VAR="visc" VALUE="0" />
+                <N VAR="p" VALUE="0" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+
+        <FUNCTION NAME="InitialConditions">
+            <E VAR="u" VALUE="0" />
+            <E VAR="v" VALUE="4/3" />
+            <E VAR="phi"  VALUE="(1+exp((y-Yint)/eps))^(-1)" />
+            <E VAR="rho" VALUE= "rhof + ((1+exp((y-Yint)/eps))^(-1))*(rhol-rhof)" />
+            <E VAR="visc" VALUE= "viscf/rhof + ((1+exp((y-Yint)/eps))^(-1))*(viscl/rhol-viscf/rhof)" />
+            <E VAR="p" VALUE="0" />
+        </FUNCTION>
+
+        <FUNCTION NAME="ExactSolution">
+            <E VAR="u" VALUE="0" />
+            <E VAR="v" VALUE="4/3" />
+            <E VAR="phi"  VALUE="(1+exp((y-Yintf)/eps))^(-1)" />
+            <E VAR="rho" VALUE= "rhof + ((1+exp((y-Yintf)/eps))^(-1))*(rhol-rhof)" />
+            <E VAR="visc" VALUE= "viscf/rhof + ((1+exp((y-Yintf)/eps))^(-1))*(viscl/rhol-viscf/rhof)" />
+            <E VAR="p" VALUE="0" />
+        </FUNCTION>
+
+    </CONDITIONS>
+
+</NEKTAR>

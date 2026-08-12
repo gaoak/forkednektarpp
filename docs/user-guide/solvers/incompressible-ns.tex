@@ -28,6 +28,7 @@ available in Nektar\texttt{++} as shwon in table~\ref{tab.IncNSSolvers}.
     Velocity Correction Scheme & Semi-Implicit\\
     " & Semi-Implicit w/ Weak Pressure\\
     " & Implicit\\
+	" & Level-Set \\
     " & Coordinate Transformation \\
     Smoothed Profile Method & -\\
     Linear Stability Analysis & Direct \\
@@ -204,6 +205,80 @@ Also, consider that the solver is linearly-implicit instead of fully-implicit.
 This means that there are no sub iterations for each time step and 
 thus no free parameters (e.g. tolerance) that need to be defined additionally.
 
+\subsubsection{Level Set Velocity Correction Scheme}
+\label{VCSLevelSet}
+ The level-set incompressible Navier–Stokes solver extends the classical velocity correction scheme to simulate two-phase flows of immiscible fluids using an interface-capturing approach. The governing equations consist of a level-set transport equation coupled with modified incompressible Navier–Stokes equations that account for variable material properties and interfacial forces.The approach is similar to the work of \cite{Olsson2005Conservative}.
+
+
+\begin{subequations}
+\begin{align}
+    \frac{\partial \phi}{\partial t} + \mathbf{u} \cdot \nabla \phi &= \epsilon \nabla^2 \phi - \nabla \cdot (\phi(1-\phi)\Bar{\mathbf{n}})  \label{eqn.LevelSetTrack} \\
+    \frac{\partial \mathbf{u}}{\partial t} + \mathbf{u} \cdot \nabla \mathbf{u} &= -\frac{\nabla p}{\rho_{\phi}} + \nu_{\phi} \nabla^2 \mathbf{u} -\frac{\sigma}{\rho_{\phi}} (\nabla \cdot \Bar{\mathbf{n}}) \nabla \phi + \mathbf{f_g} \label{eqn.LevelSetMom} \\
+    \nabla \cdot \mathbf{u} &= 0,
+\end{align}
+\end{subequations}
+where $\phi$ denotes the level-set function, $\epsilon$ is the interface thickness, and $\Bar{\mathbf{n}} = \nabla \phi / |\nabla \phi|$ represents the unit normal vector to the interface, $\sigma$ is the surface tension coefficient and $\mathbf{f_g}$ represents gravity as body force. The density $\rho_{\phi}$ and kinematic viscosity $\nu_{\phi}$ vary smoothly across the interface according to
+$\rho_{\phi} = (\rho_l - \rho_f)\phi + \rho_f$ and $\nu_{\phi} = (\nu_l - \nu_f)\phi + \nu_f$ where subscripts $l$ and $f$ denote the liquid and secondary (immiscible) fluid/phase, respectively.
+
+To ensure numerical robustness and mass conservation, the level-set field is initialised using a smooth approximation of a Heaviside function, following the conservative level-set formulation. The interface between the two phases is represented implicitly by the $\phi=0.5$ contour of the level-set field, where $\phi$ varies continuously from $0$ in one phase/fluid to $1$ in the other across a thin transition region of finite thickness. To ensure adequate resolution of the interface profile, the thickness of the transition region is specified proportional to the mesh size as $\epsilon=h^{0.9}/2p$ where $h$ is the element size and $p$ is the polynomial order. The smeared Heaviside profile is constructed from a signed distance function $\tilde{\phi}$ as
+\begin{equation}
+    \phi(x) = \frac{1}{1+e^{\tilde{\phi}(x)/\epsilon}}
+    \label{eqn.LevelSetFunc}
+\end{equation}
+
+The numerical formulation of the solver follows a splitting procedure analogous to the classical velocity correction scheme. In this approach, the level-set transport equation is first advanced in time, followed by the solution of a pressure Poisson equation and subsequently Helmholtz problems for the velocity components.
+
+The level-set transport equation is discretised using a backward difference in time with explicit treatment of the non-linear terms. This leads to a Helmholtz-type problem of the form
+\begin{equation}
+\Bigl(\nabla^2 - \frac{\gamma_0}{\epsilon \Delta t}\Bigr)\phi^{n+1}
+=
+-\Bigl(\frac{\gamma_0}{\epsilon \Delta t}\Bigr)\phi^n
++ \frac{1}{\epsilon} \nabla \cdot \bigl(\phi^n(1-\phi^n)\Bar{\mathbf{n}}\bigr)
+\label{eqn.LevelSetHelm}
+\end{equation}
+
+Using the updated level-set field ($\phi^{n+1}$) to evaluate density ($\rho_{\phi}^{n+1}$) and kinematic viscosity ($\nu_{\phi}^{n+1}$), a variable-coefficient Poisson equation is solved to obtain pressure ($p^{n+1}$).
+\begin{equation}
+\nabla \cdot \left(\frac{1}{\rho_{\phi}^{n+1}} \nabla p^{n+1}\right)
+=
+\nabla \cdot \Bigl(
+\frac{\hat{\mathbf{u}}}{\Delta t}
+- \mathbf{N}^{*,n+1}
+- \frac{\sigma}{\rho_{\phi}^{n+1}} (\nabla \cdot \Bar{\mathbf{n}})\nabla \phi^{n+1}
+\Bigr)
+\label{eqn.LevelSetPressurePoisson}
+\end{equation}
+
+where $\mathbf{N}^{*,n+1}$ denotes the extrapolated non-linear advection term and $\hat{\mathbf{u}}$ is an intermediate velocity field.
+
+Finally, the velocity components ($\mathbf{u}^{n+1}$) are obtained by solving a Helmholtz problem of the form
+\begin{equation}
+\Bigl(\nabla^2 - \frac{\gamma_0}{\nu_{\phi}^{n+1} \Delta t}\Bigr)\mathbf{u}^{n+1}=
+-\Bigl(\frac{\gamma_0}{\nu_{\phi}^{n+1} \Delta t}\Bigr)\hat{\mathbf{u}}
++ \frac{1}{\nu_{\phi}^{n+1}}
+\left(
+\frac{\nabla p^{n+1}}{\rho_{\phi}^{n+1}}
++ \frac{\sigma}{\rho_{\phi}^{n+1}} (\nabla \cdot \Bar{\mathbf{n}})\nabla \phi^{n+1}
+\right)
+\label{eqn.LevelSetVelocityHelm}
+\end{equation}
+
+The resulting algorithm follows a four-step procedure. Starting from known quantities at time $t^n = n\Delta t$, the first step consists of evaluating the \textcolor{blue}{explicit advection terms} for both the level-set scalar and velocity. The second step advances the \textcolor{black}{level-set field $\phi^{n+1}$} by solving a Helmholtz problem. In the third step, a Poisson equation is solved to obtain the updated \textcolor{red}{pressure $p^{n+1}$} field. Finally, Helmholtz problems are solved for each \textcolor{darkgreen}{velocity component $\mathbf{u}^{n+1}$} to obtain the updated velocity field. The overall structure of the algorithm is illustrated in Figure~\ref{fig.VCSLevelSetAlgorithm}. The scheme retains the semi-implicit character of the classical velocity correction approach, where diffusive terms are treated implicitly and nonlinear terms are treated explicitly.
+
+\begin{figure}[!htbp]
+\centering
+\begin{tikzpicture}
+    \node[draw,align=center,color=blue] (Adv) [text width=2cm] at (0,0) {Advection $\mathbf{N}^{*,n+1}$};
+    \node[draw,align=center,color=darkgreen] (LS) [text width=3.5cm] at (0,-2) {1x Helmholtz $\lambda \phi^{n+1} + \nabla^2 \phi^{n+1}$};
+    \node[draw,align=center,color=red] (P) [text width=2cm] at (0,-4) {Poisson $\nabla^2 p^{n+1}$};
+    \node[draw,align=center,color=darkgreen] (H) [text width=3.5cm] at (0,-6) {3x Helmholtz $\lambda \mathbf{u}^{n+1} + \nabla^2 \mathbf{u}^{n+1}$};
+    \node[rotate=90] (Tl) at (2.5,-3) {\small Time loop $n=n+1$};
+    % Arrows
+    \draw[-latex] (Adv) edge (LS) (LS) edge (P) (P) edge (H) (H) -- (2.7,-6) -- (2.7,0) -- (Adv);
+\end{tikzpicture}
+\caption{The algorithm of the Level-Set Velocity Correction scheme to compute level-set scalar, pressure and velocity at the new time $t^n = n \Delta t$.}
+\label{fig.VCSLevelSetAlgorithm}
+\end{figure}
 
 \subsubsection{Coordinate Transformation}
 \label{VCSCoordinateTransformation}
@@ -786,6 +861,7 @@ Available options are as shown next:
 \midrule
 Velocity Correction Scheme (VCS) & \texttt{VelocityCorrectionScheme} & 2D, Quasi-3D, 3D & CG, CG-DG\\
 Implicit VCS & \texttt{VCSImplicit} & 2D and 3D & CG\\
+Level-Set VCS & \texttt{VCSLevelSet} & 2D and 3D & CG\\
 VCS with coordinate transformation & \texttt{VCSMapping} & 2D, Quasi-3d and 3D & CG, CG-DG\\
 VCS with weak pressure & \texttt{VCSWeakPressure} & 2D, Quasi-3D, 3D & CG, CG-DG\\
 Smoothed Profile Method (SPM)    & \texttt{SmoothedProfileMethod}    & 2D, Quasi-3D, 3D & CG, CG-DG\\
@@ -1488,6 +1564,56 @@ available for this solver.
   \item \inltt{Reynolds stresses} (section~\ref{filters:ReynoldsStresses})
 \end{itemize}
 
+\section{Level-Set Velocity Correction Scheme: Session file configuration}
+As the Level-Set VCS (see Sec.~\ref{VCSLevelSet}) is a derived class of the Velocity Correction Scheme (VCS) (see Sec.~\ref{VCSScheme} and Sec.~\ref{VCSSetup}), hence most of the setting introduced for the VCS is applicable for the VCSLevelSet and hence will not be repeated here and only the unique options will be discussed here.
+
+For the VCSLevelSet two-phase simulations, the property \inltt{SolverType} must be set to \inltt{VCSLevelSet}. Thus, the \inltt{TIMEINTEGRATIONSCHEME} and \inltt{SOLVERINFO} section could be similar to:
+
+\begin{lstlisting}[style=XMLStyle]
+<TIMEINTEGRATIONSCHEME>
+    <METHOD> IMEX </METHOD>
+    <ORDER> 2 </ORDER>
+</TIMEINTEGRATIONSCHEME>
+
+<SOLVERINFO>
+    <I PROPERTY="SolverType"            VALUE="VCSLevelSet"              />
+    <I PROPERTY="EQTYPE"                VALUE="UnsteadyNavierStokes"     />
+    <I PROPERTY="Projection"            VALUE="Continuous"               />
+    <I PROPERTY="Driver"                VALUE="Standard"                 />
+</SOLVERINFO>
+\end{lstlisting}
+
+\subsection{Parameters}
+The following parameters corresponding to two-phase properties should be specified in the \texttt{PARAMETERS} section of the session file:
+
+\begin{itemize}
+\item \inltt{rhol}: sets the density of the liquid.
+\item \inltt{viscl}: sets the kinematic viscosity of liquid.
+\item \inltt{rhof}: sets the density of the second fluid.
+\item \inltt{viscf}: sets the kinematic viscosity of second fluid.
+\item \inltt{epsilon}: sets the interface thickness.
+\item \inltt{sigma}: surface/interfacial tension coefficient between liquid-fluid.
+\end{itemize}
+
+\subsection{Functions}
+When using the Level-Set Velocity Correction Scheme for two-phase flow gravity can be specified as a body force in the form:
+
+\begin{lstlisting}[style=XMLStyle]
+ <FUNCTION NAME="Gravity">
+    <E VAR="u" VALUE="0" />
+    <E VAR="v" VALUE="-9.8" />
+    <E VAR="phi" VALUE="0" />
+    <E VAR="rho" VALUE="0" />
+    <E VAR="visc" VALUE="0" />
+    <E VAR="p" VALUE="0" />
+ </FUNCTION>
+
+ <FORCING>
+    <FORCE TYPE="Body">
+        <BODYFORCE> Gravity </BODYFORCE>
+    </FORCE>
+</FORCING>
+\end{lstlisting}
 
 \section{Smoothed Profile Method: Session file configuration}
 As the Immersed boundary method, i.e. the smoothed profile method (see Sec.~
