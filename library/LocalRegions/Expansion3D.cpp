@@ -3198,7 +3198,7 @@ void Expansion3D::v_ReOrientTracePhysVals(
                 {
                     for (int i = 0; i < nq0; ++i)
                     {
-                        out[j * nq0 + i] = intmp[nq0 * (nq1 - 1) - i * nq1 + j];
+                        out[j * nq0 + i] = intmp[nq1 * (nq0 - 1) - i * nq1 + j];
                     }
                 }
             }
