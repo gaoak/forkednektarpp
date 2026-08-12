@@ -16,6 +16,7 @@ v5.11.0
 
 **CI**
 - Added DEBUG_IMAGES option to reduce load on registry storage (2648)
+- Fix for non-isotropic case in ReOrientFace (!2649)
 
 **Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)
