@@ -187,9 +187,9 @@ protected:
             }
             else
             {
-                daxpy<ExecSpace>(beta, m_q, m_r, m_u);
-                daxpy<ExecSpace>(beta, m_p, m_q, m_p);
-                daxpy<ExecSpace>(beta, m_p, m_u, m_p);
+                Math::daxpy<ExecSpace>(beta, m_q, m_r, m_u);
+                Math::daxpy<ExecSpace>(beta, m_p, m_q, m_p);
+                Math::daxpy<ExecSpace>(beta, m_p, m_u, m_p);
             }
 
             // Perform the method-specific matrix-vector multiply operation.
@@ -212,8 +212,8 @@ protected:
             alpha = rho_new / alpha;
 
             // Update vectors.
-            daxpy<ExecSpace>(-alpha, m_s, m_u, m_q);
-            add<ExecSpace>(m_u, m_q, m_w);
+            Math::daxpy<ExecSpace>(-alpha, m_s, m_u, m_q);
+            Math::add<ExecSpace>(m_u, m_q, m_w);
 
             // Perform the method-specific matrix-vector multiply operation.
             if (this->m_rightPreconditioner)
@@ -229,10 +229,10 @@ protected:
             }
 
             // Update solution.
-            daxpy<ExecSpace>(alpha, m_w, out, out);
+            Math::daxpy<ExecSpace>(alpha, m_w, out, out);
 
             // Update residual.
-            daxpy<ExecSpace>(-alpha, m_s, m_r, m_r);
+            Math::daxpy<ExecSpace>(-alpha, m_s, m_r, m_r);
 
             // Update coefficients.
             rho     = rho_new;

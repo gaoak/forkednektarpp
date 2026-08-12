@@ -193,8 +193,8 @@ protected:
             // Update vectors.
             if (this->m_niter > 0)
             {
-                daxpy<ExecSpace>(beta, m_u, m_r, m_u);
-                daxpy<ExecSpace>(beta, m_p, m_s, m_p);
+                Math::daxpy<ExecSpace>(beta, m_u, m_r, m_u);
+                Math::daxpy<ExecSpace>(beta, m_p, m_s, m_p);
             }
 
             ++this->m_niter;
@@ -214,7 +214,7 @@ protected:
             }
 
             // Update vectors.
-            daxpy<ExecSpace>(beta, m_p, m_s, m_p);
+            Math::daxpy<ExecSpace>(beta, m_p, m_s, m_p);
 
             // Update coefficients.
             alpha = this->m_math.ddot(m_rtilde, m_p);
@@ -223,8 +223,8 @@ protected:
 
             // --- First pass ---
             // Update vectors.
-            daxpy<ExecSpace>(-alpha, m_s, m_r, m_r);
-            daxpy<ExecSpace>(theta * theta * eta / alpha, m_d, tmp, m_d);
+            Math::daxpy<ExecSpace>(-alpha, m_s, m_r, m_r);
+            Math::daxpy<ExecSpace>(theta * theta * eta / alpha, m_d, tmp, m_d);
 
             // Update coefficients.
             theta = this->m_math.ddot(m_r, m_r);
@@ -235,7 +235,7 @@ protected:
 
             // Update solution.
             eta = sigma * sigma * alpha;
-            daxpy<ExecSpace>(eta, m_d, out, out);
+            Math::daxpy<ExecSpace>(eta, m_d, out, out);
 
             // Test if norm is within tolerance.
             eps = tau * tau * (2 * this->m_niter);
@@ -249,7 +249,7 @@ protected:
 
             // --- Second pass ---
             // Update vectors.
-            daxpy<ExecSpace>(-alpha, m_p, m_u, m_u);
+            Math::daxpy<ExecSpace>(-alpha, m_p, m_u, m_u);
 
             // Perform the method-specific matrix-vector multiply operation.
             auto &tmp2 = (this->m_rightPreconditioner) ? m_w : m_u;
@@ -266,8 +266,8 @@ protected:
             }
 
             // Update vectors.
-            daxpy<ExecSpace>(-alpha, m_s, m_r, m_r);
-            daxpy<ExecSpace>(theta * theta * eta / alpha, m_d, tmp2, m_d);
+            Math::daxpy<ExecSpace>(-alpha, m_s, m_r, m_r);
+            Math::daxpy<ExecSpace>(theta * theta * eta / alpha, m_d, tmp2, m_d);
 
             // Update coefficients.
             theta = this->m_math.ddot(m_r, m_r);
@@ -278,7 +278,7 @@ protected:
 
             // Update solution.
             eta = sigma * sigma * alpha;
-            daxpy<ExecSpace>(eta, m_d, out, out);
+            Math::daxpy<ExecSpace>(eta, m_d, out, out);
 
             // Test if norm is within tolerance.
             eps = tau * tau * (2 * this->m_niter + 1);

@@ -194,13 +194,13 @@ protected:
         // Calculate inital rhs magnitude.
         m_r.template Copy<MemSpace>(in);
         this->m_assmbScatrOp->Apply(m_r);
-        ddot<ExecSpace>(in, m_r, exchange + 1);
+        Math::ddot<ExecSpace>(in, m_r, exchange + 1);
 
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
         this->m_assmbScatrZeroDirOp->Apply(m_r);
-        ddot<ExecSpace>(in, m_r, exchange + 0);
+        Math::ddot<ExecSpace>(in, m_r, exchange + 0);
 
         // Communication.
         this->m_rowComm->template AllReduce<MemSpace>(
@@ -262,20 +262,20 @@ protected:
                 this->m_assmbScatrZeroDirOp->Apply(m_s);
 
                 // Compute new search direction.
-                // daxpy<ExecSpace>(beta, m_p, m_w, m_p);
-                // daxpy<ExecSpace>(beta, m_q, m_s, m_q);
-                // daxpy<ExecSpace>(alpha, m_p, out, out);
-                // daxpy<ExecSpace>(-alpha, m_q, m_r, m_r);
+                // Math::daxpy<ExecSpace>(beta, m_p, m_w, m_p);
+                // Math::daxpy<ExecSpace>(beta, m_q, m_s, m_q);
+                // Math::daxpy<ExecSpace>(alpha, m_p, out, out);
+                // Math::daxpy<ExecSpace>(-alpha, m_q, m_r, m_r);
                 UpdateConjGradSearchDirection<ExecSpace>(alpha, beta, m_w, m_s,
                                                          m_p, m_q, m_r, out);
 
                 // <r_{k+1}, r_{k+1}>
-                ddot<ExecSpace>(m_mask, m_r, m_r, exchange + 0);
+                Math::ddot<ExecSpace>(m_mask, m_r, m_r, exchange + 0);
 
                 if (m_flexible)
                 {
                     // <r_{k+1}, w_{k}>
-                    ddot<ExecSpace>(m_mask, m_r, m_w, exchange + 3);
+                    Math::ddot<ExecSpace>(m_mask, m_r, m_w, exchange + 3);
                 }
 
                 // Apply preconditioner - output is assumeed holding global dof
@@ -290,14 +290,14 @@ protected:
             }
 
             // <r_{k+1}, w_{k+1}>
-            ddot<ExecSpace>(m_mask, m_r, m_w, exchange + 1);
+            Math::ddot<ExecSpace>(m_mask, m_r, m_w, exchange + 1);
 
             // Perform the method-specific matrix-vector multiply operation.
             this->m_lhs->Apply(m_w, m_s);
             this->m_robBndCondOp->Apply(m_w, m_s);
 
             // <w_{k+1}, s_{k+1}>
-            ddot<ExecSpace>(m_w, m_s, exchange + 2);
+            Math::ddot<ExecSpace>(m_w, m_s, exchange + 2);
 
             // Communication.
             this->m_rowComm->template AllReduce<MemSpace>(

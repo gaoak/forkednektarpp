@@ -154,10 +154,10 @@ protected:
                              this->m_timestep * dtn);
 
             // Compute residual from updated solution.
-            sub<ExecSpace>(this->m_solutions[n], this->m_solutions[n - 1],
-                           this->m_residuals[n]);
-            mul<ExecSpace>((TData)1.0 / dtn, this->m_residuals[n],
-                           this->m_residuals[n]);
+            Math::sub<ExecSpace>(this->m_solutions[n], this->m_solutions[n - 1],
+                                 this->m_residuals[n]);
+            Math::mul<ExecSpace>((TData)1.0 / dtn, this->m_residuals[n],
+                                 this->m_residuals[n]);
         }
     }
 
@@ -209,10 +209,10 @@ protected:
 
             std::swap(this->m_solutions[n], this->m_residuals[n]);
 
-            sub<ExecSpace>(this->m_solutions[n], this->m_residuals[n],
-                           this->m_residuals[n]);
-            mul<ExecSpace>((TData)1.0 / dtn, this->m_residuals[n],
-                           this->m_residuals[n]);
+            Math::sub<ExecSpace>(this->m_solutions[n], this->m_residuals[n],
+                                 this->m_residuals[n]);
+            Math::mul<ExecSpace>((TData)1.0 / dtn, this->m_residuals[n],
+                                 this->m_residuals[n]);
         }
     }
 };

@@ -73,8 +73,6 @@ ignore_sources = [
     "library/LibUtilities/LinearAlgebra/NekBlas/hipBlasHandle.cpp",
     "library/LibUtilities/LinearAlgebra/NekBlas/oneMath.cpp",
     "library/LibUtilities/LinearAlgebra/NekBlas/oneMathHandle.cpp",
-    # Others
-    "library/Operators/MathKernels/Math.cpp",
 ]
 
 ignore_sources = [ os.path.join(cwd, os.path.normpath(p)) for p in ignore_sources ]

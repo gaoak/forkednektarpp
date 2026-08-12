@@ -152,13 +152,13 @@ protected:
         // Calculate inital rhs magnitude.
         m_r.template Copy<MemSpace>(in);
         this->m_assmbScatrOp->Apply(m_r);
-        ddot<ExecSpace>(in, m_r, exchange + 1);
+        Math::ddot<ExecSpace>(in, m_r, exchange + 1);
 
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
         this->m_assmbScatrZeroDirOp->Apply(m_r, m_u);
-        ddot<ExecSpace>(m_r, m_u, exchange + 0);
+        Math::ddot<ExecSpace>(m_r, m_u, exchange + 0);
 
         // Begin communication.
         this->m_rowComm->template AllReduceBegin<MemSpace>(
@@ -190,8 +190,8 @@ protected:
         // Reset device memory.
         m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
-        ddot<ExecSpace>(m_u, m_u, exchange + 0);
-        ddot<ExecSpace>(m_u, m_r, exchange + 1);
+        Math::ddot<ExecSpace>(m_u, m_u, exchange + 0);
+        Math::ddot<ExecSpace>(m_u, m_r, exchange + 1);
 
         // Begin communication.
         this->m_rowComm->template AllReduceBegin<MemSpace>(
@@ -229,7 +229,7 @@ protected:
             m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
             // <p_{k+1}, s_{k+1}>
-            ddot<ExecSpace>(m_p, m_s, exchange + 0);
+            Math::ddot<ExecSpace>(m_p, m_s, exchange + 0);
 
             // Begin communication.
             this->m_rowComm->template AllReduceBegin<MemSpace>(
@@ -256,18 +256,18 @@ protected:
             alpha = rho / delta;
 
             // Compute new search direction.
-            daxpy<ExecSpace>(alpha, m_p, out, out);
-            daxpy<ExecSpace>(-alpha, m_s, m_r, m_r);
-            daxpy<ExecSpace>(-alpha, m_q, m_u, m_u);
+            Math::daxpy<ExecSpace>(alpha, m_p, out, out);
+            Math::daxpy<ExecSpace>(-alpha, m_s, m_r, m_r);
+            Math::daxpy<ExecSpace>(-alpha, m_q, m_u, m_u);
 
             // Reset device memory.
             m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
             // <u_{k+1}, u_{k+1}>
-            ddot<ExecSpace>(m_u, m_u, exchange + 0);
+            Math::ddot<ExecSpace>(m_u, m_u, exchange + 0);
 
             // <r_{k+1}, u_{k+1}>
-            ddot<ExecSpace>(m_r, m_u, exchange + 1);
+            Math::ddot<ExecSpace>(m_r, m_u, exchange + 1);
 
             // Begin communication.
             this->m_rowComm->template AllReduceBegin<MemSpace>(
@@ -305,8 +305,8 @@ protected:
             rho  = rho_new;
 
             // Compute new search direction.
-            daxpy<ExecSpace>(beta, m_p, m_u, m_p);
-            daxpy<ExecSpace>(beta, m_s, m_w, m_s);
+            Math::daxpy<ExecSpace>(beta, m_p, m_u, m_p);
+            Math::daxpy<ExecSpace>(beta, m_s, m_w, m_s);
         }
     }
 };

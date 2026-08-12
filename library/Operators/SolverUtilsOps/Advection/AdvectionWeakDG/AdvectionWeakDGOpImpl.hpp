@@ -31,7 +31,9 @@
 // Description: AdvectionWeakDG Operator.
 //
 ///////////////////////////////////////////////////////////////////////////////
+
 #pragma once
+
 #include "Operators/AddTraceIntegral/AddTraceIntegralOp.hpp"
 #include "Operators/ElmtOps/BwdTrans/BwdTransOp.hpp"
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp"
@@ -185,7 +187,7 @@ protected:
 
         if (this->m_scale != 1.0)
         {
-            mul<ExecSpace>(this->m_scale, out, out);
+            Math::mul<ExecSpace>(this->m_scale, out, out);
         }
     }
 

@@ -333,55 +333,76 @@ SET(BaseHeaders
     LibUtilitiesDeclspec.h
 )
 
-IF (NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-    SET(DeviceSupportHeaders 
-        ./Backends/CUDAStream.hpp
-        ./Backends/DeviceProperties.hpp
-        ./LoopExecution/LoopExecution.hpp
-        ./Memory/MemoryAlloc.hpp
-    )
-    SET(DeviceSupportSources 
-        ./Backends/CUDAStream.cpp
-        ./Backends/DeviceProperties.cpp
-        ./LoopExecution/LoopExecution.cpp
-        ./Memory/MemoryAlloc.cu
-    )
-ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
-    SET(DeviceSupportHeaders 
-        ./Backends/HIPStream.hpp
-        ./Backends/DeviceProperties.hpp
-        ./LoopExecution/LoopExecution.hpp
-        ./Memory/MemoryAlloc.hpp
-    )
-    SET(DeviceSupportSources 
-        ./Backends/HIPStream.cpp
-        ./Backends/DeviceProperties.cpp
-        ./LoopExecution/LoopExecution.cpp
-        ./Memory/MemoryAlloc.hip
-    )
-ELSEIF (NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
-    SET(DeviceSupportHeaders 
-        ./Backends/SYCLQueue.hpp
-        ./Backends/DeviceProperties.hpp
-        ./LoopExecution/LoopExecution.hpp
-        ./Memory/MemoryAlloc.hpp
-    )
-    SET(DeviceSupportSources 
-        ./Backends/SYCLQueue.cpp
-        ./Backends/DeviceProperties.cpp
-        ./LoopExecution/LoopExecution.cpp
-        ./Memory/MemoryAlloc.hpp
-    )
-ELSE()
-    SET(DeviceSupportHeaders 
-        ./Backends/DeviceProperties.hpp
-        ./LoopExecution/LoopExecution.hpp
-        ./Memory/MemoryAlloc.hpp
-    )
-    SET(DeviceSupportSources 
-        ./Backends/DeviceProperties.cpp
-        ./LoopExecution/LoopExecution.cpp
-    )
+IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
+    IF (NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+        SET(DeviceSupportHeaders 
+            ./Backends/CUDAStream.hpp
+            ./Backends/DeviceProperties.hpp
+            ./BasicUtils/Math/Math.hpp
+            ./BasicUtils/Math/MathDeclspec.h
+            ./BasicUtils/Math/MathHelperDef.hpp
+            ./LoopExecution/LoopExecution.hpp
+            ./Memory/MemoryAlloc.hpp
+        )
+        SET(DeviceSupportSources 
+            ./Backends/CUDAStream.cpp
+            ./Backends/DeviceProperties.cpp
+            ./BasicUtils/Math/Math.cpp
+            ./BasicUtils/Math/MathHelper.cu
+            ./LoopExecution/LoopExecution.cpp
+            ./Memory/MemoryAlloc.cu
+        )
+    ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+        SET(DeviceSupportHeaders 
+            ./Backends/HIPStream.hpp
+            ./Backends/DeviceProperties.hpp
+            ./BasicUtils/Math/Math.hpp
+            ./BasicUtils/Math/MathDeclspec.h
+            ./BasicUtils/Math/MathHelperDef.hpp
+            ./LoopExecution/LoopExecution.hpp
+            ./Memory/MemoryAlloc.hpp
+        )
+        SET(DeviceSupportSources 
+            ./Backends/HIPStream.cpp
+            ./Backends/DeviceProperties.cpp
+            ./BasicUtils/Math/Math.cpp
+            ./BasicUtils/Math/MathHelper.hip
+            ./LoopExecution/LoopExecution.cpp
+            ./Memory/MemoryAlloc.hip
+        )
+    ELSEIF (NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
+        SET(DeviceSupportHeaders 
+            ./Backends/SYCLQueue.hpp
+            ./Backends/DeviceProperties.hpp
+            ./BasicUtils/Math/Math.hpp
+            ./BasicUtils/Math/MathDeclspec.h
+            ./BasicUtils/Math/MathHelperDef.hpp
+            ./LoopExecution/LoopExecution.hpp
+            ./Memory/MemoryAlloc.hpp
+        )
+        SET(DeviceSupportSources 
+            ./Backends/SYCLQueue.cpp
+            ./Backends/DeviceProperties.cpp
+            ./BasicUtils/Math/Math.cpp
+            ./BasicUtils/Math/MathHelper.cpp
+            ./LoopExecution/LoopExecution.cpp
+        )
+    ELSE()
+        SET(DeviceSupportHeaders 
+            ./Backends/DeviceProperties.hpp
+            ./BasicUtils/Math/Math.hpp
+            ./BasicUtils/Math/MathDeclspec.h
+            ./BasicUtils/Math/MathHelperDef.hpp
+            ./LoopExecution/LoopExecution.hpp
+            ./Memory/MemoryAlloc.hpp
+        )
+        SET(DeviceSupportSources 
+            ./Backends/DeviceProperties.cpp
+            ./BasicUtils/Math/Math.cpp
+            ./BasicUtils/Math/MathHelper.cpp
+            ./LoopExecution/LoopExecution.cpp
+        )
+    ENDIF()
 ENDIF()
 
 SOURCE_GROUP("Basic Const" FILES ${BasicConstHeaders})

@@ -251,7 +251,7 @@ protected:
                 // Update search vectors.
                 for (unsigned int i = 0; i <= ii; i++)
                 {
-                    daxpy<ExecSpace>(-beta, m_u[i], m_r[i], m_u[i]);
+                    Math::daxpy<ExecSpace>(-beta, m_u[i], m_r[i], m_u[i]);
                 }
 
                 // Perform the method-specific matrix-vector multiply operation.
@@ -284,12 +284,12 @@ protected:
                 alpha = rho_new / alpha;
 
                 // Update solution.
-                daxpy<ExecSpace>(alpha, m_u[0], m_acc, m_acc);
+                Math::daxpy<ExecSpace>(alpha, m_u[0], m_acc, m_acc);
 
                 // Update residual.
                 for (unsigned int i = 0; i <= ii; i++)
                 {
-                    daxpy<ExecSpace>(-alpha, m_u[i + 1], m_r[i], m_r[i]);
+                    Math::daxpy<ExecSpace>(-alpha, m_u[i + 1], m_r[i], m_r[i]);
                 }
 
                 // Perform the method-specific matrix-vector multiply operation.
@@ -320,7 +320,7 @@ protected:
                     {
                         this->m_precon->Apply(m_acc, m_acc);
                     }
-                    add<ExecSpace>(m_acc, out, out);
+                    Math::add<ExecSpace>(m_acc, out, out);
 
                     this->PrintVerboseOutput(this->name, "error",
                                              std::sqrt(eps / rhsMagnitude),
@@ -342,7 +342,7 @@ protected:
             {
                 for (unsigned int i = 0; i <= ii; ++i, ++cnt)
                 {
-                    ddot<ExecSpace>(m_r[ii], m_r[i], exchange + cnt);
+                    Math::ddot<ExecSpace>(m_r[ii], m_r[i], exchange + cnt);
                 }
             }
             this->m_rowComm->template AllReduce<MemSpace>(
@@ -447,9 +447,9 @@ protected:
             omega = y0[m_stage];
             for (unsigned int ii = 1; ii <= m_stage; ++ii)
             {
-                daxpy<ExecSpace>(y0[ii], m_r[ii - 1], m_acc, m_acc);
-                daxpy<ExecSpace>(-y0[ii], m_u[ii], m_u[0], m_u[0]);
-                daxpy<ExecSpace>(-y0[ii], m_r[ii], m_r[0], m_r[0]);
+                Math::daxpy<ExecSpace>(y0[ii], m_r[ii - 1], m_acc, m_acc);
+                Math::daxpy<ExecSpace>(-y0[ii], m_u[ii], m_u[0], m_u[0]);
+                Math::daxpy<ExecSpace>(-y0[ii], m_r[ii], m_r[0], m_r[0]);
             }
             eps = this->m_math.ddot(m_r[0], m_r[0]);
             this->m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
@@ -483,12 +483,12 @@ protected:
                     }
 
                     // Compute exact residual.
-                    sub<ExecSpace>(m_rhs, m_r[0], m_r[0]);
+                    Math::sub<ExecSpace>(m_rhs, m_r[0], m_r[0]);
 
                     MaxResTrue = zeta;
                     if (update_app)
                     {
-                        add<ExecSpace>(tmp3, out, out);
+                        Math::add<ExecSpace>(tmp3, out, out);
                         m_acc.template Initialize<MemSpace>(0);
                         m_acc.SetInterleaveWidth(in);
                         m_rhs.template Copy<MemSpace>(m_r[0]);
@@ -513,7 +513,7 @@ protected:
         {
             this->m_precon->Apply(m_acc, m_acc);
         }
-        add<ExecSpace>(m_acc, out, out);
+        Math::add<ExecSpace>(m_acc, out, out);
     }
 };
 

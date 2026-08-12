@@ -36,8 +36,8 @@
 
 #include "ADRSolverRedesign/DiffusionScalarIPTraceFlux/DiffusionScalarIPTraceFluxKernels.hpp"
 #include "ADRSolverRedesign/DiffusionScalarIPTraceFlux/DiffusionScalarIPTraceFluxOp.hpp"
+#include "MultiRegions/Field/Math.hpp"
 #include "Operators/Common/DataWarehouse/TraceDataWarehouse.hpp"
-#include "Operators/Math/MathKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -242,7 +242,7 @@ protected:
             }
         }
 
-        add<ExecSpace>(out, m_symmCoeff, out);
+        Math::add<ExecSpace>(out, m_symmCoeff, out);
     }
 
     void BuildSymmetricTraceOffsets(

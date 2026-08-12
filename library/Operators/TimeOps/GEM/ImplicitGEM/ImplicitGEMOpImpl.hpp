@@ -133,11 +133,11 @@ protected:
                                          this->m_time +
                                              0.25 * this->m_timestep / m,
                                          0.25 * this->m_timestep / m);
-                        mul<ExecSpace>((TData)2.0, this->m_solutions[0],
-                                       this->m_solutions[1]);
-                        daxpy<ExecSpace>(-(TData)1.0, inout,
-                                         this->m_solutions[1],
-                                         this->m_solutions[1]);
+                        Math::mul<ExecSpace>((TData)2.0, this->m_solutions[0],
+                                             this->m_solutions[1]);
+                        Math::daxpy<ExecSpace>(-(TData)1.0, inout,
+                                               this->m_solutions[1],
+                                               this->m_solutions[1]);
                     }
                     else
                     {
@@ -147,23 +147,24 @@ protected:
                                                             this->m_timestep /
                                                             m,
                                          0.25 * this->m_timestep / m);
-                        mul<ExecSpace>((TData)2.0, this->m_solutions[2 * k - 2],
-                                       this->m_solutions[2 * k - 1]);
-                        daxpy<ExecSpace>(-(TData)1.0,
-                                         this->m_solutions[2 * k - 3],
-                                         this->m_solutions[2 * k - 1],
-                                         this->m_solutions[2 * k - 1]);
+                        Math::mul<ExecSpace>((TData)2.0,
+                                             this->m_solutions[2 * k - 2],
+                                             this->m_solutions[2 * k - 1]);
+                        Math::daxpy<ExecSpace>(-(TData)1.0,
+                                               this->m_solutions[2 * k - 3],
+                                               this->m_solutions[2 * k - 1],
+                                               this->m_solutions[2 * k - 1]);
                     }
                     this->DoImplicit(
                         this->m_solutions[2 * k - 1], this->m_implicits[0],
                         this->m_time + (k - 0.25) * (this->m_timestep / m),
                         0.25 * this->m_timestep / m);
-                    sub<ExecSpace>(this->m_implicits[0],
-                                   this->m_solutions[2 * k - 1],
-                                   this->m_implicits[0]);
-                    daxpy<ExecSpace>((TData)2.0, this->m_implicits[0],
-                                     this->m_solutions[2 * k - 1],
-                                     this->m_solutions[2 * k - 1]);
+                    Math::sub<ExecSpace>(this->m_implicits[0],
+                                         this->m_solutions[2 * k - 1],
+                                         this->m_implicits[0]);
+                    Math::daxpy<ExecSpace>((TData)2.0, this->m_implicits[0],
+                                           this->m_solutions[2 * k - 1],
+                                           this->m_solutions[2 * k - 1]);
                 }
 
                 // Save solution to m_T0

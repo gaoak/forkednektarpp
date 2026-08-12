@@ -475,8 +475,7 @@ MACRO(ADD_TIME_OPERATOR dir)
     ENDIF()
 
     # Skip those files.
-    IF( ("${name}" STREQUAL "Common") OR
-    ("${name}" STREQUAL "Math"))
+    IF("${name}" STREQUAL "Common")
         CONTINUE()
     ENDIF()
 
@@ -625,7 +624,6 @@ SET(OPERATORS_HEADERS
     Common/DataWarehouse/StdMatDataWarehouse.hpp
     Common/DataWarehouse/TraceDataWarehouse.hpp
     ElmtOps/ElmtBlockOp.hpp
-    Math/Math.hpp
     TimeOps/TimeOp.hpp
 )
 
@@ -797,31 +795,6 @@ ENDFOREACH()
 
 SET(OPERATORS_DEPENDS MultiRegions LibUtilities)
     
-# CUDA specific file
-IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-    SET(OPERATORS_SOURCES
-      ${OPERATORS_SOURCES}
-       Math/Math.cu
-    )
-# HIP specific file
-ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
-    SET(OPERATORS_SOURCES
-      ${OPERATORS_SOURCES}
-       Math/Math.hip
-    )
-# SYCL specific file
-ELSEIF(NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
-    SET(OPERATORS_SOURCES
-      ${OPERATORS_SOURCES}
-       Math/Math.cpp
-    )
-ELSE()
-    SET(OPERATORS_SOURCES
-      ${OPERATORS_SOURCES}
-      Math/Math.cpp
-    )
-ENDIF()
-
 SOURCE_GROUP(TREE ${CMAKE_CURRENT_SOURCE_DIR}
     FILES ${OPERATORS_HEADERS} ${GROUP_SOURCES})
 

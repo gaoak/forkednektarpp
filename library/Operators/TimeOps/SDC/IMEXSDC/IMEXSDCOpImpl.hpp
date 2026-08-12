@@ -156,8 +156,8 @@ protected:
                                 this->m_time, this->m_timestep);
             this->DoImplicitRhs(this->m_solutions[0], this->m_implicits[0],
                                 this->m_time, this->m_timestep);
-            add<ExecSpace>(this->m_explicits[0], this->m_implicits[0],
-                           this->m_residuals[0]);
+            Math::add<ExecSpace>(this->m_explicits[0], this->m_implicits[0],
+                                 this->m_residuals[0]);
         }
 
         // Loop over quadrature.
@@ -166,8 +166,9 @@ protected:
             TData dtn = tau[n] - tau[n - 1];
 
             // Add explicit contribution to solutions.
-            daxpy<ExecSpace>(dtn, this->m_explicits[n - 1],
-                             this->m_solutions[n - 1], this->m_implicits[n]);
+            Math::daxpy<ExecSpace>(dtn, this->m_explicits[n - 1],
+                                   this->m_solutions[n - 1],
+                                   this->m_implicits[n]);
 
             // Update solution.
             this->DoImplicit(this->m_implicits[n], this->m_solutions[n],
@@ -175,10 +176,10 @@ protected:
                              this->m_timestep * dtn);
 
             // Compute implicit terms.
-            sub<ExecSpace>(this->m_solutions[n], this->m_implicits[n],
-                           this->m_implicits[n]);
-            mul<ExecSpace>((TData)1.0 / dtn, this->m_implicits[n],
-                           this->m_implicits[n]);
+            Math::sub<ExecSpace>(this->m_solutions[n], this->m_implicits[n],
+                                 this->m_implicits[n]);
+            Math::mul<ExecSpace>((TData)1.0 / dtn, this->m_implicits[n],
+                                 this->m_implicits[n]);
 
             // Compute explicit terms.
             this->DoExplicitRhs(this->m_solutions[n], this->m_explicits[n],
@@ -186,8 +187,8 @@ protected:
                                 this->m_timestep);
 
             // Compute total residual.
-            add<ExecSpace>(this->m_explicits[n], this->m_implicits[n],
-                           this->m_residuals[n]);
+            Math::add<ExecSpace>(this->m_explicits[n], this->m_implicits[n],
+                                 this->m_residuals[n]);
         }
     }
 
@@ -270,10 +271,10 @@ protected:
                              this->m_timestep * dtn);
 
             // Compute implicit terms.
-            sub<ExecSpace>(this->m_solutions[n], this->m_implicits[n],
-                           this->m_implicits[n]);
-            mul<ExecSpace>((TData)1.0 / dtn, this->m_implicits[n],
-                           this->m_implicits[n]);
+            Math::sub<ExecSpace>(this->m_solutions[n], this->m_implicits[n],
+                                 this->m_implicits[n]);
+            Math::mul<ExecSpace>((TData)1.0 / dtn, this->m_implicits[n],
+                                 this->m_implicits[n]);
 
             // Compute explicit terms.
             this->DoExplicitRhs(this->m_solutions[n], this->m_explicits[n],
@@ -281,8 +282,8 @@ protected:
                                 this->m_timestep);
 
             // Compute total residual.
-            add<ExecSpace>(this->m_explicits[n], this->m_implicits[n],
-                           this->m_residuals[n]);
+            Math::add<ExecSpace>(this->m_explicits[n], this->m_implicits[n],
+                                 this->m_residuals[n]);
         }
     }
 };

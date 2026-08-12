@@ -40,9 +40,9 @@
 #include "Operators/BndCondOps/FwdTransBC/FwdTransBCBlockOp.hpp"
 #include "Operators/BndCondOps/FwdTransBC/FwdTransBCSerialAVXKernels.hpp"
 
+#include "LibUtilities/BasicUtils/Math/MathKernels.hpp"
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
-#include "Operators/Math/MathKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -421,7 +421,7 @@ protected:
 
                 // Simple copy for 0D points. No loop required.
                 size_t nsize = m_nqTot * simd_t::width;
-                copyKernel<ExecSpace, TData>(nsize, inptr, outptr);
+                Math::copyKernel<ExecSpace, TData>(nsize, inptr, outptr);
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
@@ -500,7 +500,7 @@ protected:
                 if (m_isCollocation)
                 {
                     size_t nsize = nqTot * simd_t::width;
-                    copyKernel<ExecSpace>(nsize, inptr, outptr);
+                    Math::copyKernel<ExecSpace>(nsize, inptr, outptr);
                 }
                 else
                 {
@@ -602,7 +602,7 @@ protected:
                 if (m_isCollocation)
                 {
                     size_t nsize = nqTot * simd_t::width;
-                    copyKernel<ExecSpace>(nsize, inptr, outptr);
+                    Math::copyKernel<ExecSpace>(nsize, inptr, outptr);
                 }
                 else
                 {

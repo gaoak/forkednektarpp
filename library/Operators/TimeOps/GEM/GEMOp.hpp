@@ -92,9 +92,9 @@ protected:
                     // Aitken - Neville formula.
                     for (unsigned int k = m; k < this->m_order; ++k)
                     {
-                        sub<ExecSpace>(this->m_T0[k], this->m_T0[k - 1],
-                                       this->m_T[k]);
-                        daxpy<ExecSpace>(
+                        Math::sub<ExecSpace>(this->m_T0[k], this->m_T0[k - 1],
+                                             this->m_T[k]);
+                        Math::daxpy<ExecSpace>(
                             (TData)(k - m + 1) / ((k + 1) - (k - m + 1)),
                             this->m_T[k], this->m_T0[k], this->m_T[k]);
                     }
@@ -125,13 +125,13 @@ protected:
                     // Aitken - Neville formula
                     for (unsigned int k = m; k < this->m_order / 2; ++k)
                     {
-                        sub<ExecSpace>(this->m_T0[k], this->m_T0[k - 1],
-                                       this->m_T[k]);
-                        daxpy<ExecSpace>((TData)std::pow(k - m + 1, 2) /
-                                             (TData)(std::pow(k + 1, 2) -
-                                                     std::pow(k - m + 1, 2)),
-                                         this->m_T[k], this->m_T0[k],
-                                         this->m_T[k]);
+                        Math::sub<ExecSpace>(this->m_T0[k], this->m_T0[k - 1],
+                                             this->m_T[k]);
+                        Math::daxpy<ExecSpace>(
+                            (TData)std::pow(k - m + 1, 2) /
+                                (TData)(std::pow(k + 1, 2) -
+                                        std::pow(k - m + 1, 2)),
+                            this->m_T[k], this->m_T0[k], this->m_T[k]);
                     }
 
                     // Copy new values to old values

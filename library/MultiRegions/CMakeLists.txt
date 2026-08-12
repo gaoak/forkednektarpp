@@ -122,6 +122,7 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
     SET(MULTI_REGIONS_HEADERS
         ${MULTI_REGIONS_HEADERS}
         ./Field/Block.hpp
+        ./Field/Math.hpp
     )
     SET(MULTI_REGIONS_SOURCES 
         ${MULTI_REGIONS_SOURCES}
@@ -131,21 +132,25 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
         SET(MULTI_REGIONS_SOURCES 
             ${MULTI_REGIONS_SOURCES}
             ./Field/BlockHelper.cu
+            ./Field/MathHelper.cu
         )
     ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
         SET(MULTI_REGIONS_SOURCES
             ${MULTI_REGIONS_SOURCES}
             ./Field/BlockHelper.hip
+            ./Field/MathHelper.hip
         )
     ELSEIF (NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
         SET(MULTI_REGIONS_SOURCES
             ${MULTI_REGIONS_SOURCES}
             ./Field/BlockHelper.cpp
+            ./Field/MathHelper.cpp
         )
     ELSE()
         SET(MULTI_REGIONS_SOURCES
             ${MULTI_REGIONS_SOURCES}
             ./Field/BlockHelper.cpp
+            ./Field/MathHelper.cpp
         )
     ENDIF()
 ENDIF()

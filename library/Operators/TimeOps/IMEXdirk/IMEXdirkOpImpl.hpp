@@ -179,10 +179,11 @@ protected:
             }
 
             // Compute implicit terms.
-            sub<ExecSpace>(inout, this->m_implicits[Stage - 1],
-                           this->m_implicits[Stage - 1]);
-            mul<ExecSpace>((TData)1.0 / lambda1, this->m_implicits[Stage - 1],
-                           this->m_implicits[Stage - 1]);
+            Math::sub<ExecSpace>(inout, this->m_implicits[Stage - 1],
+                                 this->m_implicits[Stage - 1]);
+            Math::mul<ExecSpace>((TData)1.0 / lambda1,
+                                 this->m_implicits[Stage - 1],
+                                 this->m_implicits[Stage - 1]);
         }
 
         // Recursive loop over stages.

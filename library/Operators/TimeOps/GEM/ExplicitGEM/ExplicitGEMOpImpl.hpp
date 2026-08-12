@@ -121,8 +121,9 @@ protected:
                     // For the first stage, used pre-computed rhs.
                     if (k == 1)
                     {
-                        daxpy<ExecSpace>((TData)1.0 / m, this->m_explicits[0],
-                                         inout, this->m_solutions[k - 1]);
+                        Math::daxpy<ExecSpace>((TData)1.0 / m,
+                                               this->m_explicits[0], inout,
+                                               this->m_solutions[k - 1]);
                     }
                     // For other stages, compute new rhs.
                     else
@@ -131,9 +132,9 @@ protected:
                             this->m_solutions[k - 2], this->m_explicits[1],
                             this->m_time + (k - 1) * (this->m_timestep / m),
                             this->m_timestep);
-                        daxpy<ExecSpace>((TData)1.0 / m, this->m_explicits[1],
-                                         this->m_solutions[k - 2],
-                                         this->m_solutions[k - 1]);
+                        Math::daxpy<ExecSpace>(
+                            (TData)1.0 / m, this->m_explicits[1],
+                            this->m_solutions[k - 2], this->m_solutions[k - 1]);
                     }
 
                     this->DoProjection(
@@ -152,8 +153,9 @@ protected:
             for (unsigned int m = 1; m <= this->m_order / 2; ++m)
             {
                 // Use precomputed rhs for initial Euler stage
-                daxpy<ExecSpace>((TData)1.0 / (2 * m), this->m_explicits[0],
-                                 inout, this->m_solutions[0]);
+                Math::daxpy<ExecSpace>((TData)1.0 / (2 * m),
+                                       this->m_explicits[0], inout,
+                                       this->m_solutions[0]);
                 this->DoProjection(this->m_solutions[0], this->m_solutions[0],
                                    this->m_time + this->m_timestep / (2 * m));
 
@@ -164,10 +166,10 @@ protected:
                         this->m_solutions[k - 2], this->m_explicits[1],
                         this->m_time + (k - 1) * (this->m_timestep / (2 * m)),
                         this->m_timestep);
-                    daxpy<ExecSpace>((TData)1.0 / m, this->m_explicits[1],
-                                     (k == 2) ? inout
-                                              : this->m_solutions[k - 3],
-                                     this->m_solutions[k - 1]);
+                    Math::daxpy<ExecSpace>((TData)1.0 / m, this->m_explicits[1],
+                                           (k == 2) ? inout
+                                                    : this->m_solutions[k - 3],
+                                           this->m_solutions[k - 1]);
                     this->DoProjection(
                         this->m_solutions[k - 1], this->m_solutions[k - 1],
                         this->m_time + k * (this->m_timestep / (2 * m)));

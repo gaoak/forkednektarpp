@@ -256,10 +256,10 @@ protected:
                 }
 
                 // Compute implicit terms.
-                sub<ExecSpace>(inout, this->m_implicits[0],
-                               this->m_implicits[0]);
-                mul<ExecSpace>((TData)1.0 / m_gamma, this->m_implicits[0],
-                               this->m_implicits[0]);
+                Math::sub<ExecSpace>(inout, this->m_implicits[0],
+                                     this->m_implicits[0]);
+                Math::mul<ExecSpace>((TData)1.0 / m_gamma, this->m_implicits[0],
+                                     this->m_implicits[0]);
             }
             else
             {

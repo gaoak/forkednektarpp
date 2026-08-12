@@ -278,10 +278,10 @@ protected:
                 }
                 else
                 {
-                    daxpy<ExecSpace>(-gamma[k], m_G[k], m_r, m_v);
+                    Math::daxpy<ExecSpace>(-gamma[k], m_G[k], m_r, m_v);
                     for (unsigned int i = k + 1; i < m_stage; i++)
                     {
-                        daxpy<ExecSpace>(-gamma[i], m_G[i], m_v, m_v);
+                        Math::daxpy<ExecSpace>(-gamma[i], m_G[i], m_v, m_v);
                     }
                 }
 
@@ -294,19 +294,21 @@ protected:
                 // Compute new U.
                 if (this->m_niter == 0)
                 {
-                    mul<ExecSpace>(omega, m_v, m_U[k]);
+                    Math::mul<ExecSpace>(omega, m_v, m_U[k]);
                 }
                 else
                 {
-                    mul<ExecSpace>(gamma[k], m_U[k], m_U[k]);
+                    Math::mul<ExecSpace>(gamma[k], m_U[k], m_U[k]);
                     for (unsigned int i = k + 1; i < m_stage; i++)
                     {
-                        daxpy<ExecSpace>(gamma[i], m_U[i], m_U[k], m_U[k]);
+                        Math::daxpy<ExecSpace>(gamma[i], m_U[i], m_U[k],
+                                               m_U[k]);
                     }
-                    daxpy<ExecSpace>(omega, m_v, m_U[k], m_U[k]);
+                    Math::daxpy<ExecSpace>(omega, m_v, m_U[k], m_U[k]);
                 }
 
-                // Perform the method-specific matrix-vector multiply operation.
+                // Perform the method-specific matrix-vector Math::multiply
+                // operation.
                 this->m_lhs->Apply(m_U[k], m_G[k]);
                 this->m_robBndCondOp->Apply(m_U[k], m_G[k]);
                 this->m_assmbScatrZeroDirOp->Apply(m_G[k]);
@@ -322,8 +324,8 @@ protected:
                     this->m_rowComm->AllReduce(alpha,
                                                Nektar::LibUtilities::ReduceSum);
                     alpha /= Mu[i][i];
-                    daxpy<ExecSpace>(-alpha, m_G[i], m_G[k], m_G[k]);
-                    daxpy<ExecSpace>(-alpha, m_U[i], m_U[k], m_U[k]);
+                    Math::daxpy<ExecSpace>(-alpha, m_G[i], m_G[k], m_G[k]);
+                    Math::daxpy<ExecSpace>(-alpha, m_U[i], m_U[k], m_U[k]);
                 }
 
                 // Update Mu.
@@ -346,8 +348,8 @@ protected:
 
                 // Make m_r orthogonal to m_G.
                 beta = Phi[k] / Mu[k][k];
-                daxpy<ExecSpace>(-beta, m_G[k], m_r, m_r);
-                daxpy<ExecSpace>(beta, m_U[k], out, out);
+                Math::daxpy<ExecSpace>(-beta, m_G[k], m_r, m_r);
+                Math::daxpy<ExecSpace>(beta, m_U[k], out, out);
 
                 eps = this->m_math.ddot(m_r, m_r);
                 this->m_rowComm->AllReduce(eps,
@@ -400,7 +402,8 @@ protected:
                 return;
             }
 
-            // Perform the method-specific matrix-vector multiply operation.
+            // Perform the method-specific matrix-vector Math::multiply
+            // operation.
             auto &tmp = (this->m_rightPreconditioner) ? m_v : m_r;
             if (this->m_rightPreconditioner)
             {
@@ -429,8 +432,8 @@ protected:
             }
 
             // Update solution.
-            daxpy<ExecSpace>(omega, tmp, out, out);
-            daxpy<ExecSpace>(-omega, m_w, m_r, m_r);
+            Math::daxpy<ExecSpace>(omega, tmp, out, out);
+            Math::daxpy<ExecSpace>(-omega, m_w, m_r, m_r);
 
             // Update residual norm.
             eps = this->m_math.ddot(m_r, m_r);

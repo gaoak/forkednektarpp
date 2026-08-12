@@ -43,7 +43,7 @@
 #include <cstddef>
 #include <type_traits>
 
-namespace Nektar
+namespace Nektar::Math
 {
 
 template <
@@ -1898,6 +1898,6 @@ inline void linfnormKernel(const size_t nsize, const uint8_t *mask,
 #endif
 }
 
-} // namespace Nektar
+} // namespace Nektar::Math
 
 #endif

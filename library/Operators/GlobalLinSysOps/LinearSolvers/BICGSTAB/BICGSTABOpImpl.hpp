@@ -179,8 +179,8 @@ protected:
             // Update search vectors.
             if (this->m_niter > 0)
             {
-                daxpy<ExecSpace>(-omega, m_v, m_p, m_p);
-                daxpy<ExecSpace>(beta, m_p, m_r, m_p);
+                Math::daxpy<ExecSpace>(-omega, m_v, m_p, m_p);
+                Math::daxpy<ExecSpace>(beta, m_p, m_r, m_p);
             }
 
             // Perform the method-specific matrix-vector multiply operation.
@@ -203,8 +203,8 @@ protected:
             alpha = rho_new / alpha;
 
             // Update solution.
-            daxpy<ExecSpace>(alpha, tmp, out, out);
-            daxpy<ExecSpace>(-alpha, m_v, m_r, m_r);
+            Math::daxpy<ExecSpace>(alpha, tmp, out, out);
+            Math::daxpy<ExecSpace>(-alpha, m_v, m_r, m_r);
 
             // Test if norm is within tolerance.
             eps = this->m_math.ddot(m_r, m_r);
@@ -239,8 +239,8 @@ protected:
             omega = omega0 / omega1;
 
             // Update solution.
-            daxpy<ExecSpace>(omega, tmp2, out, out);
-            daxpy<ExecSpace>(-omega, m_z, m_r, m_r);
+            Math::daxpy<ExecSpace>(omega, tmp2, out, out);
+            Math::daxpy<ExecSpace>(-omega, m_z, m_r, m_r);
 
             ++this->m_niter;
 

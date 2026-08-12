@@ -36,7 +36,7 @@
 
 #include "Operators/GlobalLinSysOps/LinearSystems/PoissonSolve/PoissonSolveOp.hpp"
 
-#include "Operators/Math/MathKernels.hpp"
+#include "LibUtilities/BasicUtils/Math/MathKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -104,11 +104,11 @@ protected:
         this->m_RobBCOp->Apply(out, this->m_tmp);
 
         // Solve linear system.
-        sub<ExecSpace>(this->m_rhs, this->m_tmp, this->m_rhs);
+        Math::sub<ExecSpace>(this->m_rhs, this->m_tmp, this->m_rhs);
         this->m_LinSolverOp->Apply(this->m_rhs, this->m_tmp);
 
         // Add Dirichlet BCs.
-        add<ExecSpace>(out, this->m_tmp, out);
+        Math::add<ExecSpace>(out, this->m_tmp, out);
     }
 };
 

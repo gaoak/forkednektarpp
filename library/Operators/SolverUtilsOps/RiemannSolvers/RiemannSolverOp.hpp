@@ -37,7 +37,7 @@
 #include "Operators/Common/Operator.hpp"
 #include "Operators/SolverUtilsOps/RiemannSolvers/RiemannSolverKernels.hpp"
 
-#include "Operators/Math/MathKernels.hpp"
+#include "LibUtilities/BasicUtils/Math/MathKernels.hpp"
 
 namespace Nektar::Operators
 {

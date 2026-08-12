@@ -41,8 +41,8 @@
 #include "Operators/BndCondOps/FwdTransBC/FwdTransBCOp.hpp"
 
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include "MultiRegions/Field/Math.hpp"
 #include "Operators/ElmtOps/Expression/ExpressionOp.hpp"
-#include "Operators/Math/MathKernels.hpp"
 
 using namespace Nektar;
 
@@ -644,8 +644,8 @@ protected:
             const size_t bndOffset    = m_dirCoeffOffsets[iDir];
 
             // Zero wsp_phys and wsp_coeff
-            zero<ExecSpace>(m_wsp_phys[iDir]);
-            zero<ExecSpace>(m_wsp_coeffs[iDir]);
+            Math::zero<ExecSpace>(m_wsp_phys[iDir]);
+            Math::zero<ExecSpace>(m_wsp_coeffs[iDir]);
 
             // Update time
             m_expressionOps[iDir]->SetTime(time);

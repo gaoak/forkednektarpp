@@ -34,8 +34,8 @@
 
 #pragma once
 
+#include "MultiRegions/Field/Math.hpp"
 #include "Operators/Common/Operator.hpp"
-#include "Operators/Math/MathKernels.hpp"
 #include "Operators/SolverUtilsOps/Advection/AdvectionVolumeFluxOp.hpp"
 #include "Operators/SolverUtilsOps/RiemannSolvers/RiemannSolverOp.hpp"
 

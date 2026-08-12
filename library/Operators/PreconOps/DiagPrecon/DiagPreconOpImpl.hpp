@@ -36,9 +36,9 @@
 
 #include "Operators/PreconOps/DiagPrecon/DiagPreconOp.hpp"
 
+#include "LibUtilities/BasicUtils/Math/MathKernels.hpp"
 #include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
 #include "Operators/BndCondOps/RobBndCond/RobBndCondOp.hpp"
-#include "Operators/Math/MathKernels.hpp"
 
 #include "Operators/PreconOps/DiagPrecon/DiagPreconKernels.hpp"
 
@@ -121,8 +121,8 @@ protected:
             // Apply diagonal preconditioner.
             auto blkSize =
                 outblock.GetNumElementsWithPadding() * outblock.GetNumData();
-            mulKernel<ExecSpace>(blkSize * nComp, diagPtr, inPtr, outPtr,
-                                 streamID);
+            Math::mulKernel<ExecSpace>(blkSize * nComp, diagPtr, inPtr, outPtr,
+                                       streamID);
 
             // Set output block to input interleave.
             outblock.template SetInterleaveWidth<TData>(in_width);

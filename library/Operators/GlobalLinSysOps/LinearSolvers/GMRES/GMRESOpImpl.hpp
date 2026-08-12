@@ -264,7 +264,7 @@ protected:
                 this->m_robBndCondOp->Apply(out, m_r0);
 
                 // This is r0 = b-A*x
-                sub<ExecSpace>(in, m_r0, m_r0);
+                Math::sub<ExecSpace>(in, m_r0, m_r0);
             }
 
             // Apply preconditioner.
@@ -299,7 +299,7 @@ protected:
 
             if (this->m_leftPreconditioner)
             {
-                mul<ExecSpace>(std::sqrt(prec_factor / eps0), m_r0, m_r0);
+                Math::mul<ExecSpace>(std::sqrt(prec_factor / eps0), m_r0, m_r0);
                 eta[0] = std::sqrt(prec_factor * eps / eps0);
             }
             else
@@ -308,7 +308,7 @@ protected:
             }
 
             // Initial search vector.
-            mul<ExecSpace>((TData)1.0 / eta[0], m_r0, m_V[0]);
+            Math::mul<ExecSpace>((TData)1.0 / eta[0], m_r0, m_V[0]);
 
             // Inner loop.
             while (true)
@@ -358,7 +358,8 @@ protected:
                 {
                     this->m_assmbScatrZeroDirOp->Apply(m_w);
                     this->m_precon->Apply(m_w, m_w);
-                    mul<ExecSpace>(std::sqrt(prec_factor / eps0), m_w, m_w);
+                    Math::mul<ExecSpace>(std::sqrt(prec_factor / eps0), m_w,
+                                         m_w);
                 }
 
                 if (m_isModifiedGramSchmidt)
@@ -370,7 +371,7 @@ protected:
                         h1[i] = this->m_math.ddot(m_w, m_wk);
                         this->m_rowComm->AllReduce(h1[i],
                                                    LibUtilities::ReduceSum);
-                        daxpy<ExecSpace>(-h1[i], m_V[i], m_w, m_w);
+                        Math::daxpy<ExecSpace>(-h1[i], m_V[i], m_w, m_w);
                     }
 
                     // Calculate the L2 norm and normalize.
@@ -389,7 +390,7 @@ protected:
                     // Classical Gram-Schmidt.
                     for (unsigned int i = starttem; i < endtem; ++i)
                     {
-                        ddot<ExecSpace>(m_w, m_V[i], exchange + i);
+                        Math::ddot<ExecSpace>(m_w, m_V[i], exchange + i);
                     }
                     this->m_rowComm->template AllReduce<MemSpace>(
                         m_vExchange, LibUtilities::ReduceSum);
@@ -401,7 +402,7 @@ protected:
                     for (unsigned int i = starttem; i < endtem; ++i)
                     {
                         h1[i] = exchangeHost[i];
-                        daxpy<ExecSpace>(-h1[i], m_V[i], m_w, m_w);
+                        Math::daxpy<ExecSpace>(-h1[i], m_V[i], m_w, m_w);
                     }
 
                     // Calculate the L2 norm and normalize.
@@ -456,7 +457,7 @@ protected:
                 }
 
                 // Compute new search vector.
-                mul<ExecSpace>((TData)1.0 / h1[endtem], m_w, m_V[ii]);
+                Math::mul<ExecSpace>((TData)1.0 / h1[endtem], m_w, m_V[ii]);
             }
 
             // Do backward substitution.
@@ -464,7 +465,7 @@ protected:
 
             // Calculate solution delta.
             auto &Z = (m_flexible) ? m_Z : m_V;
-            mul<ExecSpace>(yn[0], Z[0], m_w);
+            Math::mul<ExecSpace>(yn[0], Z[0], m_w);
             for (unsigned int i = 1; i < ii; ++i)
             {
                 // For LGMRES use m_delta for the last m_GMRESDeltaDirection
@@ -475,11 +476,11 @@ protected:
                 {
                     unsigned int index =
                         i - (m_LinSysMaxStorage - m_GMRESDeltaDirection);
-                    daxpy<ExecSpace>(yn[i], m_delta[index], m_w, m_w);
+                    Math::daxpy<ExecSpace>(yn[i], m_delta[index], m_w, m_w);
                 }
                 else
                 {
-                    daxpy<ExecSpace>(yn[i], Z[i], m_w, m_w);
+                    Math::daxpy<ExecSpace>(yn[i], Z[i], m_w, m_w);
                 }
             }
 
@@ -500,7 +501,7 @@ protected:
             }
 
             // Update solution.
-            add<ExecSpace>(m_w, out, out);
+            Math::add<ExecSpace>(m_w, out, out);
 
             ii = 0;
             outerIterations++;
@@ -519,7 +520,7 @@ protected:
             // Calculate difference in residual of solution.
             this->m_lhs->Apply(out, m_r0);
             this->m_robBndCondOp->Apply(out, m_r0);
-            sub<ExecSpace>(in, m_r0, m_r0);
+            Math::sub<ExecSpace>(in, m_r0, m_r0);
             this->m_assmbScatrZeroDirOp->Apply(m_r0, m_w);
             eps_real = this->m_math.ddot(m_w, m_r0);
             this->m_rowComm->AllReduce(eps_real, LibUtilities::ReduceSum);

@@ -37,9 +37,9 @@
 #include "Operators/BndCondOps/FwdTransBC/FwdTransBCBlockOp.hpp"
 #include "Operators/BndCondOps/FwdTransBC/FwdTransBCDeviceKernels.hpp"
 
+#include "LibUtilities/BasicUtils/Math/MathKernels.hpp"
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
-#include "Operators/Math/MathKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -383,7 +383,8 @@ protected:
 
             // Simple copy for 0D points. No loop required.
             size_t nsize = m_nqTot * nelmt;
-            copyKernel<ExecSpace, TData>(nsize, inptr, outptr, m_streamID);
+            Math::copyKernel<ExecSpace, TData>(nsize, inptr, outptr,
+                                               m_streamID);
 
             // Reshape back, if necessary.
             ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
@@ -441,7 +442,8 @@ protected:
             if (m_isCollocation)
             {
                 size_t nsize = m_nqTot * nelmt;
-                copyKernel<ExecSpace, TData>(nsize, inptr, outptr, m_streamID);
+                Math::copyKernel<ExecSpace, TData>(nsize, inptr, outptr,
+                                                   m_streamID);
             }
             else
             {
@@ -522,7 +524,8 @@ protected:
             if (m_isCollocation)
             {
                 size_t nsize = nqTot * nelmt;
-                copyKernel<ExecSpace, TData>(nsize, inptr, outptr, m_streamID);
+                Math::copyKernel<ExecSpace, TData>(nsize, inptr, outptr,
+                                                   m_streamID);
             }
             else
             {

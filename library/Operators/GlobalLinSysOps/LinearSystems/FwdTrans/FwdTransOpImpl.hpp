@@ -37,7 +37,7 @@
 #include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp"
 #include "Operators/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp"
 
-#include "Operators/Math/Math.hpp"
+#include "LibUtilities/BasicUtils/Math/Math.hpp"
 
 #include "MultiRegions/DisContField.h"
 
@@ -124,11 +124,11 @@ protected:
             this->m_RobBCOp->Apply(out, this->m_tmp);
 
             // Solve linear system.
-            sub<ExecSpace>(this->m_rhs, this->m_tmp, this->m_rhs);
+            Math::sub<ExecSpace>(this->m_rhs, this->m_tmp, this->m_rhs);
             this->m_LinSolverOp->Apply(this->m_rhs, this->m_tmp);
 
             // Add Dirichlet BCs.
-            add<ExecSpace>(out, this->m_tmp, out);
+            Math::add<ExecSpace>(out, this->m_tmp, out);
         }
         else
         {
