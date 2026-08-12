@@ -42,6 +42,7 @@
 #include "Operators/GlobalLinSysOps/LinearSolvers/ConjGrad/ConjGradOp.hpp"
 #include "Operators/PreconOps/DiagPrecon/DiagPreconOp.hpp"
 #include <Operators/ElmtOps/Helmholtz/HelmholtzOp.hpp>
+#include <Operators/ElmtOps/Laplacian/LaplacianOp.hpp>
 #include <Operators/ElmtOps/Mass/MassOp.hpp>
 
 #include <MultiRegions/Field/Field.hpp>
@@ -261,40 +262,18 @@ void PrintFieldDifference(const CommSharedPtr &comm,
 }
 
 template <FieldState TStateIn, FieldState TStateOut, typename TData>
-void LaunchProfiler(const MultiRegions::ContFieldSharedPtr &expList,
-
-                    const unsigned int nTests, const int bp)
+void LaunchProfiler(
+    const MultiRegions::ContFieldSharedPtr &expList, const unsigned int nTests,
+    const int bp,
+    const std::shared_ptr<ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>>
+        &elmtOp,
+    const std::string &opName)
 {
     // Timer.
     Timer timer;
 
     auto session = expList->GetSession();
     auto comm    = expList->GetComm();
-
-    // Initialize operators.
-    std::shared_ptr<ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>> elmtOp;
-    std::string opName;
-    if (bp == 1)
-    {
-        elmtOp = MassOp<TData>::Create(expList, session->GetVariables());
-        opName = "Mass";
-    }
-    else if (bp == 3)
-    {
-        std::vector<double> diffCoeff(6);
-        diffCoeff[0] = 1.0; // D00
-        diffCoeff[2] = 1.0; // D11
-        diffCoeff[5] = 1.0; // D22
-        elmtOp = HelmholtzOp<TData>::Create(expList, session->GetVariables());
-        std::dynamic_pointer_cast<HelmholtzOp<TData>>(elmtOp)->SetDiffCoeff(
-            diffCoeff);
-        opName = "Helmholtz";
-    }
-    else
-    {
-        NEKERROR(ErrorUtil::efatal,
-                 "ProfilerBP only supports BP=1 (Mass) and BP=3 (Helmholtz).");
-    }
 
     auto assembOp =
         AssmbScatrOp<TData>::Create(expList, session->GetVariables());

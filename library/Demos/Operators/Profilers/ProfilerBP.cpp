@@ -68,10 +68,13 @@
  *              specify the implementation. Possible values are: StdMat, SumFac,
  *              and SumFacTOP
  *      -P BP=1
- *              specify the benchmark problem (BP). Possible values are: 1
- * (Mass), 3 (Helmholtz). -P Ntest=100 number of repeated runs for each
- * operator. Usually a operator takes very short time to finish, so we need to
- * repeat it many times to get accurate timing, and also let CPU/GPU running at
+ *              specify the benchmark problem (BP). Possible values are:
+ *              1 (Mass), 3 (Laplacian) and 13 (Helmholtz, a Nektar reference
+ *              rather than a CEED bake-off problem).
+ *      -P Ntest=100
+ *              number of repeated runs for each operator. Usually a operator
+ *              takes very short time to finish, so we need to repeat it many
+ *              times to get accurate timing, and also let CPU/GPU running at
  *              a stable frequency.
  *      -P order=5
  *              the order of the polynomial expansions. If provided, it will
@@ -106,6 +109,68 @@
  *          NEKTAR_USE_LIKWID=ON.
  *      See likwid documentation for more information.
  */
+
+/**
+ * @brief Build the element operator a bake-off problem is defined by.
+ *
+ * The bake-off problems are defined by their operator, so the mapping lives
+ * with the problem definition rather than inside the timing harness.
+ */
+template <typename TData>
+static std::shared_ptr<ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>>
+MakeBPOperator(const int bp, const MultiRegions::ContFieldSharedPtr &expList,
+               std::string &opName)
+{
+    auto session = expList->GetSession();
+
+    // Isotropic unit diffusion tensor for the second order operators, sized
+    // for the coordinate dimension with the diagonal terms set to one.
+    const auto coordDim = expList->GetCoordim(0);
+    std::vector<TData> diffCoeff(coordDim * (coordDim + 1) / 2, TData(0));
+    for (unsigned int d = 0; d < coordDim; ++d)
+    {
+        diffCoeff[d * (d + 3) / 2] = TData(1); // Ddd
+    }
+
+    if (bp == 1)
+    {
+        opName = MassOp<TData>::name;
+        return MassOp<TData>::Create(expList, session->GetVariables());
+    }
+    else if (bp == 3)
+    {
+        // BP3 is the Poisson problem, so the operator is the Laplacian. It
+        // carries no lambda, which is what keeps the bake-off definition and
+        // the operator in step.
+        opName  = LaplacianOp<TData>::name;
+        auto op = LaplacianOp<TData>::Create(expList, session->GetVariables());
+        op->SetDiffCoeff(diffCoeff);
+        return op;
+    }
+    else if (bp == 13)
+    {
+        // Not a bake-off problem: Helmholtz, lambda*M + L, kept as a
+        // Nektar reference. Lambda comes from the session parameter "lambda"
+        // and defaults to 1.0.
+        double lambda;
+        session->LoadParameter("lambda", lambda, 1.0);
+        opName  = HelmholtzOp<TData>::name;
+        auto op = HelmholtzOp<TData>::Create(expList, session->GetVariables());
+        op->SetDiffCoeff(diffCoeff);
+        op->SetLambda(static_cast<TData>(lambda));
+        if (session->GetComm()->GetRank() == 0)
+        {
+            std::cout << "Lambda: " << lambda << std::endl;
+        }
+        return op;
+    }
+
+    NEKERROR(ErrorUtil::efatal,
+             "ProfilerBP supports BP=1 (Mass), BP=3 (Laplacian) and BP=13 "
+             "(Helmholtz, a Nektar reference rather than a bake-off problem).");
+    return nullptr;
+}
+
 int main(int argc, char *argv[])
 {
 #ifdef NEKTAR_USE_MAGMA
@@ -149,14 +214,22 @@ int main(int argc, char *argv[])
 
     // Benchmark-double
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-    LaunchProfiler<FieldState::Coeff, FieldState::Coeff, double>(expList,
-                                                                 nTests, bp);
+    {
+        std::string opName;
+        auto elmtOp = MakeBPOperator<double>(bp, expList, opName);
+        LaunchProfiler<FieldState::Coeff, FieldState::Coeff, double>(
+            expList, nTests, bp, elmtOp, opName);
+    }
 #endif
 
     // Benchmark-float
 #if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
-    LaunchProfiler<FieldState::Coeff, FieldState::Coeff, float>(expList, nTests,
-                                                                bp);
+    {
+        std::string opName;
+        auto elmtOp = MakeBPOperator<float>(bp, expList, opName);
+        LaunchProfiler<FieldState::Coeff, FieldState::Coeff, float>(
+            expList, nTests, bp, elmtOp, opName);
+    }
 #endif
 
     LIKWID_MARKER_CLOSE;
