@@ -1,28 +1,4 @@
 IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
-    # Set Execution space for all solvers
-    # Default execution spaces.
-    SET(ExecSpaces Serial)
-
-    # Optional AVX execution space.
-    IF(NEKTAR_ENABLE_SIMD)
-        SET(ExecSpaces ${ExecSpaces} AVX)
-    ENDIF()
-
-    # Optional Device execution space.
-    IF(NEKTAR_ENABLE_DEVICE)
-        SET(ExecSpaces ${ExecSpaces} Device)
-    ENDIF()
-
-
-    # Set default data types.
-    IF(NEKTAR_ENABLE_DOUBLE_PRECISION)
-        SET(DataTypes double)
-    ENDIF()
-    IF(NEKTAR_ENABLE_SINGLE_PRECISION)
-        SET(DataTypes ${DataTypes} float)
-    ENDIF()
-
-
     # Macro
     MACRO(SET_ALL_SOLVER_TEST solver session)
         FOREACH (ExecSpace IN LISTS ExecSpaces)

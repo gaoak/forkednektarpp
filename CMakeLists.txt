@@ -387,6 +387,28 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
         ADD_DEFINITIONS(-DNEKTAR_ENABLE_DEVICEONHOST)
         ADD_DEFINITIONS(-DNEKTAR_ENABLE_DEVICE)
     ENDIF()
+
+    # Default execution spaces.
+    SET(ExecSpaces Serial)
+
+    # Optional AVX execution space.
+    IF(NEKTAR_ENABLE_SIMD)
+        SET(ExecSpaces ${ExecSpaces} AVX)
+    ENDIF()
+
+    # Optional Device execution space.
+    IF(NEKTAR_ENABLE_DEVICE)
+        SET(ExecSpaces ${ExecSpaces} Device)
+    ENDIF()
+
+    # Set default data types.
+    IF(NEKTAR_ENABLE_DOUBLE_PRECISION)
+        SET(DataTypes double)
+    ENDIF()
+    IF(NEKTAR_ENABLE_SINGLE_PRECISION)
+        SET(DataTypes ${DataTypes} float)
+    ENDIF()
+
 ENDIF ()
 
 # Set various ThirdParty locations

@@ -2,114 +2,11 @@ CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/Common/SwitchLimits.h.in
                SwitchLimits.h
                @ONLY)
 
-# Default execution spaces.
-SET(ExecSpaces Serial)
-
-# Optional AVX execution space.
-IF(NEKTAR_ENABLE_SIMD)
-    SET(ExecSpaces ${ExecSpaces} AVX)
-ENDIF()
-
-# Optional Device execution space.
-IF(NEKTAR_ENABLE_DEVICE)
-    SET(ExecSpaces ${ExecSpaces} Device)
-ENDIF()
-
 # Set implementation types.
 SET(ElmtOpImpl StdMat SumFac SumFacTOP Generic)
 
 # Shape types for seperate code compilation.
 SET(Shapes Seg Tri NodalTri Quad Hex Pyr Prism NodalPrism Tet NodalTet)
-
-# Set default data types.
-IF(NEKTAR_ENABLE_DOUBLE_PRECISION)
-SET(DataTypes double)
-ENDIF()
-IF(NEKTAR_ENABLE_SINGLE_PRECISION)
-    SET(DataTypes ${DataTypes} float)
-ENDIF()
-
-# Macro for each operator.
-MACRO(ADD_OPERATOR dir)
-
-    IF(IS_DIRECTORY ${dir})
-        GET_FILENAME_COMPONENT(name "${dir}" NAME)
-    ELSE()
-        CONTINUE()
-    ENDIF()
-
-    SET(NAME_HEADERS ${name}_HEADERS)
-    SET(NAME_SOURCES ${name}_SOURCES)
-    SET(OPERATOR ${name})
-
-    # These operator have an additional argument for the FieldState
-    # which requires two delcarations.
-    If("${name}" STREQUAL "IProductWRTDerivBase")
-        SET(CONFIG_FILE Common/OpFactoryDecTwoOutStates.cpp.in)
-    ELSE()
-        SET(CONFIG_FILE Common/OpFactoryDec.cpp.in)
-    ENDIF()
-
-    # Loop through each possible execution space.
-    FOREACH (ExecSpace IN LISTS ExecSpaces)
-    
-        # Set file extension.
-        SET(HEADER_EXT hpp)
-        IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-            SET(SOURCE_EXT cu)
-        ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
-            SET(SOURCE_EXT hip)
-        ELSE()
-            SET(SOURCE_EXT cpp)
-        ENDIF()
-
-        # Loop through each possible data type.
-        FOREACH (TData IN LISTS DataTypes)
-            # Set up the name used for the .cpp declaration file.
-            SET(FactoryDeclName
-	         src/${name}${ExecSpace}${TData}.${SOURCE_EXT})
-
-            # Get the source and header files for this operator,
-            # execution space, and implementation.
-            SET(CURRENT_HEADERS ${name}_${ExecSpace}_HEADERS)
-            SET(CURRENT_SOURCES ${name}_${ExecSpace}_SOURCES)
-                
-            # Get the headers matching the name and execution space
-            FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-                ${dir}/${name}${ExecSpace}*.hpp)
-
-            # Found a impl header.
-            IF(EXISTS "${dir}/${name}OpImpl.hpp")
-                FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                    "${dir}/${name}OpImpl.hpp")
-                SET(IMPL_HEADER "#include \"${include_file}\"")
-            # No implementation, skip.
-            ELSE()
-                CONTINUE() # This avoid creating a *.cpp file
-            ENDIF()
-
-            # Create the cpp file from the implementation file.
-            CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
-
-            # Add the respective cpp file.
-            SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
-            SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
-            SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
-
-        ENDFOREACH()
-    ENDFOREACH()
-
-    # Add this operator's implemenations to the global operator source
-    # and header files.
-    SET(OPERATORS_HEADERS
-        ${OPERATORS_HEADERS}
-        ${${NAME_HEADERS}}
-        )
-    SET(OPERATORS_SOURCES
-        ${OPERATORS_SOURCES}
-        ${${NAME_SOURCES}}
-        )
-ENDMACRO()
 
 # Macro for each operator.
 MACRO(ADD_ELMT_OPERATOR dir)
@@ -375,96 +272,6 @@ ENDMACRO()
 
 
 # Macro for each operator.
-MACRO(ADD_BLOCK_OPERATOR dir)
-
-    # Extract operator name form directory if it exists.
-    IF(IS_DIRECTORY ${dir})
-        GET_FILENAME_COMPONENT(name "${dir}" NAME)
-    ELSE()
-        CONTINUE()
-    ENDIF()
-
-    SET(NAME_HEADERS ${name}_HEADERS)
-    SET(NAME_SOURCES ${name}_SOURCES)
-    SET(OPERATOR ${name})
-
-    # These operator have an additional argument for the FieldState
-    # which requires two delcarations.
-    SET(CONFIG_FILE_TRACE Common/BlockOperatorFactoryDec.cpp.in)
-
-
-    # Loop through each possible execution space.
-    FOREACH (ExecSpace IN LISTS ExecSpaces)
-    
-        # Set file extension.
-        SET(HEADER_EXT hpp)
-        IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-            SET(SOURCE_EXT cu)
-        ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
-            SET(SOURCE_EXT hip)
-        ELSE()
-            SET(SOURCE_EXT cpp)
-        ENDIF()
-
-        # Set execution space.
-        IF("${ExecSpace}" STREQUAL "Serial")
-            SET(EXEC_MEM_SPACE_TAG NektarSpaces::Serial)
-        ELSEIF("${ExecSpace}" STREQUAL "AVX")
-            SET(EXEC_MEM_SPACE_TAG NektarSpaces::AVX)
-        ELSEIF("${ExecSpace}" STREQUAL "Device")
-            SET(EXEC_MEM_SPACE_TAG NektarSpaces::Device)
-        ENDIF()
-    
-        # Loop through each possible data type.
-        FOREACH (TData IN LISTS DataTypes)
-            # Reset for this (ExecSpace, TData)
-            UNSET(IMPL_HEADER)  
-            # Set up the name used for the .cpp declaration file.
-            SET(FactoryDeclName "src/Block${name}${ExecSpace}${TData}.${SOURCE_EXT}")
-            # Found a Serial/AVX header.
-            IF((EXISTS "${dir}/${name}SerialAVX.hpp") AND
-                ("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX"))
-                FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                    "${dir}/${name}SerialAVX.hpp")
-                SET(IMPL_HEADER "#include \"${include_file}\"")
-                MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
-            # Found a Device header.
-            ELSEIF(EXISTS "${dir}/${name}Device.hpp" AND ("${ExecSpace}" STREQUAL "Device"))
-                FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                    "${dir}/${name}Device.hpp")
-                SET(IMPL_HEADER "#include \"${include_file}\"")
-                MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
-            ENDIF()
-
-            # If no header was found, skip this combination.
-            IF(NOT DEFINED IMPL_HEADER)
-                CONTINUE()
-            ENDIF()
-
-            # Create the cpp file from the implementation file.
-            CONFIGURE_FILE(${CONFIG_FILE_TRACE} ${FactoryDeclName})
-
-            # Add this specific implementation to the operator's
-            # source and header files.
-            SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
-            SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
-            SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
-        ENDFOREACH()
-    ENDFOREACH()
-
-    # Add this operator's implemenations to the global operator source
-    # and header files.
-    SET(OPERATORS_HEADERS
-        ${OPERATORS_HEADERS}
-        ${${NAME_HEADERS}}
-        )
-    SET(OPERATORS_SOURCES
-        ${OPERATORS_SOURCES}
-        ${${NAME_SOURCES}}
-        )
-ENDMACRO()
-
-# Macro for each operator.
 MACRO(ADD_TIME_OPERATOR dir)
 
     # Extract operator name form directory if it exists.
@@ -652,7 +459,7 @@ FILE(GLOB children AddTraceIntegral BndCondOps/* ElmtOps/*
 
 FOREACH(child ${children})
     MESSAGE("Child : " "${child}")
-    ADD_OPERATOR(${child})
+    ADD_OPERATOR(${child} OPERATORS_HEADERS OPERATORS_SOURCES)
 ENDFOREACH()
 
 # Loop through all of the directories which contain block operators and add
@@ -666,7 +473,7 @@ ENDFOREACH()
 # their source and header files.
 FILE(GLOB children GetFwdBwdTracePhys BndCondOps/FwdTransBC Norm/*)
 FOREACH(child ${children})
-    ADD_BLOCK_OPERATOR(${child})
+    ADD_BLOCK_OPERATOR(${child} OPERATORS_HEADERS OPERATORS_SOURCES)
 ENDFOREACH()
 
 # Set compilation for Riemann solvers

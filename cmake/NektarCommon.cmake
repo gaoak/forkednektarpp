@@ -4,6 +4,175 @@
 ## Frequently used Nektar++ CMake configuration macros and functions
 ##
 
+IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
+    # Macro for each operator.
+    MACRO(ADD_OPERATOR dir OPERATORS_HEADERS OPERATORS_SOURCES)
+
+        IF(IS_DIRECTORY ${dir})
+            GET_FILENAME_COMPONENT(name "${dir}" NAME)
+            GET_FILENAME_COMPONENT(abs_dir "${dir}" ABSOLUTE)
+        ELSE()
+            CONTINUE()
+        ENDIF()
+
+        SET(NAME_HEADERS ${name}_HEADERS)
+        SET(NAME_SOURCES ${name}_SOURCES)
+        SET(OPERATOR ${name})
+
+        # These operator have an additional argument for the FieldState
+        # which requires two delcarations.
+        If("${name}" STREQUAL "IProductWRTDerivBase")
+            SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/Operators/Common/OpFactoryDecTwoOutStates.cpp.in)
+        ELSE()
+            SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/Operators/Common/OpFactoryDec.cpp.in)
+        ENDIF()
+
+        # Loop through each possible execution space.
+        FOREACH (ExecSpace IN LISTS ExecSpaces)
+        
+            # Set file extension.
+            SET(HEADER_EXT hpp)
+            IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+                SET(SOURCE_EXT cu)
+            ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+                SET(SOURCE_EXT hip)
+            ELSE()
+                SET(SOURCE_EXT cpp)
+            ENDIF()
+
+            # Loop through each possible data type.
+            FOREACH (TData IN LISTS DataTypes)
+                # Set up the name used for the .cpp declaration file.
+                SET(FactoryDeclName
+                     src/${name}${ExecSpace}${TData}.${SOURCE_EXT})
+
+                # Get the source and header files for this operator,
+                # execution space, and implementation.
+                SET(CURRENT_HEADERS ${name}_${ExecSpace}_HEADERS)
+                SET(CURRENT_SOURCES ${name}_${ExecSpace}_SOURCES)
+                    
+                # Get the headers matching the name and execution space
+                FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+                    ${abs_dir}/${name}${ExecSpace}*.hpp)
+
+                # Found a impl header.
+                IF(EXISTS "${abs_dir}/${name}OpImpl.hpp")
+                    SET(IMPL_HEADER "#include \"${abs_dir}/${name}OpImpl.hpp\"")
+                # No implementation, skip.
+                ELSE()
+                    CONTINUE() # This avoid creating a *.cpp file
+                ENDIF()
+
+                # Create the cpp file from the implementation file.
+                CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
+
+                # Add the respective cpp file.
+                SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
+                SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
+                SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
+
+            ENDFOREACH()
+        ENDFOREACH()
+
+        # Add this operator's implemenations to the global operator source
+        # and header files.
+        SET(${OPERATORS_HEADERS}
+           "${${OPERATORS_HEADERS}}"
+            ${${NAME_HEADERS}}
+        )
+        SET(${OPERATORS_SOURCES}
+           "${${OPERATORS_SOURCES}}"
+            ${${NAME_SOURCES}}
+        )
+    ENDMACRO()
+
+    # Macro for each operator.
+    MACRO(ADD_BLOCK_OPERATOR dir OPERATORS_HEADERS OPERATORS_SOURCES)
+
+        # Extract operator name form directory if it exists.
+        IF(IS_DIRECTORY ${dir})
+            GET_FILENAME_COMPONENT(name "${dir}" NAME)
+            GET_FILENAME_COMPONENT(abs_dir "${dir}" ABSOLUTE)
+        ELSE()
+            CONTINUE()
+        ENDIF()
+
+        SET(NAME_HEADERS ${name}_HEADERS)
+        SET(NAME_SOURCES ${name}_SOURCES)
+        SET(OPERATOR ${name})
+
+        # These operator have an additional argument for the FieldState
+        # which requires two delcarations.
+        SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/Operators/Common/BlockOperatorFactoryDec.cpp.in)
+
+        # Loop through each possible execution space.
+        FOREACH (ExecSpace IN LISTS ExecSpaces)
+        
+            # Set file extension.
+            SET(HEADER_EXT hpp)
+            IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+                SET(SOURCE_EXT cu)
+            ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+                SET(SOURCE_EXT hip)
+            ELSE()
+                SET(SOURCE_EXT cpp)
+            ENDIF()
+
+            # Set execution space.
+            IF("${ExecSpace}" STREQUAL "Serial")
+                SET(EXEC_MEM_SPACE_TAG NektarSpaces::Serial)
+            ELSEIF("${ExecSpace}" STREQUAL "AVX")
+                SET(EXEC_MEM_SPACE_TAG NektarSpaces::AVX)
+            ELSEIF("${ExecSpace}" STREQUAL "Device")
+                SET(EXEC_MEM_SPACE_TAG NektarSpaces::Device)
+            ENDIF()
+        
+            # Loop through each possible data type.
+            FOREACH (TData IN LISTS DataTypes)
+                # Reset for this (ExecSpace, TData)
+                UNSET(IMPL_HEADER)  
+                # Set up the name used for the .cpp declaration file.
+                SET(FactoryDeclName "src/Block${name}${ExecSpace}${TData}.${SOURCE_EXT}")
+                # Found a Serial/AVX header.
+                IF((EXISTS "${dir}/${name}SerialAVX.hpp") AND
+                    ("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX"))
+                    SET(IMPL_HEADER "#include \"${abs_dir}/${name}SerialAVX.hpp\"")
+                    MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
+                # Found a Device header.
+                ELSEIF(EXISTS "${dir}/${name}Device.hpp" AND ("${ExecSpace}" STREQUAL "Device"))
+                    SET(IMPL_HEADER "#include \"${abs_dir}/${name}Device.hpp\"")
+                    MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
+                ENDIF()
+
+                # If no header was found, skip this combination.
+                IF(NOT DEFINED IMPL_HEADER)
+                    CONTINUE()
+                ENDIF()
+
+                # Create the cpp file from the implementation file.
+                CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
+
+                # Add this specific implementation to the operator's
+                # source and header files.
+                SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
+                SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
+                SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
+            ENDFOREACH()
+        ENDFOREACH()
+
+        # Add this operator's implemenations to the global operator source
+        # and header files.
+        SET(${OPERATORS_HEADERS}
+           "${${OPERATORS_HEADERS}}"
+            ${${NAME_HEADERS}}
+        )
+        SET(${OPERATORS_SOURCES}
+           "${${OPERATORS_SOURCES}}"
+            ${${NAME_SOURCES}}
+        )
+    ENDMACRO()
+ENDIF()
+
 #
 # THIRDPARTY_LIBRARY(varname DESCRIPTION <description> [STATIC|SHARED] lib1 [lib2]...)
 #
