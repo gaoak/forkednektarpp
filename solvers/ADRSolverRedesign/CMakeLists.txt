@@ -6,67 +6,19 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
     IF (NOT NEKTAR_BUILD_SOLVERS)
         SET(NEKTAR_SOLVER_ADR_DEVICE_SUPPORT OFF CACHE INTERNAL "")
     ENDIF()
+ENDIF()
 
+IF(NEKTAR_SOLVER_ADR_DEVICE_SUPPORT)
     ################################################################
     # ADR-specific operators.
-    MACRO(ADD_ADR_OPERATOR dir)
-        IF(IS_DIRECTORY ${dir})
-            GET_FILENAME_COMPONENT(name "${dir}" NAME)
-            GET_FILENAME_COMPONENT(abs_dir "${dir}" ABSOLUTE)
-        ELSE()
-            CONTINUE()
-        ENDIF()
-
-        SET(NAME_SOURCES ${name}_SOURCES)
-        SET(OPERATOR ${name})
-        SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/Operators/Common/OpFactoryDec.cpp.in)
-
-        FOREACH(ExecSpace IN LISTS ExecSpaces)
-            SET(HEADER_EXT hpp)
-            IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-                SET(SOURCE_EXT cu)
-            ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
-                SET(SOURCE_EXT hip)
-            ELSE()
-                SET(SOURCE_EXT cpp)
-            ENDIF()
-
-            FOREACH(TData IN LISTS DataTypes)
-                SET(FactoryDeclName Operators/${name}${ExecSpace}${TData}.${SOURCE_EXT})
-                SET(CURRENT_HEADERS ${name}_${ExecSpace}_HEADERS)
-                SET(CURRENT_SOURCES ${name}_${ExecSpace}_SOURCES)
-
-                FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-                    ${abs_dir}/${name}${ExecSpace}*.hpp)
-
-                IF(EXISTS "${abs_dir}/${name}OpImpl.hpp")
-                    FILE(RELATIVE_PATH include_file ${CMAKE_SOURCE_DIR}/solvers
-                        "${abs_dir}/${name}OpImpl.hpp")
-                    SET(IMPL_HEADER "#include \"${include_file}\"")
-                ELSE()
-                    CONTINUE()
-                ENDIF()
-
-                CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
-
-                SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
-                SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
-            ENDFOREACH()
-        ENDFOREACH()
-
-        SET(ADR_OPERATORS_SOURCES
-            ${ADR_OPERATORS_SOURCES}
-            ${${NAME_SOURCES}}
-            )
-    ENDMACRO()
-
     FILE(GLOB ADR_OPERATOR_DIRS
         LinearAdvVolumeFlux
         DiffusionScalarIPVolFlux
-        DiffusionScalarIPTraceFlux)
+        DiffusionScalarIPTraceFlux
+    )
 
     FOREACH(child ${ADR_OPERATOR_DIRS})
-        ADD_ADR_OPERATOR(${child})
+        ADD_OPERATOR(${child} ADR_OPERATORS_HEADERS ADR_OPERATORS_SOURCES)
     ENDFOREACH()
 
     SET(OPERATOR_UNIT_TEST_DEPENDS Operators)
@@ -91,9 +43,7 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
         SET_UNIT_TEST(AdvectionWeakDG_device_sumfac test_advectionweakdg Device SumFac FALSE)
         SET_UNIT_TEST(AdvectionWeakDG_device_sumfactop test_advectionweakdg Device SumFacTOP FALSE)
     ENDIF()
-ENDIF()
 
-IF (NEKTAR_SOLVER_ADR_DEVICE_SUPPORT)
     ADD_SOLVER_EXECUTABLE(ADRSolverRedesign
         DEPENDS SolverCore Operators
         SOURCES
