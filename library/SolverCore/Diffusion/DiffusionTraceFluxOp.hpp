@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "Operators/SolverUtilsOps/Flux/FluxOp.hpp"
+#include "SolverCore/Flux/FluxOp.hpp"
 
-namespace Nektar::Operators
+namespace Nektar::SolverCore
 {
 
 template <typename TData> class DiffusionTraceFluxOp : public FluxOp<TData>
@@ -115,4 +115,4 @@ protected:
     virtual void v_SetDiffCoeff(std::vector<TData> &diffCoeff) = 0;
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar::SolverCore

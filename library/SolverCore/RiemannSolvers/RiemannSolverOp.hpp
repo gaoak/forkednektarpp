@@ -35,15 +35,17 @@
 #pragma once
 
 #include "Operators/Common/Operator.hpp"
-#include "Operators/SolverUtilsOps/RiemannSolvers/RiemannSolverKernels.hpp"
+#include "SolverCore/RiemannSolvers/RiemannSolverKernels.hpp"
+#include "SolverCore/SolverCore.hpp"
 
 #include "LibUtilities/BasicUtils/Math/MathKernels.hpp"
 
-namespace Nektar::Operators
+namespace Nektar::SolverCore
 {
 
 // RiemannSolver operator base class
-template <typename TData> class RiemannSolverOp : public Operator<TData>
+template <typename TData>
+class RiemannSolverOp : public Operators::Operator<TData>
 {
 public:
     static std::shared_ptr<RiemannSolverOp<TData>> Create(
@@ -51,6 +53,12 @@ public:
         const std::vector<std::string> &components,
         const std::string &method = "", const std::string &execStr = "")
     {
+        // Force a genuine cross-library symbol reference into
+        // libSolverCore -- see EnsureLinked() in SolverCore.hpp for why
+        // this is needed for the Upwind/etc. registrations below to
+        // actually be present at runtime.
+        EnsureLinked();
+
         auto session = expansionList->GetSession();
 
         std::string method0 = method;
@@ -59,13 +67,15 @@ public:
             method0 = session->GetSolverInfo("UpwindType");
         }
 
-        std::string execStr0 = (execStr == "")
-                                   ? Operator<TData>::GetOpExecSpace(session)
-                                   : execStr;
+        std::string execStr0 =
+            (execStr == "")
+                ? Operators::Operator<TData>::GetOpExecSpace(session)
+                : execStr;
 
         std::string requestedKey = method0 + execStr0;
 
-        OperatorFactory<TData> &factory = GetOperatorFactory<TData>();
+        Operators::OperatorFactory<TData> &factory =
+            Operators::GetOperatorFactory<TData>();
 
         // No suitable operator was found.
         if (!factory.ModuleExists(requestedKey))
@@ -120,7 +130,7 @@ protected:
 
     RiemannSolverOp(const MultiRegions::ExpListSharedPtr &expansionList,
                     const std::vector<std::string> &components)
-        : Operator<TData>(expansionList, components)
+        : Operators::Operator<TData>(expansionList, components)
     {
         unsigned int coordDim  = expansionList->GetCoordim(0);
         size_t nTracePointsTot = expansionList->GetTrace()->GetTotPoints();
@@ -172,4 +182,4 @@ protected:
     }
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar::SolverCore

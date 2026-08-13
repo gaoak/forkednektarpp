@@ -46,7 +46,7 @@
 // clang-format off
 @IMPL_HEADER@
 
-namespace Nektar::Operators::detail
+namespace @OPNAMESPACE@
 {
 
 // Register the implementation with Operator Factory

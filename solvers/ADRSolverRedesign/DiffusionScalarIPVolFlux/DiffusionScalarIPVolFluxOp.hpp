@@ -34,13 +34,14 @@
 
 #pragma once
 
-#include "Operators/SolverUtilsOps/Diffusion/DiffusionVolumeFluxOp.hpp"
+#include "SolverCore/Diffusion/DiffusionVolumeFluxOp.hpp"
 
-namespace Nektar::Operators
+namespace Nektar
 {
 
 template <typename TData>
-class DiffusionScalarIPVolFluxOp : public ScalarIPDiffusionVolumeFluxOp<TData>
+class DiffusionScalarIPVolFluxOp
+    : public SolverCore::ScalarIPDiffusionVolumeFluxOp<TData>
 {
 public:
     static std::shared_ptr<DiffusionScalarIPVolFluxOp<TData>> Create(
@@ -49,7 +50,8 @@ public:
         const std::string &execStr = "")
     {
         return std::dynamic_pointer_cast<DiffusionScalarIPVolFluxOp<TData>>(
-            FluxOp<TData>::Create(expansionList, components, name, execStr));
+            SolverCore::FluxOp<TData>::Create(expansionList, components, name,
+                                              execStr));
     }
 
     static inline const std::string name = "DiffusionScalarIPVolFlux";
@@ -58,11 +60,12 @@ protected:
     DiffusionScalarIPVolFluxOp(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
-        : ScalarIPDiffusionVolumeFluxOp<TData>(expansionList, components)
+        : SolverCore::ScalarIPDiffusionVolumeFluxOp<TData>(expansionList,
+                                                           components)
     {
     }
 
     ~DiffusionScalarIPVolFluxOp() override = default;
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar

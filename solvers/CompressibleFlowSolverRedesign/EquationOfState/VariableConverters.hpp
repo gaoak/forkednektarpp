@@ -34,7 +34,7 @@
 
 #pragma once
 
-namespace Nektar::Operators::detail
+namespace Nektar::detail
 {
 
 /**
@@ -87,4 +87,4 @@ NEK_HOSTDEVICE_INLINE TData GetDynamicViscosity(const TData &temperature,
     }
 }
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::detail

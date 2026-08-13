@@ -39,7 +39,7 @@
 // header should appear after loop execution.hpp
 #include "EquationOfState/VariableConverters.hpp"
 
-namespace Nektar::Operators::detail
+namespace Nektar::detail
 {
 
 template <typename TData>
@@ -225,4 +225,4 @@ NEK_FORCE_INLINE static void DiffusionCFEVolFluxKernel(
     Nektar::LoopExecutionSetStreamID(0);
 }
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::detail

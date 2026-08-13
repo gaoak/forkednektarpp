@@ -36,9 +36,9 @@
 
 #include "LibUtilities/LoopExecution/LoopExecution.hpp"
 
-#include "Operators/SolverUtilsOps/RiemannSolvers/RiemannSolverOp.hpp"
+#include "SolverCore/RiemannSolvers/RiemannSolverOp.hpp"
 
-namespace Nektar::Operators::detail
+namespace Nektar::SolverCore::detail
 {
 
 template <template <typename> typename RiemannKernel, typename ExecSpace,
@@ -91,7 +91,7 @@ public:
     static std::string className;
 
     // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> Instantiate(
+    static std::unique_ptr<Operators::Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
@@ -142,4 +142,4 @@ protected:
     }
 };
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::SolverCore::detail

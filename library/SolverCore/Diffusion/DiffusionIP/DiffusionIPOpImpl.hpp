@@ -42,13 +42,13 @@
 #include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivOp.hpp"
 #include "Operators/GetFwdBwdTracePhys/GetFwdBwdTracePhysOp.hpp"
-#include "Operators/SolverUtilsOps/Diffusion/DiffusionIP/DiffusionIPKernels.hpp"
-#include "Operators/SolverUtilsOps/Diffusion/DiffusionIP/DiffusionIPOp.hpp"
+#include "SolverCore/Diffusion/DiffusionIP/DiffusionIPKernels.hpp"
+#include "SolverCore/Diffusion/DiffusionIP/DiffusionIPOp.hpp"
 
 #include "MultiRegions/AssemblyMap/AssemblyMapDG.h"
 #include "MultiRegions/DisContField.h"
 
-namespace Nektar::Operators::detail
+namespace Nektar::SolverCore::detail
 {
 
 template <typename ExecSpace, typename TData>
@@ -110,24 +110,28 @@ public:
         m_nComp = components.size();
 
         // Core operator building blocks used by the DG/IP diffusion path.
-        m_physDerivOp = PhysDerivOp<TData>::Create(expansionList, components,
-                                                   ExecSpace::name);
-        m_bwdTransOp  = BwdTransOp<TData>::Create(expansionList, components,
-                                                  ExecSpace::name);
+        m_physDerivOp = Operators::PhysDerivOp<TData>::Create(
+            expansionList, components, ExecSpace::name);
+        m_bwdTransOp = Operators::BwdTransOp<TData>::Create(
+            expansionList, components, ExecSpace::name);
         m_iProductWRTDerivBaseOp =
-            IProductWRTDerivBaseOp<FieldState ::Coeff, TData>::Create(
-                expansionList, components, ExecSpace::name);
-        m_getFwdBwdTracePhysOp = GetFwdBwdTracePhysOp<TData>::Create(
+            Operators::IProductWRTDerivBaseOp<FieldState ::Coeff,
+                                              TData>::Create(expansionList,
+                                                             components,
+                                                             ExecSpace::name);
+        m_getFwdBwdTracePhysOp = Operators::GetFwdBwdTracePhysOp<TData>::Create(
             expansionList, components, ExecSpace::name);
         std::vector<std::string> derivComponents(m_nDim * m_nComp,
                                                  "DiffusionDerivTrace");
-        m_getFwdBwdTraceDerivOp = GetFwdBwdTracePhysOp<TData>::Create(
-            expansionList, derivComponents, ExecSpace::name);
+        m_getFwdBwdTraceDerivOp =
+            Operators::GetFwdBwdTracePhysOp<TData>::Create(
+                expansionList, derivComponents, ExecSpace::name);
         m_getFwdBwdTraceDerivOp->SetApplyDirBC(false);
-        m_addTraceIntegralOp = AddTraceIntegralOp<TData>::Create(
+        m_addTraceIntegralOp = Operators::AddTraceIntegralOp<TData>::Create(
             expansionList, components, ExecSpace::name);
-        m_multiplyByElmtInvMassOp = MultiplyByElmtInvMassOp<TData>::Create(
-            expansionList, components, ExecSpace::name);
+        m_multiplyByElmtInvMassOp =
+            Operators::MultiplyByElmtInvMassOp<TData>::Create(
+                expansionList, components, ExecSpace::name);
 
         m_iProductWRTDerivBaseOp->SetScale(-1.0);
 
@@ -137,7 +141,7 @@ public:
     static std::string className;
 
     // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> Instantiate(
+    static std::unique_ptr<Operators::Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
@@ -154,14 +158,17 @@ protected:
     MultiRegions::Field<TData, FieldState::Coeff> m_coeff, m_tmp;
     MultiRegions::Field<TData, FieldState::Phys> m_deriv, m_fluxvector,
         m_numflux, m_fwd, m_bwd, m_derivTraceFwd, m_derivTraceBwd;
-    std::shared_ptr<PhysDerivOp<TData>> m_physDerivOp;
-    std::shared_ptr<BwdTransOp<TData>> m_bwdTransOp;
-    std::shared_ptr<IProductWRTDerivBaseOp<FieldState::Coeff, TData>>
+    std::shared_ptr<Operators::PhysDerivOp<TData>> m_physDerivOp;
+    std::shared_ptr<Operators::BwdTransOp<TData>> m_bwdTransOp;
+    std::shared_ptr<Operators::IProductWRTDerivBaseOp<FieldState::Coeff, TData>>
         m_iProductWRTDerivBaseOp;
-    std::shared_ptr<GetFwdBwdTracePhysOp<TData>> m_getFwdBwdTracePhysOp;
-    std::shared_ptr<GetFwdBwdTracePhysOp<TData>> m_getFwdBwdTraceDerivOp;
-    std::shared_ptr<AddTraceIntegralOp<TData>> m_addTraceIntegralOp;
-    std::shared_ptr<MultiplyByElmtInvMassOp<TData>> m_multiplyByElmtInvMassOp;
+    std::shared_ptr<Operators::GetFwdBwdTracePhysOp<TData>>
+        m_getFwdBwdTracePhysOp;
+    std::shared_ptr<Operators::GetFwdBwdTracePhysOp<TData>>
+        m_getFwdBwdTraceDerivOp;
+    std::shared_ptr<Operators::AddTraceIntegralOp<TData>> m_addTraceIntegralOp;
+    std::shared_ptr<Operators::MultiplyByElmtInvMassOp<TData>>
+        m_multiplyByElmtInvMassOp;
     std::vector<LibUtilities::MemoryRegion<size_t>> m_derivBndTraceOffset;
     std::vector<size_t> m_numDerivBndTracePts;
 
@@ -201,7 +208,7 @@ protected:
                 outblock.template GetPtr<MemSpace, WriteOnly>(streamID);
 
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(
+            Operators::ReshapeStorage<ExecSpace>(
                 m_implInterleaveWidth, outblock.GetInterleaveWidth(),
                 outblock.GetNumElementsWithPadding() *
                     outblock.GetNumComponents() * outblock.GetNumHomoModes(),
@@ -403,4 +410,4 @@ protected:
     }
 };
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::SolverCore::detail

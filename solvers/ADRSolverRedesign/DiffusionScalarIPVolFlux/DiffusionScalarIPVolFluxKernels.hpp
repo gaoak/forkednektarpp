@@ -37,7 +37,7 @@
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "LibUtilities/LoopExecution/LoopExecution.hpp"
 
-namespace Nektar::Operators::detail
+namespace Nektar::detail
 {
 
 template <typename ExecSpace, typename TData>
@@ -72,8 +72,8 @@ NEK_FORCE_INLINE static void DiffusionScalarIPVolFluxKernel(
                     vec_t flux = vec_t(0.0);
                     for (unsigned int derivDir = 0; derivDir < ndim; ++derivDir)
                     {
-                        const auto diffIdx =
-                            GetDiffCoeffMap(ndim, outDir * ndim + derivDir);
+                        const auto diffIdx = Operators::GetDiffCoeffMap(
+                            ndim, outDir * ndim + derivDir);
                         const size_t derivIdx =
                             (f * ndim + derivDir) * derivVecStride + i;
                         flux += vec_t(diffCoeff[diffIdx]) * derivvec[derivIdx];
@@ -87,4 +87,4 @@ NEK_FORCE_INLINE static void DiffusionScalarIPVolFluxKernel(
     Nektar::LoopExecutionSetStreamID(0);
 }
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::detail

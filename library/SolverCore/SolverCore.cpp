@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AdvectionWeakDGOp.hpp
+// File: SolverCore.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,41 +28,19 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: See EnsureLinked() declaration in SolverCore.hpp.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#pragma once
+#include "SolverCore/SolverCore.hpp"
 
-#include "Operators/SolverUtilsOps/Advection/AdvectionDGOp.hpp"
-
-namespace Nektar::Operators
+namespace Nektar::SolverCore
 {
 
-// AdvectionWeakDG base class
-// Defines the apply operator to enforce apply parameter types
-template <typename TData> class AdvectionWeakDGOp : public AdvectionDGOp<TData>
+void EnsureLinked()
 {
-public:
-    static std::shared_ptr<AdvectionWeakDGOp<TData>> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::vector<std::string> &components,
-        const std::string &execStr = "")
-    {
-        return Operator<TData>::template Create<AdvectionWeakDGOp>(
-            expansionList, components, execStr);
-    }
+    // Intentionally empty -- see declaration in SolverCore.hpp for why
+    // this function exists.
+}
 
-    static inline const std::string name = "AdvectionWeakDG";
-
-protected:
-    AdvectionWeakDGOp(const MultiRegions::ExpListSharedPtr &expansionList,
-                      const std::vector<std::string> &components)
-        : AdvectionDGOp<TData>(expansionList, components)
-    {
-    }
-
-    ~AdvectionWeakDGOp() override = default;
-};
-
-} // namespace Nektar::Operators
+} // namespace Nektar::SolverCore

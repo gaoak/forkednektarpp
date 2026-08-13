@@ -251,11 +251,11 @@ MACRO(ADD_ELMT_OPERATOR dir)
     SET(OPERATORS_HEADERS
         ${OPERATORS_HEADERS}
         ${${NAME_HEADERS}}
-        )
+    )
     SET(OPERATORS_SOURCES
         ${OPERATORS_SOURCES}
         ${${NAME_SOURCES}}
-        )
+    )
 ENDMACRO()
 
 
@@ -410,12 +410,12 @@ MACRO(ADD_TIME_OPERATOR dir)
     # Add this operator's implemenations to the global operator source
     # and header files.
     SET(OPERATORS_HEADERS
-            ${OPERATORS_HEADERS}
-            ${${NAME_HEADERS}}
+        ${OPERATORS_HEADERS}
+        ${${NAME_HEADERS}}
     )
     SET(OPERATORS_SOURCES
-            ${OPERATORS_SOURCES}
-            ${${NAME_SOURCES}}
+        ${OPERATORS_SOURCES}
+        ${${NAME_SOURCES}}
     )
 ENDMACRO()
 
@@ -454,12 +454,12 @@ SET(GROUP_SOURCES ${OPERATORS_SOURCES})
 # their source and header files.
 FILE(GLOB children AddTraceIntegral BndCondOps/* ElmtOps/*
      GlobalLinSysOps/LinearSystems/* GlobalLinSysOps/LinearSolvers/*
-     PreconOps/* Norm/* GetFwdBwdTracePhys
-     SolverUtilsOps/Advection/* SolverUtilsOps/Diffusion/*)
+     PreconOps/* Norm/* GetFwdBwdTracePhys)
 
+SET(OPNAMESPACE "Nektar::Operators::detail")
 FOREACH(child ${children})
     MESSAGE("Child : " "${child}")
-    ADD_OPERATOR(${child} OPERATORS_HEADERS OPERATORS_SOURCES)
+    ADD_OPERATOR(${child} OPNAMESPACE OPERATORS_HEADERS OPERATORS_SOURCES)
 ENDFOREACH()
 
 # Loop through all of the directories which contain block operators and add
@@ -473,69 +473,7 @@ ENDFOREACH()
 # their source and header files.
 FILE(GLOB children GetFwdBwdTracePhys BndCondOps/FwdTransBC Norm/*)
 FOREACH(child ${children})
-    ADD_BLOCK_OPERATOR(${child} OPERATORS_HEADERS OPERATORS_SOURCES)
-ENDFOREACH()
-
-# Set compilation for Riemann solvers
-SET(SolverTypes Upwind)
-
-SET(name RiemannSolver)
-SET(dir ${CMAKE_CURRENT_SOURCE_DIR}/SolverUtilsOps/RiemannSolvers)
-
-SET(NAME_HEADERS ${name}_HEADERS)
-SET(NAME_SOURCES ${name}_SOURCES)
-SET(OPERATOR ${name})
-
-# These operator have an additional argument for the FieldState
-# which requires two delcarations.
-SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/Operators/SolverUtilsOps/RiemannSolvers/RiemannOperatorFactoryDec.cpp.in)
-
-FOREACH (SolverType IN LISTS SolverTypes)
-    # Loop through each possible execution space.
-    FOREACH (ExecSpace IN LISTS ExecSpaces)
-
-        # Set file extension.
-        SET(HEADER_EXT hpp)
-        IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-            SET(SOURCE_EXT cu)
-        ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
-            SET(SOURCE_EXT hip)
-        ELSE()
-            SET(SOURCE_EXT cpp)
-        ENDIF()
-
-        # Loop through each possible data type.
-        FOREACH (TData IN LISTS DataTypes)
-            # Set up the name used for the .cpp declaration file.
-            SET(FactoryDeclName src/${name}${SolverType}${ExecSpace}${TData}.${SOURCE_EXT})
-
-            # Get the source and header files for this operator,
-            # execution space, and implementation.
-            SET(CURRENT_HEADERS ${name}${SolverType}_${ExecSpace}_HEADERS)
-            SET(CURRENT_SOURCES ${name}${SolverType}_${ExecSpace}_SOURCES)
-                
-            # Get the headers matching the name and execution space
-            FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-                ${dir}/${name}${SolverType}${ExecSpace}*.hpp)
-
-            FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                "${dir}/${name}OpImpl.hpp")
-            SET(IMPL_HEADER "#include \"${include_file}\"")
-
-            FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                "${dir}/${SolverType}SolverKernels.hpp")
-            SET(KERNEL_HEADER "#include \"${include_file}\"")
-
-            # Create the cpp file from the implementation file.
-            CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
-
-            # Add the respective cpp file.
-            SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
-            SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
-            SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
-
-        ENDFOREACH()
-    ENDFOREACH()
+    ADD_BLOCK_OPERATOR(${child} OPNAMESPACE OPERATORS_HEADERS OPERATORS_SOURCES)
 ENDFOREACH()
 
 # Add this operator's implemenations to the global operator source
@@ -548,8 +486,6 @@ SET(OPERATORS_SOURCES
     ${OPERATORS_SOURCES}
     ${${NAME_SOURCES}}
 )
-
-  #MESSAGE("Sources 0 : " "${OPERATORS_SOURCES}")
 
 # Assmbscater
 #Serial double cases
@@ -620,7 +556,3 @@ INSTALL(DIRECTORY ./
   DESTINATION ${NEKTAR_INCLUDE_DIR}/Operators
   COMPONENT dev
   FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.cuh")
-
-IF(NEKTAR_BUILD_UNIT_TESTS)
-    ADD_SUBDIRECTORY(SolverUtilsOps/RiemannSolvers/UnitTests)
-ENDIF()

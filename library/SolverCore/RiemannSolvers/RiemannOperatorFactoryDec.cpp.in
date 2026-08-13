@@ -47,14 +47,14 @@
 @IMPL_HEADER@
 @KERNEL_HEADER@
 
-namespace Nektar::Operators::detail
+namespace Nektar::SolverCore::detail
 {
 
 // Register the implementation with Operator Factory
 template <>
 std::string @OPERATOR@OpImpl<@SolverType@SolverKernel,
                               NektarSpaces::@ExecSpace@, @TData@>::className =
-    GetOperatorFactory<@TData@>().RegisterCreatorFunction(
+    Operators::GetOperatorFactory<@TData@>().RegisterCreatorFunction(
         @OPERATOR@Op<@TData@>::name + "@SolverType@" + "@ExecSpace@",
         @OPERATOR@OpImpl<@SolverType@SolverKernel, NektarSpaces::@ExecSpace@,
                           @TData@>::Instantiate,

@@ -36,7 +36,7 @@
 
 #include "LibUtilities/LoopExecution/LoopExecution.hpp"
 
-namespace Nektar::Operators::detail
+namespace Nektar::detail
 {
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void LinearAdvVolumeFluxKernel(
@@ -85,4 +85,4 @@ NEK_FORCE_INLINE static void LinearAdvVolumeFluxKernel(
 
     Nektar::LoopExecutionSetStreamID(0);
 }
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::detail

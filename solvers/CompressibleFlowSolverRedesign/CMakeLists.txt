@@ -183,9 +183,10 @@ IF(NEKTAR_SOLVER_COMPRESSIBLE_FLOW_DEVICE_SUPPORT)
     # their source and header files.
     FILE(GLOB children)
 
+    SET(OPNAMESPACE "Nektar::detail")
     FOREACH(child ${children})
     MESSAGE("Child : " "${child}")
-        ADD_OPERATOR(${child} CFS_OPERATORS_HEADERS CFS_OPERATORS_SOURCES)
+        ADD_OPERATOR(${child} OPNAMESPACE CFS_OPERATORS_HEADERS CFS_OPERATORS_SOURCES)
     ENDFOREACH()
 
     ADD_SUBDIRECTORY(RiemannSolvers/Profilers)

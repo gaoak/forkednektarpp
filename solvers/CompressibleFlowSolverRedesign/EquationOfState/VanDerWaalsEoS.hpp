@@ -39,7 +39,7 @@
 // definition of parameters held  in structure
 #include "EquationOfState/VanDerWaalsEoSParams.hpp"
 
-namespace Nektar::Operators::detail
+namespace Nektar::detail
 {
 
 /**
@@ -121,4 +121,4 @@ NEK_HOSTDEVICE_INLINE TData GetTemperature(const VanDerWaalsEoS<TScalar> &EoS,
     return (e + TData(EoS.a()) * rho) * TData(EoS.gammaMoneOgasConst());
 }
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::detail

@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "Operators/SolverUtilsOps/Diffusion/DiffusionOp.hpp"
+#include "SolverCore/Diffusion/DiffusionOp.hpp"
 
-namespace Nektar::Operators
+namespace Nektar::SolverCore
 {
 
 // DiffusionIP base class
@@ -49,7 +49,7 @@ public:
         const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
-        return Operator<TData>::template Create<DiffusionIPOp>(
+        return Operators::Operator<TData>::template Create<DiffusionIPOp>(
             expansionList, components, execStr);
     }
 
@@ -95,4 +95,4 @@ protected:
     TData m_IPPenaltyCoeff  = 4.0;
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar::SolverCore

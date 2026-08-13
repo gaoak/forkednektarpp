@@ -34,17 +34,17 @@
 
 #pragma once
 
-#include "Operators/SolverUtilsOps/Advection/AdvectionVolumeFluxOp.hpp"
+#include "SolverCore/Advection/AdvectionVolumeFluxOp.hpp"
 
 #include "EquationOfState/SupportedEoS.hpp"
 
-namespace Nektar::Operators
+namespace Nektar
 {
 
 // Upwind base class
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
-class EulerVolumeFluxOp : public AdvectionVolumeFluxOp<TData>
+class EulerVolumeFluxOp : public SolverCore::AdvectionVolumeFluxOp<TData>
 {
 public:
     static std::shared_ptr<EulerVolumeFluxOp<TData>> Create(
@@ -66,8 +66,8 @@ public:
         }
 
         return std::dynamic_pointer_cast<EulerVolumeFluxOp<TData>>(
-            AdvectionVolumeFluxOp<TData>::Create(expansionList, components,
-                                                 name + EoSName, execStr));
+            SolverCore::AdvectionVolumeFluxOp<TData>::Create(
+                expansionList, components, name + EoSName, execStr));
     }
 
     static inline const std::string name = "EulerVolumeFlux";
@@ -75,11 +75,11 @@ public:
 protected:
     EulerVolumeFluxOp(const MultiRegions::ExpListSharedPtr &expansionList,
                       const std::vector<std::string> &components)
-        : AdvectionVolumeFluxOp<TData>(expansionList, components)
+        : SolverCore::AdvectionVolumeFluxOp<TData>(expansionList, components)
     {
     }
 
     ~EulerVolumeFluxOp() override = default;
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar

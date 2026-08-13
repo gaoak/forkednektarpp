@@ -39,11 +39,11 @@
 #include <Operators/ElmtOps/Advection/AdvectionOp.hpp>
 #include <Operators/GetFwdBwdTracePhys/GetFwdBwdTracePhysOp.hpp>
 #include <Operators/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp>
-#include <Operators/SolverUtilsOps/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
-#include <Operators/SolverUtilsOps/Diffusion/DiffusionIP/DiffusionIPOp.hpp>
-#include <Operators/SolverUtilsOps/RiemannSolvers/RiemannSolverOp.hpp>
+#include <SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
+#include <SolverCore/Diffusion/DiffusionIP/DiffusionIPOp.hpp>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 #include <SolverCore/Forcing/Forcing.h>
+#include <SolverCore/RiemannSolvers/RiemannSolverOp.hpp>
 
 #include <MultiRegions/Field/Field.hpp>
 

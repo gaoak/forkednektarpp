@@ -82,6 +82,7 @@ using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
 using namespace Nektar::Operators;
+using namespace Nektar::SolverCore;
 
 struct GlobalConfiguration
 {

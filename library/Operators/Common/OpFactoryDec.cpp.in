@@ -46,13 +46,13 @@
 // clang-format off
 @IMPL_HEADER@
 
-namespace Nektar::Operators::detail
+namespace @OPNAMESPACE@
 {
 
 // Register the implementation with Operator Factory
 template <>
 std::string @OPERATOR@OpImpl<NektarSpaces::@ExecSpace@, @TData@>::className =
-    GetOperatorFactory<@TData@>().RegisterCreatorFunction(
+    Operators::GetOperatorFactory<@TData@>().RegisterCreatorFunction(
         @OPERATOR@Op<@TData@>::name + "@ExecSpace@",
         @OPERATOR@OpImpl<NektarSpaces::@ExecSpace@,
                          @TData@>::Instantiate,

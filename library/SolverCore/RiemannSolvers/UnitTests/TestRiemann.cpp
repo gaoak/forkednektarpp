@@ -74,6 +74,7 @@
 
 using namespace Nektar;
 using namespace Nektar::Operators;
+using namespace Nektar::SolverCore;
 
 struct GlobalConfiguration
 {

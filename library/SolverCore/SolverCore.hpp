@@ -38,4 +38,32 @@
 
 namespace Nektar::SolverCore
 {
-}
+
+/**
+ * @brief Forces any translation unit that calls this function to carry a
+ * genuine, real cross-library symbol reference into libSolverCore.
+ *
+ * SolverCore's operators (Advection/Diffusion/RiemannSolvers) register
+ * themselves with the Operators factory purely as a side effect of static
+ * initialisation performed in generated *OpImpl translation units (see
+ * e.g. RiemannOperatorFactoryDec.cpp.in). Most consumers only ever reach
+ * SolverCore through header-only templates and never call a symbol that is
+ * actually *defined* in the compiled SolverCore library, so a
+ * linker/loader that only keeps what is referenced -- e.g. GNU ld's
+ * default "--as-needed" behaviour on Debian/Ubuntu, or the Windows PE
+ * loader simply not generating an import entry for an unused DLL -- can
+ * silently drop SolverCore from the final binary. In that case the
+ * library never gets loaded, and none of its operators end up registered
+ * (e.g. "UpwindSerial"/"UpwindDevice"), even though everything compiled
+ * and linked without any error.
+ *
+ * Calling this (empty) function from operator entry points that are
+ * always compiled directly into consumers -- such as
+ * SolverCore::RiemannSolverOp<TData>::Create() -- guarantees a real
+ * reference exists, forcing every linker to keep SolverCore linked and
+ * every loader to load it, on any platform, without relying on any
+ * linker-specific flags.
+ */
+SOLVER_CORE_EXPORT void EnsureLinked();
+
+} // namespace Nektar::SolverCore

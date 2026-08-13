@@ -35,15 +35,15 @@
 
 #pragma once
 
-#include "Operators/SolverUtilsOps/Diffusion/DiffusionTraceFluxOp.hpp"
+#include "SolverCore/Diffusion/DiffusionTraceFluxOp.hpp"
 
-namespace Nektar::Operators
+namespace Nektar
 {
 
 // Upwind base class
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
-class DiffusionCFETraceFluxOp : public DiffusionTraceFluxOp<TData>
+class DiffusionCFETraceFluxOp : public SolverCore::DiffusionTraceFluxOp<TData>
 {
 public:
     static std::shared_ptr<DiffusionCFETraceFluxOp<TData>> Create(
@@ -65,8 +65,8 @@ public:
         }
 
         return std::dynamic_pointer_cast<DiffusionCFETraceFluxOp<TData>>(
-            DiffusionTraceFluxOp<TData>::Create(expansionList, components,
-                                                name + EoSName, execStr));
+            SolverCore::DiffusionTraceFluxOp<TData>::Create(
+                expansionList, components, name + EoSName, execStr));
     }
 
     static inline const std::string name = "DiffusionCFETraceFlux";
@@ -74,11 +74,11 @@ public:
 protected:
     DiffusionCFETraceFluxOp(const MultiRegions::ExpListSharedPtr &expansionList,
                             const std::vector<std::string> &components)
-        : DiffusionTraceFluxOp<TData>(expansionList, components)
+        : SolverCore::DiffusionTraceFluxOp<TData>(expansionList, components)
     {
     }
 
     ~DiffusionCFETraceFluxOp() override = default;
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar

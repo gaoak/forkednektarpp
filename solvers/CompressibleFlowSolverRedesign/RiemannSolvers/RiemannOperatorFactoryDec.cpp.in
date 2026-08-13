@@ -48,18 +48,18 @@
 @EOS_HEADER@
 @KERNEL_HEADER@
 
-namespace Nektar::Operators::detail
+namespace Nektar::detail
 {
 
 // Register the implementation with Operator Factory
 template <>
 std::string @OPERATOR@OpImpl<@SolverType@SolverKernel,@EOS_TYPE@<@TData@>,
                               NektarSpaces::@ExecSpace@, @TData@>::className =
-    GetOperatorFactory<@TData@>().RegisterCreatorFunction(
+    Operators::GetOperatorFactory<@TData@>().RegisterCreatorFunction(
         @OPERATOR@Op<@TData@>::name + "@SolverType@" + @EOS_TYPE@<@TData@>::name +
         "@ExecSpace@" , @OPERATOR@OpImpl<@SolverType@SolverKernel,@EOS_TYPE@<@TData@>,
         NektarSpaces::@ExecSpace@,  @TData@>::Instantiate,
         "...");
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::detail
 // clang-format on

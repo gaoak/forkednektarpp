@@ -37,7 +37,7 @@
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <boost/algorithm/string/predicate.hpp>
 
-namespace Nektar::Operators::detail
+namespace Nektar::detail
 {
 
 /**
@@ -163,4 +163,4 @@ inline void SetUpEquationOfState(LibUtilities::SessionReaderSharedPtr session,
 
     EoS = VanDerWaalsEoS<TData>(gamma, gasConst, tcrit, pcrit);
 }
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::detail

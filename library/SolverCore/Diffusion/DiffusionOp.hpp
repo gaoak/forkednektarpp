@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AdvectionVolumeFluxOp.hpp
+// File: DiffusionOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,18 +28,22 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Advection volume flux operator base class.
+// Description: Diffusion operator base class.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include "Operators/SolverUtilsOps/Flux/FluxOp.hpp"
+#include "MultiRegions/Field/Math.hpp"
+#include "Operators/Common/Operator.hpp"
+#include "SolverCore/Diffusion/DiffusionTraceFluxOp.hpp"
+#include "SolverCore/Diffusion/DiffusionVolumeFluxOp.hpp"
 
-namespace Nektar::Operators
+namespace Nektar::SolverCore
 {
 
-template <typename TData> class AdvectionVolumeFluxOp : public FluxOp<TData>
+// Diffusion operator base class
+template <typename TData> class DiffusionOp : public Operators::Operator<TData>
 {
 public:
     void Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
@@ -54,24 +58,44 @@ public:
         this->v_Apply(in, out);
     }
 
-    void SetAdvectVel(MultiRegions::Field<TData, FieldState::Phys> &advectVel)
+    void SetScale(const TData &scale)
     {
-        this->m_advectVel = std::move(advectVel);
+        this->m_scale = scale;
+    }
+
+    void SetAppend(const bool &append)
+    {
+        this->m_append = append;
+    }
+
+    void SetVolumeFluxOp(
+        const std::shared_ptr<DiffusionVolumeFluxOp<TData>> &ptr)
+    {
+        this->m_volumeFluxOp = ptr;
+    }
+
+    void SetTraceFluxOp(const std::shared_ptr<DiffusionTraceFluxOp<TData>> &ptr)
+    {
+        this->m_traceFluxOp = ptr;
     }
 
 protected:
-    MultiRegions::Field<TData, FieldState::Phys> m_advectVel;
+    std::shared_ptr<DiffusionVolumeFluxOp<TData>> m_volumeFluxOp;
+    std::shared_ptr<DiffusionTraceFluxOp<TData>> m_traceFluxOp;
 
-    AdvectionVolumeFluxOp(const MultiRegions::ExpListSharedPtr &expansionList,
-                          const std::vector<std::string> &components)
-        : FluxOp<TData>(expansionList, components)
+    TData m_scale = 1.0;
+    bool m_append = false;
+
+    DiffusionOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                const std::vector<std::string> &components)
+        : Operators::Operator<TData>(expansionList, components)
     {
     }
 
-    ~AdvectionVolumeFluxOp() override = default;
+    ~DiffusionOp() override = default;
 
     virtual void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
                          MultiRegions::Field<TData, FieldState::Phys> &out) = 0;
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar::SolverCore

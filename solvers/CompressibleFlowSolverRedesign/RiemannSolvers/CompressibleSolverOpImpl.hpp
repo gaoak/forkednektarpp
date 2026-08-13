@@ -40,7 +40,7 @@
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "LibUtilities/LoopExecution/LoopExecution.hpp"
 
-namespace Nektar::Operators::detail
+namespace Nektar::detail
 {
 
 template <template <typename, typename, unsigned int> typename RiemannKernel,
@@ -52,7 +52,7 @@ NEK_FORCE_INLINE static void RiemannKernelLauncher(
     TData *rotStorage3Ptr, const TData *fwdPtr, const TData *bwdPtr,
     TData *fluxPtr, const unsigned int streamID)
 {
-    using namespace Nektar::Operators::detail;
+    using namespace Nektar::SolverCore::detail;
 
     // Explicit vectorisation for AVX backend,
     // vec_t = tinysimd::simd<TData> for AVX,
@@ -166,7 +166,7 @@ public:
     static std::string className;
 
     // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> Instantiate(
+    static std::unique_ptr<Operators::Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
@@ -286,4 +286,4 @@ protected:
     }
 };
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::detail
