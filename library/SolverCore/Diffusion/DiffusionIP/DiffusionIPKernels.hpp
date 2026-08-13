@@ -36,7 +36,7 @@
 
 #include "LibUtilities/LoopExecution/LoopExecution.hpp"
 
-namespace Nektar::Operators::detail
+namespace Nektar::SolverCore::detail
 {
 
 template <typename ExecSpace, typename TData>
@@ -63,4 +63,4 @@ NEK_FORCE_INLINE static void CopyBwdDerivTraceFromFwdOnBndKernel(
     Nektar::LoopExecutionSetStreamID(0);
 }
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::SolverCore::detail

@@ -36,7 +36,7 @@
 
 #include "LibUtilities/LoopExecution/LoopExecution.hpp"
 
-namespace Nektar::Operators::detail
+namespace Nektar::SolverCore::detail
 {
 
 template <typename ExecSpace, typename TScalar>
@@ -455,4 +455,4 @@ NEK_DEVICE_INLINE static void RotateFromNormalKernel(const size_t blksize,
     rhowOut[0] = a * R02[0] + b * R12[0] + c * R22[0];
 }
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::SolverCore::detail

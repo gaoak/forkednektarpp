@@ -34,13 +34,14 @@
 
 #pragma once
 
-#include "Operators/SolverUtilsOps/Diffusion/DiffusionTraceFluxOp.hpp"
+#include "SolverCore/Diffusion/DiffusionTraceFluxOp.hpp"
 
-namespace Nektar::Operators
+namespace Nektar
 {
 
 template <typename TData>
-class DiffusionScalarIPTraceFluxOp : public ScalarIPDiffusionTraceFluxOp<TData>
+class DiffusionScalarIPTraceFluxOp
+    : public SolverCore::ScalarIPDiffusionTraceFluxOp<TData>
 {
 public:
     static std::shared_ptr<DiffusionScalarIPTraceFluxOp<TData>> Create(
@@ -49,7 +50,8 @@ public:
         const std::string &execStr = "")
     {
         return std::dynamic_pointer_cast<DiffusionScalarIPTraceFluxOp<TData>>(
-            FluxOp<TData>::Create(expansionList, components, name, execStr));
+            SolverCore::FluxOp<TData>::Create(expansionList, components, name,
+                                              execStr));
     }
 
     static inline const std::string name = "DiffusionScalarIPTraceFlux";
@@ -58,7 +60,8 @@ protected:
     DiffusionScalarIPTraceFluxOp(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
-        : ScalarIPDiffusionTraceFluxOp<TData>(expansionList, components)
+        : SolverCore::ScalarIPDiffusionTraceFluxOp<TData>(expansionList,
+                                                          components)
     {
         auto session = expansionList->GetSession();
         session->LoadParameter("IPPenaltyCoeff", m_IPPenaltyCoeff, 4.0);
@@ -68,4 +71,4 @@ protected:
     TData m_IPPenaltyCoeff                   = 4.0;
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar

@@ -39,7 +39,7 @@
 #include "MultiRegions/Field/Math.hpp"
 #include "Operators/Common/DataWarehouse/TraceDataWarehouse.hpp"
 
-namespace Nektar::Operators::detail
+namespace Nektar::detail
 {
 
 template <typename ExecSpace, typename TData>
@@ -91,7 +91,7 @@ public:
 
     static std::string className;
 
-    static std::unique_ptr<Operator<TData>> Instantiate(
+    static std::unique_ptr<Operators::Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
@@ -130,24 +130,24 @@ protected:
             auto &outblock       = out.GetBlocks()[blk];
 
             auto normalbase = this->m_dataWarehouse->template GetData<MemSpace>(
-                IPTraceNormalKey<TData>(blk));
+                Operators::IPTraceNormalKey<TData>(blk));
 
             auto bwdWeightAverBase =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    IPTraceScalarKey<TData>(blk,
-                                            IPTraceScalarData::BwdWeightAver));
+                    Operators::IPTraceScalarKey<TData>(
+                        blk, Operators::IPTraceScalarData::BwdWeightAver));
             auto bwdWeightJumpBase =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    IPTraceScalarKey<TData>(blk,
-                                            IPTraceScalarData::BwdWeightJump));
+                    Operators::IPTraceScalarKey<TData>(
+                        blk, Operators::IPTraceScalarData::BwdWeightJump));
             auto lengthRecipBase =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    IPTraceScalarKey<TData>(blk,
-                                            IPTraceScalarData::LengthRecip));
+                    Operators::IPTraceScalarKey<TData>(
+                        blk, Operators::IPTraceScalarData::LengthRecip));
             auto penaltyFactorBase =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    IPTraceScalarKey<TData>(blk,
-                                            IPTraceScalarData::PenaltyFactor));
+                    Operators::IPTraceScalarKey<TData>(
+                        blk, Operators::IPTraceScalarData::PenaltyFactor));
             auto diffCoeffBase =
                 m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(streamID);
 
@@ -202,14 +202,15 @@ protected:
 
             auto derivBaseTrace =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    IPTraceDerivBaseKey<TData>(blk));
+                    Operators::IPTraceDerivBaseKey<TData>(blk));
             auto orientationMaps =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    OrientationMapsKey<TData>(blk, m_traceInterleaveWidth));
+                    Operators::OrientationMapsKey<TData>(
+                        blk, m_traceInterleaveWidth));
             auto orientationMapsOffset =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    OrientationMapsOffsetKey<TData>(blk,
-                                                    m_traceInterleaveWidth));
+                    Operators::OrientationMapsOffsetKey<TData>(
+                        blk, m_traceInterleaveWidth));
             auto traceBlockId =
                 m_symmTraceBlockId[blk].template GetPtr<MemSpace, ReadOnly>();
             auto traceOffset =
@@ -228,7 +229,7 @@ protected:
                     jumpBlock.template GetPtr<MemSpace, ReadOnly>(streamID);
                 auto traceNormalBlockBase =
                     this->m_dataWarehouse->template GetData<MemSpace>(
-                        IPTraceNormalKey<TData>(traceBlk));
+                        Operators::IPTraceNormalKey<TData>(traceBlk));
 
                 AddScalarSymmetricTraceFluxCoeffKernel<ExecSpace>(
                     outBlock.GetNumElements(),
@@ -279,8 +280,8 @@ protected:
             auto locToTracePhysOffset =
                 expansionList->GetDataWarehouseSharedPtr()
                     ->template GetData<NektarSpaces::HostSpace>(
-                        LocToTracePhysOffsetKey<TData>(blk,
-                                                       m_traceInterleaveWidth));
+                        Operators::LocToTracePhysOffsetKey<TData>(
+                            blk, m_traceInterleaveWidth));
 
             std::vector<unsigned int> traceBlockId(totTrace, 0);
             std::vector<size_t> traceOffset(totTrace, 0);
@@ -328,4 +329,4 @@ protected:
     }
 };
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::detail

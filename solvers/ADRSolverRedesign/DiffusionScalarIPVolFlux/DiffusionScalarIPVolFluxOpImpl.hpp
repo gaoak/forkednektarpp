@@ -37,7 +37,7 @@
 #include "ADRSolverRedesign/DiffusionScalarIPVolFlux/DiffusionScalarIPVolFluxKernels.hpp"
 #include "ADRSolverRedesign/DiffusionScalarIPVolFlux/DiffusionScalarIPVolFluxOp.hpp"
 
-namespace Nektar::Operators::detail
+namespace Nektar::detail
 {
 
 template <typename ExecSpace, typename TData>
@@ -64,7 +64,7 @@ public:
 
     static std::string className;
 
-    static std::unique_ptr<Operator<TData>> Instantiate(
+    static std::unique_ptr<Operators::Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
@@ -115,4 +115,4 @@ protected:
     }
 };
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::detail

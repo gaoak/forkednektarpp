@@ -40,7 +40,7 @@
 // critical so that when used in the templated version of the operator
 // that loop unrolling occurs.
 
-namespace Nektar::Operators::detail
+namespace Nektar::SolverCore::detail
 {
 
 template <typename ExecSpace> struct UpwindSolverKernel
@@ -101,4 +101,4 @@ template <typename ExecSpace> struct UpwindSolverKernel
     }
 };
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::SolverCore::detail

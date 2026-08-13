@@ -37,7 +37,7 @@
 #include "DiffusionCFEVolFlux/DiffusionCFEVolFluxKernels.hpp"
 #include "Operators/Common/DataWarehouse/TraceDataWarehouse.hpp"
 
-namespace Nektar::Operators::detail
+namespace Nektar::detail
 {
 template <typename ExecSpace, typename EqnOfSParams, typename TData>
 NEK_FORCE_INLINE static void DiffuseTraceFluxKernel(
@@ -186,4 +186,4 @@ NEK_FORCE_INLINE static void DiffuseTraceFluxKernel(
         });
 }
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::detail

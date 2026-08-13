@@ -37,7 +37,7 @@
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <boost/algorithm/string/predicate.hpp>
 
-namespace Nektar::Operators::detail
+namespace Nektar::detail
 {
 
 /**
@@ -126,4 +126,4 @@ inline void SetUpEquationOfState(LibUtilities::SessionReaderSharedPtr session,
 
     EoS = IdealGasEoS<TData>(gamma, gasConst);
 }
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::detail

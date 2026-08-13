@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: CompressibleSolverOp.hpp
+// File: FluxOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,57 +28,62 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: CompressibleSolver operator base class.
+// Description: Flux operator factory base class.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include "SolverCore/RiemannSolvers/RiemannSolverOp.hpp"
+#include "LibUtilities/BasicUtils/Math/MathKernels.hpp"
+#include "Operators/Common/Operator.hpp"
 
-#include "EquationOfState/SupportedEoS.hpp"
-
-namespace Nektar
+namespace Nektar::SolverCore
 {
 
-// CompressibleSolver operator base class
-template <typename TData>
-class CompressibleSolverOp : public SolverCore::RiemannSolverOp<TData>
+// Flux operator factory base class.
+template <typename TData> class FluxOp : public Operators::Operator<TData>
 {
 public:
-    static std::shared_ptr<CompressibleSolverOp<TData>> Create(
+    static std::shared_ptr<FluxOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::vector<std::string> &components, const std::string &method,
-        const std::string &execStr)
+        const std::vector<std::string> &components,
+        const std::string &method = "", const std::string &execStr = "")
     {
-        std::string EoSName;
+        auto session = expansionList->GetSession();
 
-        if (expansionList->GetSession()->DefinesEquationOfState())
+        std::string method0 = method;
+
+        std::string execStr0 =
+            (execStr == "")
+                ? Operators::Operator<TData>::GetOpExecSpace(session)
+                : execStr;
+
+        std::string requestedKey = method0 + execStr0;
+
+        Operators::OperatorFactory<TData> &factory =
+            Operators::GetOperatorFactory<TData>();
+
+        // No suitable operator was found.
+        if (!factory.ModuleExists(requestedKey))
         {
-            EoSName = boost::to_upper_copy(
-                expansionList->GetSession()->GetEquationOfState().type);
-        }
-        else
-        {
-            NEKERROR(ErrorUtil::efatal,
-                     "No EquationOfState section defined in session file");
+            std::stringstream msg;
+            msg << "No such operator: " << requestedKey << std::endl;
+            factory.PrintAvailableClasses(msg);
+            NEKERROR(ErrorUtil::efatal, msg.str());
         }
 
-        return std::static_pointer_cast<CompressibleSolverOp<TData>>(
-            SolverCore::RiemannSolverOp<TData>::Create(
-                expansionList, components, name + method + EoSName, execStr));
+        return std::static_pointer_cast<FluxOp<TData>>(
+            factory.CreateInstance(requestedKey, expansionList, components));
     }
-
-    static inline const std::string name = "CompressibleSolver";
 
 protected:
-    CompressibleSolverOp(const MultiRegions::ExpListSharedPtr &expansionList,
-                         const std::vector<std::string> &components)
-        : SolverCore::RiemannSolverOp<TData>(expansionList, components)
+    FluxOp(const MultiRegions::ExpListSharedPtr &expansionList,
+           const std::vector<std::string> &components)
+        : Operators::Operator<TData>(expansionList, components)
     {
     }
 
-    ~CompressibleSolverOp() override = default;
+    ~FluxOp() override = default;
 };
 
-} // namespace Nektar
+} // namespace Nektar::SolverCore

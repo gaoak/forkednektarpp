@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: CompressibleSolverOp.hpp
+// File: AdvectionWeakDGOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,57 +28,42 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: CompressibleSolver operator base class.
+// Description:
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include "SolverCore/RiemannSolvers/RiemannSolverOp.hpp"
+#include "SolverCore/Advection/AdvectionDGOp.hpp"
 
-#include "EquationOfState/SupportedEoS.hpp"
+namespace Nektar::SolverCore
 
-namespace Nektar
 {
 
-// CompressibleSolver operator base class
-template <typename TData>
-class CompressibleSolverOp : public SolverCore::RiemannSolverOp<TData>
+// AdvectionWeakDG base class
+// Defines the apply operator to enforce apply parameter types
+template <typename TData> class AdvectionWeakDGOp : public AdvectionDGOp<TData>
 {
 public:
-    static std::shared_ptr<CompressibleSolverOp<TData>> Create(
+    static std::shared_ptr<AdvectionWeakDGOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::vector<std::string> &components, const std::string &method,
-        const std::string &execStr)
+        const std::vector<std::string> &components,
+        const std::string &execStr = "")
     {
-        std::string EoSName;
-
-        if (expansionList->GetSession()->DefinesEquationOfState())
-        {
-            EoSName = boost::to_upper_copy(
-                expansionList->GetSession()->GetEquationOfState().type);
-        }
-        else
-        {
-            NEKERROR(ErrorUtil::efatal,
-                     "No EquationOfState section defined in session file");
-        }
-
-        return std::static_pointer_cast<CompressibleSolverOp<TData>>(
-            SolverCore::RiemannSolverOp<TData>::Create(
-                expansionList, components, name + method + EoSName, execStr));
+        return Operators::Operator<TData>::template Create<AdvectionWeakDGOp>(
+            expansionList, components, execStr);
     }
 
-    static inline const std::string name = "CompressibleSolver";
+    static inline const std::string name = "AdvectionWeakDG";
 
 protected:
-    CompressibleSolverOp(const MultiRegions::ExpListSharedPtr &expansionList,
-                         const std::vector<std::string> &components)
-        : SolverCore::RiemannSolverOp<TData>(expansionList, components)
+    AdvectionWeakDGOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                      const std::vector<std::string> &components)
+        : AdvectionDGOp<TData>(expansionList, components)
     {
     }
 
-    ~CompressibleSolverOp() override = default;
+    ~AdvectionWeakDGOp() override = default;
 };
 
-} // namespace Nektar
+} // namespace Nektar::SolverCore

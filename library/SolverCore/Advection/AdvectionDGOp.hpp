@@ -36,14 +36,15 @@
 
 #include "MultiRegions/Field/Math.hpp"
 #include "Operators/Common/Operator.hpp"
-#include "Operators/SolverUtilsOps/Advection/AdvectionVolumeFluxOp.hpp"
-#include "Operators/SolverUtilsOps/RiemannSolvers/RiemannSolverOp.hpp"
+#include "SolverCore/Advection/AdvectionVolumeFluxOp.hpp"
+#include "SolverCore/RiemannSolvers/RiemannSolverOp.hpp"
 
-namespace Nektar::Operators
+namespace Nektar::SolverCore
 {
 
 // Advection operator base class
-template <typename TData> class AdvectionDGOp : public Operator<TData>
+template <typename TData>
+class AdvectionDGOp : public Operators::Operator<TData>
 {
 public:
     void Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
@@ -93,7 +94,7 @@ protected:
 
     AdvectionDGOp(const MultiRegions::ExpListSharedPtr &expansionList,
                   const std::vector<std::string> &components)
-        : Operator<TData>(expansionList, components)
+        : Operators::Operator<TData>(expansionList, components)
     {
     }
 
@@ -105,4 +106,4 @@ protected:
     virtual void v_SetAppend(const bool &append) = 0;
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar::SolverCore

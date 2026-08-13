@@ -1,4 +1,4 @@
-SET(RIEMANN_UNIT_TEST_DEPENDS Operators)
+SET(RIEMANN_UNIT_TEST_DEPENDS SolverCore)
 
 IF(BOOST_TEST_DYN_LINK)
     SET(RIEMANN_UNIT_TEST_DEPENDS ${RIEMANN_UNIT_TEST_DEPENDS}
@@ -21,7 +21,7 @@ MACRO(SET_UNIT_TEST testname name execspace)
     ENDIF()
 
     ADD_TEST(
-          NAME SolverUtilsOps${testname} 
+          NAME SolverCore${testname} 
           COMMAND ${name-ext} --detect_memory_leaks=0 -- ${execspace})
 ENDMACRO()
 
@@ -34,4 +34,4 @@ IF(NEKTAR_ENABLE_DEVICE)
 ENDIF()
 
 # Copy XML file to build directory
-FILE(COPY run DESTINATION ${CMAKE_BINARY_DIR}/library/Operators/SolverUtilsOps/RiemannSolvers/UnitTests/)
+FILE(COPY run DESTINATION ${CMAKE_BINARY_DIR}/library/SolverCore/RiemannSolvers/UnitTests/)

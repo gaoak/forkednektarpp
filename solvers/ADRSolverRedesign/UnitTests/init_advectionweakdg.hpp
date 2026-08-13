@@ -33,18 +33,19 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "ADRSolverRedesign/LinearAdvVolumeFlux/LinearAdvVolumeFluxOp.hpp"
-#include "Operators/SolverUtilsOps/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp"
-#include "Operators/SolverUtilsOps/RiemannSolvers/RiemannSolverOp.hpp"
+#include "SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp"
+#include "SolverCore/RiemannSolvers/RiemannSolverOp.hpp"
 #include <ADRSolver/EquationSystems/UnsteadyAdvection.h>
 #include <SolverUtils/RiemannSolvers/RiemannSolver.h>
 #include <SolverUtils/RiemannSolvers/UpwindSolver.h>
 
 #include "UnitTests/Operators/init_fields.hpp"
 
-using namespace Nektar::Operators;
+using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
-using namespace Nektar;
+using namespace Nektar::Operators;
+using namespace Nektar::SolverCore;
 
 template <typename TData>
 class AdvectionWeakDG

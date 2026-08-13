@@ -34,15 +34,15 @@
 
 #pragma once
 
-#include "Operators/SolverUtilsOps/Advection/AdvectionVolumeFluxOp.hpp"
+#include "SolverCore/Advection/AdvectionVolumeFluxOp.hpp"
 
-namespace Nektar::Operators
+namespace Nektar
 {
 
 // Upwind base class
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
-class LinearAdvVolumeFluxOp : public AdvectionVolumeFluxOp<TData>
+class LinearAdvVolumeFluxOp : public SolverCore::AdvectionVolumeFluxOp<TData>
 {
 public:
     static std::shared_ptr<LinearAdvVolumeFluxOp<TData>> Create(
@@ -51,7 +51,8 @@ public:
         const std::string &execStr = "")
     {
         return std::dynamic_pointer_cast<LinearAdvVolumeFluxOp<TData>>(
-            FluxOp<TData>::Create(expansionList, components, name, execStr));
+            SolverCore::FluxOp<TData>::Create(expansionList, components, name,
+                                              execStr));
     }
 
     static inline const std::string name = "LinearAdvVolumeFlux";
@@ -59,11 +60,11 @@ public:
 protected:
     LinearAdvVolumeFluxOp(const MultiRegions::ExpListSharedPtr &expansionList,
                           const std::vector<std::string> &components)
-        : AdvectionVolumeFluxOp<TData>(expansionList, components)
+        : SolverCore::AdvectionVolumeFluxOp<TData>(expansionList, components)
     {
     }
 
     ~LinearAdvVolumeFluxOp() override = default;
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar

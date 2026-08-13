@@ -37,7 +37,7 @@
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "LibUtilities/LoopExecution/LoopExecution.hpp"
 
-namespace Nektar::Operators::detail
+namespace Nektar::detail
 {
 
 template <typename ExecSpace, typename TData>
@@ -106,8 +106,8 @@ NEK_FORCE_INLINE static void DiffuseScalarTraceFluxKernel(
                 {
                     normalDiffusionStrength +=
                         normal0 *
-                        vec_t(
-                            diffCoeff[GetDiffCoeffMap(ndim, n0 * ndim + n1)]) *
+                        vec_t(diffCoeff[Operators::GetDiffCoeffMap(
+                            ndim, n0 * ndim + n1)]) *
                         normvec[n1 * traceVecStride + i];
                 }
             }
@@ -144,7 +144,7 @@ NEK_FORCE_INLINE static void DiffuseScalarTraceFluxKernel(
                     for (unsigned int n = 0; n < ndim; ++n)
                     {
                         const unsigned int coeffId =
-                            GetDiffCoeffMap(ndim, n * ndim + d);
+                            Operators::GetDiffCoeffMap(ndim, n * ndim + d);
                         normalDiffCoeff += normvec[n * traceVecStride + i] *
                                            vec_t(diffCoeff[coeffId]);
                     }
@@ -226,8 +226,8 @@ NEK_FORCE_INLINE static void AddScalarSymmetricTraceFluxCoeffKernel(
                             for (unsigned int n = 0; n < nDim; ++n)
                             {
                                 diffNormal +=
-                                    diffCoeff[GetDiffCoeffMap(nDim,
-                                                              d * nDim + n)] *
+                                    diffCoeff[Operators::GetDiffCoeffMap(
+                                        nDim, d * nDim + n)] *
                                     traceNormalBase[n * traceBlockCompSize +
                                                     traceBlockPoint];
                             }
@@ -254,4 +254,4 @@ NEK_FORCE_INLINE static void AddScalarSymmetricTraceFluxCoeffKernel(
     Nektar::LoopExecutionSetStreamID(0);
 }
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::detail

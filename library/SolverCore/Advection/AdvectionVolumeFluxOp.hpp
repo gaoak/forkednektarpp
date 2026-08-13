@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: FluxOp.hpp
+// File: AdvectionVolumeFluxOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,60 +28,50 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Flux operator factory base class.
+// Description: Advection volume flux operator base class.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Math/MathKernels.hpp"
-#include "Operators/Common/Operator.hpp"
+#include "SolverCore/Flux/FluxOp.hpp"
 
-namespace Nektar::Operators
+namespace Nektar::SolverCore
 {
 
-// Flux operator factory base class.
-template <typename TData> class FluxOp : public Operator<TData>
+template <typename TData> class AdvectionVolumeFluxOp : public FluxOp<TData>
 {
 public:
-    static std::shared_ptr<FluxOp<TData>> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::vector<std::string> &components,
-        const std::string &method = "", const std::string &execStr = "")
+    void Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
+               MultiRegions::Field<TData, FieldState::Phys> &out)
     {
-        auto session = expansionList->GetSession();
+        this->v_Apply(in, out);
+    }
 
-        std::string method0 = method;
+    void operator()(MultiRegions::Field<TData, FieldState::Phys> &in,
+                    MultiRegions::Field<TData, FieldState::Phys> &out)
+    {
+        this->v_Apply(in, out);
+    }
 
-        std::string execStr0 = (execStr == "")
-                                   ? Operator<TData>::GetOpExecSpace(session)
-                                   : execStr;
-
-        std::string requestedKey = method0 + execStr0;
-
-        OperatorFactory<TData> &factory = GetOperatorFactory<TData>();
-
-        // No suitable operator was found.
-        if (!factory.ModuleExists(requestedKey))
-        {
-            std::stringstream msg;
-            msg << "No such operator: " << requestedKey << std::endl;
-            factory.PrintAvailableClasses(msg);
-            NEKERROR(ErrorUtil::efatal, msg.str());
-        }
-
-        return std::static_pointer_cast<FluxOp<TData>>(
-            factory.CreateInstance(requestedKey, expansionList, components));
+    void SetAdvectVel(MultiRegions::Field<TData, FieldState::Phys> &advectVel)
+    {
+        this->m_advectVel = std::move(advectVel);
     }
 
 protected:
-    FluxOp(const MultiRegions::ExpListSharedPtr &expansionList,
-           const std::vector<std::string> &components)
-        : Operator<TData>(expansionList, components)
+    MultiRegions::Field<TData, FieldState::Phys> m_advectVel;
+
+    AdvectionVolumeFluxOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                          const std::vector<std::string> &components)
+        : FluxOp<TData>(expansionList, components)
     {
     }
 
-    ~FluxOp() override = default;
+    ~AdvectionVolumeFluxOp() override = default;
+
+    virtual void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
+                         MultiRegions::Field<TData, FieldState::Phys> &out) = 0;
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar::SolverCore

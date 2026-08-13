@@ -37,7 +37,7 @@
 #include "DiffusionCFETraceFlux/DiffusionCFETraceFluxKernels.hpp"
 #include "DiffusionCFETraceFlux/DiffusionCFETraceFluxOp.hpp"
 
-namespace Nektar::Operators::detail
+namespace Nektar::detail
 {
 
 template <typename ExecSpace, typename EqnOfSParams, typename TData>
@@ -113,7 +113,7 @@ public:
     static std::string className;
 
     // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> Instantiate(
+    static std::unique_ptr<Operators::Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
@@ -156,23 +156,23 @@ protected:
             // These trace geometry/weight arrays are read-only mesh data, so
             // they live in the data warehouse instead of per-op Field storage.
             auto normalbase = this->m_dataWarehouse->template GetData<MemSpace>(
-                IPTraceNormalKey<TData>(blk));
+                Operators::IPTraceNormalKey<TData>(blk));
             auto bwdWeightAverBase =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    IPTraceScalarKey<TData>(blk,
-                                            IPTraceScalarData::BwdWeightAver));
+                    Operators::IPTraceScalarKey<TData>(
+                        blk, Operators::IPTraceScalarData::BwdWeightAver));
             auto bwdWeightJumpBase =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    IPTraceScalarKey<TData>(blk,
-                                            IPTraceScalarData::BwdWeightJump));
+                    Operators::IPTraceScalarKey<TData>(
+                        blk, Operators::IPTraceScalarData::BwdWeightJump));
             auto lengthRecipBase =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    IPTraceScalarKey<TData>(blk,
-                                            IPTraceScalarData::LengthRecip));
+                    Operators::IPTraceScalarKey<TData>(
+                        blk, Operators::IPTraceScalarData::LengthRecip));
             auto penaltyFactorBase =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    IPTraceScalarKey<TData>(blk,
-                                            IPTraceScalarData::PenaltyFactor));
+                    Operators::IPTraceScalarKey<TData>(
+                        blk, Operators::IPTraceScalarData::PenaltyFactor));
 
             auto fwdbase = fwdblock.template GetPtr<MemSpace, ReadOnly>();
             auto bwdbase = bwdblock.template GetPtr<MemSpace, ReadOnly>();
@@ -221,4 +221,4 @@ protected:
     }
 };
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::detail

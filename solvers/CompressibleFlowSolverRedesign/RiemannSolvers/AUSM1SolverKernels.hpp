@@ -42,7 +42,7 @@
 // critical so that when used in the templated version of the operator
 // that loop unrolling occurs.
 
-namespace Nektar::Operators::detail
+namespace Nektar::detail
 {
 
 struct AUSM1Upwinding
@@ -76,4 +76,4 @@ struct AUSM1SolverKernel
     }
 };
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::detail

@@ -37,7 +37,7 @@
 #include "DiffusionCFEVolFlux/DiffusionCFEVolFluxKernels.hpp"
 #include "DiffusionCFEVolFlux/DiffusionCFEVolFluxOp.hpp"
 
-namespace Nektar::Operators::detail
+namespace Nektar::detail
 {
 
 template <typename ExecSpace, typename EqnOfSParams, typename TData>
@@ -103,7 +103,7 @@ public:
     static std::string className;
 
     // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> Instantiate(
+    static std::unique_ptr<Operators::Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
@@ -156,4 +156,4 @@ protected:
     }
 };
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::detail

@@ -41,10 +41,10 @@
 #include "Operators/GetFwdBwdTracePhys/GetFwdBwdTracePhysOp.hpp"
 
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "Operators/SolverUtilsOps/Advection/AdvectionWeakDG/AdvectionWeakDGKernels.hpp"
-#include "Operators/SolverUtilsOps/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp"
+#include "SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGKernels.hpp"
+#include "SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp"
 
-namespace Nektar::Operators::detail
+namespace Nektar::SolverCore::detail
 {
 
 template <typename ExecSpace, typename TData>
@@ -88,17 +88,18 @@ public:
                   expansionList->GetTrace()),
               components.size(), 1))
     {
-        m_bwdTransOp = BwdTransOp<TData>::Create(expansionList, components,
-                                                 ExecSpace::name);
+        m_bwdTransOp = Operators::BwdTransOp<TData>::Create(
+            expansionList, components, ExecSpace::name);
         m_iProductWRTDerivBaseOp =
-            IProductWRTDerivBaseOp<FieldState::Coeff, TData>::Create(
+            Operators::IProductWRTDerivBaseOp<FieldState::Coeff, TData>::Create(
                 expansionList, components, ExecSpace::name);
-        m_getFwdBwdTracePhysOp = GetFwdBwdTracePhysOp<TData>::Create(
+        m_getFwdBwdTracePhysOp = Operators::GetFwdBwdTracePhysOp<TData>::Create(
             expansionList, components, ExecSpace::name);
-        m_addTraceIntegralOp = AddTraceIntegralOp<TData>::Create(
+        m_addTraceIntegralOp = Operators::AddTraceIntegralOp<TData>::Create(
             expansionList, components, ExecSpace::name);
-        m_multiplyByElmtInvMassOp = MultiplyByElmtInvMassOp<TData>::Create(
-            expansionList, components, ExecSpace::name);
+        m_multiplyByElmtInvMassOp =
+            Operators::MultiplyByElmtInvMassOp<TData>::Create(
+                expansionList, components, ExecSpace::name);
 
         m_iProductWRTDerivBaseOp->SetScale(-1.0);
     }
@@ -107,7 +108,7 @@ public:
     static std::string className;
 
     // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> Instantiate(
+    static std::unique_ptr<Operators::Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
@@ -120,12 +121,14 @@ protected:
     MultiRegions::Field<TData, FieldState::Coeff> m_coeff, m_tmp;
     MultiRegions::Field<TData, FieldState::Phys> m_fluxvector, m_numflux, m_fwd,
         m_bwd;
-    std::shared_ptr<BwdTransOp<TData>> m_bwdTransOp;
-    std::shared_ptr<IProductWRTDerivBaseOp<FieldState::Coeff, TData>>
+    std::shared_ptr<Operators::BwdTransOp<TData>> m_bwdTransOp;
+    std::shared_ptr<Operators::IProductWRTDerivBaseOp<FieldState::Coeff, TData>>
         m_iProductWRTDerivBaseOp;
-    std::shared_ptr<GetFwdBwdTracePhysOp<TData>> m_getFwdBwdTracePhysOp;
-    std::shared_ptr<AddTraceIntegralOp<TData>> m_addTraceIntegralOp;
-    std::shared_ptr<MultiplyByElmtInvMassOp<TData>> m_multiplyByElmtInvMassOp;
+    std::shared_ptr<Operators::GetFwdBwdTracePhysOp<TData>>
+        m_getFwdBwdTracePhysOp;
+    std::shared_ptr<Operators::AddTraceIntegralOp<TData>> m_addTraceIntegralOp;
+    std::shared_ptr<Operators::MultiplyByElmtInvMassOp<TData>>
+        m_multiplyByElmtInvMassOp;
 
     void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
                  MultiRegions::Field<TData, FieldState::Phys> &out) override
@@ -156,7 +159,7 @@ protected:
                 outblock.template GetPtr<MemSpace, WriteOnly>(streamID);
 
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(
+            Operators::ReshapeStorage<ExecSpace>(
                 m_implInterleaveWidth, outblock.GetInterleaveWidth(),
                 outblock.GetNumElementsWithPadding() *
                     outblock.GetNumComponents() * outblock.GetNumHomoModes(),
@@ -203,4 +206,4 @@ protected:
     }
 };
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::SolverCore::detail

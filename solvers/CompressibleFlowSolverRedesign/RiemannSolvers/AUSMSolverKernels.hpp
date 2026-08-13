@@ -42,7 +42,7 @@
 // critical so that when used in the templated version of the operator
 // that loop unrolling occurs.
 
-namespace Nektar::Operators::detail
+namespace Nektar::detail
 {
 
 template <typename TData> NEK_DEVICE_INLINE TData M1Function(int A, TData M)
@@ -231,4 +231,4 @@ struct AUSMSolverKernel
     }
 };
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::detail

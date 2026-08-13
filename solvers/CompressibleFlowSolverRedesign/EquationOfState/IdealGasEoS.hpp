@@ -39,7 +39,7 @@
 // definition of parameters held in struct
 #include "EquationOfState/IdealGasEoSParams.hpp"
 
-namespace Nektar::Operators::detail
+namespace Nektar::detail
 {
 
 /**
@@ -89,4 +89,4 @@ NEK_HOSTDEVICE_INLINE TData GetTemperature(const IdealGasEoS<TScalar> &EoS,
     return e * TData(EoS.gammaMoneOgasConst());
 }
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::detail

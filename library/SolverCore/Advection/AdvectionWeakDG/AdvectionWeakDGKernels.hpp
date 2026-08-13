@@ -36,7 +36,7 @@
 
 #include "LibUtilities/LoopExecution/LoopExecution.hpp"
 
-namespace Nektar::Operators::detail
+namespace Nektar::SolverCore::detail
 {
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void AdvectVolumeFluxKernel(
@@ -146,4 +146,4 @@ NEK_FORCE_INLINE static void AdvectVolumeFluxEulerKernel(
     Nektar::LoopExecutionSetStreamID(0);
 }
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::SolverCore::detail

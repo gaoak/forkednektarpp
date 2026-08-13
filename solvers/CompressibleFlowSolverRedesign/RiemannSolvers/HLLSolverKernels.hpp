@@ -40,7 +40,7 @@
 // critical so that when used in the templated version of the operator
 // that loop unrolling occurs.
 
-namespace Nektar::Operators::detail
+namespace Nektar::detail
 {
 
 template <typename ExecSpace, typename EqnOfStParams, unsigned int NDIM>
@@ -188,4 +188,4 @@ struct HLLSolverKernel
     }
 };
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::detail
