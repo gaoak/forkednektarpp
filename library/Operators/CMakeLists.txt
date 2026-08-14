@@ -33,7 +33,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
         SET(ShapeIncludeName "Common/BlockOpSwitchCode.h.in")
         FOREACH (Shape IN LISTS Shapes)
             SET(ShapeIncName include/BlockOpSwitchCode${Shape}.h)
-            MESSAGE("Generating block header  file file: " "${ShapeIncName}")
+            # MESSAGE("Generating block header  file file: " "${ShapeIncName}")
             CONFIGURE_FILE(${ShapeIncludeName} ${ShapeIncName})
         ENDFOREACH()
     ENDIF()
@@ -43,7 +43,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
         SET(ShapeIncludeName "Common/BlockOpSwitch1DCoordsCode.h.in")
         FOREACH (Shape IN LISTS Shapes)
             SET(ShapeIncName include/BlockOpSwitch1DCoordsCode${Shape}.h)
-            MESSAGE("Generating block header  file file: " "${ShapeIncName}")
+            # MESSAGE("Generating block header  file file: " "${ShapeIncName}")
             CONFIGURE_FILE(${ShapeIncludeName} ${ShapeIncName})
         ENDFOREACH()
     ENDIF()
@@ -53,7 +53,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
         SET(ShapeIncludeName "Common/BlockOpSwitchPhysInterp1D.h.in")
         FOREACH (Shape IN LISTS Shapes)
             SET(ShapeIncName include/BlockOpSwitchPhysInterp1D${Shape}.h)
-            MESSAGE("Generating block header  file file: " "${ShapeIncName}")
+            # MESSAGE("Generating block header  file file: " "${ShapeIncName}")
             CONFIGURE_FILE(${ShapeIncludeName} ${ShapeIncName})
         ENDFOREACH()
     ENDIF()
@@ -103,21 +103,21 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}StdMat.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
+                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
                 # Found a SumFac header.
                 ELSEIF((EXISTS "${dir}/${name}SumFac.hpp") AND ("${Impl}" STREQUAL "SumFac"))
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}SumFac.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
+                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
                 # Found a Generic header.
                 ELSEIF((EXISTS "${dir}/${name}Generic.hpp") AND ("${Impl}" STREQUAL "Generic"))
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}Generic.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
+                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
                 # Found a Serial StdMat header.
                 ELSEIF((EXISTS "${dir}/${name}SerialStdMat.hpp") AND
@@ -125,7 +125,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}SerialStdMat.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
+                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
                 # Found a Serial SumFac header.
                 ELSEIF((EXISTS "${dir}/${name}SerialSumFac.hpp") AND
@@ -133,7 +133,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}SerialSumFac.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
+                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
                 # Found a Serial Generic header.
                 ELSEIF((EXISTS "${dir}/${name}SerialGeneric.hpp") AND
@@ -141,7 +141,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}SerialGeneric.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
+                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
                 # Found a AVX SumFac header.
                 ELSEIF((EXISTS "${dir}/${name}AVXSumFac.hpp") AND
@@ -149,7 +149,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}AVXSumFac.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
+                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
                 # Found a AVX Generic header.
                 ELSEIF((EXISTS "${dir}/${name}AVXGeneric.hpp") AND
@@ -157,7 +157,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}AVXGeneric.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
+                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
                 # Found a Serial/AVX StdMat header.
                 ELSEIF((EXISTS "${dir}/${name}SerialAVXStdMat.hpp") AND
@@ -165,7 +165,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}SerialAVXStdMat.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
+                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
                 # Found a Serial/AVX SumFac header.
                 ELSEIF((EXISTS "${dir}/${name}SerialAVXSumFac.hpp") AND
@@ -178,14 +178,14 @@ MACRO(ADD_ELMT_OPERATOR dir)
                             SET(ShapeConfigName "${dir}/${name}SumFacBlockOp.cpp.in")
                             FOREACH (Shape IN LISTS Shapes)
                                 SET(ShapeName src/${name}${ExecSpace}SumFac${TData}${Shape}.cpp)
-                                MESSAGE("Generating shape cpp file: " "${ShapeName}")
+                                MESSAGE("Generating shape cpp file: " "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}")
                                 CONFIGURE_FILE(${ShapeConfigName} ${ShapeName})
                                 SET(CPP_SHAPE_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}")
                                 SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${CPP_SHAPE_SOURCE})
                             ENDFOREACH()
                         ENDFOREACH()
                     ENDIF()
-                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
+                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
                 # Found a Serial/AVX generic header.
                 ELSEIF((EXISTS "${dir}/${name}SerialAVXGeneric.hpp") AND
@@ -193,14 +193,14 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}SerialAVXGeneric.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
+                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
                 # Found a Device StdMat header.
                 ELSEIF(EXISTS "${dir}/${name}DeviceStdMat.hpp" AND ("${ExecSpace}" STREQUAL "Device") AND ("${Impl}" STREQUAL "StdMat"))
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}DeviceStdMat.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
+                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
                 # Found a Device SumFac header.
                 ELSEIF(EXISTS "${dir}/${name}DeviceSumFac.hpp" AND ("${ExecSpace}" STREQUAL "Device") AND
@@ -213,21 +213,21 @@ MACRO(ADD_ELMT_OPERATOR dir)
                             SET(ShapeConfigName "${dir}/${name}SumFacBlockOp.cpp.in")
                             FOREACH (Shape IN LISTS Shapes)
                                 SET(ShapeName src/${name}${ExecSpace}${Impl}${TData}${Shape}.${SOURCE_EXT})
-                                MESSAGE("Generating shape cpp file: " "${ShapeName}")
+                                MESSAGE("Generating shape cpp file: " "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}")
                                 CONFIGURE_FILE(${ShapeConfigName} ${ShapeName})
                                 SET(CPP_SHAPE_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}")
                                 SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${CPP_SHAPE_SOURCE})
                             ENDFOREACH()
                         ENDFOREACH()
                     ENDIF()
-                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
+                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
                 # Found a generic header.
                 ELSEIF(EXISTS "${dir}/${name}DeviceGeneric.hpp" AND ("${ExecSpace}" STREQUAL "Device") AND ("${Impl}" STREQUAL "Generic"))
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}DeviceGeneric.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
+                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
                 # No implementation, skip.
                 ELSE()
@@ -266,158 +266,10 @@ MACRO(ADD_SINGLE_OPERATOR dir opname)
   CONFIGURE_FILE(${dir}/${opname}FactoryDec.cpp.in
                  ${FactoryDeclName})
   SET(OPERATORS_SOURCES  ${OPERATORS_SOURCES}  ${FactoryDeclName})
-  MESSAGE("Adding operator with a ${ExecSpace} implementation: "
-                 "${FactoryDeclName}")
+  MESSAGE("Adding operator with a ${ExecSpace} execution space: "
+                 "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 ENDMACRO()
 
-
-# Macro for each operator.
-MACRO(ADD_TIME_OPERATOR dir)
-
-    # Extract operator name form directory if it exists.
-    IF(IS_DIRECTORY ${dir})
-        GET_FILENAME_COMPONENT(name "${dir}" NAME)
-    ELSE()
-        CONTINUE()
-    ENDIF()
-
-    # Skip those files.
-    IF("${name}" STREQUAL "Common")
-        CONTINUE()
-    ENDIF()
-
-    SET(NAME_HEADERS ${name}_HEADERS)
-    SET(NAME_SOURCES ${name}_SOURCES)
-    SET(OPERATOR ${name})
-
-    # These operator have an additional argument for the FieldState
-    # which requires two delcarations.
-    IF (${name} STREQUAL "IMEXdirk")
-         SET(CONFIG_FILE TimeOps/IMEXdirk/IMEXdirkOpFactoryDec.cpp.in)
-    ELSEIF (${name} STREQUAL "ExplicitSDC" OR ${name} STREQUAL "ImplicitSDC" OR ${name} STREQUAL "IMEXSDC")
-         SET(CONFIG_FILE TimeOps/SDC/SDCOpFactoryDec.cpp.in)
-    ELSEIF (${name} STREQUAL "ExplicitGEM" OR ${name} STREQUAL "ImplicitGEM" OR ${name} STREQUAL "IMEXGEM")
-         SET(CONFIG_FILE TimeOps/GEM/GEMOpFactoryDec.cpp.in)
-    ELSE() 
-         SET(CONFIG_FILE TimeOps/TimeOperatorFactoryDec.cpp.in)
-    ENDIF()
-
-    # Set timeintegration order
-    SET(Variants Dummy)
-    IF (${name} STREQUAL "RungeKutta")
-        LIST(APPEND Variants SSP)
-    ELSEIF (${name} STREQUAL "DIRK")
-        LIST(APPEND Variants _ES)
-    ELSEIF (${name} STREQUAL "CNAB")
-        LIST(APPEND Variants Modified)
-    ENDIF()
-
-    FOREACH (Variant IN LISTS Variants)
-        # Set timeintegration order
-        IF (${name} STREQUAL "RungeKutta") 
-            IF ("${Variant}" STREQUAL "Dummy")
-                SET(TimeIntegrationOrders 1 2 3 4 5)
-            ELSEIF ("${Variant}" STREQUAL "SSP")
-                SET(TimeIntegrationOrders 1 2 3)
-            ENDIF()
-        ELSEIF (${name} STREQUAL "DIRK")
-            IF ("${Variant}" STREQUAL "Dummy")
-                SET(TimeIntegrationOrders 1 2 3)
-            ELSEIF ("${Variant}" STREQUAL "_ES")
-                SET(TimeIntegrationOrders 2 3 4)
-            ENDIF()
-        ELSEIF (${name} STREQUAL "IMEXdirk")
-            SET(TimeIntegrationImpStages 1 1 1 2 2 2 3 4)
-            SET(TimeIntegrationExpStages 1 2 2 2 3 3 4 4)
-            SET(TimeIntegrationOrders 1 1 2 2 2 3 3 3)
-        ELSEIF (${name} STREQUAL "CNAB")
-            SET(TimeIntegrationOrders 2)
-        ELSEIF (${name} STREQUAL "ExplicitSDC" OR ${name} STREQUAL "ImplicitSDC" OR ${name} STREQUAL "IMEXSDC")
-            SET(TimeIntegrationOrders -1)
-        ELSEIF (${name} STREQUAL "ExplicitGEM" OR ${name} STREQUAL "ImplicitGEM" OR ${name} STREQUAL "IMEXGEM")
-            SET(TimeIntegrationOrders -1)
-        ELSE()
-            SET(TimeIntegrationOrders 1 2 3 4)
-        ENDIF()
-
-        # Loop through each possible execution space.
-        FOREACH (ExecSpace IN LISTS ExecSpaces)
-
-            # Set file extension.
-            SET(HEADER_EXT hpp)
-            IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-                SET(SOURCE_EXT cu)
-            ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
-                SET(SOURCE_EXT hip)
-            ELSE()
-                SET(SOURCE_EXT cpp)
-            ENDIF()
-
-            IF ("${Variant}" STREQUAL "Dummy")
-                SET(Variant "")
-            ENDIF()
-
-            # Loop through each possible data type.
-            FOREACH (TData IN LISTS DataTypes)
-                LIST(LENGTH TimeIntegrationOrders NINDEX)
-                MATH(EXPR NINDEX "${NINDEX} - 1")
-                FOREACH (INDEX RANGE ${NINDEX})
-                    LIST(GET TimeIntegrationOrders ${INDEX} IntOrder)
-                    # Set up the name used for the .cpp declaration file.
-                    IF (${name} STREQUAL "IMEXdirk")
-                        LIST(GET TimeIntegrationImpStages ${INDEX} ImpStage)
-                        LIST(GET TimeIntegrationExpStages ${INDEX} ExpStage)
-                        SET(FactoryDeclName src/${name}${Variant}${ExecSpace}${TData}${ImpStage}${ExpStage}Order${IntOrder}.${SOURCE_EXT})
-                    ELSEIF (${name} STREQUAL "ExplicitSDC" OR ${name} STREQUAL "ImplicitSDC" OR ${name} STREQUAL "IMEXSDC")
-                        SET(FactoryDeclName src/${name}${ExecSpace}${TData}.${SOURCE_EXT})
-                    ELSEIF (${name} STREQUAL "ExplicitGEM" OR ${name} STREQUAL "ImplicitGEM" OR ${name} STREQUAL "IMEXGEM")
-                        SET(FactoryDeclName src/${name}${ExecSpace}${TData}.${SOURCE_EXT})
-                    ELSE()
-                        SET(FactoryDeclName src/${name}${Variant}${ExecSpace}${TData}Order${IntOrder}.${SOURCE_EXT})
-                    ENDIF()
-
-                    # Get the source and header files for this operator,
-                    # execution space, and implementation.
-                    SET(CURRENT_HEADERS ${name}_${ExecSpace}_HEADERS)
-                    SET(CURRENT_SOURCES ${name}_${ExecSpace}_SOURCES)
-
-                    # Get the headers matching the name and execution space
-                    FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-                            ${dir}/${name}${ExecSpace}*.hpp)
-
-                    # Found a impl header.
-                    IF(EXISTS "${dir}/${name}OpImpl.hpp")
-                        FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                                "${dir}/${name}OpImpl.hpp")
-                        SET(IMPL_HEADER "#include \"${include_file}\"")
-                        MESSAGE("Adding operator with a ${ExecSpace} Generic implementation: " "${FactoryDeclName}")
-                    ELSE()
-                        CONTINUE() # This avoid creating a *.cpp file
-                    ENDIF()
-
-                    # Create the cpp file from the implementation file.
-                    CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
-
-                    # Add the respective cpp file.
-                    SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
-                    SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
-                    SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
-                ENDFOREACH()
-            ENDFOREACH()
-        ENDFOREACH()
-    ENDFOREACH()
-
-    # Add this operator's implemenations to the global operator source
-    # and header files.
-    SET(OPERATORS_HEADERS
-        ${OPERATORS_HEADERS}
-        ${${NAME_HEADERS}}
-    )
-    SET(OPERATORS_SOURCES
-        ${OPERATORS_SOURCES}
-        ${${NAME_SOURCES}}
-    )
-ENDMACRO()
 
 
 # Common header file.
@@ -431,7 +283,6 @@ SET(OPERATORS_HEADERS
     Common/DataWarehouse/StdMatDataWarehouse.hpp
     Common/DataWarehouse/TraceDataWarehouse.hpp
     ElmtOps/ElmtBlockOp.hpp
-    TimeOps/TimeOp.hpp
 )
 
 # Common source file.
@@ -444,7 +295,6 @@ SET(OPERATORS_SOURCES
     Common/DataWarehouse/ModeIndexDataWarehouse.cpp
     Common/DataWarehouse/StdMatDataWarehouse.cpp
     Common/DataWarehouse/TraceDataWarehouse.cpp
-    TimeOps/TimeOp.cpp
 )
 
 # Only these cpp files go into the group set below.
@@ -458,7 +308,7 @@ FILE(GLOB children AddTraceIntegral BndCondOps/* ElmtOps/*
 
 SET(OPNAMESPACE "Nektar::Operators::detail")
 FOREACH(child ${children})
-    MESSAGE("Child : " "${child}")
+    # MESSAGE("Child : " "${child}")
     ADD_OPERATOR(${child} OPNAMESPACE OPERATORS_HEADERS OPERATORS_SOURCES)
 ENDFOREACH()
 
@@ -520,21 +370,6 @@ ENDIF()
 ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatr)
 ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatrZeroDir)
 ENDIF()
-
-# Loop through TimeIntegration directory which contain operators and add
-# their source and header files.
-FILE(GLOB children TimeOps/*)
-FOREACH(child ${children})
-    ADD_TIME_OPERATOR(${child})
-ENDFOREACH()
-FILE(GLOB children TimeOps/SDC/*)
-FOREACH(child ${children})
-    ADD_TIME_OPERATOR(${child})
-ENDFOREACH()
-FILE(GLOB children TimeOps/GEM/*)
-FOREACH(child ${children})
-    ADD_TIME_OPERATOR(${child})
-ENDFOREACH()
 
 SET(OPERATORS_DEPENDS MultiRegions LibUtilities)
     

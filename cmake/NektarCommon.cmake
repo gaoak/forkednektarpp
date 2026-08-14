@@ -58,6 +58,7 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
                 # Found a impl header.
                 IF(EXISTS "${abs_dir}/${name}OpImpl.hpp")
                     SET(IMPL_HEADER "#include \"${abs_dir}/${name}OpImpl.hpp\"")
+                    MESSAGE("Adding operator with a ${ExecSpace} execution space: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
                 # No implementation, skip.
                 ELSE()
                     CONTINUE() # This avoid creating a *.cpp file
@@ -137,11 +138,11 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
                 IF((EXISTS "${dir}/${name}SerialAVX.hpp") AND
                     ("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX"))
                     SET(IMPL_HEADER "#include \"${abs_dir}/${name}SerialAVX.hpp\"")
-                    MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
+                    MESSAGE("Adding block operator with a ${ExecSpace} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
                 # Found a Device header.
                 ELSEIF(EXISTS "${dir}/${name}Device.hpp" AND ("${ExecSpace}" STREQUAL "Device"))
                     SET(IMPL_HEADER "#include \"${abs_dir}/${name}Device.hpp\"")
-                    MESSAGE("Adding operator with a ${ExecSpace} implementation: " "${FactoryDeclName}")
+                    MESSAGE("Adding block operator with a ${ExecSpace} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
                 ENDIF()
 
                 # If no header was found, skip this combination.

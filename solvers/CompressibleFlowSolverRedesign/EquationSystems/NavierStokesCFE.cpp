@@ -33,7 +33,6 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/TimeOps/TimeOp.hpp"
 #include <CompressibleFlowSolverRedesign/EquationSystems/NavierStokesCFE.h>
 
 namespace Nektar

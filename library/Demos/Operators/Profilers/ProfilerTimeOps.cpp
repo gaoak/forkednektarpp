@@ -33,7 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "LibUtilities/BasicUtils/Math/Math.hpp"
-#include <Operators/TimeOps/TimeOp.hpp>
+#include <SolverCore/TimeOps/TimeOp.hpp>
 
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <MultiRegions/ExpList.h>
@@ -43,6 +43,7 @@ using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
 using namespace Nektar::Operators;
+using namespace Nektar::SolverCore;
 
 class DummySolver
 {
