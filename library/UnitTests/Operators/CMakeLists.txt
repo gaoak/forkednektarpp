@@ -181,6 +181,7 @@ SET_UNIT_TEST(IMEX_GEM_serial test_imex_gem Serial none FALSE)
 SET_UNIT_TEST(Getfwdbwdtracephys_serial test_getfwdbwdtracephys Serial none FALSE)
 IF (NEKTAR_USE_MPI)
     SET_UNIT_TEST(AssmbScatr_serial test_assmbscatr Serial none TRUE)
+    SET_UNIT_TEST(Dirichlet_serial test_dirichlet Serial none TRUE)
 ENDIF()
 
 # Serial generic
@@ -338,6 +339,7 @@ IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(Getfwdbwdtracephys_device test_getfwdbwdtracephys Device none FALSE)
     IF (NEKTAR_USE_MPI)
         SET_UNIT_TEST(AssmbScatr_device test_assmbscatr Device none TRUE)
+        SET_UNIT_TEST(Dirichlet_device test_dirichlet Device none TRUE)
     ENDIF()
 ENDIF()
 

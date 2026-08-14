@@ -66,6 +66,17 @@ template <
 inline void parallel_for(const size_t begin, const size_t end,
                          const Functor &functor)
 {
+    // CUDA/HIP kernel launches require every grid dimension to be >= 1;
+    // launching with gridDim.x == 0 (which naturally happens here whenever
+    // the loop range is empty, e.g. end == begin) is rejected by the
+    // runtime with an "invalid argument" error rather than silently doing
+    // nothing. There is trivially no work to do in that case, so skip the
+    // launch entirely instead.
+    if (end <= begin)
+    {
+        return;
+    }
+
     const unsigned int streamID  = internalLoopExecutionStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned int gridSize  = ((end - begin) + blockSize - 1u) / blockSize;

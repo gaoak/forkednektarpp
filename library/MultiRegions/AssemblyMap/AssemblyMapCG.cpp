@@ -2068,7 +2068,11 @@ AssemblyMapCG::AssemblyMapCG(
 
     // copy global ids back to local values in partition to
     // initialise gs communicator.
-    Array<OneD, long> paraDirBnd(m_numLocalCoeffs);
+    // Retained as a member (see GetParaDirBnd()) so that a device-resident
+    // universal Dirichlet assembly can reproduce the gather-scatter this
+    // handle performs without re-deriving the mask.
+    m_paraDirBnd                  = Array<OneD, long>(m_numLocalCoeffs);
+    Array<OneD, long> &paraDirBnd = m_paraDirBnd;
     for (i = 0; i < numLocalCoeffs; ++i)
     {
         paraDirBnd[i] = 0.0;

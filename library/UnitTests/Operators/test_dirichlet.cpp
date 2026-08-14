@@ -43,9 +43,12 @@
 #define TEST_DIRICHLET(test_name, test, tol)                                   \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        std::cout << std::string("Run: ") + std::string(#test_name)            \
-                  << std::endl;                                                \
         Configure();                                                           \
+        if (this->session->GetComm()->GetRank() == 0)                          \
+        {                                                                      \
+            std::cout << std::string("Run: ") + std::string(#test_name)        \
+                      << std::endl;                                            \
+        }                                                                      \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
@@ -57,9 +60,12 @@
 #define TEST_DIRICHLET_UPDATE(test_name, test, tol, time)                      \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        std::cout << std::string("Run: ") + std::string(#test_name)            \
-                  << std::endl;                                                \
         Configure();                                                           \
+        if (this->session->GetComm()->GetRank() == 0)                          \
+        {                                                                      \
+            std::cout << std::string("Run: ") + std::string(#test_name)        \
+                      << std::endl;                                            \
+        }                                                                      \
         SetTestCase(time);                                                     \
         RunTestCase(time);                                                     \
         boost::test_tools::output_test_stream output;                          \
@@ -96,6 +102,10 @@ TEST_DIRICHLET_UPDATE(dirichlet2d_tri_quad_time_update,
 
 TEST_DIRICHLET(dirichlet2d_tri_quad_3c, Helmholtz2D_Tri_Quad_3C, 1.0E-12)
 
+// For the np=2 partition, vertex 20 is shared by rank 0's boundary region 2
+// (Dirichlet for v and w) and rank 1's all-Neumann boundary region 3. This
+// exercises resolving both components' shared Dirichlet values across the
+// partition boundary, including on the rank without a local Dirichlet edge.
 TEST_DIRICHLET(dirichlet2d_tri_quad_3c_mixedbc, Helmholtz2D_Tri_Quad_3C_mixedBC,
                1.0E-12)
 

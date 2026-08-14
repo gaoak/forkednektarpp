@@ -498,6 +498,35 @@ NEK_DEVICE_INLINE static void atomic_min(TData *const dest, const TData val)
 }
 
 template <typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_absmax(TData *const dest, const TData val)
+{
+    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        auto atomic =
+            sycl::atomic_ref<TData, sycl::memory_order::relaxed,
+                             sycl::memory_scope::device,
+                             sycl::access::address_space::global_space>(*dest);
+        TData ret = atomic.load();
+        while (sycl::fabs(val) > sycl::fabs(ret) &&
+               !atomic.compare_exchange_weak(ret, val))
+        {
+        }
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
+    {
+        auto atomic =
+            sycl::atomic_ref<TData, sycl::memory_order::relaxed,
+                             sycl::memory_scope_work_group,
+                             sycl::access::address_space::generic_space>(*dest);
+        TData ret = atomic.load();
+        while (sycl::fabs(val) > sycl::fabs(ret) &&
+               !atomic.compare_exchange_weak(ret, val))
+        {
+        }
+    }
+}
+
+template <typename Scope, typename TData>
 NEK_DEVICE_INLINE static void atomic_or(TData *const dest, const TData val)
 {
     if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
