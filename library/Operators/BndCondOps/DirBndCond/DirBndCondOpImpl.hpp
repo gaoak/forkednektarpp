@@ -34,8 +34,20 @@
 
 #pragma once
 
+#include <memory>
+#include <unordered_map>
+// AssemblyCommCG.h uses std::unordered_set/std::unordered_map without
+// including the corresponding headers itself; include them here first so it
+// does not depend on whatever an enclosing translation unit happens to have
+// pulled in.
+#include <unordered_set>
+#include <vector>
+
+#include <MultiRegions/AssemblyMap/AssemblyCommCG.h>
 #include <MultiRegions/ContField.h>
 
+#include "Operators/BndCondOps/Common/CGBndCondKernels.hpp"
+#include "Operators/BndCondOps/Common/CGBndCondMapBuilder.hpp"
 #include "Operators/BndCondOps/DirBndCond/DirBndCondKernels.hpp"
 #include "Operators/BndCondOps/DirBndCond/DirBndCondOp.hpp"
 #include "Operators/BndCondOps/FwdTransBC/FwdTransBCOp.hpp"
@@ -61,8 +73,6 @@ public:
     {
         auto session       = this->m_expansionList->GetSession();
         auto graph         = this->m_expansionList->GetGraph();
-        unsigned int nhomo = 1;
-        session->LoadParameter("HomModesZ", nhomo, 1);
         unsigned int nComp = components.size();
 
         // Create boundary conditions
@@ -72,129 +82,43 @@ public:
         const SpatialDomains::BoundaryConditionCollection &bconditions =
             bcs.GetBoundaryConditions();
 
-        // Create counters and temporary variables for BC Fields and Operators
-        std::vector<std::vector<bool>> isDirichletByRegion;
-        std::vector<size_t> numBcExpCoeffs;
-        SpatialDomains::BoundaryConditionShPtr bc;
-        MultiRegions::ExpListSharedPtr bcExpList;
+        // Loop all boundary regions to create Fields and Operators, matching
+        // components with a Dirichlet condition. Everything shared with
+        // NeuBndCondOpImpl's identical loop lives in BuildCGBndCondRegions();
+        // onMatchedRegion() below builds the one piece that is genuinely
+        // Dirichlet-specific -- the FwdTransBCOp that lifts the evaluated
+        // boundary values into boundary coefficients.
+        auto regions = BuildCGBndCondRegions<ExecSpace, TData>(
+            this->m_expansionList, components, bregions, bconditions,
+            "Dirichlet BC", this->m_wsp_phys, this->m_wsp_coeffs,
+            this->m_expressionOps, this->m_hasTimeDependentBndCoeffs,
+            [](const SpatialDomains::BoundaryConditionShPtr &bc) {
+                return (bool)std::dynamic_pointer_cast<
+                    SpatialDomains::DirichletBoundaryCondition>(bc);
+            },
+            [&](const MultiRegions::ExpListSharedPtr &bcExpList) {
+                m_dirNumCoeffs.push_back(bcExpList->GetNcoeffs());
+                this->m_fwdTransBCOps.push_back(FwdTransBCOp<TData>::Create(
+                    bcExpList, components, ExecSpace::name));
+            });
 
-        // Loop all boundary regions to create Fields and Operators
-        for (auto &it : bregions)
-        {
-            auto regionId       = it.first;
-            auto collectionIter = bconditions.find(regionId);
+        std::vector<std::vector<bool>> &isDirichletByRegion =
+            regions.isTypeByRegion;
+        std::vector<size_t> &numBcExpCoeffs = regions.numBcExpCoeffs;
+        m_numBndCoeffCompSize               = regions.numBndCoeffCompSize;
 
-            ASSERTL1(collectionIter != bconditions.end(),
-                     "Unable to locate collection " + std::to_string(regionId));
-
-            const SpatialDomains::BoundaryConditionMapShPtr bndCondMap =
-                (*collectionIter).second;
-
-            // Note use just the first component as we are just looking for the
-            // boundary expansion list
-            auto conditionMapIter = bndCondMap->find(components[0]);
-
-            ASSERTL1(conditionMapIter != bndCondMap->end(),
-                     "Unable to locate condition map.");
-
-            // Get BoundaryCondition(SharedPtr)
-            bc = (*conditionMapIter).second;
-
-            // Create boundary condition expansion
-            bcExpList = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
-                session, *(it.second), graph, true, components[0], false,
-                bc->GetComm(), Collections::eNoImpType);
-
-            // Set data warehouse for device support operators
-            bcExpList->SetDataWarehouse();
-
-            // Save number of coefficients
-            numBcExpCoeffs.push_back(bcExpList->GetNcoeffs());
-
-            // Check if any component has a Dirichlet-type condition
-            bool hasDirichletCondition = false;
-            std::vector<bool> isDirichlet(nComp);
-            for (unsigned int nc = 0; nc < nComp; nc++)
-            {
-                // Get BoundaryCondition and check if it is Dirichlet
-                auto cndMapIter = bndCondMap->find(components[nc]);
-                bc              = (*cndMapIter).second;
-                bool tmp        = (bool)std::dynamic_pointer_cast<
-                           SpatialDomains::DirichletBoundaryCondition>(bc);
-
-                // Save if component has a Dirichlet condition
-                isDirichlet[nc] = tmp;
-
-                // Check if any component has a Dirichlet condition
-                hasDirichletCondition = hasDirichletCondition || tmp;
-                this->m_hasTimeDependentBndCoeffs =
-                    this->m_hasTimeDependentBndCoeffs ||
-                    (tmp && bc->IsTimeDependent());
-            }
-
-            isDirichletByRegion.push_back(isDirichlet);
-
-            // Skip, if no Dirichletn condition in this boundary region
-            if (!hasDirichletCondition)
-            {
-                continue;
-            }
-
-            // Create fields for evaluating BCs into
-            auto blocks_phys =
-                MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                    bcExpList);
-            this->m_wsp_phys.push_back(
-                MultiRegions::Field<TData, FieldState::Phys>(
-                    "Dirichlet BC phys", blocks_phys, nComp, nhomo));
-            auto blocks_coeffs =
-                MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                    bcExpList);
-            this->m_wsp_coeffs.push_back(
-                MultiRegions::Field<TData, FieldState::Coeff>(
-                    "Dirichlet BC coeff", blocks_coeffs, nComp, nhomo));
-
-            // Compute number of boundary coefficients.
-            for (unsigned int blk = 0; blk < blocks_coeffs.size(); ++blk)
-            {
-                const auto ncoeff = blocks_coeffs[blk].GetNumData();
-                const auto nelmt  = blocks_coeffs[blk].GetNumElements();
-                m_numBndCoeffCompSize += nelmt * ncoeff;
-            }
-
-            m_dirNumCoeffs.push_back(bcExpList->GetNcoeffs());
-
-            // Initialize memory regions
-            this->m_wsp_phys.back().template Initialize<MemSpace>(0.0);
-            this->m_wsp_coeffs.back().template Initialize<MemSpace>(0.0);
-
-            // Create operators for this boundary condition
-            this->m_expressionOps.push_back(
-                ExpressionOp<TData>::Create(bcExpList, components));
-            this->m_expressionOps.back()->SetComponentMask(isDirichlet);
-
-            this->m_fwdTransBCOps.push_back(FwdTransBCOp<TData>::Create(
-                bcExpList, components, ExecSpace::name));
-
-            // Gather equations for each field/component
-            std::vector<LibUtilities::EquationSharedPtr> listOfEquations;
-            for (unsigned int nc = 0; nc < nComp; nc++)
-            {
-                // Get map for each field
-                auto cndMapIter = bndCondMap->find(components[nc]);
-
-                // Get BoundaryCondition and extract equation
-                bc = (*cndMapIter).second;
-                listOfEquations.push_back(bc->GetEquation());
-            }
-
-            // Set boundary conditions for each component in this boundary
-            // region
-            this->m_expressionOps.back()->SetExpressions(listOfEquations);
-        }
-
-        // Return if no Dirichlet boundary coefficients. This
-        // must be a global reduction rather than the purely local.
+        // Return if no Dirichlet boundary coefficients on any rank. This
+        // must be a global reduction rather than the purely local
+        // m_numBndCoeffCompSize: BuildCGBndCondCoeffMaps() below constructs
+        // a fresh ContField per component, which is collective over the row
+        // communicator, and SetUpUniversalDirComm() below builds each
+        // component's AssemblyCommCG, whose shared-id discovery is itself a
+        // ring exchange every rank must enter. If one rank's local partition
+        // has zero
+        // Dirichlet dofs while another rank's has some (entirely possible,
+        // e.g. Dirichlet boundaries confined to one end of a partitioned 1D
+        // mesh), a per-rank-only check makes some ranks skip these
+        // collectives while others enter them, deadlocking.
         size_t hasAnyBndCoeff = m_numBndCoeffCompSize;
         session->GetComm()->GetRowComm()->AllReduce(hasAnyBndCoeff,
                                                     LibUtilities::ReduceMax);
@@ -205,104 +129,55 @@ public:
             return;
         }
 
-        // Compute block bound.
+        // Collect the compact Dirichlet-to-full-boundary coefficient offset
+        // per matching region (needed by v_UpdateBndCoeffs()).
+        m_dirCoeffOffsets.clear();
+        {
+            size_t bndcnt = 0;
+            for (unsigned int i = 0; i < bregions.size(); ++i)
+            {
+                if (std::any_of(isDirichletByRegion[i].begin(),
+                                isDirichletByRegion[i].end(),
+                                [](bool b) { return b; }))
+                {
+                    m_dirCoeffOffsets.push_back(bndcnt);
+                    bndcnt += numBcExpCoeffs[i];
+                }
+            }
+        }
+
         auto domainBlocks =
             MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                 this->m_expansionList);
-        std::vector<size_t> blockBound(domainBlocks.size());
-        size_t bound = 0;
+
+        // Stride of the compact per-component coefficient layout, computed
+        // exactly the way Field::ToArray() computes it (real data only, no
+        // per-block padding) so the flatten/unflatten below is layout
+        // compatible with the local coefficient numbering the assembly maps
+        // use.
+        m_flatCompSize = 0;
         for (unsigned int blk = 0; blk < domainBlocks.size(); ++blk)
         {
-            const auto &block = domainBlocks[blk];
-            const auto ncoeff = block.GetNumData();
-            const auto nelmt  = block.GetNumElements();
-            bound += nelmt * ncoeff;
-            blockBound[blk] = bound;
+            m_flatCompSize += domainBlocks[blk].GetNumData() *
+                              domainBlocks[blk].GetNumElements();
         }
 
-        // Collect the compact Dirichlet-to-full-boundary coefficient index map
-        // for one component. Boundary coefficients themselves are dynamic and
-        // are filled by UpdateBndCoeffs().
-        std::vector<size_t> index(m_numBndCoeffCompSize);
-        std::vector<std::vector<size_t>> dirIndexByComp(nComp);
-        size_t bndcnt = 0, cnt = 0;
-        m_dirCoeffOffsets.clear();
-        for (unsigned int i = 0; i < bregions.size(); ++i)
-        {
-            // Get number of coefficients for this BC
-            auto nBndExpCoeff = numBcExpCoeffs[i];
+        m_rowComm    = session->GetComm()->GetRowComm();
+        m_isParallel = m_rowComm->GetSize() > 1;
+        m_dirComm.resize(nComp);
 
-            // Process Dirichlet boundary conditions
-            if (std::any_of(isDirichletByRegion[i].begin(),
-                            isDirichletByRegion[i].end(),
-                            [=](bool i) { return i == 1; }))
-            {
-                m_dirCoeffOffsets.push_back(bndcnt);
-
-                // Gather index
-                for (size_t j = 0; j < nBndExpCoeff; ++j)
-                {
-                    index[bndcnt + j] = cnt + j;
-                }
-                for (unsigned int nc = 0; nc < nComp; ++nc)
-                {
-                    if (isDirichletByRegion[i][nc])
-                    {
-                        for (size_t j = 0; j < nBndExpCoeff; ++j)
-                        {
-                            dirIndexByComp[nc].push_back(bndcnt + j);
-                        }
-                    }
-                }
-                bndcnt += nBndExpCoeff;
-            }
-            cnt += nBndExpCoeff;
-        }
-
-        ASSERTL1(bndcnt == m_numBndCoeffCompSize,
-                 "The component size does not match the number of coefficients "
-                 "for all Dirichlet boundaries.")
-
-        m_map.clear();
-        m_sign.clear();
-        m_bndCoeff.clear();
-        m_bndCoeffSrc.clear();
-        m_bndCoeffHost.clear();
-        m_compactBndCoeff.assign(nComp * m_numBndCoeffCompSize, 0.0);
-        m_parDirBndSign.clear();
+        m_nParDirBndSignSize.resize(nComp, 0);
+        m_localDirSize.resize(nComp, 0);
         m_parDirOffsets.assign(domainBlocks.size(),
                                std::vector<size_t>(nComp, 0));
         m_parDirCounts.assign(domainBlocks.size(),
                               std::vector<size_t>(nComp, 0));
-        m_locid0.resize(domainBlocks.size());
-        m_locid1.resize(domainBlocks.size());
-        m_locsign.resize(domainBlocks.size());
-        for (unsigned int blk = 0; blk < domainBlocks.size(); ++blk)
-        {
-            m_locid0[blk].resize(domainBlocks.size());
-            m_locid1[blk].resize(domainBlocks.size());
-            m_locsign[blk].resize(domainBlocks.size());
-        }
-        m_locOffsets.assign(
-            domainBlocks.size(),
-            std::vector<std::vector<size_t>>(domainBlocks.size(),
-                                             std::vector<size_t>(nComp, 0)));
-        m_locCounts.assign(
-            domainBlocks.size(),
-            std::vector<std::vector<size_t>>(domainBlocks.size(),
-                                             std::vector<size_t>(nComp, 0)));
-        m_nParDirBndSignSize.resize(nComp, 0);
-        m_localDirSize.resize(nComp, 0);
-        m_signChange.resize(nComp, false);
-        m_compOffsets.assign(domainBlocks.size(),
-                             std::vector<size_t>(nComp, 0));
-        m_compCounts.assign(domainBlocks.size(), std::vector<size_t>(nComp, 0));
-        m_anySignChange = false;
 
-        std::vector<std::vector<size_t>> mapBlockByBlk(domainBlocks.size());
-        std::vector<std::vector<TData>> signBlockByBlk(domainBlocks.size());
-        std::vector<std::vector<size_t>> bndCoeffSrcBlockByBlk(
-            domainBlocks.size());
+        // Temporary accumulators for the local-dir-dofs bookkeeping (only
+        // ever populated for meshes with duplicated local Dirichlet dofs,
+        // e.g. collapsed-coordinate or periodic-adjacent elements). These
+        // stay local to the constructor; only the non-empty (blk1,blk0)
+        // pairs are kept in m_locBlockPairs afterwards.
         std::vector<std::vector<int>> parDirBlockByBlk(domainBlocks.size());
         std::vector<std::vector<std::vector<size_t>>> locid0BlockByPair(
             domainBlocks.size(),
@@ -313,245 +188,196 @@ public:
         std::vector<std::vector<std::vector<TData>>> locsignBlockByPair(
             domainBlocks.size(),
             std::vector<std::vector<TData>>(domainBlocks.size()));
+        std::vector<std::vector<std::vector<size_t>>> locOffsetsTmp(
+            domainBlocks.size(),
+            std::vector<std::vector<size_t>>(domainBlocks.size(),
+                                             std::vector<size_t>(nComp, 0)));
+        std::vector<std::vector<std::vector<size_t>>> locCountsTmp(
+            domainBlocks.size(),
+            std::vector<std::vector<size_t>>(domainBlocks.size(),
+                                             std::vector<size_t>(nComp, 0)));
 
-        auto expContField = std::dynamic_pointer_cast<MultiRegions::ContField>(
-            this->m_expansionList);
+        auto maps = BuildCGBndCondCoeffMaps<ExecSpace, TData>(
+            this->m_expansionList, components, bregions, isDirichletByRegion,
+            numBcExpCoeffs, m_numBndCoeffCompSize,
+            [&](unsigned int nc,
+                const MultiRegions::AssemblyMapCGSharedPtr &assmbMap,
+                const auto &blocks, const auto &blkBound) {
+                // Build this component's device-resident universal Dirichlet
+                // assembly. Each component gets its own communicator: with
+                // mixed boundary conditions, different components can have
+                // Dirichlet dofs in different places, so their cross-rank
+                // topologies are not interchangeable.
+                SetUpUniversalDirComm(nc, assmbMap);
 
-        for (unsigned int nc = 0; nc < nComp; ++nc)
-        {
-            MultiRegions::AssemblyMapCGSharedPtr assmbMap;
-            if (expContField &&
-                expContField->GetLocalToGlobalMap()->GetVariable() ==
-                    components[nc])
-            {
-                assmbMap = expContField->GetLocalToGlobalMap();
-            }
-            else
-            {
-                MultiRegions::ContField compfield(session, graph,
-                                                  components[nc], true, false,
-                                                  Collections::eNoCollection);
-                assmbMap = compfield.GetLocalToGlobalMap();
-            }
-            auto &sign = assmbMap->GetBndCondCoeffsToLocalCoeffsSign();
-            auto &map  = assmbMap->GetBndCondCoeffsToLocalCoeffsMap();
-            auto &parallelDirBndSign = assmbMap->GetParallelDirBndSign();
-            m_signChange[nc]         = assmbMap->GetSignChange();
+                auto &parallelDirBndSign = assmbMap->GetParallelDirBndSign();
 
-            std::vector<std::tuple<size_t, size_t>> mapReordered;
-            mapReordered.reserve(dirIndexByComp[nc].size());
-            for (size_t idx : dirIndexByComp[nc])
-            {
-                mapReordered.push_back(std::make_tuple(idx, map[index[idx]]));
-            }
-            std::sort(mapReordered.begin(), mapReordered.end(),
-                      [](std::tuple<size_t, size_t> const &t1,
-                         std::tuple<size_t, size_t> const &t2) {
-                          return std::tie(std::get<1>(t1), std::get<0>(t1)) <
-                                 std::tie(std::get<1>(t2), std::get<0>(t2));
-                      });
-
-            std::vector<std::vector<size_t>> blockIndices(domainBlocks.size());
-            size_t cursor = 0;
-            for (unsigned int blk = 0; blk < domainBlocks.size(); ++blk)
-            {
-                while (cursor < mapReordered.size() &&
-                       std::get<1>(mapReordered[cursor]) < blockBound[blk])
+                // local dir dofs.
+                m_localDirSize[nc] = assmbMap->GetCopyLocalDirDofs().size();
+                std::vector<std::tuple<size_t, size_t, TData>> locReordered(
+                    m_localDirSize[nc]);
+                if (m_localDirSize[nc] > 0)
                 {
-                    blockIndices[blk].push_back(cursor);
-                    cursor++;
-                }
-            }
-
-            for (unsigned int blk = 0; blk < domainBlocks.size(); ++blk)
-            {
-                const size_t offset     = (blk == 0) ? 0 : blockBound[blk - 1];
-                const size_t compOffset = mapBlockByBlk[blk].size();
-                const size_t compCount  = blockIndices[blk].size();
-                m_compOffsets[blk][nc]  = compOffset;
-                m_compCounts[blk][nc]   = compCount;
-
-                mapBlockByBlk[blk].reserve(compOffset + compCount);
-                signBlockByBlk[blk].reserve(compOffset + compCount);
-                bndCoeffSrcBlockByBlk[blk].reserve(compOffset + compCount);
-
-                for (size_t idx : blockIndices[blk])
-                {
-                    mapBlockByBlk[blk].push_back(
-                        std::get<1>(mapReordered[idx]) - offset);
-                    signBlockByBlk[blk].push_back(
-                        m_signChange[nc]
-                            ? sign[index[std::get<0>(mapReordered[idx])]]
-                            : static_cast<TData>(1));
-                    bndCoeffSrcBlockByBlk[blk].push_back(
-                        std::get<0>(mapReordered[idx]) +
-                        nc * m_numBndCoeffCompSize);
-                }
-            }
-            m_anySignChange = m_anySignChange || m_signChange[nc];
-
-            // local dir dofs.
-            m_localDirSize[nc] = assmbMap->GetCopyLocalDirDofs().size();
-            std::vector<std::tuple<size_t, size_t, TData>> locReordered(
-                m_localDirSize[nc]);
-            if (m_localDirSize[nc] > 0)
-            {
-                cnt = 0;
-                for (auto &it : assmbMap->GetCopyLocalDirDofs())
-                {
-                    locReordered[cnt] = it;
-                    cnt++;
-                }
-                std::sort(std::begin(locReordered), std::end(locReordered),
-                          [](std::tuple<size_t, size_t, TData> const &t1,
-                             std::tuple<size_t, size_t, TData> const &t2) {
-                              return std::tie(std::get<1>(t1),
-                                              std::get<0>(t1)) <
-                                     std::tie(std::get<1>(t2), std::get<0>(t2));
-                          });
-            }
-
-            if (m_localDirSize[nc] > 0)
-            {
-                std::vector<size_t> nLocCoeffBlock(domainBlocks.size(), 0);
-                std::vector<std::vector<size_t>> locid0Block(
-                    domainBlocks.size());
-                std::vector<std::vector<size_t>> locid1Block(
-                    domainBlocks.size());
-                std::vector<std::vector<TData>> locsignBlock(
-                    domainBlocks.size());
-                unsigned int blk0 = 0, blk1 = 0;
-                size_t offset0 = 0, offset1 = 0;
-                unsigned int i = 0;
-                while (blk1 < domainBlocks.size())
-                {
-                    if (i == m_localDirSize[nc] ||
-                        std::get<1>(locReordered[i]) >= blockBound[blk1])
+                    size_t cnt = 0;
+                    for (auto &it : assmbMap->GetCopyLocalDirDofs())
                     {
-                        for (size_t blk0 = 0; blk0 < domainBlocks.size();
-                             ++blk0)
+                        locReordered[cnt] = it;
+                        cnt++;
+                    }
+                    std::sort(
+                        std::begin(locReordered), std::end(locReordered),
+                        [](std::tuple<size_t, size_t, TData> const &t1,
+                           std::tuple<size_t, size_t, TData> const &t2) {
+                            return std::tie(std::get<1>(t1), std::get<0>(t1)) <
+                                   std::tie(std::get<1>(t2), std::get<0>(t2));
+                        });
+
+                    std::vector<size_t> nLocCoeffBlock(blocks.size(), 0);
+                    std::vector<std::vector<size_t>> locid0Block(blocks.size());
+                    std::vector<std::vector<size_t>> locid1Block(blocks.size());
+                    std::vector<std::vector<TData>> locsignBlock(blocks.size());
+                    unsigned int blk0 = 0, blk1 = 0;
+                    size_t offset0 = 0, offset1 = 0;
+                    unsigned int i = 0;
+                    while (blk1 < blocks.size())
+                    {
+                        if (i == m_localDirSize[nc] ||
+                            std::get<1>(locReordered[i]) >= blkBound[blk1])
+                        {
+                            for (size_t b0 = 0; b0 < blocks.size(); ++b0)
+                            {
+                                const size_t compOffset =
+                                    locid0BlockByPair[blk1][b0].size();
+                                const size_t compCount = locid0Block[b0].size();
+                                locOffsetsTmp[blk1][b0][nc] = compOffset;
+                                locCountsTmp[blk1][b0][nc]  = compCount;
+
+                                auto &dst0 = locid0BlockByPair[blk1][b0];
+                                auto &dst1 = locid1BlockByPair[blk1][b0];
+                                auto &dsts = locsignBlockByPair[blk1][b0];
+                                dst0.insert(dst0.end(), locid0Block[b0].begin(),
+                                            locid0Block[b0].end());
+                                dst1.insert(dst1.end(), locid1Block[b0].begin(),
+                                            locid1Block[b0].end());
+                                dsts.insert(dsts.end(),
+                                            locsignBlock[b0].begin(),
+                                            locsignBlock[b0].end());
+                                locid0Block[b0].clear();
+                                locid1Block[b0].clear();
+                                locsignBlock[b0].clear();
+                                nLocCoeffBlock[b0] = 0;
+                            }
+                            offset1 = blkBound[blk1];
+                            blk1++;
+                        }
+                        else if (std::get<0>(locReordered[i]) >= blkBound[blk0])
+                        {
+                            offset0 = blkBound[blk0];
+                            blk0++;
+                        }
+                        else
+                        {
+                            locid0Block[blk0].push_back(
+                                std::get<0>(locReordered[i]) - offset0);
+                            locid1Block[blk0].push_back(
+                                std::get<1>(locReordered[i]) - offset1);
+                            locsignBlock[blk0].push_back(
+                                std::get<2>(locReordered[i]));
+                            nLocCoeffBlock[blk0]++;
+                            offset0 = 0;
+                            blk0    = 0;
+                            i++;
+                        }
+                    }
+                }
+
+                // Parallel dir sign.
+                m_nParDirBndSignSize[nc] = parallelDirBndSign.size();
+                std::vector<int> parDirBndSignReordered(
+                    m_nParDirBndSignSize[nc]);
+                if (m_nParDirBndSignSize[nc] > 0)
+                {
+                    size_t cnt = 0;
+                    for (auto &it : parallelDirBndSign)
+                    {
+                        parDirBndSignReordered[cnt] = it;
+                        cnt++;
+                    }
+                    std::sort(std::begin(parDirBndSignReordered),
+                              std::end(parDirBndSignReordered),
+                              [](const size_t t1, const size_t t2) {
+                                  return t1 < t2;
+                              });
+                }
+
+                if (m_nParDirBndSignSize[nc] > 0)
+                {
+                    std::vector<int> parDirBndSignBlock;
+                    unsigned int i = 0, blk = 0, offset = 0;
+                    while (blk < blocks.size())
+                    {
+                        if (i == m_nParDirBndSignSize[nc] ||
+                            parDirBndSignReordered[i] >= blkBound[blk])
                         {
                             const size_t compOffset =
-                                locid0BlockByPair[blk1][blk0].size();
-                            const size_t compCount = locid0Block[blk0].size();
-                            m_locOffsets[blk1][blk0][nc] = compOffset;
-                            m_locCounts[blk1][blk0][nc]  = compCount;
+                                parDirBlockByBlk[blk].size();
+                            const size_t compCount = parDirBndSignBlock.size();
+                            m_parDirOffsets[blk][nc] = compOffset;
+                            m_parDirCounts[blk][nc]  = compCount;
 
-                            auto &dst0 = locid0BlockByPair[blk1][blk0];
-                            auto &dst1 = locid1BlockByPair[blk1][blk0];
-                            auto &dsts = locsignBlockByPair[blk1][blk0];
-                            dst0.insert(dst0.end(), locid0Block[blk0].begin(),
-                                        locid0Block[blk0].end());
-                            dst1.insert(dst1.end(), locid1Block[blk0].begin(),
-                                        locid1Block[blk0].end());
-                            dsts.insert(dsts.end(), locsignBlock[blk0].begin(),
-                                        locsignBlock[blk0].end());
-                            locid0Block[blk0].clear();
-                            locid1Block[blk0].clear();
-                            locsignBlock[blk0].clear();
-                            nLocCoeffBlock[blk0] = 0;
+                            auto &dst = parDirBlockByBlk[blk];
+                            dst.insert(dst.end(), parDirBndSignBlock.begin(),
+                                       parDirBndSignBlock.end());
+                            parDirBndSignBlock.clear();
+                            offset = blkBound[blk];
+                            blk++;
                         }
-                        offset1 = blockBound[blk1];
-                        blk1++;
-                    }
-                    else if (std::get<0>(locReordered[i]) >= blockBound[blk0])
-                    {
-                        offset0 = blockBound[blk0];
-                        blk0++;
-                    }
-                    else
-                    {
-                        locid0Block[blk0].push_back(
-                            std::get<0>(locReordered[i]) - offset0);
-                        locid1Block[blk0].push_back(
-                            std::get<1>(locReordered[i]) - offset1);
-                        locsignBlock[blk0].push_back(
-                            std::get<2>(locReordered[i]));
-                        nLocCoeffBlock[blk0]++;
-                        offset0 = 0;
-                        blk0    = 0;
-                        i++;
+                        else
+                        {
+                            parDirBndSignBlock.push_back(
+                                parDirBndSignReordered[i] - offset);
+                            i++;
+                        }
                     }
                 }
-            }
+            });
 
-            // Parallel dir sign.
-            m_nParDirBndSignSize[nc] = parallelDirBndSign.size();
-            std::vector<int> parDirBndSignReordered(m_nParDirBndSignSize[nc]);
-            if (m_nParDirBndSignSize[nc] > 0)
-            {
-                cnt = 0;
-                for (auto &it : parallelDirBndSign)
-                {
-                    parDirBndSignReordered[cnt] = it;
-                    cnt++;
-                }
-                std::sort(
-                    std::begin(parDirBndSignReordered),
-                    std::end(parDirBndSignReordered),
-                    [](const size_t t1, const size_t t2) { return t1 < t2; });
-            }
+        m_anySignChange = maps.anySignChange;
+        m_signChange    = std::move(maps.signChange);
+        m_map           = std::move(maps.map);
+        m_sign          = std::move(maps.sign);
+        m_bndCoeff      = std::move(maps.bndCoeff);
+        m_bndCoeffSrc   = std::move(maps.bndCoeffSrc);
+        m_compOffsets   = std::move(maps.compOffsets);
+        m_compCounts    = std::move(maps.compCounts);
+        // Populated in full by v_UpdateBndCoeffs() every call, so it does
+        // not need a zeroed starting value here (only ever written via
+        // WriteOnly device access, never read before being written).
+        m_compactBndCoeff =
+            LibUtilities::MemoryRegion<TData>(nComp * m_numBndCoeffCompSize);
 
-            if (m_nParDirBndSignSize[nc] > 0)
-            {
-                std::vector<int> parDirBndSignBlock;
-                unsigned int i = 0, blk = 0, offset = 0;
-                while (blk < domainBlocks.size())
-                {
-                    if (i == m_nParDirBndSignSize[nc] ||
-                        parDirBndSignReordered[i] >= blockBound[blk])
-                    {
-                        const size_t compOffset  = parDirBlockByBlk[blk].size();
-                        const size_t compCount   = parDirBndSignBlock.size();
-                        m_parDirOffsets[blk][nc] = compOffset;
-                        m_parDirCounts[blk][nc]  = compCount;
+        // Staging for the device-resident universal Dirichlet assembly.
+        // Fully overwritten by the flatten at the start of every assembly,
+        // but initialized here so the first ReadWrite access is valid.
+        m_flatBuf = LibUtilities::MemoryRegion<TData>(nComp * m_flatCompSize);
+        m_flatBuf.template Initialize<MemSpace>(0.0);
 
-                        auto &dst = parDirBlockByBlk[blk];
-                        dst.insert(dst.end(), parDirBndSignBlock.begin(),
-                                   parDirBndSignBlock.end());
-                        parDirBndSignBlock.clear();
-                        offset = blockBound[blk];
-                        blk++;
-                    }
-                    else
-                    {
-                        parDirBndSignBlock.push_back(parDirBndSignReordered[i] -
-                                                     offset);
-                        i++;
-                    }
-                }
-            }
-        }
-
-        m_map.reserve(domainBlocks.size());
-        m_bndCoeff.reserve(domainBlocks.size());
-        m_bndCoeffSrc.reserve(domainBlocks.size());
-        m_bndCoeffHost.reserve(domainBlocks.size());
-        if (m_anySignChange)
+        m_maxLocalDup  = 0;
+        m_maxSREntries = 0;
+        for (unsigned int nc = 0; nc < nComp; ++nc)
         {
-            m_sign.reserve(domainBlocks.size());
+            m_maxLocalDup  = std::max(m_maxLocalDup, m_dirComm[nc].nLocalDup);
+            m_maxSREntries = std::max(m_maxSREntries, m_dirComm[nc].nSREntries);
         }
+        if (m_maxLocalDup > 0)
+        {
+            m_tmpBuf = LibUtilities::MemoryRegion<TData>(m_maxLocalDup);
+            m_tmpBuf.template Initialize<MemSpace>(0.0);
+        }
+
         m_parDirBndSign.reserve(domainBlocks.size());
         for (unsigned int blk = 0; blk < domainBlocks.size(); ++blk)
         {
-            ASSERTL1(mapBlockByBlk[blk].size() ==
-                         bndCoeffSrcBlockByBlk[blk].size(),
-                     "Mismatch between map and boundary coefficient sizes.");
-            m_map.push_back(
-                LibUtilities::MemoryRegion<size_t>::template FromVector<
-                    MemSpace, size_t>(mapBlockByBlk[blk]));
-            m_bndCoeffSrc.push_back(std::move(bndCoeffSrcBlockByBlk[blk]));
-            m_bndCoeffHost.emplace_back(m_bndCoeffSrc.back().size(), 0.0);
-            m_bndCoeff.push_back(
-                LibUtilities::MemoryRegion<TData>::template FromVector<MemSpace,
-                                                                       TData>(
-                    m_bndCoeffHost.back()));
-            if (m_anySignChange)
-            {
-                m_sign.push_back(
-                    LibUtilities::MemoryRegion<TData>::template FromVector<
-                        MemSpace, TData>(signBlockByBlk[blk]));
-            }
             m_parDirBndSign.push_back(
                 LibUtilities::MemoryRegion<int>::template FromVector<MemSpace,
                                                                      int>(
@@ -560,19 +386,33 @@ public:
 
         this->UpdateBndCoeffs(static_cast<TData>(0.0));
 
+        // Keep only the (blk1,blk0) execution-block pairs that actually have
+        // duplicated local Dirichlet dofs to copy.
+        m_locBlockPairs.clear();
         for (unsigned int blk1 = 0; blk1 < domainBlocks.size(); ++blk1)
         {
             for (unsigned int blk0 = 0; blk0 < domainBlocks.size(); ++blk0)
             {
-                m_locid0[blk1][blk0] =
+                if (locid0BlockByPair[blk1][blk0].empty())
+                {
+                    continue;
+                }
+
+                LocalDirBlockPair pair;
+                pair.blk1        = blk1;
+                pair.blk0        = blk0;
+                pair.compOffsets = locOffsetsTmp[blk1][blk0];
+                pair.compCounts  = locCountsTmp[blk1][blk0];
+                pair.locid0 =
                     LibUtilities::MemoryRegion<size_t>::template FromVector<
                         MemSpace, size_t>(locid0BlockByPair[blk1][blk0]);
-                m_locid1[blk1][blk0] =
+                pair.locid1 =
                     LibUtilities::MemoryRegion<size_t>::template FromVector<
                         MemSpace, size_t>(locid1BlockByPair[blk1][blk0]);
-                m_locsign[blk1][blk0] =
+                pair.locsign =
                     LibUtilities::MemoryRegion<TData>::template FromVector<
                         MemSpace, TData>(locsignBlockByPair[blk1][blk0]);
+                m_locBlockPairs.push_back(std::move(pair));
             }
         }
     }
@@ -600,6 +440,59 @@ protected:
     bool m_hasAnyBndCoeff = false;
     std::vector<bool> m_signChange;
 
+    // ---------------------------------------------------------------------
+    // Device-resident universal Dirichlet assembly.
+    //
+    // Replaces AssemblyMap::UniversalAbsMaxBnd() -- a host-only
+    // Gs::Gather(..., Gs::gs_amax, m_dirBndGsh) -- and, with it, the D2H
+    // copy of the whole coefficient array, the host MPI call per component,
+    // and the H2D copy back that v_Apply() used to perform on every call.
+    //
+    // One instance per component: with mixed boundary conditions different
+    // components can have Dirichlet dofs in different places, so their
+    // communication topologies are not interchangeable (this is exactly why
+    // the legacy code needed one UniversalAbsMaxBnd() call per component).
+    struct DirUniversalComm
+    {
+        // Duplicated local copies of the same universal Dirichlet dof:
+        // locIdx[k] is a local coefficient index and repIdx[k] is the index
+        // chosen to represent its universal id. Resolving these is required
+        // even on a single rank -- it is the local half of what the legacy
+        // Gs gather did, and it has to happen before the copy-local-dir
+        // processing further down v_Apply().
+        LibUtilities::MemoryRegion<size_t> locIdx;
+        LibUtilities::MemoryRegion<size_t> repIdx;
+        size_t nLocalDup = 0;
+
+        // Cross-rank exchange. Only built when running on more than one
+        // rank; nSREntries is 0 when this rank shares no Dirichlet dof with
+        // any neighbour.
+        std::unique_ptr<MultiRegions::AssemblyCommCG<TData>> comm;
+        LibUtilities::MemoryRegion<size_t> srEntries;
+        LibUtilities::MemoryRegion<TData> sendBuffer;
+        LibUtilities::MemoryRegion<TData> recvBuffer;
+        size_t nSREntries = 0;
+    };
+    std::vector<DirUniversalComm> m_dirComm;
+
+    LibUtilities::CommSharedPtr m_rowComm;
+    bool m_isParallel = false;
+
+    // Number of local coefficients per component, i.e. the stride of the
+    // compact per-component layout that Field::ToArray() would produce.
+    size_t m_flatCompSize = 0;
+    // Compact nComp * m_flatCompSize staging buffer that the field blocks
+    // are flattened into (device-to-device) for the assembly, and unflattened
+    // from afterwards.
+    LibUtilities::MemoryRegion<TData> m_flatBuf;
+    // Scratch for the gather half of the local duplicate reduce/broadcast.
+    LibUtilities::MemoryRegion<TData> m_tmpBuf;
+    size_t m_maxLocalDup = 0;
+    // Max over components of nSREntries -- together with m_maxLocalDup, lets
+    // UniversalAbsMaxDirBnd() early-out when no component has anything to
+    // reconcile (see its use there).
+    size_t m_maxSREntries = 0;
+
     std::vector<MultiRegions::Field<TData, FieldState::Phys>> m_wsp_phys;
     std::vector<MultiRegions::Field<TData, FieldState::Coeff>> m_wsp_coeffs;
     std::vector<std::shared_ptr<ExpressionOp<TData>>> m_expressionOps;
@@ -610,9 +503,8 @@ protected:
     std::vector<LibUtilities::MemoryRegion<size_t>> m_map;
     std::vector<LibUtilities::MemoryRegion<TData>> m_sign;
     std::vector<LibUtilities::MemoryRegion<TData>> m_bndCoeff;
-    std::vector<std::vector<size_t>> m_bndCoeffSrc;
-    std::vector<TData> m_compactBndCoeff;
-    std::vector<std::vector<TData>> m_bndCoeffHost;
+    std::vector<LibUtilities::MemoryRegion<size_t>> m_bndCoeffSrc;
+    LibUtilities::MemoryRegion<TData> m_compactBndCoeff;
     std::vector<std::vector<size_t>> m_compOffsets;
     std::vector<std::vector<size_t>> m_compCounts;
 
@@ -622,26 +514,55 @@ protected:
     std::vector<LibUtilities::MemoryRegion<int>> m_parDirBndSign;
     std::vector<std::vector<size_t>> m_parDirOffsets;
     std::vector<std::vector<size_t>> m_parDirCounts;
-    std::vector<std::vector<LibUtilities::MemoryRegion<size_t>>> m_locid0;
-    std::vector<std::vector<LibUtilities::MemoryRegion<size_t>>> m_locid1;
-    std::vector<std::vector<LibUtilities::MemoryRegion<TData>>> m_locsign;
-    std::vector<std::vector<std::vector<size_t>>> m_locOffsets;
-    std::vector<std::vector<std::vector<size_t>>> m_locCounts;
+
+    // Duplicated local Dirichlet dofs are only present with e.g. collapsed-
+    // coordinate or periodic-adjacent elements, so most meshes never
+    // populate this at all. Store only the (blk1,blk0) execution-block
+    // pairs that actually have entries rather than a dense
+    // nBlocks*nBlocks*nComp matrix.
+    struct LocalDirBlockPair
+    {
+        unsigned int blk1;
+        unsigned int blk0;
+        LibUtilities::MemoryRegion<size_t> locid0;
+        LibUtilities::MemoryRegion<size_t> locid1;
+        LibUtilities::MemoryRegion<TData> locsign;
+        std::vector<size_t> compOffsets;
+        std::vector<size_t> compCounts;
+    };
+    std::vector<LocalDirBlockPair> m_locBlockPairs;
 
     void v_UpdateBndCoeffs(const TData &time) override
     {
+        // Guard on global (not local) participation: even when this rank
+        // has no local Dirichlet dofs, BuildCGBndCondCoeffMaps() still
+        // allocated a (zero-sized) m_bndCoeff[blk]/m_map[blk]/etc. entry for
+        // every domain block on this rank, since some other rank may have
+        // local dofs there. v_Apply() reads m_bndCoeff[blk] unconditionally,
+        // so it must be brought to a valid (if trivially empty) state below
+        // -- via the WriteOnly GetPtr in the loop over m_bndCoeff -- rather
+        // than skipped, or MemoryRegion's read will find it uninitialized.
         if (!m_hasAnyBndCoeff)
         {
             return;
         }
 
         const unsigned int nComp = this->m_components.size();
-        std::fill(m_compactBndCoeff.begin(), m_compactBndCoeff.end(), 0.0);
+
+        // Get a device pointer to the compact array: entirely on-device, no
+        // host round-trip. No zeroing needed first -- m_dirCoeffOffsets/
+        // m_dirNumCoeffs tile [0, m_numBndCoeffCompSize) exactly, and the
+        // copy loop below writes every position for every component
+        // (regardless of whether that component actually has a Dirichlet
+        // condition there -- non-matching components get zero from
+        // ExpressionOp's masked-out, zeroed wsp_phys, not a skipped write),
+        // so every element gets overwritten unconditionally on every call.
+        auto compactPtr =
+            m_compactBndCoeff.template GetPtr<MemSpace, WriteOnly>();
 
         for (unsigned int iDir = 0; iDir < m_expressionOps.size(); ++iDir)
         {
-            const size_t nBndExpCoeff = m_dirNumCoeffs[iDir];
-            const size_t bndOffset    = m_dirCoeffOffsets[iDir];
+            const size_t bndOffset = m_dirCoeffOffsets[iDir];
 
             // Zero wsp_phys and wsp_coeff
             Math::zero<ExecSpace>(m_wsp_phys[iDir]);
@@ -654,31 +575,44 @@ protected:
             m_expressionOps[iDir]->Apply(m_wsp_phys[iDir], m_wsp_phys[iDir]);
             m_fwdTransBCOps[iDir]->Apply(m_wsp_phys[iDir], m_wsp_coeffs[iDir]);
 
-            std::vector<TData> tmp =
-                m_wsp_coeffs[iDir].template ToVector<TData>();
-
-            ASSERTL1(tmp.size() == nComp * nBndExpCoeff,
-                     "Unexpected boundary coefficient vector size.");
-            for (unsigned int nc = 0; nc < nComp; ++nc)
+            // Copy m_wsp_coeffs[iDir] into the compact array, component by
+            // component, block by block (mirrors Field::ToVector()'s own
+            // block-concatenation but writes straight into device memory
+            // instead of a host std::vector).
+            size_t regionOffset = 0;
+            for (unsigned int wblk = 0;
+                 wblk < m_wsp_coeffs[iDir].GetBlocks().size(); ++wblk)
             {
-                std::copy(tmp.begin() + nc * nBndExpCoeff,
-                          tmp.begin() + (nc + 1) * nBndExpCoeff,
-                          m_compactBndCoeff.begin() +
-                              nc * m_numBndCoeffCompSize + bndOffset);
+                auto &wspBlk     = m_wsp_coeffs[iDir].GetBlocks()[wblk];
+                auto srcPtr      = wspBlk.template GetPtr<MemSpace, ReadOnly>();
+                const auto nSize = wspBlk.CompSize();
+                const auto blockLen =
+                    wspBlk.GetNumElements() * wspBlk.GetNumData();
+
+                for (unsigned int nc = 0; nc < nComp; ++nc)
+                {
+                    Math::copyKernel<ExecSpace>(blockLen, srcPtr + nc * nSize,
+                                                compactPtr +
+                                                    nc * m_numBndCoeffCompSize +
+                                                    bndOffset + regionOffset,
+                                                0);
+                }
+                regionOffset += blockLen;
             }
+
+            ASSERTL1(regionOffset == m_dirNumCoeffs[iDir],
+                     "Unexpected boundary coefficient vector size.");
         }
 
         for (unsigned int blk = 0; blk < m_bndCoeff.size(); ++blk)
         {
-            const unsigned int streamID = blk + 1;
+            auto idxPtr =
+                m_bndCoeffSrc[blk].template GetPtr<MemSpace, ReadOnly>();
+            auto dstPtr =
+                m_bndCoeff[blk].template GetPtr<MemSpace, WriteOnly>();
 
-            auto &bndCoeffBlock = m_bndCoeffHost[blk];
-            for (size_t i = 0; i < m_bndCoeffSrc[blk].size(); ++i)
-            {
-                bndCoeffBlock[i] = m_compactBndCoeff[m_bndCoeffSrc[blk][i]];
-            }
-            m_bndCoeff[blk].template CopyVector<MemSpace, TData>(bndCoeffBlock,
-                                                                 streamID);
+            CGBndCondGatherKernel<ExecSpace>(m_bndCoeffSrc[blk].size(), idxPtr,
+                                             compactPtr, dstPtr, 0);
         }
     }
 
@@ -693,6 +627,424 @@ protected:
             }
         }
         return total;
+    }
+
+    // Build one component's device-resident universal Dirichlet assembly.
+    //
+    // Collective over the row communicator when running in parallel (the
+    // AssemblyCommCG constructor performs a ring discovery in which every
+    // rank must take part), so this is only ever reached from the
+    // constructor, under the same global m_hasAnyBndCoeff guard as the rest
+    // of the collective setup.
+    void SetUpUniversalDirComm(
+        unsigned int nc, const MultiRegions::AssemblyMapCGSharedPtr &assmbMap)
+    {
+        auto &dc = m_dirComm[nc];
+
+        // The exact per-local-coefficient universal id mask that the legacy
+        // m_dirBndGsh handle is built from.
+        //
+        // Deliberately *not* re-derived from GetGlobalToUniversalMap() and
+        // GetNumGlobalDirBndCoeffs(): that would cover every Dirichlet dof,
+        // whereas this mask covers only those that need reconciling across
+        // partitions (a dof no rank could fill from its own boundary
+        // expansion). Only the narrow set has had its local sign conventions
+        // aligned -- GetParallelDirBndSign(), which drives
+        // FlipParallelDirBndSign() around the assembly, is populated from
+        // this very mask -- and an absolute-maximum combine over dofs whose
+        // signs still disagree between ranks would select an arbitrary sign.
+        const Array<OneD, long> &paraDirBnd = assmbMap->GetParaDirBnd();
+
+        ASSERTL1(static_cast<size_t>(paraDirBnd.size()) == m_flatCompSize,
+                 "Dirichlet universal id mask size does not match the local "
+                 "coefficient count.");
+
+        // Group local coefficients by universal id. A group's representative
+        // is its *last* local index, matching AssemblyCommCG's own choice in
+        // BuildSendRecvMaps() (m_uid_to_index[uid] = i over ascending i), so
+        // that the local indices it later hands back through GetSREntries()
+        // are exactly these representatives.
+        std::unordered_map<long, size_t> repOfUid, countOfUid;
+        for (size_t i = 0; i < static_cast<size_t>(paraDirBnd.size()); ++i)
+        {
+            if (paraDirBnd[i] == 0)
+            {
+                continue;
+            }
+            repOfUid[paraDirBnd[i]] = i;
+            countOfUid[paraDirBnd[i]]++;
+        }
+
+        std::vector<size_t> locIdx, repIdx;
+        for (size_t i = 0; i < static_cast<size_t>(paraDirBnd.size()); ++i)
+        {
+            const long uid = paraDirBnd[i];
+            if (uid == 0 || countOfUid[uid] < 2 || repOfUid[uid] == i)
+            {
+                continue;
+            }
+            locIdx.push_back(i);
+            repIdx.push_back(repOfUid[uid]);
+        }
+
+        dc.nLocalDup = locIdx.size();
+        if (dc.nLocalDup > 0)
+        {
+            dc.locIdx = LibUtilities::MemoryRegion<size_t>::template FromVector<
+                MemSpace, size_t>(locIdx);
+            dc.repIdx = LibUtilities::MemoryRegion<size_t>::template FromVector<
+                MemSpace, size_t>(repIdx);
+        }
+
+        if (!m_isParallel)
+        {
+            return;
+        }
+
+        // Constructed on every rank, including ranks whose own mask is
+        // entirely zero: the ring discovery inside is collective.
+        dc.comm = std::make_unique<MultiRegions::AssemblyCommCG<TData>>(
+            m_rowComm, paraDirBnd);
+
+        const std::vector<size_t> &sr = dc.comm->GetSREntries();
+        dc.nSREntries                 = sr.size();
+
+#ifndef NDEBUG
+        // The pack/unpack steps index the flattened coefficient array
+        // directly with these entries, which is only correct if each one is
+        // the representative of its universal id group.
+        for (auto idx : sr)
+        {
+            ASSERTL1(idx < static_cast<size_t>(paraDirBnd.size()) &&
+                         paraDirBnd[idx] != 0 &&
+                         repOfUid[paraDirBnd[idx]] == idx,
+                     "AssemblyCommCG send/recv entry is not the "
+                     "representative local index for its universal id.");
+        }
+#endif
+
+        // No Dirichlet dof shared with any neighbour: nothing to exchange.
+        // Safe to skip unilaterally -- the shared-id discovery is symmetric,
+        // so no other rank is expecting a message from this one.
+        if (dc.nSREntries == 0)
+        {
+            return;
+        }
+
+        dc.srEntries =
+            LibUtilities::MemoryRegion<size_t>::template FromVector<MemSpace,
+                                                                    size_t>(sr);
+        dc.sendBuffer =
+            LibUtilities::MemoryRegion<TData>(dc.nSREntries, eHostPinned);
+        dc.recvBuffer =
+            LibUtilities::MemoryRegion<TData>(dc.nSREntries, eHostPinned);
+
+        // Persistent requests are bound to the raw buffer pointers here, so
+        // they must be the pointers MPI will actually read from and write to
+        // for the lifetime of this operator: device pointers when the
+        // communicator is GPU aware, pinned host pointers otherwise.
+        TData *sendPtr, *recvPtr;
+        if (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace> &&
+            m_rowComm->IsGPUAware())
+        {
+            dc.sendBuffer.template Initialize<NektarSpaces::DeviceSpace>(0.0);
+            dc.recvBuffer.template Initialize<NektarSpaces::DeviceSpace>(0.0);
+            sendPtr =
+                (TData *)dc.sendBuffer
+                    .template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+            recvPtr =
+                (TData *)dc.recvBuffer
+                    .template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+        }
+        else
+        {
+            dc.sendBuffer.template Initialize<NektarSpaces::HostSpace>(0.0);
+            dc.recvBuffer.template Initialize<NektarSpaces::HostSpace>(0.0);
+            sendPtr = (TData *)dc.sendBuffer
+                          .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            recvPtr = (TData *)dc.recvBuffer
+                          .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        }
+
+        dc.comm->InitSendRecvComms(dc.nSREntries, sendPtr, recvPtr, 1);
+    }
+
+    // Move data between the per-block field storage and the compact
+    // per-component staging array, which is laid out exactly as
+    // Field::ToArray() would lay it out -- but device to device, with no
+    // host staging.
+    void FlattenBlocks(MultiRegions::Field<TData, FieldState::Coeff> &inout,
+                       TData *flatPtr, const bool toFlat)
+    {
+        const unsigned nComp = inout.GetNumComponents();
+        size_t blockOffset   = 0;
+
+        for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
+        {
+            auto &blkRef     = inout.GetBlocks()[blk];
+            auto blkPtr      = blkRef.template GetPtr<MemSpace, ReadWrite>();
+            const auto nSize = blkRef.CompSize();
+            const auto len   = blkRef.GetNumElements() * blkRef.GetNumData();
+
+            for (unsigned nc = 0; nc < nComp; ++nc)
+            {
+                TData *const flat = flatPtr + nc * m_flatCompSize + blockOffset;
+                TData *const blkc = blkPtr + nc * nSize;
+
+                if (toFlat)
+                {
+                    Math::copyKernel<ExecSpace>(len, blkc, flat, 0);
+                }
+                else
+                {
+                    Math::copyKernel<ExecSpace>(len, flat, blkc, 0);
+                }
+            }
+
+            blockOffset += len;
+        }
+
+        ASSERTL1(blockOffset == m_flatCompSize,
+                 "Flattened block extent does not match the local coefficient "
+                 "count.");
+    }
+
+    // Device-resident equivalent of the per-component
+    // AssemblyMap::UniversalAbsMaxBnd() calls this operator used to make: an
+    // absolute-maximum gather-scatter over the Dirichlet coefficients that
+    // straddle a partition boundary, plus their duplicated local copies,
+    // using GPU-aware MPI where the communicator supports it.
+    void UniversalAbsMaxDirBnd(
+        MultiRegions::Field<TData, FieldState::Coeff> &inout)
+    {
+        const unsigned nComp = inout.GetNumComponents();
+
+        ASSERTL1(nComp == m_dirComm.size(),
+                 "Field component count does not match the number of "
+                 "Dirichlet assembly maps.");
+
+        // Everything above this point ran on the per-block streams; the
+        // flatten reads every block and the MPI step needs those values
+        // settled. This sync stays unconditional (not folded into the
+        // early-out below) since v_Apply()'s later cross-block
+        // local-dir-dof copy (m_locBlockPairs) also relies on it: it reads
+        // one block's data while writing another's, on that other block's
+        // stream, so it needs every block's writes visible regardless of
+        // whether this function itself has anything to reconcile.
+        if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+        {
+            for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
+            {
+                nekStreamSynchronize(blk + 1);
+            }
+        }
+
+        // Nothing to reconcile: no component has a locally duplicated
+        // Dirichlet dof, and no component has a dof shared with another
+        // rank (m_maxLocalDup/m_maxSREntries are maxes over components,
+        // fixed by mesh topology at construction time). Skip the
+        // full-domain flatten/unflatten and all the gather/unpack kernels
+        // below -- covers both serial runs and parallel runs where this
+        // rank's local partition happens to touch no shared Dirichlet dof.
+        if (m_maxLocalDup == 0 && m_maxSREntries == 0)
+        {
+            return;
+        }
+
+        auto flatPtr  = m_flatBuf.template GetPtr<MemSpace, ReadWrite>();
+        TData *tmpPtr = m_maxLocalDup > 0
+                            ? m_tmpBuf.template GetPtr<MemSpace, ReadWrite>()
+                            : nullptr;
+
+        FlattenBlocks(inout, flatPtr, true);
+
+        // 1. Fold duplicated local copies of a shared Dirichlet dof into
+        //    that dof's representative. Needed on a single rank too: this is
+        //    the local half of what Gs::Gather() used to do, and it has to
+        //    happen before the copy-local-dir processing in v_Apply().
+        for (unsigned nc = 0; nc < nComp; ++nc)
+        {
+            auto &dc = m_dirComm[nc];
+            if (dc.nLocalDup == 0)
+            {
+                continue;
+            }
+
+            CGBndCondGatherKernel<ExecSpace>(
+                dc.nLocalDup, dc.locIdx.template GetPtr<MemSpace, ReadOnly>(),
+                flatPtr + nc * m_flatCompSize, tmpPtr, 0);
+            CGBndCondUnpackAbsMaxKernel<ExecSpace>(
+                dc.nLocalDup, dc.repIdx.template GetPtr<MemSpace, ReadOnly>(),
+                tmpPtr, flatPtr + nc * m_flatCompSize, 0);
+        }
+
+        if (m_isParallel)
+        {
+            // 2. Pack each component's representative values and post the
+            //    exchange. All components are packed and posted before any
+            //    is waited on, so the per-component exchanges overlap rather
+            //    than running as nComp serialized MPI rounds.
+            for (unsigned nc = 0; nc < nComp; ++nc)
+            {
+                auto &dc = m_dirComm[nc];
+                if (dc.nSREntries == 0)
+                {
+                    continue;
+                }
+
+                CGBndCondGatherKernel<ExecSpace>(
+                    dc.nSREntries,
+                    dc.srEntries.template GetPtr<MemSpace, ReadOnly>(),
+                    flatPtr + nc * m_flatCompSize,
+                    dc.sendBuffer.template GetPtr<MemSpace, WriteOnly>(), 0);
+            }
+
+            // Stage the send buffers where MPI will read them from.
+            if (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace> &&
+                !m_rowComm->IsGPUAware())
+            {
+                // Without GPU-aware MPI the data must be copied down to the
+                // pinned host buffer first. Only the send buffer moves, not
+                // the field.
+                for (unsigned nc = 0; nc < nComp; ++nc)
+                {
+                    if (m_dirComm[nc].nSREntries > 0)
+                    {
+                        m_dirComm[nc]
+                            .sendBuffer.template GetPtr<NektarSpaces::HostSpace,
+                                                        ReadOnly>();
+                    }
+                }
+            }
+            else if (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace> &&
+                     m_rowComm->IsGPUAware())
+            {
+                // MPI reads the device buffer directly, so just make sure
+                // the packing kernels have completed.
+                nekStreamSynchronize(0);
+            }
+
+            for (unsigned nc = 0; nc < nComp; ++nc)
+            {
+                if (m_dirComm[nc].nSREntries > 0)
+                {
+                    m_dirComm[nc].comm->BeginComm();
+                }
+            }
+
+            // Prime the receive buffers in the space MPI will deliver into,
+            // so the subsequent read in the operator's memory space picks up
+            // the new data (and stages it up from the host if needed).
+            for (unsigned nc = 0; nc < nComp; ++nc)
+            {
+                auto &dc = m_dirComm[nc];
+                if (dc.nSREntries == 0)
+                {
+                    continue;
+                }
+
+                if (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace> &&
+                    m_rowComm->IsGPUAware())
+                {
+                    dc.recvBuffer.template GetPtr<NektarSpaces::DeviceSpace,
+                                                  WriteOnly>();
+                }
+                else
+                {
+                    dc.recvBuffer
+                        .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+                }
+            }
+
+            for (unsigned nc = 0; nc < nComp; ++nc)
+            {
+                if (m_dirComm[nc].nSREntries > 0)
+                {
+                    m_dirComm[nc].comm->EndComm();
+                }
+            }
+
+            // 3. Fold what the neighbours sent into the representatives. A
+            //    dof shared by three or more ranks contributes one entry per
+            //    neighbour, so the same index can appear more than once and
+            //    the combine has to be a real reduction.
+            for (unsigned nc = 0; nc < nComp; ++nc)
+            {
+                auto &dc = m_dirComm[nc];
+                if (dc.nSREntries == 0)
+                {
+                    continue;
+                }
+
+                CGBndCondUnpackAbsMaxKernel<ExecSpace>(
+                    dc.nSREntries,
+                    dc.srEntries.template GetPtr<MemSpace, ReadOnly>(),
+                    dc.recvBuffer.template GetPtr<MemSpace, ReadOnly>(),
+                    flatPtr + nc * m_flatCompSize, 0);
+            }
+        }
+
+        // 4. Broadcast each representative's resolved value back over its
+        //    duplicated local copies, so every local copy of a shared
+        //    Dirichlet dof ends up holding the same value -- which is what
+        //    the legacy gather-scatter left behind.
+        for (unsigned nc = 0; nc < nComp; ++nc)
+        {
+            auto &dc = m_dirComm[nc];
+            if (dc.nLocalDup == 0)
+            {
+                continue;
+            }
+
+            CGBndCondGatherKernel<ExecSpace>(
+                dc.nLocalDup, dc.repIdx.template GetPtr<MemSpace, ReadOnly>(),
+                flatPtr + nc * m_flatCompSize, tmpPtr, 0);
+            // outptr[mapPtr[i]] = inptr[i]
+            DirBndCondKernel<ExecSpace>(
+                dc.nLocalDup, dc.locIdx.template GetPtr<MemSpace, ReadOnly>(),
+                tmpPtr, flatPtr + nc * m_flatCompSize, 0);
+        }
+
+        FlattenBlocks(inout, flatPtr, false);
+    }
+
+    // Flip the sign of local Dirichlet coefficients that are shared with a
+    // Dirichlet boundary on another partition. Called once before and once
+    // after the universal max-magnitude gather in v_Apply(), mirroring
+    // ContField::v_ImposeDirichletConditions().
+    void FlipParallelDirBndSign(
+        MultiRegions::Field<TData, FieldState::Coeff> &inout)
+    {
+        for (unsigned nc = 0; nc < inout.GetNumComponents(); ++nc)
+        {
+            if (m_nParDirBndSignSize[nc] == 0)
+            {
+                continue;
+            }
+
+            for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
+            {
+                const unsigned int streamID = blk + 1;
+
+                auto nParDirBndSignBlock = m_parDirCounts[blk][nc];
+                if (nParDirBndSignBlock == 0)
+                {
+                    continue;
+                }
+
+                auto inoutptr =
+                    inout.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(
+                        streamID);
+                auto parDirBndSignPtr =
+                    m_parDirBndSign[blk].template GetPtr<MemSpace, ReadOnly>(
+                        streamID) +
+                    m_parDirOffsets[blk][nc];
+                auto blksize = inout.GetBlocks()[blk].CompSize();
+                ParallelDirBndSignKernel<ExecSpace>(
+                    nParDirBndSignBlock, parDirBndSignPtr,
+                    inoutptr + nc * blksize, streamID);
+            }
+        }
     }
 
     void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &inout) override
@@ -712,21 +1064,13 @@ protected:
         {
             const unsigned int streamID = blk + 1;
 
-            auto &inoutBlk = inout.GetBlocks()[blk];
+            auto &inoutBlk   = inout.GetBlocks()[blk];
+            auto inoutWidth  = inoutBlk.GetInterleaveWidth();
+            unsigned blksize = inoutBlk.CompSize();
 
             // Initialize pointers.
             auto inoutPtr =
                 inoutBlk.template GetPtr<MemSpace, ReadWrite>(streamID);
-            auto inoutWidth  = inoutBlk.GetInterleaveWidth();
-            unsigned blksize = inoutBlk.CompSize();
-
-            // if block is interlaced deInterleave block since currently mapping
-            // set up assuming serial alignment
-            ReshapeStorage<ExecSpace>(
-                1u, inoutWidth,
-                inoutBlk.GetNumElementsWithPadding() * inout.GetNumComponents(),
-                inoutBlk.GetNumData(), inoutPtr, streamID);
-
             auto mapPtrBlock =
                 m_map[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
             auto bndcoeffPtrBlock =
@@ -735,6 +1079,13 @@ protected:
                 m_anySignChange
                     ? m_sign[blk].template GetPtr<MemSpace, ReadOnly>(streamID)
                     : nullptr;
+
+            // if block is interlaced deInterleave block since currently mapping
+            // set up assuming serial alignment
+            ReshapeStorage<ExecSpace>(
+                1u, inoutWidth,
+                inoutBlk.GetNumElementsWithPadding() * inout.GetNumComponents(),
+                inoutBlk.GetNumData(), inoutPtr, streamID);
 
             // Add Dirichlet boundary conditions.
             for (unsigned nc = 0; nc < inout.GetNumComponents(); ++nc)
@@ -766,131 +1117,62 @@ protected:
             }
         }
 
-        for (unsigned nc = 0; nc < inout.GetNumComponents(); ++nc)
+        FlipParallelDirBndSign(inout);
+
+        // Universal max-magnitude assembly of the Dirichlet coefficients.
+        // Fully device resident: no ToArray()/CopyArray() round-trip of the
+        // coefficient array and no host-side Gs gather. This is also
+        // required in serial, to resolve duplicated local Dirichlet boundary
+        // coefficients before copy-local-dir processing, mirroring
+        // ContField::v_ImposeDirichletConditions(). Each component is
+        // assembled with its own communication topology: with mixed boundary
+        // conditions, different components can have Dirichlet dofs in
+        // different places, so their topologies are not interchangeable.
+        UniversalAbsMaxDirBnd(inout);
+
+        // Flip the sign back now that the max-magnitude gather has resolved
+        // the duplicated Dirichlet coefficients.
+        FlipParallelDirBndSign(inout);
+
+        // Copy duplicated local Dirichlet dofs. Most meshes have none at
+        // all, in which case m_locBlockPairs is empty and this is a no-op.
+        for (auto &pair : m_locBlockPairs)
         {
-            if (m_nParDirBndSignSize[nc] == 0)
-            {
-                continue;
-            }
+            const unsigned int blk1 = pair.blk1;
+            const unsigned int blk0 = pair.blk0;
+            auto blksize1           = inout.GetBlocks()[blk1].CompSize();
+            auto blksize0           = inout.GetBlocks()[blk0].CompSize();
 
-            for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
+            for (unsigned nc = 0; nc < inout.GetNumComponents(); ++nc)
             {
-                const unsigned int streamID = blk + 1;
-
-                auto nParDirBndSignBlock = m_parDirCounts[blk][nc];
-                if (nParDirBndSignBlock == 0)
+                auto nLocCoeffBlock = pair.compCounts[nc];
+                if (nLocCoeffBlock == 0)
                 {
                     continue;
                 }
 
-                auto inoutptr =
-                    inout.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(
+                const unsigned int streamID = blk0 + 1;
+
+                auto inptr =
+                    inout.GetBlocks()[blk1].template GetPtr<MemSpace, ReadOnly>(
                         streamID);
-                auto parDirBndSignPtr =
-                    m_parDirBndSign[blk].template GetPtr<MemSpace, ReadOnly>(
-                        streamID) +
-                    m_parDirOffsets[blk][nc];
-                auto blksize = inout.GetBlocks()[blk].CompSize();
-                ParallelDirBndSignKernel<ExecSpace>(
-                    nParDirBndSignBlock, parDirBndSignPtr,
-                    inoutptr + nc * blksize, streamID);
-            }
-        }
+                auto outptr =
+                    inout.GetBlocks()[blk0]
+                        .template GetPtr<MemSpace, WriteOnly>(streamID);
+                const size_t offset = pair.compOffsets[nc];
+                auto locid0Ptr =
+                    pair.locid0.template GetPtr<MemSpace, ReadOnly>(streamID) +
+                    offset;
+                auto locid1Ptr =
+                    pair.locid1.template GetPtr<MemSpace, ReadOnly>(streamID) +
+                    offset;
+                auto locsignPtr =
+                    pair.locsign.template GetPtr<MemSpace, ReadOnly>(streamID) +
+                    offset;
 
-        // TODO: Universal assembly on device.
-        // This gather is also required in serial to resolve duplicated local
-        // Dirichlet boundary coefficients before copy-local-dir processing,
-        // mirroring ContField::v_ImposeDirichletConditions().
-        auto contfield = std::dynamic_pointer_cast<MultiRegions::ContField>(
-            this->m_expansionList);
-
-        // Copy the data from the input field.
-        auto inoutarr = inout.template ToArray<double>();
-
-        contfield->GetLocalToGlobalMap()->UniversalAbsMaxBnd(inoutarr);
-
-        // Copy the data to the output field.
-        inout.template CopyArray<MemSpace, double>(inoutarr);
-
-        for (unsigned nc = 0; nc < inout.GetNumComponents(); ++nc)
-        {
-            if (m_nParDirBndSignSize[nc] == 0)
-            {
-                continue;
-            }
-
-            for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
-            {
-                const unsigned int streamID = blk + 1;
-
-                auto nParDirBndSignBlock = m_parDirCounts[blk][nc];
-                if (nParDirBndSignBlock == 0)
-                {
-                    continue;
-                }
-
-                auto inoutptr =
-                    inout.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(
-                        streamID);
-                auto parDirBndSignPtr =
-                    m_parDirBndSign[blk].template GetPtr<MemSpace, ReadOnly>(
-                        streamID) +
-                    m_parDirOffsets[blk][nc];
-
-                auto blksize = inout.GetBlocks()[blk].CompSize();
-                ParallelDirBndSignKernel<ExecSpace>(
-                    nParDirBndSignBlock, parDirBndSignPtr,
-                    inoutptr + nc * blksize, streamID);
-            }
-        }
-
-        for (unsigned nc = 0; nc < inout.GetNumComponents(); ++nc)
-        {
-            if (m_localDirSize[nc] == 0)
-            {
-                continue;
-            }
-
-            for (unsigned int blk1 = 0; blk1 < inout.GetBlocks().size(); ++blk1)
-            {
-                auto blksize1 = inout.GetBlocks()[blk1].CompSize();
-                for (unsigned int blk0 = 0; blk0 < inout.GetBlocks().size();
-                     ++blk0)
-                {
-                    const unsigned int streamID = blk0 + 1;
-
-                    auto nLocCoeffBlock = m_locCounts[blk1][blk0][nc];
-                    if (nLocCoeffBlock == 0)
-                    {
-                        continue;
-                    }
-
-                    auto inptr =
-                        inout.GetBlocks()[blk1]
-                            .template GetPtr<MemSpace, ReadOnly>(streamID);
-                    auto outptr =
-                        inout.GetBlocks()[blk0]
-                            .template GetPtr<MemSpace, WriteOnly>(streamID);
-                    const size_t offset = m_locOffsets[blk1][blk0][nc];
-                    auto locid0Ptr =
-                        m_locid0[blk1][blk0]
-                            .template GetPtr<MemSpace, ReadOnly>(streamID) +
-                        offset;
-                    auto locid1Ptr =
-                        m_locid1[blk1][blk0]
-                            .template GetPtr<MemSpace, ReadOnly>(streamID) +
-                        offset;
-                    auto locsignPtr =
-                        m_locsign[blk1][blk0]
-                            .template GetPtr<MemSpace, ReadOnly>(streamID) +
-                        offset;
-
-                    auto blksize0 = inout.GetBlocks()[blk0].CompSize();
-                    LocalDirBndCondKernel<ExecSpace>(
-                        nLocCoeffBlock, locid0Ptr, locid1Ptr, locsignPtr,
-                        inptr + nc * blksize1, outptr + nc * blksize0,
-                        streamID);
-                }
+                LocalDirBndCondKernel<ExecSpace>(
+                    nLocCoeffBlock, locid0Ptr, locid1Ptr, locsignPtr,
+                    inptr + nc * blksize1, outptr + nc * blksize0, streamID);
             }
         }
 

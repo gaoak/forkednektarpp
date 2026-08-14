@@ -41,6 +41,10 @@ using namespace Nektar;
 namespace Nektar::Operators::detail
 {
 
+// Every target in mapPtr is unique -- BuildCGBndCondCoeffMaps() has already
+// pulled out any local coefficient written by more than one boundary trace
+// piece into the group kernel below -- so a plain, non-atomic add is safe:
+// no two loop iterations ever touch the same outptr address.
 template <typename ExecSpace, typename TData>
 void NeuBndCondKernel(const size_t bndExpSize, const size_t *mapPtr,
                       const TData *inptr, TData *outptr,
@@ -49,10 +53,8 @@ void NeuBndCondKernel(const size_t bndExpSize, const size_t *mapPtr,
     Nektar::LoopExecutionSetStreamID(streamID);
 
     Nektar::parallel_for<ExecSpace>(
-        0u, bndExpSize, NEKTAR_LAMBDA(const size_t i) {
-            Nektar::atomic_add<ExecSpace, NektarSpaces::GlobalScope>(
-                outptr + mapPtr[i], inptr[i]);
-        });
+        0u, bndExpSize,
+        NEKTAR_LAMBDA(const size_t i) { outptr[mapPtr[i]] += inptr[i]; });
 
     Nektar::LoopExecutionSetStreamID(0);
 }
@@ -66,8 +68,57 @@ void NeuBndCondKernel(const size_t bndExpSize, const TData *signPtr,
 
     Nektar::parallel_for<ExecSpace>(
         0u, bndExpSize, NEKTAR_LAMBDA(const size_t i) {
-            Nektar::atomic_add<ExecSpace, NektarSpaces::GlobalScope>(
-                outptr + mapPtr[i], signPtr[i] * inptr[i]);
+            outptr[mapPtr[i]] += signPtr[i] * inptr[i];
+        });
+
+    Nektar::LoopExecutionSetStreamID(0);
+}
+
+// Companion to NeuBndCondKernel() above for the (rare) local coefficient
+// targets written by more than one boundary trace piece of the same element
+// -- e.g. a domain corner where two Neumann edges meet. groupOffsetPtr is a
+// CSR row pointer: group g's contributions are inptr[groupOffsetPtr[g] ..
+// groupOffsetPtr[g + 1]). Each thread sums its (small, fixed-topology) group
+// locally and performs a single non-atomic add, so this never contends with
+// NeuBndCondKernel() or with any other group -- every group targets a
+// distinct address, and groups are disjoint from the unique-target set above
+// by construction.
+template <typename ExecSpace, typename TData>
+void NeuBndCondGroupKernel(const size_t nGroups, const size_t *groupOffsetPtr,
+                           const size_t *groupTargetPtr, const TData *inptr,
+                           TData *outptr, const unsigned int streamID)
+{
+    Nektar::LoopExecutionSetStreamID(streamID);
+
+    Nektar::parallel_for<ExecSpace>(
+        0u, nGroups, NEKTAR_LAMBDA(const size_t g) {
+            TData acc = static_cast<TData>(0);
+            for (size_t j = groupOffsetPtr[g]; j < groupOffsetPtr[g + 1]; ++j)
+            {
+                acc += inptr[j];
+            }
+            outptr[groupTargetPtr[g]] += acc;
+        });
+
+    Nektar::LoopExecutionSetStreamID(0);
+}
+
+template <typename ExecSpace, typename TData>
+void NeuBndCondGroupKernel(const size_t nGroups, const size_t *groupOffsetPtr,
+                           const size_t *groupTargetPtr, const TData *signPtr,
+                           const TData *inptr, TData *outptr,
+                           const unsigned int streamID)
+{
+    Nektar::LoopExecutionSetStreamID(streamID);
+
+    Nektar::parallel_for<ExecSpace>(
+        0u, nGroups, NEKTAR_LAMBDA(const size_t g) {
+            TData acc = static_cast<TData>(0);
+            for (size_t j = groupOffsetPtr[g]; j < groupOffsetPtr[g + 1]; ++j)
+            {
+                acc += signPtr[j] * inptr[j];
+            }
+            outptr[groupTargetPtr[g]] += acc;
         });
 
     Nektar::LoopExecutionSetStreamID(0);

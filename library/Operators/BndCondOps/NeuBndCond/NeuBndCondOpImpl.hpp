@@ -36,6 +36,8 @@
 
 #include <MultiRegions/ContField.h>
 
+#include "Operators/BndCondOps/Common/CGBndCondKernels.hpp"
+#include "Operators/BndCondOps/Common/CGBndCondMapBuilder.hpp"
 #include "Operators/BndCondOps/NeuBndCond/NeuBndCondKernels.hpp"
 #include "Operators/BndCondOps/NeuBndCond/NeuBndCondOp.hpp"
 
@@ -61,8 +63,6 @@ public:
     {
         auto session       = this->m_expansionList->GetSession();
         auto graph         = this->m_expansionList->GetGraph();
-        unsigned int nhomo = 1;
-        session->LoadParameter("HomModesZ", nhomo, 1);
         unsigned int nComp = components.size();
 
         // Create boundary conditions
@@ -72,137 +72,52 @@ public:
         const SpatialDomains::BoundaryConditionCollection &bconditions =
             bcs.GetBoundaryConditions();
 
-        // Create counters and temporary variables for BC Fields and Operators
-        std::vector<std::vector<bool>> isNeumannByRegion;
-        std::vector<size_t> numBcExpCoeffs;
-        SpatialDomains::BoundaryConditionShPtr bc;
-        MultiRegions::ExpListSharedPtr bcExpList;
+        // Loop all boundary regions to create Fields and Operators, matching
+        // components with a Neumann condition. Everything shared with
+        // DirBndCondOpImpl's identical loop lives in BuildCGBndCondRegions();
+        // onMatchedRegion() below builds the one piece that is genuinely
+        // Neumann-specific -- the IProductWRTBaseOp (or, for 0D point
+        // regions, a plain copy) that turns the evaluated boundary values
+        // into boundary coefficients.
+        auto regions = BuildCGBndCondRegions<ExecSpace, TData>(
+            this->m_expansionList, components, bregions, bconditions,
+            "Neumann BC", this->m_wsp_phys, this->m_wsp_coeffs,
+            this->m_expressionOps, this->m_hasTimeDependentBndCoeffs,
+            [](const SpatialDomains::BoundaryConditionShPtr &bc) {
+                return (bool)std::dynamic_pointer_cast<
+                    SpatialDomains::NeumannBoundaryCondition>(bc);
+            },
+            [&](const MultiRegions::ExpListSharedPtr &bcExpList) {
+                m_neuNumCoeffs.push_back(bcExpList->GetNcoeffs());
+                m_neuIsPoint.push_back(bcExpList->GetShapeDimension() == 0);
 
-        // Loop all boundary regions to create Fields and Operators
-        for (auto &it : bregions)
-        {
-            auto regionId       = it.first;
-            auto collectionIter = bconditions.find(regionId);
+                // Note we do a copy for 0D (points). Keep this vector
+                // aligned with Neumann boundary regions.
+                if (!m_neuIsPoint.back())
+                {
+                    this->m_iprodOps.push_back(IProductWRTBaseOp<TData>::Create(
+                        bcExpList, components, ExecSpace::name));
+                }
+                else
+                {
+                    this->m_iprodOps.push_back(nullptr);
+                }
+            });
 
-            ASSERTL1(collectionIter != bconditions.end(),
-                     "Unable to locate collection " + std::to_string(regionId));
-
-            const SpatialDomains::BoundaryConditionMapShPtr bndCondMap =
-                (*collectionIter).second;
-
-            auto conditionMapIter = bndCondMap->find(components[0]);
-
-            ASSERTL1(conditionMapIter != bndCondMap->end(),
-                     "Unable to locate condition map.");
-
-            // Get BoundaryCondition(SharedPtr)
-            bc = (*conditionMapIter).second;
-
-            // Create boundary condition expansion
-            bcExpList = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
-                session, *(it.second), graph, true, components[0], false,
-                bc->GetComm(), Collections::eNoImpType);
-
-            // Set data warehouse for device support operators
-            bcExpList->SetDataWarehouse();
-
-            // Save number of coefficients
-            numBcExpCoeffs.push_back(bcExpList->GetNcoeffs());
-
-            // Check if any component has a Neumann-type condition
-            bool hasNeumanCondition = false;
-            std::vector<bool> isNeumann(nComp);
-            for (unsigned int nc = 0; nc < nComp; nc++)
-            {
-                // Get BoundaryCondition and check if it is Neumann
-                auto cndMapIter = bndCondMap->find(components[nc]);
-                bc              = (*cndMapIter).second;
-                bool tmp        = (bool)std::dynamic_pointer_cast<
-                           SpatialDomains::NeumannBoundaryCondition>(bc);
-
-                // Save if component has a Neumann condition
-                isNeumann[nc] = tmp;
-
-                // Check if any component has a Neumann condition
-                hasNeumanCondition = hasNeumanCondition || tmp;
-                this->m_hasTimeDependentBndCoeffs =
-                    this->m_hasTimeDependentBndCoeffs ||
-                    (tmp && bc->IsTimeDependent());
-            }
-
-            isNeumannByRegion.push_back(isNeumann);
-
-            // Skip, if no Neumann condition in this boundary region
-            if (!hasNeumanCondition)
-            {
-                continue;
-            }
-
-            // Create fields for evaluating BCs into
-            auto blocks_phys =
-                MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                    bcExpList);
-            this->m_wsp_phys.push_back(
-                MultiRegions::Field<TData, FieldState::Phys>(
-                    "Neumann BC phys", blocks_phys, nComp, nhomo));
-            auto blocks_coeffs =
-                MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                    bcExpList);
-            this->m_wsp_coeffs.push_back(
-                MultiRegions::Field<TData, FieldState::Coeff>(
-                    "Neumann BC coeff", blocks_coeffs, nComp, nhomo));
-
-            // Compute number of boundary coefficients.
-            for (unsigned int blk = 0; blk < blocks_coeffs.size(); ++blk)
-            {
-                const auto ncoeff = blocks_coeffs[blk].GetNumData();
-                const auto nelmt  = blocks_coeffs[blk].GetNumElements();
-                m_numBndCoeffCompSize += nelmt * ncoeff;
-            }
-
-            m_neuNumCoeffs.push_back(bcExpList->GetNcoeffs());
-            m_neuIsPoint.push_back(bcExpList->GetShapeDimension() == 0);
-
-            // Initialize memory regions
-            this->m_wsp_phys.back().template Initialize<MemSpace>(0.0);
-            this->m_wsp_coeffs.back().template Initialize<MemSpace>(0.0);
-
-            // Create operators for this boundary condition
-            this->m_expressionOps.push_back(
-                ExpressionOp<TData>::Create(bcExpList, components));
-            this->m_expressionOps.back()->SetComponentMask(isNeumann);
-
-            // Note we do a copy for 0D (points). Keep this vector aligned
-            // with Neumann boundary regions.
-            if (!m_neuIsPoint.back())
-            {
-                this->m_iprodOps.push_back(IProductWRTBaseOp<TData>::Create(
-                    bcExpList, components, ExecSpace::name));
-            }
-            else
-            {
-                this->m_iprodOps.push_back(nullptr);
-            }
-
-            // Gather equations for each field/component
-            std::vector<LibUtilities::EquationSharedPtr> listOfEquations;
-            for (unsigned int nc = 0; nc < nComp; nc++)
-            {
-                // Get map for each field
-                auto cndMapIter = bndCondMap->find(components[nc]);
-
-                // Get BoundaryCondition and extract equation
-                bc = (*cndMapIter).second;
-                listOfEquations.push_back(bc->GetEquation());
-            }
-
-            // Set boundary conditions for each component in this boundary
-            // region
-            this->m_expressionOps.back()->SetExpressions(listOfEquations);
-        }
+        std::vector<std::vector<bool>> &isNeumannByRegion =
+            regions.isTypeByRegion;
+        std::vector<size_t> &numBcExpCoeffs = regions.numBcExpCoeffs;
+        m_numBndCoeffCompSize               = regions.numBndCoeffCompSize;
 
         // Return if no Neumann boundary coefficients on any rank. Must be a
-        // global reduction rather than the purely local.
+        // global reduction rather than the purely local
+        // m_numBndCoeffCompSize: BuildCGBndCondCoeffMaps() below constructs
+        // a fresh ContField per component, which is collective over the row
+        // communicator. If one rank's local partition has zero Neumann dofs
+        // while another rank's has some, a per-rank-only check makes some
+        // ranks skip that collective construction while others enter it,
+        // deadlocking (see the identical fix/comment in
+        // DirBndCondOpImpl's constructor).
         size_t hasAnyBndCoeff = m_numBndCoeffCompSize;
         session->GetComm()->GetRowComm()->AllReduce(hasAnyBndCoeff,
                                                     LibUtilities::ReduceMax);
@@ -211,186 +126,82 @@ public:
             return;
         }
 
-        // Compute block bound.
-        auto domainBlocks =
-            MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                this->m_expansionList);
-        std::vector<size_t> blockBound(domainBlocks.size());
-        size_t bound = 0;
-        for (unsigned int blk = 0; blk < domainBlocks.size(); ++blk)
-        {
-            const auto &block = domainBlocks[blk];
-            const auto ncoeff = block.GetNumData();
-            const auto nelmt  = block.GetNumElements();
-            bound += nelmt * ncoeff;
-            blockBound[blk] = bound;
-        }
-
-        // Collect the compact Neumann-to-full-boundary coefficient index map
-        // for one component. Boundary coefficients themselves are dynamic and
-        // are filled by UpdateBndCoeffs().
-        std::vector<size_t> index(m_numBndCoeffCompSize);
-        std::vector<std::vector<size_t>> neuIndexByComp(nComp);
-        size_t bndcnt = 0, cnt = 0;
+        // Collect the compact Neumann-to-full-boundary coefficient index map,
+        // bucketed by execution block. Neumann has no extra per-component
+        // bookkeeping beyond the shared map/sign construction, so the
+        // per-component hook is a no-op.
         m_neuCoeffOffsets.clear();
+        size_t bndcnt = 0;
         for (unsigned int i = 0; i < bregions.size(); ++i)
         {
-            // Get number of coefficients for this BC
-            auto nBndExpCoeff = numBcExpCoeffs[i];
-
-            // Process Neumann boundary conditions
             if (std::any_of(isNeumannByRegion[i].begin(),
                             isNeumannByRegion[i].end(),
-                            [=](bool i) { return i == 1; }))
+                            [](bool b) { return b; }))
             {
                 m_neuCoeffOffsets.push_back(bndcnt);
-
-                // Gather index
-                for (size_t j = 0; j < nBndExpCoeff; ++j)
-                {
-                    index[bndcnt + j] = cnt + j;
-                }
-                for (unsigned int nc = 0; nc < nComp; ++nc)
-                {
-                    if (isNeumannByRegion[i][nc])
-                    {
-                        for (size_t j = 0; j < nBndExpCoeff; ++j)
-                        {
-                            neuIndexByComp[nc].push_back(bndcnt + j);
-                        }
-                    }
-                }
-                bndcnt += nBndExpCoeff;
+                bndcnt += numBcExpCoeffs[i];
             }
-            cnt += nBndExpCoeff;
         }
 
-        ASSERTL1(bndcnt == m_numBndCoeffCompSize,
-                 "The component size does not match the number of coefficients "
-                 "for all Neumann boundaries.")
+        auto maps = BuildCGBndCondCoeffMaps<ExecSpace, TData>(
+            this->m_expansionList, components, bregions, isNeumannByRegion,
+            numBcExpCoeffs, m_numBndCoeffCompSize,
+            [](unsigned int, const MultiRegions::AssemblyMapCGSharedPtr &,
+               const auto &, const auto &) {});
 
-        m_map.clear();
-        m_sign.clear();
-        m_bndCoeff.clear();
-        m_bndCoeffSrc.clear();
-        m_bndCoeffHost.clear();
-        m_compactBndCoeff.assign(nComp * m_numBndCoeffCompSize, 0.0);
-        m_signChange.resize(nComp, false);
-        m_compOffsets.assign(domainBlocks.size(),
-                             std::vector<size_t>(nComp, 0));
-        m_compCounts.assign(domainBlocks.size(), std::vector<size_t>(nComp, 0));
-        m_anySignChange = false;
-
-        std::vector<std::vector<size_t>> mapBlockByBlk(domainBlocks.size());
-        std::vector<std::vector<TData>> signBlockByBlk(domainBlocks.size());
-        std::vector<std::vector<size_t>> bndCoeffSrcBlockByBlk(
-            domainBlocks.size());
-
-        auto expContField = std::dynamic_pointer_cast<MultiRegions::ContField>(
-            this->m_expansionList);
-
-        for (unsigned int nc = 0; nc < nComp; ++nc)
+        // v_GetNumBndDofs() reports the total number of matched boundary
+        // trace coefficients -- capture that from the full map before
+        // switching to the unique/group split below, so it stays independent
+        // of how entries get folded for scatter-ADD.
+        m_totalBndDofs = 0;
+        for (auto &counts : maps.compCounts)
         {
-            MultiRegions::AssemblyMapCGSharedPtr assmbMap;
-            if (expContField &&
-                expContField->GetLocalToGlobalMap()->GetVariable() ==
-                    components[nc])
+            for (auto count : counts)
             {
-                assmbMap = expContField->GetLocalToGlobalMap();
+                m_totalBndDofs += count;
             }
-            else
-            {
-                MultiRegions::ContField compfield(session, graph,
-                                                  components[nc], true, false,
-                                                  Collections::eNoCollection);
-                assmbMap = compfield.GetLocalToGlobalMap();
-            }
-            auto &sign       = assmbMap->GetBndCondCoeffsToLocalCoeffsSign();
-            auto &map        = assmbMap->GetBndCondCoeffsToLocalCoeffsMap();
-            m_signChange[nc] = assmbMap->GetSignChange();
-
-            std::vector<std::tuple<size_t, size_t>> mapReordered;
-            mapReordered.reserve(neuIndexByComp[nc].size());
-            for (size_t idx : neuIndexByComp[nc])
-            {
-                mapReordered.push_back(std::make_tuple(idx, map[index[idx]]));
-            }
-            std::sort(mapReordered.begin(), mapReordered.end(),
-                      [](std::tuple<size_t, size_t> const &t1,
-                         std::tuple<size_t, size_t> const &t2) {
-                          return std::tie(std::get<1>(t1), std::get<0>(t1)) <
-                                 std::tie(std::get<1>(t2), std::get<0>(t2));
-                      });
-
-            std::vector<std::vector<size_t>> blockIndices(domainBlocks.size());
-            size_t cursor = 0;
-            for (unsigned int blk = 0; blk < domainBlocks.size(); ++blk)
-            {
-                while (cursor < mapReordered.size() &&
-                       std::get<1>(mapReordered[cursor]) < blockBound[blk])
-                {
-                    blockIndices[blk].push_back(cursor);
-                    cursor++;
-                }
-            }
-
-            for (unsigned int blk = 0; blk < domainBlocks.size(); ++blk)
-            {
-                const size_t offset     = (blk == 0) ? 0 : blockBound[blk - 1];
-                const size_t compOffset = mapBlockByBlk[blk].size();
-                const size_t compCount  = blockIndices[blk].size();
-                m_compOffsets[blk][nc]  = compOffset;
-                m_compCounts[blk][nc]   = compCount;
-
-                mapBlockByBlk[blk].reserve(compOffset + compCount);
-                signBlockByBlk[blk].reserve(compOffset + compCount);
-                bndCoeffSrcBlockByBlk[blk].reserve(compOffset + compCount);
-
-                for (size_t idx : blockIndices[blk])
-                {
-                    mapBlockByBlk[blk].push_back(
-                        std::get<1>(mapReordered[idx]) - offset);
-                    signBlockByBlk[blk].push_back(
-                        m_signChange[nc]
-                            ? sign[index[std::get<0>(mapReordered[idx])]]
-                            : static_cast<TData>(1));
-                    bndCoeffSrcBlockByBlk[blk].push_back(
-                        std::get<0>(mapReordered[idx]) +
-                        nc * m_numBndCoeffCompSize);
-                }
-            }
-            m_anySignChange = m_anySignChange || m_signChange[nc];
         }
 
-        m_map.reserve(domainBlocks.size());
-        m_bndCoeff.reserve(domainBlocks.size());
-        m_bndCoeffSrc.reserve(domainBlocks.size());
-        m_bndCoeffHost.reserve(domainBlocks.size());
-        if (m_anySignChange)
+        // Total number of grouped (duplicate-target) entries across every
+        // block/component -- lets v_Apply() skip fetching the group
+        // pointers entirely when zero, mirroring DirBndCondOpImpl's
+        // m_maxLocalDup/m_maxSREntries early-out. On meshes where no
+        // boundary element shares an edge/vertex between two boundary
+        // trace pieces (e.g. an axis-aligned box), this is always zero.
+        m_totalGroupCount = 0;
+        for (auto &counts : maps.compGroupCounts)
         {
-            m_sign.reserve(domainBlocks.size());
-        }
-        for (unsigned int blk = 0; blk < domainBlocks.size(); ++blk)
-        {
-            ASSERTL1(mapBlockByBlk[blk].size() ==
-                         bndCoeffSrcBlockByBlk[blk].size(),
-                     "Mismatch between map and boundary coefficient sizes.");
-            m_map.push_back(
-                LibUtilities::MemoryRegion<size_t>::template FromVector<
-                    MemSpace, size_t>(mapBlockByBlk[blk]));
-            m_bndCoeffSrc.push_back(std::move(bndCoeffSrcBlockByBlk[blk]));
-            m_bndCoeffHost.emplace_back(m_bndCoeffSrc.back().size(), 0.0);
-            m_bndCoeff.push_back(
-                LibUtilities::MemoryRegion<TData>::template FromVector<MemSpace,
-                                                                       TData>(
-                    m_bndCoeffHost.back()));
-            if (m_anySignChange)
+            for (auto count : counts)
             {
-                m_sign.push_back(
-                    LibUtilities::MemoryRegion<TData>::template FromVector<
-                        MemSpace, TData>(signBlockByBlk[blk]));
+                m_totalGroupCount += count;
             }
         }
+
+        // Neumann is a scatter-ADD, so it consumes the unique-target subset
+        // of the shared map (plus the duplicate-target groups below)
+        // instead of the full map -- see CGBndCondCoeffMaps::uniqueMap for
+        // why summing the full map directly would double-count a duplicated
+        // target's contribution.
+        m_anySignChange    = maps.anySignChange;
+        m_signChange       = std::move(maps.signChange);
+        m_map              = std::move(maps.uniqueMap);
+        m_sign             = std::move(maps.uniqueSign);
+        m_bndCoeff         = std::move(maps.uniqueBndCoeff);
+        m_bndCoeffSrc      = std::move(maps.uniqueBndCoeffSrc);
+        m_compOffsets      = std::move(maps.compUniqueOffsets);
+        m_compCounts       = std::move(maps.compUniqueCounts);
+        m_groupTarget      = std::move(maps.groupTarget);
+        m_groupOffset      = std::move(maps.groupOffset);
+        m_groupSrc         = std::move(maps.groupSrc);
+        m_groupSign        = std::move(maps.groupSign);
+        m_groupValue       = std::move(maps.groupValue);
+        m_compGroupOffsets = std::move(maps.compGroupOffsets);
+        m_compGroupCounts  = std::move(maps.compGroupCounts);
+        // Populated in full by v_UpdateBndCoeffs() every call, so it does
+        // not need a zeroed starting value here (only ever written via
+        // WriteOnly device access, never read before being written).
+        m_compactBndCoeff =
+            LibUtilities::MemoryRegion<TData>(nComp * m_numBndCoeffCompSize);
 
         this->UpdateBndCoeffs(static_cast<TData>(0.0));
     }
@@ -423,11 +234,30 @@ protected:
     std::vector<LibUtilities::MemoryRegion<size_t>> m_map;
     std::vector<LibUtilities::MemoryRegion<TData>> m_sign;
     std::vector<LibUtilities::MemoryRegion<TData>> m_bndCoeff;
-    std::vector<std::vector<size_t>> m_bndCoeffSrc;
-    std::vector<TData> m_compactBndCoeff;
-    std::vector<std::vector<TData>> m_bndCoeffHost;
+    std::vector<LibUtilities::MemoryRegion<size_t>> m_bndCoeffSrc;
+    LibUtilities::MemoryRegion<TData> m_compactBndCoeff;
     std::vector<std::vector<size_t>> m_compOffsets;
     std::vector<std::vector<size_t>> m_compCounts;
+
+    // Local coefficient targets written by more than one boundary trace
+    // piece of the same element (see CGBndCondCoeffMaps::groupTarget) --
+    // summed locally and written with one non-atomic add in v_Apply()
+    // instead of racing an atomic_add per contribution.
+    std::vector<LibUtilities::MemoryRegion<size_t>> m_groupTarget;
+    std::vector<LibUtilities::MemoryRegion<size_t>> m_groupOffset;
+    std::vector<LibUtilities::MemoryRegion<size_t>> m_groupSrc;
+    std::vector<LibUtilities::MemoryRegion<TData>> m_groupSign;
+    std::vector<LibUtilities::MemoryRegion<TData>> m_groupValue;
+    std::vector<std::vector<size_t>> m_compGroupOffsets;
+    std::vector<std::vector<size_t>> m_compGroupCounts;
+
+    // Total number of matched boundary trace coefficients, for
+    // v_GetNumBndDofs() -- see where this is set in the constructor.
+    size_t m_totalBndDofs = 0;
+
+    // Total number of grouped (duplicate-target) entries across every
+    // block/component -- see where this is set in the constructor.
+    size_t m_totalGroupCount = 0;
 
     void v_UpdateBndCoeffs(const TData &time) override
     {
@@ -437,7 +267,17 @@ protected:
         }
 
         const unsigned int nComp = this->m_components.size();
-        std::fill(m_compactBndCoeff.begin(), m_compactBndCoeff.end(), 0.0);
+
+        // Get a device pointer to the compact array: entirely on-device, no
+        // host round-trip. No zeroing needed first -- m_neuCoeffOffsets/
+        // m_neuNumCoeffs tile [0, m_numBndCoeffCompSize) exactly, and the
+        // copy loop below writes every position for every component
+        // (regardless of whether that component actually has a Neumann
+        // condition there -- non-matching components get zero from
+        // ExpressionOp's masked-out, zeroed wsp_phys, not a skipped write),
+        // so every element gets overwritten unconditionally on every call.
+        auto compactPtr =
+            m_compactBndCoeff.template GetPtr<MemSpace, WriteOnly>();
 
         for (unsigned int iNeu = 0; iNeu < m_expressionOps.size(); ++iNeu)
         {
@@ -479,44 +319,62 @@ protected:
                 }
             }
 
-            std::vector<TData> tmp =
-                m_wsp_coeffs[iNeu].template ToVector<TData>();
-            ASSERTL1(tmp.size() == nComp * nBndExpCoeff,
-                     "Unexpected boundary coefficient vector size.");
-            for (unsigned int nc = 0; nc < nComp; ++nc)
+            // Copy m_wsp_coeffs[iNeu] into the compact array, component by
+            // component, block by block (mirrors Field::ToVector()'s own
+            // block-concatenation but writes straight into device memory
+            // instead of a host std::vector).
+            size_t regionOffset = 0;
+            for (unsigned int wblk = 0;
+                 wblk < m_wsp_coeffs[iNeu].GetBlocks().size(); ++wblk)
             {
-                std::copy(tmp.begin() + nc * nBndExpCoeff,
-                          tmp.begin() + (nc + 1) * nBndExpCoeff,
-                          m_compactBndCoeff.begin() +
-                              nc * m_numBndCoeffCompSize + bndOffset);
+                auto &wspBlk     = m_wsp_coeffs[iNeu].GetBlocks()[wblk];
+                auto srcPtr      = wspBlk.template GetPtr<MemSpace, ReadOnly>();
+                const auto nSize = wspBlk.CompSize();
+                const auto blockLen =
+                    wspBlk.GetNumElements() * wspBlk.GetNumData();
+
+                for (unsigned int nc = 0; nc < nComp; ++nc)
+                {
+                    Math::copyKernel<ExecSpace>(blockLen, srcPtr + nc * nSize,
+                                                compactPtr +
+                                                    nc * m_numBndCoeffCompSize +
+                                                    bndOffset + regionOffset,
+                                                0);
+                }
+                regionOffset += blockLen;
             }
+
+            ASSERTL1(regionOffset == nBndExpCoeff,
+                     "Unexpected boundary coefficient vector size.");
         }
 
         for (unsigned int blk = 0; blk < m_bndCoeff.size(); ++blk)
         {
-            const unsigned int streamID = blk + 1;
+            auto idxPtr =
+                m_bndCoeffSrc[blk].template GetPtr<MemSpace, ReadOnly>();
+            auto dstPtr =
+                m_bndCoeff[blk].template GetPtr<MemSpace, WriteOnly>();
 
-            auto &bndCoeffBlock = m_bndCoeffHost[blk];
-            for (size_t i = 0; i < m_bndCoeffSrc[blk].size(); ++i)
-            {
-                bndCoeffBlock[i] = m_compactBndCoeff[m_bndCoeffSrc[blk][i]];
-            }
-            m_bndCoeff[blk].template CopyVector<MemSpace, TData>(bndCoeffBlock,
-                                                                 streamID);
+            CGBndCondGatherKernel<ExecSpace>(m_bndCoeffSrc[blk].size(), idxPtr,
+                                             compactPtr, dstPtr, 0);
+
+            // Gathered unconditionally (nsize may be 0, in which case the
+            // kernel is a no-op) so that m_groupValue[blk] is always marked
+            // valid before v_Apply() reads it -- mirrors m_bndCoeff above.
+            auto groupIdxPtr =
+                m_groupSrc[blk].template GetPtr<MemSpace, ReadOnly>();
+            auto groupDstPtr =
+                m_groupValue[blk].template GetPtr<MemSpace, WriteOnly>();
+
+            CGBndCondGatherKernel<ExecSpace>(m_groupSrc[blk].size(),
+                                             groupIdxPtr, compactPtr,
+                                             groupDstPtr, 0);
         }
     }
 
     size_t v_GetNumBndDofs() const override
     {
-        size_t total = 0;
-        for (auto &counts : m_compCounts)
-        {
-            for (auto count : counts)
-            {
-                total += count;
-            }
-        }
-        return total;
+        return m_totalBndDofs;
     }
 
     void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &inout) override
@@ -548,45 +406,103 @@ protected:
                     ? m_sign[blk].template GetPtr<MemSpace, ReadOnly>(streamID)
                     : nullptr;
 
+            // Pointers for the (rare) grouped/duplicate-target entries --
+            // see NeuBndCondGroupKernel(). groupOffsetPtrBlock/
+            // groupTargetPtrBlock are indexed by group, groupValuePtrBlock/
+            // groupSignPtrBlock by (flat) contribution. Only fetched when
+            // m_totalGroupCount > 0: on meshes with no duplicate-target
+            // entries at all (e.g. an axis-aligned box, where boundary
+            // trace pieces never share a vertex/edge within the same
+            // element), every m_compGroupCounts[blk][nc] below is zero, so
+            // these four GetPtr() calls would otherwise be pure overhead
+            // paid on every block, every Apply() call, for nothing.
+            const size_t *groupOffsetPtrBlock = nullptr;
+            const size_t *groupTargetPtrBlock = nullptr;
+            const TData *groupValuePtrBlock   = nullptr;
+            const TData *groupSignPtrBlock    = nullptr;
+            if (m_totalGroupCount > 0)
+            {
+                groupOffsetPtrBlock =
+                    m_groupOffset[blk].template GetPtr<MemSpace, ReadOnly>(
+                        streamID);
+                groupTargetPtrBlock =
+                    m_groupTarget[blk].template GetPtr<MemSpace, ReadOnly>(
+                        streamID);
+                groupValuePtrBlock =
+                    m_groupValue[blk].template GetPtr<MemSpace, ReadOnly>(
+                        streamID);
+                if (m_anySignChange)
+                {
+                    groupSignPtrBlock =
+                        m_groupSign[blk].template GetPtr<MemSpace, ReadOnly>(
+                            streamID);
+                }
+            }
+
+            // if block is interlaced deInterleave block since currently
+            // mapping set up assuming serial alignment. Reshape once for
+            // the whole block (all components) rather than per-component.
+            ReshapeStorage<ExecSpace>(
+                1u, inoutWidth,
+                inoutBlk.GetNumElementsWithPadding() * inout.GetNumComponents(),
+                inoutBlk.GetNumData(), inoutPtr, streamID);
+
             // Add weak boundary condition forcing.
             for (unsigned nc = 0; nc < inout.GetNumComponents(); ++nc)
             {
                 auto nbndCoeffBlk = m_compCounts[blk][nc];
-                if (nbndCoeffBlk == 0)
+                if (nbndCoeffBlk > 0)
+                {
+                    const size_t offset = m_compOffsets[blk][nc];
+                    auto mapPtr         = mapPtrBlock + offset;
+                    auto bndcoeffPtr    = bndcoeffPtrBlock + offset;
+                    const TData *signPtr =
+                        m_signChange[nc] ? signPtrBlock + offset : nullptr;
+
+                    if (m_signChange[nc])
+                    {
+                        NeuBndCondKernel<ExecSpace>(
+                            nbndCoeffBlk, signPtr, mapPtr, bndcoeffPtr,
+                            inoutPtr + nc * blksize, streamID);
+                    }
+                    else
+                    {
+                        NeuBndCondKernel<ExecSpace>(
+                            nbndCoeffBlk, mapPtr, bndcoeffPtr,
+                            inoutPtr + nc * blksize, streamID);
+                    }
+                }
+
+                auto nGroupsBlk = m_compGroupCounts[blk][nc];
+                if (nGroupsBlk == 0)
                 {
                     continue;
                 }
 
-                // if block is interlaced deInterleave block since currently
-                // mapping set up assuming serial alignment
-                ReshapeStorage<ExecSpace>(
-                    1u, inoutWidth, inoutBlk.GetNumElementsWithPadding(),
-                    inoutBlk.GetNumData(), inoutPtr + nc * blksize, streamID);
-
-                const size_t offset = m_compOffsets[blk][nc];
-                auto mapPtr         = mapPtrBlock + offset;
-                auto bndcoeffPtr    = bndcoeffPtrBlock + offset;
-                const TData *signPtr =
-                    m_signChange[nc] ? signPtrBlock + offset : nullptr;
+                const size_t groupOffset = m_compGroupOffsets[blk][nc];
+                auto groupOffsetPtr      = groupOffsetPtrBlock + groupOffset;
+                auto groupTargetPtr      = groupTargetPtrBlock + groupOffset;
 
                 if (m_signChange[nc])
                 {
-                    NeuBndCondKernel<ExecSpace>(
-                        nbndCoeffBlk, signPtr, mapPtr, bndcoeffPtr,
+                    NeuBndCondGroupKernel<ExecSpace>(
+                        nGroupsBlk, groupOffsetPtr, groupTargetPtr,
+                        groupSignPtrBlock, groupValuePtrBlock,
                         inoutPtr + nc * blksize, streamID);
                 }
                 else
                 {
-                    NeuBndCondKernel<ExecSpace>(
-                        nbndCoeffBlk, mapPtr, bndcoeffPtr,
-                        inoutPtr + nc * blksize, streamID);
+                    NeuBndCondGroupKernel<ExecSpace>(
+                        nGroupsBlk, groupOffsetPtr, groupTargetPtr,
+                        groupValuePtrBlock, inoutPtr + nc * blksize, streamID);
                 }
-
-                // Reshape back, if necessary.
-                ReshapeStorage<ExecSpace>(
-                    inoutWidth, 1u, inoutBlk.GetNumElementsWithPadding(),
-                    inoutBlk.GetNumData(), inoutPtr + nc * blksize, streamID);
             }
+
+            // Reshape back, if necessary.
+            ReshapeStorage<ExecSpace>(
+                inoutWidth, 1u,
+                inoutBlk.GetNumElementsWithPadding() * inout.GetNumComponents(),
+                inoutBlk.GetNumData(), inoutPtr, streamID);
         }
     }
 };

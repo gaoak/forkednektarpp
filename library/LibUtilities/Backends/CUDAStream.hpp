@@ -93,7 +93,14 @@ public:
 
     static void RecordEvent(unsigned int id)
     {
-        if (events.find(id) == events.end())
+        // Note: cannot use `events.find(id) == events.end()` as the sole
+        // "does this event need creating" check -- GetEvent() below also
+        // lazily inserts a nullptr placeholder for ids that have never been
+        // recorded (used by SetStreamDependencies() to mean "no event to
+        // wait on yet"), which would otherwise be mistaken here for an
+        // already-created, valid event and passed straight to
+        // cudaEventRecord as a null handle.
+        if (events.find(id) == events.end() || events[id] == nullptr)
         {
             cudaEvent_t e;
             CHECK_HIPCUDA_ERROR(

@@ -502,6 +502,74 @@ NEK_DEVICE_INLINE double atomicMax_block(double *address, double val)
     return __longlong_as_double(ret);
 }
 
+// Absolute-maximum atomics: keep whichever of the two values has the larger
+// magnitude, preserving its sign. This is the combine used by the universal
+// Dirichlet boundary assembly (the device equivalent of GSLib's gs_amax), so
+// the comparison is on fabs() while the value written back stays signed.
+// Ties are resolved in favour of the value already at *address, matching
+// gs_amax's `fabs(a) > fabs(b) ? a : b`.
+NEK_DEVICE_INLINE float atomicAbsMax(float *address, float val)
+{
+    int ret = __float_as_int(*address);
+    while (fabsf(val) > fabsf(__int_as_float(ret)))
+    {
+        int old = ret;
+        if ((ret = atomicCAS((int *)address, old, __float_as_int(val))) == old)
+            break;
+    }
+    return __int_as_float(ret);
+}
+
+NEK_DEVICE_INLINE float atomicAbsMax_block(float *address, float val)
+{
+    int ret = __float_as_int(*address);
+    while (fabsf(val) > fabsf(__int_as_float(ret)))
+    {
+        int old = ret;
+#if defined(__CUDACC__)
+        if ((ret = atomicCAS_block((int *)address, old, __float_as_int(val))) ==
+            old)
+            break;
+#elif defined(__HIPCC__)
+        if ((ret = atomicCAS((int *)address, old, __float_as_int(val))) == old)
+            break;
+#endif
+    }
+    return __int_as_float(ret);
+}
+
+NEK_DEVICE_INLINE double atomicAbsMax(double *address, double val)
+{
+    unsigned long long ret = __double_as_longlong(*address);
+    while (fabs(val) > fabs(__longlong_as_double(ret)))
+    {
+        unsigned long long old = ret;
+        if ((ret = atomicCAS((unsigned long long *)address, old,
+                             __double_as_longlong(val))) == old)
+            break;
+    }
+    return __longlong_as_double(ret);
+}
+
+NEK_DEVICE_INLINE double atomicAbsMax_block(double *address, double val)
+{
+    unsigned long long ret = __double_as_longlong(*address);
+    while (fabs(val) > fabs(__longlong_as_double(ret)))
+    {
+        unsigned long long old = ret;
+#if defined(__CUDACC__)
+        if ((ret = atomicCAS_block((unsigned long long *)address, old,
+                                   __double_as_longlong(val))) == old)
+            break;
+#elif defined(__HIPCC__)
+        if ((ret = atomicCAS((unsigned long long *)address, old,
+                             __double_as_longlong(val))) == old)
+            break;
+#endif
+    }
+    return __longlong_as_double(ret);
+}
+
 NEK_DEVICE_INLINE float atomicMin(float *address, float val)
 {
     int ret = __float_as_int(*address);
@@ -611,6 +679,23 @@ NEK_DEVICE_INLINE static void atomic_max(TData *const dest, const TData val)
         atomicMax_block(dest, val);
 #elif defined(__HIPCC__)
         atomicMax(dest, val);
+#endif
+    }
+}
+
+template <typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_absmax(TData *const dest, const TData val)
+{
+    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        atomicAbsMax(dest, val);
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
+    {
+#if defined(__CUDACC__)
+        atomicAbsMax_block(dest, val);
+#elif defined(__HIPCC__)
+        atomicAbsMax(dest, val);
 #endif
     }
 }

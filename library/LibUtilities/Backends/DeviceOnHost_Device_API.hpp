@@ -427,6 +427,18 @@ NEK_DEVICE_INLINE static void atomic_min(TData *const dest, const TData val)
     *dest = std::min(*dest, val);
 }
 
+// Keep whichever of *dest and val has the larger magnitude, preserving its
+// sign; ties keep *dest. Matches the CUDA/HIP and SYCL atomic_absmax
+// semantics.
+template <typename Scope, typename TData>
+NEK_DEVICE_INLINE static void atomic_absmax(TData *const dest, const TData val)
+{
+    if (std::abs(val) > std::abs(*dest))
+    {
+        *dest = val;
+    }
+}
+
 template <typename Scope, typename TData>
 NEK_DEVICE_INLINE static void atomic_or(TData *const dest, const TData val)
 {
