@@ -34,11 +34,12 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/TimeOps/TimeOp.hpp"
+#include "SolverCore/TimeOps/TimeOp.hpp"
 
-using namespace Nektar::Operators;
-using namespace Nektar::LibUtilities;
 using namespace Nektar;
+using namespace Nektar::LibUtilities;
+using namespace Nektar::Operators;
+using namespace Nektar::SolverCore;
 
 template <typename TData>
 class TimeOpField : public InitFields<TData, FieldState::Phys, FieldState::Phys>

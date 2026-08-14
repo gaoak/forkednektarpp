@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include <Operators/TimeOps/TimeOp.hpp>
 #include <SolverCore/EquationSystems/EquationSystem.h>
 #include <SolverCore/Filters/Filter.h>
+#include <SolverCore/TimeOps/TimeOp.hpp>
 
 namespace Nektar::SolverCore
 {
@@ -78,7 +78,7 @@ protected:
     double m_timestep        = 0.0;
     unsigned int m_steps     = 0;
     unsigned int m_infosteps = 0;
-    std::shared_ptr<Operators::TimeOp<double>> m_timeOp;
+    std::shared_ptr<TimeOp<double>> m_timeOp;
     std::vector<std::pair<std::string, FilterSharedPtr>> m_filters;
 
     /// Initialises UnsteadySystem class members.
