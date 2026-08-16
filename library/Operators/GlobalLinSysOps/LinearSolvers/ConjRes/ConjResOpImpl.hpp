@@ -52,27 +52,27 @@ public:
     ConjResOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                   const std::vector<std::string> &components)
         : ConjResOp<TData>(expansionList, components),
-          m_w(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_w(LibUtilities::Field<TData, FieldState::Coeff>(
               "ConjRes w",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_s(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_s(LibUtilities::Field<TData, FieldState::Coeff>(
               "ConjRes s",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_r(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_r(LibUtilities::Field<TData, FieldState::Coeff>(
               "ConjRes r",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_q(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_q(LibUtilities::Field<TData, FieldState::Coeff>(
               "ConjRes q",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_p(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_p(LibUtilities::Field<TData, FieldState::Coeff>(
               "ConjRes p",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
@@ -109,14 +109,14 @@ public:
     }
 
 protected:
-    MultiRegions::Field<TData, FieldState::Coeff> m_w;
-    MultiRegions::Field<TData, FieldState::Coeff> m_s;
-    MultiRegions::Field<TData, FieldState::Coeff> m_r;
-    MultiRegions::Field<TData, FieldState::Coeff> m_q;
-    MultiRegions::Field<TData, FieldState::Coeff> m_p;
+    LibUtilities::Field<TData, FieldState::Coeff> m_w;
+    LibUtilities::Field<TData, FieldState::Coeff> m_s;
+    LibUtilities::Field<TData, FieldState::Coeff> m_r;
+    LibUtilities::Field<TData, FieldState::Coeff> m_q;
+    LibUtilities::Field<TData, FieldState::Coeff> m_p;
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
-                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
+                 LibUtilities::Field<TData, FieldState::Coeff> &out) override
     {
         // Convergence parameters.
         this->m_niter = 0;

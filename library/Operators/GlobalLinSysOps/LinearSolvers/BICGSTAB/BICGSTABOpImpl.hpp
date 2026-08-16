@@ -52,32 +52,32 @@ public:
     BICGSTABOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                    const std::vector<std::string> &components)
         : BICGSTABOp<TData>(expansionList, components),
-          m_p(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_p(LibUtilities::Field<TData, FieldState::Coeff>(
               "BICGSTABOp p",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_v(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_v(LibUtilities::Field<TData, FieldState::Coeff>(
               "BICGSTABOp v",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_w(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_w(LibUtilities::Field<TData, FieldState::Coeff>(
               "BICGSTABOp w",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_z(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_z(LibUtilities::Field<TData, FieldState::Coeff>(
               "BICGSTABOp z",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_r(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_r(LibUtilities::Field<TData, FieldState::Coeff>(
               "BICGSTABOp r",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_rtilde(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_rtilde(LibUtilities::Field<TData, FieldState::Coeff>(
               "BICGSTABOp rtilde",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
@@ -111,15 +111,15 @@ public:
     }
 
 protected:
-    MultiRegions::Field<TData, FieldState::Coeff> m_p;
-    MultiRegions::Field<TData, FieldState::Coeff> m_v;
-    MultiRegions::Field<TData, FieldState::Coeff> m_w;
-    MultiRegions::Field<TData, FieldState::Coeff> m_z;
-    MultiRegions::Field<TData, FieldState::Coeff> m_r;
-    MultiRegions::Field<TData, FieldState::Coeff> m_rtilde;
+    LibUtilities::Field<TData, FieldState::Coeff> m_p;
+    LibUtilities::Field<TData, FieldState::Coeff> m_v;
+    LibUtilities::Field<TData, FieldState::Coeff> m_w;
+    LibUtilities::Field<TData, FieldState::Coeff> m_z;
+    LibUtilities::Field<TData, FieldState::Coeff> m_r;
+    LibUtilities::Field<TData, FieldState::Coeff> m_rtilde;
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
-                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
+                 LibUtilities::Field<TData, FieldState::Coeff> &out) override
     {
         // Convergence parameters.
         this->m_niter = 0;

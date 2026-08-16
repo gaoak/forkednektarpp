@@ -32,8 +32,6 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "LibUtilities/BasicUtils/Math/Math.hpp"
-
 #include "LibUtilities/BasicUtils/Math/MathHelperDef.hpp"
 
 // MathHelper explicit instantiation for MemoryRegion based functions. Provide
@@ -47,6 +45,18 @@ template void MathHelper::zero<LibUtilities::MemoryRegion<double>>(
     LibUtilities::MemoryRegion<double> &x, const std::string &execSpace);
 template void MathHelper::zero<LibUtilities::MemoryRegion<float>>(
     LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
+template void MathHelper::zero<LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    const std::string &execSpace);
+template void MathHelper::zero<LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template void MathHelper::zero<LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template void MathHelper::zero<LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
 
 // fill template specialization.
 template void MathHelper::fill<double, LibUtilities::MemoryRegion<double>>(
@@ -54,6 +64,22 @@ template void MathHelper::fill<double, LibUtilities::MemoryRegion<double>>(
     const std::string &execSpace);
 template void MathHelper::fill<float, LibUtilities::MemoryRegion<float>>(
     const float &val, LibUtilities::MemoryRegion<float> &x,
+    const std::string &execSpace);
+template void MathHelper::fill<double,
+                               LibUtilities::Field<double, FieldState::Phys>>(
+    const double &val, LibUtilities::Field<double, FieldState::Phys> &x,
+    const std::string &execSpace);
+template void MathHelper::fill<float,
+                               LibUtilities::Field<float, FieldState::Phys>>(
+    const float &val, LibUtilities::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template void MathHelper::fill<double,
+                               LibUtilities::Field<double, FieldState::Coeff>>(
+    const double &val, LibUtilities::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template void MathHelper::fill<float,
+                               LibUtilities::Field<float, FieldState::Coeff>>(
+    const float &val, LibUtilities::Field<float, FieldState::Coeff> &x,
     const std::string &execSpace);
 
 // copy template specialization.
@@ -63,6 +89,22 @@ template void MathHelper::copy<LibUtilities::MemoryRegion<double>>(
 template void MathHelper::copy<LibUtilities::MemoryRegion<float>>(
     LibUtilities::MemoryRegion<float> &x, LibUtilities::MemoryRegion<float> &y,
     const std::string &execSpace);
+template void MathHelper::copy<LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    LibUtilities::Field<double, FieldState::Phys> &y,
+    const std::string &execSpace);
+template void MathHelper::copy<LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    LibUtilities::Field<float, FieldState::Phys> &y,
+    const std::string &execSpace);
+template void MathHelper::copy<LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    LibUtilities::Field<double, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template void MathHelper::copy<LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    LibUtilities::Field<float, FieldState::Coeff> &y,
+    const std::string &execSpace);
 
 // abs template specialization.
 template void MathHelper::abs<LibUtilities::MemoryRegion<double>>(
@@ -70,6 +112,22 @@ template void MathHelper::abs<LibUtilities::MemoryRegion<double>>(
     LibUtilities::MemoryRegion<double> &y, const std::string &execSpace);
 template void MathHelper::abs<LibUtilities::MemoryRegion<float>>(
     LibUtilities::MemoryRegion<float> &x, LibUtilities::MemoryRegion<float> &y,
+    const std::string &execSpace);
+template void MathHelper::abs<LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    LibUtilities::Field<double, FieldState::Phys> &y,
+    const std::string &execSpace);
+template void MathHelper::abs<LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    LibUtilities::Field<float, FieldState::Phys> &y,
+    const std::string &execSpace);
+template void MathHelper::abs<LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    LibUtilities::Field<double, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template void MathHelper::abs<LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    LibUtilities::Field<float, FieldState::Coeff> &y,
     const std::string &execSpace);
 
 // neg template specialization.
@@ -79,6 +137,22 @@ template void MathHelper::neg<LibUtilities::MemoryRegion<double>>(
 template void MathHelper::neg<LibUtilities::MemoryRegion<float>>(
     LibUtilities::MemoryRegion<float> &x, LibUtilities::MemoryRegion<float> &y,
     const std::string &execSpace);
+template void MathHelper::neg<LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    LibUtilities::Field<double, FieldState::Phys> &y,
+    const std::string &execSpace);
+template void MathHelper::neg<LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    LibUtilities::Field<float, FieldState::Phys> &y,
+    const std::string &execSpace);
+template void MathHelper::neg<LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    LibUtilities::Field<double, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template void MathHelper::neg<LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    LibUtilities::Field<float, FieldState::Coeff> &y,
+    const std::string &execSpace);
 
 // sqrt template specialization.
 template void MathHelper::sqrt<LibUtilities::MemoryRegion<double>>(
@@ -86,6 +160,22 @@ template void MathHelper::sqrt<LibUtilities::MemoryRegion<double>>(
     LibUtilities::MemoryRegion<double> &y, const std::string &execSpace);
 template void MathHelper::sqrt<LibUtilities::MemoryRegion<float>>(
     LibUtilities::MemoryRegion<float> &x, LibUtilities::MemoryRegion<float> &y,
+    const std::string &execSpace);
+template void MathHelper::sqrt<LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    LibUtilities::Field<double, FieldState::Phys> &y,
+    const std::string &execSpace);
+template void MathHelper::sqrt<LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    LibUtilities::Field<float, FieldState::Phys> &y,
+    const std::string &execSpace);
+template void MathHelper::sqrt<LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    LibUtilities::Field<double, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template void MathHelper::sqrt<LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    LibUtilities::Field<float, FieldState::Coeff> &y,
     const std::string &execSpace);
 
 // add template specialization.
@@ -96,6 +186,26 @@ template void MathHelper::add<LibUtilities::MemoryRegion<double>>(
 template void MathHelper::add<LibUtilities::MemoryRegion<float>>(
     LibUtilities::MemoryRegion<float> &x, LibUtilities::MemoryRegion<float> &y,
     LibUtilities::MemoryRegion<float> &z, const std::string &execSpace);
+template void MathHelper::add<LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    LibUtilities::Field<double, FieldState::Phys> &y,
+    LibUtilities::Field<double, FieldState::Phys> &z,
+    const std::string &execSpace);
+template void MathHelper::add<LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    LibUtilities::Field<float, FieldState::Phys> &y,
+    LibUtilities::Field<float, FieldState::Phys> &z,
+    const std::string &execSpace);
+template void MathHelper::add<LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    LibUtilities::Field<double, FieldState::Coeff> &y,
+    LibUtilities::Field<double, FieldState::Coeff> &z,
+    const std::string &execSpace);
+template void MathHelper::add<LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    LibUtilities::Field<float, FieldState::Coeff> &y,
+    LibUtilities::Field<float, FieldState::Coeff> &z,
+    const std::string &execSpace);
 
 // sub template specialization.
 template void MathHelper::sub<LibUtilities::MemoryRegion<double>>(
@@ -105,6 +215,26 @@ template void MathHelper::sub<LibUtilities::MemoryRegion<double>>(
 template void MathHelper::sub<LibUtilities::MemoryRegion<float>>(
     LibUtilities::MemoryRegion<float> &x, LibUtilities::MemoryRegion<float> &y,
     LibUtilities::MemoryRegion<float> &z, const std::string &execSpace);
+template void MathHelper::sub<LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    LibUtilities::Field<double, FieldState::Phys> &y,
+    LibUtilities::Field<double, FieldState::Phys> &z,
+    const std::string &execSpace);
+template void MathHelper::sub<LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    LibUtilities::Field<float, FieldState::Phys> &y,
+    LibUtilities::Field<float, FieldState::Phys> &z,
+    const std::string &execSpace);
+template void MathHelper::sub<LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    LibUtilities::Field<double, FieldState::Coeff> &y,
+    LibUtilities::Field<double, FieldState::Coeff> &z,
+    const std::string &execSpace);
+template void MathHelper::sub<LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    LibUtilities::Field<float, FieldState::Coeff> &y,
+    LibUtilities::Field<float, FieldState::Coeff> &z,
+    const std::string &execSpace);
 
 // mul template specialization.
 template void MathHelper::mul<LibUtilities::MemoryRegion<double>>(
@@ -120,6 +250,42 @@ template void MathHelper::mul<LibUtilities::MemoryRegion<double>>(
 template void MathHelper::mul<LibUtilities::MemoryRegion<float>>(
     LibUtilities::MemoryRegion<float> &x, LibUtilities::MemoryRegion<float> &y,
     LibUtilities::MemoryRegion<float> &z, const std::string &execSpace);
+template void MathHelper::mul<LibUtilities::Field<double, FieldState::Phys>>(
+    const double alpha, LibUtilities::Field<double, FieldState::Phys> &x,
+    LibUtilities::Field<double, FieldState::Phys> &y,
+    const std::string &execSpace);
+template void MathHelper::mul<LibUtilities::Field<float, FieldState::Phys>>(
+    const float alpha, LibUtilities::Field<float, FieldState::Phys> &x,
+    LibUtilities::Field<float, FieldState::Phys> &y,
+    const std::string &execSpace);
+template void MathHelper::mul<LibUtilities::Field<double, FieldState::Coeff>>(
+    const double alpha, LibUtilities::Field<double, FieldState::Coeff> &x,
+    LibUtilities::Field<double, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template void MathHelper::mul<LibUtilities::Field<float, FieldState::Coeff>>(
+    const float alpha, LibUtilities::Field<float, FieldState::Coeff> &x,
+    LibUtilities::Field<float, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template void MathHelper::mul<LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    LibUtilities::Field<double, FieldState::Phys> &y,
+    LibUtilities::Field<double, FieldState::Phys> &z,
+    const std::string &execSpace);
+template void MathHelper::mul<LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    LibUtilities::Field<float, FieldState::Phys> &y,
+    LibUtilities::Field<float, FieldState::Phys> &z,
+    const std::string &execSpace);
+template void MathHelper::mul<LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    LibUtilities::Field<double, FieldState::Coeff> &y,
+    LibUtilities::Field<double, FieldState::Coeff> &z,
+    const std::string &execSpace);
+template void MathHelper::mul<LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    LibUtilities::Field<float, FieldState::Coeff> &y,
+    LibUtilities::Field<float, FieldState::Coeff> &z,
+    const std::string &execSpace);
 
 // div template specialization.
 template void MathHelper::div<LibUtilities::MemoryRegion<double>>(
@@ -135,6 +301,42 @@ template void MathHelper::div<LibUtilities::MemoryRegion<double>>(
 template void MathHelper::div<LibUtilities::MemoryRegion<float>>(
     LibUtilities::MemoryRegion<float> &x, LibUtilities::MemoryRegion<float> &y,
     LibUtilities::MemoryRegion<float> &z, const std::string &execSpace);
+template void MathHelper::div<LibUtilities::Field<double, FieldState::Phys>>(
+    const double alpha, LibUtilities::Field<double, FieldState::Phys> &x,
+    LibUtilities::Field<double, FieldState::Phys> &y,
+    const std::string &execSpace);
+template void MathHelper::div<LibUtilities::Field<float, FieldState::Phys>>(
+    const float alpha, LibUtilities::Field<float, FieldState::Phys> &x,
+    LibUtilities::Field<float, FieldState::Phys> &y,
+    const std::string &execSpace);
+template void MathHelper::div<LibUtilities::Field<double, FieldState::Coeff>>(
+    const double alpha, LibUtilities::Field<double, FieldState::Coeff> &x,
+    LibUtilities::Field<double, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template void MathHelper::div<LibUtilities::Field<float, FieldState::Coeff>>(
+    const float alpha, LibUtilities::Field<float, FieldState::Coeff> &x,
+    LibUtilities::Field<float, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template void MathHelper::div<LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    LibUtilities::Field<double, FieldState::Phys> &y,
+    LibUtilities::Field<double, FieldState::Phys> &z,
+    const std::string &execSpace);
+template void MathHelper::div<LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    LibUtilities::Field<float, FieldState::Phys> &y,
+    LibUtilities::Field<float, FieldState::Phys> &z,
+    const std::string &execSpace);
+template void MathHelper::div<LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    LibUtilities::Field<double, FieldState::Coeff> &y,
+    LibUtilities::Field<double, FieldState::Coeff> &z,
+    const std::string &execSpace);
+template void MathHelper::div<LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    LibUtilities::Field<float, FieldState::Coeff> &y,
+    LibUtilities::Field<float, FieldState::Coeff> &z,
+    const std::string &execSpace);
 
 // daxpy template specialization.
 template void MathHelper::daxpy<LibUtilities::MemoryRegion<double>>(
@@ -144,6 +346,26 @@ template void MathHelper::daxpy<LibUtilities::MemoryRegion<double>>(
 template void MathHelper::daxpy<LibUtilities::MemoryRegion<float>>(
     const float alpha, LibUtilities::MemoryRegion<float> &x,
     LibUtilities::MemoryRegion<float> &y, LibUtilities::MemoryRegion<float> &z,
+    const std::string &execSpace);
+template void MathHelper::daxpy<LibUtilities::Field<double, FieldState::Phys>>(
+    const double alpha, LibUtilities::Field<double, FieldState::Phys> &x,
+    LibUtilities::Field<double, FieldState::Phys> &y,
+    LibUtilities::Field<double, FieldState::Phys> &z,
+    const std::string &execSpace);
+template void MathHelper::daxpy<LibUtilities::Field<float, FieldState::Phys>>(
+    const float alpha, LibUtilities::Field<float, FieldState::Phys> &x,
+    LibUtilities::Field<float, FieldState::Phys> &y,
+    LibUtilities::Field<float, FieldState::Phys> &z,
+    const std::string &execSpace);
+template void MathHelper::daxpy<LibUtilities::Field<double, FieldState::Coeff>>(
+    const double alpha, LibUtilities::Field<double, FieldState::Coeff> &x,
+    LibUtilities::Field<double, FieldState::Coeff> &y,
+    LibUtilities::Field<double, FieldState::Coeff> &z,
+    const std::string &execSpace);
+template void MathHelper::daxpy<LibUtilities::Field<float, FieldState::Coeff>>(
+    const float alpha, LibUtilities::Field<float, FieldState::Coeff> &x,
+    LibUtilities::Field<float, FieldState::Coeff> &y,
+    LibUtilities::Field<float, FieldState::Coeff> &z,
     const std::string &execSpace);
 
 // reduceSum template specialization.
@@ -159,6 +381,46 @@ template float MathHelper::reduceSum<LibUtilities::MemoryRegion<uint8_t>,
                                      LibUtilities::MemoryRegion<float>>(
     LibUtilities::MemoryRegion<uint8_t> &mask,
     LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
+template double MathHelper::reduceSum<
+    LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    const std::string &execSpace);
+template float MathHelper::reduceSum<
+    LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template double MathHelper::reduceSum<
+    LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template float MathHelper::reduceSum<
+    LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template double MathHelper::reduceSum<
+    LibUtilities::Field<uint8_t, FieldState::Phys>,
+    LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<uint8_t, FieldState::Phys> &mask,
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    const std::string &execSpace);
+template float MathHelper::reduceSum<
+    LibUtilities::Field<uint8_t, FieldState::Phys>,
+    LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<uint8_t, FieldState::Phys> &mask,
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template double MathHelper::reduceSum<
+    LibUtilities::Field<uint8_t, FieldState::Coeff>,
+    LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<uint8_t, FieldState::Coeff> &mask,
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template float MathHelper::reduceSum<
+    LibUtilities::Field<uint8_t, FieldState::Coeff>,
+    LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<uint8_t, FieldState::Coeff> &mask,
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
 
 // reduceMax template specialization.
 template double MathHelper::reduceMax<LibUtilities::MemoryRegion<double>>(
@@ -173,6 +435,46 @@ template float MathHelper::reduceMax<LibUtilities::MemoryRegion<uint8_t>,
                                      LibUtilities::MemoryRegion<float>>(
     LibUtilities::MemoryRegion<uint8_t> &mask,
     LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
+template double MathHelper::reduceMax<
+    LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    const std::string &execSpace);
+template float MathHelper::reduceMax<
+    LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template double MathHelper::reduceMax<
+    LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template float MathHelper::reduceMax<
+    LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template double MathHelper::reduceMax<
+    LibUtilities::Field<uint8_t, FieldState::Phys>,
+    LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<uint8_t, FieldState::Phys> &mask,
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    const std::string &execSpace);
+template float MathHelper::reduceMax<
+    LibUtilities::Field<uint8_t, FieldState::Phys>,
+    LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<uint8_t, FieldState::Phys> &mask,
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template double MathHelper::reduceMax<
+    LibUtilities::Field<uint8_t, FieldState::Coeff>,
+    LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<uint8_t, FieldState::Coeff> &mask,
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template float MathHelper::reduceMax<
+    LibUtilities::Field<uint8_t, FieldState::Coeff>,
+    LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<uint8_t, FieldState::Coeff> &mask,
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
 
 // reduceMin template specialization.
 template double MathHelper::reduceMin<LibUtilities::MemoryRegion<double>>(
@@ -187,6 +489,46 @@ template float MathHelper::reduceMin<LibUtilities::MemoryRegion<uint8_t>,
                                      LibUtilities::MemoryRegion<float>>(
     LibUtilities::MemoryRegion<uint8_t> &mask,
     LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
+template double MathHelper::reduceMin<
+    LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    const std::string &execSpace);
+template float MathHelper::reduceMin<
+    LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template double MathHelper::reduceMin<
+    LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template float MathHelper::reduceMin<
+    LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template double MathHelper::reduceMin<
+    LibUtilities::Field<uint8_t, FieldState::Phys>,
+    LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<uint8_t, FieldState::Phys> &mask,
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    const std::string &execSpace);
+template float MathHelper::reduceMin<
+    LibUtilities::Field<uint8_t, FieldState::Phys>,
+    LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<uint8_t, FieldState::Phys> &mask,
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template double MathHelper::reduceMin<
+    LibUtilities::Field<uint8_t, FieldState::Coeff>,
+    LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<uint8_t, FieldState::Coeff> &mask,
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template float MathHelper::reduceMin<
+    LibUtilities::Field<uint8_t, FieldState::Coeff>,
+    LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<uint8_t, FieldState::Coeff> &mask,
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
 
 // ddot template specialization.
 template double MathHelper::ddot<LibUtilities::MemoryRegion<double>>(
@@ -205,6 +547,48 @@ template float MathHelper::ddot<LibUtilities::MemoryRegion<uint8_t>,
     LibUtilities::MemoryRegion<uint8_t> &mask,
     LibUtilities::MemoryRegion<float> &x, LibUtilities::MemoryRegion<float> &y,
     const std::string &execSpace);
+template double MathHelper::ddot<LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    LibUtilities::Field<double, FieldState::Phys> &y,
+    const std::string &execSpace);
+template float MathHelper::ddot<LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    LibUtilities::Field<float, FieldState::Phys> &y,
+    const std::string &execSpace);
+template double MathHelper::ddot<
+    LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    LibUtilities::Field<double, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template float MathHelper::ddot<LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    LibUtilities::Field<float, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template double MathHelper::ddot<LibUtilities::Field<uint8_t, FieldState::Phys>,
+                                 LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<uint8_t, FieldState::Phys> &mask,
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    LibUtilities::Field<double, FieldState::Phys> &y,
+    const std::string &execSpace);
+template float MathHelper::ddot<LibUtilities::Field<uint8_t, FieldState::Phys>,
+                                LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<uint8_t, FieldState::Phys> &mask,
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    LibUtilities::Field<float, FieldState::Phys> &y,
+    const std::string &execSpace);
+template double MathHelper::ddot<
+    LibUtilities::Field<uint8_t, FieldState::Coeff>,
+    LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<uint8_t, FieldState::Coeff> &mask,
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    LibUtilities::Field<double, FieldState::Coeff> &y,
+    const std::string &execSpace);
+template float MathHelper::ddot<LibUtilities::Field<uint8_t, FieldState::Coeff>,
+                                LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<uint8_t, FieldState::Coeff> &mask,
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    LibUtilities::Field<float, FieldState::Coeff> &y,
+    const std::string &execSpace);
 
 // l1norm template specialization.
 template double MathHelper::l1norm<LibUtilities::MemoryRegion<double>>(
@@ -219,6 +603,45 @@ template float MathHelper::l1norm<LibUtilities::MemoryRegion<uint8_t>,
                                   LibUtilities::MemoryRegion<float>>(
     LibUtilities::MemoryRegion<uint8_t> &mask,
     LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
+template double MathHelper::l1norm<
+    LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    const std::string &execSpace);
+template float MathHelper::l1norm<LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template double MathHelper::l1norm<
+    LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template float MathHelper::l1norm<
+    LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template double MathHelper::l1norm<
+    LibUtilities::Field<uint8_t, FieldState::Phys>,
+    LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<uint8_t, FieldState::Phys> &mask,
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    const std::string &execSpace);
+template float MathHelper::l1norm<
+    LibUtilities::Field<uint8_t, FieldState::Phys>,
+    LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<uint8_t, FieldState::Phys> &mask,
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template double MathHelper::l1norm<
+    LibUtilities::Field<uint8_t, FieldState::Coeff>,
+    LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<uint8_t, FieldState::Coeff> &mask,
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template float MathHelper::l1norm<
+    LibUtilities::Field<uint8_t, FieldState::Coeff>,
+    LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<uint8_t, FieldState::Coeff> &mask,
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
 
 // l2norm template specialization.
 template double MathHelper::l2norm<LibUtilities::MemoryRegion<double>>(
@@ -233,6 +656,45 @@ template float MathHelper::l2norm<LibUtilities::MemoryRegion<uint8_t>,
                                   LibUtilities::MemoryRegion<float>>(
     LibUtilities::MemoryRegion<uint8_t> &mask,
     LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
+template double MathHelper::l2norm<
+    LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    const std::string &execSpace);
+template float MathHelper::l2norm<LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template double MathHelper::l2norm<
+    LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template float MathHelper::l2norm<
+    LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template double MathHelper::l2norm<
+    LibUtilities::Field<uint8_t, FieldState::Phys>,
+    LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<uint8_t, FieldState::Phys> &mask,
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    const std::string &execSpace);
+template float MathHelper::l2norm<
+    LibUtilities::Field<uint8_t, FieldState::Phys>,
+    LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<uint8_t, FieldState::Phys> &mask,
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template double MathHelper::l2norm<
+    LibUtilities::Field<uint8_t, FieldState::Coeff>,
+    LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<uint8_t, FieldState::Coeff> &mask,
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template float MathHelper::l2norm<
+    LibUtilities::Field<uint8_t, FieldState::Coeff>,
+    LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<uint8_t, FieldState::Coeff> &mask,
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
 
 // lpnorm template specialization.
 template double MathHelper::lpnorm<LibUtilities::MemoryRegion<double>>(
@@ -249,6 +711,45 @@ template float MathHelper::lpnorm<LibUtilities::MemoryRegion<uint8_t>,
                                   LibUtilities::MemoryRegion<float>>(
     const unsigned int p, LibUtilities::MemoryRegion<uint8_t> &mask,
     LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
+template double MathHelper::lpnorm<
+    LibUtilities::Field<double, FieldState::Phys>>(
+    const unsigned int p, LibUtilities::Field<double, FieldState::Phys> &x,
+    const std::string &execSpace);
+template float MathHelper::lpnorm<LibUtilities::Field<float, FieldState::Phys>>(
+    const unsigned int p, LibUtilities::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template double MathHelper::lpnorm<
+    LibUtilities::Field<double, FieldState::Coeff>>(
+    const unsigned int p, LibUtilities::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template float MathHelper::lpnorm<
+    LibUtilities::Field<float, FieldState::Coeff>>(
+    const unsigned int p, LibUtilities::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template double MathHelper::lpnorm<
+    LibUtilities::Field<uint8_t, FieldState::Phys>,
+    LibUtilities::Field<double, FieldState::Phys>>(
+    const unsigned int p, LibUtilities::Field<uint8_t, FieldState::Phys> &mask,
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    const std::string &execSpace);
+template float MathHelper::lpnorm<
+    LibUtilities::Field<uint8_t, FieldState::Phys>,
+    LibUtilities::Field<float, FieldState::Phys>>(
+    const unsigned int p, LibUtilities::Field<uint8_t, FieldState::Phys> &mask,
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template double MathHelper::lpnorm<
+    LibUtilities::Field<uint8_t, FieldState::Coeff>,
+    LibUtilities::Field<double, FieldState::Coeff>>(
+    const unsigned int p, LibUtilities::Field<uint8_t, FieldState::Coeff> &mask,
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template float MathHelper::lpnorm<
+    LibUtilities::Field<uint8_t, FieldState::Coeff>,
+    LibUtilities::Field<float, FieldState::Coeff>>(
+    const unsigned int p, LibUtilities::Field<uint8_t, FieldState::Coeff> &mask,
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
 
 // linfnorm template specialization.
 template double MathHelper::linfnorm<LibUtilities::MemoryRegion<double>>(
@@ -263,5 +764,45 @@ template float MathHelper::linfnorm<LibUtilities::MemoryRegion<uint8_t>,
                                     LibUtilities::MemoryRegion<float>>(
     LibUtilities::MemoryRegion<uint8_t> &mask,
     LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
+template double MathHelper::linfnorm<
+    LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    const std::string &execSpace);
+template float MathHelper::linfnorm<
+    LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template double MathHelper::linfnorm<
+    LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template float MathHelper::linfnorm<
+    LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template double MathHelper::linfnorm<
+    LibUtilities::Field<uint8_t, FieldState::Phys>,
+    LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<uint8_t, FieldState::Phys> &mask,
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    const std::string &execSpace);
+template float MathHelper::linfnorm<
+    LibUtilities::Field<uint8_t, FieldState::Phys>,
+    LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<uint8_t, FieldState::Phys> &mask,
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template double MathHelper::linfnorm<
+    LibUtilities::Field<uint8_t, FieldState::Coeff>,
+    LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<uint8_t, FieldState::Coeff> &mask,
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template float MathHelper::linfnorm<
+    LibUtilities::Field<uint8_t, FieldState::Coeff>,
+    LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<uint8_t, FieldState::Coeff> &mask,
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
 
 } // namespace Nektar::Math

@@ -73,8 +73,8 @@ protected:
 
     ~CurlCurlOp() override = default;
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
-                 MultiRegions::Field<TData, FieldState::Phys> &out) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
+                 LibUtilities::Field<TData, FieldState::Phys> &out) override
     {
         ASSERTL1(in.GetNumComponents() >=
                      this->m_expansionList->GetShapeDimension(),

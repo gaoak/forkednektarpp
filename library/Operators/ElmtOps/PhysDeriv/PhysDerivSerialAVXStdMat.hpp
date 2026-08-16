@@ -56,7 +56,7 @@ class PhysDerivBlockOpImpl : public PhysDerivBlockOp<TData>
 public:
     PhysDerivBlockOpImpl(const unsigned int block_idx,
                          const LocalRegions::ExpansionSharedPtr &exp,
-                         NekDataWarehouseSharedPtr dataWarehouse)
+                         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : PhysDerivBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
@@ -76,12 +76,14 @@ public:
             basisKeys[d] = exp->GetBasis(d)->GetBasisKey();
         }
 
-        m_matptr = dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
-            basisKeys, m_shapeType, ePhysDerivStdMatTranspose));
+        m_matptr = dataWarehouse->template GetData<MemSpace>(
+            StdRegions::StdMatKey<TData>(
+                basisKeys, m_shapeType, StdRegions::ePhysDerivStdMatTranspose));
 
         // Fetch derivative factor.
         m_dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, false));
+            LocalRegions::DerivFactorKey<TData>(block_idx,
+                                                m_implInterleaveWidth, false));
     }
 
     // className - for BlockOperatorFactory
@@ -92,7 +94,7 @@ public:
         ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>>
     Instantiate(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,
-                NekDataWarehouseSharedPtr dataWarehouse)
+                LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             PhysDerivBlockOpImpl<ExecSpace, Implementation, TData>>(
@@ -112,8 +114,8 @@ protected:
     const TData *m_dfptr;
 
     void v_Apply(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock) override
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -147,9 +149,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize,
-                                              m_nqTot, (TData *)inptr);
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        m_implInterleaveWidth, interleaveWidth, chunkSize,
+                        m_nqTot, (TData *)inptr);
                 }
 
                 // Perform matrix-matrix multiply.
@@ -182,14 +184,14 @@ protected:
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nqTot,
                         (TData *)inptr -
                             (width_ratio - 1) * m_nqTot * simd_t::width);
                     for (unsigned int k = 0; k < outDim; k++)
                     {
-                        ReshapeStorage<ExecSpace>(
+                        LibUtilities::ReshapeStorage<ExecSpace>(
                             interleaveWidth, m_implInterleaveWidth, chunkSize,
                             m_nqTot,
                             (TData *)outptr + k * outoffset -

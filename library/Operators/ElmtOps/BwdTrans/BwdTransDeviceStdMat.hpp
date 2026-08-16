@@ -49,7 +49,7 @@ class BwdTransBlockOpImpl : public BwdTransBlockOp<TData>
 public:
     BwdTransBlockOpImpl(const unsigned int block_idx,
                         const LocalRegions::ExpansionSharedPtr &exp,
-                        NekDataWarehouseSharedPtr dataWarehouse)
+                        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : BwdTransBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         m_streamID = block_idx + 1;
@@ -76,8 +76,10 @@ public:
                 ? exp->GetNodalPointsKey().GetPointsType()
                 : LibUtilities::eNoPointsType;
 
-        m_matptr = dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
-            basisKeys, m_shapeType, eBwdTransStdMat, nodalType));
+        m_matptr = dataWarehouse->template GetData<MemSpace>(
+            StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
+                                         StdRegions::eBwdTransStdMat,
+                                         nodalType));
     }
 
     // className - for BlockOperatorFactory
@@ -88,7 +90,7 @@ public:
         ElmtBlockOp<FieldState::Coeff, FieldState::Phys, TData>>
     Instantiate(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,
-                NekDataWarehouseSharedPtr dataWarehouse)
+                LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             BwdTransBlockOpImpl<ExecSpace, Implementation, TData>>(
@@ -108,8 +110,8 @@ protected:
     const TData *m_matptr;
 
     void v_Apply(
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock) override
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
@@ -131,12 +133,12 @@ protected:
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, inInterleaveWidth,
-                                      nelmtTot, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, inInterleaveWidth, nelmtTot,
+                inblock.GetNumData(), (TData *)inptr, m_streamID);
             if (this->m_append)
             {
-                ReshapeStorage<ExecSpace>(
+                LibUtilities::ReshapeStorage<ExecSpace>(
                     m_implInterleaveWidth, outInterleaveWidth, nelmtTot,
                     outblock.GetNumData(), (TData *)outptr, m_streamID);
             }
@@ -147,12 +149,12 @@ protected:
                           (TData)this->m_append, outptr, m_nqTot);
 
             // Reshape back, if necessary.
-            ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
-                                      nelmtTot, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
-            ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
-                                      nelmtTot, outblock.GetNumData(), outptr,
-                                      m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                inInterleaveWidth, m_implInterleaveWidth, nelmtTot,
+                inblock.GetNumData(), (TData *)inptr, m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                inInterleaveWidth, m_implInterleaveWidth, nelmtTot,
+                outblock.GetNumData(), outptr, m_streamID);
 
             // Increment pointers.
             inptr += inblock.CompSize() * inblock.GetNumHomoModes();

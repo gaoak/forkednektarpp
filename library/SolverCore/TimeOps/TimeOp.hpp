@@ -34,8 +34,8 @@
 
 #pragma once
 
+#include "LibUtilities/BasicUtils/Math/Math.hpp"
 #include "LibUtilities/BasicUtils/Math/MathHelper.hpp"
-#include "MultiRegions/Field/Math.hpp"
 #include "Operators/Common/Operator.hpp"
 
 #include <deque>
@@ -183,12 +183,12 @@ public:
         }
     }
 
-    void Apply(MultiRegions::Field<TData, FieldState::Phys> &inout)
+    void Apply(LibUtilities::Field<TData, FieldState::Phys> &inout)
     {
         this->v_Apply(inout);
     }
 
-    void operator()(MultiRegions::Field<TData, FieldState::Phys> &inout)
+    void operator()(LibUtilities::Field<TData, FieldState::Phys> &inout)
     {
         this->v_Apply(inout);
     }
@@ -196,12 +196,12 @@ public:
     /// Functor definitions and generic handles for projection, and explicit
     /// and implicit evaluation.
     // Functor typedefs
-    typedef std::function<void(MultiRegions::Field<TData, FieldState::Phys> &,
-                               MultiRegions::Field<TData, FieldState::Phys> &,
+    typedef std::function<void(LibUtilities::Field<TData, FieldState::Phys> &,
+                               LibUtilities::Field<TData, FieldState::Phys> &,
                                const TData &)>
         functorType1;
-    typedef std::function<void(MultiRegions::Field<TData, FieldState::Phys> &,
-                               MultiRegions::Field<TData, FieldState::Phys> &,
+    typedef std::function<void(LibUtilities::Field<TData, FieldState::Phys> &,
+                               LibUtilities::Field<TData, FieldState::Phys> &,
                                const TData &, const TData &)>
         functorType2;
 
@@ -237,8 +237,8 @@ public:
                       std::placeholders::_3, std::placeholders::_4);
     }
 
-    void DoExplicitRhs(MultiRegions::Field<TData, FieldState::Phys> &in,
-                       MultiRegions::Field<TData, FieldState::Phys> &out,
+    void DoExplicitRhs(LibUtilities::Field<TData, FieldState::Phys> &in,
+                       LibUtilities::Field<TData, FieldState::Phys> &out,
                        const TData &time, const TData &factor) const
     {
         ASSERTL1(m_explicitRhsFunctor,
@@ -253,8 +253,8 @@ public:
         m_explicitRhsFunctor(in, out, time, factor);
     }
 
-    void DoImplicitRhs(MultiRegions::Field<TData, FieldState::Phys> &in,
-                       MultiRegions::Field<TData, FieldState::Phys> &out,
+    void DoImplicitRhs(LibUtilities::Field<TData, FieldState::Phys> &in,
+                       LibUtilities::Field<TData, FieldState::Phys> &out,
                        const TData &time, const TData &factor) const
     {
         ASSERTL1(m_implicitRhsFunctor,
@@ -264,8 +264,8 @@ public:
         m_implicitRhsFunctor(in, out, time, factor);
     }
 
-    void DoProjection(MultiRegions::Field<TData, FieldState::Phys> &in,
-                      MultiRegions::Field<TData, FieldState::Phys> &out,
+    void DoProjection(LibUtilities::Field<TData, FieldState::Phys> &in,
+                      LibUtilities::Field<TData, FieldState::Phys> &out,
                       const TData &time) const
     {
         ASSERTL1(m_projectionFunctor,
@@ -275,8 +275,8 @@ public:
         m_projectionFunctor(in, out, time);
     }
 
-    void DoImplicit(MultiRegions::Field<TData, FieldState::Phys> &in,
-                    MultiRegions::Field<TData, FieldState::Phys> &out,
+    void DoImplicit(LibUtilities::Field<TData, FieldState::Phys> &in,
+                    LibUtilities::Field<TData, FieldState::Phys> &out,
                     const TData &time, const TData &lambda) const
     {
         ASSERTL1(m_implicitFunctor,
@@ -314,8 +314,8 @@ public:
     }
 
     void ExtrapolateHistory(
-        std::deque<MultiRegions::Field<TData, FieldState::Phys>> &history,
-        MultiRegions::Field<TData, FieldState::Phys> &out,
+        std::deque<LibUtilities::Field<TData, FieldState::Phys>> &history,
+        LibUtilities::Field<TData, FieldState::Phys> &out,
         const TimeOpExtrapolationType type,
         const TimeOpExtrapolationMode mode = TimeOpExtrapolationMode::Assign,
         const TData scale                  = 1.0)
@@ -327,8 +327,8 @@ public:
     }
 
     void ExtrapolateHistory(
-        std::deque<MultiRegions::Field<TData, FieldState::Phys>> &history,
-        MultiRegions::Field<TData, FieldState::Phys> &out,
+        std::deque<LibUtilities::Field<TData, FieldState::Phys>> &history,
+        LibUtilities::Field<TData, FieldState::Phys> &out,
         const std::vector<TData> &coeffs,
         const TimeOpExtrapolationMode mode = TimeOpExtrapolationMode::Assign,
         const TData scale                  = 1.0)
@@ -337,8 +337,8 @@ public:
     }
 
     void ExtrapolateExplicitContribution(
-        std::deque<MultiRegions::Field<TData, FieldState::Phys>> &history,
-        MultiRegions::Field<TData, FieldState::Phys> &out,
+        std::deque<LibUtilities::Field<TData, FieldState::Phys>> &history,
+        LibUtilities::Field<TData, FieldState::Phys> &out,
         const TimeOpExtrapolationMode mode = TimeOpExtrapolationMode::Assign,
         const TData scale                  = 1.0)
     {
@@ -378,24 +378,24 @@ public:
     }
 
     // Move‐out
-    std::deque<MultiRegions::Field<TData, FieldState::Phys>> TakeSolutions()
+    std::deque<LibUtilities::Field<TData, FieldState::Phys>> TakeSolutions()
     {
         return std::move(m_solutions);
     }
 
-    std::deque<MultiRegions::Field<TData, FieldState::Phys>> TakeExplicits()
+    std::deque<LibUtilities::Field<TData, FieldState::Phys>> TakeExplicits()
     {
         return std::move(m_explicits);
     }
 
-    std::deque<MultiRegions::Field<TData, FieldState::Phys>> TakeImplicits()
+    std::deque<LibUtilities::Field<TData, FieldState::Phys>> TakeImplicits()
     {
         return std::move(m_implicits);
     }
 
     // Move‐in
     void SetSolutions(
-        std::deque<MultiRegions::Field<TData, FieldState::Phys>> &&solutions)
+        std::deque<LibUtilities::Field<TData, FieldState::Phys>> &&solutions)
     {
         ASSERTL0(m_solutions.empty(),
                  "Do not call SetSolutions() if m_solutions is "
@@ -404,7 +404,7 @@ public:
     }
 
     void SetExplicits(
-        std::deque<MultiRegions::Field<TData, FieldState::Phys>> &&explicits)
+        std::deque<LibUtilities::Field<TData, FieldState::Phys>> &&explicits)
     {
         ASSERTL0(m_explicits.empty(),
                  "Do not call SetExplicits() if m_solutions is "
@@ -413,7 +413,7 @@ public:
     }
 
     void SetImplicits(
-        std::deque<MultiRegions::Field<TData, FieldState::Phys>> &&implicits)
+        std::deque<LibUtilities::Field<TData, FieldState::Phys>> &&implicits)
     {
         ASSERTL0(m_implicits.empty(),
                  "Do not call SetImplicits() if m_solutions is "
@@ -459,15 +459,15 @@ protected:
 
     // Storage for previous solutions in Fields
     // and memory region for pointer access on device
-    std::deque<MultiRegions::Field<TData, FieldState::Phys>> m_solutions;
+    std::deque<LibUtilities::Field<TData, FieldState::Phys>> m_solutions;
 
     // Storage for previous explicit parts in Fields
     // and memory region for pointer access on device
-    std::deque<MultiRegions::Field<TData, FieldState::Phys>> m_explicits;
+    std::deque<LibUtilities::Field<TData, FieldState::Phys>> m_explicits;
 
     // Storage for previous implicit parts in Fields
     // and memory region for pointer access on device
-    std::deque<MultiRegions::Field<TData, FieldState::Phys>> m_implicits;
+    std::deque<LibUtilities::Field<TData, FieldState::Phys>> m_implicits;
 
     // Functors to explicit, projection and implicit part of time integration
     functorType1 m_projectionFunctor;
@@ -523,7 +523,7 @@ protected:
     }
 
     virtual void v_Apply(
-        MultiRegions::Field<TData, FieldState::Phys> &inout) = 0;
+        LibUtilities::Field<TData, FieldState::Phys> &inout) = 0;
 
     void SetExplicitContributionCoefficients(std::vector<TData> coeffs)
     {
@@ -562,8 +562,8 @@ protected:
     }
 
     virtual void v_ExtrapolateHistory(
-        std::deque<MultiRegions::Field<TData, FieldState::Phys>> &history,
-        MultiRegions::Field<TData, FieldState::Phys> &out,
+        std::deque<LibUtilities::Field<TData, FieldState::Phys>> &history,
+        LibUtilities::Field<TData, FieldState::Phys> &out,
         const std::vector<TData> &coeffs, const TimeOpExtrapolationMode mode,
         const TData scale)
     {
@@ -600,8 +600,8 @@ protected:
      *  Note that the first order schemes do not use this.
      */
     void RollOver(
-        MultiRegions::Field<TData, FieldState::Phys> &inout,
-        std::deque<MultiRegions::Field<TData, FieldState::Phys>> &fieldDeque)
+        LibUtilities::Field<TData, FieldState::Phys> &inout,
+        std::deque<LibUtilities::Field<TData, FieldState::Phys>> &fieldDeque)
     {
         // Save last solution
         auto tmp = std::move(fieldDeque.back());
@@ -627,7 +627,7 @@ protected:
      *  Note that the first order schemes do not use this.
      */
     void RollOver(
-        std::deque<MultiRegions::Field<TData, FieldState::Phys>> &fieldDeque)
+        std::deque<LibUtilities::Field<TData, FieldState::Phys>> &fieldDeque)
     {
         // Save last solution
         auto tmp = std::move(fieldDeque.back());

@@ -34,9 +34,10 @@
 
 #pragma once
 
-#include "Operators/Common/DataWarehouse/NekDataWarehouse.hpp"
+#include <LibUtilities/BasicUtils/DataWarehouse/NekDataWarehouse.hpp>
+#include <LibUtilities/BasicUtils/ShapeType.hpp>
 
-namespace Nektar::Operators
+namespace Nektar::LibUtilities
 {
 
 class ModeIndexCreator;
@@ -51,18 +52,17 @@ public:
 
     ~ModeIndexKey() override = default;
 
-    ModeIndexKey(const LibUtilities::ShapeType shapeType,
-                 const unsigned int nm0, const unsigned int nm1,
-                 const unsigned int mode)
+    ModeIndexKey(const ShapeType shapeType, const unsigned int nm0,
+                 const unsigned int nm1, const unsigned int mode)
         : m_shapeType(shapeType), m_nm0(nm0), m_nm1(nm1), m_mode(mode)
     {
         hash_combine(m_hash, m_shapeType, m_nm0, m_nm1, m_nm2, m_mode,
                      "ModeIndexKey");
     }
 
-    ModeIndexKey(const LibUtilities::ShapeType shapeType,
-                 const unsigned int nm0, const unsigned int nm1,
-                 const unsigned int nm2, const unsigned int mode)
+    ModeIndexKey(const ShapeType shapeType, const unsigned int nm0,
+                 const unsigned int nm1, const unsigned int nm2,
+                 const unsigned int mode)
         : m_shapeType(shapeType), m_nm0(nm0), m_nm1(nm1), m_nm2(nm2),
           m_mode(mode)
     {
@@ -71,7 +71,7 @@ public:
     }
 
 private:
-    LibUtilities::ShapeType m_shapeType;
+    ShapeType m_shapeType;
     unsigned int m_nm0 = 0;
     unsigned int m_nm1 = 0;
     unsigned int m_nm2 = 0;
@@ -86,10 +86,9 @@ public:
     using value_type = ModeIndexKey::value_type;
 
     template <typename MemSpace>
-    LibUtilities::MemoryRegion<value_type> Create(
-        const ModeIndexKey &modeIndexKey);
+    MemoryRegion<value_type> Create(const ModeIndexKey &modeIndexKey);
 
     inline static const std::string m_name = "ModeIndexCreator";
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar::LibUtilities

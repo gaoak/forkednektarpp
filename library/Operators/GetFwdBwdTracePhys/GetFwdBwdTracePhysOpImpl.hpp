@@ -64,9 +64,9 @@ public:
             expansionList, components);
     }
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &phys,
-                 MultiRegions::Field<TData, FieldState::Phys> &fwd,
-                 MultiRegions::Field<TData, FieldState::Phys> &bwd) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &phys,
+                 LibUtilities::Field<TData, FieldState::Phys> &fwd,
+                 LibUtilities::Field<TData, FieldState::Phys> &bwd) override
     {
         ASSERTL1(fwd.GetNumComponents() == bwd.GetNumComponents(),
                  "Number of input and output components differ");

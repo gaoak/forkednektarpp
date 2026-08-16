@@ -106,7 +106,7 @@ NEK_FORCE_INLINE static void DiffuseScalarTraceFluxKernel(
                 {
                     normalDiffusionStrength +=
                         normal0 *
-                        vec_t(diffCoeff[Operators::GetDiffCoeffMap(
+                        vec_t(diffCoeff[LibUtilities::GetDiffCoeffMap(
                             ndim, n0 * ndim + n1)]) *
                         normvec[n1 * traceVecStride + i];
                 }
@@ -144,7 +144,7 @@ NEK_FORCE_INLINE static void DiffuseScalarTraceFluxKernel(
                     for (unsigned int n = 0; n < ndim; ++n)
                     {
                         const unsigned int coeffId =
-                            Operators::GetDiffCoeffMap(ndim, n * ndim + d);
+                            LibUtilities::GetDiffCoeffMap(ndim, n * ndim + d);
                         normalDiffCoeff += normvec[n * traceVecStride + i] *
                                            vec_t(diffCoeff[coeffId]);
                     }
@@ -226,7 +226,7 @@ NEK_FORCE_INLINE static void AddScalarSymmetricTraceFluxCoeffKernel(
                             for (unsigned int n = 0; n < nDim; ++n)
                             {
                                 diffNormal +=
-                                    diffCoeff[Operators::GetDiffCoeffMap(
+                                    diffCoeff[LibUtilities::GetDiffCoeffMap(
                                         nDim, d * nDim + n)] *
                                     traceNormalBase[n * traceBlockCompSize +
                                                     traceBlockPoint];

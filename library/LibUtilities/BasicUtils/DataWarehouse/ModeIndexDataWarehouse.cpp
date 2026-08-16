@@ -32,16 +32,16 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/Common/DataWarehouse/ModeIndexDataWarehouseDef.hpp"
+#include <LibUtilities/BasicUtils/DataWarehouse/ModeIndexDataWarehouseDef.hpp>
 
-namespace Nektar::Operators
+namespace Nektar::LibUtilities
 {
 
-template LibUtilities::MemoryRegion<ModeIndexCreator::value_type> ModeIndexCreator::
-    Create<NektarSpaces::HostSpace>(const ModeIndexKey &modeIndextKey);
+template MemoryRegion<ModeIndexCreator::value_type> ModeIndexCreator::Create<
+    NektarSpaces::HostSpace>(const ModeIndexKey &modeIndextKey);
 #if defined(NEKTAR_ENABLE_DEVICE)
-template LibUtilities::MemoryRegion<ModeIndexCreator::value_type> ModeIndexCreator::
-    Create<NektarSpaces::DeviceSpace>(const ModeIndexKey &modeIndexKey);
+template MemoryRegion<ModeIndexCreator::value_type> ModeIndexCreator::Create<
+    NektarSpaces::DeviceSpace>(const ModeIndexKey &modeIndexKey);
 #endif
 
-} // namespace Nektar::Operators
+} // namespace Nektar::LibUtilities

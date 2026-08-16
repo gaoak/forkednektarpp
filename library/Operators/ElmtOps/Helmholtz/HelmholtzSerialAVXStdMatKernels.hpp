@@ -75,13 +75,14 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
             {
                 for (unsigned int k = 0; k < ncoord; ++k)
                 {
-                    metric[k] = dfptr[ndf * idx + d] *
-                                diffCoeff[GetDiffCoeffMap(ncoord, k)];
+                    metric[k] =
+                        dfptr[ndf * idx + d] *
+                        diffCoeff[LibUtilities::GetDiffCoeffMap(ncoord, k)];
                     for (unsigned int l = 1; l < ncoord; ++l)
                     {
-                        metric[k].fma(
-                            dfptr[ndf * idx + l * dimension + d],
-                            diffCoeff[GetDiffCoeffMap(ncoord, l * ncoord + k)]);
+                        metric[k].fma(dfptr[ndf * idx + l * dimension + d],
+                                      diffCoeff[LibUtilities::GetDiffCoeffMap(
+                                          ncoord, l * ncoord + k)]);
                     }
                 }
                 tmp0 = metric[0] * tmp[0];
@@ -105,13 +106,14 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
             {
                 for (unsigned int k = 0; k < ncoord; ++k)
                 {
-                    metric[k] = dfptr[ndf * e + d] *
-                                diffCoeff[GetDiffCoeffMap(ncoord, k)];
+                    metric[k] =
+                        dfptr[ndf * e + d] *
+                        diffCoeff[LibUtilities::GetDiffCoeffMap(ncoord, k)];
                     for (unsigned int l = 1; l < ncoord; ++l)
                     {
-                        metric[k].fma(
-                            dfptr[ndf * e + l * dimension + d],
-                            diffCoeff[GetDiffCoeffMap(ncoord, l * ncoord + k)]);
+                        metric[k].fma(dfptr[ndf * e + l * dimension + d],
+                                      diffCoeff[LibUtilities::GetDiffCoeffMap(
+                                          ncoord, l * ncoord + k)]);
                     }
                 }
                 for (unsigned int k = 0; k < dimension; ++k)

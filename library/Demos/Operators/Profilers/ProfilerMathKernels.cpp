@@ -38,8 +38,8 @@
 
 #include "LibUtilities/BasicUtils/Math/MathHelper.hpp"
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
+#include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
-#include <MultiRegions/Field/Field.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;

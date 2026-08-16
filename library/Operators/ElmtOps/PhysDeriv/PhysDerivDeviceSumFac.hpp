@@ -51,7 +51,7 @@ class PhysDerivBlockOpImpl : public PhysDerivBlockOp<TData>
 public:
     PhysDerivBlockOpImpl(const unsigned int block_idx,
                          const LocalRegions::ExpansionSharedPtr &exp,
-                         NekDataWarehouseSharedPtr dataWarehouse)
+                         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : PhysDerivBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         m_streamID = block_idx + 1;
@@ -74,42 +74,50 @@ public:
 
             // Fetch basis data.
             m_D.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<TData>(exp->GetBasis(d)->GetBasisKey(),
-                                    eDerivative)));
+                LibUtilities::BasisDataKey<TData>(
+                    exp->GetBasis(d)->GetBasisKey(),
+                    LibUtilities::eDerivative)));
         }
 
         if (m_dimension == 2)
         {
             // Fetch geometric factors.
             m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                    eHalfMultOnePlusZero)));
+                LibUtilities::BasisDataKey<TData>(
+                    this->m_exp->GetBasis(0)->GetBasisKey(),
+                    LibUtilities::eHalfMultOnePlusZero)));
             m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                    eTwoOverOneMinusZero)));
+                LibUtilities::BasisDataKey<TData>(
+                    this->m_exp->GetBasis(1)->GetBasisKey(),
+                    LibUtilities::eTwoOverOneMinusZero)));
         }
         else if (m_dimension == 3)
         {
             // Fetch geometric factors.
             m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<TData>(this->m_exp->GetBasis(0)->GetBasisKey(),
-                                    eHalfMultOnePlusZero)));
+                LibUtilities::BasisDataKey<TData>(
+                    this->m_exp->GetBasis(0)->GetBasisKey(),
+                    LibUtilities::eHalfMultOnePlusZero)));
             m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                    eHalfMultOnePlusZero)));
+                LibUtilities::BasisDataKey<TData>(
+                    this->m_exp->GetBasis(1)->GetBasisKey(),
+                    LibUtilities::eHalfMultOnePlusZero)));
             m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<TData>(this->m_exp->GetBasis(1)->GetBasisKey(),
-                                    eTwoOverOneMinusZero)));
+                LibUtilities::BasisDataKey<TData>(
+                    this->m_exp->GetBasis(1)->GetBasisKey(),
+                    LibUtilities::eTwoOverOneMinusZero)));
             m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<TData>(this->m_exp->GetBasis(2)->GetBasisKey(),
-                                    eTwoOverOneMinusZero)));
+                LibUtilities::BasisDataKey<TData>(
+                    this->m_exp->GetBasis(2)->GetBasisKey(),
+                    LibUtilities::eTwoOverOneMinusZero)));
         }
 
         // Fetch deriv factors data.
         constexpr bool transpose =
             std::is_same_v<Implementation, Operators::SumFacTOP>;
         m_dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, transpose));
+            LocalRegions::DerivFactorKey<TData>(
+                block_idx, m_implInterleaveWidth, transpose));
     }
 
     // className - for BlockOperatorFactory
@@ -120,7 +128,7 @@ public:
         ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>>
     Instantiate(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,
-                NekDataWarehouseSharedPtr dataWarehouse)
+                LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             PhysDerivBlockOpImpl<ExecSpace, Implementation, TData>>(
@@ -146,8 +154,8 @@ protected:
     const TData *m_dfptr;
 
     void v_Apply(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock) override
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
         switch (m_shapeType)
         {
@@ -217,50 +225,50 @@ protected:
     }
 
     void SegBlock(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock);
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock);
 
     void TriBlock(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock);
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock);
 
     void NodalTriBlock(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock);
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock);
 
     void QuadBlock(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock);
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock);
 
     void HexBlock(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock);
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock);
 
     void PrismBlock(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock);
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock);
 
     void NodalPrismBlock(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock);
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock);
 
     void PyrBlock(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock);
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock);
 
     void TetBlock(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock);
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock);
 
     void NodalTetBlock(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock);
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock);
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator1D(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock)
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         Operator1D<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
@@ -271,8 +279,8 @@ protected:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               unsigned int coordDim, unsigned int nq0>
     void Operator1D(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock)
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         Operator1D<SHAPE_TYPE, DEFORMED>(
             inblock, outblock, TemplatedPhysSizeParameter1D<coordDim, nq0>());
@@ -281,8 +289,8 @@ protected:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               typename TPhysSizeParameter1D>
     NEK_FORCE_INLINE void Operator1D(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock,
         TPhysSizeParameter1D sizeParam1D)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
@@ -306,9 +314,9 @@ protected:
         const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
 
         // Reshape, if necessary.
-        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                  nelmt * ncomp, inblock.GetNumData(),
-                                  (TData *)inptr, m_streamID);
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            m_implInterleaveWidth, interleaveWidth, nelmt * ncomp,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
 
         // Calculate derivative.
         DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(
@@ -317,12 +325,12 @@ protected:
             1, m_streamID, sizeParam1D, nelmt, outoffset, m_D[0], m_dfptr,
             inptr, outptr);
 
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                  nelmt * ncomp, inblock.GetNumData(),
-                                  (TData *)inptr, m_streamID);
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                  nelmt * ncomp * outDim, outblock.GetNumData(),
-                                  (TData *)outptr, m_streamID);
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp * outDim,
+            outblock.GetNumData(), (TData *)outptr, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
@@ -331,8 +339,8 @@ protected:
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator2D(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock)
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         Operator2D<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
@@ -343,8 +351,8 @@ protected:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               unsigned int coordDim, unsigned int nq0, unsigned int nq1>
     void Operator2D(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock)
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         Operator2D<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
@@ -354,8 +362,8 @@ protected:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               typename TPhysSizeParameter2D>
     NEK_FORCE_INLINE void Operator2D(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock,
         TPhysSizeParameter2D sizeParam2D)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
@@ -382,9 +390,9 @@ protected:
         const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
 
         // Reshape, if necessary.
-        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                  nelmt * ncomp, inblock.GetNumData(),
-                                  (TData *)inptr, m_streamID);
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            m_implInterleaveWidth, interleaveWidth, nelmt * ncomp,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
 
         // Calculate derivative.
         DEVICE_3DGRID_KERNEL_LAUNCHER(
@@ -394,12 +402,12 @@ protected:
             outoffset, m_D[0], m_D[1], m_f[0], m_f[1], m_dfptr, inptr, outptr);
 
         // Reshape back, if necessary.
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                  nelmt * ncomp, inblock.GetNumData(),
-                                  (TData *)inptr, m_streamID);
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                  nelmt * ncomp * outDim, outblock.GetNumData(),
-                                  (TData *)outptr, m_streamID);
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp * outDim,
+            outblock.GetNumData(), (TData *)outptr, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
@@ -408,8 +416,8 @@ protected:
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator3D(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock)
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         Operator3D<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
@@ -420,8 +428,8 @@ protected:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               unsigned int nq0, unsigned int nq1, unsigned int nq2>
     void Operator3D(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock)
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         Operator3D<SHAPE_TYPE, DEFORMED>(
             inblock, outblock, TemplatedPhysSizeParameter3D<nq0, nq1, nq2>());
@@ -430,8 +438,8 @@ protected:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               typename TPhysSizeParameter3D>
     NEK_FORCE_INLINE void Operator3D(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock,
         TPhysSizeParameter3D sizeParam3D)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
@@ -457,9 +465,9 @@ protected:
         const auto outoffset = outblock.CompSize();
 
         // Reshape, if necessary.
-        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                  nelmt * ncomp, inblock.GetNumData(),
-                                  (TData *)inptr, m_streamID);
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            m_implInterleaveWidth, interleaveWidth, nelmt * ncomp,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
 
         // Calculate derivative.
         DEVICE_3DGRID_KERNEL_LAUNCHER(
@@ -470,12 +478,12 @@ protected:
             m_dfptr, inptr, outptr);
 
         // Reshape back, if necessary.
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                  nelmt * ncomp, inblock.GetNumData(),
-                                  (TData *)inptr, m_streamID);
-        ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                  3 * nelmt * ncomp, outblock.GetNumData(),
-                                  (TData *)outptr, m_streamID);
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, 3 * nelmt * ncomp,
+            outblock.GetNumData(), (TData *)outptr, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);

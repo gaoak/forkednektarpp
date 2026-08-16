@@ -34,8 +34,7 @@
 
 #pragma once
 
-#include "Operators/Common/DataWarehouse/BasisDataWarehouse.hpp"
-
+#include <LibUtilities/BasicUtils/DataWarehouse/BasisDataWarehouse.hpp>
 #include <LibUtilities/Foundations/ManagerAccess.h> // for BasisManager, etc
 
 #if defined(_MSC_VER)
@@ -43,30 +42,28 @@
 #undef min
 #endif
 
-using namespace Nektar::LibUtilities;
-
-namespace Nektar::Operators
+namespace Nektar::LibUtilities
 {
 
 template <typename MemSpace, typename TData>
-LibUtilities::MemoryRegion<TData> BasisDataCreator::Create(
+MemoryRegion<TData> BasisDataCreator::Create(
     const BasisDataKey<TData> &basisDataKey)
 {
-    const auto basis = LibUtilities::BasisManager()[basisDataKey.m_basisKey];
+    const auto basis         = BasisManager()[basisDataKey.m_basisKey];
     const auto basisDataType = basisDataKey.m_basisDataType;
 
     switch (basisDataType)
     {
         case eBasis:
         {
-            return LibUtilities::MemoryRegion<TData>::template FromArray<
-                MemSpace>(basis->GetBdata());
+            return MemoryRegion<TData>::template FromArray<MemSpace>(
+                basis->GetBdata());
             break;
         }
         case eBasisDerivative:
         {
-            return LibUtilities::MemoryRegion<TData>::template FromArray<
-                MemSpace>(basis->GetDbdata());
+            return MemoryRegion<TData>::template FromArray<MemSpace>(
+                basis->GetDbdata());
             break;
         }
         case eWeights:
@@ -76,11 +73,10 @@ LibUtilities::MemoryRegion<TData> BasisDataCreator::Create(
 
             switch (basis->GetBasisType())
             {
-                case LibUtilities::eModified_B:
-                case LibUtilities::eOrtho_B:
+                case eModified_B:
+                case eOrtho_B:
                 {
-                    if (basis->GetPointsType() ==
-                        LibUtilities::eGaussRadauMAlpha1Beta0)
+                    if (basis->GetPointsType() == eGaussRadauMAlpha1Beta0)
                     {
                         Vmath::Smul(ndata, 0.5, basis->GetW().data(), 1,
                                     wTmp.data(), 1);
@@ -96,19 +92,17 @@ LibUtilities::MemoryRegion<TData> BasisDataCreator::Create(
                     }
                 }
                 break;
-                case LibUtilities::eModified_C:
-                case LibUtilities::eModifiedPyr_C:
-                case LibUtilities::eOrtho_C:
-                case LibUtilities::eOrthoPyr_C:
+                case eModified_C:
+                case eModifiedPyr_C:
+                case eOrtho_C:
+                case eOrthoPyr_C:
                 {
-                    if (basis->GetPointsType() ==
-                        LibUtilities::eGaussRadauMAlpha2Beta0)
+                    if (basis->GetPointsType() == eGaussRadauMAlpha2Beta0)
                     {
                         Vmath::Smul(ndata, 0.25, basis->GetW().data(), 1,
                                     wTmp.data(), 1);
                     }
-                    else if (basis->GetPointsType() ==
-                             LibUtilities::eGaussRadauMAlpha1Beta0)
+                    else if (basis->GetPointsType() == eGaussRadauMAlpha1Beta0)
                     {
                         const auto z = basis->GetZ();
                         const auto w = basis->GetW();
@@ -136,20 +130,19 @@ LibUtilities::MemoryRegion<TData> BasisDataCreator::Create(
                 }
             }
 
-            return LibUtilities::MemoryRegion<TData>::template FromArray<
-                MemSpace>(wTmp);
+            return MemoryRegion<TData>::template FromArray<MemSpace>(wTmp);
         }
         break;
         case eZeros:
         {
-            return LibUtilities::MemoryRegion<TData>::template FromArray<
-                MemSpace>(basis->GetZ());
+            return MemoryRegion<TData>::template FromArray<MemSpace>(
+                basis->GetZ());
         }
         break;
         case eDerivative:
         {
-            return LibUtilities::MemoryRegion<TData>::template FromArray<
-                MemSpace>(basis->GetD()->GetPtr());
+            return MemoryRegion<TData>::template FromArray<MemSpace>(
+                basis->GetD()->GetPtr());
         }
         break;
         case eInterp:
@@ -158,19 +151,16 @@ LibUtilities::MemoryRegion<TData> BasisDataCreator::Create(
             // Check if we interpolate to
             // a different PointsType specified via m_pointsToType
             // or use the basis' PointsType
-            LibUtilities::PointsType ptype =
-                basisDataKey.m_toPointsType == LibUtilities::eNoPointsType
-                    ? basis->GetPointsType()
-                    : basisDataKey.m_toPointsType;
-            LibUtilities::PointsKey toPkey(npTo, ptype);
+            PointsType ptype = basisDataKey.m_toPointsType == eNoPointsType
+                                   ? basis->GetPointsType()
+                                   : basisDataKey.m_toPointsType;
+            PointsKey toPkey(npTo, ptype);
 
             // Need points manager to get correct interpolation matrix
-            auto I = LibUtilities::PointsManager()[basis->GetPointsKey()]
-                         ->GetI(toPkey)
-                         ->GetPtr();
+            auto I =
+                PointsManager()[basis->GetPointsKey()]->GetI(toPkey)->GetPtr();
 
-            return LibUtilities::MemoryRegion<TData>::template FromArray<
-                MemSpace>(I);
+            return MemoryRegion<TData>::template FromArray<MemSpace>(I);
         }
         break;
         case eInterpTranspose:
@@ -179,16 +169,14 @@ LibUtilities::MemoryRegion<TData> BasisDataCreator::Create(
             // Check if we interpolate to
             // a different PointsType specified via m_pointsToType
             // or use the basis' PointsType
-            LibUtilities::PointsType ptype =
-                basisDataKey.m_toPointsType == LibUtilities::eNoPointsType
-                    ? basis->GetPointsType()
-                    : basisDataKey.m_toPointsType;
-            LibUtilities::PointsKey toPkey(npTo, ptype);
+            PointsType ptype = basisDataKey.m_toPointsType == eNoPointsType
+                                   ? basis->GetPointsType()
+                                   : basisDataKey.m_toPointsType;
+            PointsKey toPkey(npTo, ptype);
 
             // Need points manager to get correct interpolation matrix
-            auto I = LibUtilities::PointsManager()[basis->GetPointsKey()]
-                         ->GetI(toPkey)
-                         ->GetPtr();
+            auto I =
+                PointsManager()[basis->GetPointsKey()]->GetI(toPkey)->GetPtr();
 
             // Transpose interpolation matrix
             const auto npFrom = basis->GetPointsKey().GetNumPoints();
@@ -201,8 +189,7 @@ LibUtilities::MemoryRegion<TData> BasisDataCreator::Create(
                 }
             }
 
-            return LibUtilities::MemoryRegion<TData>::template FromArray<
-                MemSpace>(tmpI);
+            return MemoryRegion<TData>::template FromArray<MemSpace>(tmpI);
         }
         break;
         case eHalfMultOnePlusZero:
@@ -215,8 +202,7 @@ LibUtilities::MemoryRegion<TData> BasisDataCreator::Create(
                 Tmp[i] = 0.5 * (1.0 + z[i]);
             }
 
-            return LibUtilities::MemoryRegion<TData>::template FromArray<
-                MemSpace>(Tmp);
+            return MemoryRegion<TData>::template FromArray<MemSpace>(Tmp);
         }
         break;
         case eTwoOverOneMinusZero:
@@ -230,15 +216,14 @@ LibUtilities::MemoryRegion<TData> BasisDataCreator::Create(
                 Tmp[i] = 2 / (1.0 - z[i]);
             }
 
-            return LibUtilities::MemoryRegion<TData>::template FromArray<
-                MemSpace>(Tmp);
+            return MemoryRegion<TData>::template FromArray<MemSpace>(Tmp);
         }
         break;
         default:
             NEKERROR(ErrorUtil::efatal, "invalid basis data requested.");
-            return LibUtilities::MemoryRegion<TData>(0);
+            return MemoryRegion<TData>(0);
             break;
     }
 }
 
-} // namespace Nektar::Operators
+} // namespace Nektar::LibUtilities

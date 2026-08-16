@@ -52,9 +52,10 @@ class IProductWRTBaseBlockOpImpl : public IProductWRTBaseBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    IProductWRTBaseBlockOpImpl(const unsigned int block_idx,
-                               const LocalRegions::ExpansionSharedPtr &exp,
-                               NekDataWarehouseSharedPtr dataWarehouse)
+    IProductWRTBaseBlockOpImpl(
+        const unsigned int block_idx,
+        const LocalRegions::ExpansionSharedPtr &exp,
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : IProductWRTBaseBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
@@ -80,16 +81,18 @@ public:
                 : LibUtilities::eNoPointsType;
 
         m_matptr = dataWarehouse->template GetData<MemSpace>(
-            StdMatKey<TData>(basisKeys, m_shapeType,
-                             eIProductWRTBaseStdMatTranspose, nodalType));
+            StdRegions::StdMatKey<TData>(
+                basisKeys, m_shapeType,
+                StdRegions::eIProductWRTBaseStdMatTranspose, nodalType));
 
         // Fetch Jacobian.
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+            LocalRegions::JacobianKey<TData>(block_idx, m_implInterleaveWidth));
 
-        m_BT_matptr =
-            dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
-                basisKeys, m_shapeType, eBwdTransStdMat, nodalType));
+        m_BT_matptr = dataWarehouse->template GetData<MemSpace>(
+            StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
+                                         StdRegions::eBwdTransStdMat,
+                                         nodalType));
     }
 
     // className - for BlockOperatorFactory
@@ -100,7 +103,7 @@ public:
         ElmtBlockOp<FieldState::Phys, FieldState::Coeff, TData>>
     Instantiate(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,
-                NekDataWarehouseSharedPtr dataWarehouse)
+                LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             IProductWRTBaseBlockOpImpl<ExecSpace, Implementation, TData>>(
@@ -120,8 +123,8 @@ protected:
     const TData *m_BT_matptr;
     const TData *m_jacptr;
 
-    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-                 MultiRegions::BlockAccessor<TData, FieldState::Coeff>
+    void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+                 LibUtilities::BlockAccessor<TData, FieldState::Coeff>
                      &outblock) override
     {
         // Initialize pointers.
@@ -159,9 +162,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize,
-                                              m_nqTot, (TData *)inptr);
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        m_implInterleaveWidth, interleaveWidth, chunkSize,
+                        m_nqTot, (TData *)inptr);
                 }
 
                 if (this->m_integration) // integration with weights
@@ -207,12 +210,12 @@ protected:
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nqTot,
                         (TData *)inptr -
                             (width_ratio - 1) * m_nqTot * simd_t::width);
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nmTot,
                         (TData *)outptr -

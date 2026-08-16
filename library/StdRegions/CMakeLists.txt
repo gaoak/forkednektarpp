@@ -44,8 +44,19 @@ StdRegions.hpp
 Operators/BwdTransSumFacStdKernels.hpp
 Operators/IProductWRTBaseSumFacStdKernels.hpp
 Operators/PhysDerivSumFacStdKernels.hpp
-#${CMAKE_BINARY_DIR}/library/StdRegions/Operators/SwitchLimits.h
 )
+
+IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
+    SET(STD_REGIONS_SOURCES
+       ${STD_REGIONS_SOURCES}
+       DataWarehouse/StdMatDataWarehouse.cpp
+    )
+
+    SET(STD_REGIONS_HEADERS
+       ${STD_REGIONS_HEADERS}
+       DataWarehouse/StdMatDataWarehouse.hpp
+    )
+ENDIF()
 
 ADD_DEFINITIONS(-DSTD_REGIONS_EXPORTS)
 

@@ -34,13 +34,18 @@
 
 #pragma once
 
-#include "Operators/Common/DataWarehouse/NekDataWarehouse.hpp"
+#include <LibUtilities/BasicUtils/DataWarehouse/NekDataWarehouse.hpp>
 #include <LibUtilities/Foundations/Interp.h>
 #include <LibUtilities/Foundations/Points.h>
 #include <MultiRegions/AssemblyMap/LocTraceToTraceMap.h>
 
-namespace Nektar::Operators
+namespace Nektar::MultiRegions
 {
+
+class ExpList;
+
+/// Shared pointer to an ExpList object.
+typedef std::shared_ptr<ExpList> ExpListSharedPtr;
 
 class TraceEssentialCreator;
 
@@ -52,7 +57,7 @@ enum class IPTraceScalarData
     PenaltyFactor
 };
 
-template <typename TData> class IPTraceNormalKey : public BaseKey
+template <typename TData> class IPTraceNormalKey : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -72,7 +77,7 @@ private:
     unsigned int m_block_idx;
 };
 
-template <typename TData> class IPTraceScalarKey : public BaseKey
+template <typename TData> class IPTraceScalarKey : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -94,7 +99,8 @@ private:
     IPTraceScalarData m_type;
 };
 
-template <typename TData> class IPTraceDerivBaseKey : public BaseKey
+template <typename TData>
+class IPTraceDerivBaseKey : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -120,7 +126,8 @@ private:
     unsigned int m_block_idx;
 };
 
-template <typename TData> class LocTracePhysToElmtMapsKey : public BaseKey
+template <typename TData>
+class LocTracePhysToElmtMapsKey : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -143,7 +150,8 @@ private:
     unsigned int m_interleave_width;
 };
 
-template <typename TData> class OrientationMapsKey : public BaseKey
+template <typename TData>
+class OrientationMapsKey : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -166,7 +174,8 @@ private:
     unsigned int m_interleave_width;
 };
 
-template <typename TData> class OrientationMapsOffsetKey : public BaseKey
+template <typename TData>
+class OrientationMapsOffsetKey : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -189,7 +198,8 @@ private:
     unsigned int m_interleave_width;
 };
 
-template <typename TData> class LocToTracePhysOffsetKey : public BaseKey
+template <typename TData>
+class LocToTracePhysOffsetKey : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -212,7 +222,8 @@ private:
     unsigned int m_interleave_width;
 };
 
-template <typename TData> class IsLocTraceLeftAdjacentKey : public BaseKey
+template <typename TData>
+class IsLocTraceLeftAdjacentKey : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -235,7 +246,8 @@ private:
     unsigned int m_interleave_width;
 };
 
-template <typename TData> class InterpTraceIndexKey : public BaseKey
+template <typename TData>
+class InterpTraceIndexKey : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -258,7 +270,7 @@ private:
     unsigned int m_interleave_width;
 };
 
-template <typename TData> class InterpPointsKey : public BaseKey
+template <typename TData> class InterpPointsKey : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -278,7 +290,7 @@ private:
     unsigned int m_block_idx;
 };
 
-template <typename TData> class InterpTypesKey : public BaseKey
+template <typename TData> class InterpTypesKey : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -298,7 +310,7 @@ private:
     unsigned int m_block_idx;
 };
 
-template <typename TData> class QuadRangeKey : public BaseKey
+template <typename TData> class QuadRangeKey : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -318,13 +330,13 @@ private:
     unsigned int m_block_idx;
 };
 
-template <typename TData> class InterpTraceKey : public BaseKey
+template <typename TData> class InterpTraceKey : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
 public:
     using creator = TraceEssentialCreator;
-    typedef MultiRegions::InterpLocTraceToTrace value_type;
+    typedef InterpLocTraceToTrace value_type;
 
     ~InterpTraceKey() override = default;
 
@@ -338,7 +350,7 @@ private:
     unsigned int m_block_idx;
 };
 
-template <typename TData> class InterpTraceI0Key : public BaseKey
+template <typename TData> class InterpTraceI0Key : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -358,7 +370,8 @@ private:
     unsigned int m_block_idx;
 };
 
-template <typename TData> class InterpTraceI0OffsetKey : public BaseKey
+template <typename TData>
+class InterpTraceI0OffsetKey : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -379,7 +392,7 @@ private:
     unsigned int m_block_idx;
 };
 
-template <typename TData> class InterpTraceI1Key : public BaseKey
+template <typename TData> class InterpTraceI1Key : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -399,7 +412,8 @@ private:
     unsigned int m_block_idx;
 };
 
-template <typename TData> class InterpTraceI1OffsetKey : public BaseKey
+template <typename TData>
+class InterpTraceI1OffsetKey : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -420,7 +434,8 @@ private:
     unsigned int m_block_idx;
 };
 
-template <typename TData> class InterpFromTraceI0Key : public BaseKey
+template <typename TData>
+class InterpFromTraceI0Key : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -440,7 +455,8 @@ private:
     unsigned int m_block_idx;
 };
 
-template <typename TData> class InterpFromTraceI1Key : public BaseKey
+template <typename TData>
+class InterpFromTraceI1Key : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -460,7 +476,7 @@ private:
     unsigned int m_block_idx;
 };
 
-template <typename TData> class InterpEndPtI0Key : public BaseKey
+template <typename TData> class InterpEndPtI0Key : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -480,7 +496,8 @@ private:
     unsigned int m_block_idx;
 };
 
-template <typename TData> class InterpEndPtI0OffsetKey : public BaseKey
+template <typename TData>
+class InterpEndPtI0OffsetKey : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -501,7 +518,7 @@ private:
     unsigned int m_block_idx;
 };
 
-template <typename TData> class InterpEndPtI1Key : public BaseKey
+template <typename TData> class InterpEndPtI1Key : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -521,7 +538,8 @@ private:
     unsigned int m_block_idx;
 };
 
-template <typename TData> class InterpEndPtI1OffsetKey : public BaseKey
+template <typename TData>
+class InterpEndPtI1OffsetKey : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -542,7 +560,7 @@ private:
     unsigned int m_block_idx;
 };
 
-template <typename TData> class Interp1DKey : public BaseKey
+template <typename TData> class Interp1DKey : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -565,7 +583,7 @@ private:
     LibUtilities::PointsKey m_toKey;
 };
 
-template <typename TData> class Interp2DKey : public BaseKey
+template <typename TData> class Interp2DKey : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -595,11 +613,11 @@ private:
     LibUtilities::PointsKey m_toKey1;
 };
 
-class TraceEssentialCreator : public DataCreatorClass
+class TraceEssentialCreator : public LibUtilities::DataCreatorClass
 {
 public:
     ~TraceEssentialCreator() override = default;
-    TraceEssentialCreator(const MultiRegions::ExpListSharedPtr &expansionList)
+    TraceEssentialCreator(const ExpListSharedPtr &expansionList)
         : m_expansionList(expansionList)
     {
     }
@@ -641,7 +659,7 @@ public:
         const QuadRangeKey<TData> &quadRangeKey);
 
     template <typename MemSpace, typename TData>
-    LibUtilities::MemoryRegion<MultiRegions::InterpLocTraceToTrace> Create(
+    LibUtilities::MemoryRegion<InterpLocTraceToTrace> Create(
         const InterpTraceKey<TData> &interpTraceKey);
 
     template <typename MemSpace, typename TData>
@@ -707,7 +725,7 @@ public:
     inline static const std::string m_name = "TraceEssentialCreator";
 
 private:
-    MultiRegions::ExpListSharedPtr m_expansionList;
+    ExpListSharedPtr m_expansionList;
 };
 
 class PermuteKernel
@@ -796,4 +814,4 @@ private:
     int m_coeffA = 0, m_coeffB = 0, m_coeffC = 0;
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar::MultiRegions

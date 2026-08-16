@@ -34,23 +34,19 @@
 
 #pragma once
 
-#include <LibUtilities/BasicUtils/ShapeType.hpp>
-
-#include "Operators/Common/DataWarehouse/ModeIndexDataWarehouse.hpp"
+#include <LibUtilities/BasicUtils/DataWarehouse/ModeIndexDataWarehouse.hpp>
 
 #if defined(_MSC_VER)
 #undef max
 #undef min
 #endif
 
-using namespace Nektar::LibUtilities;
-
-namespace Nektar::Operators
+namespace Nektar::LibUtilities
 {
 
 template <typename MemSpace>
-LibUtilities::MemoryRegion<ModeIndexCreator::value_type> ModeIndexCreator::
-    Create(const ModeIndexKey &modeIndexKey)
+MemoryRegion<ModeIndexCreator::value_type> ModeIndexCreator::Create(
+    const ModeIndexKey &modeIndexKey)
 {
     using value_type = ModeIndexCreator::value_type;
 
@@ -58,16 +54,15 @@ LibUtilities::MemoryRegion<ModeIndexCreator::value_type> ModeIndexCreator::
 
     switch (shapeType)
     {
-        case LibUtilities::Tri:
-        case LibUtilities::NodalTri:
+        case Tri:
+        case NodalTri:
         {
             const auto mode = modeIndexKey.m_mode;
             const auto nm0  = modeIndexKey.m_nm0;
             const auto nm1  = modeIndexKey.m_nm1;
-            const auto nm01 =
-                LibUtilities::GetNumberOfCoefficients(shapeType, nm0, nm1);
+            const auto nm01 = GetNumberOfCoefficients(shapeType, nm0, nm1);
 
-            auto index = LibUtilities::MemoryRegion<value_type>(nm01);
+            auto index = MemoryRegion<value_type>(nm01);
             auto ptr =
                 index.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             for (unsigned int p = 0, mode_pq = 0; p < nm0; p++)
@@ -92,19 +87,19 @@ LibUtilities::MemoryRegion<ModeIndexCreator::value_type> ModeIndexCreator::
             return index;
         }
         break;
-        case LibUtilities::Tet:
-        case LibUtilities::NodalTet:
+        case Tet:
+        case NodalTet:
         {
             const auto mode = modeIndexKey.m_mode;
             const auto nm0  = modeIndexKey.m_nm0;
             const auto nm1  = modeIndexKey.m_nm1;
             const auto nm2  = modeIndexKey.m_nm2;
             const auto nmTot =
-                LibUtilities::GetNumberOfCoefficients(shapeType, nm0, nm1, nm2);
+                GetNumberOfCoefficients(shapeType, nm0, nm1, nm2);
             const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
             if (mode == 0 || mode == 3)
             {
-                auto index = LibUtilities::MemoryRegion<value_type>(nm01);
+                auto index = MemoryRegion<value_type>(nm01);
                 auto ptr =
                     index.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
                 for (unsigned int p = 0, mode_pq = 0; p < nm0; p++)
@@ -126,7 +121,7 @@ LibUtilities::MemoryRegion<ModeIndexCreator::value_type> ModeIndexCreator::
             }
             else if (mode == 1 || mode == 2)
             {
-                auto index = LibUtilities::MemoryRegion<value_type>(nmTot);
+                auto index = MemoryRegion<value_type>(nmTot);
                 auto ptr =
                     index.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
                 for (unsigned int p = 0, mode_pq = 0, mode_pqr = 0; p < nm0;
@@ -154,21 +149,21 @@ LibUtilities::MemoryRegion<ModeIndexCreator::value_type> ModeIndexCreator::
             else
             {
                 NEKERROR(ErrorUtil::efatal, "invalid data requested.");
-                return LibUtilities::MemoryRegion<value_type>(0);
+                return MemoryRegion<value_type>(0);
             }
         }
         break;
-        case LibUtilities::Prism:
-        case LibUtilities::NodalPrism:
+        case Prism:
+        case NodalPrism:
         {
             const auto mode = modeIndexKey.m_mode;
             const auto nm0  = modeIndexKey.m_nm0;
             const auto nm1  = modeIndexKey.m_nm1;
             const auto nm2  = modeIndexKey.m_nm2;
             const auto nmTot =
-                LibUtilities::GetNumberOfCoefficients(shapeType, nm0, nm1, nm2);
+                GetNumberOfCoefficients(shapeType, nm0, nm1, nm2);
 
-            auto index = LibUtilities::MemoryRegion<value_type>(nmTot);
+            auto index = MemoryRegion<value_type>(nmTot);
             auto ptr =
                 index.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             for (unsigned int p = 0, mode_pqr = 0; p < nm0; p++)
@@ -201,16 +196,16 @@ LibUtilities::MemoryRegion<ModeIndexCreator::value_type> ModeIndexCreator::
             return index;
         }
         break;
-        case LibUtilities::Pyr:
+        case Pyr:
         {
             const auto mode = modeIndexKey.m_mode;
             const auto nm0  = modeIndexKey.m_nm0;
             const auto nm1  = modeIndexKey.m_nm1;
             const auto nm2  = modeIndexKey.m_nm2;
             const auto nmTot =
-                LibUtilities::GetNumberOfCoefficients(shapeType, nm0, nm1, nm2);
+                GetNumberOfCoefficients(shapeType, nm0, nm1, nm2);
 
-            auto index = LibUtilities::MemoryRegion<value_type>(nmTot);
+            auto index = MemoryRegion<value_type>(nmTot);
             auto ptr =
                 index.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             for (unsigned int p = 0, mode_pqr = 0; p < nm0; p++)
@@ -242,9 +237,9 @@ LibUtilities::MemoryRegion<ModeIndexCreator::value_type> ModeIndexCreator::
         break;
         default:
             NEKERROR(ErrorUtil::efatal, "invalid data requested.");
-            return LibUtilities::MemoryRegion<value_type>(0);
+            return MemoryRegion<value_type>(0);
             break;
     }
 }
 
-} // namespace Nektar::Operators
+} // namespace Nektar::LibUtilities

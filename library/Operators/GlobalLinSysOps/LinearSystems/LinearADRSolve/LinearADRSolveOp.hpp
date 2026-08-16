@@ -71,7 +71,7 @@ public:
             ->SetDiffCoeff(diffCoeff);
     }
 
-    void SetAdvVel(MultiRegions::Field<TData, FieldState::Phys> &Vel)
+    void SetAdvVel(LibUtilities::Field<TData, FieldState::Phys> &Vel)
     {
         std::dynamic_pointer_cast<LinAdvDiffReactionOp<TData>>(this->m_ElmtOp)
             ->SetAdvVel(Vel);

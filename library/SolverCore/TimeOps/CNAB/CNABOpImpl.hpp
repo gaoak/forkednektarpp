@@ -103,7 +103,7 @@ protected:
         }
     }
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &inout) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &inout) override
     {
         // Check that required functions are defined.
         ASSERTL0(this->m_explicitRhsFunctor,
@@ -143,7 +143,7 @@ protected:
             if (this->m_step == 0 && Nimplicit() == 2)
             {
                 this->m_implicits.push_back(
-                    MultiRegions::Field<TData, FieldState::Phys>(
+                    LibUtilities::Field<TData, FieldState::Phys>(
                         MultiRegions::GetBlockAttributes<
                             TData, FieldState::Phys>(this->m_expansionList),
                         this->m_components, inout.GetNumHomoModes()));
@@ -160,7 +160,7 @@ protected:
             if (this->m_explicits.size() < IntOrder)
             {
                 this->m_explicits.push_back(
-                    MultiRegions::Field<TData, FieldState::Phys>(
+                    LibUtilities::Field<TData, FieldState::Phys>(
                         MultiRegions::GetBlockAttributes<
                             TData, FieldState::Phys>(this->m_expansionList),
                         this->m_components, inout.GetNumHomoModes()));
@@ -198,7 +198,7 @@ protected:
     }
 
     template <unsigned int... ind, unsigned int... ind2>
-    void UpdateSolution(MultiRegions::Field<TData, FieldState::Phys> &inout,
+    void UpdateSolution(LibUtilities::Field<TData, FieldState::Phys> &inout,
                         std::integer_sequence<unsigned int, ind...>,
                         std::integer_sequence<unsigned int, ind2...>)
     {

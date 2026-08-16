@@ -89,8 +89,8 @@ void ForcingBody::v_InitObject(const TiXmlElement *force)
     m_forceOp->SetAppend(true);
 }
 
-void ForcingBody::v_Apply(MultiRegions::Field<double, FieldState::Phys> &in,
-                          MultiRegions::Field<double, FieldState::Phys> &out,
+void ForcingBody::v_Apply(LibUtilities::Field<double, FieldState::Phys> &in,
+                          LibUtilities::Field<double, FieldState::Phys> &out,
                           const double time, const double scale)
 {
     ASSERTL0(m_forceOp, "ForcingBody has not been initialised.");

@@ -32,7 +32,7 @@
 # Dirichlet              only output - Nodepend - Helmholtz1D_Seg, etc.
 # Neumann                only output - Nodepend - Helmholtz1D_Seg, etc.
 
-SET(OPERATOR_UNIT_TEST_DEPENDS Operators SolverCore)
+SET(OPERATOR_UNIT_TEST_DEPENDS SolverCore)
 
 IF(BOOST_TEST_DYN_LINK)
     SET(OPERATOR_UNIT_TEST_DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS}

@@ -41,8 +41,8 @@
 #include "Operators/BndCondOps/NeuBndCond/NeuBndCondKernels.hpp"
 #include "Operators/BndCondOps/NeuBndCond/NeuBndCondOp.hpp"
 
+#include "LibUtilities/BasicUtils/Math/Math.hpp"
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "MultiRegions/Field/Math.hpp"
 #include "Operators/ElmtOps/Expression/ExpressionOp.hpp"
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
 
@@ -223,8 +223,8 @@ protected:
     size_t m_numBndCoeffCompSize = 0;
     std::vector<bool> m_signChange;
 
-    std::vector<MultiRegions::Field<TData, FieldState::Phys>> m_wsp_phys;
-    std::vector<MultiRegions::Field<TData, FieldState::Coeff>> m_wsp_coeffs;
+    std::vector<LibUtilities::Field<TData, FieldState::Phys>> m_wsp_phys;
+    std::vector<LibUtilities::Field<TData, FieldState::Coeff>> m_wsp_coeffs;
     std::vector<std::shared_ptr<ExpressionOp<TData>>> m_expressionOps;
     std::vector<std::shared_ptr<IProductWRTBaseOp<TData>>> m_iprodOps;
     std::vector<size_t> m_neuCoeffOffsets;
@@ -377,7 +377,7 @@ protected:
         return m_totalBndDofs;
     }
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &inout) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &inout) override
     {
         // Return if no Neumann boundary condition.
         if (m_numBndCoeffCompSize == 0)
@@ -442,7 +442,7 @@ protected:
             // if block is interlaced deInterleave block since currently
             // mapping set up assuming serial alignment. Reshape once for
             // the whole block (all components) rather than per-component.
-            ReshapeStorage<ExecSpace>(
+            LibUtilities::ReshapeStorage<ExecSpace>(
                 1u, inoutWidth,
                 inoutBlk.GetNumElementsWithPadding() * inout.GetNumComponents(),
                 inoutBlk.GetNumData(), inoutPtr, streamID);
@@ -499,7 +499,7 @@ protected:
             }
 
             // Reshape back, if necessary.
-            ReshapeStorage<ExecSpace>(
+            LibUtilities::ReshapeStorage<ExecSpace>(
                 inoutWidth, 1u,
                 inoutBlk.GetNumElementsWithPadding() * inout.GetNumComponents(),
                 inoutBlk.GetNumData(), inoutPtr, streamID);

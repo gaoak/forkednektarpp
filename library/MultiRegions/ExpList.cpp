@@ -67,14 +67,18 @@
 #include <MultiRegions/GlobalMatrixKey.h> // for GlobalMatrixKey
 #include <iomanip>
 
-#include "Operators/Common/DataWarehouse/NekDataWarehouse.hpp"
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+#include <LibUtilities/BasicUtils/DataWarehouse/BasisDataWarehouse.hpp>
+#include <LibUtilities/BasicUtils/DataWarehouse/ModeIndexDataWarehouse.hpp>
+#include <LibUtilities/BasicUtils/DataWarehouse/NekDataWarehouse.hpp>
 
-#include "Operators/Common/DataWarehouse/BasisDataWarehouse.hpp"
-#include "Operators/Common/DataWarehouse/GeometricDataWarehouse.hpp"
-#include "Operators/Common/DataWarehouse/LocalToGlobalDataWarehouse.hpp"
-#include "Operators/Common/DataWarehouse/ModeIndexDataWarehouse.hpp"
-#include "Operators/Common/DataWarehouse/StdMatDataWarehouse.hpp"
-#include "Operators/Common/DataWarehouse/TraceDataWarehouse.hpp"
+#include <StdRegions/DataWarehouse/StdMatDataWarehouse.hpp>
+
+#include <LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp>
+
+#include <MultiRegions/DataWarehouse/LocalToGlobalDataWarehouse.hpp>
+#include <MultiRegions/DataWarehouse/TraceDataWarehouse.hpp>
+#endif
 
 using namespace std;
 
@@ -1875,24 +1879,25 @@ ExpList::~ExpList()
 
 void ExpList::SetDataWarehouse(void)
 {
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     std::shared_ptr<ExpList> vExpList = GetSharedThisPtr();
+    Collections::CollectionVector collections =
+        MultiRegions::GetCollections(vExpList);
 
-    m_dataWarehouse = std::make_shared<Nektar::Operators::NekDataWarehouse>();
+    m_dataWarehouse = std::make_shared<LibUtilities::NekDataWarehouse>();
+    m_dataWarehouse->RegisterDataCreatorClass<LibUtilities::BasisDataCreator>();
+    m_dataWarehouse->RegisterDataCreatorClass<LibUtilities::ModeIndexCreator>();
+    m_dataWarehouse->RegisterDataCreatorClass<StdRegions::StdMatDataCreator>();
     m_dataWarehouse
-        ->RegisterDataCreatorClass<Nektar::Operators::ModeIndexCreator>();
+        ->RegisterDataCreatorClass<LocalRegions::GeometricDataCreator>(
+            collections);
     m_dataWarehouse
-        ->RegisterDataCreatorClass<Nektar::Operators::BasisDataCreator>();
-    m_dataWarehouse
-        ->RegisterDataCreatorClass<Nektar::Operators::StdMatDataCreator>();
-    m_dataWarehouse
-        ->RegisterDataCreatorClass<Nektar::Operators::GeometricDataCreator>(
+        ->RegisterDataCreatorClass<MultiRegions::LocalToGlobalDataCreator>(
             vExpList);
     m_dataWarehouse
-        ->RegisterDataCreatorClass<Nektar::Operators::LocalToGlobalDataCreator>(
+        ->RegisterDataCreatorClass<MultiRegions::TraceEssentialCreator>(
             vExpList);
-    m_dataWarehouse
-        ->RegisterDataCreatorClass<Nektar::Operators::TraceEssentialCreator>(
-            vExpList);
+#endif
 }
 
 /**

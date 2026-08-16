@@ -32,11 +32,10 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <MultiRegions/Field/Block.hpp>
+#include <LibUtilities/BasicUtils/Field/Block.hpp>
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-
-namespace Nektar::MultiRegions
+namespace Nektar::LibUtilities
 {
 
 template <typename TData, FieldState TState>
@@ -47,7 +46,7 @@ void BlockAccessor<TData, TState>::ReshapeStorage(
     if (execSpace == "Serial")
     {
         auto *ptr = this->template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-        ::Nektar::Operators::ReshapeStorage<NektarSpaces::Serial>(
+        ::Nektar::LibUtilities::ReshapeStorage<NektarSpaces::Serial>(
             interleaveWidth, this->GetInterleaveWidth(),
             this->GetNumElementsWithPadding() * this->GetNumComponents() *
                 this->GetNumHomoModes(),
@@ -58,7 +57,7 @@ void BlockAccessor<TData, TState>::ReshapeStorage(
     else if (execSpace == "AVX")
     {
         auto *ptr = this->template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-        ::Nektar::Operators::ReshapeStorage<NektarSpaces::AVX>(
+        ::Nektar::LibUtilities::ReshapeStorage<NektarSpaces::AVX>(
             interleaveWidth, this->GetInterleaveWidth(),
             this->GetNumElementsWithPadding() * this->GetNumComponents() *
                 this->GetNumHomoModes(),
@@ -71,7 +70,7 @@ void BlockAccessor<TData, TState>::ReshapeStorage(
     {
         auto *ptr =
             this->template GetPtr<NektarSpaces::DeviceSpace, ReadWrite>();
-        ::Nektar::Operators::ReshapeStorage<NektarSpaces::Device>(
+        ::Nektar::LibUtilities::ReshapeStorage<NektarSpaces::Device>(
             interleaveWidth, this->GetInterleaveWidth(),
             this->GetNumElementsWithPadding() * this->GetNumComponents() *
                 this->GetNumHomoModes(),
@@ -97,4 +96,4 @@ template void BlockAccessor<double, FieldState::Phys>::ReshapeStorage(
 template void BlockAccessor<double, FieldState::Coeff>::ReshapeStorage(
     const unsigned int &interleaveWidth, const std::string &execSpace,
     const unsigned int streamID);
-} // namespace Nektar::MultiRegions
+} // namespace Nektar::LibUtilities

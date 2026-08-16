@@ -83,20 +83,20 @@ public:
             MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                 this->m_expansionList);
         this->m_solutions.push_back(
-            MultiRegions::Field<TData, FieldState::Phys>(
+            LibUtilities::Field<TData, FieldState::Phys>(
                 blockAttr, this->m_components, 1));
 
         for (unsigned int i = 0; i < ImpStage; i++)
         {
             this->m_implicits.push_back(
-                MultiRegions::Field<TData, FieldState::Phys>(
+                LibUtilities::Field<TData, FieldState::Phys>(
                     blockAttr, this->m_components, 1));
         }
 
         for (unsigned int i = 0; i < ExpStage; i++)
         {
             this->m_explicits.push_back(
-                MultiRegions::Field<TData, FieldState::Phys>(
+                LibUtilities::Field<TData, FieldState::Phys>(
                     blockAttr, this->m_components, 1));
         }
     }
@@ -115,7 +115,7 @@ public:
     }
 
 protected:
-    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &inout) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &inout) override
     {
         // Check that required functions are defined.
         ASSERTL0(this->m_explicitRhsFunctor,
@@ -139,7 +139,7 @@ protected:
     }
 
     template <unsigned int Stage>
-    void Staging(MultiRegions::Field<TData, FieldState::Phys> &inout)
+    void Staging(LibUtilities::Field<TData, FieldState::Phys> &inout)
     {
         constexpr auto coeff0 =
             GetIMEXdirkTimeCoefficients<ImpStage, ExpStage, IntOrder,
@@ -214,7 +214,7 @@ protected:
     }
 
     template <unsigned int... ind0, unsigned int... ind1>
-    void UpdateStage(MultiRegions::Field<TData, FieldState::Phys> &inout,
+    void UpdateStage(LibUtilities::Field<TData, FieldState::Phys> &inout,
                      std::integer_sequence<unsigned int, ind0...>,
                      std::integer_sequence<unsigned int, ind1...>)
     {
@@ -247,7 +247,7 @@ protected:
     }
 
     template <unsigned int... ind0, unsigned int... ind1>
-    void UpdateSolution(MultiRegions::Field<TData, FieldState::Phys> &inout,
+    void UpdateSolution(LibUtilities::Field<TData, FieldState::Phys> &inout,
                         std::integer_sequence<unsigned int, ind0...>,
                         std::integer_sequence<unsigned int, ind1...>)
     {

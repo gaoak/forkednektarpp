@@ -22,7 +22,7 @@ IF(NEKTAR_SOLVER_ADR_DEVICE_SUPPORT)
         ADD_OPERATOR(${child} OPNAMESPACE ADR_OPERATORS_HEADERS ADR_OPERATORS_SOURCES)
     ENDFOREACH()
 
-    SET(OPERATOR_UNIT_TEST_DEPENDS Operators SolverCore)
+    SET(OPERATOR_UNIT_TEST_DEPENDS SolverCore)
 
     IF(BOOST_TEST_DYN_LINK)
         SET(OPERATOR_UNIT_TEST_DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS}
@@ -30,7 +30,7 @@ IF(NEKTAR_SOLVER_ADR_DEVICE_SUPPORT)
     ENDIF()
 
     ADD_NEKTAR_EXECUTABLE(test_advectionweakdg
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SolverUtils
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SolverCore SolverUtils
         SOURCES UnitTests/test_advectionweakdg.cpp ${ADR_OPERATORS_SOURCES})
 
     SET_UNIT_TEST(AdvectionWeakDG_serial_stdmat test_advectionweakdg Serial StdMat FALSE)
@@ -46,7 +46,7 @@ IF(NEKTAR_SOLVER_ADR_DEVICE_SUPPORT)
     ENDIF()
 
     ADD_SOLVER_EXECUTABLE(ADRSolverRedesign
-        DEPENDS SolverCore Operators
+        DEPENDS SolverCore
         SOURCES
         ADRSolverRedesign.cpp
         EquationSystems/SteadyADR.cpp

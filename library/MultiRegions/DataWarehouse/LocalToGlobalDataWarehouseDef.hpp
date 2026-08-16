@@ -34,16 +34,16 @@
 
 #pragma once
 
-#include "MultiRegions/Field/Field.hpp"
-#include "Operators/Common/DataWarehouse/LocalToGlobalDataWarehouse.hpp"
+#include <LibUtilities/BasicUtils/Field/Field.hpp>
+#include <MultiRegions/DataWarehouse/LocalToGlobalDataWarehouse.hpp>
 
 #include <MultiRegions/ContField.h>
 
-namespace Nektar::Operators
+namespace Nektar::MultiRegions
 {
 
-std::vector<MultiRegions::AssemblyMapCGSharedPtr> &LocalToGlobalDataCreator::
-    GetAssemblyMap(const std::vector<std::string> &components)
+std::vector<AssemblyMapCGSharedPtr> &LocalToGlobalDataCreator::GetAssemblyMap(
+    const std::vector<std::string> &components)
 {
     size_t hash = 0;
     for (const auto &component : components)
@@ -59,18 +59,18 @@ std::vector<MultiRegions::AssemblyMapCGSharedPtr> &LocalToGlobalDataCreator::
 
     auto session = this->m_expansionList->GetSession();
     auto graph   = this->m_expansionList->GetGraph();
-    std::vector<MultiRegions::AssemblyMapCGSharedPtr> assemblyMap;
+    std::vector<AssemblyMapCGSharedPtr> assemblyMap;
 
     if (components.empty())
     {
-        auto contfield = std::dynamic_pointer_cast<MultiRegions::ContField>(
-            this->m_expansionList);
+        auto contfield =
+            std::dynamic_pointer_cast<ContField>(this->m_expansionList);
         assemblyMap.push_back(contfield->GetLocalToGlobalMap());
     }
     else
     {
-        auto expContField = std::dynamic_pointer_cast<MultiRegions::ContField>(
-            this->m_expansionList);
+        auto expContField =
+            std::dynamic_pointer_cast<ContField>(this->m_expansionList);
 
         for (const auto &component : components)
         {
@@ -81,10 +81,9 @@ std::vector<MultiRegions::AssemblyMapCGSharedPtr> &LocalToGlobalDataCreator::
                 continue;
             }
 
-            auto contfield =
-                MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
-                    session, graph, component, true, false,
-                    Collections::eNoCollection);
+            auto contfield = MemoryManager<ContField>::AllocateSharedPtr(
+                session, graph, component, true, false,
+                Collections::eNoCollection);
             assemblyMap.push_back(contfield->GetLocalToGlobalMap());
         }
     }
@@ -123,8 +122,7 @@ LocalToGlobalDataCreator::Create(
     // of the assembled data is assumed to be. Not sure what we shoudl do it
     // is float however but legacy code is not set up for this either
     auto blockAttr =
-        MultiRegions::GetBlockAttributes<TPadding, FieldState::Coeff>(
-            this->m_expansionList);
+        GetBlockAttributes<TPadding, FieldState::Coeff>(this->m_expansionList);
 
     auto nblks = blockAttr.size();
     std::map<unsigned, std::vector<std::pair<unsigned, unsigned>>> GloToLoc;
@@ -450,8 +448,8 @@ LocalToGlobalDataCreator::Create(
 template <typename TPadding>
 void LocalToGlobalDataCreator::FillSignArray(
     std::vector<unsigned> &index,
-    const std::vector<MultiRegions::AssemblyMapCGSharedPtr> &loc2glo,
-    bool zeroDir, bool signChange, int *out)
+    const std::vector<AssemblyMapCGSharedPtr> &loc2glo, bool zeroDir,
+    bool signChange, int *out)
 {
     auto numComp = loc2glo.size();
 
@@ -467,8 +465,7 @@ void LocalToGlobalDataCreator::FillSignArray(
             : Array<OneD, double>(this->m_expansionList->GetNcoeffs(), 1.0);
 
     auto blockAttr =
-        MultiRegions::GetBlockAttributes<TPadding, FieldState::Coeff>(
-            this->m_expansionList);
+        GetBlockAttributes<TPadding, FieldState::Coeff>(this->m_expansionList);
 
     auto nblks = blockAttr.size();
     std::vector<unsigned> blkoffset(nblks + 1);
@@ -664,8 +661,7 @@ LocalToGlobalDataCreator::Create(
                                             loc2glo->GetSREntries().end());
 
     auto blockAttr =
-        MultiRegions::GetBlockAttributes<TPadding, FieldState::Coeff>(
-            this->m_expansionList);
+        GetBlockAttributes<TPadding, FieldState::Coeff>(this->m_expansionList);
 
     auto nblks = blockAttr.size();
     std::map<unsigned, std::vector<std::pair<unsigned, unsigned>>> GloToLoc;
@@ -1105,8 +1101,7 @@ LocalToGlobalDataCreator::Create(
     auto loc2glo     = loc2gloAll[0];
     auto l2gmap0     = loc2glo->GetLocalToGlobalMap();
     auto blockAttr =
-        MultiRegions::GetBlockAttributes<TPadding, FieldState::Coeff>(
-            this->m_expansionList);
+        GetBlockAttributes<TPadding, FieldState::Coeff>(this->m_expansionList);
     unsigned ntot = 0;
     unsigned blk  = 0;
     for (blk = 0; blk < blockAttr.size(); ++blk)
@@ -1162,4 +1157,4 @@ LocalToGlobalDataCreator::Create(
     return LocToGlo;
 }
 
-} // namespace Nektar::Operators
+} // namespace Nektar::MultiRegions

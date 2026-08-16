@@ -35,21 +35,11 @@
 #pragma once
 
 #include <Collections/Collection.h>
+#include <LibUtilities/BasicUtils/Field/MemoryRegion.hpp>
+#include <LibUtilities/LibUtilitiesDeclspec.h>
 
-#include "LibUtilities/BasicUtils/MemoryRegion.hpp"
-#include "MultiRegions/MultiRegionsDeclspec.h"
-
-namespace Nektar::MultiRegions
+namespace Nektar::LibUtilities
 {
-
-class ExpList;
-
-/// Shared pointer to an ExpList object.
-typedef std::shared_ptr<ExpList> ExpListSharedPtr;
-
-// Helper function
-MULTI_REGIONS_EXPORT Collections::Collection GetCollection(
-    MultiRegions::ExpListSharedPtr expansionList, unsigned int block_idx);
 
 /**
  * @brief A block means a group of elements of identical shape,
@@ -149,11 +139,6 @@ private:
  * @param interleave_width Vector width to use for the field.
  * @return std::vector<BlockAttributes>
  */
-template <typename TPadding, FieldState TState>
-MULTI_REGIONS_EXPORT std::vector<BlockAttributes<TState>> GetBlockAttributes(
-    const MultiRegions::ExpListSharedPtr explist,
-    const unsigned interleave_width = 1);
-
 template <typename TData, FieldState TState>
 class BlockAccessor : public BlockAttributes<TState>
 {
@@ -162,7 +147,7 @@ class BlockAccessor : public BlockAttributes<TState>
 public:
     BlockAccessor() = delete;
     BlockAccessor(const BlockAttributes<TState> blockAttr,
-                  LibUtilities::MemoryRegion<TData> &&memory_region,
+                  MemoryRegion<TData> &&memory_region,
                   Field<TData, TState> *field,
                   const unsigned int num_components,
                   const unsigned int num_homo_modes)
@@ -175,7 +160,7 @@ public:
     BlockAccessor(const size_t num_elements,
                   const size_t num_elements_with_padding,
                   const unsigned int num_data, const unsigned interleave_width,
-                  LibUtilities::MemoryRegion<TData> &&memory_region,
+                  MemoryRegion<TData> &&memory_region,
                   Field<TData, TState> *field,
                   const unsigned int num_components,
                   const unsigned int num_homo_modes)
@@ -232,7 +217,7 @@ public:
         return *this;
     }
 
-    MULTI_REGIONS_EXPORT void ReshapeStorage(
+    LIB_UTILITIES_EXPORT void ReshapeStorage(
         const unsigned int &interleaveWidth, const std::string &execSpace,
         const unsigned int streamID = 0);
 
@@ -242,7 +227,7 @@ public:
      * @return    - TData*
      */
     template <typename MemSpace, typename MemAccess>
-    MULTI_REGIONS_EXPORT
+    LIB_UTILITIES_EXPORT
         typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *
         GetPtr(const unsigned int streamID = 0);
 
@@ -293,10 +278,10 @@ public:
 private:
     // Note: m_field is a pointer to a Field object from which the current
     // BlockAccessor object belong to.
-    LibUtilities::MemoryRegion<TData> m_memory_region;
+    MemoryRegion<TData> m_memory_region;
     Field<TData, TState> *m_field;
     unsigned int m_num_components = 0;
     unsigned int m_num_homo_modes = 1;
 };
 
-} // namespace Nektar::MultiRegions
+} // namespace Nektar::LibUtilities

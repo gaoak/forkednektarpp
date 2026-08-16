@@ -55,7 +55,7 @@ class LaplacianBlockOpImpl : public LaplacianBlockOp<TData>
 public:
     LaplacianBlockOpImpl(const unsigned int block_idx,
                          const LocalRegions::ExpansionSharedPtr &exp,
-                         NekDataWarehouseSharedPtr dataWarehouse)
+                         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : LaplacianBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
@@ -76,43 +76,52 @@ public:
 
             // Fetch basis data.
             m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<TData>(exp->GetBasis(d)->GetBasisKey(), eBasis)));
+                LibUtilities::BasisDataKey<TData>(
+                    exp->GetBasis(d)->GetBasisKey(), LibUtilities::eBasis)));
             m_DB.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<TData>(exp->GetBasis(d)->GetBasisKey(),
-                                    eBasisDerivative)));
+                LibUtilities::BasisDataKey<TData>(
+                    exp->GetBasis(d)->GetBasisKey(),
+                    LibUtilities::eBasisDerivative)));
             m_D.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<TData>(exp->GetBasis(d)->GetBasisKey(),
-                                    eDerivative)));
+                LibUtilities::BasisDataKey<TData>(
+                    exp->GetBasis(d)->GetBasisKey(),
+                    LibUtilities::eDerivative)));
             m_W.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<TData>(exp->GetBasis(d)->GetBasisKey(),
-                                    eWeights)));
+                LibUtilities::BasisDataKey<TData>(
+                    exp->GetBasis(d)->GetBasisKey(), LibUtilities::eWeights)));
         }
 
         if (m_dimension == 2)
         {
             // Fetch geometric factors.
             m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<simd_t>(exp->GetBasis(0)->GetBasisKey(),
-                                     eHalfMultOnePlusZero)));
+                LibUtilities::BasisDataKey<simd_t>(
+                    exp->GetBasis(0)->GetBasisKey(),
+                    LibUtilities::eHalfMultOnePlusZero)));
             m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<simd_t>(exp->GetBasis(1)->GetBasisKey(),
-                                     eTwoOverOneMinusZero)));
+                LibUtilities::BasisDataKey<simd_t>(
+                    exp->GetBasis(1)->GetBasisKey(),
+                    LibUtilities::eTwoOverOneMinusZero)));
         }
         else if (m_dimension == 3)
         {
             // Fetch geometric factors.
             m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<simd_t>(exp->GetBasis(0)->GetBasisKey(),
-                                     eHalfMultOnePlusZero)));
+                LibUtilities::BasisDataKey<simd_t>(
+                    exp->GetBasis(0)->GetBasisKey(),
+                    LibUtilities::eHalfMultOnePlusZero)));
             m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<simd_t>(exp->GetBasis(1)->GetBasisKey(),
-                                     eHalfMultOnePlusZero)));
+                LibUtilities::BasisDataKey<simd_t>(
+                    exp->GetBasis(1)->GetBasisKey(),
+                    LibUtilities::eHalfMultOnePlusZero)));
             m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<simd_t>(exp->GetBasis(1)->GetBasisKey(),
-                                     eTwoOverOneMinusZero)));
+                LibUtilities::BasisDataKey<simd_t>(
+                    exp->GetBasis(1)->GetBasisKey(),
+                    LibUtilities::eTwoOverOneMinusZero)));
             m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<simd_t>(exp->GetBasis(2)->GetBasisKey(),
-                                     eTwoOverOneMinusZero)));
+                LibUtilities::BasisDataKey<simd_t>(
+                    exp->GetBasis(2)->GetBasisKey(),
+                    LibUtilities::eTwoOverOneMinusZero)));
         }
 
         if ((m_shapeType == LibUtilities::eNodalTri) ||
@@ -132,12 +141,14 @@ public:
                     : LibUtilities::eNoPointsType;
 
             // Fetch NodalToModal Matrix if required.
-            m_nodToMod =
-                dataWarehouse->template GetData<MemSpace>(StdMatKey<simd_t>(
-                    basisKeys, m_shapeType, eNodalToModal, nodalType));
-            m_nodToModTrans =
-                dataWarehouse->template GetData<MemSpace>(StdMatKey<simd_t>(
-                    basisKeys, m_shapeType, eNodalToModalTranspose, nodalType));
+            m_nodToMod = dataWarehouse->template GetData<MemSpace>(
+                StdRegions::StdMatKey<simd_t>(basisKeys, m_shapeType,
+                                              StdRegions::eNodalToModal,
+                                              nodalType));
+            m_nodToModTrans = dataWarehouse->template GetData<MemSpace>(
+                StdRegions::StdMatKey<simd_t>(
+                    basisKeys, m_shapeType, StdRegions::eNodalToModalTranspose,
+                    nodalType));
         }
         else
         {
@@ -147,9 +158,10 @@ public:
 
         // Fetch Jacobian and deriv factors.
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+            LocalRegions::JacobianKey<TData>(block_idx, m_implInterleaveWidth));
         m_dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, false));
+            LocalRegions::DerivFactorKey<TData>(block_idx,
+                                                m_implInterleaveWidth, false));
 
         // Workspace for kernels - also checks preconditions.
         if (m_dimension == 1)
@@ -197,7 +209,7 @@ public:
         ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>>
     Instantiate(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,
-                NekDataWarehouseSharedPtr dataWarehouse)
+                LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             LaplacianBlockOpImpl<ExecSpace, Implementation, TData>>(
@@ -237,8 +249,8 @@ protected:
     bool m_warnOnce = false;
 #endif
 
-    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-                 MultiRegions::BlockAccessor<TData, FieldState::Coeff>
+    void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+                 LibUtilities::BlockAccessor<TData, FieldState::Coeff>
                      &outblock) override
     {
         // Check alignment.
@@ -319,50 +331,50 @@ protected:
     }
 
     void SegBlock(
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock);
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
 
     void TriBlock(
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock);
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
 
     void NodalTriBlock(
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock);
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
 
     void QuadBlock(
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock);
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
 
     void HexBlock(
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock);
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
 
     void PrismBlock(
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock);
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
 
     void NodalPrismBlock(
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock);
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
 
     void PyrBlock(
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock);
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
 
     void TetBlock(
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock);
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
 
     void NodalTetBlock(
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock);
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator1D(
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         Operator1D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_nm[0], m_nq[0]);
     }
@@ -371,16 +383,16 @@ protected:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               unsigned int nm0, unsigned int nq0>
     void Operator1D(
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         Operator1D<SHAPE_TYPE, DEFORMED>(inblock, outblock, nm0, nq0);
     }
 
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     NEK_FORCE_INLINE void Operator1D(
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock,
         const unsigned int nm0, const unsigned int nq0)
     {
         // Shape size.
@@ -421,9 +433,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize, nmTot,
-                                              (TData *)inptr);
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        m_implInterleaveWidth, interleaveWidth, chunkSize,
+                        nmTot, (TData *)inptr);
                 }
 
                 // Step 1: BwdTrans.
@@ -451,12 +463,12 @@ protected:
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         nmTot,
                         (TData *)inptr -
                             (width_ratio - 1) * nmTot * simd_t::width);
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         nmTot,
                         (TData *)outptr -
@@ -478,8 +490,8 @@ protected:
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator2D(
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         Operator2D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_nm[0], m_nm[1],
                                          m_nq[0], m_nq[1]);
@@ -490,16 +502,16 @@ protected:
               unsigned int nm0, unsigned int nm1, unsigned int nq0,
               unsigned int nq1>
     void Operator2D(
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         Operator2D<SHAPE_TYPE, DEFORMED>(inblock, outblock, nm0, nm1, nq0, nq1);
     }
 
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     NEK_FORCE_INLINE void Operator2D(
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock,
         const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
         const unsigned int nq1)
     {
@@ -542,9 +554,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize, nmTot,
-                                              (TData *)inptr);
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        m_implInterleaveWidth, interleaveWidth, chunkSize,
+                        nmTot, (TData *)inptr);
                 }
 
                 // Step 1: BwdTrans.
@@ -580,12 +592,12 @@ protected:
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         nmTot,
                         (TData *)inptr -
                             (width_ratio - 1) * nmTot * simd_t::width);
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         nmTot,
                         (TData *)outptr -
@@ -607,8 +619,8 @@ protected:
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator3D(
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         Operator3D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_nm[0], m_nm[1],
                                          m_nm[2], m_nq[0], m_nq[1], m_nq[2]);
@@ -619,8 +631,8 @@ protected:
               unsigned int nm0, unsigned int nm1, unsigned int nm2,
               unsigned int nq0, unsigned int nq1, unsigned int nq2>
     void Operator3D(
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         Operator3D<SHAPE_TYPE, DEFORMED>(inblock, outblock, nm0, nm1, nm2, nq0,
                                          nq1, nq2);
@@ -628,8 +640,8 @@ protected:
 
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     NEK_FORCE_INLINE void Operator3D(
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock,
         const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
         const unsigned int nq0, const unsigned int nq1, const unsigned int nq2)
     {
@@ -671,9 +683,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize, nmTot,
-                                              (TData *)inptr);
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        m_implInterleaveWidth, interleaveWidth, chunkSize,
+                        nmTot, (TData *)inptr);
                 }
 
                 // Step 1: BwdTrans.
@@ -712,12 +724,12 @@ protected:
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         nmTot,
                         (TData *)inptr -
                             (width_ratio - 1) * nmTot * simd_t::width);
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         nmTot,
                         (TData *)outptr -

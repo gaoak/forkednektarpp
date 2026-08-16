@@ -34,10 +34,10 @@
 
 #pragma once
 
-#include "ADRSolverRedesign/DiffusionScalarIPTraceFlux/DiffusionScalarIPTraceFluxKernels.hpp"
-#include "ADRSolverRedesign/DiffusionScalarIPTraceFlux/DiffusionScalarIPTraceFluxOp.hpp"
-#include "MultiRegions/Field/Math.hpp"
-#include "Operators/Common/DataWarehouse/TraceDataWarehouse.hpp"
+#include <ADRSolverRedesign/DiffusionScalarIPTraceFlux/DiffusionScalarIPTraceFluxKernels.hpp>
+#include <ADRSolverRedesign/DiffusionScalarIPTraceFlux/DiffusionScalarIPTraceFluxOp.hpp>
+#include <LibUtilities/BasicUtils/Math/Math.hpp>
+#include <MultiRegions/DataWarehouse/TraceDataWarehouse.hpp>
 
 namespace Nektar::detail
 {
@@ -54,17 +54,17 @@ public:
         const std::vector<std::string> &components)
         : DiffusionScalarIPTraceFluxOp<TData>(std::move(expansionList),
                                               components),
-          m_traceAver(MultiRegions::Field<TData, FieldState::Phys>(
+          m_traceAver(LibUtilities::Field<TData, FieldState::Phys>(
               "Scalar diffusion trace average",
               MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList->GetTrace()),
               components.size(), 1)),
-          m_traceJump(MultiRegions::Field<TData, FieldState::Phys>(
+          m_traceJump(LibUtilities::Field<TData, FieldState::Phys>(
               "Scalar diffusion trace jump",
               MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList->GetTrace()),
               components.size(), 1)),
-          m_symmCoeff(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_symmCoeff(LibUtilities::Field<TData, FieldState::Coeff>(
               "Scalar diffusion symmetric trace coeff",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
@@ -104,8 +104,8 @@ protected:
     unsigned int m_nDim;
     unsigned int m_nComp;
     unsigned int m_traceInterleaveWidth;
-    MultiRegions::Field<TData, FieldState::Phys> m_traceAver, m_traceJump;
-    MultiRegions::Field<TData, FieldState::Coeff> m_symmCoeff;
+    LibUtilities::Field<TData, FieldState::Phys> m_traceAver, m_traceJump;
+    LibUtilities::Field<TData, FieldState::Coeff> m_symmCoeff;
     LibUtilities::MemoryRegion<TData> m_diffCoeff;
     std::vector<LibUtilities::MemoryRegion<unsigned int>> m_symmTraceBlockId;
     std::vector<LibUtilities::MemoryRegion<size_t>> m_symmTraceOffset;
@@ -113,11 +113,11 @@ protected:
     std::vector<unsigned int> m_symmNTraces;
     std::vector<unsigned int> m_symmNLocTracePts;
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &fwd,
-                 MultiRegions::Field<TData, FieldState::Phys> &bwd,
-                 MultiRegions::Field<TData, FieldState::Phys> &derivFwd,
-                 MultiRegions::Field<TData, FieldState::Phys> &derivBwd,
-                 MultiRegions::Field<TData, FieldState::Phys> &out) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &fwd,
+                 LibUtilities::Field<TData, FieldState::Phys> &bwd,
+                 LibUtilities::Field<TData, FieldState::Phys> &derivFwd,
+                 LibUtilities::Field<TData, FieldState::Phys> &derivBwd,
+                 LibUtilities::Field<TData, FieldState::Phys> &out) override
     {
         for (unsigned int blk = 0; blk < out.GetBlocks().size(); ++blk)
         {
@@ -130,24 +130,24 @@ protected:
             auto &outblock       = out.GetBlocks()[blk];
 
             auto normalbase = this->m_dataWarehouse->template GetData<MemSpace>(
-                Operators::IPTraceNormalKey<TData>(blk));
+                MultiRegions::IPTraceNormalKey<TData>(blk));
 
             auto bwdWeightAverBase =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    Operators::IPTraceScalarKey<TData>(
-                        blk, Operators::IPTraceScalarData::BwdWeightAver));
+                    MultiRegions::IPTraceScalarKey<TData>(
+                        blk, MultiRegions::IPTraceScalarData::BwdWeightAver));
             auto bwdWeightJumpBase =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    Operators::IPTraceScalarKey<TData>(
-                        blk, Operators::IPTraceScalarData::BwdWeightJump));
+                    MultiRegions::IPTraceScalarKey<TData>(
+                        blk, MultiRegions::IPTraceScalarData::BwdWeightJump));
             auto lengthRecipBase =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    Operators::IPTraceScalarKey<TData>(
-                        blk, Operators::IPTraceScalarData::LengthRecip));
+                    MultiRegions::IPTraceScalarKey<TData>(
+                        blk, MultiRegions::IPTraceScalarData::LengthRecip));
             auto penaltyFactorBase =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    Operators::IPTraceScalarKey<TData>(
-                        blk, Operators::IPTraceScalarData::PenaltyFactor));
+                    MultiRegions::IPTraceScalarKey<TData>(
+                        blk, MultiRegions::IPTraceScalarData::PenaltyFactor));
             auto diffCoeffBase =
                 m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(streamID);
 
@@ -184,7 +184,7 @@ protected:
             MemSpace, TData>(diffCoeff);
     }
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &out) override
     {
         m_symmCoeff.template Initialize<MemSpace>(TData(0.0));
 
@@ -202,14 +202,14 @@ protected:
 
             auto derivBaseTrace =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    Operators::IPTraceDerivBaseKey<TData>(blk));
+                    MultiRegions::IPTraceDerivBaseKey<TData>(blk));
             auto orientationMaps =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    Operators::OrientationMapsKey<TData>(
+                    MultiRegions::OrientationMapsKey<TData>(
                         blk, m_traceInterleaveWidth));
             auto orientationMapsOffset =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    Operators::OrientationMapsOffsetKey<TData>(
+                    MultiRegions::OrientationMapsOffsetKey<TData>(
                         blk, m_traceInterleaveWidth));
             auto traceBlockId =
                 m_symmTraceBlockId[blk].template GetPtr<MemSpace, ReadOnly>();
@@ -229,7 +229,7 @@ protected:
                     jumpBlock.template GetPtr<MemSpace, ReadOnly>(streamID);
                 auto traceNormalBlockBase =
                     this->m_dataWarehouse->template GetData<MemSpace>(
-                        Operators::IPTraceNormalKey<TData>(traceBlk));
+                        MultiRegions::IPTraceNormalKey<TData>(traceBlk));
 
                 AddScalarSymmetricTraceFluxCoeffKernel<ExecSpace>(
                     outBlock.GetNumElements(),
@@ -280,7 +280,7 @@ protected:
             auto locToTracePhysOffset =
                 expansionList->GetDataWarehouseSharedPtr()
                     ->template GetData<NektarSpaces::HostSpace>(
-                        Operators::LocToTracePhysOffsetKey<TData>(
+                        MultiRegions::LocToTracePhysOffsetKey<TData>(
                             blk, m_traceInterleaveWidth));
 
             std::vector<unsigned int> traceBlockId(totTrace, 0);

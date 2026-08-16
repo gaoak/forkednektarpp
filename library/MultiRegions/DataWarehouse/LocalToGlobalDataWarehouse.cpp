@@ -32,9 +32,9 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/Common/DataWarehouse/LocalToGlobalDataWarehouseDef.hpp"
+#include "MultiRegions/DataWarehouse/LocalToGlobalDataWarehouseDef.hpp"
 
-namespace Nektar::Operators
+namespace Nektar::MultiRegions
 {
 
 template LibUtilities::MemoryRegion<
@@ -284,4 +284,4 @@ LocalToGlobalDataCreator::Create<NektarSpaces::DeviceSpace, float>(
     const LocalToGlobalMaskKey<float> &LocToGloKey);
 #endif
 
-} // namespace Nektar::Operators
+} // namespace Nektar::MultiRegions

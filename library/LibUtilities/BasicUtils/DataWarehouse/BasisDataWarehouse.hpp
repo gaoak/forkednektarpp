@@ -34,11 +34,10 @@
 
 #pragma once
 
-#include "Operators/Common/DataWarehouse/NekDataWarehouse.hpp"
-
+#include <LibUtilities/BasicUtils/DataWarehouse/NekDataWarehouse.hpp>
 #include <LibUtilities/Foundations/Basis.h>
 
-namespace Nektar::Operators
+namespace Nektar::LibUtilities
 {
 
 enum BasisDataType
@@ -67,10 +66,9 @@ public:
 
     ~BasisDataKey() override = default;
 
-    BasisDataKey(const LibUtilities::BasisKey &basisKey,
-                 const BasisDataType basisDataType, const unsigned int npts = 0,
-                 const LibUtilities::PointsType toPointsType =
-                     LibUtilities::eNoPointsType)
+    BasisDataKey(const BasisKey &basisKey, const BasisDataType basisDataType,
+                 const unsigned int npts       = 0,
+                 const PointsType toPointsType = eNoPointsType)
         : m_basisKey(basisKey), m_basisDataType(basisDataType), m_npts(npts),
           m_toPointsType(toPointsType)
     {
@@ -83,10 +81,10 @@ public:
     }
 
 private:
-    LibUtilities::BasisKey m_basisKey;
+    BasisKey m_basisKey;
     BasisDataType m_basisDataType;
     unsigned int m_npts;
-    LibUtilities::PointsType m_toPointsType;
+    PointsType m_toPointsType;
 };
 
 class BasisDataCreator : public DataCreatorClass
@@ -95,10 +93,9 @@ public:
     ~BasisDataCreator() override = default;
 
     template <typename MemSpace, typename TData>
-    LibUtilities::MemoryRegion<TData> Create(
-        const BasisDataKey<TData> &basisDataKey);
+    MemoryRegion<TData> Create(const BasisDataKey<TData> &basisDataKey);
 
     inline static const std::string m_name = "BasisDataCreator";
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar::LibUtilities

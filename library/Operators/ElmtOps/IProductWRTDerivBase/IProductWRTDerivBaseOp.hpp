@@ -97,8 +97,8 @@ protected:
 
     ~IProductWRTDerivBaseOp() override = default;
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
-                 MultiRegions::Field<TData, TFieldOut> &out) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
+                 LibUtilities::Field<TData, TFieldOut> &out) override
     {
         ASSERTL1(in.GetNumHomoModes() == out.GetNumHomoModes(),
                  "Number of input and output homogeneous modes differ");

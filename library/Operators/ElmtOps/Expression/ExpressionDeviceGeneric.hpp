@@ -63,7 +63,7 @@ class ExpressionBlockOpImpl : public ExpressionBlockOp<TData>
 public:
     ExpressionBlockOpImpl(const unsigned int block_idx,
                           const LocalRegions::ExpansionSharedPtr &exp,
-                          NekDataWarehouseSharedPtr dataWarehouse)
+                          LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : ExpressionBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         m_streamID = block_idx + 1;
@@ -95,7 +95,7 @@ public:
         ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>>
     Instantiate(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,
-                NekDataWarehouseSharedPtr dataWarehouse)
+                LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             ExpressionBlockOpImpl<ExecSpace, Implementation, TData>>(
@@ -115,8 +115,8 @@ protected:
     NEKfunction m_kernel_handle4;
 
     void v_Apply(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock) override
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
         ASSERTL1(this->m_expressions.size() == inblock.GetNumComponents() &&
                      this->m_expressions.size() == outblock.GetNumComponents(),
@@ -154,7 +154,8 @@ protected:
         const unsigned int gridSize  = (compSize + blockSize - 1u) / blockSize;
 
         const auto coordptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            CoordKey<TData>(this->m_block_idx, inInterleaveWidth, false));
+            LocalRegions::CoordKey<TData>(this->m_block_idx, inInterleaveWidth,
+                                          false));
 
         // Loop over components.
         for (unsigned int n = 0; n < inmode; ++n)
@@ -164,7 +165,7 @@ protected:
             {
                 if (&inblock != &outblock && this->m_append)
                 {
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         inInterleaveWidth, outInterleaveWidth,
                         outblock.GetNumElementsWithPadding(),
                         outblock.GetNumData(),

@@ -123,7 +123,7 @@ class CurlCurlBlockOpImpl : public CurlCurlBlockOp<TData>
 public:
     CurlCurlBlockOpImpl(const unsigned int block_idx,
                         const LocalRegions::ExpansionSharedPtr &exp,
-                        NekDataWarehouseSharedPtr dataWarehouse)
+                        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : CurlCurlBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         m_streamID = block_idx + 1;
@@ -152,11 +152,13 @@ public:
         }
 
         m_matptr = dataWarehouse->template GetData<MemSpace>(
-            StdMatKey<TData>(basisKeys, m_shapeType, ePhysDerivStdMat));
+            StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
+                                         StdRegions::ePhysDerivStdMat));
 
         // Fetch derivative factor.
         m_dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, true));
+            LocalRegions::DerivFactorKey<TData>(block_idx,
+                                                m_implInterleaveWidth, true));
     }
 
     // className - for BlockOperatorFactory
@@ -167,7 +169,7 @@ public:
         ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>>
     Instantiate(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,
-                NekDataWarehouseSharedPtr dataWarehouse)
+                LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             CurlCurlBlockOpImpl<ExecSpace, Implementation, TData>>(
@@ -188,8 +190,8 @@ protected:
     const TData *m_dfptr;
 
     void v_Apply(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock) override
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
@@ -249,10 +251,10 @@ protected:
 
         for (unsigned int d = 0; d < m_coordDim; d++)
         {
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr + d * inoffset,
-                                      m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, interleaveWidth, nelmt,
+                inblock.GetNumData(), (TData *)inptr + d * inoffset,
+                m_streamID);
         }
 
         computePhysDeriv(inptr, grad0);
@@ -282,10 +284,10 @@ protected:
 
         for (unsigned int k = 0; k < m_coordDim; k++)
         {
-            ReshapeStorage<ExecSpace>(
+            LibUtilities::ReshapeStorage<ExecSpace>(
                 interleaveWidth, m_implInterleaveWidth, nelmt, m_nqTot,
                 (TData *)inptr + k * inoffset, m_streamID);
-            ReshapeStorage<ExecSpace>(
+            LibUtilities::ReshapeStorage<ExecSpace>(
                 interleaveWidth, m_implInterleaveWidth, nelmt, m_nqTot,
                 (TData *)outptr + k * outoffset, m_streamID);
         }

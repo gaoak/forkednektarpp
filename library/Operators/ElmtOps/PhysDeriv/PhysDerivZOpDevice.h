@@ -101,8 +101,8 @@ protected:
 
     void v_Launch(
         std::vector<std::shared_ptr<PhysDerivBlockOp<TData>>> &blockOp,
-        MultiRegions::Field<TData, FieldState::Phys> &in,
-        MultiRegions::Field<TData, FieldState::Phys> &out, unsigned int nhomo,
+        LibUtilities::Field<TData, FieldState::Phys> &in,
+        LibUtilities::Field<TData, FieldState::Phys> &out, unsigned int nhomo,
         const std::vector<int> &blockNXY) override
     {
 #if !defined(NEKTAR_ENABLE_CUDA)
@@ -292,8 +292,8 @@ protected:
 
     void v_Launch(
         std::vector<std::shared_ptr<PhysDerivBlockOp<TData>>> &blockOp,
-        MultiRegions::Field<TData, FieldState::Phys> &in,
-        MultiRegions::Field<TData, FieldState::Phys> &out, unsigned int nhomo,
+        LibUtilities::Field<TData, FieldState::Phys> &in,
+        LibUtilities::Field<TData, FieldState::Phys> &out, unsigned int nhomo,
         const std::vector<int> &blockNXY) override
     {
 #if !defined(NEKTAR_ENABLE_CUDA)

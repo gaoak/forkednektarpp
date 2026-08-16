@@ -273,8 +273,8 @@ protected:
     unsigned int m_nmaxcoeff = 0;
     size_t m_nBndEdge        = 0;
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
-                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
+                 LibUtilities::Field<TData, FieldState::Coeff> &out) override
     {
         // Return if no Robin boundary condition.
         if (m_nBndEdge == 0)
@@ -297,13 +297,13 @@ protected:
             auto outPtr = outBlk.template GetPtr<MemSpace, ReadWrite>(streamID);
 
             auto inWidth = inBlk.GetInterleaveWidth();
-            ReshapeStorage<ExecSpace>(1u, inWidth,
-                                      inBlk.GetNumElementsWithPadding(),
-                                      inBlk.GetNumData(), inPtr, streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                1u, inWidth, inBlk.GetNumElementsWithPadding(),
+                inBlk.GetNumData(), inPtr, streamID);
             auto outWidth = outBlk.GetInterleaveWidth();
-            ReshapeStorage<ExecSpace>(1u, outWidth,
-                                      outBlk.GetNumElementsWithPadding(),
-                                      outBlk.GetNumData(), outPtr, streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                1u, outWidth, outBlk.GetNumElementsWithPadding(),
+                outBlk.GetNumData(), outPtr, streamID);
         }
 
         // Get pointers.
@@ -355,12 +355,12 @@ protected:
             auto outPtr = outBlk.template GetPtr<MemSpace, ReadWrite>(streamID);
 
             auto inWidth = inBlk.GetInterleaveWidth();
-            ReshapeStorage<ExecSpace>(inWidth, 1u,
-                                      inBlk.GetNumElementsWithPadding(),
-                                      inBlk.GetNumData(), inPtr, streamID);
-            ReshapeStorage<ExecSpace>(inWidth, 1u,
-                                      outBlk.GetNumElementsWithPadding(),
-                                      outBlk.GetNumData(), outPtr, streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                inWidth, 1u, inBlk.GetNumElementsWithPadding(),
+                inBlk.GetNumData(), inPtr, streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                inWidth, 1u, outBlk.GetNumElementsWithPadding(),
+                outBlk.GetNumData(), outPtr, streamID);
             outBlk.template SetInterleaveWidth<TData>(inWidth);
         }
     }

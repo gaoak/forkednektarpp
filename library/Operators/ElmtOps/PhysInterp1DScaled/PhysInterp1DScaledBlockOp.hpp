@@ -47,8 +47,8 @@ public:
     static std::shared_ptr<PhysInterp1DScaledBlockOp<TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse, const std::string &execStr,
-        std::string implStr)
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
+        const std::string &execStr, std::string implStr)
     {
         return ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>::
             template Create<PhysInterp1DScaledBlockOp>(
@@ -65,9 +65,10 @@ public:
 protected:
     TData m_scale = -1.0; // scaling factor
 
-    PhysInterp1DScaledBlockOp(const unsigned int block_idx,
-                              const LocalRegions::ExpansionSharedPtr &exp,
-                              NekDataWarehouseSharedPtr dataWarehouse)
+    PhysInterp1DScaledBlockOp(
+        const unsigned int block_idx,
+        const LocalRegions::ExpansionSharedPtr &exp,
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>(block_idx, exp,
                                                                  dataWarehouse)
     {

@@ -39,11 +39,9 @@
 #include "LibUtilities/LinearAlgebra/NekBlas/libXSMMDispatchWrapper.hpp"
 
 #include "LibUtilities/LinearAlgebra/NekBlas/blasHandle.hpp"
-
 #if defined(NEKTAR_ENABLE_SIMD)
 #include "LibUtilities/LinearAlgebra/NekBlas/xsmmHandle.hpp"
 #endif
-
 #if defined(NEKTAR_USE_MAGMA)
 #include "LibUtilities/LinearAlgebra/NekBlas/magmaHandle.hpp"
 #elif defined(NEKTAR_ENABLE_CUDA)

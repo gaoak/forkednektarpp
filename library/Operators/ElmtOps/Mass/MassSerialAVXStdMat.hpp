@@ -54,7 +54,7 @@ class MassBlockOpImpl : public MassBlockOp<TData>
 public:
     MassBlockOpImpl(const unsigned int block_idx,
                     const LocalRegions::ExpansionSharedPtr &exp,
-                    NekDataWarehouseSharedPtr dataWarehouse)
+                    LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : MassBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
@@ -82,22 +82,25 @@ public:
         if (m_isDeformed)
         {
             m_bwdmat = dataWarehouse->template GetData<MemSpace>(
-                StdMatKey<TData>(basisKeys, m_shapeType,
-                                 eBwdTransStdMatTranspose, nodalType));
+                StdRegions::StdMatKey<TData>(
+                    basisKeys, m_shapeType,
+                    StdRegions::eBwdTransStdMatTranspose, nodalType));
             m_ipbmat = dataWarehouse->template GetData<MemSpace>(
-                StdMatKey<TData>(basisKeys, m_shapeType,
-                                 eIProductWRTBaseStdMatTranspose, nodalType));
+                StdRegions::StdMatKey<TData>(
+                    basisKeys, m_shapeType,
+                    StdRegions::eIProductWRTBaseStdMatTranspose, nodalType));
         }
         else
         {
-            m_massmat =
-                dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
-                    basisKeys, m_shapeType, eMassStdMatTranspose, nodalType));
+            m_massmat = dataWarehouse->template GetData<MemSpace>(
+                StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
+                                             StdRegions::eMassStdMatTranspose,
+                                             nodalType));
         }
 
         // Fetch Jacobian.
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+            LocalRegions::JacobianKey<TData>(block_idx, m_implInterleaveWidth));
     }
 
     // className - for BlockOperatorFactory
@@ -108,7 +111,7 @@ public:
         ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>>
     Instantiate(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,
-                NekDataWarehouseSharedPtr dataWarehouse)
+                LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             MassBlockOpImpl<ExecSpace, Implementation, TData>>(block_idx, exp,
@@ -129,8 +132,8 @@ protected:
     const TData *m_ipbmat;
     const TData *m_jacptr;
 
-    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-                 MultiRegions::BlockAccessor<TData, FieldState::Coeff>
+    void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+                 LibUtilities::BlockAccessor<TData, FieldState::Coeff>
                      &outblock) override
     {
         // Initialize pointers.
@@ -170,9 +173,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize,
-                                              m_nmTot, (TData *)inptr);
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        m_implInterleaveWidth, interleaveWidth, chunkSize,
+                        m_nmTot, (TData *)inptr);
                 }
 
                 if (m_isDeformed)
@@ -212,12 +215,12 @@ protected:
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nmTot,
                         (TData *)inptr -
                             (width_ratio - 1) * m_nmTot * simd_t::width);
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nmTot,
                         (TData *)outptr -

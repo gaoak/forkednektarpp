@@ -54,32 +54,32 @@ public:
     ConjGradOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                    const std::vector<std::string> &components)
         : ConjGradOp<TData>(expansionList, components),
-          m_w(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_w(LibUtilities::Field<TData, FieldState::Coeff>(
               "ConjGrad w",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_s(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_s(LibUtilities::Field<TData, FieldState::Coeff>(
               "ConjGrad s",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_r(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_r(LibUtilities::Field<TData, FieldState::Coeff>(
               "ConjGrad r",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_q(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_q(LibUtilities::Field<TData, FieldState::Coeff>(
               "ConjGrad q",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_p(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_p(LibUtilities::Field<TData, FieldState::Coeff>(
               "ConjGrad p",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_mask(MultiRegions::Field<std::uint8_t, FieldState::Coeff>(
+          m_mask(LibUtilities::Field<std::uint8_t, FieldState::Coeff>(
               "ConjGrad mask",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
@@ -109,7 +109,7 @@ public:
         // Fill mask.
         auto maskptr =
             this->m_dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-                LocalToGlobalMaskKey<TData>(this->m_components));
+                MultiRegions::LocalToGlobalMaskKey<TData>(this->m_components));
         unsigned cnt = 0;
         for (unsigned blk = 0; blk < m_mask.GetBlocks().size(); ++blk)
         {
@@ -143,18 +143,18 @@ public:
     }
 
 protected:
-    MultiRegions::Field<TData, FieldState::Coeff> m_w;
-    MultiRegions::Field<TData, FieldState::Coeff> m_s;
-    MultiRegions::Field<TData, FieldState::Coeff> m_r;
-    MultiRegions::Field<TData, FieldState::Coeff> m_q;
-    MultiRegions::Field<TData, FieldState::Coeff> m_p;
-    MultiRegions::Field<std::uint8_t, FieldState::Coeff> m_mask;
+    LibUtilities::Field<TData, FieldState::Coeff> m_w;
+    LibUtilities::Field<TData, FieldState::Coeff> m_s;
+    LibUtilities::Field<TData, FieldState::Coeff> m_r;
+    LibUtilities::Field<TData, FieldState::Coeff> m_q;
+    LibUtilities::Field<TData, FieldState::Coeff> m_p;
+    LibUtilities::Field<std::uint8_t, FieldState::Coeff> m_mask;
     LibUtilities::MemoryRegion<TData> m_vExchange;
 
     bool m_flexible;
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
-                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
+                 LibUtilities::Field<TData, FieldState::Coeff> &out) override
     {
         // Reshape mask if required.
         for (unsigned blk = 0; blk < in.GetBlocks().size(); ++blk)
@@ -170,7 +170,7 @@ protected:
                     maskblk.template GetPtr<MemSpace, ReadWrite>(streamID);
                 auto numComp = maskblk.GetNumComponents();
 
-                ReshapeStorage<ExecSpace>(
+                LibUtilities::ReshapeStorage<ExecSpace>(
                     inblk.GetInterleaveWidth(), maskblk.GetInterleaveWidth(),
                     maskblk.GetNumElementsWithPadding() * numComp,
                     maskblk.GetNumData(), maskPtr, streamID);

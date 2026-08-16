@@ -49,9 +49,9 @@
 #include <Operators/ElmtOps/PhysDeriv/PhysDerivOp.hpp>
 #include <Operators/ElmtOps/PhysInterp1DScaled/PhysInterp1DScaledOp.hpp>
 
+#include <LibUtilities/BasicUtils/Field/Field.hpp>
+#include <LibUtilities/BasicUtils/Math/Math.hpp>
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
-#include <MultiRegions/Field/Field.hpp>
-#include <MultiRegions/Field/Math.hpp>
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>

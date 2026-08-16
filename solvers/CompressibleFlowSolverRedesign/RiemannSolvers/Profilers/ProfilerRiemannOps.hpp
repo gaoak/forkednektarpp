@@ -36,10 +36,10 @@
 #include <iomanip>
 #include <iostream>
 
+#include <LibUtilities/BasicUtils/Field/Field.hpp>
+#include <LibUtilities/BasicUtils/Math/Math.hpp>
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <LibUtilities/LoopExecution/LoopExecution.hpp>
-#include <MultiRegions/Field/Field.hpp>
-#include <MultiRegions/Field/Math.hpp>
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
@@ -436,16 +436,16 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr const &expList,
     auto traceblockAttr = GetBlockAttributes<TData, state>(expList->GetTrace());
 
     // Create fields.
-    auto fwdField = MultiRegions::Field<TData, state>("f_fwd", traceblockAttr,
+    auto fwdField = LibUtilities::Field<TData, state>("f_fwd", traceblockAttr,
                                                       nFields, nHomo);
 
-    auto bwdField = MultiRegions::Field<TData, state>("f_bwd", traceblockAttr,
+    auto bwdField = LibUtilities::Field<TData, state>("f_bwd", traceblockAttr,
                                                       nFields, nHomo);
 
-    auto fluxField = MultiRegions::Field<TData, state>("f_flux", traceblockAttr,
+    auto fluxField = LibUtilities::Field<TData, state>("f_flux", traceblockAttr,
                                                        nFields, nHomo);
 
-    auto normalsField = MultiRegions::Field<TData, state>(
+    auto normalsField = LibUtilities::Field<TData, state>(
         "traceNormals", traceblockAttr, spaceDim, nHomo);
 
     fwdField.template CopyArray<NektarSpaces::HostSpace>(

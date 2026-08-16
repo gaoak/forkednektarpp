@@ -53,7 +53,7 @@ public:
     AddTraceIntegralOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                            const std::vector<std::string> &components)
         : AddTraceIntegralOp<TData>(expansionList, components),
-          m_trace(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_trace(LibUtilities::Field<TData, FieldState::Coeff>(
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList->GetTrace()),
               components, 1))
@@ -305,7 +305,7 @@ public:
 
 protected:
     std::shared_ptr<IProductWRTBaseOp<TData>> m_IProductWRTBaseOp;
-    MultiRegions::Field<TData, FieldState::Coeff> m_trace;
+    LibUtilities::Field<TData, FieldState::Coeff> m_trace;
     std::vector<std::vector<LibUtilities::MemoryRegion<size_t>>>
         m_traceCoeffsToElmtMap;
     std::vector<std::vector<LibUtilities::MemoryRegion<size_t>>>
@@ -315,8 +315,8 @@ protected:
     std::vector<std::vector<size_t>> m_nFwdBwdCoeffsBlock;
     size_t m_nFwdBwdCoeffs;
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
-                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
+                 LibUtilities::Field<TData, FieldState::Coeff> &out) override
     {
         // Step 1: Inner product for trace integral.
         m_IProductWRTBaseOp->Apply(in, m_trace);
@@ -325,7 +325,7 @@ protected:
         AddTraceIntegral(out);
     }
 
-    void AddTraceIntegral(MultiRegions::Field<TData, FieldState::Coeff> &out)
+    void AddTraceIntegral(LibUtilities::Field<TData, FieldState::Coeff> &out)
     {
         // Return if no trace coefficient.
         if (m_nFwdBwdCoeffs == 0)
@@ -354,7 +354,7 @@ protected:
                     traceBlock.template GetPtr<MemSpace, ReadWrite>();
                 for (unsigned nc = 0; nc < traceBlock.GetNumComponents(); ++nc)
                 {
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         NektarSpaces::vector_width<ExecSpace, TData>::value,
                         traceBlock.GetInterleaveWidth(),
                         traceBlock.GetNumElementsWithPadding(),
@@ -400,7 +400,7 @@ protected:
                         for (unsigned nc = 0; nc < outBlock.GetNumComponents();
                              ++nc)
                         {
-                            ReshapeStorage<ExecSpace>(
+                            LibUtilities::ReshapeStorage<ExecSpace>(
                                 NektarSpaces::vector_width<ExecSpace,
                                                            TData>::value,
                                 outBlock.GetInterleaveWidth(),

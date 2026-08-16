@@ -52,37 +52,37 @@ public:
     BICGSTABROpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                     const std::vector<std::string> &components)
         : BICGSTABROp<TData>(expansionList, components),
-          m_p(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_p(LibUtilities::Field<TData, FieldState::Coeff>(
               "BICGSTABROp p",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_v(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_v(LibUtilities::Field<TData, FieldState::Coeff>(
               "BICGSTABROp v",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_w(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_w(LibUtilities::Field<TData, FieldState::Coeff>(
               "BICGSTABROp w",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_z(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_z(LibUtilities::Field<TData, FieldState::Coeff>(
               "BICGSTABROp z",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_s(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_s(LibUtilities::Field<TData, FieldState::Coeff>(
               "BICGSTABROp s",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_r(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_r(LibUtilities::Field<TData, FieldState::Coeff>(
               "BICGSTABROp r",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_rtilde(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_rtilde(LibUtilities::Field<TData, FieldState::Coeff>(
               "BICGSTABROp rtilde",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
@@ -117,18 +117,18 @@ public:
     }
 
 protected:
-    MultiRegions::Field<TData, FieldState::Coeff> m_p;
-    MultiRegions::Field<TData, FieldState::Coeff> m_v;
-    MultiRegions::Field<TData, FieldState::Coeff> m_w;
-    MultiRegions::Field<TData, FieldState::Coeff> m_z;
-    MultiRegions::Field<TData, FieldState::Coeff> m_s;
-    MultiRegions::Field<TData, FieldState::Coeff> m_r;
-    MultiRegions::Field<TData, FieldState::Coeff> m_rtilde;
+    LibUtilities::Field<TData, FieldState::Coeff> m_p;
+    LibUtilities::Field<TData, FieldState::Coeff> m_v;
+    LibUtilities::Field<TData, FieldState::Coeff> m_w;
+    LibUtilities::Field<TData, FieldState::Coeff> m_z;
+    LibUtilities::Field<TData, FieldState::Coeff> m_s;
+    LibUtilities::Field<TData, FieldState::Coeff> m_r;
+    LibUtilities::Field<TData, FieldState::Coeff> m_rtilde;
 
     LibUtilities::MemoryRegion<TData> m_vExchange;
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
-                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
+                 LibUtilities::Field<TData, FieldState::Coeff> &out) override
     {
         // BICGSTAB implementation adpated from  FBiCGStab-R PETSC
         // implementation. This version has only 2 MPI calls per iterations

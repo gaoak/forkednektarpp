@@ -34,9 +34,8 @@
 
 #include "init_fields.hpp"
 
-using namespace Nektar::Operators;
-using namespace Nektar::LibUtilities;
 using namespace Nektar;
+using namespace Nektar::LibUtilities;
 
 template <typename TData> class ReducerField
 {

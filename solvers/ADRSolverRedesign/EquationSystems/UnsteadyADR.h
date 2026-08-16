@@ -45,7 +45,7 @@
 #include <SolverCore/Forcing/Forcing.h>
 #include <SolverCore/RiemannSolvers/RiemannSolverOp.hpp>
 
-#include <MultiRegions/Field/Field.hpp>
+#include <LibUtilities/BasicUtils/Field/Field.hpp>
 
 namespace Nektar
 {
@@ -88,8 +88,8 @@ protected:
     bool m_implicitDiffusion = false;
 
     // Setup workspaces
-    MultiRegions::Field<double, FieldState::Phys> m_advectionVel;
-    MultiRegions::Field<double, FieldState::Phys> m_traceAdvectionVel;
+    LibUtilities::Field<double, FieldState::Phys> m_advectionVel;
+    LibUtilities::Field<double, FieldState::Phys> m_traceAdvectionVel;
 
     // Initialise operators
     std::shared_ptr<AdvectionOp<double>> m_advectionCGOp;
@@ -108,12 +108,12 @@ protected:
 
     ~UnsteadyADR() override = default;
 
-    void DoImplicit(MultiRegions::Field<double, FieldState::Phys> &inout,
-                    MultiRegions::Field<double, FieldState::Phys> &out,
+    void DoImplicit(LibUtilities::Field<double, FieldState::Phys> &inout,
+                    LibUtilities::Field<double, FieldState::Phys> &out,
                     const double &time, const double &lambda);
 
-    void DoExplicitRhs(MultiRegions::Field<double, FieldState::Phys> &in,
-                       MultiRegions::Field<double, FieldState::Phys> &out,
+    void DoExplicitRhs(LibUtilities::Field<double, FieldState::Phys> &in,
+                       LibUtilities::Field<double, FieldState::Phys> &out,
                        const double &time, const double &dt);
 
     void v_InitObject(bool declareExpansionLists = true) override;

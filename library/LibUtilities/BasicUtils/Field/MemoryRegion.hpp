@@ -36,8 +36,10 @@
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
+#include <LibUtilities/Memory/MemoryAlloc.hpp>
 
-#include "LibUtilities/Memory/MemoryAlloc.hpp"
+namespace Nektar
+{
 
 /**
  * @brief Possible states for Field data.
@@ -76,13 +78,12 @@ struct ReadWrite
 {
 };
 
-namespace Nektar::MultiRegions
-{
-template <typename TData, FieldState TState> class Field;
-}
+} // namespace Nektar
 
 namespace Nektar::LibUtilities
 {
+
+template <typename TData, FieldState TState> class Field;
 
 // Use by NekDataWarehouse.hpp
 class MemoryRegionBase
@@ -95,8 +96,7 @@ class MemoryRegionBase
  */
 template <typename TData> class MemoryRegion : public MemoryRegionBase
 {
-    template <typename TDataField, FieldState TState>
-    friend class MultiRegions::Field;
+    template <typename TDataField, FieldState TState> friend class Field;
 
 public:
     MemoryRegion() = default;

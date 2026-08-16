@@ -113,8 +113,8 @@ public:
             auto locToTracePhysOffset =
                 expansionList->GetDataWarehouseSharedPtr()
                     ->template GetData<NektarSpaces::HostSpace>(
-                        LocToTracePhysOffsetKey<TData>(block_idx,
-                                                       interleaveWidth));
+                        MultiRegions::LocToTracePhysOffsetKey<TData>(
+                            block_idx, interleaveWidth));
             auto nComps    = components.size();
             auto nTraceBlk = traceBlocks.size();
             auto nTraces   = exp->GetNtraces();
@@ -150,16 +150,16 @@ public:
 
     static inline const std::string name = "GetFwdBwdTracePhys";
 
-    void Apply(MultiRegions::Field<TData, FieldState::Phys> &phys,
-               MultiRegions::Field<TData, FieldState::Phys> &fwd,
-               MultiRegions::Field<TData, FieldState::Phys> &bwd)
+    void Apply(LibUtilities::Field<TData, FieldState::Phys> &phys,
+               LibUtilities::Field<TData, FieldState::Phys> &fwd,
+               LibUtilities::Field<TData, FieldState::Phys> &bwd)
     {
         v_Apply(phys, fwd, bwd); // v_Apply(in, out); out = [fwd bwd];
     }
 
-    void operator()(MultiRegions::Field<TData, FieldState::Phys> &phys,
-                    MultiRegions::Field<TData, FieldState::Phys> &fwd,
-                    MultiRegions::Field<TData, FieldState::Phys> &bwd)
+    void operator()(LibUtilities::Field<TData, FieldState::Phys> &phys,
+                    LibUtilities::Field<TData, FieldState::Phys> &fwd,
+                    LibUtilities::Field<TData, FieldState::Phys> &bwd)
     {
         v_Apply(phys, fwd, bwd);
     }
@@ -208,9 +208,9 @@ protected:
 
     ~GetFwdBwdTracePhysOp() override = default;
 
-    virtual void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &phys,
-                         MultiRegions::Field<TData, FieldState::Phys> &fwd,
-                         MultiRegions::Field<TData, FieldState::Phys> &bwd) = 0;
+    virtual void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &phys,
+                         LibUtilities::Field<TData, FieldState::Phys> &fwd,
+                         LibUtilities::Field<TData, FieldState::Phys> &bwd) = 0;
 };
 
 } // namespace Nektar::Operators

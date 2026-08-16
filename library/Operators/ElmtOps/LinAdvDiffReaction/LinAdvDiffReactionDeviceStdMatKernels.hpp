@@ -88,14 +88,15 @@ NEK_DEVICE_KERNEL static void ApplyMetricKernel(
             {
                 for (unsigned int k = 0; k < ncoord; ++k)
                 {
-                    metric[k] = dfptr[ndf * nqTot * e + d * nqTot + i] *
-                                diffCoeff[GetDiffCoeffMap(ncoord, k)];
+                    metric[k] =
+                        dfptr[ndf * nqTot * e + d * nqTot + i] *
+                        diffCoeff[LibUtilities::GetDiffCoeffMap(ncoord, k)];
                     for (unsigned int l = 1; l < ncoord; ++l)
                     {
-                        metric[k] +=
-                            dfptr[ndf * nqTot * e +
-                                  (l * dimension + d) * nqTot + i] *
-                            diffCoeff[GetDiffCoeffMap(ncoord, l * ncoord + k)];
+                        metric[k] += dfptr[ndf * nqTot * e +
+                                           (l * dimension + d) * nqTot + i] *
+                                     diffCoeff[LibUtilities::GetDiffCoeffMap(
+                                         ncoord, l * ncoord + k)];
                     }
                 }
                 tmp0 = metric[0] * tmp[0];
@@ -136,13 +137,14 @@ NEK_DEVICE_KERNEL static void ApplyMetricKernel(
             {
                 for (unsigned int k = 0; k < ncoord; ++k)
                 {
-                    metric[k] = dfptr[(ndf * e + d)] *
-                                diffCoeff[GetDiffCoeffMap(ncoord, k)];
+                    metric[k] =
+                        dfptr[(ndf * e + d)] *
+                        diffCoeff[LibUtilities::GetDiffCoeffMap(ncoord, k)];
                     for (unsigned int l = 1; l < ncoord; ++l)
                     {
-                        metric[k] +=
-                            dfptr[(ndf * e + l * dimension + d)] *
-                            diffCoeff[GetDiffCoeffMap(ncoord, l * ncoord + k)];
+                        metric[k] += dfptr[(ndf * e + l * dimension + d)] *
+                                     diffCoeff[LibUtilities::GetDiffCoeffMap(
+                                         ncoord, l * ncoord + k)];
                     }
                 }
                 tmp0 = metric[0] * tmp[0];

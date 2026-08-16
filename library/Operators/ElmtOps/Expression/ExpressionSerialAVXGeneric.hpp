@@ -50,7 +50,7 @@ class ExpressionBlockOpImpl : public ExpressionBlockOp<TData>
 public:
     ExpressionBlockOpImpl(const unsigned int block_idx,
                           const LocalRegions::ExpansionSharedPtr &exp,
-                          NekDataWarehouseSharedPtr dataWarehouse)
+                          LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : ExpressionBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
@@ -67,7 +67,7 @@ public:
         ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>>
     Instantiate(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,
-                NekDataWarehouseSharedPtr dataWarehouse)
+                LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             ExpressionBlockOpImpl<ExecSpace, Implementation, TData>>(
@@ -80,8 +80,8 @@ protected:
     unsigned int m_nqTot;
 
     void v_Apply(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock) override
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
         ASSERTL1(this->m_expressions.size() == inblock.GetNumComponents() &&
                      this->m_expressions.size() == outblock.GetNumComponents(),
@@ -115,7 +115,8 @@ protected:
 
         const auto coordptr0 =
             this->m_dataWarehouse->template GetData<MemSpace>(
-                CoordKey<TData>(this->m_block_idx, inInterleaveWidth, false));
+                LocalRegions::CoordKey<TData>(this->m_block_idx,
+                                              inInterleaveWidth, false));
 
         // Loop over components.
         for (unsigned int n = 0; n < inblock.GetNumHomoModes(); ++n)
@@ -132,7 +133,7 @@ protected:
                     if (&inblock != &outblock && this->m_append &&
                         e % width_ratio == 0)
                     {
-                        ReshapeStorage<ExecSpace>(
+                        LibUtilities::ReshapeStorage<ExecSpace>(
                             inInterleaveWidth, outInterleaveWidth, chunkSize,
                             outblock.GetNumData(),
                             (TData *)outptr +

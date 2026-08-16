@@ -69,7 +69,7 @@ public:
 
         // Allocate memory.
         this->m_solutions.push_back(
-            MultiRegions::Field<TData, FieldState::Phys>(
+            LibUtilities::Field<TData, FieldState::Phys>(
                 MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                     this->m_expansionList),
                 this->m_components, 1));
@@ -77,7 +77,7 @@ public:
         for (unsigned int i = 0; i < NStage(); i++)
         {
             this->m_implicits.push_back(
-                MultiRegions::Field<TData, FieldState::Phys>(
+                LibUtilities::Field<TData, FieldState::Phys>(
                     MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                         this->m_expansionList),
                     this->m_components, 1));
@@ -131,7 +131,7 @@ protected:
         }
     }
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &inout) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &inout) override
     {
         // Check that required functions are defined.
         ASSERTL0(this->m_implicitFunctor,
@@ -170,7 +170,7 @@ protected:
     }
 
     template <unsigned int Stage>
-    void Staging(MultiRegions::Field<TData, FieldState::Phys> &inout)
+    void Staging(LibUtilities::Field<TData, FieldState::Phys> &inout)
     {
         // Compute explicit/implicit terms.
         constexpr auto coeff =
@@ -211,7 +211,7 @@ protected:
     }
 
     template <unsigned int... ind>
-    void UpdateStage(MultiRegions::Field<TData, FieldState::Phys> &out,
+    void UpdateStage(LibUtilities::Field<TData, FieldState::Phys> &out,
                      std::integer_sequence<unsigned int, ind...>)
     {
         // Loop over the blocks.
@@ -239,7 +239,7 @@ protected:
     }
 
     template <unsigned int... ind>
-    void UpdateSolution(MultiRegions::Field<TData, FieldState::Phys> &out,
+    void UpdateSolution(LibUtilities::Field<TData, FieldState::Phys> &out,
                         std::integer_sequence<unsigned int, ind...>)
     {
         // Loop over the blocks.

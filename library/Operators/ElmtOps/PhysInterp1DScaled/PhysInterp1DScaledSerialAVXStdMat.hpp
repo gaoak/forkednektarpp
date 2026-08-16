@@ -52,9 +52,10 @@ class PhysInterp1DScaledBlockOpImpl : public PhysInterp1DScaledBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    PhysInterp1DScaledBlockOpImpl(const unsigned int block_idx,
-                                  const LocalRegions::ExpansionSharedPtr &exp,
-                                  NekDataWarehouseSharedPtr dataWarehouse)
+    PhysInterp1DScaledBlockOpImpl(
+        const unsigned int block_idx,
+        const LocalRegions::ExpansionSharedPtr &exp,
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : PhysInterp1DScaledBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
@@ -93,7 +94,7 @@ public:
         ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>>
     Instantiate(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,
-                NekDataWarehouseSharedPtr dataWarehouse)
+                LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             PhysInterp1DScaledBlockOpImpl<ExecSpace, Implementation, TData>>(
@@ -117,8 +118,8 @@ protected:
     const TData *m_matptr;
 
     void v_Apply(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock) override
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -146,9 +147,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize,
-                                              m_nmTot, (TData *)inptr);
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        m_implInterleaveWidth, interleaveWidth, chunkSize,
+                        m_nmTot, (TData *)inptr);
                 }
 
                 // Perform matrix-matrix multiply.
@@ -157,12 +158,12 @@ protected:
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nmTot,
                         (TData *)inptr -
                             (width_ratio - 1) * m_nmTot * simd_t::width);
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nqTot,
                         (TData *)outptr -
@@ -217,8 +218,9 @@ protected:
             std::accumulate(m_nq.begin(), m_nq.end(), 1, std::multiplies());
 
         m_matptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            StdMatKey<TData>(m_basisKeys, m_shapeType,
-                             ePhysInterpStdMatTranspose, m_nodalType, m_nq));
+            StdRegions::StdMatKey<TData>(m_basisKeys, m_shapeType,
+                                         StdRegions::ePhysInterpStdMatTranspose,
+                                         m_nodalType, m_nq));
     }
 };
 

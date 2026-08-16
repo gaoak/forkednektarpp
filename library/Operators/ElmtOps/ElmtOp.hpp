@@ -87,14 +87,14 @@ public:
         return op;
     }
 
-    void Apply(MultiRegions::Field<TData, TFieldIn> &in,
-               MultiRegions::Field<TData, TFieldOut> &out)
+    void Apply(LibUtilities::Field<TData, TFieldIn> &in,
+               LibUtilities::Field<TData, TFieldOut> &out)
     {
         v_Apply(in, out);
     }
 
-    void operator()(MultiRegions::Field<TData, TFieldIn> &in,
-                    MultiRegions::Field<TData, TFieldOut> &out)
+    void operator()(LibUtilities::Field<TData, TFieldIn> &in,
+                    LibUtilities::Field<TData, TFieldOut> &out)
     {
         v_Apply(in, out);
     }
@@ -184,8 +184,8 @@ protected:
     {
     }
 
-    virtual void v_Apply(MultiRegions::Field<TData, TFieldIn> &in,
-                         MultiRegions::Field<TData, TFieldOut> &out) = 0;
+    virtual void v_Apply(LibUtilities::Field<TData, TFieldIn> &in,
+                         LibUtilities::Field<TData, TFieldOut> &out) = 0;
 };
 
 } // namespace Nektar::Operators

@@ -252,13 +252,13 @@ void SteadyADR::v_InitialiseFields()
     // Create fields.
     unsigned int nhomo = m_npointsZ; // Note read in EquationSystem.cpp
 
-    m_wsp_fce = MultiRegions::Field<double, FieldState::Phys>(
+    m_wsp_fce = LibUtilities::Field<double, FieldState::Phys>(
         "m_wsp_fce", bAtr_phys, m_nVariables, nhomo);
 
     if (m_session->GetSolverInfo("EQTYPE") == "SteadyADR")
     {
         unsigned int coordDim = m_expansionLists[0]->GetCoordim(0);
-        m_advectionVel        = MultiRegions::Field<double, FieldState::Phys>(
+        m_advectionVel        = LibUtilities::Field<double, FieldState::Phys>(
             "advVel", bAtr_phys, coordDim, nhomo);
     }
 

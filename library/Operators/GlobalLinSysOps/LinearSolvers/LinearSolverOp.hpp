@@ -44,8 +44,8 @@
 #include "Operators/ElmtOps/ElmtOp.hpp"
 #include "Operators/PreconOps/PreconOp.hpp"
 
+#include "LibUtilities/BasicUtils/Math/Math.hpp"
 #include "LibUtilities/BasicUtils/Math/MathHelper.hpp"
-#include "MultiRegions/Field/Math.hpp"
 
 namespace Nektar::Operators
 {
@@ -101,14 +101,14 @@ public:
             factory.CreateInstance(requestedKey, expansionList, components));
     }
 
-    void Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
-               MultiRegions::Field<TData, FieldState::Coeff> &out)
+    void Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
+               LibUtilities::Field<TData, FieldState::Coeff> &out)
     {
         this->v_Apply(in, out);
     }
 
-    void operator()(MultiRegions::Field<TData, FieldState::Coeff> &in,
-                    MultiRegions::Field<TData, FieldState::Coeff> &out)
+    void operator()(LibUtilities::Field<TData, FieldState::Coeff> &in,
+                    LibUtilities::Field<TData, FieldState::Coeff> &out)
     {
         this->v_Apply(in, out);
     }
@@ -160,8 +160,8 @@ protected:
     ~LinearSolverOp() override = default;
 
     virtual void v_Apply(
-        MultiRegions::Field<TData, FieldState::Coeff> &in,
-        MultiRegions::Field<TData, FieldState::Coeff> &out) = 0;
+        LibUtilities::Field<TData, FieldState::Coeff> &in,
+        LibUtilities::Field<TData, FieldState::Coeff> &out) = 0;
 
     std::string GetVerboseName(const std::string &solverName) const
     {

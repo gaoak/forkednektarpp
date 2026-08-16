@@ -48,7 +48,8 @@ public:
     static std::shared_ptr<FwdTransBCBlockOp<TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse, const std::string &execStr)
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
+        const std::string &execStr)
     {
         return BlockOperator<TData>::template Create<FwdTransBCBlockOp>(
             block_idx, exp, dataWarehouse, execStr);
@@ -56,15 +57,15 @@ public:
 
     static inline const std::string name = "BlockFwdTransBC";
 
-    void Apply(MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-               MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
+    void Apply(LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+               LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         this->v_Apply(inblock, outblock);
     }
 
     void operator()(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         this->v_Apply(inblock, outblock);
     }
@@ -77,14 +78,14 @@ public:
 protected:
     FwdTransBCBlockOp(const unsigned int block_idx,
                       const LocalRegions::ExpansionSharedPtr &exp,
-                      NekDataWarehouseSharedPtr dataWarehouse)
+                      LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : BlockOperator<TData>(block_idx, exp, dataWarehouse)
     {
     }
 
     virtual void v_Apply(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock) = 0;
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock) = 0;
 
     virtual void v_SetInvMassMatrix(std::vector<TData> &dmat) = 0;
 };

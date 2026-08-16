@@ -59,7 +59,7 @@ public:
     MultiplyByElmtInvMassBlockOpImpl(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : MultiplyByElmtInvMassBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
@@ -84,12 +84,13 @@ public:
                 ? exp->GetNodalPointsKey().GetPointsType()
                 : LibUtilities::eNoPointsType;
 
-        m_invmassptr =
-            dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
-                basisKeys, m_shapeType, eInvMassStdMatTranspose, nodalType));
+        m_invmassptr = dataWarehouse->template GetData<MemSpace>(
+            StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
+                                         StdRegions::eInvMassStdMatTranspose,
+                                         nodalType));
 
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+            LocalRegions::JacobianKey<TData>(block_idx, m_implInterleaveWidth));
     }
 
     // className - for BlockOperatorFactory
@@ -99,7 +100,7 @@ public:
     static std::unique_ptr<BlockOperator<TData>> Instantiate(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             MultiplyByElmtInvMassBlockOpImpl<ExecSpace, Implementation, TData>>(
@@ -119,8 +120,8 @@ protected:
     const TData *m_jacptr;
     LibUtilities::MemoryRegion<TData> m_dinvmass;
 
-    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-                 MultiRegions::BlockAccessor<TData, FieldState::Coeff>
+    void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+                 LibUtilities::BlockAccessor<TData, FieldState::Coeff>
                      &outblock) override
     {
         // Initialize pointers.
@@ -151,9 +152,9 @@ protected:
                     // Reshape, if necessary.
                     if (e % width_ratio == 0)
                     {
-                        ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                                  interleaveWidth, chunkSize,
-                                                  m_nmTot, (TData *)inptr);
+                        LibUtilities::ReshapeStorage<ExecSpace>(
+                            m_implInterleaveWidth, interleaveWidth, chunkSize,
+                            m_nmTot, (TData *)inptr);
                     }
 
                     // Perform batched matrix-vector multiply.
@@ -177,12 +178,12 @@ protected:
                     // Reshape back, if necessary.
                     if (e % width_ratio == width_ratio - 1)
                     {
-                        ReshapeStorage<ExecSpace>(
+                        LibUtilities::ReshapeStorage<ExecSpace>(
                             interleaveWidth, m_implInterleaveWidth, chunkSize,
                             m_nmTot,
                             (TData *)inptr -
                                 (width_ratio - 1) * m_nmTot * simd_t::width);
-                        ReshapeStorage<ExecSpace>(
+                        LibUtilities::ReshapeStorage<ExecSpace>(
                             interleaveWidth, m_implInterleaveWidth, chunkSize,
                             m_nmTot,
                             (TData *)outptr -
@@ -210,9 +211,9 @@ protected:
                     // Reshape, if necessary.
                     if (e % width_ratio == 0)
                     {
-                        ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                                  interleaveWidth, chunkSize,
-                                                  m_nmTot, (TData *)inptr);
+                        LibUtilities::ReshapeStorage<ExecSpace>(
+                            m_implInterleaveWidth, interleaveWidth, chunkSize,
+                            m_nmTot, (TData *)inptr);
                     }
                     // Perform matrix-matrix multiply.
                     invmass_kernel(inptr, m_invmassptr, outptr);
@@ -226,12 +227,12 @@ protected:
                     // Reshape back, if necessary.
                     if (e % width_ratio == width_ratio - 1)
                     {
-                        ReshapeStorage<ExecSpace>(
+                        LibUtilities::ReshapeStorage<ExecSpace>(
                             interleaveWidth, m_implInterleaveWidth, chunkSize,
                             m_nmTot,
                             (TData *)inptr -
                                 (width_ratio - 1) * m_nmTot * simd_t::width);
-                        ReshapeStorage<ExecSpace>(
+                        LibUtilities::ReshapeStorage<ExecSpace>(
                             interleaveWidth, m_implInterleaveWidth, chunkSize,
                             m_nmTot,
                             (TData *)outptr -

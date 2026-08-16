@@ -52,47 +52,47 @@ public:
     PipeConjGradOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                        const std::vector<std::string> &components)
         : PipeConjGradOp<TData>(expansionList, components),
-          m_m(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_m(LibUtilities::Field<TData, FieldState::Coeff>(
               "PipeConjGrad m",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_n(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_n(LibUtilities::Field<TData, FieldState::Coeff>(
               "PipeConjGrad n",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_z(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_z(LibUtilities::Field<TData, FieldState::Coeff>(
               "PipeConjGrad z",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_w(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_w(LibUtilities::Field<TData, FieldState::Coeff>(
               "PipeConjGrad w",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_u(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_u(LibUtilities::Field<TData, FieldState::Coeff>(
               "PipeConjGrad u",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_s(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_s(LibUtilities::Field<TData, FieldState::Coeff>(
               "PipeConjGrad s",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_r(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_r(LibUtilities::Field<TData, FieldState::Coeff>(
               "PipeConjGrad r",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_q(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_q(LibUtilities::Field<TData, FieldState::Coeff>(
               "PipeConjGrad q",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_p(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_p(LibUtilities::Field<TData, FieldState::Coeff>(
               "PipeConjGrad p",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
@@ -132,21 +132,21 @@ public:
     }
 
 protected:
-    MultiRegions::Field<TData, FieldState::Coeff> m_m;
-    MultiRegions::Field<TData, FieldState::Coeff> m_n;
-    MultiRegions::Field<TData, FieldState::Coeff> m_z;
-    MultiRegions::Field<TData, FieldState::Coeff> m_w;
-    MultiRegions::Field<TData, FieldState::Coeff> m_u;
-    MultiRegions::Field<TData, FieldState::Coeff> m_s;
-    MultiRegions::Field<TData, FieldState::Coeff> m_r;
-    MultiRegions::Field<TData, FieldState::Coeff> m_q;
-    MultiRegions::Field<TData, FieldState::Coeff> m_p;
+    LibUtilities::Field<TData, FieldState::Coeff> m_m;
+    LibUtilities::Field<TData, FieldState::Coeff> m_n;
+    LibUtilities::Field<TData, FieldState::Coeff> m_z;
+    LibUtilities::Field<TData, FieldState::Coeff> m_w;
+    LibUtilities::Field<TData, FieldState::Coeff> m_u;
+    LibUtilities::Field<TData, FieldState::Coeff> m_s;
+    LibUtilities::Field<TData, FieldState::Coeff> m_r;
+    LibUtilities::Field<TData, FieldState::Coeff> m_q;
+    LibUtilities::Field<TData, FieldState::Coeff> m_p;
     LibUtilities::MemoryRegion<TData> m_vExchange;
 
     LibUtilities::CommRequestSharedPtr m_request;
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
-                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
+                 LibUtilities::Field<TData, FieldState::Coeff> &out) override
     {
         // Based on the pipelined conjugate gradiant method
         //

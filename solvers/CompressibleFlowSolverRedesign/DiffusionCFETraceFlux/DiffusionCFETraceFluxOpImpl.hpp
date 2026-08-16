@@ -50,12 +50,12 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
         : DiffusionCFETraceFluxOp<TData>(std::move(expansionList), components),
-          m_traceAver(MultiRegions::Field<TData, FieldState::Phys>(
+          m_traceAver(LibUtilities::Field<TData, FieldState::Phys>(
               "Trace average",
               MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList->GetTrace()),
               components.size(), 1)),
-          m_traceJump(MultiRegions::Field<TData, FieldState::Phys>(
+          m_traceJump(LibUtilities::Field<TData, FieldState::Phys>(
               "Trace jump",
               MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList->GetTrace()),
@@ -136,13 +136,13 @@ protected:
     TData m_TRatioSutherland;
     TData m_oneOverTstar;
 
-    MultiRegions::Field<TData, FieldState::Phys> m_traceAver, m_traceJump;
+    LibUtilities::Field<TData, FieldState::Phys> m_traceAver, m_traceJump;
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &fwd,
-                 MultiRegions::Field<TData, FieldState::Phys> &bwd,
-                 MultiRegions::Field<TData, FieldState::Phys> &derivFwd,
-                 MultiRegions::Field<TData, FieldState::Phys> &derivBwd,
-                 MultiRegions::Field<TData, FieldState::Phys> &numflux) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &fwd,
+                 LibUtilities::Field<TData, FieldState::Phys> &bwd,
+                 LibUtilities::Field<TData, FieldState::Phys> &derivFwd,
+                 LibUtilities::Field<TData, FieldState::Phys> &derivBwd,
+                 LibUtilities::Field<TData, FieldState::Phys> &numflux) override
     {
         for (unsigned blk = 0; blk < numflux.GetBlocks().size(); ++blk)
         {
@@ -156,23 +156,23 @@ protected:
             // These trace geometry/weight arrays are read-only mesh data, so
             // they live in the data warehouse instead of per-op Field storage.
             auto normalbase = this->m_dataWarehouse->template GetData<MemSpace>(
-                Operators::IPTraceNormalKey<TData>(blk));
+                MultiRegions::IPTraceNormalKey<TData>(blk));
             auto bwdWeightAverBase =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    Operators::IPTraceScalarKey<TData>(
-                        blk, Operators::IPTraceScalarData::BwdWeightAver));
+                    MultiRegions::IPTraceScalarKey<TData>(
+                        blk, MultiRegions::IPTraceScalarData::BwdWeightAver));
             auto bwdWeightJumpBase =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    Operators::IPTraceScalarKey<TData>(
-                        blk, Operators::IPTraceScalarData::BwdWeightJump));
+                    MultiRegions::IPTraceScalarKey<TData>(
+                        blk, MultiRegions::IPTraceScalarData::BwdWeightJump));
             auto lengthRecipBase =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    Operators::IPTraceScalarKey<TData>(
-                        blk, Operators::IPTraceScalarData::LengthRecip));
+                    MultiRegions::IPTraceScalarKey<TData>(
+                        blk, MultiRegions::IPTraceScalarData::LengthRecip));
             auto penaltyFactorBase =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    Operators::IPTraceScalarKey<TData>(
-                        blk, Operators::IPTraceScalarData::PenaltyFactor));
+                    MultiRegions::IPTraceScalarKey<TData>(
+                        blk, MultiRegions::IPTraceScalarData::PenaltyFactor));
 
             auto fwdbase = fwdblock.template GetPtr<MemSpace, ReadOnly>();
             auto bwdbase = bwdblock.template GetPtr<MemSpace, ReadOnly>();
@@ -207,7 +207,7 @@ protected:
         ApplyFluxBndConds();
     }
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &out) override
     {
         // Placeholder for symmetric IP trace term.
         (void)out;

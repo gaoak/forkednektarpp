@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "DiffusionCFEVolFlux/DiffusionCFEVolFluxKernels.hpp"
-#include "Operators/Common/DataWarehouse/TraceDataWarehouse.hpp"
+#include <DiffusionCFEVolFlux/DiffusionCFEVolFluxKernels.hpp>
+#include <MultiRegions/DataWarehouse/TraceDataWarehouse.hpp>
 
 namespace Nektar::detail
 {

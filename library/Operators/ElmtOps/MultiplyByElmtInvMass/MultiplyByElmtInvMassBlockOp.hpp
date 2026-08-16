@@ -47,8 +47,8 @@ public:
     static std::shared_ptr<MultiplyByElmtInvMassBlockOp<TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse, const std::string &execStr,
-        std::string implStr)
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
+        const std::string &execStr, std::string implStr)
     {
         return ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>::
             template Create<MultiplyByElmtInvMassBlockOp>(
@@ -63,9 +63,10 @@ public:
     }
 
 protected:
-    MultiplyByElmtInvMassBlockOp(const unsigned int block_idx,
-                                 const LocalRegions::ExpansionSharedPtr &exp,
-                                 NekDataWarehouseSharedPtr dataWarehouse)
+    MultiplyByElmtInvMassBlockOp(
+        const unsigned int block_idx,
+        const LocalRegions::ExpansionSharedPtr &exp,
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>(
               block_idx, exp, dataWarehouse)
     {

@@ -83,12 +83,12 @@ public:
 
     static inline const std::string name = "NormL2";
 
-    void Apply(MultiRegions::Field<TData, FieldState::Phys> &in)
+    void Apply(LibUtilities::Field<TData, FieldState::Phys> &in)
     {
         v_Apply(in);
     }
 
-    void operator()(MultiRegions::Field<TData, FieldState::Phys> &in)
+    void operator()(LibUtilities::Field<TData, FieldState::Phys> &in)
     {
         Apply(in);
     }
@@ -125,6 +125,6 @@ protected:
     {
     }
 
-    virtual void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in) = 0;
+    virtual void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in) = 0;
 };
 } // namespace Nektar::Operators

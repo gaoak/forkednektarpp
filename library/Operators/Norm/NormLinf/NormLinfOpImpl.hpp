@@ -62,7 +62,7 @@ public:
     }
 
 protected:
-    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in) override
     {
         ASSERTL1(in.GetNumHomoModes() == 1,
                  "The NormLinf is not implemented for homogeneous expansions.");

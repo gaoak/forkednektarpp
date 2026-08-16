@@ -45,22 +45,10 @@
 #include <thread>
 #endif
 
+#include "LibUtilities/BasicUtils/Field/MemoryRegion.hpp"
 #include <LibUtilities/BasicUtils/HashUtils.hpp>
 
-#include "LibUtilities/BasicUtils/MemoryRegion.hpp"
-
-// Forward declaration
-namespace Nektar::MultiRegions
-{
-
-class ExpList;
-
-/// Shared pointer to an ExpList object.
-typedef std::shared_ptr<ExpList> ExpListSharedPtr;
-
-} // namespace Nektar::MultiRegions
-
-namespace Nektar::Operators
+namespace Nektar::LibUtilities
 {
 
 // Data creator base class
@@ -96,8 +84,7 @@ class NekDataWarehouse
 public:
     typedef std::unordered_map<
         std::string,
-        std::unordered_map<size_t,
-                           std::shared_ptr<LibUtilities::MemoryRegionBase>>>
+        std::unordered_map<size_t, std::shared_ptr<MemoryRegionBase>>>
         tMapMemoryRegion;
     typedef std::shared_ptr<DataCreatorClass> tDataCreatorClassSharedPtr;
     typedef std::unordered_map<std::string, tDataCreatorClassSharedPtr>
@@ -132,8 +119,8 @@ public:
                         it->second);
                 auto mr = dataCreator->template Create<MemSpace>(dataKey);
                 it2->second.emplace(
-                    idKey, std::make_shared<LibUtilities::MemoryRegion<TData>>(
-                               std::move(mr)));
+                    idKey,
+                    std::make_shared<MemoryRegion<TData>>(std::move(mr)));
             }
         }
         else
@@ -144,7 +131,7 @@ public:
 
         // Fetch data.
         auto it2 = GetMapMemoryRegion()->find(DataKey::creator::m_name);
-        auto mr  = std::static_pointer_cast<LibUtilities::MemoryRegion<TData>>(
+        auto mr  = std::static_pointer_cast<MemoryRegion<TData>>(
             it2->second.find(idKey)->second);
         return mr->template GetPtr<MemSpace, ReadOnly>();
     }
@@ -163,8 +150,8 @@ public:
             // Register new DataCreator::m_name in MemoryRegion map.
             GetMapMemoryRegion()->emplace(
                 DataCreator::m_name,
-                std::unordered_map<
-                    size_t, std::shared_ptr<LibUtilities::MemoryRegionBase>>());
+                std::unordered_map<size_t,
+                                   std::shared_ptr<MemoryRegionBase>>());
         }
         else
         {
@@ -218,4 +205,4 @@ private:
 
 typedef std::shared_ptr<NekDataWarehouse> NekDataWarehouseSharedPtr;
 
-} // namespace Nektar::Operators
+} // namespace Nektar::LibUtilities

@@ -47,8 +47,8 @@ public:
     static std::shared_ptr<AdvectionBlockOp<TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse, const std::string &execStr,
-        std::string implStr)
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
+        const std::string &execStr, std::string implStr)
     {
         return ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>::
             template Create<AdvectionBlockOp>(block_idx, exp, dataWarehouse,
@@ -67,7 +67,7 @@ public:
         this->m_append = append;
     }
 
-    void SetAdvVel(MultiRegions::BlockAccessor<TData, FieldState::Phys> &Vel)
+    void SetAdvVel(LibUtilities::BlockAccessor<TData, FieldState::Phys> &Vel)
     {
         v_SetAdvVel(Vel);
     }
@@ -78,7 +78,7 @@ protected:
 
     AdvectionBlockOp(const unsigned int block_idx,
                      const LocalRegions::ExpansionSharedPtr &exp,
-                     NekDataWarehouseSharedPtr dataWarehouse)
+                     LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>(block_idx, exp,
                                                                  dataWarehouse)
     {
@@ -87,7 +87,7 @@ protected:
     ~AdvectionBlockOp() override = default;
 
     virtual void v_SetAdvVel(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &Vel) = 0;
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &Vel) = 0;
 };
 
 } // namespace Nektar::Operators

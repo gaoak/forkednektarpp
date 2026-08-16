@@ -47,7 +47,7 @@
 
 #include <MultiRegions/ContField.h>
 
-#include "MultiRegions/Field/Field.hpp"
+#include "LibUtilities/BasicUtils/Field/Field.hpp"
 #include "Operators/ElmtOps/Expression/ExpressionOp.hpp"
 
 namespace Nektar::Operators::detail
@@ -98,8 +98,8 @@ CGBndCondRegions<TData> BuildCGBndCondRegions(
     const SpatialDomains::BoundaryRegionCollection &bregions,
     const SpatialDomains::BoundaryConditionCollection &bconditions,
     const std::string &wspLabel,
-    std::vector<MultiRegions::Field<TData, FieldState::Phys>> &wspPhys,
-    std::vector<MultiRegions::Field<TData, FieldState::Coeff>> &wspCoeffs,
+    std::vector<LibUtilities::Field<TData, FieldState::Phys>> &wspPhys,
+    std::vector<LibUtilities::Field<TData, FieldState::Coeff>> &wspCoeffs,
     std::vector<std::shared_ptr<ExpressionOp<TData>>> &expressionOps,
     bool &hasTimeDependentBndCoeffs, IsMatchFn &&isMatch,
     OnMatchedRegionFn &&onMatchedRegion)
@@ -173,12 +173,12 @@ CGBndCondRegions<TData> BuildCGBndCondRegions(
         auto blocks_phys =
             MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                 bcExpList);
-        wspPhys.push_back(MultiRegions::Field<TData, FieldState::Phys>(
+        wspPhys.push_back(LibUtilities::Field<TData, FieldState::Phys>(
             wspLabel + " phys", blocks_phys, nComp, nhomo));
         auto blocks_coeffs =
             MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                 bcExpList);
-        wspCoeffs.push_back(MultiRegions::Field<TData, FieldState::Coeff>(
+        wspCoeffs.push_back(LibUtilities::Field<TData, FieldState::Coeff>(
             wspLabel + " coeff", blocks_coeffs, nComp, nhomo));
 
         // Compute number of boundary coefficients.

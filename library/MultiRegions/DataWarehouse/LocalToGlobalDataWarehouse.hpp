@@ -34,24 +34,24 @@
 
 #pragma once
 
-#include "Operators/Common/DataWarehouse/NekDataWarehouse.hpp"
+#include "LibUtilities/BasicUtils/DataWarehouse/NekDataWarehouse.hpp"
 
-// Forward declaration
 namespace Nektar::MultiRegions
 {
+
+class ExpList;
+
+/// Shared pointer to an ExpList object.
+typedef std::shared_ptr<ExpList> ExpListSharedPtr;
 
 class AssemblyMapCG;
 
 typedef std::shared_ptr<AssemblyMapCG> AssemblyMapCGSharedPtr;
 
-} // namespace Nektar::MultiRegions
-
-namespace Nektar::Operators
-{
-
 class LocalToGlobalDataCreator;
 
-template <typename TPadding> class DeviceLocalToGlobalKey : public BaseKey
+template <typename TPadding>
+class DeviceLocalToGlobalKey : public LibUtilities::BaseKey
 {
     // The TPadding type is use to dertermine the padding requirement and must
     // be of floating point type.
@@ -86,7 +86,7 @@ private:
 };
 
 template <typename TPadding>
-class DeviceLocalToGlobalNumAssembleKey : public BaseKey
+class DeviceLocalToGlobalNumAssembleKey : public LibUtilities::BaseKey
 {
     // The TPadding type is use to dertermine the padding requirement and must
     // be of floating point type.
@@ -121,7 +121,8 @@ private:
     std::vector<std::string> m_components;
 };
 
-template <typename TPadding> class DeviceLocalToGlobalIndexKey : public BaseKey
+template <typename TPadding>
+class DeviceLocalToGlobalIndexKey : public LibUtilities::BaseKey
 {
     // The TPadding type is use to dertermine the padding requirement and must
     // be of floating point type.
@@ -157,7 +158,7 @@ private:
 };
 
 template <typename TPadding>
-class DeviceLocalToGlobalIndexOffsetKey : public BaseKey
+class DeviceLocalToGlobalIndexOffsetKey : public LibUtilities::BaseKey
 {
     // The TPadding type is use to dertermine the padding requirement and must
     // be of floating point type.
@@ -192,7 +193,8 @@ private:
     std::vector<std::string> m_components;
 };
 
-template <typename TPadding> class DeviceLocalToGlobalSignKey : public BaseKey
+template <typename TPadding>
+class DeviceLocalToGlobalSignKey : public LibUtilities::BaseKey
 {
     // The TPadding type is use to dertermine the padding requirement and must
     // be of floating point type.
@@ -230,7 +232,8 @@ private:
     std::vector<std::string> m_components;
 };
 
-template <typename TPadding> class DeviceBndLocalToGlobalKey : public BaseKey
+template <typename TPadding>
+class DeviceBndLocalToGlobalKey : public LibUtilities::BaseKey
 {
     // The TPadding type is use to dertermine the padding requirement and must
     // be of floating point type.
@@ -262,7 +265,7 @@ private:
 };
 
 template <typename TPadding>
-class DeviceBndLocalToGlobalNumAssembleKey : public BaseKey
+class DeviceBndLocalToGlobalNumAssembleKey : public LibUtilities::BaseKey
 {
     // The TPadding type is use to dertermine the padding requirement and must
     // be of floating point type.
@@ -295,7 +298,7 @@ private:
 };
 
 template <typename TPadding>
-class DeviceBndLocalToGlobalNumBndValsKey : public BaseKey
+class DeviceBndLocalToGlobalNumBndValsKey : public LibUtilities::BaseKey
 {
     // The TPadding type is use to dertermine the padding requirement and must
     // be of floating point type.
@@ -328,7 +331,7 @@ private:
 };
 
 template <typename TPadding>
-class DeviceBndLocalToGlobalIndexKey : public BaseKey
+class DeviceBndLocalToGlobalIndexKey : public LibUtilities::BaseKey
 {
     // The TPadding type is use to dertermine the padding requirement and must
     // be of floating point type.
@@ -360,7 +363,7 @@ private:
 };
 
 template <typename TPadding>
-class DeviceBndLocalToGlobalOffsetKey : public BaseKey
+class DeviceBndLocalToGlobalOffsetKey : public LibUtilities::BaseKey
 {
     // The TPadding type is use to dertermine the padding requirement and must
     // be of floating point type.
@@ -392,7 +395,7 @@ private:
 };
 
 template <typename TPadding>
-class DeviceBndLocalToGlobalAssembleOrderKey : public BaseKey
+class DeviceBndLocalToGlobalAssembleOrderKey : public LibUtilities::BaseKey
 {
     // The TPadding type is use to dertermine the padding requirement and must
     // be of floating point type.
@@ -426,7 +429,7 @@ private:
 };
 
 template <typename TPadding>
-class DeviceBndLocalToGlobalSignKey : public BaseKey
+class DeviceBndLocalToGlobalSignKey : public LibUtilities::BaseKey
 {
     // The TPadding type is use to dertermine the padding requirement and must
     // be of floating point type.
@@ -460,7 +463,8 @@ private:
     std::vector<std::string> m_components;
 };
 
-template <typename TPadding> class LocalToGlobalMaskKey : public BaseKey
+template <typename TPadding>
+class LocalToGlobalMaskKey : public LibUtilities::BaseKey
 {
     // The TPadding type is use to dertermine the padding requirement and must
     // be of floating point type.
@@ -491,15 +495,14 @@ private:
     std::vector<std::string> m_components;
 };
 
-class LocalToGlobalDataCreator : public DataCreatorClass
+class LocalToGlobalDataCreator : public LibUtilities::DataCreatorClass
 {
 public:
     ~LocalToGlobalDataCreator() override = default;
-    LocalToGlobalDataCreator(
-        const MultiRegions::ExpListSharedPtr &expansionList)
+    LocalToGlobalDataCreator(const ExpListSharedPtr &expansionList)
         : m_expansionList(expansionList) {};
 
-    std::vector<MultiRegions::AssemblyMapCGSharedPtr> &GetAssemblyMap(
+    std::vector<AssemblyMapCGSharedPtr> &GetAssemblyMap(
         const std::vector<std::string> &components);
 
     template <typename MemSpace, typename TPadding>
@@ -568,18 +571,16 @@ public:
     Create([[maybe_unused]] const LocalToGlobalMaskKey<TPadding> &LocToGloKey);
 
     template <typename TPadding>
-    void FillSignArray(
-        std::vector<unsigned> &index,
-        const std::vector<MultiRegions::AssemblyMapCGSharedPtr> &loc2glo,
-        bool zeroDir, bool signChange, int *out);
+    void FillSignArray(std::vector<unsigned> &index,
+                       const std::vector<AssemblyMapCGSharedPtr> &loc2glo,
+                       bool zeroDir, bool signChange, int *out);
 
     inline static const std::string m_name = "LocalToGlobalCreator";
 
 private:
-    MultiRegions::ExpListSharedPtr m_expansionList;
-    std::unordered_map<size_t,
-                       std::vector<MultiRegions::AssemblyMapCGSharedPtr>>
+    ExpListSharedPtr m_expansionList;
+    std::unordered_map<size_t, std::vector<AssemblyMapCGSharedPtr>>
         m_assemblyMaps;
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar::MultiRegions

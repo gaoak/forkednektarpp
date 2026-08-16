@@ -47,8 +47,8 @@ public:
     static std::shared_ptr<LaplacianBlockOp<TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse, const std::string &execStr,
-        std::string implStr)
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
+        const std::string &execStr, std::string implStr)
     {
         return ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>::
             template Create<LaplacianBlockOp>(block_idx, exp, dataWarehouse,
@@ -68,7 +68,7 @@ protected:
 
     LaplacianBlockOp(const unsigned int block_idx,
                      const LocalRegions::ExpansionSharedPtr &exp,
-                     NekDataWarehouseSharedPtr dataWarehouse)
+                     LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>(
               block_idx, exp, dataWarehouse)
     {
