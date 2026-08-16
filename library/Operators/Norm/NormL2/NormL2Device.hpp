@@ -34,12 +34,12 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "NormL2DeviceKernels.hpp"
-#include "Operators/Common/DataWarehouse/BasisDataWarehouse.hpp"
-#include "Operators/Common/DataWarehouse/GeometricDataWarehouse.hpp"
 #include "Operators/ElmtOps/ElmtBlockOp.hpp"
 #include "Operators/Norm/NormL2/NormL2BlockOp.hpp"
+#include <LibUtilities/BasicUtils/DataWarehouse/BasisDataWarehouse.hpp>
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
+#include <LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp>
 
 namespace Nektar::Operators::detail
 {
@@ -52,7 +52,7 @@ class NormL2BlockOpImpl : public NormL2BlockOp<TData>
 public:
     NormL2BlockOpImpl(const unsigned int block_idx,
                       const LocalRegions::ExpansionSharedPtr &exp,
-                      NekDataWarehouseSharedPtr dataWarehouse)
+                      LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : NormL2BlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         m_streamID  = block_idx + 1;
@@ -75,12 +75,13 @@ public:
 
             // Fetch basis data.
             m_W.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<TData>(basisKeys[d], eWeights)));
+                LibUtilities::BasisDataKey<TData>(basisKeys[d],
+                                                  LibUtilities::eWeights)));
         }
 
         // Fetch Jacobian.
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+            LocalRegions::JacobianKey<TData>(block_idx, m_implInterleaveWidth));
     }
 
     // className - for BlockOperatorFactory
@@ -90,7 +91,7 @@ public:
     static std::unique_ptr<NormL2BlockOp<TData>> Instantiate(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<NormL2BlockOpImpl<ExecSpace, TData>>(
             block_idx, exp, dataWarehouse);
@@ -112,7 +113,7 @@ protected:
     std::vector<unsigned int> m_nm;
     std::vector<const TData *> m_W;
 
-    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+    void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
                  LibUtilities::MemoryRegion<TData> &data) override
     {
         if (inblock.GetNumElements() == 0)
@@ -145,7 +146,7 @@ protected:
     }
 
     void Operator1D(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::MemoryRegion<TData> &data)
     {
         auto sizeParam1D = NonTemplatedPhysSizeParameter1D(m_coordim, m_nq[0]);
@@ -191,9 +192,9 @@ protected:
         for (unsigned int nc = 0; nc < nComp * nHomo; ++nc)
         {
             // SumFac kernels expect point-major, warp-lane-minor storage.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                      paddedNelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, interleaveWidth, paddedNelmt,
+                inblock.GetNumData(), (TData *)inptr, m_streamID);
 
             if (m_isDeformed)
             {
@@ -211,9 +212,9 @@ protected:
             }
 
             // Restore the original field layout for downstream operators.
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      paddedNelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                interleaveWidth, m_implInterleaveWidth, paddedNelmt,
+                inblock.GetNumData(), (TData *)inptr, m_streamID);
 
             // Increment pointers.
             inptr += inblock.CompSize();
@@ -221,7 +222,7 @@ protected:
     }
 
     void Operator2D(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::MemoryRegion<TData> &data)
     {
         auto sizeParam2D =
@@ -265,9 +266,9 @@ protected:
         // Compute norm
         for (unsigned int nc = 0; nc < nComp * nHomo; ++nc)
         {
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                      paddedNelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, interleaveWidth, paddedNelmt,
+                inblock.GetNumData(), (TData *)inptr, m_streamID);
 
             if (m_isDeformed)
             {
@@ -284,16 +285,16 @@ protected:
                     inptr, redptr + nc);
             }
 
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      paddedNelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                interleaveWidth, m_implInterleaveWidth, paddedNelmt,
+                inblock.GetNumData(), (TData *)inptr, m_streamID);
 
             inptr += inblock.CompSize();
         }
     }
 
     void Operator3D(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::MemoryRegion<TData> &data)
     {
         auto sizeParam3D =
@@ -337,9 +338,9 @@ protected:
         // Compute norm
         for (unsigned int nc = 0; nc < nComp * nHomo; ++nc)
         {
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                      paddedNelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, interleaveWidth, paddedNelmt,
+                inblock.GetNumData(), (TData *)inptr, m_streamID);
 
             if (m_isDeformed)
             {
@@ -356,9 +357,9 @@ protected:
                     m_jacptr, inptr, redptr + nc);
             }
 
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      paddedNelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                interleaveWidth, m_implInterleaveWidth, paddedNelmt,
+                inblock.GetNumData(), (TData *)inptr, m_streamID);
 
             inptr += inblock.CompSize();
         }

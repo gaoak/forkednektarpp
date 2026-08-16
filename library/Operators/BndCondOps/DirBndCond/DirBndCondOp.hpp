@@ -56,12 +56,12 @@ public:
 
     static inline const std::string name = "DirBndCond";
 
-    void Apply(MultiRegions::Field<TData, FieldState::Coeff> &out)
+    void Apply(LibUtilities::Field<TData, FieldState::Coeff> &out)
     {
         v_Apply(out);
     }
 
-    void operator()(MultiRegions::Field<TData, FieldState::Coeff> &out)
+    void operator()(LibUtilities::Field<TData, FieldState::Coeff> &out)
     {
         v_Apply(out);
     }
@@ -98,7 +98,7 @@ protected:
     ~DirBndCondOp() override = default;
 
     virtual void v_Apply(
-        MultiRegions::Field<TData, FieldState::Coeff> &out) = 0;
+        LibUtilities::Field<TData, FieldState::Coeff> &out) = 0;
 
     virtual void v_UpdateBndCoeffs(const TData &time) = 0;
 

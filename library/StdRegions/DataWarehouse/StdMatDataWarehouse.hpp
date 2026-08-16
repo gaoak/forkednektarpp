@@ -34,12 +34,11 @@
 
 #pragma once
 
-#include "Operators/Common/DataWarehouse/NekDataWarehouse.hpp"
-
+#include <LibUtilities/BasicUtils/DataWarehouse/NekDataWarehouse.hpp>
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <LibUtilities/Foundations/Basis.h>
 
-namespace Nektar::Operators
+namespace Nektar::StdRegions
 {
 
 enum StdMatType
@@ -70,7 +69,7 @@ enum StdMatType
 
 class StdMatDataCreator;
 
-template <typename TData> class StdMatKey : public BaseKey
+template <typename TData> class StdMatKey : public LibUtilities::BaseKey
 {
     friend class StdMatDataCreator;
 
@@ -120,7 +119,7 @@ private:
     std::vector<unsigned int> m_nq;
 };
 
-class StdMatDataCreator : public DataCreatorClass
+class StdMatDataCreator : public LibUtilities::DataCreatorClass
 {
 public:
     ~StdMatDataCreator() override = default;
@@ -131,4 +130,4 @@ public:
     inline static const std::string m_name = "StdMatDataCreator";
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar::StdRegions

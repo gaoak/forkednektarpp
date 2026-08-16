@@ -172,8 +172,8 @@ protected:
     LibUtilities::MemoryRegion<size_t> m_periodicBwdCopyOffset;
     size_t m_nBndPhys = 0;
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
-                 MultiRegions::Field<TData, FieldState::Phys> &out) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
+                 LibUtilities::Field<TData, FieldState::Phys> &out) override
     {
         // Return if no Periodic boundary condition.
         if (m_nBndPhys == 0)

@@ -112,8 +112,8 @@ protected:
 
     ~MultiplyByElmtInvMassOp() override = default;
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
-                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
+                 LibUtilities::Field<TData, FieldState::Coeff> &out) override
     {
         ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
                  "Number of input and output components differ");

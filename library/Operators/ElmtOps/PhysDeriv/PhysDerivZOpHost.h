@@ -29,7 +29,7 @@
 // DEALINGS IN THE SOFTWARE.
 //
 // Description: Host (FFTW) backend for the PhysDerivOp z-derivative. Always
-// built. Operates directly on MultiRegions::BlockAccessor data pointers; the
+// built. Operates directly on LibUtilities::BlockAccessor data pointers; the
 // FFT pipeline (transposition + FFTW + wavenumber multiply) is driven via the
 // cached ExpListHomogeneous1D.
 //
@@ -83,8 +83,8 @@ protected:
 
     void v_Launch(
         std::vector<std::shared_ptr<PhysDerivBlockOp<TData>>> &blockOp,
-        MultiRegions::Field<TData, FieldState::Phys> &in,
-        MultiRegions::Field<TData, FieldState::Phys> &out, unsigned int nhomo,
+        LibUtilities::Field<TData, FieldState::Phys> &in,
+        LibUtilities::Field<TData, FieldState::Phys> &out, unsigned int nhomo,
         [[maybe_unused]] const std::vector<int> &blockNXY) override
     {
         // xy derivatives (always).

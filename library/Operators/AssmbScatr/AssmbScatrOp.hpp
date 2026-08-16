@@ -59,24 +59,24 @@ public:
 
     static inline const std::string name = "AssmbScatr";
 
-    void Apply(MultiRegions::Field<TData, FieldState::Coeff> &inout)
+    void Apply(LibUtilities::Field<TData, FieldState::Coeff> &inout)
     {
         v_Apply(inout);
     }
 
-    void Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
-               MultiRegions::Field<TData, FieldState::Coeff> &out)
+    void Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
+               LibUtilities::Field<TData, FieldState::Coeff> &out)
     {
         v_Apply(in, out);
     }
 
-    void operator()(MultiRegions::Field<TData, FieldState::Coeff> &inout)
+    void operator()(LibUtilities::Field<TData, FieldState::Coeff> &inout)
     {
         v_Apply(inout);
     }
 
-    void operator()(MultiRegions::Field<TData, FieldState::Coeff> &in,
-                    MultiRegions::Field<TData, FieldState::Coeff> &out)
+    void operator()(LibUtilities::Field<TData, FieldState::Coeff> &in,
+                    LibUtilities::Field<TData, FieldState::Coeff> &out)
     {
         v_Apply(in, out);
     }
@@ -89,11 +89,11 @@ protected:
     }
 
     virtual void v_Apply(
-        MultiRegions::Field<TData, FieldState::Coeff> &inout) = 0;
+        LibUtilities::Field<TData, FieldState::Coeff> &inout) = 0;
 
     virtual void v_Apply(
-        MultiRegions::Field<TData, FieldState::Coeff> &in,
-        MultiRegions::Field<TData, FieldState::Coeff> &out) = 0;
+        LibUtilities::Field<TData, FieldState::Coeff> &in,
+        LibUtilities::Field<TData, FieldState::Coeff> &out) = 0;
 };
 
 } // namespace Nektar::Operators

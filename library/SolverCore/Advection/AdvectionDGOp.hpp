@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "MultiRegions/Field/Math.hpp"
+#include "LibUtilities/BasicUtils/Math/Math.hpp"
 #include "Operators/Common/Operator.hpp"
 #include "SolverCore/Advection/AdvectionVolumeFluxOp.hpp"
 #include "SolverCore/RiemannSolvers/RiemannSolverOp.hpp"
@@ -47,14 +47,14 @@ template <typename TData>
 class AdvectionDGOp : public Operators::Operator<TData>
 {
 public:
-    void Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
-               MultiRegions::Field<TData, FieldState::Phys> &out)
+    void Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
+               LibUtilities::Field<TData, FieldState::Phys> &out)
     {
         this->v_Apply(in, out);
     }
 
-    void operator()(MultiRegions::Field<TData, FieldState::Phys> &in,
-                    MultiRegions::Field<TData, FieldState::Phys> &out)
+    void operator()(LibUtilities::Field<TData, FieldState::Phys> &in,
+                    LibUtilities::Field<TData, FieldState::Phys> &out)
     {
         this->v_Apply(in, out);
     }
@@ -69,7 +69,7 @@ public:
         v_SetAppend(append);
     }
 
-    void SetAdvectVel(MultiRegions::Field<TData, FieldState::Phys> &advectVel)
+    void SetAdvectVel(LibUtilities::Field<TData, FieldState::Phys> &advectVel)
     {
         this->m_advectVel = std::move(advectVel);
     }
@@ -86,7 +86,7 @@ public:
     }
 
 protected:
-    MultiRegions::Field<TData, FieldState::Phys> m_advectVel;
+    LibUtilities::Field<TData, FieldState::Phys> m_advectVel;
     std::shared_ptr<RiemannSolverOp<TData>> m_riemannSolverOp;
     std::shared_ptr<AdvectionVolumeFluxOp<TData>> m_volumeFluxOp;
     TData m_scale = 1.0;
@@ -100,8 +100,8 @@ protected:
 
     ~AdvectionDGOp() override = default;
 
-    virtual void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
-                         MultiRegions::Field<TData, FieldState::Phys> &out) = 0;
+    virtual void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
+                         LibUtilities::Field<TData, FieldState::Phys> &out) = 0;
 
     virtual void v_SetAppend(const bool &append) = 0;
 };

@@ -39,10 +39,10 @@
 #include "LibUtilities/Backends/DeviceProperties.hpp"
 #include "Operators/Common/BlockOperator.hpp"
 
-#include "Operators/Common/DataWarehouse/BasisDataWarehouse.hpp"
-#include "Operators/Common/DataWarehouse/GeometricDataWarehouse.hpp"
-#include "Operators/Common/DataWarehouse/ModeIndexDataWarehouse.hpp"
-#include "Operators/Common/DataWarehouse/StdMatDataWarehouse.hpp"
+#include <LibUtilities/BasicUtils/DataWarehouse/BasisDataWarehouse.hpp>
+#include <LibUtilities/BasicUtils/DataWarehouse/ModeIndexDataWarehouse.hpp>
+#include <LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp>
+#include <StdRegions/DataWarehouse/StdMatDataWarehouse.hpp>
 
 namespace Nektar::Operators
 {
@@ -88,8 +88,8 @@ public:
     static std::shared_ptr<TOperator<TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse, const std::string &execStr,
-        std::string implStr)
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
+        const std::string &execStr, std::string implStr)
     {
         std::string requestedKey = TOperator<TData>::name + execStr + implStr;
 
@@ -116,14 +116,14 @@ public:
                                    dataWarehouse));
     }
 
-    void Apply(MultiRegions::BlockAccessor<TData, TFieldIn> &inblock,
-               MultiRegions::BlockAccessor<TData, TFieldOut> &outblock)
+    void Apply(LibUtilities::BlockAccessor<TData, TFieldIn> &inblock,
+               LibUtilities::BlockAccessor<TData, TFieldOut> &outblock)
     {
         this->v_Apply(inblock, outblock);
     }
 
-    void operator()(MultiRegions::BlockAccessor<TData, TFieldIn> &inblock,
-                    MultiRegions::BlockAccessor<TData, TFieldOut> &outblock)
+    void operator()(LibUtilities::BlockAccessor<TData, TFieldIn> &inblock,
+                    LibUtilities::BlockAccessor<TData, TFieldOut> &outblock)
     {
         this->v_Apply(inblock, outblock);
     }
@@ -133,14 +133,14 @@ protected:
 
     ElmtBlockOp(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,
-                NekDataWarehouseSharedPtr dataWarehouse)
+                LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : BlockOperator<TData>(block_idx, exp, dataWarehouse)
     {
     }
 
     virtual void v_Apply(
-        MultiRegions::BlockAccessor<TData, TFieldIn> &inblock,
-        MultiRegions::BlockAccessor<TData, TFieldOut> &outblock) = 0;
+        LibUtilities::BlockAccessor<TData, TFieldIn> &inblock,
+        LibUtilities::BlockAccessor<TData, TFieldOut> &outblock) = 0;
 };
 
 #if defined(NEKTAR_ENABLE_DEVICE)

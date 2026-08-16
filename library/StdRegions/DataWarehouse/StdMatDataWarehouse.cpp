@@ -32,9 +32,9 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/Common/DataWarehouse/StdMatDataWarehouseDef.hpp"
+#include <StdRegions/DataWarehouse/StdMatDataWarehouseDef.hpp>
 
-namespace Nektar::Operators
+namespace Nektar::StdRegions
 {
 
 template LibUtilities::MemoryRegion<double> StdMatDataCreator::Create<
@@ -76,4 +76,4 @@ template LibUtilities::MemoryRegion<tinysimd::simd<float>> StdMatDataCreator::
 #endif
 #endif
 
-} // namespace Nektar::Operators
+} // namespace Nektar::StdRegions

@@ -32,9 +32,9 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <Operators/Common/DataWarehouse/GeometricDataWarehouseDef.hpp>
+#include <LocalRegions/DataWarehouse/GeometricDataWarehouseDef.hpp>
 
-namespace Nektar::Operators
+namespace Nektar::LocalRegions
 {
 
 template LibUtilities::MemoryRegion<double> GeometricDataCreator::Create<
@@ -171,4 +171,4 @@ template LibUtilities::MemoryRegion<float> GeometricDataCreator::Create<
     const JacobianLocTraceKey<float> &jacobianLocTraceKey);
 #endif
 
-} // namespace Nektar::Operators
+} // namespace Nektar::LocalRegions

@@ -54,9 +54,10 @@ class LinAdvDiffReactionBlockOpImpl : public LinAdvDiffReactionBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    LinAdvDiffReactionBlockOpImpl(const unsigned int block_idx,
-                                  const LocalRegions::ExpansionSharedPtr &exp,
-                                  NekDataWarehouseSharedPtr dataWarehouse)
+    LinAdvDiffReactionBlockOpImpl(
+        const unsigned int block_idx,
+        const LocalRegions::ExpansionSharedPtr &exp,
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : LinAdvDiffReactionBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
@@ -81,22 +82,29 @@ public:
                 ? exp->GetNodalPointsKey().GetPointsType()
                 : LibUtilities::eNoPointsType;
 
-        m_bwdmat = dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
-            basisKeys, m_shapeType, eBwdTransStdMatTranspose, nodalType));
+        m_bwdmat = dataWarehouse->template GetData<MemSpace>(
+            StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
+                                         StdRegions::eBwdTransStdMatTranspose,
+                                         nodalType));
         m_ipbmat = dataWarehouse->template GetData<MemSpace>(
-            StdMatKey<TData>(basisKeys, m_shapeType,
-                             eIProductWRTBaseStdMatTranspose, nodalType));
-        m_derivmat = dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
-            basisKeys, m_shapeType, eDerivStdMatTranspose, nodalType));
-        m_ipdmat   = dataWarehouse->template GetData<MemSpace>(
-            StdMatKey<TData>(basisKeys, m_shapeType,
-                               eIProductWRTDerivBaseStdMatTranspose, nodalType));
+            StdRegions::StdMatKey<TData>(
+                basisKeys, m_shapeType,
+                StdRegions::eIProductWRTBaseStdMatTranspose, nodalType));
+        m_derivmat = dataWarehouse->template GetData<MemSpace>(
+            StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
+                                         StdRegions::eDerivStdMatTranspose,
+                                         nodalType));
+        m_ipdmat = dataWarehouse->template GetData<MemSpace>(
+            StdRegions::StdMatKey<TData>(
+                basisKeys, m_shapeType,
+                StdRegions::eIProductWRTDerivBaseStdMatTranspose, nodalType));
 
         // Fetch Jacobian and deriv factors.
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+            LocalRegions::JacobianKey<TData>(block_idx, m_implInterleaveWidth));
         m_dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, false));
+            LocalRegions::DerivFactorKey<TData>(block_idx,
+                                                m_implInterleaveWidth, false));
     }
 
     // className - for BlockOperatorFactory
@@ -107,7 +115,7 @@ public:
         ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>>
     Instantiate(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,
-                NekDataWarehouseSharedPtr dataWarehouse)
+                LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             LinAdvDiffReactionBlockOpImpl<ExecSpace, Implementation, TData>>(
@@ -131,8 +139,8 @@ protected:
     const TData *m_dfptr;
     TData *m_advVel;
 
-    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-                 MultiRegions::BlockAccessor<TData, FieldState::Coeff>
+    void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+                 LibUtilities::BlockAccessor<TData, FieldState::Coeff>
                      &outblock) override
     {
         // Initialize pointers.
@@ -183,9 +191,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize,
-                                              m_nmTot, (TData *)inptr);
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        m_implInterleaveWidth, interleaveWidth, chunkSize,
+                        m_nmTot, (TData *)inptr);
                 }
 
                 // Step 1: BwdTrans
@@ -249,12 +257,12 @@ protected:
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nmTot,
                         (TData *)inptr -
                             (width_ratio - 1) * m_nmTot * simd_t::width);
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nmTot,
                         (TData *)outptr -
@@ -273,14 +281,14 @@ protected:
     }
 
     void v_SetAdvVel(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &advVel) override
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &advVel) override
     {
         const auto interleaveWidth = advVel.GetInterleaveWidth();
         this->m_advVel = advVel.template GetPtr<MemSpace, ReadWrite>();
-        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                  advVel.GetNumElementsWithPadding() *
-                                      this->m_exp->GetCoordim(),
-                                  advVel.GetNumData(), this->m_advVel);
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            m_implInterleaveWidth, interleaveWidth,
+            advVel.GetNumElementsWithPadding() * this->m_exp->GetCoordim(),
+            advVel.GetNumData(), this->m_advVel);
         advVel.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 };

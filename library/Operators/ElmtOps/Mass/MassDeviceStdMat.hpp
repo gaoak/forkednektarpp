@@ -49,7 +49,7 @@ class MassBlockOpImpl : public MassBlockOp<TData>
 public:
     MassBlockOpImpl(const unsigned int block_idx,
                     const LocalRegions::ExpansionSharedPtr &exp,
-                    NekDataWarehouseSharedPtr dataWarehouse)
+                    LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : MassBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         m_streamID = block_idx + 1;
@@ -78,23 +78,26 @@ public:
 
         if (m_isDeformed)
         {
-            m_bwdmat =
-                dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
-                    basisKeys, m_shapeType, eBwdTransStdMat, nodalType));
-            m_ipbmat =
-                dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
-                    basisKeys, m_shapeType, eIProductWRTBaseStdMat, nodalType));
+            m_bwdmat = dataWarehouse->template GetData<MemSpace>(
+                StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
+                                             StdRegions::eBwdTransStdMat,
+                                             nodalType));
+            m_ipbmat = dataWarehouse->template GetData<MemSpace>(
+                StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
+                                             StdRegions::eIProductWRTBaseStdMat,
+                                             nodalType));
         }
         else
         {
-            m_massmat =
-                dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
-                    basisKeys, m_shapeType, eMassStdMat, nodalType));
+            m_massmat = dataWarehouse->template GetData<MemSpace>(
+                StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
+                                             StdRegions::eMassStdMat,
+                                             nodalType));
         }
 
         // Fetch Jacobian.
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+            LocalRegions::JacobianKey<TData>(block_idx, m_implInterleaveWidth));
     }
 
     // className - for BlockOperatorFactory
@@ -105,7 +108,7 @@ public:
         ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>>
     Instantiate(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,
-                NekDataWarehouseSharedPtr dataWarehouse)
+                LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             MassBlockOpImpl<ExecSpace, Implementation, TData>>(block_idx, exp,
@@ -127,8 +130,8 @@ protected:
     const TData *m_massmat;
     const TData *m_jacptr;
 
-    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-                 MultiRegions::BlockAccessor<TData, FieldState::Coeff>
+    void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+                 LibUtilities::BlockAccessor<TData, FieldState::Coeff>
                      &outblock) override
     {
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
@@ -154,9 +157,9 @@ protected:
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                      nelmtTot, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, interleaveWidth, nelmtTot,
+                inblock.GetNumData(), (TData *)inptr, m_streamID);
 
             if (m_isDeformed)
             {
@@ -191,12 +194,12 @@ protected:
             }
 
             // Reshape back, if necessary.
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmtTot, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmtTot, outblock.GetNumData(), outptr,
-                                      m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                interleaveWidth, m_implInterleaveWidth, nelmtTot,
+                inblock.GetNumData(), (TData *)inptr, m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                interleaveWidth, m_implInterleaveWidth, nelmtTot,
+                outblock.GetNumData(), outptr, m_streamID);
 
             // Increment pointers.
             inptr += inblock.CompSize() * inblock.GetNumHomoModes();

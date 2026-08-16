@@ -52,8 +52,8 @@
 #include "Operators/BndCondOps/DirBndCond/DirBndCondOp.hpp"
 #include "Operators/BndCondOps/FwdTransBC/FwdTransBCOp.hpp"
 
+#include "LibUtilities/BasicUtils/Math/Math.hpp"
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "MultiRegions/Field/Math.hpp"
 #include "Operators/ElmtOps/Expression/ExpressionOp.hpp"
 
 using namespace Nektar;
@@ -493,8 +493,8 @@ protected:
     // reconcile (see its use there).
     size_t m_maxSREntries = 0;
 
-    std::vector<MultiRegions::Field<TData, FieldState::Phys>> m_wsp_phys;
-    std::vector<MultiRegions::Field<TData, FieldState::Coeff>> m_wsp_coeffs;
+    std::vector<LibUtilities::Field<TData, FieldState::Phys>> m_wsp_phys;
+    std::vector<LibUtilities::Field<TData, FieldState::Coeff>> m_wsp_coeffs;
     std::vector<std::shared_ptr<ExpressionOp<TData>>> m_expressionOps;
     std::vector<std::shared_ptr<FwdTransBCOp<TData>>> m_fwdTransBCOps;
     std::vector<size_t> m_dirCoeffOffsets;
@@ -773,7 +773,7 @@ protected:
     // per-component staging array, which is laid out exactly as
     // Field::ToArray() would lay it out -- but device to device, with no
     // host staging.
-    void FlattenBlocks(MultiRegions::Field<TData, FieldState::Coeff> &inout,
+    void FlattenBlocks(LibUtilities::Field<TData, FieldState::Coeff> &inout,
                        TData *flatPtr, const bool toFlat)
     {
         const unsigned nComp = inout.GetNumComponents();
@@ -815,7 +815,7 @@ protected:
     // straddle a partition boundary, plus their duplicated local copies,
     // using GPU-aware MPI where the communicator supports it.
     void UniversalAbsMaxDirBnd(
-        MultiRegions::Field<TData, FieldState::Coeff> &inout)
+        LibUtilities::Field<TData, FieldState::Coeff> &inout)
     {
         const unsigned nComp = inout.GetNumComponents();
 
@@ -1013,7 +1013,7 @@ protected:
     // after the universal max-magnitude gather in v_Apply(), mirroring
     // ContField::v_ImposeDirichletConditions().
     void FlipParallelDirBndSign(
-        MultiRegions::Field<TData, FieldState::Coeff> &inout)
+        LibUtilities::Field<TData, FieldState::Coeff> &inout)
     {
         for (unsigned nc = 0; nc < inout.GetNumComponents(); ++nc)
         {
@@ -1047,7 +1047,7 @@ protected:
         }
     }
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &inout) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &inout) override
     {
         // Return if no Dirichlet boundary condition on any rank -- must
         // match the constructor's global check, since the universal
@@ -1082,7 +1082,7 @@ protected:
 
             // if block is interlaced deInterleave block since currently mapping
             // set up assuming serial alignment
-            ReshapeStorage<ExecSpace>(
+            LibUtilities::ReshapeStorage<ExecSpace>(
                 1u, inoutWidth,
                 inoutBlk.GetNumElementsWithPadding() * inout.GetNumComponents(),
                 inoutBlk.GetNumData(), inoutPtr, streamID);
@@ -1198,7 +1198,7 @@ protected:
             auto inoutWidth = inoutBlk.GetInterleaveWidth();
 
             // Reshape back, if necessary.
-            ReshapeStorage<ExecSpace>(
+            LibUtilities::ReshapeStorage<ExecSpace>(
                 inoutWidth, 1u,
                 inoutBlk.GetNumElementsWithPadding() * inout.GetNumComponents(),
                 inoutBlk.GetNumData(), inoutPtr, streamID);

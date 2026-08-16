@@ -42,8 +42,8 @@ namespace Nektar::Operators::detail
 template <>
 void BwdTransBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::@Impl@,
                                       @TData@>::@Shape@Block
-                (MultiRegions::BlockAccessor<@TData@, FieldState::Coeff> &inblock, 
-                 MultiRegions::BlockAccessor<@TData@, FieldState::Phys> &outblock)
+                (LibUtilities::BlockAccessor<@TData@, FieldState::Coeff> &inblock, 
+                 LibUtilities::BlockAccessor<@TData@, FieldState::Phys> &outblock)
 {
     // The following will use predefined code found in the Operators/Common
     // directory to import boost_pp code to make wrapper code to call

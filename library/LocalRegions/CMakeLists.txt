@@ -1,47 +1,59 @@
 SET(LOCAL_REGIONS_SOURCES
-Expansion.cpp
-Expansion0D.cpp
-Expansion1D.cpp
-Expansion2D.cpp
-Expansion3D.cpp
-HexExp.cpp
-IndexMapKey.cpp
-MatrixKey.cpp
-NodalPrismExp.cpp
-NodalTetExp.cpp
-NodalTriExp.cpp
-PointExp.cpp
-PrismExp.cpp
-PyrExp.cpp
-QuadExp.cpp
-SegExp.cpp
-TetExp.cpp
-TriExp.cpp
+    Expansion.cpp
+    Expansion0D.cpp
+    Expansion1D.cpp
+    Expansion2D.cpp
+    Expansion3D.cpp
+    HexExp.cpp
+    IndexMapKey.cpp
+    MatrixKey.cpp
+    NodalPrismExp.cpp
+    NodalTetExp.cpp
+    NodalTriExp.cpp
+    PointExp.cpp
+    PrismExp.cpp
+    PyrExp.cpp
+    QuadExp.cpp
+    SegExp.cpp
+    TetExp.cpp
+    TriExp.cpp
 )
 
 SET(LOCAL_REGIONS_HEADERS
-Expansion.h
-Expansion0D.h
-Expansion1D.h
-Expansion2D.h
-Expansion3D.h
-HexExp.h
-IndexMapKey.h
-LinSys.hpp
-LocalRegions.hpp
-LocalRegionsDeclspec.h
-MatrixKey.h
-NodalTetExp.h
-NodalTriExp.h
-NodalPrismExp.h
-PointExp.h
-PrismExp.h
-PyrExp.h
-QuadExp.h
-SegExp.h
-TetExp.h
-TriExp.h
+    Expansion.h
+    Expansion0D.h
+    Expansion1D.h
+    Expansion2D.h
+    Expansion3D.h
+    HexExp.h
+    IndexMapKey.h
+    LinSys.hpp
+    LocalRegions.hpp
+    LocalRegionsDeclspec.h
+    MatrixKey.h
+    NodalTetExp.h
+    NodalTriExp.h
+    NodalPrismExp.h
+    PointExp.h
+    PrismExp.h
+    PyrExp.h
+    QuadExp.h
+    SegExp.h
+    TetExp.h
+    TriExp.h
 )
+
+IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
+    SET(LOCAL_REGIONS_SOURCES
+       ${LOCAL_REGIONS_SOURCES}
+       DataWarehouse/GeometricDataWarehouse.cpp
+    )
+
+    SET(LOCAL_REGIONS_HEADERS
+       ${LOCAL_REGIONS_HEADERS}
+       DataWarehouse/GeometricDataWarehouse.hpp
+    )
+ENDIF()
 
 ADD_DEFINITIONS(-DLOCAL_REGIONS_EXPORTS)
 

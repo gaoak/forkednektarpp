@@ -37,9 +37,9 @@
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <LocalRegions/Expansion.h>
 
-#include "MultiRegions/Field/Block.hpp"
-#include "MultiRegions/Field/Field.hpp"
-#include "Operators/Common/DataWarehouse/NekDataWarehouse.hpp"
+#include "LibUtilities/BasicUtils/DataWarehouse/NekDataWarehouse.hpp"
+#include "LibUtilities/BasicUtils/Field/Block.hpp"
+#include "LibUtilities/BasicUtils/Field/Field.hpp"
 
 namespace Nektar::Operators
 {
@@ -49,9 +49,11 @@ template <typename TData> class BlockOperator;
 
 // BlockOperator factory singleton
 template <typename TData>
-using BlockOperatorFactory = Nektar::LibUtilities::NekFactory<
-    std::string, BlockOperator<TData>, const unsigned int,
-    const LocalRegions::ExpansionSharedPtr &, NekDataWarehouseSharedPtr>;
+using BlockOperatorFactory =
+    LibUtilities::NekFactory<std::string, BlockOperator<TData>,
+                             const unsigned int,
+                             const LocalRegions::ExpansionSharedPtr &,
+                             LibUtilities::NekDataWarehouseSharedPtr>;
 
 // BlockOperator factory singleton
 template <typename TData>
@@ -66,7 +68,8 @@ public:
     static std::shared_ptr<TOperator<TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse, const std::string &execStr)
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
+        const std::string &execStr)
     {
         std::string requestedKey = TOperator<TData>::name + execStr;
 
@@ -89,11 +92,11 @@ public:
 protected:
     unsigned int m_block_idx;
     LocalRegions::ExpansionSharedPtr m_exp;
-    NekDataWarehouseSharedPtr m_dataWarehouse;
+    LibUtilities::NekDataWarehouseSharedPtr m_dataWarehouse;
 
     BlockOperator(const unsigned int block_idx,
                   const LocalRegions::ExpansionSharedPtr &exp,
-                  NekDataWarehouseSharedPtr dataWarehouse)
+                  LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : m_block_idx(block_idx), m_exp(exp), m_dataWarehouse(dataWarehouse)
     {
     }

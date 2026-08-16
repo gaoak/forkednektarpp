@@ -42,25 +42,25 @@ namespace Nektar::SolverCore
 template <typename TData> class AdvectionVolumeFluxOp : public FluxOp<TData>
 {
 public:
-    void Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
-               MultiRegions::Field<TData, FieldState::Phys> &out)
+    void Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
+               LibUtilities::Field<TData, FieldState::Phys> &out)
     {
         this->v_Apply(in, out);
     }
 
-    void operator()(MultiRegions::Field<TData, FieldState::Phys> &in,
-                    MultiRegions::Field<TData, FieldState::Phys> &out)
+    void operator()(LibUtilities::Field<TData, FieldState::Phys> &in,
+                    LibUtilities::Field<TData, FieldState::Phys> &out)
     {
         this->v_Apply(in, out);
     }
 
-    void SetAdvectVel(MultiRegions::Field<TData, FieldState::Phys> &advectVel)
+    void SetAdvectVel(LibUtilities::Field<TData, FieldState::Phys> &advectVel)
     {
         this->m_advectVel = std::move(advectVel);
     }
 
 protected:
-    MultiRegions::Field<TData, FieldState::Phys> m_advectVel;
+    LibUtilities::Field<TData, FieldState::Phys> m_advectVel;
 
     AdvectionVolumeFluxOp(const MultiRegions::ExpListSharedPtr &expansionList,
                           const std::vector<std::string> &components)
@@ -70,8 +70,8 @@ protected:
 
     ~AdvectionVolumeFluxOp() override = default;
 
-    virtual void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
-                         MultiRegions::Field<TData, FieldState::Phys> &out) = 0;
+    virtual void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
+                         LibUtilities::Field<TData, FieldState::Phys> &out) = 0;
 };
 
 } // namespace Nektar::SolverCore

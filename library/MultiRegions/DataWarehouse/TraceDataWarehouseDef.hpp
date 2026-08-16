@@ -34,9 +34,8 @@
 
 #pragma once
 
-#include "Operators/Common/DataWarehouse/TraceDataWarehouse.hpp"
-#include <MultiRegions/Field/Block.hpp>
-#include <MultiRegions/Field/Field.hpp>
+#include <LibUtilities/BasicUtils/Field/Field.hpp>
+#include <MultiRegions/DataWarehouse/TraceDataWarehouse.hpp>
 
 #include <MultiRegions/DisContField.h>
 #include <MultiRegions/ExpList.h>
@@ -46,13 +45,13 @@
 #undef min
 #endif
 
-namespace Nektar::Operators
+namespace Nektar::MultiRegions
 {
 namespace
 {
 template <typename TData>
 std::vector<TData> GetIPTracePenaltyFactor(
-    const MultiRegions::ExpListSharedPtr &expansionList)
+    const ExpListSharedPtr &expansionList)
 {
     auto tracelist     = expansionList->GetTrace();
     auto traceMap      = expansionList->GetTraceMap();
@@ -90,8 +89,7 @@ std::vector<TData> GetIPTracePenaltyFactor(
 }
 
 template <typename TData>
-std::vector<TData> GetIPTraceLengthRecip(
-    const MultiRegions::ExpListSharedPtr &expansionList)
+std::vector<TData> GetIPTraceLengthRecip(const ExpListSharedPtr &expansionList)
 {
     const size_t nTracePts = expansionList->GetTrace()->GetTotPoints();
     Array<OneD, double> lengthFwd(nTracePts, 0.0);
@@ -99,8 +97,7 @@ std::vector<TData> GetIPTraceLengthRecip(
     expansionList->GetTrace()->GetElmtNormalLength(lengthFwd, lengthBwd);
 
     if (auto discontField =
-            std::dynamic_pointer_cast<MultiRegions::DisContField>(
-                expansionList))
+            std::dynamic_pointer_cast<DisContField>(expansionList))
     {
         auto &periodicFwdCopy = discontField->GetPeriodicFwdCopy();
         auto &periodicBwdCopy = discontField->GetPeriodicBwdCopy();
@@ -131,12 +128,11 @@ std::vector<TData> GetIPTraceLengthRecip(
 
 template <typename TData, typename FillFunc>
 LibUtilities::MemoryRegion<TData> CreateIPTraceBlockData(
-    const MultiRegions::ExpListSharedPtr &expansionList,
-    const unsigned int blockIdx, FillFunc fill)
+    const ExpListSharedPtr &expansionList, const unsigned int blockIdx,
+    FillFunc fill)
 {
-    auto trace = expansionList->GetTrace();
-    auto blocks =
-        MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(trace);
+    auto trace  = expansionList->GetTrace();
+    auto blocks = GetBlockAttributes<TData, FieldState::Phys>(trace);
 
     size_t traceOffset = 0;
     for (unsigned int blk = 0; blk < blockIdx; ++blk)
@@ -167,8 +163,8 @@ LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
     const auto block_idx        = locTracePhysToElmtMapsKey.m_block_idx;
     const auto interleave_width = locTracePhysToElmtMapsKey.m_interleave_width;
 
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
-    auto expPtr = coll.GetExpVector()[0];
+    auto coll               = GetCollection(m_expansionList, block_idx);
+    auto expPtr             = coll.GetExpVector()[0];
     const auto num_elements = coll.GetExpVector().size();
     const auto num_elmt_groups =
         ((num_elements + vector_width - 1) / vector_width) * vector_width /
@@ -183,7 +179,7 @@ LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
         nTracePts += expPtr->GetTraceNumPoints(i);
     }
 
-    const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
+    const LocTraceToTraceMapSharedPtr locTraceToTraceMap =
         m_expansionList->GetLocTraceToTraceMap();
     auto tracefieldmap =
         locTraceToTraceMap->GetTraceFieldMapEssential(block_idx);
@@ -243,7 +239,7 @@ LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
     }
     m_expansionList->GetTrace()->GetNormals(normals);
 
-    auto blocks = MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
+    auto blocks = GetBlockAttributes<TData, FieldState::Phys>(
         m_expansionList->GetTrace());
     const auto &block = blocks[ipTraceNormalKey.m_block_idx];
 
@@ -321,8 +317,7 @@ template <typename MemSpace, typename TData>
 LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
     const IPTraceDerivBaseKey<TData> &ipTraceDerivBaseKey)
 {
-    auto coll = MultiRegions::GetCollection(m_expansionList,
-                                            ipTraceDerivBaseKey.m_block_idx);
+    auto coll = GetCollection(m_expansionList, ipTraceDerivBaseKey.m_block_idx);
     auto exp  = coll.GetExpVector()[0];
 
     const unsigned int nDim    = m_expansionList->GetCoordim(0);
@@ -384,8 +379,8 @@ LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
     const auto block_idx        = orientationMapsKey.m_block_idx;
     const auto interleave_width = orientationMapsKey.m_interleave_width;
 
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
-    auto expPtr = coll.GetExpVector()[0];
+    auto coll               = GetCollection(m_expansionList, block_idx);
+    auto expPtr             = coll.GetExpVector()[0];
     const auto num_elements = coll.GetExpVector().size();
     const auto num_elmt_groups =
         ((num_elements + vector_width - 1) / vector_width) * vector_width /
@@ -393,7 +388,7 @@ LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 
     const auto nTraces = expPtr->GetNtraces();
 
-    const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
+    const LocTraceToTraceMapSharedPtr locTraceToTraceMap =
         m_expansionList->GetLocTraceToTraceMap();
     auto tracefieldmap =
         locTraceToTraceMap->GetTraceFieldMapEssential(block_idx);
@@ -486,8 +481,8 @@ LibUtilities::MemoryRegion<size_t> TraceEssentialCreator::Create(
     const auto block_idx        = orientationMapsOffsetKey.m_block_idx;
     const auto interleave_width = orientationMapsOffsetKey.m_interleave_width;
 
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
-    auto expPtr = coll.GetExpVector()[0];
+    auto coll               = GetCollection(m_expansionList, block_idx);
+    auto expPtr             = coll.GetExpVector()[0];
     const auto num_elements = coll.GetExpVector().size();
     const auto num_elmt_groups =
         ((num_elements + vector_width - 1) / vector_width) * vector_width /
@@ -501,7 +496,7 @@ LibUtilities::MemoryRegion<size_t> TraceEssentialCreator::Create(
         nTracePts += expPtr->GetTraceNumPoints(i);
     }
 
-    const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
+    const LocTraceToTraceMapSharedPtr locTraceToTraceMap =
         m_expansionList->GetLocTraceToTraceMap();
     auto tracefieldmap =
         locTraceToTraceMap->GetTraceFieldMapEssential(block_idx);
@@ -568,8 +563,8 @@ LibUtilities::MemoryRegion<size_t> TraceEssentialCreator::Create(
     const auto block_idx        = locToTracePhysOffsetKey.m_block_idx;
     const auto interleave_width = locToTracePhysOffsetKey.m_interleave_width;
 
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
-    auto expPtr = coll.GetExpVector()[0];
+    auto coll               = GetCollection(m_expansionList, block_idx);
+    auto expPtr             = coll.GetExpVector()[0];
     const auto num_elements = coll.GetExpVector().size();
     const auto num_elmt_groups =
         ((num_elements + vector_width - 1) / vector_width) * vector_width /
@@ -577,7 +572,7 @@ LibUtilities::MemoryRegion<size_t> TraceEssentialCreator::Create(
 
     const auto nTraces = expPtr->GetNtraces();
 
-    const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
+    const LocTraceToTraceMapSharedPtr locTraceToTraceMap =
         m_expansionList->GetLocTraceToTraceMap();
     auto tracefieldmap =
         locTraceToTraceMap->GetTraceFieldMapEssential(block_idx);
@@ -625,8 +620,8 @@ LibUtilities::MemoryRegion<bool> TraceEssentialCreator::Create(
     const auto block_idx        = isLocTraceLeftAdjacentKey.m_block_idx;
     const auto interleave_width = isLocTraceLeftAdjacentKey.m_interleave_width;
 
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
-    auto expPtr = coll.GetExpVector()[0];
+    auto coll               = GetCollection(m_expansionList, block_idx);
+    auto expPtr             = coll.GetExpVector()[0];
     const auto num_elements = coll.GetExpVector().size();
     const auto num_elmt_groups =
         ((num_elements + vector_width - 1) / vector_width) * vector_width /
@@ -634,7 +629,7 @@ LibUtilities::MemoryRegion<bool> TraceEssentialCreator::Create(
 
     const auto nTraces = expPtr->GetNtraces();
 
-    const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
+    const LocTraceToTraceMapSharedPtr locTraceToTraceMap =
         m_expansionList->GetLocTraceToTraceMap();
     auto tracefieldmap =
         locTraceToTraceMap->GetTraceFieldMapEssential(block_idx);
@@ -684,8 +679,8 @@ LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
     const auto block_idx        = interpTraceIndexKey.m_block_idx;
     const auto interleave_width = interpTraceIndexKey.m_interleave_width;
 
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
-    auto expPtr = coll.GetExpVector()[0];
+    auto coll               = GetCollection(m_expansionList, block_idx);
+    auto expPtr             = coll.GetExpVector()[0];
     const auto num_elements = coll.GetExpVector().size();
     const auto num_elmt_groups =
         ((num_elements + vector_width - 1) / vector_width) * vector_width /
@@ -693,7 +688,7 @@ LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 
     const auto nTraces = expPtr->GetNtraces();
 
-    const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
+    const LocTraceToTraceMapSharedPtr locTraceToTraceMap =
         m_expansionList->GetLocTraceToTraceMap();
     auto traceInterp = locTraceToTraceMap->GetTraceInterpEssential(block_idx);
 
@@ -752,10 +747,10 @@ LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 
     const auto block_idx = interpPointsKey.m_block_idx;
 
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto coll   = GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
-    const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
+    const LocTraceToTraceMapSharedPtr locTraceToTraceMap =
         m_expansionList->GetLocTraceToTraceMap();
     auto traceInterp  = locTraceToTraceMap->GetTraceInterpEssential(block_idx);
     auto interpPoints = traceInterp.m_interpPoints;
@@ -810,10 +805,10 @@ LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 
     const auto block_idx = interpTypesKey.m_block_idx;
 
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto coll   = GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
-    const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
+    const LocTraceToTraceMapSharedPtr locTraceToTraceMap =
         m_expansionList->GetLocTraceToTraceMap();
     auto traceInterp  = locTraceToTraceMap->GetTraceInterpEssential(block_idx);
     auto interpPoints = traceInterp.m_interpPoints;
@@ -841,10 +836,10 @@ LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 {
     const auto block_idx = quadRangeKey.m_block_idx;
 
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto coll   = GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
-    const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
+    const LocTraceToTraceMapSharedPtr locTraceToTraceMap =
         m_expansionList->GetLocTraceToTraceMap();
     auto traceInterp  = locTraceToTraceMap->GetTraceInterpEssential(block_idx);
     auto interpPoints = traceInterp.m_interpPoints;
@@ -904,15 +899,15 @@ LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 }
 
 template <typename MemSpace, typename TData>
-LibUtilities::MemoryRegion<MultiRegions::InterpLocTraceToTrace>
-TraceEssentialCreator::Create(const InterpTraceKey<TData> &interpTraceKey)
+LibUtilities::MemoryRegion<InterpLocTraceToTrace> TraceEssentialCreator::Create(
+    const InterpTraceKey<TData> &interpTraceKey)
 {
     const auto block_idx = interpTraceKey.m_block_idx;
 
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto coll   = GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
-    const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
+    const LocTraceToTraceMapSharedPtr locTraceToTraceMap =
         m_expansionList->GetLocTraceToTraceMap();
     auto traceInterp = locTraceToTraceMap->GetTraceInterpEssential(block_idx);
     auto interpLocTraceToTrace = traceInterp.m_interpTrace;
@@ -925,18 +920,16 @@ TraceEssentialCreator::Create(const InterpTraceKey<TData> &interpTraceKey)
 
     // Add one extra entry for padding elements
     const auto memsize = numTypes + 1;
-    Array<OneD, MultiRegions::InterpLocTraceToTrace> interpTraceArray(memsize);
+    Array<OneD, InterpLocTraceToTrace> interpTraceArray(memsize);
     auto interpTrace =
-        LibUtilities::MemoryRegion<MultiRegions::InterpLocTraceToTrace>(
-            memsize);
+        LibUtilities::MemoryRegion<InterpLocTraceToTrace>(memsize);
     auto interpTraceptr =
         interpTrace.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
     unsigned int count = 0;
 
     // Pad with an invalid entry for interpolation type
-    constexpr auto padEntry =
-        static_cast<MultiRegions::InterpLocTraceToTrace>(7);
+    constexpr auto padEntry = static_cast<InterpLocTraceToTrace>(7);
 
     for (unsigned int dir = 0; dir < 2; ++dir)
     {
@@ -965,10 +958,10 @@ LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
 {
     const auto block_idx = interpTraceI0Key.m_block_idx;
 
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto coll   = GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
-    const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
+    const LocTraceToTraceMapSharedPtr locTraceToTraceMap =
         m_expansionList->GetLocTraceToTraceMap();
     auto traceInterp   = locTraceToTraceMap->GetTraceInterpEssential(block_idx);
     auto interpTraceI0 = traceInterp.m_interpTraceI0;
@@ -1021,10 +1014,10 @@ LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 {
     const auto block_idx = interpTraceI0OffsetKey.m_block_idx;
 
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto coll   = GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
-    const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
+    const LocTraceToTraceMapSharedPtr locTraceToTraceMap =
         m_expansionList->GetLocTraceToTraceMap();
     auto traceInterp   = locTraceToTraceMap->GetTraceInterpEssential(block_idx);
     auto interpTraceI0 = traceInterp.m_interpTraceI0;
@@ -1072,10 +1065,10 @@ LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
 {
     const auto block_idx = interpTraceI1Key.m_block_idx;
 
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto coll   = GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
-    const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
+    const LocTraceToTraceMapSharedPtr locTraceToTraceMap =
         m_expansionList->GetLocTraceToTraceMap();
     auto traceInterp   = locTraceToTraceMap->GetTraceInterpEssential(block_idx);
     auto interpTraceI1 = traceInterp.m_interpTraceI1;
@@ -1127,10 +1120,10 @@ LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 {
     const auto block_idx = interpTraceI1OffsetKey.m_block_idx;
 
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto coll   = GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
-    const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
+    const LocTraceToTraceMapSharedPtr locTraceToTraceMap =
         m_expansionList->GetLocTraceToTraceMap();
     auto traceInterp   = locTraceToTraceMap->GetTraceInterpEssential(block_idx);
     auto interpTraceI1 = traceInterp.m_interpTraceI1;
@@ -1177,10 +1170,10 @@ LibUtilities::MemoryRegion<DNekMatSharedPtr> TraceEssentialCreator::Create(
 {
     const auto block_idx = interpFromTraceI0Key.m_block_idx;
 
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto coll   = GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
-    const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
+    const LocTraceToTraceMapSharedPtr locTraceToTraceMap =
         m_expansionList->GetLocTraceToTraceMap();
     auto traceInterp = locTraceToTraceMap->GetTraceInterpEssential(block_idx);
     auto interpFromTraceI0 = traceInterp.m_interpFromTraceI0;
@@ -1222,10 +1215,10 @@ LibUtilities::MemoryRegion<DNekMatSharedPtr> TraceEssentialCreator::Create(
 {
     const auto block_idx = interpFromTraceI1Key.m_block_idx;
 
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto coll   = GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
-    const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
+    const LocTraceToTraceMapSharedPtr locTraceToTraceMap =
         m_expansionList->GetLocTraceToTraceMap();
     auto traceInterp = locTraceToTraceMap->GetTraceInterpEssential(block_idx);
     auto interpFromTraceI1 = traceInterp.m_interpFromTraceI1;
@@ -1267,10 +1260,10 @@ LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
 {
     const auto block_idx = interpEndPtI0Key.m_block_idx;
 
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto coll   = GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
-    const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
+    const LocTraceToTraceMapSharedPtr locTraceToTraceMap =
         m_expansionList->GetLocTraceToTraceMap();
     auto traceInterp   = locTraceToTraceMap->GetTraceInterpEssential(block_idx);
     auto interpEndPtI0 = traceInterp.m_interpEndPtI0;
@@ -1318,10 +1311,10 @@ LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 {
     const auto block_idx = interpEndPtI0OffsetKey.m_block_idx;
 
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto coll   = GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
-    const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
+    const LocTraceToTraceMapSharedPtr locTraceToTraceMap =
         m_expansionList->GetLocTraceToTraceMap();
     auto traceInterp   = locTraceToTraceMap->GetTraceInterpEssential(block_idx);
     auto interpEndPtI0 = traceInterp.m_interpEndPtI0;
@@ -1364,10 +1357,10 @@ LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
 {
     const auto block_idx = interpEndPtI1Key.m_block_idx;
 
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto coll   = GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
-    const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
+    const LocTraceToTraceMapSharedPtr locTraceToTraceMap =
         m_expansionList->GetLocTraceToTraceMap();
     auto traceInterp   = locTraceToTraceMap->GetTraceInterpEssential(block_idx);
     auto interpEndPtI1 = traceInterp.m_interpEndPtI1;
@@ -1415,10 +1408,10 @@ LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 {
     const auto block_idx = interpEndPtI1OffsetKey.m_block_idx;
 
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
+    auto coll   = GetCollection(m_expansionList, block_idx);
     auto expPtr = coll.GetExpVector()[0];
 
-    const MultiRegions::LocTraceToTraceMapSharedPtr locTraceToTraceMap =
+    const LocTraceToTraceMapSharedPtr locTraceToTraceMap =
         m_expansionList->GetLocTraceToTraceMap();
     auto traceInterp   = locTraceToTraceMap->GetTraceInterpEssential(block_idx);
     auto interpEndPtI1 = traceInterp.m_interpEndPtI1;
@@ -1501,4 +1494,4 @@ LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
     return LibUtilities::MemoryRegion<TData>::template FromArray<MemSpace>(mat);
 }
 
-} // namespace Nektar::Operators
+} // namespace Nektar::MultiRegions

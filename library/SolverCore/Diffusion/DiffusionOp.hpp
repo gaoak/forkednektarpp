@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "MultiRegions/Field/Math.hpp"
+#include "LibUtilities/BasicUtils/Math/Math.hpp"
 #include "Operators/Common/Operator.hpp"
 #include "SolverCore/Diffusion/DiffusionTraceFluxOp.hpp"
 #include "SolverCore/Diffusion/DiffusionVolumeFluxOp.hpp"
@@ -46,14 +46,14 @@ namespace Nektar::SolverCore
 template <typename TData> class DiffusionOp : public Operators::Operator<TData>
 {
 public:
-    void Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
-               MultiRegions::Field<TData, FieldState::Phys> &out)
+    void Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
+               LibUtilities::Field<TData, FieldState::Phys> &out)
     {
         this->v_Apply(in, out);
     }
 
-    void operator()(MultiRegions::Field<TData, FieldState::Phys> &in,
-                    MultiRegions::Field<TData, FieldState::Phys> &out)
+    void operator()(LibUtilities::Field<TData, FieldState::Phys> &in,
+                    LibUtilities::Field<TData, FieldState::Phys> &out)
     {
         this->v_Apply(in, out);
     }
@@ -94,8 +94,8 @@ protected:
 
     ~DiffusionOp() override = default;
 
-    virtual void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
-                         MultiRegions::Field<TData, FieldState::Phys> &out) = 0;
+    virtual void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
+                         LibUtilities::Field<TData, FieldState::Phys> &out) = 0;
 };
 
 } // namespace Nektar::SolverCore

@@ -56,33 +56,33 @@ public:
     AdvectionWeakDGOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                           const std::vector<std::string> &components)
         : AdvectionWeakDGOp<TData>(std::move(expansionList), components),
-          m_coeff(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_coeff(LibUtilities::Field<TData, FieldState::Coeff>(
               "Advet coeff",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components.size(), 1)),
-          m_tmp(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_tmp(LibUtilities::Field<TData, FieldState::Coeff>(
               "Advet tmp",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components.size(), 1)),
-          m_fluxvector(MultiRegions::Field<TData, FieldState::Phys>(
+          m_fluxvector(LibUtilities::Field<TData, FieldState::Phys>(
               "Flux vector",
               MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList),
               expansionList->GetExp(0)->GetShapeDimension() * components.size(),
               1)),
-          m_numflux(MultiRegions::Field<TData, FieldState::Phys>(
+          m_numflux(LibUtilities::Field<TData, FieldState::Phys>(
               "Num flux",
               MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList->GetTrace()),
               components.size(), 1)),
-          m_fwd(MultiRegions::Field<TData, FieldState::Phys>(
+          m_fwd(LibUtilities::Field<TData, FieldState::Phys>(
               "Fwd Trace",
               MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList->GetTrace()),
               components.size(), 1)),
-          m_bwd(MultiRegions::Field<TData, FieldState::Phys>(
+          m_bwd(LibUtilities::Field<TData, FieldState::Phys>(
               "Bwd Trace",
               MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList->GetTrace()),
@@ -118,8 +118,8 @@ public:
 
 protected:
     static constexpr unsigned int m_implInterleaveWidth = 1u;
-    MultiRegions::Field<TData, FieldState::Coeff> m_coeff, m_tmp;
-    MultiRegions::Field<TData, FieldState::Phys> m_fluxvector, m_numflux, m_fwd,
+    LibUtilities::Field<TData, FieldState::Coeff> m_coeff, m_tmp;
+    LibUtilities::Field<TData, FieldState::Phys> m_fluxvector, m_numflux, m_fwd,
         m_bwd;
     std::shared_ptr<Operators::BwdTransOp<TData>> m_bwdTransOp;
     std::shared_ptr<Operators::IProductWRTDerivBaseOp<FieldState::Coeff, TData>>
@@ -130,8 +130,8 @@ protected:
     std::shared_ptr<Operators::MultiplyByElmtInvMassOp<TData>>
         m_multiplyByElmtInvMassOp;
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
-                 MultiRegions::Field<TData, FieldState::Phys> &out) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
+                 LibUtilities::Field<TData, FieldState::Phys> &out) override
     {
         Advect(in, out);
     }
@@ -142,8 +142,8 @@ protected:
         m_bwdTransOp->SetAppend(this->m_append);
     }
 
-    void Advect(MultiRegions::Field<TData, FieldState::Phys> &in,
-                MultiRegions::Field<TData, FieldState::Phys> &out)
+    void Advect(LibUtilities::Field<TData, FieldState::Phys> &in,
+                LibUtilities::Field<TData, FieldState::Phys> &out)
     {
         AdvectCoeffs(in, m_coeff);
 
@@ -159,7 +159,7 @@ protected:
                 outblock.template GetPtr<MemSpace, WriteOnly>(streamID);
 
             // Reshape, if necessary.
-            Operators::ReshapeStorage<ExecSpace>(
+            LibUtilities::ReshapeStorage<ExecSpace>(
                 m_implInterleaveWidth, outblock.GetInterleaveWidth(),
                 outblock.GetNumElementsWithPadding() *
                     outblock.GetNumComponents() * outblock.GetNumHomoModes(),
@@ -170,8 +170,8 @@ protected:
         }
     }
 
-    void AdvectCoeffs(MultiRegions::Field<TData, FieldState::Phys> &in,
-                      MultiRegions::Field<TData, FieldState::Coeff> &out)
+    void AdvectCoeffs(LibUtilities::Field<TData, FieldState::Phys> &in,
+                      LibUtilities::Field<TData, FieldState::Coeff> &out)
     {
         // Compute interior flux vector
         this->m_volumeFluxOp->Apply(in, m_fluxvector);
@@ -194,8 +194,8 @@ protected:
         }
     }
 
-    void AdvectTraceFlux(MultiRegions::Field<TData, FieldState::Phys> &in,
-                         MultiRegions::Field<TData, FieldState::Phys> &out)
+    void AdvectTraceFlux(LibUtilities::Field<TData, FieldState::Phys> &in,
+                         LibUtilities::Field<TData, FieldState::Phys> &out)
     {
 
         // Get forward and backward trace values

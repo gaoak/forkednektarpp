@@ -42,9 +42,9 @@
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 #include <MultiRegions/ExpList.h>
 
-#include "Operators/Common/DataWarehouse/NekDataWarehouse.hpp"
+#include "LibUtilities/BasicUtils/DataWarehouse/NekDataWarehouse.hpp"
 
-#include "MultiRegions/Field/Field.hpp"
+#include "LibUtilities/BasicUtils/Field/Field.hpp"
 #include "Operators/Common/OperatorsDeclspec.hpp"
 #include "Operators/Common/Spaces.hpp"
 
@@ -57,9 +57,9 @@ template <typename TData> class Operator;
 // Typename alias for the factory
 template <typename TData>
 using OperatorFactory =
-    Nektar::LibUtilities::NekFactory<std::string, Operator<TData>,
-                                     const MultiRegions::ExpListSharedPtr &,
-                                     const std::vector<std::string> &>;
+    LibUtilities::NekFactory<std::string, Operator<TData>,
+                             const MultiRegions::ExpListSharedPtr &,
+                             const std::vector<std::string> &>;
 
 // Operator factory singleton
 template <typename TData> OperatorFactory<TData> &GetOperatorFactory();
@@ -134,7 +134,7 @@ public:
 protected:
     MultiRegions::ExpListSharedPtr m_expansionList;
     std::vector<std::string> m_components;
-    NekDataWarehouseSharedPtr m_dataWarehouse;
+    LibUtilities::NekDataWarehouseSharedPtr m_dataWarehouse;
 };
 
 } // namespace Nektar::Operators

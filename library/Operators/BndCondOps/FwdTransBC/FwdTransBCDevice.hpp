@@ -52,7 +52,7 @@ class FwdTransBCBlockOpImpl : public FwdTransBCBlockOp<TData>
 public:
     FwdTransBCBlockOpImpl(const unsigned int block_idx,
                           const LocalRegions::ExpansionSharedPtr &exp,
-                          NekDataWarehouseSharedPtr dataWarehouse)
+                          LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : FwdTransBCBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         m_streamID = block_idx + 1;
@@ -131,9 +131,11 @@ public:
 
             // Fetch basis data.
             m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<TData>(basisKeys[d], eBasis)));
+                LibUtilities::BasisDataKey<TData>(basisKeys[d],
+                                                  LibUtilities::eBasis)));
             m_W.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<TData>(basisKeys[d], eWeights)));
+                LibUtilities::BasisDataKey<TData>(basisKeys[d],
+                                                  LibUtilities::eWeights)));
         }
 
         // Check whether points are collocated
@@ -153,7 +155,7 @@ public:
 
         // Fetch Jacobian.
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+            LocalRegions::JacobianKey<TData>(block_idx, m_implInterleaveWidth));
 
         // Fetch data for Operator2D only
         if ((m_shapeType == LibUtilities::Quad) ||
@@ -163,31 +165,36 @@ public:
             // Fetch interpolation matrix.
             // Note it is from basis[1] to basis[0]
             m_interp1to0 = this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<TData>(basisKeys[1], eInterpTranspose, m_nq[0],
-                                    basisKeys[0].GetPointsType()));
+                LibUtilities::BasisDataKey<TData>(
+                    basisKeys[1], LibUtilities::eInterpTranspose, m_nq[0],
+                    basisKeys[0].GetPointsType()));
 
             // Fetch Jacobian for each segment.
             m_jacTraceptr = this->m_dataWarehouse->template GetData<MemSpace>(
-                JacobianTraceKey<TData>(block_idx, m_implInterleaveWidth));
+                LocalRegions::JacobianTraceKey<TData>(block_idx,
+                                                      m_implInterleaveWidth));
 
             // Fetch TraceToElementMap
             m_traceElmtMapptr =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    TraceToElmtMapKey<TData>(block_idx, m_implInterleaveWidth));
+                    LocalRegions::TraceToElmtMapKey<TData>(
+                        block_idx, m_implInterleaveWidth));
             m_traceElmtSignptr =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    TraceToElmtSignKey<TData>(block_idx,
-                                              m_implInterleaveWidth));
+                    LocalRegions::TraceToElmtSignKey<TData>(
+                        block_idx, m_implInterleaveWidth));
 
             // Fetch InteriorMap (volume to interior DoF)
             m_interiorMapptr =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    InteriorMapKey<TData>(block_idx, m_implInterleaveWidth));
+                    LocalRegions::InteriorMapKey<TData>(block_idx,
+                                                        m_implInterleaveWidth));
 
             // Fetch inverse interior mass matrix for 2D elements
             m_massint = this->m_dataWarehouse->template GetData<MemSpace>(
-                StdMatKey<TData>(basisKeys, m_shapeType, eInvMassInteriorStdMat,
-                                 nodalType));
+                StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
+                                             StdRegions::eInvMassInteriorStdMat,
+                                             nodalType));
         }
 
         // Fetch inverse interior mass matrix for each basis
@@ -198,19 +205,22 @@ public:
             auto bkeys = std::vector<LibUtilities::BasisKey>{basisKeys[d]};
             m_massint_seg.push_back(
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    StdMatKey<TData>(bkeys, LibUtilities::eSegment,
-                                     eInvMassInteriorStdMat, nodalType)));
+                    StdRegions::StdMatKey<TData>(
+                        bkeys, LibUtilities::eSegment,
+                        StdRegions::eInvMassInteriorStdMat, nodalType)));
         }
 
         // Fetch NodalToModal Matrix if required.
         if (m_shapeType == LibUtilities::NodalTri)
         {
             m_nodToMod = this->m_dataWarehouse->template GetData<MemSpace>(
-                StdMatKey<TData>(basisKeys, m_shapeType, eNodalToModal,
-                                 nodalType));
+                StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
+                                             StdRegions::eNodalToModal,
+                                             nodalType));
             m_nodToModTrans = this->m_dataWarehouse->template GetData<MemSpace>(
-                StdMatKey<TData>(basisKeys, m_shapeType, eNodalToModalTranspose,
-                                 nodalType));
+                StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
+                                             StdRegions::eNodalToModalTranspose,
+                                             nodalType));
         }
         else
         {
@@ -225,7 +235,8 @@ public:
                                    m_shapeType == LibUtilities::NodalTri);
             m_index.push_back(
                 indexing ? this->m_dataWarehouse->template GetData<MemSpace>(
-                               ModeIndexKey(m_shapeType, m_nm[0], m_nm[1], 0))
+                               LibUtilities::ModeIndexKey(m_shapeType, m_nm[0],
+                                                          m_nm[1], 0))
                          : nullptr);
         }
     }
@@ -237,7 +248,7 @@ public:
     static std::unique_ptr<BlockOperator<TData>> Instantiate(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<FwdTransBCBlockOpImpl<ExecSpace, TData>>(
             block_idx, exp, dataWarehouse);
@@ -283,8 +294,8 @@ protected:
     const TData *m_nodToModTrans;
     std::vector<const unsigned int *> m_index;
 
-    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-                 MultiRegions::BlockAccessor<TData, FieldState::Coeff>
+    void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+                 LibUtilities::BlockAccessor<TData, FieldState::Coeff>
                      &outblock) override
     {
         switch (m_shapeType)
@@ -360,8 +371,8 @@ protected:
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE>
     void Operator0D(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
@@ -377,9 +388,9 @@ protected:
              nc < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, interleaveWidth, nelmt,
+                inblock.GetNumData(), (TData *)inptr, m_streamID);
 
             // Simple copy for 0D points. No loop required.
             size_t nsize = m_nqTot * nelmt;
@@ -387,12 +398,12 @@ protected:
                                                m_streamID);
 
             // Reshape back, if necessary.
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(), outptr,
-                                      m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                interleaveWidth, m_implInterleaveWidth, nelmt,
+                inblock.GetNumData(), (TData *)inptr, m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                interleaveWidth, m_implInterleaveWidth, nelmt,
+                outblock.GetNumData(), outptr, m_streamID);
 
             // Increment pointers.
             inptr += inblock.CompSize() * inblock.GetNumHomoModes();
@@ -406,8 +417,8 @@ protected:
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator1D(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         // Shape size.
         const auto nm0 = m_nm[0];
@@ -434,9 +445,9 @@ protected:
              nc < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, interleaveWidth, nelmt,
+                inblock.GetNumData(), (TData *)inptr, m_streamID);
 
             // Simple copy for collocated data. Copy per component
             if (m_isCollocation)
@@ -455,12 +466,12 @@ protected:
             }
 
             // Reshape back, if necessary.
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(), outptr,
-                                      m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                interleaveWidth, m_implInterleaveWidth, nelmt,
+                inblock.GetNumData(), (TData *)inptr, m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                interleaveWidth, m_implInterleaveWidth, nelmt,
+                outblock.GetNumData(), outptr, m_streamID);
 
             // Increment pointers.
             inptr += inblock.CompSize() * inblock.GetNumHomoModes();
@@ -474,8 +485,8 @@ protected:
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator2D(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         // Shape size.
         const auto nm0 = m_nm[0];
@@ -516,9 +527,9 @@ protected:
              nc < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++nc)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, interleaveWidth, nelmt,
+                inblock.GetNumData(), (TData *)inptr, m_streamID);
 
             // Simple copy for collocated data. Copy per component
             if (m_isCollocation)
@@ -540,12 +551,12 @@ protected:
             }
 
             // Reshape back, if necessary.
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmt, outblock.GetNumData(), outptr,
-                                      m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                interleaveWidth, m_implInterleaveWidth, nelmt,
+                inblock.GetNumData(), (TData *)inptr, m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                interleaveWidth, m_implInterleaveWidth, nelmt,
+                outblock.GetNumData(), outptr, m_streamID);
 
             // Increment pointers.
             inptr += inblock.CompSize() * inblock.GetNumHomoModes();

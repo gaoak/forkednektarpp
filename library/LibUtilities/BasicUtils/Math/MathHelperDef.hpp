@@ -32,6 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "LibUtilities/BasicUtils/Math/Math.hpp"
+
 #include "LibUtilities/BasicUtils/Math/MathHelper.hpp"
 
 // Provide definitions for the templated function of the abstract class

@@ -32,122 +32,10 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <MultiRegions/ExpList.h>
-#include <MultiRegions/ExpListHomogeneous1D.h>
-#include <MultiRegions/ExpListHomogeneous2D.h>
+#include <LibUtilities/BasicUtils/Field/Field.hpp>
 
-#include <MultiRegions/Field/Field.hpp>
-
-namespace Nektar::MultiRegions
+namespace Nektar::LibUtilities
 {
-
-// Helper function
-Collections::Collection GetCollection(
-    MultiRegions::ExpListSharedPtr expansionList, unsigned int block_idx)
-{
-    MultiRegions::ExpListSharedPtr tmp;
-    auto explistHomo1D =
-        std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
-            expansionList);
-    auto explistHomo2D =
-        std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous2D>(
-            expansionList);
-    if (explistHomo1D)
-    {
-        tmp = explistHomo1D->GetPlane(0);
-    }
-    else if (explistHomo2D)
-    {
-        tmp = explistHomo2D->GetLine(0);
-    }
-    else
-    {
-        tmp = expansionList;
-    }
-
-    return tmp->GetCollections()[block_idx];
-}
-
-Collections::CollectionVector GetCollection(
-    MultiRegions::ExpListSharedPtr expansionList)
-{
-    MultiRegions::ExpListSharedPtr tmp;
-    auto explistHomo1D =
-        std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
-            expansionList);
-    auto explistHomo2D =
-        std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous2D>(
-            expansionList);
-    if (explistHomo1D)
-    {
-        return explistHomo1D->GetPlane(0)->GetCollections();
-    }
-    else if (explistHomo2D)
-    {
-        return explistHomo2D->GetLine(0)->GetCollections();
-    }
-    else
-    {
-        return expansionList->GetCollections();
-    }
-}
-
-/**
- * @brief Get the BlockAttributes for a given field state from an ExpList.
- * This method basically captures identical elements that are contiguously
- * stored in the ExpList and group them into blocks. Padding elements will
- * also be set based on given vector width.
- *
- * @param state     Field state to query.
- * @param explist   Expansion list to query.
- * @param interleave_width Vector width to use for the field.
- * @return std::vector<BlockAttributes>
- */
-template <typename TPadding, FieldState TState>
-std::vector<BlockAttributes<TState>> GetBlockAttributes(
-    const MultiRegions::ExpListSharedPtr explist,
-    const unsigned interleave_width)
-{
-    // The TPadding type is use to dertermine the padding requirement and must
-    // be of floating point type.
-    static_assert(std::is_floating_point_v<TPadding>,
-                  "GetBlockAttributes: Data type must be float or double.");
-
-    // Use maximum vector width for back-ends interoperability.
-    const auto vector_width = NektarSpaces::max_vector_width<TPadding>::value;
-
-    std::vector<BlockAttributes<TState>> blockAttr;
-
-    auto colls = GetCollection(explist);
-    for (auto &coll : colls)
-    {
-        auto expPtr               = coll.GetExpVector()[0];
-        const size_t num_elements = coll.GetExpVector().size();
-        const unsigned int ndata  = TState == FieldState::Phys
-                                        ? expPtr->GetTotPoints()
-                                        : expPtr->GetNcoeffs();
-        size_t num_elements_with_padding =
-            ((num_elements + vector_width - 1) / vector_width) * vector_width;
-        blockAttr.push_back(
-            {num_elements, num_elements_with_padding, ndata, interleave_width});
-    }
-
-    return blockAttr;
-}
-
-template std::vector<BlockAttributes<FieldState::Phys>> GetBlockAttributes<
-    double, FieldState::Phys>(const MultiRegions::ExpListSharedPtr explist,
-                              const unsigned interleave_width);
-template std::vector<BlockAttributes<FieldState::Coeff>> GetBlockAttributes<
-    double, FieldState::Coeff>(const MultiRegions::ExpListSharedPtr explist,
-                               const unsigned interleave_width);
-
-template std::vector<BlockAttributes<FieldState::Phys>> GetBlockAttributes<
-    float, FieldState::Phys>(const MultiRegions::ExpListSharedPtr explist,
-                             const unsigned interleave_width);
-template std::vector<BlockAttributes<FieldState::Coeff>> GetBlockAttributes<
-    float, FieldState::Coeff>(const MultiRegions::ExpListSharedPtr explist,
-                              const unsigned interleave_width);
 
 template <typename TData, FieldState TState>
 template <typename MemSpace, typename MemAccess>
@@ -237,4 +125,5 @@ template double *BlockAccessor<double, FieldState::Coeff>::GetPtr<
 template double *BlockAccessor<double, FieldState::Coeff>::GetPtr<
     NektarSpaces::DeviceSpace, ReadWrite>(const unsigned int streamID);
 #endif
-} // namespace Nektar::MultiRegions
+
+} // namespace Nektar::LibUtilities

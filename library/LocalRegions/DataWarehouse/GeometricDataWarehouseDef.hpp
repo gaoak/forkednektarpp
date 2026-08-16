@@ -34,20 +34,14 @@
 
 #pragma once
 
-#include <MultiRegions/Field/Block.hpp>
-#include <MultiRegions/Field/Field.hpp>
-#include <Operators/Common/DataWarehouse/GeometricDataWarehouse.hpp>
-
-#include <MultiRegions/ExpList.h>
+#include <LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp>
 
 #if defined(_MSC_VER)
 #undef max
 #undef min
 #endif
 
-using namespace Nektar::LibUtilities;
-
-namespace Nektar::Operators
+namespace Nektar::LocalRegions
 {
 
 template <typename MemSpace, typename TData>
@@ -59,8 +53,8 @@ LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
     const auto interleave_width = weightsKey.m_interleave_width;
 
     // Fetch expansion.
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
-    auto expPtr = coll.GetExpVector()[0];
+    auto coll   = m_collections[block_idx].GetExpVector();
+    auto expPtr = coll[0];
 
     // Allocate memory and get pointer.
     const auto memsize = interleave_width * expPtr->GetTotPoints();
@@ -145,10 +139,9 @@ LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
     const auto interleave_width = jacobianKey.m_interleave_width;
 
     // Fetch expansion.
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
-    auto expPtr = coll.GetExpVector()[0];
-    const auto num_elements = coll.GetExpVector().size();
-    const auto exp_idx      = expPtr->GetElmtId();
+    auto coll               = m_collections[block_idx].GetExpVector();
+    auto expPtr             = coll[0];
+    const auto num_elements = coll.size();
     const bool isDeformed =
         (expPtr->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed);
     const auto num_elmt_groups =
@@ -176,9 +169,7 @@ LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
                 // Check for padding
                 if (el < num_elements)
                 {
-                    jacArray[i] = this->m_expansionList->GetExp(exp_idx + el)
-                                      ->GetGeomFactors()
-                                      ->GetJac();
+                    jacArray[i] = coll[el]->GetGeomFactors()->GetJac();
                 }
                 else
                 {
@@ -215,10 +206,8 @@ LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
                 // Check for padding
                 if (el < num_elements)
                 {
-                    auto &auxJac = this->m_expansionList->GetExp(exp_idx + el)
-                                       ->GetGeomFactors()
-                                       ->GetJac();
-                    jacptr[el] = auxJac[0];
+                    auto &auxJac = coll[el]->GetGeomFactors()->GetJac();
+                    jacptr[el]   = auxJac[0];
                 }
                 else
                 {
@@ -244,10 +233,9 @@ LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
     const auto transpose        = derivFactorKey.m_transpose;
 
     // Fetch expansion.
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
-    auto expPtr = coll.GetExpVector()[0];
-    const auto num_elements = coll.GetExpVector().size();
-    const auto exp_idx      = expPtr->GetElmtId();
+    auto coll               = m_collections[block_idx].GetExpVector();
+    auto expPtr             = coll[0];
+    const auto num_elements = coll.size();
     const bool isDeformed =
         (expPtr->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed);
     const auto nDim   = expPtr->GetShapeDimension();
@@ -288,10 +276,9 @@ LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
                             const auto d  = transpose ? index1 : index2;
                             const auto pt = transpose ? index2 : index1;
 
-                            auto &tmp =
-                                this->m_expansionList->GetExp(exp_idx + el + i)
-                                    ->GetGeomFactors()
-                                    ->GetDerivFactors();
+                            auto &tmp = coll[el + i]
+                                            ->GetGeomFactors()
+                                            ->GetDerivFactors();
                             *(dfptr++) = tmp[d][pt];
                         }
                         else
@@ -323,9 +310,7 @@ LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
                     if (el + i < num_elements)
                     {
                         auto &tmp =
-                            this->m_expansionList->GetExp(exp_idx + el + i)
-                                ->GetGeomFactors()
-                                ->GetDerivFactors();
+                            coll[el + i]->GetGeomFactors()->GetDerivFactors();
                         *(dfptr++) = tmp[d][0];
                     }
                     else
@@ -355,10 +340,9 @@ LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
     const auto transpose        = coordKey.m_transpose;
 
     // Fetch expansion.
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
-    auto expPtr = coll.GetExpVector()[0];
-    const auto num_elements = coll.GetExpVector().size();
-    const auto exp_idx      = expPtr->GetElmtId();
+    auto coll               = m_collections[block_idx].GetExpVector();
+    auto expPtr             = coll[0];
+    const auto num_elements = coll.size();
     const auto num_elmt_groups =
         ((num_elements + vector_width - 1) / vector_width) * vector_width /
         interleave_width;
@@ -391,9 +375,7 @@ LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
                         const auto d  = transpose ? index1 : index2;
                         const auto pt = transpose ? index2 : index1;
 
-                        auto tmp =
-                            this->m_expansionList->GetExp(exp_idx + el + i)
-                                ->GetCoords();
+                        auto tmp       = coll[el + i]->GetCoords();
                         crdptr[crd_id] = tmp[d][pt];
                     }
                     else
@@ -422,10 +404,9 @@ LibUtilities::MemoryRegion<unsigned> GeometricDataCreator::Create(
     const auto interleave_width = orientKey.m_interleave_width;
 
     // Fetch expansion.
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
-    auto expPtr = coll.GetExpVector()[0];
-    const auto num_elements = coll.GetExpVector().size();
-    const auto exp_idx      = expPtr->GetElmtId();
+    auto coll               = m_collections[block_idx].GetExpVector();
+    auto expPtr             = coll[0];
+    const auto num_elements = coll.size();
     const auto nedge        = expPtr->GetGeom()->GetNumEdges();
     const auto num_elmt_groups =
         ((num_elements + vector_width - 1) / vector_width) * vector_width /
@@ -450,8 +431,7 @@ LibUtilities::MemoryRegion<unsigned> GeometricDataCreator::Create(
                 // Check for padding
                 if (el + i < num_elements)
                 {
-                    auto orient = m_expansionList->GetExp(exp_idx + el + i)
-                                      ->GetTraceOrient(ed);
+                    auto orient          = coll[el + i]->GetTraceOrient(ed);
                     orientptr[orient_id] = static_cast<unsigned int>(orient);
                 }
                 else
@@ -477,8 +457,8 @@ LibUtilities::MemoryRegion<unsigned> GeometricDataCreator::Create(
 
     // Get the reference element.
     // Note the traceToElemtMap is equivalent for all elements within a block.
-    auto coll        = MultiRegions::GetCollection(m_expansionList, block_idx);
-    auto expPtr      = coll.GetExpVector()[0];
+    auto coll        = m_collections[block_idx].GetExpVector();
+    auto expPtr      = coll[0];
     const auto nedge = expPtr->GetGeom()->GetNumEdges();
 
     // Total nummodes for trace
@@ -524,8 +504,8 @@ LibUtilities::MemoryRegion<int> GeometricDataCreator::Create(
 
     // Get the reference element.
     // Note the sign is equivalent for all elements within a block.
-    auto coll        = MultiRegions::GetCollection(m_expansionList, block_idx);
-    auto expPtr      = coll.GetExpVector()[0];
+    auto coll        = m_collections[block_idx].GetExpVector();
+    auto expPtr      = coll[0];
     const auto nedge = expPtr->GetGeom()->GetNumEdges();
 
     // Total nummodes for trace
@@ -571,8 +551,8 @@ LibUtilities::MemoryRegion<unsigned> GeometricDataCreator::Create(
 
     // Get the reference element.
     // Note the interior map is equivalent for all elements within a block.
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
-    auto expPtr = coll.GetExpVector()[0];
+    auto coll   = m_collections[block_idx].GetExpVector();
+    auto expPtr = coll[0];
 
     // Get size of interior map
     auto numInteriorCoeffs = expPtr->GetNcoeffs() - expPtr->NumBndryCoeffs();
@@ -608,10 +588,9 @@ LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
     const auto block_idx        = jacobianTraceKey.m_block_idx;
     const auto interleave_width = jacobianTraceKey.m_interleave_width;
 
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
-    auto expPtr = coll.GetExpVector()[0];
-    const auto num_elements = coll.GetExpVector().size();
-    const auto exp_idx      = expPtr->GetElmtId();
+    auto coll               = m_collections[block_idx].GetExpVector();
+    auto expPtr             = coll[0];
+    const auto num_elements = coll.size();
     // Assume non-deformed edge for now.
     const bool isDeformed = false;
     // const bool isDeformed =
@@ -651,9 +630,7 @@ LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
                     if (el + i < num_elements)
                     {
                         // Get trace expansion.
-                        auto traceExp =
-                            m_expansionList->GetExp(exp_idx + el + i)
-                                ->GetTraceExp(ed);
+                        auto traceExp = coll[el + i]->GetTraceExp(ed);
 
                         // Get trace Jacobian.
                         jacArray[i] = traceExp->GetGeomFactors()->GetJac();
@@ -695,9 +672,7 @@ LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
                     if (el + i < num_elements)
                     {
                         // Get trace expansion.
-                        auto traceExp =
-                            m_expansionList->GetExp(exp_idx + el + i)
-                                ->GetTraceExp(ed);
+                        auto traceExp = coll[el + i]->GetTraceExp(ed);
 
                         // Get trace Jacobian.
                         auto &auxJac = traceExp->GetGeomFactors()->GetJac();
@@ -727,25 +702,21 @@ LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
     const auto block_idx        = jacobianLocTraceKey.m_block_idx;
     const auto interleave_width = jacobianLocTraceKey.m_interleave_width;
 
-    auto coll   = MultiRegions::GetCollection(m_expansionList, block_idx);
-    auto expPtr = coll.GetExpVector()[0];
-    const auto exp_idx = expPtr->GetElmtId();
-    const auto nDim    = expPtr->GetShapeDimension();
+    auto coll       = m_collections[block_idx].GetExpVector();
+    auto expPtr     = coll[0];
+    const auto nDim = expPtr->GetShapeDimension();
 
-    const auto num_elements = coll.GetExpVector().size();
+    const auto num_elements = coll.size();
     const auto num_elmt_groups =
         ((num_elements + vector_width - 1) / vector_width) * vector_width /
         interleave_width;
-
-    // Get number of traces on element
-    const auto locExpPtr = m_expansionList->GetExp(exp_idx);
 
     // get total trace size
     LibUtilities::ShapeType shape = expPtr->DetShapeType();
 
     // if element deformed treat trace group as deformed.
     bool isDeformed =
-        (locExpPtr->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed);
+        (expPtr->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed);
 
     // caculate the total number of quadrature points
     std::vector<unsigned> nTracePts;
@@ -757,7 +728,7 @@ LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
         // first trace id
         auto traceId = LibUtilities::ShapeTypeTraceIDInDir[shape][dir][0];
 
-        auto npts = locExpPtr->GetLocTraceExp(traceId)->GetTotPoints();
+        auto npts = expPtr->GetLocTraceExp(traceId)->GetTotPoints();
         nTracePts.push_back(npts);
 
         if (isDeformed)
@@ -794,8 +765,7 @@ LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
                     if (el < num_elements)
                     {
                         // Get trace expansion
-                        auto traceExp = m_expansionList->GetExp(exp_idx + el)
-                                            ->GetLocTraceExp(traceId);
+                        auto traceExp = coll[el]->GetLocTraceExp(traceId);
 
                         // Get trace Jacobian
                         auto jacArray = traceExp->GetGeomFactors()->GetJac();
@@ -857,4 +827,4 @@ LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
     return jac;
 }
 
-} // namespace Nektar::Operators
+} // namespace Nektar::LocalRegions

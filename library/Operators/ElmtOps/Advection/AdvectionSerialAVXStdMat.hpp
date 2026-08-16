@@ -56,7 +56,7 @@ class AdvectionBlockOpImpl : public AdvectionBlockOp<TData>
 public:
     AdvectionBlockOpImpl(const unsigned int block_idx,
                          const LocalRegions::ExpansionSharedPtr &exp,
-                         NekDataWarehouseSharedPtr dataWarehouse)
+                         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : AdvectionBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
@@ -76,12 +76,14 @@ public:
             basisKeys[d] = exp->GetBasis(d)->GetBasisKey();
         }
 
-        m_matptr = dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
-            basisKeys, m_shapeType, ePhysDerivStdMatTranspose));
+        m_matptr = dataWarehouse->template GetData<MemSpace>(
+            StdRegions::StdMatKey<TData>(
+                basisKeys, m_shapeType, StdRegions::ePhysDerivStdMatTranspose));
 
         // Fetch derivative factor.
         m_dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, false));
+            LocalRegions::DerivFactorKey<TData>(block_idx,
+                                                m_implInterleaveWidth, false));
     }
 
     // className - for BlockOperatorFactory
@@ -92,7 +94,7 @@ public:
         ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>>
     Instantiate(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,
-                NekDataWarehouseSharedPtr dataWarehouse)
+                LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             AdvectionBlockOpImpl<ExecSpace, Implementation, TData>>(
@@ -113,8 +115,8 @@ protected:
     TData *m_advVel;
 
     void v_Apply(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock) override
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -158,9 +160,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              inInterleaveWidth, chunkSize,
-                                              m_nqTot, (TData *)inptr);
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        m_implInterleaveWidth, inInterleaveWidth, chunkSize,
+                        m_nqTot, (TData *)inptr);
                 }
 
                 // Perform matrix-matrix multiply.
@@ -178,7 +180,7 @@ protected:
                         // Reshape, if necessary.
                         if (e % width_ratio == 0)
                         {
-                            ReshapeStorage<ExecSpace>(
+                            LibUtilities::ReshapeStorage<ExecSpace>(
                                 m_implInterleaveWidth, outInterleaveWidth,
                                 chunkSize, m_nqTot, (TData *)outptr);
                         }
@@ -210,7 +212,7 @@ protected:
                         // Reshape, if necessary.
                         if (e % width_ratio == 0)
                         {
-                            ReshapeStorage<ExecSpace>(
+                            LibUtilities::ReshapeStorage<ExecSpace>(
                                 m_implInterleaveWidth, outInterleaveWidth,
                                 chunkSize, m_nqTot, (TData *)outptr);
                         }
@@ -239,12 +241,12 @@ protected:
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nqTot,
                         (TData *)inptr -
                             (width_ratio - 1) * m_nqTot * simd_t::width);
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nqTot,
                         (TData *)outptr -
@@ -263,14 +265,14 @@ protected:
     }
 
     void v_SetAdvVel(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &advVel) override
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &advVel) override
     {
         const auto interleaveWidth = advVel.GetInterleaveWidth();
         this->m_advVel = advVel.template GetPtr<MemSpace, ReadWrite>();
-        ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                  advVel.GetNumElementsWithPadding() *
-                                      this->m_exp->GetCoordim(),
-                                  advVel.GetNumData(), this->m_advVel);
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            m_implInterleaveWidth, interleaveWidth,
+            advVel.GetNumElementsWithPadding() * this->m_exp->GetCoordim(),
+            advVel.GetNumData(), this->m_advVel);
         advVel.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 };

@@ -81,13 +81,13 @@ protected:
         m_assmbScatrNoSignOp;
     std::shared_ptr<RobBndCondOp<TData>> m_robBCOp;
 
-    MultiRegions::Field<TData, FieldState::Coeff> m_invDiag;
+    LibUtilities::Field<TData, FieldState::Coeff> m_invDiag;
 
     size_t m_nGlobal;
     size_t m_nDir;
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
-                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
+                 LibUtilities::Field<TData, FieldState::Coeff> &out) override
     {
         ASSERTL1(in.size() == out.size(),
                  "Input and output arrays are of different size");
@@ -112,7 +112,7 @@ protected:
                 inblock.GetNumComponents() * inblock.GetNumHomoModes();
             if (in_width != diagblock.GetInterleaveWidth())
             {
-                ReshapeStorage<ExecSpace>(
+                LibUtilities::ReshapeStorage<ExecSpace>(
                     in_width, diagblock.GetInterleaveWidth(),
                     diagblock.GetNumElementsWithPadding() * nComp,
                     diagblock.GetNumData(), (TData *)diagPtr, streamID);
@@ -140,17 +140,17 @@ protected:
                 this->m_expansionList);
 
         // Create local diagonal field.
-        m_invDiag = MultiRegions::Field<TData, FieldState::Coeff>(
+        m_invDiag = LibUtilities::Field<TData, FieldState::Coeff>(
             "inverse diagonal", blockAttr, this->m_components, 1);
 
         // Create unit vector field to extract diagonal.
-        MultiRegions::Field<TData, FieldState::Coeff> unit_vec =
-            MultiRegions::Field<TData, FieldState::Coeff>(
+        LibUtilities::Field<TData, FieldState::Coeff> unit_vec =
+            LibUtilities::Field<TData, FieldState::Coeff>(
                 "DiagPrecon unit vec", blockAttr, this->m_components, 1);
 
         // Create action field to receive column action from unit vector.
-        MultiRegions::Field<TData, FieldState::Coeff> action =
-            MultiRegions::Field<TData, FieldState::Coeff>(
+        LibUtilities::Field<TData, FieldState::Coeff> action =
+            LibUtilities::Field<TData, FieldState::Coeff>(
                 "DiagPrecon action", blockAttr, this->m_components, 1);
 
         // Intialisating to 1 so padded elements can be inverted.

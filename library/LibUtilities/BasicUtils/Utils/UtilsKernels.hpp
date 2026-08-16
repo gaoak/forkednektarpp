@@ -37,7 +37,7 @@
 #include "LibUtilities/BasicUtils/Utils/UtilsDeviceKernels.hpp"
 #include "LibUtilities/BasicUtils/Utils/UtilsSerialAVXKernels.hpp"
 
-namespace Nektar::Operators
+namespace Nektar::LibUtilities
 {
 
 /**
@@ -135,4 +135,4 @@ NEK_HOSTDEVICE_INLINE unsigned int GetDiffCoeffMap(const unsigned int ncoord,
 #endif
 }
 
-} // namespace Nektar::Operators
+} // namespace Nektar::LibUtilities

@@ -40,7 +40,7 @@
 #include <string>
 #include <vector>
 
-#include "MultiRegions/Field/Field.hpp"
+#include "LibUtilities/BasicUtils/Field/Field.hpp"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivBlockOp.hpp"
 
 #include <MultiRegions/ExpList.h>
@@ -88,8 +88,8 @@ public:
     /// \param nhomo     Number of homogeneous planes (1 = no z-FFT).
     /// \param blockNXY  Points per plane for each block.
     void Launch(std::vector<std::shared_ptr<PhysDerivBlockOp<TData>>> &blockOp,
-                MultiRegions::Field<TData, FieldState::Phys> &in,
-                MultiRegions::Field<TData, FieldState::Phys> &out,
+                LibUtilities::Field<TData, FieldState::Phys> &in,
+                LibUtilities::Field<TData, FieldState::Phys> &out,
                 unsigned int nhomo, const std::vector<int> &blockNXY)
     {
         v_Launch(blockOp, in, out, nhomo, blockNXY);
@@ -100,8 +100,8 @@ protected:
 
     virtual void v_Launch(
         std::vector<std::shared_ptr<PhysDerivBlockOp<TData>>> &blockOp,
-        MultiRegions::Field<TData, FieldState::Phys> &in,
-        MultiRegions::Field<TData, FieldState::Phys> &out, unsigned int nhomo,
+        LibUtilities::Field<TData, FieldState::Phys> &in,
+        LibUtilities::Field<TData, FieldState::Phys> &out, unsigned int nhomo,
         const std::vector<int> &blockNXY) = 0;
 
 public:

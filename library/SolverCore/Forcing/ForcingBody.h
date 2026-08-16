@@ -74,8 +74,8 @@ protected:
     SOLVER_CORE_EXPORT void v_InitObject(const TiXmlElement *force) override;
 
     SOLVER_CORE_EXPORT void v_Apply(
-        MultiRegions::Field<double, FieldState::Phys> &in,
-        MultiRegions::Field<double, FieldState::Phys> &out, const double time,
+        LibUtilities::Field<double, FieldState::Phys> &in,
+        LibUtilities::Field<double, FieldState::Phys> &out, const double time,
         const double scale) override;
 
     SOLVER_CORE_EXPORT void v_SetAppend(const bool append) override;

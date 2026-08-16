@@ -56,9 +56,10 @@ class IProductWRTDerivBaseBlockOpImpl
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    IProductWRTDerivBaseBlockOpImpl(const unsigned int block_idx,
-                                    const LocalRegions::ExpansionSharedPtr &exp,
-                                    NekDataWarehouseSharedPtr dataWarehouse)
+    IProductWRTDerivBaseBlockOpImpl(
+        const unsigned int block_idx,
+        const LocalRegions::ExpansionSharedPtr &exp,
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : IProductWRTDerivBaseBlockOp<TFieldOut, TData>(block_idx, exp,
                                                         dataWarehouse)
     {
@@ -86,26 +87,30 @@ public:
                     : LibUtilities::eNoPointsType;
 
             m_outTot = exp->GetNcoeffs();
-            m_matptr =
-                dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
+            m_matptr = dataWarehouse->template GetData<MemSpace>(
+                StdRegions::StdMatKey<TData>(
                     basisKeys, m_shapeType,
-                    eIProductWRTDerivBaseStdMatTranspose, nodalType));
+                    StdRegions::eIProductWRTDerivBaseStdMatTranspose,
+                    nodalType));
         }
         else
         {
             m_outTot = exp->GetTotPoints();
             m_matptr = dataWarehouse->template GetData<MemSpace>(
-                StdMatKey<TData>(basisKeys, m_shapeType, ePhysDerivStdMat));
+                StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
+                                             StdRegions::ePhysDerivStdMat));
 
             m_weights = this->m_dataWarehouse->template GetData<MemSpace>(
-                WeightsKey<TData>(block_idx, m_implInterleaveWidth));
+                LocalRegions::WeightsKey<TData>(block_idx,
+                                                m_implInterleaveWidth));
         }
 
         // Fetch Jacobian and deriv factors.
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+            LocalRegions::JacobianKey<TData>(block_idx, m_implInterleaveWidth));
         m_dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, false));
+            LocalRegions::DerivFactorKey<TData>(block_idx,
+                                                m_implInterleaveWidth, false));
     }
 
     // className - for BlockOperatorFactory
@@ -115,7 +120,7 @@ public:
     static std::unique_ptr<ElmtBlockOp<FieldState::Phys, TFieldOut, TData>>
     Instantiate(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,
-                NekDataWarehouseSharedPtr dataWarehouse)
+                LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<IProductWRTDerivBaseBlockOpImpl<
             ExecSpace, Implementation, TFieldOut, TData>>(block_idx, exp,
@@ -137,8 +142,8 @@ protected:
     const TData *m_weights;
 
     void v_Apply(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, TFieldOut> &outblock) override
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, TFieldOut> &outblock) override
     {
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -187,16 +192,16 @@ protected:
                 {
                     for (unsigned int k = 0; k < m_coordDim; ++k)
                     {
-                        ReshapeStorage<ExecSpace>(
+                        LibUtilities::ReshapeStorage<ExecSpace>(
                             m_implInterleaveWidth, inInterleaveWidth, chunkSize,
                             m_nqTot, (TData *)inptr + k * inoffset);
                     }
 
                     if (this->m_append)
                     {
-                        ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                                  outInterleaveWidth, chunkSize,
-                                                  m_outTot, (TData *)outptr);
+                        LibUtilities::ReshapeStorage<ExecSpace>(
+                            m_implInterleaveWidth, outInterleaveWidth,
+                            chunkSize, m_outTot, (TData *)outptr);
                     }
                 }
 
@@ -273,13 +278,13 @@ protected:
                 {
                     for (unsigned int k = 0; k < m_coordDim; ++k)
                     {
-                        ReshapeStorage<ExecSpace>(
+                        LibUtilities::ReshapeStorage<ExecSpace>(
                             inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                             m_nqTot,
                             (TData *)inptr + k * inoffset -
                                 (width_ratio - 1) * m_nqTot * simd_t::width);
                     }
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_outTot,
                         (TData *)outptr -

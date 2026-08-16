@@ -49,9 +49,10 @@ class LinAdvDiffReactionBlockOpImpl : public LinAdvDiffReactionBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    LinAdvDiffReactionBlockOpImpl(const unsigned int block_idx,
-                                  const LocalRegions::ExpansionSharedPtr &exp,
-                                  NekDataWarehouseSharedPtr dataWarehouse)
+    LinAdvDiffReactionBlockOpImpl(
+        const unsigned int block_idx,
+        const LocalRegions::ExpansionSharedPtr &exp,
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : LinAdvDiffReactionBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         m_streamID = block_idx + 1;
@@ -78,20 +79,28 @@ public:
                 ? exp->GetNodalPointsKey().GetPointsType()
                 : LibUtilities::eNoPointsType;
 
-        m_bwdmat   = dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
-            basisKeys, m_shapeType, eBwdTransStdMat, nodalType));
-        m_ipbmat   = dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
-            basisKeys, m_shapeType, eIProductWRTBaseStdMat, nodalType));
+        m_bwdmat = dataWarehouse->template GetData<MemSpace>(
+            StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
+                                         StdRegions::eBwdTransStdMat,
+                                         nodalType));
+        m_ipbmat = dataWarehouse->template GetData<MemSpace>(
+            StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
+                                         StdRegions::eIProductWRTBaseStdMat,
+                                         nodalType));
         m_derivmat = dataWarehouse->template GetData<MemSpace>(
-            StdMatKey<TData>(basisKeys, m_shapeType, eDerivStdMat, nodalType));
-        m_ipdmat = dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
-            basisKeys, m_shapeType, eIProductWRTDerivBaseStdMat, nodalType));
+            StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
+                                         StdRegions::eDerivStdMat, nodalType));
+        m_ipdmat = dataWarehouse->template GetData<MemSpace>(
+            StdRegions::StdMatKey<TData>(
+                basisKeys, m_shapeType, StdRegions::eIProductWRTDerivBaseStdMat,
+                nodalType));
 
         // Fetch Jacobian and deriv factors.
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+            LocalRegions::JacobianKey<TData>(block_idx, m_implInterleaveWidth));
         m_dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, true));
+            LocalRegions::DerivFactorKey<TData>(block_idx,
+                                                m_implInterleaveWidth, true));
     }
 
     // className - for BlockOperatorFactory
@@ -102,7 +111,7 @@ public:
         ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>>
     Instantiate(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,
-                NekDataWarehouseSharedPtr dataWarehouse)
+                LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             LinAdvDiffReactionBlockOpImpl<ExecSpace, Implementation, TData>>(
@@ -127,8 +136,8 @@ protected:
     const TData *m_dfptr;
     TData *m_advVel;
 
-    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-                 MultiRegions::BlockAccessor<TData, FieldState::Coeff>
+    void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+                 LibUtilities::BlockAccessor<TData, FieldState::Coeff>
                      &outblock) override
     {
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
@@ -167,9 +176,9 @@ protected:
             auto advptr = this->m_advVel;
 
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                      nelmtTot, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, interleaveWidth, nelmtTot,
+                inblock.GetNumData(), (TData *)inptr, m_streamID);
 
             // Step 1: BwdTrans
             // Perform matrix-matrix multiply.
@@ -226,12 +235,12 @@ protected:
             }
 
             // Reshape back, if necessary.
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmtTot, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmtTot, outblock.GetNumData(), outptr,
-                                      m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                interleaveWidth, m_implInterleaveWidth, nelmtTot,
+                inblock.GetNumData(), (TData *)inptr, m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                interleaveWidth, m_implInterleaveWidth, nelmtTot,
+                outblock.GetNumData(), outptr, m_streamID);
 
             // Increment pointers.
             inptr += inblock.CompSize() * inblock.GetNumHomoModes();
@@ -243,12 +252,12 @@ protected:
     }
 
     void v_SetAdvVel(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &advVel) override
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &advVel) override
     {
         const auto interleaveWidth = advVel.GetInterleaveWidth();
         this->m_advVel =
             advVel.template GetPtr<MemSpace, ReadWrite>(m_streamID);
-        ReshapeStorage<ExecSpace>(
+        LibUtilities::ReshapeStorage<ExecSpace>(
             m_implInterleaveWidth, interleaveWidth,
             advVel.GetNumElementsWithPadding() * this->m_exp->GetCoordim(),
             advVel.GetNumData(), this->m_advVel, m_streamID);

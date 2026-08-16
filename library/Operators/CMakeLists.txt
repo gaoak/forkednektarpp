@@ -276,12 +276,6 @@ ENDMACRO()
 SET(OPERATORS_HEADERS
     Common/BlockOperator.hpp
     Common/Operator.hpp
-    Common/DataWarehouse/BasisDataWarehouse.hpp
-    Common/DataWarehouse/GeometricDataWarehouse.hpp
-    Common/DataWarehouse/LocalToGlobalDataWarehouse.hpp
-    Common/DataWarehouse/ModeIndexDataWarehouse.hpp
-    Common/DataWarehouse/StdMatDataWarehouse.hpp
-    Common/DataWarehouse/TraceDataWarehouse.hpp
     ElmtOps/ElmtBlockOp.hpp
 )
 
@@ -289,12 +283,6 @@ SET(OPERATORS_HEADERS
 SET(OPERATORS_SOURCES
     Common/BlockOperator.cpp
     Common/Operator.cpp
-    Common/DataWarehouse/BasisDataWarehouse.cpp
-    Common/DataWarehouse/GeometricDataWarehouse.cpp
-    Common/DataWarehouse/LocalToGlobalDataWarehouse.cpp
-    Common/DataWarehouse/ModeIndexDataWarehouse.cpp
-    Common/DataWarehouse/StdMatDataWarehouse.cpp
-    Common/DataWarehouse/TraceDataWarehouse.cpp
 )
 
 # Only these cpp files go into the group set below.

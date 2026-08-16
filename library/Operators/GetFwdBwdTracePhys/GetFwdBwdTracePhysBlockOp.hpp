@@ -35,7 +35,7 @@
 #pragma once
 
 #include "Operators/Common/BlockOperator.hpp"
-#include "Operators/Common/DataWarehouse/TraceDataWarehouse.hpp"
+#include <MultiRegions/DataWarehouse/TraceDataWarehouse.hpp>
 
 namespace Nektar::Operators
 {
@@ -49,7 +49,8 @@ public:
     static std::shared_ptr<GetFwdBwdTracePhysBlockOp<TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse, const std::string &execStr)
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
+        const std::string &execStr)
     {
         return BlockOperator<TData>::template Create<GetFwdBwdTracePhysBlockOp>(
             block_idx, exp, dataWarehouse, execStr);
@@ -57,17 +58,17 @@ public:
 
     static inline const std::string name = "BlockGetFwdBwdTracePhys";
 
-    void Apply(MultiRegions::BlockAccessor<TData, FieldState::Phys> &phyBlock,
-               MultiRegions::Field<TData, FieldState::Phys> &fwd,
-               MultiRegions::Field<TData, FieldState::Phys> &bwd)
+    void Apply(LibUtilities::BlockAccessor<TData, FieldState::Phys> &phyBlock,
+               LibUtilities::Field<TData, FieldState::Phys> &fwd,
+               LibUtilities::Field<TData, FieldState::Phys> &bwd)
     {
         this->v_Apply(phyBlock, fwd, bwd);
     }
 
     void operator()(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &phyBlock,
-        MultiRegions::Field<TData, FieldState::Phys> &fwd,
-        MultiRegions::Field<TData, FieldState::Phys> &bwd)
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &phyBlock,
+        LibUtilities::Field<TData, FieldState::Phys> &fwd,
+        LibUtilities::Field<TData, FieldState::Phys> &bwd)
     {
         this->v_Apply(phyBlock, fwd, bwd);
     }
@@ -85,17 +86,18 @@ public:
 protected:
     bool m_fwdOnly = false;
 
-    GetFwdBwdTracePhysBlockOp(const unsigned int block_idx,
-                              const LocalRegions::ExpansionSharedPtr &exp,
-                              NekDataWarehouseSharedPtr dataWarehouse)
+    GetFwdBwdTracePhysBlockOp(
+        const unsigned int block_idx,
+        const LocalRegions::ExpansionSharedPtr &exp,
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : BlockOperator<TData>(block_idx, exp, dataWarehouse)
     {
     }
 
     virtual void v_Apply(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &phyBlock,
-        MultiRegions::Field<TData, FieldState::Phys> &fwd,
-        MultiRegions::Field<TData, FieldState::Phys> &bwd) = 0;
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &phyBlock,
+        LibUtilities::Field<TData, FieldState::Phys> &fwd,
+        LibUtilities::Field<TData, FieldState::Phys> &bwd) = 0;
 
     virtual void v_SetTracePhysOffset(std::vector<size_t> offset) = 0;
 };

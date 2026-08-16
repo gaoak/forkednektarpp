@@ -47,9 +47,10 @@ class GetFwdBwdTracePhysBlockOpImpl : public GetFwdBwdTracePhysBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    GetFwdBwdTracePhysBlockOpImpl(const unsigned int block_idx,
-                                  const LocalRegions::ExpansionSharedPtr &exp,
-                                  NekDataWarehouseSharedPtr dataWarehouse)
+    GetFwdBwdTracePhysBlockOpImpl(
+        const unsigned int block_idx,
+        const LocalRegions::ExpansionSharedPtr &exp,
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : GetFwdBwdTracePhysBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         m_shapeType = exp->DetShapeType();
@@ -71,69 +72,70 @@ public:
 
         m_locTracePhysToElmtMaps =
             this->m_dataWarehouse->template GetData<MemSpace>(
-                LocTracePhysToElmtMapsKey<TData>(block_idx,
-                                                 m_implInterleaveWidth));
+                MultiRegions::LocTracePhysToElmtMapsKey<TData>(
+                    block_idx, m_implInterleaveWidth));
 
         m_orientationMaps = this->m_dataWarehouse->template GetData<MemSpace>(
-            OrientationMapsKey<TData>(block_idx, m_implInterleaveWidth));
+            MultiRegions::OrientationMapsKey<TData>(block_idx,
+                                                    m_implInterleaveWidth));
 
         m_orientationMapsOffset =
             this->m_dataWarehouse->template GetData<MemSpace>(
-                OrientationMapsOffsetKey<TData>(block_idx,
-                                                m_implInterleaveWidth));
+                MultiRegions::OrientationMapsOffsetKey<TData>(
+                    block_idx, m_implInterleaveWidth));
 
         m_isLocTraceLeftAdjacent =
             this->m_dataWarehouse->template GetData<MemSpace>(
-                IsLocTraceLeftAdjacentKey<TData>(block_idx,
-                                                 m_implInterleaveWidth));
+                MultiRegions::IsLocTraceLeftAdjacentKey<TData>(
+                    block_idx, m_implInterleaveWidth));
 
         if (m_dimension >= 2)
         {
             m_interpTraceIndex =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    InterpTraceIndexKey<TData>(block_idx,
-                                               m_implInterleaveWidth));
+                    MultiRegions::InterpTraceIndexKey<TData>(
+                        block_idx, m_implInterleaveWidth));
             m_interpPoints = this->m_dataWarehouse->template GetData<MemSpace>(
-                InterpPointsKey<TData>(block_idx));
+                MultiRegions::InterpPointsKey<TData>(block_idx));
 
             m_interpTypes = this->m_dataWarehouse->template GetData<MemSpace>(
-                InterpTypesKey<TData>(block_idx));
+                MultiRegions::InterpTypesKey<TData>(block_idx));
 
             m_quadRange = this->m_dataWarehouse->template GetData<MemSpace>(
-                QuadRangeKey<TData>(block_idx));
+                MultiRegions::QuadRangeKey<TData>(block_idx));
 
             m_interpTrace = this->m_dataWarehouse->template GetData<MemSpace>(
-                InterpTraceKey<TData>(block_idx));
+                MultiRegions::InterpTraceKey<TData>(block_idx));
 
             m_interpTraceI0 = this->m_dataWarehouse->template GetData<MemSpace>(
-                InterpTraceI0Key<TData>(block_idx));
+                MultiRegions::InterpTraceI0Key<TData>(block_idx));
 
             m_interpTraceI0Offset =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    InterpTraceI0OffsetKey<TData>(block_idx));
+                    MultiRegions::InterpTraceI0OffsetKey<TData>(block_idx));
             m_interpEndPtI0 = this->m_dataWarehouse->template GetData<MemSpace>(
-                InterpEndPtI0Key<TData>(block_idx));
+                MultiRegions::InterpEndPtI0Key<TData>(block_idx));
 
             m_interpEndPtI0Offset =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    InterpEndPtI0OffsetKey<TData>(block_idx));
+                    MultiRegions::InterpEndPtI0OffsetKey<TData>(block_idx));
         }
 
         if (m_dimension == 3)
         {
             m_interpTraceI1 = this->m_dataWarehouse->template GetData<MemSpace>(
-                InterpTraceI1Key<TData>(block_idx));
+                MultiRegions::InterpTraceI1Key<TData>(block_idx));
 
             m_interpTraceI1Offset =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    InterpTraceI1OffsetKey<TData>(block_idx));
+                    MultiRegions::InterpTraceI1OffsetKey<TData>(block_idx));
 
             m_interpEndPtI1 = this->m_dataWarehouse->template GetData<MemSpace>(
-                InterpEndPtI1Key<TData>(block_idx));
+                MultiRegions::InterpEndPtI1Key<TData>(block_idx));
 
             m_interpEndPtI1Offset =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    InterpEndPtI1OffsetKey<TData>(block_idx));
+                    MultiRegions::InterpEndPtI1OffsetKey<TData>(block_idx));
         }
     }
 
@@ -144,7 +146,7 @@ public:
     static std::unique_ptr<GetFwdBwdTracePhysBlockOp<TData>> Instantiate(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             GetFwdBwdTracePhysBlockOpImpl<ExecSpace, TData>>(block_idx, exp,
@@ -180,9 +182,9 @@ protected:
     const unsigned int *m_interpEndPtI1Offset;
 
     void v_Apply(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &physBlock,
-        MultiRegions::Field<TData, FieldState::Phys> &fwd,
-        MultiRegions::Field<TData, FieldState::Phys> &bwd) override
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &physBlock,
+        LibUtilities::Field<TData, FieldState::Phys> &fwd,
+        LibUtilities::Field<TData, FieldState::Phys> &bwd) override
     {
 
         switch (m_dimension)
@@ -208,9 +210,9 @@ protected:
     }
 
     void Operator1D(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &physBlock,
-        MultiRegions::Field<TData, FieldState::Phys> &fwd,
-        MultiRegions::Field<TData, FieldState::Phys> &bwd)
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &physBlock,
+        LibUtilities::Field<TData, FieldState::Phys> &fwd,
+        LibUtilities::Field<TData, FieldState::Phys> &bwd)
     {
         // Initialize pointers.
         auto physptr = physBlock.template GetPtr<MemSpace, ReadOnly>();
@@ -253,9 +255,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize,
-                                              m_nqTot, (TData *)physptr);
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        m_implInterleaveWidth, interleaveWidth, chunkSize,
+                        m_nqTot, (TData *)physptr);
                 }
 
                 for (size_t traceId = 0; traceId < m_nTraces; ++traceId)
@@ -285,7 +287,7 @@ protected:
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nqTot,
                         (TData *)physptr - (width_ratio - 1) * m_nqTot);
@@ -312,9 +314,9 @@ protected:
     }
 
     void Operator2D(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &physBlock,
-        MultiRegions::Field<TData, FieldState::Phys> &fwd,
-        MultiRegions::Field<TData, FieldState::Phys> &bwd)
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &physBlock,
+        LibUtilities::Field<TData, FieldState::Phys> &fwd,
+        LibUtilities::Field<TData, FieldState::Phys> &bwd)
     {
         // Initialize pointers.
         auto physptr = physBlock.template GetPtr<MemSpace, ReadOnly>();
@@ -357,9 +359,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize,
-                                              m_nqTot, (TData *)physptr);
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        m_implInterleaveWidth, interleaveWidth, chunkSize,
+                        m_nqTot, (TData *)physptr);
                 }
 
                 for (size_t traceId = 0; traceId < m_nTraces; ++traceId)
@@ -397,7 +399,7 @@ protected:
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nqTot,
                         (TData *)physptr - (width_ratio - 1) * m_nqTot);
@@ -424,9 +426,9 @@ protected:
     }
 
     void Operator3D(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &physBlock,
-        MultiRegions::Field<TData, FieldState::Phys> &fwd,
-        MultiRegions::Field<TData, FieldState::Phys> &bwd)
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &physBlock,
+        LibUtilities::Field<TData, FieldState::Phys> &fwd,
+        LibUtilities::Field<TData, FieldState::Phys> &bwd)
     {
         // Initialize pointers.
         auto physptr = physBlock.template GetPtr<MemSpace, ReadOnly>();
@@ -477,9 +479,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize,
-                                              m_nqTot, (TData *)physptr);
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        m_implInterleaveWidth, interleaveWidth, chunkSize,
+                        m_nqTot, (TData *)physptr);
                 }
 
                 for (size_t traceId = 0; traceId < m_nTraces; ++traceId)
@@ -523,7 +525,7 @@ protected:
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nqTot,
                         (TData *)physptr - (width_ratio - 1) * m_nqTot);

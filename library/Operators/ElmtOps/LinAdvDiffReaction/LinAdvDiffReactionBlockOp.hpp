@@ -47,8 +47,8 @@ public:
     static std::shared_ptr<LinAdvDiffReactionBlockOp<TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse, const std::string &execStr,
-        std::string implStr)
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
+        const std::string &execStr, std::string implStr)
     {
         return ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>::
             template Create<LinAdvDiffReactionBlockOp>(
@@ -68,7 +68,7 @@ public:
             TData>::template FromVector<NektarSpaces::HostSpace>(diffCoeff);
     }
 
-    void SetAdvVel(MultiRegions::BlockAccessor<TData, FieldState::Phys> &Vel)
+    void SetAdvVel(LibUtilities::BlockAccessor<TData, FieldState::Phys> &Vel)
     {
         v_SetAdvVel(Vel);
     }
@@ -77,9 +77,10 @@ protected:
     TData m_lambda;
     LibUtilities::MemoryRegion<TData> m_diffCoeff;
 
-    LinAdvDiffReactionBlockOp(const unsigned int block_idx,
-                              const LocalRegions::ExpansionSharedPtr &exp,
-                              NekDataWarehouseSharedPtr dataWarehouse)
+    LinAdvDiffReactionBlockOp(
+        const unsigned int block_idx,
+        const LocalRegions::ExpansionSharedPtr &exp,
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>(
               block_idx, exp, dataWarehouse)
     {
@@ -88,7 +89,7 @@ protected:
     ~LinAdvDiffReactionBlockOp() override = default;
 
     virtual void v_SetAdvVel(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &Vel) = 0;
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &Vel) = 0;
 };
 
 } // namespace Nektar::Operators

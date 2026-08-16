@@ -60,22 +60,22 @@ public:
                 this->m_expansionList);
         for (unsigned int m = 0; m < n; ++m)
         {
-            this->m_T.push_back(MultiRegions::Field<TData, FieldState::Phys>(
+            this->m_T.push_back(LibUtilities::Field<TData, FieldState::Phys>(
                 blockAttr, this->m_components, 1));
 
-            this->m_T0.push_back(MultiRegions::Field<TData, FieldState::Phys>(
+            this->m_T0.push_back(LibUtilities::Field<TData, FieldState::Phys>(
                 blockAttr, this->m_components, 1));
         }
 
         for (unsigned int m = 0; m < this->m_order; ++m)
         {
             this->m_solutions.push_back(
-                MultiRegions::Field<TData, FieldState::Phys>(
+                LibUtilities::Field<TData, FieldState::Phys>(
                     blockAttr, this->m_components, 1));
         }
 
         this->m_implicits.push_back(
-            MultiRegions::Field<TData, FieldState::Phys>(
+            LibUtilities::Field<TData, FieldState::Phys>(
                 blockAttr, this->m_components, 1));
     }
 
@@ -93,7 +93,7 @@ public:
     }
 
 protected:
-    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &inout) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &inout) override
     {
         // Check that required functions are defined.
         ASSERTL0(this->m_implicitFunctor,

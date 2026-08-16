@@ -36,13 +36,13 @@
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
-#include "Operators/Common/DataWarehouse/BasisDataWarehouse.hpp"
-#include "Operators/Common/DataWarehouse/GeometricDataWarehouse.hpp"
+#include <LibUtilities/BasicUtils/DataWarehouse/BasisDataWarehouse.hpp>
+#include <LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp>
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "MultiRegions/Field/Math.hpp"
 #include "Operators/Norm/NormL2/NormL2BlockOp.hpp"
 #include "Operators/Norm/NormL2/NormL2SerialAVXKernels.hpp"
+#include <LibUtilities/BasicUtils/Math/Math.hpp>
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 
 namespace Nektar::Operators::detail
 {
@@ -58,7 +58,7 @@ class NormL2BlockOpImpl : public NormL2BlockOp<TData>
 public:
     NormL2BlockOpImpl(const unsigned int block_idx,
                       const LocalRegions::ExpansionSharedPtr &exp,
-                      NekDataWarehouseSharedPtr dataWarehouse)
+                      LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : NormL2BlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         m_shapeType = exp->DetShapeType();
@@ -80,12 +80,13 @@ public:
 
             // Fetch basis data.
             m_W.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<TData>(basisKeys[d], eWeights)));
+                LibUtilities::BasisDataKey<TData>(basisKeys[d],
+                                                  LibUtilities::eWeights)));
         }
 
         // Fetch Jacobian.
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+            LocalRegions::JacobianKey<TData>(block_idx, m_implInterleaveWidth));
     }
 
     // className - for BlockOperatorFactory
@@ -95,7 +96,7 @@ public:
     static std::unique_ptr<NormL2BlockOp<TData>> Instantiate(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<NormL2BlockOpImpl<ExecSpace, TData>>(
             block_idx, exp, dataWarehouse);
@@ -119,7 +120,7 @@ protected:
     bool m_warnOnce = false;
 #endif
 
-    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+    void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
                  LibUtilities::MemoryRegion<TData> &data) override
     {
         WARNINGL1(m_warnOnce ||
@@ -185,7 +186,7 @@ protected:
     }
 
     void Operator1D(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::MemoryRegion<TData> &data)
     {
         // Shape size.
@@ -263,9 +264,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize, nqTot,
-                                              (TData *)inptr);
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        m_implInterleaveWidth, interleaveWidth, chunkSize,
+                        nqTot, (TData *)inptr);
                 }
 
                 if (m_isDeformed)
@@ -284,7 +285,7 @@ protected:
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nqTot,
                         (TData *)inptr -
@@ -305,7 +306,7 @@ protected:
     }
 
     void Operator2D(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::MemoryRegion<TData> &data)
     {
         const auto nq0   = m_nq[0];
@@ -381,9 +382,9 @@ protected:
             {
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize, nqTot,
-                                              (TData *)inptr);
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        m_implInterleaveWidth, interleaveWidth, chunkSize,
+                        nqTot, (TData *)inptr);
                 }
 
                 if (m_isDeformed)
@@ -403,7 +404,7 @@ protected:
 
                 if (e % width_ratio == width_ratio - 1)
                 {
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         nqTot,
                         (TData *)inptr -
@@ -423,7 +424,7 @@ protected:
     }
 
     void Operator3D(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::MemoryRegion<TData> &data)
     {
         const auto nq0   = m_nq[0];
@@ -497,9 +498,9 @@ protected:
             {
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize, nqTot,
-                                              (TData *)inptr);
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        m_implInterleaveWidth, interleaveWidth, chunkSize,
+                        nqTot, (TData *)inptr);
                 }
 
                 if (m_isDeformed)
@@ -519,7 +520,7 @@ protected:
 
                 if (e % width_ratio == width_ratio - 1)
                 {
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         nqTot,
                         (TData *)inptr -

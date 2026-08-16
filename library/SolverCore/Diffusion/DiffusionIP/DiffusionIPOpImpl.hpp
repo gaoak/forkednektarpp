@@ -34,19 +34,19 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "Operators/AddTraceIntegral/AddTraceIntegralOp.hpp"
-#include "Operators/Common/DataWarehouse/TraceDataWarehouse.hpp"
-#include "Operators/ElmtOps/BwdTrans/BwdTransOp.hpp"
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp"
 #include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivOp.hpp"
 #include "Operators/GetFwdBwdTracePhys/GetFwdBwdTracePhysOp.hpp"
-#include "SolverCore/Diffusion/DiffusionIP/DiffusionIPKernels.hpp"
-#include "SolverCore/Diffusion/DiffusionIP/DiffusionIPOp.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
+#include <MultiRegions/DataWarehouse/TraceDataWarehouse.hpp>
+#include <Operators/AddTraceIntegral/AddTraceIntegralOp.hpp>
+#include <Operators/ElmtOps/BwdTrans/BwdTransOp.hpp>
+#include <SolverCore/Diffusion/DiffusionIP/DiffusionIPKernels.hpp>
+#include <SolverCore/Diffusion/DiffusionIP/DiffusionIPOp.hpp>
 
-#include "MultiRegions/AssemblyMap/AssemblyMapDG.h"
-#include "MultiRegions/DisContField.h"
+#include <MultiRegions/AssemblyMap/AssemblyMapDG.h>
+#include <MultiRegions/DisContField.h>
 
 namespace Nektar::SolverCore::detail
 {
@@ -60,47 +60,47 @@ public:
     DiffusionIPOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                       const std::vector<std::string> &components)
         : DiffusionIPOp<TData>(std::move(expansionList), components),
-          m_coeff(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_coeff(LibUtilities::Field<TData, FieldState::Coeff>(
               "Diffusion coeff",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components.size(), 1)),
-          m_tmp(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_tmp(LibUtilities::Field<TData, FieldState::Coeff>(
               "Diffusion tmp",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components.size(), 1)),
-          m_deriv(MultiRegions::Field<TData, FieldState::Phys>(
+          m_deriv(LibUtilities::Field<TData, FieldState::Phys>(
               "Diffusion deriv",
               MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList),
               expansionList->GetCoordim(0) * components.size(), 1)),
-          m_fluxvector(MultiRegions::Field<TData, FieldState::Phys>(
+          m_fluxvector(LibUtilities::Field<TData, FieldState::Phys>(
               "Flux vector",
               MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList),
               expansionList->GetCoordim(0) * components.size(), 1)),
-          m_numflux(MultiRegions::Field<TData, FieldState::Phys>(
+          m_numflux(LibUtilities::Field<TData, FieldState::Phys>(
               "Num flux",
               MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList->GetTrace()),
               components.size(), 1)),
-          m_fwd(MultiRegions::Field<TData, FieldState::Phys>(
+          m_fwd(LibUtilities::Field<TData, FieldState::Phys>(
               "Fwd Trace",
               MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList->GetTrace()),
               components.size(), 1)),
-          m_bwd(MultiRegions::Field<TData, FieldState::Phys>(
+          m_bwd(LibUtilities::Field<TData, FieldState::Phys>(
               "Bwd Trace",
               MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList->GetTrace()),
               components.size(), 1)),
-          m_derivTraceFwd(MultiRegions::Field<TData, FieldState::Phys>(
+          m_derivTraceFwd(LibUtilities::Field<TData, FieldState::Phys>(
               "Deriv Fwd Trace",
               MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList->GetTrace()),
               expansionList->GetCoordim(0) * components.size(), 1)),
-          m_derivTraceBwd(MultiRegions::Field<TData, FieldState::Phys>(
+          m_derivTraceBwd(LibUtilities::Field<TData, FieldState::Phys>(
               "Deriv Bwd Trace",
               MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList->GetTrace()),
@@ -155,8 +155,8 @@ protected:
     unsigned int m_nDim;
     unsigned int m_nComp;
 
-    MultiRegions::Field<TData, FieldState::Coeff> m_coeff, m_tmp;
-    MultiRegions::Field<TData, FieldState::Phys> m_deriv, m_fluxvector,
+    LibUtilities::Field<TData, FieldState::Coeff> m_coeff, m_tmp;
+    LibUtilities::Field<TData, FieldState::Phys> m_deriv, m_fluxvector,
         m_numflux, m_fwd, m_bwd, m_derivTraceFwd, m_derivTraceBwd;
     std::shared_ptr<Operators::PhysDerivOp<TData>> m_physDerivOp;
     std::shared_ptr<Operators::BwdTransOp<TData>> m_bwdTransOp;
@@ -172,8 +172,8 @@ protected:
     std::vector<LibUtilities::MemoryRegion<size_t>> m_derivBndTraceOffset;
     std::vector<size_t> m_numDerivBndTracePts;
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
-                 MultiRegions::Field<TData, FieldState::Phys> &out) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
+                 LibUtilities::Field<TData, FieldState::Phys> &out) override
     {
         Diffuse(in, out);
     }
@@ -184,8 +184,8 @@ protected:
         m_bwdTransOp->SetAppend(this->m_append);
     }
 
-    void Diffuse(MultiRegions::Field<TData, FieldState::Phys> &in,
-                 MultiRegions::Field<TData, FieldState::Phys> &out)
+    void Diffuse(LibUtilities::Field<TData, FieldState::Phys> &in,
+                 LibUtilities::Field<TData, FieldState::Phys> &out)
     {
         // High-level operator flow:
         // build the weak DG diffusion action in coefficient space, then map
@@ -208,7 +208,7 @@ protected:
                 outblock.template GetPtr<MemSpace, WriteOnly>(streamID);
 
             // Reshape, if necessary.
-            Operators::ReshapeStorage<ExecSpace>(
+            LibUtilities::ReshapeStorage<ExecSpace>(
                 m_implInterleaveWidth, outblock.GetInterleaveWidth(),
                 outblock.GetNumElementsWithPadding() *
                     outblock.GetNumComponents() * outblock.GetNumHomoModes(),
@@ -219,8 +219,8 @@ protected:
         }
     }
 
-    void DiffuseCoeffs(MultiRegions::Field<TData, FieldState::Phys> &in,
-                       MultiRegions::Field<TData, FieldState::Coeff> &out)
+    void DiffuseCoeffs(LibUtilities::Field<TData, FieldState::Phys> &in,
+                       LibUtilities::Field<TData, FieldState::Coeff> &out)
     {
         ASSERTL1(this->m_volumeFluxOp,
                  "DiffusionIPOp requires a volume flux op.");
@@ -257,7 +257,7 @@ protected:
         }
     }
 
-    void CalcTraceNumFlux(MultiRegions::Field<TData, FieldState::Phys> &in)
+    void CalcTraceNumFlux(LibUtilities::Field<TData, FieldState::Phys> &in)
     {
         // This serial trace-flux path matches the legacy DiffusionIP trace
         // construction for periodic/no-special boundary treatment with

@@ -120,8 +120,8 @@ void NavierStokesCFE::v_GenerateSummary(SummaryList &s)
  * transform accumulates directly into the advective contribution.
  */
 void NavierStokesCFE::DoOdeRhs(
-    MultiRegions::Field<double, FieldState::Phys> &in,
-    MultiRegions::Field<double, FieldState::Phys> &out,
+    LibUtilities::Field<double, FieldState::Phys> &in,
+    LibUtilities::Field<double, FieldState::Phys> &out,
     [[maybe_unused]] const double &time, const double &dt)
 {
     // out = -dt * advection.

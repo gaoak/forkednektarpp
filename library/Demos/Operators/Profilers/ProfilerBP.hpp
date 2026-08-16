@@ -45,7 +45,7 @@
 #include <Operators/ElmtOps/Laplacian/LaplacianOp.hpp>
 #include <Operators/ElmtOps/Mass/MassOp.hpp>
 
-#include <MultiRegions/Field/Field.hpp>
+#include <LibUtilities/BasicUtils/Field/Field.hpp>
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>

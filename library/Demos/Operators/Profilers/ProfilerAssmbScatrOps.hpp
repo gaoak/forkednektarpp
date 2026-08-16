@@ -37,8 +37,8 @@
 #include <iostream>
 
 #include "Operators/AssmbScatr/AssmbScatrZeroDirOp.hpp"
-#include <MultiRegions/Field/Field.hpp>
-#include <MultiRegions/Field/Math.hpp>
+#include <LibUtilities/BasicUtils/Field/Field.hpp>
+#include <LibUtilities/BasicUtils/Math/Math.hpp>
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>

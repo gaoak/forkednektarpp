@@ -72,7 +72,7 @@ NEK_FORCE_INLINE static void DiffusionScalarIPVolFluxKernel(
                     vec_t flux = vec_t(0.0);
                     for (unsigned int derivDir = 0; derivDir < ndim; ++derivDir)
                     {
-                        const auto diffIdx = Operators::GetDiffCoeffMap(
+                        const auto diffIdx = LibUtilities::GetDiffCoeffMap(
                             ndim, outDir * ndim + derivDir);
                         const size_t derivIdx =
                             (f * ndim + derivDir) * derivVecStride + i;

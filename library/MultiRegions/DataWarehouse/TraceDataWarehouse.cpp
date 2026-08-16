@@ -32,9 +32,9 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <Operators/Common/DataWarehouse/TraceDataWarehouseDef.hpp>
+#include <MultiRegions/DataWarehouse/TraceDataWarehouseDef.hpp>
 
-namespace Nektar::Operators
+namespace Nektar::MultiRegions
 {
 template LibUtilities::MemoryRegion<double> TraceEssentialCreator::Create<
     NektarSpaces::HostSpace, double>(
@@ -213,19 +213,19 @@ template LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create<
     NektarSpaces::DeviceSpace, float>(const QuadRangeKey<float> &quadRangeKey);
 #endif
 
-template LibUtilities::MemoryRegion<MultiRegions::InterpLocTraceToTrace>
-TraceEssentialCreator::Create<NektarSpaces::HostSpace, double>(
-    const InterpTraceKey<double> &interpTraceKey);
-template LibUtilities::MemoryRegion<MultiRegions::InterpLocTraceToTrace>
-TraceEssentialCreator::Create<NektarSpaces::HostSpace, float>(
-    const InterpTraceKey<float> &interpTraceKey);
+template LibUtilities::MemoryRegion<InterpLocTraceToTrace> TraceEssentialCreator::
+    Create<NektarSpaces::HostSpace, double>(
+        const InterpTraceKey<double> &interpTraceKey);
+template LibUtilities::MemoryRegion<InterpLocTraceToTrace> TraceEssentialCreator::
+    Create<NektarSpaces::HostSpace, float>(
+        const InterpTraceKey<float> &interpTraceKey);
 #if defined(NEKTAR_ENABLE_DEVICE)
-template LibUtilities::MemoryRegion<MultiRegions::InterpLocTraceToTrace>
-TraceEssentialCreator::Create<NektarSpaces::DeviceSpace, double>(
-    const InterpTraceKey<double> &interpTraceKey);
-template LibUtilities::MemoryRegion<MultiRegions::InterpLocTraceToTrace>
-TraceEssentialCreator::Create<NektarSpaces::DeviceSpace, float>(
-    const InterpTraceKey<float> &interpTraceKey);
+template LibUtilities::MemoryRegion<InterpLocTraceToTrace> TraceEssentialCreator::
+    Create<NektarSpaces::DeviceSpace, double>(
+        const InterpTraceKey<double> &interpTraceKey);
+template LibUtilities::MemoryRegion<InterpLocTraceToTrace> TraceEssentialCreator::
+    Create<NektarSpaces::DeviceSpace, float>(
+        const InterpTraceKey<float> &interpTraceKey);
 #endif
 
 template LibUtilities::MemoryRegion<double> TraceEssentialCreator::Create<
@@ -400,4 +400,4 @@ template LibUtilities::MemoryRegion<float> TraceEssentialCreator::Create<
     NektarSpaces::DeviceSpace, float>(const Interp2DKey<float> &interp2DKey);
 #endif
 
-} // namespace Nektar::Operators
+} // namespace Nektar::MultiRegions

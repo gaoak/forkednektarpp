@@ -44,7 +44,7 @@
 #include <LibUtilities/LibUtilitiesDeclspec.h>
 
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
-#include <LibUtilities/BasicUtils/MemoryRegion.hpp>
+#include <LibUtilities/BasicUtils/Field/MemoryRegion.hpp>
 #include <Operators/Common/Spaces.hpp>
 #endif
 #include <LibUtilities/BasicConst/NektarUnivTypeDefs.hpp>

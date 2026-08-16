@@ -75,8 +75,8 @@ protected:
     unsigned int m_dimension;
     EqnOfSParams m_EoS;
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
-                 MultiRegions::Field<TData, FieldState::Phys> &out) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
+                 LibUtilities::Field<TData, FieldState::Phys> &out) override
     {
         for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
         {

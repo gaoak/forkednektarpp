@@ -34,14 +34,15 @@
 
 #pragma once
 
-#include "Operators/Common/DataWarehouse/NekDataWarehouse.hpp"
+#include <Collections/Collection.h>
+#include <LibUtilities/BasicUtils/DataWarehouse/NekDataWarehouse.hpp>
 
-namespace Nektar::Operators
+namespace Nektar::LocalRegions
 {
 
 class GeometricDataCreator;
 
-template <typename TData> class WeightsKey : public BaseKey
+template <typename TData> class WeightsKey : public LibUtilities::BaseKey
 {
     friend class GeometricDataCreator;
 
@@ -64,7 +65,7 @@ private:
     unsigned int m_interleave_width;
 };
 
-template <typename TData> class JacobianKey : public BaseKey
+template <typename TData> class JacobianKey : public LibUtilities::BaseKey
 {
     friend class GeometricDataCreator;
 
@@ -87,7 +88,7 @@ private:
     unsigned int m_interleave_width;
 };
 
-template <typename TData> class DerivFactorKey : public BaseKey
+template <typename TData> class DerivFactorKey : public LibUtilities::BaseKey
 {
     friend class GeometricDataCreator;
 
@@ -112,7 +113,7 @@ private:
     bool m_transpose;
 };
 
-template <typename TData> class CoordKey : public BaseKey
+template <typename TData> class CoordKey : public LibUtilities::BaseKey
 {
     friend class GeometricDataCreator;
 
@@ -137,7 +138,7 @@ private:
     bool m_transpose;
 };
 
-template <typename TData> class OrientKey : public BaseKey
+template <typename TData> class OrientKey : public LibUtilities::BaseKey
 {
     friend class GeometricDataCreator;
 
@@ -159,7 +160,7 @@ private:
     unsigned int m_interleave_width;
 };
 
-template <typename TData> class TraceToElmtMapKey : public BaseKey
+template <typename TData> class TraceToElmtMapKey : public LibUtilities::BaseKey
 {
     friend class GeometricDataCreator;
 
@@ -182,7 +183,8 @@ private:
     unsigned int m_interleave_width;
 };
 
-template <typename TData> class TraceToElmtSignKey : public BaseKey
+template <typename TData>
+class TraceToElmtSignKey : public LibUtilities::BaseKey
 {
     friend class GeometricDataCreator;
 
@@ -205,7 +207,7 @@ private:
     unsigned int m_interleave_width;
 };
 
-template <typename TData> class InteriorMapKey : public BaseKey
+template <typename TData> class InteriorMapKey : public LibUtilities::BaseKey
 {
     friend class GeometricDataCreator;
 
@@ -228,7 +230,7 @@ private:
     unsigned int m_interleave_width;
 };
 
-template <typename TData> class JacobianTraceKey : public BaseKey
+template <typename TData> class JacobianTraceKey : public LibUtilities::BaseKey
 {
     friend class GeometricDataCreator;
 
@@ -251,7 +253,8 @@ private:
     unsigned int m_interleave_width;
 };
 
-template <typename TData> class JacobianLocTraceKey : public BaseKey
+template <typename TData>
+class JacobianLocTraceKey : public LibUtilities::BaseKey
 {
     friend class GeometricDataCreator;
 
@@ -274,12 +277,12 @@ private:
     unsigned int m_interleave_width;
 };
 
-class GeometricDataCreator : public DataCreatorClass
+class GeometricDataCreator : public LibUtilities::DataCreatorClass
 {
 public:
     ~GeometricDataCreator() override = default;
-    GeometricDataCreator(const MultiRegions::ExpListSharedPtr &expansionList)
-        : m_expansionList(expansionList)
+    GeometricDataCreator(const Collections::CollectionVector collections)
+        : m_collections(collections)
     {
     }
 
@@ -325,7 +328,7 @@ public:
     inline static const std::string m_name = "GeometricDataCreator";
 
 private:
-    MultiRegions::ExpListSharedPtr m_expansionList;
+    Collections::CollectionVector m_collections;
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar::LocalRegions

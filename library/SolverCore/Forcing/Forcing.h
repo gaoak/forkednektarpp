@@ -39,10 +39,10 @@
 #include <string>
 #include <vector>
 
+#include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <LibUtilities/BasicUtils/Math/MathHelper.hpp>
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <MultiRegions/ExpList.h>
-#include <MultiRegions/Field/Field.hpp>
 #include <SolverCore/Core/SessionFunction.h>
 #include <SolverCore/SolverCoreDeclspec.h>
 
@@ -78,8 +78,8 @@ public:
     }
 
     SOLVER_CORE_EXPORT void Apply(
-        MultiRegions::Field<double, FieldState::Phys> &in,
-        MultiRegions::Field<double, FieldState::Phys> &out, const double time,
+        LibUtilities::Field<double, FieldState::Phys> &in,
+        LibUtilities::Field<double, FieldState::Phys> &out, const double time,
         const double scale = 1.0)
     {
         v_Apply(in, out, time, scale);
@@ -104,8 +104,8 @@ protected:
     SOLVER_CORE_EXPORT virtual void v_InitObject(const TiXmlElement *force) = 0;
 
     SOLVER_CORE_EXPORT virtual void v_Apply(
-        MultiRegions::Field<double, FieldState::Phys> &in,
-        MultiRegions::Field<double, FieldState::Phys> &out, const double time,
+        LibUtilities::Field<double, FieldState::Phys> &in,
+        LibUtilities::Field<double, FieldState::Phys> &out, const double time,
         const double scale) = 0;
 
     SOLVER_CORE_EXPORT virtual void v_SetAppend(const bool append);

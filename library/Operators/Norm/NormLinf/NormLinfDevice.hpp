@@ -50,7 +50,7 @@ class NormLinfBlockOpImpl : public NormLinfBlockOp<TData>
 public:
     NormLinfBlockOpImpl(const unsigned int block_idx,
                         const LocalRegions::ExpansionSharedPtr &exp,
-                        NekDataWarehouseSharedPtr dataWarehouse)
+                        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : NormLinfBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         m_streamID = block_idx + 1;
@@ -61,7 +61,7 @@ public:
     static std::unique_ptr<NormLinfBlockOp<TData>> Instantiate(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<NormLinfBlockOpImpl<ExecSpace, TData>>(
             block_idx, exp, dataWarehouse);
@@ -73,7 +73,7 @@ protected:
 
     unsigned int m_streamID;
 
-    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+    void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
                  LibUtilities::MemoryRegion<TData> &data) override
     {
         const auto numComp = inblock.GetNumComponents();

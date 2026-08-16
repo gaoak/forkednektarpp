@@ -51,7 +51,7 @@ class HelmholtzBlockOpImpl : public HelmholtzBlockOp<TData>
 public:
     HelmholtzBlockOpImpl(const unsigned int block_idx,
                          const LocalRegions::ExpansionSharedPtr &exp,
-                         NekDataWarehouseSharedPtr dataWarehouse)
+                         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : HelmholtzBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         m_streamID = block_idx + 1;
@@ -78,20 +78,28 @@ public:
                 ? exp->GetNodalPointsKey().GetPointsType()
                 : LibUtilities::eNoPointsType;
 
-        m_bwdmat   = dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
-            basisKeys, m_shapeType, eBwdTransStdMat, nodalType));
-        m_ipbmat   = dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
-            basisKeys, m_shapeType, eIProductWRTBaseStdMat, nodalType));
+        m_bwdmat = dataWarehouse->template GetData<MemSpace>(
+            StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
+                                         StdRegions::eBwdTransStdMat,
+                                         nodalType));
+        m_ipbmat = dataWarehouse->template GetData<MemSpace>(
+            StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
+                                         StdRegions::eIProductWRTBaseStdMat,
+                                         nodalType));
         m_derivmat = dataWarehouse->template GetData<MemSpace>(
-            StdMatKey<TData>(basisKeys, m_shapeType, eDerivStdMat, nodalType));
-        m_ipdmat = dataWarehouse->template GetData<MemSpace>(StdMatKey<TData>(
-            basisKeys, m_shapeType, eIProductWRTDerivBaseStdMat, nodalType));
+            StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
+                                         StdRegions::eDerivStdMat, nodalType));
+        m_ipdmat = dataWarehouse->template GetData<MemSpace>(
+            StdRegions::StdMatKey<TData>(
+                basisKeys, m_shapeType, StdRegions::eIProductWRTDerivBaseStdMat,
+                nodalType));
 
         // Fetch Jacobian and deriv factors.
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+            LocalRegions::JacobianKey<TData>(block_idx, m_implInterleaveWidth));
         m_dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, true));
+            LocalRegions::DerivFactorKey<TData>(block_idx,
+                                                m_implInterleaveWidth, true));
     }
 
     // className - for BlockOperatorFactory
@@ -102,7 +110,7 @@ public:
         ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>>
     Instantiate(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,
-                NekDataWarehouseSharedPtr dataWarehouse)
+                LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             HelmholtzBlockOpImpl<ExecSpace, Implementation, TData>>(
@@ -126,8 +134,8 @@ protected:
     const TData *m_jacptr;
     const TData *m_dfptr;
 
-    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Coeff> &inblock,
-                 MultiRegions::BlockAccessor<TData, FieldState::Coeff>
+    void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+                 LibUtilities::BlockAccessor<TData, FieldState::Coeff>
                      &outblock) override
     {
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
@@ -163,9 +171,9 @@ protected:
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                      nelmtTot, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, interleaveWidth, nelmtTot,
+                inblock.GetNumData(), (TData *)inptr, m_streamID);
 
             // Step 1: BwdTrans
             // Perform matrix-matrix multiply.
@@ -228,12 +236,12 @@ protected:
             }
 
             // Reshape back, if necessary.
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmtTot, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmtTot, outblock.GetNumData(), outptr,
-                                      m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                interleaveWidth, m_implInterleaveWidth, nelmtTot,
+                inblock.GetNumData(), (TData *)inptr, m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                interleaveWidth, m_implInterleaveWidth, nelmtTot,
+                outblock.GetNumData(), outptr, m_streamID);
 
             // Increment pointers.
             inptr += inblock.CompSize() * inblock.GetNumHomoModes();

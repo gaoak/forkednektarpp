@@ -47,8 +47,8 @@ public:
     static std::shared_ptr<IProductWRTBaseBlockOp<TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse, const std::string &execStr,
-        std::string implStr)
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
+        const std::string &execStr, std::string implStr)
     {
         return ElmtBlockOp<FieldState::Phys, FieldState::Coeff, TData>::
             template Create<IProductWRTBaseBlockOp>(
@@ -71,9 +71,10 @@ protected:
     TData m_scale      = 1.0;
     bool m_integration = true;
 
-    IProductWRTBaseBlockOp(const unsigned int block_idx,
-                           const LocalRegions::ExpansionSharedPtr &exp,
-                           NekDataWarehouseSharedPtr dataWarehouse)
+    IProductWRTBaseBlockOp(
+        const unsigned int block_idx,
+        const LocalRegions::ExpansionSharedPtr &exp,
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : ElmtBlockOp<FieldState::Phys, FieldState::Coeff, TData>(
               block_idx, exp, dataWarehouse)
     {

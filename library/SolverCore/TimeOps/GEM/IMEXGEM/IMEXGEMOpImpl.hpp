@@ -60,10 +60,10 @@ public:
                 this->m_expansionList);
         for (unsigned int m = 0; m < npts; ++m)
         {
-            this->m_T.push_back(MultiRegions::Field<TData, FieldState::Phys>(
+            this->m_T.push_back(LibUtilities::Field<TData, FieldState::Phys>(
                 blockAttr, this->m_components, 1));
 
-            this->m_T0.push_back(MultiRegions::Field<TData, FieldState::Phys>(
+            this->m_T0.push_back(LibUtilities::Field<TData, FieldState::Phys>(
                 blockAttr, this->m_components, 1));
         }
     }
@@ -84,7 +84,7 @@ public:
 protected:
     std::shared_ptr<TimeOp<TData>> m_stepper = nullptr;
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &inout) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &inout) override
     {
         // Initialise IMEXdirk scheme.
         if (!this->m_stepper)

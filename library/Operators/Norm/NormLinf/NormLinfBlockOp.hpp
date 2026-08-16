@@ -47,7 +47,8 @@ public:
     static std::shared_ptr<NormLinfBlockOp<TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse, const std::string &execStr)
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
+        const std::string &execStr)
     {
         return BlockOperator<TData>::template Create<NormLinfBlockOp>(
             block_idx, exp, dataWarehouse, execStr);
@@ -55,14 +56,14 @@ public:
 
     static inline const std::string name = "BlockNormLinf";
 
-    void Apply(MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+    void Apply(LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
                LibUtilities::MemoryRegion<TData> &data)
     {
         this->v_Apply(inblock, data);
     }
 
     void operator()(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::MemoryRegion<TData> &data)
     {
         this->v_Apply(inblock, data);
@@ -71,13 +72,13 @@ public:
 protected:
     NormLinfBlockOp(const unsigned int block_idx,
                     const LocalRegions::ExpansionSharedPtr &exp,
-                    NekDataWarehouseSharedPtr dataWarehouse)
+                    LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : BlockOperator<TData>(block_idx, exp, dataWarehouse)
     {
     }
 
     virtual void v_Apply(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::MemoryRegion<TData> &data) = 0;
 };
 

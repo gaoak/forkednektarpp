@@ -34,13 +34,13 @@
 
 #pragma once
 
-#include "Operators/Common/DataWarehouse/LocalToGlobalDataWarehouse.hpp"
+#include <MultiRegions/DataWarehouse/LocalToGlobalDataWarehouse.hpp>
 
 #include "Operators/AssmbScatr/AssmbScatrOp.hpp"
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "Operators/AssmbScatr/AssmbScatrDeviceKernels.hpp"
 #include "Operators/AssmbScatr/AssmbScatrSerialAVXKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 
 using namespace Nektar;
 using namespace Nektar::Operators;
@@ -111,27 +111,29 @@ protected:
         m_numAssemblyComps = numComp;
 
         // setup GS info of values interior to device
-        auto GSNumAssmbKey = DeviceLocalToGlobalNumAssembleKey<TData>(
-            ZERODIR, this->m_components, m_device_width);
+        auto GSNumAssmbKey =
+            MultiRegions::DeviceLocalToGlobalNumAssembleKey<TData>(
+                ZERODIR, this->m_components, m_device_width);
         m_gsNumAssmb =
             this->m_dataWarehouse->template GetData<MemSpace>(GSNumAssmbKey);
 
-        auto GSIndexKey = DeviceLocalToGlobalIndexKey<TData>(
+        auto GSIndexKey = MultiRegions::DeviceLocalToGlobalIndexKey<TData>(
             ZERODIR, this->m_components, m_device_width);
         m_gsIndex =
             this->m_dataWarehouse->template GetData<MemSpace>(GSIndexKey);
 
-        auto GSOffsetKey = DeviceLocalToGlobalIndexOffsetKey<TData>(
-            ZERODIR, this->m_components, m_device_width);
+        auto GSOffsetKey =
+            MultiRegions::DeviceLocalToGlobalIndexOffsetKey<TData>(
+                ZERODIR, this->m_components, m_device_width);
         m_gsOffset =
             this->m_dataWarehouse->template GetData<MemSpace>(GSOffsetKey);
 
         // set up sign change array
         m_gsSign = this->m_dataWarehouse->template GetData<MemSpace>(
-            DeviceLocalToGlobalSignKey<TData>(
+            MultiRegions::DeviceLocalToGlobalSignKey<TData>(
                 ZERODIR, SIGNCHANGE, this->m_components, m_device_width));
 
-        auto GSInfoKey = DeviceLocalToGlobalKey<TData>(
+        auto GSInfoKey = MultiRegions::DeviceLocalToGlobalKey<TData>(
             ZERODIR, this->m_components, m_device_width);
         // get a copy of the host to evaluate number of GIDs to assemble
         auto hostGSInfo =
@@ -166,39 +168,43 @@ protected:
 
             // setup GS info of values interior to device
             auto GSBndNumAssmbKey =
-                DeviceBndLocalToGlobalNumAssembleKey<TData>(this->m_components);
+                MultiRegions::DeviceBndLocalToGlobalNumAssembleKey<TData>(
+                    this->m_components);
             m_gsBndNumAssmb = this->m_dataWarehouse->template GetData<MemSpace>(
                 GSBndNumAssmbKey);
 
             auto GSNumBndValsKey =
-                DeviceBndLocalToGlobalNumBndValsKey<TData>(this->m_components);
+                MultiRegions::DeviceBndLocalToGlobalNumBndValsKey<TData>(
+                    this->m_components);
             m_gsNumBndVals = this->m_dataWarehouse->template GetData<MemSpace>(
                 GSNumBndValsKey);
 
             auto GSBndIndexKey =
-                DeviceBndLocalToGlobalIndexKey<TData>(this->m_components);
+                MultiRegions::DeviceBndLocalToGlobalIndexKey<TData>(
+                    this->m_components);
             m_gsBndIndex = this->m_dataWarehouse->template GetData<MemSpace>(
                 GSBndIndexKey);
 
             auto GSBndOffsetKey =
-                DeviceBndLocalToGlobalOffsetKey<TData>(this->m_components);
+                MultiRegions::DeviceBndLocalToGlobalOffsetKey<TData>(
+                    this->m_components);
             m_gsBndOffset = this->m_dataWarehouse->template GetData<MemSpace>(
                 GSBndOffsetKey);
 
             auto GSBndAssembleOrderKey =
-                DeviceBndLocalToGlobalAssembleOrderKey<TData>(
+                MultiRegions::DeviceBndLocalToGlobalAssembleOrderKey<TData>(
                     this->m_components);
             m_gsBndAssOrder = this->m_dataWarehouse->template GetData<MemSpace>(
                 GSBndAssembleOrderKey);
 
             // set up bnd sign change array
             m_gsBndSign = this->m_dataWarehouse->template GetData<MemSpace>(
-                DeviceBndLocalToGlobalSignKey<TData>(ZERODIR, SIGNCHANGE,
-                                                     this->m_components));
+                MultiRegions::DeviceBndLocalToGlobalSignKey<TData>(
+                    ZERODIR, SIGNCHANGE, this->m_components));
 
             // setup GS info of values for parallal boundary of device
-            auto GSBndInfoKey =
-                DeviceBndLocalToGlobalKey<TData>(this->m_components);
+            auto GSBndInfoKey = MultiRegions::DeviceBndLocalToGlobalKey<TData>(
+                this->m_components);
 
             // get a copy of the host to evaluate  number of GiDs to assemble
             auto hostGSBndInfo =
@@ -249,8 +255,8 @@ protected:
         }
     }
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
-                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
+                 LibUtilities::Field<TData, FieldState::Coeff> &out) override
     {
         ASSERTL1(in.GetBlocks()[0].CompSize() == out.GetBlocks()[0].CompSize(),
                  "In and out blocks are of different size");
@@ -266,7 +272,7 @@ protected:
         v_Apply(out);
     }
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &inout) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &inout) override
     {
         auto numComp = inout.GetNumComponents();
 
@@ -293,7 +299,7 @@ protected:
                 auto inoutPtr =
                     inoutblk.template GetPtr<MemSpace, ReadWrite>(streamID);
 
-                ReshapeStorage<ExecSpace>(
+                LibUtilities::ReshapeStorage<ExecSpace>(
                     1u, inoutwidth,
                     inoutblk.GetNumElementsWithPadding() * numComp,
                     inoutblk.GetNumData(), inoutPtr, streamID);
@@ -393,7 +399,7 @@ protected:
                     auto inoutPtr =
                         inoutblk.template GetPtr<MemSpace, ReadWrite>(streamID);
 
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         width, 1u,
                         inoutblk.GetNumElementsWithPadding() * numComp,
                         inoutblk.GetNumData(), inoutPtr, streamID);

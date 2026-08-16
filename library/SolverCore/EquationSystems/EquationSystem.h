@@ -115,8 +115,8 @@ public:
         v_PrintNorms(out);
     }
 
-    void DoProjection(MultiRegions::Field<double, FieldState::Phys> &in,
-                      MultiRegions::Field<double, FieldState::Phys> &out,
+    void DoProjection(LibUtilities::Field<double, FieldState::Phys> &in,
+                      LibUtilities::Field<double, FieldState::Phys> &out,
                       [[maybe_unused]] const double time = 0.0)
     {
         v_DoProjection(in, out, time);
@@ -197,8 +197,8 @@ protected:
     SOLVER_CORE_EXPORT virtual std::vector<bool> v_GetSystemSingularChecks();
     SOLVER_CORE_EXPORT virtual void v_PrintNorms(std::ostream &out);
     SOLVER_CORE_EXPORT virtual void v_DoProjection(
-        MultiRegions::Field<double, FieldState::Phys> &in,
-        MultiRegions::Field<double, FieldState::Phys> &out,
+        LibUtilities::Field<double, FieldState::Phys> &in,
+        LibUtilities::Field<double, FieldState::Phys> &out,
         [[maybe_unused]] const double time);
 
     SOLVER_CORE_EXPORT virtual void v_WriteFld(const std::string &outname);
@@ -220,8 +220,8 @@ protected:
     std::vector<std::string> m_variables;
 
     Math::MathHelper m_math;
-    MultiRegions::Field<double, FieldState::Phys> m_fields;
-    MultiRegions::Field<double, FieldState::Coeff> m_fields_coeff;
+    LibUtilities::Field<double, FieldState::Phys> m_fields;
+    LibUtilities::Field<double, FieldState::Coeff> m_fields_coeff;
 
     std::shared_ptr<BwdTransOp<double>> m_bwdTransOp = nullptr;
     std::shared_ptr<FwdTransOp<double>> m_fwdTransOp = nullptr;

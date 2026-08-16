@@ -49,8 +49,8 @@
 #include <MultiRegions/ExpList3DHomogeneous2D.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
+#include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
-#include <MultiRegions/Field/Field.hpp>
 
 // Currently the BOOST_TEST_DYN_LINK is local only to this unit
 // test. It is undefined at the bottom of the file.
@@ -94,7 +94,6 @@
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
-using namespace Nektar::Operators;
 
 struct GlobalConfiguration
 {

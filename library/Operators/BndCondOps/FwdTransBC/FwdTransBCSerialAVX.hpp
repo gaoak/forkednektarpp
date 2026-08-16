@@ -58,7 +58,7 @@ class FwdTransBCBlockOpImpl : public FwdTransBCBlockOp<TData>
 public:
     FwdTransBCBlockOpImpl(const unsigned int block_idx,
                           const LocalRegions::ExpansionSharedPtr &exp,
-                          NekDataWarehouseSharedPtr dataWarehouse)
+                          LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : FwdTransBCBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
@@ -135,9 +135,11 @@ public:
 
             // Fetch basis data.
             m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<TData>(basisKeys[d], eBasis)));
+                LibUtilities::BasisDataKey<TData>(basisKeys[d],
+                                                  LibUtilities::eBasis)));
             m_W.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<TData>(basisKeys[d], eWeights)));
+                LibUtilities::BasisDataKey<TData>(basisKeys[d],
+                                                  LibUtilities::eWeights)));
         }
 
         // Check whether points are collocated
@@ -157,7 +159,7 @@ public:
 
         // Fetch Jacobian.
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+            LocalRegions::JacobianKey<TData>(block_idx, m_implInterleaveWidth));
 
         // Fetch data for Operator2D only
         if ((m_shapeType == LibUtilities::Quad) ||
@@ -167,31 +169,36 @@ public:
             // Fetch interpolation matrix.
             // Note it is from basis[1] to basis[0]
             m_interp1to0 = this->m_dataWarehouse->template GetData<MemSpace>(
-                BasisDataKey<TData>(basisKeys[1], eInterpTranspose, m_nq[0],
-                                    basisKeys[0].GetPointsType()));
+                LibUtilities::BasisDataKey<TData>(
+                    basisKeys[1], LibUtilities::eInterpTranspose, m_nq[0],
+                    basisKeys[0].GetPointsType()));
 
             // Fetch Jacobian for each segment.
             m_jacTraceptr = this->m_dataWarehouse->template GetData<MemSpace>(
-                JacobianTraceKey<TData>(block_idx, m_implInterleaveWidth));
+                LocalRegions::JacobianTraceKey<TData>(block_idx,
+                                                      m_implInterleaveWidth));
 
             // Fetch TraceToElementMap
             m_traceElmtMapptr =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    TraceToElmtMapKey<TData>(block_idx, m_implInterleaveWidth));
+                    LocalRegions::TraceToElmtMapKey<TData>(
+                        block_idx, m_implInterleaveWidth));
             m_traceElmtSignptr =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    TraceToElmtSignKey<TData>(block_idx,
-                                              m_implInterleaveWidth));
+                    LocalRegions::TraceToElmtSignKey<TData>(
+                        block_idx, m_implInterleaveWidth));
 
             // Fetch InteriorMap (volume to interior DoF)
             m_interiorMapptr =
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    InteriorMapKey<TData>(block_idx, m_implInterleaveWidth));
+                    LocalRegions::InteriorMapKey<TData>(block_idx,
+                                                        m_implInterleaveWidth));
 
             // Fetch inverse interior mass matrix for 2D elements
             m_massint = this->m_dataWarehouse->template GetData<MemSpace>(
-                StdMatKey<simd_t>(basisKeys, m_shapeType,
-                                  eInvMassInteriorStdMat, nodalType));
+                StdRegions::StdMatKey<simd_t>(
+                    basisKeys, m_shapeType, StdRegions::eInvMassInteriorStdMat,
+                    nodalType));
         }
 
         // Fetch inverse interior mass matrix for each basis
@@ -202,19 +209,22 @@ public:
             auto bkeys = std::vector<LibUtilities::BasisKey>{basisKeys[d]};
             m_massint_seg.push_back(
                 this->m_dataWarehouse->template GetData<MemSpace>(
-                    StdMatKey<simd_t>(bkeys, LibUtilities::eSegment,
-                                      eInvMassInteriorStdMat, nodalType)));
+                    StdRegions::StdMatKey<simd_t>(
+                        bkeys, LibUtilities::eSegment,
+                        StdRegions::eInvMassInteriorStdMat, nodalType)));
         }
 
         // Fetch NodalToModal Matrix if required.
         if (m_shapeType == LibUtilities::NodalTri)
         {
             m_nodToMod = this->m_dataWarehouse->template GetData<MemSpace>(
-                StdMatKey<simd_t>(basisKeys, m_shapeType, eNodalToModal,
-                                  nodalType));
+                StdRegions::StdMatKey<simd_t>(basisKeys, m_shapeType,
+                                              StdRegions::eNodalToModal,
+                                              nodalType));
             m_nodToModTrans = this->m_dataWarehouse->template GetData<MemSpace>(
-                StdMatKey<simd_t>(basisKeys, m_shapeType,
-                                  eNodalToModalTranspose, nodalType));
+                StdRegions::StdMatKey<simd_t>(
+                    basisKeys, m_shapeType, StdRegions::eNodalToModalTranspose,
+                    nodalType));
         }
         else
         {
@@ -250,7 +260,7 @@ public:
     static std::unique_ptr<BlockOperator<TData>> Instantiate(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
-        NekDataWarehouseSharedPtr dataWarehouse)
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<FwdTransBCBlockOpImpl<ExecSpace, TData>>(
             block_idx, exp, dataWarehouse);
@@ -303,8 +313,8 @@ protected:
     bool m_warnOnce = false;
 #endif
 
-    void v_Apply(MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-                 MultiRegions::BlockAccessor<TData, FieldState::Coeff>
+    void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+                 LibUtilities::BlockAccessor<TData, FieldState::Coeff>
                      &outblock) override
     {
         WARNINGL1(
@@ -389,8 +399,8 @@ protected:
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE>
     void Operator0D(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -414,9 +424,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize,
-                                              m_nqTot, (TData *)inptr);
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        m_implInterleaveWidth, interleaveWidth, chunkSize,
+                        m_nqTot, (TData *)inptr);
                 }
 
                 // Simple copy for 0D points. No loop required.
@@ -426,12 +436,12 @@ protected:
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nqTot,
                         (TData *)inptr -
                             (width_ratio - 1) * m_nqTot * simd_t::width);
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nmTot,
                         (TData *)outptr -
@@ -451,8 +461,8 @@ protected:
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator1D(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         // Shape size.
         const auto nm0 = m_nm[0];
@@ -491,9 +501,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize, nqTot,
-                                              (TData *)inptr);
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        m_implInterleaveWidth, interleaveWidth, chunkSize,
+                        nqTot, (TData *)inptr);
                 }
 
                 // Simple copy for collocated data. Copy per component
@@ -516,12 +526,12 @@ protected:
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         nqTot,
                         (TData *)inptr -
                             (width_ratio - 1) * nqTot * simd_t::width);
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         nmTot,
                         (TData *)outptr -
@@ -542,8 +552,8 @@ protected:
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator2D(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Coeff> &outblock)
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
         // Shape size.
         const auto nm0 = m_nm[0];
@@ -593,9 +603,9 @@ protected:
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
-                    ReshapeStorage<ExecSpace>(m_implInterleaveWidth,
-                                              interleaveWidth, chunkSize, nqTot,
-                                              (TData *)inptr);
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        m_implInterleaveWidth, interleaveWidth, chunkSize,
+                        nqTot, (TData *)inptr);
                 }
 
                 // Simple copy for collocated data. Copy per component
@@ -624,12 +634,12 @@ protected:
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         nqTot,
                         (TData *)inptr -
                             (width_ratio - 1) * nqTot * simd_t::width);
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         nmTot,
                         (TData *)outptr -
@@ -660,7 +670,7 @@ protected:
 
         if (this->m_dinvmass.size())
         {
-            ReshapeStorage<ExecSpace>(
+            LibUtilities::ReshapeStorage<ExecSpace>(
                 m_implInterleaveWidth, 1,
                 this->m_dinvmass.size() / (m_nmTotInt * m_nmTotInt),
                 m_nmTotInt * m_nmTotInt, (TData *)dmatptr);

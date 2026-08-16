@@ -52,37 +52,37 @@ public:
     TFQMROpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                 const std::vector<std::string> &components)
         : TFQMROp<TData>(expansionList, components),
-          m_w(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_w(LibUtilities::Field<TData, FieldState::Coeff>(
               "TFQMROp w",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_s(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_s(LibUtilities::Field<TData, FieldState::Coeff>(
               "TFQMROp s",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_u(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_u(LibUtilities::Field<TData, FieldState::Coeff>(
               "TFQMROp u",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_p(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_p(LibUtilities::Field<TData, FieldState::Coeff>(
               "TFQMROp p",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_d(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_d(LibUtilities::Field<TData, FieldState::Coeff>(
               "TFQMROp p",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_r(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_r(LibUtilities::Field<TData, FieldState::Coeff>(
               "TFQMROp r",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_rtilde(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_rtilde(LibUtilities::Field<TData, FieldState::Coeff>(
               "TFQMROp rtilde",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
@@ -114,16 +114,16 @@ public:
     }
 
 protected:
-    MultiRegions::Field<TData, FieldState::Coeff> m_w;
-    MultiRegions::Field<TData, FieldState::Coeff> m_s;
-    MultiRegions::Field<TData, FieldState::Coeff> m_u;
-    MultiRegions::Field<TData, FieldState::Coeff> m_p;
-    MultiRegions::Field<TData, FieldState::Coeff> m_d;
-    MultiRegions::Field<TData, FieldState::Coeff> m_r;
-    MultiRegions::Field<TData, FieldState::Coeff> m_rtilde;
+    LibUtilities::Field<TData, FieldState::Coeff> m_w;
+    LibUtilities::Field<TData, FieldState::Coeff> m_s;
+    LibUtilities::Field<TData, FieldState::Coeff> m_u;
+    LibUtilities::Field<TData, FieldState::Coeff> m_p;
+    LibUtilities::Field<TData, FieldState::Coeff> m_d;
+    LibUtilities::Field<TData, FieldState::Coeff> m_r;
+    LibUtilities::Field<TData, FieldState::Coeff> m_rtilde;
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
-                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
+                 LibUtilities::Field<TData, FieldState::Coeff> &out) override
     {
         // Based on R. W. Freund, *A Transpose-Free Quasi-Minimal Residual
         // Method for Non-Hermitian Linear Systems*, SIAM Journal on Scientific

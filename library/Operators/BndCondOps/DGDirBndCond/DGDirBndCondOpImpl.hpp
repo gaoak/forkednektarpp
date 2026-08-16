@@ -168,7 +168,7 @@ public:
                 MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                     bcExpList);
             this->m_wsp_phys.push_back(
-                MultiRegions::Field<TData, FieldState::Phys>(
+                LibUtilities::Field<TData, FieldState::Phys>(
                     "Dirichlet BC phys", blocks_phys, nComp, nhomo));
 
             // Compute number of boundary coefficients.
@@ -388,7 +388,7 @@ public:
 protected:
     size_t m_numBndPhysCompSize = 0;
 
-    std::vector<MultiRegions::Field<TData, FieldState::Phys>> m_wsp_phys;
+    std::vector<LibUtilities::Field<TData, FieldState::Phys>> m_wsp_phys;
     std::vector<std::shared_ptr<ExpressionOp<TData>>> m_expressionOps;
 
     std::vector<LibUtilities::MemoryRegion<size_t>> m_map;
@@ -396,7 +396,7 @@ protected:
     std::vector<std::vector<size_t>> m_compOffsets;
     std::vector<std::vector<size_t>> m_compCounts;
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &inout) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &inout) override
     {
         // Return if no Dirichlet boundary condition.
         if (m_numBndPhysCompSize == 0)
@@ -421,11 +421,11 @@ protected:
             unsigned blksize = inoutBlk.CompSize();
             if (inoutWidth != 1)
             {
-                ReshapeStorage<ExecSpace>(1u, inoutWidth,
-                                          inoutBlk.GetNumElementsWithPadding() *
-                                              inout.GetNumComponents(),
-                                          inoutBlk.GetNumData(), inoutPtr,
-                                          streamID);
+                LibUtilities::ReshapeStorage<ExecSpace>(
+                    1u, inoutWidth,
+                    inoutBlk.GetNumElementsWithPadding() *
+                        inout.GetNumComponents(),
+                    inoutBlk.GetNumData(), inoutPtr, streamID);
                 inoutBlk.template SetInterleaveWidth<TData>(1);
             }
 

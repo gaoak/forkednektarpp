@@ -123,9 +123,9 @@ protected:
     TData m_TRatioSutherland;
     TData m_oneOverTstar;
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
-                 MultiRegions::Field<TData, FieldState::Phys> &deriv,
-                 MultiRegions::Field<TData, FieldState::Phys> &out) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
+                 LibUtilities::Field<TData, FieldState::Phys> &deriv,
+                 LibUtilities::Field<TData, FieldState::Phys> &out) override
     {
         for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
         {

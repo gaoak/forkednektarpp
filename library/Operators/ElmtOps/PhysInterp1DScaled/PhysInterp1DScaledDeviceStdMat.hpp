@@ -47,9 +47,10 @@ class PhysInterp1DScaledBlockOpImpl : public PhysInterp1DScaledBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    PhysInterp1DScaledBlockOpImpl(const unsigned int block_idx,
-                                  const LocalRegions::ExpansionSharedPtr &exp,
-                                  NekDataWarehouseSharedPtr dataWarehouse)
+    PhysInterp1DScaledBlockOpImpl(
+        const unsigned int block_idx,
+        const LocalRegions::ExpansionSharedPtr &exp,
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : PhysInterp1DScaledBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         m_streamID = block_idx + 1;
@@ -90,7 +91,7 @@ public:
         ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>>
     Instantiate(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,
-                NekDataWarehouseSharedPtr dataWarehouse)
+                LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             PhysInterp1DScaledBlockOpImpl<ExecSpace, Implementation, TData>>(
@@ -115,8 +116,8 @@ protected:
     const TData *m_matptr;
 
     void v_Apply(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock) override
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
@@ -134,9 +135,9 @@ protected:
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, interleaveWidth,
-                                      nelmtTot, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, interleaveWidth, nelmtTot,
+                inblock.GetNumData(), (TData *)inptr, m_streamID);
 
             // Perform matrix-matrix multiply.
             NekBlas::Gemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot,
@@ -144,12 +145,12 @@ protected:
                           (TData)0.0, outptr, m_nqTot);
 
             // Reshape back, if necessary.
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmtTot, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
-            ReshapeStorage<ExecSpace>(interleaveWidth, m_implInterleaveWidth,
-                                      nelmtTot, outblock.GetNumData(), outptr,
-                                      m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                interleaveWidth, m_implInterleaveWidth, nelmtTot,
+                inblock.GetNumData(), (TData *)inptr, m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                interleaveWidth, m_implInterleaveWidth, nelmtTot,
+                outblock.GetNumData(), outptr, m_streamID);
 
             // Increment pointers.
             inptr += inblock.CompSize() * inblock.GetNumHomoModes();
@@ -198,8 +199,9 @@ protected:
             std::accumulate(m_nq.begin(), m_nq.end(), 1, std::multiplies());
 
         m_matptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            StdMatKey<TData>(m_basisKeys, m_shapeType, ePhysInterpStdMat,
-                             m_nodalType, m_nq));
+            StdRegions::StdMatKey<TData>(m_basisKeys, m_shapeType,
+                                         StdRegions::ePhysInterpStdMat,
+                                         m_nodalType, m_nq));
     }
 };
 

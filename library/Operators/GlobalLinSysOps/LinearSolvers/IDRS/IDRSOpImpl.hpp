@@ -53,17 +53,17 @@ public:
     IDRSOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                const std::vector<std::string> &components)
         : IDRSOp<TData>(expansionList, components),
-          m_v(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_v(LibUtilities::Field<TData, FieldState::Coeff>(
               "IDRSOp v",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_w(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_w(LibUtilities::Field<TData, FieldState::Coeff>(
               "IDRSOp t",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_r(MultiRegions::Field<TData, FieldState::Coeff>(
+          m_r(LibUtilities::Field<TData, FieldState::Coeff>(
               "IDRSOp r",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
@@ -92,17 +92,17 @@ public:
         std::uniform_real_distribution<> dis(0.0, 1.0);
         for (unsigned int stage = 0; stage < m_stage; stage++)
         {
-            m_U.push_back(MultiRegions::Field<TData, FieldState::Coeff>(
+            m_U.push_back(LibUtilities::Field<TData, FieldState::Coeff>(
                 "IDRSOp U" + std::to_string(stage),
                 MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                     this->m_expansionList),
                 this->m_components, 1));
-            m_G.push_back(MultiRegions::Field<TData, FieldState::Coeff>(
+            m_G.push_back(LibUtilities::Field<TData, FieldState::Coeff>(
                 "IDRSOp G" + std::to_string(stage),
                 MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                     this->m_expansionList),
                 this->m_components, 1));
-            m_P.push_back(MultiRegions::Field<TData, FieldState::Coeff>(
+            m_P.push_back(LibUtilities::Field<TData, FieldState::Coeff>(
                 "IDRSOp P" + std::to_string(stage),
                 MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                     this->m_expansionList),
@@ -134,17 +134,17 @@ public:
     }
 
 protected:
-    std::vector<MultiRegions::Field<TData, FieldState::Coeff>> m_P;
-    std::vector<MultiRegions::Field<TData, FieldState::Coeff>> m_U;
-    std::vector<MultiRegions::Field<TData, FieldState::Coeff>> m_G;
-    MultiRegions::Field<TData, FieldState::Coeff> m_v;
-    MultiRegions::Field<TData, FieldState::Coeff> m_w;
-    MultiRegions::Field<TData, FieldState::Coeff> m_r;
+    std::vector<LibUtilities::Field<TData, FieldState::Coeff>> m_P;
+    std::vector<LibUtilities::Field<TData, FieldState::Coeff>> m_U;
+    std::vector<LibUtilities::Field<TData, FieldState::Coeff>> m_G;
+    LibUtilities::Field<TData, FieldState::Coeff> m_v;
+    LibUtilities::Field<TData, FieldState::Coeff> m_w;
+    LibUtilities::Field<TData, FieldState::Coeff> m_r;
 
     unsigned int m_stage = 0;
 
-    void v_Apply(MultiRegions::Field<TData, FieldState::Coeff> &in,
-                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
+                 LibUtilities::Field<TData, FieldState::Coeff> &out) override
     {
         // Reshape m_P if required.
         for (unsigned int stage = 0; stage < m_stage; stage++)
@@ -162,7 +162,7 @@ protected:
                         pblk.template GetPtr<MemSpace, ReadWrite>(streamID);
                     auto numComp = pblk.GetNumComponents();
 
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         inblk.GetInterleaveWidth(), pblk.GetInterleaveWidth(),
                         pblk.GetNumElementsWithPadding() * numComp,
                         pblk.GetNumData(), ptr, streamID);

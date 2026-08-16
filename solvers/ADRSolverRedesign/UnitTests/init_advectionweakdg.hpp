@@ -90,9 +90,9 @@ public:
 
         auto blocks_in =
             GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
-        auto f_advectVel = MultiRegions::Field<TData, FieldState::Phys>(
+        auto f_advectVel = LibUtilities::Field<TData, FieldState::Phys>(
             "f_advectVel", blocks_in, ndim, 1);
-        fixt_advectVel = new MultiRegions::Field<TData, FieldState::Phys>(
+        fixt_advectVel = new LibUtilities::Field<TData, FieldState::Phys>(
             std::move(f_advectVel));
 
         for (unsigned int blk = 0; blk < fixt_advectVel->GetBlocks().size();
@@ -126,9 +126,9 @@ public:
 
         auto blocks_trace = GetBlockAttributes<TData, FieldState::Phys>(
             this->fixt_explist->GetTrace());
-        auto f_traceAdvVel = MultiRegions::Field<TData, FieldState::Phys>(
+        auto f_traceAdvVel = LibUtilities::Field<TData, FieldState::Phys>(
             "f_traceAdvVel", blocks_trace, ndim, 1);
-        fixt_traceAdvVel = new MultiRegions::Field<TData, FieldState::Phys>(
+        fixt_traceAdvVel = new LibUtilities::Field<TData, FieldState::Phys>(
             std::move(f_traceAdvVel));
 
         for (unsigned int blk = 0; blk < fixt_traceAdvVel->GetBlocks().size();
@@ -288,8 +288,8 @@ public:
     }
 
 public:
-    MultiRegions::Field<TData, FieldState::Phys> *fixt_advectVel   = nullptr;
-    MultiRegions::Field<TData, FieldState::Phys> *fixt_traceAdvVel = nullptr;
+    LibUtilities::Field<TData, FieldState::Phys> *fixt_advectVel   = nullptr;
+    LibUtilities::Field<TData, FieldState::Phys> *fixt_traceAdvVel = nullptr;
     Array<OneD, TData> m_traceAdvVel;
     Array<OneD, TData> m_normalVel;
     Array<OneD, Array<OneD, TData>> m_advectVel;

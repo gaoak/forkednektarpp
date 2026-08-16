@@ -51,7 +51,7 @@ class AdvectionBlockOpImpl : public AdvectionBlockOp<TData>
 public:
     AdvectionBlockOpImpl(const unsigned int block_idx,
                          const LocalRegions::ExpansionSharedPtr &exp,
-                         NekDataWarehouseSharedPtr dataWarehouse)
+                         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : AdvectionBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         m_streamID = block_idx + 1;
@@ -74,11 +74,13 @@ public:
         }
 
         m_matptr = dataWarehouse->template GetData<MemSpace>(
-            StdMatKey<TData>(basisKeys, m_shapeType, ePhysDerivStdMat));
+            StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
+                                         StdRegions::ePhysDerivStdMat));
 
         // Fetch derivative factor.
         m_dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            DerivFactorKey<TData>(block_idx, m_implInterleaveWidth, true));
+            LocalRegions::DerivFactorKey<TData>(block_idx,
+                                                m_implInterleaveWidth, true));
     }
 
     // className - for BlockOperatorFactory
@@ -89,7 +91,7 @@ public:
         ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>>
     Instantiate(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,
-                NekDataWarehouseSharedPtr dataWarehouse)
+                LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
         return std::make_unique<
             AdvectionBlockOpImpl<ExecSpace, Implementation, TData>>(
@@ -111,8 +113,8 @@ protected:
     TData *m_advVel;
 
     void v_Apply(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &inblock,
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &outblock) override
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
@@ -144,9 +146,9 @@ protected:
             auto advptr = this->m_advVel;
 
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace>(m_implInterleaveWidth, inInterleaveWidth,
-                                      nelmtTot, inblock.GetNumData(),
-                                      (TData *)inptr, m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, inInterleaveWidth, nelmtTot,
+                inblock.GetNumData(), (TData *)inptr, m_streamID);
 
             // Perform matrix-matrix multiply.
             for (unsigned int d = 0; d < m_dimension; d++)
@@ -163,7 +165,7 @@ protected:
                 if (this->m_append)
                 {
                     // Reshape, if necessary.
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         m_implInterleaveWidth, outInterleaveWidth, nelmtTot,
                         outblock.GetNumData(), (TData *)outptr, m_streamID);
 
@@ -187,7 +189,7 @@ protected:
                 if (this->m_append)
                 {
                     // Reshape, if necessary.
-                    ReshapeStorage<ExecSpace>(
+                    LibUtilities::ReshapeStorage<ExecSpace>(
                         m_implInterleaveWidth, outInterleaveWidth, nelmtTot,
                         outblock.GetNumData(), (TData *)outptr, m_streamID);
 
@@ -207,9 +209,9 @@ protected:
                 }
             }
 
-            ReshapeStorage<ExecSpace>(inInterleaveWidth, m_implInterleaveWidth,
-                                      nelmtTot, m_nqTot, (TData *)outptr,
-                                      m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                inInterleaveWidth, m_implInterleaveWidth, nelmtTot, m_nqTot,
+                (TData *)outptr, m_streamID);
 
             // Increment pointer.
             inptr += inoffset;
@@ -221,12 +223,12 @@ protected:
     }
 
     void v_SetAdvVel(
-        MultiRegions::BlockAccessor<TData, FieldState::Phys> &advVel) override
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &advVel) override
     {
         const auto interleaveWidth = advVel.GetInterleaveWidth();
         this->m_advVel =
             advVel.template GetPtr<MemSpace, ReadWrite>(m_streamID);
-        ReshapeStorage<ExecSpace>(
+        LibUtilities::ReshapeStorage<ExecSpace>(
             m_implInterleaveWidth, interleaveWidth,
             advVel.GetNumElementsWithPadding() * this->m_exp->GetCoordim(),
             advVel.GetNumData(), this->m_advVel, m_streamID);

@@ -127,8 +127,8 @@ void UnsteadyADR::v_GenerateSummary(SummaryList &s)
 }
 
 void UnsteadyADR::DoImplicit(
-    MultiRegions::Field<double, FieldState::Phys> &in,
-    [[maybe_unused]] MultiRegions::Field<double, FieldState::Phys> &out,
+    LibUtilities::Field<double, FieldState::Phys> &in,
+    [[maybe_unused]] LibUtilities::Field<double, FieldState::Phys> &out,
     const double &time, const double &dt_inv_gamma)
 {
     if (m_session->GetSolverInfo("EQTYPE") == "UnsteadyAdvection")
@@ -222,8 +222,8 @@ void UnsteadyADR::DoImplicit(
  *  param out: = \kappa u^{n}
  */
 void UnsteadyADR::DoExplicitRhs(
-    MultiRegions::Field<double, FieldState::Phys> &in,
-    MultiRegions::Field<double, FieldState::Phys> &out, const double &time,
+    LibUtilities::Field<double, FieldState::Phys> &in,
+    LibUtilities::Field<double, FieldState::Phys> &out, const double &time,
     const double &dt)
 {
     // Switch on the projection type (Discontinuous or Continuous)
@@ -493,10 +493,10 @@ void UnsteadyADR::v_InitialiseFields()
 
             if (m_advection)
             {
-                m_advectionVel = MultiRegions::Field<double, FieldState::Phys>(
+                m_advectionVel = LibUtilities::Field<double, FieldState::Phys>(
                     "advectionVel", bAtr_phys, m_coordim, numHomoModes);
                 m_traceAdvectionVel =
-                    MultiRegions::Field<double, FieldState::Phys>(
+                    LibUtilities::Field<double, FieldState::Phys>(
                         "traceAdvectVel", bAtr_phys_trace, m_coordim,
                         numHomoModes);
             }
@@ -516,7 +516,7 @@ void UnsteadyADR::v_InitialiseFields()
             // Create fields.
             if (m_advection)
             {
-                m_advectionVel = MultiRegions::Field<double, FieldState::Phys>(
+                m_advectionVel = LibUtilities::Field<double, FieldState::Phys>(
                     "advVel", bAtr_phys, m_coordim, numHomoModes);
             }
             break;

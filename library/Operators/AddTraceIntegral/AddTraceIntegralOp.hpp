@@ -55,14 +55,14 @@ public:
 
     static inline const std::string name = "AddTraceIntegral";
 
-    void Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
-               MultiRegions::Field<TData, FieldState::Coeff> &out)
+    void Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
+               LibUtilities::Field<TData, FieldState::Coeff> &out)
     {
         v_Apply(in, out);
     }
 
-    void operator()(MultiRegions::Field<TData, FieldState::Phys> &in,
-                    MultiRegions::Field<TData, FieldState::Coeff> &out)
+    void operator()(LibUtilities::Field<TData, FieldState::Phys> &in,
+                    LibUtilities::Field<TData, FieldState::Coeff> &out)
     {
         v_Apply(in, out);
     }
@@ -77,8 +77,8 @@ protected:
     ~AddTraceIntegralOp() override = default;
 
     virtual void v_Apply(
-        MultiRegions::Field<TData, FieldState::Phys> &in,
-        MultiRegions::Field<TData, FieldState::Coeff> &out) = 0;
+        LibUtilities::Field<TData, FieldState::Phys> &in,
+        LibUtilities::Field<TData, FieldState::Coeff> &out) = 0;
 };
 
 } // namespace Nektar::Operators

@@ -79,8 +79,8 @@ public:
     }
 
 protected:
-    void v_Apply(MultiRegions::Field<TData, FieldState::Phys> &in,
-                 MultiRegions::Field<TData, FieldState::Coeff> &out) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
+                 LibUtilities::Field<TData, FieldState::Coeff> &out) override
     {
         // IProductWRT of RHS.
         this->m_IProdOp->Apply(in, this->m_rhs);

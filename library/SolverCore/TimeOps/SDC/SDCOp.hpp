@@ -75,8 +75,8 @@ protected:
     LibUtilities::PointsKey m_pointsKey; /// Object containing quadrature data
     std::vector<LibUtilities::MemoryRegion<TData const *>> m_mr0;
     std::vector<LibUtilities::MemoryRegion<TData *>> m_mr1;
-    std::deque<MultiRegions::Field<TData, FieldState::Phys>> m_residuals;
-    std::deque<MultiRegions::Field<TData, FieldState::Phys>>
+    std::deque<LibUtilities::Field<TData, FieldState::Phys>> m_residuals;
+    std::deque<LibUtilities::Field<TData, FieldState::Phys>>
         m_SFint; /// Array containing the integrated residual term
     LibUtilities::MemoryRegion<TData>
         m_tau; /// Array containing the quadrature points
@@ -262,7 +262,7 @@ protected:
     }
 
     template <typename ExecSpace>
-    void UpdateSolution(MultiRegions::Field<TData, FieldState::Phys> &inout)
+    void UpdateSolution(LibUtilities::Field<TData, FieldState::Phys> &inout)
     {
         using MemSpace = typename ExecSpace::memory_space;
 

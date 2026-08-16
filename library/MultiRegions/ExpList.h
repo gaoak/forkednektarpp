@@ -51,7 +51,11 @@
 #include <SpatialDomains/Movement/Movement.h>
 #include <tinyxml.h>
 
-namespace Nektar::Operators
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+#include <LibUtilities/BasicUtils/Field/Block.hpp>
+#endif
+
+namespace Nektar::LibUtilities
 {
 class NekDataWarehouse;
 }
@@ -97,6 +101,20 @@ typedef std::map<GlobalMatrixKey, DNekScalBlkMatSharedPtr> BlockMatrixMap;
 typedef std::shared_ptr<BlockMatrixMap> BlockMatrixMapShPtr;
 /// Shared pointer to an ExpList object.
 typedef std::shared_ptr<ExpList> ExpListSharedPtr;
+
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+// Helper function
+MULTI_REGIONS_EXPORT Collections::Collection GetCollection(
+    MultiRegions::ExpListSharedPtr expansionList, unsigned int block_idx);
+
+MULTI_REGIONS_EXPORT Collections::CollectionVector GetCollections(
+    MultiRegions::ExpListSharedPtr expansionList);
+
+template <typename TPadding, FieldState TState>
+MULTI_REGIONS_EXPORT std::vector<LibUtilities::BlockAttributes<TState>>
+GetBlockAttributes(const MultiRegions::ExpListSharedPtr explist,
+                   const unsigned interleave_width = 1);
+#endif
 
 /// Base class for all multi-elemental spectral/hp expansions.
 class ExpList : public std::enable_shared_from_this<ExpList>
@@ -1104,11 +1122,13 @@ public:
 
     MULTI_REGIONS_EXPORT void SetDataWarehouse();
 
-    MULTI_REGIONS_EXPORT std::shared_ptr<Nektar::Operators::NekDataWarehouse>
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+    MULTI_REGIONS_EXPORT std::shared_ptr<Nektar::LibUtilities::NekDataWarehouse>
     GetDataWarehouseSharedPtr()
     {
         return m_dataWarehouse;
     }
+#endif
 
     void MultiplyByBlockMatrix(const GlobalMatrixKey &gkey,
                                const Array<OneD, const NekDouble> &inarray,
@@ -1141,7 +1161,9 @@ public:
 
 protected:
     /// Data Warehouse
-    std::shared_ptr<Nektar::Operators::NekDataWarehouse> m_dataWarehouse;
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+    std::shared_ptr<Nektar::LibUtilities::NekDataWarehouse> m_dataWarehouse;
+#endif
     /// Pointer holder for PulseWaveSolver
     SpatialDomains::EntityHolder1D m_holder;
     /// Expansion type

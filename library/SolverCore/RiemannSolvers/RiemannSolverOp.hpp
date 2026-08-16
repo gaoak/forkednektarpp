@@ -92,41 +92,41 @@ public:
 
     static inline const std::string name = "";
 
-    void Apply(MultiRegions::Field<TData, FieldState::Phys> &Fwd,
-               MultiRegions::Field<TData, FieldState::Phys> &Bwd,
-               MultiRegions::Field<TData, FieldState::Phys> &flux)
+    void Apply(LibUtilities::Field<TData, FieldState::Phys> &Fwd,
+               LibUtilities::Field<TData, FieldState::Phys> &Bwd,
+               LibUtilities::Field<TData, FieldState::Phys> &flux)
     {
         this->v_Apply(Fwd, Bwd, flux);
     }
 
-    void operator()(MultiRegions::Field<TData, FieldState::Phys> &Fwd,
-                    MultiRegions::Field<TData, FieldState::Phys> &Bwd,
-                    MultiRegions::Field<TData, FieldState::Phys> &flux)
+    void operator()(LibUtilities::Field<TData, FieldState::Phys> &Fwd,
+                    LibUtilities::Field<TData, FieldState::Phys> &Bwd,
+                    LibUtilities::Field<TData, FieldState::Phys> &flux)
     {
         this->v_Apply(Fwd, Bwd, flux);
     }
 
     void SetTraceAdvVel(
-        MultiRegions::Field<TData, FieldState::Phys> &traceAdvVel)
+        LibUtilities::Field<TData, FieldState::Phys> &traceAdvVel)
     {
         this->m_traceAdvVel = std::move(traceAdvVel);
     }
 
-    void SetNormals(MultiRegions::Field<TData, FieldState::Phys> &normals)
+    void SetNormals(LibUtilities::Field<TData, FieldState::Phys> &normals)
     {
         this->m_normals = std::move(normals);
     }
 
     void SetTraceNormals(
-        MultiRegions::Field<TData, FieldState::Phys> &traceNormals)
+        LibUtilities::Field<TData, FieldState::Phys> &traceNormals)
     {
         v_SetTraceNormals(traceNormals);
     }
 
 protected:
-    MultiRegions::Field<TData, FieldState::Phys> m_traceAdvVel;
-    MultiRegions::Field<TData, FieldState::Phys> m_normals;
-    MultiRegions::Field<TData, FieldState::Phys> m_traceNormals;
+    LibUtilities::Field<TData, FieldState::Phys> m_traceAdvVel;
+    LibUtilities::Field<TData, FieldState::Phys> m_normals;
+    LibUtilities::Field<TData, FieldState::Phys> m_traceNormals;
 
     RiemannSolverOp(const MultiRegions::ExpListSharedPtr &expansionList,
                     const std::vector<std::string> &components)
@@ -161,7 +161,7 @@ protected:
 
         // Create fields.
         unsigned int numHomoModes = 1;
-        m_traceNormals = MultiRegions::Field<TData, FieldState::Phys>(
+        m_traceNormals = LibUtilities::Field<TData, FieldState::Phys>(
             "m_traceNormals", blocks_trace, coordDim, numHomoModes);
 
         // Initialise fields
@@ -171,12 +171,12 @@ protected:
     ~RiemannSolverOp() override = default;
 
     virtual void v_Apply(
-        MultiRegions::Field<TData, FieldState::Phys> &Fwd,
-        MultiRegions::Field<TData, FieldState::Phys> &Bwd,
-        MultiRegions::Field<TData, FieldState::Phys> &flux) = 0;
+        LibUtilities::Field<TData, FieldState::Phys> &Fwd,
+        LibUtilities::Field<TData, FieldState::Phys> &Bwd,
+        LibUtilities::Field<TData, FieldState::Phys> &flux) = 0;
 
     virtual void v_SetTraceNormals(
-        MultiRegions::Field<TData, FieldState::Phys> &traceNormals)
+        LibUtilities::Field<TData, FieldState::Phys> &traceNormals)
     {
         this->m_traceNormals = std::move(traceNormals);
     }
