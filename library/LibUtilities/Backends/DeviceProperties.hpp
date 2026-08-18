@@ -34,11 +34,11 @@
 
 #pragma once
 
-#include <Operators/Common/Spaces.hpp>
-
-#include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <limits>
 #include <unordered_map>
+
+#include <LibUtilities/Backends/Backends.hpp>
+#include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 
 namespace Nektar
 {

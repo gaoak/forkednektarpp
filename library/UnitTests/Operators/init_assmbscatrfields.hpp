@@ -42,8 +42,8 @@
 #include <MultiRegions/ContField.h>
 #include <MultiRegions/GlobalLinSysIterativeFull.h>
 
+#include <LibUtilities/Backends/Backends.hpp>
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
-#include <Operators/Common/Spaces.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;

@@ -38,18 +38,18 @@
 namespace Nektar
 {
 
-static unsigned int deviceOnHostLocalIdxX = 0;
-static unsigned int deviceOnHostLocalIdxY = 0;
-static unsigned int deviceOnHostLocalIdxZ = 0;
-static unsigned int deviceOnHostBlockIdxX = 0;
-static unsigned int deviceOnHostBlockIdxY = 0;
-static unsigned int deviceOnHostBlockIdxZ = 0;
-static unsigned int deviceOnHostBlockDimX = 1;
-static unsigned int deviceOnHostBlockDimY = 1;
-static unsigned int deviceOnHostBlockDimZ = 1;
-static unsigned int deviceOnHostGridDimX  = 1;
-static unsigned int deviceOnHostGridDimY  = 1;
-static unsigned int deviceOnHostGridDimZ  = 1;
+[[maybe_unused]] static unsigned int deviceOnHostLocalIdxX = 0;
+[[maybe_unused]] static unsigned int deviceOnHostLocalIdxY = 0;
+[[maybe_unused]] static unsigned int deviceOnHostLocalIdxZ = 0;
+[[maybe_unused]] static unsigned int deviceOnHostBlockIdxX = 0;
+[[maybe_unused]] static unsigned int deviceOnHostBlockIdxY = 0;
+[[maybe_unused]] static unsigned int deviceOnHostBlockIdxZ = 0;
+[[maybe_unused]] static unsigned int deviceOnHostBlockDimX = 1;
+[[maybe_unused]] static unsigned int deviceOnHostBlockDimY = 1;
+[[maybe_unused]] static unsigned int deviceOnHostBlockDimZ = 1;
+[[maybe_unused]] static unsigned int deviceOnHostGridDimX  = 1;
+[[maybe_unused]] static unsigned int deviceOnHostGridDimY  = 1;
+[[maybe_unused]] static unsigned int deviceOnHostGridDimZ  = 1;
 
 template <unsigned int ndim> class deviceOnHostBlock
 {

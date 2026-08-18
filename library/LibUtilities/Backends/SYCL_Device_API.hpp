@@ -35,7 +35,6 @@
 #pragma once
 
 #if defined(NEKTAR_ENABLE_SYCL)
-
 namespace Nektar
 {
 

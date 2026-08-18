@@ -36,10 +36,10 @@
 
 #include <boost/test/unit_test.hpp>
 
+#include <LibUtilities/Backends/Backends.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/FFT/NekDeviceFFT.h>
 #include <LibUtilities/FFT/NektarFFT.h>
-#include <Operators/Common/Spaces.hpp>
 
 namespace Nektar::DeviceFFTUnitTests
 {

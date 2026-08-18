@@ -52,7 +52,7 @@
 #include "LibUtilities/LinearAlgebra/NekBlas/oneMathHandle.hpp"
 #endif
 
-#include "Operators/Common/Spaces.hpp"
+#include <LibUtilities/Backends/Backends.hpp>
 
 namespace Nektar::NekBlas
 {

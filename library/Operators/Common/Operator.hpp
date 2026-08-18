@@ -44,9 +44,9 @@
 
 #include "LibUtilities/BasicUtils/DataWarehouse/NekDataWarehouse.hpp"
 
-#include "LibUtilities/BasicUtils/Field/Field.hpp"
 #include "Operators/Common/OperatorsDeclspec.hpp"
-#include "Operators/Common/Spaces.hpp"
+#include <LibUtilities/Backends/Backends.hpp>
+#include <LibUtilities/BasicUtils/Field/Field.hpp>
 
 namespace Nektar::Operators
 {

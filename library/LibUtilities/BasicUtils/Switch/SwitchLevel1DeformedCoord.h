@@ -52,7 +52,7 @@ if (deformed)
         Operator1D<LibUtilities::eSegment, true, 1, NQ(i)>(inblock, outblock); \
         break;
 
-#include "../Common/SwitchLevel1_1D.h"
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel1_1D.h"
                 break;
             case 2:
 #undef OPERATOR1D
@@ -61,7 +61,7 @@ if (deformed)
         Operator1D<LibUtilities::eSegment, true, 2, NQ(i)>(inblock, outblock); \
         break;
 
-#include "../Common/SwitchLevel1_1D.h"
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel1_1D.h"
 
                 break;
             case 3:
@@ -71,7 +71,7 @@ if (deformed)
         Operator1D<LibUtilities::eSegment, true, 3, NQ(i)>(inblock, outblock); \
         break;
 
-#include "../Common/SwitchLevel1_1D.h"
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel1_1D.h"
                 break;
             default:
                 NEKERROR(ErrorUtil::efatal, "invalid coordinate dimension");
@@ -102,7 +102,7 @@ if (deformed)
             inblock, outblock);                                                \
         break;
 
-#include "../Common/SwitchLevel1_2D.h"
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel1_2D.h"
                 break;
             case 3:
 #undef OPERATOR2D_TRI
@@ -119,7 +119,7 @@ if (deformed)
             inblock, outblock);                                                \
         break;
 
-#include "../Common/SwitchLevel1_2D.h"
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel1_2D.h"
                 break;
             default:
                 NEKERROR(ErrorUtil::efatal, "invalid coordinate dimension");
@@ -165,7 +165,7 @@ if (deformed)
             inblock, outblock);                                                \
         break;
 
-#include "../Common/SwitchLevel1_3D.h"
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel1_3D.h"
     }
 }
 else
@@ -186,7 +186,7 @@ else
                                                             outblock);         \
         break;
 
-#include "../Common/SwitchLevel1_1D.h"
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel1_1D.h"
 
                 break;
             case 2:
@@ -197,7 +197,7 @@ else
                                                             outblock);         \
         break;
 
-#include "../Common/SwitchLevel1_1D.h"
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel1_1D.h"
 
                 break;
             case 3:
@@ -208,7 +208,7 @@ else
                                                             outblock);         \
         break;
 
-#include "../Common/SwitchLevel1_1D.h"
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel1_1D.h"
                 break;
             default:
                 NEKERROR(ErrorUtil::efatal, "invalid coordinate dimension");
@@ -243,7 +243,7 @@ else
             inblock, outblock);                                                \
         break;
 
-#include "../Common/SwitchLevel1_2D.h"
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel1_2D.h"
 
                 break;
             case 3:
@@ -261,7 +261,7 @@ else
             inblock, outblock);                                                \
         break;
 
-#include "../Common/SwitchLevel1_2D.h"
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel1_2D.h"
                 break;
             default:
                 NEKERROR(ErrorUtil::efatal, "invalid coordinate dimension");
@@ -315,6 +315,6 @@ else
             inblock, outblock);                                                \
         break;
 
-#include "../Common/SwitchLevel1_3D.h"
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel1_3D.h"
     }
 }
