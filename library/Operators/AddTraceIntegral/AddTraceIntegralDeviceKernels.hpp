@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/Common/Spaces.hpp"
+#include <LibUtilities/Backends/Backends_Device_API.hpp>
 
 namespace Nektar::Operators::detail
 {

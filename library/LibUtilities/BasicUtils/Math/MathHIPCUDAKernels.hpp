@@ -37,8 +37,8 @@
 #if (defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)) ||           \
     (defined(NEKTAR_ENABLE_HIP) && defined(DEVICE_COMPILE_ONLY))
 
-#include "LibUtilities/Memory/MemoryAlloc.hpp"
-#include "Operators/Common/Spaces.hpp"
+#include <LibUtilities/Backends/Backends_Device_API.hpp>
+#include <LibUtilities/Memory/MemoryAlloc.hpp>
 
 namespace Nektar::Math
 {

@@ -35,7 +35,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 // clang-format off
-#include "Common/SwitchLevel1Defs.h"
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel1Defs.h"
 @IMPL_HEADER@
 
 namespace Nektar::Operators::detail

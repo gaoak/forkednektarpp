@@ -1,7 +1,3 @@
-CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/Common/SwitchLimits.h.in
-               SwitchLimits.h
-               @ONLY)
-
 # Set implementation types.
 SET(ElmtOpImpl StdMat SumFac SumFacTOP Generic)
 
@@ -26,37 +22,36 @@ MACRO(ADD_ELMT_OPERATOR dir)
         SET(CONFIG_FILE ElmtOps/ElmtBlockOpFactoryDec.cpp.in)
     ENDIF()
 
+    SET(SWITCH_DIR ${CMAKE_SOURCE_DIR}/library/LibUtilities/BasicUtils/Switch)
+
     # Check to see if shape specific BlockOpSwitch*.h files have
     # been generated and if not generate for later potential use.
-    IF(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/BlockOpSwitchCodeSeg.h")
-    ELSE()
-        SET(ShapeIncludeName "Common/BlockOpSwitchCode.h.in")
-        FOREACH (Shape IN LISTS Shapes)
+    SET(ShapeIncludeName "${SWITCH_DIR}/BlockOpSwitchCode.h.in")
+    FOREACH (Shape IN LISTS Shapes)
+        IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/BlockOpSwitchCodeSeg.h")
             SET(ShapeIncName include/BlockOpSwitchCode${Shape}.h)
             # MESSAGE("Generating block header  file file: " "${ShapeIncName}")
             CONFIGURE_FILE(${ShapeIncludeName} ${ShapeIncName})
-        ENDFOREACH()
-    ENDIF()
+        ENDIF()
+    ENDFOREACH()
 
-    IF(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/BlockOpSwitch1DCoordsCodeSeg.h")
-    ELSE()
-        SET(ShapeIncludeName "Common/BlockOpSwitch1DCoordsCode.h.in")
-        FOREACH (Shape IN LISTS Shapes)
+    SET(ShapeIncludeName "${SWITCH_DIR}/BlockOpSwitch1DCoordsCode.h.in")
+    FOREACH (Shape IN LISTS Shapes)
+        IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/BlockOpSwitch1DCoordsCodeSeg.h")
             SET(ShapeIncName include/BlockOpSwitch1DCoordsCode${Shape}.h)
             # MESSAGE("Generating block header  file file: " "${ShapeIncName}")
             CONFIGURE_FILE(${ShapeIncludeName} ${ShapeIncName})
-        ENDFOREACH()
-    ENDIF()
+        ENDIF()
+    ENDFOREACH()
 
-    IF(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/BlockOpSwitchPhysInterp1DSeg.h")
-    ELSE()
-        SET(ShapeIncludeName "Common/BlockOpSwitchPhysInterp1D.h.in")
-        FOREACH (Shape IN LISTS Shapes)
+    SET(ShapeIncludeName "${SWITCH_DIR}/BlockOpSwitchPhysInterp1D.h.in")
+    FOREACH (Shape IN LISTS Shapes)
+        IF(NOT EXISTS "${SWITCH_DIR}/BlockOpSwitchPhysInterp1DSeg.h")
             SET(ShapeIncName include/BlockOpSwitchPhysInterp1D${Shape}.h)
             # MESSAGE("Generating block header  file file: " "${ShapeIncName}")
             CONFIGURE_FILE(${ShapeIncludeName} ${ShapeIncName})
-        ENDFOREACH()
-    ENDIF()
+        ENDIF()
+    ENDFOREACH()
 
     # Loop through each possible execution space.
     FOREACH (ExecSpace IN LISTS ExecSpaces)
@@ -258,25 +253,37 @@ MACRO(ADD_ELMT_OPERATOR dir)
     )
 ENDMACRO()
 
-
 # Macro for single operator.
 MACRO(ADD_SINGLE_OPERATOR dir opname)
 
-  SET(FactoryDeclName "src/${opname}${ExecSpace}${TData}.${SOURCE_EXT}")
-  CONFIGURE_FILE(${dir}/${opname}FactoryDec.cpp.in
-                 ${FactoryDeclName})
-  SET(OPERATORS_SOURCES  ${OPERATORS_SOURCES}  ${FactoryDeclName})
-  MESSAGE("Adding operator with a ${ExecSpace} execution space: "
-                 "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
+    # Loop through each possible execution space.
+    FOREACH (ExecSpace IN LISTS ExecSpaces)
+    
+        # Set file extension.
+        SET(HEADER_EXT hpp)
+        IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+            SET(SOURCE_EXT cu)
+        ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+            SET(SOURCE_EXT hip)
+        ELSE()
+            SET(SOURCE_EXT cpp)
+        ENDIF()
+
+        SET(FactoryDeclName "src/${opname}${ExecSpace}${TData}.${SOURCE_EXT}")
+        CONFIGURE_FILE(${dir}/${opname}FactoryDec.cpp.in
+                     ${FactoryDeclName})
+        SET(OPERATORS_SOURCES  ${OPERATORS_SOURCES}  ${FactoryDeclName})
+        MESSAGE("Adding operator with a ${ExecSpace} execution space: "
+                     "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
+    ENDFOREACH()
 ENDMACRO()
 
-
+SET(OPNAMESPACE "Nektar::Operators::detail")
 
 # Common header file.
 SET(OPERATORS_HEADERS
     Common/BlockOperator.hpp
     Common/Operator.hpp
-    ElmtOps/ElmtBlockOp.hpp
 )
 
 # Common source file.
@@ -294,73 +301,30 @@ FILE(GLOB children AddTraceIntegral BndCondOps/* ElmtOps/*
      GlobalLinSysOps/LinearSystems/* GlobalLinSysOps/LinearSolvers/*
      PreconOps/* Norm/* GetFwdBwdTracePhys)
 
-SET(OPNAMESPACE "Nektar::Operators::detail")
 FOREACH(child ${children})
     # MESSAGE("Child : " "${child}")
     ADD_OPERATOR(${child} OPNAMESPACE OPERATORS_HEADERS OPERATORS_SOURCES)
 ENDFOREACH()
 
+# Assmbscater
+SET(TData double)
+
+ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatr)
+ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatrZeroDir)
+
 # Loop through all of the directories which contain block operators and add
 # their source and header files.
+# 1) ElmtOps
 FILE(GLOB children ElmtOps/*)
 FOREACH(child ${children})
     ADD_ELMT_OPERATOR(${child})
 ENDFOREACH()
-
-# Loop through all of the directories which contain block operators and add
-# their source and header files.
+# 2) Others
 FILE(GLOB children GetFwdBwdTracePhys BndCondOps/FwdTransBC Norm/*)
 FOREACH(child ${children})
     ADD_BLOCK_OPERATOR(${child} OPNAMESPACE OPERATORS_HEADERS OPERATORS_SOURCES)
 ENDFOREACH()
 
-# Add this operator's implemenations to the global operator source
-# and header files.
-SET(OPERATORS_HEADERS
-    ${OPERATORS_HEADERS}
-    ${${NAME_HEADERS}}
-)
-SET(OPERATORS_SOURCES
-    ${OPERATORS_SOURCES}
-    ${${NAME_SOURCES}}
-)
-
-# Assmbscater
-#Serial double cases
-SET(TData double)
-
-SET(ExecSpace Serial)
-SET(SOURCE_EXT cpp)
-
-ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatr)
-ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatrZeroDir)
-
-#AVX double cases
-IF (AVX IN_LIST ExecSpaces)
-SET(ExecSpace AVX)
-SET(SOURCE_EXT cpp)
-
-ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatr)
-ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatrZeroDir)
-ENDIF()
-
-#Device double cases
-IF (Device IN_LIST ExecSpaces)
-SET(ExecSpace Device)
-IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-     SET(SOURCE_EXT cu)
-ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
-     SET(SOURCE_EXT hip)
-ELSE()
-     SET(SOURCE_EXT cpp)
-ENDIF()
-
-ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatr)
-ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatrZeroDir)
-ENDIF()
-
-SET(OPERATORS_DEPENDS MultiRegions LibUtilities)
-    
 SOURCE_GROUP(TREE ${CMAKE_CURRENT_SOURCE_DIR}
     FILES ${OPERATORS_HEADERS} ${GROUP_SOURCES})
 
@@ -371,7 +335,7 @@ SET(CMAKE_INCLUDE_CURRENT_DIR ON)
 ADD_NEKTAR_LIBRARY(Operators
     SOURCES ${OPERATORS_SOURCES}
     HEADERS ${OPERATORS_HEADERS}
-    DEPENDS ${OPERATORS_DEPENDS}
+    DEPENDS LibUtilities MultiRegions
     SUMMARY "Nektar++ Operators library"
     DESCRIPTION "This library provides classes related to operators for Nektar++.")
 

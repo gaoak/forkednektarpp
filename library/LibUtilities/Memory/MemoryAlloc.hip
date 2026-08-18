@@ -33,7 +33,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <LibUtilities/Memory/MemoryAlloc.hpp>
-#include <Operators/Common/Spaces.hpp>
 
 namespace Nektar
 {

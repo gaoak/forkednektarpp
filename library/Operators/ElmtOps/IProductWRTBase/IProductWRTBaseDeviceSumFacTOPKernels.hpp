@@ -34,11 +34,12 @@
 
 #pragma once
 
+#include <LibUtilities/Backends/Backends_Device_API.hpp>
+#include <LibUtilities/Backends/DeviceProperties.hpp>
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
+#include <LibUtilities/BasicUtils/Utils/UtilsDeviceKernels.hpp>
 
-#include "LibUtilities/Backends/DeviceProperties.hpp"
-#include "LibUtilities/BasicUtils/Utils/UtilsDeviceKernels.hpp"
-#include "Operators/Common/Spaces.hpp"
+#include <Operators/ElmtOps/ElmtHelper.hpp>
 
 namespace Nektar::Operators::detail
 {

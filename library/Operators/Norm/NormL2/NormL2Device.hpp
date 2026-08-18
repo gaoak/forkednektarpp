@@ -149,8 +149,6 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::MemoryRegion<TData> &data)
     {
-        auto sizeParam1D = NonTemplatedPhysSizeParameter1D(m_coordim, m_nq[0]);
-
         const auto nelmt       = inblock.GetNumElements();
         const auto paddedNelmt = inblock.GetNumElementsWithPadding();
 
@@ -161,8 +159,7 @@ protected:
 
         // Set Kernel parameters.
         const unsigned int shmemsize = 0;
-        const unsigned int blocksize =
-            GetDeviceBlockSize<SumFac>(sizeParam1D.nq0());
+        const unsigned int blocksize = GetDeviceBlockSize<SumFac>(m_nq[0]);
         const unsigned int gridsize =
             GetDeviceGridSize<SumFac>(nelmt, blocksize, shmemsize);
 
@@ -176,14 +173,14 @@ protected:
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (Volume1DKernelLauncher<true>), gridsize, blocksize,
-                    m_streamID, sizeParam1D, nelmt, m_W[0], m_jacptr,
+                    m_streamID, m_nq[0], nelmt, m_W[0], m_jacptr,
                     redptr + nComp);
             }
             else
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (Volume1DKernelLauncher<false>), gridsize, blocksize,
-                    m_streamID, sizeParam1D, nelmt, m_W[0], m_jacptr,
+                    m_streamID, m_nq[0], nelmt, m_W[0], m_jacptr,
                     redptr + nComp);
             }
         }
@@ -200,14 +197,14 @@ protected:
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (Norm1DKernelLauncher<true>), gridsize, blocksize,
-                    m_streamID, sizeParam1D, nelmt, m_W[0], m_jacptr, inptr,
+                    m_streamID, m_nq[0], nelmt, m_W[0], m_jacptr, inptr,
                     redptr + nc);
             }
             else
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (Norm1DKernelLauncher<false>), gridsize, blocksize,
-                    m_streamID, sizeParam1D, nelmt, m_W[0], m_jacptr, inptr,
+                    m_streamID, m_nq[0], nelmt, m_W[0], m_jacptr, inptr,
                     redptr + nc);
             }
 
@@ -225,8 +222,6 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::MemoryRegion<TData> &data)
     {
-        auto sizeParam2D =
-            NonTemplatedPhysSizeParameter2D(m_coordim, m_nq[0], m_nq[1]);
         const auto nqTot       = m_nq[0] * m_nq[1];
         const auto nelmt       = inblock.GetNumElements();
         const auto paddedNelmt = inblock.GetNumElementsWithPadding();
@@ -251,15 +246,15 @@ protected:
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (Volume2DKernelLauncher<true>), gridsize, blocksize,
-                    m_streamID, sizeParam2D, nelmt, m_W[0], m_W[1], m_jacptr,
-                    redptr + nComp);
+                    m_streamID, m_nq[0], m_nq[1], nelmt, m_W[0], m_W[1],
+                    m_jacptr, redptr + nComp);
             }
             else
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (Volume2DKernelLauncher<false>), gridsize, blocksize,
-                    m_streamID, sizeParam2D, nelmt, m_W[0], m_W[1], m_jacptr,
-                    redptr + nComp);
+                    m_streamID, m_nq[0], m_nq[1], nelmt, m_W[0], m_W[1],
+                    m_jacptr, redptr + nComp);
             }
         }
 
@@ -274,15 +269,15 @@ protected:
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (Norm2DKernelLauncher<true>), gridsize, blocksize,
-                    m_streamID, sizeParam2D, nelmt, m_W[0], m_W[1], m_jacptr,
-                    inptr, redptr + nc);
+                    m_streamID, m_nq[0], m_nq[1], nelmt, m_W[0], m_W[1],
+                    m_jacptr, inptr, redptr + nc);
             }
             else
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (Norm2DKernelLauncher<false>), gridsize, blocksize,
-                    m_streamID, sizeParam2D, nelmt, m_W[0], m_W[1], m_jacptr,
-                    inptr, redptr + nc);
+                    m_streamID, m_nq[0], m_nq[1], nelmt, m_W[0], m_W[1],
+                    m_jacptr, inptr, redptr + nc);
             }
 
             LibUtilities::ReshapeStorage<ExecSpace>(
@@ -297,8 +292,6 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::MemoryRegion<TData> &data)
     {
-        auto sizeParam3D =
-            NonTemplatedPhysSizeParameter3D(m_nq[0], m_nq[1], m_nq[2]);
         const auto nqTot       = m_nq[0] * m_nq[1] * m_nq[2];
         const auto nelmt       = inblock.GetNumElements();
         const auto paddedNelmt = inblock.GetNumElementsWithPadding();
@@ -323,15 +316,15 @@ protected:
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (Volume3DKernelLauncher<true>), gridsize, blocksize,
-                    m_streamID, sizeParam3D, nelmt, m_W[0], m_W[1], m_W[2],
-                    m_jacptr, redptr + nComp);
+                    m_streamID, m_nq[0], m_nq[1], m_nq[2], nelmt, m_W[0],
+                    m_W[1], m_W[2], m_jacptr, redptr + nComp);
             }
             else
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (Volume3DKernelLauncher<false>), gridsize, blocksize,
-                    m_streamID, sizeParam3D, nelmt, m_W[0], m_W[1], m_W[2],
-                    m_jacptr, redptr + nComp);
+                    m_streamID, m_nq[0], m_nq[1], m_nq[2], nelmt, m_W[0],
+                    m_W[1], m_W[2], m_jacptr, redptr + nComp);
             }
         }
 
@@ -346,15 +339,15 @@ protected:
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (Norm3DKernelLauncher<true>), gridsize, blocksize,
-                    m_streamID, sizeParam3D, nelmt, m_W[0], m_W[1], m_W[2],
-                    m_jacptr, inptr, redptr + nc);
+                    m_streamID, m_nq[0], m_nq[1], m_nq[2], nelmt, m_W[0],
+                    m_W[1], m_W[2], m_jacptr, inptr, redptr + nc);
             }
             else
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (Norm3DKernelLauncher<false>), gridsize, blocksize,
-                    m_streamID, sizeParam3D, nelmt, m_W[0], m_W[1], m_W[2],
-                    m_jacptr, inptr, redptr + nc);
+                    m_streamID, m_nq[0], m_nq[1], m_nq[2], nelmt, m_W[0],
+                    m_W[1], m_W[2], m_jacptr, inptr, redptr + nc);
             }
 
             LibUtilities::ReshapeStorage<ExecSpace>(

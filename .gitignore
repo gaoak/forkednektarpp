@@ -32,3 +32,4 @@ __pycache__
 solvers/CardiacEPSolver/CellModels/CellMLTest.*
 # Generated source files
 library/MatrixFreeOps/SwitchLimits.h
+library/LibUtilities/BasicUtils/Switch/SwitchLimits.h

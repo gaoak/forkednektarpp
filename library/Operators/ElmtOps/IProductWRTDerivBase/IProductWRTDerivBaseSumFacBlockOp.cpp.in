@@ -47,7 +47,7 @@ void IProductWRTDerivBaseBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::@Impl
 {
 #undef NQ
 #undef NQ_M1
-#include "Common/SwitchLevel2Defs.h"
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel2Defs.h"
     // The following will use predefined code found in the Operators/Common
     // directory to import boost_pp code to make wrapper code to call
     // Operator1D methods for Segs, Operator2D method for Tris and Quads and
@@ -71,7 +71,7 @@ void IProductWRTDerivBaseBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::@Impl
 {
 #undef NQ
 #undef NQ_M1
-#include "Common/SwitchLevel1Defs.h"
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel1Defs.h"
     // The following will use predefined code found in the Operators/Common
     // directory to import boost_pp code to make wrapper code to call
     // Operator1D methods for Segs, Operator2D method for Tris and Quads and

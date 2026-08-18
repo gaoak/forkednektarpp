@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: Spaces.hpp
+// File: Backends.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -61,54 +61,15 @@
 #include "LibUtilities/Backends/DeviceOnHost_Host_API.hpp"
 #endif
 
-#if defined(__CUDACC__) || defined(__NEK_HIPCC__) ||                           \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
-#define DEVICE_COMPILE_ONLY
+namespace Nektar
+{
+
+#if defined(NEKTAR_ENABLE_DEVICE)
+extern std::unordered_map<unsigned int, void *> internalMemoryBufferMap;
+extern void *internalDeviceBuffer;
+extern void *internalHostBuffer;
+extern unsigned int internalMaxDataSizeByte;
 #endif
-
-template <typename TData> std::string DataTypeToString(void)
-{
-    if constexpr (std::is_same_v<TData, float>)
-    {
-        return "float";
-    }
-    else if constexpr (std::is_same_v<TData, double>)
-    {
-        return "double";
-    }
-}
-
-// const_if metafunction return "const T" type if B = true and "T" type
-// otherwise.
-template <bool B, typename TData = void> struct const_if
-{
-    typedef TData type;
-};
-
-template <class TData> struct const_if<true, TData>
-{
-    typedef const TData type;
-};
-
-template <bool B, typename TData> struct data_type_if
-{
-    typedef TData type;
-};
-
-template <typename TData> struct data_type_if<true, TData>
-{
-    typedef tinysimd::simd<TData> type;
-};
-
-template <bool B, typename TData> struct simd_type_if
-{
-    typedef tinysimd::scalarT<TData> type;
-};
-
-template <typename TData> struct simd_type_if<true, TData>
-{
-    typedef tinysimd::simd<TData> type;
-};
 
 namespace NektarSpaces
 {
@@ -247,6 +208,13 @@ static unsigned int GetVectorWidth(const std::string &execName)
     }
 }
 
+} // namespace NektarSpaces
+
+#if defined(__CUDACC__) || defined(__NEK_HIPCC__) ||                           \
+    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+#define DEVICE_COMPILE_ONLY
+#endif
+
 // NEK_RESTRICT
 #if defined(NEKTAR_ENABLE_CUDA) && defined(DEVICE_COMPILE_ONLY)
 #define NEK_RESTRICT __restrict__
@@ -301,26 +269,49 @@ static unsigned int GetVectorWidth(const std::string &execName)
 #define NEK_DEVICE_KERNEL NEK_FORCE_INLINE
 #endif
 
-// Memory scope for atomic.
-struct GlobalScope
+template <typename TData> std::string DataTypeToString(void)
 {
+    if constexpr (std::is_same_v<TData, float>)
+    {
+        return "float";
+    }
+    else if constexpr (std::is_same_v<TData, double>)
+    {
+        return "double";
+    }
+}
+
+// const_if metafunction return "const T" type if B = true and "T" type
+// otherwise.
+template <bool B, typename TData = void> struct const_if
+{
+    typedef TData type;
 };
 
-struct LocalScope
+template <class TData> struct const_if<true, TData>
 {
+    typedef const TData type;
 };
 
-} // namespace NektarSpaces
-
-namespace Nektar
+template <bool B, typename TData> struct data_type_if
 {
+    typedef TData type;
+};
 
-#if defined(NEKTAR_ENABLE_DEVICE)
-extern std::unordered_map<unsigned int, void *> internalMemoryBufferMap;
-extern void *internalDeviceBuffer;
-extern void *internalHostBuffer;
-extern unsigned int internalMaxDataSizeByte;
-#endif
+template <typename TData> struct data_type_if<true, TData>
+{
+    typedef tinysimd::simd<TData> type;
+};
+
+template <bool B, typename TData> struct simd_type_if
+{
+    typedef tinysimd::scalarT<TData> type;
+};
+
+template <typename TData> struct simd_type_if<true, TData>
+{
+    typedef tinysimd::simd<TData> type;
+};
 
 [[maybe_unused]] static inline void nekSetDevice(
     [[maybe_unused]] unsigned int device_rank)
@@ -523,7 +514,3 @@ static void SetStreamDependencies(
 }
 
 } // namespace Nektar
-
-#include "LibUtilities/Backends/DeviceOnHost_Device_API.hpp"
-#include "LibUtilities/Backends/HIPCUDA_Device_API.hpp"
-#include "LibUtilities/Backends/SYCL_Device_API.hpp"

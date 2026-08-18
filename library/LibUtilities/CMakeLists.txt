@@ -1,3 +1,8 @@
+# Set switch limit
+SET(SWITCH_DIR ${CMAKE_SOURCE_DIR}/library/LibUtilities/BasicUtils/Switch)
+MESSAGE("SWITCH_DIR = ${SWITCH_DIR}")
+CONFIGURE_FILE(${SWITCH_DIR}/SwitchLimits.h.in ${SWITCH_DIR}/SwitchLimits.h @ONLY)
+
 SET(BasicConstHeaders
     ./BasicConst/NektarUnivConsts.hpp
     ./BasicConst/NektarUnivTypeDefs.hpp
@@ -346,9 +351,9 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
         ./Memory/MemoryAlloc.hpp
     )
     SET(DeviceSupportSources 
+        ./Backends/Backends.cpp
         ./Backends/DeviceProperties.cpp
         ./BasicUtils/Field/Block.cpp
-        ./BasicUtils/Math/Math.cpp
         ./BasicUtils/DataWarehouse/BasisDataWarehouse.cpp
         ./BasicUtils/DataWarehouse/ModeIndexDataWarehouse.cpp
         ./LoopExecution/LoopExecution.cpp
@@ -362,7 +367,6 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
             ${DeviceSupportSources} 
             ./Backends/CUDAStream.cpp
             ./BasicUtils/Field/BlockHelper.cu
-            ./BasicUtils/Math/Math.cpp
             ./BasicUtils/Math/MathHelper.cu
             ./Memory/MemoryAlloc.cu
         )
@@ -375,7 +379,6 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
             ${DeviceSupportSources} 
             ./Backends/HIPStream.cpp
             ./BasicUtils/Field/BlockHelper.hip
-            ./BasicUtils/Math/Math.cpp
             ./BasicUtils/Math/MathHelper.hip
             ./Memory/MemoryAlloc.hip
         )
@@ -388,14 +391,12 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
         SET(DeviceSupportSources 
             ${DeviceSupportSources} 
             ./Backends/SYCLQueue.cpp
-            ./BasicUtils/Math/Math.cpp
             ./BasicUtils/Math/MathHelper.cpp
         )
     ELSE()
         SET(DeviceSupportSources 
             ${DeviceSupportSources} 
             ./BasicUtils/Field/BlockHelper.cpp
-            ./BasicUtils/Math/Math.cpp
             ./BasicUtils/Math/MathHelper.cpp
         )
     ENDIF()

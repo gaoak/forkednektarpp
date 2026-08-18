@@ -34,10 +34,9 @@
 
 #pragma once
 
+#include <LibUtilities/Backends/Backends_Device_API.hpp>
+#include <LibUtilities/Backends/DeviceProperties.hpp>
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
-
-#include "LibUtilities/Backends/DeviceProperties.hpp"
-#include "Operators/Common/Spaces.hpp"
 
 // get hold of memory sizing and routines related to collocation Helmholtz op
 #include "Operators/ElmtOps/Helmholtz/HelmholtzDeviceSumFacKernels.hpp"

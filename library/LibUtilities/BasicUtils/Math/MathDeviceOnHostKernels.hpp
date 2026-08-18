@@ -36,7 +36,7 @@
 
 #if defined(NEKTAR_ENABLE_DEVICEONHOST)
 
-#include "Operators/Common/Spaces.hpp"
+#include <LibUtilities/Backends/Backends_Device_API.hpp>
 
 #include <algorithm>
 #include <cmath>

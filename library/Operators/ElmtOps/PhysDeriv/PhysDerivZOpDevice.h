@@ -44,7 +44,6 @@
 
 #if defined(NEKTAR_ENABLE_CUDA)
 
-#include "Operators/Common/Spaces.hpp"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivZOp.h"
 
 #include <LibUtilities/FFT/PhysDerivZCuFFT.h>

@@ -34,10 +34,9 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Field/Field.hpp"
-#include "LibUtilities/BasicUtils/Field/MemoryRegion.hpp"
-
-#include "LibUtilities/BasicUtils/Math/MathKernels.hpp"
+#include <LibUtilities/BasicUtils/Field/Field.hpp>
+#include <LibUtilities/BasicUtils/Field/MemoryRegion.hpp>
+#include <LibUtilities/BasicUtils/Math/MathKernels.hpp>
 
 namespace Nektar::Math
 {

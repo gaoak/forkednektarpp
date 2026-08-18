@@ -33,9 +33,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 #pragma once
 
-#include "Operators/Common/Spaces.hpp"
-
-#include "MultiRegions/AssemblyMap/LocTraceToTraceMap.h"
+#include <LibUtilities/Backends/Backends_Device_API.hpp>
+#include <MultiRegions/AssemblyMap/LocTraceToTraceMap.h>
 
 namespace Nektar::Operators::detail
 {

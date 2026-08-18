@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: Math.cpp
+// File: Backends_Device_API.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,16 +32,22 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/Common/Spaces.hpp"
+#pragma once
 
-namespace Nektar
+#include <LibUtilities/Backends/Backends.hpp>
+
+// Memory scope for atomic.
+namespace Nektar::NektarSpaces
 {
+struct GlobalScope
+{
+};
 
-#if defined(NEKTAR_ENABLE_DEVICE)
-std::unordered_map<unsigned int, void *> internalMemoryBufferMap;
-void *internalDeviceBuffer           = nullptr;
-void *internalHostBuffer             = nullptr;
-unsigned int internalMaxDataSizeByte = 16;
-#endif
+struct LocalScope
+{
+};
+} // namespace Nektar::NektarSpaces
 
-} // namespace Nektar
+#include "LibUtilities/Backends/DeviceOnHost_Device_API.hpp"
+#include "LibUtilities/Backends/HIPCUDA_Device_API.hpp"
+#include "LibUtilities/Backends/SYCL_Device_API.hpp"

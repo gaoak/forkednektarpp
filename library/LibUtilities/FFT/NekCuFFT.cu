@@ -41,12 +41,11 @@
 #include <string>
 #include <unordered_map>
 
-#include <cuda_runtime.h>
 #include <cufft.h>
 #include <cufftXt.h>
 
+#include <LibUtilities/Backends/Backends.hpp>
 #include <LibUtilities/FFT/NekCuFFT.h>
-#include <Operators/Common/Spaces.hpp>
 
 #ifdef NEKTAR_ENABLE_NVTX
 #if __has_include(<nvtx3/nvToolsExt.h>)

@@ -34,9 +34,8 @@
 
 #pragma once
 
-#include "ElmtOps/ElmtBlockOp.hpp"
-#include "LibUtilities/Backends/DeviceProperties.hpp"
-#include "Operators/Common/Spaces.hpp"
+#include <LibUtilities/Backends/Backends_Device_API.hpp>
+#include <LibUtilities/Backends/DeviceProperties.hpp>
 
 namespace Nektar::Operators::detail
 {
@@ -44,13 +43,10 @@ namespace Nektar::Operators::detail
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL void Norm1DKernelLauncher(
-    NonTemplatedPhysSizeParameter1D sizeParam1D, const size_t nelmt,
-    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT jac,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT norm,
-    const TthreadBlock &threadBlock)
+    const unsigned int nq0, const size_t nelmt, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT norm, const TthreadBlock &threadBlock)
 {
-    const unsigned int nq0 = sizeParam1D.nq0();
-
     const unsigned int jacsize      = DEFORMED ? nq0 : 1u;
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
@@ -78,13 +74,13 @@ NEK_DEVICE_KERNEL void Norm1DKernelLauncher(
 }
 
 template <bool DEFORMED, typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL void Volume1DKernelLauncher(
-    NonTemplatedPhysSizeParameter1D sizeParam1D, const size_t nelmt,
-    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT jac,
-    TData *NEK_RESTRICT volume, const TthreadBlock &threadBlock)
+NEK_DEVICE_KERNEL void Volume1DKernelLauncher(const unsigned int nq0,
+                                              const size_t nelmt,
+                                              const TData *NEK_RESTRICT w0,
+                                              const TData *NEK_RESTRICT jac,
+                                              TData *NEK_RESTRICT volume,
+                                              const TthreadBlock &threadBlock)
 {
-    const unsigned int nq0 = sizeParam1D.nq0();
-
     const unsigned int jacsize      = DEFORMED ? nq0 : 1u;
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
@@ -112,14 +108,11 @@ NEK_DEVICE_KERNEL void Volume1DKernelLauncher(
 
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL void Norm2DKernelLauncher(
-    NonTemplatedPhysSizeParameter2D sizeParam2D, const size_t nelmt,
+    const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
     const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
     const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
     TData *NEK_RESTRICT norm, const TthreadBlock &threadBlock)
 {
-    const unsigned int nq0 = sizeParam2D.nq0();
-    const unsigned int nq1 = sizeParam2D.nq1();
-
     const unsigned int nqTot        = nq0 * nq1;
     const unsigned int jacsize      = DEFORMED ? nqTot : 1u;
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
@@ -154,14 +147,11 @@ NEK_DEVICE_KERNEL void Norm2DKernelLauncher(
 
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL void Volume2DKernelLauncher(
-    NonTemplatedPhysSizeParameter2D sizeParam2D, const size_t nelmt,
+    const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
     const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
     const TData *NEK_RESTRICT jac, TData *NEK_RESTRICT volume,
     const TthreadBlock &threadBlock)
 {
-    const unsigned int nq0 = sizeParam2D.nq0();
-    const unsigned int nq1 = sizeParam2D.nq1();
-
     const unsigned int nqTot        = nq0 * nq1;
     const unsigned int jacsize      = DEFORMED ? nqTot : 1u;
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
@@ -195,16 +185,12 @@ NEK_DEVICE_KERNEL void Volume2DKernelLauncher(
 
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL void Norm3DKernelLauncher(
-    NonTemplatedPhysSizeParameter3D sizeParam3D, const size_t nelmt,
-    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
-    const TData *NEK_RESTRICT w2, const TData *NEK_RESTRICT jac,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT norm,
-    const TthreadBlock &threadBlock)
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const size_t nelmt, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
+    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT norm, const TthreadBlock &threadBlock)
 {
-    const unsigned int nq0 = sizeParam3D.nq0();
-    const unsigned int nq1 = sizeParam3D.nq1();
-    const unsigned int nq2 = sizeParam3D.nq2();
-
     const unsigned int nqTot        = nq0 * nq1 * nq2;
     const unsigned int jacsize      = DEFORMED ? nqTot : 1u;
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
@@ -244,15 +230,12 @@ NEK_DEVICE_KERNEL void Norm3DKernelLauncher(
 
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL void Volume3DKernelLauncher(
-    NonTemplatedPhysSizeParameter3D sizeParam3D, const size_t nelmt,
-    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
-    const TData *NEK_RESTRICT w2, const TData *NEK_RESTRICT jac,
-    TData *NEK_RESTRICT volume, const TthreadBlock &threadBlock)
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const size_t nelmt, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
+    const TData *NEK_RESTRICT jac, TData *NEK_RESTRICT volume,
+    const TthreadBlock &threadBlock)
 {
-    const unsigned int nq0 = sizeParam3D.nq0();
-    const unsigned int nq1 = sizeParam3D.nq1();
-    const unsigned int nq2 = sizeParam3D.nq2();
-
     const unsigned int nqTot        = nq0 * nq1 * nq2;
     const unsigned int jacsize      = DEFORMED ? nqTot : 1u;
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
