@@ -67,6 +67,8 @@ ADD_NEKTAR_TEST(averagefld)
 ADD_NEKTAR_TEST(powerspectrum)
 ADD_NEKTAR_TEST(chanflow_m8_addfld)
 ADD_NEKTAR_TEST(MRF)
+ADD_NEKTAR_TEST(MHDCurrentDensity2D)
+ADD_NEKTAR_TEST(MHDCurrentDensity3D)
 ADD_NEKTAR_TEST(Nodal2DTriQuad)
 ADD_NEKTAR_TEST(vortexinducedvelocity)
 
