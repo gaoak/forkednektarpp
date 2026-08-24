@@ -21,8 +21,10 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
 
         # These operator have an additional argument for the FieldState
         # which requires two delcarations.
-        If("${name}" STREQUAL "IProductWRTDerivBase")
+        IF("${name}" STREQUAL "IProductWRTDerivBase")
             SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/Operators/Common/OpFactoryDecTwoOutStates.cpp.in)
+        ELSEIF("${name}" STREQUAL "AssmbScatr")
+            SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/Operators/AssmbScatr/AssmbScatrFactoryDec.cpp.in)
         ELSE()
             SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/Operators/Common/OpFactoryDec.cpp.in)
         ENDIF()

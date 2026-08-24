@@ -93,11 +93,8 @@ public:
         for (unsigned int blkIdx = 0;
              blkIdx < static_cast<unsigned int>(blockAttr.size()); ++blkIdx)
         {
-            const auto expId =
-                MultiRegions::GetCollection(expansionList, blkIdx)
-                    .GetExpVector()[0]
-                    ->GetElmtId();
-            const auto exp = expansionList->GetExp(expId);
+            const auto exp = MultiRegions::GetCollection(expansionList, blkIdx)
+                                 .GetExpVector()[0];
             op->m_blockOp.push_back(PhysDerivBlockOp<TData>::Create(
                 blkIdx, exp, expansionList->GetDataWarehouseSharedPtr(),
                 blockExecStr, implStr0));

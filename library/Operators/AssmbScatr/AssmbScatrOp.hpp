@@ -96,4 +96,30 @@ protected:
         LibUtilities::Field<TData, FieldState::Coeff> &out) = 0;
 };
 
+// AssmbScatrZeroDir base class
+// Defines the apply operator to enforce apply parameter types
+template <typename TData> class AssmbScatrZeroDirOp : public AssmbScatrOp<TData>
+{
+public:
+    ~AssmbScatrZeroDirOp() override = default;
+
+    static std::shared_ptr<AssmbScatrZeroDirOp<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
+        const std::string &execStr = "")
+    {
+        return Operator<TData>::template Create<AssmbScatrZeroDirOp>(
+            expansionList, components, execStr);
+    }
+
+    static inline const std::string name = "AssmbScatrZeroDir";
+
+protected:
+    AssmbScatrZeroDirOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                        const std::vector<std::string> &components)
+        : AssmbScatrOp<TData>(expansionList, components)
+    {
+    }
+};
+
 } // namespace Nektar::Operators

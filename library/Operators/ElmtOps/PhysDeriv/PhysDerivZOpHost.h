@@ -76,7 +76,7 @@ public:
     }
 
 protected:
-    void v_Init(double beta) override
+    void v_Init(TData beta) override
     {
         m_beta = beta;
     }

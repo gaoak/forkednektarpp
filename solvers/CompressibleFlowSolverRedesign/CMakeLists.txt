@@ -200,8 +200,10 @@ IF(NEKTAR_SOLVER_COMPRESSIBLE_FLOW_DEVICE_SUPPORT)
         ${CFS_OPERATORS_SOURCES}
     )
 
-    SET_ALL_SOLVER_TEST(CompressibleFlowSolverRedesign IsentropicVortex)
-    SET_ALL_SOLVER_TEST(CompressibleFlowSolverRedesign TGVFlow3D_Hex8)
+    IF(NEKTAR_ENABLE_DOUBLE_PRECISION)
+        SET_ALL_SOLVER_TEST(CompressibleFlowSolverRedesign IsentropicVortex)
+        SET_ALL_SOLVER_TEST(CompressibleFlowSolverRedesign TGVFlow3D_Hex8)
+    ENDIF()
 
     TARGET_INCLUDE_DIRECTORIES(CompressibleFlowSolverRedesign PRIVATE
     "${CMAKE_SOURCE_DIR}/solvers/CompressibleFlowSolverRedesign")

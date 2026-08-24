@@ -59,5 +59,13 @@ std::string AssmbScatrOpImpl<NektarSpaces::@ExecSpace@, @TData@>::className =
                          @TData@>::Instantiate,
         "...");
 
+template <>
+std::string AssmbScatrZeroDirOpImpl<NektarSpaces::@ExecSpace@, @TData@>::className =
+    GetOperatorFactory<@TData@>().RegisterCreatorFunction(
+        AssmbScatrZeroDirOp<@TData@>::name + "@ExecSpace@",
+        AssmbScatrZeroDirOpImpl<NektarSpaces::@ExecSpace@,
+                         @TData@>::Instantiate,
+        "...");
+
 } // namespace Nektar::Operators::detail
 // clang-format on

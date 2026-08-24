@@ -114,7 +114,8 @@ double FrobeniusNormDiff(const DNekMat &lhs, const DNekMat &rhs)
     return std::sqrt(sum);
 }
 
-MatrixDiagnostics DiagnoseMatrix(const DNekMatSharedPtr &matrix)
+[[maybe_unused]] MatrixDiagnostics DiagnoseMatrix(
+    const DNekMatSharedPtr &matrix)
 {
     MatrixDiagnostics diagnostics;
     const DNekMat &A = *matrix;

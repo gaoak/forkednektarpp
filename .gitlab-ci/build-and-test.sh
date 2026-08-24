@@ -43,6 +43,10 @@ if [[ $BUILD_TYPE == "default" ]]; then
                "-DNEKTAR_TEST_ALL=ON"
                "-DNEKTAR_ERROR_ON_WARNINGS=OFF"
                )
+    if [[ $BUILD_SINGLE_PRECISION == "on" ]]; then
+        CMAKEARGS+=("-DNEKTAR_ENABLE_SINGLE_PRECISION:BOOL=ON")
+        CMAKEARGS+=("-DNEKTAR_ENABLE_DOUBLE_PRECISION:BOOL=OFF")
+    fi
 elif [[ $BUILD_TYPE == "full" ]]; then
     CMAKEARGS+=(
                "-DCMAKE_BUILD_TYPE:STRING=Debug"

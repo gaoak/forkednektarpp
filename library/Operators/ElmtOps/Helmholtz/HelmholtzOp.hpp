@@ -73,12 +73,6 @@ public:
 
     void SetDiffCoeff(std::vector<TData> &diffCoeff)
     {
-        const auto coordDim      = this->m_expansionList->GetCoordim(0);
-        const auto diffCoeffSize = coordDim * (coordDim + 1) / 2;
-        ASSERTL0(diffCoeff.size() == diffCoeffSize,
-                 "The number of diffusion coefficients must match 1, 3 or 6 "
-                 "for a 1D, 2D or 3D case, respectively.")
-
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
         {

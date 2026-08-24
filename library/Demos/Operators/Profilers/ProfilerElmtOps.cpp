@@ -273,7 +273,7 @@ int main(int argc, char *argv[])
         }
         else if (Operator == "IProductWRTDerivBase")
         {
-            LaunchProfiler<IProductWRTDerivBaseOp, FieldState::Phys,
+            LaunchProfiler<IProductWRTDerivBaseCoeffOp, FieldState::Phys,
                            FieldState::Coeff, float>(explist, Ntest, nDim, 1,
                                                      Ncomp);
         }

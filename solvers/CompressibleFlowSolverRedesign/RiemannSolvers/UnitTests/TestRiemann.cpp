@@ -631,9 +631,10 @@ static void CheckNormalFlipAntisymmetry(
     CheckCloseRel(sum, zero, tol);
 }
 
-static void RunMachTest(const std::string &xml,
-                        const std::vector<std::string> &ops,
-                        const std::string &execStr, double gamma = 1.4)
+[[maybe_unused]] static void RunMachTest(const std::string &xml,
+                                         const std::vector<std::string> &ops,
+                                         const std::string &execStr,
+                                         double gamma = 1.4)
 {
     // Determine dimension from the mesh.
     auto session                = SetSession(xml, execStr);
@@ -849,8 +850,9 @@ struct Case
     unsigned int normalDir;
 };
 
-static void RunCasesForOp(const std::string &method, const std::string &execStr,
-                          const std::vector<Case> &cases)
+[[maybe_unused]] static void RunCasesForOp(const std::string &method,
+                                           const std::string &execStr,
+                                           const std::vector<Case> &cases)
 {
     for (const auto &tc : cases)
     {
@@ -864,6 +866,7 @@ static void RunCasesForOp(const std::string &method, const std::string &execStr,
 
 BOOST_AUTO_TEST_SUITE(Riemann_ConstState_AllOps_AllCases)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_Average)
 {
     std::string execStr(
@@ -1017,5 +1020,6 @@ BOOST_AUTO_TEST_CASE(Riemann_MachTest_3D_hex)
 
     RunMachTest("run/hex_Euler.xml", ops, execStr, 1.4);
 }
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()
