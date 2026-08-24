@@ -23,6 +23,7 @@ v5.11.0
 - Move using namespace std to avoid name clashes (!2618)
 - Fix various memory leaks (!2626)
 - Update scotch thirdparty build to 7.0.1 (!2590)
+- Fix PT-Scotch header detection so an existing build tree can be reconfigured (!2681)
 - Fix some partial override of overloaded function (!2643)
 - Use std::enable_if_t<...> instead of std::enable_if<...>::type (!2645)
 

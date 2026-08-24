@@ -136,8 +136,19 @@ IF (SCOTCH_LIBRARY AND SCOTCHERR_LIBRARY AND SCOTCH_INCLUDE_DIR)
                 ENDIF()
             ENDIF()
 
+            # Look beside the PT-Scotch library that was actually selected
+            # (SCOTCH_LIBRARY_DIR, set at line 90) before falling back to the
+            # system hints. A ThirdParty-built PT-Scotch installs ptscotch.h
+            # into <dist>/include while a system serial Scotch may already own
+            # SCOTCH_INCLUDE_DIR -- that mix leaves the header unfindable, so
+            # PTSCOTCH_INCLUDE_DIR below becomes the literal "-NOTFOUND"
+            # string and ThirdPartyScotch.cmake:119 hands it to
+            # INCLUDE_DIRECTORIES, failing the generate step. It only bites on
+            # the second configure, once dist/lib exists and the enclosing
+            # IF (PTSCOTCH_LIBRARY AND ...) starts being taken.
             FIND_PATH(PTSCOTCH_HEADERS_DIRS NAMES ptscotch.h
-                HINTS ${MACPORTS_PREFIX}/include ${MPI_CXX_INCLUDE_PATH}
+                HINTS ${SCOTCH_LIBRARY_DIR}/../include ${SCOTCH_INCLUDE_DIR}
+                    ${MACPORTS_PREFIX}/include ${MPI_CXX_INCLUDE_PATH}
                 PATH_SUFFIXES "scotch")
 
             IF (PTSCOTCH_HEADERS_DIRS)
