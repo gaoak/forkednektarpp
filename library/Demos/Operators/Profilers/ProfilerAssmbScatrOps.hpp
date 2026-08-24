@@ -36,7 +36,7 @@
 #include <iomanip>
 #include <iostream>
 
-#include "Operators/AssmbScatr/AssmbScatrZeroDirOp.hpp"
+#include "Operators/AssmbScatr/AssmbScatrOp.hpp"
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <LibUtilities/BasicUtils/Math/Math.hpp>
 

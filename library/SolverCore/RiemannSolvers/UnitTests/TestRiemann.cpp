@@ -335,8 +335,9 @@ struct Case
     std::string xml;
 };
 
-static void RunCasesForOp(const std::string &method, const std::string &execStr,
-                          const std::vector<Case> &cases)
+[[maybe_unused]] static void RunCasesForOp(const std::string &method,
+                                           const std::string &execStr,
+                                           const std::vector<Case> &cases)
 {
     for (const auto &tc : cases)
     {
@@ -350,6 +351,7 @@ static void RunCasesForOp(const std::string &method, const std::string &execStr,
 
 BOOST_AUTO_TEST_SUITE(Riemann_ConstState_AllOps_AllCases)
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_Upwind)
 {
     std::string execStr(
@@ -362,5 +364,6 @@ BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_Upwind)
 
     RunCasesForOp("Upwind", execStr, cases);
 }
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()

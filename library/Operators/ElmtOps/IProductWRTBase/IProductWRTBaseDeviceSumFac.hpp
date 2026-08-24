@@ -378,7 +378,7 @@ protected:
                                                      Append, DEFORMED>),
                     gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
                     sizeParam1D, nelmt, m_B[0], m_W[0], m_jacptr, inptr, outptr,
-                    1.0);
+                    (TData)1.0);
             }
             else
             {
@@ -403,7 +403,7 @@ protected:
                     (IProductWRTBase1DKernelLauncher<Implementation, Scale,
                                                      Append>),
                     gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
-                    sizeParam1D, nelmt, m_B[0], inptr, outptr, 1.0);
+                    sizeParam1D, nelmt, m_B[0], inptr, outptr, (TData)1.0);
             }
             else
             {
@@ -515,7 +515,7 @@ protected:
                     gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
                     sizeParam2D, nelmt, m_isModified, m_index[0], m_B[0],
                     m_B[1], m_W[0], m_W[1], m_nodToMod, m_jacptr, inptr, outptr,
-                    wspptr, 1.0);
+                    wspptr, (TData)1.0);
             }
             else
             {
@@ -542,7 +542,7 @@ protected:
                                                      Scale, Append>),
                     gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
                     sizeParam2D, nelmt, m_isModified, m_index[0], m_B[0],
-                    m_B[1], m_nodToMod, inptr, outptr, wspptr, 1.0);
+                    m_B[1], m_nodToMod, inptr, outptr, wspptr, (TData)1.0);
             }
             else
             {
@@ -655,7 +655,7 @@ protected:
                     gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
                     sizeParam3D, nelmt, m_isModified, m_index[0], m_index[1],
                     m_index[2], m_B[0], m_B[1], m_B[2], m_W[0], m_W[1], m_W[2],
-                    m_nodToMod, m_jacptr, inptr, outptr, wspptr, 1.0);
+                    m_nodToMod, m_jacptr, inptr, outptr, wspptr, (TData)1.0);
             }
             else
             {
@@ -683,7 +683,7 @@ protected:
                     gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
                     sizeParam3D, nelmt, m_isModified, m_index[0], m_index[1],
                     m_index[2], m_B[0], m_B[1], m_B[2], m_nodToMod, inptr,
-                    outptr, wspptr, 1.0);
+                    outptr, wspptr, (TData)1.0);
             }
             else
             {

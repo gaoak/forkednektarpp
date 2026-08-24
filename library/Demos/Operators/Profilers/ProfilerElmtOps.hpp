@@ -440,7 +440,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
     }
     else if constexpr (std::is_same_v<Op<TData>, HelmholtzOp<TData>>)
     {
-        std::vector<double> diffCoeff(6);
+        std::vector<TData> diffCoeff(6);
         diffCoeff[0] = 1.0; // D00
         diffCoeff[2] = 1.0; // D11
         diffCoeff[5] = 1.0; // D22
@@ -449,7 +449,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
     }
     else if constexpr (std::is_same_v<Op<TData>, LaplacianOp<TData>>)
     {
-        std::vector<double> diffCoeff(6);
+        std::vector<TData> diffCoeff(6);
         diffCoeff[0] = 1.0; // D00
         diffCoeff[2] = 1.0; // D11
         diffCoeff[5] = 1.0; // D22
@@ -457,7 +457,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
     }
     else if constexpr (std::is_same_v<Op<TData>, LinAdvDiffReactionOp<TData>>)
     {
-        std::vector<double> diffCoeff(6);
+        std::vector<TData> diffCoeff(6);
         diffCoeff[0] = 1.0; // D00
         diffCoeff[2] = 1.0; // D11
         diffCoeff[5] = 1.0; // D22

@@ -36,7 +36,6 @@
 
 #include "Operators/AssmbScatr/AssmbScatrOp.hpp"
 #include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
-#include "Operators/AssmbScatr/AssmbScatrZeroDirOp.hpp"
 
 #include <LibUtilities/LinearAlgebra/NekLinSysIter.h>
 #include <MultiRegions/ContField.h>

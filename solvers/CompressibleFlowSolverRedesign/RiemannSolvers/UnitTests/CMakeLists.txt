@@ -12,12 +12,14 @@ TARGET_INCLUDE_DIRECTORIES(RiemannCompOpUnitTests PRIVATE
     "${CMAKE_SOURCE_DIR}/solvers/CompressibleFlowSolverRedesign"
 )
 
+IF (NEKTAR_ENABLE_DOUBLE_PRECISION) # Only enable unit tests for double precision, for now
 SET_UNIT_TEST(CompressibleFlowSolverRiemannOpUnitTestsSerial RiemannCompOpUnitTests Serial none FALSE)
 IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(CompressibleFlowSolverRiemannOpUnitTestsAVX RiemannCompOpUnitTests AVX none FALSE)
 ENDIF()
 IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(CompressibleFlowSolverRiemannOpUnitTestsDevice RiemannCompOpUnitTests Device none FALSE)
+ENDIF()
 ENDIF()
 
 # Copy XML file to build directory

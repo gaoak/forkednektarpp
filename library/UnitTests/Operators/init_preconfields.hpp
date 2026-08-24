@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/AssmbScatr/AssmbScatrZeroDirOp.hpp"
+#include "Operators/AssmbScatr/AssmbScatrOp.hpp"
 #include "Operators/ElmtOps/Helmholtz/HelmholtzOp.hpp"
 #include "Operators/PreconOps/PreconOp.hpp"
 

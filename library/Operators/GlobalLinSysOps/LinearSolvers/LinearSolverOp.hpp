@@ -39,7 +39,6 @@
 
 #include "Operators/AssmbScatr/AssmbScatrOp.hpp"
 #include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
-#include "Operators/AssmbScatr/AssmbScatrZeroDirOp.hpp"
 #include "Operators/BndCondOps/RobBndCond/RobBndCondOp.hpp"
 #include "Operators/ElmtOps/ElmtOp.hpp"
 #include "Operators/PreconOps/PreconOp.hpp"

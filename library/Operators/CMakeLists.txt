@@ -253,31 +253,6 @@ MACRO(ADD_ELMT_OPERATOR dir)
     )
 ENDMACRO()
 
-# Macro for single operator.
-MACRO(ADD_SINGLE_OPERATOR dir opname)
-
-    # Loop through each possible execution space.
-    FOREACH (ExecSpace IN LISTS ExecSpaces)
-    
-        # Set file extension.
-        SET(HEADER_EXT hpp)
-        IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-            SET(SOURCE_EXT cu)
-        ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
-            SET(SOURCE_EXT hip)
-        ELSE()
-            SET(SOURCE_EXT cpp)
-        ENDIF()
-
-        SET(FactoryDeclName "src/${opname}${ExecSpace}${TData}.${SOURCE_EXT}")
-        CONFIGURE_FILE(${dir}/${opname}FactoryDec.cpp.in
-                     ${FactoryDeclName})
-        SET(OPERATORS_SOURCES  ${OPERATORS_SOURCES}  ${FactoryDeclName})
-        MESSAGE("Adding operator with a ${ExecSpace} execution space: "
-                     "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
-    ENDFOREACH()
-ENDMACRO()
-
 SET(OPNAMESPACE "Nektar::Operators::detail")
 
 # Common header file.
@@ -297,7 +272,7 @@ SET(GROUP_SOURCES ${OPERATORS_SOURCES})
 
 # Loop through all of the directories which contain operators and add
 # their source and header files.
-FILE(GLOB children AddTraceIntegral BndCondOps/* ElmtOps/*
+FILE(GLOB children AddTraceIntegral AssmbScatr BndCondOps/* ElmtOps/*
      GlobalLinSysOps/LinearSystems/* GlobalLinSysOps/LinearSolvers/*
      PreconOps/* Norm/* GetFwdBwdTracePhys)
 
@@ -305,12 +280,6 @@ FOREACH(child ${children})
     # MESSAGE("Child : " "${child}")
     ADD_OPERATOR(${child} OPNAMESPACE OPERATORS_HEADERS OPERATORS_SOURCES)
 ENDFOREACH()
-
-# Assmbscater
-SET(TData double)
-
-ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatr)
-ADD_SINGLE_OPERATOR(AssmbScatr AssmbScatrZeroDir)
 
 # Loop through all of the directories which contain block operators and add
 # their source and header files.

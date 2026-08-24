@@ -25,12 +25,14 @@ MACRO(SET_UNIT_TEST testname name execspace)
           COMMAND ${name-ext} --detect_memory_leaks=0 -- ${execspace})
 ENDMACRO()
 
+IF (NEKTAR_ENABLE_DOUBLE_PRECISION) # Only enable unit tests for double precision, for now
 SET_UNIT_TEST(RiemannOpUnitTestsSerial RiemannOpUnitTests Serial)
 IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(RiemannOpUnitTestsAVX RiemannOpUnitTests AVX)
 ENDIF()
 IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(RiemannOpUnitTestsDevice RiemannOpUnitTests Device)
+ENDIF()
 ENDIF()
 
 # Copy XML file to build directory

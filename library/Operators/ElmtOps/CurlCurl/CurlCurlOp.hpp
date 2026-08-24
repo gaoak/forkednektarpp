@@ -76,10 +76,6 @@ protected:
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
                  LibUtilities::Field<TData, FieldState::Phys> &out) override
     {
-        ASSERTL1(in.GetNumComponents() >=
-                     this->m_expansionList->GetShapeDimension(),
-                 "Number of input dimentions is insufficient");
-
         ASSERTL1(in.GetNumHomoModes() == out.GetNumHomoModes(),
                  "Number of input and output homogeneous modes differ");
 

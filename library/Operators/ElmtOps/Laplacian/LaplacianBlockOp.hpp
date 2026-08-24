@@ -59,6 +59,12 @@ public:
 
     void SetDiffCoeff(std::vector<TData> &diffCoeff)
     {
+        const auto coordDim      = this->m_exp->GetCoordim();
+        const auto diffCoeffSize = coordDim * (coordDim + 1) / 2;
+        ASSERTL0(diffCoeff.size() == diffCoeffSize,
+                 "The number of diffusion coefficients must match 1, 3 or 6 "
+                 "for a 1D, 2D or 3D case, respectively.")
+
         this->m_diffCoeff = LibUtilities::MemoryRegion<
             TData>::template FromVector<NektarSpaces::HostSpace>(diffCoeff);
     }
