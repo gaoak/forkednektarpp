@@ -467,10 +467,18 @@ protected:
         // Cross-rank exchange. Only built when running on more than one
         // rank; nSREntries is 0 when this rank shares no Dirichlet dof with
         // any neighbour.
-        std::unique_ptr<MultiRegions::AssemblyCommCG<TData>> comm;
+        //
+        // srEntries/sendBuffer/recvBuffer are declared *before* comm so
+        // that, in the reverse-declaration-order teardown of this struct,
+        // comm (which owns the persistent MPI requests bound to
+        // sendBuffer's/recvBuffer's pointers via InitSendRecvComms()) is
+        // destroyed first. Destroying the buffers before the requests that
+        // reference them would leave comm holding requests over freed
+        // memory.
         LibUtilities::MemoryRegion<size_t> srEntries;
         LibUtilities::MemoryRegion<TData> sendBuffer;
         LibUtilities::MemoryRegion<TData> recvBuffer;
+        std::unique_ptr<MultiRegions::AssemblyCommCG<TData>> comm;
         size_t nSREntries = 0;
     };
     std::vector<DirUniversalComm> m_dirComm;

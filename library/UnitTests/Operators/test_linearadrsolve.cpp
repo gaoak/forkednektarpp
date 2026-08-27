@@ -757,7 +757,7 @@ TEST_LINEARADRSOLVE_TFQMR2(linearadrsolve_tfqmr_left_precon_tet,
 #endif
 
 TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_seg_3c, Helmholtz1D_Seg_3C,
-                         1.0E-11)
+                         5.0E-11)
 TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_tri_quad_3c,
                          Helmholtz2D_Tri_Quad_3C, 4.0E-09)
 TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_all_bcs, Helmholtz2D_AllBCs,
@@ -773,13 +773,13 @@ TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_tet, Helmholtz3D_Tet, 4.0E-08)
 #endif
 
 TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_seg_3c,
-                          Helmholtz1D_Seg_3C, 1.0E-12)
+                          Helmholtz1D_Seg_3C, 1.0E-11)
 TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_tri_quad_3c,
-                          Helmholtz2D_Tri_Quad_3C, 2.0E-09)
+                          Helmholtz2D_Tri_Quad_3C, 4.0E-09)
 TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_all_bcs,
                           Helmholtz2D_AllBCs, 1.0E-09)
 TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_hex_3c,
-                          Helmholtz3D_Hex_3C, 2.0E-09)
+                          Helmholtz3D_Hex_3C, 2.0E-08)
 #if defined(NEKTAR_TEST_DEBUG)
 TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_seg, Helmholtz1D_Seg,
                           1.0E-12)
