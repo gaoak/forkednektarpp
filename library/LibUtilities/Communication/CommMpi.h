@@ -66,8 +66,38 @@ public:
         m_request = Array<OneD, MPI_Request>(num, MPI_REQUEST_NULL);
     }
 
-    /// Default destructor
-    inline ~CommRequestMpi() final = default;
+    /// Destructor. Requests created via SendInit()/RecvInit() are
+    /// persistent and, per the MPI standard, are never released by
+    /// MPI_Wait[all]() -- they must be explicitly freed or they remain
+    /// allocated for the lifetime of the process. Since a fresh
+    /// CommRequestMpi is created for every persistent communication setup
+    /// (e.g. once per AssemblyCommCG instance), failing to free them here
+    /// leaks MPI request resources for as long as the process runs.
+    /// However, objects owning a CommRequestMpi (e.g. AssemblyCommCG, via
+    /// AssemblyMapCG/ExpList) are frequently destroyed after
+    /// Comm::Finalise() -- e.g. `session`/`graph`/`drv` in a solver's
+    /// main() outlive the session->Finalise() call that invokes
+    /// MPI_Finalize(). Calling MPI_Request_free() after MPI_Finalize() is
+    /// disallowed by the standard and aborts (or, on some MPI
+    /// implementations, stalls) the process, so skip it once MPI has
+    /// already been finalised -- mirroring the guard in CommMpi::~CommMpi.
+    inline ~CommRequestMpi() final
+    {
+        int flag;
+        MPI_Finalized(&flag);
+        if (flag)
+        {
+            return;
+        }
+
+        for (int i = 0; i < m_num; ++i)
+        {
+            if (m_request[i] != MPI_REQUEST_NULL)
+            {
+                MPI_Request_free(&m_request[i]);
+            }
+        }
+    }
 
     inline MPI_Request *GetRequest(int i)
     {

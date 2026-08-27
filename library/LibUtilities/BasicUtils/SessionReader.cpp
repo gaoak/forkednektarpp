@@ -43,6 +43,14 @@
 #include <iostream>
 #include <string>
 
+#ifdef _WIN32
+#include <process.h>
+#define NEKTAR_GETPID _getpid
+#else
+#include <unistd.h>
+#define NEKTAR_GETPID getpid
+#endif
+
 #include <boost/algorithm/string.hpp>
 #include <boost/iostreams/copy.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
@@ -454,16 +462,24 @@ void SessionReader::TestSharedFilesystem()
 
     if (m_comm->GetSize() > 1)
     {
+        // Use a probe filename unique to this job (rank 0's PID) so that
+        // other, unrelated MPI processes concurrently running in the same
+        // working directory (e.g. parallel ctest jobs) cannot race on this
+        // file and corrupt each other's shared-filesystem detection.
+        int pid = (m_comm->GetRank() == 0) ? NEKTAR_GETPID() : 0;
+        m_comm->Bcast(pid, 0);
+        std::string testFilename = "shared-fs-testfile." + std::to_string(pid);
+
         if (m_comm->GetRank() == 0)
         {
-            std::ofstream testfile("shared-fs-testfile");
+            std::ofstream testfile(testFilename);
             testfile << "" << std::endl;
             ASSERTL1(!testfile.fail(), "Test file creation failed");
             testfile.close();
         }
         m_comm->Block();
 
-        int exists = fs::exists("shared-fs-testfile");
+        int exists = fs::exists(testFilename);
         m_comm->AllReduce(exists, LibUtilities::ReduceSum);
 
         m_sharedFilesystem = (exists == m_comm->GetSize());
@@ -471,7 +487,7 @@ void SessionReader::TestSharedFilesystem()
         if ((m_sharedFilesystem && m_comm->GetRank() == 0) ||
             !m_sharedFilesystem)
         {
-            std::remove("shared-fs-testfile");
+            std::remove(testFilename.c_str());
         }
     }
     else

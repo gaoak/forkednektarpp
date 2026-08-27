@@ -22,6 +22,19 @@ echo "  - DISABLE_MCA             : $DISABLE_MCA"
 echo "  - ENABLE_ALIGN_MEM        : $ENABLE_ALIGN_MEM"
 echo "  - EXPORT_COMPILE_COMMANDS : $EXPORT_COMPILE_COMMANDS"
 echo "  - NUM_CPUS                : $NUM_CPUS"
+# NUM_CPUS is a hardcoded CI variable, not derived from this container's
+# actual CPU allotment -- if it exceeds the cores the runner/container
+# actually gets (e.g. a cgroup quota below the host's nproc), `ctest -j
+# $NUM_CPUS` oversubscribes on every single run. Print what the container
+# actually sees so a mismatch is visible directly in the CI log instead of
+# only showing up as an unexplained hang.
+echo "  - nproc                   : $(nproc 2>/dev/null || echo unknown)"
+if [[ -f /sys/fs/cgroup/cpu.max ]]; then
+    echo "  - cgroup v2 cpu.max       : $(cat /sys/fs/cgroup/cpu.max)"
+elif [[ -f /sys/fs/cgroup/cpu/cpu.cfs_quota_us ]]; then
+    echo "  - cgroup v1 cfs_quota_us  : $(cat /sys/fs/cgroup/cpu/cpu.cfs_quota_us)"
+    echo "  - cgroup v1 cfs_period_us : $(cat /sys/fs/cgroup/cpu/cpu.cfs_period_us)"
+fi
 echo "  - OS_VERSION              : $OS_VERSION"
 echo "  - PYTHON_EXECUTABLE       : $PYTHON_EXECUTABLE"
 echo "  - USE_NINJA               : $USE_NINJA"
@@ -184,6 +197,19 @@ if [[ $DISABLE_MCA != "" ]]; then
     export OMPI_MCA_btl_base_warn_component_unused=0
 fi
 
+# Each test's <processes> count (and thus its ctest PROCESSORS budget) is
+# the number of MPI ranks it launches -- these tests exercise inter-rank
+# parallelism, not intra-rank threading. Without this, an OpenMP runtime
+# or a threaded BLAS/LAPACK backend (e.g. the OpenBLAS commonly aliased as
+# the system libblas) falls back to spawning one worker thread per
+# *detected* core for every single rank, invisible to ctest's scheduler.
+# On a large-core-count runner that multiplies out to far more live
+# threads than physical cores, even when only a couple of small MPI tests
+# are running concurrently.
+export OMP_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+
 if [[ $EXPORT_COMPILE_COMMANDS != "" ]]; then
     # If we are just exporting compile commands for clang-tidy, just build any
     # third-party dependencies that we need.
@@ -192,7 +218,7 @@ if [[ $EXPORT_COMPILE_COMMANDS != "" ]]; then
 else
     # Otherwise build and test the code.
     $MAKE_EXEC -C $BUILD_DIR -j $NUM_CPUS all 2>&1 && $MAKE_EXEC -C $BUILD_DIR -j $NUM_CPUS install && \
-        (cd $BUILD_DIR && ctest -j $TEST_JOBS --output-on-failure)
+        (cd $BUILD_DIR && ctest -j $TEST_JOBS --output-on-failure --timeout 2000)
     exit_code=$?
 
     # Build coverage

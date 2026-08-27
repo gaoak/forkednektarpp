@@ -76,7 +76,7 @@ mkdir -p ${JOB_NAME} && cd ${JOB_NAME}
 # Git clone master branch
 command="git clone https://gitlab.nektar.info/nektar/nektar.git --branch master nektar"
 echo ${command} > $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
-${command}
+${command} &>> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
 error_code=$?
 if (( $error_code )); then 
     echo "JOB FAILED" >> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
