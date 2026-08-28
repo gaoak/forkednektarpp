@@ -694,6 +694,18 @@ void MeshPartition::PartitionGraph(int nParts, bool overlapping)
             {
                 m_comm->GetColumnComm()->Recv(0, part);
             }
+
+            if (!m_shared && !m_parallel)
+            {
+                m_comm->GetColumnComm()->Block();
+
+                //////////////////////////////////
+                // distribute among rows
+                for (i = 1; i < m_comm->GetRowComm()->GetSize(); ++i)
+                {
+                    m_comm->GetRowComm()->Send(i, part);
+                }
+            }
         }
         catch (...)
         {
