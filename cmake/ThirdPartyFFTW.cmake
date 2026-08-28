@@ -87,6 +87,7 @@ IF (NEKTAR_USE_FFTW)
             URL_MD5 "b616e5c91218cc778b5aa735fefb61ae"
             STAMP_DIR ${TPBUILD}/stamp
             DOWNLOAD_DIR ${TPSRC}
+            DOWNLOAD_NAME fftw-3.2.2-double.tar.gz
             SOURCE_DIR ${TPSRC}/fftw-3.2.2
             BINARY_DIR ${TPBUILD}/fftw-3.2.2
             TMP_DIR ${TPBUILD}/fftw-3.2.2-tmp
@@ -111,6 +112,7 @@ IF (NEKTAR_USE_FFTW)
             URL_MD5 "b616e5c91218cc778b5aa735fefb61ae"
             STAMP_DIR ${TPBUILD}/stamp
             DOWNLOAD_DIR ${TPSRC}
+            DOWNLOAD_NAME fftw-3.2.2-single.tar.gz
             SOURCE_DIR ${TPSRC}/fftwf-3.2.2
             BINARY_DIR ${TPBUILD}/fftwf-3.2.2
             TMP_DIR ${TPBUILD}/fftwf-3.2.2-tmp
