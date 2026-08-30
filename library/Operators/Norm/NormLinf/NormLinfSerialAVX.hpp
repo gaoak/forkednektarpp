@@ -34,11 +34,9 @@
 
 #pragma once
 
-#include <algorithm>
-#include <cmath>
-
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "Operators/Norm/NormLinf/NormLinfBlockOp.hpp"
+#include <LibUtilities/BasicUtils/Math/Math.hpp>
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 
 namespace Nektar::Operators::detail
 {
@@ -77,30 +75,16 @@ protected:
     {
         const auto numComp = inblock.GetNumComponents();
 
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto nelmt           = inblock.GetNumElements();
-        const auto ndata           = inblock.GetNumData();
-
+        // Loop all components.
+        const auto maskptr =
+            Math::internalMathKernelMask<MemSpace>::GetInstance(inblock);
         auto inptr   = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto dataptr = data.template GetPtr<MemSpace, ReadWrite>();
-
         for (unsigned int nc = 0; nc < numComp * inblock.GetNumHomoModes();
              ++nc)
         {
-            TData acc = 0.0;
-            for (size_t e = 0; e < nelmt; ++e)
-            {
-                const size_t lane   = e % interleaveWidth;
-                const size_t group  = e / interleaveWidth;
-                const size_t offset = group * interleaveWidth * ndata + lane;
-                for (unsigned int q = 0; q < ndata; ++q)
-                {
-                    acc = std::max(
-                        acc, std::abs(inptr[offset + q * interleaveWidth]));
-                }
-            }
-            dataptr[nc] = std::max(acc, dataptr[nc]);
-
+            Math::linfnormKernel<ExecSpace, false>(inblock.CompSize(), maskptr,
+                                                   inptr, dataptr + nc);
             inptr += inblock.CompSize();
         }
     }

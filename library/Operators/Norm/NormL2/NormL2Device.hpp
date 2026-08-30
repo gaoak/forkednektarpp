@@ -116,11 +116,6 @@ protected:
     void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
                  LibUtilities::MemoryRegion<TData> &data) override
     {
-        if (inblock.GetNumElements() == 0)
-        {
-            return;
-        }
-
         switch (m_dimension)
         {
             case 1:
