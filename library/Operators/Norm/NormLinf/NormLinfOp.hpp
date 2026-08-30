@@ -34,9 +34,6 @@
 
 #pragma once
 
-#include <MultiRegions/ContField.h>
-
-#include "LibUtilities/BasicUtils/Math/Math.hpp"
 #include "Operators/Common/Operator.hpp"
 #include "Operators/Norm/NormLinf/NormLinfBlockOp.hpp"
 
@@ -68,11 +65,9 @@ public:
 
         for (unsigned int block_idx = 0; block_idx < blocks.size(); block_idx++)
         {
-            const auto exp_idx =
+            const auto exp =
                 MultiRegions::GetCollection(expansionList, block_idx)
-                    .GetExpVector()[0]
-                    ->GetElmtId();
-            const auto exp = expansionList->GetExp(exp_idx);
+                    .GetExpVector()[0];
 
             op->m_blockOp.push_back(NormLinfBlockOp<TData>::Create(
                 block_idx, exp, expansionList->GetDataWarehouseSharedPtr(),

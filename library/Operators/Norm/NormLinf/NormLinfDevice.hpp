@@ -34,10 +34,9 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "Operators/ElmtOps/ElmtBlockOp.hpp"
 #include "Operators/Norm/NormLinf/NormLinfBlockOp.hpp"
-#include "Operators/Norm/NormLinf/NormLinfDeviceKernels.hpp"
+#include <LibUtilities/BasicUtils/Math/Math.hpp>
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 
 namespace Nektar::Operators::detail
 {
@@ -78,31 +77,16 @@ protected:
     {
         const auto numComp = inblock.GetNumComponents();
 
-        if (inblock.GetNumElements() == 0)
-        {
-            return;
-        }
-
-        const auto nelmt           = inblock.GetNumElements();
-        const auto ndata           = inblock.GetNumData();
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-
+        // Loop all components.
+        const auto maskptr =
+            Math::internalMathKernelMask<MemSpace>::GetInstance(inblock);
         auto inptr   = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
         auto dataptr = data.template GetPtr<MemSpace, ReadWrite>(m_streamID);
-
-        const unsigned int shmemsize = 0;
-        const unsigned int blocksize = GetDeviceBlockSize<SumFac>(ndata);
-        const unsigned int gridsize =
-            GetDeviceGridSize<SumFac>(nelmt, blocksize, shmemsize);
-
-        // Loop all components.
         for (unsigned int nc = 0; nc < numComp * inblock.GetNumHomoModes();
              ++nc)
         {
-            DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                LinfKernelLauncher, gridsize, blocksize, m_streamID, nelmt,
-                ndata, interleaveWidth, inptr, dataptr + nc);
-
+            Math::linfnormKernel<ExecSpace, false>(
+                inblock.CompSize(), maskptr, inptr, dataptr + nc, m_streamID);
             inptr += inblock.CompSize();
         }
     }
