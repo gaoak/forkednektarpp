@@ -1,11 +1,10 @@
-# Set implementation types.
-SET(ElmtOpImpl StdMat SumFac SumFacTOP Generic)
-
-# Shape types for seperate code compilation.
-SET(Shapes Seg Tri NodalTri Quad Hex Pyr Prism NodalPrism Tet NodalTet)
-
 # Macro for each operator.
 MACRO(ADD_ELMT_OPERATOR dir)
+    # Set implementation types.
+    SET(ElmtOpImpl StdMat SumFac SumFacTOP Generic)
+
+    # Shape types for seperate code compilation.
+    SET(Shapes Seg Tri NodalTri Quad Hex Pyr Prism NodalPrism Tet NodalTet)
 
     # Extract operator name form directory if it exists.
     GET_FILENAME_COMPONENT(name "${dir}" NAME)
@@ -56,6 +55,12 @@ MACRO(ADD_ELMT_OPERATOR dir)
     # Loop through each possible execution space.
     FOREACH (ExecSpace IN LISTS ExecSpaces)
     
+        IF ("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX")
+            SET(ExecName "SerialAVX")
+        ELSE()
+            SET(ExecName "Device")
+        ENDIF()
+
         # Set file extension.
         SET(HEADER_EXT hpp)
         IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
@@ -93,115 +98,24 @@ MACRO(ADD_ELMT_OPERATOR dir)
                 FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
                     ${dir}/${name}${ExecSpace}${Impl}*.hpp)
 
-                # Found a StdMat header.
-                IF((EXISTS "${dir}/${name}StdMat.hpp") AND ("${Impl}" STREQUAL "StdMat"))
+                # Found a Impl header.
+                IF(EXISTS "${dir}/${name}${Impl}.hpp")
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                        "${dir}/${name}StdMat.hpp")
+                        "${dir}/${name}${Impl}.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
                     MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
-                # Found a SumFac header.
-                ELSEIF((EXISTS "${dir}/${name}SumFac.hpp") AND ("${Impl}" STREQUAL "SumFac"))
+                # Found a ExecName + StdMat header.
+                ELSEIF((EXISTS "${dir}/${name}${ExecName}StdMat.hpp") AND ("${Impl}" STREQUAL "StdMat"))
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                        "${dir}/${name}SumFac.hpp")
+                        "${dir}/${name}${ExecName}StdMat.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
                     MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
-                # Found a Generic header.
-                ELSEIF((EXISTS "${dir}/${name}Generic.hpp") AND ("${Impl}" STREQUAL "Generic"))
+                # Found a ExecName + SumFac header.
+                ELSEIF((EXISTS "${dir}/${name}${ExecName}SumFac.hpp") AND ("${Impl}" STREQUAL "SumFac" OR "${Impl}" STREQUAL "SumFacTOP"))
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                        "${dir}/${name}Generic.hpp")
-                    SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
-
-                # Found a Serial StdMat header.
-                ELSEIF((EXISTS "${dir}/${name}SerialStdMat.hpp") AND
-                    ("${ExecSpace}" STREQUAL "Serial") AND ("${Impl}" STREQUAL "StdMat"))
-                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                        "${dir}/${name}SerialStdMat.hpp")
-                    SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
-
-                # Found a Serial SumFac header.
-                ELSEIF((EXISTS "${dir}/${name}SerialSumFac.hpp") AND
-                    ("${ExecSpace}" STREQUAL "Serial") AND ("${Impl}" STREQUAL "SumFac"))
-                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                        "${dir}/${name}SerialSumFac.hpp")
-                    SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
-
-                # Found a Serial Generic header.
-                ELSEIF((EXISTS "${dir}/${name}SerialGeneric.hpp") AND
-                    ("${ExecSpace}" STREQUAL "Serial") AND ("${Impl}" STREQUAL "Generic"))
-                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                        "${dir}/${name}SerialGeneric.hpp")
-                    SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
-
-                # Found a AVX SumFac header.
-                ELSEIF((EXISTS "${dir}/${name}AVXSumFac.hpp") AND
-                    ("${ExecSpace}" STREQUAL "AVX") AND ("${Impl}" STREQUAL "SumFac"))
-                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                        "${dir}/${name}AVXSumFac.hpp")
-                    SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
-
-                # Found a AVX Generic header.
-                ELSEIF((EXISTS "${dir}/${name}AVXGeneric.hpp") AND
-                    ("${ExecSpace}" STREQUAL "AVX") AND ("${Impl}" STREQUAL "Generic"))
-                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                        "${dir}/${name}AVXGeneric.hpp")
-                    SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
-
-                # Found a Serial/AVX StdMat header.
-                ELSEIF((EXISTS "${dir}/${name}SerialAVXStdMat.hpp") AND
-                    ("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX") AND ("${Impl}" STREQUAL "StdMat"))
-                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                        "${dir}/${name}SerialAVXStdMat.hpp")
-                    SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
-
-                # Found a Serial/AVX SumFac header.
-                ELSEIF((EXISTS "${dir}/${name}SerialAVXSumFac.hpp") AND
-                    ("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX") AND ("${Impl}" STREQUAL "SumFac"))
-                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                        "${dir}/${name}SerialAVXSumFac.hpp")
-                    SET(IMPL_HEADER "#include \"${include_file}\"")
-                    IF(EXISTS "${dir}/${name}SumFacBlockOp.cpp.in")
-                        FOREACH (TData IN LISTS DataTypes)
-                            SET(ShapeConfigName "${dir}/${name}SumFacBlockOp.cpp.in")
-                            FOREACH (Shape IN LISTS Shapes)
-                                SET(ShapeName src/${name}${ExecSpace}SumFac${TData}${Shape}.cpp)
-                                MESSAGE("Generating shape cpp file: " "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}")
-                                CONFIGURE_FILE(${ShapeConfigName} ${ShapeName})
-                                SET(CPP_SHAPE_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}")
-                                SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${CPP_SHAPE_SOURCE})
-                            ENDFOREACH()
-                        ENDFOREACH()
-                    ENDIF()
-                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
-
-                # Found a Serial/AVX generic header.
-                ELSEIF((EXISTS "${dir}/${name}SerialAVXGeneric.hpp") AND
-                    ("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX") AND ("${Impl}" STREQUAL "Generic"))
-                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                        "${dir}/${name}SerialAVXGeneric.hpp")
-                    SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
-
-                # Found a Device StdMat header.
-                ELSEIF(EXISTS "${dir}/${name}DeviceStdMat.hpp" AND ("${ExecSpace}" STREQUAL "Device") AND ("${Impl}" STREQUAL "StdMat"))
-                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                        "${dir}/${name}DeviceStdMat.hpp")
-                    SET(IMPL_HEADER "#include \"${include_file}\"")
-                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
-
-                # Found a Device SumFac header.
-                ELSEIF(EXISTS "${dir}/${name}DeviceSumFac.hpp" AND ("${ExecSpace}" STREQUAL "Device") AND
-                    ("${Impl}" STREQUAL "SumFac" OR "${Impl}" STREQUAL "SumFacTOP"))
-                    FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                        "${dir}/${name}DeviceSumFac.hpp")
+                        "${dir}/${name}${ExecName}SumFac.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
                     IF(EXISTS "${dir}/${name}SumFacBlockOp.cpp.in")
                         FOREACH (TData IN LISTS DataTypes)
@@ -217,10 +131,10 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     ENDIF()
                     MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
-                # Found a generic header.
-                ELSEIF(EXISTS "${dir}/${name}DeviceGeneric.hpp" AND ("${ExecSpace}" STREQUAL "Device") AND ("${Impl}" STREQUAL "Generic"))
+                # Found a ExecName + generic header.
+                ELSEIF((EXISTS "${dir}/${name}${ExecName}Generic.hpp") AND ("${Impl}" STREQUAL "Generic"))
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                        "${dir}/${name}DeviceGeneric.hpp")
+                        "${dir}/${name}${ExecName}Generic.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
                     MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
