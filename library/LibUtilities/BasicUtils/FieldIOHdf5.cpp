@@ -415,6 +415,11 @@ void FieldIOHdf5::v_Write(const std::string &outFile,
         std::stringstream fieldNameStream;
         uint64_t fieldDefHash = string_hasher(hashStream.str());
 
+        ASSERTL1(fieldDefHash != 0,
+                 prfx.str() +
+                     "field definition hash collides with the reserved empty "
+                     "hash value 0x0000000000000000.");
+
         decomps[f * MAX_DCMPS + HASH_DCMP_IDX] = fieldDefHash;
         all_hashes[m_comm->GetSpaceComm()->GetRank() * nMaxFields + f] =
             fieldDefHash;
@@ -564,7 +569,7 @@ void FieldIOHdf5::v_Write(const std::string &outFile,
     std::map<int, std::vector<uint64_t>> writingProcs;
 
     // Gather all field hashes to every processor.
-    m_comm->GetSpaceComm()->AllReduce(all_hashes, LibUtilities::ReduceMax);
+    m_comm->GetSpaceComm()->AllReduce(all_hashes, LibUtilities::ReduceSum);
 
     for (int n = 0; n < nprocs; ++n)
     {

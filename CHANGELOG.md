@@ -14,15 +14,20 @@ v5.11.0
 - Fix GeomFactors for Points (!2658)
 - Fix v_FwdTransBndConstrained in TriExp.cpp (!2658)
 - Added NEON support to feature/redesign (!2666)
+- Fix Hdf5 output with very large hash value (!2654)
+- Fix MPIRequest free in destructor and MeshParitioning deadlock on non-shared filesystem (!2686)
+- Fix GetBoundaryNormals() leading to intermittent bugs in WSS processing (!2688)
 
 **CI**
 - Added DEBUG_IMAGES option to reduce load on registry storage (2648)
+- Fix for non-isotropic case in ReOrientFace (!2649)
 
 **Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)
 - Move using namespace std to avoid name clashes (!2618)
 - Fix various memory leaks (!2626)
 - Update scotch thirdparty build to 7.0.1 (!2590)
+- Fix PT-Scotch header detection so an existing build tree can be reconfigured (!2681)
 - Fix some partial override of overloaded function (!2643)
 - Use std::enable_if_t<...> instead of std::enable_if<...>::type (!2645)
 
@@ -88,7 +93,8 @@ v5.10.0
 - Fix non-zero Dirichlet BCs with flow rate for inc NS Solver (!2399)
 - Added an option to modify the number of decimal point print out in a constant-rate setup (!2491)
 - Added a stablized velocity correction scheme for fluid-structure interaction of rigid body (!2040)
-
+- Added Level Set Velocity Correction Scheme for two-phase flow simulations (!2555)
+	
 **CI**
 - Add PROCESSORS property to tests to enforce correct parallelism (!2445)
 - Allow multiple tests per `.tst` file (!2509)

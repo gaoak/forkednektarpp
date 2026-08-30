@@ -5758,12 +5758,14 @@ void ExpList::v_GetBoundaryNormals(int i,
         elmt = GetExp(ElmtID[cnt + n]);
         const Array<OneD, const Array<OneD, NekDouble>> normalsElmt =
             elmt->GetTraceNormal(EdgeID[cnt + n]);
+        LocalRegions::ExpansionSharedPtr locTraceExp =
+            elmt->GetLocTraceExp(EdgeID[cnt + n]);
 
         // Interp/Copy to result
         for (j = 0; j < coordim; ++j)
         {
             GetBndCondExpansions()[i]->GetExp(n)->PhysInterp(
-                elmt, normalsElmt[j], tmp = normals[j] + offset);
+                locTraceExp, normalsElmt[j], tmp = normals[j] + offset);
         }
     }
 }

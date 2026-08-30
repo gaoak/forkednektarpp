@@ -1,5 +1,6 @@
 SET(MultiRegionsUnitTestsSources
     main.cpp
+    TestBoundaryNormals.cpp
     TestVarcoeffHashing.cpp
 )
 
