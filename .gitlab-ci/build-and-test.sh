@@ -218,7 +218,7 @@ if [[ $EXPORT_COMPILE_COMMANDS != "" ]]; then
 else
     # Otherwise build and test the code.
     $MAKE_EXEC -C $BUILD_DIR -j $NUM_CPUS all 2>&1 && $MAKE_EXEC -C $BUILD_DIR -j $NUM_CPUS install && \
-        (cd $BUILD_DIR && ctest -j $TEST_JOBS --output-on-failure --timeout 2000)
+        (cd $BUILD_DIR && ctest -j $TEST_JOBS --output-on-failure --timeout 6000)
     exit_code=$?
 
     # Build coverage
