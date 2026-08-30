@@ -61,6 +61,7 @@ public:
                       LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : NormL2BlockOp<TData>(block_idx, exp, dataWarehouse)
     {
+        // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
         m_isDeformed =
             exp->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed;
@@ -130,38 +131,6 @@ protected:
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
         m_warnOnce = true;
 #endif
-        if (inblock.GetNumPaddingElements() > 0)
-        {
-            auto maskptr =
-                Math::internalMathKernelMask<MemSpace>::GetInstance(inblock);
-            auto inptr = inblock.template GetPtr<MemSpace, ReadWrite>();
-            const auto interleaveWidth = inblock.GetInterleaveWidth();
-            const auto numElmt         = inblock.GetNumElements();
-            const auto numElmtPadded   = inblock.GetNumElementsWithPadding();
-            const auto nData           = inblock.GetNumData();
-            const auto compSize        = inblock.CompSize();
-            const auto nComp =
-                inblock.GetNumComponents() * inblock.GetNumHomoModes();
-
-            for (unsigned int n = 0; n < nComp; ++n)
-            {
-                auto compPtr = inptr + n * compSize;
-                for (size_t e = numElmt; e < numElmtPadded; ++e)
-                {
-                    const size_t lane  = e % interleaveWidth;
-                    const size_t group = e / interleaveWidth;
-                    const size_t base  = group * interleaveWidth * nData + lane;
-
-                    for (unsigned int q = 0; q < nData; ++q)
-                    {
-                        const auto offset = base + q * interleaveWidth;
-                        compPtr[offset] =
-                            maskptr[offset] ? compPtr[offset] : 0.0;
-                    }
-                }
-            }
-        }
-
         switch (m_dimension)
         {
             case 1:
@@ -190,8 +159,7 @@ protected:
         LibUtilities::MemoryRegion<TData> &data)
     {
         // Shape size.
-        const auto nq0   = m_nq[0];
-        const auto nqTot = nq0;
+        const auto nqTot = m_nq[0];
 
         unsigned int jacSize = 1;
         if (m_isDeformed)
@@ -200,7 +168,8 @@ protected:
         }
 
         // Initialize pointers.
-        auto inptr = inblock.template GetPtr<MemSpace, ReadOnly>();
+        auto inptr   = inblock.template GetPtr<MemSpace, ReadOnly>();
+        auto dataptr = data.template GetPtr<MemSpace, ReadWrite>();
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -209,16 +178,12 @@ protected:
                                          : interleaveWidth / m_implInterleaveWidth;
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
+        // Compute volume.
         const unsigned int nComp = inblock.GetNumComponents();
         const unsigned int nHomo = inblock.GetNumHomoModes();
-        auto dataptr             = data.template GetPtr<MemSpace, ReadWrite>();
-
-        // Compute volume
         if (this->m_normalised)
         {
-            simd_t vol = 0.0;
-
-            // Get jacobian ptr
+            simd_t vol  = 0.0;
             auto jacptr = m_jacptr;
 
             // Loop over element groups.
@@ -228,19 +193,21 @@ protected:
                 if (m_isDeformed)
                 {
                     vol += Volume1DKernel<true>(
-                        nq0, m_W[0], reinterpret_cast<const simd_t *>(jacptr));
+                        m_nq[0], m_W[0],
+                        reinterpret_cast<const simd_t *>(jacptr));
                 }
                 else
                 {
                     vol += Volume1DKernel<false>(
-                        nq0, m_W[0], reinterpret_cast<const simd_t *>(jacptr));
+                        m_nq[0], m_W[0],
+                        reinterpret_cast<const simd_t *>(jacptr));
                 }
 
                 // Increment pointers for the next elmt group.
                 jacptr += jacSize * simd_t::width;
             }
 
-            // Accumulate over vector_widths
+            // Accumulate over vector width.
             for (unsigned int i = 0; i < simd_t::width; i++)
             {
                 dataptr[nComp] += vol[i];
@@ -251,10 +218,7 @@ protected:
         // Loop over components.
         for (unsigned int nc = 0; nc < nComp * nHomo; ++nc)
         {
-            // temporary norm accumulation
-            simd_t acc = 0.0;
-
-            // Get jacobian ptr
+            simd_t acc  = 0.0;
             auto jacptr = m_jacptr;
 
             // Loop over element groups.
@@ -269,16 +233,32 @@ protected:
                         nqTot, (TData *)inptr);
                 }
 
+                // Zeroing padding element.
+                for (unsigned int q = 0; q < nqTot; ++q)
+                {
+                    const auto offset = q * m_implInterleaveWidth;
+                    for (unsigned int i = 0; i < m_implInterleaveWidth; i++)
+                    {
+                        if (e * m_implInterleaveWidth + i >=
+                            inblock.GetNumElements())
+                        {
+                            ((TData *)inptr)[offset + i] = 0.0;
+                        }
+                    }
+                }
+
                 if (m_isDeformed)
                 {
                     acc += L2Norm1DKernel<true>(
-                        nq0, m_W[0], reinterpret_cast<const simd_t *>(jacptr),
+                        m_nq[0], m_W[0],
+                        reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(inptr));
                 }
                 else
                 {
                     acc += L2Norm1DKernel<false>(
-                        nq0, m_W[0], reinterpret_cast<const simd_t *>(jacptr),
+                        m_nq[0], m_W[0],
+                        reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(inptr));
                 }
 
@@ -297,7 +277,7 @@ protected:
                 jacptr += jacSize * simd_t::width;
             }
 
-            // Accumulate over vector_widths
+            // Accumulate over vector width.
             for (unsigned int i = 0; i < simd_t::width; i++)
             {
                 dataptr[nc] += acc[i];
@@ -309,9 +289,7 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::MemoryRegion<TData> &data)
     {
-        const auto nq0   = m_nq[0];
-        const auto nq1   = m_nq[1];
-        const auto nqTot = nq0 * nq1;
+        const auto nqTot = m_nq[0] * m_nq[1];
 
         unsigned int jacSize = 1;
         if (m_isDeformed)
@@ -319,24 +297,23 @@ protected:
             jacSize *= nqTot;
         }
 
-        auto inptr = inblock.template GetPtr<MemSpace, ReadOnly>();
+        // Initialize pointers.
+        auto inptr   = inblock.template GetPtr<MemSpace, ReadOnly>();
+        auto dataptr = data.template GetPtr<MemSpace, ReadWrite>();
 
+        // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
         const auto width_ratio     = (interleaveWidth == 1)
                                          ? 1
                                          : interleaveWidth / m_implInterleaveWidth;
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
+        // Compute volume.
         unsigned int nComp = inblock.GetNumComponents();
         unsigned int nHomo = inblock.GetNumHomoModes();
-        auto dataptr       = data.template GetPtr<MemSpace, ReadWrite>();
-
-        // Compute volume
         if (this->m_normalised)
         {
-            simd_t vol = 0.0;
-
-            // Get jacobian ptr
+            simd_t vol  = 0.0;
             auto jacptr = m_jacptr;
 
             // Loop over element groups.
@@ -346,13 +323,13 @@ protected:
                 if (m_isDeformed)
                 {
                     vol += Volume2DKernel<true>(
-                        nq0, nq1, m_W[0], m_W[1],
+                        m_nq[0], m_nq[1], m_W[0], m_W[1],
                         reinterpret_cast<const simd_t *>(jacptr));
                 }
                 else
                 {
                     vol += Volume2DKernel<false>(
-                        nq0, nq1, m_W[0], m_W[1],
+                        m_nq[0], m_nq[1], m_W[0], m_W[1],
                         reinterpret_cast<const simd_t *>(jacptr));
                 }
 
@@ -360,7 +337,7 @@ protected:
                 jacptr += jacSize * simd_t::width;
             }
 
-            // Accumulate over vector_widths
+            // Accumulate over vector width.
             for (unsigned int i = 0; i < simd_t::width; i++)
             {
                 dataptr[nComp] += vol[i];
@@ -371,9 +348,7 @@ protected:
         // Loop over components.
         for (unsigned int nc = 0; nc < nComp * nHomo; ++nc)
         {
-            simd_t acc = 0.0;
-
-            // Get jacobian ptr
+            simd_t acc  = 0.0;
             auto jacptr = m_jacptr;
 
             // Loop over element groups.
@@ -387,17 +362,31 @@ protected:
                         nqTot, (TData *)inptr);
                 }
 
+                // Zeroing padding element.
+                for (unsigned int q = 0; q < nqTot; ++q)
+                {
+                    const auto offset = q * m_implInterleaveWidth;
+                    for (unsigned int i = 0; i < m_implInterleaveWidth; i++)
+                    {
+                        if (e * m_implInterleaveWidth + i >=
+                            inblock.GetNumElements())
+                        {
+                            ((TData *)inptr)[offset + i] = 0.0;
+                        }
+                    }
+                }
+
                 if (m_isDeformed)
                 {
                     acc += L2Norm2DKernel<true>(
-                        nq0, nq1, m_W[0], m_W[1],
+                        m_nq[0], m_nq[1], m_W[0], m_W[1],
                         reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(inptr));
                 }
                 else
                 {
                     acc += L2Norm2DKernel<false>(
-                        nq0, nq1, m_W[0], m_W[1],
+                        m_nq[0], m_nq[1], m_W[0], m_W[1],
                         reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(inptr));
                 }
@@ -411,11 +400,12 @@ protected:
                             (width_ratio - 1) * nqTot * simd_t::width);
                 }
 
+                // Increment pointers for the next elmt group.
                 inptr += nqTot * simd_t::width;
                 jacptr += jacSize * simd_t::width;
             }
 
-            // Accumulate over vector width
+            // Accumulate over vector width.
             for (unsigned int i = 0; i < simd_t::width; ++i)
             {
                 dataptr[nc] += acc[i];
@@ -427,10 +417,7 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::MemoryRegion<TData> &data)
     {
-        const auto nq0   = m_nq[0];
-        const auto nq1   = m_nq[1];
-        const auto nq2   = m_nq[2];
-        const auto nqTot = nq0 * nq1 * nq2;
+        const auto nqTot = m_nq[0] * m_nq[1] * m_nq[2];
 
         unsigned int jacSize = 1;
         if (m_isDeformed)
@@ -438,24 +425,23 @@ protected:
             jacSize *= nqTot;
         }
 
-        auto inptr = inblock.template GetPtr<MemSpace, ReadOnly>();
+        // Initialize pointers.
+        auto inptr   = inblock.template GetPtr<MemSpace, ReadOnly>();
+        auto dataptr = data.template GetPtr<MemSpace, ReadWrite>();
 
+        // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
         const auto width_ratio     = (interleaveWidth == 1)
                                          ? 1
                                          : interleaveWidth / m_implInterleaveWidth;
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
+        // Compute volume.
         unsigned int nComp = inblock.GetNumComponents();
         unsigned int nHomo = inblock.GetNumHomoModes();
-        auto dataptr       = data.template GetPtr<MemSpace, ReadWrite>();
-
-        // Compute volume
         if (this->m_normalised)
         {
-            simd_t vol = 0.0;
-
-            // Get jacobian ptr
+            simd_t vol  = 0.0;
             auto jacptr = m_jacptr;
 
             // Loop over element groups.
@@ -465,13 +451,13 @@ protected:
                 if (m_isDeformed)
                 {
                     vol += Volume3DKernel<true>(
-                        nq0, nq1, nq2, m_W[0], m_W[1], m_W[2],
+                        m_nq[0], m_nq[1], m_nq[2], m_W[0], m_W[1], m_W[2],
                         reinterpret_cast<const simd_t *>(jacptr));
                 }
                 else
                 {
                     vol += Volume3DKernel<false>(
-                        nq0, nq1, nq2, m_W[0], m_W[1], m_W[2],
+                        m_nq[0], m_nq[1], m_nq[2], m_W[0], m_W[1], m_W[2],
                         reinterpret_cast<const simd_t *>(jacptr));
                 }
 
@@ -479,7 +465,7 @@ protected:
                 jacptr += jacSize * simd_t::width;
             }
 
-            // Accumulate over vector_widths
+            // Accumulate over vector width.
             for (unsigned int i = 0; i < simd_t::width; i++)
             {
                 dataptr[nComp] += vol[i];
@@ -503,17 +489,31 @@ protected:
                         nqTot, (TData *)inptr);
                 }
 
+                // Zeroing padding element.
+                for (unsigned int q = 0; q < nqTot; ++q)
+                {
+                    const auto offset = q * m_implInterleaveWidth;
+                    for (unsigned int i = 0; i < m_implInterleaveWidth; i++)
+                    {
+                        if (e * m_implInterleaveWidth + i >=
+                            inblock.GetNumElements())
+                        {
+                            ((TData *)inptr)[offset + i] = 0.0;
+                        }
+                    }
+                }
+
                 if (m_isDeformed)
                 {
                     acc += L2Norm3DKernel<true>(
-                        nq0, nq1, nq2, m_W[0], m_W[1], m_W[2],
+                        m_nq[0], m_nq[1], m_nq[2], m_W[0], m_W[1], m_W[2],
                         reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(inptr));
                 }
                 else
                 {
                     acc += L2Norm3DKernel<false>(
-                        nq0, nq1, nq2, m_W[0], m_W[1], m_W[2],
+                        m_nq[0], m_nq[1], m_nq[2], m_W[0], m_W[1], m_W[2],
                         reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(inptr));
                 }
@@ -532,7 +532,7 @@ protected:
                 jacptr += jacSize * simd_t::width;
             }
 
-            // Accumulate over vector_widths
+            // Accumulate over vector width.
             for (unsigned int i = 0; i < simd_t::width; ++i)
             {
                 dataptr[nc] += acc[i];

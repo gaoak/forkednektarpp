@@ -55,7 +55,9 @@ public:
                       LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : NormL2BlockOp<TData>(block_idx, exp, dataWarehouse)
     {
-        m_streamID  = block_idx + 1;
+        m_streamID = block_idx + 1;
+
+        // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
         m_isDeformed =
             exp->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed;
@@ -63,7 +65,7 @@ public:
         m_dimension = exp->GetShapeDimension();
         m_coordim   = exp->GetCoordim();
 
-        // Get basis keys for fetching matrices
+        // Get basis keys for fetching matrices.
         std::vector<LibUtilities::BasisKey> basisKeys(
             m_dimension, LibUtilities::NullBasisKey);
         for (unsigned int d = 0; d < m_dimension; d++)
@@ -279,6 +281,7 @@ protected:
                 interleaveWidth, m_implInterleaveWidth, paddedNelmt,
                 inblock.GetNumData(), (TData *)inptr, m_streamID);
 
+            // Increment pointers.
             inptr += inblock.CompSize();
         }
     }
@@ -349,6 +352,7 @@ protected:
                 interleaveWidth, m_implInterleaveWidth, paddedNelmt,
                 inblock.GetNumData(), (TData *)inptr, m_streamID);
 
+            // Increment pointers.
             inptr += inblock.CompSize();
         }
     }
