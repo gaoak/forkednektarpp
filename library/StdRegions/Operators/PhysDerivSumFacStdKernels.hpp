@@ -34,10 +34,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 template <typename simd_type>
-NEK_FORCE_INLINE static void PhysDerivTensor1DKernel(const unsigned int nq0,
-                                                     const simd_type *in,
-                                                     const simd_type *D0,
-                                                     simd_type *out_d0)
+NEK_FORCE_INLINE static void PhysDerivTensor1DKernel(
+    const unsigned int nq0, const simd_type *in,
+    const typename simd_type::scalarType *D0, simd_type *out_d0)
 {
     // All matricies are column major ordered since operators used to
     // be computed via BLAS.
@@ -59,10 +58,42 @@ NEK_FORCE_INLINE static void PhysDerivTensor1DKernel(const unsigned int nq0,
     }
 }
 
+template <bool APPEND, typename simd_type>
+NEK_FORCE_INLINE static void SumDerivTensor1DKernel(
+    const unsigned int nq0, const simd_type *in0,
+    const typename simd_type::scalarType *D0, simd_type *out)
+{
+    // All matricies are column major ordered since operators used to
+    // be computed via BLAS.
+
+    // D0^T * in
+    for (unsigned int i = 0; i < nq0; ++i)
+    { // Row index of D0 matrix
+        simd_type prod_sum = 0.0;
+        for (unsigned int k = 0; k < nq0; ++k)
+        { // Col index of D0, row index of IN
+            simd_type v1 = D0[i * nq0 + k];
+            simd_type v2 = in0[k];
+
+            prod_sum.fma(v1, v2);
+        }
+
+        if constexpr (APPEND)
+        {
+            out[i] += prod_sum; // Store 1x
+        }
+        else
+        {
+            out[i] = prod_sum; // Store 1x
+        }
+    }
+}
+
 template <typename simd_type>
 NEK_FORCE_INLINE static void PhysDerivTensor2DKernel(
     const unsigned int nq0, const unsigned int nq1, const simd_type *in,
-    const simd_type *D0, const simd_type *D1, simd_type *out_d0,
+    const typename simd_type::scalarType *D0,
+    const typename simd_type::scalarType *D1, simd_type *out_d0,
     simd_type *out_d1, bool Deriv0 = true, bool Deriv1 = true)
 {
     // All matricies are column major ordered since operators used to
@@ -114,17 +145,17 @@ NEK_FORCE_INLINE static void PhysDerivTensor2DKernel(
     }
 }
 
-template <typename simd_type>
+template <bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void SumDerivTensor2DKernel(
     const unsigned int nq0, const unsigned int nq1, const simd_type *in0,
-    const simd_type *in1, const simd_type *D0, const simd_type *D1,
-    simd_type *out, const typename simd_type::scalarType scale = 0.0,
+    const simd_type *in1, const typename simd_type::scalarType *D0,
+    const typename simd_type::scalarType *D1, simd_type *out,
     bool Deriv0 = true, bool Deriv1 = true)
 {
     // All matricies are column major ordered since operators used to
     // be computed via BLAS.
 
-    // D0 * in
+    // D0^T * in
     if (Deriv0) // backwards compatibility with StdRegsion PhyTensorDeriv
     {
         for (unsigned int i = 0; i < nq0; ++i)
@@ -141,13 +172,19 @@ NEK_FORCE_INLINE static void SumDerivTensor2DKernel(
                     prod_sum.fma(v1, v2);
                 }
 
-                out[j * nq0 + i] *= simd_type(scale);
-                out[j * nq0 + i] += prod_sum; // Store 1x
+                if constexpr (APPEND)
+                {
+                    out[j * nq0 + i] += prod_sum; // Store 1x
+                }
+                else
+                {
+                    out[j * nq0 + i] = prod_sum; // Store 1x
+                }
             }
         }
     }
 
-    // D1 * in
+    // D1^T * in
     if (Deriv1)
     {
         // in * D1^T
@@ -174,10 +211,11 @@ NEK_FORCE_INLINE static void SumDerivTensor2DKernel(
 template <typename simd_type>
 NEK_FORCE_INLINE static void PhysDerivTensor3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const simd_type *in, const simd_type *D0, const simd_type *D1,
-    const simd_type *D2, simd_type *out_d0, simd_type *out_d1,
-    simd_type *out_d2, bool Deriv0 = true, bool Deriv1 = true,
-    bool Deriv2 = true)
+    const simd_type *in, const typename simd_type::scalarType *D0,
+    const typename simd_type::scalarType *D1,
+    const typename simd_type::scalarType *D2, simd_type *out_d0,
+    simd_type *out_d1, simd_type *out_d2, bool Deriv0 = true,
+    bool Deriv1 = true, bool Deriv2 = true)
 {
     // All matricies are column major ordered since operators used to
     // be computed via BLAS.
@@ -251,12 +289,13 @@ NEK_FORCE_INLINE static void PhysDerivTensor3DKernel(
     }
 }
 
-template <typename simd_type>
+template <bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void SumDerivTensor3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const simd_type *in0, const simd_type *in1, const simd_type *in2,
-    const simd_type *D0, const simd_type *D1, const simd_type *D2,
-    simd_type *out, const typename simd_type::scalarType scale = 0.0,
+    const typename simd_type::scalarType *D0,
+    const typename simd_type::scalarType *D1,
+    const typename simd_type::scalarType *D2, simd_type *out,
     bool Deriv0 = true, bool Deriv1 = true, bool Deriv2 = true)
 {
     // All matricies are column major ordered since operators used to
@@ -283,8 +322,14 @@ NEK_FORCE_INLINE static void SumDerivTensor3DKernel(
 
                         prod_sum.fma(v1, v2);
                     }
-                    out[cnt_kj * nq0 + p] *= simd_type(scale);
-                    out[cnt_kj * nq0 + p] += prod_sum; // Store 1x
+                    if constexpr (APPEND)
+                    {
+                        out[cnt_kj * nq0 + p] += prod_sum; // Store 1x
+                    }
+                    else
+                    {
+                        out[cnt_kj * nq0 + p] = prod_sum; // Store 1x
+                    }
                 }
             }
         }

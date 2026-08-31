@@ -154,6 +154,14 @@ void IncNavierStokes::v_InitObject(bool DeclareField)
         vConvectiveType = m_session->GetTag("AdvectiveType");
     }
 
+    // Check Level Set
+    bool match;
+    m_session->MatchSolverInfo("SolverType", "VCSLevelSet", match, false);
+    if (match)
+    {
+        vConvectiveType = "NSLevelSet";
+    }
+
     // Initialise advection
     m_advObject = SolverUtils::GetAdvectionFactory().CreateInstance(
         vConvectiveType, vConvectiveType);

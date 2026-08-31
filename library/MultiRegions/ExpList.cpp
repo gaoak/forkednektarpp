@@ -2979,7 +2979,8 @@ DNekMatSharedPtr ExpList::GenGlobalMatrixFull(
             const NekDouble *dat = loc_mat->GetRawPtr();
             DNekMatSharedPtr new_mat =
                 MemoryManager<DNekMat>::AllocateSharedPtr(rows, cols, dat);
-            Blas::Dscal(rows * cols, loc_mat->Scale(), new_mat->GetRawPtr(), 1);
+            Vmath::Smul(rows * cols, loc_mat->Scale(), new_mat->GetRawPtr(), 1,
+                        new_mat->GetRawPtr(), 1);
 
             // add local matrix contribution
             for (rBC = RobinBCInfo.find(n)->second; rBC; rBC = rBC->next)
@@ -5690,12 +5691,14 @@ void ExpList::v_GetBoundaryNormals(int i,
         elmt = GetExp(ElmtID[cnt + n]);
         const Array<OneD, const Array<OneD, NekDouble>> normalsElmt =
             elmt->GetTraceNormal(EdgeID[cnt + n]);
+        LocalRegions::ExpansionSharedPtr locTraceExp =
+            elmt->GetLocTraceExp(EdgeID[cnt + n]);
 
         // Interp/Copy to result
         for (j = 0; j < coordim; ++j)
         {
             GetBndCondExpansions()[i]->GetExp(n)->PhysInterp(
-                elmt, normalsElmt[j], tmp = normals[j] + offset);
+                locTraceExp, normalsElmt[j], tmp = normals[j] + offset);
         }
     }
 }

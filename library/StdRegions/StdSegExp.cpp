@@ -156,16 +156,17 @@ void StdSegExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
         // Default case
 #undef BWDTRANS_DEF
 #define BWDTRANS_DEF                                                           \
-    BwdTransSegKernel(nmodes0, nquad0, (const vec_t *)base0.data(),            \
-                      (const vec_t *)inarray.data(), (vec_t *)outarray.data())
+    BwdTransSegKernel<false>(nmodes0, nquad0, base0.data(),                    \
+                             (const vec_t *)inarray.data(),                    \
+                             (vec_t *)outarray.data())
 
         // Inner loop case over quarature points
 #undef BWDTRANS_Q
 #define BWDTRANS_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        BwdTransSegKernel(NM(i), NQ(i), (const vec_t *)base0.data(),           \
-                          (const vec_t *)inarray.data(),                       \
-                          (vec_t *)outarray.data());                           \
+        BwdTransSegKernel<false>(NM(i), NQ(i), base0.data(),                   \
+                                 (const vec_t *)inarray.data(),                \
+                                 (vec_t *)outarray.data());                    \
         break;
 
         // outer loop case over modes
@@ -342,18 +343,18 @@ void StdSegExp::v_IProductWRTBaseKernel(
 #undef IPRODUCTWRTBASE_DEF
 #define IPRODUCTWRTBASE_DEF                                                    \
     IProductSegKernel<false, false, true>(                                     \
-        order0, nquad0, (const vec_t *)inarray.data(),                         \
-        (const vec_t *)base0.data(), (const vec_t *)m_weights[0].data(),       \
-        (const vec_t *)jac.data(), (vec_t *)outarray.data())
+        order0, nquad0, (const vec_t *)inarray.data(), base0.data(),           \
+        m_weights[0].data(), (const vec_t *)jac.data(),                        \
+        (vec_t *)outarray.data())
 
         // Inner loop case over quarature points
 #undef IPRODUCTWRTBASE_Q
 #define IPRODUCTWRTBASE_Q(r, i)                                                \
     case NQ(i):                                                                \
         IProductSegKernel<false, false, true>(                                 \
-            NM(i), NQ(i), (const vec_t *)inarray.data(),                       \
-            (const vec_t *)base0.data(), (const vec_t *)m_weights[0].data(),   \
-            (const vec_t *)jac.data(), (vec_t *)outarray.data());              \
+            NM(i), NQ(i), (const vec_t *)inarray.data(), base0.data(),         \
+            m_weights[0].data(), (const vec_t *)jac.data(),                    \
+            (vec_t *)outarray.data());                                         \
         break;
 
         // outer loop case over modes
@@ -388,18 +389,18 @@ void StdSegExp::v_IProductWRTBaseKernel(
 #undef IPRODUCTWRTBASE_DEF
 #define IPRODUCTWRTBASE_DEF                                                    \
     IProductSegKernel<false, false, false>(                                    \
-        order0, nquad0, (const vec_t *)inarray.data(),                         \
-        (const vec_t *)base0.data(), (const vec_t *)m_weights[0].data(),       \
-        (const vec_t *)jac.data(), (vec_t *)outarray.data())
+        order0, nquad0, (const vec_t *)inarray.data(), base0.data(),           \
+        m_weights[0].data(), (const vec_t *)jac.data(),                        \
+        (vec_t *)outarray.data())
 
         // Inner loop case over quarature points
 #undef IPRODUCTWRTBASE_Q
 #define IPRODUCTWRTBASE_Q(r, i)                                                \
     case NQ(i):                                                                \
         IProductSegKernel<false, false, false>(                                \
-            NM(i), NQ(i), (const vec_t *)inarray.data(),                       \
-            (const vec_t *)base0.data(), (const vec_t *)m_weights[0].data(),   \
-            (const vec_t *)jac.data(), (vec_t *)outarray.data());              \
+            NM(i), NQ(i), (const vec_t *)inarray.data(), base0.data(),         \
+            m_weights[0].data(), (const vec_t *)jac.data(),                    \
+            (vec_t *)outarray.data());                                         \
         break;
 
         // outer loop case over modes
@@ -535,8 +536,8 @@ void StdSegExp::v_HelmholtzMatrixOp(const Array<OneD, const NekDouble> &inarray,
                 NullNekDouble1DArray);
     v_IProductWRTBaseKernel(m_base[0]->GetDbdata(), dPhysValuesdx, outarray,
                             one, false);
-    Blas::Daxpy(m_ncoeffs, mkey.GetConstFactor(eFactorLambda), wsp.data(), 1,
-                outarray.data(), 1);
+    Vmath::Svtvp(m_ncoeffs, mkey.GetConstFactor(eFactorLambda), wsp.data(), 1,
+                 outarray.data(), 1, outarray.data(), 1);
 }
 
 void StdSegExp::v_SVVLaplacianFilter(Array<OneD, NekDouble> &array,

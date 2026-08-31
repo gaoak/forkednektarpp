@@ -611,7 +611,7 @@ void MMFSWE::GetSWEFluxVector(
 
             // huu + 0.5 g hh in flux 0
             // Daxpy overwrites flux[0] on exit
-            Blas::Daxpy(nq, 0.5 * m_g, tmp, 1, flux[0], 1);
+            Vmath::Svtvp(nq, 0.5 * m_g, tmp, 1, flux[0], 1, flux[0], 1);
 
             // huv in flux 1
             Vmath::Vmul(nq, flux[1], 1, physfield[2], 1, flux[1], 1);
@@ -639,7 +639,7 @@ void MMFSWE::GetSWEFluxVector(
             Vmath::Vmul(nq, tmp, 1, tmp, 1, tmp, 1);
 
             // hvv + 0.5 g hh in flux 1
-            Blas::Daxpy(nq, 0.5 * m_g, tmp, 1, flux[1], 1);
+            Vmath::Svtvp(nq, 0.5 * m_g, tmp, 1, flux[1], 1, flux[1], 1);
         }
         break;
 
@@ -656,7 +656,7 @@ void MMFSWE::GetSWEFluxVector(
             Vmath::Vmul(nq, h, 1, h, 1, h, 1);
 
             // 0.5 g hh in flux 0
-            Blas::Daxpy(nq, 0.5 * m_g, h, 1, flux[0], 1);
+            Vmath::Svtvp(nq, 0.5 * m_g, h, 1, flux[0], 1, flux[0], 1);
         }
         break;
 

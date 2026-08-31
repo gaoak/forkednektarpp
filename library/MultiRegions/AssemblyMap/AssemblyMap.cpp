@@ -540,14 +540,14 @@ int AssemblyMap::v_GetGlobalToUniversalMapUnique(
     return 0;
 }
 
-const Array<OneD, const int> &AssemblyMap::v_GetLocalToGlobalMap()
+const Array<OneD, const int> &AssemblyMap::v_GetLocalToGlobalMap() const
 {
     NEKERROR(ErrorUtil::efatal, "Not defined for this type of mapping.");
     static Array<OneD, const int> result;
     return result;
 }
 
-const Array<OneD, const int> &AssemblyMap::v_GetGlobalToUniversalMap()
+const Array<OneD, const int> &AssemblyMap::v_GetGlobalToUniversalMap() const
 {
     NEKERROR(ErrorUtil::efatal, "Not defined for this type of mapping.");
     static Array<OneD, const int> result;
@@ -728,12 +728,12 @@ int AssemblyMap::GetGlobalToUniversalMapUnique(const int i) const
     return v_GetGlobalToUniversalMapUnique(i);
 }
 
-const Array<OneD, const int> &AssemblyMap::GetLocalToGlobalMap()
+const Array<OneD, const int> &AssemblyMap::GetLocalToGlobalMap() const
 {
     return v_GetLocalToGlobalMap();
 }
 
-const Array<OneD, const int> &AssemblyMap::GetGlobalToUniversalMap()
+const Array<OneD, const int> &AssemblyMap::GetGlobalToUniversalMap() const
 {
     return v_GetGlobalToUniversalMap();
 }

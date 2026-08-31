@@ -354,6 +354,7 @@ void PulseWaveSystem::GetCommArray(
     std::strcpy(argv, def.c_str());
     LibUtilities::CommSharedPtr serialComm =
         MemoryManager<LibUtilities::CommSerial>::AllocateSharedPtr(1, &argv);
+    delete[] argv;
 
     size_t nprocs = m_comm->GetSize();
 

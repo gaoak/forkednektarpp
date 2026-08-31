@@ -3,6 +3,7 @@ blas-devel
 boost-devel
 ccache
 cmake
+bison
 flex
 gcc-c++
 gcc-gfortran

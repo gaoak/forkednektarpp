@@ -61,6 +61,7 @@ enum SolverType
     eVCSWeakPressure,
     eWeakPressure,
     eVCSImplicit,
+    eVCSLevelSet,
     eImplicit,
     eVCSFSI,
     ePressDecompVCSFSI,
@@ -100,17 +101,14 @@ enum AdvectionForm
     eAdjoint,
     eSkewSymmetric,
     eNoAdvection,
+    eNSLevelSet,
     eAdvectionFormSize
 };
 
 // Keep this consistent with the enums in EquationType.
-const std::string kAdvectionFormStr[] = {"NoType",
-                                         "Convective",
-                                         "NonConservative",
-                                         "Linearised",
-                                         "Adjoint",
-                                         "SkewSymmetric"
-                                         "NoAdvection"};
+const std::string kAdvectionFormStr[] = {
+    "NoType",  "Convective",    "NonConservative", "Linearised",
+    "Adjoint", "SkewSymmetric", "NoAdvection",     "NSLevelSet"};
 
 typedef std::complex<double> NekComplexDouble;
 

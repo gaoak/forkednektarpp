@@ -154,7 +154,7 @@ void GlobalLinSysIterativeFull::v_Solve(
 
         if (std::dynamic_pointer_cast<AssemblyMapCG>(pLocToGloMap))
         {
-            Array<OneD, NekDouble> diff(nLocDofs);
+            Array<OneD, NekDouble> diff(nLocDofs, 0.0);
 
             // Solve for perturbation from initial guess in pOutput
             SolveLinearSystem(nGlobDofs, rhs, diff, pLocToGloMap, nDirDofs);

@@ -88,17 +88,21 @@ private:
     ~IdealGasEoS(void) override = default;
 
     // type agnostic kernels
-    template <class T, typename = typename std::enable_if<
-                           std::is_floating_point_v<T> ||
-                           tinysimd::is_vector_floating_point_v<T>>::type>
+    template <class T,
+              std::enable_if_t<std::is_floating_point_v<T> ||
+                                   tinysimd::is_vector_floating_point_v<T>,
+                               bool>
+                  Enable = true>
     inline T GetTemperatureKernel(const T &e)
     {
         return e * m_gammaMoneOgasConst;
     }
 
-    template <class T, typename = typename std::enable_if<
-                           std::is_floating_point_v<T> ||
-                           tinysimd::is_vector_floating_point_v<T>>::type>
+    template <class T,
+              std::enable_if_t<std::is_floating_point_v<T> ||
+                                   tinysimd::is_vector_floating_point_v<T>,
+                               bool>
+                  Enable = true>
     inline T GetPressureKernel(const T &rho, const T &e)
     {
         return rho * e * m_gammaMone;

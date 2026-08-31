@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: BlasArray.hpp
+// File: NSAdvectionLevelSet.h
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,42 +28,54 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: wrapper of functions around standard BLAS routines
-// using Array's as calling arguments
+// Description:  Evaluation of the Navier Stokes advective term for VCSLevelSet
+//
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef NEKTAR_LIB_UTILITIES_LINEAR_ALGEBRA_BLASARRAY_HPP
-#define NEKTAR_LIB_UTILITIES_LINEAR_ALGEBRA_BLASARRAY_HPP
+#ifndef NEKTAR_SOLVERS_NAVIERSTOKESADVECTION_H
+#define NEKTAR_SOLVERS_NAVIERSTOKESADVECTION_H
 
-#include <LibUtilities/BasicUtils/SharedArray.hpp>
-#include <LibUtilities/LinearAlgebra/TransF77.hpp>
+#include <SolverUtils/Advection/Advection.h>
 
-// Translations for using Fortran version of blas
-namespace Blas
+namespace Nektar
 {
 
-extern "C"
+class NSAdvectionLevelSet : public SolverUtils::Advection
 {
-    // -- BLAS Level 1:
-    void F77NAME(daxpy)(const int &n, const double &alpha, const double *x,
-                        const int &incx, const double *y, const int &incy);
-}
+public:
+    friend class MemoryManager<NSAdvectionLevelSet>;
 
-/// \brief  BLAS level 1: y = alpha \a x plus \a y
-static inline void Daxpy(const int &n, const double &alpha,
-                         const Nektar::Array<Nektar::OneD, const double> &x,
-                         const int &incx,
-                         Nektar::Array<Nektar::OneD, double> &y,
-                         const int &incy)
-{
-    ASSERTL1(static_cast<unsigned int>(n * incx) <= x.size() + x.GetOffset(),
-             "Array out of bounds");
-    ASSERTL1(static_cast<unsigned int>(n * incy) <= y.size() + y.GetOffset(),
-             "Array out of bounds");
+    /// Creates an instance of this class
+    static SolverUtils::AdvectionSharedPtr create(std::string)
+    {
+        return MemoryManager<NSAdvectionLevelSet>::AllocateSharedPtr();
+    }
 
-    F77NAME(daxpy)(n, alpha, &x[0], incx, &y[0], incy);
-}
+    /// Name of class
+    static std::string className;
 
-} // namespace Blas
-#endif // NEKTAR_LIB_UTILITIES_LINEAR_ALGEBRA_BLASARRAY_HPP
+protected:
+    NSAdvectionLevelSet();
+
+    ~NSAdvectionLevelSet() override = default;
+
+    void v_InitObject(
+        LibUtilities::SessionReaderSharedPtr pSession,
+        Array<OneD, MultiRegions::ExpListSharedPtr> pFields) override;
+
+    void v_Advect(const int nConvectiveFields,
+                  const Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
+                  const Array<OneD, Array<OneD, NekDouble>> &advVel,
+                  const Array<OneD, Array<OneD, NekDouble>> &inarray,
+                  Array<OneD, Array<OneD, NekDouble>> &outarray,
+                  const NekDouble &time,
+                  const Array<OneD, Array<OneD, NekDouble>> &pFwd =
+                      NullNekDoubleArrayOfArray,
+                  const Array<OneD, Array<OneD, NekDouble>> &pBwd =
+                      NullNekDoubleArrayOfArray) override;
+};
+
+} // namespace Nektar
+
+#endif // NEKTAR_SOLVERS_LEVELSETINS_H

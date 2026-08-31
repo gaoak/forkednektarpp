@@ -97,9 +97,8 @@ void StdExpansion2D::PhysTensorDeriv(
     // --preprocess to the c++ command. Default case
 #undef PHYSDERIV_DEF
 #define PHYSDERIV_DEF                                                          \
-    PhysDerivTensor2DKernel(nquad0, nquad1, (const vec_t *)intmp.data(),       \
-                            (const vec_t *)D0, (const vec_t *)D1,              \
-                            (vec_t *)outarray_d0.data(),                       \
+    PhysDerivTensor2DKernel(nquad0, nquad1, (const vec_t *)intmp.data(), D0,   \
+                            D1, (vec_t *)outarray_d0.data(),                   \
                             (vec_t *)outarray_d1.data(), Deriv0, Deriv1)
 
     // Loop case over quarature points
@@ -107,8 +106,7 @@ void StdExpansion2D::PhysTensorDeriv(
 #define PHYSDERIV_Q(r, i)                                                      \
     case NQ1(i):                                                               \
         PhysDerivTensor2DKernel(NQ1(i), NQ1(i), (const vec_t *)intmp.data(),   \
-                                (const vec_t *)D0, (const vec_t *)D1,          \
-                                (vec_t *)outarray_d0.data(),                   \
+                                D0, D1, (vec_t *)outarray_d0.data(),           \
                                 (vec_t *)outarray_d1.data(), Deriv0, Deriv1);  \
         break;
 

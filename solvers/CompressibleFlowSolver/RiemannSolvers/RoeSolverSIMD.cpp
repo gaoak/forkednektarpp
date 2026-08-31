@@ -75,7 +75,6 @@ void RoeSolverSIMD::v_Solve(
 
     using namespace tinysimd;
     using vec_t = simd<NekDouble>;
-    // using vec_t = typename tinysimd::abi::scalar<NekDouble>::type;
 
     // get limit of vectorizable chunk
     size_t sizeScalar = fwd[0].size();

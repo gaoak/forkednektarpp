@@ -37,78 +37,74 @@
 
 #include <LibUtilities/BasicConst/NektarUnivTypeDefs.hpp>
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
+#include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/LibUtilitiesDeclspec.h>
 
-namespace Nektar
+namespace Nektar::LibUtilities
 {
-template <typename Dim, typename DataType> class Array;
 
-namespace LibUtilities
-{
-/**
- * The NektarFFT class is a virtual class to manage the use of the FFT to do
- * Fwd/Bwd transformations and convolutions. The function here defined will link
- * to a proper implementation of the FFT algorithm. Depending on the user
- * definition the functions can link to a class which is a wrapper around the
- * FFTW library or to a specific FFT implementation.
- */
-class NektarFFT;
+template <typename TData> class NektarFFT;
 
-// A shared pointer to the NektarFFT object
-typedef std::shared_ptr<NektarFFT> NektarFFTSharedPtr;
+// Backward-compatible shared pointer for the double specialisation.
+using NektarFFTSharedPtr = std::shared_ptr<NektarFFT<double>>;
 
-/// Datatype of the NekFactory used to instantiate classes derived from
-/// the NektarFFT class.
-typedef LibUtilities::NekFactory<std::string, NektarFFT, int> NektarFFTFactory;
+// Convenience aliases for the two supported precisions.
+using NektarFFTDouble = NektarFFT<double>;
+using NektarFFTFloat  = NektarFFT<float>;
+
+// Factory types, one per precision.
+using NektarFFTFactory      = NekFactory<std::string, NektarFFT<double>, int>;
+using NektarFFTFloatFactory = NekFactory<std::string, NektarFFT<float>, int>;
 
 LIB_UTILITIES_EXPORT NektarFFTFactory &GetNektarFFTFactory();
+LIB_UTILITIES_EXPORT NektarFFTFloatFactory &GetNektarFFTFloatFactory();
 
-class NektarFFT
+/**
+ * Base class for FFT implementations. Templated on the real scalar type TData
+ * (double or float). Derived classes implement v_FFTFwdTrans and
+ * v_FFTBwdTrans.
+ */
+template <typename TData> class NektarFFT
 {
 public:
-    /// Initialises NektarFFT class members.
-    LIB_UTILITIES_EXPORT NektarFFT(int N);
+    NektarFFT(int N) : m_N(N)
+    {
+    }
 
-    // Distructor
-    LIB_UTILITIES_EXPORT virtual ~NektarFFT();
+    virtual ~NektarFFT() = default;
 
     /**
-     * m_N is the dimension of the Fourier transform.
-     * It means that the coefficient vector and the vector of the variable in
-     * physical space have size m_N. It is becasue everything is managed just
-     * with real data.
+     * m_N is the number of real points in the transform.
      */
     int m_N;
 
-    /**
-     * Forward transformation to pass from physical to coefficient space using
-     * the FFT. This method will take the place of the Matrix-Vector
-     * multiplication input: N         = number of Fourier points inarray   =
-     * vector in physical space (length N) output: outarray  = vector in
-     * coefficient space (length N)
-     */
-    LIB_UTILITIES_EXPORT void FFTFwdTrans(Array<OneD, NekDouble> &phy,
-                                          Array<OneD, NekDouble> &coef);
+    // Array overloads: dispatch to the raw-pointer virtuals.
 
-    /**
-     * Backward transformation to pass from coefficient to physical space using
-     * the FFT. This method will take the place of the Matrix-Vector
-     * multiplication input: N          = number of Fourier points inarrray   =
-     * vector in coefficient space (length N) output: outarray   = vector in
-     * physical space (length N)
-     */
-    LIB_UTILITIES_EXPORT void FFTBwdTrans(Array<OneD, NekDouble> &coef,
-                                          Array<OneD, NekDouble> &phys);
+    void FFTFwdTrans(Array<OneD, TData> &phys, Array<OneD, TData> &coef)
+    {
+        v_FFTFwdTrans(phys.data(), coef.data());
+    }
+
+    void FFTFwdTrans(TData *phys, TData *coef)
+    {
+        v_FFTFwdTrans(phys, coef);
+    }
+
+    void FFTBwdTrans(Array<OneD, TData> &coef, Array<OneD, TData> &phys)
+    {
+        v_FFTBwdTrans(coef.data(), phys.data());
+    }
+
+    void FFTBwdTrans(TData *coef, TData *phys)
+    {
+        v_FFTBwdTrans(coef, phys);
+    }
 
 protected:
-    virtual void v_FFTFwdTrans(Array<OneD, NekDouble> &phys,
-                               Array<OneD, NekDouble> &coef);
-
-    virtual void v_FFTBwdTrans(Array<OneD, NekDouble> &coef,
-                               Array<OneD, NekDouble> &phys);
-
-private:
+    virtual void v_FFTFwdTrans(TData *phys, TData *coef) = 0;
+    virtual void v_FFTBwdTrans(TData *coef, TData *phys) = 0;
 };
-} // end namespace LibUtilities
-} // end of namespace Nektar
+
+} // namespace Nektar::LibUtilities
+// end of namespace Nektar
 #endif // NEKTAR_LIB_UTILIITIES_FFT_NEKTARFFT_H

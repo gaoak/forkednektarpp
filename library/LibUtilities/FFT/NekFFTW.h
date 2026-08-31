@@ -38,61 +38,50 @@
 #include <LibUtilities/FFT/NektarFFT.h>
 
 #include <LibUtilities/BasicConst/NektarUnivConsts.hpp>
-#include <LibUtilities/BasicConst/NektarUnivTypeDefs.hpp>
 #include <LibUtilities/BasicUtils/NekManager.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
 
-namespace Nektar
+namespace Nektar::LibUtilities
 {
-template <typename Dim, typename DataType> class Array;
 
-namespace LibUtilities
-{
-class NekFFTW;
-
-// A shared pointer to the NekFFTW object
-typedef std::shared_ptr<NekFFTW> NekFFTWSharedPtr;
-
-class NekFFTW : public NektarFFT
+/**
+ * FFTW-backed NektarFFT implementation. TData must be double or float,
+ * the corresponding fftw_plan / fftwf_plan API is selected via if constexpr.
+ *
+ * The public aliases NekFFTW and NekFFTWFloat refer to the double and float
+ * specialisations respectively.
+ */
+template <typename TData> class NekFFTWImpl : public NektarFFT<TData>
 {
 public:
-    /// Creates an instance of this class
-    static NektarFFTSharedPtr create(int N)
+    static std::shared_ptr<NektarFFT<TData>> create(int N)
     {
-        return MemoryManager<NekFFTW>::AllocateSharedPtr(N);
+        return MemoryManager<NekFFTWImpl<TData>>::AllocateSharedPtr(N);
     }
 
-    /// Name of class
     static std::string className;
 
-    // constructor (initialisation of the FFTW planes and fill up the m_FFTW_w
-    // vector)
-    NekFFTW(int N);
-
-    // Distructor
-    ~NekFFTW() override;
+    NekFFTWImpl(int N);
+    ~NekFFTWImpl() override;
 
 protected:
-    Array<OneD, NekDouble>
-        m_FFTW_w; // weights to convert arrays form Nektar++ to FFTW format
-    Array<OneD, NekDouble>
-        m_FFTW_w_inv; // weights to convert arrays from FFTW to Nektar++ format
+    Array<OneD, TData> m_FFTW_w;
+    Array<OneD, TData> m_FFTW_w_inv;
+    Array<OneD, TData> m_wsp;
 
-    Array<OneD, NekDouble> m_wsp; // Workspace area for transforms
+    void *m_plan_backward;
+    void *m_plan_forward;
 
-    void *m_plan_backward; // plan to execute a backward FFT in FFTW
-    void *m_plan_forward;  // plan to execute a forward FFT in FFTW
-
-    void v_FFTFwdTrans(Array<OneD, NekDouble> &inarray,
-                       Array<OneD, NekDouble> &outarray) override;
-
-    void v_FFTBwdTrans(Array<OneD, NekDouble> &inarray,
-                       Array<OneD, NekDouble> &outarray) override;
-
-private:
+    void v_FFTFwdTrans(TData *inarray, TData *outarray) override;
+    void v_FFTBwdTrans(TData *inarray, TData *outarray) override;
 };
 
-} // end namespace LibUtilities
-} // end of namespace Nektar
+// Backward-compatible aliases.
+using NekFFTW      = NekFFTWImpl<double>;
+using NekFFTWFloat = NekFFTWImpl<float>;
+
+using NekFFTWSharedPtr = std::shared_ptr<NekFFTW>;
+
+} // namespace Nektar::LibUtilities
 #endif // NEKTAR_LIB_UTILIITIES_FFT_NEKFFTW_H

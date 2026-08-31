@@ -606,9 +606,10 @@ public:
         {
             for (i = 0; i < m_numElmt; ++i)
             {
-                Blas::Daxpy(m_nquad1, input[1 + i * ncoeffs],
-                            m_base1.data() + m_nquad1, 1,
-                            &wsp[m_nquad1 * m_numElmt] + i * m_nquad1, 1);
+                Vmath::Svtvp(m_nquad1, input[1 + i * ncoeffs],
+                             m_base1.data() + m_nquad1, 1,
+                             &wsp[m_nquad1 * m_numElmt] + i * m_nquad1, 1,
+                             &wsp[m_nquad1 * m_numElmt] + i * m_nquad1, 1);
             }
         }
 
@@ -822,16 +823,17 @@ public:
             {
                 // top singular vertex
                 // (1+c)/2 x (1+b)/2 x (1-a)/2 component
-                Blas::Daxpy(m_nquad2, input[1 + i * ncoeffs],
-                            m_base2.data() + m_nquad2, 1,
-                            &tmp[m_nquad2 * m_numElmt] + i * m_nquad2, 1);
+                Vmath::Svtvp(m_nquad2, input[1 + i * ncoeffs],
+                             m_base2.data() + m_nquad2, 1,
+                             &tmp[m_nquad2 * m_numElmt] + i * m_nquad2, 1,
+                             &tmp[m_nquad2 * m_numElmt] + i * m_nquad2, 1);
 
                 // top singular vertex
                 // (1+c)/2 x (1-b)/2 x (1+a)/2 component
-                Blas::Daxpy(
+                Vmath::Svtvp(
                     m_nquad2, input[1 + i * ncoeffs], m_base2.data() + m_nquad2,
-                    1, &tmp[m_nmodes1 * m_nquad2 * m_numElmt] + i * m_nquad2,
-                    1);
+                    1, &tmp[m_nmodes1 * m_nquad2 * m_numElmt] + i * m_nquad2, 1,
+                    &tmp[m_nmodes1 * m_nquad2 * m_numElmt] + i * m_nquad2, 1);
             }
         }
 
@@ -862,12 +864,15 @@ public:
                 // edge components with (1+b)/2 (1+a)/2 form
                 for (int j = 0; j < m_nquad2; ++j)
                 {
-                    Blas::Daxpy(m_nquad1,
-                                tmp[m_nquad2 * m_numElmt + i * m_nquad2 + j],
-                                m_base1.data() + m_nquad1, 1,
-                                &tmp1[m_nquad1 * m_nquad2 * m_numElmt] +
-                                    i * m_nquad1 * m_nquad2 + j * m_nquad1,
-                                1);
+                    Vmath::Svtvp(m_nquad1,
+                                 tmp[m_nquad2 * m_numElmt + i * m_nquad2 + j],
+                                 m_base1.data() + m_nquad1, 1,
+                                 &tmp1[m_nquad1 * m_nquad2 * m_numElmt] +
+                                     i * m_nquad1 * m_nquad2 + j * m_nquad1,
+                                 1,
+                                 &tmp1[m_nquad1 * m_nquad2 * m_numElmt] +
+                                     i * m_nquad1 * m_nquad2 + j * m_nquad1,
+                                 1);
                 }
             }
         }
@@ -988,13 +993,17 @@ public:
             {
                 for (i = 0; i < m_numElmt; ++i)
                 {
-                    Blas::Daxpy(m_nquad2,
-                                input[1 + i * totmodes + j * m_nmodes2],
-                                m_base2.data() + m_nquad2, 1,
-                                &wsp[j * m_nquad2 * m_numElmt * m_nmodes0 +
-                                     m_nquad2 * m_numElmt] +
-                                    i * m_nquad2,
-                                1);
+                    Vmath::Svtvp(m_nquad2,
+                                 input[1 + i * totmodes + j * m_nmodes2],
+                                 m_base2.data() + m_nquad2, 1,
+                                 &wsp[j * m_nquad2 * m_numElmt * m_nmodes0 +
+                                      m_nquad2 * m_numElmt] +
+                                     i * m_nquad2,
+                                 1,
+                                 &wsp[j * m_nquad2 * m_numElmt * m_nmodes0 +
+                                      m_nquad2 * m_numElmt] +
+                                     i * m_nquad2,
+                                 1);
                 }
             }
             // Believe this could be made into a m_nmodes1
@@ -1130,24 +1139,28 @@ public:
             {
                 // top singular vertex
                 // (1+c)/2 x (1+b)/2 x (1-a)/2 component
-                Blas::Daxpy(m_nquad2, input[1 + i * totmodes],
-                            m_base2.data() + m_nquad2, 1,
-                            &wsp[m_nquad2 * m_numElmt] + i * m_nquad2, 1);
+                Vmath::Svtvp(m_nquad2, input[1 + i * totmodes],
+                             m_base2.data() + m_nquad2, 1,
+                             &wsp[m_nquad2 * m_numElmt] + i * m_nquad2, 1,
+                             &wsp[m_nquad2 * m_numElmt] + i * m_nquad2, 1);
 
                 // top singular vertex
                 // (1+c)/2 x (1-b)/2 x (1+a)/2 component
-                Blas::Daxpy(
+                Vmath::Svtvp(
                     m_nquad2, input[1 + i * totmodes],
                     m_base2.data() + m_nquad2, 1,
+                    &wsp[m_nmodes1 * m_nquad2 * m_numElmt] + i * m_nquad2, 1,
                     &wsp[m_nmodes1 * m_nquad2 * m_numElmt] + i * m_nquad2, 1);
 
                 // top singular vertex
                 // (1+c)/2 x (1+b)/2 x (1+a)/2 component
-                Blas::Daxpy(m_nquad2, input[1 + i * totmodes],
-                            m_base2.data() + m_nquad2, 1,
-                            &wsp[(m_nmodes1 + 1) * m_nquad2 * m_numElmt] +
-                                i * m_nquad2,
-                            1);
+                Vmath::Svtvp(
+                    m_nquad2, input[1 + i * totmodes],
+                    m_base2.data() + m_nquad2, 1,
+                    &wsp[(m_nmodes1 + 1) * m_nquad2 * m_numElmt] + i * m_nquad2,
+                    1,
+                    &wsp[(m_nmodes1 + 1) * m_nquad2 * m_numElmt] + i * m_nquad2,
+                    1);
             }
         }
 

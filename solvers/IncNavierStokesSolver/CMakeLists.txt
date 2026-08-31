@@ -16,6 +16,7 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
         ./EquationSystems/VelocityCorrectionScheme.cpp
         ./EquationSystems/VelocityCorrectionSchemeImplicit.cpp
         ./EquationSystems/VelocityCorrectionSchemeWeakPressure.cpp
+	./EquationSystems/VelocityCorrectionSchemeLevelSet.cpp
         ./EquationSystems/SmoothedProfileMethod.cpp
         ./EquationSystems/VCSMapping.cpp
         ./EquationSystems/RigidSolver.cpp
@@ -31,6 +32,7 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
         ./AdvectionTerms/AdjointAdvection.cpp
         ./AdvectionTerms/LinearisedAdvection.cpp
         ./AdvectionTerms/NavierStokesAdvection.cpp
+	./AdvectionTerms/NSAdvectionLevelSet.cpp
         ./AdvectionTerms/SkewSymmetricAdvection.cpp
         ./AdvectionTerms/AlternateSkewAdvection.cpp
         ./AdvectionTerms/NoAdvection.cpp
@@ -241,6 +243,7 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
     ADD_NEKTAR_TEST(manufactured_3DH1D)
     ADD_NEKTAR_TEST(PlungingAirfoil_2D)
     ADD_NEKTAR_TEST(3DH1D_L2ErrorFilter)
+    ADD_NEKTAR_TEST(InterfaceAdvection2D_VCSLevelSet)
 
     IF(NOT WIN32 AND NEKTAR_UTILITY_FIELDCONVERT)
         ADD_NEKTAR_TEST(ScaleReynoldsShearFilter_ThermalChannel2D)

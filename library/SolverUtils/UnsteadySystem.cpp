@@ -666,7 +666,9 @@ void UnsteadySystem::v_GenerateSummary(SummaryList &s)
     AddSummaryItem(s, "Checkpoints (steps)", m_checksteps);
     if (m_intScheme)
     {
-        AddSummaryItem(s, "Integration Type", m_intScheme->GetName());
+        AddSummaryItem(s, "Integration Scheme", m_intScheme->GetName());
+        AddSummaryItem(s, "Integration Order",
+                       to_string(m_intScheme->GetOrder()));
     }
 }
 

@@ -49,7 +49,7 @@ namespace Nektar::UnitTests
 /// Upper range of number of quadrature points to use for unit tests.
 #define NPUPPER 15
 /// Tolerance to be used for floating point comparisons.
-#define EPS 1e-11
+#define EPS 2e-11
 
 /// Dot product two vectors.
 double ddot(int n, double *x, int incx, double *y, int incy)

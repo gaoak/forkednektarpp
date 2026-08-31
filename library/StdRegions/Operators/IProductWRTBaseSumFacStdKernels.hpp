@@ -60,7 +60,8 @@ NEK_FORCE_INLINE static void ScaleAppend(simd_type &store, simd_type &pos,
 template <bool SCALE, bool APPEND, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProductSegKernel(
     const unsigned int nm0, const unsigned int nq0, const simd_type *in,
-    const simd_type *basis0, const simd_type *w0, const simd_type *jac,
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *w0, const simd_type *jac,
     simd_type *out, typename simd_type::scalarType scale = 1.0)
 {
     for (unsigned int p = 0; p < nm0; ++p)
@@ -92,7 +93,7 @@ NEK_FORCE_INLINE static void IProductSegKernel(
 template <bool SCALE, bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void IProductSegKernel(
     const unsigned int nm0, const unsigned int nq0, const simd_type *in,
-    const simd_type *basis0, simd_type *out,
+    const typename simd_type::scalarType *basis0, simd_type *out,
     typename simd_type::scalarType scale = 1.0)
 {
     for (unsigned int p = 0; p < nm0; ++p)
@@ -111,9 +112,11 @@ NEK_FORCE_INLINE static void IProductSegKernel(
 template <bool SCALE, bool APPEND, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProductQuadKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
-    const unsigned int nq1, const simd_type *in, const simd_type *basis0,
-    const simd_type *basis1, const simd_type *w0, const simd_type *w1,
-    const simd_type *jac,
+    const unsigned int nq1, const simd_type *in,
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1, const simd_type *jac,
     simd_type *sums_j, // nq1
     simd_type *out, typename simd_type::scalarType scale = 1.0,
     const bool CollDir0 = false, const bool CollDir1 = false)
@@ -200,8 +203,9 @@ NEK_FORCE_INLINE static void IProductQuadKernel(
 template <bool SCALE, bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void IProductQuadKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
-    const unsigned int nq1, const simd_type *in, const simd_type *basis0,
-    const simd_type *basis1,
+    const unsigned int nq1, const simd_type *in,
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
     simd_type *sums_j, // nq1
     simd_type *out, typename simd_type::scalarType scale = 1.0,
     const bool CollDir0 = false, const bool CollDir1 = false)
@@ -262,8 +266,11 @@ template <bool SCALE, bool APPEND, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProductTriKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const bool modBasis, const simd_type *in,
-    const simd_type *basis0, const simd_type *basis1, const simd_type *w0,
-    const simd_type *w1, const simd_type *jac, simd_type *eta0_sums, // nq1
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1, const simd_type *jac,
+    simd_type *eta0_sums, // nq1
     simd_type *out, typename simd_type::scalarType scale = 1.0)
 {
     unsigned int mode = 0;
@@ -358,7 +365,8 @@ template <bool SCALE, bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void IProductTriKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const bool modBasis, const simd_type *in,
-    const simd_type *basis0, const simd_type *basis1,
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
     simd_type *eta0_sums, // nq1
     simd_type *out, typename simd_type::scalarType scale = 1.0)
 {
@@ -423,9 +431,12 @@ template <bool SCALE, bool APPEND, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProductHexKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const simd_type *in, const simd_type *basis0, const simd_type *basis1,
-    const simd_type *basis2, const simd_type *w0, const simd_type *w1,
-    const simd_type *w2, const simd_type *jac,
+    const simd_type *in, const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
+    const typename simd_type::scalarType *basis2,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1,
+    const typename simd_type::scalarType *w2, const simd_type *jac,
     simd_type *sums_kj, // nq2 * nq1
     simd_type *sums_k,  // nq2
     simd_type *out, typename simd_type::scalarType scale = 1.0,
@@ -555,8 +566,9 @@ template <bool SCALE, bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void IProductHexKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const simd_type *in, const simd_type *basis0, const simd_type *basis1,
-    const simd_type *basis2,
+    const simd_type *in, const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
+    const typename simd_type::scalarType *basis2,
     simd_type *sums_kj, // nq2 * nq1
     simd_type *sums_k,  // nq2
     simd_type *out, typename simd_type::scalarType scale = 1.0,
@@ -658,9 +670,13 @@ template <bool SCALE, bool APPEND, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProductTetKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const bool isModified, const simd_type *in, const simd_type *basis0,
-    const simd_type *basis1, const simd_type *basis2, const simd_type *w0,
-    const simd_type *w1, const simd_type *w2, const simd_type *jac,
+    const bool isModified, const simd_type *in,
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
+    const typename simd_type::scalarType *basis2,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1,
+    const typename simd_type::scalarType *w2, const simd_type *jac,
     simd_type *sums_kj, // nq2 * nq1
     simd_type *sums_k,  // nq2
     simd_type *out, typename simd_type::scalarType scale = 1.0)
@@ -819,8 +835,10 @@ template <bool SCALE, bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void IProductTetKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const bool isModified, const simd_type *in, const simd_type *basis0,
-    const simd_type *basis1, const simd_type *basis2,
+    const bool isModified, const simd_type *in,
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
+    const typename simd_type::scalarType *basis2,
     simd_type *sums_kj, // nq2 * nq1
     simd_type *sums_k,  // nq2
     simd_type *out, typename simd_type::scalarType scale = 1.0)
@@ -927,9 +945,13 @@ template <bool SCALE, bool APPEND, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProductPrismKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const bool isModified, const simd_type *in, const simd_type *basis0,
-    const simd_type *basis1, const simd_type *basis2, const simd_type *w0,
-    const simd_type *w1, const simd_type *w2, const simd_type *jac,
+    const bool isModified, const simd_type *in,
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
+    const typename simd_type::scalarType *basis2,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1,
+    const typename simd_type::scalarType *w2, const simd_type *jac,
     simd_type *sums_kj, // nq2 * nq1
     simd_type *sums_k,  // nq2
     simd_type *corr_q,  // nm1
@@ -1063,8 +1085,10 @@ template <bool SCALE, bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void IProductPrismKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const bool isModified, const simd_type *in, const simd_type *basis0,
-    const simd_type *basis1, const simd_type *basis2,
+    const bool isModified, const simd_type *in,
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
+    const typename simd_type::scalarType *basis2,
     simd_type *sums_kj, // nq2 * nq1
     simd_type *sums_k,  // nq2
     simd_type *corr_q,  // nm1
@@ -1166,9 +1190,13 @@ template <bool SCALE, bool APPEND, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProductPyrKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const bool isModified, const simd_type *in, const simd_type *basis0,
-    const simd_type *basis1, const simd_type *basis2, const simd_type *w0,
-    const simd_type *w1, const simd_type *w2, const simd_type *jac,
+    const bool isModified, const simd_type *in,
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
+    const typename simd_type::scalarType *basis2,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1,
+    const typename simd_type::scalarType *w2, const simd_type *jac,
     simd_type *sums_kj, simd_type *sums_k, simd_type *out,
     typename simd_type::scalarType scale = 1.0)
 {
@@ -1326,8 +1354,10 @@ template <bool SCALE, bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void IProductPyrKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const bool isModified, const simd_type *in, const simd_type *basis0,
-    const simd_type *basis1, const simd_type *basis2, simd_type *sums_kj,
+    const bool isModified, const simd_type *in,
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
+    const typename simd_type::scalarType *basis2, simd_type *sums_kj,
     simd_type *sums_k, simd_type *out,
     typename simd_type::scalarType scale = 1.0)
 {

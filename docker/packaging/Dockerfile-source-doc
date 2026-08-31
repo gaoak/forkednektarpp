@@ -8,7 +8,7 @@ WORKDIR /root
 
 RUN apt-get update && \
     apt-get install -y \
-        build-essential cmake rsync flex \
+        build-essential cmake rsync bison flex \
         liblapack-dev \
         texlive-base texlive-latex-extra texlive-science \
             texlive-fonts-recommended texlive-pstricks \

@@ -161,8 +161,7 @@ struct is_vector_floating_point : std::false_type
 
 // Specialized template handles cases that are vector types
 template <class T>
-struct is_vector_floating_point<T,
-                                typename std::enable_if<is_vector_v<T>>::type>
+struct is_vector_floating_point<T, std::enable_if_t<is_vector_v<T>>>
     : std::integral_constant<bool,
                              std::is_floating_point_v<typename T::scalarType>>
 {
@@ -180,7 +179,7 @@ template <class T, class = void> struct is_vector_integral : std::false_type
 
 // Specialized template handles cases that are vector types
 template <class T>
-struct is_vector_integral<T, typename std::enable_if<is_vector_v<T>>::type>
+struct is_vector_integral<T, std::enable_if_t<is_vector_v<T>>>
     : std::integral_constant<bool, std::is_integral_v<typename T::scalarType>>
 {
 };

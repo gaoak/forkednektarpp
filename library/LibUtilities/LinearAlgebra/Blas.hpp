@@ -35,7 +35,6 @@
 #ifndef NEKTAR_LIB_UTILITIES_LINEAR_ALGEBRA_BLAS_HPP
 #define NEKTAR_LIB_UTILITIES_LINEAR_ALGEBRA_BLAS_HPP
 
-#include <LibUtilities/LinearAlgebra/BlasArray.hpp>
 #include <LibUtilities/LinearAlgebra/TransF77.hpp>
 
 // Translations for using Fortran version of blas
@@ -43,12 +42,6 @@ namespace Blas
 {
 extern "C"
 {
-    // -- BLAS Level 1:
-    void F77NAME(daxpy)(const int &n, const double &alpha, const double *x,
-                        const int &incx, const double *y, const int &incy);
-    void F77NAME(dscal)(const int &n, const double &alpha, double *x,
-                        const int &incx);
-
     // -- BLAS level 2
     void F77NAME(dgemv)(const char &trans, const int &m, const int &n,
                         const double &alpha, const double *a, const int &lda,
@@ -111,20 +104,6 @@ extern "C"
                         const float *a, const int &lda, const float *b,
                         const int &ldb, const float &beta, float *c,
                         const int &ldc);
-}
-
-/// \brief  BLAS level 1: y = alpha \a x plus \a y
-static inline void Daxpy(const int &n, const double &alpha, const double *x,
-                         const int &incx, const double *y, const int &incy)
-{
-    F77NAME(daxpy)(n, alpha, x, incx, y, incy);
-}
-
-/// \brief  BLAS level 1: x = alpha \a x
-static inline void Dscal(const int &n, const double &alpha, double *x,
-                         const int &incx)
-{
-    F77NAME(dscal)(n, alpha, x, incx);
 }
 
 /// \brief BLAS level 2: Matrix vector multiply y = alpha A \e x plus beta \a y

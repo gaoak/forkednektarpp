@@ -170,9 +170,11 @@ protected:
     void v_ExtraFldOutput(std::vector<Array<OneD, NekDouble>> &fieldcoeffs,
                           std::vector<std::string> &variables) override;
 
-    template <class T, typename = typename std::enable_if<
-                           std::is_floating_point_v<T> ||
-                           tinysimd::is_vector_floating_point_v<T>>::type>
+    template <class T,
+              std::enable_if_t<std::is_floating_point_v<T> ||
+                                   tinysimd::is_vector_floating_point_v<T>,
+                               bool>
+                  Enable = true>
     inline void GetViscosityAndThermalCondFromTempKernel(const T &temperature,
                                                          T &mu, T &thermalCond)
     {
@@ -181,9 +183,11 @@ protected:
         thermalCond   = tRa * mu;
     }
 
-    template <class T, typename = typename std::enable_if<
-                           std::is_floating_point_v<T> ||
-                           tinysimd::is_vector_floating_point_v<T>>::type>
+    template <class T,
+              std::enable_if_t<std::is_floating_point_v<T> ||
+                                   tinysimd::is_vector_floating_point_v<T>,
+                               bool>
+                  Enable = true>
     inline void GetViscosityFromTempKernel(const T &temperature, T &mu)
     {
         // Variable viscosity through the Sutherland's law
@@ -205,13 +209,16 @@ protected:
      * @param out
      * outarray[nvars] flux
      */
-    template <class T, typename = typename std::enable_if<
-                           std::is_floating_point_v<T> ||
-                           tinysimd::is_vector_floating_point_v<T>>::type>
+    template <class T,
+              std::enable_if_t<std::is_floating_point_v<T> ||
+                                   tinysimd::is_vector_floating_point_v<T>,
+                               bool>
+                  Enable = true>
     inline void GetViscousFluxBilinearFormKernel(
         const unsigned short nDim, const unsigned short FluxDirection,
         const unsigned short DerivDirection,
-        // these need to be a pointers because of the custom allocator of vec_t
+        // these need to be a pointers because of the
+        // custom allocator of vec_t
         const T *inaverg, const T *injumpp, const T &mu, T *outarray)
     {
         // Constants

@@ -115,17 +115,18 @@ template <typename T> struct simd64Int2
     }
 
     template <class flag,
-              typename std::enable_if<is_requiring_alignment_v<flag> &&
-                                          !is_streaming_v<flag>,
-                                      bool>::type = 0>
+              std::enable_if_t<
+                  is_requiring_alignment_v<flag> && !is_streaming_v<flag>, bool>
+                  Enable = true>
     inline void store(scalarType *p, flag) const
     {
         p[0] = _data[0];
         p[1] = _data[1];
     }
 
-    template <class flag, typename std::enable_if<
-                              !is_requiring_alignment_v<flag>, bool>::type = 0>
+    template <
+        class flag,
+        std::enable_if_t<!is_requiring_alignment_v<flag>, bool> Enable = true>
     inline void store(scalarType *p, flag) const
     {
         p[0] = _data[0];
@@ -139,17 +140,18 @@ template <typename T> struct simd64Int2
     }
 
     template <class flag,
-              typename std::enable_if<is_requiring_alignment_v<flag> &&
-                                          !is_streaming_v<flag>,
-                                      bool>::type = 0>
+              std::enable_if_t<
+                  is_requiring_alignment_v<flag> && !is_streaming_v<flag>, bool>
+                  Enable = true>
     inline void load(const scalarType *p, flag)
     {
         _data[0] = p[0];
         _data[1] = p[1];
     }
 
-    template <class flag, typename std::enable_if<
-                              !is_requiring_alignment_v<flag>, bool>::type = 0>
+    template <
+        class flag,
+        std::enable_if_t<!is_requiring_alignment_v<flag>, bool> Enable = true>
     inline void load(const scalarType *p, flag)
     {
         _data[0] = p[0];
@@ -330,16 +332,17 @@ template <typename T> struct sse2Int4
     }
 
     template <class flag,
-              typename std::enable_if<is_requiring_alignment_v<flag> &&
-                                          !is_streaming_v<flag>,
-                                      bool>::type = 0>
+              std::enable_if_t<
+                  is_requiring_alignment_v<flag> && !is_streaming_v<flag>, bool>
+                  Enable = true>
     inline void store(scalarType *p, flag) const
     {
         _mm_store_si128(reinterpret_cast<vectorType *>(p), _data);
     }
 
-    template <class flag, typename std::enable_if<
-                              !is_requiring_alignment_v<flag>, bool>::type = 0>
+    template <
+        class flag,
+        std::enable_if_t<!is_requiring_alignment_v<flag>, bool> Enable = true>
     inline void store(scalarType *p, flag) const
     {
         _mm_storeu_si128(reinterpret_cast<vectorType *>(p), _data);
@@ -351,16 +354,17 @@ template <typename T> struct sse2Int4
     }
 
     template <class flag,
-              typename std::enable_if<is_requiring_alignment_v<flag> &&
-                                          !is_streaming_v<flag>,
-                                      bool>::type = 0>
+              std::enable_if_t<
+                  is_requiring_alignment_v<flag> && !is_streaming_v<flag>, bool>
+                  Enable = true>
     inline void load(const scalarType *p, flag)
     {
         _data = _mm_load_si128(reinterpret_cast<const vectorType *>(p));
     }
 
-    template <class flag, typename std::enable_if<
-                              !is_requiring_alignment_v<flag>, bool>::type = 0>
+    template <
+        class flag,
+        std::enable_if_t<!is_requiring_alignment_v<flag>, bool> Enable = true>
     inline void load(const scalarType *p, flag)
     {
         _data = _mm_loadu_si128(reinterpret_cast<const vectorType *>(p));
@@ -411,7 +415,7 @@ inline sse2Int4<T> operator+(sse2Int4<T> lhs, sse2Int4<T> rhs)
 }
 
 template <typename T, typename U,
-          typename = typename std::enable_if<std::is_arithmetic_v<U>>::type>
+          std::enable_if_t<std::is_arithmetic_v<U>, bool> Enable = true>
 inline sse2Int4<T> operator+(sse2Int4<T> lhs, U rhs)
 {
     return _mm_add_epi32(lhs._data, _mm_set1_epi32(rhs));
@@ -459,16 +463,17 @@ template <typename T> struct sse2Long2
     }
 
     template <class flag,
-              typename std::enable_if<is_requiring_alignment_v<flag> &&
-                                          !is_streaming_v<flag>,
-                                      bool>::type = 0>
+              std::enable_if_t<
+                  is_requiring_alignment_v<flag> && !is_streaming_v<flag>, bool>
+                  Enable = true>
     inline void store(scalarType *p, flag) const
     {
         _mm_store_si128(reinterpret_cast<vectorType *>(p), _data);
     }
 
-    template <class flag, typename std::enable_if<
-                              !is_requiring_alignment_v<flag>, bool>::type = 0>
+    template <
+        class flag,
+        std::enable_if_t<!is_requiring_alignment_v<flag>, bool> Enable = true>
     inline void store(scalarType *p, flag) const
     {
         _mm_storeu_si128(reinterpret_cast<vectorType *>(p), _data);
@@ -480,16 +485,17 @@ template <typename T> struct sse2Long2
     }
 
     template <class flag,
-              typename std::enable_if<is_requiring_alignment_v<flag> &&
-                                          !is_streaming_v<flag>,
-                                      bool>::type = 0>
+              std::enable_if_t<
+                  is_requiring_alignment_v<flag> && !is_streaming_v<flag>, bool>
+                  Enable = true>
     inline void load(const scalarType *p, flag)
     {
         _data = _mm_load_si128(reinterpret_cast<const vectorType *>(p));
     }
 
-    template <class flag, typename std::enable_if<
-                              !is_requiring_alignment_v<flag>, bool>::type = 0>
+    template <
+        class flag,
+        std::enable_if_t<!is_requiring_alignment_v<flag>, bool> Enable = true>
     inline void load(const scalarType *p, flag)
     {
         _data = _mm_loadu_si128(reinterpret_cast<const vectorType *>(p));
@@ -524,7 +530,7 @@ inline sse2Long2<T> operator+(sse2Long2<T> lhs, sse2Long2<T> rhs)
 }
 
 template <typename T, typename U,
-          typename = typename std::enable_if<std::is_arithmetic_v<U>>::type>
+          std::enable_if_t<std::is_arithmetic_v<U>, bool> Enable = true>
 inline sse2Long2<T> operator+(sse2Long2<T> lhs, U rhs)
 {
     return _mm_add_epi64(lhs._data, _mm_set1_epi64x(rhs));
@@ -566,23 +572,24 @@ struct sse2Double2
     }
 
     template <class flag,
-              typename std::enable_if<is_requiring_alignment_v<flag> &&
-                                          !is_streaming_v<flag>,
-                                      bool>::type = 0>
+              std::enable_if_t<
+                  is_requiring_alignment_v<flag> && !is_streaming_v<flag>, bool>
+                  Enable = true>
     inline void store(scalarType *p, flag) const
     {
         _mm_store_pd(p, _data);
     }
 
-    template <class flag, typename std::enable_if<
-                              !is_requiring_alignment_v<flag>, bool>::type = 0>
+    template <
+        class flag,
+        std::enable_if_t<!is_requiring_alignment_v<flag>, bool> Enable = true>
     inline void store(scalarType *p, flag) const
     {
         _mm_storeu_pd(p, _data);
     }
 
     template <class flag,
-              typename std::enable_if<is_streaming_v<flag>, bool>::type = 0>
+              std::enable_if_t<is_streaming_v<flag>, bool> Enable = true>
     inline void store(scalarType *p, flag) const
     {
         _mm_stream_pd(p, _data);
@@ -594,15 +601,16 @@ struct sse2Double2
         _data = _mm_load_pd(p);
     }
 
-    template <class flag, typename std::enable_if<
-                              is_requiring_alignment_v<flag>, bool>::type = 0>
+    template <class flag, std::enable_if_t<is_requiring_alignment_v<flag>, bool>
+                              Enable = true>
     inline void load(const scalarType *p, flag)
     {
         _data = _mm_load_pd(p);
     }
 
-    template <class flag, typename std::enable_if<
-                              !is_requiring_alignment_v<flag>, bool>::type = 0>
+    template <
+        class flag,
+        std::enable_if_t<!is_requiring_alignment_v<flag>, bool> Enable = true>
     inline void load(const scalarType *p, flag)
     {
         _data = _mm_loadu_pd(p);
@@ -873,23 +881,24 @@ struct sse2Float4
     }
 
     template <class flag,
-              typename std::enable_if<is_requiring_alignment_v<flag> &&
-                                          !is_streaming_v<flag>,
-                                      bool>::type = 0>
+              std::enable_if_t<
+                  is_requiring_alignment_v<flag> && !is_streaming_v<flag>, bool>
+                  Enable = true>
     inline void store(scalarType *p, flag) const
     {
         _mm_store_ps(p, _data);
     }
 
-    template <class flag, typename std::enable_if<
-                              !is_requiring_alignment_v<flag>, bool>::type = 0>
+    template <
+        class flag,
+        std::enable_if_t<!is_requiring_alignment_v<flag>, bool> Enable = true>
     inline void store(scalarType *p, flag) const
     {
         _mm_storeu_ps(p, _data);
     }
 
     template <class flag,
-              typename std::enable_if<is_streaming_v<flag>, bool>::type = 0>
+              std::enable_if_t<is_streaming_v<flag>, bool> Enable = true>
     inline void store(scalarType *p, flag) const
     {
         _mm_stream_ps(p, _data);
@@ -901,15 +910,16 @@ struct sse2Float4
         _data = _mm_load_ps(p);
     }
 
-    template <class flag, typename std::enable_if<
-                              is_requiring_alignment_v<flag>, bool>::type = 0>
+    template <class flag, std::enable_if_t<is_requiring_alignment_v<flag>, bool>
+                              Enable = true>
     inline void load(const scalarType *p, flag)
     {
         _data = _mm_load_ps(p);
     }
 
-    template <class flag, typename std::enable_if<
-                              !is_requiring_alignment_v<flag>, bool>::type = 0>
+    template <
+        class flag,
+        std::enable_if_t<!is_requiring_alignment_v<flag>, bool> Enable = true>
     inline void load(const scalarType *p, flag)
     {
         _data = _mm_loadu_ps(p);

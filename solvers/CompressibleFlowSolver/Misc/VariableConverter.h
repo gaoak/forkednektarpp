@@ -65,9 +65,11 @@ public:
     void GetInternalEnergy(
         const Array<OneD, const Array<OneD, NekDouble>> &physfield,
         Array<OneD, NekDouble> &energy);
-    template <class T, typename = typename std::enable_if<
-                           std::is_floating_point_v<T> ||
-                           tinysimd::is_vector_floating_point_v<T>>::type>
+    template <class T,
+              std::enable_if_t<std::is_floating_point_v<T> ||
+                                   tinysimd::is_vector_floating_point_v<T>,
+                               bool>
+                  Enable = true>
     inline T GetInternalEnergy(T *physfield)
     {
         // get dynamic energy
@@ -94,9 +96,11 @@ public:
     void GetDynamicViscosity(const Array<OneD, const NekDouble> &temperature,
                              Array<OneD, NekDouble> &mu);
 
-    template <class T, typename = typename std::enable_if<
-                           std::is_floating_point_v<T> ||
-                           tinysimd::is_vector_floating_point_v<T>>::type>
+    template <class T,
+              std::enable_if_t<std::is_floating_point_v<T> ||
+                                   tinysimd::is_vector_floating_point_v<T>,
+                               bool>
+                  Enable = true>
     inline T GetDynamicViscosity(T &temperature)
     {
         const NekDouble onePlusC = 1.0 + m_TRatioSutherland;
@@ -116,9 +120,11 @@ public:
     void GetTemperature(
         const Array<OneD, const Array<OneD, NekDouble>> &physfield,
         Array<OneD, NekDouble> &temperature);
-    template <class T, typename = typename std::enable_if<
-                           std::is_floating_point_v<T> ||
-                           tinysimd::is_vector_floating_point_v<T>>::type>
+    template <class T,
+              std::enable_if_t<std::is_floating_point_v<T> ||
+                                   tinysimd::is_vector_floating_point_v<T>,
+                               bool>
+                  Enable = true>
     inline T GetTemperature(T *physfield)
     {
         T energy = GetInternalEnergy(physfield);
@@ -127,9 +133,11 @@ public:
     //
     void GetPressure(const Array<OneD, const Array<OneD, NekDouble>> &physfield,
                      Array<OneD, NekDouble> &pressure);
-    template <class T, typename = typename std::enable_if<
-                           std::is_floating_point_v<T> ||
-                           tinysimd::is_vector_floating_point_v<T>>::type>
+    template <class T,
+              std::enable_if_t<std::is_floating_point_v<T> ||
+                                   tinysimd::is_vector_floating_point_v<T>,
+                               bool>
+                  Enable = true>
     inline T GetPressure(T *physfield)
     {
         T energy = GetInternalEnergy(physfield);
