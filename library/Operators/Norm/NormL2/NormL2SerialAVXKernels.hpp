@@ -36,8 +36,9 @@
 
 namespace Nektar::Operators::detail
 {
+// 1D case
 template <bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE static simd_type L2Norm1DKernel(
+NEK_FORCE_INLINE static simd_type L2NormKernel(
     const unsigned int nq0, const typename simd_type::scalarType *w0,
     const simd_type *jac, const simd_type *in)
 {
@@ -57,7 +58,7 @@ NEK_FORCE_INLINE static simd_type L2Norm1DKernel(
 }
 
 template <bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE static simd_type Volume1DKernel(
+NEK_FORCE_INLINE static simd_type VolumeKernel(
     const unsigned int nq0, const typename simd_type::scalarType *w0,
     const simd_type *jac)
 {
@@ -76,8 +77,9 @@ NEK_FORCE_INLINE static simd_type Volume1DKernel(
     return vol;
 }
 
+// 2D case
 template <bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE static simd_type L2Norm2DKernel(
+NEK_FORCE_INLINE static simd_type L2NormKernel(
     const unsigned int nq0, const unsigned int nq1,
     const typename simd_type::scalarType *w0,
     const typename simd_type::scalarType *w1, const simd_type *jac,
@@ -107,7 +109,7 @@ NEK_FORCE_INLINE static simd_type L2Norm2DKernel(
 }
 
 template <bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE static simd_type Volume2DKernel(
+NEK_FORCE_INLINE static simd_type VolumeKernel(
     const unsigned int nq0, const unsigned int nq1,
     const typename simd_type::scalarType *w0,
     const typename simd_type::scalarType *w1, const simd_type *jac)
@@ -135,8 +137,9 @@ NEK_FORCE_INLINE static simd_type Volume2DKernel(
     return vol;
 }
 
+// 3D case
 template <bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE static simd_type L2Norm3DKernel(
+NEK_FORCE_INLINE static simd_type L2NormKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const typename simd_type::scalarType *w0,
     const typename simd_type::scalarType *w1,
@@ -171,7 +174,7 @@ NEK_FORCE_INLINE static simd_type L2Norm3DKernel(
 }
 
 template <bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE static simd_type Volume3DKernel(
+NEK_FORCE_INLINE static simd_type VolumeKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const typename simd_type::scalarType *w0,
     const typename simd_type::scalarType *w1,

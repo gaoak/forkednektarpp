@@ -52,10 +52,9 @@ public:
     {
         auto session = expansionList->GetSession();
 
-        std::string execStr0 =
-            (execStr == "")
-                ? session->GetCmdLineArgument<std::string>("opExecSpace")
-                : execStr;
+        std::string execStr0 = (execStr == "")
+                                   ? Operator<TData>::GetOpExecSpace(session)
+                                   : execStr;
 
         auto op = Operator<TData>::template Create<NormLinfOp>(
             expansionList, components, execStr0);
@@ -86,7 +85,7 @@ public:
 
     void operator()(LibUtilities::Field<TData, FieldState::Phys> &in)
     {
-        Apply(in);
+        v_Apply(in);
     }
 
     std::vector<TData> GetNorms()

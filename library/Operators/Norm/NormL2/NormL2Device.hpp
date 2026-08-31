@@ -34,9 +34,11 @@
 
 #pragma once
 
-#include "NormL2DeviceKernels.hpp"
 #include "Operators/ElmtOps/ElmtBlockOp.hpp"
 #include "Operators/Norm/NormL2/NormL2BlockOp.hpp"
+
+#include "NormL2DeviceKernels.hpp"
+
 #include <LibUtilities/BasicUtils/DataWarehouse/BasisDataWarehouse.hpp>
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp>
@@ -63,7 +65,7 @@ public:
             exp->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed;
         m_nqTot     = exp->GetTotPoints();
         m_dimension = exp->GetShapeDimension();
-        m_coordim   = exp->GetCoordim();
+        m_coordDim  = exp->GetCoordim();
 
         // Get basis keys for fetching matrices.
         std::vector<LibUtilities::BasisKey> basisKeys(
@@ -82,8 +84,11 @@ public:
         }
 
         // Fetch Jacobian.
-        m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            LocalRegions::JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+        m_jacptr1 = this->m_dataWarehouse->template GetData<MemSpace>(
+            LocalRegions::JacobianKey<TData>(block_idx, 1));
+        m_jacptr2 = this->m_dataWarehouse->template GetData<MemSpace>(
+            LocalRegions::JacobianKey<TData>(block_idx,
+                                             NektarSpaces::Device::warpSize));
     }
 
     // className - for BlockOperatorFactory
@@ -100,17 +105,14 @@ public:
     }
 
 protected:
-    // Note we assume SumFac ie one thread per element
-    static constexpr unsigned int m_implInterleaveWidth =
-        NektarSpaces::Device::warpSize;
-
     unsigned int m_streamID;
     LibUtilities::ShapeType m_shapeType;
     bool m_isDeformed        = false;
     unsigned int m_nqTot     = 0;
     unsigned int m_dimension = 0;
-    unsigned int m_coordim   = 0;
-    const TData *m_jacptr    = nullptr;
+    unsigned int m_coordDim  = 0;
+    const TData *m_jacptr1   = nullptr;
+    const TData *m_jacptr2   = nullptr;
     std::vector<unsigned int> m_nq;
     std::vector<unsigned int> m_nm;
     std::vector<const TData *> m_W;
@@ -122,17 +124,17 @@ protected:
         {
             case 1:
             {
-                Operator1D(inblock, data);
+                OperatorND<1>(inblock, data);
                 break;
             }
             case 2:
             {
-                Operator2D(inblock, data);
+                OperatorND<2>(inblock, data);
                 break;
             }
             case 3:
             {
-                Operator3D(inblock, data);
+                OperatorND<3>(inblock, data);
                 break;
             }
             default:
@@ -142,218 +144,116 @@ protected:
         }
     }
 
-    void Operator1D(
+    template <unsigned int NDIM>
+    void OperatorND(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::MemoryRegion<TData> &data)
     {
-        const auto nelmt       = inblock.GetNumElements();
-        const auto paddedNelmt = inblock.GetNumElementsWithPadding();
+        OperatorNDHelper(inblock, data,
+                         std::make_integer_sequence<unsigned int, NDIM>());
+    }
 
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
-        auto redptr = data.template GetPtr<MemSpace, ReadWrite>(m_streamID);
+    template <unsigned int... ind>
+    void OperatorNDHelper(
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::MemoryRegion<TData> &data,
+        std::integer_sequence<unsigned int, ind...>)
+    {
+        const auto nelmt    = inblock.GetNumElements();
+        const auto nelmtPad = inblock.GetNumElementsWithPadding();
+        const auto nComp    = inblock.GetNumComponents();
+        const auto nHomo    = inblock.GetNumHomoModes();
 
+        // Initialize pointers.
+        auto inptr   = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto dataptr = data.template GetPtr<MemSpace, ReadWrite>(m_streamID);
+
+        // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
         const unsigned int shmemsize = 0;
-        const unsigned int blocksize = GetDeviceBlockSize<SumFac>(m_nq[0]);
+        const unsigned int blocksize =
+            (interleaveWidth == 1) ? GetDeviceBlockSize<SumFacTOP>(m_nqTot)
+                                   : GetDeviceBlockSize<SumFac>(m_nqTot);
         const unsigned int gridsize =
-            GetDeviceGridSize<SumFac>(nelmt, blocksize, shmemsize);
+            (interleaveWidth == 1)
+                ? GetDeviceGridSize<SumFacTOP>(nelmtPad, blocksize, shmemsize)
+                : GetDeviceGridSize<SumFac>(nelmtPad, blocksize, shmemsize);
 
-        const unsigned int nComp = inblock.GetNumComponents();
-        const unsigned int nHomo = inblock.GetNumHomoModes();
-
-        // Compute volume
+        // Compute volume.
         if (this->m_normalised)
         {
             if (m_isDeformed)
             {
-                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Volume1DKernelLauncher<true>), gridsize, blocksize,
-                    m_streamID, m_nq[0], nelmt, m_W[0], m_jacptr,
-                    redptr + nComp);
+                if (interleaveWidth == 1)
+                {
+                    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                        (VolumeKernelLauncher<SumFacTOP, true>), gridsize,
+                        blocksize, m_streamID, m_nq[ind]..., nelmt, m_W[ind]...,
+                        m_jacptr1, dataptr + nComp);
+                }
+                else
+                {
+                    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                        (VolumeKernelLauncher<SumFac, true>), gridsize,
+                        blocksize, m_streamID, m_nq[ind]..., nelmt, m_W[ind]...,
+                        m_jacptr2, dataptr + nComp);
+                }
             }
             else
             {
-                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Volume1DKernelLauncher<false>), gridsize, blocksize,
-                    m_streamID, m_nq[0], nelmt, m_W[0], m_jacptr,
-                    redptr + nComp);
+                if (interleaveWidth == 1)
+                {
+                    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                        (VolumeKernelLauncher<SumFacTOP, false>), gridsize,
+                        blocksize, m_streamID, m_nq[ind]..., nelmt, m_W[ind]...,
+                        m_jacptr1, dataptr + nComp);
+                }
+                else
+                {
+                    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                        (VolumeKernelLauncher<SumFac, false>), gridsize,
+                        blocksize, m_streamID, m_nq[ind]..., nelmt, m_W[ind]...,
+                        m_jacptr2, dataptr + nComp);
+                }
             }
         }
 
-        // Compute norm
-        for (unsigned int nc = 0; nc < nComp * nHomo; ++nc)
+        // Compute norm.
+        if (m_isDeformed)
         {
-            // SumFac kernels expect point-major, warp-lane-minor storage.
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                m_implInterleaveWidth, interleaveWidth, paddedNelmt,
-                inblock.GetNumData(), (TData *)inptr, m_streamID);
-
-            if (m_isDeformed)
+            if (interleaveWidth == 1)
             {
-                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Norm1DKernelLauncher<true>), gridsize, blocksize,
-                    m_streamID, m_nq[0], nelmt, m_W[0], m_jacptr, inptr,
-                    redptr + nc);
+                DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (NormKernelLauncher<SumFacTOP, true>), gridsize,
+                    nComp * nHomo, blocksize, 1, m_streamID, m_nq[ind]...,
+                    nelmt, m_W[ind]..., m_jacptr1, inptr, dataptr);
             }
             else
             {
-                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Norm1DKernelLauncher<false>), gridsize, blocksize,
-                    m_streamID, m_nq[0], nelmt, m_W[0], m_jacptr, inptr,
-                    redptr + nc);
-            }
-
-            // Restore the original field layout for downstream operators.
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                interleaveWidth, m_implInterleaveWidth, paddedNelmt,
-                inblock.GetNumData(), (TData *)inptr, m_streamID);
-
-            // Increment pointers.
-            inptr += inblock.CompSize();
-        }
-    }
-
-    void Operator2D(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::MemoryRegion<TData> &data)
-    {
-        const auto nqTot       = m_nq[0] * m_nq[1];
-        const auto nelmt       = inblock.GetNumElements();
-        const auto paddedNelmt = inblock.GetNumElementsWithPadding();
-
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
-        auto redptr = data.template GetPtr<MemSpace, ReadWrite>(m_streamID);
-
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-
-        const unsigned int shmemsize = 0;
-        const unsigned int blocksize = GetDeviceBlockSize<SumFac>(nqTot);
-        const unsigned int gridsize =
-            GetDeviceGridSize<SumFac>(nelmt, blocksize, shmemsize);
-
-        const unsigned int nComp = inblock.GetNumComponents();
-        const unsigned int nHomo = inblock.GetNumHomoModes();
-
-        // Compute volume
-        if (this->m_normalised)
-        {
-            if (m_isDeformed)
-            {
-                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Volume2DKernelLauncher<true>), gridsize, blocksize,
-                    m_streamID, m_nq[0], m_nq[1], nelmt, m_W[0], m_W[1],
-                    m_jacptr, redptr + nComp);
-            }
-            else
-            {
-                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Volume2DKernelLauncher<false>), gridsize, blocksize,
-                    m_streamID, m_nq[0], m_nq[1], nelmt, m_W[0], m_W[1],
-                    m_jacptr, redptr + nComp);
+                DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (NormKernelLauncher<SumFac, true>), gridsize, nComp * nHomo,
+                    blocksize, 1, m_streamID, m_nq[ind]..., nelmt, m_W[ind]...,
+                    m_jacptr2, inptr, dataptr);
             }
         }
-
-        // Compute norm
-        for (unsigned int nc = 0; nc < nComp * nHomo; ++nc)
+        else
         {
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                m_implInterleaveWidth, interleaveWidth, paddedNelmt,
-                inblock.GetNumData(), (TData *)inptr, m_streamID);
-
-            if (m_isDeformed)
+            if (interleaveWidth == 1)
             {
-                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Norm2DKernelLauncher<true>), gridsize, blocksize,
-                    m_streamID, m_nq[0], m_nq[1], nelmt, m_W[0], m_W[1],
-                    m_jacptr, inptr, redptr + nc);
+                DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (NormKernelLauncher<SumFacTOP, false>), gridsize,
+                    nComp * nHomo, blocksize, 1, m_streamID, m_nq[ind]...,
+                    nelmt, m_W[ind]..., m_jacptr1, inptr, dataptr);
             }
             else
             {
-                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Norm2DKernelLauncher<false>), gridsize, blocksize,
-                    m_streamID, m_nq[0], m_nq[1], nelmt, m_W[0], m_W[1],
-                    m_jacptr, inptr, redptr + nc);
+                DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (NormKernelLauncher<SumFac, false>), gridsize,
+                    nComp * nHomo, blocksize, 1, m_streamID, m_nq[ind]...,
+                    nelmt, m_W[ind]..., m_jacptr2, inptr, dataptr);
             }
-
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                interleaveWidth, m_implInterleaveWidth, paddedNelmt,
-                inblock.GetNumData(), (TData *)inptr, m_streamID);
-
-            // Increment pointers.
-            inptr += inblock.CompSize();
-        }
-    }
-
-    void Operator3D(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::MemoryRegion<TData> &data)
-    {
-        const auto nqTot       = m_nq[0] * m_nq[1] * m_nq[2];
-        const auto nelmt       = inblock.GetNumElements();
-        const auto paddedNelmt = inblock.GetNumElementsWithPadding();
-
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
-        auto redptr = data.template GetPtr<MemSpace, ReadWrite>(m_streamID);
-
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-
-        const unsigned int shmemsize = 0;
-        const unsigned int blocksize = GetDeviceBlockSize<SumFac>(nqTot);
-        const unsigned int gridsize =
-            GetDeviceGridSize<SumFac>(nelmt, blocksize, shmemsize);
-
-        const unsigned int nComp = inblock.GetNumComponents();
-        const unsigned int nHomo = inblock.GetNumHomoModes();
-
-        // Compute volume
-        if (this->m_normalised)
-        {
-            if (m_isDeformed)
-            {
-                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Volume3DKernelLauncher<true>), gridsize, blocksize,
-                    m_streamID, m_nq[0], m_nq[1], m_nq[2], nelmt, m_W[0],
-                    m_W[1], m_W[2], m_jacptr, redptr + nComp);
-            }
-            else
-            {
-                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Volume3DKernelLauncher<false>), gridsize, blocksize,
-                    m_streamID, m_nq[0], m_nq[1], m_nq[2], nelmt, m_W[0],
-                    m_W[1], m_W[2], m_jacptr, redptr + nComp);
-            }
-        }
-
-        // Compute norm
-        for (unsigned int nc = 0; nc < nComp * nHomo; ++nc)
-        {
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                m_implInterleaveWidth, interleaveWidth, paddedNelmt,
-                inblock.GetNumData(), (TData *)inptr, m_streamID);
-
-            if (m_isDeformed)
-            {
-                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Norm3DKernelLauncher<true>), gridsize, blocksize,
-                    m_streamID, m_nq[0], m_nq[1], m_nq[2], nelmt, m_W[0],
-                    m_W[1], m_W[2], m_jacptr, inptr, redptr + nc);
-            }
-            else
-            {
-                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Norm3DKernelLauncher<false>), gridsize, blocksize,
-                    m_streamID, m_nq[0], m_nq[1], m_nq[2], nelmt, m_W[0],
-                    m_W[1], m_W[2], m_jacptr, inptr, redptr + nc);
-            }
-
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                interleaveWidth, m_implInterleaveWidth, paddedNelmt,
-                inblock.GetNumData(), (TData *)inptr, m_streamID);
-
-            // Increment pointers.
-            inptr += inblock.CompSize();
         }
     }
 };

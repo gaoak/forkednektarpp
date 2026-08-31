@@ -76,6 +76,7 @@ public:
 
 protected:
     bool m_normalised = false;
+
     NormL2BlockOp(const unsigned int block_idx,
                   const LocalRegions::ExpansionSharedPtr &exp,
                   LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)

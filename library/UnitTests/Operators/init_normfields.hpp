@@ -106,15 +106,28 @@ public:
 
     void RunTestCase()
     {
-        auto l2Op = NormL2Op<TData>::Create(this->fixt_explist,
-                                            this->session->GetVariables());
+        auto l2Op   = NormL2Op<TData>::Create(this->fixt_explist,
+                                              this->session->GetVariables());
+        auto linfOp = NormLinfOp<TData>::Create(this->fixt_explist,
+                                                this->session->GetVariables());
+
+        // Non-interleaved case.
         l2Op->Apply(*this->fixt_in);
         m_l2Test = l2Op->GetNorms();
 
-        auto linfOp = NormLinfOp<TData>::Create(this->fixt_explist,
-                                                this->session->GetVariables());
         linfOp->Apply(*this->fixt_in);
         m_linfTest = linfOp->GetNorms();
+
+        // Interleaved case.
+        std::string execStr = Operator<TData>::GetOpExecSpace(this->session);
+        this->fixt_in->ReshapeStorage(
+            NektarSpaces::GetVectorWidth<TData>(execStr), execStr);
+
+        l2Op->Apply(*this->fixt_in);
+        m_l2Test2 = l2Op->GetNorms();
+
+        linfOp->Apply(*this->fixt_in);
+        m_linfTest2 = linfOp->GetNorms();
     }
 
     bool Compare(const TData tol) override
@@ -130,6 +143,7 @@ public:
         }
 
         bool match = true;
+        std::cout << " - Non-interleaved cases: " << std::endl;
         for (unsigned int comp = 0; comp < numComp; ++comp)
         {
             const auto l2Diff = std::abs(m_l2Test[comp] - m_l2Expected[comp]);
@@ -149,6 +163,32 @@ public:
             {
                 std::cout << "Component " << comp << " mismatch: "
                           << "Linf(actual=" << m_linfTest[comp]
+                          << ", expected=" << m_linfExpected[comp]
+                          << ", diff=" << linfDiff << ")" << std::endl;
+                match = false;
+            }
+        }
+
+        std::cout << " - Interleaved cases: " << std::endl;
+        for (unsigned int comp = 0; comp < numComp; ++comp)
+        {
+            const auto l2Diff = std::abs(m_l2Test2[comp] - m_l2Expected[comp]);
+            const auto linfDiff =
+                std::abs(m_linfTest2[comp] - m_linfExpected[comp]);
+
+            if (l2Diff > tol)
+            {
+                std::cout << "Component " << comp << " mismatch: "
+                          << "L2(actual=" << m_l2Test2[comp]
+                          << ", expected=" << m_l2Expected[comp]
+                          << ", diff=" << l2Diff << ")" << std::endl;
+                match = false;
+            }
+
+            if (linfDiff > tol)
+            {
+                std::cout << "Component " << comp << " mismatch: "
+                          << "Linf(actual=" << m_linfTest2[comp]
                           << ", expected=" << m_linfExpected[comp]
                           << ", diff=" << linfDiff << ")" << std::endl;
                 match = false;
@@ -179,6 +219,8 @@ protected:
 
     std::vector<TData> m_l2Test;
     std::vector<TData> m_linfTest;
+    std::vector<TData> m_l2Test2;
+    std::vector<TData> m_linfTest2;
     std::vector<TData> m_l2Expected;
     std::vector<TData> m_linfExpected;
 };
