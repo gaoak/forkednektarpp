@@ -163,6 +163,25 @@ protected:
         this->m_step++;
     }
 
+    TData v_GetTimeStability(void) const override
+    {
+        switch (IntOrder)
+        {
+            case 1:
+                return 2.0;
+            case 2:
+                return 2.0;
+            case 3:
+                return 2.51274532661833;
+            case 4:
+                return 2.784;
+            case 5:
+                return 3.21704786664011;
+            default:
+                return 2.0;
+        }
+    }
+
     template <unsigned int Stage>
     void Staging(LibUtilities::Field<TData, FieldState::Phys> &inout)
     {

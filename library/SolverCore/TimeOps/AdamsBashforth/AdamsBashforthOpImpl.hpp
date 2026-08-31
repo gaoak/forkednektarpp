@@ -152,6 +152,23 @@ protected:
         }
     }
 
+    TData v_GetTimeStability(void) const override
+    {
+        switch (IntOrder)
+        {
+            case 1:
+                return 2.0;
+            case 2:
+                return 1.0;
+            case 3:
+                return 0.545454545454545;
+            case 4:
+                return 0.3;
+            default:
+                return 2.0;
+        }
+    }
+
     template <unsigned int... ind>
     void UpdateSolution(LibUtilities::Field<TData, FieldState::Phys> &inout,
                         std::integer_sequence<unsigned int, ind...>)
