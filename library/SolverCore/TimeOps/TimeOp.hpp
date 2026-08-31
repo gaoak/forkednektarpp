@@ -451,6 +451,11 @@ public:
         return m_step;
     }
 
+    TData GetTimeStability(void) const
+    {
+        return v_GetTimeStability();
+    }
+
 protected:
     // General parameters
     unsigned int m_step = 0;
@@ -586,6 +591,11 @@ protected:
                 math.daxpy(scale * coeffs[i], history[i], out, out);
             }
         }
+    }
+
+    virtual TData v_GetTimeStability(void) const
+    {
+        return 1.0;
     }
 
     /*
