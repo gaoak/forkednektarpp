@@ -59,10 +59,12 @@ public:
         auto op = Operator<TData>::template Create<NormLinfOp>(
             expansionList, components, execStr0);
 
-        auto blocks = MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-            expansionList);
+        auto blockAttr =
+            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
+                expansionList);
 
-        for (unsigned int block_idx = 0; block_idx < blocks.size(); block_idx++)
+        for (unsigned int block_idx = 0; block_idx < blockAttr.size();
+             block_idx++)
         {
             const auto exp =
                 MultiRegions::GetCollection(expansionList, block_idx)

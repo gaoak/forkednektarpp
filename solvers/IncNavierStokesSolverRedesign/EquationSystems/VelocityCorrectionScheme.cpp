@@ -810,4 +810,18 @@ void VelocityCorrectionScheme::v_WriteFld(const std::string &outname)
     m_fieldIo->Write(outname, fieldDef, fieldData, m_fieldMetaDataMap,
                      m_session->GetBackups());
 }
+
+/**
+ * @brief Offer the advection velocity to the Courant estimate.
+ *
+ * The incompressible equations carry no acoustic wave - pressure is
+ * enforced rather than propagated - so the transport speed is the velocity
+ * alone and there is no sound speed to weight.
+ */
+LibUtilities::Field<double, FieldState::Phys> &VelocityCorrectionScheme::
+    v_GetCFLVelocityField()
+{
+    return m_advVel;
+}
+
 } // namespace Nektar

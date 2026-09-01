@@ -118,6 +118,10 @@ protected:
 
     void v_InitObject(bool declareExpansionLists = true) override;
 
+    /// Offer the advection velocity to the Courant estimate.
+    LibUtilities::Field<double, FieldState::Phys> &v_GetCFLVelocityField()
+        override;
+
     void v_GenerateSummary(SummaryList &s) override;
 
     void InitialiseParameters();

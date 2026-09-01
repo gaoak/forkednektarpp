@@ -37,9 +37,9 @@
 #include "Operators/Norm/NormL2/NormL2Op.hpp"
 #include "Operators/Norm/NormLinf/NormLinfOp.hpp"
 
-using namespace Nektar::Operators;
-using namespace Nektar::LibUtilities;
 using namespace Nektar;
+using namespace Nektar::LibUtilities;
+using namespace Nektar::Operators;
 
 template <typename TData>
 class NormField : public InitFields<TData, FieldState::Phys, FieldState::Phys>
@@ -54,9 +54,9 @@ public:
         const auto nphys = this->fixt_explist->GetTotPoints();
 
         // Get coordinates
-        Array<OneD, NekDouble> x(nphys);
-        Array<OneD, NekDouble> y(nphys, 0.0);
-        Array<OneD, NekDouble> z(nphys, 0.0);
+        Array<OneD, double> x(nphys);
+        Array<OneD, double> y(nphys, 0.0);
+        Array<OneD, double> z(nphys, 0.0);
         this->fixt_explist->GetCoords(x, y, z);
 
         // Set initial conditions.
@@ -100,6 +100,7 @@ public:
                 inptr += inblock.CompSize();
             }
         }
+
         // Compute expected solution.
         ExpectedSolution();
     }

@@ -256,6 +256,20 @@ public:
         return *this;
     }
 
+    /**
+     * @brief Whether the field has been given storage by a custom
+     * constructor.
+     *
+     * A default-constructed or moved-from field is not instantiated, and
+     * every other accessor errors on it - this is the one query that is
+     * valid either way, so a caller can test with `if (field)` before
+     * touching.
+     */
+    explicit operator bool() const
+    {
+        return m_instantiated;
+    }
+
     void SetInterleaveWidth(const unsigned int &interleaveWidth)
     {
         for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)

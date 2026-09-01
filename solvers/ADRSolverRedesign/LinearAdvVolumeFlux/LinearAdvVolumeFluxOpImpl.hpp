@@ -73,7 +73,7 @@ protected:
 
             auto &inblock  = in.GetBlocks()[blk];
             auto &outblock = out.GetBlocks()[blk];
-            auto &velblock = this->m_advectVel.GetBlocks()[blk];
+            auto &velblock = this->m_advectVel->GetBlocks()[blk];
 
             auto inbase = inblock.template GetPtr<MemSpace, ReadOnly>(streamID);
             auto outbase =

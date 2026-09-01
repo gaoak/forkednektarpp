@@ -69,9 +69,11 @@ public:
         v_SetAppend(append);
     }
 
+    /// The velocity is referenced, not adopted, so that it stays usable by
+    /// whoever owns it; it must outlive this operator.
     void SetAdvectVel(LibUtilities::Field<TData, FieldState::Phys> &advectVel)
     {
-        this->m_advectVel = std::move(advectVel);
+        this->m_advectVel = &advectVel;
     }
 
     void SetRiemannSolver(const std::shared_ptr<RiemannSolverOp<TData>> &ptr)
@@ -86,7 +88,7 @@ public:
     }
 
 protected:
-    LibUtilities::Field<TData, FieldState::Phys> m_advectVel;
+    LibUtilities::Field<TData, FieldState::Phys> *m_advectVel = nullptr;
     std::shared_ptr<RiemannSolverOp<TData>> m_riemannSolverOp;
     std::shared_ptr<AdvectionVolumeFluxOp<TData>> m_volumeFluxOp;
     TData m_scale = 1.0;

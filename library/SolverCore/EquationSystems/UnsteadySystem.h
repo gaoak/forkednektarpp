@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include <Operators/CFL/MaxStdVelocity/MaxStdVelocityOp.hpp>
+#include <Operators/Norm/NormL2/NormL2Op.hpp>
 #include <SolverCore/EquationSystems/EquationSystem.h>
 #include <SolverCore/Filters/Filter.h>
 #include <SolverCore/TimeOps/TimeOp.hpp>
@@ -79,6 +81,36 @@ protected:
     unsigned int m_steps     = 0;
     unsigned int m_infosteps = 0;
     std::shared_ptr<TimeOp<double>> m_timeOp;
+
+    /// Courant number the timestep is reported against. Zero, the default,
+    /// switches the estimate off entirely.
+    double m_cflSafetyFactor = 0.0;
+    /// Reciprocal of the tightest advective time scale in the mesh - the
+    /// largest standard element velocity times \f$(P-1)^2\f$, as returned
+    /// by MaxStdVelocityOp. Kept from the last estimate for reporting.
+    double m_cflInvTimeScale = 0.0;
+    std::shared_ptr<Operators::MaxStdVelocityOp<double>> m_maxStdVelocityOp;
+
+    /// Cadence, in steps, of the in-flight NaN and abort-file tests; zero
+    /// disables both. Session parameter CheckAbortSteps.
+    unsigned int m_abortSteps = 1;
+    /// A file of this name beside the run requests a clean stop; it is
+    /// consumed when seen. Session property CheckAbortFile.
+    std::string m_abortFile = "abort";
+    std::shared_ptr<Operators::NormL2Op<double>> m_abortNormOp;
+
+    /// Test the two conditions under which a run should stop early.
+    SOLVER_CORE_EXPORT bool CheckAbortConditions();
+
+    /// Timestep the Courant condition permits for the current state.
+    SOLVER_CORE_EXPORT double GetCFLTimeStep();
+
+    /// The field the Courant estimate reads.
+    SOLVER_CORE_EXPORT virtual LibUtilities::Field<double, FieldState::Phys> &
+    v_GetCFLVelocityField();
+
+    /// Weight on the wave-speed component of the field above.
+    SOLVER_CORE_EXPORT virtual double v_GetSoundSpeedFactor();
     std::vector<std::pair<std::string, FilterSharedPtr>> m_filters;
 
     /// Initialises UnsteadySystem class members.

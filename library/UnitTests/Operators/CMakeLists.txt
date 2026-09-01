@@ -99,6 +99,8 @@ ADD_NEKTAR_EXECUTABLE(test_norm
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_norm.cpp)
 ADD_NEKTAR_EXECUTABLE(test_addtraceintegral
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral.cpp)
+ADD_NEKTAR_EXECUTABLE(test_maxstdvelocity
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_maxstdvelocity.cpp)
 ADD_NEKTAR_EXECUTABLE(test_bwdtrans
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans.cpp)
 ADD_NEKTAR_EXECUTABLE(test_fwdtransbc
@@ -189,6 +191,7 @@ SET_UNIT_TEST(MultiplyByElmtInvMass_serial_generic test_multiplybyelmtinvmass Se
 SET_UNIT_TEST(FwdTransBC_serial_generic test_fwdtransbc Serial Generic FALSE)
 SET_UNIT_TEST(Expression_serial_generic test_expression Serial Generic FALSE)
 SET_UNIT_TEST(Norm_serial_generic test_norm Serial Generic FALSE)
+SET_UNIT_TEST(MaxStdVelocity_serial_generic test_maxstdvelocity Serial Generic FALSE)
 
 # Serial StdMat
 SET_UNIT_TEST(AddTraceIntegral_serial_stdmat test_addtraceintegral Serial StdMat FALSE)
@@ -268,6 +271,7 @@ IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(FwdTransBC_avx_generic test_fwdtransbc AVX Generic FALSE)
     SET_UNIT_TEST(Expression_avx_generic test_expression AVX Generic FALSE)
     SET_UNIT_TEST(Norm_avx_generic test_norm AVX Generic FALSE)
+SET_UNIT_TEST(MaxStdVelocity_avx_generic test_maxstdvelocity AVX Generic FALSE)
 ENDIF()
 
 # AVX StdMat
@@ -353,6 +357,7 @@ IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(FwdTransBC_device_generic test_fwdtransbc Device Generic FALSE)
     SET_UNIT_TEST(Expression_device_generic test_expression Device Generic FALSE)
     SET_UNIT_TEST(Norm_device_generic test_norm Device Generic FALSE)
+SET_UNIT_TEST(MaxStdVelocity_device_generic test_maxstdvelocity Device Generic FALSE)
 ENDIF()
 
 # Device StdMat
