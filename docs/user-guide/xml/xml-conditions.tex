@@ -31,6 +31,24 @@ For example,
 
 A number of pre-defined constants may also be used in parameter expressions, for example \texttt{PI}. A full list of supported constants is provided in Section~\ref{sec:xml:expressions:syntax}.
 
+Two parameters control the in-flight stopping checks of the unsteady
+solvers. \inltt{CheckAbortSteps} sets how often, in steps, they are tested
+(default 1, every step; zero disables them): a solution that is no longer
+finite ends the run with an error, and the presence of a file named
+\inltt{abort} in the working directory -- created, for example, with
+\inltt{touch abort} beside a running job -- ends it cleanly at the end of
+the current step, with the summary and final output still written; the
+file is deleted when acted on. The filename can be changed with the
+\inltt{SOLVERINFO} property \inltt{CheckAbortFile}.
+
+The redesign solvers read a \inltt{CFL} parameter as a diagnostic: at
+each \inltt{IO\_InfoSteps} report, the timestep that Courant number
+would permit for the current state is printed beside the timestep in
+use, which never changes. When \inltt{CFL} is not set, nothing is
+computed. Note that some established solvers, such as the
+CompressibleFlowSolver, instead use \inltt{CFL} to set the timestep --
+see the solver chapters.
+
 \subsection{Time Integration Scheme}
 
 These specify properties to define the parameters specific to the time

@@ -147,8 +147,8 @@ public:
         const auto boundaryExp = GetBoundaryConditionExpansions();
         const auto totalPhys   = GetTotalBoundaryPoints(boundaryExp);
         const auto totalCoeffs = GetTotalBoundaryCoeffs(boundaryExp);
-        auto inPhys            = this->fixt_in->template ToArray<NekDouble>();
-        Array<OneD, NekDouble> result(totalCoeffs * nComp, 0.0);
+        auto inPhys            = this->fixt_in->template ToArray<double>();
+        Array<OneD, double> result(totalCoeffs * nComp, 0.0);
         size_t physOffset  = 0;
         size_t coeffOffset = 0;
 
@@ -156,7 +156,7 @@ public:
         {
             const auto nphys   = expList->GetTotPoints();
             const auto ncoeffs = expList->GetNcoeffs();
-            Array<OneD, NekDouble> tmp;
+            Array<OneD, double> tmp;
 
             for (unsigned int i = 0; i < nComp; ++i)
             {

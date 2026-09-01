@@ -32,6 +32,9 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <boost/algorithm/string/predicate.hpp>
+
+#include <cmath>
 #include <iomanip>
 #include <iostream>
 
@@ -87,6 +90,14 @@ void UnsteadySystem::v_InitObject(bool declareExpansionLists)
 
     // Load time-stepping parameters.
     m_session->LoadParameter("IO_InfoSteps", m_infosteps, 0);
+    // Reported against, not yet acted on: see GetCFLTimeStep().
+    m_session->LoadParameter("CFL", m_cflSafetyFactor, 0.0);
+    // Cadence of the in-flight NaN and abort-file tests.
+    m_session->LoadParameter("CheckAbortSteps", m_abortSteps, 1);
+    if (m_session->DefinesSolverInfo("CheckAbortFile"))
+    {
+        m_abortFile = m_session->GetSolverInfo("CheckAbortFile");
+    }
     m_session->LoadParameter("Time", m_time, 0.0);
     m_session->LoadParameter("TimeStep", m_timestep, 0.0);
     m_session->LoadParameter("NumSteps", m_steps, 0);
@@ -203,7 +214,10 @@ void UnsteadySystem::v_DoSolve()
             filter.second->Apply(m_time);
         }
 
-        if (stopIntegration)
+        // Test for the abort conditions (NaN, or an abort file).
+        if (stopIntegration ||
+            (m_abortSteps && !(m_timeOp->GetStep() % m_abortSteps) &&
+             CheckAbortConditions()))
         {
             break;
         }
@@ -224,6 +238,90 @@ void UnsteadySystem::v_DoSolve()
     }
 }
 
+/**
+ * @brief Timestep the Courant condition permits for the current state.
+ *
+ * \f[ \Delta t = \frac{\text{CFL} \; \alpha}{c_\lambda \,
+ * \text{invTimeScale}} \f]
+ *
+ * with invTimeScale from MaxStdVelocityOp, \f$c_\lambda = 0.2\f$ and
+ * \f$\alpha\f$ the stability limit of the time integration scheme.
+ * Returns zero when the solver does not offer a velocity, or when the flow
+ * is at rest and no finite timestep is implied.
+ *
+ * Nothing acts on this yet: it is reported beside the timestep in use so
+ * that a run can be judged before the estimate is trusted to set one.
+ */
+double UnsteadySystem::GetCFLTimeStep()
+{
+    if (m_cflSafetyFactor <= 0.0)
+    {
+        return 0.0;
+    }
+
+    auto &velocity = v_GetCFLVelocityField();
+    if (!velocity)
+    {
+        return 0.0;
+    }
+
+    if (!m_maxStdVelocityOp)
+    {
+        m_maxStdVelocityOp = Operators::MaxStdVelocityOp<double>::Create(
+            m_expansionLists[0], m_variables);
+    }
+
+    m_maxStdVelocityOp->SetSoundSpeedFactor(v_GetSoundSpeedFactor());
+    m_cflInvTimeScale = m_maxStdVelocityOp->Apply(velocity);
+
+    // A field at rest implies no Courant limit at all, which is a statement
+    // about the flow rather than a failure, so say nothing rather than
+    // divide by zero.
+    if (m_cflInvTimeScale <= 0.0)
+    {
+        return 0.0;
+    }
+
+    // Spencer, Numerical Methods for Fluid Dynamics, p317.
+    const double cLambda = 0.2;
+
+    // The stability limit of the configured time integration scheme,
+    // supplied by the scheme itself.
+    const double alpha = m_timeOp->GetTimeStability();
+
+    return m_cflSafetyFactor * alpha / (cLambda * m_cflInvTimeScale);
+}
+
+/**
+ * @brief The field the Courant estimate reads.
+ *
+ * A solver holds its velocity in its own way: as a field of its own for
+ * scalar advection and the incompressible equations, or reconstructed from
+ * conserved variables for a compressible one, where the speed of sound
+ * follows it as an extra component. The leading components are the velocity
+ * and, when v_GetSoundSpeedFactor() is non-zero, the one after them is a
+ * wave speed. A solver with no velocity to offer - this default - returns a
+ * field that was never instantiated, and GetCFLTimeStep() skips the
+ * estimate.
+ */
+LibUtilities::Field<double, FieldState::Phys> &UnsteadySystem::
+    v_GetCFLVelocityField()
+{
+    // Never instantiated, which GetCFLTimeStep() reads as "this solver
+    // offers no velocity" and skips the estimate.
+    static LibUtilities::Field<double, FieldState::Phys> noVelocity;
+    return noVelocity;
+}
+
+/**
+ * @brief Weight on the wave-speed component of the CFL velocity field:
+ * zero, this default, when the flow carries no acoustic wave.
+ */
+double UnsteadySystem::v_GetSoundSpeedFactor()
+{
+    return 0.0;
+}
+
 void UnsteadySystem::v_PrintStatusInformation()
 {
     if (m_infosteps && !(m_timeOp->GetStep() % m_infosteps) &&
@@ -232,8 +330,21 @@ void UnsteadySystem::v_PrintStatusInformation()
         std::cout
             // << std::scientific
             << "Steps: " << std::setw(8) << std::left << m_timeOp->GetStep()
-            << " Time: " << std::setw(12) << std::left << m_timeOp->GetTime()
-            << std::endl;
+            << " Time: " << std::setw(12) << std::left << m_timeOp->GetTime();
+
+        // Diagnostic only: the timestep in use is untouched, so the two can
+        // be compared and the estimate judged before anything depends on it.
+        if (m_cflSafetyFactor > 0.0)
+        {
+            const double cflTimeStep = GetCFLTimeStep();
+            if (cflTimeStep > 0.0)
+            {
+                std::cout << " CFL time-step: " << std::setw(12) << std::left
+                          << cflTimeStep;
+            }
+        }
+
+        std::cout << std::endl;
     }
 }
 
@@ -363,6 +474,42 @@ bool UnsteadySystem::v_PreIntegrate()
 bool UnsteadySystem::v_PostIntegrate()
 {
     return false;
+}
+
+/**
+ * @brief Test the two conditions under which a run should stop early.
+ *
+ * A non-finite solution norm means the integration cannot recover, so it
+ * stops with an error. An abort file placed beside the run asks for a clean
+ * stop instead: the file is consumed and true is returned, so the time loop
+ * is left through its normal exit and the summary, filters and final output
+ * still happen.
+ */
+bool UnsteadySystem::CheckAbortConditions()
+{
+    // The L2 norm is a sum of squares, which propagates a NaN or an Inf
+    // where a max reduction may drop it, and the reduction inside the
+    // operator makes the verdict identical on every rank.
+    if (!m_abortNormOp)
+    {
+        m_abortNormOp = Operators::NormL2Op<double>::Create(m_expansionLists[0],
+                                                            m_variables);
+    }
+    m_abortNormOp->Apply(m_fields);
+    for (const double &norm : m_abortNormOp->GetNorms())
+    {
+        ASSERTL0(std::isfinite(norm), "NaN found during time integration.");
+    }
+
+    // Rank zero looks for the abort file and consumes it.
+    int abortFile = 0;
+    if (m_comm->GetRank() == 0 && fs::exists(m_abortFile))
+    {
+        fs::remove(m_abortFile);
+        abortFile = 1;
+    }
+    m_comm->AllReduce(abortFile, LibUtilities::ReduceMax);
+    return abortFile != 0;
 }
 
 /*

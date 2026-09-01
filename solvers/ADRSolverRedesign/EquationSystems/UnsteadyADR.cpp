@@ -624,4 +624,17 @@ void UnsteadyADR::InitialiseParameters()
     }
 }
 
+/**
+ * @brief Offer the advection velocity to the Courant estimate.
+ *
+ * Without advection this field is never constructed, and
+ * GetCFLTimeStep() skips the estimate when the returned field is not
+ * instantiated.
+ */
+LibUtilities::Field<double, FieldState::Phys> &UnsteadyADR::
+    v_GetCFLVelocityField()
+{
+    return m_advectionVel;
+}
+
 } // namespace Nektar

@@ -188,7 +188,7 @@ SET(GROUP_SOURCES ${OPERATORS_SOURCES})
 # their source and header files.
 FILE(GLOB children AddTraceIntegral AssmbScatr BndCondOps/* ElmtOps/*
      GlobalLinSysOps/LinearSystems/* GlobalLinSysOps/LinearSolvers/*
-     PreconOps/* Norm/* GetFwdBwdTracePhys)
+     PreconOps/* Norm/* CFL/* GetFwdBwdTracePhys)
 
 FOREACH(child ${children})
     # MESSAGE("Child : " "${child}")
@@ -203,7 +203,7 @@ FOREACH(child ${children})
     ADD_ELMT_OPERATOR(${child})
 ENDFOREACH()
 # 2) Others
-FILE(GLOB children GetFwdBwdTracePhys BndCondOps/FwdTransBC Norm/*)
+FILE(GLOB children GetFwdBwdTracePhys BndCondOps/FwdTransBC Norm/* CFL/*)
 FOREACH(child ${children})
     ADD_BLOCK_OPERATOR(${child} OPNAMESPACE OPERATORS_HEADERS OPERATORS_SOURCES)
 ENDFOREACH()

@@ -97,7 +97,7 @@ public:
                      std::to_string(ncomp) + " and Nfields = " +
                      std::to_string(nvars) + ", respectively.")
 
-        auto incoeffs = this->fixt_in->template ToArray<NekDouble>();
+        auto incoeffs = this->fixt_in->template ToArray<double>();
 
         // Impose Robin BCs for each component
         double time = 0.0;
