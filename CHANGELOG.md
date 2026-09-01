@@ -16,6 +16,7 @@ v5.11.0
 - Fix Hdf5 output with very large hash value (!2654)
 - Fix MPIRequest free in destructor and MeshParitioning deadlock on non-shared filesystem (!2686)
 - Fix GetBoundaryNormals() leading to intermittent bugs in WSS processing (!2688)
+- Fix non-deterministic CWIPI coupling by zero-initialising received fields and refreshing stale extrapolation weights (!2690)
 
 **CI**
 - Added DEBUG_IMAGES option to reduce load on registry storage (2648)

@@ -761,7 +761,12 @@ void CouplingCwipi::ReceiveCwipi(const int step, const NekDouble time,
         Array<OneD, Array<OneD, NekDouble>> rVals(m_nRecvVars);
         for (int i = 0; i < m_nRecvVars; ++i)
         {
-            rVals[i] = Array<OneD, NekDouble>(m_recvField->GetTotPoints());
+            // Zero-initialise: points that CWIPI neither locates nor
+            // extrapolates would otherwise be left holding uninitialised
+            // heap memory, making the received field (and every downstream
+            // metric) depend on allocator state rather than the coupled
+            // data.
+            rVals[i] = Array<OneD, NekDouble>(m_recvField->GetTotPoints(), 0.0);
         }
 
         timer2.Start();
@@ -1008,15 +1013,25 @@ void CouplingCwipi::ExtrapolateFields(
             MemoryManager<LibUtilities::PtsField>::AllocateSharedPtr(
                 3, notLocVals);
 
-        // perform a nearest neighbour interpolation from locatedVals to the not
-        // located rVals
-        if (!m_extrapInterpolator)
+        // Perform a nearest neighbour interpolation from locatedVals to the
+        // not located rVals. The interpolation weights and neighbour indices
+        // are only valid for the located/not-located point configuration they
+        // were computed from: CWIPI re-locates every receive, and whenever the
+        // set of not-located points changes both the packing order of
+        // locatedVals and the not-located coordinates change, so cached
+        // weights would either trip the dimension-mismatch assert in
+        // Interpolator::Interpolate() or (worse) silently index the wrong
+        // located points. Recompute the weights whenever the not-located set
+        // differs from the previous receive.
+        std::vector<int> notLocSet(notLoc.begin(), notLoc.end());
+        if (!m_extrapInterpolator || notLocSet != m_lastNotLoc)
         {
             m_extrapInterpolator = MemoryManager<FieldUtils::Interpolator<
                 std::vector<MultiRegions::ExpListSharedPtr>>>::
                 AllocateSharedPtr(LibUtilities::eNearestNeighbour);
             m_extrapInterpolator->CalcWeights(locatedPts, notlocPts);
             m_extrapInterpolator->PrintStatistics();
+            m_lastNotLoc = std::move(notLocSet);
         }
         m_extrapInterpolator->Interpolate(locatedPts, notlocPts);
 
