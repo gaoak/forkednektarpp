@@ -94,7 +94,67 @@ include:
     - export ENV_IMAGE=$(docker build -q -f Dockerfile_tmp .)
     - mkdir -p log
     - if [ ! -d $CCACHE_DIR ]; then mkdir -p $CCACHE_DIR && chown 1000:1000 $CCACHE_DIR; fi
-    - docker run --name $CONTAINER_NAME -v ccache:/cache
+    # Diagnostic + zombie-container cleanup, limited to a single job
+    # (debian-trixie-full-build-and-test) rather than every build-and-test
+    # job: this job's cleanup (docker rm $CONTAINER_NAME, below) only runs
+    # if the script reaches the end of this sequential block, and if a
+    # previous job on this runner was killed by GitLab's job-level timeout
+    # partway through its own `docker run`, that container is never reached
+    # by its own cleanup line either -- it can be left running on this
+    # shared daemon indefinitely, competing with every job that runs here
+    # after it. One job's log is enough to see that on this shared pool
+    # without every job printing/pruning redundantly.
+    - |
+      if [[ "$CI_JOB_NAME" == "debian-trixie-full-build-and-test" ]]; then
+        # List what's already on the daemon before adding another
+        # container, so a leftover test-<job-id> container from an earlier
+        # timed-out run shows up directly in this job's own log.
+        echo "Containers already on this daemon before this job's run:"
+        docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.RunningFor}}\t{{.Image}}"
+        docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}" || true
+        # Clean up stale test-* containers before starting our own. Exited
+        # ones are always safe to remove outright (docker container prune
+        # never touches anything still running). Still-running ones are
+        # only removed once older than CONTAINER_CLEANUP_MAX_AGE_MINUTES:
+        # this job's own `timeout: 3h` means nothing legitimate can still
+        # be running past ~3h, so anything older than that is guaranteed
+        # orphaned rather than a currently in-progress job (possibly on
+        # another concurrency slot sharing this same daemon). Default is
+        # deliberately above that 3h bound; override it (e.g. to
+        # force-clean everything right now) by setting
+        # CONTAINER_CLEANUP_MAX_AGE_MINUTES as a CI/CD variable when
+        # manually running a pipeline -- e.g. 10 to remove anything idle
+        # for more than 10 minutes.
+        docker container prune -f
+        MAX_AGE_MINUTES="${CONTAINER_CLEANUP_MAX_AGE_MINUTES:-240}"
+        MAX_AGE_SECONDS=$((MAX_AGE_MINUTES * 60))
+        echo "Removing running test-* containers older than ${MAX_AGE_MINUTES} minutes:"
+        docker ps --filter "name=^test-" --filter "status=running" --format "{{.Names}}|{{.RunningFor}}" |
+        while IFS='|' read -r name runningfor; do
+            num=$(echo "$runningfor" | awk '{print $1}')
+            unit=$(echo "$runningfor" | awk '{print $2}')
+            case "$num" in
+                ''|*[!0-9]*) continue ;;
+            esac
+            case "$unit" in
+                second*) mult=1 ;;
+                minute*) mult=60 ;;
+                hour*)   mult=3600 ;;
+                day*)    mult=86400 ;;
+                week*)   mult=604800 ;;
+                month*)  mult=2592000 ;;
+                year*)   mult=31536000 ;;
+                *)       continue ;;
+            esac
+            age=$((num * mult))
+            if [ "$age" -ge "$MAX_AGE_SECONDS" ]; then
+                echo "  removing $name (running for: $runningfor)"
+                docker rm -f "$name" || true
+            fi
+        done
+      fi
+    - docker run --name $CONTAINER_NAME $DOCKER_FLAGS -v ccache:/cache
+      --cpus="$NUM_CPUS"
       --shm-size=4g
       -h "${CI_RUNNER_ID}.${CI_JOB_NAME}"
       -e "BUILD_TYPE=$BUILD_TYPE"
@@ -129,6 +189,16 @@ include:
       fi
     - docker rm $CONTAINER_NAME
     - exit $exit_code;
+  after_script:
+    # after_script runs in a fresh shell, so variables exported in `script`
+    # (like $CONTAINER_NAME) aren't available here -- recompute it from
+    # $CI_JOB_ID, which is a predefined variable and always present. Unlike
+    # the `docker rm $CONTAINER_NAME` at the end of `script` above, this runs
+    # unconditionally: on success, on failure, on a job-level timeout, and on
+    # a manual cancellation, so it catches the container this job started
+    # even when the job never reaches its own normal cleanup line (e.g. the
+    # `docker wait` above is still blocking when the timeout/cancel hits).
+    - docker rm -f test-$CI_JOB_ID 2>/dev/null || true
   artifacts:
     expire_in: 14 days
     paths:
@@ -728,7 +798,7 @@ win10-default-build-and-test:
     - cmake.exe -DCMAKE_BUILD_TYPE=Debug ..
     - cmake.exe --build . --target ALL_BUILD
     - cmake.exe --build . --target INSTALL
-    - ctest --output-on-failure -C Debug -j8
+    - ctest --output-on-failure -C Debug -j8 --timeout 2000
   after_script:
     # This script identifies any orphan Tester-g processes still running
     # and terminates them (and their children recursively), to ensure the build
@@ -745,8 +815,8 @@ win10-default-build-and-test:
     - function Kill-ProcessTree {
         Param([int]$ppid)
         Get-CimInstance Win32_Process | Where-Object {
-          $_.ParentProcessId -eq $ppid 
-        } | ForEach-Object { 
+          $_.ParentProcessId -eq $ppid
+        } | ForEach-Object {
           Kill-ProcessTree $_.ProcessId
         }
         Stop-Process -Id $ppid -Force
@@ -773,7 +843,7 @@ win10-mpi-default-build-and-test:
     - cmake.exe -DCMAKE_BUILD_TYPE=Debug -DNEKTAR_USE_MPI=ON ..
     - cmake.exe --build . --target ALL_BUILD
     - cmake.exe --build . --target INSTALL
-    - ctest --output-on-failure -C Debug -j8
+    - ctest --output-on-failure -C Debug -j8 --timeout 2000
   after_script:
     # This script identifies any orphan Tester-g processes still running
     # and terminates them (and their children recursively), to ensure the build
