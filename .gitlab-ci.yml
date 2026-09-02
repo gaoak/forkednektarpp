@@ -844,8 +844,6 @@ fedora-40-default-build-and-test:
 fedora-40-full-build-and-test:
   <<: *build-and-test-template
   needs: ["fedora-40-full-build-env"]
-  variables:
-    DISABLE_CWIPI: true
 
 #fedora-41-default-build-and-test:
 #  <<: *build-and-test-template

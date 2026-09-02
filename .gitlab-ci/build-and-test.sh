@@ -209,6 +209,7 @@ fi
 export OMP_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
 export MKL_NUM_THREADS=1
+export PRTE_MCA_hwloc_default_binding_policy=none
 
 if [[ $EXPORT_COMPILE_COMMANDS != "" ]]; then
     # If we are just exporting compile commands for clang-tidy, just build any
