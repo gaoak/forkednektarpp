@@ -176,9 +176,9 @@ void DisContField::SetUpDG(const std::string variable,
         m_session, m_bndCondExpansions, m_bndConditions, *m_exp, m_graph,
         m_comm, true, "DefaultVar", ImpType);
 
-    PeriodicMap periodicTraces = (m_expType == e1D)   ? m_periodicVerts
-                                 : (m_expType == e2D) ? m_periodicEdges
-                                                      : m_periodicFaces;
+    const PeriodicMap &periodicTraces = (m_expType == e1D)   ? m_periodicVerts
+                                        : (m_expType == e2D) ? m_periodicEdges
+                                                             : m_periodicFaces;
 
     m_traceMap = MemoryManager<AssemblyMapDG>::AllocateSharedPtr(
         m_session, m_graph, m_trace, *this, m_bndCondExpansions,
@@ -186,7 +186,7 @@ void DisContField::SetUpDG(const std::string variable,
 
     if (m_session->DefinesCmdLineArgument("verbose"))
     {
-        m_traceMap->PrintStats(std::cout, variable);
+        m_traceMap->PrintStats(std::cout, variable, true, "trace");
     }
 
     Array<OneD, Array<OneD, LocalRegions::ExpansionSharedPtr>> &elmtToTrace =
@@ -478,10 +478,6 @@ bool DisContField::IsLeftAdjacentTrace(const int n, const int e)
 {
     LocalRegions::ExpansionSharedPtr traceEl =
         m_traceMap->GetElmtToTrace()[n][e];
-
-    PeriodicMap periodicTraces = (m_expType == e1D)   ? m_periodicVerts
-                                 : (m_expType == e2D) ? m_periodicEdges
-                                                      : m_periodicFaces;
 
     bool fwd = true;
     if (traceEl->GetLeftAdjacentElementTrace() == -1 ||
@@ -867,6 +863,7 @@ void DisContField::GenerateBoundaryConditionExpansion(
     m_bndCondBndWeight = Array<OneD, NekDouble>{bregions.size(), 0.0};
 
     // count the number of non-periodic boundary points
+    bool needPhysNormals = false;
     for (auto &it : bregions)
     {
         // check to see if reduced bnd regions have been set in FieldConvert.
@@ -892,9 +889,17 @@ void DisContField::GenerateBoundaryConditionExpansion(
         if (bc->GetBoundaryConditionType() != SpatialDomains::eDirichlet ||
             boost::iequals(type, "I") || boost::iequals(type, "CalcBC"))
         {
-            SetUpPhysNormals();
+            needPhysNormals = true;
         }
         cnt++;
+    }
+
+    // SetUpPhysNormals visits every elemental trace in the field,
+    // independent of the region that requested it, so a single sweep
+    // serves all regions.
+    if (needPhysNormals)
+    {
+        SetUpPhysNormals();
     }
 }
 
@@ -962,6 +967,7 @@ void DisContField::GenerateBoundaryConditionExpansion(
     m_bndCondBndWeight = Array<OneD, NekDouble>{bregions.size(), 0.0};
 
     // count the number of non-periodic boundary points
+    bool needPhysNormals = false;
     for (auto &it : bregions)
     {
         // check to see if reduced bnd regions have been set in FieldConvert.
@@ -987,9 +993,17 @@ void DisContField::GenerateBoundaryConditionExpansion(
         if (bc->GetBoundaryConditionType() != SpatialDomains::eDirichlet ||
             boost::iequals(type, "I") || boost::iequals(type, "CalcBC"))
         {
-            SetUpPhysNormals();
+            needPhysNormals = true;
         }
         cnt++;
+    }
+
+    // SetUpPhysNormals visits every elemental trace in the field,
+    // independent of the region that requested it, so a single sweep
+    // serves all regions.
+    if (needPhysNormals)
+    {
+        SetUpPhysNormals();
     }
 }
 
@@ -2982,11 +2996,11 @@ vector<bool> &DisContField::GetNegatedFluxNormal(void)
     return m_negatedFluxNormal;
 }
 
-ExpListSharedPtr &DisContField::v_GetTrace()
+ExpListSharedPtr &DisContField::v_GetTrace(const std::string &variable)
 {
     if (m_trace == NullExpListSharedPtr)
     {
-        SetUpDG();
+        SetUpDG(variable.empty() ? "DefaultVar" : variable);
     }
 
     return m_trace;
@@ -3495,6 +3509,10 @@ void DisContField::v_ExtractTracePhys(
     LibUtilities::BasisSharedPtr basis = (*m_exp)[0]->GetBasis(0);
     if ((basis->GetBasisType() != LibUtilities::eGauss_Lagrange))
     {
+        ASSERTL0(m_locTraceToTraceMap,
+                 "Local trace-to-trace map not set up: the expansion basis "
+                 "has no boundary-interior decomposition (e.g. ORTHOGONAL), "
+                 "which is not supported for this DG operation.");
         Vmath::Zero(outarray.size(), outarray, 1);
         Array<OneD, NekDouble> tracevals(
             m_locTraceToTraceMap->GetNFwdLocTracePts());

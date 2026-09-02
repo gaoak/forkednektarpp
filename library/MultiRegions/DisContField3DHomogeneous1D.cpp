@@ -293,7 +293,7 @@ GlobalLinSysKey DisContField3DHomogeneous1D::v_HelmSolve(
 }
 
 /// @todo Fix in another way considering all the planes
-ExpListSharedPtr &DisContField3DHomogeneous1D::v_GetTrace()
+ExpListSharedPtr &DisContField3DHomogeneous1D::v_GetTrace(const std::string &)
 {
     return m_trace;
 }

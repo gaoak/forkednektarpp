@@ -433,10 +433,11 @@ void PrismExp::v_ComputeTraceNormal(const int face)
     }
 
     SpatialDomains::GeomType type = m_geomFactors->GetGtype();
-    const Array<TwoD, const NekDouble> &df =
-        m_geomFactors->ComputeDerivFactors(ptsKeys);
-    const Array<OneD, const NekDouble> &jac =
-        m_geomFactors->ComputeJac(ptsKeys);
+    // df/jac depend only on ptsKeys and the geometry, not on the trace;
+    // this element's traces share one memoised copy.
+    Array<TwoD, const NekDouble> df;
+    Array<OneD, const NekDouble> jac;
+    GetTraceNormalDerivFactors(ptsKeys, df, jac);
 
     int nq0  = ptsKeys[0].GetNumPoints();
     int nq1  = ptsKeys[1].GetNumPoints();

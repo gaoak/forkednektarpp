@@ -307,6 +307,18 @@ protected:
     SpatialDomains::GeomFactorsUniquePtr m_geomFactors;
     MetricMap m_metrics;
     std::map<int, NormalVector> m_traceNormals;
+
+    /// Cache for GetTraceNormalDerivFactors().  The deriv factors and
+    /// Jacobian at a trace point distribution depend only on the element
+    /// geometry and that distribution, not on which trace is being
+    /// processed - v_ComputeTraceNormal() is called once per trace, so
+    /// the values are cached and reused.  Dropped when the point
+    /// distribution changes or the geometry moves (m_geomFactors is
+    /// regenerated, e.g. under ALE).
+    LibUtilities::PointsKeyVector m_traceNormalPtsKeys;
+    Array<TwoD, NekDouble> m_traceNormalDerivFactors;
+    Array<OneD, NekDouble> m_traceNormalJac;
+    const SpatialDomains::GeomFactors *m_traceNormalGeomFactors = nullptr;
     ExpansionWeakPtr m_elementLeft;
     ExpansionWeakPtr m_elementRight;
     int m_elementTraceLeft  = -1;
@@ -320,6 +332,13 @@ protected:
 
     void ComputeLaplacianMetric();
     void ComputeQuadratureMetric();
+    /// Deriv factors / Jacobian at the trace point distribution
+    /// \a ptsKeys, memoised across the traces of this element (see
+    /// m_traceNormalPtsKeys).
+    LOCAL_REGIONS_EXPORT void GetTraceNormalDerivFactors(
+        const LibUtilities::PointsKeyVector &ptsKeys,
+        Array<TwoD, const NekDouble> &df, Array<OneD, const NekDouble> &jac);
+
     void ComputeGmatcdotMF(const Array<TwoD, const NekDouble> &df,
                            const Array<OneD, const NekDouble> &direction,
                            Array<OneD, Array<OneD, NekDouble>> &dfdir);

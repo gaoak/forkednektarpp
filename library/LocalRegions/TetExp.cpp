@@ -444,10 +444,11 @@ void TetExp::v_ComputeTraceNormal(const int face)
     }
 
     SpatialDomains::GeomType type = m_geomFactors->GetGtype();
-    const Array<TwoD, const NekDouble> &df =
-        m_geomFactors->ComputeDerivFactors(ptsKeys);
-    const Array<OneD, const NekDouble> &jac =
-        m_geomFactors->ComputeJac(ptsKeys);
+    // df/jac depend only on ptsKeys and the geometry, not on the trace;
+    // this element's traces share one memoised copy.
+    Array<TwoD, const NekDouble> df;
+    Array<OneD, const NekDouble> jac;
+    GetTraceNormalDerivFactors(ptsKeys, df, jac);
 
     LibUtilities::BasisKey tobasis0 = GetTraceBasisKey(face, 0);
     LibUtilities::BasisKey tobasis1 = GetTraceBasisKey(face, 1);
