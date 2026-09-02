@@ -166,14 +166,14 @@ const typename StorageSmvBsr<DataType>::const_iterator::IterType *StorageSmvBsr<
 
 template <typename DataType>
 bool StorageSmvBsr<DataType>::const_iterator::operator==(
-    const const_iterator &rhs)
+    const const_iterator &rhs) const
 {
     return m_iter.nnzindex == rhs.m_iter.nnzindex;
 }
 
 template <typename DataType>
 bool StorageSmvBsr<DataType>::const_iterator::operator!=(
-    const const_iterator &rhs)
+    const const_iterator &rhs) const
 {
     return !(m_iter.nnzindex == rhs.m_iter.nnzindex);
 }

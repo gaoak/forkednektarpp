@@ -87,12 +87,12 @@ public:
             return m_scale * (*m_iter);
         }
 
-        bool operator==(const const_iterator &rhs)
+        bool operator==(const const_iterator &rhs) const
         {
             return m_iter == rhs.m_iter;
         }
 
-        bool operator!=(const const_iterator &rhs)
+        bool operator!=(const const_iterator &rhs) const
         {
             return !(*this == rhs);
         }
