@@ -51,39 +51,39 @@ fi
 
 if [[ $BUILD_TYPE == "default" ]]; then
     CMAKEARGS+=(
-               "-DCMAKE_BUILD_TYPE=Release"
-               "-DNEKTAR_ENABLE_DEVICE_SUPPORT:BOOL=ON"
-               "-DNEKTAR_TEST_ALL=ON"
-               "-DNEKTAR_ERROR_ON_WARNINGS=OFF"
-               )
+        "-DCMAKE_BUILD_TYPE=Release"
+        "-DNEKTAR_ENABLE_DEVICE_SUPPORT:BOOL=ON"
+        "-DNEKTAR_TEST_ALL=ON"
+        "-DNEKTAR_ERROR_ON_WARNINGS=OFF"
+    )
     if [[ $BUILD_SINGLE_PRECISION == "on" ]]; then
         CMAKEARGS+=("-DNEKTAR_ENABLE_SINGLE_PRECISION:BOOL=ON")
         CMAKEARGS+=("-DNEKTAR_ENABLE_DOUBLE_PRECISION:BOOL=OFF")
     fi
 elif [[ $BUILD_TYPE == "full" ]]; then
     CMAKEARGS+=(
-               "-DCMAKE_BUILD_TYPE:STRING=Debug"
-               "-DNEKTAR_FULL_DEBUG:BOOL=ON"
-               "-DNEKTAR_TEST_ALL:BOOL=ON"
-               "-DNEKTAR_USE_ARPACK:BOOL=ON"
-               "-DNEKTAR_USE_FFTW:BOOL=ON"
-               "-DNEKTAR_USE_MPI:BOOL=ON"
-               "-DNEKTAR_USE_SCOTCH:BOOL=ON"
-               "-DNEKTAR_USE_PETSC:BOOL=ON"
-               "-DNEKTAR_USE_HDF5:BOOL=ON"
-               "-DNEKTAR_USE_METIS:BOOL=ON"
-               "-DNEKTAR_USE_MESHGEN:BOOL=ON"
-               "-DNEKTAR_USE_CCM:BOOL=ON"
-               "-DNEKTAR_USE_CGNS:BOOL=ON"
-               "-DNEKTAR_CCMIO_URL=https://www.nektar.info/ccmio/libccmio-2.6.1.tar.gz"
-               "-DNEKTAR_USE_VTK:BOOL=ON"
-               "-DNEKTAR_ENABLE_DEVICE_SUPPORT:BOOL=ON"
-	       "-DNEKTAR_USE_LST:BOOL=ON"
-               "-DNEKTAR_BUILD_PYTHON:BOOL=ON"
-               "-DNEKTAR_TEST_USE_HOSTFILE=ON"
-               "-DNEKTAR_UTILITY_EXTRAS=ON"
-               "-DNEKTAR_ERROR_ON_WARNINGS=OFF"
-               )
+        "-DCMAKE_BUILD_TYPE:STRING=Debug"
+        "-DNEKTAR_FULL_DEBUG:BOOL=ON"
+        "-DNEKTAR_TEST_ALL:BOOL=ON"
+        "-DNEKTAR_USE_ARPACK:BOOL=ON"
+        "-DNEKTAR_USE_FFTW:BOOL=ON"
+        "-DNEKTAR_USE_MPI:BOOL=ON"
+        "-DNEKTAR_USE_SCOTCH:BOOL=ON"
+        "-DNEKTAR_USE_PETSC:BOOL=ON"
+        "-DNEKTAR_USE_HDF5:BOOL=ON"
+        "-DNEKTAR_USE_METIS:BOOL=ON"
+        "-DNEKTAR_USE_MESHGEN:BOOL=ON"
+        "-DNEKTAR_USE_CCM:BOOL=ON"
+        "-DNEKTAR_USE_CGNS:BOOL=ON"
+        "-DNEKTAR_CCMIO_URL=https://www.nektar.info/ccmio/libccmio-2.6.1.tar.gz"
+        "-DNEKTAR_USE_VTK:BOOL=ON"
+        "-DNEKTAR_ENABLE_DEVICE_SUPPORT:BOOL=ON"
+        "-DNEKTAR_USE_LST:BOOL=ON"
+        "-DNEKTAR_BUILD_PYTHON:BOOL=ON"
+        "-DNEKTAR_TEST_USE_HOSTFILE=ON"
+        "-DNEKTAR_UTILITY_EXTRAS=ON"
+        "-DNEKTAR_ERROR_ON_WARNINGS=OFF"
+    )
 
     if [[ $DISABLE_CWIPI != "true" ]]; then
         CMAKEARGS+=("-DNEKTAR_USE_CWIPI:BOOL=ON")
@@ -148,12 +148,12 @@ elif [[ $BUILD_TYPE == "full" ]]; then
     fi
 elif [[ $BUILD_TYPE == "performance" ]]; then
     CMAKEARGS+=(
-               "-DCMAKE_BUILD_TYPE=Release"
-               "-DNEKTAR_BUILD_TESTS=OFF"
-               "-DNEKTAR_BUILD_UNIT_TESTS=OFF"
-               "-DNEKTAR_BUILD_PERFORMANCE_TESTS=ON"
-               "-DNEKTAR_ERROR_ON_WARNINGS=OFF"
-               )
+        "-DCMAKE_BUILD_TYPE=Release"
+        "-DNEKTAR_BUILD_TESTS=OFF"
+        "-DNEKTAR_BUILD_UNIT_TESTS=OFF"
+        "-DNEKTAR_BUILD_PERFORMANCE_TESTS=ON"
+        "-DNEKTAR_ERROR_ON_WARNINGS=OFF"
+    )
 fi
 
 if [[ $DO_COVERAGE != "" ]]; then
@@ -217,7 +217,7 @@ if [[ $EXPORT_COMPILE_COMMANDS != "" ]]; then
     exit_code=$?
 else
     # Otherwise build and test the code.
-    $MAKE_EXEC -C $BUILD_DIR -j $NUM_CPUS all 2>&1 && $MAKE_EXEC -C $BUILD_DIR -j $NUM_CPUS install && \
+    $MAKE_EXEC -C $BUILD_DIR -j $NUM_CPUS all 2>&1 && $MAKE_EXEC -C $BUILD_DIR -j $NUM_CPUS install &&
         (cd $BUILD_DIR && ctest -j $TEST_JOBS --output-on-failure --timeout 6000)
     exit_code=$?
 
@@ -229,7 +229,7 @@ else
         python3 cmake/python/lcov_cobertura.py coverage.info
         mkdir coverage
         python3 cmake/python/split_cobertura.py coverage.xml coverage
-        exit 0;
+        exit 0
     fi
 fi
 

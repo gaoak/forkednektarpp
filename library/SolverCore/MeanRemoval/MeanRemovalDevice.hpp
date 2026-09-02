@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: NormL2Device.hpp
+// File: MeanRemovalDevice.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -35,25 +35,26 @@
 #pragma once
 
 #include <Operators/ElmtOps/ElmtBlockOp.hpp>
-#include <Operators/Norm/NormL2/NormL2BlockOp.hpp>
+#include <SolverCore/MeanRemoval/MeanRemovalBlockOp.hpp>
 
 #include <LibUtilities/BasicUtils/DataWarehouse/BasisDataWarehouse.hpp>
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp>
 
-namespace Nektar::Operators::detail
+namespace Nektar::SolverCore::detail
 {
 
 template <typename ExecSpace, typename TData>
-class NormL2BlockOpImpl : public NormL2BlockOp<TData>
+class MeanRemovalBlockOpImpl : public MeanRemovalBlockOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    NormL2BlockOpImpl(const unsigned int block_idx,
-                      const LocalRegions::ExpansionSharedPtr &exp,
-                      LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
-        : NormL2BlockOp<TData>(block_idx, exp, dataWarehouse)
+    MeanRemovalBlockOpImpl(
+        const unsigned int block_idx,
+        const LocalRegions::ExpansionSharedPtr &exp,
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
+        : MeanRemovalBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         m_streamID = block_idx + 1;
 
@@ -81,7 +82,8 @@ public:
                                                   LibUtilities::eWeights)));
         }
 
-        // Fetch Jacobian.
+        // Fetch Jacobian (contiguous for SumFacTOP, warp-interleaved for
+        // SumFac).
         m_jacptr1 = this->m_dataWarehouse->template GetData<MemSpace>(
             LocalRegions::JacobianKey<TData>(block_idx, 1));
         m_jacptr2 = this->m_dataWarehouse->template GetData<MemSpace>(
@@ -93,12 +95,12 @@ public:
     static std::string className;
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
-    static std::unique_ptr<NormL2BlockOp<TData>> Instantiate(
+    static std::unique_ptr<MeanRemovalBlockOp<TData>> Instantiate(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
-        return std::make_unique<NormL2BlockOpImpl<ExecSpace, TData>>(
+        return std::make_unique<MeanRemovalBlockOpImpl<ExecSpace, TData>>(
             block_idx, exp, dataWarehouse);
     }
 
@@ -112,7 +114,6 @@ protected:
     const TData *m_jacptr1   = nullptr;
     const TData *m_jacptr2   = nullptr;
     std::vector<unsigned int> m_nq;
-    std::vector<unsigned int> m_nm;
     std::vector<const TData *> m_W;
 
     void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
@@ -136,9 +137,8 @@ protected:
                 break;
             }
             default:
-                ASSERTL0(
-                    false,
-                    "NormL2 Device only implemented for dimension 1, 2 or 3.");
+                ASSERTL0(false, "MeanRemoval Device only implemented for "
+                                "dimension 1, 2 or 3.");
         }
     }
 
@@ -172,61 +172,61 @@ protected:
         // Set Kernel parameters.
         const unsigned int shmemsize = 0;
         const unsigned int blocksize =
-            (interleaveWidth == 1) ? GetDeviceBlockSize<SumFacTOP>(m_nqTot)
-                                   : GetDeviceBlockSize<SumFac>(m_nqTot);
+            (interleaveWidth == 1)
+                ? Operators::GetDeviceBlockSize<Operators::SumFacTOP>(m_nqTot)
+                : Operators::GetDeviceBlockSize<Operators::SumFac>(m_nqTot);
         const unsigned int gridsize =
             (interleaveWidth == 1)
-                ? GetDeviceGridSize<SumFacTOP>(nelmtPad, blocksize, shmemsize)
-                : GetDeviceGridSize<SumFac>(nelmtPad, blocksize, shmemsize);
+                ? Operators::GetDeviceGridSize<Operators::SumFacTOP>(
+                      nelmtPad, blocksize, shmemsize)
+                : Operators::GetDeviceGridSize<Operators::SumFac>(
+                      nelmtPad, blocksize, shmemsize);
 
-        // Compute volume.
-        if (this->m_normalised)
+        // Compute mesh volume (always -- MeanRemoval normalises by it).
+        if (m_isDeformed)
         {
-            if (m_isDeformed)
+            if (interleaveWidth == 1)
             {
-                if (interleaveWidth == 1)
-                {
-                    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                        (VolumeKernelLauncher<1u, true>), gridsize, blocksize,
-                        m_streamID, m_nq[ind]..., nelmt, m_W[ind]..., m_jacptr1,
-                        dataptr + nComp);
-                }
-                else
-                {
-                    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                        (VolumeKernelLauncher<NektarSpaces::Device::warpSize,
-                                              true>),
-                        gridsize, blocksize, m_streamID, m_nq[ind]..., nelmt,
-                        m_W[ind]..., m_jacptr2, dataptr + nComp);
-                }
+                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (VolumeKernelLauncher<1u, true>), gridsize, blocksize,
+                    m_streamID, m_nq[ind]..., nelmt, m_W[ind]..., m_jacptr1,
+                    dataptr + nComp);
             }
             else
             {
-                if (interleaveWidth == 1)
-                {
-                    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                        (VolumeKernelLauncher<1u, false>), gridsize, blocksize,
-                        m_streamID, m_nq[ind]..., nelmt, m_W[ind]..., m_jacptr1,
-                        dataptr + nComp);
-                }
-                else
-                {
-                    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                        (VolumeKernelLauncher<NektarSpaces::Device::warpSize,
-                                              false>),
-                        gridsize, blocksize, m_streamID, m_nq[ind]..., nelmt,
-                        m_W[ind]..., m_jacptr2, dataptr + nComp);
-                }
+                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (VolumeKernelLauncher<NektarSpaces::Device::warpSize,
+                                          true>),
+                    gridsize, blocksize, m_streamID, m_nq[ind]..., nelmt,
+                    m_W[ind]..., m_jacptr2, dataptr + nComp);
+            }
+        }
+        else
+        {
+            if (interleaveWidth == 1)
+            {
+                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (VolumeKernelLauncher<1u, false>), gridsize, blocksize,
+                    m_streamID, m_nq[ind]..., nelmt, m_W[ind]..., m_jacptr1,
+                    dataptr + nComp);
+            }
+            else
+            {
+                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (VolumeKernelLauncher<NektarSpaces::Device::warpSize,
+                                          false>),
+                    gridsize, blocksize, m_streamID, m_nq[ind]..., nelmt,
+                    m_W[ind]..., m_jacptr2, dataptr + nComp);
             }
         }
 
-        // Compute norm.
+        // Compute the weighted volume integral of every component.
         if (m_isDeformed)
         {
             if (interleaveWidth == 1)
             {
                 DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (IntegralKernelLauncher<IntegralOp::Square, 1u, true>),
+                    (IntegralKernelLauncher<IntegralOp::Default, 1u, true>),
                     gridsize, nComp * nHomo, blocksize, 1, m_streamID,
                     m_nq[ind]..., nelmt, m_W[ind]..., m_jacptr1, inptr,
                     dataptr);
@@ -234,7 +234,7 @@ protected:
             else
             {
                 DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (IntegralKernelLauncher<IntegralOp::Square,
+                    (IntegralKernelLauncher<IntegralOp::Default,
                                             NektarSpaces::Device::warpSize,
                                             true>),
                     gridsize, nComp * nHomo, blocksize, 1, m_streamID,
@@ -247,7 +247,7 @@ protected:
             if (interleaveWidth == 1)
             {
                 DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (IntegralKernelLauncher<IntegralOp::Square, 1u, false>),
+                    (IntegralKernelLauncher<IntegralOp::Default, 1u, false>),
                     gridsize, nComp * nHomo, blocksize, 1, m_streamID,
                     m_nq[ind]..., nelmt, m_W[ind]..., m_jacptr1, inptr,
                     dataptr);
@@ -255,7 +255,7 @@ protected:
             else
             {
                 DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (IntegralKernelLauncher<IntegralOp::Square,
+                    (IntegralKernelLauncher<IntegralOp::Default,
                                             NektarSpaces::Device::warpSize,
                                             false>),
                     gridsize, nComp * nHomo, blocksize, 1, m_streamID,
@@ -266,4 +266,4 @@ protected:
     }
 };
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::SolverCore::detail

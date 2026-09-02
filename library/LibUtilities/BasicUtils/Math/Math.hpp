@@ -448,6 +448,110 @@ void add(LibUtilities::Field<TData, TFieldState> &x,
     }
 }
 
+// addScalar computes y = x + alpha, ie adds the scalar `alpha` to every entry
+// of `x`. Unlike add(x, y, z) (elementwise array addition),
+// this needs no second array operand, so it is a single kernel launch per
+// block regardless of the field's shape/interleave layout.
+template <typename ExecSpace, typename TData>
+void addScalar(const TData alpha, LibUtilities::MemoryRegion<TData> &x,
+               LibUtilities::MemoryRegion<TData> &y)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::addScalar - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr  = y.template GetPtr<MemSpace, WriteOnly>();
+    auto nsize = x.size();
+
+    addScalarKernel<ExecSpace>(nsize, alpha, xptr, yptr);
+}
+
+template <typename ExecSpace, typename TData, FieldState TFieldState>
+void addScalar(const TData alpha, LibUtilities::Field<TData, TFieldState> &x,
+               LibUtilities::Field<TData, TFieldState> &y)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::addScalar - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+    {
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto yptr =
+            y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
+
+        addScalarKernel<ExecSpace>(size, alpha, xptr, yptr, streamID);
+
+        y.GetBlocks()[blk].template SetInterleaveWidth<TData>(
+            x.GetBlocks()[blk].GetInterleaveWidth());
+    }
+}
+
+// Per-component addScalar: y = x + alpha[c], ie adds a component-specific
+// scalar `alpha[c]` to every entry of component `c` of `x`. `alpha` must hold
+// one value per (component * homogeneous mode), matching the contiguous
+// per-component layout within each block. Like the single-scalar overload above
+// this is layout-independent, so no reshape is needed.
+template <typename ExecSpace, typename TData, FieldState TFieldState>
+void addScalar(const std::vector<TData> &alpha,
+               LibUtilities::Field<TData, TFieldState> &x,
+               LibUtilities::Field<TData, TFieldState> &y)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::addScalar - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    const unsigned int numComp = x.GetNumComponents() * x.GetNumHomoModes();
+    ASSERTL1(alpha.size() == numComp,
+             "MathKernel::addScalar - one scalar per component*homoMode "
+             "expected.");
+
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+    {
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto yptr =
+            y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
+        const auto compSize = x.GetBlocks()[blk].CompSize();
+
+        for (unsigned int nc = 0; nc < numComp; ++nc)
+        {
+            addScalarKernel<ExecSpace>(compSize, alpha[nc],
+                                       xptr + nc * compSize,
+                                       yptr + nc * compSize, streamID);
+        }
+
+        y.GetBlocks()[blk].template SetInterleaveWidth<TData>(
+            x.GetBlocks()[blk].GetInterleaveWidth());
+    }
+}
+
 template <typename ExecSpace, typename TData>
 void sub(LibUtilities::MemoryRegion<TData> &x,
          LibUtilities::MemoryRegion<TData> &y,

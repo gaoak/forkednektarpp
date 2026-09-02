@@ -171,6 +171,23 @@ template <
     typename ExecSpace, typename TData,
     std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
         Enable = true>
+inline void addScalarKernel(const size_t nsize, const TData alpha,
+                            const TData *x, TData *y,
+                            const unsigned int streamID = 0)
+{
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+    sycl::event e  = Q.submit([=](sycl::handler &cgh) {
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        cgh.parallel_for(sycl::range<1>(nsize),
+                          [=](sycl::id<1> indx) { y[indx] = x[indx] + alpha; });
+    });
+    SYCLQueue::SetEvent(streamID, e);
+}
+
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
 inline void subKernel(const size_t nsize, const TData *x, const TData *y,
                       TData *z, const unsigned int streamID = 0)
 {

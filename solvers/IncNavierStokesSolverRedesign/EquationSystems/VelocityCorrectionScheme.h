@@ -60,6 +60,11 @@ template <typename TData> class PoissonSolveOp;
 template <typename TData> class PreconOp;
 } // namespace Operators
 
+namespace SolverCore
+{
+template <typename TData> class MeanRemovalOp;
+} // namespace SolverCore
+
 using namespace SolverCore;
 using namespace Operators;
 
@@ -129,6 +134,12 @@ protected:
     std::shared_ptr<PoissonSolveOp<double>> m_poissonSolveOp;
     std::vector<ForcingSharedPtr> m_forcing;
     std::shared_ptr<DivergenceOp<double>> m_divergenceOp;
+
+    // Lazily constructed on first use in v_PrintNorms. Execution-space
+    // dispatch (Serial/AVX/Device) is resolved once by
+    // MeanRemovalOp::Create(), so this is used identically regardless of
+    // opExecSpace.
+    std::shared_ptr<MeanRemovalOp<double>> m_meanRemovalOp;
 
     VelocityCorrectionScheme(
         const LibUtilities::SessionReaderSharedPtr &pSession,

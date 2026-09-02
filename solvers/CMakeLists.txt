@@ -23,6 +23,18 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
         ENDFOREACH ()
     ENDMACRO()
 
+    # Reduced variant of SET_ALL_SOLVER_TEST for sessions where the varied
+    # parameter (basis type, mesh, dimension, ...) is orthogonal to
+    # opExecSpace/opImpl dispatch: a single Serial+SumFac smoke test is
+    # enough to catch a regression in that parameter, since execspace/impl
+    # correctness is already covered by the full matrix on a representative
+    # sibling session. See TEST_SUITE_NOTES.md section 9.
+    MACRO(SET_SERIAL_SUMFAC_SOLVER_TEST solver session)
+        ADD_TEST(NAME ${solver}_${session}_Serial_SumFac
+             COMMAND Tester ${CMAKE_CURRENT_SOURCE_DIR}/Tests/${session}.tst -v
+              --opExecSpace=Serial --opImpl=SumFac)
+    ENDMACRO()
+
 ENDIF()
 
 MACRO(SOLVER_COMPONENT_NAME name var)

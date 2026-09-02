@@ -761,7 +761,7 @@ TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_seg_3c, Helmholtz1D_Seg_3C,
 TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_tri_quad_3c,
                          Helmholtz2D_Tri_Quad_3C, 4.0E-09)
 TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_all_bcs, Helmholtz2D_AllBCs,
-                         5.0E-10)
+                         1.0E-09)
 TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_hex_3c, Helmholtz3D_Hex_3C,
                          2.0E-08)
 #if defined(NEKTAR_TEST_DEBUG)

@@ -34,6 +34,36 @@
 
 #pragma once
 
+#include <LibUtilities/Backends/Backends.hpp>
+
+namespace Nektar::IntegralOp
+{
+template <typename TData> struct Default
+{
+    NEK_HOSTDEVICE_INLINE TData operator()(TData in)
+    {
+        return in;
+    }
+};
+
+template <typename TData> struct Square
+{
+    NEK_HOSTDEVICE_INLINE TData operator()(TData in)
+    {
+        return in * in;
+    }
+};
+
+template <typename TData> struct Abs
+{
+    NEK_HOSTDEVICE_INLINE TData operator()(TData in)
+    {
+        using std::abs;
+        return abs(in);
+    }
+};
+} // namespace Nektar::IntegralOp
+
 #include "LibUtilities/BasicUtils/Utils/UtilsDeviceKernels.hpp"
 #include "LibUtilities/BasicUtils/Utils/UtilsSerialAVXKernels.hpp"
 

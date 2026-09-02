@@ -127,6 +127,17 @@ template <
     typename ExecSpace, typename TData,
     std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
         Enable = true>
+inline void addScalarKernel(const size_t nsize, const TData alpha,
+                            const TData *x, TData *y,
+                            [[maybe_unused]] const unsigned int streamID = 0)
+{
+    std::transform(x, x + nsize, y, [&alpha](TData xi) { return xi + alpha; });
+}
+
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
 inline void subKernel(const size_t nsize, const TData *x, const TData *y,
                       TData *z,
                       [[maybe_unused]] const unsigned int streamID = 0)

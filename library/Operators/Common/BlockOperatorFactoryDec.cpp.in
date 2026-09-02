@@ -53,11 +53,11 @@ namespace @OPNAMESPACE@
 template <>
 std::string @OPERATOR@BlockOpImpl<NektarSpaces::@ExecSpace@,
                              @TData@>::className =
-    GetBlockOperatorFactory<@TData@>().RegisterCreatorFunction(
+    Operators::GetBlockOperatorFactory<@TData@>().RegisterCreatorFunction(
         @OPERATOR@BlockOp<@TData@>::name + "@ExecSpace@",
         @OPERATOR@BlockOpImpl<NektarSpaces::@ExecSpace@,
                          @TData@>::Instantiate,
         "...");
 
-} // namespace Nektar::Operators::detail
+} // namespace @OPNAMESPACE@
 // clang-format on

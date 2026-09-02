@@ -173,4 +173,186 @@ NEK_FORCE_INLINE static void DivideByJacobian(
     }
 }
 
+// Quadrature approximation of the element volume, i.e. the integral of 1 over
+// the (SIMD-packed group of) element(s): sum of w0[i]*w1[j]*w2[k]*jac. DEFORMED
+// selects a per-quadrature-point Jacobian versus a single constant Jacobian.
+// Shared by NormL2 (normalisation) and MeanRemoval (mean division).
+
+// 1D case
+template <bool DEFORMED, typename simd_type>
+NEK_FORCE_INLINE static simd_type VolumeKernel(
+    const unsigned int nq0, const typename simd_type::scalarType *w0,
+    const simd_type *jac)
+{
+    simd_type vol = 0.0;
+    for (unsigned int i = 0; i < nq0; ++i)
+    {
+        if constexpr (DEFORMED)
+        {
+            vol.fma(w0[i], jac[i]);
+        }
+        else
+        {
+            vol.fma(w0[i], jac[0]);
+        }
+    }
+    return vol;
+}
+
+// 2D case
+template <bool DEFORMED, typename simd_type>
+NEK_FORCE_INLINE static simd_type VolumeKernel(
+    const unsigned int nq0, const unsigned int nq1,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1, const simd_type *jac)
+{
+    simd_type vol  = 0.0;
+    unsigned int q = 0;
+
+    for (unsigned int j = 0; j < nq1; ++j)
+    {
+        const auto w1j = w1[j];
+        for (unsigned int i = 0; i < nq0; ++i, ++q)
+        {
+            const auto weight = w0[i] * w1j;
+            if constexpr (DEFORMED)
+            {
+                vol.fma(weight, jac[q]);
+            }
+            else
+            {
+                vol.fma(weight, jac[0]);
+            }
+        }
+    }
+
+    return vol;
+}
+
+// 3D case
+template <bool DEFORMED, typename simd_type>
+NEK_FORCE_INLINE static simd_type VolumeKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1,
+    const typename simd_type::scalarType *w2, const simd_type *jac)
+{
+    simd_type vol  = 0.0;
+    unsigned int q = 0;
+
+    for (unsigned int k = 0; k < nq2; ++k)
+    {
+        const auto w2k = w2[k];
+        for (unsigned int j = 0; j < nq1; ++j)
+        {
+            const auto w12 = w1[j] * w2k;
+            for (unsigned int i = 0; i < nq0; ++i, ++q)
+            {
+                const auto weight = w0[i] * w12;
+                if constexpr (DEFORMED)
+                {
+                    vol.fma(weight, jac[q]);
+                }
+                else
+                {
+                    vol.fma(weight, jac[0]);
+                }
+            }
+        }
+    }
+
+    return vol;
+}
+
+// 1D case
+template <template <typename> typename INTEGRALOP, bool DEFORMED,
+          typename simd_type>
+NEK_FORCE_INLINE static simd_type IntegralKernel(
+    const unsigned int nq0, const typename simd_type::scalarType *w0,
+    const simd_type *jac, const simd_type *in)
+{
+    simd_type acc = 0.0;
+    for (unsigned int i = 0; i < nq0; ++i)
+    {
+        if constexpr (DEFORMED)
+        {
+            acc.fma(INTEGRALOP<simd_type>()(in[i]), w0[i] * jac[i]);
+        }
+        else
+        {
+            acc.fma(INTEGRALOP<simd_type>()(in[i]), w0[i] * jac[0]);
+        }
+    }
+    return acc;
+}
+
+// 2D case
+template <template <typename> typename INTEGRALOP, bool DEFORMED,
+          typename simd_type>
+NEK_FORCE_INLINE static simd_type IntegralKernel(
+    const unsigned int nq0, const unsigned int nq1,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1, const simd_type *jac,
+    const simd_type *in)
+{
+    simd_type acc  = 0.0;
+    unsigned int q = 0;
+
+    for (unsigned int j = 0; j < nq1; ++j)
+    {
+        const auto w1j = w1[j];
+        for (unsigned int i = 0; i < nq0; ++i, ++q)
+        {
+            const auto weight = w0[i] * w1j;
+            if constexpr (DEFORMED)
+            {
+                acc.fma(INTEGRALOP<simd_type>()(in[q]), weight * jac[q]);
+            }
+            else
+            {
+                acc.fma(INTEGRALOP<simd_type>()(in[q]), weight * jac[0]);
+            }
+        }
+    }
+
+    return acc;
+}
+
+// 3D case
+template <template <typename> typename INTEGRALOP, bool DEFORMED,
+          typename simd_type>
+NEK_FORCE_INLINE static simd_type IntegralKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1,
+    const typename simd_type::scalarType *w2, const simd_type *jac,
+    const simd_type *in)
+{
+    simd_type acc  = 0.0;
+    unsigned int q = 0;
+
+    for (unsigned int k = 0; k < nq2; ++k)
+    {
+        const auto w2k = w2[k];
+        for (unsigned int j = 0; j < nq1; ++j)
+        {
+            const auto w12 = w1[j] * w2k;
+            for (unsigned int i = 0; i < nq0; ++i, ++q)
+            {
+                const auto weight = w0[i] * w12;
+                if constexpr (DEFORMED)
+                {
+                    acc.fma(INTEGRALOP<simd_type>()(in[q]), weight * jac[q]);
+                }
+                else
+                {
+                    acc.fma(INTEGRALOP<simd_type>()(in[q]), weight * jac[0]);
+                }
+            }
+        }
+    }
+
+    return acc;
+}
+
 } // namespace Nektar

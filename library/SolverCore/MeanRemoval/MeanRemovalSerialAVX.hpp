@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: NormL2SerialAVX.hpp
+// File: MeanRemovalSerialAVX.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -36,7 +36,7 @@
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
-#include <Operators/Norm/NormL2/NormL2BlockOp.hpp>
+#include <SolverCore/MeanRemoval/MeanRemovalBlockOp.hpp>
 
 #include <LibUtilities/BasicUtils/DataWarehouse/BasisDataWarehouse.hpp>
 #include <LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp>
@@ -44,11 +44,11 @@
 #include <LibUtilities/BasicUtils/Math/Math.hpp>
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 
-namespace Nektar::Operators::detail
+namespace Nektar::SolverCore::detail
 {
 
 template <typename ExecSpace, typename TData>
-class NormL2BlockOpImpl : public NormL2BlockOp<TData>
+class MeanRemovalBlockOpImpl : public MeanRemovalBlockOp<TData>
 {
     using simd_t =
         typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
@@ -56,10 +56,11 @@ class NormL2BlockOpImpl : public NormL2BlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    NormL2BlockOpImpl(const unsigned int block_idx,
-                      const LocalRegions::ExpansionSharedPtr &exp,
-                      LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
-        : NormL2BlockOp<TData>(block_idx, exp, dataWarehouse)
+    MeanRemovalBlockOpImpl(
+        const unsigned int block_idx,
+        const LocalRegions::ExpansionSharedPtr &exp,
+        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
+        : MeanRemovalBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -94,12 +95,12 @@ public:
     static std::string className;
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
-    static std::unique_ptr<NormL2BlockOp<TData>> Instantiate(
+    static std::unique_ptr<MeanRemovalBlockOp<TData>> Instantiate(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
-        return std::make_unique<NormL2BlockOpImpl<ExecSpace, TData>>(
+        return std::make_unique<MeanRemovalBlockOpImpl<ExecSpace, TData>>(
             block_idx, exp, dataWarehouse);
     }
 
@@ -149,7 +150,7 @@ protected:
                 break;
             }
             default:
-                ASSERTL0(false, "NormL2 SerialAVX only implemented for "
+                ASSERTL0(false, "MeanRemoval SerialAVX only implemented for "
                                 "dimension 1, 2 or 3.");
         }
     }
@@ -190,45 +191,41 @@ protected:
         const unsigned int nHomo = inblock.GetNumHomoModes();
 
         // Compute mesh volume.
-        if (this->m_normalised)
+        simd_t vol  = 0.0;
+        auto jacptr = m_jacptr;
+
+        // Loop over element groups.
+        for (size_t e = 0; e < inblock.GetNumElmtGroups(m_implInterleaveWidth);
+             ++e)
         {
-            simd_t vol  = 0.0;
-            auto jacptr = m_jacptr;
-
-            // Loop over element groups.
-            for (size_t e = 0;
-                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
+            if (m_isDeformed)
             {
-                if (m_isDeformed)
-                {
-                    vol += VolumeKernel<true>(
-                        m_nq[ind]..., m_W[ind]...,
-                        reinterpret_cast<const simd_t *>(jacptr));
-                }
-                else
-                {
-                    vol += VolumeKernel<false>(
-                        m_nq[ind]..., m_W[ind]...,
-                        reinterpret_cast<const simd_t *>(jacptr));
-                }
-
-                // Increment pointers for the next elmt group.
-                jacptr += jacSize * simd_t::width;
+                vol += VolumeKernel<true>(
+                    m_nq[ind]..., m_W[ind]...,
+                    reinterpret_cast<const simd_t *>(jacptr));
+            }
+            else
+            {
+                vol += VolumeKernel<false>(
+                    m_nq[ind]..., m_W[ind]...,
+                    reinterpret_cast<const simd_t *>(jacptr));
             }
 
-            // Accumulate over vector width.
-            for (unsigned int i = 0; i < simd_t::width; i++)
-            {
-                dataptr[nComp] += vol[i];
-            }
+            // Increment pointers for the next elmt group.
+            jacptr += jacSize * simd_t::width;
         }
 
-        // Compute norm
-        // Loop over components.
+        // Accumulate over vector width.
+        for (unsigned int i = 0; i < simd_t::width; i++)
+        {
+            dataptr[nComp] += vol[i];
+        }
+
+        // Compute the weighted volume integral of every component.
         for (unsigned int nc = 0; nc < nComp * nHomo; ++nc)
         {
-            simd_t acc  = 0.0;
-            auto jacptr = m_jacptr;
+            simd_t acc = 0.0;
+            jacptr     = m_jacptr;
 
             // Loop over element groups.
             for (size_t e = 0;
@@ -258,14 +255,14 @@ protected:
 
                 if (m_isDeformed)
                 {
-                    acc += IntegralKernel<IntegralOp::Square, true>(
+                    acc += IntegralKernel<IntegralOp::Default, true>(
                         m_nq[ind]..., m_W[ind]...,
                         reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(inptr));
                 }
                 else
                 {
-                    acc += IntegralKernel<IntegralOp::Square, false>(
+                    acc += IntegralKernel<IntegralOp::Default, false>(
                         m_nq[ind]..., m_W[ind]...,
                         reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(inptr));
@@ -295,4 +292,4 @@ protected:
     }
 };
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::SolverCore::detail
