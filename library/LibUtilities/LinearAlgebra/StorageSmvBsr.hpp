@@ -96,8 +96,8 @@ public:
         const_iterator &operator++();
         const IterType &operator*();
         const IterType *operator->();
-        bool operator==(const const_iterator &rhs);
-        bool operator!=(const const_iterator &rhs);
+        bool operator==(const const_iterator &rhs) const;
+        bool operator!=(const const_iterator &rhs) const;
 
     private:
         void forward();

@@ -44,8 +44,21 @@ namespace Nektar::LibUtilities
 
 bool operator==(const PointsKey &lhs, const PointsKey &rhs)
 {
+    // m_factor is part of the key: BLPoints, for one, distributes its points
+    // according to it, so two keys differing only in factor describe different
+    // points. operator< below discriminates on it for the same reason.
+    if (fabs(lhs.m_factor - rhs.m_factor) >= NekConstants::kNekZeroTol)
+    {
+        return false;
+    }
+
     return (lhs.m_numpoints == rhs.m_numpoints &&
             lhs.m_pointstype == rhs.m_pointstype);
+}
+
+bool operator!=(const PointsKey &lhs, const PointsKey &rhs)
+{
+    return (!(lhs == rhs));
 }
 
 bool operator<(const PointsKey &lhs, const PointsKey &rhs)

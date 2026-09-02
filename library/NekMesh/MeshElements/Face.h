@@ -83,9 +83,9 @@ public:
     }
 
     /// Equality is defined by matching all vertices.
-    NEKMESH_EXPORT bool operator==(Face &pSrc)
+    NEKMESH_EXPORT bool operator==(const Face &pSrc) const
     {
-        std::vector<NodeSharedPtr>::iterator it1;
+        std::vector<NodeSharedPtr>::const_iterator it1;
         for (it1 = m_vertexList.begin(); it1 != m_vertexList.end(); ++it1)
         {
             if (find(pSrc.m_vertexList.begin(), pSrc.m_vertexList.end(),
