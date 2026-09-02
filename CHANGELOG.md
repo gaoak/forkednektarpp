@@ -31,6 +31,7 @@ v5.11.0
 - Fix PT-Scotch header detection so an existing build tree can be reconfigured (!2681)
 - Fix some partial override of overloaded function (!2643)
 - Use std::enable_if_t<...> instead of std::enable_if<...>::type (!2645)
+- Fix C++20 ambiguous reversed operator warning (!2703)
 
 v5.10.0
 -------

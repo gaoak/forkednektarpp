@@ -102,12 +102,12 @@ public:
             return m_matrix(m_curRow, m_curColumn);
         }
 
-        bool operator==(const iterator_base<MatrixType> &rhs)
+        bool operator==(const iterator_base<MatrixType> &rhs) const
         {
             return m_curRow == rhs.m_curRow && m_curColumn == rhs.m_curColumn;
         }
 
-        bool operator!=(const iterator_base<MatrixType> &rhs)
+        bool operator!=(const iterator_base<MatrixType> &rhs) const
         {
             return !(*this == rhs);
         }
