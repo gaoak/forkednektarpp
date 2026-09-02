@@ -405,6 +405,101 @@ inline void addKernel(const size_t nsize, const TData *x, const TData *y,
 template <typename ExecSpace, typename TData,
           std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
               Enable = true>
+inline void addScalarKernel(const size_t nsize, const TData alpha,
+                            const TData *x, TData *y,
+                            [[maybe_unused]] const unsigned int streamID = 0)
+{
+    using namespace tinysimd;
+    using simd_t = simd<TData>;
+
+    simd_t aChunk;
+    aChunk.broadcast(alpha);
+
+    size_t cnt = nsize;
+    // Vectorized loop unroll 4x
+    while (cnt >= 4 * simd_t::width)
+    {
+        // load
+        simd_t xChunk0, xChunk1, xChunk2, xChunk3;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
+        xChunk2.load(x + 2 * simd_t::width, is_aligned);
+        xChunk3.load(x + 3 * simd_t::width, is_aligned);
+
+        // y = x + alpha
+        simd_t yChunk0 = xChunk0 + aChunk;
+        simd_t yChunk1 = xChunk1 + aChunk;
+        simd_t yChunk2 = xChunk2 + aChunk;
+        simd_t yChunk3 = xChunk3 + aChunk;
+
+        // store
+        yChunk0.store(y, is_aligned);
+        yChunk1.store(y + simd_t::width, is_aligned);
+        yChunk2.store(y + 2 * simd_t::width, is_aligned);
+        yChunk3.store(y + 3 * simd_t::width, is_aligned);
+
+        // update pointers
+        x += 4 * simd_t::width;
+        y += 4 * simd_t::width;
+        cnt -= 4 * simd_t::width;
+    }
+
+    // Vectorized loop unroll 2x
+    while (cnt >= 2 * simd_t::width)
+    {
+        // load
+        simd_t xChunk0, xChunk1;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
+
+        // y = x + alpha
+        simd_t yChunk0 = xChunk0 + aChunk;
+        simd_t yChunk1 = xChunk1 + aChunk;
+
+        // store
+        yChunk0.store(y, is_aligned);
+        yChunk1.store(y + simd_t::width, is_aligned);
+
+        // update pointers
+        x += 2 * simd_t::width;
+        y += 2 * simd_t::width;
+        cnt -= 2 * simd_t::width;
+    }
+
+    // Vectorized loop
+    while (cnt >= simd_t::width)
+    {
+        // load
+        simd_t xChunk;
+        xChunk.load(x, is_aligned);
+
+        // y = x + alpha
+        simd_t yChunk = xChunk + aChunk;
+
+        // store
+        yChunk.store(y, is_aligned);
+
+        // update pointers
+        x += simd_t::width;
+        y += simd_t::width;
+        cnt -= simd_t::width;
+    }
+
+    // spillover loop
+    while (cnt)
+    {
+        // y = x + alpha;
+        *y = (*x) + alpha;
+        // update pointers
+        ++x;
+        ++y;
+        --cnt;
+    }
+}
+
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
 inline void subKernel(const size_t nsize, const TData *x, const TData *y,
                       TData *z,
                       [[maybe_unused]] const unsigned int streamID = 0)

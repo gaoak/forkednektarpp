@@ -5,6 +5,7 @@ import pathlib
 import re
 import subprocess
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 
 
 VELOCITY_VARS = ["u", "v"]
@@ -236,7 +237,7 @@ def replace_parameter(text, name, value):
     )
 
 
-def build_session(args, workdir, order):
+def build_session(args, workdir, order, formulation):
     text = args.session.read_text()
     check_mixed_tri_quad_mesh(text, args.session)
     method = args.method_by_order.get(order, DEFAULT_METHOD_BY_ORDER[order])
@@ -252,13 +253,16 @@ def build_session(args, workdir, order):
     text = re.sub(r'NUMMODES="\d+"', f'NUMMODES="{args.num_modes}"', text)
     text = install_manufactured_solution(text)
 
-    session = workdir / f"forced_mms_2d_{method}_order{order}.xml"
+    # formulation is baked into the filename (not the file content - it's
+    # applied via -I on the command line) purely so concurrent cases that
+    # share an order never write/read the same path.
+    session = workdir / f"forced_mms_2d_{method}_order{order}_{formulation}.xml"
     session.write_text(text)
     return session
 
 
 def run_case(args, workdir, order, formulation):
-    session = build_session(args, workdir, order)
+    session = build_session(args, workdir, order, formulation)
     cmd = [
         str(args.solver),
         f"--opExecSpace={args.op_exec_space}",
@@ -320,6 +324,19 @@ def main():
     parser.add_argument("--kinvis", type=float, default=0.05)
     parser.add_argument("--num-modes", type=int, default=7)
     parser.add_argument("--timeout", type=float, default=240.0)
+    parser.add_argument(
+        "--max-workers",
+        type=int,
+        default=4,
+        help=(
+            "Cap on concurrent solver subprocesses. This test runs as a "
+            "single slot under ctest's own -j parallelism, so this must "
+            "stay well below the host core count to avoid oversubscribing "
+            "it (see the matching PROCESSORS test property in "
+            "CMakeLists.txt, and check_time_order.py which uses the same "
+            "pattern)."
+        ),
+    )
     args = parser.parse_args()
 
     args.solver = args.solver.resolve()
@@ -330,19 +347,33 @@ def main():
     failed = False
     with tempfile.TemporaryDirectory(prefix="incns_imexdirk_mms2d_") as tmp:
         workdir = pathlib.Path(tmp)
-        for order in args.orders:
-            for formulation in args.formulations:
-                ok, proc = run_case(args, workdir, order, formulation)
-                label = f"order={order} formulation={formulation}"
-                if ok:
-                    print(f"{label}: passed", flush=True)
-                else:
-                    print(f"{label}: failed", flush=True)
-                    print("=== stdout ===", flush=True)
-                    print(proc.stdout, flush=True)
-                    print("=== stderr ===", flush=True)
-                    print(proc.stderr, flush=True)
-                    failed = True
+
+        # Each (order, formulation) case below is its own single-threaded
+        # Nektar++ subprocess with its own uniquely-named session file (see
+        # build_session) - Nektar++ itself is never asked to use more than
+        # one thread; only the orchestration here is concurrent.
+        cases = [
+            (order, formulation)
+            for order in args.orders
+            for formulation in args.formulations
+        ]
+        max_workers = min(len(cases), max(1, args.max_workers))
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            results = list(
+                pool.map(lambda c: run_case(args, workdir, c[0], c[1]), cases)
+            )
+
+        for (order, formulation), (ok, proc) in zip(cases, results):
+            label = f"order={order} formulation={formulation}"
+            if ok:
+                print(f"{label}: passed", flush=True)
+            else:
+                print(f"{label}: failed", flush=True)
+                print("=== stdout ===", flush=True)
+                print(proc.stdout, flush=True)
+                print("=== stderr ===", flush=True)
+                print(proc.stderr, flush=True)
+                failed = True
 
     if failed:
         raise SystemExit(1)

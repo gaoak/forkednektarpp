@@ -239,6 +239,22 @@ __global__ __launch_bounds__(blockSize) void addKernel(const size_t nsize,
 
 template <typename TData,
           unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void addScalarKernel(const size_t nsize,
+                                                             const TData alpha,
+                                                             const TData *x,
+                                                             TData *y)
+{
+    const size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    const size_t stride = blockDim.x * gridDim.x;
+
+    for (size_t idx = idx0; idx < nsize; idx += stride)
+    {
+        y[idx] = x[idx] + alpha;
+    }
+}
+
+template <typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
 __global__ __launch_bounds__(blockSize) void subKernel(const size_t nsize,
                                                        const TData *x,
                                                        const TData *y, TData *z)
@@ -1632,6 +1648,27 @@ inline void addKernel(const size_t nsize, const TData *x, const TData *y,
 #endif
 
     addKernel<<<gridSize, blockSize, 0, stream>>>(nsize, x, y, z);
+    CHECK_LAST_HIPCUDA_ERROR();
+}
+
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void addScalarKernel(const size_t nsize, const TData alpha,
+                            const TData *x, TData *y,
+                            const unsigned int streamID = 0)
+{
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
+    addScalarKernel<<<gridSize, blockSize, 0, stream>>>(nsize, alpha, x, y);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 

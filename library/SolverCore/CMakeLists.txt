@@ -200,13 +200,16 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
     add_component_sources(SOLVER_CORE_HEADERS SOLVER_CORE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/Forcing")
 
     # Set SolverCore operators
-    FILE(GLOB children Advection/* Advection/AdvectionWeakDG/* Diffusion/* Diffusion/DiffusionIP/*)
+    FILE(GLOB children Advection/* Advection/AdvectionWeakDG/* Diffusion/* Diffusion/DiffusionIP/* MeanRemoval)
 
     SET(OPNAMESPACE "Nektar::SolverCore::detail")
     FOREACH(child ${children})
         # MESSAGE("Child : " "${child}")
         ADD_OPERATOR(${child} OPNAMESPACE SOLVER_CORE_HEADERS SOLVER_CORE_SOURCES)
     ENDFOREACH()
+
+    # Set compilation for MeanRemoval operator
+    ADD_BLOCK_OPERATOR("${CMAKE_CURRENT_SOURCE_DIR}/MeanRemoval" OPNAMESPACE SOLVER_CORE_HEADERS SOLVER_CORE_SOURCES)
 
     # Set compilation for Riemann solvers
     SET(SolverTypes Upwind)
@@ -300,5 +303,6 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
 
     IF(NEKTAR_BUILD_UNIT_TESTS)
         ADD_SUBDIRECTORY(RiemannSolvers/UnitTests)
+        ADD_SUBDIRECTORY(MeanRemoval/UnitTests)
     ENDIF()
 ENDIF(NEKTAR_ENABLE_DEVICE_SUPPORT)

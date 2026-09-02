@@ -49,6 +49,7 @@
 #include <Operators/Norm/NormLinf/NormLinfOp.hpp>
 #include <Operators/PreconOps/PreconOp.hpp>
 #include <SolverCore/Core/SessionFunction.h>
+#include <SolverCore/MeanRemoval/MeanRemovalOp.hpp>
 #include <SpatialDomains/Conditions.h>
 
 #include <algorithm>
@@ -658,23 +659,24 @@ void VelocityCorrectionScheme::v_PrintNorms(std::ostream &out)
     }
     m_math.sub(m_pressure, wsp_phys, wsp_phys);
 
-    // // Pressure is determined only up to an arbitrary constant. Remove the
-    // // mean pressure error before reporting pressure norms.
-    // auto pressureDiff = wsp_phys.ToVector<double>();
-    // auto ones = std::vector<double>(pressureDiff.size(), 1.0);
-    // Array<OneD, const double> pressureDiffArray(pressureDiff.size(),
-    //                                             pressureDiff.data());
-    // Array<OneD, const double> onesArray(ones.size(), ones.data());
-    // const double volume =
-    //     m_expansionLists[m_pressureIndex]->Integral(onesArray);
-    // const double meanPressureError =
-    //     m_expansionLists[m_pressureIndex]->Integral(pressureDiffArray) /
-    //     volume;
-    // for (auto &value : pressureDiff)
-    // {
-    //     value -= meanPressureError;
-    // }
-    // wsp_phys.FromVector<NektarSpaces::HostSpace>(pressureDiff);
+    // For a singular pressure system (Neumann/periodic boundaries only),
+    // pressure is only determined up to an arbitrary constant, so remove
+    // the mean pressure error before reporting pressure norms. For a
+    // well-posed (non-singular) system the boundary conditions already fix
+    // the gauge, so this correction is skipped rather than masking genuine
+    // discretisation error.
+    if (m_checkIfSystemSingular[m_pressureIndex])
+    {
+        // Execution-space dispatch (Serial/AVX/Device) is resolved entirely
+        // inside MeanRemovalOp::Create() via the OperatorFactory, so no
+        // opExecSpace check is needed here.
+        if (!m_meanRemovalOp)
+        {
+            m_meanRemovalOp = SolverCore::MeanRemovalOp<double>::Create(
+                m_expansionLists[m_pressureIndex], m_variablesPressure);
+        }
+        m_meanRemovalOp->Apply(wsp_phys);
+    }
 
     // Compute L2 norm
     auto pressureL2NormOp = Operators::NormL2Op<double>::Create(
@@ -721,7 +723,7 @@ void VelocityCorrectionScheme::InitialiseParameters()
     else
     {
         std::stringstream ss;
-        ss << "Unknown formulation: " << formulation
+        ss << "Unknown SolverInfo FORMULATION: " << formulation
            << ". Valid entries are 'semiimplicit' and 'linearimplicit'.";
         NEKERROR(ErrorUtil::efatal, ss.str());
     }

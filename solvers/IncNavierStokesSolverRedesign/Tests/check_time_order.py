@@ -6,6 +6,7 @@ import pathlib
 import re
 import subprocess
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 
 
 MIN_RATES = {1: 0.85, 2: 1.70, 3: 2.30}
@@ -291,6 +292,18 @@ def main():
     parser.add_argument("--op-impl", default="SumFac")
     parser.add_argument("--final-time", type=float, default=0.2)
     parser.add_argument("--timeout", type=float, default=600.0)
+    parser.add_argument(
+        "--max-workers",
+        type=int,
+        default=4,
+        help=(
+            "Cap on concurrent solver subprocesses. This test runs as a "
+            "single slot under ctest's own -j parallelism, so this must "
+            "stay well below os.cpu_count() to avoid oversubscribing the "
+            "host (see IncNavierStokesSolverRedesign_TimeIntegrationOrders123_* "
+            "PROCESSORS test property, which should match this default)."
+        ),
+    )
     args = parser.parse_args()
     args.solver = args.solver.resolve()
     args.session = args.session.resolve()
@@ -299,10 +312,32 @@ def main():
         workdir = pathlib.Path(tmp)
         failed = False
 
+        # Each (order, formulation, nsteps) case below is its own
+        # single-threaded Nektar++ subprocess with no shared state (unique
+        # session file, no output files written) - Nektar++ itself is never
+        # asked to use more than one thread; only the orchestration here is
+        # concurrent.
+        cases = [
+            (order, formulation, nsteps)
+            for order in [1, 2, 3]
+            for formulation in FORMULATIONS
+            for nsteps in NSTEPS_BY_ORDER[order]
+        ]
+        max_workers = min(len(cases), max(1, args.max_workers))
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            case_errors = dict(
+                zip(
+                    cases,
+                    pool.map(
+                        lambda c: run_case(args, workdir, c[1], c[0], c[2]), cases
+                    ),
+                )
+            )
+
         for order in [1, 2, 3]:
             for formulation in FORMULATIONS:
                 errors = [
-                    run_case(args, workdir, formulation, order, nsteps)
+                    case_errors[(order, formulation, nsteps)]
                     for nsteps in NSTEPS_BY_ORDER[order]
                 ]
                 rates = observed_rates(errors)

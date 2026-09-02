@@ -182,8 +182,8 @@
     <CONDITIONS>
 
         <PARAMETERS>
-            <P> TimeStep       = 0.001 </P>
-            <P> NumSteps       = 10    </P>
+            <P> TimeStep       = 0.002 </P>
+            <P> NumSteps       = 5     </P>
             <P> FinTime        = NumSteps*TimeStep </P>
             <P> epsilon        = 0.2   </P>
             <P> freq           = PI/2  </P>

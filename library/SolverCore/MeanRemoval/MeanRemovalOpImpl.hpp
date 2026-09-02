@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: NormL2OpImpl.hpp
+// File: MeanRemovalOpImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,20 +34,22 @@
 
 #pragma once
 
-#include "Operators/Norm/NormL2/NormL2Op.hpp"
+#include "SolverCore/MeanRemoval/MeanRemovalOp.hpp"
 
-namespace Nektar::Operators::detail
+#include <LibUtilities/BasicUtils/Math/Math.hpp>
+
+namespace Nektar::SolverCore::detail
 {
 
 template <typename ExecSpace, typename TData>
-class NormL2OpImpl : public NormL2Op<TData>
+class MeanRemovalOpImpl : public MeanRemovalOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    NormL2OpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
-                 const std::vector<std::string> &components)
-        : NormL2Op<TData>(expansionList, components)
+    MeanRemovalOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+                      const std::vector<std::string> &components)
+        : MeanRemovalOp<TData>(expansionList, components)
     {
     }
 
@@ -55,31 +57,33 @@ public:
     static std::string className;
 
     // Instantiation function for CreatorFunction in OperatorFactory.
-    static std::unique_ptr<Operator<TData>> Instantiate(
+    static std::unique_ptr<Operators::Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
-        return std::make_unique<NormL2OpImpl<ExecSpace, TData>>(expansionList,
-                                                                components);
+        return std::make_unique<MeanRemovalOpImpl<ExecSpace, TData>>(
+            expansionList, components);
     }
 
 protected:
-    void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in) override
+    void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &inout) override
     {
-        ASSERTL1(in.GetNumHomoModes() == 1,
-                 "The NormL2 is not implemented for homogeneous expansions.");
+        ASSERTL1(inout.GetNumHomoModes() == 1,
+                 "MeanRemoval is not implemented for homogeneous expansions.");
 
-        const auto numComp = in.GetNumComponents();
-        if (this->m_data.size() != numComp + 1)
+        const auto nComp = inout.GetNumComponents();
+
+        // m_data layout: [ integral_c0, ..., integral_c{n-1}, volume ].
+        if (this->m_data.size() != nComp + 1)
         {
             this->m_data = LibUtilities::MemoryRegion<TData>(
-                "NormL2", numComp + 1, eHostPinned);
+                "MeanRemoval", nComp + 1, eHostPinned);
         }
         this->m_data.template Initialize<MemSpace>(TData{0});
 
-        for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
+        for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
         {
-            auto &inblock = in.GetBlocks()[blk];
+            auto &inblock = inout.GetBlocks()[blk];
             this->m_blockOp[blk]->Apply(inblock, this->m_data);
         }
 
@@ -90,21 +94,18 @@ protected:
         auto dataPtr =
             this->m_data.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
 
-        if (this->m_normalised)
+        ASSERTL0(dataPtr[nComp] > 0.0,
+                 "MeanRemovalOp encountered a non-positive volume.");
+
+        // Negated per-component volume-averaged mean, ready for addScalar.
+        std::vector<TData> negMean(nComp);
+        for (unsigned int nc = 0; nc < nComp; ++nc)
         {
-            ASSERTL1(dataPtr[numComp] > 0.0,
-                     "NormL2Op encountered a non-positive volume.");
-        }
-        else
-        {
-            dataPtr[numComp] = 1.0;
+            negMean[nc] = -(dataPtr[nc] / dataPtr[nComp]);
         }
 
-        for (unsigned int nc = 0; nc < numComp; ++nc)
-        {
-            dataPtr[nc] = std::sqrt(dataPtr[nc] / dataPtr[numComp]);
-        }
+        Math::addScalar<ExecSpace>(negMean, inout, inout);
     }
 };
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::SolverCore::detail
