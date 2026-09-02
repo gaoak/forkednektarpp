@@ -262,7 +262,7 @@ protected:
                  const Collections::ImplementationType ImpType =
                      Collections::eNoImpType);
 
-    ExpListSharedPtr &v_GetTrace() override;
+    ExpListSharedPtr &v_GetTrace(const std::string &variable = "") override;
 
     AssemblyMapDGSharedPtr &v_GetTraceMap(void) override;
     InterfaceMapDGSharedPtr &v_GetInterfaceMap(void) override;

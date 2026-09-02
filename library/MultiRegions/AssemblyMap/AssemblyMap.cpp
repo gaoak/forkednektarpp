@@ -1358,7 +1358,7 @@ void AssemblyMap::GlobalToLocalBndWithoutSign(
 }
 
 void AssemblyMap::PrintStats(std::ostream &out, std::string variable,
-                             bool printHeader) const
+                             bool printHeader, std::string mapType) const
 {
     LibUtilities::CommSharedPtr vRowComm = m_session->GetComm()->GetRowComm();
     bool isRoot = m_session->GetComm()->IsParallelInTime()
@@ -1437,8 +1437,8 @@ void AssemblyMap::PrintStats(std::ostream &out, std::string variable,
     {
         if (printHeader)
         {
-            out << "Assembly map statistics for field " << variable << ":"
-                << endl;
+            out << "Assembly map statistics for field " << variable
+                << (mapType.empty() ? "" : " (" + mapType + ")") << ":" << endl;
         }
 
         out << "  - Number of local/global dof             : " << totLocalDof
@@ -1579,6 +1579,6 @@ void AssemblyMap::PrintStats(std::ostream &out, std::string variable,
     {
         out << "Stats at lowest static cond. level:" << endl;
     }
-    tmp->PrintStats(out, variable, false);
+    tmp->PrintStats(out, variable, false, mapType);
 }
 } // namespace Nektar::MultiRegions

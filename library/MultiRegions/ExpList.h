@@ -815,7 +815,7 @@ public:
      * Return a reference to the trace space associated with this
      * expansion list.
      */
-    inline std::shared_ptr<ExpList> &GetTrace();
+    inline std::shared_ptr<ExpList> &GetTrace(const std::string &variable = "");
     inline std::shared_ptr<AssemblyMapDG> &GetTraceMap(void);
     inline std::shared_ptr<InterfaceMapDG> &GetInterfaceMap(void);
     inline const Array<OneD, const int> &GetTraceBndMap(void);
@@ -1298,7 +1298,8 @@ protected:
                           const Array<OneD, const NekDouble> &Fwd,
                           const Array<OneD, const NekDouble> &Bwd,
                           Array<OneD, NekDouble> &Upwind);
-    virtual std::shared_ptr<ExpList> &v_GetTrace();
+    virtual std::shared_ptr<ExpList> &v_GetTrace(
+        const std::string &variable = "");
     virtual std::shared_ptr<AssemblyMapDG> &v_GetTraceMap();
     virtual std::shared_ptr<InterfaceMapDG> &v_GetInterfaceMap();
     virtual const Array<OneD, const int> &v_GetTraceBndMap();
@@ -2324,9 +2325,9 @@ inline void ExpList::Upwind(const Array<OneD, const NekDouble> &Vn,
 {
     v_Upwind(Vn, Fwd, Bwd, Upwind);
 }
-inline std::shared_ptr<ExpList> &ExpList::GetTrace()
+inline std::shared_ptr<ExpList> &ExpList::GetTrace(const std::string &variable)
 {
-    return v_GetTrace();
+    return v_GetTrace(variable);
 }
 inline std::shared_ptr<AssemblyMapDG> &ExpList::GetTraceMap()
 {
