@@ -127,7 +127,7 @@ protected:
                                 const bool PhysSpaceForcing) override;
 
     /// @todo Fix in another way considering all the planes
-    ExpListSharedPtr &v_GetTrace() override;
+    ExpListSharedPtr &v_GetTrace(const std::string &variable = "") override;
 
     /// @todo Fix in another way considering all the planes
     AssemblyMapDGSharedPtr &v_GetTraceMap() override;

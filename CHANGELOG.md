@@ -16,6 +16,9 @@ v5.11.0
 - Fix Hdf5 output with very large hash value (!2654)
 - Fix MPIRequest free in destructor and MeshParitioning deadlock on non-shared filesystem (!2686)
 - Fix GetBoundaryNormals() leading to intermittent bugs in WSS processing (!2688)
+- Remove the periodic-map copy made on every IsLeftAdjacentTrace call, which dominated DG setup on large periodic meshes (!2699)
+- Set up physical normals once per field in DG boundary-condition setup and reuse normals across fields sharing expansions (!2699)
+- Fail with a clear error, at session-read and lookup time, when a boundary region is missing a condition for a variable (!2699)
 - Fix non-deterministic CWIPI coupling by zero-initialising received fields and refreshing stale extrapolation weights (!2690)
 
 **CI**

@@ -1063,6 +1063,22 @@ void Expansion::v_ComputeTraceNormal([[maybe_unused]] const int id)
     ASSERTL0(false, "Cannot compute trace normal for this expansion.");
 }
 
+void Expansion::GetTraceNormalDerivFactors(
+    const LibUtilities::PointsKeyVector &ptsKeys,
+    Array<TwoD, const NekDouble> &df, Array<OneD, const NekDouble> &jac)
+{
+    if (m_traceNormalPtsKeys != ptsKeys ||
+        m_traceNormalGeomFactors != m_geomFactors.get())
+    {
+        m_traceNormalDerivFactors = m_geomFactors->ComputeDerivFactors(ptsKeys);
+        m_traceNormalJac          = m_geomFactors->ComputeJac(ptsKeys);
+        m_traceNormalPtsKeys      = ptsKeys;
+        m_traceNormalGeomFactors  = m_geomFactors.get();
+    }
+    df  = m_traceNormalDerivFactors;
+    jac = m_traceNormalJac;
+}
+
 const Array<OneD, const NekDouble> &Expansion::v_GetPhysNormals(void)
 {
     NEKERROR(ErrorUtil::efatal, "This function is not valid for this class");

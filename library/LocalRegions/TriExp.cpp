@@ -556,10 +556,11 @@ void TriExp::v_ComputeTraceNormal(const int edge)
     }
 
     const SpatialDomains::GeomType type = m_geomFactors->GetGtype();
-    const Array<TwoD, const NekDouble> &df =
-        m_geomFactors->ComputeDerivFactors(ptsKeys);
-    const Array<OneD, const NekDouble> &jac =
-        m_geomFactors->ComputeJac(ptsKeys);
+    // df/jac depend only on ptsKeys and the geometry, not on the trace;
+    // this element's traces share one memoised copy.
+    Array<TwoD, const NekDouble> df;
+    Array<OneD, const NekDouble> jac;
+    GetTraceNormalDerivFactors(ptsKeys, df, jac);
 
     // The points of normals should follow trace basis, not local basis.
     LibUtilities::BasisKey tobasis = GetTraceBasisKey(edge);

@@ -278,7 +278,8 @@ public:
 
     MULTI_REGIONS_EXPORT void PrintStats(std::ostream &out,
                                          std::string variable,
-                                         bool printHeader = true) const;
+                                         bool printHeader    = true,
+                                         std::string mapType = "") const;
 
     MULTI_REGIONS_EXPORT const Array<OneD, const int> &GetExtraDirEdges();
 
