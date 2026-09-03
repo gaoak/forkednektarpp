@@ -4591,7 +4591,7 @@ void ExpList::v_Upwind(const Array<OneD, const NekDouble> &Vn,
     }
 }
 
-std::shared_ptr<ExpList> &ExpList::v_GetTrace()
+std::shared_ptr<ExpList> &ExpList::v_GetTrace(const std::string &)
 {
     NEKERROR(ErrorUtil::efatal,
              "This method is not defined or valid for this class type");
@@ -5527,7 +5527,12 @@ void ExpList::v_SetUpPhysNormals()
     {
         for (int j = 0; j < (*m_exp)[i]->GetNtraces(); ++j)
         {
-            (*m_exp)[i]->ComputeTraceNormal(j);
+            // GetTraceNormal computes lazily: normals already held by
+            // the local expansions, which every field sharing those
+            // expansions also uses, are not recomputed.
+            // ComputeTraceNormal forces a refresh once the geometry
+            // moves.
+            (*m_exp)[i]->GetTraceNormal(j);
         }
     }
 }
@@ -5814,14 +5819,15 @@ SpatialDomains::BoundaryConditionShPtr ExpList::GetBoundaryCondition(
     unsigned int regionId, const std::string &variable)
 {
     auto collectionIter = collection.find(regionId);
-    ASSERTL1(collectionIter != collection.end(),
+    ASSERTL0(collectionIter != collection.end(),
              "Unable to locate collection " + std::to_string(regionId));
 
     const SpatialDomains::BoundaryConditionMapShPtr bndCondMap =
         (*collectionIter).second;
     auto conditionMapIter = bndCondMap->find(variable);
-    ASSERTL1(conditionMapIter != bndCondMap->end(),
-             "Unable to locate condition map.");
+    ASSERTL0(conditionMapIter != bndCondMap->end(),
+             "No boundary condition for variable '" + variable +
+                 "' in region " + std::to_string(regionId));
 
     const SpatialDomains::BoundaryConditionShPtr boundaryCondition =
         (*conditionMapIter).second;

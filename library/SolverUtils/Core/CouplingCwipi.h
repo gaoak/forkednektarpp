@@ -40,6 +40,7 @@
 #include <cwipi.h>
 
 #include <functional>
+#include <vector>
 
 namespace Nektar::SolverUtils
 {
@@ -121,6 +122,11 @@ protected:
     std::shared_ptr<
         FieldUtils::Interpolator<std::vector<MultiRegions::ExpListSharedPtr>>>
         m_extrapInterpolator;
+
+    /// Not-located point set (ascending point indices) the cached
+    /// m_extrapInterpolator weights were computed for; used to detect when the
+    /// weights have gone stale and must be recomputed.
+    std::vector<int> m_lastNotLoc;
 
     SOLVER_UTILS_EXPORT CouplingCwipi(MultiRegions::ExpListSharedPtr field);
 

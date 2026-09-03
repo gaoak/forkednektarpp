@@ -97,29 +97,16 @@ public:
         return m_factor;
     }
 
-    inline bool operator==(const PointsKey &key)
-    {
-
-        if (fabs(m_factor - key.m_factor) < NekConstants::kNekZeroTol)
-        {
-            return (m_numpoints == key.m_numpoints &&
-                    m_pointstype == key.m_pointstype);
-        }
-
-        return false;
-    }
-
-    inline bool operator==(const PointsKey *y)
+    // Equality is provided by the free operator== below rather than by a
+    // member. A non-const member is ambiguous against its own reversed
+    // candidate under C++20, and a const one is ambiguous against the free
+    // function, which no tie-breaker resolves.
+    inline bool operator==(const PointsKey *y) const
     {
         return (*this == *y);
     }
 
-    inline bool operator!=(const PointsKey &y)
-    {
-        return (!(*this == y));
-    }
-
-    inline bool operator!=(const PointsKey *y)
+    inline bool operator!=(const PointsKey *y) const
     {
         return (!(*this == *y));
     }
@@ -305,6 +292,8 @@ private:
 static const PointsKey NullPointsKey(0, eNoPointsType);
 
 LIB_UTILITIES_EXPORT bool operator==(const PointsKey &lhs,
+                                     const PointsKey &rhs);
+LIB_UTILITIES_EXPORT bool operator!=(const PointsKey &lhs,
                                      const PointsKey &rhs);
 LIB_UTILITIES_EXPORT bool operator<(const PointsKey &lhs, const PointsKey &rhs);
 LIB_UTILITIES_EXPORT std::ostream &operator<<(std::ostream &os,

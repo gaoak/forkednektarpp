@@ -193,7 +193,7 @@ public:
             return result;
         }
 
-        bool operator==(const iterator_impl<T, MatrixType> &rhs)
+        bool operator==(const iterator_impl<T, MatrixType> &rhs) const
         {
             return m_data == rhs.m_data && m_end == rhs.m_end &&
                    m_curRow == rhs.m_curRow && m_curColumn == rhs.m_curColumn &&
@@ -201,7 +201,7 @@ public:
                    m_transpose == rhs.m_transpose;
         }
 
-        bool operator!=(const iterator_impl<T, MatrixType> &rhs)
+        bool operator!=(const iterator_impl<T, MatrixType> &rhs) const
         {
             return !(*this == rhs);
         }

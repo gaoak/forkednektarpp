@@ -122,6 +122,20 @@ if [[ $DISABLE_MCA != "" ]]; then
     export OMPI_MCA_btl_base_warn_component_unused=0
 fi
 
+# Each test's <processes> count (and thus its ctest PROCESSORS budget) is
+# the number of MPI ranks it launches -- these tests exercise inter-rank
+# parallelism, not intra-rank threading. Without this, an OpenMP runtime
+# or a threaded BLAS/LAPACK backend (e.g. the OpenBLAS commonly aliased as
+# the system libblas) falls back to spawning one worker thread per
+# *detected* core for every single rank, invisible to ctest's scheduler.
+# On a large-core-count runner that multiplies out to far more live
+# threads than physical cores, even when only a couple of small MPI tests
+# are running concurrently.
+export OMP_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export PRTE_MCA_hwloc_default_binding_policy=none
+
 if [[ $EXPORT_COMPILE_COMMANDS != "" ]]; then
     # If we are just exporting compile commands for clang-tidy, just build any
     # third-party dependencies that we need.

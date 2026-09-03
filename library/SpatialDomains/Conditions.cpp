@@ -795,6 +795,15 @@ void BoundaryConditions::ReadBoundaryConditions(TiXmlElement *conditions)
             conditionElement = conditionElement->NextSiblingElement();
         }
 
+        // Every session variable must have a condition in every region.
+        for (auto &varIter : vars)
+        {
+            ASSERTL0(boundaryConditions->count(varIter) == 1,
+                     "No boundary condition for variable '" + varIter +
+                         "' in REGION with REF=\"" +
+                         std::to_string(boundaryRegionID) + "\".");
+        }
+
         m_boundaryConditions[boundaryRegionID] = boundaryConditions;
         regionElement = regionElement->NextSiblingElement("REGION");
     }

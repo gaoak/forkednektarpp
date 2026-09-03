@@ -134,7 +134,7 @@ ContField::ContField(const LibUtilities::SessionReaderSharedPtr &pSession,
 
     if (m_session->DefinesCmdLineArgument("verbose"))
     {
-        m_locToGloMap->PrintStats(std::cout, variable);
+        m_locToGloMap->PrintStats(std::cout, variable, true, "CG");
     }
 }
 
@@ -181,7 +181,7 @@ ContField::ContField(const ContField &In,
 
         if (m_session->DefinesCmdLineArgument("verbose"))
         {
-            m_locToGloMap->PrintStats(std::cout, variable);
+            m_locToGloMap->PrintStats(std::cout, variable, true, "CG");
         }
     }
     else

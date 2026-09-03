@@ -92,7 +92,7 @@ public:
         return (m_id < pSrc.m_id);
     }
     /// Define node equality based on coordinate.
-    NEKMESH_EXPORT bool operator==(const Node &pSrc)
+    NEKMESH_EXPORT bool operator==(const Node &pSrc) const
     {
         return LibUtilities::IsRealEqual(m_x, pSrc.m_x) &&
                LibUtilities::IsRealEqual(m_y, pSrc.m_y) &&
