@@ -83,9 +83,8 @@ std::string ProcessMHDCurrentDensity::GetElectromagneticFieldFunction() const
 
     if (m_f->m_session->DefinesElement("Nektar/Forcing"))
     {
-        TiXmlElement *forcing =
-            m_f->m_session->GetElement("Nektar/Forcing");
-        TiXmlElement *force = forcing->FirstChildElement("FORCE");
+        TiXmlElement *forcing = m_f->m_session->GetElement("Nektar/Forcing");
+        TiXmlElement *force   = forcing->FirstChildElement("FORCE");
         while (force)
         {
             const char *type = force->Attribute("TYPE");
@@ -113,15 +112,14 @@ void ProcessMHDCurrentDensity::v_Process(po::variables_map &vm)
 {
     m_f->SetUpExp(vm);
 
-    int spacedim =
-        m_f->m_graph->GetMeshDimension() + m_f->m_numHomogeneousDir;
+    int spacedim = m_f->m_graph->GetMeshDimension() + m_f->m_numHomogeneousDir;
     ASSERTL0(spacedim == 2 || spacedim == 3,
              "MHDCurrentDensity only supports two- and three-dimensional "
              "fields.");
 
     std::array<int, 3> velocity = {FindField("u"), FindField("v"),
                                    FindField("w")};
-    int potential                = FindField("phi");
+    int potential               = FindField("phi");
     ASSERTL0(velocity[0] >= 0 && velocity[1] >= 0,
              "MHDCurrentDensity requires velocity fields u and v.");
     ASSERTL0(spacedim == 2 || velocity[2] >= 0,
@@ -139,23 +137,23 @@ void ProcessMHDCurrentDensity::v_Process(po::variables_map &vm)
     ASSERTL0(m_f->m_session->DefinesFunction(functionName),
              "Function '" + functionName + "' is not defined in the session.");
 
-    std::array<NekDouble, 3> electric = {0.0, 0.0, 0.0};
-    std::array<NekDouble, 3> magnetic = {0.0, 0.0, 0.0};
+    std::array<NekDouble, 3> electric             = {0.0, 0.0, 0.0};
+    std::array<NekDouble, 3> magnetic             = {0.0, 0.0, 0.0};
     const std::array<std::string, 3> electricVars = {"Ex", "Ey", "Ez"};
     const std::array<std::string, 3> magneticVars = {"Bx", "By", "Bz"};
     for (int i = 0; i < 3; ++i)
     {
         if (m_f->m_session->DefinesFunction(functionName, electricVars[i]))
         {
-            electric[i] = m_f->m_session
-                              ->GetFunction(functionName, electricVars[i])
-                              ->Evaluate(0.0, 0.0, 0.0, 0.0);
+            electric[i] =
+                m_f->m_session->GetFunction(functionName, electricVars[i])
+                    ->Evaluate(0.0, 0.0, 0.0, 0.0);
         }
         if (m_f->m_session->DefinesFunction(functionName, magneticVars[i]))
         {
-            magnetic[i] = m_f->m_session
-                              ->GetFunction(functionName, magneticVars[i])
-                              ->Evaluate(0.0, 0.0, 0.0, 0.0);
+            magnetic[i] =
+                m_f->m_session->GetFunction(functionName, magneticVars[i])
+                    ->Evaluate(0.0, 0.0, 0.0, 0.0);
         }
     }
 
@@ -195,10 +193,8 @@ void ProcessMHDCurrentDensity::v_Process(po::variables_map &vm)
                                          gradPhi[i]);
     }
 
-    const Array<OneD, const NekDouble> u =
-        m_f->m_exp[velocity[0]]->GetPhys();
-    const Array<OneD, const NekDouble> v =
-        m_f->m_exp[velocity[1]]->GetPhys();
+    const Array<OneD, const NekDouble> u = m_f->m_exp[velocity[0]]->GetPhys();
+    const Array<OneD, const NekDouble> v = m_f->m_exp[velocity[1]]->GetPhys();
     Array<OneD, NekDouble> zero(npoints, 0.0);
     Array<OneD, const NekDouble> w = zero;
     if (spacedim == 3)
@@ -208,21 +204,17 @@ void ProcessMHDCurrentDensity::v_Process(po::variables_map &vm)
 
     for (int i = 0; i < npoints; ++i)
     {
-        current[0][i] =
-            sigma * (electric[0] + v[i] * magnetic[2] -
-                     w[i] * magnetic[1] - gradPhi[0][i]);
-        current[1][i] =
-            sigma * (electric[1] + w[i] * magnetic[0] -
-                     u[i] * magnetic[2] - gradPhi[1][i]);
-        current[2][i] =
-            sigma * (electric[2] + u[i] * magnetic[1] -
-                     v[i] * magnetic[0] - gradPhi[2][i]);
+        current[0][i] = sigma * (electric[0] + v[i] * magnetic[2] -
+                                 w[i] * magnetic[1] - gradPhi[0][i]);
+        current[1][i] = sigma * (electric[1] + w[i] * magnetic[0] -
+                                 u[i] * magnetic[2] - gradPhi[1][i]);
+        current[2][i] = sigma * (electric[2] + u[i] * magnetic[1] -
+                                 v[i] * magnetic[0] - gradPhi[2][i]);
     }
 
     for (int i = 0; i < 3; ++i)
     {
-        m_f->m_exp[nfields + i] =
-            m_f->AppendExpList(m_f->m_numHomogeneousDir);
+        m_f->m_exp[nfields + i] = m_f->AppendExpList(m_f->m_numHomogeneousDir);
         Vmath::Vcopy(npoints, current[i], 1,
                      m_f->m_exp[nfields + i]->UpdatePhys(), 1);
         m_f->m_exp[nfields + i]->FwdTransLocalElmt(
