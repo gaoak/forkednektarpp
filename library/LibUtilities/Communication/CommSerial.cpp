@@ -38,6 +38,8 @@
 
 #include <LibUtilities/Communication/CommSerial.h>
 
+#include <cstring>
+
 namespace Nektar::LibUtilities
 {
 std::string CommSerial::className = GetCommFactory().RegisterCreatorFunction(
@@ -154,27 +156,42 @@ void CommSerial::v_AllReduce([[maybe_unused]] void *buf,
 /**
  *
  */
-void CommSerial::v_AlltoAll([[maybe_unused]] const void *sendbuf,
-                            [[maybe_unused]] int sendcount,
-                            [[maybe_unused]] CommDataType sendtype,
-                            [[maybe_unused]] void *recvbuf,
+void CommSerial::v_AlltoAll(const void *sendbuf, int sendcount,
+                            CommDataType sendtype, void *recvbuf,
                             [[maybe_unused]] int recvcount,
                             [[maybe_unused]] CommDataType recvtype)
 {
+    // Single process: the only block this rank sends is the one it sends to
+    // itself, so the exchange degenerates to a copy. Mirrors MPI_Alltoall at
+    // size 1. This must copy rather than no-op: callers read recvbuf
+    // afterwards, and leaving it untouched hands them whatever was there.
+    if (sendcount > 0)
+    {
+        std::memcpy(recvbuf, sendbuf,
+                    sendcount * CommDataTypeGetSize(sendtype));
+    }
 }
 
 /**
  *
  */
-void CommSerial::v_AlltoAllv([[maybe_unused]] const void *sendbuf,
-                             [[maybe_unused]] const int *sendcounts,
-                             [[maybe_unused]] const int *senddispls,
-                             [[maybe_unused]] CommDataType sendtype,
-                             [[maybe_unused]] void *recvbuf,
+void CommSerial::v_AlltoAllv(const void *sendbuf, const int *sendcounts,
+                             const int *senddispls, CommDataType sendtype,
+                             void *recvbuf,
                              [[maybe_unused]] const int *recvcounts,
-                             [[maybe_unused]] const int *recvdispls,
-                             [[maybe_unused]] CommDataType recvtype)
+                             const int *recvdispls, CommDataType recvtype)
 {
+    // Single process: as v_AlltoAll above, but honouring the displacements --
+    // this rank's block for itself sits at senddispls[0] and belongs at
+    // recvdispls[0].
+    if (sendcounts[0] > 0)
+    {
+        const size_t sendsz = CommDataTypeGetSize(sendtype);
+        const size_t recvsz = CommDataTypeGetSize(recvtype);
+        std::memcpy(static_cast<char *>(recvbuf) + recvdispls[0] * recvsz,
+                    static_cast<const char *>(sendbuf) + senddispls[0] * sendsz,
+                    sendcounts[0] * sendsz);
+    }
 }
 
 /**
@@ -253,13 +270,31 @@ void CommSerial::v_Scatter(const void *sendbuf, int sendcount,
     std::memcpy(recvbuf, sendbuf, sendcount * CommDataTypeGetSize(sendtype));
 }
 
+void CommSerial::v_Gatherv(const void *sendbuf, int sendcount,
+                           CommDataType sendtype, void *recvbuf,
+                           [[maybe_unused]] const int *recvcounts,
+                           const int *recvdispls, CommDataType recvtype,
+                           [[maybe_unused]] int root)
+{
+    // Single process: this rank is the root, so the gather result is just its
+    // own send buffer, placed at its displacement (recvdispls[0]). Mirrors
+    // MPI_Gatherv, and v_AllGatherv above, at size 1. This must copy rather
+    // than no-op: callers read recvbuf afterwards, and leaving it untouched
+    // hands them uninitialised memory.
+    const size_t sendsz = CommDataTypeGetSize(sendtype);
+    const size_t recvsz = CommDataTypeGetSize(recvtype);
+    std::memcpy(static_cast<char *>(recvbuf) + recvdispls[0] * recvsz, sendbuf,
+                sendcount * sendsz);
+}
+
 /**
  *
  */
-void CommSerial::v_DistGraphCreateAdjacent(
+CommSharedPtr CommSerial::v_DistGraphCreateAdjacent(
     [[maybe_unused]] int indegree, [[maybe_unused]] const int *sources,
     [[maybe_unused]] const int *sourceweights, [[maybe_unused]] int reorder)
 {
+    return shared_from_this();
 }
 
 /**

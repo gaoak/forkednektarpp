@@ -33,6 +33,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <boost/algorithm/string.hpp>
+#include <cstdint>
+#include <cstring>
 #include <tinyxml.h>
 #include <type_traits>
 
@@ -40,6 +42,7 @@
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <LibUtilities/BasicUtils/Timer.h>
+#include <LibUtilities/Communication/EntityResolver.hpp>
 #include <SpatialDomains/MeshGraphIOHDF5.h>
 #include <SpatialDomains/MeshPartition.h>
 #include <SpatialDomains/Movement/Movement.h>
@@ -206,6 +209,36 @@ std::pair<size_t, size_t> SplitWork(size_t vecsize, int rank, int nprocs)
     else
     {
         return std::make_pair((rank - rem) * div + rem * (div + 1), div);
+    }
+}
+
+/**
+ * @brief Closed-form inverse of SplitWork(): given a global row index,
+ * determine which rank's SplitWork(vecsize, rank, nprocs) range it falls in,
+ * with no communication required.
+ *
+ * Must be kept in lockstep with SplitWork()'s splitting scheme -- it exists
+ * so that, given an element's global row id, any rank can work out which
+ * rank originally read it (and so should be asked directly for its data)
+ * purely arithmetically.
+ *
+ * @param row     Global row index to look up.
+ * @param vecsize Total number of rows that were split via SplitWork().
+ * @param nprocs  Number of ranks the rows were split across.
+ * @return The rank whose SplitWork() range contains @p row.
+ */
+int OwnerOfRow(size_t row, size_t vecsize, int nprocs)
+{
+    size_t div      = vecsize / nprocs;
+    size_t rem      = vecsize % nprocs;
+    size_t boundary = rem * (div + 1);
+    if (row < boundary)
+    {
+        return static_cast<int>(row / (div + 1));
+    }
+    else
+    {
+        return static_cast<int>(rem + (row - boundary) / div);
     }
 }
 
@@ -557,71 +590,132 @@ void MeshGraphIOHDF5::v_PartitionMesh(
             maps       = root2->OpenGroup("MAPS");
         }
 
-        int rowCount = 0;
+        // Our general strategy below is to split the datasets so that we only
+        // read a subset of elements on each rank, and use these to construct
+        // the dual graph for partitioning.
+
+        // Largest nGeomData across the shapes valid for this mesh dimension
+        // (e.g. 6 for HEX in 3D), used below to size the fixed-width ghost
+        // payload. Computed from `dataSets` rather than hardcoded so it tracks
+        // that table automatically if shapes are ever added; the
+        // GhostPayload::facets buffer below is sized to the current known
+        // maximum (6, for HEX), and this assertion catches the case where a
+        // future shape needs a larger buffer.
+        int maxGeomData = 0;
+        for (auto &it : dataSets[meshDimension])
+        {
+            maxGeomData = std::max(maxGeomData, std::get<1>(it));
+        }
+        ASSERTL0(maxGeomData <= 6,
+                 "A shape with more than 6 facets/vertices has been added to "
+                 "`dataSets`; increase GhostPayload::facets accordingly.");
+
+        // Find each shape dataset's row count and its offset into the global
+        // row numbering, without reading any connectivity or ID data. This lets
+        // us compute the global element count and this rank's row range before
+        // paying for any I/O.
+        struct DatasetInfo
+        {
+            std::string name;
+            int nGeomData;
+            hsize_t offset; ///< global row offset of this dataset's row 0
+            hsize_t count;  ///< number of rows in this dataset
+        };
+        std::vector<DatasetInfo> dsInfo;
+        hsize_t numElmtTotal = 0;
+
+        // Extract dataset metadata.
         for (auto &it : dataSets[meshDimension])
         {
             std::string ds = std::get<0>(it);
-
             if (!mesh->ContainsDataSet(ds))
             {
                 continue;
             }
 
-            // Open metadata dataset
             H5::DataSetSharedPtr data    = mesh->OpenDataSet(ds);
             H5::DataSpaceSharedPtr space = data->GetSpace();
             std::vector<hsize_t> dims    = space->GetDims();
 
-            H5::DataSetSharedPtr mdata    = maps->OpenDataSet(ds);
-            H5::DataSpaceSharedPtr mspace = mdata->GetSpace();
-            std::vector<hsize_t> mdims    = mspace->GetDims();
+            dsInfo.push_back({ds, std::get<1>(it), numElmtTotal, dims[0]});
+            numElmtTotal += dims[0];
+        }
 
-            // TODO: This could perhaps be done more intelligently; reads all
-            // IDs for the top-level elements so that we can construct the dual
-            // graph of the mesh.
+        // This rank's row range within the global numbering. For the common
+        // case (no domain range restriction) this is the local partition every
+        // rank will end up owning, so each rank only reads and materialises
+        // O(local elements). When a domain range is set, CheckRange() below can
+        // still drop rows from within this slice; since which rows survive
+        // isn't known without reading them, we split by raw row count rather
+        // than the (HDF5-read-dependent) post-filter count, which can leave
+        // ranks with an uneven number of surviving elements if the domain range
+        // is unevenly distributed across the file's row order, but never reads
+        // more than this rank's own raw slice.
+        const bool hasDomainRange =
+            m_meshGraph->GetDomainRange() != LibUtilities::NullDomainRangeShPtr;
+        auto rowRange =
+            SplitWork(static_cast<size_t>(numElmtTotal), interRank, interSize);
+        const hsize_t rangeStart = rowRange.first;
+        const hsize_t rangeCount = rowRange.second;
+
+        // Now for each dataset, read only the rows overlapping this rank's
+        // [rangeStart, rangeStart + rangeCount) global row range, via a
+        // hyperslab selection.
+        for (auto &info : dsInfo)
+        {
+            const hsize_t dsEnd    = info.offset + info.count;
+            const hsize_t selStart = std::max(info.offset, rangeStart);
+            const hsize_t selEnd   = std::min(dsEnd, rangeStart + rangeCount);
+
+            if (selStart >= selEnd)
+            {
+                // this dataset doesn't overlap our row range
+                continue;
+            }
+
+            const hsize_t selCount   = selEnd - selStart;
+            const hsize_t localStart = selStart - info.offset;
+
+            H5::DataSetSharedPtr data     = mesh->OpenDataSet(info.name);
+            H5::DataSpaceSharedPtr space  = data->GetSpace();
+            H5::DataSetSharedPtr mdata    = maps->OpenDataSet(info.name);
+            H5::DataSpaceSharedPtr mspace = mdata->GetSpace();
+
+            mspace->SelectRange(localStart, selCount);
+            space->SelectRange(
+                std::vector<hsize_t>{localStart, 0},
+                std::vector<hsize_t>{selCount,
+                                     static_cast<hsize_t>(info.nGeomData)});
+
+            // Do the reading of this block.
             std::vector<int> tmpElmts, tmpIds;
             mdata->Read(tmpIds, mspace, readPL);
             data->Read(tmpElmts, space, readPL);
 
-            const int nGeomData = std::get<1>(it);
-            auto tmpIt          = tmpElmts.begin();
+            // Unpack data into some data structures:
+            //
+            // - row2id maps the row of the dataset to the geometry ID
+            // - id2row is in the inverse of row2id
+            // - MeshEntity contains the element row, it's global ID, and the
+            //   list of facet IDs
+            auto tmpIt = tmpElmts.begin();
+            for (int i = 0; i < tmpIds.size(); ++i, tmpIt += info.nGeomData)
+            {
+                const int rowCount = static_cast<int>(selStart) + i;
 
-            if (m_meshGraph->GetDomainRange() ==
-                LibUtilities::NullDomainRangeShPtr)
-            {
+                MeshEntity e;
+                row2id[rowCount]  = tmpIds[i];
+                id2row[tmpIds[i]] = row2id[rowCount];
+                e.id              = rowCount;
+                e.origId          = tmpIds[i];
+                e.ghost           = false;
+                e.list =
+                    std::vector<unsigned int>(tmpIt, tmpIt + info.nGeomData);
+
                 // avoid range checking on larger meshes if not required
-                for (int i = 0; i < tmpIds.size();
-                     ++i, ++rowCount, tmpIt += nGeomData)
+                if (!hasDomainRange || m_meshGraph->CheckRange(e))
                 {
-                    MeshEntity e;
-                    row2id[rowCount]  = tmpIds[i];
-                    id2row[tmpIds[i]] = row2id[rowCount];
-                    e.id              = rowCount;
-                    e.origId          = tmpIds[i];
-                    e.ghost           = false;
-                    e.list =
-                        std::vector<unsigned int>(tmpIt, tmpIt + nGeomData);
                     elmts.push_back(e);
-                }
-            }
-            else
-            {
-                // avoid range checking on larger meshes if not required
-                for (int i = 0; i < tmpIds.size();
-                     ++i, ++rowCount, tmpIt += nGeomData)
-                {
-                    MeshEntity e;
-                    row2id[rowCount]  = tmpIds[i];
-                    id2row[tmpIds[i]] = row2id[rowCount];
-                    e.id              = rowCount;
-                    e.origId          = tmpIds[i];
-                    e.ghost           = false;
-                    e.list =
-                        std::vector<unsigned int>(tmpIt, tmpIt + nGeomData);
-                    if (m_meshGraph->CheckRange(e))
-                    {
-                        elmts.push_back(e);
-                    }
                 }
             }
         }
@@ -632,65 +726,101 @@ void MeshGraphIOHDF5::v_PartitionMesh(
         TIME_RESULT(verbRoot2, "  - initial read", t2);
         t2.Start();
 
-        // Do not partition in serial since postprocessing may not
-        // lead to very suitable element distribution that then leads
-        // to challenges with Scotch
+        // Do not partition in serial since postprocessing may not lead to very
+        // suitable element distribution that then leads to challenges with
+        // Scotch.
         if (commMesh->GetSize() > 1)
         {
-            // Check to see we have at least as many processors as elements.
-            size_t numElmt = elmts.size();
-            ASSERTL0(commMesh->GetSize() <= numElmt,
+            ASSERTL0(static_cast<hsize_t>(commMesh->GetSize()) <= numElmtTotal,
                      "This mesh has more processors than elements!");
 
-            auto elRange = SplitWork(numElmt, interRank, interSize);
-
-            // Construct map of element entities for partitioner.
+            // Create a map to store this local partition, but which will then
+            // have ghost entries added to it.
             std::map<int, MeshEntity> partElmts;
-            std::unordered_set<int> facetIDs;
-
-            int vcnt = 0;
-
-            for (int el = elRange.first; el < elRange.first + elRange.second;
-                 ++el, ++vcnt)
+            for (auto &elmt : elmts)
             {
-                MeshEntity elmt    = elmts[el];
-                elmt.ghost         = false;
-                partElmts[elmt.id] = elmt;
+                MeshEntity e    = elmt;
+                e.ghost         = false;
+                partElmts[e.id] = e;
+            }
 
+            int nLocal = static_cast<int>(elmts.size());
+
+            // Identify ghost elements via a rendezvous exchange over facet IDs
+            // (LibUtilities::SharedPayloadResolver) rather than scanning every
+            // element in the mesh. The payload carries everything needed to
+            // reconstruct a full MeshEntity for a discovered neighbour in this
+            // one round trip: its global row id, origId, and its facet list.
+            struct GhostId
+            {
+                int id;
+                int origId;
+            };
+
+            auto facetTransport =
+                std::make_shared<LibUtilities::AlltoallvTransport>(interComm);
+            LibUtilities::SharedPayloadResolver<GhostId> facetRes(
+                facetTransport);
+
+            // Filter any elements where we have two facet IDs since they are
+            // internally connected.
+            std::unordered_map<int, int> localTouchCount;
+            localTouchCount.reserve(elmts.size() * maxGeomData);
+            for (auto &elmt : elmts)
+            {
                 for (auto &facet : elmt.list)
                 {
-                    facetIDs.insert(facet);
+                    ++localTouchCount[facet];
                 }
             }
 
-            // Now identify ghost vertices for the graph. This could also
-            // probably be improved.
-            int nLocal = vcnt;
-            for (int i = 0; i < numElmt; ++i)
+            for (auto &elmt : elmts)
             {
-                // Ignore anything we already read.
-                if (i >= elRange.first && i < elRange.first + elRange.second)
-                {
-                    continue;
-                }
+                GhostId p{elmt.id, elmt.origId};
 
-                MeshEntity elmt = elmts[i];
-                bool insert     = false;
-
-                // Check for connections to local elements.
-                for (auto &eId : elmt.list)
+                for (auto &facet : elmt.list)
                 {
-                    if (facetIDs.find(eId) != facetIDs.end())
+                    if (localTouchCount[facet] >= 2)
                     {
-                        insert = true;
-                        break;
+                        continue; // both sides already local
                     }
+                    facetRes.Register(static_cast<int64_t>(facet), p);
                 }
+            }
 
-                if (insert)
+            // Perform communication.
+            facetRes.Resolve();
+
+            // Now loop over all of our local elements, and create a ghost
+            // entity for partitioning.
+            for (auto &elmt : elmts)
+            {
+                for (auto &facet : elmt.list)
                 {
-                    elmt.ghost         = true;
-                    partElmts[elmt.id] = elmt;
+                    if (localTouchCount[facet] >= 2)
+                    {
+                        continue;
+                    }
+
+                    for (auto &sharer : facetRes.GetSharedPayloads(
+                             static_cast<int64_t>(facet)))
+                    {
+                        const GhostId &p = sharer.second;
+                        auto it          = partElmts.find(p.id);
+                        if (it == partElmts.end())
+                        {
+                            MeshEntity ghost;
+                            ghost.id     = p.id;
+                            ghost.origId = p.origId;
+                            ghost.ghost  = true;
+                            ghost.list.push_back(facet);
+                            partElmts.emplace(ghost.id, std::move(ghost));
+                        }
+                        else
+                        {
+                            it->second.list.push_back(facet);
+                        }
+                    }
                 }
             }
 
@@ -717,19 +847,137 @@ void MeshGraphIOHDF5::v_PartitionMesh(
                     partitionerName, session, interComm, meshDimension,
                     partElmts, CreateCompositeDescriptor(id2row));
 
-            t2.Stop();
             TIME_RESULT(verbRoot2, "  - partitioner setup", t2);
-            t2.Start();
 
             partitioner->PartitionMesh(interSize, true, false, nLocal);
-            t2.Stop();
             TIME_RESULT(verbRoot2, "  - partitioning", t2);
-            t2.Start();
 
             // Now construct a second graph that is partitioned in serial by
             // this rank.
             std::vector<unsigned int> nodeElmts;
             partitioner->GetElementIDs(interRank, nodeElmts);
+
+            // The coarse partitioner can reassign any element to any rank for
+            // load balance, not just ones facet-adjacent to what we read, so
+            // `nodeElmts` can contain ids this rank has never encountered
+            // (neither as a local read nor as a discovered ghost). Resolve
+            // every id we don't already have via a direct, targeted fetch:
+            // since row ids were assigned to ranks by SplitWork() during the
+            // read, any rank can work out exactly who owns a given id via its
+            // closed-form inverse (OwnerOfRow), with no discovery/rendezvous
+            // step needed. This reuses the same transport as the ghost
+            // exchange above, just addressed directly rather than via a
+            // rendezvous hash -- a personalised point-to-point fetch, not a
+            // "who shares this" discovery.
+            std::unordered_map<int, MeshEntity> resolvedElmts(partElmts.begin(),
+                                                              partElmts.end());
+
+            {
+                std::unordered_map<int, std::vector<int>> byOwner;
+                for (auto id : nodeElmts)
+                {
+                    if (resolvedElmts.count(static_cast<int>(id)))
+                    {
+                        continue;
+                    }
+                    const int owner = OwnerOfRow(
+                        static_cast<size_t>(id),
+                        static_cast<size_t>(numElmtTotal), interSize);
+                    byOwner[owner].push_back(static_cast<int>(id));
+                }
+
+                auto appendInt32 = [](std::vector<std::byte> &bytes,
+                                      int32_t v) {
+                    const auto *p = reinterpret_cast<const std::byte *>(&v);
+                    bytes.insert(bytes.end(), p, p + sizeof(v));
+                };
+
+                std::vector<LibUtilities::RoutedMessage> reqOut;
+                reqOut.reserve(byOwner.size());
+                for (auto &kv : byOwner)
+                {
+                    LibUtilities::RoutedMessage m;
+                    m.dest = kv.first;
+                    m.src  = interRank;
+                    for (int id : kv.second)
+                    {
+                        appendInt32(m.bytes, static_cast<int32_t>(id));
+                    }
+                    reqOut.push_back(std::move(m));
+                }
+
+                std::vector<LibUtilities::RoutedMessage> reqIn;
+                facetTransport->Exchange(reqOut, reqIn);
+
+                // Reply to every request with the full summary of each id
+                // asked for. Each request is guaranteed to name one of *our*
+                // own locally-read elements: requesters compute the owner
+                // directly via OwnerOfRow, so nobody would send us a request
+                // for anything we don't locally own.
+                std::vector<LibUtilities::RoutedMessage> repOut;
+                for (auto &m : reqIn)
+                {
+                    const size_t nReq = m.bytes.size() / sizeof(int32_t);
+                    const auto *ids =
+                        reinterpret_cast<const int32_t *>(m.bytes.data());
+
+                    LibUtilities::RoutedMessage r;
+                    r.dest = m.src;
+                    r.src  = interRank;
+
+                    for (size_t k = 0; k < nReq; ++k)
+                    {
+                        auto it = partElmts.find(ids[k]);
+                        ASSERTL0(
+                            it != partElmts.end(),
+                            "Requested row id not owned locally; OwnerOfRow "
+                            "is inconsistent with the read's row "
+                            "assignment.");
+                        const MeshEntity &e = it->second;
+
+                        appendInt32(r.bytes, e.id);
+                        appendInt32(r.bytes, e.origId);
+                        appendInt32(r.bytes,
+                                    static_cast<int32_t>(e.list.size()));
+                        for (auto f : e.list)
+                        {
+                            appendInt32(r.bytes, static_cast<int32_t>(f));
+                        }
+                    }
+                    repOut.push_back(std::move(r));
+                }
+
+                std::vector<LibUtilities::RoutedMessage> repIn;
+                facetTransport->Exchange(repOut, repIn);
+
+                for (auto &m : repIn)
+                {
+                    const std::byte *cur = m.bytes.data();
+                    const std::byte *end = cur + m.bytes.size();
+                    while (cur < end)
+                    {
+                        auto readInt32 = [&]() {
+                            int32_t v;
+                            std::memcpy(&v, cur, sizeof(v));
+                            cur += sizeof(v);
+                            return v;
+                        };
+
+                        MeshEntity e;
+                        e.id             = readInt32();
+                        e.origId         = readInt32();
+                        e.ghost          = true;
+                        const int32_t nF = readInt32();
+                        e.list.reserve(nF);
+                        for (int32_t i = 0; i < nF; ++i)
+                        {
+                            e.list.push_back(
+                                static_cast<unsigned int>(readInt32()));
+                        }
+                        resolvedElmts[e.id] = std::move(e);
+                    }
+                }
+            }
 
             if (innerSize > 1)
             {
@@ -744,11 +992,12 @@ void MeshGraphIOHDF5::v_PartitionMesh(
                 // row2id).
                 for (auto &elmtRow : nodeElmts)
                 {
-                    row2elmtid[vcnt]                  = elmts[elmtRow].origId;
-                    elmtid2row[elmts[elmtRow].origId] = vcnt;
-                    MeshEntity elmt                   = elmts[elmtRow];
-                    elmt.ghost                        = false;
-                    partElmts[vcnt++]                 = elmt;
+                    const MeshEntity &src  = resolvedElmts.at(elmtRow);
+                    row2elmtid[vcnt]       = src.origId;
+                    elmtid2row[src.origId] = vcnt;
+                    MeshEntity elmt        = src;
+                    elmt.ghost             = false;
+                    partElmts[vcnt++]      = elmt;
                 }
 
                 // Create temporary serial communicator for serial partitioning.
@@ -799,7 +1048,7 @@ void MeshGraphIOHDF5::v_PartitionMesh(
             {
                 for (auto &tmpId : nodeElmts)
                 {
-                    toRead.insert(row2id[tmpId]);
+                    toRead.insert(resolvedElmts.at(tmpId).origId);
                 }
             }
         }
@@ -853,10 +1102,11 @@ void MeshGraphIOHDF5::v_PartitionMesh(
     {
         t.Start();
         // Read 3D data
-        ReadGeometryData(hexGeoms, "HEX", toRead, hexIDs, hexData);
-        ReadGeometryData(pyrGeoms, "PYR", toRead, pyrIDs, pyrData);
-        ReadGeometryData(prismGeoms, "PRISM", toRead, prismIDs, prismData);
-        ReadGeometryData(tetGeoms, "TET", toRead, tetIDs, tetData);
+        ReadGeometryData(hexGeoms, "HEX", toRead, hexIDs, hexData, commMesh);
+        ReadGeometryData(pyrGeoms, "PYR", toRead, pyrIDs, pyrData, commMesh);
+        ReadGeometryData(prismGeoms, "PRISM", toRead, prismIDs, prismData,
+                         commMesh);
+        ReadGeometryData(tetGeoms, "TET", toRead, tetIDs, tetData, commMesh);
 
         toRead.clear();
         UniqueValues(toRead, hexData, pyrData, prismData, tetData);
@@ -868,8 +1118,9 @@ void MeshGraphIOHDF5::v_PartitionMesh(
     {
         t.Start();
         // Read 2D data
-        ReadGeometryData(triGeoms, "TRI", toRead, triIDs, triData);
-        ReadGeometryData(quadGeoms, "QUAD", toRead, quadIDs, quadData);
+        ReadGeometryData(triGeoms, "TRI", toRead, triIDs, triData, commMesh);
+        ReadGeometryData(quadGeoms, "QUAD", toRead, quadIDs, quadData,
+                         commMesh);
 
         toRead.clear();
         UniqueValues(toRead, triData, quadData);
@@ -881,7 +1132,7 @@ void MeshGraphIOHDF5::v_PartitionMesh(
     {
         t.Start();
         // Read 1D data
-        ReadGeometryData(segGeoms, "SEG", toRead, segIDs, segData);
+        ReadGeometryData(segGeoms, "SEG", toRead, segIDs, segData, commMesh);
 
         toRead.clear();
         UniqueValues(toRead, segData);
@@ -890,7 +1141,7 @@ void MeshGraphIOHDF5::v_PartitionMesh(
     }
 
     t.Start();
-    ReadGeometryData(vertSet, "VERT", toRead, vertIDs, vertData);
+    ReadGeometryData(vertSet, "VERT", toRead, vertIDs, vertData, commMesh);
     t.Stop();
     TIME_RESULT(verbRoot, "read 0D elements", t);
 
@@ -1198,55 +1449,185 @@ void MeshGraphIOHDF5::ReadGeometryData(GeomMapView<T> &geomMap,
                                        std::string dataSet,
                                        const std::unordered_set<int> &readIds,
                                        std::vector<int> &ids,
-                                       std::vector<DataType> &geomData)
+                                       std::vector<DataType> &geomData,
+                                       LibUtilities::CommSharedPtr &comm)
 {
     if (!m_mesh->ContainsDataSet(dataSet))
     {
         return;
     }
 
-    // Open mesh dataset
-    H5::DataSetSharedPtr data    = m_mesh->OpenDataSet(dataSet);
-    H5::DataSpaceSharedPtr space = data->GetSpace();
-    std::vector<hsize_t> dims    = space->GetDims();
+    const int nProc = comm->GetSize(), rank = comm->GetRank();
 
-    // Open metadata dataset
+    H5::DataSetSharedPtr data     = m_mesh->OpenDataSet(dataSet);
+    H5::DataSpaceSharedPtr space  = data->GetSpace();
+    std::vector<hsize_t> dims     = space->GetDims();
     H5::DataSetSharedPtr mdata    = m_maps->OpenDataSet(dataSet);
     H5::DataSpaceSharedPtr mspace = mdata->GetSpace();
     std::vector<hsize_t> mdims    = mspace->GetDims();
 
     ASSERTL0(mdims[0] == dims[0], "map and data set lengths do not match");
-
     const int nGeomData = GetGeomDataDim(geomMap);
 
-    // Read all IDs
     std::vector<int> allIds;
     mdata->Read(allIds, mspace);
+    hsize_t globalCount = dims[0];
 
-    // Selective reading; clear data space range so that we can select
-    // certain rows from the datasets.
-    space->ClearRange();
-
-    int i = 0;
-    std::vector<hsize_t> coords;
-    for (auto &id : allIds)
+    // Even, contiguous chunk boundaries.
+    std::vector<hsize_t> chunkOffs(nProc + 1);
+    for (int p = 0; p <= nProc; ++p)
     {
-        if (readIds.find(id) != readIds.end())
+        chunkOffs[p] = (globalCount * static_cast<hsize_t>(p)) /
+                       static_cast<hsize_t>(nProc);
+    }
+    hsize_t localChunkStart = chunkOffs[rank];
+    hsize_t localChunkCount = chunkOffs[rank + 1] - chunkOffs[rank];
+
+    // Read only this rank's chunk.
+    std::vector<DataType> localChunkData;
+    std::vector<hsize_t> selStart = {localChunkStart, 0};
+    std::vector<hsize_t> selCount = {localChunkCount,
+                                     static_cast<hsize_t>(nGeomData)};
+    space->SelectRange(selStart, selCount);
+    data->Read(localChunkData, space, m_readPL);
+    ASSERTL0(localChunkData.size() ==
+                 static_cast<size_t>(localChunkCount) * nGeomData,
+             "local chunk read returned unexpected size");
+
+    // Scan: figure out which rank's chunk holds each needed id.
+    //
+    // readIds.find(...) here is a std::unordered_set lookup executed
+    // globalCount times, with only ~1% ever matching -- the loop is
+    // dominated by that lookup cost, not by the match-handling logic.
+    // unordered_set's hash-table-with-heap-allocated-nodes layout means
+    // each lookup is effectively a random memory access with pointer
+    // chasing, which is exactly the kind of thing that gets expensive at
+    // 100M+ calls. Same shape of problem as the std::set bottleneck in
+    // WriteComposites -- and we already have direct evidence from that
+    // fix that these entity ID spaces are dense/contiguous, so the same
+    // remedy (a flat presence array instead of a hash lookup) should
+    // apply here too.
+    int minId = std::numeric_limits<int>::max();
+    int maxId = std::numeric_limits<int>::min();
+    for (int id : readIds)
+    {
+        minId = std::min(minId, id);
+        maxId = std::max(maxId, id);
+    }
+    size_t presenceRange =
+        readIds.empty() ? 0 : static_cast<size_t>(maxId - minId) + 1;
+    std::vector<bool> presence(presenceRange, false);
+    for (int id : readIds)
+    {
+        presence[static_cast<size_t>(id - minId)] = true;
+    }
+    auto isNeeded = [&](int id) {
+        return !readIds.empty() && id >= minId && id <= maxId &&
+               presence[static_cast<size_t>(id - minId)];
+    };
+
+    std::vector<std::vector<int>> requestRows(nProc);
+    for (hsize_t row = 0; row < globalCount; ++row)
+    {
+        if (isNeeded(allIds[row]))
         {
-            for (int j = 0; j < nGeomData; ++j)
-            {
-                coords.push_back(i);
-                coords.push_back(j);
-            }
-            ids.push_back(id);
+            int owner = static_cast<int>(
+                std::upper_bound(chunkOffs.begin(), chunkOffs.end(), row) -
+                chunkOffs.begin() - 1);
+            requestRows[owner].push_back(
+                static_cast<int>(row - chunkOffs[owner]));
         }
-        ++i;
     }
 
-    space->SetSelection(coords.size() / 2, coords);
+    // ---- exchange 1: request counts ----
+    Array<OneD, int> sendCounts(nProc, 0), recvCounts(nProc, 0);
+    for (int p = 0; p < nProc; ++p)
+    {
+        sendCounts[p] = static_cast<int>(requestRows[p].size());
+    }
+    comm->AlltoAll(sendCounts, recvCounts);
 
-    // Read selected data.
-    data->Read(geomData, space, m_readPL);
+    Array<OneD, int> sendOffsets(nProc, 0), recvOffsets(nProc, 0);
+    int totalSend = 0, totalRecv = 0;
+    for (int p = 0; p < nProc; ++p)
+    {
+        sendOffsets[p] = totalSend;
+        totalSend += sendCounts[p];
+        recvOffsets[p] = totalRecv;
+        totalRecv += recvCounts[p];
+    }
+
+    // ---- exchange 2: the actual row-index requests ----
+    Array<OneD, int> sendRows(std::max(totalSend, 1));
+    for (int p = 0; p < nProc; ++p)
+    {
+        std::copy(requestRows[p].begin(), requestRows[p].end(),
+                  sendRows.begin() + sendOffsets[p]);
+    }
+    Array<OneD, int> recvRows(std::max(totalRecv, 1));
+    comm->AlltoAllv(sendRows, sendCounts, sendOffsets, recvRows, recvCounts,
+                    recvOffsets);
+
+    // ---- build responses ----
+    Array<OneD, int> respSendIds(totalRecv);
+    Array<OneD, DataType> respSendData(static_cast<size_t>(totalRecv) *
+                                       nGeomData);
+    for (int p = 0; p < nProc; ++p)
+    {
+        for (int k = 0; k < recvCounts[p]; ++k)
+        {
+            int idx      = recvOffsets[p] + k;
+            int localRow = recvRows[idx];
+            respSendIds[idx] =
+                allIds[chunkOffs[rank] + static_cast<hsize_t>(localRow)];
+            std::copy(localChunkData.begin() +
+                          static_cast<std::ptrdiff_t>(localRow) * nGeomData,
+                      localChunkData.begin() +
+                          static_cast<std::ptrdiff_t>(localRow + 1) * nGeomData,
+                      respSendData.begin() +
+                          static_cast<std::ptrdiff_t>(idx) * nGeomData);
+        }
+    }
+
+    Array<OneD, int> respIdSendCounts  = recvCounts,
+                     respIdSendOffsets = recvOffsets;
+    Array<OneD, int> respDataSendCounts(nProc), respDataSendOffsets(nProc);
+    for (int p = 0; p < nProc; ++p)
+    {
+        respDataSendCounts[p]  = recvCounts[p] * nGeomData;
+        respDataSendOffsets[p] = recvOffsets[p] * nGeomData;
+    }
+    Array<OneD, int> respIdRecvCounts  = sendCounts,
+                     respIdRecvOffsets = sendOffsets;
+    Array<OneD, int> respDataRecvCounts(nProc), respDataRecvOffsets(nProc);
+    for (int p = 0; p < nProc; ++p)
+    {
+        respDataRecvCounts[p]  = sendCounts[p] * nGeomData;
+        respDataRecvOffsets[p] = sendOffsets[p] * nGeomData;
+    }
+
+    // ---- exchange 3a: response ids ----
+    Array<OneD, int> respIds(std::max(totalSend, 1));
+    comm->AlltoAllv(respSendIds, respIdSendCounts, respIdSendOffsets, respIds,
+                    respIdRecvCounts, respIdRecvOffsets);
+
+    // ---- exchange 3b: response data (the real payload movement) ----
+    Array<OneD, DataType> respData(
+        std::max(static_cast<size_t>(totalSend) * nGeomData, size_t(1)));
+    comm->AlltoAllv(respSendData, respDataSendCounts, respDataSendOffsets,
+                    respData, respDataRecvCounts, respDataRecvOffsets);
+
+    // ---- assemble final ids/geomData ----
+    ids.reserve(totalSend);
+    geomData.reserve(static_cast<size_t>(totalSend) * nGeomData);
+    for (int k = 0; k < totalSend; ++k)
+    {
+        ids.push_back(respIds[k]);
+        geomData.insert(
+            geomData.end(),
+            respData.begin() + static_cast<std::ptrdiff_t>(k) * nGeomData,
+            respData.begin() + static_cast<std::ptrdiff_t>(k + 1) * nGeomData);
+    }
 }
 
 /**
@@ -1387,7 +1768,7 @@ void MeshGraphIOHDF5::ReadCurveMap(CurveMap &curveMap, std::string dsName,
         {
             curveNodes.emplace_back(
                 ObjPoolManager<PointGeom>::AllocateUniquePtr(
-                    0, m_meshGraph->GetSpaceDimension(), nodeRawData[cnt],
+                    m_meshGraph->GetSpaceDimension(), -1, nodeRawData[cnt],
                     nodeRawData[cnt + 1], nodeRawData[cnt + 2]));
             curve->m_points[i] = curveNodes.back().get();
         }
@@ -2289,16 +2670,7 @@ void MeshGraphIOHDF5::WriteComposites(CompositeMap &composites,
 {
     const int nProc = comm->GetSize(), rank = comm->GetRank();
 
-    // In parallel we need to tell every process which geometry IDs are included
-    // in each composite. Most of this code therefore communicates this
-    // information between ranks. Note that rank 0 is the only process to
-    // actually write data to the dataset, so it will contain information about
-    // every composite in the mesh which is a potential scalability issue.
-
-    // First pack data about each composite into an array.
-    //
-    // layout: [ nComps, {compId, tag, nIds, id0, id1, ...}, ... ]
-    // where 'tag' is e.g. 'T' for triangles, 'F' for faces, etc.
+    // Pack local contributions to composites.
     std::vector<int> local;
     {
         int nComps = 0;
@@ -2308,7 +2680,6 @@ void MeshGraphIOHDF5::WriteComposites(CompositeMap &composites,
             auto &gv = cIt.second->m_geomVec;
             if (gv.empty())
             {
-                // nothing in this composite for some reason
                 continue;
             }
 
@@ -2325,13 +2696,13 @@ void MeshGraphIOHDF5::WriteComposites(CompositeMap &composites,
         local.insert(local.end(), body.begin(), body.end());
     }
 
-    // Communicate lengths of local packing array.
-    Array<OneD, int> lens(nProc, 0);
+    // Exchange lengths
+    std::vector<int> lens(nProc, 0);
     lens[rank] = static_cast<int>(local.size());
     comm->AllReduce(lens, LibUtilities::ReduceSum);
 
-    // Compute offsets for next step of communicating data.
-    Array<OneD, int> offs(nProc, 0);
+    // Compute offsets
+    std::vector<int> offs(nProc, 0);
     int total = 0;
     for (int p = 0; p < nProc; ++p)
     {
@@ -2339,22 +2710,25 @@ void MeshGraphIOHDF5::WriteComposites(CompositeMap &composites,
         total += lens[p];
     }
 
-    // TODO: replace with Gatherv to root so only rank 0 holds information.
-    Array<OneD, int> gathered(total, 0);
-    for (int i = 0; i < static_cast<int>(local.size()); ++i)
-    {
-        gathered[offs[rank] + i] = local[i];
-    }
-    comm->AllReduce(gathered, LibUtilities::ReduceSum);
-
-    // Now rank 0 will deduplicate composites (since >1 rank may hold a geometry
-    // ID in its composite) and sort/compress.
-    std::vector<std::string> comps;
-    std::vector<int> c_map;
+    Array<OneD, int> gathered;
 
     if (rank == 0)
     {
-        std::map<int, std::pair<char, std::set<unsigned int>>> merged;
+        gathered = Array<OneD, int>(total);
+    }
+
+    Array<OneD, int> localArr(local.size(), local.data());
+    comm->Gatherv(0, localArr, gathered, lens, offs);
+
+    // All other ranks can now exit, root needs to write composite string.
+    if (rank != 0)
+    {
+        return;
+    }
+
+    std::map<int, std::pair<char, std::vector<unsigned int>>> merged;
+    {
+        std::map<int, size_t> sizeHint;
         for (int p = 0; p < nProc; ++p)
         {
             if (lens[p] == 0)
@@ -2365,44 +2739,110 @@ void MeshGraphIOHDF5::WriteComposites(CompositeMap &composites,
             int nComps = gathered[pos++];
             for (int c = 0; c < nComps; ++c)
             {
-                int cid    = gathered[pos++];
-                char tag   = static_cast<char>(gathered[pos++]);
-                int nIds   = gathered[pos++];
-                auto &slot = merged[cid];
-                slot.first = tag;
-                for (int k = 0; k < nIds; ++k)
+                int cid = gathered[pos++];
+                ++pos; // skip tag here, read properly in build pass
+                int nIds = gathered[pos++];
+                sizeHint[cid] += static_cast<size_t>(nIds);
+                pos += nIds;
+            }
+        }
+        for (auto &s : sizeHint)
+        {
+            merged[s.first].second.reserve(s.second);
+        }
+    }
+
+    // ---- merge, sub-phase 2: build (push_back into vectors) ----
+    for (int p = 0; p < nProc; ++p)
+    {
+        if (lens[p] == 0)
+        {
+            continue;
+        }
+        int pos    = offs[p];
+        int nComps = gathered[pos++];
+        for (int c = 0; c < nComps; ++c)
+        {
+            int cid    = gathered[pos++];
+            char tag   = static_cast<char>(gathered[pos++]);
+            int nIds   = gathered[pos++];
+            auto &slot = merged[cid];
+            slot.first = tag;
+            for (int k = 0; k < nIds; ++k)
+            {
+                slot.second.push_back(
+                    static_cast<unsigned int>(gathered[pos++]));
+            }
+        }
+    }
+
+    // Since global entity IDs are typically dense, contiguous integers per
+    // entity type, and one composite's ID count here lines up almost exactly
+    // with the total element count, we try a presence-bitmap approach rather
+    // than std::sort or use std::set.
+    //
+    // This only pays off when the ID range isn't much larger than the ID count
+    // (i.e. IDs are dense) — a sparse composite (say, a boundary region drawing
+    // from a much larger face-ID space) would waste memory and time on a
+    // mostly-empty bitmap, so we fall back to std::sort in that case.
+    for (auto &m : merged)
+    {
+        auto &ids = m.second.second;
+        if (ids.empty())
+        {
+            continue;
+        }
+
+        // O(N) search to find min/max element.
+        auto mm            = std::minmax_element(ids.begin(), ids.end());
+        unsigned int minId = *mm.first;
+        unsigned int maxId = *mm.second;
+        size_t rawCount    = ids.size();
+        size_t range       = static_cast<size_t>(maxId - minId) + 1;
+
+        // Attempt to guess whether we should use the bitmask approach
+        if (range <= rawCount * 4)
+        {
+            std::vector<bool> seen(range, false);
+            for (auto id : ids)
+            {
+                seen[id - minId] = true;
+            }
+            ids.clear();
+            ids.reserve(range);
+            for (size_t i = 0; i < range; ++i)
+            {
+                if (seen[i])
                 {
-                    slot.second.insert((unsigned int)gathered[pos++]);
+                    ids.push_back(static_cast<unsigned int>(minId + i));
                 }
             }
         }
-
-        // Now that this is deduplicated we compress and construct the composite
-        // string.
-        for (auto &m : merged)
+        else
         {
-            std::vector<unsigned int> ids(m.second.second.begin(),
-                                          m.second.second.end());
-
-            // construct composite string
-            std::stringstream ss;
-            ss << " " << m.second.first << "["
-               << ParseUtils::GenerateSeqString(ids) << "] ";
-
-            comps.push_back(ss.str());
-            c_map.push_back(m.first);
-
-            m_globalComps[m.first] = std::make_pair(m.second.first, ss.str());
+            // sparse: comparison sort remains the right tool
+            std::sort(ids.begin(), ids.end());
+            ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
         }
     }
 
-    // We're done with collective part, rank 0 will write out the composite
-    // strings.
-    if (rank != 0)
+    // Finally, create strings.
+    std::vector<std::string> comps;
+    std::vector<int> c_map;
+
+    for (auto &m : merged)
     {
-        return;
+        std::stringstream ss;
+        ss << " " << m.second.first << "["
+           << ParseUtils::GenerateSeqString(m.second.second) << "] ";
+
+        comps.push_back(ss.str());
+        c_map.push_back(m.first);
+
+        m_globalComps[m.first] = std::make_pair(m.second.first, ss.str());
     }
 
+    // ---- HDF5 write ----
     int nGlobal = (int)comps.size();
 
     H5::DataTypeSharedPtr tp  = H5::DataType::String();
@@ -2591,6 +3031,8 @@ void MeshGraphIOHDF5::v_WriteGeometry(
     const std::string &outfilename, bool defaultExp,
     [[maybe_unused]] const LibUtilities::FieldMetaDataMap &metadata)
 {
+    LibUtilities::Timer t;
+
     // It is possible that we were given an empty graph without a session set;
     // in this case construct a communicator. Note we have to construct an MPI
     // communicator if we are using MPI-enabled HDF5, otherwise dataset writes
@@ -2615,6 +3057,8 @@ void MeshGraphIOHDF5::v_WriteGeometry(
         comm     = m_meshGraph->GetSession()->GetComm();
         commMesh = comm->GetRowComm();
     }
+
+    bool verb = comm->GetRank() == 0;
 
     const bool isRoot = comm->TreatAsRankZero();
 
@@ -2661,6 +3105,8 @@ void MeshGraphIOHDF5::v_WriteGeometry(
              "version of HDF5");
 #endif
 
+    t.Start();
+
     m_file = H5::File::Create(filenameHdf5, H5F_ACC_TRUNC, H5::PList::Default(),
                               parallelProps);
     auto hdfRoot  = m_file->CreateGroup("NEKTAR");
@@ -2673,15 +3119,31 @@ void MeshGraphIOHDF5::v_WriteGeometry(
     m_mesh = hdfRoot2->CreateGroup("MESH");
     m_maps = hdfRoot2->CreateGroup("MAPS");
 
+    t.Stop();
+    TIME_RESULT(verb, " - initial setup", t);
+
     int meshDim = m_meshGraph->GetMeshDimension();
 
+    t.Start();
     WriteGeometryMap(vertSet, "VERT", meshDim > 1, commMesh);
+    t.Stop();
+    TIME_RESULT(verb, " - writing vertex", t);
+
+    t.Start();
     WriteGeometryMap(segGeoms, "SEG", meshDim > 1, commMesh);
+    t.Stop();
+    TIME_RESULT(verb, " - writing 1D elements", t);
+
+    t.Start();
     if (meshDim > 1)
     {
         WriteGeometryMap(triGeoms, "TRI", meshDim > 1, commMesh);
         WriteGeometryMap(quadGeoms, "QUAD", meshDim > 1, commMesh);
     }
+    t.Stop();
+    TIME_RESULT(verb, " - writing 2D elements", t);
+
+    t.Start();
     if (meshDim > 2)
     {
         WriteGeometryMap(tetGeoms, "TET", meshDim > 1, commMesh);
@@ -2689,6 +3151,8 @@ void MeshGraphIOHDF5::v_WriteGeometry(
         WriteGeometryMap(prismGeoms, "PRISM", meshDim > 1, commMesh);
         WriteGeometryMap(hexGeoms, "HEX", meshDim > 1, commMesh);
     }
+    t.Stop();
+    TIME_RESULT(verb, " - writing 3D elements", t);
 
     // Write curve output. We'll use the stored data from WriteGeometryMap which
     // determines which rank 'owns' an edge in order to dump out curvature
@@ -2697,6 +3161,8 @@ void MeshGraphIOHDF5::v_WriteGeometry(
     // First assemble some sets of owned edges (can use directly the stored
     // information) and owned faces (need to distinguish between TRI/QUAD
     // datasets).
+
+    t.Start();
     const std::unordered_set<int> &ownedEdges = m_geomOwners["SEG"];
     std::unordered_set<int> ownedFaces;
     for (const std::string n : {"TRI", "QUAD"})
@@ -2765,6 +3231,10 @@ void MeshGraphIOHDF5::v_WriteGeometry(
         faceRowsGlobal += tallies[p * 3 + 1];
         totalPts += tallies[p * 3 + 2];
     }
+    t.Stop();
+    TIME_RESULT(verb, " - curve data communication", t);
+
+    t.Start();
 
     // Now write out the data into chunks inside the datasets.
     int ptOffset = (int)ptBase, newIdx = (int)ptBase;
@@ -2775,6 +3245,9 @@ void MeshGraphIOHDF5::v_WriteGeometry(
                   ownedFaces, faceRowOffset, faceRowsGlobal);
     WriteCurvePoints(curvePts, ptBase, totalPts);
 
+    t.Stop();
+    TIME_RESULT(verb, " - writing curve data", t);
+
     // At this point, what we can do collectively is finished. We need to write
     // composites and domains, but these are stored as variable-length strings
     // which can't be done collectively. So now we close the file on all
@@ -2783,8 +3256,11 @@ void MeshGraphIOHDF5::v_WriteGeometry(
     // collectively so that we can assemble the required information.
 
     // Release our hold on the groups we opened.
+    t.Start();
     hdfRoot->Close();
     hdfRoot2->Close();
+    t.Stop();
+    TIME_RESULT(verb, " - closing handles", t);
 
     // Note creation of empty shared_ptrs below avoids double-closing files in
     // rank != 0 when MeshGraphIOHDF5 destructor is called.
@@ -2792,6 +3268,8 @@ void MeshGraphIOHDF5::v_WriteGeometry(
     m_mesh    = LibUtilities::H5::GroupSharedPtr();
     m_maps    = LibUtilities::H5::GroupSharedPtr();
     m_file    = LibUtilities::H5::FileSharedPtr();
+
+    t.Start();
 
     // Root now reopens the file.
     if (isRoot)
@@ -2814,10 +3292,20 @@ void MeshGraphIOHDF5::v_WriteGeometry(
                  "Cannot find NEKTAR/GEOMETRY/MAPS group in HDF5 file.");
     }
 
+    t.Stop();
+    TIME_RESULT(verb, " - root reopens HDF5 file", t);
+
     // Write composites and domain. Called collectively because we'll need to
     // send composite information to rank 0.
+    t.Start();
     WriteComposites(meshComposites, commMesh);
+    t.Stop();
+    TIME_RESULT(verb, " - writing composites", t);
+
+    t.Start();
     WriteDomain(domain, commMesh);
+    t.Stop();
+    TIME_RESULT(verb, " - writing domain", t);
 
     //////////////////
     // XML part
@@ -2831,6 +3319,8 @@ void MeshGraphIOHDF5::v_WriteGeometry(
     // Check to see if a xml of the same name exists
     // if might have boundary conditions etc, we will just alter the
     // geometry tag if needed
+    t.Start();
+
     TiXmlDocument *doc = new TiXmlDocument;
     TiXmlElement *root;
     TiXmlElement *geomTag;
@@ -2896,6 +3386,9 @@ void MeshGraphIOHDF5::v_WriteGeometry(
     }
 
     doc->SaveFile(filenameXml);
+
+    t.Stop();
+    TIME_RESULT(verb, " - XML output", t);
 }
 
 } // namespace Nektar::SpatialDomains

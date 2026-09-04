@@ -179,6 +179,8 @@ public:
 private:
     /// Communicator
     LibUtilities::CommSharedPtr m_rowComm;
+    /// Neighbourhood communicator
+    LibUtilities::CommSharedPtr m_neighComm;
     /// List of displacements
     Array<OneD, int> m_sendDisp;
     /// List of trace map indices of the quad points to exchange
