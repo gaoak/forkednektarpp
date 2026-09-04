@@ -385,7 +385,7 @@ void UnsteadyADR::v_InitialiseOperators()
                 }
 
                 // Set advection velocity
-                m_volumeFluxOp->SetAdvectVel(m_advectionVel);
+                m_volumeFluxOp->SetAdvVel(m_advectionVel);
 
                 // Set trace advection velocity for upwind solver
                 m_riemannSolverOp->SetTraceAdvVel(m_traceAdvectionVel);

@@ -69,12 +69,13 @@ public:
 
     void SetAdvVel(LibUtilities::BlockAccessor<TData, FieldState::Phys> &Vel)
     {
-        v_SetAdvVel(Vel);
+        m_advVel = &Vel;
     }
 
 protected:
-    TData m_scale = 1.0;
-    bool m_append = false;
+    TData m_scale                                                  = 1.0;
+    bool m_append                                                  = false;
+    LibUtilities::BlockAccessor<TData, FieldState::Phys> *m_advVel = nullptr;
 
     AdvectionBlockOp(const unsigned int block_idx,
                      const LocalRegions::ExpansionSharedPtr &exp,
@@ -85,9 +86,6 @@ protected:
     }
 
     ~AdvectionBlockOp() override = default;
-
-    virtual void v_SetAdvVel(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &Vel) = 0;
 };
 
 } // namespace Nektar::Operators

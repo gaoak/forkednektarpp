@@ -171,7 +171,6 @@ protected:
     std::vector<simd_t, tinysimd::allocator<simd_t>> m_deriv1;
     std::vector<simd_t, tinysimd::allocator<simd_t>> m_deriv2;
     const TData *m_dfptr;
-    TData *m_advVel;
 
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
     // flag to ensure we only get one warning for alignment otherwise CI system
@@ -259,18 +258,6 @@ protected:
         }
     }
 
-    void v_SetAdvVel(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &advVel) override
-    {
-        const auto interleaveWidth = advVel.GetInterleaveWidth();
-        this->m_advVel = advVel.template GetPtr<MemSpace, ReadWrite>();
-        LibUtilities::ReshapeStorage<ExecSpace>(
-            m_implInterleaveWidth, interleaveWidth,
-            advVel.GetNumElementsWithPadding() * this->m_exp->GetCoordim(),
-            advVel.GetNumData(), this->m_advVel);
-        advVel.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-    }
-
     void SegBlock(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock);
@@ -337,6 +324,20 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock,
         const unsigned int coordDim, const unsigned int nq0)
     {
+        // Reshape advection velocity, if necessary.
+        if (this->m_advVel->GetInterleaveWidth() != m_implInterleaveWidth)
+        {
+            auto advVelPtr =
+                this->m_advVel->template GetPtr<MemSpace, ReadWrite>();
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, this->m_advVel->GetInterleaveWidth(),
+                this->m_advVel->GetNumElementsWithPadding() *
+                    this->m_exp->GetCoordim(),
+                this->m_advVel->GetNumData(), advVelPtr);
+            this->m_advVel->template SetInterleaveWidth<TData>(
+                m_implInterleaveWidth);
+        }
+
         // Shape size.
         const auto nqTot = nq0;
 
@@ -370,8 +371,9 @@ protected:
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
-            auto dfptr     = m_dfptr;
-            auto advVelPtr = m_advVel;
+            auto advVelPtr =
+                this->m_advVel->template GetPtr<MemSpace, ReadOnly>();
+            auto dfptr = m_dfptr;
 
             for (size_t e = 0;
                  e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
@@ -478,6 +480,20 @@ protected:
         const unsigned int coordDim, const unsigned int nq0,
         const unsigned int nq1)
     {
+        // Reshape advection velocity, if necessary.
+        if (this->m_advVel->GetInterleaveWidth() != m_implInterleaveWidth)
+        {
+            auto advVelPtr =
+                this->m_advVel->template GetPtr<MemSpace, ReadWrite>();
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, this->m_advVel->GetInterleaveWidth(),
+                this->m_advVel->GetNumElementsWithPadding() *
+                    this->m_exp->GetCoordim(),
+                this->m_advVel->GetNumData(), advVelPtr);
+            this->m_advVel->template SetInterleaveWidth<TData>(
+                m_implInterleaveWidth);
+        }
+
         // Shape size.
         const auto nqTot = nq0 * nq1;
 
@@ -511,8 +527,9 @@ protected:
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
-            auto dfptr     = m_dfptr;
-            auto advVelPtr = m_advVel;
+            auto advVelPtr =
+                this->m_advVel->template GetPtr<MemSpace, ReadOnly>();
+            auto dfptr = m_dfptr;
 
             for (size_t e = 0;
                  e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
@@ -619,6 +636,20 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock,
         const unsigned int nq0, const unsigned int nq1, const unsigned int nq2)
     {
+        // Reshape advection velocity, if necessary.
+        if (this->m_advVel->GetInterleaveWidth() != m_implInterleaveWidth)
+        {
+            auto advVelPtr =
+                this->m_advVel->template GetPtr<MemSpace, ReadWrite>();
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, this->m_advVel->GetInterleaveWidth(),
+                this->m_advVel->GetNumElementsWithPadding() *
+                    this->m_exp->GetCoordim(),
+                this->m_advVel->GetNumData(), advVelPtr);
+            this->m_advVel->template SetInterleaveWidth<TData>(
+                m_implInterleaveWidth);
+        }
+
         // Shape size.
         const auto nqTot = nq0 * nq1 * nq2;
 
@@ -651,8 +682,9 @@ protected:
 
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
-            auto dfptr     = m_dfptr;
-            auto advVelPtr = m_advVel;
+            auto advVelPtr =
+                this->m_advVel->template GetPtr<MemSpace, ReadOnly>();
+            auto dfptr = m_dfptr;
 
             for (size_t e = 0;
                  e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)

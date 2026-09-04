@@ -56,13 +56,13 @@ public:
 
     /// The velocity is referenced, not adopted, so that it stays usable by
     /// whoever owns it; it must outlive this operator.
-    void SetAdvectVel(LibUtilities::Field<TData, FieldState::Phys> &advectVel)
+    void SetAdvVel(LibUtilities::Field<TData, FieldState::Phys> &advVel)
     {
-        this->m_advectVel = &advectVel;
+        this->m_advVel = &advVel;
     }
 
 protected:
-    LibUtilities::Field<TData, FieldState::Phys> *m_advectVel = nullptr;
+    LibUtilities::Field<TData, FieldState::Phys> *m_advVel = nullptr;
 
     AdvectionVolumeFluxOp(const MultiRegions::ExpListSharedPtr &expansionList,
                           const std::vector<std::string> &components)

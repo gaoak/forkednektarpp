@@ -76,12 +76,13 @@ public:
 
     void SetAdvVel(LibUtilities::BlockAccessor<TData, FieldState::Phys> &Vel)
     {
-        v_SetAdvVel(Vel);
+        m_advVel = &Vel;
     }
 
 protected:
     TData m_lambda;
     LibUtilities::MemoryRegion<TData> m_diffCoeff;
+    LibUtilities::BlockAccessor<TData, FieldState::Phys> *m_advVel = nullptr;
 
     LinAdvDiffReactionBlockOp(
         const unsigned int block_idx,
@@ -93,9 +94,6 @@ protected:
     }
 
     ~LinAdvDiffReactionBlockOp() override = default;
-
-    virtual void v_SetAdvVel(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &Vel) = 0;
 };
 
 } // namespace Nektar::Operators

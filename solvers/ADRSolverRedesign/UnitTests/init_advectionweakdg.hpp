@@ -171,7 +171,7 @@ public:
 
         auto VolumeFluxOp = LinearAdvVolumeFluxOp<TData>::Create(
             this->fixt_explist, this->session->GetVariables());
-        VolumeFluxOp->SetAdvectVel(*this->fixt_advectVel);
+        VolumeFluxOp->SetAdvVel(*this->fixt_advectVel);
 
         auto AdvectOp = AdvectionWeakDGOp<TData>::Create(
             this->fixt_explist, this->session->GetVariables());
