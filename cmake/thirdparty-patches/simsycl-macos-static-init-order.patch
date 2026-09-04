@@ -1,0 +1,30 @@
+diff --git a/src/simsycl/system.cc b/src/simsycl/system.cc
+index d30479a..2efccaa 100644
+--- a/src/simsycl/system.cc
++++ b/src/simsycl/system.cc
+@@ -20,9 +20,20 @@
+ 
+ namespace simsycl::detail {
+ 
+-std::recursive_mutex g_system_mutex;
++// Constructed on first use rather than as a namespace-scope global. Kernel
++// registration happens during dynamic initialisation of the
++// kernel_id_registration_v template variables, which live in other
++// translation units, so their order relative to this one is unspecified -
++// and a lock taken first would find the mutex unconstructed. libstdc++
++// tolerates locking a zero-initialised pthread mutex and the bug stays
++// hidden; libc++ returns EINVAL and every SimSYCL program aborts at startup
++// with "recursive_mutex lock failed: Invalid argument".
++std::recursive_mutex &get_system_mutex() {
++    static std::recursive_mutex mutex;
++    return mutex;
++}
+ 
+-system_lock::system_lock() : m_lock(g_system_mutex) {}
++system_lock::system_lock() : m_lock(get_system_mutex()) {}
+ 
+ class error_category : public std::error_category {
+     const char *name() const noexcept override { return "sycl"; }
+-- 
+2.39.5 (Apple Git-154)
+

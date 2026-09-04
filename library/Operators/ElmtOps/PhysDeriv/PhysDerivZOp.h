@@ -126,7 +126,7 @@ public:
 
 // CUDA-only GPU backends. On HIP/SYCL this include is present but the file's
 // NEKTAR_ENABLE_CUDA guard keeps its content empty, so no CUDA types leak out.
-#if defined(NEKTAR_ENABLE_DEVICE) && !defined(NEKTAR_ENABLE_DEVICEONHOST)
+#if defined(NEKTAR_ENABLE_DEVICE)
 #include "PhysDerivZOpDevice.h"
 #endif
 

@@ -41,12 +41,12 @@ namespace Nektar
 // Optional optimisation decorator for a NEK_DEVICE_KERNEL kernel function. This
 // should NOT be used in a NEK_DEVCICE_INLINE function. This allows register
 // usage optimisation for CUDA/HIP backend by specifying the maximum GPU
-// blocksize. Has no effect for SYCL and/or DEVICEONHOST backend.
+// blocksize. Has no effect for SYCL.
 #define __LAUNCH_BOUNDS__(x)
 
 // Shared memory must be fetched from a NEK_DEVICE_KERNEL kernel function. This
 // should NOT be used in a NEK_DEVCICE_INLINE function. Use for compatibility
-// with CUDA/HIP backend. Has no effect for SYCL and/or DEVICEONHOST backend.
+// with CUDA/HIP backend. Has no effect for SYCL.
 #define FETCH_SHARED_MEMORY(ptr)
 
 template <int dim = 0>

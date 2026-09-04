@@ -57,12 +57,12 @@ NEK_DEVICE_INLINE static bool __isShared(const void *ptr)
 // Optional optimisation decorator for a NEK_DEVICE_KERNEL kernel function. This
 // should NOT be used in a NEK_DEVCICE_INLINE function. This allows register
 // usage optimisation for CUDA/HIP backend by specifying the maximum GPU
-// blocksize. Has no effect for SYCL and/or DEVICEONHOST backend.
+// blocksize.
 #define __LAUNCH_BOUNDS__(x) __launch_bounds__(x)
 
 // Shared memory must be fetched from a NEK_DEVICE_KERNEL kernel function. This
 // should NOT be used in a NEK_DEVCICE_INLINE function. Use for compatibility
-// with CUDA/HIP backend. Has no effect for SYCL and/or DEVICEONHOST backend.
+// with CUDA/HIP backend.
 #define FETCH_SHARED_MEMORY(ptr)                                               \
     extern __shared__ __align__(sizeof(TData)) unsigned char __shmemptr[];     \
     ptr = __shmemptr

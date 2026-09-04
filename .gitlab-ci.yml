@@ -443,7 +443,7 @@ debian-trixie-default-build-and-test:
   <<: *build-and-test-template
   needs: ["debian-trixie-default-build-env"]
   variables:
-   BUILD_DEVICE: DEVICEONHOST
+   BUILD_DEVICE: SYCL-SIMSYCL
    BUILD_SINGLE_PRECISION: "on"
 
 debian-trixie-full-build-and-test:
@@ -451,7 +451,6 @@ debian-trixie-full-build-and-test:
   needs: ["debian-trixie-full-build-env"]
   variables:
     DISABLE_CWIPI: true
-    BUILD_DEVICE: DEVICEONHOST
     GIT_SUBMODULE_STRATEGY: recursive
 
 debian-trixie-full-avx2-build-and-test:
@@ -479,7 +478,6 @@ debian-trixie-full-clang19-build-and-test:
     BUILD_CC: clang-19
     BUILD_CXX: clang++-19
     DISABLE_CWIPI: true
-    BUILD_DEVICE: DEVICEONHOST
 
 debian-trixie-full-acpp-build-and-test:
   <<: *build-and-test-template
@@ -506,8 +504,6 @@ debian-bookworm-performance-build-and-test:
 debian-bookworm-full-build-and-test:
   <<: *build-and-test-template
   needs: ["debian-bookworm-full-build-env"]
-  variables:
-    BUILD_DEVICE: DEVICEONHOST
 
 debian-bookworm-full-avx2-build-and-test:
   <<: *build-and-test-template
@@ -673,7 +669,6 @@ ubuntu-noble-default-build-env:
   <<: *build-env-ubuntu-template-default
   needs: []
   variables:
-   BUILD_DEVICE: DEVICEONHOST
    BUILD_SINGLE_PRECISION: "on"
 
 ubuntu-noble-full-build-env:
@@ -705,8 +700,6 @@ ubuntu-jammy-default-build-and-test:
 ubuntu-jammy-full-build-and-test:
   <<: *build-and-test-template
   needs: ["ubuntu-jammy-full-build-env"]
-  variables:
-    BUILD_DEVICE: DEVICEONHOST
 
 ubuntu-focal-default-build-and-test:
   <<: *build-and-test-template
@@ -892,7 +885,7 @@ macos-default-arm-build-and-test:
     - macos-arm
   variables:
     BUILD_TYPE: "default"
-    BUILD_DEVICE: DEVICEONHOST
+    # BUILD_DEVICE: SYCL-SIMSYCL
     USE_NINJA: false
   needs: []
 

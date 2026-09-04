@@ -207,7 +207,6 @@ NEK_DEVICE_INLINE static void atomic_and(TData *const dest, const TData val)
 
 } // namespace Nektar
 
-#include "LibUtilities/LoopExecution/LoopExecutionDeviceOnHost.hpp"
 #include "LibUtilities/LoopExecution/LoopExecutionHIPCUDA.hpp"
 #include "LibUtilities/LoopExecution/LoopExecutionSYCL.hpp"
 #include "LibUtilities/LoopExecution/LoopExecutionSerialAVX.hpp"

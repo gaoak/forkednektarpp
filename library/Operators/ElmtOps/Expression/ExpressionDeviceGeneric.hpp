@@ -37,7 +37,7 @@
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "Operators/ElmtOps/Expression/ExpressionBlockOp.hpp"
 
-#if defined(SYCL_ENABLE_CPU) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+#if defined(SYCL_ENABLE_CPU)
 #include "Operators/ElmtOps/Expression/ExpressionSerialAVXGeneric.hpp"
 #else
 #if defined(NEKTAR_ENABLE_CUDA)
