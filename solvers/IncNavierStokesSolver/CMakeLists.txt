@@ -49,7 +49,6 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
         ./BoundaryConditions/StaticWall.cpp
         ./BoundaryConditions/TransMovingWall.cpp
         ./BoundaryConditions/MRFWall.cpp
-        ./BoundaryConditions/MRFWallImplicitLorentz.cpp
         ./BoundaryConditions/MRFWallPressDecomp.cpp
         )
 
@@ -92,7 +91,6 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
             BoundaryConditions/StaticWall.h
             BoundaryConditions/TransMovingWall.h
             BoundaryConditions/MRFWall.h
-            BoundaryConditions/MRFWallImplicitLorentz.h
             BoundaryConditions/MRFWallPressDecomp.h)
         # Create separate library. No need to pass source files, as the executable's
         # LIBRARY_SOURCES objects will be reused
@@ -144,6 +142,7 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
     ADD_NEKTAR_TEST(Couette_3DH2D_MVM)
     ADD_NEKTAR_TEST(FreeFallCyl)
     ADD_NEKTAR_TEST(MHDMovingCylinder)
+    ADD_NEKTAR_TEST(MHDMovingCylinderImplicitLorentz)
     ADD_NEKTAR_TEST(Hex_channel_m3)
     ADD_NEKTAR_TEST(Hex_channel_varP)
     ADD_NEKTAR_TEST(Pyr_channel_m3)

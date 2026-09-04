@@ -129,9 +129,6 @@ void ForcingLorentz::v_InitObject(
     }
     if (m_implicitDamping)
     {
-        ASSERTL0(m_session->GetSolverInfo("SolverType") == "VCSFSI",
-                 "Implicit Lorentz damping is only supported with "
-                 "SolverType 'VCSFSI'.");
         m_FluidEq->SetImplicitLorentzDamping(m_damping);
     }
 

@@ -78,15 +78,11 @@ protected:
             Array<OneD, MultiRegions::ExpListSharedPtr> pFields,
             Array<OneD, SpatialDomains::BoundaryConditionShPtr> cond,
             Array<OneD, MultiRegions::ExpListSharedPtr> exp, int nbnd,
-            int spacedim, int bnddim, const std::string &type = "MRFWall");
+            int spacedim, int bnddim);
     void AddExtrapAcceVisPressureBCs(
         const Array<OneD, const Array<OneD, NekDouble>> &fields,
         Array<OneD, Array<OneD, NekDouble>> &N,
         std::map<std::string, NekDouble> &params, int npts0);
-    virtual void AddLorentzDamping(Array<OneD, Array<OneD, NekDouble>> &,
-                                   std::map<std::string, NekDouble> &, int)
-    {
-    }
     bool m_hasVels;
     bool m_hasPressure;
 };

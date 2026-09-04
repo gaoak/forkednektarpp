@@ -2468,11 +2468,10 @@ treated implicitly by setting the optional \inltt{IMPLICITDAMPING} entry to
 \inltt{True} (the default is \inltt{False}). This splits
 $\sigma(\mathbf{u}\times\mathbf{B})\times\mathbf{B}$ into the explicit term
 $\sigma(\mathbf{u}\cdot\mathbf{B})\mathbf{B}$ and the implicit damping term
-$-\sigma|\mathbf{B}|^2\mathbf{u}$. When using the
-\inltt{VCSFSI} solver, use
-\inltt{MRFWallImplicitLorentz} instead of
-\inltt{MRFWall} for the velocity and pressure conditions on the moving wall;
-this includes the implicit damping term in the pressure Neumann condition.
+$-\sigma|\mathbf{B}|^2\mathbf{u}$. The option is supported by
+velocity-correction-scheme solvers. For moving-wall boundary conditions, the
+local wall velocity, including both translation and rotation, is also used to
+include the damping term in the pressure Neumann condition.
 
 Two extra parameters should be provided.
 \begin{center}

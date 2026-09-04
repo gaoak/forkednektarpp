@@ -48,10 +48,10 @@ MRFWall::MRFWall(
     [[maybe_unused]] Array<OneD, SpatialDomains::BoundaryConditionShPtr> cond,
     [[maybe_unused]] Array<OneD, MultiRegions::ExpListSharedPtr> exp,
     [[maybe_unused]] int nbnd, [[maybe_unused]] int spacedim,
-    [[maybe_unused]] int bnddim, const std::string &type)
+    [[maybe_unused]] int bnddim)
     : StaticWall(pSession, pFields, cond, exp, nbnd, spacedim, bnddim)
 {
-    classname = type;
+    classname = "MRFWall";
     m_hasVels = false;
     for (size_t i = 0; i < m_bnddim; ++i)
     {
@@ -168,7 +168,6 @@ void MRFWall::AddExtrapAcceVisPressureBCs(
     }
     AddVisPressureBCs(fields, m_extrapArray[m_intSteps - 1], params);
     AddRigidBodyAcc(m_extrapArray[m_intSteps - 1], params, npts0);
-    AddLorentzDamping(m_extrapArray[m_intSteps - 1], params, npts0);
     ExtrapolateArray(m_numCalls, m_extrapArray);
     for (int i = 0; i < m_bnddim; i++)
     {
