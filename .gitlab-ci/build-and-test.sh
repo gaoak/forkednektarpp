@@ -16,6 +16,7 @@ echo "  - BUILD_CXX               : $BUILD_CXX"
 echo "  - BUILD_FC                : $BUILD_FC"
 echo "  - BUILD_TYPE              : $BUILD_TYPE"
 echo "  - BUILD_SIMD              : $BUILD_SIMD"
+echo "  - BUILD_DEVICE            : $BUILD_DEVICE"
 echo "  - BUILD_SINGLE_PRECISION  : $BUILD_SINGLE_PRECISION"
 echo "  - DISABLE_CWIPI           : $DISABLE_CWIPI"
 echo "  - DISABLE_MCA             : $DISABLE_MCA"
@@ -60,6 +61,10 @@ if [[ $BUILD_TYPE == "default" ]]; then
         CMAKEARGS+=("-DNEKTAR_ENABLE_SINGLE_PRECISION:BOOL=ON")
         CMAKEARGS+=("-DNEKTAR_ENABLE_DOUBLE_PRECISION:BOOL=OFF")
     fi
+    if [[ $BUILD_DEVICE == "SYCL-SIMSYCL" ]]; then
+        # Enable SYCL in CMake configuration
+        CMAKEARGS+=("-DNEKTAR_ENABLE_DEVICE:STRING=SYCL-SIMSYCL")
+    fi
 elif [[ $BUILD_TYPE == "full" ]]; then
     CMAKEARGS+=(
         "-DCMAKE_BUILD_TYPE:STRING=Debug"
@@ -97,9 +102,7 @@ elif [[ $BUILD_TYPE == "full" ]]; then
     elif [[ $BUILD_SIMD == "neon" ]]; then
         CMAKEARGS+=("-DNEKTAR_ENABLE_SIMD:STRING=NEON")
     fi
-    if [[ $BUILD_DEVICE == "DEVICEONHOST" ]]; then
-        CMAKEARGS+=("-DNEKTAR_ENABLE_DEVICE:STRING=DEVICEONHOST")
-    elif [[ $BUILD_DEVICE == "CUDA" ]]; then
+    if [[ $BUILD_DEVICE == "CUDA" ]]; then
         # Load CUDA on Linux
         [[ $OS_VERSION != "macos" ]] && module load cuda/13.0.2
 
@@ -124,6 +127,9 @@ elif [[ $BUILD_TYPE == "full" ]]; then
 
         # Enable SYCL in CMake configuration
         CMAKEARGS+=("-DNEKTAR_ENABLE_DEVICE:STRING=SYCL-CPU")
+    elif [[ $BUILD_DEVICE == "SYCL-SIMSYCL" ]]; then
+        # Enable SYCL in CMake configuration
+        CMAKEARGS+=("-DNEKTAR_ENABLE_DEVICE:STRING=SYCL-SIMSYCL")
     elif [[ $BUILD_DEVICE == "SYCL-CUDA" ]]; then
         if [[ $BUILD_CXX == "acpp" ]]; then
             # This hack is necessary to compile oneMath when using Apptainer

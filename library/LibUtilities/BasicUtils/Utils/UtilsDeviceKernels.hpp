@@ -729,8 +729,7 @@ NEK_FORCE_INLINE static void DivideByJacobian(const size_t nelmt,
 // layout.
 
 // 1D Case - Non-interleaved
-#if !defined(NEKTAR_ENABLE_DEVICEONHOST) &&                                    \
-    !(defined(SYCL_ENABLE_CPU) && defined(__ADAPTIVECPP__))
+#if !(defined(SYCL_ENABLE_CPU) && defined(__ADAPTIVECPP__))
 template <
     unsigned int interleaveWidth, bool DEFORMED, typename TthreadBlock,
     typename TData,
@@ -804,8 +803,7 @@ NEK_DEVICE_KERNEL void VolumeKernelLauncher(const unsigned int nq0,
 }
 
 // 2D Case - Interleaved
-#if !defined(NEKTAR_ENABLE_DEVICEONHOST) &&                                    \
-    !(defined(SYCL_ENABLE_CPU) && defined(__ADAPTIVECPP__))
+#if !(defined(SYCL_ENABLE_CPU) && defined(__ADAPTIVECPP__))
 template <
     unsigned int interleaveWidth, bool DEFORMED, typename TthreadBlock,
     typename TData,
@@ -885,8 +883,7 @@ NEK_DEVICE_KERNEL void VolumeKernelLauncher(
 }
 
 // 3D Case - Interleaved
-#if !defined(NEKTAR_ENABLE_DEVICEONHOST) &&                                    \
-    !(defined(SYCL_ENABLE_CPU) && defined(__ADAPTIVECPP__))
+#if !(defined(SYCL_ENABLE_CPU) && defined(__ADAPTIVECPP__))
 template <
     unsigned int interleaveWidth, bool DEFORMED, typename TthreadBlock,
     typename TData,
@@ -974,8 +971,7 @@ NEK_DEVICE_KERNEL void VolumeKernelLauncher(
 }
 
 // 1D Case - Interleaved
-#if !defined(NEKTAR_ENABLE_DEVICEONHOST) &&                                    \
-    !(defined(SYCL_ENABLE_CPU) && defined(__ADAPTIVECPP__))
+#if !(defined(SYCL_ENABLE_CPU) && defined(__ADAPTIVECPP__))
 template <
     template <typename> typename INTEGRALOP, unsigned int interleaveWidth,
     bool DEFORMED, typename TthreadBlock, typename TData,
@@ -1056,8 +1052,7 @@ NEK_DEVICE_KERNEL void IntegralKernelLauncher(
 }
 
 // 2D Case - Interleaved
-#if !defined(NEKTAR_ENABLE_DEVICEONHOST) &&                                    \
-    !(defined(SYCL_ENABLE_CPU) && defined(__ADAPTIVECPP__))
+#if !(defined(SYCL_ENABLE_CPU) && defined(__ADAPTIVECPP__))
 template <
     template <typename> typename INTEGRALOP, unsigned int interleaveWidth,
     bool DEFORMED, typename TthreadBlock, typename TData,
@@ -1149,8 +1144,7 @@ NEK_DEVICE_KERNEL void IntegralKernelLauncher(
 }
 
 // 3D Case - Interleaved
-#if !defined(NEKTAR_ENABLE_DEVICEONHOST) &&                                    \
-    !(defined(SYCL_ENABLE_CPU) && defined(__ADAPTIVECPP__))
+#if !(defined(SYCL_ENABLE_CPU) && defined(__ADAPTIVECPP__))
 template <
     template <typename> typename INTEGRALOP, unsigned int interleaveWidth,
     bool DEFORMED, typename TthreadBlock, typename TData,

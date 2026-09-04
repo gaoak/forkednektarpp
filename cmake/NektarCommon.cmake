@@ -393,6 +393,17 @@ MACRO(ADD_NEKTAR_LIBRARY name)
     SET (NEKLIB_TARGET_NAME ${name}${NEKLIB_TARGET_SUFFIX})
     ADD_LIBRARY(${NEKLIB_TARGET_NAME} ${NEKTAR_LIBRARY_TYPE} ${NEKLIB_SOURCES} ${NEKLIB_HEADERS})
 
+    # SimSYCL provides sycl/sycl.hpp, and when it is built from ThirdParty
+    # that header does not exist until the external project has installed it.
+    # Every Nektar library is a potential includer - directly, or through a
+    # LibUtilities header - and the ones that do not link LibUtilities (NekBlas
+    # above all) have nothing else ordering them after the external project, so
+    # a parallel build compiles them against a directory that is not there yet.
+    # Order every library after it rather than naming them one at a time.
+    IF (NEKTAR_USE_SIMSYCL)
+        ADD_DEPENDENCIES(${NEKLIB_TARGET_NAME} simsycl-${SIMSYCL_VERSION})
+    ENDIF()
+
     # Infer component name from lower-case library name, variables should use
     # upper-case.
     STRING(TOLOWER ${NEKLIB_TARGET_NAME} NEKLIB_COMPONENT)

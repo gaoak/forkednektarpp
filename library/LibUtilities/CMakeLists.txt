@@ -386,11 +386,11 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
         SET(DeviceSupportHeaders 
             ${DeviceSupportHeaders} 
             ./Backends/SYCLQueue.hpp
-            ./BasicUtils/Field/BlockHelper.cpp
         )
         SET(DeviceSupportSources 
             ${DeviceSupportSources} 
             ./Backends/SYCLQueue.cpp
+            ./BasicUtils/Field/BlockHelper.cpp
             ./BasicUtils/Math/MathHelper.cpp
         )
     ELSE()
@@ -647,6 +647,15 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
 
     IF(NOT BLAS_LAPACK_BUILTIN)
         TARGET_LINK_LIBRARIES(NekBlas LINK_PRIVATE ${BLAS_LAPACK})
+    ENDIF()
+
+    # NekBlas's SYCL BLAS path references SYCLQueue statics defined in
+    # LibUtilities, which is built after it and which NekBlas cannot link
+    # without a cycle. A Linux shared library leaves that to load time and
+    # says nothing; the macOS linker demands every symbol up front and fails.
+    # Defer resolution there so the two platforms behave alike.
+    IF(APPLE AND NEKTAR_ENABLE_DEVICE MATCHES "SYCL")
+        TARGET_LINK_OPTIONS(NekBlas PRIVATE -Wl,-undefined,dynamic_lookup)
     ENDIF()
     IF(THIRDPARTY_BUILD_BLAS_LAPACK)
         ADD_DEPENDENCIES(NekBlas lapack-3.7.1)

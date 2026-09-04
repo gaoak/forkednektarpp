@@ -400,51 +400,6 @@ private:
 #endif
 }
 
-#elif defined(NEKTAR_ENABLE_DEVICEONHOST)
-class GetDeviceProperties
-{
-public:
-    static size_t SharedMemoryPerBlock(void)
-    {
-        return std::numeric_limits<size_t>::max();
-    }
-
-    static size_t SharedMemoryPerMultiprocessor(void)
-    {
-        return std::numeric_limits<size_t>::max();
-    }
-
-    static size_t TotalGlobalMemory(void)
-    {
-        return std::numeric_limits<size_t>::max();
-    }
-
-    static int NumMultiProcessors(void)
-    {
-        return 0;
-    }
-
-    static size_t MaxThreadsPerMultiprocessor(void)
-    {
-        return std::numeric_limits<size_t>::max();
-    }
-
-    static void CheckSharedMemoryUsage([[maybe_unused]] const size_t shmemsize)
-    {
-    }
-
-    static void CheckGlobalMemoryUsage([[maybe_unused]] const size_t memsize)
-    {
-    }
-
-private:
-};
-
-[[maybe_unused]] static void PrintDeviceProperties()
-{
-    std::cout << "PrintDeviceProperties: No device found" << std::endl;
-}
-
 #else
 
 [[maybe_unused]] static void PrintDeviceProperties()

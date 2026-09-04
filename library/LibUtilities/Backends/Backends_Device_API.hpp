@@ -48,6 +48,5 @@ struct LocalScope
 };
 } // namespace Nektar::NektarSpaces
 
-#include "LibUtilities/Backends/DeviceOnHost_Device_API.hpp"
 #include "LibUtilities/Backends/HIPCUDA_Device_API.hpp"
 #include "LibUtilities/Backends/SYCL_Device_API.hpp"

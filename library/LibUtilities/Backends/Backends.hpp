@@ -57,8 +57,6 @@
 #include "LibUtilities/Backends/HIP_Host_API.hpp"
 #elif defined(NEKTAR_ENABLE_SYCL)
 #include "LibUtilities/Backends/SYCL_Host_API.hpp"
-#elif defined(NEKTAR_ENABLE_DEVICEONHOST)
-#include "LibUtilities/Backends/DeviceOnHost_Host_API.hpp"
 #endif
 
 namespace Nektar
@@ -125,6 +123,9 @@ struct Device
     static constexpr unsigned int warpSize = 1u;
 #elif defined(__DPCPP_COMPILER)
     static constexpr unsigned int warpSize = 8u;
+#elif defined(NEKTAR_USE_SIMSYCL)
+    // SimSYCL simulates a sub-group of 32 by default.
+    static constexpr unsigned int warpSize = 32u;
 #else
     static constexpr unsigned int warpSize = 1u;
 #endif
@@ -210,8 +211,7 @@ static unsigned int GetVectorWidth(const std::string &execName)
 
 } // namespace NektarSpaces
 
-#if defined(__CUDACC__) || defined(__NEK_HIPCC__) ||                           \
-    defined(NEKTAR_ENABLE_SYCL) || defined(NEKTAR_ENABLE_DEVICEONHOST)
+#if defined(__CUDACC__) || defined(__NEK_HIPCC__) || defined(NEKTAR_ENABLE_SYCL)
 #define DEVICE_COMPILE_ONLY
 #endif
 

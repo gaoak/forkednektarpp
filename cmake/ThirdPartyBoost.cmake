@@ -19,6 +19,11 @@ IF (NEKTAR_USE_BOOST_FILESYSTEM)
     SET(NEEDED_BOOST_LIBS ${NEEDED_BOOST_LIBS} filesystem)
 ENDIF()
 
+# SimSYCL links Boost.context, which Nektar does not otherwise need.
+IF (NEKTAR_USE_SIMSYCL)
+    SET(NEEDED_BOOST_LIBS ${NEEDED_BOOST_LIBS} context)
+ENDIF()
+
 IF( BOOST_TEST_DYN_LINK )
 #    Currently only supported in
 #    library/UnitTests/Operators/init_fields.hpp

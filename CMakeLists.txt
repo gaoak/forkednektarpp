@@ -355,11 +355,7 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
     ENDIF()
 
     SET(NEKTAR_ENABLE_DEVICE OFF CACHE STRING "")
-    IF (CMAKE_BUILD_TYPE STREQUAL "Debug")
-        SET_PROPERTY(CACHE NEKTAR_ENABLE_DEVICE PROPERTY STRINGS OFF CUDA HIP SYCL-CUDA SYCL-HIP SYCL-Intel DEVICEONHOST)
-    ELSE()
-        SET_PROPERTY(CACHE NEKTAR_ENABLE_DEVICE PROPERTY STRINGS OFF CUDA HIP SYCL-CUDA SYCL-HIP SYCL-Intel)
-    ENDIF()
+    SET_PROPERTY(CACHE NEKTAR_ENABLE_DEVICE PROPERTY STRINGS OFF CUDA HIP SYCL-CUDA SYCL-HIP SYCL-Intel)
     IF (NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
         ADD_DEFINITIONS(-DNEKTAR_ENABLE_CUDA)
         ADD_DEFINITIONS(-DNEKTAR_ENABLE_DEVICE)
@@ -369,6 +365,7 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
         ADD_DEFINITIONS(-DNEKTAR_ENABLE_DEVICE)
         INCLUDE(NektarHIP)
     ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CPU" OR # NOTE: Private back-ends, used for development purpose only
+            NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-SIMSYCL" OR # NOTE: Private back-ends, used for development purpose only
             NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR 
             NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-HIP" OR 
             NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-Intel")
@@ -377,15 +374,22 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
         ENDIF()
         ADD_DEFINITIONS(-DNEKTAR_ENABLE_SYCL)
         ADD_DEFINITIONS(-DNEKTAR_ENABLE_DEVICE)
-        FIND_PACKAGE(AdaptiveCpp QUIET)
-        IF (${AdaptiveCpp_FOUND})
-            INCLUDE(NektarAdaptiveCpp)
-        ELSE()
-            INCLUDE(NektarIntelSYCL)
+
+        # SimSYCL is a simulator rather than a SYCL compiler, and is opt-in.
+        # The library itself is found or built by ThirdPartySimSYCL, which
+        # has to run after ThirdPartyBoost because SimSYCL requires
+        # Boost.context. All that happens here is recording the choice, and
+        # the requirements it places on the rest of the configuration.
+        IF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-SIMSYCL")
+            INCLUDE(NektarSimSYCL)
+        ELSE ()
+            FIND_PACKAGE(AdaptiveCpp QUIET)
+            IF(${AdaptiveCpp_FOUND})
+                INCLUDE(NektarAdaptiveCpp)
+            ELSE()
+                INCLUDE(NektarIntelSYCL)
+            ENDIF()
         ENDIF()
-    ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL DEVICEONHOST) # NOTE: Private back-ends, used for development purpose only
-        ADD_DEFINITIONS(-DNEKTAR_ENABLE_DEVICEONHOST)
-        ADD_DEFINITIONS(-DNEKTAR_ENABLE_DEVICE)
     ENDIF()
 
     # Default execution spaces.
@@ -437,6 +441,8 @@ INCLUDE (ThirdPartyHDF5)
 INCLUDE (ThirdPartyScotch)
 INCLUDE (ThirdPartyZlib)
 INCLUDE (ThirdPartyBoost)
+# Must follow ThirdPartyBoost: SimSYCL requires Boost.context.
+INCLUDE (ThirdPartySimSYCL)
 INCLUDE (ThirdPartyPython)
 INCLUDE (ThirdPartyFFTW)
 INCLUDE (ThirdPartyArpack)
