@@ -92,6 +92,10 @@ private:
     Array<OneD, NekDouble> m_B0;
     // electric conductivity
     NekDouble m_sigma;
+    // coefficient sigma |B|^2
+    NekDouble m_damping;
+    // whether the isotropic damping is treated implicitly
+    bool m_implicitDamping;
     int m_spacedim;
     VelocityCorrectionSchemeSharedPtr m_FluidEq;
 };

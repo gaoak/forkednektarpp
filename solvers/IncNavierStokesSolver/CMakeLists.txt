@@ -49,6 +49,7 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
         ./BoundaryConditions/StaticWall.cpp
         ./BoundaryConditions/TransMovingWall.cpp
         ./BoundaryConditions/MRFWall.cpp
+        ./BoundaryConditions/MRFWallImplicitLorentz.cpp
         ./BoundaryConditions/MRFWallPressDecomp.cpp
         )
 
@@ -91,6 +92,7 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
             BoundaryConditions/StaticWall.h
             BoundaryConditions/TransMovingWall.h
             BoundaryConditions/MRFWall.h
+            BoundaryConditions/MRFWallImplicitLorentz.h
             BoundaryConditions/MRFWallPressDecomp.h)
         # Create separate library. No need to pass source files, as the executable's
         # LIBRARY_SOURCES objects will be reused

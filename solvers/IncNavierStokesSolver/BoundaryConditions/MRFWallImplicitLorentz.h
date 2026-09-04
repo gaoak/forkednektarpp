@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MRFWall.h
+// File: MRFWallImplicitLorentz.h
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,27 +28,22 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Wall boundary condition of moving reference frame.
+// Description: MRF wall pressure condition for implicit Lorentz damping.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef NEKTAR_SOLVERS_MRFWALL_H
-#define NEKTAR_SOLVERS_MRFWALL_H
+#ifndef NEKTAR_SOLVERS_MRFWALLIMPLICITLORENTZ_H
+#define NEKTAR_SOLVERS_MRFWALLIMPLICITLORENTZ_H
 
-#include <IncNavierStokesSolver/BoundaryConditions/StaticWall.h>
-#include <LibUtilities/BasicUtils/NekFactory.hpp>
-#include <LibUtilities/BasicUtils/SessionReader.h>
-#include <LibUtilities/BasicUtils/SharedArray.hpp>
-#include <LibUtilities/Memory/NekMemoryManager.hpp>
-#include <MultiRegions/ExpList.h>
+#include <IncNavierStokesSolver/BoundaryConditions/MRFWall.h>
 
 namespace Nektar
 {
 
-class MRFWall : public StaticWall
+class MRFWallImplicitLorentz : public MRFWall
 {
 public:
-    friend class MemoryManager<MRFWall>;
+    friend class MemoryManager<MRFWallImplicitLorentz>;
 
     static IncBaseConditionSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr pSession,
@@ -57,38 +52,28 @@ public:
         Array<OneD, MultiRegions::ExpListSharedPtr> exp, int nbnd, int spacedim,
         int bnddim)
     {
-        IncBaseConditionSharedPtr p = MemoryManager<MRFWall>::AllocateSharedPtr(
-            pSession, pFields, cond, exp, nbnd, spacedim, bnddim);
+        IncBaseConditionSharedPtr p =
+            MemoryManager<MRFWallImplicitLorentz>::AllocateSharedPtr(
+                pSession, pFields, cond, exp, nbnd, spacedim, bnddim);
         p->Initialise(pSession);
         return p;
     }
 
     static std::string className;
-    ~MRFWall() override = default;
+    ~MRFWallImplicitLorentz() override = default;
 
 protected:
-    void v_Initialise(
-        const LibUtilities::SessionReaderSharedPtr &pSession) override;
+    void AddLorentzDamping(Array<OneD, Array<OneD, NekDouble>> &N,
+                           std::map<std::string, NekDouble> &params,
+                           int npts0) override;
 
-    void v_Update(const Array<OneD, const Array<OneD, NekDouble>> &fields,
-                  const Array<OneD, const Array<OneD, NekDouble>> &Adv,
-                  std::map<std::string, NekDouble> &params) override;
-    int m_pressure;
-    MRFWall(const LibUtilities::SessionReaderSharedPtr pSession,
-            Array<OneD, MultiRegions::ExpListSharedPtr> pFields,
-            Array<OneD, SpatialDomains::BoundaryConditionShPtr> cond,
-            Array<OneD, MultiRegions::ExpListSharedPtr> exp, int nbnd,
-            int spacedim, int bnddim, const std::string &type = "MRFWall");
-    void AddExtrapAcceVisPressureBCs(
-        const Array<OneD, const Array<OneD, NekDouble>> &fields,
-        Array<OneD, Array<OneD, NekDouble>> &N,
-        std::map<std::string, NekDouble> &params, int npts0);
-    virtual void AddLorentzDamping(Array<OneD, Array<OneD, NekDouble>> &,
-                                   std::map<std::string, NekDouble> &, int)
-    {
-    }
-    bool m_hasVels;
-    bool m_hasPressure;
+private:
+    MRFWallImplicitLorentz(
+        const LibUtilities::SessionReaderSharedPtr pSession,
+        Array<OneD, MultiRegions::ExpListSharedPtr> pFields,
+        Array<OneD, SpatialDomains::BoundaryConditionShPtr> cond,
+        Array<OneD, MultiRegions::ExpListSharedPtr> exp, int nbnd, int spacedim,
+        int bnddim);
 };
 
 } // namespace Nektar

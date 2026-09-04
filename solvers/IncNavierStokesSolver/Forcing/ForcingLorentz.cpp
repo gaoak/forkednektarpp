@@ -35,6 +35,7 @@
 #include <LibUtilities/BasicUtils/Vmath.hpp>
 #include <MultiRegions/ExpList.h>
 #include <SolverUtils/Filters/FilterInterfaces.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 
 namespace Nektar::SolverUtils
 {
@@ -112,6 +113,28 @@ void ForcingLorentz::v_InitObject(
             m_B0[i] = fieldEquation->Evaluate(0., 0., 0., 0.);
         }
     }
+    m_damping =
+        m_sigma * (m_B0[0] * m_B0[0] + m_B0[1] * m_B0[1] + m_B0[2] * m_B0[2]);
+
+    m_implicitDamping = false;
+    const TiXmlElement *implicitDamping =
+        pForce->FirstChildElement("IMPLICITDAMPING");
+    if (implicitDamping)
+    {
+        const char *text = implicitDamping->GetText();
+        ASSERTL0(text && (boost::iequals(text, "true") ||
+                          boost::iequals(text, "false")),
+                 "IMPLICITDAMPING must be either True or False.");
+        m_implicitDamping = boost::iequals(text, "true");
+    }
+    if (m_implicitDamping)
+    {
+        ASSERTL0(m_session->GetSolverInfo("SolverType") == "VCSFSI",
+                 "Implicit Lorentz damping is only supported with "
+                 "SolverType 'VCSFSI'.");
+        m_FluidEq->SetImplicitLorentzDamping(m_damping);
+    }
+
     // Keep all three components of u x B and J, including the out-of-plane
     // component required by a two-dimensional flow with an in-plane field.
     m_Efield = Array<OneD, Array<OneD, NekDouble>>(3);
@@ -185,6 +208,17 @@ void ForcingLorentz::v_Apply(
                      outarray[2], 1);
         Vmath::Svtvp(physTot, -SB0[0], m_Efield[1], 1, outarray[2], 1,
                      outarray[2], 1);
+    }
+
+    if (m_implicitDamping)
+    {
+        for (int i = 0; i < m_spacedim; ++i)
+        {
+            // Remove the -sigma |B|^2 u contribution from (u x B) x B.
+            // This term is instead included in the velocity Helmholtz solve.
+            Vmath::Svtvp(physTot, m_damping, inarray[i], 1, outarray[i], 1,
+                         outarray[i], 1);
+        }
     }
 }
 

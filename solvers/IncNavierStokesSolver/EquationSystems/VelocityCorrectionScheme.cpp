@@ -797,6 +797,10 @@ void VelocityCorrectionScheme::v_EvaluateAdvection_SetPressureBCs(
     params["Kinvis"]   = m_kinvis;
     params["Time"]     = time + m_timestep;
     params["pressure"] = 1.;
+    if (m_implicitLorentzDamping > 0.0)
+    {
+        params["ImplicitLorentzDamping"] = m_implicitLorentzDamping;
+    }
     AddMovingFrameDataToParams(m_strFrameData, m_movingFrameData, params);
     m_extrapolation->EvaluatePressureBCs(inarray, outarray, m_kinvis);
     m_IncNavierStokesBCs->Update(inarray, outarray, params);
@@ -995,8 +999,20 @@ void VelocityCorrectionScheme::v_SolveViscous(
             factors[StdRegions::eFactorGJP] = m_GJPJumpScale / m_diffCoeff[i];
         }
 
-        // Setup coefficients for equation
-        factors[StdRegions::eFactorLambda] = 1.0 / aii_Dt / m_diffCoeff[i];
+        NekDouble implicitLorentzDamping = 0.0;
+        for (int j = 0; j < m_velocity.size(); ++j)
+        {
+            if (m_velocity[j] == i)
+            {
+                implicitLorentzDamping = m_implicitLorentzDamping;
+                break;
+            }
+        }
+
+        // Setup coefficients for equation. The Lorentz reaction term only
+        // applies to velocity fields, not to any additional passive scalars.
+        factors[StdRegions::eFactorLambda] =
+            (1.0 / aii_Dt + implicitLorentzDamping) / m_diffCoeff[i];
         m_fields[i]->HelmSolve(Forcing[i], m_fields[i]->UpdateCoeffs(), factors,
                                varCoeffMap, varFactorsMap);
         m_fields[i]->BwdTrans(m_fields[i]->GetCoeffs(), outarray[i]);

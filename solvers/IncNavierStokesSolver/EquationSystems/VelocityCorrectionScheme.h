@@ -109,6 +109,14 @@ public:
     void SolveEfield(const Array<OneD, Array<OneD, NekDouble>> &movEfield,
                      Array<OneD, Array<OneD, NekDouble>> &totEfield);
 
+    void SetImplicitLorentzDamping(NekDouble damping)
+    {
+        ASSERTL0(damping >= 0.0,
+                 "The implicit Lorentz damping coefficient must be "
+                 "non-negative.");
+        m_implicitLorentzDamping = damping;
+    }
+
 protected:
     /// bool to identify if spectral vanishing viscosity is active.
     bool m_useHomo1DSpecVanVisc;
@@ -134,6 +142,9 @@ protected:
     bool m_IsSVVPowerKernel;
     /// Diffusion coefficients (will be kinvis for velocities)
     Array<OneD, NekDouble> m_diffCoeff;
+
+    /// Coefficient sigma |B|^2 treated in the velocity Helmholtz solve.
+    NekDouble m_implicitLorentzDamping = 0.0;
 
     /// Variable Coefficient map for the Laplacian which can be activated as
     /// part of SVV or otherwise
