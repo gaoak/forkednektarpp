@@ -152,7 +152,6 @@ protected:
     std::vector<const TData *> m_D;
     std::vector<const TData *> m_f;
     const TData *m_dfptr;
-    TData *m_advVel;
 
     void v_Apply(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
@@ -225,19 +224,6 @@ protected:
         }
     }
 
-    void v_SetAdvVel(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &advVel) override
-    {
-        const auto interleaveWidth = advVel.GetInterleaveWidth();
-        this->m_advVel =
-            advVel.template GetPtr<MemSpace, ReadWrite>(m_streamID);
-        LibUtilities::ReshapeStorage<ExecSpace>(
-            m_implInterleaveWidth, interleaveWidth,
-            advVel.GetNumElementsWithPadding() * this->m_exp->GetCoordim(),
-            advVel.GetNumData(), this->m_advVel, m_streamID);
-        advVel.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-    }
-
     void SegBlock(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock);
@@ -307,6 +293,21 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock,
         TPhysSizeParameter1D sizeParam1D)
     {
+        // Reshape advection velocity, if necessary.
+        if (this->m_advVel->GetInterleaveWidth() != m_implInterleaveWidth)
+        {
+            auto advVelPtr =
+                this->m_advVel->template GetPtr<MemSpace, ReadWrite>(
+                    m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, this->m_advVel->GetInterleaveWidth(),
+                this->m_advVel->GetNumElementsWithPadding() *
+                    this->m_exp->GetCoordim(),
+                this->m_advVel->GetNumData(), advVelPtr, m_streamID);
+            this->m_advVel->template SetInterleaveWidth<TData>(
+                m_implInterleaveWidth);
+        }
+
         // Shape size.
         const auto nqTot = sizeParam1D.nq0();
 
@@ -320,7 +321,8 @@ protected:
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Initialize advVel pointers.
-        auto advVelPtr          = m_advVel;
+        auto advVelPtr =
+            this->m_advVel->template GetPtr<MemSpace, ReadOnly>(m_streamID);
         const auto advVelOffset = nelmt * nqTot;
 
         // Get interleave parameter.
@@ -403,6 +405,21 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock,
         TPhysSizeParameter2D sizeParam2D)
     {
+        // Reshape advection velocity, if necessary.
+        if (this->m_advVel->GetInterleaveWidth() != m_implInterleaveWidth)
+        {
+            auto advVelPtr =
+                this->m_advVel->template GetPtr<MemSpace, ReadWrite>(
+                    m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, this->m_advVel->GetInterleaveWidth(),
+                this->m_advVel->GetNumElementsWithPadding() *
+                    this->m_exp->GetCoordim(),
+                this->m_advVel->GetNumData(), advVelPtr, m_streamID);
+            this->m_advVel->template SetInterleaveWidth<TData>(
+                m_implInterleaveWidth);
+        }
+
         // Shape size.
         const auto nqTot = sizeParam2D.nq0() * sizeParam2D.nq1();
 
@@ -415,7 +432,9 @@ protected:
                 ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
-        auto advVelPtr          = m_advVel;
+        // Initialize advVel pointers.
+        auto advVelPtr =
+            this->m_advVel->template GetPtr<MemSpace, ReadOnly>(m_streamID);
         const auto advVelOffset = nelmt * nqTot;
 
         // Get interleave parameter.
@@ -504,6 +523,21 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock,
         TPhysSizeParameter3D sizeParam3D)
     {
+        // Reshape advection velocity, if necessary.
+        if (this->m_advVel->GetInterleaveWidth() != m_implInterleaveWidth)
+        {
+            auto advVelPtr =
+                this->m_advVel->template GetPtr<MemSpace, ReadWrite>(
+                    m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, this->m_advVel->GetInterleaveWidth(),
+                this->m_advVel->GetNumElementsWithPadding() *
+                    this->m_exp->GetCoordim(),
+                this->m_advVel->GetNumData(), advVelPtr, m_streamID);
+            this->m_advVel->template SetInterleaveWidth<TData>(
+                m_implInterleaveWidth);
+        }
+
         const auto nqTot =
             sizeParam3D.nq0() * sizeParam3D.nq1() * sizeParam3D.nq2();
 
@@ -516,7 +550,9 @@ protected:
                 ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
-        auto advVelPtr          = m_advVel;
+        // Initialize advVel pointers.
+        auto advVelPtr =
+            this->m_advVel->template GetPtr<MemSpace, ReadOnly>(m_streamID);
         const auto advVelOffset = nelmt * nqTot;
 
         // Get interleave parameter.

@@ -31,7 +31,9 @@
 // Description: Linear advection volume flux operator implementation.
 //
 ///////////////////////////////////////////////////////////////////////////////
+
 #pragma once
+
 #include "ADRSolverRedesign/LinearAdvVolumeFlux/LinearAdvVolumeFluxKernels.hpp"
 #include "ADRSolverRedesign/LinearAdvVolumeFlux/LinearAdvVolumeFluxOp.hpp"
 
@@ -73,7 +75,7 @@ protected:
 
             auto &inblock  = in.GetBlocks()[blk];
             auto &outblock = out.GetBlocks()[blk];
-            auto &velblock = this->m_advectVel->GetBlocks()[blk];
+            auto &velblock = this->m_advVel->GetBlocks()[blk];
 
             auto inbase = inblock.template GetPtr<MemSpace, ReadOnly>(streamID);
             auto outbase =

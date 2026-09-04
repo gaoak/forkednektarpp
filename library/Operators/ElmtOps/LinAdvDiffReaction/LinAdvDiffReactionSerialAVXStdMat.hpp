@@ -137,12 +137,25 @@ protected:
     const TData *m_derivmat;
     const TData *m_jacptr;
     const TData *m_dfptr;
-    TData *m_advVel;
 
     void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
                  LibUtilities::BlockAccessor<TData, FieldState::Coeff>
                      &outblock) override
     {
+        // Reshape advection velocity, if necessary.
+        if (this->m_advVel->GetInterleaveWidth() != m_implInterleaveWidth)
+        {
+            auto advVelPtr =
+                this->m_advVel->template GetPtr<MemSpace, ReadWrite>();
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, this->m_advVel->GetInterleaveWidth(),
+                this->m_advVel->GetNumElementsWithPadding() *
+                    this->m_exp->GetCoordim(),
+                this->m_advVel->GetNumData(), advVelPtr);
+            this->m_advVel->template SetInterleaveWidth<TData>(
+                m_implInterleaveWidth);
+        }
+
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -180,7 +193,8 @@ protected:
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
-            auto advptr = this->m_advVel;
+            auto advVelPtr =
+                this->m_advVel->template GetPtr<MemSpace, ReadOnly>();
             auto jacptr = m_jacptr;
             auto dfptr  = m_dfptr;
 
@@ -220,7 +234,7 @@ protected:
                         derivsize, advelsize, diffCoeffPtr,
                         reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(dfptr),
-                        reinterpret_cast<const simd_t *>(advptr),
+                        reinterpret_cast<const simd_t *>(advVelPtr),
                         reinterpret_cast<const simd_t *>(derivptr),
                         reinterpret_cast<simd_t *>(derivptr),
                         reinterpret_cast<simd_t *>(bwdptr), this->m_lambda);
@@ -234,7 +248,7 @@ protected:
                         derivsize, advelsize, diffCoeffPtr,
                         reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(dfptr),
-                        reinterpret_cast<const simd_t *>(advptr),
+                        reinterpret_cast<const simd_t *>(advVelPtr),
                         reinterpret_cast<const simd_t *>(derivptr),
                         reinterpret_cast<simd_t *>(derivptr),
                         reinterpret_cast<simd_t *>(bwdptr), this->m_lambda);
@@ -272,24 +286,12 @@ protected:
                 // Increment pointers.
                 inptr += m_nmTot * simd_t::width;
                 outptr += m_nmTot * simd_t::width;
-                advptr += m_nqTot * simd_t::width;
+                advVelPtr += m_nqTot * simd_t::width;
             }
         }
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
-    }
-
-    void v_SetAdvVel(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &advVel) override
-    {
-        const auto interleaveWidth = advVel.GetInterleaveWidth();
-        this->m_advVel = advVel.template GetPtr<MemSpace, ReadWrite>();
-        LibUtilities::ReshapeStorage<ExecSpace>(
-            m_implInterleaveWidth, interleaveWidth,
-            advVel.GetNumElementsWithPadding() * this->m_exp->GetCoordim(),
-            advVel.GetNumData(), this->m_advVel);
-        advVel.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 };
 

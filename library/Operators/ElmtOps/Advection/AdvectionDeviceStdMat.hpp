@@ -110,12 +110,26 @@ protected:
     unsigned int m_nqTot;
     const TData *m_matptr;
     const TData *m_dfptr;
-    TData *m_advVel;
 
     void v_Apply(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
+        // Reshape advection velocity, if necessary.
+        if (this->m_advVel->GetInterleaveWidth() != m_implInterleaveWidth)
+        {
+            auto advVelPtr =
+                this->m_advVel->template GetPtr<MemSpace, ReadWrite>(
+                    m_streamID);
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, this->m_advVel->GetInterleaveWidth(),
+                this->m_advVel->GetNumElementsWithPadding() *
+                    this->m_exp->GetCoordim(),
+                this->m_advVel->GetNumData(), advVelPtr, m_streamID);
+            this->m_advVel->template SetInterleaveWidth<TData>(
+                m_implInterleaveWidth);
+        }
+
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
         const auto nhomo = inblock.GetNumHomoModes();
@@ -143,7 +157,8 @@ protected:
         const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
-            auto advptr = this->m_advVel;
+            auto advVelPtr =
+                this->m_advVel->template GetPtr<MemSpace, ReadOnly>(m_streamID);
 
             // Reshape, if necessary.
             LibUtilities::ReshapeStorage<ExecSpace>(
@@ -172,16 +187,16 @@ protected:
                     MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, true,
                                                            true>(
                         m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
-                        outoffset, m_dfptr, advptr, advelsize, derivptr, outptr,
-                        this->m_scale, m_streamID);
+                        outoffset, m_dfptr, advVelPtr, advelsize, derivptr,
+                        outptr, this->m_scale, m_streamID);
                 }
                 else
                 {
                     MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, false,
                                                            true>(
                         m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
-                        outoffset, m_dfptr, advptr, advelsize, derivptr, outptr,
-                        this->m_scale, m_streamID);
+                        outoffset, m_dfptr, advVelPtr, advelsize, derivptr,
+                        outptr, this->m_scale, m_streamID);
                 }
             }
             else
@@ -196,16 +211,16 @@ protected:
                     MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, true,
                                                            false>(
                         m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
-                        outoffset, m_dfptr, advptr, advelsize, derivptr, outptr,
-                        this->m_scale, m_streamID);
+                        outoffset, m_dfptr, advVelPtr, advelsize, derivptr,
+                        outptr, this->m_scale, m_streamID);
                 }
                 else
                 {
                     MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, false,
                                                            false>(
                         m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
-                        outoffset, m_dfptr, advptr, advelsize, derivptr, outptr,
-                        this->m_scale, m_streamID);
+                        outoffset, m_dfptr, advVelPtr, advelsize, derivptr,
+                        outptr, this->m_scale, m_streamID);
                 }
             }
 
@@ -220,19 +235,6 @@ protected:
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
-    }
-
-    void v_SetAdvVel(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &advVel) override
-    {
-        const auto interleaveWidth = advVel.GetInterleaveWidth();
-        this->m_advVel =
-            advVel.template GetPtr<MemSpace, ReadWrite>(m_streamID);
-        LibUtilities::ReshapeStorage<ExecSpace>(
-            m_implInterleaveWidth, interleaveWidth,
-            advVel.GetNumElementsWithPadding() * this->m_exp->GetCoordim(),
-            advVel.GetNumData(), this->m_advVel, m_streamID);
-        advVel.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 };
 
