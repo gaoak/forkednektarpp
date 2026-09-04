@@ -20,6 +20,7 @@ v5.11.0
 - Set up physical normals once per field in DG boundary-condition setup and reuse normals across fields sharing expansions (!2699)
 - Fail with a clear error, at session-read and lookup time, when a boundary region is missing a condition for a variable (!2699)
 - Fix non-deterministic CWIPI coupling by zero-initialising received fields and refreshing stale extrapolation weights (!2690)
+- Add EntityResolver for scalable rendezvous-based shared entity discovery, and use it in parallel HDF5 mesh reading and DG trace communication (!2700)
 
 **CI**
 - Added DEBUG_IMAGES option to reduce load on registry storage (2648)

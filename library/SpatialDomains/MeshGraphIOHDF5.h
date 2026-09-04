@@ -89,7 +89,8 @@ private:
     void ReadGeometryData(GeomMapView<T> &geomMap, std::string dataSet,
                           const std::unordered_set<int> &readIds,
                           std::vector<int> &ids,
-                          std::vector<DataType> &geomData);
+                          std::vector<DataType> &geomData,
+                          LibUtilities::CommSharedPtr &comm);
     template <class T, typename DataType>
     void FillGeomMap(GeomMapView<T> &geomMap, const CurveMap &curveMap,
                      std::vector<int> &ids, std::vector<DataType> &geomData);

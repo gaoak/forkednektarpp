@@ -84,12 +84,14 @@ void MeshPartitionPtScotch::v_PartitionGraphImpl(
                 (&scGraph, 0, nVerts, nVerts, &xadj[0], &xadj[1], &vertWgt[0],
                  nullptr, adjcy.size(), adjcy.size(), &adjcy[0], nullptr,
                  nullptr));
+#ifndef NDEBUG
     SCOTCH_CALL(SCOTCH_dgraphCheck, (&scGraph));
+#endif
 
     SCOTCH_Strat strat;
     SCOTCH_CALL(SCOTCH_stratInit, (&strat));
     SCOTCH_CALL(SCOTCH_stratDgraphMapBuild,
-                (&strat, SCOTCH_STRATQUALITY, nparts, nparts, 0.05));
+                (&strat, SCOTCH_STRATSPEED, nparts, nparts, 0.1));
 
     SCOTCH_CALL(SCOTCH_dgraphPart, (&scGraph, nparts, &strat, &part[0]));
 }

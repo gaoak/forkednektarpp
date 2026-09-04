@@ -68,6 +68,10 @@ typedef unsigned int CommDataType;
 #define MPI_CHAR ((CommDataType)0x4c000101)
 #endif
 
+#ifndef MPI_BYTE
+#define MPI_BYTE ((CommDataType)0x4c00010d)
+#endif
+
 #ifndef MPI_INT
 #define MPI_INT ((CommDataType)0x4c000405)
 #endif
@@ -103,6 +107,7 @@ typedef unsigned int CommDataType;
 #ifndef MPI_LONG_DOUBLE
 #define MPI_LONG_DOUBLE ((CommDataType)0x4c00100c)
 #endif
+
 } // namespace LibUtilities
 } // namespace Nektar
 #endif
