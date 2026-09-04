@@ -68,11 +68,15 @@ TEST_DIV(divergence_quad_sem, QuadSEM, 1.0E-12)
 
 TEST_DIV(divergence_quad_varp, QuadVarP, 1.0E-12)
 
+TEST_DIV(divergence_quad_ortho, QuadOrtho, 1.0E-12)
+
 TEST_DIV(divergence_tri, Tri, 1.5E-12)
 
 TEST_DIV(divergence_tri_varp, TriVarP, 4.5E-12)
 
 TEST_DIV(divergence_tri_nodal, TriNodal, 1.5E-12)
+
+TEST_DIV(divergence_tri_ortho, TriOrtho, 1.5E-12)
 
 TEST_DIV(divergence_square_all_elements, SquareAllElements, 2.0E-11)
 

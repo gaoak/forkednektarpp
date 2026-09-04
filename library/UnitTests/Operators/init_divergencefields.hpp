@@ -127,8 +127,8 @@ public:
                                 this->fixt_explist->GetExp(el)->GetNumPoints(i);
                         }
 
-                        for (unsigned int phys = 0; phys < block.GetNumData();
-                             ++phys, ++pts, ++cnt)
+                        for (unsigned int p = 0; p < block.GetNumData();
+                             ++p, ++pts, ++cnt)
                         {
                             TData tmp = 0.0;
                             for (unsigned int i = 0; i < M[0] / 2; i++)
@@ -221,6 +221,10 @@ TEST(SegSEM, "run/line_sem.xml")
 TEST(Seg3D, "run/segment_3D.xml")
 
 TEST(Quad, "run/square.xml")
+
+TEST(QuadOrtho, "run/square_ortho.xml")
+
+TEST(TriOrtho, "run/tri_ortho.xml")
 
 TEST(Quad3D, "run/square_3D.xml")
 

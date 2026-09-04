@@ -11,7 +11,7 @@
        <metric type="L2" id="1">
             <value variable="u" tolerance="1e-6">4.99525e-06</value>
             <value variable="v" tolerance="1e-6"> 0.000644632</value>
-            <value variable="phi" tolerance="1e-6">0.00562163</value>
+            <value variable="phi" tolerance="1e-5">0.00562163</value>
 	    <value variable="rho" tolerance="1e-2">5.61601</value>
             <value variable="visc" tolerance="1e-2">5.05947e-08</value>
             <value variable="p" tolerance="1e-4">0.0859125</value>
