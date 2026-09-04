@@ -142,19 +142,19 @@ protected:
         const auto inoffset    = inblock.CompSize();
         const auto derivoffset = m_nqTot * nelmt;
 
+        // du/dx
+        // Reshape, if necessary.
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            m_implInterleaveWidth, interleaveWidth, nelmt, inblock.GetNumData(),
+            (TData *)inptr, m_streamID);
+
         for (unsigned int d = 0; d < m_dimension; d++)
         {
-            // Reshape, if necessary.
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                m_implInterleaveWidth, interleaveWidth, nelmt,
-                inblock.GetNumData(), (TData *)inptr + d * inoffset,
-                m_streamID);
-
             // Perform matrix-matrix multiply.
             NekBlas::Gemm(handle, "N", "N", m_nqTot, nelmt, m_nqTot, (TData)1.0,
-                          m_matptr + d * m_nqTot * m_nqTot, m_nqTot,
-                          inptr + d * inoffset, m_nqTot, (TData)0.0,
-                          derivptr + d * m_nqTot * nelmt, m_nqTot);
+                          m_matptr + d * m_nqTot * m_nqTot, m_nqTot, inptr,
+                          m_nqTot, (TData)0.0, derivptr + d * m_nqTot * nelmt,
+                          m_nqTot);
         }
 
         // Multiply by derivative factor.
@@ -163,23 +163,44 @@ protected:
             MultiplyByDerivDirFactorKernel<ExecSpace, false, true>(
                 0, m_nqTot, m_coordDim, m_dimension, nelmt, derivoffset,
                 m_dfptr, derivptr, outptr, m_streamID);
-
-            for (unsigned int d = 1; d < m_dimension; d++)
-            {
-                MultiplyByDerivDirFactorKernel<ExecSpace, true, true>(
-                    d, m_nqTot, m_coordDim, m_dimension, nelmt, derivoffset,
-                    m_dfptr, derivptr, outptr, m_streamID);
-            }
         }
         else
         {
             MultiplyByDerivDirFactorKernel<ExecSpace, false, false>(
                 0, m_nqTot, m_coordDim, m_dimension, nelmt, derivoffset,
                 m_dfptr, derivptr, outptr, m_streamID);
-            for (unsigned int d = 1; d < m_dimension; d++)
+        }
+
+        // Calculate dv/dy and dw/dz
+        for (unsigned int c = 1; c < m_dimension; c++)
+        {
+            // Reshape, if necessary.
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, interleaveWidth, nelmt,
+                inblock.GetNumData(), (TData *)inptr + c * inoffset,
+                m_streamID);
+
+            for (unsigned int d = 0; d < m_dimension; d++)
+            {
+                // Perform matrix-matrix multiply.
+                NekBlas::Gemm(handle, "N", "N", m_nqTot, nelmt, m_nqTot,
+                              (TData)1.0, m_matptr + d * m_nqTot * m_nqTot,
+                              m_nqTot, inptr + c * inoffset, m_nqTot,
+                              (TData)0.0, derivptr + d * m_nqTot * nelmt,
+                              m_nqTot);
+            }
+
+            // Multiply by derivative factor.
+            if (m_isDeformed)
+            {
+                MultiplyByDerivDirFactorKernel<ExecSpace, true, true>(
+                    c, m_nqTot, m_coordDim, m_dimension, nelmt, derivoffset,
+                    m_dfptr, derivptr, outptr, m_streamID);
+            }
+            else
             {
                 MultiplyByDerivDirFactorKernel<ExecSpace, true, false>(
-                    d, m_nqTot, m_coordDim, m_dimension, nelmt, derivoffset,
+                    c, m_nqTot, m_coordDim, m_dimension, nelmt, derivoffset,
                     m_dfptr, derivptr, outptr, m_streamID);
             }
         }
