@@ -101,6 +101,304 @@ inline constexpr unsigned int CurlCurlSharedMemorySize(
     }
 }
 
+// The curl-curl operator is evaluated in two passes, omega = curl(u) followed
+// by out = curl(omega). Both passes run inside a single fused kernel, so the
+// only global workspace needed is the one holding the intermediate omega.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TPhysSizeParameter1D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
+                               IsPhysSizeParameter1D_v<TPhysSizeParameter1D>,
+                           bool>
+              Enable = true>
+inline constexpr size_t CurlCurlWorkSpaceSize(
+    [[maybe_unused]] const size_t nelmt,
+    [[maybe_unused]] const TPhysSizeParameter1D sizeParam1D)
+{
+    return 0;
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TPhysSizeParameter2D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
+                               IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
+                           bool>
+              Enable = true>
+inline constexpr size_t CurlCurlWorkSpaceSize(
+    const size_t nelmt, const TPhysSizeParameter2D sizeParam2D)
+{
+    // In 2D omega only has an out-of-plane component.
+    return sizeParam2D.nq0() * sizeParam2D.nq1() * nelmt;
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TPhysSizeParameter3D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
+                               IsPhysSizeParameter3D_v<TPhysSizeParameter3D>,
+                           bool>
+              Enable = true>
+inline constexpr size_t CurlCurlWorkSpaceSize(
+    const size_t nelmt, const TPhysSizeParameter3D sizeParam3D)
+{
+    return 3u * sizeParam3D.nq0() * sizeParam3D.nq1() * sizeParam3D.nq2() *
+           nelmt;
+}
+
+// Scalar curl of a two-dimensional vector field, omega = dv/dx - du/dy.
+//
+// Both components of the tensorial derivative of u and v are accumulated in
+// registers so that the chain rule, the collapsed coordinate correction and
+// the curl are applied in a single sweep over the quadrature points.
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+NEK_DEVICE_INLINE static void Curl2DScalarSumFacKernel(
+    const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
+    const unsigned int nq1, const size_t inoffset, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, [[maybe_unused]] const TData *NEK_RESTRICT f0,
+    [[maybe_unused]] const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT omega)
+{
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+
+    const unsigned int ndf = 2u * ncoord;
+
+    for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
+    {
+        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
+        {
+            const unsigned int index = warpsize * cnt_ji + ilane;
+            const unsigned int dfindex =
+                DEFORMED ? ndf * warpsize * cnt_ji + ilane : ilane;
+
+            // Compute tensorial derivatives of both components at once.
+            // Direction 0
+            TData d0u = 0.0;
+            TData d0v = 0.0;
+#pragma unroll
+            for (unsigned int q = 0u; q < nq0; ++q)
+            {
+                const TData Dq             = D0[q * nq0 + i];
+                const unsigned int qsource = warpsize * (nq0 * j + q) + ilane;
+                d0u += Dq * in[qsource];
+                d0v += Dq * in[inoffset + qsource];
+            }
+
+            // Direction 1
+            TData d1u = 0.0;
+            TData d1v = 0.0;
+#pragma unroll
+            for (unsigned int q = 0u; q < nq1; ++q)
+            {
+                const TData Dq             = D1[q * nq1 + j];
+                const unsigned int qsource = warpsize * (nq0 * q + i) + ilane;
+                d1u += Dq * in[qsource];
+                d1v += Dq * in[inoffset + qsource];
+            }
+
+            // Moving from standard to collapsed coordinates.
+            if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                          SHAPE_TYPE == LibUtilities::NodalTri)
+            {
+                d0u *= f1[j];
+                d1u += d0u * f0[i];
+                d0v *= f1[j];
+                d1v += d0v * f0[i];
+            }
+
+            // Multiply by derivative factors and take the curl.
+            const TData dvdx = d0v * df[0u * warpsize + dfindex] +
+                               d1v * df[1u * warpsize + dfindex];
+            const TData dudy = d0u * df[2u * warpsize + dfindex] +
+                               d1u * df[3u * warpsize + dfindex];
+
+            omega[index] = dvdx - dudy;
+        }
+    }
+}
+
+// Vector curl of a two-dimensional scalar field,
+// out = {d(omega)/dy, -d(omega)/dx}.
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+NEK_DEVICE_INLINE static void Curl2DVectorSumFacKernel(
+    const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
+    const unsigned int nq1, const size_t outoffset,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+    [[maybe_unused]] const TData *NEK_RESTRICT f0,
+    [[maybe_unused]] const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT omega, TData *NEK_RESTRICT out)
+{
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+
+    const unsigned int ndf = 2u * ncoord;
+
+    for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
+    {
+        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
+        {
+            const unsigned int index = warpsize * cnt_ji + ilane;
+            const unsigned int dfindex =
+                DEFORMED ? ndf * warpsize * cnt_ji + ilane : ilane;
+
+            // Compute tensorial derivative.
+            // Direction 0
+            TData d0 = 0.0;
+#pragma unroll
+            for (unsigned int q = 0u; q < nq0; ++q)
+            {
+                d0 += D0[q * nq0 + i] * omega[warpsize * (nq0 * j + q) + ilane];
+            }
+
+            // Direction 1
+            TData d1 = 0.0;
+#pragma unroll
+            for (unsigned int q = 0u; q < nq1; ++q)
+            {
+                d1 += D1[q * nq1 + j] * omega[warpsize * (nq0 * q + i) + ilane];
+            }
+
+            // Moving from standard to collapsed coordinates.
+            if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                          SHAPE_TYPE == LibUtilities::NodalTri)
+            {
+                d0 *= f1[j];
+                d1 += d0 * f0[i];
+            }
+
+            // Multiply by derivative factors and take the curl.
+            out[index] = d0 * df[2u * warpsize + dfindex] +
+                         d1 * df[3u * warpsize + dfindex];
+            out[outoffset + index] = -(d0 * df[0u * warpsize + dfindex] +
+                                       d1 * df[1u * warpsize + dfindex]);
+        }
+    }
+}
+
+// Curl of a three-dimensional vector field. Used for both passes of the
+// curl-curl operator, i.e. omega = curl(u) and out = curl(omega).
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+NEK_DEVICE_INLINE static void Curl3DSumFacKernel(
+    const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const size_t inoffset, const size_t outoffset,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+    const TData *NEK_RESTRICT D2, [[maybe_unused]] const TData *NEK_RESTRICT f0,
+    [[maybe_unused]] const TData *NEK_RESTRICT f1,
+    [[maybe_unused]] const TData *NEK_RESTRICT f1m,
+    [[maybe_unused]] const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out)
+{
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+
+    constexpr unsigned int ndf = 9u;
+
+    for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; k++)
+    {
+        for (unsigned int j = 0u; j < nq1; j++)
+        {
+            for (unsigned int i = 0u; i < nq0; i++, cnt_kji++)
+            {
+                const unsigned int index = warpsize * cnt_kji + ilane;
+                const unsigned int dfindex =
+                    DEFORMED ? ndf * warpsize * cnt_kji + ilane : ilane;
+
+                // Compute the tensorial derivatives of the three components
+                // at once.
+                // Direction 0
+                TData d0[3] = {0.0, 0.0, 0.0};
+#pragma unroll
+                for (unsigned int q = 0u; q < nq0; ++q)
+                {
+                    const TData Dq = D0[q * nq0 + i];
+                    const unsigned int qsource =
+                        warpsize * (nq0 * nq1 * k + nq0 * j + q) + ilane;
+                    d0[0] += Dq * in[qsource];
+                    d0[1] += Dq * in[inoffset + qsource];
+                    d0[2] += Dq * in[2u * inoffset + qsource];
+                }
+
+                // Direction 1
+                TData d1[3] = {0.0, 0.0, 0.0};
+#pragma unroll
+                for (unsigned int q = 0u; q < nq1; ++q)
+                {
+                    const TData Dq = D1[q * nq1 + j];
+                    const unsigned int qsource =
+                        warpsize * (nq0 * nq1 * k + nq0 * q + i) + ilane;
+                    d1[0] += Dq * in[qsource];
+                    d1[1] += Dq * in[inoffset + qsource];
+                    d1[2] += Dq * in[2u * inoffset + qsource];
+                }
+
+                // Direction 2
+                TData d2[3] = {0.0, 0.0, 0.0};
+#pragma unroll
+                for (unsigned int q = 0u; q < nq2; ++q)
+                {
+                    const TData Dq = D2[q * nq2 + k];
+                    const unsigned int qsource =
+                        warpsize * (nq0 * nq1 * q + nq0 * j + i) + ilane;
+                    d2[0] += Dq * in[qsource];
+                    d2[1] += Dq * in[inoffset + qsource];
+                    d2[2] += Dq * in[2u * inoffset + qsource];
+                }
+
+                // Moving from standard to collapsed coordinates.
+#pragma unroll
+                for (unsigned int c = 0u; c < 3u; ++c)
+                {
+                    if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                                  SHAPE_TYPE == LibUtilities::NodalTet)
+                    {
+                        TData tmp0 = f1m[j] * f2[k] * d0[c];
+                        TData tmp1 = f0[i] * tmp0;
+                        TData tmp2 = f2[k] * d1[c];
+                        d0[c]      = tmp0;
+                        d1[c]      = tmp1 + tmp2;
+                        d2[c] += tmp1 + f1[j] * tmp2;
+                    }
+                    else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                                       SHAPE_TYPE == LibUtilities::NodalPrism)
+                    {
+                        d0[c] *= f2[k];
+                        d2[c] += f0[i] * d0[c];
+                    }
+                    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+                    {
+                        d0[c] *= f2[k];
+                        d1[c] *= f2[k];
+                        d2[c] += f0[i] * d0[c] + f1[j] * d1[c];
+                    }
+                }
+
+                // Multiply by the derivative factors and take the curl. Only
+                // the six off-diagonal physical derivatives are needed, the
+                // diagonal ones cancel out.
+                const TData df0 = df[0u * warpsize + dfindex];
+                const TData df1 = df[1u * warpsize + dfindex];
+                const TData df2 = df[2u * warpsize + dfindex];
+                const TData df3 = df[3u * warpsize + dfindex];
+                const TData df4 = df[4u * warpsize + dfindex];
+                const TData df5 = df[5u * warpsize + dfindex];
+                const TData df6 = df[6u * warpsize + dfindex];
+                const TData df7 = df[7u * warpsize + dfindex];
+                const TData df8 = df[8u * warpsize + dfindex];
+
+                // dw/dy - dv/dz
+                out[index] = (d0[2] * df3 + d1[2] * df4 + d2[2] * df5) -
+                             (d0[1] * df6 + d1[1] * df7 + d2[1] * df8);
+                // du/dz - dw/dx
+                out[outoffset + index] =
+                    (d0[0] * df6 + d1[0] * df7 + d2[0] * df8) -
+                    (d0[2] * df0 + d1[2] * df1 + d2[2] * df2);
+                // dv/dx - du/dy
+                out[2u * outoffset + index] =
+                    (d0[1] * df0 + d1[1] * df1 + d2[1] * df2) -
+                    (d0[0] * df3 + d1[0] * df4 + d2[0] * df5);
+            }
+        }
+    }
+}
+
+// The curl-curl operator is not defined in one dimension. The launcher is
+// only instantiated so that the segment block operator compiles, and simply
+// evaluates the derivative in the first direction.
 template <typename Implementation, bool DEFORMED, typename TPhysSizeParameter1D,
           typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
@@ -132,12 +430,16 @@ NEK_DEVICE_KERNEL void CurlCurl1DKernelLauncher(
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *inptr = in + nq0 * warpsize * iwarp;
         TData *outptr      = out + nq0 * warpsize * iwarp;
-        PhysDerivDir1DSumFacKernel<DEFORMED, 0, false>(ilane, 1, nq0, D0, dfptr,
-                                                       inptr, outptr);
+        PhysDerivDir1DSumFacKernel<false, DEFORMED, 0>(ilane, ncoord, nq0, D0,
+                                                       dfptr, inptr, outptr);
         e += getGlobalRange<0>(threadBlock);
     }
 }
 
+// Fused two-dimensional curl-curl kernel. Both curls are evaluated in the
+// same kernel launch. Each lane owns a complete element, hence the
+// intermediate omega it writes to the workspace is read back by the same
+// lane and no synchronisation is required between the two passes.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TPhysSizeParameter2D, typename TthreadBlock,
           typename TData,
@@ -148,8 +450,9 @@ NEK_DEVICE_KERNEL void CurlCurl2DKernelLauncher(
     const size_t inoffset, const TData *NEK_RESTRICT D0,
     const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
     const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-    unsigned char *shmemptr, const TthreadBlock &threadBlock)
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT wsp,
+    TData *NEK_RESTRICT out, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
@@ -201,17 +504,25 @@ NEK_DEVICE_KERNEL void CurlCurl2DKernelLauncher(
         const size_t iwarp = e / warpsize;
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *inptr = in + nqTot * warpsize * iwarp;
+        TData *wspptr      = wsp + nqTot * warpsize * iwarp;
         TData *outptr      = out + nqTot * warpsize * iwarp;
 
-        PhysDerivDir2DSumFacKernel<SHAPE_TYPE, DEFORMED, 0, false>(
-            ilane, ncoord, nq0, nq1, D0, D1, s_f0, s_f1, dfptr, inptr, outptr);
-        PhysDerivDir2DSumFacKernel<SHAPE_TYPE, DEFORMED, 1, true>(
-            ilane, ncoord, nq0, nq1, D0, D1, s_f0, s_f1, dfptr,
-            inptr + inoffset, outptr);
+        // omega = dv/dx - du/dy
+        Curl2DScalarSumFacKernel<SHAPE_TYPE, DEFORMED>(
+            ilane, ncoord, nq0, nq1, inoffset, D0, D1, s_f0, s_f1, dfptr, inptr,
+            wspptr);
+
+        // out = {d(omega)/dy, -d(omega)/dx}
+        Curl2DVectorSumFacKernel<SHAPE_TYPE, DEFORMED>(
+            ilane, ncoord, nq0, nq1, inoffset, D0, D1, s_f0, s_f1, dfptr,
+            wspptr, outptr);
+
         e += getGlobalRange<0>(threadBlock);
     }
 }
 
+// Fused three-dimensional curl-curl kernel, see the two-dimensional kernel
+// above for the rationale.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TPhysSizeParameter3D, typename TthreadBlock,
           typename TData,
@@ -224,7 +535,7 @@ NEK_DEVICE_KERNEL void CurlCurl3DKernelLauncher(
     const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
     const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
     const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, unsigned char *shmemptr,
+    TData *NEK_RESTRICT wsp, TData *NEK_RESTRICT out, unsigned char *shmemptr,
     const TthreadBlock &threadBlock)
 {
     static_assert(
@@ -328,16 +639,19 @@ NEK_DEVICE_KERNEL void CurlCurl3DKernelLauncher(
         const size_t iwarp = e / warpsize;
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *inptr = in + nqTot * warpsize * iwarp;
+        TData *wspptr      = wsp + nqTot * warpsize * iwarp;
         TData *outptr      = out + nqTot * warpsize * iwarp;
-        PhysDerivDir3DSumFacKernel<SHAPE_TYPE, DEFORMED, 0, false>(
-            ilane, nq0, nq1, nq2, D0, D1, D2, s_f0, s_f1, s_f1m, s_f2, dfptr,
-            inptr, outptr);
-        PhysDerivDir3DSumFacKernel<SHAPE_TYPE, DEFORMED, 1, true>(
-            ilane, nq0, nq1, nq2, D0, D1, D2, s_f0, s_f1, s_f1m, s_f2, dfptr,
-            inptr + inoffset, outptr);
-        PhysDerivDir3DSumFacKernel<SHAPE_TYPE, DEFORMED, 2, true>(
-            ilane, nq0, nq1, nq2, D0, D1, D2, s_f0, s_f1, s_f1m, s_f2, dfptr,
-            inptr + 2 * inoffset, outptr);
+
+        // omega = curl(u)
+        Curl3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
+            ilane, nq0, nq1, nq2, inoffset, inoffset, D0, D1, D2, s_f0, s_f1,
+            s_f1m, s_f2, dfptr, inptr, wspptr);
+
+        // out = curl(omega)
+        Curl3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
+            ilane, nq0, nq1, nq2, inoffset, inoffset, D0, D1, D2, s_f0, s_f1,
+            s_f1m, s_f2, dfptr, wspptr, outptr);
+
         e += getGlobalRange<0>(threadBlock);
     }
 }

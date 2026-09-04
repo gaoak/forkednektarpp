@@ -123,32 +123,28 @@ public:
             LocalRegions::DerivFactorKey<TData>(block_idx,
                                                 m_implInterleaveWidth, false));
 
-        // Allocate workspace
-        if (dimension == 1)
+        // Allocate workspace. The curl-curl operator holds the tensorial
+        // derivatives of every component at once so that the chain rule and
+        // the curl can be applied by a single sweep: that is dimension
+        // arrays per component, plus one array per component of omega.
+        unsigned int nqTot  = m_nq[0];
+        unsigned int numWsp = 1;
+        if (dimension == 2)
         {
-            const auto nqTot = m_nq[0];
-            m_wsp0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
-        }
-        else if (dimension == 2)
-        {
-            const auto nqTot = m_nq[0] * m_nq[1];
-            m_wsp0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
-            m_wsp1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
-            m_wsp2 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+            nqTot *= m_nq[1];
+            // 2 x {u, v} tensorial derivatives, plus the scalar omega.
+            numWsp = 5;
         }
         else if (dimension == 3)
         {
-            const auto nqTot = m_nq[0] * m_nq[1] * m_nq[2];
-            m_wsp0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
-            m_wsp1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
-            m_wsp2 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
-            m_wsp3 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
-            m_wsp4 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
-            m_wsp5 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
-            m_wsp6 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
-            m_wsp7 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
-            m_wsp8 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+            nqTot *= m_nq[1] * m_nq[2];
+            // 3 x {u, v, w} tensorial derivatives, plus the three components
+            // of omega.
+            numWsp = 12;
         }
+
+        m_wsp =
+            std::vector<simd_t, tinysimd::allocator<simd_t>>(numWsp * nqTot);
     }
 
     // className - for BlockOperatorFactory
@@ -177,15 +173,7 @@ protected:
     std::vector<unsigned int> m_nq;
     std::vector<const TData *> m_D;
     std::vector<const simd_t *> m_f;
-    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp0;
-    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp1;
-    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp2;
-    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp3;
-    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp4;
-    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp5;
-    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp6;
-    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp7;
-    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp8;
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp;
     const TData *m_dfptr;
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
     // flag to ensure we only get one warning for alignment otherwise CI system
@@ -358,10 +346,6 @@ protected:
                                          : interleaveWidth / m_implInterleaveWidth;
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
-        // const auto compOffset =
-        //     outblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot *
-        //     outblock.GetNumHomoModes();
-
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
@@ -489,50 +473,32 @@ protected:
                     (TData *)inptr1);
             }
 
-            // du/dx
-            PhysDerivTensor2DKernel(
-                nq0, nq1, reinterpret_cast<const simd_t *>(inptr0), m_D[0],
-                m_D[1], m_wsp0.data(), m_wsp1.data());
+            // Tensorial derivatives of both components.
+            auto tderiv_u = m_wsp.data();
+            auto tderiv_v = tderiv_u + 2u * nqTot;
+            auto omega    = tderiv_v + 2u * nqTot;
 
-            // du/dy
-            PhysDerivDir2DKernel<SHAPE_TYPE, false, DEFORMED, 1>(
-                nq0, nq1, 2, m_f[0], m_f[1],
-                reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
-                m_wsp1.data(), m_wsp2.data());
-
-            // dv/dx
-            PhysDerivTensor2DKernel(
-                nq0, nq1, reinterpret_cast<const simd_t *>(inptr1), m_D[0],
-                m_D[1], m_wsp0.data(), m_wsp1.data());
-
-            PhysDerivDir2DKernel<SHAPE_TYPE, false, DEFORMED, 0>(
-                nq0, nq1, 2, m_f[0], m_f[1],
-                reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
-                m_wsp1.data(), m_wsp0.data());
+            PhysDerivTensor2DKernel(nq0, nq1,
+                                    reinterpret_cast<const simd_t *>(inptr0),
+                                    m_D[0], m_D[1], tderiv_u, tderiv_u + nqTot);
+            PhysDerivTensor2DKernel(nq0, nq1,
+                                    reinterpret_cast<const simd_t *>(inptr1),
+                                    m_D[0], m_D[1], tderiv_v, tderiv_v + nqTot);
 
             // omega_z = dv/dx - du/dy
-            for (unsigned int i = 0; i < nqTot; ++i)
-            {
-                m_wsp2[i] = m_wsp0[i] - m_wsp2[i];
-            }
-
-            // q_x = d(omega_z)/dy
-            PhysDerivTensor2DKernel(nq0, nq1, m_wsp2.data(), m_D[0], m_D[1],
-                                    m_wsp0.data(), m_wsp1.data());
-            PhysDerivDir2DKernel<SHAPE_TYPE, false, DEFORMED, 1>(
+            Curl2DScalarKernel<SHAPE_TYPE, DEFORMED>(
                 nq0, nq1, 2, m_f[0], m_f[1],
-                reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
-                m_wsp1.data(), reinterpret_cast<simd_t *>(outptr0));
+                reinterpret_cast<const simd_t *>(dfptr), tderiv_u,
+                tderiv_u + nqTot, tderiv_v, tderiv_v + nqTot, omega);
 
-            // q_y = -d(omega_z)/dx
-            PhysDerivDir2DKernel<SHAPE_TYPE, false, DEFORMED, 0>(
+            // q = {d(omega_z)/dy, -d(omega_z)/dx}
+            PhysDerivTensor2DKernel(nq0, nq1, omega, m_D[0], m_D[1], tderiv_u,
+                                    tderiv_u + nqTot);
+            Curl2DVectorKernel<SHAPE_TYPE, DEFORMED>(
                 nq0, nq1, 2, m_f[0], m_f[1],
-                reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
-                m_wsp1.data(), outsimd1);
-            for (unsigned int i = 0; i < nqTot; ++i)
-            {
-                outsimd1[i] = -outsimd1[i];
-            }
+                reinterpret_cast<const simd_t *>(dfptr), tderiv_u,
+                tderiv_u + nqTot, reinterpret_cast<simd_t *>(outptr0),
+                outsimd1);
 
             // Reshape back, if necessary.
             if (e % width_ratio == width_ratio - 1)
@@ -649,117 +615,50 @@ protected:
                     (TData *)inptr2);
             }
 
-            // omega_x = dw/dy - dv/dz
-            PhysDerivTensor3DKernel(
-                nq0, nq1, nq2, reinterpret_cast<const simd_t *>(inptr1), m_D[0],
-                m_D[1], m_D[2], m_wsp0.data(), m_wsp1.data(), m_wsp2.data());
-            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 2>(
-                nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
-                reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
-                m_wsp1.data(), m_wsp2.data(), m_wsp3.data());
+            // Tensorial derivatives of the three components. Each one is
+            // evaluated once and reused for every physical direction that
+            // needs it.
+            auto tderiv = m_wsp.data();
+            auto omega  = tderiv + 9u * nqTot;
 
-            PhysDerivTensor3DKernel(
-                nq0, nq1, nq2, reinterpret_cast<const simd_t *>(inptr2), m_D[0],
-                m_D[1], m_D[2], m_wsp0.data(), m_wsp1.data(), m_wsp2.data());
-            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 1>(
-                nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
-                reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
-                m_wsp1.data(), m_wsp2.data(), m_wsp0.data());
-            for (unsigned int i = 0; i < nqTot; ++i)
-            {
-                m_wsp3[i] = m_wsp0[i] - m_wsp3[i];
-            }
-
-            // omega_y = du/dz - dw/dx
             PhysDerivTensor3DKernel(
                 nq0, nq1, nq2, reinterpret_cast<const simd_t *>(inptr0), m_D[0],
-                m_D[1], m_D[2], m_wsp0.data(), m_wsp1.data(), m_wsp2.data());
-            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 2>(
-                nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
-                reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
-                m_wsp1.data(), m_wsp2.data(), m_wsp4.data());
+                m_D[1], m_D[2], tderiv, tderiv + nqTot, tderiv + 2u * nqTot);
+            PhysDerivTensor3DKernel(nq0, nq1, nq2,
+                                    reinterpret_cast<const simd_t *>(inptr1),
+                                    m_D[0], m_D[1], m_D[2], tderiv + 3u * nqTot,
+                                    tderiv + 4u * nqTot, tderiv + 5u * nqTot);
+            PhysDerivTensor3DKernel(nq0, nq1, nq2,
+                                    reinterpret_cast<const simd_t *>(inptr2),
+                                    m_D[0], m_D[1], m_D[2], tderiv + 6u * nqTot,
+                                    tderiv + 7u * nqTot, tderiv + 8u * nqTot);
 
-            PhysDerivTensor3DKernel(
-                nq0, nq1, nq2, reinterpret_cast<const simd_t *>(inptr2), m_D[0],
-                m_D[1], m_D[2], m_wsp0.data(), m_wsp1.data(), m_wsp2.data());
-            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 0>(
+            // omega = curl(u)
+            Curl3DKernel<SHAPE_TYPE, DEFORMED>(
                 nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
-                reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
-                m_wsp1.data(), m_wsp2.data(), m_wsp0.data());
-            for (unsigned int i = 0; i < nqTot; ++i)
-            {
-                m_wsp4[i] -= m_wsp0[i];
-            }
+                reinterpret_cast<const simd_t *>(dfptr), tderiv, tderiv + nqTot,
+                tderiv + 2u * nqTot, tderiv + 3u * nqTot, tderiv + 4u * nqTot,
+                tderiv + 5u * nqTot, tderiv + 6u * nqTot, tderiv + 7u * nqTot,
+                tderiv + 8u * nqTot, omega, omega + nqTot, omega + 2u * nqTot);
 
-            // omega_z = dv/dx - du/dy
-            PhysDerivTensor3DKernel(
-                nq0, nq1, nq2, reinterpret_cast<const simd_t *>(inptr0), m_D[0],
-                m_D[1], m_D[2], m_wsp0.data(), m_wsp1.data(), m_wsp2.data());
-            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 1>(
-                nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
-                reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
-                m_wsp1.data(), m_wsp2.data(), m_wsp5.data());
+            // Tensorial derivatives of omega.
+            PhysDerivTensor3DKernel(nq0, nq1, nq2, omega, m_D[0], m_D[1],
+                                    m_D[2], tderiv, tderiv + nqTot,
+                                    tderiv + 2u * nqTot);
+            PhysDerivTensor3DKernel(nq0, nq1, nq2, omega + nqTot, m_D[0],
+                                    m_D[1], m_D[2], tderiv + 3u * nqTot,
+                                    tderiv + 4u * nqTot, tderiv + 5u * nqTot);
+            PhysDerivTensor3DKernel(nq0, nq1, nq2, omega + 2u * nqTot, m_D[0],
+                                    m_D[1], m_D[2], tderiv + 6u * nqTot,
+                                    tderiv + 7u * nqTot, tderiv + 8u * nqTot);
 
-            PhysDerivTensor3DKernel(
-                nq0, nq1, nq2, reinterpret_cast<const simd_t *>(inptr1), m_D[0],
-                m_D[1], m_D[2], m_wsp0.data(), m_wsp1.data(), m_wsp2.data());
-            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 0>(
+            // out = curl(omega)
+            Curl3DKernel<SHAPE_TYPE, DEFORMED>(
                 nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
-                reinterpret_cast<const simd_t *>(dfptr), m_wsp0.data(),
-                m_wsp1.data(), m_wsp2.data(), m_wsp0.data());
-            for (unsigned int i = 0; i < nqTot; ++i)
-            {
-                m_wsp5[i] = m_wsp0[i] - m_wsp5[i];
-            }
-
-            // Match the legacy subtraction ordering by materialising the
-            // second derivatives needed for the outer curl before combining.
-            //
-            // omega_x -> {d(omega_x)/dy, d(omega_x)/dz}
-            PhysDerivTensor3DKernel(nq0, nq1, nq2, m_wsp3.data(), m_D[0],
-                                    m_D[1], m_D[2], m_wsp6.data(),
-                                    m_wsp7.data(), m_wsp8.data());
-            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 1>(
-                nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
-                reinterpret_cast<const simd_t *>(dfptr), m_wsp6.data(),
-                m_wsp7.data(), m_wsp8.data(), m_wsp0.data());
-            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 2>(
-                nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
-                reinterpret_cast<const simd_t *>(dfptr), m_wsp6.data(),
-                m_wsp7.data(), m_wsp8.data(), m_wsp1.data());
-
-            // omega_y -> {d(omega_y)/dx, d(omega_y)/dz}
-            PhysDerivTensor3DKernel(nq0, nq1, nq2, m_wsp4.data(), m_D[0],
-                                    m_D[1], m_D[2], m_wsp6.data(),
-                                    m_wsp7.data(), m_wsp8.data());
-            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 0>(
-                nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
-                reinterpret_cast<const simd_t *>(dfptr), m_wsp6.data(),
-                m_wsp7.data(), m_wsp8.data(), m_wsp2.data());
-            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 2>(
-                nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
-                reinterpret_cast<const simd_t *>(dfptr), m_wsp6.data(),
-                m_wsp7.data(), m_wsp8.data(), m_wsp3.data());
-
-            // omega_z -> {d(omega_z)/dx, d(omega_z)/dy}
-            PhysDerivTensor3DKernel(nq0, nq1, nq2, m_wsp5.data(), m_D[0],
-                                    m_D[1], m_D[2], m_wsp6.data(),
-                                    m_wsp7.data(), m_wsp8.data());
-            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 0>(
-                nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
-                reinterpret_cast<const simd_t *>(dfptr), m_wsp6.data(),
-                m_wsp7.data(), m_wsp8.data(), m_wsp4.data());
-            PhysDerivDir3DKernel<SHAPE_TYPE, false, DEFORMED, 1>(
-                nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
-                reinterpret_cast<const simd_t *>(dfptr), m_wsp6.data(),
-                m_wsp7.data(), m_wsp8.data(), m_wsp5.data());
-
-            for (unsigned int i = 0; i < nqTot; ++i)
-            {
-                outsimd0[i] = m_wsp5[i] - m_wsp3[i];
-                outsimd1[i] = m_wsp1[i] - m_wsp4[i];
-                outsimd2[i] = m_wsp2[i] - m_wsp0[i];
-            }
+                reinterpret_cast<const simd_t *>(dfptr), tderiv, tderiv + nqTot,
+                tderiv + 2u * nqTot, tderiv + 3u * nqTot, tderiv + 4u * nqTot,
+                tderiv + 5u * nqTot, tderiv + 6u * nqTot, tderiv + 7u * nqTot,
+                tderiv + 8u * nqTot, outsimd0, outsimd1, outsimd2);
 
             // Reshape back, if necessary.
             if (e % width_ratio == width_ratio - 1)
