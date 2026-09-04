@@ -38,6 +38,7 @@
 
 #include <Operators/ElmtOps/Advection/AdvectionOp.hpp>
 #include <Operators/ElmtOps/BwdTrans/BwdTransOp.hpp>
+#include <Operators/ElmtOps/CurlCurl/CurlCurlOp.hpp>
 #include <Operators/ElmtOps/Divergence/DivergenceOp.hpp>
 #include <Operators/ElmtOps/Helmholtz/HelmholtzOp.hpp>
 #include <Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
@@ -154,6 +155,23 @@ void GetExpectedResults(const std::string &opName,
             expList->PhysDeriv(d, inArr + d * outArr.size(), tmp);
             Vmath::Vadd(tmp.size(), outArr, 1, tmp, 1, outArr, 1);
         }
+    }
+    else if (opName == "CurlCurl")
+    {
+        auto coordDim = expList->GetCoordim(0);
+
+        // Number of quadrature points held by a single component.
+        const size_t np = outArr.size() / nOut / nComp;
+
+        Array<OneD, Array<OneD, double>> vel(coordDim);
+        Array<OneD, Array<OneD, double>> q(coordDim);
+        for (unsigned int d = 0; d < coordDim; d++)
+        {
+            vel[d] = inArr + d * np;
+            q[d]   = outArr + d * np;
+        }
+
+        expList->CurlCurl(vel, q);
     }
     else if (opName == "Mass")
     {

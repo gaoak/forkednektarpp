@@ -78,7 +78,8 @@
  *              a convenient way to profile different orders by same mesh file.
  *      -I operators=BwdTrans,PhysDeriv,...
  *              specify the operators for the benchmark. If not specified, all
- *              ElmtOp will be benchmarked.
+ *              ElmtOp will be benchmarked. CurlCurl is only defined in 2D and
+ *              3D and is skipped on a one-dimensional mesh.
  *      -verbose
  *              print out more information. Not recommended if you launch many
  *              processes.
@@ -162,17 +163,10 @@ int main(int argc, char *argv[])
     if (Operators.empty())
     {
         Operators0 = {
-            "BwdTrans",
-            "IProductWRTBase",
-            "IProductWRTDerivBase",
-            "PhysInterp1DScaled",
-            "Advection",
-            "PhysDeriv",
-            "Divergence",
-            "Mass",
-            "Laplacian",
-            "Helmholtz",
-            "LinAdvDiffReaction",
+            "BwdTrans",           "IProductWRTBase", "IProductWRTDerivBase",
+            "PhysInterp1DScaled", "Advection",       "PhysDeriv",
+            "Divergence",         "CurlCurl",        "Mass",
+            "Laplacian",          "Helmholtz",       "LinAdvDiffReaction",
         };
     }
     else
@@ -232,6 +226,20 @@ int main(int argc, char *argv[])
         {
             LaunchProfiler<DivergenceOp, FieldState::Phys, FieldState::Phys,
                            double>(explist, Ntest, nDim, 1, Ncomp);
+        }
+        else if (Operator == "CurlCurl")
+        {
+            // The curl-curl operator is only defined in 2D and 3D.
+            if (nDim > 1)
+            {
+                LaunchProfiler<CurlCurlOp, FieldState::Phys, FieldState::Phys,
+                               double>(explist, Ntest, nDim, nDim, Ncomp);
+            }
+            else if (session->GetComm()->GetRank() == 0)
+            {
+                std::cout << "Skipping CurlCurl: only defined in 2D and 3D."
+                          << std::endl;
+            }
         }
         else if (Operator == "Mass")
         {
@@ -297,6 +305,20 @@ int main(int argc, char *argv[])
         {
             LaunchProfiler<DivergenceOp, FieldState::Phys, FieldState::Phys,
                            float>(explist, Ntest, nDim, 1, Ncomp);
+        }
+        else if (Operator == "CurlCurl")
+        {
+            // The curl-curl operator is only defined in 2D and 3D.
+            if (nDim > 1)
+            {
+                LaunchProfiler<CurlCurlOp, FieldState::Phys, FieldState::Phys,
+                               float>(explist, Ntest, nDim, nDim, Ncomp);
+            }
+            else if (session->GetComm()->GetRank() == 0)
+            {
+                std::cout << "Skipping CurlCurl: only defined in 2D and 3D."
+                          << std::endl;
+            }
         }
         else if (Operator == "Mass")
         {

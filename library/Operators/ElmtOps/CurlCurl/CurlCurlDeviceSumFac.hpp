@@ -43,73 +43,6 @@
 namespace Nektar::Operators::detail
 {
 
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL void CombineOmega2DKernel(const size_t npts,
-                                            const size_t outoffset,
-                                            const TData *NEK_RESTRICT grad0,
-                                            const TData *NEK_RESTRICT grad1,
-                                            TData *NEK_RESTRICT omega,
-                                            const TthreadBlock &threadBlock)
-{
-    size_t idx = getGlobalIdx<0>(threadBlock);
-    while (idx < npts)
-    {
-        omega[idx] = grad1[idx] - grad0[outoffset + idx];
-        idx += getGlobalRange<0>(threadBlock);
-    }
-}
-
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL void AssembleCurlCurl2DKernel(
-    const size_t npts, const size_t outoffset,
-    const TData *NEK_RESTRICT gradOmega, TData *NEK_RESTRICT out,
-    const TthreadBlock &threadBlock)
-{
-    size_t idx = getGlobalIdx<0>(threadBlock);
-    while (idx < npts)
-    {
-        out[idx]             = gradOmega[outoffset + idx];
-        out[outoffset + idx] = -gradOmega[idx];
-        idx += getGlobalRange<0>(threadBlock);
-    }
-}
-
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL void CombineOmega3DKernel(
-    const size_t npts, const size_t outoffset, const TData *NEK_RESTRICT grad0,
-    const TData *NEK_RESTRICT grad1, const TData *NEK_RESTRICT grad2,
-    TData *NEK_RESTRICT omega, const TthreadBlock &threadBlock)
-{
-    size_t idx = getGlobalIdx<0>(threadBlock);
-    while (idx < npts)
-    {
-        omega[idx] = grad2[outoffset + idx] - grad1[2u * outoffset + idx];
-        omega[outoffset + idx]      = grad0[2u * outoffset + idx] - grad2[idx];
-        omega[2u * outoffset + idx] = grad1[idx] - grad0[outoffset + idx];
-        idx += getGlobalRange<0>(threadBlock);
-    }
-}
-
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL void AssembleCurlCurl3DKernel(
-    const size_t npts, const size_t outoffset,
-    const TData *NEK_RESTRICT gradOmega0, const TData *NEK_RESTRICT gradOmega1,
-    const TData *NEK_RESTRICT gradOmega2, TData *NEK_RESTRICT out,
-    const TthreadBlock &threadBlock)
-{
-    size_t idx = getGlobalIdx<0>(threadBlock);
-    while (idx < npts)
-    {
-        out[idx] =
-            gradOmega2[outoffset + idx] - gradOmega1[2u * outoffset + idx];
-        out[outoffset + idx] =
-            gradOmega0[2u * outoffset + idx] - gradOmega2[idx];
-        out[2u * outoffset + idx] =
-            gradOmega1[idx] - gradOmega0[outoffset + idx];
-        idx += getGlobalRange<0>(threadBlock);
-    }
-}
-
 template <typename ExecSpace, typename Implementation, typename TData>
 class CurlCurlBlockOpImpl : public CurlCurlBlockOp<TData>
 {
@@ -463,38 +396,26 @@ protected:
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
         const auto inoffset = outblock.CompSize();
-        auto wsp = BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-            7u * inoffset, m_streamID);
-        auto grad0     = wsp;
-        auto grad1     = grad0 + 2u * inoffset;
-        auto omega     = grad1 + 2u * inoffset;
-        auto gradOmega = omega + inoffset;
+
+        // Get static workspace pointer. The fused kernel only needs storage
+        // for the intermediate omega = curl(u).
+        auto wspSize = CurlCurlWorkSpaceSize<SHAPE_TYPE, Implementation>(
+            nelmt, sizeParam2D);
+        auto wspptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                wspSize, m_streamID);
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
             m_implInterleaveWidth, interleaveWidth, 2 * nelmt,
             inblock.GetNumData(), (TData *)inptr, m_streamID);
 
+        // Curl-curl kernel.
         DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (PhysDeriv2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
+            (CurlCurl2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
             gridsize, blocksize, shmemsize, m_streamID, sizeParam2D, nelmt,
-            inoffset, m_D[0], m_D[1], m_f[0], m_f[1], m_dfptr, inptr, grad0);
-        DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (PhysDeriv2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            gridsize, blocksize, shmemsize, m_streamID, sizeParam2D, nelmt,
-            inoffset, m_D[0], m_D[1], m_f[0], m_f[1], m_dfptr, inptr + inoffset,
-            grad1);
-        DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(CombineOmega2DKernel, gridsize,
-                                              blocksize, m_streamID, inoffset,
-                                              inoffset, grad0, grad1, omega);
-        DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (PhysDeriv2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            gridsize, blocksize, shmemsize, m_streamID, sizeParam2D, nelmt,
-            inoffset, m_D[0], m_D[1], m_f[0], m_f[1], m_dfptr, omega,
-            gradOmega);
-        DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-            AssembleCurlCurl2DKernel, gridsize, blocksize, m_streamID, inoffset,
-            inoffset, gradOmega, outptr);
+            inoffset, m_D[0], m_D[1], m_f[0], m_f[1], m_dfptr, inptr, wspptr,
+            outptr);
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
@@ -557,57 +478,26 @@ protected:
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
         const auto inoffset = outblock.CompSize();
-        auto wsp = BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-            21u * inoffset, m_streamID);
-        auto grad0      = wsp;
-        auto grad1      = grad0 + 3u * inoffset;
-        auto grad2      = grad1 + 3u * inoffset;
-        auto omega      = grad2 + 3u * inoffset;
-        auto gradOmega0 = omega + 3u * inoffset;
-        auto gradOmega1 = gradOmega0 + 3u * inoffset;
-        auto gradOmega2 = gradOmega1 + 3u * inoffset;
+
+        // Get static workspace pointer. The fused kernel only needs storage
+        // for the intermediate omega = curl(u).
+        auto wspSize = CurlCurlWorkSpaceSize<SHAPE_TYPE, Implementation>(
+            nelmt, sizeParam3D);
+        auto wspptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                wspSize, m_streamID);
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
             m_implInterleaveWidth, interleaveWidth, 3 * nelmt,
             inblock.GetNumData(), (TData *)inptr, m_streamID);
 
+        // Curl-curl kernel.
         DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
+            (CurlCurl3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
             gridsize, blocksize, shmemsize, m_streamID, sizeParam3D, nelmt,
             inoffset, m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3],
-            m_dfptr, inptr, grad0);
-        DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            gridsize, blocksize, shmemsize, m_streamID, sizeParam3D, nelmt,
-            inoffset, m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3],
-            m_dfptr, inptr + inoffset, grad1);
-        DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            gridsize, blocksize, shmemsize, m_streamID, sizeParam3D, nelmt,
-            inoffset, m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3],
-            m_dfptr, inptr + 2u * inoffset, grad2);
-        DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-            CombineOmega3DKernel, gridsize, blocksize, m_streamID, inoffset,
-            inoffset, grad0, grad1, grad2, omega);
-        DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            gridsize, blocksize, shmemsize, m_streamID, sizeParam3D, nelmt,
-            inoffset, m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3],
-            m_dfptr, omega, gradOmega0);
-        DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            gridsize, blocksize, shmemsize, m_streamID, sizeParam3D, nelmt,
-            inoffset, m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3],
-            m_dfptr, omega + inoffset, gradOmega1);
-        DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            gridsize, blocksize, shmemsize, m_streamID, sizeParam3D, nelmt,
-            inoffset, m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3],
-            m_dfptr, omega + 2u * inoffset, gradOmega2);
-        DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-            AssembleCurlCurl3DKernel, gridsize, blocksize, m_streamID, inoffset,
-            inoffset, gradOmega0, gradOmega1, gradOmega2, outptr);
+            m_dfptr, inptr, wspptr, outptr);
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

@@ -40,7 +40,7 @@
 #include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 #include "Operators/ElmtOps/CurlCurl/CurlCurlBlockOp.hpp"
 
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivSerialAVXStdMatKernels.hpp"
+#include "Operators/ElmtOps/CurlCurl/CurlCurlSerialAVXStdMatKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -133,10 +133,16 @@ protected:
                                          : interleaveWidth / m_implInterleaveWidth;
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
-        // Get static workspace pointer.
+        // omega = curl(u) is a scalar in 2D and a vector in 3D.
+        const unsigned int nOmega = (m_dimension == 2u) ? 1u : 3u;
+
+        // Get static workspace pointer. The standard derivatives of every
+        // component are held at once so that the chain rule and the curl can
+        // be applied by a single sweep.
+        const auto slotSize = m_nqTot * simd_t::width;
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                6 * m_dimension * simd_t::width * m_nqTot);
+                (m_dimension * m_coordDim + nOmega) * slotSize);
 
         // Dispatch kernel.
         auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
@@ -148,34 +154,20 @@ protected:
 
         auto dfptr = m_dfptr;
 
-        auto derivRef = wspptr;
-        auto grad0    = reinterpret_cast<simd_t *>(
-            derivRef + m_dimension * m_nqTot * simd_t::width);
-        auto grad1     = grad0 + m_coordDim * m_nqTot;
-        auto grad2     = grad1 + m_coordDim * m_nqTot;
-        auto omega     = grad2 + m_coordDim * m_nqTot;
-        auto gradOmega = omega + m_coordDim * m_nqTot;
+        auto derivRef  = wspptr;
+        auto derivSimd = reinterpret_cast<const simd_t *>(derivRef);
+        auto omega     = reinterpret_cast<simd_t *>(
+            derivRef + m_dimension * m_coordDim * slotSize);
 
-        auto computePhysDeriv = [&](const TData *fieldptr, simd_t *physOut) {
+        // Standard derivatives of one component, written into the slot
+        // reserved for it.
+        auto computeTensorDeriv = [&](const TData *fieldptr,
+                                      const unsigned int comp) {
+            TData *tderiv = derivRef + comp * m_dimension * slotSize;
             for (unsigned int d = 0; d < m_dimension; ++d)
             {
                 gemm_kernel(fieldptr, m_matptr + d * m_nqTot * m_nqTot,
-                            derivRef + d * m_nqTot * simd_t::width);
-            }
-
-            if (m_isDeformed)
-            {
-                MultiplyByDerivFactorKernel<ExecSpace, true>(
-                    m_nqTot, m_coordDim, m_dimension, 1, m_nqTot, m_nqTot,
-                    reinterpret_cast<const simd_t *>(dfptr),
-                    reinterpret_cast<const simd_t *>(derivRef), physOut);
-            }
-            else
-            {
-                MultiplyByDerivFactorKernel<ExecSpace, false>(
-                    m_nqTot, m_coordDim, m_dimension, 1, m_nqTot, m_nqTot,
-                    reinterpret_cast<const simd_t *>(dfptr),
-                    reinterpret_cast<const simd_t *>(derivRef), physOut);
+                            tderiv + d * slotSize);
             }
         };
 
@@ -185,11 +177,11 @@ protected:
         {
             auto inptr0  = inptr;
             auto inptr1  = inptr0 + inoffset;
-            auto inptr2  = inptr1 + inoffset;
+            auto inptr2  = (m_dimension == 3) ? inptr1 + inoffset : inptr1;
             auto outptr0 = outblock.template GetPtr<MemSpace, WriteOnly>() +
                            e * m_nqTot * simd_t::width;
             auto outptr1 = outptr0 + outoffset;
-            auto outptr2 = outptr1 + outoffset;
+            auto outptr2 = (m_dimension == 3) ? outptr1 + outoffset : outptr1;
 
             // Reshape, if necessary.
             if (e % width_ratio == 0)
@@ -208,26 +200,40 @@ protected:
                 }
             }
 
-            computePhysDeriv(inptr0, grad0);
-            computePhysDeriv(inptr1, grad1);
+            const auto dfSimd = reinterpret_cast<const simd_t *>(dfptr);
 
             if (m_dimension == 2)
             {
                 auto outsimd0 = reinterpret_cast<simd_t *>(outptr0);
                 auto outsimd1 = reinterpret_cast<simd_t *>(outptr1);
 
-                for (unsigned int i = 0; i < m_nqTot; ++i)
+                computeTensorDeriv(inptr0, 0);
+                computeTensorDeriv(inptr1, 1);
+
+                // omega_z = dv/dx - du/dy
+                if (m_isDeformed)
                 {
-                    omega[i] = grad1[i] - grad0[m_nqTot + i];
+                    Curl2DScalarStdMatKernel<ExecSpace, true>(m_nqTot, dfSimd,
+                                                              derivSimd, omega);
+                }
+                else
+                {
+                    Curl2DScalarStdMatKernel<ExecSpace, false>(
+                        m_nqTot, dfSimd, derivSimd, omega);
                 }
 
-                computePhysDeriv(reinterpret_cast<const TData *>(omega),
-                                 gradOmega);
+                computeTensorDeriv(reinterpret_cast<const TData *>(omega), 0);
 
-                for (unsigned int i = 0; i < m_nqTot; ++i)
+                // q = {d(omega_z)/dy, -d(omega_z)/dx}
+                if (m_isDeformed)
                 {
-                    outsimd0[i] = gradOmega[m_nqTot + i];
-                    outsimd1[i] = -gradOmega[i];
+                    Curl2DVectorStdMatKernel<ExecSpace, true>(
+                        m_nqTot, dfSimd, derivSimd, outsimd0, outsimd1);
+                }
+                else
+                {
+                    Curl2DVectorStdMatKernel<ExecSpace, false>(
+                        m_nqTot, dfSimd, derivSimd, outsimd0, outsimd1);
                 }
             }
             else
@@ -236,27 +242,42 @@ protected:
                 auto outsimd1 = reinterpret_cast<simd_t *>(outptr1);
                 auto outsimd2 = reinterpret_cast<simd_t *>(outptr2);
 
-                computePhysDeriv(inptr2, grad2);
+                computeTensorDeriv(inptr0, 0);
+                computeTensorDeriv(inptr1, 1);
+                computeTensorDeriv(inptr2, 2);
 
-                for (unsigned int i = 0; i < m_nqTot; ++i)
+                // omega = curl(u)
+                if (m_isDeformed)
                 {
-                    omega[i] = grad2[m_nqTot + i] - grad1[2 * m_nqTot + i];
-                    omega[m_nqTot + i]     = grad0[2 * m_nqTot + i] - grad2[i];
-                    omega[2 * m_nqTot + i] = grad1[i] - grad0[m_nqTot + i];
+                    Curl3DStdMatKernel<ExecSpace, true>(
+                        m_nqTot, dfSimd, derivSimd, omega, omega + m_nqTot,
+                        omega + 2 * m_nqTot);
+                }
+                else
+                {
+                    Curl3DStdMatKernel<ExecSpace, false>(
+                        m_nqTot, dfSimd, derivSimd, omega, omega + m_nqTot,
+                        omega + 2 * m_nqTot);
                 }
 
-                computePhysDeriv(reinterpret_cast<const TData *>(omega), grad0);
-                computePhysDeriv(
-                    reinterpret_cast<const TData *>(omega + m_nqTot), grad1);
-                computePhysDeriv(
-                    reinterpret_cast<const TData *>(omega + 2 * m_nqTot),
-                    grad2);
+                computeTensorDeriv(reinterpret_cast<const TData *>(omega), 0);
+                computeTensorDeriv(
+                    reinterpret_cast<const TData *>(omega + m_nqTot), 1);
+                computeTensorDeriv(
+                    reinterpret_cast<const TData *>(omega + 2 * m_nqTot), 2);
 
-                for (unsigned int i = 0; i < m_nqTot; ++i)
+                // out = curl(omega)
+                if (m_isDeformed)
                 {
-                    outsimd0[i] = grad2[m_nqTot + i] - grad1[2 * m_nqTot + i];
-                    outsimd1[i] = grad0[2 * m_nqTot + i] - grad2[i];
-                    outsimd2[i] = grad1[i] - grad0[m_nqTot + i];
+                    Curl3DStdMatKernel<ExecSpace, true>(m_nqTot, dfSimd,
+                                                        derivSimd, outsimd0,
+                                                        outsimd1, outsimd2);
+                }
+                else
+                {
+                    Curl3DStdMatKernel<ExecSpace, false>(m_nqTot, dfSimd,
+                                                         derivSimd, outsimd0,
+                                                         outsimd1, outsimd2);
                 }
             }
 

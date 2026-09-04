@@ -38,82 +38,10 @@
 #include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 #include "Operators/ElmtOps/CurlCurl/CurlCurlBlockOp.hpp"
 
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivDeviceStdMatKernels.hpp"
+#include "Operators/ElmtOps/CurlCurl/CurlCurlDeviceStdMatKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
-
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static void CombineOmega2DStdMat(
-    const size_t npts, const size_t outoffset, const TData *NEK_RESTRICT grad0,
-    const TData *NEK_RESTRICT grad1, TData *NEK_RESTRICT omega,
-    const unsigned int streamID)
-{
-    Nektar::LoopExecutionSetStreamID(streamID);
-
-    Nektar::parallel_for<ExecSpace>(
-        0, npts, NEKTAR_LAMBDA(const size_t idx) {
-            omega[idx] = grad1[idx] - grad0[outoffset + idx];
-        });
-
-    Nektar::LoopExecutionSetStreamID(0);
-}
-
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static void AssembleCurlCurl2DStdMat(
-    const size_t npts, const size_t outoffset,
-    const TData *NEK_RESTRICT gradOmega, TData *NEK_RESTRICT out0,
-    TData *NEK_RESTRICT out1, const unsigned int streamID)
-{
-    Nektar::LoopExecutionSetStreamID(streamID);
-
-    Nektar::parallel_for<ExecSpace>(
-        0, npts, NEKTAR_LAMBDA(const size_t idx) {
-            out0[idx] = gradOmega[outoffset + idx];
-            out1[idx] = -gradOmega[idx];
-        });
-
-    Nektar::LoopExecutionSetStreamID(0);
-}
-
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static void CombineOmega3DStdMat(
-    const size_t npts, const size_t outoffset, const TData *NEK_RESTRICT grad0,
-    const TData *NEK_RESTRICT grad1, const TData *NEK_RESTRICT grad2,
-    TData *NEK_RESTRICT omega, const unsigned int streamID)
-{
-    Nektar::LoopExecutionSetStreamID(streamID);
-
-    Nektar::parallel_for<ExecSpace>(
-        0, npts, NEKTAR_LAMBDA(const size_t idx) {
-            omega[idx] = grad2[outoffset + idx] - grad1[2u * outoffset + idx];
-            omega[outoffset + idx] = grad0[2u * outoffset + idx] - grad2[idx];
-            omega[2u * outoffset + idx] = grad1[idx] - grad0[outoffset + idx];
-        });
-
-    Nektar::LoopExecutionSetStreamID(0);
-}
-
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static void AssembleCurlCurl3DStdMat(
-    const size_t npts, const size_t outoffset,
-    const TData *NEK_RESTRICT gradOmega0, const TData *NEK_RESTRICT gradOmega1,
-    const TData *NEK_RESTRICT gradOmega2, TData *NEK_RESTRICT out0,
-    TData *NEK_RESTRICT out1, TData *NEK_RESTRICT out2,
-    const unsigned int streamID)
-{
-    Nektar::LoopExecutionSetStreamID(streamID);
-
-    Nektar::parallel_for<ExecSpace>(
-        0, npts, NEKTAR_LAMBDA(const size_t idx) {
-            out0[idx] =
-                gradOmega2[outoffset + idx] - gradOmega1[2u * outoffset + idx];
-            out1[idx] = gradOmega0[2u * outoffset + idx] - gradOmega2[idx];
-            out2[idx] = gradOmega1[idx] - gradOmega0[outoffset + idx];
-        });
-
-    Nektar::LoopExecutionSetStreamID(0);
-}
 
 template <typename ExecSpace, typename Implementation, typename TData>
 class CurlCurlBlockOpImpl : public CurlCurlBlockOp<TData>
@@ -204,93 +132,121 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
-        // Get static workspace pointer.
-        auto wspptr =
-            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                8 * m_dimension * nelmt * m_nqTot, m_streamID);
-
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
-        // Loop over components.
-        const auto inoffset    = inblock.CompSize();
-        const auto derivoffset = m_nqTot * nelmt;
+        // Offsets between the components of a block.
         const auto outoffset   = outblock.CompSize();
+        const auto derivoffset = m_nqTot * nelmt;
 
-        auto derivRef = wspptr;
-        auto grad0    = derivRef + m_dimension * derivoffset;
-        auto grad1    = grad0 + m_coordDim * derivoffset;
-        auto grad2    = grad1 + m_coordDim * derivoffset;
-        auto omega    = grad2 + m_coordDim * derivoffset;
-        auto gradW0   = omega + m_coordDim * derivoffset;
-        auto gradW1   = gradW0 + m_coordDim * derivoffset;
-        auto gradW2   = gradW1 + m_coordDim * derivoffset;
+        // omega = curl(u) is a scalar in 2D and a vector in 3D.
+        const unsigned int nOmega = (m_dimension == 2u) ? 1u : 3u;
 
-        auto computePhysDeriv = [&](const TData *fieldptr, TData *physOut) {
-            for (unsigned int d = 0; d < m_dimension; d++)
-            {
-                NekBlas::Gemm(handle, "N", "N", m_nqTot, nelmt, m_nqTot,
-                              (TData)1.0, m_matptr + d * m_nqTot * m_nqTot,
-                              m_nqTot, fieldptr, m_nqTot, (TData)0.0,
-                              derivRef + d * derivoffset, m_nqTot);
-            }
+        // Get static workspace pointer. The standard derivatives of every
+        // component are held at once so that the chain rule and the curl can
+        // be applied by a single kernel.
+        auto wspptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                (m_dimension * m_coordDim + nOmega) * derivoffset, m_streamID);
+        auto derivptr = wspptr;
+        auto omegaptr = derivptr + m_dimension * m_coordDim * derivoffset;
 
+        // Reshape, if necessary.
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            m_implInterleaveWidth, interleaveWidth, m_coordDim * nelmt,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
+
+        // Standard derivatives of all the components, one matrix-matrix
+        // multiply per direction. The components of a block are contiguous,
+        // so they are all handled by the same multiply.
+        for (unsigned int d = 0; d < m_dimension; d++)
+        {
+            NekBlas::Gemm(handle, "N", "N", m_nqTot, m_coordDim * nelmt,
+                          m_nqTot, (TData)1.0, m_matptr + d * m_nqTot * m_nqTot,
+                          m_nqTot, inptr, m_nqTot, (TData)0.0,
+                          derivptr + d * m_coordDim * derivoffset, m_nqTot);
+        }
+
+        // omega = curl(u)
+        if (m_dimension == 2u)
+        {
             if (m_isDeformed)
             {
-                MultiplyByDerivFactorKernel<ExecSpace, true>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, 1, derivoffset,
-                    derivoffset, m_dfptr, derivRef, physOut, m_streamID);
+                Curl2DScalarStdMatKernel<ExecSpace, true>(
+                    m_nqTot, nelmt, derivoffset, m_dfptr, derivptr, omegaptr,
+                    m_streamID);
             }
             else
             {
-                MultiplyByDerivFactorKernel<ExecSpace, false>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, 1, derivoffset,
-                    derivoffset, m_dfptr, derivRef, physOut, m_streamID);
+                Curl2DScalarStdMatKernel<ExecSpace, false>(
+                    m_nqTot, nelmt, derivoffset, m_dfptr, derivptr, omegaptr,
+                    m_streamID);
             }
-        };
-
-        for (unsigned int d = 0; d < m_coordDim; d++)
-        {
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                m_implInterleaveWidth, interleaveWidth, nelmt,
-                inblock.GetNumData(), (TData *)inptr + d * inoffset,
-                m_streamID);
-        }
-
-        computePhysDeriv(inptr, grad0);
-        computePhysDeriv(inptr + inoffset, grad1);
-
-        if (m_dimension == 2)
-        {
-            CombineOmega2DStdMat<ExecSpace>(derivoffset, derivoffset, grad0,
-                                            grad1, omega, m_streamID);
-            computePhysDeriv(omega, gradW0);
-            AssembleCurlCurl2DStdMat<ExecSpace>(derivoffset, derivoffset,
-                                                gradW0, outptr,
-                                                outptr + outoffset, m_streamID);
         }
         else
         {
-            computePhysDeriv(inptr + 2 * inoffset, grad2);
-            CombineOmega3DStdMat<ExecSpace>(derivoffset, derivoffset, grad0,
-                                            grad1, grad2, omega, m_streamID);
-            computePhysDeriv(omega, gradW0);
-            computePhysDeriv(omega + derivoffset, gradW1);
-            computePhysDeriv(omega + 2 * derivoffset, gradW2);
-            AssembleCurlCurl3DStdMat<ExecSpace>(
-                derivoffset, derivoffset, gradW0, gradW1, gradW2, outptr,
-                outptr + outoffset, outptr + 2 * outoffset, m_streamID);
+            if (m_isDeformed)
+            {
+                Curl3DStdMatKernel<ExecSpace, true>(
+                    m_nqTot, nelmt, derivoffset, derivoffset, m_dfptr, derivptr,
+                    omegaptr, m_streamID);
+            }
+            else
+            {
+                Curl3DStdMatKernel<ExecSpace, false>(
+                    m_nqTot, nelmt, derivoffset, derivoffset, m_dfptr, derivptr,
+                    omegaptr, m_streamID);
+            }
         }
 
-        for (unsigned int k = 0; k < m_coordDim; k++)
+        // Standard derivatives of omega.
+        for (unsigned int d = 0; d < m_dimension; d++)
         {
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                interleaveWidth, m_implInterleaveWidth, nelmt, m_nqTot,
-                (TData *)inptr + k * inoffset, m_streamID);
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                interleaveWidth, m_implInterleaveWidth, nelmt, m_nqTot,
-                (TData *)outptr + k * outoffset, m_streamID);
+            NekBlas::Gemm(handle, "N", "N", m_nqTot, nOmega * nelmt, m_nqTot,
+                          (TData)1.0, m_matptr + d * m_nqTot * m_nqTot, m_nqTot,
+                          omegaptr, m_nqTot, (TData)0.0,
+                          derivptr + d * nOmega * derivoffset, m_nqTot);
         }
+
+        // out = curl(omega)
+        if (m_dimension == 2u)
+        {
+            if (m_isDeformed)
+            {
+                Curl2DVectorStdMatKernel<ExecSpace, true>(
+                    m_nqTot, nelmt, derivoffset, outoffset, m_dfptr, derivptr,
+                    outptr, m_streamID);
+            }
+            else
+            {
+                Curl2DVectorStdMatKernel<ExecSpace, false>(
+                    m_nqTot, nelmt, derivoffset, outoffset, m_dfptr, derivptr,
+                    outptr, m_streamID);
+            }
+        }
+        else
+        {
+            if (m_isDeformed)
+            {
+                Curl3DStdMatKernel<ExecSpace, true>(
+                    m_nqTot, nelmt, derivoffset, outoffset, m_dfptr, derivptr,
+                    outptr, m_streamID);
+            }
+            else
+            {
+                Curl3DStdMatKernel<ExecSpace, false>(
+                    m_nqTot, nelmt, derivoffset, outoffset, m_dfptr, derivptr,
+                    outptr, m_streamID);
+            }
+        }
+
+        // Reshape back, if necessary.
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, m_coordDim * nelmt,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, m_coordDim * nelmt,
+            outblock.GetNumData(), (TData *)outptr, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
