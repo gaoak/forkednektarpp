@@ -78,10 +78,6 @@ public:
             m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 LibUtilities::BasisDataKey<TData>(
                     exp->GetBasis(d)->GetBasisKey(), LibUtilities::eBasis)));
-            m_DB.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                LibUtilities::BasisDataKey<TData>(
-                    exp->GetBasis(d)->GetBasisKey(),
-                    LibUtilities::eBasisDerivative)));
             m_D.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 LibUtilities::BasisDataKey<TData>(
                     exp->GetBasis(d)->GetBasisKey(),
@@ -227,7 +223,6 @@ protected:
     std::vector<unsigned int> m_nm;
     std::vector<unsigned int> m_nq;
     std::vector<const TData *> m_B;
-    std::vector<const TData *> m_DB;
     std::vector<const TData *> m_D;
     std::vector<const TData *> m_W;
     std::vector<const simd_t *> m_f;
@@ -447,23 +442,22 @@ protected:
                 PhysDerivTensor1DKernel(nq0, m_bwd.data(), m_D[0],
                                         m_deriv0.data());
 
-                // Step 3: Inner product for mass matrix operation.
-                IProduct1DKernel<SHAPE_TYPE, true, false, DEFORMED>(
-                    nm0, nq0, m_bwd.data(), m_B[0], m_W[0],
-                    reinterpret_cast<const simd_t *>(jacptr),
-                    reinterpret_cast<simd_t *>(outptr), this->m_lambda);
-
-                // Step 4: Apply diffusion coefficients.
-                DiffusionCoeffSegKernel<DEFORMED>(
+                // Step 3: Apply diffusion coeff and WJ
+                DiffusionCoeffwithWJ1DKernel<SHAPE_TYPE, true, DEFORMED>(
                     m_coordDim, nq0, true, diffCoeffPtr, false, NullTDataVector,
                     NullTDataVector, NullTDataVector, NullTDataVector,
                     NullTDataVector, NullTDataVector,
-                    reinterpret_cast<const simd_t *>(dfptr), m_deriv0.data());
+                    reinterpret_cast<const simd_t *>(jacptr), m_W[0],
+                    reinterpret_cast<const simd_t *>(dfptr), m_deriv0.data(),
+                    m_bwd.data(), this->m_lambda);
 
-                // Step 5: Apply Laplacian metrics & inner product.
-                IProduct1DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                    nm0, nq0, m_deriv0.data(), m_DB[0], m_W[0],
-                    reinterpret_cast<const simd_t *>(jacptr),
+                // Step 4: Apply derivative and sum up.
+                SumDerivTensor1DKernel<true>(nq0, m_deriv0.data(), m_D[0],
+                                             m_bwd.data());
+
+                // Step 5: Inner product without WJ.
+                IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
+                    nm0, nq0, m_bwd.data(), m_B[0],
                     reinterpret_cast<simd_t *>(outptr));
 
                 // Reshape back, if necessary.
