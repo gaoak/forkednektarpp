@@ -161,10 +161,12 @@
         int LinSysLeftPrecon    = 0;                                           \
         int LinSysRightPrecon   = 1;                                           \
         int GMRESDeltaDirection = 3;                                           \
+        int LinSysMaxStorage    = 10;                                          \
         this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         this->session->SetParameter("GMRESDeltaDirection",                     \
                                     GMRESDeltaDirection);                      \
+        this->session->SetParameter("LinSysMaxStorage", LinSysMaxStorage);     \
         SetTestCase();                                                         \
         RunTestCase("GMRES");                                                  \
         boost::test_tools::output_test_stream output;                          \
@@ -182,10 +184,12 @@
         int LinSysLeftPrecon    = 1;                                           \
         int LinSysRightPrecon   = 0;                                           \
         int GMRESDeltaDirection = 3;                                           \
+        int LinSysMaxStorage    = 10;                                          \
         this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         this->session->SetParameter("GMRESDeltaDirection",                     \
                                     GMRESDeltaDirection);                      \
+        this->session->SetParameter("LinSysMaxStorage", LinSysMaxStorage);     \
         SetTestCase();                                                         \
         RunTestCase("GMRES");                                                  \
         boost::test_tools::output_test_stream output;                          \
@@ -204,11 +208,13 @@
         int LinSysRightPrecon   = 1;                                           \
         int FlexibleGMRES       = 1;                                           \
         int GMRESDeltaDirection = 0;                                           \
+        int LinSysMaxStorage    = 10;                                          \
         this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         this->session->SetParameter("FlexibleGMRES", FlexibleGMRES);           \
         this->session->SetParameter("GMRESDeltaDirection",                     \
                                     GMRESDeltaDirection);                      \
+        this->session->SetParameter("LinSysMaxStorage", LinSysMaxStorage);     \
         SetTestCase();                                                         \
         RunTestCase("GMRES");                                                  \
         boost::test_tools::output_test_stream output;                          \

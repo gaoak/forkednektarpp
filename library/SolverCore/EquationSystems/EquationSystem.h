@@ -46,6 +46,8 @@
 #include <iosfwd>
 
 #include "Operators/ElmtOps/BwdTrans/BwdTransOp.hpp"
+#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
+#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp"
 #include "Operators/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp"
 
 namespace Nektar::SolverCore
@@ -203,6 +205,10 @@ protected:
 
     SOLVER_CORE_EXPORT virtual void v_WriteFld(const std::string &outname);
 
+    /// Project the discontinuous physical field into #m_fields_coeff.
+    SOLVER_CORE_EXPORT void ProjectPhysToCoeffs(
+        LibUtilities::Field<double, FieldState::Phys> &phys);
+
     LibUtilities::CommSharedPtr m_comm;
     LibUtilities::SessionReaderSharedPtr m_session;
     SpatialDomains::MeshGraphSharedPtr m_graph;
@@ -216,6 +222,10 @@ protected:
     unsigned int m_expdim                         = 0;
     double m_time                                 = 0.0;
     MultiRegions::ProjectionType m_projectionType = MultiRegions::eGalerkin;
+    /// Project a discontinuous initial condition into the polynomial space
+    /// before the first step. Off by default. See
+    /// UnsteadySystem::v_SetInitialConditions() for what it buys.
+    bool m_projectInitialConditions = false;
     std::vector<bool> m_checkIfSystemSingular;
     std::vector<std::string> m_variables;
 
@@ -225,6 +235,14 @@ protected:
 
     std::shared_ptr<BwdTransOp<double>> m_bwdTransOp = nullptr;
     std::shared_ptr<FwdTransOp<double>> m_fwdTransOp = nullptr;
+
+    /// Phys to coeff projection for a discontinuous field, which is element
+    /// local and so cannot use m_fwdTransOp: that is a global mass matrix
+    /// solve carrying boundary conditions. Only built for eDiscontinuous.
+    std::shared_ptr<IProductWRTBaseOp<double>> m_iProductWRTBaseOp = nullptr;
+    std::shared_ptr<MultiplyByElmtInvMassOp<double>> m_multiplyByElmtInvMassOp =
+        nullptr;
+    LibUtilities::Field<double, FieldState::Coeff> m_fields_coeff_tmp;
 
     /// HOMOGENEOUS setup
     /// Parameter for homogeneous expansions

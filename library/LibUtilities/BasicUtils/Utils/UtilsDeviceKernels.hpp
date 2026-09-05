@@ -970,6 +970,14 @@ NEK_DEVICE_KERNEL void VolumeKernelLauncher(
     blockReduceSum(acc, threadBlock, volume);
 }
 
+// The IntegralKernelLauncher family strides between components with the
+// compSize the caller passes, taken from the block's own CompSize(). Do not
+// recompute it here as roundUp(nelmt, warpSize) * nqTot: a block is padded to
+// NektarSpaces::max_vector_width, which is max(AVX width, warpSize), so that
+// re-derivation is only correct where the two happen to be equal. It was wrong
+// for every block with an element count not a multiple of the SIMD width, and
+// every component after the first was then read from the wrong offset.
+//
 // 1D Case - Interleaved
 #if !(defined(SYCL_ENABLE_CPU) && defined(__ADAPTIVECPP__))
 template <
@@ -978,15 +986,13 @@ template <
     std::enable_if_t<interleaveWidth == NektarSpaces::Device::warpSize, bool>
         Enable = true>
 NEK_DEVICE_KERNEL void IntegralKernelLauncher(
-    const unsigned int nq0, const size_t nelmt, const TData *NEK_RESTRICT w0,
-    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT integral, const TthreadBlock &threadBlock)
+    const unsigned int nq0, const size_t nelmt, const size_t compSize,
+    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT jac,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT integral,
+    const TthreadBlock &threadBlock)
 {
     const unsigned int jacsize      = DEFORMED ? nq0 : 1u;
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
-    const size_t compSize =
-        ((nelmt + warpsize - 1) / warpsize) * warpsize * nq0;
 
     TData acc            = 0.0;
     size_t e             = getGlobalIdx<0>(threadBlock);
@@ -1018,15 +1024,12 @@ template <template <typename> typename INTEGRALOP, unsigned int interleaveWidth,
           bool DEFORMED, typename TthreadBlock, typename TData,
           std::enable_if_t<interleaveWidth == 1u, bool> Enable = true>
 NEK_DEVICE_KERNEL void IntegralKernelLauncher(
-    const unsigned int nq0, const size_t nelmt, const TData *NEK_RESTRICT w0,
-    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT integral, const TthreadBlock &threadBlock)
+    const unsigned int nq0, const size_t nelmt, const size_t compSize,
+    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT jac,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT integral,
+    const TthreadBlock &threadBlock)
 {
-    const unsigned int jacsize      = DEFORMED ? nq0 : 1u;
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
-    const size_t compSize =
-        ((nelmt + warpsize - 1) / warpsize) * warpsize * nq0;
+    const unsigned int jacsize = DEFORMED ? nq0 : 1u;
 
     TData acc                 = 0.0;
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
@@ -1060,16 +1063,14 @@ template <
         Enable = true>
 NEK_DEVICE_KERNEL void IntegralKernelLauncher(
     const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
-    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
-    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT integral, const TthreadBlock &threadBlock)
+    const size_t compSize, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT jac,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT integral,
+    const TthreadBlock &threadBlock)
 {
     const unsigned int nqTot        = nq0 * nq1;
     const unsigned int jacsize      = DEFORMED ? nqTot : 1u;
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
-    const size_t compSize =
-        ((nelmt + warpsize - 1) / warpsize) * warpsize * nqTot;
 
     TData acc            = 0.0;
     size_t e             = getGlobalIdx<0>(threadBlock);
@@ -1107,16 +1108,13 @@ template <template <typename> typename INTEGRALOP, unsigned int interleaveWidth,
           std::enable_if_t<interleaveWidth == 1u, bool> Enable = true>
 NEK_DEVICE_KERNEL void IntegralKernelLauncher(
     const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
-    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
-    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT integral, const TthreadBlock &threadBlock)
+    const size_t compSize, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT jac,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT integral,
+    const TthreadBlock &threadBlock)
 {
-    const unsigned int nqTot        = nq0 * nq1;
-    const unsigned int jacsize      = DEFORMED ? nqTot : 1u;
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
-    const size_t compSize =
-        ((nelmt + warpsize - 1) / warpsize) * warpsize * nqTot;
+    const unsigned int nqTot   = nq0 * nq1;
+    const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
     TData acc                 = 0.0;
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
@@ -1152,7 +1150,7 @@ template <
         Enable = true>
 NEK_DEVICE_KERNEL void IntegralKernelLauncher(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const size_t nelmt, const TData *NEK_RESTRICT w0,
+    const size_t nelmt, const size_t compSize, const TData *NEK_RESTRICT w0,
     const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
     const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
     TData *NEK_RESTRICT integral, const TthreadBlock &threadBlock)
@@ -1160,9 +1158,6 @@ NEK_DEVICE_KERNEL void IntegralKernelLauncher(
     const unsigned int nqTot        = nq0 * nq1 * nq2;
     const unsigned int jacsize      = DEFORMED ? nqTot : 1u;
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
-    const size_t compSize =
-        ((nelmt + warpsize - 1) / warpsize) * warpsize * nqTot;
 
     TData acc            = 0.0;
     size_t e             = getGlobalIdx<0>(threadBlock);
@@ -1205,17 +1200,13 @@ template <template <typename> typename INTEGRALOP, unsigned int interleaveWidth,
           std::enable_if_t<interleaveWidth == 1u, bool> Enable = true>
 NEK_DEVICE_KERNEL void IntegralKernelLauncher(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const size_t nelmt, const TData *NEK_RESTRICT w0,
+    const size_t nelmt, const size_t compSize, const TData *NEK_RESTRICT w0,
     const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
     const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
     TData *NEK_RESTRICT integral, const TthreadBlock &threadBlock)
 {
-    const unsigned int nqTot        = nq0 * nq1 * nq2;
-    const unsigned int jacsize      = DEFORMED ? nqTot : 1u;
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
-    const size_t compSize =
-        ((nelmt + warpsize - 1) / warpsize) * warpsize * nqTot;
+    const unsigned int nqTot   = nq0 * nq1 * nq2;
+    const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
     TData acc                 = 0.0;
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);

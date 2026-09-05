@@ -82,9 +82,12 @@ protected:
     unsigned int m_infosteps = 0;
     std::shared_ptr<TimeOp<double>> m_timeOp;
 
-    /// Courant number the timestep is reported against. Zero, the default,
-    /// switches the estimate off entirely.
-    double m_cflSafetyFactor = 0.0;
+    /// Safety factor on the timestep the Courant condition permits
+    /// (GetCFLTimeStep()); optional, default one.
+    double m_cflSafetyFactor = 1.0;
+    /// Cadence, in steps, of the Courant number report; zero, the default,
+    /// switches it off. Session parameter IO_CFLSteps.
+    unsigned int m_cflSteps = 0;
     /// Reciprocal of the tightest advective time scale in the mesh - the
     /// largest standard element velocity times \f$(P-1)^2\f$, as returned
     /// by MaxStdVelocityOp. Kept from the last estimate for reporting.
@@ -102,8 +105,15 @@ protected:
     /// Test the two conditions under which a run should stop early.
     SOLVER_CORE_EXPORT bool CheckAbortConditions();
 
+    /// Courant number of the timestep in use, for the current state.
+    SOLVER_CORE_EXPORT double GetCFLNumber();
+
     /// Timestep the Courant condition permits for the current state.
     SOLVER_CORE_EXPORT double GetCFLTimeStep();
+
+    /// Reciprocal of the tightest advective time scale, or zero when the
+    /// solver offers no velocity.
+    SOLVER_CORE_EXPORT double ComputeCFLInvTimeScale();
 
     /// The field the Courant estimate reads.
     SOLVER_CORE_EXPORT virtual LibUtilities::Field<double, FieldState::Phys> &

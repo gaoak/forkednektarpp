@@ -313,12 +313,14 @@ double FrobeniusNormDiff(const DNekMat &lhs, const DNekMat &rhs)
         int LinSysRightPrecon   = 1;                                           \
         int GMRESDeltaDirection = 3;                                           \
         int ModifiedGramSchmidt = 0;                                           \
+        int LinSysMaxStorage    = 10;                                          \
         this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         this->session->SetParameter("GMRESDeltaDirection",                     \
                                     GMRESDeltaDirection);                      \
         this->session->SetParameter("ModifiedGramSchmidt",                     \
                                     ModifiedGramSchmidt);                      \
+        this->session->SetParameter("LinSysMaxStorage", LinSysMaxStorage);     \
         SetTestCase();                                                         \
         RunTestCase("GMRES");                                                  \
         boost::test_tools::output_test_stream output;                          \
@@ -338,6 +340,7 @@ double FrobeniusNormDiff(const DNekMat &lhs, const DNekMat &rhs)
         int GMRESDeltaDirection = 0;                                           \
         int FlexibleGMRES       = 1;                                           \
         int ModifiedGramSchmidt = 0;                                           \
+        int LinSysMaxStorage    = 10;                                          \
         this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         this->session->SetParameter("GMRESDeltaDirection",                     \
@@ -345,6 +348,7 @@ double FrobeniusNormDiff(const DNekMat &lhs, const DNekMat &rhs)
         this->session->SetParameter("FlexibleGMRES", FlexibleGMRES);           \
         this->session->SetParameter("ModifiedGramSchmidt",                     \
                                     ModifiedGramSchmidt);                      \
+        this->session->SetParameter("LinSysMaxStorage", LinSysMaxStorage);     \
         SetTestCase();                                                         \
         RunTestCase("GMRES");                                                  \
         boost::test_tools::output_test_stream output;                          \
@@ -363,12 +367,14 @@ double FrobeniusNormDiff(const DNekMat &lhs, const DNekMat &rhs)
         int LinSysRightPrecon   = 1;                                           \
         int GMRESDeltaDirection = 3;                                           \
         int ModifiedGramSchmidt = 1;                                           \
+        int LinSysMaxStorage    = 10;                                          \
         this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         this->session->SetParameter("GMRESDeltaDirection",                     \
                                     GMRESDeltaDirection);                      \
         this->session->SetParameter("ModifiedGramSchmidt",                     \
                                     ModifiedGramSchmidt);                      \
+        this->session->SetParameter("LinSysMaxStorage", LinSysMaxStorage);     \
         SetTestCase();                                                         \
         RunTestCase("GMRES");                                                  \
         boost::test_tools::output_test_stream output;                          \
@@ -388,6 +394,7 @@ double FrobeniusNormDiff(const DNekMat &lhs, const DNekMat &rhs)
         int GMRESDeltaDirection = 0;                                           \
         int FlexibleGMRES       = 1;                                           \
         int ModifiedGramSchmidt = 1;                                           \
+        int LinSysMaxStorage    = 10;                                          \
         this->session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);     \
         this->session->SetParameter("LinSysRightPrecon", LinSysRightPrecon);   \
         this->session->SetParameter("GMRESDeltaDirection",                     \
@@ -395,6 +402,7 @@ double FrobeniusNormDiff(const DNekMat &lhs, const DNekMat &rhs)
         this->session->SetParameter("FlexibleGMRES", FlexibleGMRES);           \
         this->session->SetParameter("ModifiedGramSchmidt",                     \
                                     ModifiedGramSchmidt);                      \
+        this->session->SetParameter("LinSysMaxStorage", LinSysMaxStorage);     \
         SetTestCase();                                                         \
         RunTestCase("GMRES");                                                  \
         boost::test_tools::output_test_stream output;                          \

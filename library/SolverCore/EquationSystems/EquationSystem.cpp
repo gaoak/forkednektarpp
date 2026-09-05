@@ -92,6 +92,15 @@ void EquationSystem::v_InitObject(bool declareExpansionLists)
     m_sessionName = m_session->GetSessionName();
     m_fieldIo     = LibUtilities::FieldIO::CreateDefault(m_session);
 
+    // A discontinuous run holds its state at the quadrature points, where it
+    // is not confined to the polynomial space (see
+    // UnsteadySystem::v_SetInitialConditions). Projecting the initial
+    // condition confines it, which makes a field file a faithful record of
+    // the state and so makes a restart exact - at the price of changing
+    // every discontinuous answer, which is why it is off by default.
+    m_session->MatchSolverInfo("ProjectInitialConditions", "True",
+                               m_projectInitialConditions, false);
+
     // Check boundary conditions, if one field uses only Neumann/Periodic BCs
     m_checkIfSystemSingular = v_GetSystemSingularChecks();
 
@@ -140,7 +149,18 @@ void EquationSystem::v_InitialiseFields()
     m_fields_coeff = LibUtilities::Field<double, FieldState::Coeff>(
         "solution coeff", bAtr_coeff, m_nVariables, m_npointsZ);
 
-    // Zero both fields
+    // Scratch for the discontinuous phys to coeff projection, which needs an
+    // intermediate between the inner product and the inverse mass multiply.
+    // Only ProjectPhysToCoeffs() reads it, and that is discontinuous only, so
+    // a continuous run would carry a whole coefficient field for nothing.
+    if (m_projectionType == MultiRegions::eDiscontinuous)
+    {
+        m_fields_coeff_tmp = LibUtilities::Field<double, FieldState::Coeff>(
+            "solution coeff tmp", bAtr_coeff, m_nVariables, m_npointsZ);
+        m_math.zero(m_fields_coeff_tmp);
+    }
+
+    // Zero the solution fields
     m_math.zero(m_fields);
     m_math.zero(m_fields_coeff);
 }
@@ -171,6 +191,14 @@ void EquationSystem::v_GenerateSummary(SummaryList &summary)
 
     AddSummaryItem(summary, "Projection Type",
                    GetProjectionString(m_projectionType));
+
+    // Only worth reporting where it has an effect, and only when set, so an
+    // ordinary run's summary is unchanged.
+    if (m_projectInitialConditions &&
+        m_projectionType == MultiRegions::eDiscontinuous)
+    {
+        AddSummaryItem(summary, "Initial Condition", "projected into space");
+    }
 }
 
 void EquationSystem::v_PrintNorms(std::ostream &out)
@@ -216,15 +244,40 @@ void EquationSystem::v_PrintNorms(std::ostream &out)
     }
 }
 
+/**
+ * @brief Project the discontinuous physical field into #m_fields_coeff.
+ *
+ * The element local L2 projection \f$M^{-1}B^{T}W\f$, assembled from the
+ * inner product and the inverse mass multiply. m_fwdTransOp cannot serve:
+ * it is a global mass matrix solve carrying boundary conditions, and is
+ * only built for eGalerkin. Only valid for eDiscontinuous.
+ */
+void EquationSystem::ProjectPhysToCoeffs(
+    LibUtilities::Field<double, FieldState::Phys> &phys)
+{
+    ASSERTL1(m_projectionType == MultiRegions::eDiscontinuous,
+             "The element local projection is only built for a discontinuous "
+             "projection; a continuous one goes through m_fwdTransOp.");
+
+    m_iProductWRTBaseOp->Apply(phys, m_fields_coeff_tmp);
+    m_multiplyByElmtInvMassOp->Apply(m_fields_coeff_tmp, m_fields_coeff);
+}
+
 void EquationSystem::v_WriteFld(const std::string &outname)
 {
-    // Ugly and temporary workaround: In-place conversion to coeffs
-    // Assume DG has result already in m_fields_coeff
+    // The solution is advanced in physical space, so project back to
+    // coefficients before writing - the file stores coefficients, and without
+    // this a discontinuous run wrote whatever m_fields_coeff last held, which
+    // for an explicit DG solve is the zero it was constructed with.
     if (m_projectionType == MultiRegions::eGalerkin)
     {
         m_fwdTransOp->UpdateBndCoeffs(m_time);
         m_math.zero(m_fields_coeff);
         m_fwdTransOp->Apply(m_fields, m_fields_coeff);
+    }
+    else if (m_projectionType == MultiRegions::eDiscontinuous)
+    {
+        ProjectPhysToCoeffs(m_fields);
     }
 
     std::vector<std::vector<double>> fieldCoeffs;
@@ -481,6 +534,19 @@ void EquationSystem::v_InitialiseOperators()
         {
             // Discontinuous projection requires trace datawarehouse
             m_expansionLists[0]->GetTrace()->SetDataWarehouse();
+
+            // Coefficient space is used for file IO even though the solve
+            // runs in physical space, so both directions are needed here.
+            // BwdTrans is element local and so serves either projection;
+            // the forward direction is not m_fwdTransOp, which is a global
+            // mass matrix solve carrying boundary conditions, but the element
+            // local M^-1 B^T W that a discontinuous field calls for.
+            m_bwdTransOp =
+                BwdTransOp<double>::Create(m_expansionLists[0], m_variables);
+            m_iProductWRTBaseOp = IProductWRTBaseOp<double>::Create(
+                m_expansionLists[0], m_variables);
+            m_multiplyByElmtInvMassOp = MultiplyByElmtInvMassOp<double>::Create(
+                m_expansionLists[0], m_variables);
             break;
         }
         case MultiRegions::eGalerkin:

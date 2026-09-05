@@ -41,13 +41,14 @@ the current step, with the summary and final output still written; the
 file is deleted when acted on. The filename can be changed with the
 \inltt{SOLVERINFO} property \inltt{CheckAbortFile}.
 
-The redesign solvers read a \inltt{CFL} parameter as a diagnostic: at
-each \inltt{IO\_InfoSteps} report, the timestep that Courant number
-would permit for the current state is printed beside the timestep in
-use, which never changes. When \inltt{CFL} is not set, nothing is
-computed. Note that some established solvers, such as the
-CompressibleFlowSolver, instead use \inltt{CFL} to set the timestep --
-see the solver chapters.
+The redesign solvers report the Courant number of the timestep in use:
+setting \inltt{IO\_CFLSteps} prints \inltt{CFL: ...} every that many
+steps, computed for the current state; the timestep itself never
+changes. The optional \inltt{CFL} parameter (default one) is a safety
+factor on the timestep the condition would permit, reserved for when
+the estimate drives the step. Note that some established solvers, such
+as the CompressibleFlowSolver, instead use \inltt{CFL} to set the
+timestep -- see the solver chapters.
 
 \subsection{Time Integration Scheme}
 
@@ -84,6 +85,33 @@ property/value pairs are specified as XML attributes. For example,
 
 Boolean-valued solver properties are specified using \inltt{True} or \inltt{False}. The list of available solvers in Nektar++ can be found in
 Part~\ref{p:applications}.
+
+The redesign solvers accept \inltt{ProjectInitialConditions}, a
+boolean property that is \inltt{False} by default and has an effect
+only where \inltt{Projection} is \inltt{DisContinuous}. A
+discontinuous run holds its state at the quadrature points, and the
+initial condition is the session expression sampled there. That
+sampled state carries more than the expansion can hold -- there are
+more quadrature points than modes -- so it does not lie in the
+polynomial space, and the surplus survives the whole run. A field file
+stores modal coefficients and cannot represent it, so a run restarted
+from such a file does not reproduce the run it resumed.
+
+Setting the property projects the initial condition once, at start-up,
+which confines the state to the polynomial space and makes a restart
+exact. It is opt-in because projecting changes the answer of every
+discontinuous run, so enabling it will move results that were
+previously validated without it. Note that an exact restart requires
+the property in \emph{both} runs, since the field file is written from
+whatever state the first run held. A discontinuous run started without
+it emits a warning saying so.
+
+\begin{lstlisting}[style=XMLStyle]
+<SOLVERINFO>
+  <I PROPERTY="Projection"                VALUE="DisContinuous"  />
+  <I PROPERTY="ProjectInitialConditions"  VALUE="True"           />
+</SOLVERINFO>
+\end{lstlisting}
 
 \subsubsection{Drivers}
 Drivers are defined under the \inltt{CONDITIONS} section as properties of the 

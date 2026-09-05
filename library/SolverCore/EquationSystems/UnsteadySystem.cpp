@@ -47,6 +47,9 @@
 
 namespace Nektar::SolverCore
 {
+// Spencer, Numerical Methods for Fluid Dynamics, p317.
+constexpr double cLambda = 0.2;
+
 std::string UnsteadySystem::cmdSetStartTime =
     LibUtilities::SessionReader::RegisterCmdLineArgument(
         "set-start-time", "", "Set the starting time of the simulation.");
@@ -90,8 +93,10 @@ void UnsteadySystem::v_InitObject(bool declareExpansionLists)
 
     // Load time-stepping parameters.
     m_session->LoadParameter("IO_InfoSteps", m_infosteps, 0);
-    // Reported against, not yet acted on: see GetCFLTimeStep().
-    m_session->LoadParameter("CFL", m_cflSafetyFactor, 0.0);
+    // Safety factor on the permitted timestep; see GetCFLTimeStep().
+    m_session->LoadParameter("CFL", m_cflSafetyFactor, 1.0);
+    // Cadence of the Courant number report; see GetCFLNumber().
+    m_session->LoadParameter("IO_CFLSteps", m_cflSteps, 0);
     // Cadence of the in-flight NaN and abort-file tests.
     m_session->LoadParameter("CheckAbortSteps", m_abortSteps, 1);
     if (m_session->DefinesSolverInfo("CheckAbortFile"))
@@ -147,6 +152,43 @@ void UnsteadySystem::v_SetInitialConditions(double initialTime)
         // Continuous Galerkin: C0 projection
         // Discontinuous Galerkin: Copy
         DoProjection(m_fields, m_fields, m_time);
+
+        // The expression was sampled at the quadrature points, which carries
+        // more information than the expansion can hold - there are more
+        // quadrature points than modes - so the sampled field is not in the
+        // polynomial space. DoProjection() is a copy for a discontinuous
+        // field and so leaves it that way, and every later update adds only
+        // in-space increments, so the surplus survives the whole run. It has
+        // no representation in the modal coefficients a field file stores,
+        // which is why a discontinuous restart cannot reproduce the run it
+        // resumed. Projecting once here confines the state to the space, and
+        // a restart is then exact to every digit.
+        //
+        // Projecting unconditionally would change every discontinuous
+        // answer, so it is opt-in through `ProjectInitialConditions`.
+        // DoProjection() itself is left alone: the time integrator calls it
+        // every step, where this would be a costly no-op.
+        if (m_projectInitialConditions &&
+            m_projectionType == MultiRegions::eDiscontinuous)
+        {
+            ProjectPhysToCoeffs(m_fields);
+            m_bwdTransOp->Apply(m_fields_coeff, m_fields);
+        }
+        else if (m_projectionType == MultiRegions::eDiscontinuous)
+        {
+            // Warn here rather than on the restart that suffers for it. This
+            // is the run whose state stops being representable: what a later
+            // restart loses was already lost when this run's field file was
+            // written. By then nothing can tell - a state read back from a
+            // file is in the polynomial space whatever produced it.
+            NEKERROR(ErrorUtil::ewarning,
+                     "This discontinuous state is sampled at the quadrature "
+                     "points and so is not confined to the polynomial space. "
+                     "The modal coefficients in a field file cannot represent "
+                     "it, so a run restarted from one written here will not "
+                     "reproduce this one. Set ProjectInitialConditions to "
+                     "True to confine the state and make a restart exact.");
+        }
     }
     // Set initial conditions from file
     else if (vType == LibUtilities::eFunctionTypeFile)
@@ -154,6 +196,12 @@ void UnsteadySystem::v_SetInitialConditions(double initialTime)
         // Field files store modal coefficients. Load coefficient space first
         // and reconstruct physical values with the device support BwdTrans
         // operator.
+        //
+        // Nothing to warn about here: whatever wrote the file, the state
+        // coming back is a set of modal coefficients and so is in the
+        // polynomial space by construction. Whether it is the state the
+        // earlier run actually held was decided when that run was set up,
+        // which is where the warning lives.
         initialConditions.EvaluateFld(m_variables, m_fields_coeff, m_time);
         m_bwdTransOp->Apply(m_fields_coeff, m_fields);
     }
@@ -205,6 +253,18 @@ void UnsteadySystem::v_DoSolve()
         // Write out status information.
         v_PrintStatusInformation();
 
+        // Courant number report, on its own cadence. Computed on every rank
+        // - the reduction is collective - and printed on one.
+        if (m_cflSteps && !(m_timeOp->GetStep() % m_cflSteps))
+        {
+            const double cfl = GetCFLNumber();
+            if (cfl > 0.0 &&
+                m_session->GetComm()->GetSpaceComm()->GetRank() == 0)
+            {
+                std::cout << "CFL: " << cfl << std::endl;
+            }
+        }
+
         // Perform any solver-specific post-integration steps.
         const bool stopIntegration = v_PostIntegrate();
 
@@ -254,11 +314,47 @@ void UnsteadySystem::v_DoSolve()
  */
 double UnsteadySystem::GetCFLTimeStep()
 {
-    if (m_cflSafetyFactor <= 0.0)
+    const double invTimeScale = ComputeCFLInvTimeScale();
+    if (invTimeScale <= 0.0)
     {
         return 0.0;
     }
 
+    // The stability limit of the configured time integration scheme,
+    // supplied by the scheme itself.
+    const double alpha = m_timeOp->GetTimeStability();
+
+    return m_cflSafetyFactor * alpha / (cLambda * invTimeScale);
+}
+
+/**
+ * @brief Courant number of the timestep in use, for the current state.
+ *
+ * \f[ \text{CFL} = \Delta t \, c_\lambda \, \text{invTimeScale} \f]
+ *
+ * with invTimeScale from MaxStdVelocityOp and \f$c_\lambda = 0.2\f$.
+ * Returns zero when the solver offers no velocity or the flow is at rest.
+ */
+double UnsteadySystem::GetCFLNumber()
+{
+    const double invTimeScale = ComputeCFLInvTimeScale();
+    if (invTimeScale <= 0.0)
+    {
+        return 0.0;
+    }
+
+    return m_timestep * cLambda * invTimeScale;
+}
+
+/**
+ * @brief Reciprocal of the tightest advective time scale in the mesh.
+ *
+ * Zero when the solver offers no velocity or the flow is at rest - a
+ * statement about the flow rather than a failure, so callers say nothing
+ * rather than divide by it.
+ */
+double UnsteadySystem::ComputeCFLInvTimeScale()
+{
     auto &velocity = v_GetCFLVelocityField();
     if (!velocity)
     {
@@ -274,22 +370,7 @@ double UnsteadySystem::GetCFLTimeStep()
     m_maxStdVelocityOp->SetSoundSpeedFactor(v_GetSoundSpeedFactor());
     m_cflInvTimeScale = m_maxStdVelocityOp->Apply(velocity);
 
-    // A field at rest implies no Courant limit at all, which is a statement
-    // about the flow rather than a failure, so say nothing rather than
-    // divide by zero.
-    if (m_cflInvTimeScale <= 0.0)
-    {
-        return 0.0;
-    }
-
-    // Spencer, Numerical Methods for Fluid Dynamics, p317.
-    const double cLambda = 0.2;
-
-    // The stability limit of the configured time integration scheme,
-    // supplied by the scheme itself.
-    const double alpha = m_timeOp->GetTimeStability();
-
-    return m_cflSafetyFactor * alpha / (cLambda * m_cflInvTimeScale);
+    return m_cflInvTimeScale;
 }
 
 /**
@@ -331,18 +412,6 @@ void UnsteadySystem::v_PrintStatusInformation()
             // << std::scientific
             << "Steps: " << std::setw(8) << std::left << m_timeOp->GetStep()
             << " Time: " << std::setw(12) << std::left << m_timeOp->GetTime();
-
-        // Diagnostic only: the timestep in use is untouched, so the two can
-        // be compared and the estimate judged before anything depends on it.
-        if (m_cflSafetyFactor > 0.0)
-        {
-            const double cflTimeStep = GetCFLTimeStep();
-            if (cflTimeStep > 0.0)
-            {
-                std::cout << " CFL time-step: " << std::setw(12) << std::left
-                          << cflTimeStep;
-            }
-        }
 
         std::cout << std::endl;
     }
