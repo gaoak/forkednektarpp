@@ -161,7 +161,8 @@ inline constexpr size_t MassWorkSpaceSize(const size_t nelmt,
     return wspsize;
 }
 
-template <typename Implementation, typename TSizeParameter1D,
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TSizeParameter1D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsSizeParameter1D_v<TSizeParameter1D>,
                            bool>
@@ -249,20 +250,22 @@ inline constexpr unsigned int MassSharedMemorySize(
     }
 }
 
-template <typename Implementation, bool DEFORMED, typename TSizeParameter1D,
-          typename TthreadBlock, typename TData,
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TSizeParameter1D, typename TthreadBlock,
+          typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
-    Mass1DKernelLauncher(const TSizeParameter1D sizeParam1D, const size_t nelmt,
-                         const TData *NEK_RESTRICT basis0,
-                         const TData *NEK_RESTRICT w0,
-                         const TData *NEK_RESTRICT jac,
-                         const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-                         [[maybe_unused]] TData *NEK_RESTRICT wsp,
-                         unsigned char *shmemptr,
-                         const TthreadBlock &threadBlock)
+    MassKernelLauncher(const TSizeParameter1D sizeParam1D, const size_t nelmt,
+                       [[maybe_unused]] const bool isModified,
+                       const TData *NEK_RESTRICT basis0,
+                       const TData *NEK_RESTRICT w0,
+                       [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
+                       const TData *NEK_RESTRICT jac,
+                       const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+                       [[maybe_unused]] TData *NEK_RESTRICT wsp,
+                       unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter1D_v<TSizeParameter1D>,
                   "Template argument must be either of type "
@@ -317,7 +320,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
-    Mass2DKernelLauncher(
+    MassKernelLauncher(
         const TSizeParameter2D sizeParam2D, const size_t nelmt,
         const bool isModified, const unsigned int *NEK_RESTRICT index0,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
@@ -464,7 +467,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
-    Mass3DKernelLauncher(
+    MassKernelLauncher(
         const TSizeParameter3D sizeParam3D, const size_t nelmt,
         const bool isModified, const unsigned int *NEK_RESTRICT index0,
         const unsigned int *NEK_RESTRICT index1,

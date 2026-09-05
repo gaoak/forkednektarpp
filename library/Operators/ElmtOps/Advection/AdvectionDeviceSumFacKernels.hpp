@@ -46,6 +46,18 @@ namespace Nektar::Operators::detail
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 // Helper function
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TPhysSizeParameter1D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
+                               IsPhysSizeParameter1D_v<TPhysSizeParameter1D>,
+                           bool>
+              Enable = true>
+inline constexpr unsigned int AdvectionSharedMemorySize(
+    [[maybe_unused]] const TPhysSizeParameter1D sizeParam1D)
+{
+    return 0;
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TPhysSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
                                IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
@@ -332,16 +344,17 @@ NEK_DEVICE_INLINE static void Advection3DSumFacKernel(
     }
 }
 
-template <typename Implementation, bool APPEND, bool DEFORMED,
-          typename TPhysSizeParameter1D, typename TthreadBlock, typename TData,
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool APPEND, bool DEFORMED, typename TPhysSizeParameter1D,
+          typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
               Enable = true>
-NEK_DEVICE_KERNEL void Advection1DKernelLauncher(
+NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT advVel_ptr, const size_t adVecoffset,
     const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out, const TData scale,
-    const TthreadBlock &threadBlock)
+    [[maybe_unused]] unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter1D_v<TPhysSizeParameter1D>,
@@ -378,7 +391,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
               Enable = true>
-NEK_DEVICE_KERNEL void Advection2DKernelLauncher(
+NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
@@ -452,7 +465,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
               Enable = true>
-NEK_DEVICE_KERNEL void Advection3DKernelLauncher(
+NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,

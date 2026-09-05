@@ -114,16 +114,19 @@ NEK_DEVICE_INLINE static void AddAdvection3DSumFacTOPKernel(
     localBarrier(threadBlock);
 }
 
-template <typename Implementation, bool DEFORMED, typename TSizeParameter1D,
-          typename TthreadBlock, typename TData,
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TSizeParameter1D, typename TthreadBlock,
+          typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
-    LinAdvDiffReaction1DKernelLauncher(
+    LinAdvDiffReactionKernelLauncher(
         const TSizeParameter1D sizeParam1D, const unsigned int ncoord,
-        const size_t nelmt, const TData *NEK_RESTRICT basis0,
-        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT w0,
+        const size_t nelmt, [[maybe_unused]] const bool isModified,
+        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT D0,
+        const TData *NEK_RESTRICT w0,
+        [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
         const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
         const TData *NEK_RESTRICT coeff, const TData *NEK_RESTRICT advVel0,
         const TData *NEK_RESTRICT advVel1, const TData *NEK_RESTRICT advVel2,
@@ -185,7 +188,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
-    LinAdvDiffReaction2DKernelLauncher(
+    LinAdvDiffReactionKernelLauncher(
         const TSizeParameter2D sizeParam2D, const unsigned int ncoord,
         const size_t nelmt, const bool isModified,
         const unsigned int *NEK_RESTRICT index0,
@@ -353,8 +356,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
-    LinAdvDiffReaction3DKernelLauncher(
-        const TSizeParameter3D sizeParam3D, const size_t nelmt,
+    LinAdvDiffReactionKernelLauncher(
+        const TSizeParameter3D sizeParam3D,
+        [[maybe_unused]] const unsigned int ncoord, const size_t nelmt,
         const bool isModified, const unsigned int *NEK_RESTRICT index0,
         const unsigned int *NEK_RESTRICT index1,
         const unsigned int *NEK_RESTRICT index2,
