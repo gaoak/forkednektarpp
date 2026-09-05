@@ -74,6 +74,7 @@ IF(NEKTAR_SOLVER_ADR_DEVICE_SUPPORT)
 
         SET_SERIAL_SUMFAC_SOLVER_TEST(ADRSolverRedesign ReactionDiffusion1D)
         SET_SERIAL_SUMFAC_SOLVER_TEST(ADRSolverRedesign ReactionDiffusion2D)
+        SET_SERIAL_SUMFAC_SOLVER_TEST(ADRSolverRedesign ReactionDiffusion2D_Restart)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign ReactionDiffusion3D)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign ReactionDiffusion3D_3C)
 

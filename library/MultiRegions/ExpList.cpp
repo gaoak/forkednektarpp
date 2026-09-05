@@ -4300,7 +4300,14 @@ void ExpList::ExtractDataToCoeffs(
     std::vector<NekDouble> &fielddata, std::string &field,
     std::vector<NekDouble> &coeffs, std::unordered_map<int, int> zIdToPlane)
 {
-    Array<OneD, NekDouble> tmp(coeffs.size(), 0.0);
+    // Seed the temporary with what the caller already holds rather than
+    // with zero. The Array overload fills only the coefficients of the
+    // elements this field definition covers and leaves the rest untouched,
+    // so it is meant to be called once per definition, accumulating. Copying
+    // a zeroed temporary back over the whole vector discarded every earlier
+    // definition's contribution, leaving all but the last shape at zero.
+    Array<OneD, NekDouble> tmp(coeffs.size());
+    std::copy(coeffs.begin(), coeffs.end(), tmp.begin());
     ExtractDataToCoeffs(fielddef, fielddata, field, tmp, zIdToPlane);
     std::copy(tmp.begin(), tmp.end(), coeffs.begin());
 }

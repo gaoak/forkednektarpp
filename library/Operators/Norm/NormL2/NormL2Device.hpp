@@ -166,8 +166,9 @@ protected:
         auto inptr   = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
         auto dataptr = data.template GetPtr<MemSpace, ReadWrite>(m_streamID);
 
-        // Get interleave parameter.
+        // Get interleave parameter and the stride between components.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto compSize        = inblock.CompSize();
 
         // Set Kernel parameters.
         const unsigned int shmemsize = 0;
@@ -228,8 +229,8 @@ protected:
                 DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (IntegralKernelLauncher<IntegralOp::Square, 1u, true>),
                     gridsize, nComp * nHomo, blocksize, 1, m_streamID,
-                    m_nq[ind]..., nelmt, m_W[ind]..., m_jacptr1, inptr,
-                    dataptr);
+                    m_nq[ind]..., nelmt, compSize, m_W[ind]..., m_jacptr1,
+                    inptr, dataptr);
             }
             else
             {
@@ -238,8 +239,8 @@ protected:
                                             NektarSpaces::Device::warpSize,
                                             true>),
                     gridsize, nComp * nHomo, blocksize, 1, m_streamID,
-                    m_nq[ind]..., nelmt, m_W[ind]..., m_jacptr2, inptr,
-                    dataptr);
+                    m_nq[ind]..., nelmt, compSize, m_W[ind]..., m_jacptr2,
+                    inptr, dataptr);
             }
         }
         else
@@ -249,8 +250,8 @@ protected:
                 DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (IntegralKernelLauncher<IntegralOp::Square, 1u, false>),
                     gridsize, nComp * nHomo, blocksize, 1, m_streamID,
-                    m_nq[ind]..., nelmt, m_W[ind]..., m_jacptr1, inptr,
-                    dataptr);
+                    m_nq[ind]..., nelmt, compSize, m_W[ind]..., m_jacptr1,
+                    inptr, dataptr);
             }
             else
             {
@@ -259,8 +260,8 @@ protected:
                                             NektarSpaces::Device::warpSize,
                                             false>),
                     gridsize, nComp * nHomo, blocksize, 1, m_streamID,
-                    m_nq[ind]..., nelmt, m_W[ind]..., m_jacptr2, inptr,
-                    dataptr);
+                    m_nq[ind]..., nelmt, compSize, m_W[ind]..., m_jacptr2,
+                    inptr, dataptr);
             }
         }
     }
