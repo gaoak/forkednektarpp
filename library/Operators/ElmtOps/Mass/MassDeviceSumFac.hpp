@@ -276,15 +276,15 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
 
+    void QuadBlock(
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
+
     void TriBlock(
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
 
     void NodalTriBlock(
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
-
-    void QuadBlock(
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
 

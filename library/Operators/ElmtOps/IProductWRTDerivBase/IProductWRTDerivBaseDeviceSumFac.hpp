@@ -312,6 +312,10 @@ protected:
     void SegBlock(LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
                   LibUtilities::BlockAccessor<TData, TFieldOut> &outblock);
 
+    void QuadBlock(
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, TFieldOut> &outblock);
+
     void TriBlock(LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
                   LibUtilities::BlockAccessor<TData, TFieldOut> &outblock);
 
@@ -319,18 +323,14 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, TFieldOut> &outblock);
 
-    void QuadBlock(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, TFieldOut> &outblock);
-
     void HexBlock(LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
                   LibUtilities::BlockAccessor<TData, TFieldOut> &outblock);
 
-    void NodalPrismBlock(
+    void PrismBlock(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, TFieldOut> &outblock);
 
-    void PrismBlock(
+    void NodalPrismBlock(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, TFieldOut> &outblock);
 
