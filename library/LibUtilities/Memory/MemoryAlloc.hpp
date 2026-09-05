@@ -268,21 +268,20 @@ inline void deviceFree(
     }
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-    /*if (streamID != 0)
+    if (streamID != 0)
     {
         Q.wait();
     }
     else
     {
-        // Imitate CUDA/HIP default stream blocking behabior by synchronizing
+        // Imitate CUDA/HIP default stream blocking behaviour by synchronizing
         // all SYCL queues.
         auto &Queues = SYCLQueue::GetAllInstances();
         for (auto &item : Queues)
         {
-            *item.second.wait();
+            item.second->wait();
         }
-    }*/
-    Q.wait();
+    }
     sycl::free(src, Q);
     GetDeviceProperties::TotalGlobalMemory() += size;
 #else
