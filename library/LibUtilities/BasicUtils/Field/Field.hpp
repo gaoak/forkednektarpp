@@ -54,6 +54,13 @@ public:
     Field() = default;
     ~Field()
     {
+        if (m_device)
+        {
+            const unsigned int streamID = 0;
+            deviceFree(m_device, this->size(), streamID, m_memAllocType);
+            nekStreamSynchronize(streamID);
+        }
+
         if (m_host)
         {
             if (m_memAllocType == eHostPageable)
@@ -64,13 +71,6 @@ public:
             {
                 hostFreePinned(m_host);
             }
-        }
-
-        if (m_device)
-        {
-            const unsigned int streamID = 0;
-            deviceFree(m_device, this->size(), streamID, m_memAllocType);
-            nekStreamSynchronize(streamID);
         }
 
         m_instantiated = false;
