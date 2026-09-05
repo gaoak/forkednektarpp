@@ -111,7 +111,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr size_t HelmholtzWorkSpaceSize(
-    const size_t nelmt, const TSizeParameter3D sizeParam3D)
+    const size_t nelmt, [[maybe_unused]] const unsigned int ncoord,
+    const TSizeParameter3D sizeParam3D)
 {
     size_t wspsize = 0;
 
@@ -159,7 +160,8 @@ inline constexpr size_t HelmholtzWorkSpaceSize(
     return wspsize;
 }
 
-template <typename Implementation, typename TSizeParameter1D,
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TSizeParameter1D,
           std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
                                IsSizeParameter1D_v<TSizeParameter1D>,
                            bool>
@@ -664,16 +666,19 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacKernel(
     }
 }
 
-template <typename Implementation, bool DEFORMED, typename TSizeParameter1D,
-          typename TthreadBlock, typename TData,
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TSizeParameter1D, typename TthreadBlock,
+          typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
-    Helmholtz1DKernelLauncher(
+    HelmholtzKernelLauncher(
         const TSizeParameter1D sizeParam1D, const unsigned int ncoord,
-        const size_t nelmt, const TData *NEK_RESTRICT basis0,
-        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT w0,
+        const size_t nelmt, [[maybe_unused]] const bool isModified,
+        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT D0,
+        const TData *NEK_RESTRICT w0,
+        [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
         const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
         const TData *NEK_RESTRICT coeff, const TData *NEK_RESTRICT in,
         TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, const TData lambda,
@@ -730,7 +735,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
-    Helmholtz2DKernelLauncher(
+    HelmholtzKernelLauncher(
         const TSizeParameter2D sizeParam2D, const unsigned int ncoord,
         const size_t nelmt, const bool isModified,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
@@ -885,8 +890,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
-    Helmholtz3DKernelLauncher(
-        const TSizeParameter3D sizeParam3D, const size_t nelmt,
+    HelmholtzKernelLauncher(
+        const TSizeParameter3D sizeParam3D,
+        [[maybe_unused]] const unsigned int ncoord, const size_t nelmt,
         const bool isModified,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index1,

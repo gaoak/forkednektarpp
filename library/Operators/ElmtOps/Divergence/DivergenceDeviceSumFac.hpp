@@ -274,9 +274,11 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
-        Operator1D<SHAPE_TYPE, DEFORMED>(
+        OperatorND<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
-            NonTemplatedPhysSizeParameter1D(m_coordDim, m_nq[0]));
+            NonTemplatedPhysSizeParameter1D(m_coordDim, m_nq[0]),
+            std::make_integer_sequence<unsigned int, 1>(),
+            std::make_integer_sequence<unsigned int, 0>());
     }
 
     // Size based template version.
@@ -286,63 +288,10 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
-        Operator1D<SHAPE_TYPE, DEFORMED>(
-            inblock, outblock, TemplatedPhysSizeParameter1D<coordDim, nq0>());
-    }
-
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              typename TPhysSizeParameter1D>
-    NEK_FORCE_INLINE void Operator1D(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock,
-        TPhysSizeParameter1D sizeParam1D)
-    {
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
-        // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
-
-        // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-
-        // Set Kernel parameters.
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(sizeParam1D.nq0());
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmt, blocksize, 0);
-
-        // Loop over components.
-        const auto inoffset = outblock.CompSize() * outblock.GetNumHomoModes();
-        for (unsigned int n = 0;
-             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
-        {
-            // Reshape, if necessary.
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                m_implInterleaveWidth, interleaveWidth, nelmt,
-                inblock.GetNumData(), (TData *)inptr, m_streamID);
-
-            // Calculate derivative.
-            DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                (Divergence1DKernelLauncher<Implementation, DEFORMED>),
-                gridsize, blocksize, m_streamID, sizeParam1D, nelmt, inoffset,
-                m_D[0], m_dfptr, inptr, outptr);
-
-            // Reshape back, if necessary.
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                interleaveWidth, m_implInterleaveWidth, nelmt,
-                inblock.GetNumData(), (TData *)inptr, m_streamID);
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                interleaveWidth, m_implInterleaveWidth, nelmt,
-                outblock.GetNumData(), outptr, m_streamID);
-
-            // Increment pointers.
-            inptr += inblock.CompSize();
-            outptr += outblock.CompSize();
-        }
-
-        // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        OperatorND<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock, TemplatedPhysSizeParameter1D<coordDim, nq0>(),
+            std::make_integer_sequence<unsigned int, 1>(),
+            std::make_integer_sequence<unsigned int, 0>());
     }
 
     // Non-size based operator.
@@ -351,9 +300,11 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
-        Operator2D<SHAPE_TYPE, DEFORMED>(
+        OperatorND<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
-            NonTemplatedPhysSizeParameter2D(m_coordDim, m_nq[0], m_nq[1]));
+            NonTemplatedPhysSizeParameter2D(m_coordDim, m_nq[0], m_nq[1]),
+            std::make_integer_sequence<unsigned int, 2>(),
+            std::make_integer_sequence<unsigned int, 2>());
     }
 
     // Size based template version.
@@ -363,60 +314,11 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
-        Operator2D<SHAPE_TYPE, DEFORMED>(
+        OperatorND<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
-            TemplatedPhysSizeParameter2D<coordDim, nq0, nq1>());
-    }
-
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              typename TPhysSizeParameter2D>
-    NEK_FORCE_INLINE void Operator2D(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock,
-        TPhysSizeParameter2D sizeParam2D)
-    {
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
-        // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
-
-        // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-
-        // Set Kernel parameters.
-        const unsigned int shmemsize =
-            sizeof(TData) *
-            DivergenceSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam2D);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(sizeParam2D.nqTot());
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
-
-        // Loop over components.
-        const auto inoffset = outblock.CompSize();
-
-        // Reshape, if necessary.
-        LibUtilities::ReshapeStorage<ExecSpace>(
-            m_implInterleaveWidth, interleaveWidth, 2 * nelmt,
-            inblock.GetNumData(), (TData *)inptr, m_streamID);
-
-        // Calculate derivative du/dx
-        DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (Divergence2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            gridsize, blocksize, shmemsize, m_streamID, sizeParam2D, nelmt,
-            inoffset, m_D[0], m_D[1], m_f[0], m_f[1], m_dfptr, inptr, outptr);
-
-        // Reshape back, if necessary.
-        LibUtilities::ReshapeStorage<ExecSpace>(
-            interleaveWidth, m_implInterleaveWidth, 2 * nelmt,
-            inblock.GetNumData(), (TData *)inptr, m_streamID);
-        LibUtilities::ReshapeStorage<ExecSpace>(
-            interleaveWidth, m_implInterleaveWidth, nelmt,
-            outblock.GetNumData(), (TData *)outptr, m_streamID);
-
-        // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+            TemplatedPhysSizeParameter2D<coordDim, nq0, nq1>(),
+            std::make_integer_sequence<unsigned int, 2>(),
+            std::make_integer_sequence<unsigned int, 2>());
     }
 
     // Non-size based operator.
@@ -425,9 +327,11 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
-        Operator3D<SHAPE_TYPE, DEFORMED>(
+        OperatorND<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
-            NonTemplatedPhysSizeParameter3D(m_nq[0], m_nq[1], m_nq[2]));
+            NonTemplatedPhysSizeParameter3D(m_nq[0], m_nq[1], m_nq[2]),
+            std::make_integer_sequence<unsigned int, 3>(),
+            std::make_integer_sequence<unsigned int, 4>());
     }
 
     // Size based template version.
@@ -437,17 +341,25 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
-        Operator3D<SHAPE_TYPE, DEFORMED>(
-            inblock, outblock, TemplatedPhysSizeParameter3D<nq0, nq1, nq2>());
+        OperatorND<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock, TemplatedPhysSizeParameter3D<nq0, nq1, nq2>(),
+            std::make_integer_sequence<unsigned int, 3>(),
+            std::make_integer_sequence<unsigned int, 4>());
     }
 
+    // Generic operator implementation.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              typename TPhysSizeParameter3D>
-    NEK_FORCE_INLINE void Operator3D(
+              typename TPhysSizeParameter, unsigned int... ind0,
+              unsigned int... ind1>
+    NEK_FORCE_INLINE void OperatorND(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock,
-        TPhysSizeParameter3D sizeParam3D)
+        TPhysSizeParameter sizeParam,
+        std::integer_sequence<unsigned int, ind0...>,
+        std::integer_sequence<unsigned int, ind1...>)
     {
+        constexpr unsigned int ndim = sizeof...(ind0);
+
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
@@ -460,9 +372,9 @@ protected:
         // Set Kernel parameters.
         const unsigned int shmemsize =
             sizeof(TData) *
-            DivergenceSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam3D);
+            DivergenceSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam);
         const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(sizeParam3D.nqTot());
+            GetDeviceBlockSize<Implementation>(sizeParam.nqTot());
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
@@ -471,19 +383,18 @@ protected:
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
-            m_implInterleaveWidth, interleaveWidth, 3 * nelmt,
+            m_implInterleaveWidth, interleaveWidth, ndim * nelmt,
             inblock.GetNumData(), (TData *)inptr, m_streamID);
 
         // Calculate derivative du/dx
         DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (Divergence3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            gridsize, blocksize, shmemsize, m_streamID, sizeParam3D, nelmt,
-            inoffset, m_D[0], m_D[1], m_D[2], m_f[0], m_f[1], m_f[2], m_f[3],
-            m_dfptr, inptr, outptr);
+            (DivergenceKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
+            gridsize, blocksize, shmemsize, m_streamID, sizeParam, nelmt,
+            inoffset, m_D[ind0]..., m_f[ind1]..., m_dfptr, inptr, outptr);
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
-            interleaveWidth, m_implInterleaveWidth, 3 * nelmt,
+            interleaveWidth, m_implInterleaveWidth, ndim * nelmt,
             inblock.GetNumData(), (TData *)inptr, m_streamID);
         LibUtilities::ReshapeStorage<ExecSpace>(
             interleaveWidth, m_implInterleaveWidth, nelmt,

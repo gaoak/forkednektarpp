@@ -83,10 +83,6 @@ public:
             m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 LibUtilities::BasisDataKey<TData>(
                     exp->GetBasis(d)->GetBasisKey(), LibUtilities::eBasis)));
-            m_DB.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                LibUtilities::BasisDataKey<TData>(
-                    exp->GetBasis(d)->GetBasisKey(),
-                    LibUtilities::eBasisDerivative)));
             m_D.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 LibUtilities::BasisDataKey<TData>(
                     exp->GetBasis(d)->GetBasisKey(),
@@ -224,7 +220,6 @@ protected:
     std::vector<unsigned int> m_nm;
     std::vector<unsigned int> m_nq;
     std::vector<const TData *> m_B;
-    std::vector<const TData *> m_DB;
     std::vector<const TData *> m_D;
     std::vector<const TData *> m_W;
     std::vector<const simd_t *> m_f;

@@ -317,8 +317,10 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
-        Operator1D<SHAPE_TYPE, DEFORMED>(
-            inblock, outblock, NonTemplatedSizeParameter1D(m_nm[0], m_nq[0]));
+        OperatorND<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock, NonTemplatedSizeParameter1D(m_nm[0], m_nq[0]),
+            std::make_integer_sequence<unsigned int, 1>(),
+            std::make_integer_sequence<unsigned int, 0>());
     }
 
     // Size based template version.
@@ -328,105 +330,10 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
-        Operator1D<SHAPE_TYPE, DEFORMED>(inblock, outblock,
-                                         TemplatedSizeParameter1D<nm0, nq0>());
-    }
-
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              typename TSizeParameter1D>
-    NEK_FORCE_INLINE void Operator1D(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock,
-        TSizeParameter1D sizeParam1D)
-    {
-        constexpr bool Append = false;
-
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
-        // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
-
-        // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-
-        // Set Kernel parameters.
-        const unsigned int ncomp =
-            inblock.GetNumComponents() * inblock.GetNumHomoModes();
-        const unsigned int shmemsize =
-            sizeof(TData) *
-            IProductWRTBaseSharedMemorySize<Implementation>(sizeParam1D);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(sizeParam1D.nq0());
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
-
-        // Reshape, if necessary.
-        LibUtilities::ReshapeStorage<ExecSpace>(
-            m_implInterleaveWidth, interleaveWidth, nelmt * ncomp,
-            inblock.GetNumData(), (TData *)inptr, m_streamID);
-
-        if (this->m_integration)
-        {
-            // IProduct kernel.
-            if (this->m_scale == 1.0)
-            {
-                constexpr bool Scale = false;
-
-                DEVICE_2DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTBase1DKernelLauncher<Implementation, Scale,
-                                                     Append, DEFORMED>),
-                    gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
-                    sizeParam1D, nelmt, m_B[0], m_W[0], m_jacptr, inptr, outptr,
-                    (TData)1.0);
-            }
-            else
-            {
-                constexpr bool Scale = true;
-
-                DEVICE_2DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTBase1DKernelLauncher<Implementation, Scale,
-                                                     Append, DEFORMED>),
-                    gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
-                    sizeParam1D, nelmt, m_B[0], m_W[0], m_jacptr, inptr, outptr,
-                    this->m_scale);
-            }
-        }
-        else
-        {
-            // IProduct kernel no quadrature
-            if (this->m_scale == 1.0)
-            {
-                constexpr bool Scale = false;
-
-                DEVICE_2DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTBase1DKernelLauncher<Implementation, Scale,
-                                                     Append>),
-                    gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
-                    sizeParam1D, nelmt, m_B[0], inptr, outptr, (TData)1.0);
-            }
-            else
-            {
-                constexpr bool Scale = true;
-
-                DEVICE_2DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTBase1DKernelLauncher<Implementation, Scale,
-                                                     Append>),
-                    gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
-                    sizeParam1D, nelmt, m_B[0], inptr, outptr, this->m_scale);
-            }
-        }
-
-        // Reshape back, if necessary.
-        LibUtilities::ReshapeStorage<ExecSpace>(
-            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
-            inblock.GetNumData(), (TData *)inptr, m_streamID);
-        LibUtilities::ReshapeStorage<ExecSpace>(
-            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
-            outblock.GetNumData(), outptr, m_streamID);
-
-        // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        OperatorND<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock, TemplatedSizeParameter1D<nm0, nq0>(),
+            std::make_integer_sequence<unsigned int, 1>(),
+            std::make_integer_sequence<unsigned int, 0>());
     }
 
     // Non-size based operator.
@@ -438,10 +345,12 @@ protected:
         const unsigned int nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, m_nm[0], m_nm[1]);
 
-        Operator2D<SHAPE_TYPE, DEFORMED>(
+        OperatorND<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
             NonTemplatedSizeParameter2D(m_nm[0], m_nm[1], nmTot, m_nq[0],
-                                        m_nq[1]));
+                                        m_nq[1]),
+            std::make_integer_sequence<unsigned int, 2>(),
+            std::make_integer_sequence<unsigned int, 1>());
     }
 
     // Size based template version.
@@ -455,118 +364,11 @@ protected:
         constexpr unsigned int nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
 
-        Operator2D<SHAPE_TYPE, DEFORMED>(
+        OperatorND<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
-            TemplatedSizeParameter2D<nm0, nm1, nmTot, nq0, nq1>());
-    }
-
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              typename TSizeParameter2D>
-    NEK_FORCE_INLINE void Operator2D(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock,
-        TSizeParameter2D sizeParam2D)
-    {
-        constexpr bool Append = false;
-
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
-        // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
-
-        // Get static workspace pointer.
-        const unsigned int ncomp =
-            inblock.GetNumComponents() * inblock.GetNumHomoModes();
-        auto wspSize = IProductWRTBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
-            nelmt, sizeParam2D);
-        auto wspptr =
-            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize * ncomp, m_streamID);
-
-        // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-
-        // Set Kernel parameters.
-        const unsigned int shmemsize =
-            sizeof(TData) *
-            IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
-                sizeParam2D);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(sizeParam2D.nmTot());
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
-
-        // Reshape, if necessary.
-        LibUtilities::ReshapeStorage<ExecSpace>(
-            m_implInterleaveWidth, interleaveWidth, nelmt * ncomp,
-            inblock.GetNumData(), (TData *)inptr, m_streamID);
-
-        if (this->m_integration)
-        {
-            // IProduct kernel.
-            if (this->m_scale == 1.0)
-            {
-                constexpr bool Scale = false;
-
-                DEVICE_2DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTBase2DKernelLauncher<SHAPE_TYPE, Implementation,
-                                                     Scale, Append, DEFORMED>),
-                    gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
-                    sizeParam2D, nelmt, m_isModified, m_index[0], m_B[0],
-                    m_B[1], m_W[0], m_W[1], m_nodToMod, m_jacptr, inptr, outptr,
-                    wspptr, (TData)1.0);
-            }
-            else
-            {
-                constexpr bool Scale = true;
-
-                DEVICE_2DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTBase2DKernelLauncher<SHAPE_TYPE, Implementation,
-                                                     Scale, Append, DEFORMED>),
-                    gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
-                    sizeParam2D, nelmt, m_isModified, m_index[0], m_B[0],
-                    m_B[1], m_W[0], m_W[1], m_nodToMod, m_jacptr, inptr, outptr,
-                    wspptr, this->m_scale);
-            }
-        }
-        else
-        {
-            // IProduct Kernel with no quadrature
-            if (this->m_scale == 1.0)
-            {
-                constexpr bool Scale = false;
-
-                DEVICE_2DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTBase2DKernelLauncher<SHAPE_TYPE, Implementation,
-                                                     Scale, Append>),
-                    gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
-                    sizeParam2D, nelmt, m_isModified, m_index[0], m_B[0],
-                    m_B[1], m_nodToMod, inptr, outptr, wspptr, (TData)1.0);
-            }
-            else
-            {
-                constexpr bool Scale = true;
-
-                DEVICE_2DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTBase2DKernelLauncher<SHAPE_TYPE, Implementation,
-                                                     Scale, Append>),
-                    gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
-                    sizeParam2D, nelmt, m_isModified, m_index[0], m_B[0],
-                    m_B[1], m_nodToMod, inptr, outptr, wspptr, this->m_scale);
-            }
-        }
-
-        // Reshape back, if necessary.
-        LibUtilities::ReshapeStorage<ExecSpace>(
-            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
-            inblock.GetNumData(), (TData *)inptr, m_streamID);
-        LibUtilities::ReshapeStorage<ExecSpace>(
-            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
-            outblock.GetNumData(), outptr, m_streamID);
-
-        // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+            TemplatedSizeParameter2D<nm0, nm1, nmTot, nq0, nq1>(),
+            std::make_integer_sequence<unsigned int, 2>(),
+            std::make_integer_sequence<unsigned int, 1>());
     }
 
     // Non-size based operator.
@@ -578,10 +380,12 @@ protected:
         const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(
             SHAPE_TYPE, m_nm[0], m_nm[1], m_nm[2]);
 
-        Operator3D<SHAPE_TYPE, DEFORMED>(
+        OperatorND<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
             NonTemplatedSizeParameter3D(m_nm[0], m_nm[1], m_nm[2], nmTot,
-                                        m_nq[0], m_nq[1], m_nq[2]));
+                                        m_nq[0], m_nq[1], m_nq[2]),
+            std::make_integer_sequence<unsigned int, 3>(),
+            std::make_integer_sequence<unsigned int, 3>());
     }
 
     // Size based template version.
@@ -595,17 +399,22 @@ protected:
         constexpr unsigned int nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
 
-        Operator3D<SHAPE_TYPE, DEFORMED>(
+        OperatorND<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
-            TemplatedSizeParameter3D<nm0, nm1, nm2, nmTot, nq0, nq1, nq2>());
+            TemplatedSizeParameter3D<nm0, nm1, nm2, nmTot, nq0, nq1, nq2>(),
+            std::make_integer_sequence<unsigned int, 3>(),
+            std::make_integer_sequence<unsigned int, 3>());
     }
 
+    // Generic operator implementation.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              typename TSizeParameter3D>
-    NEK_FORCE_INLINE void Operator3D(
+              typename TSizeParameter, unsigned int... ind0,
+              unsigned int... ind1>
+    NEK_FORCE_INLINE void OperatorND(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock,
-        TSizeParameter3D sizeParam3D)
+        TSizeParameter sizeParam, std::integer_sequence<unsigned int, ind0...>,
+        std::integer_sequence<unsigned int, ind1...>)
     {
         constexpr bool Append = false;
 
@@ -619,7 +428,7 @@ protected:
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
         auto wspSize = IProductWRTBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
-            nelmt, sizeParam3D);
+            nelmt, sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize * ncomp, m_streamID);
@@ -631,9 +440,9 @@ protected:
         const unsigned int shmemsize =
             sizeof(TData) *
             IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
-                sizeParam3D);
+                sizeParam);
         const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(sizeParam3D.nmTot());
+            GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
@@ -650,24 +459,24 @@ protected:
                 constexpr bool Scale = false;
 
                 DEVICE_2DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTBase3DKernelLauncher<SHAPE_TYPE, Implementation,
-                                                     Scale, Append, DEFORMED>),
+                    (IProductWRTBaseKernelLauncher<SHAPE_TYPE, Implementation,
+                                                   Scale, Append, DEFORMED>),
                     gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
-                    sizeParam3D, nelmt, m_isModified, m_index[0], m_index[1],
-                    m_index[2], m_B[0], m_B[1], m_B[2], m_W[0], m_W[1], m_W[2],
-                    m_nodToMod, m_jacptr, inptr, outptr, wspptr, (TData)1.0);
+                    sizeParam, nelmt, m_isModified, m_index[ind1]...,
+                    m_B[ind0]..., m_W[ind0]..., m_nodToMod, m_jacptr, inptr,
+                    outptr, wspptr, (TData)1.0);
             }
             else
             {
                 constexpr bool Scale = true;
 
                 DEVICE_2DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTBase3DKernelLauncher<SHAPE_TYPE, Implementation,
-                                                     Scale, Append, DEFORMED>),
+                    (IProductWRTBaseKernelLauncher<SHAPE_TYPE, Implementation,
+                                                   Scale, Append, DEFORMED>),
                     gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
-                    sizeParam3D, nelmt, m_isModified, m_index[0], m_index[1],
-                    m_index[2], m_B[0], m_B[1], m_B[2], m_W[0], m_W[1], m_W[2],
-                    m_nodToMod, m_jacptr, inptr, outptr, wspptr, this->m_scale);
+                    sizeParam, nelmt, m_isModified, m_index[ind1]...,
+                    m_B[ind0]..., m_W[ind0]..., m_nodToMod, m_jacptr, inptr,
+                    outptr, wspptr, this->m_scale);
             }
         }
         else
@@ -678,24 +487,24 @@ protected:
                 constexpr bool Scale = false;
 
                 DEVICE_2DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTBase3DKernelLauncher<SHAPE_TYPE, Implementation,
-                                                     Scale, Append>),
+                    (IProductWRTBaseKernelLauncher<SHAPE_TYPE, Implementation,
+                                                   Scale, Append>),
                     gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
-                    sizeParam3D, nelmt, m_isModified, m_index[0], m_index[1],
-                    m_index[2], m_B[0], m_B[1], m_B[2], m_nodToMod, inptr,
-                    outptr, wspptr, (TData)1.0);
+                    sizeParam, nelmt, m_isModified, m_index[ind1]...,
+                    m_B[ind0]..., m_nodToMod, inptr, outptr, wspptr,
+                    (TData)1.0);
             }
             else
             {
                 constexpr bool Scale = true;
 
                 DEVICE_2DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTBase3DKernelLauncher<SHAPE_TYPE, Implementation,
-                                                     Scale, Append>),
+                    (IProductWRTBaseKernelLauncher<SHAPE_TYPE, Implementation,
+                                                   Scale, Append>),
                     gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
-                    sizeParam3D, nelmt, m_isModified, m_index[0], m_index[1],
-                    m_index[2], m_B[0], m_B[1], m_B[2], m_nodToMod, inptr,
-                    outptr, wspptr, this->m_scale);
+                    sizeParam, nelmt, m_isModified, m_index[ind1]...,
+                    m_B[ind0]..., m_nodToMod, inptr, outptr, wspptr,
+                    this->m_scale);
             }
         }
 

@@ -80,10 +80,6 @@ public:
             m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 LibUtilities::BasisDataKey<TData>(
                     exp->GetBasis(d)->GetBasisKey(), LibUtilities::eBasis)));
-            m_DB.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                LibUtilities::BasisDataKey<TData>(
-                    exp->GetBasis(d)->GetBasisKey(),
-                    LibUtilities::eBasisDerivative)));
             m_D.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 LibUtilities::BasisDataKey<TData>(
                     exp->GetBasis(d)->GetBasisKey(),
@@ -234,7 +230,6 @@ protected:
     std::vector<unsigned int> m_nm;
     std::vector<unsigned int> m_nq;
     std::vector<const TData *> m_B;
-    std::vector<const TData *> m_DB;
     std::vector<const TData *> m_D;
     std::vector<const TData *> m_W;
     std::vector<const TData *> m_f;
@@ -355,17 +350,23 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
-        Operator1D<SHAPE_TYPE, DEFORMED>(
-            inblock, outblock, NonTemplatedSizeParameter1D(m_nm[0], m_nq[0]));
+        OperatorND<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock, NonTemplatedSizeParameter1D(m_nm[0], m_nq[0]),
+            std::make_integer_sequence<unsigned int, 1>(),
+            std::make_integer_sequence<unsigned int, 0>(),
+            std::make_integer_sequence<unsigned int, 0>());
     }
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator1D(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
-        Operator1D<SHAPE_TYPE, DEFORMED>(
+        OperatorND<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
-            NonTemplatedPhysSizeParameter1D(m_coordDim, m_nq[0]));
+            NonTemplatedPhysSizeParameter1D(m_coordDim, m_nq[0]),
+            std::make_integer_sequence<unsigned int, 1>(),
+            std::make_integer_sequence<unsigned int, 0>(),
+            std::make_integer_sequence<unsigned int, 0>());
     }
 
     // Size based template version.
@@ -375,8 +376,11 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
-        Operator1D<SHAPE_TYPE, DEFORMED>(inblock, outblock,
-                                         TemplatedSizeParameter1D<nm0, nq0>());
+        OperatorND<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock, TemplatedSizeParameter1D<nm0, nq0>(),
+            std::make_integer_sequence<unsigned int, 1>(),
+            std::make_integer_sequence<unsigned int, 0>(),
+            std::make_integer_sequence<unsigned int, 0>());
     }
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               unsigned int coordDim, unsigned int nq0>
@@ -384,125 +388,11 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
-        Operator1D<SHAPE_TYPE, DEFORMED>(
-            inblock, outblock, TemplatedPhysSizeParameter1D<coordDim, nq0>());
-    }
-
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              typename TSizeParameter1D>
-    NEK_FORCE_INLINE void Operator1D(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, TFieldOut> &outblock,
-        TSizeParameter1D sizeParam1D)
-    {
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
-        // Initialize pointers.
-        auto inptr = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
-        auto outptr =
-            (this->m_append)
-                ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
-                : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
-
-        // Get static workspace pointer.
-        const unsigned int ncomp =
-            outblock.GetNumComponents() * outblock.GetNumHomoModes();
-        const size_t wspSize =
-            IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                nelmt, sizeParam1D);
-        auto wspptr =
-            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize * ncomp, m_streamID);
-
-        // Get interleave parameter.
-        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
-        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
-
-        // Set Kernel parameters.
-        const unsigned int shmemsize =
-            sizeof(TData) *
-            IProductWRTDerivBaseSharedMemorySize<Implementation>(sizeParam1D);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(sizeParam1D.nq0());
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
-
-        // Loop over components.
-        const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
-        LibUtilities::ReshapeStorage<ExecSpace>(
-            m_implInterleaveWidth, inInterleaveWidth,
-            nelmt * ncomp * m_coordDim, inblock.GetNumData(), (TData *)inptr,
-            m_streamID);
-
-        // IProduct kernel.
-        if constexpr (TFieldOut == FieldState::Phys)
-        {
-            if (this->m_append)
-            {
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    m_implInterleaveWidth, outInterleaveWidth, nelmt * ncomp,
-                    outblock.GetNumData(), (TData *)outptr, m_streamID);
-
-                DEVICE_3DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTDerivBasePhys1DKernelLauncher<Implementation,
-                                                              true, DEFORMED>),
-                    gridsize, outblock.GetNumHomoModes(),
-                    outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
-                    m_streamID, sizeParam1D, nelmt, inoffset, m_D[0], m_W[0],
-                    m_dfptr, m_jacptr, inptr, outptr, wspptr, this->m_scale);
-            }
-            else
-            {
-                DEVICE_3DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTDerivBasePhys1DKernelLauncher<Implementation,
-                                                              false, DEFORMED>),
-                    gridsize, outblock.GetNumHomoModes(),
-                    outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
-                    m_streamID, sizeParam1D, nelmt, inoffset, m_D[0], m_W[0],
-                    m_dfptr, m_jacptr, inptr, outptr, wspptr, this->m_scale);
-            }
-        }
-        else // coeff version
-        {
-            if (this->m_append)
-            {
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    m_implInterleaveWidth, outInterleaveWidth, nelmt * ncomp,
-                    outblock.GetNumData(), (TData *)outptr, m_streamID);
-
-                DEVICE_3DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTDerivBase1DKernelLauncher<Implementation, true,
-                                                          DEFORMED>),
-                    gridsize, outblock.GetNumHomoModes(),
-                    outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
-                    m_streamID, sizeParam1D, m_coordDim, nelmt, inoffset,
-                    m_DB[0], m_W[0], m_dfptr, m_jacptr, inptr, outptr, wspptr,
-                    this->m_scale);
-            }
-            else
-            {
-                DEVICE_3DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTDerivBase1DKernelLauncher<Implementation, false,
-                                                          DEFORMED>),
-                    gridsize, outblock.GetNumHomoModes(),
-                    outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
-                    m_streamID, sizeParam1D, m_coordDim, nelmt, inoffset,
-                    m_DB[0], m_W[0], m_dfptr, m_jacptr, inptr, outptr, wspptr,
-                    this->m_scale);
-            }
-        }
-
-        // Reshape back, if necessary.
-        LibUtilities::ReshapeStorage<ExecSpace>(
-            inInterleaveWidth, m_implInterleaveWidth,
-            nelmt * ncomp * m_coordDim, inblock.GetNumData(), (TData *)inptr,
-            m_streamID);
-        LibUtilities::ReshapeStorage<ExecSpace>(
-            inInterleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
-            outblock.GetNumData(), outptr, m_streamID);
-
-        // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
+        OperatorND<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock, TemplatedPhysSizeParameter1D<coordDim, nq0>(),
+            std::make_integer_sequence<unsigned int, 1>(),
+            std::make_integer_sequence<unsigned int, 0>(),
+            std::make_integer_sequence<unsigned int, 0>());
     }
 
     // Non-size based operator.
@@ -514,19 +404,25 @@ protected:
         const unsigned int nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, m_nm[0], m_nm[1]);
 
-        Operator2D<SHAPE_TYPE, DEFORMED>(
+        OperatorND<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
             NonTemplatedSizeParameter2D(m_nm[0], m_nm[1], nmTot, m_nq[0],
-                                        m_nq[1]));
+                                        m_nq[1]),
+            std::make_integer_sequence<unsigned int, 2>(),
+            std::make_integer_sequence<unsigned int, 1>(),
+            std::make_integer_sequence<unsigned int, 2>());
     }
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator2D(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
-        Operator2D<SHAPE_TYPE, DEFORMED>(
+        OperatorND<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
-            NonTemplatedPhysSizeParameter2D(m_coordDim, m_nq[0], m_nq[1]));
+            NonTemplatedPhysSizeParameter2D(m_coordDim, m_nq[0], m_nq[1]),
+            std::make_integer_sequence<unsigned int, 2>(),
+            std::make_integer_sequence<unsigned int, 1>(),
+            std::make_integer_sequence<unsigned int, 2>());
     }
 
     // Size based template version.
@@ -540,9 +436,12 @@ protected:
         constexpr unsigned int nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
 
-        Operator2D<SHAPE_TYPE, DEFORMED>(
+        OperatorND<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
-            TemplatedSizeParameter2D<nm0, nm1, nmTot, nq0, nq1>());
+            TemplatedSizeParameter2D<nm0, nm1, nmTot, nq0, nq1>(),
+            std::make_integer_sequence<unsigned int, 2>(),
+            std::make_integer_sequence<unsigned int, 1>(),
+            std::make_integer_sequence<unsigned int, 2>());
     }
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               unsigned int coordDim, unsigned int nq0, unsigned int nq1>
@@ -550,17 +449,85 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
-        Operator2D<SHAPE_TYPE, DEFORMED>(
+        OperatorND<SHAPE_TYPE, DEFORMED>(
             inblock, outblock,
-            TemplatedPhysSizeParameter2D<coordDim, nq0, nq1>());
+            TemplatedPhysSizeParameter2D<coordDim, nq0, nq1>(),
+            std::make_integer_sequence<unsigned int, 2>(),
+            std::make_integer_sequence<unsigned int, 1>(),
+            std::make_integer_sequence<unsigned int, 2>());
     }
 
+    // Non-size based operator.
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
+    void Operator3D(
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
+    {
+        const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(
+            SHAPE_TYPE, m_nm[0], m_nm[1], m_nm[2]);
+
+        OperatorND<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock,
+            NonTemplatedSizeParameter3D(m_nm[0], m_nm[1], m_nm[2], nmTot,
+                                        m_nq[0], m_nq[1], m_nq[2]),
+            std::make_integer_sequence<unsigned int, 3>(),
+            std::make_integer_sequence<unsigned int, 3>(),
+            std::make_integer_sequence<unsigned int, 4>());
+    }
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
+    void Operator3D(
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
+    {
+        OperatorND<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock,
+            NonTemplatedPhysSizeParameter3D(m_nq[0], m_nq[1], m_nq[2]),
+            std::make_integer_sequence<unsigned int, 3>(),
+            std::make_integer_sequence<unsigned int, 3>(),
+            std::make_integer_sequence<unsigned int, 4>());
+    }
+
+    // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              typename TSizeParameter2D>
-    NEK_FORCE_INLINE void Operator2D(
+              unsigned int nm0, unsigned int nm1, unsigned int nm2,
+              unsigned int nq0, unsigned int nq1, unsigned int nq2>
+    void Operator3D(
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
+    {
+        constexpr unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+
+        OperatorND<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock,
+            TemplatedSizeParameter3D<nm0, nm1, nm2, nmTot, nq0, nq1, nq2>(),
+            std::make_integer_sequence<unsigned int, 3>(),
+            std::make_integer_sequence<unsigned int, 3>(),
+            std::make_integer_sequence<unsigned int, 4>());
+    }
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              unsigned int nq0, unsigned int nq1, unsigned int nq2>
+    void Operator3D(
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
+    {
+        OperatorND<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock, TemplatedPhysSizeParameter3D<nq0, nq1, nq2>(),
+            std::make_integer_sequence<unsigned int, 3>(),
+            std::make_integer_sequence<unsigned int, 3>(),
+            std::make_integer_sequence<unsigned int, 4>());
+    }
+
+    // Generic operator implementation.
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              typename TSizeParameter, unsigned int... ind0,
+              unsigned int... ind1, unsigned int... ind2>
+    NEK_FORCE_INLINE void OperatorND(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, TFieldOut> &outblock,
-        TSizeParameter2D sizeParam2D)
+        TSizeParameter sizeParam, std::integer_sequence<unsigned int, ind0...>,
+        std::integer_sequence<unsigned int, ind1...>,
+        std::integer_sequence<unsigned int, ind2...>)
     {
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
@@ -576,7 +543,7 @@ protected:
             outblock.GetNumComponents() * outblock.GetNumHomoModes();
         const size_t wspSize =
             IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                nelmt, sizeParam2D);
+                nelmt, sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize * ncomp, m_streamID);
@@ -589,17 +556,16 @@ protected:
         const unsigned int shmemsize =
             sizeof(TData) *
             IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
-                sizeParam2D);
+                sizeParam);
         unsigned int blocksize;
         if constexpr (TFieldOut == FieldState::Phys)
         {
-            blocksize = GetDeviceBlockSize<Implementation>(sizeParam2D.nqTot());
+            blocksize = GetDeviceBlockSize<Implementation>(sizeParam.nqTot());
         }
         else
         {
-            blocksize = GetDeviceBlockSize<Implementation>(sizeParam2D.nmTot());
+            blocksize = GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
         }
-
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
@@ -620,27 +586,27 @@ protected:
                     outblock.GetNumData(), (TData *)outptr, m_streamID);
 
                 DEVICE_3DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTDerivBasePhys2DKernelLauncher<
+                    (IProductWRTDerivBasePhysKernelLauncher<
                         SHAPE_TYPE, Implementation, true, DEFORMED>),
                     gridsize, outblock.GetNumHomoModes(),
                     outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
-                    m_streamID, sizeParam2D, nelmt, inoffset, m_D[0], m_D[1],
-                    m_W[0], m_W[1], m_f[0], m_f[1], m_dfptr, m_jacptr, inptr,
+                    m_streamID, sizeParam, nelmt, inoffset, m_D[ind0]...,
+                    m_W[ind0]..., m_f[ind2]..., m_dfptr, m_jacptr, inptr,
                     outptr, wspptr, this->m_scale);
             }
             else
             {
                 DEVICE_3DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTDerivBasePhys2DKernelLauncher<
+                    (IProductWRTDerivBasePhysKernelLauncher<
                         SHAPE_TYPE, Implementation, false, DEFORMED>),
                     gridsize, outblock.GetNumHomoModes(),
                     outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
-                    m_streamID, sizeParam2D, nelmt, inoffset, m_D[0], m_D[1],
-                    m_W[0], m_W[1], m_f[0], m_f[1], m_dfptr, m_jacptr, inptr,
+                    m_streamID, sizeParam, nelmt, inoffset, m_D[ind0]...,
+                    m_W[ind0]..., m_f[ind2]..., m_dfptr, m_jacptr, inptr,
                     outptr, wspptr, this->m_scale);
             }
         }
-        else
+        else // coeff version
         {
             // IProduct kernel.
             if (this->m_append)
@@ -650,211 +616,30 @@ protected:
                     outblock.GetNumData(), (TData *)outptr, m_streamID);
 
                 DEVICE_3DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTDerivBase2DKernelLauncher<
+                    (IProductWRTDerivBaseKernelLauncher<
                         SHAPE_TYPE, Implementation, true, DEFORMED>),
                     gridsize, outblock.GetNumHomoModes(),
                     outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
-                    m_streamID, sizeParam2D, m_coordDim, nelmt, inoffset,
-                    m_isModified, m_index[0], m_B[0], m_B[1], m_D[0], m_D[1],
-                    m_W[0], m_W[1], m_f[0], m_f[1], m_nodToMod, m_dfptr,
-                    m_jacptr, inptr, outptr, wspptr, this->m_scale);
+                    m_streamID, sizeParam, m_coordDim, nelmt, inoffset,
+                    m_isModified, m_index[ind1]..., m_B[ind0]..., m_D[ind0]...,
+                    m_W[ind0]..., m_f[ind2]..., m_nodToMod, m_dfptr, m_jacptr,
+                    inptr, outptr, wspptr, this->m_scale);
             }
             else
             {
                 DEVICE_3DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTDerivBase2DKernelLauncher<
+                    (IProductWRTDerivBaseKernelLauncher<
                         SHAPE_TYPE, Implementation, false, DEFORMED>),
                     gridsize, outblock.GetNumHomoModes(),
                     outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
-                    m_streamID, sizeParam2D, m_coordDim, nelmt, inoffset,
-                    m_isModified, m_index[0], m_B[0], m_B[1], m_D[0], m_D[1],
-                    m_W[0], m_W[1], m_f[0], m_f[1], m_nodToMod, m_dfptr,
-                    m_jacptr, inptr, outptr, wspptr, this->m_scale);
+                    m_streamID, sizeParam, m_coordDim, nelmt, inoffset,
+                    m_isModified, m_index[ind1]..., m_B[ind0]..., m_D[ind0]...,
+                    m_W[ind0]..., m_f[ind2]..., m_nodToMod, m_dfptr, m_jacptr,
+                    inptr, outptr, wspptr, this->m_scale);
             }
         }
 
         // Reshape back, if necessary.
-        LibUtilities::ReshapeStorage<ExecSpace>(
-            inInterleaveWidth, m_implInterleaveWidth,
-            nelmt * ncomp * m_coordDim, inblock.GetNumData(), (TData *)inptr,
-            m_streamID);
-        LibUtilities::ReshapeStorage<ExecSpace>(
-            inInterleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
-            outblock.GetNumData(), outptr, m_streamID);
-
-        // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
-    }
-
-    // Non-size based operator.
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator3D(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
-    {
-        const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(
-            SHAPE_TYPE, m_nm[0], m_nm[1], m_nm[2]);
-
-        Operator3D<SHAPE_TYPE, DEFORMED>(
-            inblock, outblock,
-            NonTemplatedSizeParameter3D(m_nm[0], m_nm[1], m_nm[2], nmTot,
-                                        m_nq[0], m_nq[1], m_nq[2]));
-    }
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator3D(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
-    {
-        Operator3D<SHAPE_TYPE, DEFORMED>(
-            inblock, outblock,
-            NonTemplatedPhysSizeParameter3D(m_nq[0], m_nq[1], m_nq[2]));
-    }
-
-    // Size based template version.
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              unsigned int nm0, unsigned int nm1, unsigned int nm2,
-              unsigned int nq0, unsigned int nq1, unsigned int nq2>
-    void Operator3D(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
-    {
-        constexpr unsigned int nmTot =
-            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
-
-        Operator3D<SHAPE_TYPE, DEFORMED>(
-            inblock, outblock,
-            TemplatedSizeParameter3D<nm0, nm1, nm2, nmTot, nq0, nq1, nq2>());
-    }
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              unsigned int nq0, unsigned int nq1, unsigned int nq2>
-    void Operator3D(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
-    {
-        Operator3D<SHAPE_TYPE, DEFORMED>(
-            inblock, outblock, TemplatedPhysSizeParameter3D<nq0, nq1, nq2>());
-    }
-
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              typename TSizeParameter3D>
-    NEK_FORCE_INLINE void Operator3D(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, TFieldOut> &outblock,
-        TSizeParameter3D sizeParam3D)
-    {
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
-        // Initialize pointers.
-        auto inptr = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
-        auto outptr =
-            (this->m_append)
-                ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
-                : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
-
-        // Get static workspace pointer.
-        const unsigned int ncomp =
-            outblock.GetNumComponents() * outblock.GetNumHomoModes();
-        const size_t wspSize =
-            IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                nelmt, sizeParam3D);
-        auto wspptr =
-            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize * ncomp, m_streamID);
-
-        // Get interleave parameter.
-        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
-        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
-
-        // Set Kernel parameters.
-        const unsigned int shmemsize =
-            sizeof(TData) *
-            IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
-                sizeParam3D);
-        unsigned int blocksize;
-        if constexpr (TFieldOut == FieldState::Phys)
-        {
-            blocksize = GetDeviceBlockSize<Implementation>(sizeParam3D.nqTot());
-        }
-        else
-        {
-            blocksize = GetDeviceBlockSize<Implementation>(sizeParam3D.nmTot());
-        }
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
-
-        const auto inoffset = inblock.CompSize();
-        LibUtilities::ReshapeStorage<ExecSpace>(
-            m_implInterleaveWidth, inInterleaveWidth,
-            nelmt * ncomp * m_coordDim, inblock.GetNumData(), (TData *)inptr,
-            m_streamID);
-
-        if constexpr (TFieldOut == FieldState::Phys)
-        {
-            // IProduct kernel.
-            if (this->m_append)
-            {
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    m_implInterleaveWidth, outInterleaveWidth, nelmt * ncomp,
-                    outblock.GetNumData(), (TData *)outptr, m_streamID);
-
-                DEVICE_3DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTDerivBasePhys3DKernelLauncher<
-                        SHAPE_TYPE, Implementation, true, DEFORMED>),
-                    gridsize, outblock.GetNumHomoModes(),
-                    outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
-                    m_streamID, sizeParam3D, nelmt, inoffset, m_D[0], m_D[1],
-                    m_D[2], m_W[0], m_W[1], m_W[2], m_f[0], m_f[1], m_f[2],
-                    m_f[3], m_dfptr, m_jacptr, inptr, outptr, wspptr,
-                    this->m_scale);
-            }
-            else
-            {
-                DEVICE_3DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTDerivBasePhys3DKernelLauncher<
-                        SHAPE_TYPE, Implementation, false, DEFORMED>),
-                    gridsize, outblock.GetNumHomoModes(),
-                    outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
-                    m_streamID, sizeParam3D, nelmt, inoffset, m_D[0], m_D[1],
-                    m_D[2], m_W[0], m_W[1], m_W[2], m_f[0], m_f[1], m_f[2],
-                    m_f[3], m_dfptr, m_jacptr, inptr, outptr, wspptr,
-                    this->m_scale);
-            }
-        }
-        else
-        {
-            // IProduct kernel.
-            if (this->m_append)
-            {
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    m_implInterleaveWidth, outInterleaveWidth, nelmt * ncomp,
-                    outblock.GetNumData(), (TData *)outptr, m_streamID);
-
-                DEVICE_3DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTDerivBase3DKernelLauncher<
-                        SHAPE_TYPE, Implementation, true, DEFORMED>),
-                    gridsize, outblock.GetNumHomoModes(),
-                    outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
-                    m_streamID, sizeParam3D, nelmt, inoffset, m_isModified,
-                    m_index[0], m_index[1], m_index[2], m_B[0], m_B[1], m_B[2],
-                    m_D[0], m_D[1], m_D[2], m_W[0], m_W[1], m_W[2], m_f[0],
-                    m_f[1], m_f[2], m_f[3], m_nodToMod, m_dfptr, m_jacptr,
-                    inptr, outptr, wspptr, this->m_scale);
-            }
-            else
-            {
-                DEVICE_3DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTDerivBase3DKernelLauncher<
-                        SHAPE_TYPE, Implementation, false, DEFORMED>),
-                    gridsize, outblock.GetNumHomoModes(),
-                    outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
-                    m_streamID, sizeParam3D, nelmt, inoffset, m_isModified,
-                    m_index[0], m_index[1], m_index[2], m_B[0], m_B[1], m_B[2],
-                    m_D[0], m_D[1], m_D[2], m_W[0], m_W[1], m_W[2], m_f[0],
-                    m_f[1], m_f[2], m_f[3], m_nodToMod, m_dfptr, m_jacptr,
-                    inptr, outptr, wspptr, this->m_scale);
-            }
-        }
-
         LibUtilities::ReshapeStorage<ExecSpace>(
             inInterleaveWidth, m_implInterleaveWidth,
             nelmt * ncomp * m_coordDim, inblock.GetNumData(), (TData *)inptr,

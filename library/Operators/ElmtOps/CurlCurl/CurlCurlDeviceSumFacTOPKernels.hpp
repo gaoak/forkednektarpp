@@ -49,6 +49,18 @@ namespace Nektar::Operators::detail
 // The two curls of the curl-curl operator are fused into a single kernel, so
 // shared memory holds the input components as well as the intermediate omega.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TPhysSizeParameter1D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
+                               IsPhysSizeParameter1D_v<TPhysSizeParameter1D>,
+                           bool>
+              Enable = true>
+inline constexpr unsigned int CurlCurlSharedMemorySize(
+    [[maybe_unused]] const TPhysSizeParameter1D sizeParam1D)
+{
+    return 0;
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TPhysSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
@@ -379,15 +391,17 @@ NEK_DEVICE_INLINE static void Curl3DSumFacTOPKernel(
 // The curl-curl operator is not defined in one dimension. The launcher is
 // only instantiated so that the segment block operator compiles, and simply
 // evaluates the derivative in the first direction.
-template <typename Implementation, bool DEFORMED, typename TPhysSizeParameter1D,
-          typename TthreadBlock, typename TData,
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TPhysSizeParameter1D, typename TthreadBlock,
+          typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
-NEK_DEVICE_KERNEL void CurlCurl1DKernelLauncher(
+NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
     const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
     [[maybe_unused]] const size_t inoffset, const TData *NEK_RESTRICT D0,
     const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, const TthreadBlock &threadBlock)
+    [[maybe_unused]] TData *NEK_RESTRICT wsp, TData *NEK_RESTRICT out,
+    [[maybe_unused]] unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter1D_v<TPhysSizeParameter1D>,
@@ -420,7 +434,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
-NEK_DEVICE_KERNEL void CurlCurl2DKernelLauncher(
+NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
     const size_t inoffset, const TData *NEK_RESTRICT D0,
     const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
@@ -486,7 +500,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
-NEK_DEVICE_KERNEL void CurlCurl3DKernelLauncher(
+NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
     const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
     const size_t inoffset, const TData *NEK_RESTRICT D0,
     const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
