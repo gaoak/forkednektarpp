@@ -574,6 +574,7 @@ template <typename T> struct IsSizeParameter3D
 template <typename T>
 inline constexpr bool IsSizeParameter3D_v = IsSizeParameter3D<T>::value;
 
+#if defined(NEKTAR_ENABLE_DEVICE)
 template <typename Implementation, typename TSizeParameter>
 static constexpr unsigned int GetMaxThreadPerBlock(void)
 {
@@ -607,5 +608,6 @@ static constexpr unsigned int GetMaxThreadPerBlock(void)
         return 0;
     }
 }
+#endif
 
 } // namespace Nektar::Operators::detail

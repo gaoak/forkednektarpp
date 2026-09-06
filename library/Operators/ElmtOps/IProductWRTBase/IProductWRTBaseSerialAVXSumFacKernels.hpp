@@ -36,6 +36,8 @@
 
 #include "StdRegions/Operators/IProductWRTBaseSumFacStdKernels.hpp"
 
+#include <Operators/ElmtOps/ElmtHelper.hpp>
+
 namespace Nektar::Operators::detail
 {
 
@@ -99,33 +101,48 @@ NEK_FORCE_INLINE static void IProduct3DWorkspace(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
-          bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE static void IProduct1DKernel(
-    const unsigned int nm0, const unsigned int nq0, const simd_type *in,
-    const typename simd_type::scalarType *B0,
-    const typename simd_type::scalarType *w0, const simd_type *jac,
+          bool DEFORMED, typename TSizeParameter1D, typename simd_type>
+NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
+    const TSizeParameter1D sizeParam1D, [[maybe_unused]] const bool isModified,
+    const simd_type *in, const typename simd_type::scalarType *B0,
+    const typename simd_type::scalarType *w0,
+    [[maybe_unused]] const simd_type *NtoMTrans, const simd_type *jac,
     simd_type *out, typename simd_type::scalarType scale = 1.0)
 {
+    static_assert(IsSizeParameter1D_v<TSizeParameter1D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter1D or TemplatedSizeParameter1D.");
+
+    const unsigned int nm0 = sizeParam1D.nm0();
+    const unsigned int nq0 = sizeParam1D.nq0();
+
     IProductSegKernel<SCALE, APPEND, DEFORMED>(nm0, nq0, in, B0, w0, jac, out,
                                                scale);
 }
 
 // inner product without quadrature metric wJ
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
-          bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE static void IProduct1DKernel(
-    const unsigned int nm0, const unsigned int nq0, const simd_type *in,
-    const typename simd_type::scalarType *B0, simd_type *out,
+          typename TSizeParameter1D, typename simd_type>
+NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
+    const TSizeParameter1D sizeParam1D, [[maybe_unused]] const bool isModified,
+    const simd_type *in, const typename simd_type::scalarType *B0,
+    [[maybe_unused]] const simd_type *NtoMTrans, simd_type *out,
     typename simd_type::scalarType scale = 1.0)
 {
+    static_assert(IsSizeParameter1D_v<TSizeParameter1D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter1D or TemplatedSizeParameter1D.");
+
+    const unsigned int nm0 = sizeParam1D.nm0();
+    const unsigned int nq0 = sizeParam1D.nq0();
+
     IProductSegKernel<SCALE, APPEND>(nm0, nq0, in, B0, out, scale);
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
-          bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE static void IProduct2DKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
-    const unsigned int nq1, [[maybe_unused]] const bool isModified,
+          bool DEFORMED, typename TSizeParameter2D, typename simd_type>
+NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
+    const TSizeParameter2D sizeParam2D, [[maybe_unused]] const bool isModified,
     const simd_type *in, const typename simd_type::scalarType *B0,
     const typename simd_type::scalarType *B1,
     const typename simd_type::scalarType *w0,
@@ -133,9 +150,18 @@ NEK_FORCE_INLINE static void IProduct2DKernel(
     [[maybe_unused]] const simd_type *NtoMTrans, const simd_type *jac,
     simd_type *wsp0, simd_type *out, typename simd_type::scalarType scale = 1.0)
 {
+    static_assert(IsSizeParameter2D_v<TSizeParameter2D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter2D or TemplatedSizeParameter2D.");
+
+    const unsigned int nm0                    = sizeParam2D.nm0();
+    const unsigned int nm1                    = sizeParam2D.nm1();
+    [[maybe_unused]] const unsigned int nmTot = sizeParam2D.nmTot();
+    const unsigned int nq0                    = sizeParam2D.nq0();
+    const unsigned int nq1                    = sizeParam2D.nq1();
+
     if constexpr (SHAPE_TYPE == LibUtilities::eNodalTri)
     {
-        const auto nmTot  = nm0 * (nm0 + 1) / 2;
         simd_type *outtmp = wsp0 + nq1;
 
         IProductTriKernel<SCALE, APPEND, DEFORMED>(
@@ -158,19 +184,27 @@ NEK_FORCE_INLINE static void IProduct2DKernel(
 
 // inner product without quadrature metric wJ
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
-          typename simd_type>
-NEK_FORCE_INLINE static void IProduct2DKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
-    const unsigned int nq1, [[maybe_unused]] const bool isModified,
+          typename TSizeParameter2D, typename simd_type>
+NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
+    const TSizeParameter2D sizeParam2D, [[maybe_unused]] const bool isModified,
     const simd_type *in, const typename simd_type::scalarType *B0,
     const typename simd_type::scalarType *B1,
     [[maybe_unused]] const simd_type *NtoMTrans, simd_type *wsp0,
     simd_type *out, typename simd_type::scalarType scale = 1.0)
 
 {
+    static_assert(IsSizeParameter2D_v<TSizeParameter2D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter2D or TemplatedSizeParameter2D.");
+
+    const unsigned int nm0                    = sizeParam2D.nm0();
+    const unsigned int nm1                    = sizeParam2D.nm1();
+    [[maybe_unused]] const unsigned int nmTot = sizeParam2D.nmTot();
+    const unsigned int nq0                    = sizeParam2D.nq0();
+    const unsigned int nq1                    = sizeParam2D.nq1();
+
     if constexpr (SHAPE_TYPE == LibUtilities::eNodalTri)
     {
-        const auto nmTot  = nm0 * (nm0 + 1) / 2;
         simd_type *outtmp = wsp0 + nq1;
 
         IProductTriKernel<SCALE, APPEND, simd_type>(
@@ -190,12 +224,10 @@ NEK_FORCE_INLINE static void IProduct2DKernel(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
-          bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE static void IProduct3DKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    [[maybe_unused]] const bool isModified, const simd_type *in,
-    const typename simd_type::scalarType *B0,
+          bool DEFORMED, typename TSizeParameter3D, typename simd_type>
+NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
+    const TSizeParameter3D sizeParam3D, [[maybe_unused]] const bool isModified,
+    const simd_type *in, const typename simd_type::scalarType *B0,
     const typename simd_type::scalarType *B1,
     const typename simd_type::scalarType *B2,
     const typename simd_type::scalarType *w0,
@@ -206,6 +238,17 @@ NEK_FORCE_INLINE static void IProduct3DKernel(
     simd_type *out, typename simd_type::scalarType scale = 1.0)
 
 {
+    static_assert(IsSizeParameter3D_v<TSizeParameter3D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter3D or TemplatedSizeParameter3D.");
+
+    const unsigned int nm0                    = sizeParam3D.nm0();
+    const unsigned int nm1                    = sizeParam3D.nm1();
+    const unsigned int nm2                    = sizeParam3D.nm2();
+    [[maybe_unused]] const unsigned int nmTot = sizeParam3D.nmTot();
+    const unsigned int nq0                    = sizeParam3D.nq0();
+    const unsigned int nq1                    = sizeParam3D.nq1();
+    const unsigned int nq2                    = sizeParam3D.nq2();
     if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
     {
         IProductHexKernel<SCALE, APPEND, DEFORMED>(nm0, nm1, nm2, nq0, nq1, nq2,
@@ -220,7 +263,6 @@ NEK_FORCE_INLINE static void IProduct3DKernel(
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::eNodalTet)
     {
-        const auto nmTot  = nm0 * (nm0 + 1) * (nm0 + 2) / 6;
         simd_type *outtmp = wsp0 + nq1 * nq2;
 
         IProductTetKernel<SCALE, APPEND, DEFORMED>(
@@ -236,7 +278,6 @@ NEK_FORCE_INLINE static void IProduct3DKernel(
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::eNodalPrism)
     {
-        const auto nmTot  = nm0 * nm0 * (nm0 + 1) / 2;
         simd_type *outtmp = wsp0 + nq1 * nq2;
 
         IProductPrismKernel<SCALE, APPEND, DEFORMED>(
@@ -254,18 +295,27 @@ NEK_FORCE_INLINE static void IProduct3DKernel(
 
 // inner product without quadrature metric wJ
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
-          typename simd_type>
-NEK_FORCE_INLINE static void IProduct3DKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    [[maybe_unused]] const bool isModified, const simd_type *in,
-    const typename simd_type::scalarType *B0,
+          typename TSizeParameter3D, typename simd_type>
+NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
+    const TSizeParameter3D sizeParam3D, [[maybe_unused]] const bool isModified,
+    const simd_type *in, const typename simd_type::scalarType *B0,
     const typename simd_type::scalarType *B1,
     const typename simd_type::scalarType *B2,
     [[maybe_unused]] const simd_type *NtoMTrans, simd_type *wsp0,
     simd_type *wsp1, [[maybe_unused]] simd_type *wsp2, simd_type *out,
     typename simd_type::scalarType scale = 1.0)
 {
+    static_assert(IsSizeParameter3D_v<TSizeParameter3D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter3D or TemplatedSizeParameter3D.");
+
+    const unsigned int nm0                    = sizeParam3D.nm0();
+    const unsigned int nm1                    = sizeParam3D.nm1();
+    const unsigned int nm2                    = sizeParam3D.nm2();
+    [[maybe_unused]] const unsigned int nmTot = sizeParam3D.nmTot();
+    const unsigned int nq0                    = sizeParam3D.nq0();
+    const unsigned int nq1                    = sizeParam3D.nq1();
+    const unsigned int nq2                    = sizeParam3D.nq2();
     if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
     {
         IProductHexKernel<SCALE, APPEND, simd_type>(nm0, nm1, nm2, nq0, nq1,
@@ -280,7 +330,6 @@ NEK_FORCE_INLINE static void IProduct3DKernel(
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::eNodalTet)
     {
-        const auto nmTot  = nm0 * (nm0 + 1) * (nm0 + 2) / 6;
         simd_type *outtmp = wsp0 + nq1 * nq2;
 
         IProductTetKernel<SCALE, APPEND, simd_type>(
@@ -296,7 +345,6 @@ NEK_FORCE_INLINE static void IProduct3DKernel(
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::eNodalPrism)
     {
-        const auto nmTot  = nm0 * nm0 * (nm0 + 1) / 2;
         simd_type *outtmp = wsp0 + nq1 * nq2;
 
         IProductPrismKernel<SCALE, APPEND, simd_type>(

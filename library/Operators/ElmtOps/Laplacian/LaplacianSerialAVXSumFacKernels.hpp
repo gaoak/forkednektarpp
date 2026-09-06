@@ -1815,4 +1815,141 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJ3DKernel(
     }
 }
 
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+          typename TSizeParameter1D, typename simd_type>
+NEK_FORCE_INLINE static void LaplacianKernelLauncher(
+    const TSizeParameter1D sizeParam1D, const bool isModified,
+    const unsigned int ncoord, const typename simd_type::scalarType *diffCoeff,
+    const std::vector<typename simd_type::scalarType> &nullVec,
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *D0,
+    const typename simd_type::scalarType *w0, const simd_type *NtoM,
+    const simd_type *NtoMTrans, const simd_type *jac, const simd_type *df,
+    simd_type *deriv0, simd_type *bwd, const simd_type *in, simd_type *out)
+{
+    static_assert(IsSizeParameter1D_v<TSizeParameter1D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter1D or TemplatedSizeParameter1D.");
+
+    const unsigned int nq0 = sizeParam1D.nq0();
+
+    // Step 1: BwdTrans.
+    BwdTransKernelLauncher<SHAPE_TYPE, false>(sizeParam1D, isModified, basis0,
+                                              NtoM, in, bwd);
+
+    // Step 2: Get tensor derivatives.
+    PhysDerivTensor1DKernel(nq0, bwd, D0, deriv0);
+
+    // Step 3: Apply diffusion coeff and WJ.
+    DiffusionCoeffwithWJ1DKernel<SHAPE_TYPE, true, DEFORMED>(
+        ncoord, nq0, true, diffCoeff, false, nullVec, nullVec, nullVec, nullVec,
+        nullVec, nullVec, jac, w0, df, deriv0);
+
+    // Step 4: Apply derivative and sum up.
+    SumDerivTensor1DKernel<false>(nq0, deriv0, D0, bwd);
+
+    // Step 5: Inner product without WJ.
+    IProductWRTBaseKernelLauncher<SHAPE_TYPE, false, false>(
+        sizeParam1D, isModified, bwd, basis0, NtoMTrans, out);
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+          typename TSizeParameter2D, typename simd_type>
+NEK_FORCE_INLINE static void LaplacianKernelLauncher(
+    const TSizeParameter2D sizeParam2D, const bool isModified,
+    const unsigned int ncoord, const typename simd_type::scalarType *diffCoeff,
+    const std::vector<typename simd_type::scalarType> &nullVec,
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
+    const typename simd_type::scalarType *D0,
+    const typename simd_type::scalarType *D1,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1, const simd_type *f0,
+    const simd_type *f1, const simd_type *NtoM, const simd_type *NtoMTrans,
+    const simd_type *jac, const simd_type *df, simd_type *wsp0,
+    simd_type *deriv0, simd_type *deriv1, simd_type *bwd, const simd_type *in,
+    simd_type *out)
+{
+    static_assert(IsSizeParameter2D_v<TSizeParameter2D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter2D or TemplatedSizeParameter2D.");
+
+    const unsigned int nq0 = sizeParam2D.nq0();
+    const unsigned int nq1 = sizeParam2D.nq1();
+
+    // Step 1: BwdTrans.
+    BwdTransKernelLauncher<SHAPE_TYPE, false>(sizeParam2D, isModified, basis0,
+                                              basis1, NtoM, wsp0, in, bwd);
+
+    // Step 2: Get tensor derivatives.
+    PhysDerivTensor2DKernel(nq0, nq1, bwd, D0, D1, deriv0, deriv1);
+
+    // Step 3: Apply diffusion coeff and WJ.
+    DiffusionCoeffwithWJ2DKernel<SHAPE_TYPE, true, DEFORMED>(
+        ncoord, nq0, nq1, true, diffCoeff, false, nullVec, nullVec, nullVec,
+        nullVec, nullVec, nullVec, jac, w0, w1, df, f0, f1, deriv0, deriv1);
+
+    // Step 4: Apply derivative and sum up.
+    SumDerivTensor2DKernel<false>(nq0, nq1, deriv0, deriv1, D0, D1, bwd);
+
+    // Step 5: Inner product without WJ.
+    IProductWRTBaseKernelLauncher<SHAPE_TYPE, false, false>(
+        sizeParam2D, isModified, bwd, basis0, basis1, NtoMTrans, wsp0, out);
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+          typename TSizeParameter3D, typename simd_type>
+NEK_FORCE_INLINE static void LaplacianKernelLauncher(
+    const TSizeParameter3D sizeParam3D, const bool isModified,
+    [[maybe_unused]] const unsigned int ncoord,
+    const typename simd_type::scalarType *diffCoeff,
+    const std::vector<typename simd_type::scalarType> &nullVec,
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
+    const typename simd_type::scalarType *basis2,
+    const typename simd_type::scalarType *D0,
+    const typename simd_type::scalarType *D1,
+    const typename simd_type::scalarType *D2,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1,
+    const typename simd_type::scalarType *w2, const simd_type *f0,
+    const simd_type *f1, const simd_type *f1m, const simd_type *f2,
+    const simd_type *NtoM, const simd_type *NtoMTrans, const simd_type *jac,
+    const simd_type *df, simd_type *wsp0, simd_type *wsp1, simd_type *wsp2,
+    simd_type *deriv0, simd_type *deriv1, simd_type *deriv2, simd_type *bwd,
+    const simd_type *in, simd_type *out)
+{
+    static_assert(IsSizeParameter3D_v<TSizeParameter3D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter3D or TemplatedSizeParameter3D.");
+
+    const unsigned int nq0 = sizeParam3D.nq0();
+    const unsigned int nq1 = sizeParam3D.nq1();
+    const unsigned int nq2 = sizeParam3D.nq2();
+
+    // Step 1: BwdTrans.
+    BwdTransKernelLauncher<SHAPE_TYPE, false>(sizeParam3D, isModified, basis0,
+                                              basis1, basis2, NtoM, wsp0, wsp1,
+                                              in, bwd);
+
+    // Step 2: Get tensor derivatives.
+    PhysDerivTensor3DKernel(nq0, nq1, nq2, bwd, D0, D1, D2, deriv0, deriv1,
+                            deriv2);
+
+    // Step 3: Apply diffusion coeff and WJ.
+    DiffusionCoeffwithWJ3DKernel<SHAPE_TYPE, true, DEFORMED>(
+        nq0, nq1, nq2, true, diffCoeff, false, nullVec, nullVec, nullVec,
+        nullVec, nullVec, nullVec, jac, w0, w1, w2, df, f0, f1, f1m, f2, deriv0,
+        deriv1, deriv2);
+
+    // Step 4: Apply derivative and sum up.
+    SumDerivTensor3DKernel<false>(nq0, nq1, nq2, deriv0, deriv1, deriv2, D0, D1,
+                                  D2, bwd);
+
+    // Step 5: Inner product without WJ.
+    IProductWRTBaseKernelLauncher<SHAPE_TYPE, false, false>(
+        sizeParam3D, isModified, bwd, basis0, basis1, basis2, NtoMTrans, wsp0,
+        wsp1, wsp2, out);
+}
+
 } // namespace Nektar::Operators::detail

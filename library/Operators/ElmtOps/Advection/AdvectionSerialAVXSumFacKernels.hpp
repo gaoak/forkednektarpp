@@ -34,6 +34,10 @@
 
 #pragma once
 
+#include "StdRegions/Operators/PhysDerivSumFacStdKernels.hpp"
+
+#include <Operators/ElmtOps/ElmtHelper.hpp>
+
 namespace Nektar::Operators::detail
 {
 
@@ -340,6 +344,94 @@ NEK_FORCE_INLINE void Advection3DKernel(
             }
         }
     }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
+          typename TPhysSizeParameter1D, typename simd_type>
+NEK_FORCE_INLINE static void AdvectionKernelLauncher(
+    const TPhysSizeParameter1D sizeParam1D,
+    const typename simd_type::scalarType *D0, const simd_type *df_ptr,
+    const simd_type *advVel0_ptr, const simd_type *advVel1_ptr,
+    const simd_type *advVel2_ptr, simd_type *deriv0, const simd_type *in,
+    simd_type *out, const typename simd_type::scalarType scale)
+{
+    static_assert(IsPhysSizeParameter1D_v<TPhysSizeParameter1D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedPhysSizeParameter1D or "
+                  "TemplatedPhysSizeParameter1D.");
+
+    const unsigned int ncoord = sizeParam1D.ncoord();
+    const unsigned int nq0    = sizeParam1D.nq0();
+
+    // Get the basic derivative.
+    PhysDerivTensor1DKernel(nq0, in, D0, deriv0);
+
+    // Calculate physical derivative.
+    Advection1DKernel<SHAPE_TYPE, APPEND, DEFORMED>(
+        nq0, ncoord, df_ptr, advVel0_ptr, advVel1_ptr, advVel2_ptr, deriv0, out,
+        scale);
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
+          typename TPhysSizeParameter2D, typename simd_type>
+NEK_FORCE_INLINE static void AdvectionKernelLauncher(
+    const TPhysSizeParameter2D sizeParam2D,
+    const typename simd_type::scalarType *D0,
+    const typename simd_type::scalarType *D1, const simd_type *f0,
+    const simd_type *f1, const simd_type *df_ptr, const simd_type *advVel0_ptr,
+    const simd_type *advVel1_ptr, const simd_type *advVel2_ptr,
+    simd_type *deriv0, simd_type *deriv1, const simd_type *in, simd_type *out,
+    const typename simd_type::scalarType scale)
+{
+    static_assert(IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedPhysSizeParameter2D or "
+                  "TemplatedPhysSizeParameter2D.");
+
+    const unsigned int ncoord = sizeParam2D.ncoord();
+    const unsigned int nq0    = sizeParam2D.nq0();
+    const unsigned int nq1    = sizeParam2D.nq1();
+
+    // Get the basic derivative.
+    PhysDerivTensor2DKernel(nq0, nq1, in, D0, D1, deriv0, deriv1);
+
+    // Calculate physical derivative.
+    Advection2DKernel<SHAPE_TYPE, APPEND, DEFORMED>(
+        nq0, nq1, ncoord, f0, f1, df_ptr, advVel0_ptr, advVel1_ptr, advVel2_ptr,
+        deriv0, deriv1, out, scale);
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
+          typename TPhysSizeParameter3D, typename simd_type>
+NEK_FORCE_INLINE static void AdvectionKernelLauncher(
+    const TPhysSizeParameter3D sizeParam3D,
+    const typename simd_type::scalarType *D0,
+    const typename simd_type::scalarType *D1,
+    const typename simd_type::scalarType *D2, const simd_type *f0,
+    const simd_type *f1, const simd_type *f1m, const simd_type *f2,
+    const simd_type *df_ptr, const simd_type *advVel0_ptr,
+    const simd_type *advVel1_ptr, const simd_type *advVel2_ptr,
+    simd_type *deriv0, simd_type *deriv1, simd_type *deriv2,
+    const simd_type *in, simd_type *out,
+    const typename simd_type::scalarType scale)
+{
+    static_assert(IsPhysSizeParameter3D_v<TPhysSizeParameter3D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedPhysSizeParameter3D or "
+                  "TemplatedPhysSizeParameter3D.");
+
+    const unsigned int nq0 = sizeParam3D.nq0();
+    const unsigned int nq1 = sizeParam3D.nq1();
+    const unsigned int nq2 = sizeParam3D.nq2();
+
+    // Get the basic derivative.
+    PhysDerivTensor3DKernel(nq0, nq1, nq2, in, D0, D1, D2, deriv0, deriv1,
+                            deriv2);
+
+    // Calculate physical derivative.
+    Advection3DKernel<SHAPE_TYPE, APPEND, DEFORMED>(
+        nq0, nq1, nq2, f0, f1, f1m, f2, df_ptr, advVel0_ptr, advVel1_ptr,
+        advVel2_ptr, deriv0, deriv1, deriv2, out, scale);
 }
 
 } // namespace Nektar::Operators::detail

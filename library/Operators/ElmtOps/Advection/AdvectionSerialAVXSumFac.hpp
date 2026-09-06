@@ -120,23 +120,15 @@ public:
                                                 m_implInterleaveWidth, false));
 
         // Allocate workspace
-        if (m_dimension == 1)
+        unsigned int nqTot = 1;
+        for (unsigned int d = 0; d < m_dimension; d++)
         {
-            const auto nqTot = m_nq[0];
-            m_deriv0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+            nqTot *= m_nq[d];
         }
-        else if (m_dimension == 2)
+        for (unsigned int d = 0; d < m_dimension; d++)
         {
-            const auto nqTot = m_nq[0] * m_nq[1];
-            m_deriv0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
-            m_deriv1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
-        }
-        else if (m_dimension == 3)
-        {
-            const auto nqTot = m_nq[0] * m_nq[1] * m_nq[2];
-            m_deriv0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
-            m_deriv1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
-            m_deriv2 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+            m_deriv.push_back(
+                std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot));
         }
     }
 
@@ -167,9 +159,7 @@ protected:
     std::vector<unsigned int> m_nq;
     std::vector<const TData *> m_D;
     std::vector<const simd_t *> m_f;
-    std::vector<simd_t, tinysimd::allocator<simd_t>> m_deriv0;
-    std::vector<simd_t, tinysimd::allocator<simd_t>> m_deriv1;
-    std::vector<simd_t, tinysimd::allocator<simd_t>> m_deriv2;
+    std::vector<std::vector<simd_t, tinysimd::allocator<simd_t>>> m_deriv;
     const TData *m_dfptr;
 
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
@@ -304,8 +294,11 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
-        Operator1D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_coordDim,
-                                         m_nq[0]);
+        OperatorND<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock,
+            NonTemplatedPhysSizeParameter1D(m_coordDim, m_nq[0]),
+            std::make_integer_sequence<unsigned int, 1>(),
+            std::make_integer_sequence<unsigned int, 0>());
     }
 
     // Size based template version.
@@ -315,142 +308,10 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
-        Operator1D<SHAPE_TYPE, DEFORMED>(inblock, outblock, coordDim, nq0);
-    }
-
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    NEK_FORCE_INLINE void Operator1D(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock,
-        const unsigned int coordDim, const unsigned int nq0)
-    {
-        // Reshape advection velocity, if necessary.
-        if (this->m_advVel->GetInterleaveWidth() != m_implInterleaveWidth)
-        {
-            auto advVelPtr =
-                this->m_advVel->template GetPtr<MemSpace, ReadWrite>();
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                m_implInterleaveWidth, this->m_advVel->GetInterleaveWidth(),
-                this->m_advVel->GetNumElementsWithPadding() *
-                    this->m_exp->GetCoordim(),
-                this->m_advVel->GetNumData(), advVelPtr);
-            this->m_advVel->template SetInterleaveWidth<TData>(
-                m_implInterleaveWidth);
-        }
-
-        // Shape size.
-        const auto nqTot = nq0;
-
-        unsigned int dfsize = coordDim;
-        if constexpr (DEFORMED)
-        {
-            dfsize *= nqTot;
-        }
-
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
-        // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = (this->m_append)
-                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
-                          : outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        // Get interleave parameter.
-        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
-        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
-        const auto width_ratio =
-            (inInterleaveWidth == 1)
-                ? 1
-                : inInterleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, inInterleaveWidth);
-
-        // Loop over components.
-        auto advVelOffset = nelmt * nqTot;
-
-        for (unsigned int n = 0;
-             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
-        {
-            auto advVelPtr =
-                this->m_advVel->template GetPtr<MemSpace, ReadOnly>();
-            auto dfptr = m_dfptr;
-
-            for (size_t e = 0;
-                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
-            {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
-                {
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        m_implInterleaveWidth, inInterleaveWidth, chunkSize,
-                        nqTot, (TData *)inptr);
-                }
-
-                // Get the basic derivative.
-                PhysDerivTensor1DKernel(nq0,
-                                        reinterpret_cast<const simd_t *>(inptr),
-                                        m_D[0], m_deriv0.data());
-
-                // Calculate physical derivative.
-                if (this->m_append)
-                {
-                    // Reshape, if necessary.
-                    if (e % width_ratio == 0)
-                    {
-                        LibUtilities::ReshapeStorage<ExecSpace>(
-                            m_implInterleaveWidth, outInterleaveWidth,
-                            chunkSize, nqTot, (TData *)outptr);
-                    }
-
-                    Advection1DKernel<SHAPE_TYPE, true, DEFORMED>(
-                        nq0, coordDim, reinterpret_cast<const simd_t *>(dfptr),
-                        reinterpret_cast<const simd_t *>(advVelPtr),
-                        reinterpret_cast<const simd_t *>(advVelPtr +
-                                                         advVelOffset),
-                        reinterpret_cast<const simd_t *>(advVelPtr +
-                                                         2 * advVelOffset),
-                        m_deriv0.data(), reinterpret_cast<simd_t *>(outptr),
-                        this->m_scale);
-                }
-                else
-                {
-                    Advection1DKernel<SHAPE_TYPE, false, DEFORMED>(
-                        nq0, coordDim, reinterpret_cast<const simd_t *>(dfptr),
-                        reinterpret_cast<const simd_t *>(advVelPtr),
-                        reinterpret_cast<const simd_t *>(advVelPtr +
-                                                         advVelOffset),
-                        reinterpret_cast<const simd_t *>(advVelPtr +
-                                                         2 * advVelOffset),
-                        m_deriv0.data(), reinterpret_cast<simd_t *>(outptr),
-                        this->m_scale);
-                }
-
-                // Reshape back, if necessary.
-                if (e % width_ratio == width_ratio - 1)
-                {
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nqTot,
-                        (TData *)inptr -
-                            (width_ratio - 1) * nqTot * simd_t::width);
-
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nqTot,
-                        (TData *)outptr -
-                            (width_ratio - 1) * nqTot * simd_t::width);
-                }
-
-                // Increment pointers for the next elmt group.
-                dfptr += dfsize * simd_t::width;
-                inptr += nqTot * simd_t::width;
-                advVelPtr += nqTot * simd_t::width;
-                outptr += nqTot * simd_t::width;
-            }
-        }
-
-        // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
+        OperatorND<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock, TemplatedPhysSizeParameter1D<coordDim, nq0>(),
+            std::make_integer_sequence<unsigned int, 1>(),
+            std::make_integer_sequence<unsigned int, 0>());
     }
 
     // Non-size based operator.
@@ -459,8 +320,11 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
-        Operator2D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_coordDim, m_nq[0],
-                                         m_nq[1]);
+        OperatorND<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock,
+            NonTemplatedPhysSizeParameter2D(m_coordDim, m_nq[0], m_nq[1]),
+            std::make_integer_sequence<unsigned int, 2>(),
+            std::make_integer_sequence<unsigned int, 2>());
     }
 
     // Size based template version.
@@ -470,15 +334,49 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
-        Operator2D<SHAPE_TYPE, DEFORMED>(inblock, outblock, coordDim, nq0, nq1);
+        OperatorND<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock,
+            TemplatedPhysSizeParameter2D<coordDim, nq0, nq1>(),
+            std::make_integer_sequence<unsigned int, 2>(),
+            std::make_integer_sequence<unsigned int, 2>());
     }
 
+    // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    NEK_FORCE_INLINE void Operator2D(
+    void Operator3D(
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
+    {
+        OperatorND<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock,
+            NonTemplatedPhysSizeParameter3D(m_nq[0], m_nq[1], m_nq[2]),
+            std::make_integer_sequence<unsigned int, 3>(),
+            std::make_integer_sequence<unsigned int, 4>());
+    }
+
+    // Size based template version.
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              unsigned int nq0, unsigned int nq1, unsigned int nq2>
+    void Operator3D(
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
+    {
+        OperatorND<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock, TemplatedPhysSizeParameter3D<nq0, nq1, nq2>(),
+            std::make_integer_sequence<unsigned int, 3>(),
+            std::make_integer_sequence<unsigned int, 4>());
+    }
+
+    // Generic operator implementation.
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              typename TPhysSizeParameter, unsigned int... ind0,
+              unsigned int... ind1>
+    NEK_FORCE_INLINE void OperatorND(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock,
-        const unsigned int coordDim, const unsigned int nq0,
-        const unsigned int nq1)
+        TPhysSizeParameter sizeParam,
+        std::integer_sequence<unsigned int, ind0...>,
+        std::integer_sequence<unsigned int, ind1...>)
     {
         // Reshape advection velocity, if necessary.
         if (this->m_advVel->GetInterleaveWidth() != m_implInterleaveWidth)
@@ -495,9 +393,9 @@ protected:
         }
 
         // Shape size.
-        const auto nqTot = nq0 * nq1;
+        const auto nqTot = sizeParam.nqTot();
 
-        unsigned int dfsize = 2 * coordDim;
+        unsigned int dfsize = sizeof...(ind0) * m_coordDim;
         if constexpr (DEFORMED)
         {
             dfsize *= nqTot;
@@ -531,6 +429,7 @@ protected:
                 this->m_advVel->template GetPtr<MemSpace, ReadOnly>();
             auto dfptr = m_dfptr;
 
+            // Loop over element groups.
             for (size_t e = 0;
                  e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
@@ -542,12 +441,6 @@ protected:
                         nqTot, (TData *)inptr);
                 }
 
-                // Results written to outvec0, outvec1.
-                PhysDerivTensor2DKernel(
-                    nq0, nq1, reinterpret_cast<const simd_t *>(inptr), m_D[0],
-                    m_D[1], m_deriv0.data(), m_deriv1.data());
-
-                // Calculate physical derivative.
                 if (this->m_append)
                 {
                     // Reshape, if necessary.
@@ -558,28 +451,32 @@ protected:
                             chunkSize, nqTot, (TData *)outptr);
                     }
 
-                    Advection2DKernel<SHAPE_TYPE, true, DEFORMED>(
-                        nq0, nq1, coordDim, m_f[0], m_f[1],
+                    // Advection kernel.
+                    AdvectionKernelLauncher<SHAPE_TYPE, true, DEFORMED>(
+                        sizeParam, m_D[ind0]..., m_f[ind1]...,
                         reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(advVelPtr),
                         reinterpret_cast<const simd_t *>(advVelPtr +
                                                          advVelOffset),
                         reinterpret_cast<const simd_t *>(advVelPtr +
                                                          2 * advVelOffset),
-                        m_deriv0.data(), m_deriv1.data(),
+                        m_deriv[ind0].data()...,
+                        reinterpret_cast<const simd_t *>(inptr),
                         reinterpret_cast<simd_t *>(outptr), this->m_scale);
                 }
                 else
                 {
-                    Advection2DKernel<SHAPE_TYPE, false, DEFORMED>(
-                        nq0, nq1, coordDim, m_f[0], m_f[1],
+                    // Advection kernel.
+                    AdvectionKernelLauncher<SHAPE_TYPE, false, DEFORMED>(
+                        sizeParam, m_D[ind0]..., m_f[ind1]...,
                         reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(advVelPtr),
                         reinterpret_cast<const simd_t *>(advVelPtr +
                                                          advVelOffset),
                         reinterpret_cast<const simd_t *>(advVelPtr +
                                                          2 * advVelOffset),
-                        m_deriv0.data(), m_deriv1.data(),
+                        m_deriv[ind0].data()...,
+                        reinterpret_cast<const simd_t *>(inptr),
                         reinterpret_cast<simd_t *>(outptr), this->m_scale);
                 }
 
@@ -591,163 +488,6 @@ protected:
                         nqTot,
                         (TData *)inptr -
                             (width_ratio - 1) * nqTot * simd_t::width);
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nqTot,
-                        (TData *)outptr -
-                            (width_ratio - 1) * nqTot * simd_t::width);
-                }
-
-                // Increment pointers for the next elmt group.
-                dfptr += dfsize * simd_t::width;
-                inptr += nqTot * simd_t::width;
-                advVelPtr += nqTot * simd_t::width;
-                outptr += nqTot * simd_t::width;
-            }
-        }
-
-        // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
-    }
-
-    // Non-size based operator.
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator3D(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
-    {
-        Operator3D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_nq[0], m_nq[1],
-                                         m_nq[2]);
-    }
-
-    // Size based template version.
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              unsigned int nq0, unsigned int nq1, unsigned int nq2>
-    void Operator3D(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
-    {
-        Operator3D<SHAPE_TYPE, DEFORMED>(inblock, outblock, nq0, nq1, nq2);
-    }
-
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    NEK_FORCE_INLINE void Operator3D(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock,
-        const unsigned int nq0, const unsigned int nq1, const unsigned int nq2)
-    {
-        // Reshape advection velocity, if necessary.
-        if (this->m_advVel->GetInterleaveWidth() != m_implInterleaveWidth)
-        {
-            auto advVelPtr =
-                this->m_advVel->template GetPtr<MemSpace, ReadWrite>();
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                m_implInterleaveWidth, this->m_advVel->GetInterleaveWidth(),
-                this->m_advVel->GetNumElementsWithPadding() *
-                    this->m_exp->GetCoordim(),
-                this->m_advVel->GetNumData(), advVelPtr);
-            this->m_advVel->template SetInterleaveWidth<TData>(
-                m_implInterleaveWidth);
-        }
-
-        // Shape size.
-        const auto nqTot = nq0 * nq1 * nq2;
-
-        unsigned int dfsize = 9u;
-        if constexpr (DEFORMED)
-        {
-            dfsize *= nqTot;
-        }
-
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-
-        // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = (this->m_append)
-                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
-                          : outblock.template GetPtr<MemSpace, WriteOnly>();
-
-        // Get interleave parameter.
-        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
-        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
-        const auto width_ratio =
-            (inInterleaveWidth == 1)
-                ? 1
-                : inInterleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize =
-            std::max(m_implInterleaveWidth, inInterleaveWidth);
-
-        // Loop over components.
-        auto advVelOffset = nelmt * nqTot;
-
-        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
-        {
-            auto advVelPtr =
-                this->m_advVel->template GetPtr<MemSpace, ReadOnly>();
-            auto dfptr = m_dfptr;
-
-            for (size_t e = 0;
-                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
-            {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
-                {
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        m_implInterleaveWidth, inInterleaveWidth, chunkSize,
-                        nqTot, (TData *)inptr);
-                }
-
-                // Get the basic derivative.
-                PhysDerivTensor3DKernel(nq0, nq1, nq2,
-                                        reinterpret_cast<const simd_t *>(inptr),
-                                        m_D[0], m_D[1], m_D[2], m_deriv0.data(),
-                                        m_deriv1.data(), m_deriv2.data());
-
-                // Calculate physical derivative.
-                if (this->m_append)
-                {
-                    // Reshape, if necessary.
-                    if (e % width_ratio == 0)
-                    {
-                        LibUtilities::ReshapeStorage<ExecSpace>(
-                            m_implInterleaveWidth, outInterleaveWidth,
-                            chunkSize, nqTot, (TData *)outptr);
-                    }
-
-                    Advection3DKernel<SHAPE_TYPE, true, DEFORMED>(
-                        nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
-                        reinterpret_cast<const simd_t *>(dfptr),
-                        reinterpret_cast<const simd_t *>(advVelPtr),
-                        reinterpret_cast<const simd_t *>(advVelPtr +
-                                                         advVelOffset),
-                        reinterpret_cast<const simd_t *>(advVelPtr +
-                                                         2 * advVelOffset),
-                        m_deriv0.data(), m_deriv1.data(), m_deriv2.data(),
-                        reinterpret_cast<simd_t *>(outptr), this->m_scale);
-                }
-                else
-                {
-                    Advection3DKernel<SHAPE_TYPE, false, DEFORMED>(
-                        nq0, nq1, nq2, m_f[0], m_f[1], m_f[2], m_f[3],
-                        reinterpret_cast<const simd_t *>(dfptr),
-                        reinterpret_cast<const simd_t *>(advVelPtr),
-                        reinterpret_cast<const simd_t *>(advVelPtr +
-                                                         advVelOffset),
-                        reinterpret_cast<const simd_t *>(advVelPtr +
-                                                         2 * advVelOffset),
-                        m_deriv0.data(), m_deriv1.data(), m_deriv2.data(),
-                        reinterpret_cast<simd_t *>(outptr), this->m_scale);
-                }
-
-                // Reshape back, if necessary.
-                if (e % width_ratio == width_ratio - 1)
-                {
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nqTot,
-                        (TData *)inptr -
-                            (width_ratio - 1) * nqTot * simd_t::width);
-
                     LibUtilities::ReshapeStorage<ExecSpace>(
                         inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         nqTot,

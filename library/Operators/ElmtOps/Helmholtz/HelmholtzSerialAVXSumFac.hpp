@@ -160,24 +160,15 @@ public:
                                                 m_implInterleaveWidth, false));
 
         // Workspace for kernels - also checks preconditions.
-        if (m_dimension == 1)
-        {
-            const auto nqTot = m_nq[0];
-            m_bwd    = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
-            m_deriv0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
-        }
-        else if (m_dimension == 2)
+        if (m_dimension == 2)
         {
             unsigned int wsp0Size = 0;
             BwdTrans2DWorkspace(m_shapeType, m_nm[0], m_nm[1], m_nq[0], m_nq[1],
                                 wsp0Size);
             IProduct2DWorkspace(m_shapeType, m_nm[0], m_nm[1], m_nq[0], m_nq[1],
                                 wsp0Size);
-            m_wsp0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp0Size);
-            const auto nqTot = m_nq[0] * m_nq[1];
-            m_bwd    = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
-            m_deriv0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
-            m_deriv1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+            m_wsp.push_back(
+                std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp0Size));
         }
         else if (m_dimension == 3)
         {
@@ -186,15 +177,27 @@ public:
                                 m_nq[1], m_nq[2], wsp0Size, wsp1Size);
             IProduct3DWorkspace(m_shapeType, m_nm[0], m_nm[1], m_nm[2], m_nq[0],
                                 m_nq[1], m_nq[2], wsp0Size, wsp1Size, wsp2Size);
-            m_wsp0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp0Size);
-            m_wsp1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp1Size);
-            m_wsp2 = std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp2Size);
-            const auto nqTot = m_nq[0] * m_nq[1] * m_nq[2];
-            m_bwd    = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
-            m_deriv0 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
-            m_deriv1 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
-            m_deriv2 = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
+            m_wsp.push_back(
+                std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp0Size));
+            m_wsp.push_back(
+                std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp1Size));
+            m_wsp.push_back(
+                std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp2Size));
         }
+
+        // One tensorial derivative per direction, plus the backward
+        // transform of the input.
+        unsigned int nqTot = 1;
+        for (unsigned int d = 0; d < m_dimension; d++)
+        {
+            nqTot *= m_nq[d];
+        }
+        for (unsigned int d = 0; d < m_dimension; d++)
+        {
+            m_deriv.push_back(
+                std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot));
+        }
+        m_bwd = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
     }
 
     // className - for BlockOperatorFactory
@@ -226,13 +229,9 @@ protected:
     std::vector<const TData *> m_D;
     std::vector<const TData *> m_W;
     std::vector<const simd_t *> m_f;
-    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp0;
-    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp1;
-    std::vector<simd_t, tinysimd::allocator<simd_t>> m_wsp2;
+    std::vector<std::vector<simd_t, tinysimd::allocator<simd_t>>> m_wsp;
+    std::vector<std::vector<simd_t, tinysimd::allocator<simd_t>>> m_deriv;
     std::vector<simd_t, tinysimd::allocator<simd_t>> m_bwd;
-    std::vector<simd_t, tinysimd::allocator<simd_t>> m_deriv0;
-    std::vector<simd_t, tinysimd::allocator<simd_t>> m_deriv1;
-    std::vector<simd_t, tinysimd::allocator<simd_t>> m_deriv2;
     std::vector<TData> NullTDataVector;
     const simd_t *m_nodToMod;
     const simd_t *m_nodToModTrans;
@@ -371,7 +370,11 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
-        Operator1D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_nm[0], m_nq[0]);
+        OperatorND<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock, NonTemplatedSizeParameter1D(m_nm[0], m_nq[0]),
+            std::make_integer_sequence<unsigned int, 1>(),
+            std::make_integer_sequence<unsigned int, 0>(),
+            std::make_integer_sequence<unsigned int, 0>());
     }
 
     // Size based template version.
@@ -381,110 +384,11 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
-        Operator1D<SHAPE_TYPE, DEFORMED>(inblock, outblock, nm0, nq0);
-    }
-
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    NEK_FORCE_INLINE void Operator1D(
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock,
-        const unsigned int nm0, const unsigned int nq0)
-    {
-        // Shape size.
-        const auto nmTot = nm0;
-        const auto nqTot = nq0;
-
-        unsigned int ndf    = m_coordDim;
-        unsigned int dfSize = 1;
-        if constexpr (DEFORMED)
-        {
-            dfSize *= nqTot;
-        }
-
-        // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto diffCoeffPtr =
-            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
-
-        // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
-
-        // Loop over components.
-        for (unsigned int n = 0;
-             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
-        {
-            auto jacptr = m_jacptr;
-            auto dfptr  = m_dfptr;
-
-            // Loop over element groups.
-            for (size_t e = 0;
-                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
-            {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
-                {
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        m_implInterleaveWidth, interleaveWidth, chunkSize,
-                        nmTot, (TData *)inptr);
-                }
-
-                // Step 1: BwdTrans.
-                BwdTrans1DKernel<SHAPE_TYPE, false>(
-                    nm0, nq0, m_B[0], reinterpret_cast<const simd_t *>(inptr),
-                    m_bwd.data());
-
-                // Step 2: Take derivatives in collapsed coordinate space.
-                PhysDerivTensor1DKernel(nq0, m_bwd.data(), m_D[0],
-                                        m_deriv0.data());
-
-                // Step 3: Apply diffusion coeff and WJ
-                DiffusionCoeffwithWJ1DKernel<SHAPE_TYPE, true, DEFORMED>(
-                    m_coordDim, nq0, true, diffCoeffPtr, false, NullTDataVector,
-                    NullTDataVector, NullTDataVector, NullTDataVector,
-                    NullTDataVector, NullTDataVector,
-                    reinterpret_cast<const simd_t *>(jacptr), m_W[0],
-                    reinterpret_cast<const simd_t *>(dfptr), m_deriv0.data(),
-                    m_bwd.data(), this->m_lambda);
-
-                // Step 4: Apply derivative and sum up.
-                SumDerivTensor1DKernel<true>(nq0, m_deriv0.data(), m_D[0],
-                                             m_bwd.data());
-
-                // Step 5: Inner product without WJ.
-                IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nq0, m_bwd.data(), m_B[0],
-                    reinterpret_cast<simd_t *>(outptr));
-
-                // Reshape back, if necessary.
-                if (e % width_ratio == width_ratio - 1)
-                {
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nmTot,
-                        (TData *)inptr -
-                            (width_ratio - 1) * nmTot * simd_t::width);
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nmTot,
-                        (TData *)outptr -
-                            (width_ratio - 1) * nmTot * simd_t::width);
-                }
-
-                // Increment pointers.
-                dfptr += dfSize * ndf * simd_t::width;
-                jacptr += dfSize * simd_t::width;
-                inptr += nmTot * simd_t::width;
-                outptr += nmTot * simd_t::width;
-            }
-        }
-
-        // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        OperatorND<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock, TemplatedSizeParameter1D<nm0, nq0>(),
+            std::make_integer_sequence<unsigned int, 1>(),
+            std::make_integer_sequence<unsigned int, 0>(),
+            std::make_integer_sequence<unsigned int, 0>());
     }
 
     // Non-size based operator.
@@ -493,8 +397,16 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
-        Operator2D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_nm[0], m_nm[1],
-                                         m_nq[0], m_nq[1]);
+        const unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, m_nm[0], m_nm[1]);
+
+        OperatorND<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock,
+            NonTemplatedSizeParameter2D(m_nm[0], m_nm[1], nmTot, m_nq[0],
+                                        m_nq[1]),
+            std::make_integer_sequence<unsigned int, 2>(),
+            std::make_integer_sequence<unsigned int, 1>(),
+            std::make_integer_sequence<unsigned int, 2>());
     }
 
     // Size based template version.
@@ -505,23 +417,73 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
     {
-        Operator2D<SHAPE_TYPE, DEFORMED>(inblock, outblock, nm0, nm1, nq0, nq1);
+        constexpr unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+
+        OperatorND<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock,
+            TemplatedSizeParameter2D<nm0, nm1, nmTot, nq0, nq1>(),
+            std::make_integer_sequence<unsigned int, 2>(),
+            std::make_integer_sequence<unsigned int, 1>(),
+            std::make_integer_sequence<unsigned int, 2>());
     }
 
+    // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    NEK_FORCE_INLINE void Operator2D(
+    void Operator3D(
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
+    {
+        const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(
+            SHAPE_TYPE, m_nm[0], m_nm[1], m_nm[2]);
+
+        OperatorND<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock,
+            NonTemplatedSizeParameter3D(m_nm[0], m_nm[1], m_nm[2], nmTot,
+                                        m_nq[0], m_nq[1], m_nq[2]),
+            std::make_integer_sequence<unsigned int, 3>(),
+            std::make_integer_sequence<unsigned int, 3>(),
+            std::make_integer_sequence<unsigned int, 4>());
+    }
+
+    // Size based template version.
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              unsigned int nm0, unsigned int nm1, unsigned int nm2,
+              unsigned int nq0, unsigned int nq1, unsigned int nq2>
+    void Operator3D(
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
+    {
+        constexpr unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+
+        OperatorND<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock,
+            TemplatedSizeParameter3D<nm0, nm1, nm2, nmTot, nq0, nq1, nq2>(),
+            std::make_integer_sequence<unsigned int, 3>(),
+            std::make_integer_sequence<unsigned int, 3>(),
+            std::make_integer_sequence<unsigned int, 4>());
+    }
+
+    // Generic operator implementation.
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              typename TSizeParameter, unsigned int... ind0,
+              unsigned int... ind1, unsigned int... ind2>
+    NEK_FORCE_INLINE void OperatorND(
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock,
-        const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
-        const unsigned int nq1)
+        TSizeParameter sizeParam, std::integer_sequence<unsigned int, ind0...>,
+        std::integer_sequence<unsigned int, ind1...>,
+        std::integer_sequence<unsigned int, ind2...>)
     {
-        // Shape size.
-        const auto nmTot =
-            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
-        const auto nqTot = nq0 * nq1;
+        constexpr unsigned int ndim = sizeof...(ind0);
 
-        unsigned int ndf    = 2 * m_coordDim;
-        unsigned int dfSize = 1;
+        // Shape size.
+        const auto nmTot                  = sizeParam.nmTot();
+        [[maybe_unused]] const auto nqTot = sizeParam.nqTot();
+
+        const unsigned int ndf = ndim * m_coordDim;
+        unsigned int dfSize    = 1;
         if constexpr (DEFORMED)
         {
             dfSize *= nqTot;
@@ -559,36 +521,16 @@ protected:
                         nmTot, (TData *)inptr);
                 }
 
-                // Step 1: BwdTrans.
-                BwdTrans2DKernel<SHAPE_TYPE, false>(
-                    nm0, nm1, nq0, nq1, m_isModified, m_B[0], m_B[1],
-                    m_nodToMod, m_wsp0.data(),
-                    reinterpret_cast<const simd_t *>(inptr), m_bwd.data());
-
-                // Step 2: Get tensor derivatives
-                PhysDerivTensor2DKernel(nq0, nq1, m_bwd.data(), m_D[0], m_D[1],
-                                        m_deriv0.data(), m_deriv1.data());
-
-                // Step 3: Apply diffusion coeff and WJ
-                DiffusionCoeffwithWJ2DKernel<SHAPE_TYPE, true, DEFORMED>(
-                    m_coordDim, nq0, nq1, true, diffCoeffPtr, false,
-                    NullTDataVector, NullTDataVector, NullTDataVector,
-                    NullTDataVector, NullTDataVector, NullTDataVector,
-                    reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1],
-                    reinterpret_cast<const simd_t *>(dfptr), m_f[0], m_f[1],
-                    m_deriv0.data(), m_deriv1.data(), m_bwd.data(),
-                    this->m_lambda);
-
-                // Step 4: Apply derivative and sum up.
-                SumDerivTensor2DKernel<true>(nq0, nq1, m_deriv0.data(),
-                                             m_deriv1.data(), m_D[0], m_D[1],
-                                             m_bwd.data());
-
-                // Step 5: Inner product without WJ.
-                IProduct2DKernel<SHAPE_TYPE, false, false>(
-                    nm0, nm1, nq0, nq1, m_isModified, m_bwd.data(), m_B[0],
-                    m_B[1], m_nodToModTrans, m_wsp0.data(),
-                    reinterpret_cast<simd_t *>(outptr));
+                // Helmholtz kernel.
+                HelmholtzKernelLauncher<SHAPE_TYPE, DEFORMED>(
+                    sizeParam, m_isModified, m_coordDim, diffCoeffPtr,
+                    NullTDataVector, m_B[ind0]..., m_D[ind0]..., m_W[ind0]...,
+                    m_f[ind2]..., m_nodToMod, m_nodToModTrans,
+                    reinterpret_cast<const simd_t *>(jacptr),
+                    reinterpret_cast<const simd_t *>(dfptr),
+                    m_wsp[ind1].data()..., m_deriv[ind0].data()...,
+                    m_bwd.data(), reinterpret_cast<const simd_t *>(inptr),
+                    reinterpret_cast<simd_t *>(outptr), this->m_lambda);
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
@@ -605,139 +547,7 @@ protected:
                             (width_ratio - 1) * nmTot * simd_t::width);
                 }
 
-                // Increment pointers.
-                dfptr += dfSize * ndf * simd_t::width;
-                jacptr += dfSize * simd_t::width;
-                inptr += nmTot * simd_t::width;
-                outptr += nmTot * simd_t::width;
-            }
-        }
-
-        // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
-    }
-
-    // Non-size based operator.
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator3D(
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
-    {
-        Operator3D<SHAPE_TYPE, DEFORMED>(inblock, outblock, m_nm[0], m_nm[1],
-                                         m_nm[2], m_nq[0], m_nq[1], m_nq[2]);
-    }
-
-    // Size based template version.
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              unsigned int nm0, unsigned int nm1, unsigned int nm2,
-              unsigned int nq0, unsigned int nq1, unsigned int nq2>
-    void Operator3D(
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
-    {
-        Operator3D<SHAPE_TYPE, DEFORMED>(inblock, outblock, nm0, nm1, nm2, nq0,
-                                         nq1, nq2);
-    }
-
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    NEK_FORCE_INLINE void Operator3D(
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock,
-        const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-        const unsigned int nq0, const unsigned int nq1, const unsigned int nq2)
-    {
-        // Shape size.
-        const auto nmTot =
-            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
-        const auto nqTot = nq0 * nq1 * nq2;
-
-        constexpr unsigned int ndf = 9;
-        unsigned int dfSize        = 1;
-        if constexpr (DEFORMED)
-        {
-            dfSize *= nqTot;
-        }
-
-        // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto diffCoeffPtr =
-            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
-
-        // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
-
-        // Loop over components.
-        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
-        {
-            auto jacptr = m_jacptr;
-            auto dfptr  = m_dfptr;
-
-            // Loop over element groups.
-            for (size_t e = 0;
-                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
-            {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
-                {
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        m_implInterleaveWidth, interleaveWidth, chunkSize,
-                        nmTot, (TData *)inptr);
-                }
-
-                // Step 1: BwdTrans.
-                BwdTrans3DKernel<SHAPE_TYPE, false>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, m_B[0], m_B[1],
-                    m_B[2], m_nodToMod, m_wsp0.data(), m_wsp1.data(),
-                    reinterpret_cast<const simd_t *>(inptr), m_bwd.data());
-
-                // Step 2: Get tensor derivatives
-                PhysDerivTensor3DKernel(nq0, nq1, nq2, m_bwd.data(), m_D[0],
-                                        m_D[1], m_D[2], m_deriv0.data(),
-                                        m_deriv1.data(), m_deriv2.data());
-
-                // Step 3: Apply diffusion coeff and WJ
-                DiffusionCoeffwithWJ3DKernel<SHAPE_TYPE, true, DEFORMED>(
-                    nq0, nq1, nq2, true, diffCoeffPtr, false, NullTDataVector,
-                    NullTDataVector, NullTDataVector, NullTDataVector,
-                    NullTDataVector, NullTDataVector,
-                    reinterpret_cast<const simd_t *>(jacptr), m_W[0], m_W[1],
-                    m_W[2], reinterpret_cast<const simd_t *>(dfptr), m_f[0],
-                    m_f[1], m_f[2], m_f[3], m_deriv0.data(), m_deriv1.data(),
-                    m_deriv2.data(), m_bwd.data(), this->m_lambda);
-
-                // Step 4: Apply derivative and sum up.
-                SumDerivTensor3DKernel<true>(
-                    nq0, nq1, nq2, m_deriv0.data(), m_deriv1.data(),
-                    m_deriv2.data(), m_D[0], m_D[1], m_D[2], m_bwd.data());
-
-                // Step 5: Inner product without WJ.
-                IProduct3DKernel<SHAPE_TYPE, false, false>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, m_isModified, m_bwd.data(),
-                    m_B[0], m_B[1], m_B[2], m_nodToModTrans, m_wsp0.data(),
-                    m_wsp1.data(), m_wsp2.data(),
-                    reinterpret_cast<simd_t *>(outptr));
-
-                // Reshape back, if necessary.
-                if (e % width_ratio == width_ratio - 1)
-                {
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nmTot,
-                        (TData *)inptr -
-                            (width_ratio - 1) * nmTot * simd_t::width);
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nmTot,
-                        (TData *)outptr -
-                            (width_ratio - 1) * nmTot * simd_t::width);
-                }
-
-                // Increment pointers.
+                // Increment pointers for the next elmt group.
                 dfptr += dfSize * ndf * simd_t::width;
                 jacptr += dfSize * simd_t::width;
                 inptr += nmTot * simd_t::width;

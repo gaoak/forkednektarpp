@@ -360,4 +360,99 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
     }
 }
 
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+          typename TSizeParameter1D, typename simd_type>
+NEK_FORCE_INLINE static void IProductWRTDerivBaseKernelLauncher(
+    const TSizeParameter1D sizeParam1D, const unsigned int indim,
+    const simd_type *df_ptr,
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
+    const size_t inoffset, const simd_type *in, const simd_type *jac,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *D0, simd_type *tmp0, simd_type *out)
+{
+    static_assert(IsSizeParameter1D_v<TSizeParameter1D> ||
+                      IsPhysSizeParameter1D_v<TSizeParameter1D>,
+                  "Template argument must be a one dimensional size "
+                  "parameter.");
+
+    const unsigned int nq0 = sizeParam1D.nq0();
+
+    // Align the derivative with the standard element.
+    StdAlignDerivBase1D<DEFORMED>(nq0, indim, df_ptr, df_tmp, inoffset, in,
+                                  tmp0, jac, w0);
+
+    // Apply the transposed derivative and sum up.
+    SumDerivTensor1DKernel<false>(nq0, tmp0, D0, out);
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+          typename TSizeParameter2D, typename simd_type>
+NEK_FORCE_INLINE static void IProductWRTDerivBaseKernelLauncher(
+    const TSizeParameter2D sizeParam2D, const unsigned int indim,
+    const simd_type *df_ptr,
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
+    const size_t inoffset, const simd_type *in, const simd_type *f0,
+    const simd_type *f1, const simd_type *jac,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1,
+    const typename simd_type::scalarType *D0,
+    const typename simd_type::scalarType *D1, simd_type *tmp0, simd_type *tmp1,
+    simd_type *out)
+{
+    static_assert(IsSizeParameter2D_v<TSizeParameter2D> ||
+                      IsPhysSizeParameter2D_v<TSizeParameter2D>,
+                  "Template argument must be a two dimensional size "
+                  "parameter.");
+
+    const unsigned int nq0 = sizeParam2D.nq0();
+    const unsigned int nq1 = sizeParam2D.nq1();
+
+    simd_type *tmpPtr[2] = {tmp0, tmp1};
+
+    // Align the derivative with the standard element.
+    StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(nq0, nq1, indim, df_ptr, df_tmp,
+                                              inoffset, in, tmpPtr, f0, f1, jac,
+                                              w0, w1);
+
+    // Apply the transposed derivative and sum up.
+    SumDerivTensor2DKernel<false>(nq0, nq1, tmpPtr[0], tmpPtr[1], D0, D1, out);
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+          typename TSizeParameter3D, typename simd_type>
+NEK_FORCE_INLINE static void IProductWRTDerivBaseKernelLauncher(
+    const TSizeParameter3D sizeParam3D,
+    [[maybe_unused]] const unsigned int indim, const simd_type *df_ptr,
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
+    const size_t inoffset, const simd_type *in, const simd_type *f0,
+    const simd_type *f1, const simd_type *f1m, const simd_type *f2,
+    const simd_type *jac, const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1,
+    const typename simd_type::scalarType *w2,
+    const typename simd_type::scalarType *D0,
+    const typename simd_type::scalarType *D1,
+    const typename simd_type::scalarType *D2, simd_type *tmp0, simd_type *tmp1,
+    simd_type *tmp2, simd_type *out)
+{
+    static_assert(IsSizeParameter3D_v<TSizeParameter3D> ||
+                      IsPhysSizeParameter3D_v<TSizeParameter3D>,
+                  "Template argument must be a three dimensional size "
+                  "parameter.");
+
+    const unsigned int nq0 = sizeParam3D.nq0();
+    const unsigned int nq1 = sizeParam3D.nq1();
+    const unsigned int nq2 = sizeParam3D.nq2();
+
+    simd_type *tmpPtr[3] = {tmp0, tmp1, tmp2};
+
+    // Align the derivative with the standard element.
+    StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(nq0, nq1, nq2, df_ptr, df_tmp,
+                                              inoffset, f0, f1, f1m, f2, jac,
+                                              w0, w1, w2, in, tmpPtr);
+
+    // Apply the transposed derivative and sum up.
+    SumDerivTensor3DKernel<false>(nq0, nq1, nq2, tmpPtr[0], tmpPtr[1],
+                                  tmpPtr[2], D0, D1, D2, out);
+}
+
 } // namespace Nektar::Operators::detail

@@ -36,6 +36,8 @@
 
 #include "StdRegions/Operators/BwdTransSumFacStdKernels.hpp"
 
+#include <Operators/ElmtOps/ElmtHelper.hpp>
+
 namespace Nektar::Operators::detail
 {
 
@@ -107,28 +109,45 @@ NEK_FORCE_INLINE static void BwdTrans3DWorkspace(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, typename simd_type>
-NEK_FORCE_INLINE static void BwdTrans1DKernel(
-    const unsigned int nm0, const unsigned int nq0,
-    const typename simd_type::scalarType *basis0, const simd_type *in,
-    simd_type *out)
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND,
+          typename TSizeParameter1D, typename simd_type>
+NEK_FORCE_INLINE static void BwdTransKernelLauncher(
+    const TSizeParameter1D sizeParam1D, [[maybe_unused]] const bool isModified,
+    const typename simd_type::scalarType *basis0,
+    [[maybe_unused]] const simd_type *NtoM, const simd_type *in, simd_type *out)
 {
+    static_assert(IsSizeParameter1D_v<TSizeParameter1D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter1D or TemplatedSizeParameter1D.");
+
+    const unsigned int nm0 = sizeParam1D.nm0();
+    const unsigned int nq0 = sizeParam1D.nq0();
+
     BwdTransSegKernel<APPEND>(nm0, nq0, basis0, in, out);
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, typename simd_type>
-NEK_FORCE_INLINE static void BwdTrans2DKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
-    const unsigned int nq1, [[maybe_unused]] const bool isModified,
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND,
+          typename TSizeParameter2D, typename simd_type>
+NEK_FORCE_INLINE static void BwdTransKernelLauncher(
+    const TSizeParameter2D sizeParam2D, [[maybe_unused]] const bool isModified,
     const typename simd_type::scalarType *basis0,
     const typename simd_type::scalarType *basis1,
     [[maybe_unused]] const simd_type *NtoM, simd_type *wsp0,
     const simd_type *in, simd_type *out)
 {
+    static_assert(IsSizeParameter2D_v<TSizeParameter2D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter2D or TemplatedSizeParameter2D.");
+
+    const unsigned int nm0                    = sizeParam2D.nm0();
+    const unsigned int nm1                    = sizeParam2D.nm1();
+    [[maybe_unused]] const unsigned int nmTot = sizeParam2D.nmTot();
+    const unsigned int nq0                    = sizeParam2D.nq0();
+    const unsigned int nq1                    = sizeParam2D.nq1();
+
     if constexpr (SHAPE_TYPE == LibUtilities::eNodalTri)
     {
-        const auto nmTot = nm0 * (nm0 + 1) / 2;
-        simd_type *in1   = wsp0 + nm0;
+        simd_type *in1 = wsp0 + nm0;
 
         MatVecKernel(nmTot, NtoM, in, in1);
         BwdTransTriKernel<APPEND>(nm0, nm1, nq0, nq1, isModified, basis0,
@@ -146,17 +165,28 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, typename simd_type>
-NEK_FORCE_INLINE static void BwdTrans3DKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    [[maybe_unused]] const bool isModified,
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND,
+          typename TSizeParameter3D, typename simd_type>
+NEK_FORCE_INLINE static void BwdTransKernelLauncher(
+    const TSizeParameter3D sizeParam3D, [[maybe_unused]] const bool isModified,
     const typename simd_type::scalarType *basis0,
     const typename simd_type::scalarType *basis1,
     const typename simd_type::scalarType *basis2,
     [[maybe_unused]] const simd_type *NtoM, simd_type *wsp0, simd_type *wsp1,
     const simd_type *in, simd_type *out)
 {
+    static_assert(IsSizeParameter3D_v<TSizeParameter3D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter3D or TemplatedSizeParameter3D.");
+
+    const unsigned int nm0                    = sizeParam3D.nm0();
+    const unsigned int nm1                    = sizeParam3D.nm1();
+    const unsigned int nm2                    = sizeParam3D.nm2();
+    [[maybe_unused]] const unsigned int nmTot = sizeParam3D.nmTot();
+    const unsigned int nq0                    = sizeParam3D.nq0();
+    const unsigned int nq1                    = sizeParam3D.nq1();
+    const unsigned int nq2                    = sizeParam3D.nq2();
+
     if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
     {
         BwdTransHexKernel<APPEND>(nm0, nm1, nm2, nq0, nq1, nq2, basis0, basis1,
@@ -169,8 +199,7 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::eNodalTet)
     {
-        const auto nmTot = nm0 * (nm0 + 1) * (nm0 + 2) / 6;
-        simd_type *in1   = wsp0 + nm0 * nm1;
+        simd_type *in1 = wsp0 + nm0 * nm1;
 
         MatVecKernel(nmTot, NtoM, in, in1);
         BwdTransTetKernel<APPEND>(nm0, nm1, nm2, nq0, nq1, nq2, isModified,
@@ -184,8 +213,7 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::eNodalPrism)
     {
-        const auto nmTot = nm0 * nm0 * (nm0 + 1) / 2;
-        simd_type *in1   = wsp0 + nm0 * nm1;
+        simd_type *in1 = wsp0 + nm0 * nm1;
 
         MatVecKernel(nmTot, NtoM, in, in1);
         BwdTransPrismKernel<APPEND>(nm0, nm1, nm2, nq0, nq1, nq2, isModified,
