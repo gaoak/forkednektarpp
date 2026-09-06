@@ -639,33 +639,41 @@ void CollectionOptimisation::UpdateOptFile(std::string sessName,
         }
     }
 
-    // update global with m_opImpMap info
-    map<LibUtilities::ShapeType, int> ShapeMaxSize;
+    // update global with m_opImpMap info. Each timing is recorded against the
+    // polynomial order it was measured at: the fastest implementation depends
+    // strongly on the order, so results must not be shared between orders.
+    map<pair<LibUtilities::ShapeType, int>, int> ShapeMaxSize;
     for (auto &opimp : m_opImpMap[m_timeLevel])
     {
         bool updateShape              = true;
         LibUtilities::ShapeType shape = opimp.first.GetShapeType();
+        int order                     = opimp.first.GetExpOrder();
 
-        // check to see if already added this shapes details but with
+        // check to see if already added this shape and order but with
         // a larger collection and if so do not update.
-        if (ShapeMaxSize.count(shape))
+        auto shapeKey = make_pair(shape, order);
+        if (ShapeMaxSize.count(shapeKey))
         {
             int ngeoms = opimp.first.GetNGeoms();
-            if (ngeoms > ShapeMaxSize[shape])
+            if (ngeoms > ShapeMaxSize[shapeKey])
             {
-                ShapeMaxSize[shape] = ngeoms;
+                ShapeMaxSize[shapeKey] = ngeoms;
             }
             else
             {
                 updateShape = false;
             }
         }
+        else
+        {
+            ShapeMaxSize[shapeKey] = opimp.first.GetNGeoms();
+        }
 
         if (updateShape)
         {
             for (auto &op : opimp.second)
             {
-                global[op.first][ElmtOrder(shape, -1)] = op.second;
+                global[op.first][ElmtOrder(shape, order)] = op.second;
             }
         }
     }
@@ -725,7 +733,16 @@ void CollectionOptimisation::UpdateOptFile(std::string sessName,
                 ColOp->LinkEndChild(ElmtOp);
 
                 ElmtOp->SetAttribute("TYPE", ShapeLetMap[el.first.first]);
-                ElmtOp->SetAttribute("ORDER", "*");
+                // -1 denotes an entry that applies to every order, which is
+                // how a wildcard read from an existing file is stored.
+                if (el.first.second < 0)
+                {
+                    ElmtOp->SetAttribute("ORDER", "*");
+                }
+                else
+                {
+                    ElmtOp->SetAttribute("ORDER", el.first.second);
+                }
                 ElmtOp->SetAttribute("IMPTYPE",
                                      ImplementationTypeMap[el.second]);
             }

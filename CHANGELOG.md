@@ -27,6 +27,7 @@ v5.11.0
 - Added DEBUG_IMAGES option to reduce load on registry storage (2648)
 - Fix for non-isotropic case in ReOrientFace (!2649)
 - Fix trixie GitLab CI slowdown (!2701)
+- Fix collection autotuning selection and record results per polynomial order (!2635)
 
 **Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)

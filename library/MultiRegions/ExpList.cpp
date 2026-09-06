@@ -5953,9 +5953,6 @@ void ExpList::CreateCollections(Collections::ImplementationType ImpType)
                     collsize = collExp.size();
                 }
             }
-            Collections::OperatorImpMap impTypes =
-                colOpt.GetOperatorImpMap(exp);
-
             Collections::Collection tmp(collExp, impTypes);
             m_collections.push_back(tmp);
             mincol = min(mincol, (int)collExp.size());
@@ -6007,13 +6004,13 @@ void ExpList::CreateCollections(Collections::ImplementationType ImpType)
     collcnt  = 0;
     collsize = 0;
 
-    // update optimisation file
-    if ((m_session->GetUpdateOptFile()) && (ImpType == Collections::eNoImpType))
+    // update optimisation file. Every expansion list that was timed
+    // contributes, so that fields using a different polynomial order to the
+    // first one (e.g. the pressure field of an inf-sup stable velocity /
+    // pressure pair) also have their own entries recorded.
+    if (autotuning && (ImpType == Collections::eNoImpType))
     {
         colOpt.UpdateOptFile(m_session->GetSessionName(), m_comm);
-        // turn off write-opt-file option so only first
-        // instance is timed
-        m_session->SetUpdateOptFile(false);
     }
 }
 
