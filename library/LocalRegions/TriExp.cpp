@@ -733,13 +733,44 @@ void TriExp::v_ComputeTraceNormal(const int edge)
 void TriExp::v_ExtractDataToCoeffs(
     const NekDouble *data, const std::vector<unsigned int> &nummodes,
     const int mode_offset, NekDouble *coeffs,
-    [[maybe_unused]] std::vector<LibUtilities::BasisType> &fromType)
+    std::vector<LibUtilities::BasisType> &fromType)
 {
     int data_order0 = nummodes[mode_offset];
     int fillorder0  = min(m_base[0]->GetNumModes(), data_order0);
     int data_order1 = nummodes[mode_offset + 1];
     int order1      = m_base[1]->GetNumModes();
     int fillorder1  = min(order1, data_order1);
+
+    // Convert when the stored basis is not the one we expand in. Without
+    // this the mode-by-mode copy below silently reinterprets the
+    // coefficients in the wrong basis: the result stays finite and smooth
+    // within each element, so it looks like a plausible field rather than
+    // the corruption it is. The switch below deliberately treats
+    // eModified_A and eOrtho_A alike, which is only valid once the data is
+    // known to be in the same basis as this expansion.
+    if (fromType[0] != m_base[0]->GetBasisType() ||
+        fromType[1] != m_base[1]->GetBasisType())
+    {
+        // Expand the data in the basis it was written in, evaluate it, and
+        // project that onto this expansion - the same route QuadExp takes.
+        StdRegions::StdTriExp tmpTri(
+            LibUtilities::BasisKey(fromType[0], data_order0,
+                                   m_base[0]->GetPointsKey()),
+            LibUtilities::BasisKey(fromType[1], data_order1,
+                                   m_base[1]->GetPointsKey()));
+        StdRegions::StdTriExp tmpTri2(m_base[0]->GetBasisKey(),
+                                      m_base[1]->GetBasisKey());
+
+        Array<OneD, const NekDouble> tmpData(tmpTri.GetNcoeffs(), data);
+        Array<OneD, NekDouble> tmpBwd(tmpTri2.GetTotPoints());
+        Array<OneD, NekDouble> tmpOut(tmpTri2.GetNcoeffs());
+
+        tmpTri.BwdTrans(tmpData, tmpBwd);
+        tmpTri2.FwdTrans(tmpBwd, tmpOut);
+        Vmath::Vcopy(tmpOut.size(), &tmpOut[0], 1, coeffs, 1);
+
+        return;
+    }
 
     switch (m_base[0]->GetBasisType())
     {
