@@ -38,6 +38,8 @@
 
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivSerialAVXSumFacKernels.hpp"
 
+#include <Operators/ElmtOps/ElmtHelper.hpp>
+
 namespace Nektar::Operators::detail
 {
 
@@ -333,6 +335,125 @@ NEK_FORCE_INLINE void Curl3DKernel(
             }
         }
     }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+          typename TPhysSizeParameter1D, typename simd_type>
+NEK_FORCE_INLINE static void CurlCurlKernelLauncher(
+    const TPhysSizeParameter1D sizeParam1D,
+    const typename simd_type::scalarType *D0, const simd_type *df_ptr,
+    simd_type *wsp, const simd_type *in0, simd_type *out0)
+{
+    static_assert(IsPhysSizeParameter1D_v<TPhysSizeParameter1D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedPhysSizeParameter1D or "
+                  "TemplatedPhysSizeParameter1D.");
+
+    const unsigned int ncoord = sizeParam1D.ncoord();
+    const unsigned int nq0    = sizeParam1D.nq0();
+
+    // The curl of a scalar field on a segment reduces to its derivative.
+    PhysDerivTensor1DKernel(nq0, in0, D0, wsp);
+    PhysDerivDir1DKernel<SHAPE_TYPE, false, DEFORMED, 0>(nq0, ncoord, df_ptr,
+                                                         wsp, out0);
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+          typename TPhysSizeParameter2D, typename simd_type>
+NEK_FORCE_INLINE static void CurlCurlKernelLauncher(
+    const TPhysSizeParameter2D sizeParam2D,
+    const typename simd_type::scalarType *D0,
+    const typename simd_type::scalarType *D1, const simd_type *f0,
+    const simd_type *f1, const simd_type *df_ptr, simd_type *wsp,
+    const simd_type *in0, const simd_type *in1, simd_type *out0,
+    simd_type *out1)
+{
+    static_assert(IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedPhysSizeParameter2D or "
+                  "TemplatedPhysSizeParameter2D.");
+
+    const unsigned int nq0   = sizeParam2D.nq0();
+    const unsigned int nq1   = sizeParam2D.nq1();
+    const unsigned int nqTot = sizeParam2D.nqTot();
+
+    // Tensorial derivatives of both components.
+    simd_type *tderiv_u = wsp;
+    simd_type *tderiv_v = tderiv_u + 2u * nqTot;
+    simd_type *omega    = tderiv_v + 2u * nqTot;
+
+    PhysDerivTensor2DKernel(nq0, nq1, in0, D0, D1, tderiv_u, tderiv_u + nqTot);
+    PhysDerivTensor2DKernel(nq0, nq1, in1, D0, D1, tderiv_v, tderiv_v + nqTot);
+
+    // omega_z = dv/dx - du/dy
+    Curl2DScalarKernel<SHAPE_TYPE, DEFORMED>(nq0, nq1, 2, f0, f1, df_ptr,
+                                             tderiv_u, tderiv_u + nqTot,
+                                             tderiv_v, tderiv_v + nqTot, omega);
+
+    // q = {d(omega_z)/dy, -d(omega_z)/dx}
+    PhysDerivTensor2DKernel(nq0, nq1, omega, D0, D1, tderiv_u,
+                            tderiv_u + nqTot);
+    Curl2DVectorKernel<SHAPE_TYPE, DEFORMED>(
+        nq0, nq1, 2, f0, f1, df_ptr, tderiv_u, tderiv_u + nqTot, out0, out1);
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+          typename TPhysSizeParameter3D, typename simd_type>
+NEK_FORCE_INLINE static void CurlCurlKernelLauncher(
+    const TPhysSizeParameter3D sizeParam3D,
+    const typename simd_type::scalarType *D0,
+    const typename simd_type::scalarType *D1,
+    const typename simd_type::scalarType *D2, const simd_type *f0,
+    const simd_type *f1, const simd_type *f1m, const simd_type *f2,
+    const simd_type *df_ptr, simd_type *wsp, const simd_type *in0,
+    const simd_type *in1, const simd_type *in2, simd_type *out0,
+    simd_type *out1, simd_type *out2)
+{
+    static_assert(IsPhysSizeParameter3D_v<TPhysSizeParameter3D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedPhysSizeParameter3D or "
+                  "TemplatedPhysSizeParameter3D.");
+
+    const unsigned int nq0   = sizeParam3D.nq0();
+    const unsigned int nq1   = sizeParam3D.nq1();
+    const unsigned int nq2   = sizeParam3D.nq2();
+    const unsigned int nqTot = sizeParam3D.nqTot();
+
+    // Tensorial derivatives of the three components. Each one is evaluated
+    // once and reused for every physical direction that needs it.
+    simd_type *tderiv = wsp;
+    simd_type *omega  = tderiv + 9u * nqTot;
+
+    PhysDerivTensor3DKernel(nq0, nq1, nq2, in0, D0, D1, D2, tderiv,
+                            tderiv + nqTot, tderiv + 2u * nqTot);
+    PhysDerivTensor3DKernel(nq0, nq1, nq2, in1, D0, D1, D2, tderiv + 3u * nqTot,
+                            tderiv + 4u * nqTot, tderiv + 5u * nqTot);
+    PhysDerivTensor3DKernel(nq0, nq1, nq2, in2, D0, D1, D2, tderiv + 6u * nqTot,
+                            tderiv + 7u * nqTot, tderiv + 8u * nqTot);
+
+    // omega = curl(u)
+    Curl3DKernel<SHAPE_TYPE, DEFORMED>(
+        nq0, nq1, nq2, f0, f1, f1m, f2, df_ptr, tderiv, tderiv + nqTot,
+        tderiv + 2u * nqTot, tderiv + 3u * nqTot, tderiv + 4u * nqTot,
+        tderiv + 5u * nqTot, tderiv + 6u * nqTot, tderiv + 7u * nqTot,
+        tderiv + 8u * nqTot, omega, omega + nqTot, omega + 2u * nqTot);
+
+    // Tensorial derivatives of omega.
+    PhysDerivTensor3DKernel(nq0, nq1, nq2, omega, D0, D1, D2, tderiv,
+                            tderiv + nqTot, tderiv + 2u * nqTot);
+    PhysDerivTensor3DKernel(nq0, nq1, nq2, omega + nqTot, D0, D1, D2,
+                            tderiv + 3u * nqTot, tderiv + 4u * nqTot,
+                            tderiv + 5u * nqTot);
+    PhysDerivTensor3DKernel(nq0, nq1, nq2, omega + 2u * nqTot, D0, D1, D2,
+                            tderiv + 6u * nqTot, tderiv + 7u * nqTot,
+                            tderiv + 8u * nqTot);
+
+    // out = curl(omega)
+    Curl3DKernel<SHAPE_TYPE, DEFORMED>(
+        nq0, nq1, nq2, f0, f1, f1m, f2, df_ptr, tderiv, tderiv + nqTot,
+        tderiv + 2u * nqTot, tderiv + 3u * nqTot, tderiv + 4u * nqTot,
+        tderiv + 5u * nqTot, tderiv + 6u * nqTot, tderiv + 7u * nqTot,
+        tderiv + 8u * nqTot, out0, out1, out2);
 }
 
 } // namespace Nektar::Operators::detail

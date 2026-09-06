@@ -36,6 +36,8 @@
 
 #include "StdRegions/Operators/PhysDerivSumFacStdKernels.hpp"
 
+#include <Operators/ElmtOps/ElmtHelper.hpp>
+
 namespace Nektar::Operators::detail
 {
 
@@ -487,6 +489,82 @@ NEK_FORCE_INLINE void PhysDerivDir3DKernel(
             }
         }
     }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+          typename TPhysSizeParameter1D, typename simd_type>
+NEK_FORCE_INLINE static void PhysDerivKernelLauncher(
+    const TPhysSizeParameter1D sizeParam1D,
+    const typename simd_type::scalarType *D0, const simd_type *df_ptr,
+    const simd_type *in, simd_type *out[3])
+{
+    static_assert(IsPhysSizeParameter1D_v<TPhysSizeParameter1D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedPhysSizeParameter1D or "
+                  "TemplatedPhysSizeParameter1D.");
+
+    const unsigned int ncoord = sizeParam1D.ncoord();
+    const unsigned int nq0    = sizeParam1D.nq0();
+
+    // Get the basic derivative.
+    PhysDerivTensor1DKernel(nq0, in, D0, out[0]);
+
+    // Calculate physical derivative.
+    PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(nq0, ncoord, df_ptr, out);
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+          typename TPhysSizeParameter2D, typename simd_type>
+NEK_FORCE_INLINE static void PhysDerivKernelLauncher(
+    const TPhysSizeParameter2D sizeParam2D,
+    const typename simd_type::scalarType *D0,
+    const typename simd_type::scalarType *D1, const simd_type *f0,
+    const simd_type *f1, const simd_type *df_ptr, const simd_type *in,
+    simd_type *out[3])
+{
+    static_assert(IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedPhysSizeParameter2D or "
+                  "TemplatedPhysSizeParameter2D.");
+
+    const unsigned int ncoord = sizeParam2D.ncoord();
+    const unsigned int nq0    = sizeParam2D.nq0();
+    const unsigned int nq1    = sizeParam2D.nq1();
+
+    // Get the basic derivative.
+    PhysDerivTensor2DKernel(nq0, nq1, in, D0, D1, out[0], out[1]);
+
+    // Calculate physical derivative.
+    PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED>(nq0, nq1, ncoord, f0, f1, df_ptr,
+                                            out);
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+          typename TPhysSizeParameter3D, typename simd_type>
+NEK_FORCE_INLINE static void PhysDerivKernelLauncher(
+    const TPhysSizeParameter3D sizeParam3D,
+    const typename simd_type::scalarType *D0,
+    const typename simd_type::scalarType *D1,
+    const typename simd_type::scalarType *D2, const simd_type *f0,
+    const simd_type *f1, const simd_type *f1m, const simd_type *f2,
+    const simd_type *df_ptr, const simd_type *in, simd_type *out[3])
+{
+    static_assert(IsPhysSizeParameter3D_v<TPhysSizeParameter3D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedPhysSizeParameter3D or "
+                  "TemplatedPhysSizeParameter3D.");
+
+    const unsigned int nq0 = sizeParam3D.nq0();
+    const unsigned int nq1 = sizeParam3D.nq1();
+    const unsigned int nq2 = sizeParam3D.nq2();
+
+    // Get the basic derivative.
+    PhysDerivTensor3DKernel(nq0, nq1, nq2, in, D0, D1, D2, out[0], out[1],
+                            out[2]);
+
+    // Calculate physical derivative.
+    PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED>(nq0, nq1, nq2, f0, f1, f1m, f2,
+                                            df_ptr, out[0], out[1], out[2]);
 }
 
 } // namespace Nektar::Operators::detail

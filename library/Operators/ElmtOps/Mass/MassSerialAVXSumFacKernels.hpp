@@ -39,3 +39,86 @@
 
 #include "Operators/ElmtOps/BwdTrans/BwdTransSerialAVXSumFacKernels.hpp"
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"
+
+#include <Operators/ElmtOps/ElmtHelper.hpp>
+
+namespace Nektar::Operators::detail
+{
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+          typename TSizeParameter1D, typename simd_type>
+NEK_FORCE_INLINE static void MassKernelLauncher(
+    const TSizeParameter1D sizeParam1D, const bool isModified,
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *w0, const simd_type *NtoM,
+    const simd_type *NtoMTrans, const simd_type *jac, simd_type *bwd,
+    const simd_type *in, simd_type *out)
+{
+    static_assert(IsSizeParameter1D_v<TSizeParameter1D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter1D or TemplatedSizeParameter1D.");
+
+    // Step 1: BwdTrans.
+    BwdTransKernelLauncher<SHAPE_TYPE, false>(sizeParam1D, isModified, basis0,
+                                              NtoM, in, bwd);
+
+    // Step 2: Inner product for mass matrix operation.
+    IProductWRTBaseKernelLauncher<SHAPE_TYPE, false, false, DEFORMED>(
+        sizeParam1D, isModified, bwd, basis0, w0, NtoMTrans, jac, out);
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+          typename TSizeParameter2D, typename simd_type>
+NEK_FORCE_INLINE static void MassKernelLauncher(
+    const TSizeParameter2D sizeParam2D, const bool isModified,
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1, const simd_type *NtoM,
+    const simd_type *NtoMTrans, const simd_type *jac, simd_type *wsp0,
+    simd_type *bwd, const simd_type *in, simd_type *out)
+{
+    static_assert(IsSizeParameter2D_v<TSizeParameter2D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter2D or TemplatedSizeParameter2D.");
+
+    // Step 1: BwdTrans.
+    BwdTransKernelLauncher<SHAPE_TYPE, false>(sizeParam2D, isModified, basis0,
+                                              basis1, NtoM, wsp0, in, bwd);
+
+    // Step 2: Inner product for mass matrix operation.
+    IProductWRTBaseKernelLauncher<SHAPE_TYPE, false, false, DEFORMED>(
+        sizeParam2D, isModified, bwd, basis0, basis1, w0, w1, NtoMTrans, jac,
+        wsp0, out);
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+          typename TSizeParameter3D, typename simd_type>
+NEK_FORCE_INLINE static void MassKernelLauncher(
+    const TSizeParameter3D sizeParam3D, const bool isModified,
+    const typename simd_type::scalarType *basis0,
+    const typename simd_type::scalarType *basis1,
+    const typename simd_type::scalarType *basis2,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1,
+    const typename simd_type::scalarType *w2, const simd_type *NtoM,
+    const simd_type *NtoMTrans, const simd_type *jac, simd_type *wsp0,
+    simd_type *wsp1, simd_type *wsp2, simd_type *bwd, const simd_type *in,
+    simd_type *out)
+{
+    static_assert(IsSizeParameter3D_v<TSizeParameter3D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedSizeParameter3D or TemplatedSizeParameter3D.");
+
+    // Step 1: BwdTrans.
+    BwdTransKernelLauncher<SHAPE_TYPE, false>(sizeParam3D, isModified, basis0,
+                                              basis1, basis2, NtoM, wsp0, wsp1,
+                                              in, bwd);
+
+    // Step 2: Inner product for mass matrix operation.
+    IProductWRTBaseKernelLauncher<SHAPE_TYPE, false, false, DEFORMED>(
+        sizeParam3D, isModified, bwd, basis0, basis1, basis2, w0, w1, w2,
+        NtoMTrans, jac, wsp0, wsp1, wsp2, out);
+}
+
+} // namespace Nektar::Operators::detail
