@@ -40,18 +40,20 @@ namespace Nektar::Operators::detail
 {
 // FieldState::Coeff output case
 template <>
-void IProductWRTDerivBaseBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::@Impl@,
-                                     FieldState::Coeff, @TData@>::@Shape@Block
-                (LibUtilities::BlockAccessor<@TData@, FieldState::Phys> &inblock, 
-                 LibUtilities::BlockAccessor<@TData@, FieldState::Coeff> &outblock)
+template <>
+void IProductWRTDerivBaseBlockOpImpl<
+    NektarSpaces::@ExecSpace@, Operators::@Impl@, FieldState::Coeff, @TData@>::
+    ShapeBlock<LibUtilities::@Shape@>(
+        LibUtilities::BlockAccessor<@TData@, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<@TData@, FieldState::Coeff> &outblock)
 {
 #undef NQ
 #undef NQ_M1
 #include "LibUtilities/BasicUtils/Switch/SwitchLevel2Defs.h"
     // The following will use predefined code found in the Operators/Common
     // directory to import boost_pp code to make wrapper code to call
-    // Operator1D methods for Segs, Operator2D method for Tris and Quads and
-    // Operator3D otherwise
+    // the OperatorND method with the size parameter matching the shape:
+    // 1D for Segs, 2D for Tris and Quads and 3D otherwise
     //
     // To see the full code from this macros,  Compile the .cpp file with make
     // VERBOSE=1 copy the full compile command and add in --preprocess after the
@@ -64,18 +66,20 @@ void IProductWRTDerivBaseBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::@Impl
 
 // FieldState::Phys output case
 template <>
-void IProductWRTDerivBaseBlockOpImpl<NektarSpaces::@ExecSpace@, Operators::@Impl@,
-                          FieldState::Phys, @TData@>::@Shape@Block
-                (LibUtilities::BlockAccessor<@TData@, FieldState::Phys> &inblock, 
-                 LibUtilities::BlockAccessor<@TData@, FieldState::Phys> &outblock)
+template <>
+void IProductWRTDerivBaseBlockOpImpl<
+    NektarSpaces::@ExecSpace@, Operators::@Impl@, FieldState::Phys, @TData@>::
+    ShapeBlock<LibUtilities::@Shape@>(
+        LibUtilities::BlockAccessor<@TData@, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<@TData@, FieldState::Phys> &outblock)
 {
 #undef NQ
 #undef NQ_M1
 #include "LibUtilities/BasicUtils/Switch/SwitchLevel1Defs.h"
     // The following will use predefined code found in the Operators/Common
     // directory to import boost_pp code to make wrapper code to call
-    // Operator1D methods for Segs, Operator2D method for Tris and Quads and
-    // Operator3D otherwise
+    // the OperatorND method with the size parameter matching the shape:
+    // 1D for Segs, 2D for Tris and Quads and 3D otherwise
     //
     // To see the full code from this macros,  Compile the .cpp file with make
     // VERBOSE=1 copy the full compile command and add in --preprocess after the

@@ -147,12 +147,12 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::MemoryRegion<TData> &data)
     {
-        OperatorNDHelper(inblock, data,
-                         std::make_integer_sequence<unsigned int, NDIM>());
+        OperatorNDImpl(inblock, data,
+                       std::make_integer_sequence<unsigned int, NDIM>());
     }
 
     template <unsigned int... ind>
-    void OperatorNDHelper(
+    void OperatorNDImpl(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::MemoryRegion<TData> &data,
         std::integer_sequence<unsigned int, ind...>)

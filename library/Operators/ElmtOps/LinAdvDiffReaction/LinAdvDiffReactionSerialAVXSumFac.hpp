@@ -261,61 +261,61 @@ protected:
             // Segment
             case LibUtilities::Seg:
             {
-                SegBlock(inblock, outblock);
+                ShapeBlock<LibUtilities::Seg>(inblock, outblock);
                 break;
             }
-            // Quads
+            // Quadrilateral
             case LibUtilities::Quad:
             {
-                QuadBlock(inblock, outblock);
+                ShapeBlock<LibUtilities::Quad>(inblock, outblock);
                 break;
             }
-            // Triangles
+            // Triangle
             case LibUtilities::Tri:
             {
-                TriBlock(inblock, outblock);
+                ShapeBlock<LibUtilities::Tri>(inblock, outblock);
                 break;
             }
-            // Nodal Triangles
+            // Nodal triangle
             case LibUtilities::NodalTri:
             {
-                NodalTriBlock(inblock, outblock);
+                ShapeBlock<LibUtilities::NodalTri>(inblock, outblock);
                 break;
             }
-            // Hexes
+            // Hexahedron
             case LibUtilities::Hex:
             {
-                HexBlock(inblock, outblock);
+                ShapeBlock<LibUtilities::Hex>(inblock, outblock);
                 break;
             }
-            // Tet
+            // Tetrahedron
             case LibUtilities::Tet:
             {
-                TetBlock(inblock, outblock);
+                ShapeBlock<LibUtilities::Tet>(inblock, outblock);
                 break;
             }
-            // NodalTet
+            // Nodal tetrahedron
             case LibUtilities::NodalTet:
             {
-                NodalTetBlock(inblock, outblock);
+                ShapeBlock<LibUtilities::NodalTet>(inblock, outblock);
                 break;
             }
-            // Pyr
+            // Pyramid
             case LibUtilities::Pyr:
             {
-                PyrBlock(inblock, outblock);
+                ShapeBlock<LibUtilities::Pyr>(inblock, outblock);
                 break;
             }
             // Prism
             case LibUtilities::Prism:
             {
-                PrismBlock(inblock, outblock);
+                ShapeBlock<LibUtilities::Prism>(inblock, outblock);
                 break;
             }
-            // NodalPrism
+            // Nodal prism
             case LibUtilities::NodalPrism:
             {
-                NodalPrismBlock(inblock, outblock);
+                ShapeBlock<LibUtilities::NodalPrism>(inblock, outblock);
                 break;
             }
             default:
@@ -323,152 +323,59 @@ protected:
         }
     }
 
-    void SegBlock(
+    // Shape specific block operator, specialised for each shape in
+    // LinAdvDiffReactionSumFacBlockOp.cpp.in.
+    template <LibUtilities::ShapeType SHAPE_TYPE>
+    void ShapeBlock(
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
 
-    void QuadBlock(
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
-
-    void TriBlock(
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
-
-    void NodalTriBlock(
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
-
-    void HexBlock(
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
-
-    void PrismBlock(
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
-
-    void NodalPrismBlock(
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
-
-    void PyrBlock(
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
-
-    void TetBlock(
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
-
-    void NodalTetBlock(
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
-
-    // Non-size based operator.
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator1D(
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
+    // Number of workspaces used by the kernels in dim dimensions.
+    static constexpr unsigned int NumWorkspace(const unsigned int dim)
     {
-        OperatorND<SHAPE_TYPE, DEFORMED>(
-            inblock, outblock, NonTemplatedSizeParameter1D(m_nm[0], m_nq[0]),
-            std::make_integer_sequence<unsigned int, 1>(),
-            std::make_integer_sequence<unsigned int, 0>(),
-            std::make_integer_sequence<unsigned int, 0>());
+        return (dim == 1) ? 0 : (dim == 2) ? 1 : 3;
     }
 
-    // Size based template version.
+    // Number of collapsed coordinate factors used by the kernels in dim
+    // dimensions.
+    static constexpr unsigned int NumFactor(const unsigned int dim)
+    {
+        return (dim == 1) ? 0 : (dim == 2) ? 2 : 4;
+    }
+
+    // Generic operator. Builds the index sequences from the shape dimension
+    // and forwards to OperatorNDImpl.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              unsigned int nm0, unsigned int nq0>
-    void Operator1D(
+              typename TSizeParameter>
+    NEK_FORCE_INLINE void OperatorND(
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock,
+        TSizeParameter sizeParam)
     {
-        OperatorND<SHAPE_TYPE, DEFORMED>(
-            inblock, outblock, TemplatedSizeParameter1D<nm0, nq0>(),
-            std::make_integer_sequence<unsigned int, 1>(),
-            std::make_integer_sequence<unsigned int, 0>(),
-            std::make_integer_sequence<unsigned int, 0>());
+        constexpr unsigned int DIM = LibUtilities::ShapeTypeDimMap[SHAPE_TYPE];
+
+        // sizeParam is built by the switch in
+        // LibUtilities/BasicUtils/Switch/BlockOpSwitchCode.h.in.
+        static_assert((DIM == 1 && IsSizeParameter1D_v<TSizeParameter>) ||
+                          (DIM == 2 && IsSizeParameter2D_v<TSizeParameter>) ||
+                          (DIM == 3 && IsSizeParameter3D_v<TSizeParameter>),
+                      "OperatorND expects a size parameter matching the "
+                      "dimension of the shape.");
+
+        OperatorNDImpl<SHAPE_TYPE, DEFORMED>(
+            inblock, outblock, sizeParam,
+            std::make_integer_sequence<unsigned int, DIM>(),
+            std::make_integer_sequence<unsigned int, NumWorkspace(DIM)>(),
+            std::make_integer_sequence<unsigned int, NumFactor(DIM)>());
     }
 
-    // Non-size based operator.
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator2D(
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
-    {
-        const unsigned int nmTot =
-            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, m_nm[0], m_nm[1]);
-
-        OperatorND<SHAPE_TYPE, DEFORMED>(
-            inblock, outblock,
-            NonTemplatedSizeParameter2D(m_nm[0], m_nm[1], nmTot, m_nq[0],
-                                        m_nq[1]),
-            std::make_integer_sequence<unsigned int, 2>(),
-            std::make_integer_sequence<unsigned int, 1>(),
-            std::make_integer_sequence<unsigned int, 2>());
-    }
-
-    // Size based template version.
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              unsigned int nm0, unsigned int nm1, unsigned int nq0,
-              unsigned int nq1>
-    void Operator2D(
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
-    {
-        constexpr unsigned int nmTot =
-            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
-
-        OperatorND<SHAPE_TYPE, DEFORMED>(
-            inblock, outblock,
-            TemplatedSizeParameter2D<nm0, nm1, nmTot, nq0, nq1>(),
-            std::make_integer_sequence<unsigned int, 2>(),
-            std::make_integer_sequence<unsigned int, 1>(),
-            std::make_integer_sequence<unsigned int, 2>());
-    }
-
-    // Non-size based operator.
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator3D(
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
-    {
-        const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(
-            SHAPE_TYPE, m_nm[0], m_nm[1], m_nm[2]);
-
-        OperatorND<SHAPE_TYPE, DEFORMED>(
-            inblock, outblock,
-            NonTemplatedSizeParameter3D(m_nm[0], m_nm[1], m_nm[2], nmTot,
-                                        m_nq[0], m_nq[1], m_nq[2]),
-            std::make_integer_sequence<unsigned int, 3>(),
-            std::make_integer_sequence<unsigned int, 3>(),
-            std::make_integer_sequence<unsigned int, 4>());
-    }
-
-    // Size based template version.
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-              unsigned int nm0, unsigned int nm1, unsigned int nm2,
-              unsigned int nq0, unsigned int nq1, unsigned int nq2>
-    void Operator3D(
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
-    {
-        constexpr unsigned int nmTot =
-            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
-
-        OperatorND<SHAPE_TYPE, DEFORMED>(
-            inblock, outblock,
-            TemplatedSizeParameter3D<nm0, nm1, nm2, nmTot, nq0, nq1, nq2>(),
-            std::make_integer_sequence<unsigned int, 3>(),
-            std::make_integer_sequence<unsigned int, 3>(),
-            std::make_integer_sequence<unsigned int, 4>());
-    }
-
-    // Generic operator implementation.
+    // Generic operator implementation. ind0 indexes each direction,
+    // ind1 the workspaces used by the kernels,
+    // ind2 the collapsed coordinate factors used by the kernels.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               typename TSizeParameter, unsigned int... ind0,
               unsigned int... ind1, unsigned int... ind2>
-    NEK_FORCE_INLINE void OperatorND(
+    NEK_FORCE_INLINE void OperatorNDImpl(
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock,
         TSizeParameter sizeParam, std::integer_sequence<unsigned int, ind0...>,
