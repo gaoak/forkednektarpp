@@ -483,14 +483,20 @@ MACRO(ADD_NEKTAR_TEST name)
 
             SET(num_procs 1)
 
-            STRING(REGEX MATCH "<processes>[ \t\r\n]*([0-9]+)[ \t\r\n]*</processes>"
-                   match ${test_contents})
+            # A .tst file may hold several <test> elements inside a <tests>
+            # root, each with its own <processes>. They run one after another
+            # within the single CTest test, so the cores this test needs is the
+            # largest of them, not the first one we happen to match.
+            STRING(REGEX MATCHALL "<processes>[ \t\r\n]*([0-9]+)[ \t\r\n]*</processes>"
+                   matches ${test_contents})
 
-            IF(match)
-                SET(num_procs ${CMAKE_MATCH_1})
-            ELSE()
-                
-            ENDIF()
+            FOREACH(match ${matches})
+                STRING(REGEX REPLACE "<processes>[ \t\r\n]*([0-9]+)[ \t\r\n]*</processes>"
+                       "\\1" this_procs ${match})
+                IF(this_procs GREATER num_procs)
+                    SET(num_procs ${this_procs})
+                ENDIF()
+            ENDFOREACH()
         ELSE()
             SET(num_procs 1)
         ENDIF()

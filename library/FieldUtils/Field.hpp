@@ -259,6 +259,19 @@ struct Field
             {
                 m_variables = vars;
             }
+
+            // If no session file was given the session holds no variable
+            // list, in which case every field below would be built from
+            // the "DefaultVar" expansion. That default belongs to whatever
+            // expansion the mesh file happened to declare first, so it can
+            // easily disagree in order or basis with the data actually
+            // being read. Prefer the field file's own variable list so
+            // each field uses the expansion declared for it there.
+            if (vars.empty() && !vm.count("use-session-expansion"))
+            {
+                vars = m_variables;
+            }
+
             nfields = m_variables.size();
 
             m_exp.resize(nfields * nstrips);
@@ -336,11 +349,33 @@ struct Field
         m_data     = std::vector<std::vector<NekDouble>>();
     }
 
+    /**
+     * Name of the variable whose expansion to use where no particular
+     * variable has been asked for.
+     *
+     * The graph's "DefaultVar" is claimed by whichever expansion the mesh
+     * file declared first, which need not have anything to do with the data
+     * being read - a mesh carrying an old FIELDS="u" expansion will hand
+     * back that expansion for a field file holding rho, rhou, rhov, E. So
+     * when the expansions are being taken from a field file, prefer that
+     * file's own first variable.
+     */
+    FIELD_UTILS_EXPORT std::string GetDefaultVar(bool fldfilegiven)
+    {
+        if (fldfilegiven && m_variables.size())
+        {
+            return m_variables[0];
+        }
+
+        return "DefaultVar";
+    }
+
     FIELD_UTILS_EXPORT MultiRegions::ExpListSharedPtr SetUpFirstExpList(
         int NumHomogeneousDir, bool fldfilegiven = false)
     {
 
         MultiRegions::ExpListSharedPtr exp;
+        std::string defaultVar = GetDefaultVar(fldfilegiven);
 
         // Set up expansion list
         int expdim      = m_graph->GetMeshDimension();
@@ -488,7 +523,7 @@ struct Field
                     {
                         Exp1D = MemoryManager<MultiRegions::ExpList>::
                             AllocateSharedPtr(m_session, m_graph, true,
-                                              "DefaultVar",
+                                              defaultVar,
                                               Collections::eNoCollection);
                     }
 
@@ -571,7 +606,7 @@ struct Field
                         Exp3DH1 = MemoryManager<
                             MultiRegions::ExpList3DHomogeneous1D>::
                             AllocateSharedPtr(m_session, Bkey, lz, m_useFFT,
-                                              dealiasing, m_graph, "DefaultVar",
+                                              dealiasing, m_graph, defaultVar,
                                               Collections::eNoCollection);
                     }
                     exp = Exp3DH1;
@@ -599,7 +634,7 @@ struct Field
                     {
                         Exp2D = MemoryManager<MultiRegions::ExpList>::
                             AllocateSharedPtr(m_session, m_graph, true,
-                                              "DefaultVar",
+                                              defaultVar,
                                               Collections::eNoCollection);
                     }
 
@@ -629,7 +664,7 @@ struct Field
                 {
                     Exp3D =
                         MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
-                            m_session, m_graph, true, "DefaultVar",
+                            m_session, m_graph, true, defaultVar,
                             Collections::eNoCollection);
                 }
 

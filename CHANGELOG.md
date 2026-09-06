@@ -14,6 +14,7 @@ v5.11.0
 - Fix GeomFactors for Points (!2658)
 - Fix v_FwdTransBndConstrained in TriExp.cpp (!2658)
 - Added NEON support to feature/redesign (!2666)
+- Fix read orthgonal field files without a session (!2664)
 - Fix Hdf5 output with very large hash value (!2654)
 - Fix MPIRequest free in destructor and MeshParitioning deadlock on non-shared filesystem (!2686)
 - Fix GetBoundaryNormals() leading to intermittent bugs in WSS processing (!2688)
@@ -21,11 +22,13 @@ v5.11.0
 - Set up physical normals once per field in DG boundary-condition setup and reuse normals across fields sharing expansions (!2699)
 - Fail with a clear error, at session-read and lookup time, when a boundary region is missing a condition for a variable (!2699)
 - Fix non-deterministic CWIPI coupling by zero-initialising received fields and refreshing stale extrapolation weights (!2690)
+- Add EntityResolver for scalable rendezvous-based shared entity discovery, and use it in parallel HDF5 mesh reading and DG trace communication (!2700)
 
 **CI**
 - Added DEBUG_IMAGES option to reduce load on registry storage (2648)
 - Fix for non-isotropic case in ReOrientFace (!2649)
 - Fix trixie GitLab CI slowdown (!2701)
+- Fix collection autotuning selection and record results per polynomial order (!2635)
 
 **Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)

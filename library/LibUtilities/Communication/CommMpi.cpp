@@ -471,23 +471,42 @@ void CommMpi::v_Scatter(const void *sendbuf, int sendcount,
     ASSERTL0(retval == MPI_SUCCESS, "MPI error performing Scatter.");
 }
 
+void CommMpi::v_Gatherv(const void *sendbuf, int sendcount,
+                        CommDataType sendtype, void *recvbuf,
+                        const int *recvcounts, const int *recvdispls,
+                        CommDataType recvtype, int root)
+{
+    MPI_Gatherv(const_cast<void *>(sendbuf), sendcount, sendtype, recvbuf,
+                recvcounts, recvdispls, recvtype, root, m_comm);
+}
+
 /**
  *
  */
-void CommMpi::v_DistGraphCreateAdjacent(
+CommSharedPtr CommMpi::v_DistGraphCreateAdjacent(
     [[maybe_unused]] int indegree, [[maybe_unused]] const int *sources,
     [[maybe_unused]] const int *sourceweights, [[maybe_unused]] int reorder)
 {
 #if MPI_VERSION < 3
     ASSERTL0(false, "MPI_Dist_graph_create_adjacent is not supported in your "
                     "installed MPI version.");
+
+    return CommSharedPtr();
 #else
+    if (sourceweights == nullptr)
+    {
+        sourceweights = MPI_UNWEIGHTED;
+    }
+
+    MPI_Comm neighComm;
     int retval = MPI_Dist_graph_create_adjacent(
         m_comm, indegree, sources, sourceweights, indegree, sources,
-        sourceweights, MPI_INFO_NULL, reorder, &m_comm);
+        sourceweights, MPI_INFO_NULL, reorder, &neighComm);
 
     ASSERTL0(retval == MPI_SUCCESS,
-             "MPI error performing Dist_graph_create_adjacent.")
+             "MPI error performing Dist_graph_create_adjacent.");
+
+    return std::shared_ptr<Comm>(new CommMpi(neighComm));
 #endif
 }
 

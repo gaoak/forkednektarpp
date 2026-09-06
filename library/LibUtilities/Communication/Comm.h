@@ -237,13 +237,18 @@ public:
 #endif
 
     template <class T>
-    void DistGraphCreateAdjacent(T &sources, T &sourceweights, int reorder);
+    CommSharedPtr DistGraphCreateAdjacent(T &sources, T &sourceweights,
+                                          int reorder);
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
     void DistGraphCreateAdjacent(LibUtilities::MemoryRegion<T> &sources,
                                  LibUtilities::MemoryRegion<T> &sourceweights,
                                  int reorder, const unsigned int streamID = 0);
 #endif
+
+    template <class T1, class T2>
+    void Gatherv(int rootProc, T1 &pSendData, T1 &pRecvData,
+                 T2 &pRecvDataSizeMap, T2 &pRecvDataOffsetMap);
 
     template <class T1, class T2>
     void NeighborAlltoAllv(T1 &pSendData, T2 &pSendDataSizeMap,
@@ -343,13 +348,18 @@ protected:
     virtual void v_Gather(const void *sendbuf, int sendcount,
                           CommDataType sendtype, void *recvbuf, int recvcount,
                           CommDataType recvtype, int root)                  = 0;
+    virtual void v_Gatherv(const void *sendbuf, int sendcount,
+                           CommDataType sendtype, void *recvbuf,
+                           const int *recvcounts, const int *recvdispls,
+                           CommDataType recvtype, int root)                 = 0;
     virtual void v_Scatter(const void *sendbuf, int sendcount,
                            CommDataType sendtype, void *recvbuf, int recvcount,
                            CommDataType recvtype, int root)                 = 0;
 
-    virtual void v_DistGraphCreateAdjacent(int indegree, const int *sources,
-                                           const int *sourceweights,
-                                           int reorder) = 0;
+    virtual CommSharedPtr v_DistGraphCreateAdjacent(int indegree,
+                                                    const int *sources,
+                                                    const int *sourceweights,
+                                                    int reorder) = 0;
 
     virtual void v_NeighborAlltoAllv(const void *sendbuf, const int *sendcounts,
                                      const int *senddispls,
@@ -1212,6 +1222,43 @@ LibUtilities::MemoryRegion<T> Comm::Scatter(
 #endif
 
 /**
+ * Concatenate all the input arrays, in rank order, onto the process with rank
+ * == rootProc
+ */
+template <class T1, class T2>
+void Comm::Gatherv(int rootProc, T1 &pSendData, T1 &pRecvData,
+                   T2 &pRecvDataSizeMap, T2 &pRecvDataOffsetMap)
+{
+    static_assert(CommDataTypeTraits<T1>::IsVector,
+                  "Gatherv only valid with Array or vector arguments.");
+    static_assert(std::is_same_v<T2, std::vector<int>> ||
+                      std::is_same_v<T2, Array<OneD, int>>,
+                  "Gatherv size and offset maps should be integer vectors.");
+
+    void *sendBufPtr =
+        pSendData.size()
+            ? static_cast<void *>(CommDataTypeTraits<T1>::GetPointer(pSendData))
+            : nullptr;
+    void *recvBufPtr =
+        (GetRank() == rootProc && pRecvData.size())
+            ? static_cast<void *>(CommDataTypeTraits<T1>::GetPointer(pRecvData))
+            : nullptr;
+    const int *recvCountsPtr =
+        (GetRank() == rootProc)
+            ? (const int *)CommDataTypeTraits<T2>::GetPointer(pRecvDataSizeMap)
+            : nullptr;
+    const int *recvOffsetsPtr =
+        (GetRank() == rootProc)
+            ? (const int *)CommDataTypeTraits<T2>::GetPointer(
+                  pRecvDataOffsetMap)
+            : nullptr;
+
+    v_Gatherv(sendBufPtr, static_cast<int>(pSendData.size()),
+              CommDataTypeTraits<T1>::GetDataType(), recvBufPtr, recvCountsPtr,
+              recvOffsetsPtr, CommDataTypeTraits<T1>::GetDataType(), rootProc);
+}
+
+/**
  * This replaces the current MPI communicator with a new one that also holds
  * the distributed graph topology information. If reordering is enabled using
  * this might break code where process/rank numbers are assumed to remain
@@ -1225,21 +1272,27 @@ LibUtilities::MemoryRegion<T> Comm::Scatter(
  * @param reorder       Ranks may be reordered (true) or not (false)
  */
 template <class T>
-void Comm::DistGraphCreateAdjacent(T &sources, T &sourceweights, int reorder)
+CommSharedPtr Comm::DistGraphCreateAdjacent(T &sources, T &sourceweights,
+                                            int reorder)
 {
     static_assert(
         CommDataTypeTraits<T>::IsVector,
         "DistGraphCreateAdjacent only valid with Array or vector arguments.");
 
-    ASSERTL0(CommDataTypeTraits<T>::GetCount(sources) ==
-                 CommDataTypeTraits<T>::GetCount(sourceweights),
+    int indegree = CommDataTypeTraits<T>::GetCount(sources);
+    int nweights = CommDataTypeTraits<T>::GetCount(sourceweights);
+
+    ASSERTL0(indegree == nweights || nweights == 0,
              "Sources and weights array sizes don't match");
 
-    int indegree = CommDataTypeTraits<T>::GetCount(sources);
+    // Handle unweighted graph case
+    int *ptr = nweights > 0
+                   ? (int *)CommDataTypeTraits<T>::GetPointer(sourceweights)
+                   : nullptr;
 
-    v_DistGraphCreateAdjacent(
+    return v_DistGraphCreateAdjacent(
         indegree, (const int *)CommDataTypeTraits<T>::GetPointer(sources),
-        (const int *)CommDataTypeTraits<T>::GetPointer(sourceweights), reorder);
+        (const int *)ptr, reorder);
 }
 
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)

@@ -123,10 +123,15 @@ protected:
                                         CommDataType sendtype, void *recvbuf,
                                         int recvcount, CommDataType recvtype,
                                         int root) final;
+    LIB_UTILITIES_EXPORT void v_Gatherv(const void *sendbuf, int sendcount,
+                                        CommDataType sendtype, void *recvbuf,
+                                        const int *recvcounts,
+                                        const int *recvdispls,
+                                        CommDataType recvtype, int root) final;
 
-    LIB_UTILITIES_EXPORT void v_DistGraphCreateAdjacent(
-        int indegree, const int *sources, const int *sourceweights,
-        int reorder) final;
+    LIB_UTILITIES_EXPORT CommSharedPtr
+    v_DistGraphCreateAdjacent(int indegree, const int *sources,
+                              const int *sourceweights, int reorder) final;
     LIB_UTILITIES_EXPORT void v_NeighborAlltoAllv(
         const void *sendbuf, const int *sendcounts, const int *senddispls,
         CommDataType sendtype, void *recvbuf, const int *recvcounts,

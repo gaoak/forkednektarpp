@@ -36,6 +36,8 @@
 #include <MultiRegions/AssemblyMap/AssemblyCommDG.h>
 #include <MultiRegions/AssemblyMap/AssemblyMapDG.h>
 
+#include <LibUtilities/Communication/EntityResolver.hpp>
+
 #include <utility>
 
 namespace Nektar::MultiRegions
@@ -146,7 +148,7 @@ NeighborAllToAllV::NeighborAllToAllV(
         ++cnt;
     }
 
-    rowComm->DistGraphCreateAdjacent(destinations, weights, 1);
+    m_neighComm = rowComm->DistGraphCreateAdjacent(destinations, weights, 1);
 
     // Setting up indices
     m_sendCount = Array<OneD, int>(nNeighbours, 0);
@@ -293,8 +295,8 @@ void NeighborAllToAllV::PerformExchange(const Array<OneD, NekDouble> &testFwd,
     Vmath::Gathr(int(m_edgeTraceIndex.size()), testFwd.data(),
                  m_edgeTraceIndex.data(), sendBuff.data());
 
-    m_rowComm->NeighborAlltoAllv(sendBuff, m_sendCount, m_sendDisp, recvBuff,
-                                 m_sendCount, m_sendDisp);
+    m_neighComm->NeighborAlltoAllv(sendBuff, m_sendCount, m_sendDisp, recvBuff,
+                                   m_sendCount, m_sendDisp);
 
     Vmath::Scatr(int(m_edgeTraceIndex.size()), recvBuff.data(),
                  m_edgeTraceIndex.data(), testBwd.data());
@@ -438,16 +440,20 @@ AssemblyCommDG::AssemblyCommDG(
  *
  * - Create an edge to trace mapping, and realign periodic edges within this
  * mapping so that they have the same data layout for ranks sharing periodic
- * boundaries.  - Create a list of all local edge IDs and calculate the maximum
+ * boundaries.
+ * - Create a list of all local edge IDs and calculate the maximum
  * number of quadrature points used locally, then perform an AllReduce to find
  * the maximum number of quadrature points across all ranks (for the AllToAll
- * method).  - Create a list of all boundary edge IDs except for those which are
- * periodic - Using the boundary ID list, and all local ID list we can construct
+ * method).
+ * - Create a list of all boundary edge IDs except for those which are
+ * periodic
+ * - Using the boundary ID list, and all local ID list we can construct
  * a unique list of IDs which are on a partition boundary (e.g. if doesn't occur
  * in the local list twice, and doesn't occur in the boundary list it is on a
  * partition boundary). We also check, if it is a periodic edge, whether the
  * other side is local, if not we add the minimum of thetwo periodic IDs to the
- * unique list as we must have a consistent numbering scheme across ranks.  - We
+ * unique list as we must have a consistent numbering scheme across ranks.
+ * - We
  * send the unique list to all other ranks/partitions. Each ranks unique list is
  * then compared with the local unique edge ID list, if a match is found then
  * the member variable #m_rankSharedEdges is filled with the matching rank and
@@ -645,48 +651,53 @@ void AssemblyCommDG::InitialiseStructure(
 
     // Send uniqueEdgeIds size so all partitions can prepare buffers
     m_nRanks = rowComm->GetSize();
-    Array<OneD, int> rankNumEdges(m_nRanks);
-    Array<OneD, int> localEdgeSize(1, uniqueEdgeIds.size());
-    rowComm->AllGather(localEdgeSize, rankNumEdges);
 
-    Array<OneD, int> rankLocalEdgeDisp(m_nRanks, 0);
-    for (size_t i = 1; i < m_nRanks; ++i)
+    m_nRanks            = rowComm->GetSize();
+    const size_t myRank = rowComm->GetRank();
+
+    // Sort so both sides of a shared edge produce the shared-edge list in the
+    // same (ascending-ID) order. This ordering is what lets the paired
+    // send/recv buffers line up later. (Same invariant the old AllGatherv path
+    // relied on -- it is why the original sorted before communicating.)
+    std::sort(uniqueEdgeIds.begin(), uniqueEdgeIds.end());
+
+    // =========================================================================
+    // [REPLACED] Old: AllGather(sizes) + AllGatherv(all edge IDs of the whole
+    // domain onto every rank) + O(nRanks x edges) matching scan. That is
+    // O(N_global) memory per rank and does not scale.
+    //
+    // New: rendezvous-based sharer discovery. Each rank only ever holds its own
+    // interface edges and their sharers; nothing is sized by the global edge
+    // count. GetSharers(edge) returns every rank that also registered that
+    // (canonical) edge -- which is precisely the partition-neighbour set for
+    // that trace, periodic partners included.
+    // =========================================================================
+    if (m_nRanks > 1)
     {
-        rankLocalEdgeDisp[i] = rankLocalEdgeDisp[i - 1] + rankNumEdges[i - 1];
-    }
+        // CrystalRouterTransport scales to very large rank counts; swap for
+        // AlltoallvTransport if you prefer the simpler path at modest scale.
+        auto transport =
+            std::make_shared<LibUtilities::CrystalRouterTransport>(rowComm);
 
-    Array<OneD, int> localEdgeIdsArray(uniqueEdgeIds.size());
-    for (size_t i = 0; i < uniqueEdgeIds.size(); ++i)
-    {
-        localEdgeIdsArray[i] = uniqueEdgeIds[i];
-    }
+        // Payload is unused -- we only need connectivity -- so register a dummy
+        // and use an identity reduction.
+        LibUtilities::ConnectivityResolver resolver(transport);
+        resolver.RegisterKeys(uniqueEdgeIds);
+        resolver.Resolve();
 
-    // Sort localEdgeIdsArray before sending (this is important!)
-    std::sort(localEdgeIdsArray.begin(), localEdgeIdsArray.end());
-
-    Array<OneD, int> rankLocalEdgeIds(
-        std::accumulate(rankNumEdges.begin(), rankNumEdges.end(), 0), 0);
-
-    // Send all unique edge IDs to all partitions
-    rowComm->AllGatherv(localEdgeIdsArray, rankLocalEdgeIds, rankNumEdges,
-                        rankLocalEdgeDisp);
-
-    // Find what edge Ids match with other ranks
-    size_t myRank = rowComm->GetRank();
-    for (size_t i = 0; i < m_nRanks; ++i)
-    {
-        if (i == myRank)
+        // Build m_rankSharedEdges. Iterating uniqueEdgeIds in ascending order
+        // keeps each neighbour's list ascending, matching the neighbour rank's
+        // list element-for-element.
+        for (int e : uniqueEdgeIds)
         {
-            continue;
-        }
-
-        for (size_t j = 0; j < rankNumEdges[i]; ++j)
-        {
-            int edgeId = rankLocalEdgeIds[rankLocalEdgeDisp[i] + j];
-            if (std::find(uniqueEdgeIds.begin(), uniqueEdgeIds.end(), edgeId) !=
-                uniqueEdgeIds.end())
+            const std::vector<int> &sharers =
+                resolver.GetSharers(static_cast<int64_t>(e));
+            for (int r : sharers)
             {
-                m_rankSharedEdges[i].emplace_back(edgeId);
+                if (r != static_cast<int>(myRank))
+                {
+                    m_rankSharedEdges[r].emplace_back(e);
+                }
             }
         }
     }
