@@ -9,14 +9,15 @@
         // Default case
 #undef OPERATOR_DEF
 #define OPERATOR_DEF                                                           \
-    Operator1D<LibUtilities::@Shape@, true>(inblock, outblock);
+    OperatorND<LibUtilities::@Shape@, true>(                                   \
+        inblock, outblock, NonTemplatedSizeParameter1D(m_nm[0], m_nq[0]));
 
         // Inner loop case over quarature points Shape dependent
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator1D<LibUtilities::@Shape@, true, NM(i), NQ(i)>(inblock,         \
-                                                               outblock);      \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock, TemplatedSizeParameter1D<NM(i), NQ(i)>());      \
         break;
 
         // outer loop case over modes
@@ -66,14 +67,15 @@
         // Default case
 #undef OPERATOR_DEF
 #define OPERATOR_DEF                                                           \
-    Operator1D<LibUtilities::@Shape@, false>(inblock, outblock);
+    OperatorND<LibUtilities::@Shape@, false>(                                  \
+        inblock, outblock, NonTemplatedSizeParameter1D(m_nm[0], m_nq[0]));
 
         // Inner loop case over quarature points Shape dependent
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator1D<LibUtilities::@Shape@, false, NM(i), NQ(i)>(inblock,        \
-                                                                outblock);     \
+        OperatorND<LibUtilities::@Shape@, false>(                              \
+            inblock, outblock, TemplatedSizeParameter1D<NM(i), NQ(i)>());      \
         break;
 
         // outer loop case over modes
@@ -129,23 +131,40 @@
         // Default case
 #undef OPERATOR_DEF
 #define OPERATOR_DEF                                                           \
-    Operator2D<LibUtilities::@Shape@, true>(inblock, outblock);
+    {                                                                          \
+        const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(      \
+            LibUtilities::@Shape@, m_nm[0], m_nm[1]);                          \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            NonTemplatedSizeParameter2D(m_nm[0], m_nm[1], nmTot, m_nq[0],      \
+                                        m_nq[1]));                             \
+    }
 
         // Inner loop case over quarature points Shape dependent
 #if defined(SHAPE_TYPE_Quad)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator2D<LibUtilities::@Shape@, true, NM(i), NM(i), NQ(i),           \
-                   NQ(i)>(inblock, outblock);                                  \
-        break;
+    {                                                                          \
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(  \
+            LibUtilities::@Shape@, NM(i), NM(i));                              \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            TemplatedSizeParameter2D<NM(i), NM(i), nmTot, NQ(i), NQ(i)>());    \
+    }                                                                          \
+    break;
 #elif defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator2D<LibUtilities::@Shape@, true, NM(i), NM(i), NQ(i),           \
-                   NQ_M1(i)>(inblock, outblock);                               \
-        break;
+    {                                                                          \
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(  \
+            LibUtilities::@Shape@, NM(i), NM(i));                              \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            TemplatedSizeParameter2D<NM(i), NM(i), nmTot, NQ(i), NQ_M1(i)>()); \
+    }                                                                          \
+    break;
 #endif
 
         // outer loop case over modes
@@ -209,23 +228,40 @@
         // Default case
 #undef OPERATOR_DEF
 #define OPERATOR_DEF                                                           \
-    Operator2D<LibUtilities::@Shape@, false>(inblock, outblock);
+    {                                                                          \
+        const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(      \
+            LibUtilities::@Shape@, m_nm[0], m_nm[1]);                          \
+        OperatorND<LibUtilities::@Shape@, false>(                              \
+            inblock, outblock,                                                 \
+            NonTemplatedSizeParameter2D(m_nm[0], m_nm[1], nmTot, m_nq[0],      \
+                                        m_nq[1]));                             \
+    }
 
         // Inner loop case over quarature points Shape dependent
 #if defined(SHAPE_TYPE_Quad)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator2D<LibUtilities::@Shape@, false, NM(i), NM(i), NQ(i),          \
-                   NQ(i)>(inblock, outblock);                                  \
-        break;
+    {                                                                          \
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(  \
+            LibUtilities::@Shape@, NM(i), NM(i));                              \
+        OperatorND<LibUtilities::@Shape@, false>(                              \
+            inblock, outblock,                                                 \
+            TemplatedSizeParameter2D<NM(i), NM(i), nmTot, NQ(i), NQ(i)>());    \
+    }                                                                          \
+    break;
 #elif defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator2D<LibUtilities::@Shape@, false, NM(i), NM(i), NQ(i),          \
-                   NQ_M1(i)>(inblock, outblock);                               \
-        break;
+    {                                                                          \
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(  \
+            LibUtilities::@Shape@, NM(i), NM(i));                              \
+        OperatorND<LibUtilities::@Shape@, false>(                              \
+            inblock, outblock,                                                 \
+            TemplatedSizeParameter2D<NM(i), NM(i), nmTot, NQ(i), NQ_M1(i)>()); \
+    }                                                                          \
+    break;
 #endif
 
         // outer loop case over modes
@@ -292,30 +328,55 @@
         // Default case
 #undef OPERATOR_DEF
 #define OPERATOR_DEF                                                           \
-    Operator3D<LibUtilities::@Shape@, true>(inblock, outblock);
+    {                                                                          \
+        const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(      \
+            LibUtilities::@Shape@, m_nm[0], m_nm[1], m_nm[2]);                 \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            NonTemplatedSizeParameter3D(m_nm[0], m_nm[1], m_nm[2], nmTot,      \
+                                        m_nq[0], m_nq[1], m_nq[2]));           \
+    }
 
         // Inner loop case over quarature points Shape dependent
 #if defined(SHAPE_TYPE_Hex)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator3D<LibUtilities::@Shape@, true, NM(i), NM(i), NM(i), NQ(i),    \
-                   NQ(i), NQ(i)>(inblock, outblock);                           \
-        break;
+    {                                                                          \
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(  \
+            LibUtilities::@Shape@, NM(i), NM(i), NM(i));                       \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            TemplatedSizeParameter3D<NM(i), NM(i), NM(i), nmTot, NQ(i), NQ(i), \
+                                     NQ(i)>());                                \
+    }                                                                          \
+    break;
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || defined(SHAPE_TYPE_Pyr)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator3D<LibUtilities::@Shape@, true, NM(i), NM(i), NM(i), NQ(i),    \
-                   NQ(i), NQ_M1(i)>(inblock, outblock);                        \
-        break;
+    {                                                                          \
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(  \
+            LibUtilities::@Shape@, NM(i), NM(i), NM(i));                       \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            TemplatedSizeParameter3D<NM(i), NM(i), NM(i), nmTot, NQ(i), NQ(i), \
+                                     NQ_M1(i)>());                             \
+    }                                                                          \
+    break;
 #elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator3D<LibUtilities::@Shape@, true, NM(i), NM(i), NM(i), NQ(i),    \
-                   NQ_M1(i), NQ_M1(i)>(inblock, outblock);                     \
-        break;
+    {                                                                          \
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(  \
+            LibUtilities::@Shape@, NM(i), NM(i), NM(i));                       \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            TemplatedSizeParameter3D<NM(i), NM(i), NM(i), nmTot, NQ(i),        \
+                                     NQ_M1(i), NQ_M1(i)>());                   \
+    }                                                                          \
+    break;
 #endif
 
         // outer loop case over modes
@@ -384,30 +445,55 @@
         // Default case
 #undef OPERATOR_DEF
 #define OPERATOR_DEF                                                           \
-    Operator3D<LibUtilities::@Shape@, false>(inblock, outblock);
+    {                                                                          \
+        const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(      \
+            LibUtilities::@Shape@, m_nm[0], m_nm[1], m_nm[2]);                 \
+        OperatorND<LibUtilities::@Shape@, false>(                              \
+            inblock, outblock,                                                 \
+            NonTemplatedSizeParameter3D(m_nm[0], m_nm[1], m_nm[2], nmTot,      \
+                                        m_nq[0], m_nq[1], m_nq[2]));           \
+    }
 
         // Inner loop case over quarature points
 #if defined(SHAPE_TYPE_Hex)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator3D<LibUtilities::@Shape@, false, NM(i), NM(i), NM(i), NQ(i),   \
-                   NQ(i), NQ(i)>(inblock, outblock);                           \
-        break;
+    {                                                                          \
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(  \
+            LibUtilities::@Shape@, NM(i), NM(i), NM(i));                       \
+        OperatorND<LibUtilities::@Shape@, false>(                              \
+            inblock, outblock,                                                 \
+            TemplatedSizeParameter3D<NM(i), NM(i), NM(i), nmTot, NQ(i), NQ(i), \
+                                     NQ(i)>());                                \
+    }                                                                          \
+    break;
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || defined(SHAPE_TYPE_Pyr)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator3D<LibUtilities::@Shape@, false, NM(i), NM(i), NM(i), NQ(i),   \
-                   NQ(i), NQ_M1(i)>(inblock, outblock);                        \
-        break;
+    {                                                                          \
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(  \
+            LibUtilities::@Shape@, NM(i), NM(i), NM(i));                       \
+        OperatorND<LibUtilities::@Shape@, false>(                              \
+            inblock, outblock,                                                 \
+            TemplatedSizeParameter3D<NM(i), NM(i), NM(i), nmTot, NQ(i), NQ(i), \
+                                     NQ_M1(i)>());                             \
+    }                                                                          \
+    break;
 #elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator3D<LibUtilities::@Shape@, false, NM(i), NM(i), NM(i), NQ(i),   \
-                   NQ_M1(i), NQ_M1(i)>(inblock, outblock);                     \
-        break;
+    {                                                                          \
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(  \
+            LibUtilities::@Shape@, NM(i), NM(i), NM(i));                       \
+        OperatorND<LibUtilities::@Shape@, false>(                              \
+            inblock, outblock,                                                 \
+            TemplatedSizeParameter3D<NM(i), NM(i), NM(i), nmTot, NQ(i),        \
+                                     NQ_M1(i), NQ_M1(i)>());                   \
+    }                                                                          \
+    break;
 #endif
 
         // outer loop case over modes

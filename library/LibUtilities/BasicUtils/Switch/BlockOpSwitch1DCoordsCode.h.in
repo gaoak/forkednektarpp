@@ -7,7 +7,9 @@ const auto nq0 = m_nq[0];
         // Default case
 #undef OPERATOR_DEF
 #define OPERATOR_DEF                                                           \
-    Operator1D<LibUtilities::@Shape@, true>(inblock, outblock);
+    OperatorND<LibUtilities::@Shape@, true>(                                   \
+        inblock, outblock,                                                     \
+        NonTemplatedPhysSizeParameter1D(m_coordDim, m_nq[0]));
 
         switch (m_coordDim)
         {
@@ -16,7 +18,8 @@ const auto nq0 = m_nq[0];
 #undef OPERATOR
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
-        Operator1D<LibUtilities::eSegment, true, 1, NQ(i)>(inblock, outblock); \
+        OperatorND<LibUtilities::eSegment, true>(                              \
+            inblock, outblock, TemplatedPhysSizeParameter1D<1, NQ(i)>());      \
         break;
             
             // loop case over quarature points 
@@ -41,7 +44,8 @@ const auto nq0 = m_nq[0];
 #undef OPERATOR
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
-        Operator1D<LibUtilities::eSegment, true, 2, NQ(i)>(inblock, outblock); \
+        OperatorND<LibUtilities::eSegment, true>(                              \
+            inblock, outblock, TemplatedPhysSizeParameter1D<2, NQ(i)>());      \
         break;
             
             // loop case over quarature points 
@@ -65,7 +69,8 @@ const auto nq0 = m_nq[0];
 #undef OPERATOR
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
-        Operator1D<LibUtilities::eSegment, true, 3, NQ(i)>(inblock, outblock); \
+        OperatorND<LibUtilities::eSegment, true>(                              \
+            inblock, outblock, TemplatedPhysSizeParameter1D<3, NQ(i)>());      \
         break;
 
             // loop case over quarature points 
@@ -92,7 +97,9 @@ const auto nq0 = m_nq[0];
         // Default case
 #undef OPERATOR_DEF
 #define OPERATOR_DEF                                                           \
-    Operator1D<LibUtilities::@Shape@, false>(inblock, outblock);
+    OperatorND<LibUtilities::@Shape@, false>(                                  \
+        inblock, outblock,                                                     \
+        NonTemplatedPhysSizeParameter1D(m_coordDim, m_nq[0]));
 
         switch (m_coordDim)
         {
@@ -101,7 +108,8 @@ const auto nq0 = m_nq[0];
 #undef OPERATOR
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
-        Operator1D<LibUtilities::eSegment, false, 1, NQ(i)>(inblock, outblock);\
+        OperatorND<LibUtilities::eSegment, false>(                             \
+            inblock, outblock, TemplatedPhysSizeParameter1D<1, NQ(i)>());      \
         break;
             
             // loop case over quarature points 
@@ -127,7 +135,8 @@ const auto nq0 = m_nq[0];
 #undef OPERATOR
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
-        Operator1D<LibUtilities::eSegment, false, 2, NQ(i)>(inblock, outblock);\
+        OperatorND<LibUtilities::eSegment, false>(                             \
+            inblock, outblock, TemplatedPhysSizeParameter1D<2, NQ(i)>());      \
         break;
             
             // loop case over quarature points 
@@ -152,7 +161,8 @@ const auto nq0 = m_nq[0];
 #undef OPERATOR
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
-        Operator1D<LibUtilities::eSegment, false, 3, NQ(i)>(inblock, outblock);\
+        OperatorND<LibUtilities::eSegment, false>(                             \
+            inblock, outblock, TemplatedPhysSizeParameter1D<3, NQ(i)>());      \
         break;
 
             // loop case over quarature points 
@@ -185,7 +195,9 @@ const auto nq0 = m_nq[0];
         // Default case
 #undef OPERATOR_DEF
 #define OPERATOR_DEF                                                           \
-    Operator2D<LibUtilities::@Shape@, true>(inblock, outblock);
+    OperatorND<LibUtilities::@Shape@, true>(                                   \
+        inblock, outblock,                                                     \
+        NonTemplatedPhysSizeParameter2D(m_coordDim, m_nq[0], m_nq[1]));
 
         switch (m_coordDim)
         {
@@ -195,14 +207,16 @@ const auto nq0 = m_nq[0];
 #if defined(SHAPE_TYPE_Quad)
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
-        Operator2D<LibUtilities::Quad, true, 2, NQ(i), NQ(i)>                  \
-            (inblock, outblock);                                               \
+        OperatorND<LibUtilities::Quad, true>(                                  \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter2D<2, NQ(i), NQ(i)>());                  \
         break;
 #elif defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
-        Operator2D<LibUtilities::Tri, true, 2, NQ(i), NQ_M1(i)>                \
-             (inblock, outblock);                                              \
+        OperatorND<LibUtilities::Tri, true>(                                   \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter2D<2, NQ(i), NQ_M1(i)>());               \
         break;
 #endif
             
@@ -245,14 +259,16 @@ const auto nq0 = m_nq[0];
 #if defined(SHAPE_TYPE_Quad)
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
-        Operator2D<LibUtilities::Quad, true, 3, NQ(i), NQ(i)>                  \
-             (inblock, outblock);                                              \
+        OperatorND<LibUtilities::Quad, true>(                                  \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter2D<3, NQ(i), NQ(i)>());                  \
         break;
 #elif defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
-        Operator2D<LibUtilities::Tri, true, 3, NQ(i), NQ_M1(i)>                \
-             (inblock, outblock);                                              \
+        OperatorND<LibUtilities::Tri, true>(                                   \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter2D<3, NQ(i), NQ_M1(i)>());               \
         break;
 #endif
             
@@ -297,7 +313,9 @@ const auto nq0 = m_nq[0];
         // Default case
 #undef OPERATOR_DEF
 #define OPERATOR_DEF                                                           \
-    Operator2D<LibUtilities::@Shape@, false>(inblock, outblock);
+    OperatorND<LibUtilities::@Shape@, false>(                                  \
+        inblock, outblock,                                                     \
+        NonTemplatedPhysSizeParameter2D(m_coordDim, m_nq[0], m_nq[1]));
 
         switch (m_coordDim)
         {
@@ -307,14 +325,16 @@ const auto nq0 = m_nq[0];
 #if defined(SHAPE_TYPE_Quad)
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
-        Operator2D<LibUtilities::Quad, false, 2, NQ(i), NQ(i)>                 \
-            (inblock, outblock);                                               \
+        OperatorND<LibUtilities::Quad, false>(                                 \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter2D<2, NQ(i), NQ(i)>());                  \
         break;
 #elif defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
-        Operator2D<LibUtilities::Tri, false, 2, NQ(i), NQ_M1(i)>               \
-            (inblock, outblock);                                               \
+        OperatorND<LibUtilities::Tri, false>(                                  \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter2D<2, NQ(i), NQ_M1(i)>());               \
         break;
 #endif
             
@@ -357,14 +377,16 @@ const auto nq0 = m_nq[0];
 #if defined(SHAPE_TYPE_Quad)
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
-        Operator2D<LibUtilities::Quad, false, 3, NQ(i), NQ(i)>                 \
-            (inblock, outblock);                                               \
+        OperatorND<LibUtilities::Quad, false>(                                 \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter2D<3, NQ(i), NQ(i)>());                  \
         break;
 #elif defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
-        Operator2D<LibUtilities::Tri, false, 3, NQ(i), NQ_M1(i)>               \
-            (inblock, outblock);                                               \
+        OperatorND<LibUtilities::Tri, false>(                                  \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter2D<3, NQ(i), NQ_M1(i)>());               \
         break;
 #endif
             
@@ -413,29 +435,34 @@ const auto nq0 = m_nq[0];
         // Default case
 #undef OPERATOR_DEF
 #define OPERATOR_DEF                                                           \
-        Operator3D<LibUtilities::@Shape@, true>(inblock, outblock);
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            NonTemplatedPhysSizeParameter3D(m_nq[0], m_nq[1], m_nq[2]));
 
 #if defined(SHAPE_TYPE_Hex)
 #undef OPERATOR
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
-        Operator3D<LibUtilities::@Shape@, true, NQ(i),  NQ(i), NQ(i)>          \
-            (inblock, outblock);                                               \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter3D<NQ(i), NQ(i), NQ(i)>());              \
         break;
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || \
         defined(SHAPE_TYPE_Pyr)
 #undef OPERATOR
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
-        Operator3D<LibUtilities::@Shape@, true, NQ(i),  NQ(i), NQ_M1(i)>       \
-            (inblock, outblock);                                               \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter3D<NQ(i), NQ(i), NQ_M1(i)>());           \
         break;
 #elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
 #undef OPERATOR
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
-        Operator3D<LibUtilities::@Shape@, true, NQ(i),  NQ_M1(i), NQ_M1(i)>    \
-            (inblock, outblock);                                               \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter3D<NQ(i), NQ_M1(i), NQ_M1(i)>());        \
         break;
 #endif
 
@@ -478,29 +505,34 @@ const auto nq0 = m_nq[0];
         // Default case
 #undef OPERATOR_DEF
 #define OPERATOR_DEF                                                           \
-        Operator3D<LibUtilities::@Shape@, false>(inblock, outblock);
+        OperatorND<LibUtilities::@Shape@, false>(                              \
+            inblock, outblock,                                                 \
+            NonTemplatedPhysSizeParameter3D(m_nq[0], m_nq[1], m_nq[2]));
 
 #if defined(SHAPE_TYPE_Hex)
 #undef OPERATOR
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
-        Operator3D<LibUtilities::@Shape@, false, NQ(i),  NQ(i), NQ(i)>         \
-            (inblock, outblock);                                               \
+        OperatorND<LibUtilities::@Shape@, false>(                              \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter3D<NQ(i), NQ(i), NQ(i)>());              \
         break;
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || \
         defined(SHAPE_TYPE_Pyr)
 #undef OPERATOR
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
-        Operator3D<LibUtilities::@Shape@, false, NQ(i),  NQ(i), NQ_M1(i)>      \
-            (inblock, outblock);                                               \
+        OperatorND<LibUtilities::@Shape@, false>(                              \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter3D<NQ(i), NQ(i), NQ_M1(i)>());           \
         break;
 #elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
 #undef OPERATOR
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
-        Operator3D<LibUtilities::@Shape@, false, NQ(i),  NQ_M1(i), NQ_M1(i)>   \
-            (inblock, outblock);                                               \
+        OperatorND<LibUtilities::@Shape@, false>(                              \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter3D<NQ(i), NQ_M1(i), NQ_M1(i)>());        \
         break;
 #endif
 

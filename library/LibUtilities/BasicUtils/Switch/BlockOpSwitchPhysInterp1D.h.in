@@ -6,13 +6,15 @@
         // Default case
 #undef PHYSINTERP1D_DEF
 #define PHYSINTERP1D_DEF                                                       \
-    Operator1D(inblock, outblock);
+    OperatorND<LibUtilities::Seg>(                                             \
+        inblock, outblock, NonTemplatedSizeParameter1D(m_nm[0], m_nq[0]));
 
         // Inner loop case over quarature points Shape dependent
 #undef PHYSINTERP1D_Q
 #define PHYSINTERP1D_Q(r, i)                                                   \
     case NQ(i):                                                                \
-        Operator1D<NM(i), NQ(i)>(inblock, outblock);                           \
+        OperatorND<LibUtilities::Seg>(                                         \
+            inblock, outblock, TemplatedSizeParameter1D<NM(i), NQ(i)>());      \
         break;
 
         // outer loop case over modes
@@ -66,21 +68,41 @@
         // Default case
 #undef PHYSINTERP1D_DEF
 #define PHYSINTERP1D_DEF                                                       \
-    Operator2D(inblock, outblock);
+    {                                                                          \
+        const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(      \
+            LibUtilities::Quad, m_nm[0], m_nm[1]);                             \
+        OperatorND<LibUtilities::Quad>(                                        \
+            inblock, outblock,                                                 \
+            NonTemplatedSizeParameter2D(m_nm[0], m_nm[1], nmTot, m_nq[0],      \
+                                        m_nq[1]));                             \
+    }
 
         // Inner loop case over quarature points Shape dependent
 #if defined(SHAPE_TYPE_Quad)
 #undef PHYSINTERP1D_Q
 #define PHYSINTERP1D_Q(r, i)                                                   \
     case NQ(i):                                                                \
-        Operator2D< NM(i), NM(i), NQ(i), NQ(i)>(inblock, outblock);            \
-        break;
+    {                                                                          \
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(  \
+            LibUtilities::Quad, NM(i), NM(i));                                 \
+        OperatorND<LibUtilities::Quad>(                                        \
+            inblock, outblock,                                                 \
+            TemplatedSizeParameter2D<NM(i), NM(i), nmTot, NQ(i), NQ(i)>());    \
+    }                                                                          \
+    break;
 #elif defined(SHAPE_TYPE_Tri)|| defined(SHAPE_TYPE_NodalTri)
 #undef PHYSINTERP1D_Q
 #define PHYSINTERP1D_Q(r, i)                                                   \
     case NQ(i):                                                                \
-        Operator2D<NM(i), NM_M1(i), NQ(i), NQ_M1(i)>(inblock, outblock);       \
-        break;
+    {                                                                          \
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(  \
+            LibUtilities::Quad, NM(i), NM_M1(i));                              \
+        OperatorND<LibUtilities::Quad>(                                        \
+            inblock, outblock,                                                 \
+            TemplatedSizeParameter2D<NM(i), NM_M1(i), nmTot, NQ(i),            \
+                                     NQ_M1(i)>());                             \
+    }                                                                          \
+    break;
 #endif
 
         // outer loop case over modes
@@ -152,31 +174,56 @@
         // Default case
 #undef PHYSINTERP1D_DEF
 #define PHYSINTERP1D_DEF                                                       \
-    Operator3D(inblock, outblock);
+    {                                                                          \
+        const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(      \
+            LibUtilities::Hex, m_nm[0], m_nm[1], m_nm[2]);                     \
+        OperatorND<LibUtilities::Hex>(                                         \
+            inblock, outblock,                                                 \
+            NonTemplatedSizeParameter3D(m_nm[0], m_nm[1], m_nm[2], nmTot,      \
+                                        m_nq[0], m_nq[1], m_nq[2]));           \
+    }
 
         // Inner loop case over quarature points Shape dependent
 #if defined(SHAPE_TYPE_Hex)
 #undef PHYSINTERP1D_Q
 #define PHYSINTERP1D_Q(r, i)                                                   \
     case NQ(i):                                                                \
-        Operator3D<NM(i), NM(i), NM(i), NQ(i),                                 \
-                   NQ(i), NQ(i)>(inblock, outblock);                           \
-        break;
+    {                                                                          \
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(  \
+            LibUtilities::Hex, NM(i), NM(i), NM(i));                           \
+        OperatorND<LibUtilities::Hex>(                                         \
+            inblock, outblock,                                                 \
+            TemplatedSizeParameter3D<NM(i), NM(i), NM(i), nmTot, NQ(i), NQ(i), \
+                                     NQ(i)>());                                \
+    }                                                                          \
+    break;
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || \
     defined(SHAPE_TYPE_Pyr)
 #undef PHYSINTERP1D_Q
 #define PHYSINTERP1D_Q(r, i)                                                   \
     case NQ(i):                                                                \
-        Operator3D<NM(i), NM(i), NM_M1(i), NQ(i),                              \
-                   NQ(i), NQ_M1(i)>(inblock, outblock);                        \
-        break;
+    {                                                                          \
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(  \
+            LibUtilities::Hex, NM(i), NM(i), NM_M1(i));                        \
+        OperatorND<LibUtilities::Hex>(                                         \
+            inblock, outblock,                                                 \
+            TemplatedSizeParameter3D<NM(i), NM(i), NM_M1(i), nmTot, NQ(i),     \
+                                     NQ(i), NQ_M1(i)>());                      \
+    }                                                                          \
+    break;
 #elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
 #undef PHYSINTERP1D_Q
 #define PHYSINTERP1D_Q(r, i)                                                   \
     case NQ(i):                                                                \
-        Operator3D<NM(i), NM_M1(i), NM_M1(i), NQ(i),                           \
-                   NQ_M1(i), NQ_M1(i)>(inblock, outblock);                     \
-        break;
+    {                                                                          \
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(  \
+            LibUtilities::Hex, NM(i), NM_M1(i), NM_M1(i));                     \
+        OperatorND<LibUtilities::Hex>(                                         \
+            inblock, outblock,                                                 \
+            TemplatedSizeParameter3D<NM(i), NM_M1(i), NM_M1(i), nmTot, NQ(i),  \
+                                     NQ_M1(i), NQ_M1(i)>());                   \
+    }                                                                          \
+    break;
 #endif
 
         // outer loop case over modes
