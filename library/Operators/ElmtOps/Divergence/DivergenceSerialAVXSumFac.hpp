@@ -62,14 +62,16 @@ public:
         m_shapeType = exp->DetShapeType();
         m_isDeformed =
             exp->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed;
+        m_dimension = exp->GetShapeDimension();
+        m_coordDim  = exp->GetCoordim();
+
+        ASSERTL1(m_dimension == m_coordDim,
+                 "Shape dimension and coordinate dimension are not the same.");
 
         // Flag for collapsed coordinate correction.
         m_isModified = (exp->GetBasisType(0) == LibUtilities::eModified_A);
 
-        auto dimension = exp->GetShapeDimension();
-        m_coordDim     = dimension; // required for boost_pp switch
-
-        for (unsigned int d = 0; d < dimension; d++)
+        for (unsigned int d = 0; d < m_dimension; d++)
         {
             // Fetch element size.
             m_nm.push_back(exp->GetBasisNumModes(d));
@@ -82,7 +84,7 @@ public:
                     LibUtilities::eDerivative)));
         }
 
-        if (dimension == 2)
+        if (m_dimension == 2)
         {
             // Fetch geometric factors.
             m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
@@ -94,7 +96,7 @@ public:
                     this->m_exp->GetBasis(1)->GetBasisKey(),
                     LibUtilities::eTwoOverOneMinusZero)));
         }
-        else if (dimension == 3)
+        else if (m_dimension == 3)
         {
             // Fetch geometric factors.
             m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
@@ -122,11 +124,11 @@ public:
 
         // Allocate workspace
         unsigned int nqTot = 1;
-        for (unsigned int d = 0; d < dimension; d++)
+        for (unsigned int d = 0; d < m_dimension; d++)
         {
             nqTot *= m_nq[d];
         }
-        for (unsigned int d = 0; d < dimension; d++)
+        for (unsigned int d = 0; d < m_dimension; d++)
         {
             m_wsp.push_back(
                 std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot));
@@ -154,6 +156,7 @@ protected:
     LibUtilities::ShapeType m_shapeType;
     bool m_isDeformed;
     bool m_isModified;
+    unsigned int m_dimension;
     unsigned int m_coordDim;
     std::vector<unsigned int> m_nm;
     std::vector<unsigned int> m_nq;
@@ -324,8 +327,7 @@ protected:
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Pointer offset between the components of the input block.
-        const auto compOffset =
-            outblock.CompSize() * outblock.GetNumHomoModes();
+        const auto compOffset = inblock.CompSize() * inblock.GetNumHomoModes();
 
         // Initialize pointers.
         auto inbase = inblock.template GetPtr<MemSpace, ReadOnly>();

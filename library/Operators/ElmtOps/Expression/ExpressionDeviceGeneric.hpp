@@ -520,7 +520,7 @@ protected:
         CHECK_HIPCUDA_DRIVER_ERROR(
             nekModuleLoadData(&m_nekModule, code.data()));
 
-        // Retrive mangled name and register function.
+        // Retrieve mangled name and register function.
         const char *mangled_name;
         CHECK_NEKRTC_ERROR(
             nekrtcGetLoweredName(prog, name_expr1.c_str(), &mangled_name));

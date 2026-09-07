@@ -38,8 +38,8 @@
 
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "Operators/ElmtOps/Advection/AdvectionBlockOp.hpp"
+
 #include "Operators/ElmtOps/Advection/AdvectionSerialAVXSumFacKernels.hpp"
-#include "StdRegions/Operators/PhysDerivSumFacStdKernels.hpp"
 
 namespace Nektar::Operators::detail
 {

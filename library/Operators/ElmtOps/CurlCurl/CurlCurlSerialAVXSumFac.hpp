@@ -62,17 +62,19 @@ public:
         m_shapeType = exp->DetShapeType();
         m_isDeformed =
             exp->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed;
-
-        // Flag for collapsed coordinate correction.
-        m_isModified = (exp->GetBasisType(0) == LibUtilities::eModified_A);
-
-        auto dimension = exp->GetShapeDimension();
-        m_coordDim     = dimension; // required for boost_pp switch
+        m_dimension = exp->GetShapeDimension();
+        m_coordDim  = exp->GetCoordim();
 
         ASSERTL1(m_coordDim == 2 || m_coordDim == 3,
                  "CurlCurl operator only defined for 2D and 3D.");
 
-        for (unsigned int d = 0; d < dimension; d++)
+        ASSERTL1(m_dimension == m_coordDim,
+                 "Shape dimension and coordinate dimension are not the same.");
+
+        // Flag for collapsed coordinate correction.
+        m_isModified = (exp->GetBasisType(0) == LibUtilities::eModified_A);
+
+        for (unsigned int d = 0; d < m_dimension; d++)
         {
             // Fetch element size.
             m_nm.push_back(exp->GetBasisNumModes(d));
@@ -85,7 +87,7 @@ public:
                     LibUtilities::eDerivative)));
         }
 
-        if (dimension == 2)
+        if (m_dimension == 2)
         {
             // Fetch geometric factors.
             m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
@@ -97,7 +99,7 @@ public:
                     this->m_exp->GetBasis(1)->GetBasisKey(),
                     LibUtilities::eTwoOverOneMinusZero)));
         }
-        else if (dimension == 3)
+        else if (m_dimension == 3)
         {
             // Fetch geometric factors.
             m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
@@ -127,24 +129,14 @@ public:
         // derivatives of every component at once so that the chain rule and
         // the curl can be applied by a single sweep: that is dimension
         // arrays per component, plus one array per component of omega.
-        unsigned int nqTot  = m_nq[0];
-        unsigned int numWsp = 1;
-        if (dimension == 2)
+        unsigned int nqTot = m_nq[0];
+        for (unsigned int d = 1; d < m_dimension; d++)
         {
-            nqTot *= m_nq[1];
-            // 2 x {u, v} tensorial derivatives, plus the scalar omega.
-            numWsp = 5;
-        }
-        else if (dimension == 3)
-        {
-            nqTot *= m_nq[1] * m_nq[2];
-            // 3 x {u, v, w} tensorial derivatives, plus the three components
-            // of omega.
-            numWsp = 12;
+            nqTot *= m_nq[d];
         }
 
-        m_wsp =
-            std::vector<simd_t, tinysimd::allocator<simd_t>>(numWsp * nqTot);
+        m_wsp = std::vector<simd_t, tinysimd::allocator<simd_t>>(
+            NumWorkspace(m_dimension) * nqTot);
     }
 
     // className - for BlockOperatorFactory
@@ -168,6 +160,7 @@ protected:
     LibUtilities::ShapeType m_shapeType;
     bool m_isDeformed;
     bool m_isModified;
+    unsigned int m_dimension;
     unsigned int m_coordDim;
     std::vector<unsigned int> m_nm;
     std::vector<unsigned int> m_nq;
@@ -267,6 +260,14 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock);
 
+    // Number of workspaces used by the kernels in dim dimensions: the dim
+    // tensorial derivatives of each of the dim components, plus one array per
+    // component of omega, which is a scalar in 2D and a vector in 3D.
+    static constexpr unsigned int NumWorkspace(const unsigned int dim)
+    {
+        return dim * dim + ((dim == 2) ? 1u : dim);
+    }
+
     // Number of collapsed coordinate factors used by the kernels in dim
     // dimensions.
     static constexpr unsigned int NumFactor(const unsigned int dim)
@@ -337,8 +338,11 @@ protected:
                                          : interleaveWidth / m_implInterleaveWidth;
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
-        // Pointer offset between the components of the in/output block.
-        const auto compOffset =
+        // Pointer offset between the components of the input and
+        // output blocks.
+        const auto inCompOffset =
+            inblock.CompSize() * inblock.GetNumHomoModes();
+        const auto outCompOffset =
             outblock.CompSize() * outblock.GetNumHomoModes();
 
         // Initialize pointers.
@@ -348,8 +352,8 @@ protected:
         TData *outptr[ndim];
         for (unsigned int d = 0; d < ndim; ++d)
         {
-            inptr[d]  = inbase + d * compOffset;
-            outptr[d] = outbase + d * compOffset;
+            inptr[d]  = inbase + d * inCompOffset;
+            outptr[d] = outbase + d * outCompOffset;
         }
 
         // Loop over components.

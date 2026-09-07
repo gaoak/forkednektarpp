@@ -812,7 +812,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
         if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
         {
-            // Nodal to Modal in shapred memory
+            // Nodal to Modal in shared memory
             MatVecSumFacTOPKernel(nmTot, nodToMod, inptr, s_wsp0, threadBlock);
         }
         else
@@ -947,7 +947,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism ||
                       SHAPE_TYPE == LibUtilities::NodalTet)
         {
-            // Nodal to Modal in shapred memory
+            // Nodal to Modal in shared memory
             MatVecSumFacTOPKernel(nmTot, nodToMod, inptr, s_wsp0, threadBlock);
         }
         else

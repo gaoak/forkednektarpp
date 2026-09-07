@@ -78,18 +78,19 @@ NEK_FORCE_INLINE static void DivergenceKernelLauncher(
                   "NonTemplatedPhysSizeParameter2D or "
                   "TemplatedPhysSizeParameter2D.");
 
-    const unsigned int nq0 = sizeParam2D.nq0();
-    const unsigned int nq1 = sizeParam2D.nq1();
+    const unsigned int ncoord = sizeParam2D.ncoord();
+    const unsigned int nq0    = sizeParam2D.nq0();
+    const unsigned int nq1    = sizeParam2D.nq1();
 
     // du/dx
     PhysDerivTensor2DKernel(nq0, nq1, in0, D0, D1, wsp0, wsp1);
     PhysDerivDir2DKernel<SHAPE_TYPE, false, DEFORMED, 0>(
-        nq0, nq1, 2, f0, f1, df_ptr, wsp0, wsp1, out);
+        nq0, nq1, ncoord, f0, f1, df_ptr, wsp0, wsp1, out);
 
     // dv/dy
     PhysDerivTensor2DKernel(nq0, nq1, in1, D0, D1, wsp0, wsp1);
     PhysDerivDir2DKernel<SHAPE_TYPE, true, DEFORMED, 1>(
-        nq0, nq1, 2, f0, f1, df_ptr, wsp0, wsp1, out);
+        nq0, nq1, ncoord, f0, f1, df_ptr, wsp0, wsp1, out);
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,

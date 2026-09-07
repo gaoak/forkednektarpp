@@ -528,7 +528,7 @@ protected:
                 dfptr += jacSize * ndf * simd_t::width;
             }
 
-            // Advance input by coordDim-1 componennts since have already
+            // Advance input by coordDim-1 components since have already
             // advanced one component in the above.
             if ((n + 1) % inblock.GetNumHomoModes() == 0)
             {

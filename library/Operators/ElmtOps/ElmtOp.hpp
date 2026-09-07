@@ -116,7 +116,7 @@ public:
      *
      * @param opName  Operator name (e.g. "Mass", "Helmholtz").
      * @param session  Session reader to recover the relevant the maps and
-     * command-line arguemnts.
+     * command-line arguments.
      *
      * @return std::string containing the implementation name (e.g. "SumFac",
      * "StdMat").
@@ -171,7 +171,7 @@ public:
         }
 
         NEKERROR(ErrorUtil::efatal,
-                 "Implementation not found in optmisation file");
+                 "Implementation not found in optimisation file");
         return "";
     }
 

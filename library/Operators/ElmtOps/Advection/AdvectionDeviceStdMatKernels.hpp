@@ -36,6 +36,9 @@
 
 #include "LibUtilities/LoopExecution/LoopExecution.hpp"
 
+namespace Nektar::Operators::detail
+{
+
 template <typename ExecSpace, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void MultiplyByDerivFactorAndAdvecVelKernel(
     const unsigned int nqTot, const unsigned int ncoord,
@@ -110,3 +113,5 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorAndAdvecVelKernel(
 
     Nektar::LoopExecutionSetStreamID(0);
 }
+
+} // namespace Nektar::Operators::detail
