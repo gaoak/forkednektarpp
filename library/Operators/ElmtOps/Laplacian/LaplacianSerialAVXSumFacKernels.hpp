@@ -65,7 +65,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJSegKernel(
     simd_type d12 = {0.0};
     simd_type d22 = {1.0};         // var diffusion terms
     simd_type dtmp0, dtmp1, dtmp2; // temp for vardiff
-    simd_type df0, df1, df2;
+    simd_type df0, df1 = {0.0}, df2 = {0.0};
     simd_type metric00;
 
     if (isConstVarDiff)
@@ -269,7 +269,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTriKernel(
     simd_type d22 = {1.0};                // var diffusion terms
     simd_type dtmp0, dtmp1, dtmp2, dtmp3; // temp for vardiff
     simd_type dtmp4, dtmp5;
-    simd_type df0, df1, df2, df3, df4, df5;
+    simd_type df0, df1, df2, df3, df4 = {0.0}, df5 = {0.0};
     simd_type metric00, metric01, metric11;
 
     if (isConstVarDiff)
@@ -458,7 +458,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJQuadKernel(
     simd_type d22 = {1.0};                // var diffusion terms
     simd_type dtmp0, dtmp1, dtmp2, dtmp3; // temp for vardiff
     simd_type dtmp4, dtmp5;
-    simd_type df0, df1, df2, df3, df4, df5;
+    simd_type df0, df1, df2, df3, df4 = {0.0}, df5 = {0.0};
     simd_type metric00, metric01, metric11;
 
     if (isConstVarDiff)

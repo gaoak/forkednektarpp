@@ -47,7 +47,7 @@ NEK_FORCE_INLINE void PhysDeriv1DKernel(const unsigned int nq0,
                                         const simd_type *df_ptr,
                                         simd_type *out[3])
 {
-    simd_type df_tmp[3];
+    simd_type df_tmp[3] = {};
 
     if constexpr (!DEFORMED)
     {
@@ -137,7 +137,7 @@ NEK_FORCE_INLINE void PhysDeriv2DKernel(
     const simd_type *df_ptr, simd_type *out[3])
 {
     const unsigned int ndf = 2 * outdim;
-    simd_type df_tmp[6];
+    simd_type df_tmp[6]    = {};
 
     if constexpr (!DEFORMED)
     {
