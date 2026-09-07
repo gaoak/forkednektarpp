@@ -127,7 +127,8 @@ protected:
                  "Currently only setup for one homogeneous plane");
 
         // Initialize pointers.
-        auto inptr = inblock.template GetPtr<MemSpace, ReadOnly>();
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -142,14 +143,19 @@ protected:
         // Get static workspace pointer. The standard derivatives of every
         // component are held at once so that the chain rule and the curl can
         // be applied by a single sweep.
-        const auto slotSize = m_nqTot * simd_t::width;
+        const auto derivoffset = m_nqTot * simd_t::width;
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                (m_dimension * m_coordDim + nOmega) * slotSize);
+                (m_dimension * m_coordDim + nOmega) * derivoffset);
+        auto derivptr = wspptr;
+        auto omegaptr = derivptr + m_dimension * m_coordDim * derivoffset;
 
-        // Dispatch kernel.
+        // Dispatch kernel. The standard derivative matrices of all the
+        // directions are stored contiguously, so a multiply of
+        // dimension * nqTot columns forms the standard derivatives of one
+        // component in every direction at once.
         auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-            simd_t::width, m_nqTot, m_nqTot, 1.0, 0.0);
+            simd_t::width, m_dimension * m_nqTot, m_nqTot, 1.0, 0.0);
 
         // Loop over components.
         const auto inoffset  = inblock.CompSize() * inblock.GetNumHomoModes();
@@ -157,176 +163,145 @@ protected:
 
         auto dfptr = m_dfptr;
 
-        auto derivRef  = wspptr;
-        auto derivSimd = reinterpret_cast<const simd_t *>(derivRef);
-        auto omega     = reinterpret_cast<simd_t *>(
-            derivRef + m_dimension * m_coordDim * slotSize);
-
-        // Standard derivatives of one component, written into the slot
-        // reserved for it.
-        auto computeTensorDeriv = [&](const TData *fieldptr,
-                                      const unsigned int comp) {
-            TData *tderiv = derivRef + comp * m_dimension * slotSize;
-            for (unsigned int d = 0; d < m_dimension; ++d)
-            {
-                gemm_kernel(fieldptr, m_matptr + d * m_nqTot * m_nqTot,
-                            tderiv + d * slotSize);
-            }
-        };
-
         // Loop over element groups.
         for (size_t e = 0; e < inblock.GetNumElmtGroups(m_implInterleaveWidth);
              ++e)
         {
-            auto inptr0  = inptr;
-            auto inptr1  = inptr0 + inoffset;
-            auto inptr2  = (m_dimension == 3) ? inptr1 + inoffset : inptr1;
-            auto outptr0 = outblock.template GetPtr<MemSpace, WriteOnly>() +
-                           e * m_nqTot * simd_t::width;
-            auto outptr1 = outptr0 + outoffset;
-            auto outptr2 = (m_dimension == 3) ? outptr1 + outoffset : outptr1;
-
             // Reshape, if necessary.
             if (e % width_ratio == 0)
             {
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    m_implInterleaveWidth, interleaveWidth, chunkSize, m_nqTot,
-                    (TData *)inptr0);
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    m_implInterleaveWidth, interleaveWidth, chunkSize, m_nqTot,
-                    (TData *)inptr1);
-                if (m_dimension == 3)
+                for (unsigned int c = 0; c < m_coordDim; ++c)
                 {
                     LibUtilities::ReshapeStorage<ExecSpace>(
                         m_implInterleaveWidth, interleaveWidth, chunkSize,
-                        m_nqTot, (TData *)inptr2);
+                        m_nqTot, (TData *)inptr + c * inoffset);
                 }
             }
 
-            const auto dfSimd = reinterpret_cast<const simd_t *>(dfptr);
-
-            if (m_dimension == 2)
+            // Step 1: Deriv of u
+            // Perform matrix-matrix multiply.
+            for (unsigned int c = 0; c < m_coordDim; ++c)
             {
-                auto outsimd0 = reinterpret_cast<simd_t *>(outptr0);
-                auto outsimd1 = reinterpret_cast<simd_t *>(outptr1);
+                gemm_kernel(inptr + c * inoffset, m_matptr,
+                            derivptr + c * m_dimension * derivoffset);
+            }
 
-                computeTensorDeriv(inptr0, 0);
-                computeTensorDeriv(inptr1, 1);
-
+            // Step 2: omega = curl(u)
+            if (m_dimension == 2u)
+            {
                 // omega_z = dv/dx - du/dy
                 if (m_isDeformed)
                 {
-                    Curl2DScalarStdMatKernel<ExecSpace, true>(m_nqTot, dfSimd,
-                                                              derivSimd, omega);
+                    Curl2DScalarStdMatKernel<ExecSpace, true>(
+                        m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(derivptr),
+                        reinterpret_cast<simd_t *>(omegaptr));
                 }
                 else
                 {
                     Curl2DScalarStdMatKernel<ExecSpace, false>(
-                        m_nqTot, dfSimd, derivSimd, omega);
-                }
-
-                computeTensorDeriv(reinterpret_cast<const TData *>(omega), 0);
-
-                // q = {d(omega_z)/dy, -d(omega_z)/dx}
-                if (m_isDeformed)
-                {
-                    Curl2DVectorStdMatKernel<ExecSpace, true>(
-                        m_nqTot, dfSimd, derivSimd, outsimd0, outsimd1);
-                }
-                else
-                {
-                    Curl2DVectorStdMatKernel<ExecSpace, false>(
-                        m_nqTot, dfSimd, derivSimd, outsimd0, outsimd1);
+                        m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(derivptr),
+                        reinterpret_cast<simd_t *>(omegaptr));
                 }
             }
             else
             {
-                auto outsimd0 = reinterpret_cast<simd_t *>(outptr0);
-                auto outsimd1 = reinterpret_cast<simd_t *>(outptr1);
-                auto outsimd2 = reinterpret_cast<simd_t *>(outptr2);
-
-                computeTensorDeriv(inptr0, 0);
-                computeTensorDeriv(inptr1, 1);
-                computeTensorDeriv(inptr2, 2);
-
-                // omega = curl(u)
                 if (m_isDeformed)
                 {
                     Curl3DStdMatKernel<ExecSpace, true>(
-                        m_nqTot, dfSimd, derivSimd, omega, omega + m_nqTot,
-                        omega + 2 * m_nqTot);
+                        m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(derivptr),
+                        reinterpret_cast<simd_t *>(omegaptr),
+                        reinterpret_cast<simd_t *>(omegaptr + derivoffset),
+                        reinterpret_cast<simd_t *>(omegaptr + 2 * derivoffset));
                 }
                 else
                 {
                     Curl3DStdMatKernel<ExecSpace, false>(
-                        m_nqTot, dfSimd, derivSimd, omega, omega + m_nqTot,
-                        omega + 2 * m_nqTot);
+                        m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(derivptr),
+                        reinterpret_cast<simd_t *>(omegaptr),
+                        reinterpret_cast<simd_t *>(omegaptr + derivoffset),
+                        reinterpret_cast<simd_t *>(omegaptr + 2 * derivoffset));
                 }
+            }
 
-                computeTensorDeriv(reinterpret_cast<const TData *>(omega), 0);
-                computeTensorDeriv(
-                    reinterpret_cast<const TData *>(omega + m_nqTot), 1);
-                computeTensorDeriv(
-                    reinterpret_cast<const TData *>(omega + 2 * m_nqTot), 2);
+            // Step 3: Deriv of omega
+            // Perform matrix-matrix multiply.
+            for (unsigned int c = 0; c < nOmega; ++c)
+            {
+                gemm_kernel(omegaptr + c * derivoffset, m_matptr,
+                            derivptr + c * m_dimension * derivoffset);
+            }
 
-                // out = curl(omega)
+            // Step 4: out = curl(omega)
+            if (m_dimension == 2u)
+            {
+                // q = {d(omega_z)/dy, -d(omega_z)/dx}
                 if (m_isDeformed)
                 {
-                    Curl3DStdMatKernel<ExecSpace, true>(m_nqTot, dfSimd,
-                                                        derivSimd, outsimd0,
-                                                        outsimd1, outsimd2);
+                    Curl2DVectorStdMatKernel<ExecSpace, true>(
+                        m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(derivptr),
+                        reinterpret_cast<simd_t *>(outptr),
+                        reinterpret_cast<simd_t *>(outptr + outoffset));
                 }
                 else
                 {
-                    Curl3DStdMatKernel<ExecSpace, false>(m_nqTot, dfSimd,
-                                                         derivSimd, outsimd0,
-                                                         outsimd1, outsimd2);
+                    Curl2DVectorStdMatKernel<ExecSpace, false>(
+                        m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(derivptr),
+                        reinterpret_cast<simd_t *>(outptr),
+                        reinterpret_cast<simd_t *>(outptr + outoffset));
+                }
+            }
+            else
+            {
+                if (m_isDeformed)
+                {
+                    Curl3DStdMatKernel<ExecSpace, true>(
+                        m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(derivptr),
+                        reinterpret_cast<simd_t *>(outptr),
+                        reinterpret_cast<simd_t *>(outptr + outoffset),
+                        reinterpret_cast<simd_t *>(outptr + 2 * outoffset));
+                }
+                else
+                {
+                    Curl3DStdMatKernel<ExecSpace, false>(
+                        m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(derivptr),
+                        reinterpret_cast<simd_t *>(outptr),
+                        reinterpret_cast<simd_t *>(outptr + outoffset),
+                        reinterpret_cast<simd_t *>(outptr + 2 * outoffset));
                 }
             }
 
             // Reshape back, if necessary.
             if (e % width_ratio == width_ratio - 1)
             {
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    interleaveWidth, m_implInterleaveWidth, chunkSize, m_nqTot,
-                    (TData *)inptr0 -
-                        (width_ratio - 1) * m_nqTot * simd_t::width);
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    interleaveWidth, m_implInterleaveWidth, chunkSize, m_nqTot,
-                    (TData *)inptr1 -
-                        (width_ratio - 1) * m_nqTot * simd_t::width);
-                if (m_dimension == 3)
+                for (unsigned int c = 0; c < m_coordDim; ++c)
                 {
                     LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nqTot,
-                        (TData *)inptr2 -
+                        (TData *)inptr + c * inoffset -
                             (width_ratio - 1) * m_nqTot * simd_t::width);
-                }
-
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    interleaveWidth, m_implInterleaveWidth, chunkSize, m_nqTot,
-                    (TData *)outptr0 -
-                        (width_ratio - 1) * m_nqTot * simd_t::width);
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    interleaveWidth, m_implInterleaveWidth, chunkSize, m_nqTot,
-                    (TData *)outptr1 -
-                        (width_ratio - 1) * m_nqTot * simd_t::width);
-                if (m_dimension == 3)
-                {
                     LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nqTot,
-                        (TData *)outptr2 -
+                        outptr + c * outoffset -
                             (width_ratio - 1) * m_nqTot * simd_t::width);
                 }
             }
 
-            // Increment pointer.
+            // Increment pointers.
             dfptr += (m_isDeformed)
                          ? m_coordDim * m_dimension * m_nqTot * simd_t::width
                          : m_coordDim * m_dimension * simd_t::width;
             inptr += m_nqTot * simd_t::width;
+            outptr += m_nqTot * simd_t::width;
         }
 
         // Set output block to input interleave.
