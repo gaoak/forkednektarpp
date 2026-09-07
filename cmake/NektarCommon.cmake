@@ -4,6 +4,12 @@
 ## Frequently used Nektar++ CMake configuration macros and functions
 ##
 
+# Executables that use std::thread carry direct references to pthread symbols,
+# so the threading library has to appear on their link line. Threads::Threads
+# is language-aware, which matters here since executables may also contain CUDA
+# or HIP objects that are compiled and linked by a device compiler.
+FIND_PACKAGE(Threads REQUIRED)
+
 IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
     # Macro for each operator.
     MACRO(ADD_OPERATOR dir OPNAMESPACE OPERATORS_HEADERS OPERATORS_SOURCES)
@@ -345,11 +351,6 @@ MACRO(ADD_NEKTAR_EXECUTABLE name)
     ADD_EXECUTABLE(${name} ${NEKEXE_SOURCES})
     SET_COMMON_PROPERTIES(${name})
 
-    IF (${CMAKE_SYSTEM} MATCHES "Linux.*")
-        SET_PROPERTY(TARGET ${name} APPEND PROPERTY CMAKE_CXX_FLAGS -pthread)
-        SET_PROPERTY(TARGET ${name} APPEND PROPERTY CMAKE_CXX_FLAGS -pthread)
-    ENDIF()
-
     STRING(TOLOWER ${NEKEXE_COMPONENT} NEKEXE_COMPONENT)
     STRING(TOUPPER ${NEKEXE_COMPONENT} NEKEXE_COMPVAR)
 
@@ -361,6 +362,11 @@ MACRO(ADD_NEKTAR_EXECUTABLE name)
 
     # Add dependencies for executable.
     TARGET_LINK_LIBRARIES(${name} LINK_PUBLIC ${NEKEXE_DEPENDS})
+
+    # Appended as a property rather than through TARGET_LINK_LIBRARIES: several
+    # callers add their own libraries to these targets with the plain signature,
+    # and CMake refuses to mix that with the keyword signature used above.
+    SET_PROPERTY(TARGET ${name} APPEND PROPERTY LINK_LIBRARIES Threads::Threads)
 ENDMACRO()
 
 #
