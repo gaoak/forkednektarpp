@@ -527,6 +527,43 @@ void SegExp::v_ComputeTraceNormal(const int vertex)
             Vmath::Smul(nqe, vert, normal[i], 1, normal[i], 1);
         }
     }
+    else
+    {
+        // Deformed geometry case. The deriv factors vary along the element,
+        // so each vertex takes them at its own quadrature point: point 0 for
+        // vertex 0, which sits at xi = -1, and nquad - 1 for vertex 1 at
+        // xi = +1. That is the same convention
+        // Expansion1D::v_NormalTraceDerivFactors uses.
+        //
+        // Without this the normal arrays were allocated and left unwritten,
+        // so a deformed segment handed out uninitialised values.
+        ASSERTL0(vertex == 0 || vertex == 1,
+                 "point is out of range (point < 2)");
+
+        const int nquad     = m_base[0]->GetNumPoints();
+        const int pt        = (vertex == 0) ? 0 : nquad - 1;
+        const NekDouble sgn = (vertex == 0) ? -1.0 : 1.0;
+
+        for (i = 0; i < vCoordDim; ++i)
+        {
+            Vmath::Fill(nqe, sgn * gmat[i][pt], normal[i], 1);
+        }
+
+        // normalise
+        NekDouble vert = 0.0;
+        for (i = 0; i < vCoordDim; ++i)
+        {
+            vert += normal[i][0] * normal[i][0];
+        }
+        vert = 1.0 / sqrt(vert);
+
+        Vmath::Fill(nqb, vert, length, 1);
+
+        for (i = 0; i < vCoordDim; ++i)
+        {
+            Vmath::Smul(nqe, vert, normal[i], 1, normal[i], 1);
+        }
+    }
 }
 
 //-----------------------------

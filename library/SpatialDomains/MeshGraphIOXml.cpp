@@ -613,6 +613,51 @@ void MeshGraphIOXml::v_ReadGeometry(bool fillGraph)
     ReadComposites();
     ReadDomain();
 
+    // A partition file written by WriteXMLGeometry() carries the global
+    // composite and boundary-region orderings; restore them, since the
+    // pre-partitioned path has no other source for either. Files from
+    // before the sections existed simply lack them, and the consumers in
+    // DisContField assert intelligibly in that case rather than reading
+    // garbage.
+    TiXmlElement *vCompOrder =
+        m_xmlGeom->FirstChildElement("COMPOSITEORDERING");
+    if (vCompOrder)
+    {
+        CompositeOrdering compOrder;
+        for (TiXmlElement *vC = vCompOrder->FirstChildElement("C"); vC;
+             vC               = vC->NextSiblingElement("C"))
+        {
+            int id = 0;
+            vC->QueryIntAttribute("ID", &id);
+            std::vector<unsigned int> ids;
+            if (vC->GetText())
+            {
+                ParseUtils::GenerateSeqVector(vC->GetText(), ids);
+            }
+            compOrder[id] = ids;
+        }
+        m_meshGraph->SetCompositeOrdering(compOrder);
+    }
+
+    TiXmlElement *vBndOrder = m_xmlGeom->FirstChildElement("BNDREGIONORDERING");
+    if (vBndOrder)
+    {
+        BndRegionOrdering bndRegOrder;
+        for (TiXmlElement *vB = vBndOrder->FirstChildElement("B"); vB;
+             vB               = vB->NextSiblingElement("B"))
+        {
+            int id = 0;
+            vB->QueryIntAttribute("ID", &id);
+            std::vector<unsigned int> ids;
+            if (vB->GetText())
+            {
+                ParseUtils::GenerateSeqVector(vB->GetText(), ids);
+            }
+            bndRegOrder[id] = ids;
+        }
+        m_meshGraph->SetBndRegionOrdering(bndRegOrder);
+    }
+
     if (fillGraph)
     {
         m_meshGraph->FillGraph();
@@ -3571,6 +3616,46 @@ void MeshGraphIOXml::WriteXMLGeometry(
                 root->LinkEndChild(new TiXmlElement(*vSrc));
             }
             vSrc = vSrc->NextSiblingElement();
+        }
+
+        // Persist the global composite and boundary-region orderings into
+        // the partition file. They are whole-mesh information computed at
+        // partition time, and nothing else records them: a later read of
+        // this file - a pre-partitioned restart, or simply a second
+        // MeshGraphIO::Read() in the same run - otherwise comes back with
+        // empty orderings, and the periodic machinery in DisContField reads
+        // through an end() iterator on the first periodic boundary it meets.
+        // Written as plain comma lists so the order round-trips exactly.
+        {
+            TiXmlElement *vCompOrder = new TiXmlElement("COMPOSITEORDERING");
+            for (auto &cIt : m_compOrder)
+            {
+                std::stringstream ss;
+                for (size_t j = 0; j < cIt.second.size(); ++j)
+                {
+                    ss << (j ? "," : "") << cIt.second[j];
+                }
+                TiXmlElement *vC = new TiXmlElement("C");
+                vC->SetAttribute("ID", cIt.first);
+                vC->LinkEndChild(new TiXmlText(ss.str()));
+                vCompOrder->LinkEndChild(vC);
+            }
+            geomTag->LinkEndChild(vCompOrder);
+
+            TiXmlElement *vBndOrder = new TiXmlElement("BNDREGIONORDERING");
+            for (auto &bIt : m_bndRegOrder)
+            {
+                std::stringstream ss;
+                for (size_t j = 0; j < bIt.second.size(); ++j)
+                {
+                    ss << (j ? "," : "") << bIt.second[j];
+                }
+                TiXmlElement *vB = new TiXmlElement("B");
+                vB->SetAttribute("ID", bIt.first);
+                vB->LinkEndChild(new TiXmlText(ss.str()));
+                vBndOrder->LinkEndChild(vB);
+            }
+            geomTag->LinkEndChild(vBndOrder);
         }
 
         // Save Mesh

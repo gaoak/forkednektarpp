@@ -81,6 +81,8 @@ public:
     LOCAL_REGIONS_EXPORT ExpansionSharedPtr GetTraceExp(const int traceid);
 
     LOCAL_REGIONS_EXPORT ExpansionSharedPtr GetLocTraceExp(const int traceid);
+    LOCAL_REGIONS_EXPORT ExpansionSharedPtr
+    GetAlignedTraceExp(const int traceid);
 
     LOCAL_REGIONS_EXPORT StdRegions::StdExpansionSharedPtr GetStdExp() const
     {
@@ -222,9 +224,11 @@ public:
     inline void GetLocTracePhysVals(
         const int trace, const StdRegions::StdExpansionSharedPtr &TraceExp,
         const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray)
+        Array<OneD, NekDouble> &outarray,
+        StdRegions::Orientation orient = StdRegions::eDir1FwdDir1_Dir2FwdDir2)
     {
-        v_GetLocTracePhysVals(trace, TraceExp, inarray.data(), outarray);
+        v_GetLocTracePhysVals(trace, TraceExp, inarray.data(), outarray,
+                              orient);
     }
 
     inline void GetTracePhysMap(const int edge, Array<OneD, int> &outarray)
@@ -450,7 +454,8 @@ protected:
 
     virtual void v_GetLocTracePhysVals(
         const int trace, const StdRegions::StdExpansionSharedPtr &TraceExp,
-        const NekDouble *inarray, Array<OneD, NekDouble> &outarray);
+        const NekDouble *inarray, Array<OneD, NekDouble> &outarray,
+        StdRegions::Orientation orient);
 
     virtual void v_GetTracePhysMap(const int edge, Array<OneD, int> &outarray);
 
@@ -479,6 +484,9 @@ protected:
     virtual void v_TraceNormLen(const int traceid, NekDouble &h, NekDouble &p);
 
     virtual void v_GenTraceExp(const int traceid, ExpansionSharedPtr &exp);
+
+    virtual void v_GenAlignedTraceExp(const int traceid,
+                                      ExpansionSharedPtr &exp);
 
 private:
 };
@@ -527,7 +535,36 @@ inline ExpansionSharedPtr Expansion::GetTraceExp(const int traceid)
     return returnval;
 }
 
-// Generate a local Trace expansion
+/**
+ * @brief Generate a trace expansion aligned with the *shared trace geometry*.
+ *
+ * A trace is parametrised twice over: once by the element, in its own local
+ * trace directions, and once by the shared trace geometry (the QuadGeom or
+ * TriGeom held by SpatialDomains), in the trace's own directions. The two
+ * frames are related by GetTraceOrient(traceid) and coincide only when that
+ * is eDir1FwdDir1_Dir2FwdDir2. In particular, orientations at or beyond
+ * eDir1FwdDir2_Dir2FwdDir1 exchange the two directions, so the number of
+ * points in each direction differs between the frames.
+ *
+ * "Aligned" here means aligned with the *geometry*, i.e. the returned
+ * expansion carries its two basis keys ordered to match the directions of the
+ * shared trace geometry. It is therefore internally consistent, and its
+ * geometric quantities -- Jacobian, coordinates, quadrature metric, inner
+ * products -- are meaningful. They are expressed in the global trace frame,
+ * so to use them against element local trace data they must be scattered into
+ * the local frame with
+ *
+ *     ReOrientTracePhysVals(orient, in, out, nq0, nq1, false)
+ *
+ * where nq0 and nq1 are the *local* trace extents.
+ *
+ * When only the trace's basis and points are needed -- which is what most
+ * callers want -- use StdExpansion::GetStdTraceExp() instead, which carries no
+ * geometry at all and so cannot be read in the wrong frame.
+ *
+ * @param traceid  Local index of the trace within the element.
+ * @return         Trace expansion aligned with the shared trace geometry.
+ */
 inline ExpansionSharedPtr Expansion::GetLocTraceExp(const int traceid)
 {
     ASSERTL1(traceid < GetNtraces(), "Trace is out of range.");
@@ -536,6 +573,17 @@ inline ExpansionSharedPtr Expansion::GetLocTraceExp(const int traceid)
 
     // Generate local trace exp
     v_GenTraceExp(traceid, returnval);
+
+    return returnval;
+}
+
+inline ExpansionSharedPtr Expansion::GetAlignedTraceExp(const int traceid)
+{
+    ASSERTL1(traceid < GetNtraces(), "Trace is out of range.");
+
+    ExpansionSharedPtr returnval;
+
+    v_GenAlignedTraceExp(traceid, returnval);
 
     return returnval;
 }

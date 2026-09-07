@@ -2111,7 +2111,8 @@ DNekMatSharedPtr Expansion2D::v_GenMatrix(const StdRegions::StdMatrixKey &mkey)
                             n = norm[d];
                         }
 
-                        GetLocTracePhysVals(t, traceExp[t], Deriv[d], val);
+                        GetLocTracePhysVals(t, traceExp[t], Deriv[d], val,
+                                            StdRegions::eForwards);
 
                         Vmath::Vvtvp(tracepts[t], n, 1, val, 1,
                                      tmp  = dphidn[t] + i * tracepts[t], 1,
@@ -2639,10 +2640,13 @@ void Expansion2D::v_NormalTraceDerivFactors(
         for (unsigned e = 0; e < ntrace; ++e)
         {
             // edge "e"
-            v_GetLocTracePhysVals(e, traceExp[e], &(Jac[0]), jac);
+            v_GetLocTracePhysVals(e, traceExp[e], &(Jac[0]), jac,
+                                  StdRegions::eForwards);
             Vmath::Sdiv(nq_edge[e], 1.0, jac, 1, jac, 1);
-            v_GetLocTracePhysVals(e, traceExp[e], &(dfdj[0][0]), fac[0]);
-            v_GetLocTracePhysVals(e, traceExp[e], &(dfdj[1][0]), fac[1]);
+            v_GetLocTracePhysVals(e, traceExp[e], &(dfdj[0][0]), fac[0],
+                                  StdRegions::eForwards);
+            v_GetLocTracePhysVals(e, traceExp[e], &(dfdj[1][0]), fac[1],
+                                  StdRegions::eForwards);
 
             norm = normals.find(e)->second[0];
             for (int i = 0; i < nq_edge[e]; ++i)
@@ -2653,10 +2657,10 @@ void Expansion2D::v_NormalTraceDerivFactors(
             // needs checking for 3D coords
             for (int n = 1; n < ncoords; ++n)
             {
-                v_GetLocTracePhysVals(e, traceExp[e], &(dfdj[2 * n][0]),
-                                      fac[0]);
+                v_GetLocTracePhysVals(e, traceExp[e], &(dfdj[2 * n][0]), fac[0],
+                                      StdRegions::eForwards);
                 v_GetLocTracePhysVals(e, traceExp[e], &(dfdj[2 * n + 1][0]),
-                                      fac[1]);
+                                      fac[1], StdRegions::eForwards);
 
                 norm = normals.find(e)->second[n];
                 for (int i = 0; i < nq_edge[e]; ++i)

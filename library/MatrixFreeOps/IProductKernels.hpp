@@ -840,13 +840,6 @@ NEK_FORCE_INLINE static void IProduct2DWorkspace(
     [[maybe_unused]] const size_t nm0, [[maybe_unused]] const size_t nm1,
     [[maybe_unused]] const size_t nq0, const size_t nq1, size_t &wsp0Size)
 {
-    // Check preconditions
-    ASSERTL1((SHAPE_TYPE == LibUtilities::ShapeType::Tri && nm0 == nm1 &&
-              nq0 == nq1 + 1) ||
-                 (SHAPE_TYPE == LibUtilities::ShapeType::Quad && nm0 == nm1 &&
-                  nq0 == nq1),
-             "IProduct2DWorkspace: Requires homogenous points.");
-
     wsp0Size = std::max(wsp0Size, nq1);
 }
 
@@ -859,17 +852,6 @@ NEK_FORCE_INLINE static void IProduct3DWorkspace(
     const size_t nq1, const size_t nq2, size_t &wsp0Size, size_t &wsp1Size,
     [[maybe_unused]] size_t &wsp2Size)
 {
-    // Check preconditions
-    ASSERTL1((SHAPE_TYPE == LibUtilities::ShapeType::Hex && nm0 == nm1 &&
-              nm0 == nm2 && nq0 == nq1 && nq0 == nq2) ||
-                 (SHAPE_TYPE == LibUtilities::ShapeType::Tet && nm0 == nm1 &&
-                  nm0 == nm2 && nq0 == nq1 + 1 && nq0 == nq2 + 1) ||
-                 (SHAPE_TYPE == LibUtilities::ShapeType::Prism && nm0 == nm1 &&
-                  nm0 == nm2 && nq0 == nq1 && nq0 == nq2 + 1) ||
-                 (SHAPE_TYPE == LibUtilities::ShapeType::Pyr && nm0 == nm1 &&
-                  nm0 == nm2 && nq0 == nq1 && nq0 == nq2 + 1),
-             "IProduct3DWorkspace: Requires homogenous points.");
-
     wsp0Size = std::max(wsp0Size, nq1 * nq2);
     wsp1Size = std::max(wsp1Size, nq2);
 

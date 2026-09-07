@@ -574,13 +574,13 @@ void Expansion::StdDerivBaseOnTraceMat(Array<OneD, DNekMatSharedPtr> &DerivMat)
 
     int tottracepts = 0;
     int maxtracepts = 0;
-    Array<OneD, ExpansionSharedPtr> traceExp(ntraces);
+    Array<OneD, StdRegions::StdExpansionSharedPtr> traceExp(ntraces);
     for (int i = 0; i < ntraces; ++i)
     {
-        // Note we are using GenTraceExp to ensure we have local trace
-        // expansion not ont from shared trace which can happe if we use
-        // GetTraceExp since it can be set in DisContField::SetupDG
-        v_GenTraceExp(i, traceExp[i]);
+        // Note we use the standard trace expansion, which carries the trace's
+        // basis and points but no geometry. GetTraceExp cannot be used here
+        // since it can be set to the shared trace in DisContField::SetupDG.
+        traceExp[i] = GetStdTraceExp(i);
         int ntpts   = traceExp[i]->GetTotPoints();
         maxtracepts = max(maxtracepts, ntpts);
         tottracepts += ntpts;
@@ -1026,8 +1026,8 @@ void Expansion::v_GetLocTracePhysVals(
     [[maybe_unused]] const int trace,
     [[maybe_unused]] const StdRegions::StdExpansionSharedPtr &TraceExp,
     [[maybe_unused]] const NekDouble *inarray,
-    [[maybe_unused]] Array<OneD, NekDouble> &outarray)
-
+    [[maybe_unused]] Array<OneD, NekDouble> &outarray,
+    [[maybe_unused]] StdRegions::Orientation orient)
 {
     NEKERROR(ErrorUtil::efatal,
              "Method does not exist for this shape or library");
@@ -1056,6 +1056,14 @@ void Expansion::v_GenTraceExp([[maybe_unused]] const int traceid,
 {
     NEKERROR(ErrorUtil::efatal,
              "Method does not exist for this shape or library");
+}
+
+void Expansion::v_GenAlignedTraceExp(const int traceid, ExpansionSharedPtr &exp)
+{
+    // Below three dimensions a trace has a single basis direction, so it
+    // cannot be transposed with respect to the trace geometry and the local
+    // trace expansion is already aligned with it.
+    v_GenTraceExp(traceid, exp);
 }
 
 void Expansion::v_ComputeTraceNormal([[maybe_unused]] const int id)

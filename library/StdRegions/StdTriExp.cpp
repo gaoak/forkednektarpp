@@ -819,6 +819,7 @@ const LibUtilities::BasisKey StdTriExp::v_GetTraceBasisKey(
             switch (m_base[dir]->GetPointsType())
             {
                 case LibUtilities::eGaussLegendreWithMP:
+                case LibUtilities::eGaussGaussLegendre:
                 case LibUtilities::eGaussLobattoLegendre:
                 {
                     return m_base[dir]->GetBasisKey();
@@ -840,6 +841,7 @@ const LibUtilities::BasisKey StdTriExp::v_GetTraceBasisKey(
             switch (m_base[dir]->GetPointsType())
             {
                 case LibUtilities::eGaussLegendreWithMP:
+                case LibUtilities::eGaussGaussLegendre:
                 case LibUtilities::eGaussLobattoLegendre:
                 {
                     return LibUtilities::BasisKey(LibUtilities::eModified_A,

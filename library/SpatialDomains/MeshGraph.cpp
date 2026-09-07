@@ -1635,6 +1635,162 @@ void MeshGraph::ResetExpansionInfoToBasisKey(
     }
 }
 
+void MeshGraph::ResetExpansionInfoToModified(std::string var)
+{
+    ExpansionInfoMapShPtr expansionMap =
+        m_expansionMapShPtrMap.find(var)->second;
+
+    for (auto elemIter = expansionMap->begin(); elemIter != expansionMap->end();
+         ++elemIter)
+    {
+        switch ((elemIter->second)->m_geomPtr->GetShapeType())
+        {
+            case LibUtilities::Seg:
+            {
+                LibUtilities::BasisKey bkeyold =
+                    elemIter->second->m_basisKeyVector[0];
+
+                LibUtilities::BasisKey bkeynew(LibUtilities::eModified_A,
+                                               bkeyold.GetNumModes(),
+                                               bkeyold.GetPointsKey());
+                elemIter->second->m_basisKeyVector[0] = bkeynew;
+            }
+            break;
+            case LibUtilities::Quad:
+            {
+                for (unsigned i = 0; i < 2; ++i)
+                {
+                    LibUtilities::BasisKey bkeyold =
+                        elemIter->second->m_basisKeyVector[i];
+
+                    LibUtilities::BasisKey bkeynew(LibUtilities::eModified_A,
+                                                   bkeyold.GetNumModes(),
+                                                   bkeyold.GetPointsKey());
+                    elemIter->second->m_basisKeyVector[i] = bkeynew;
+                }
+            }
+            break;
+            case LibUtilities::Tri:
+            {
+                LibUtilities::BasisKey bkeyold0 =
+                    elemIter->second->m_basisKeyVector[0];
+
+                LibUtilities::BasisKey bkeynew0(LibUtilities::eModified_A,
+                                                bkeyold0.GetNumModes(),
+                                                bkeyold0.GetPointsKey());
+                elemIter->second->m_basisKeyVector[0] = bkeynew0;
+
+                LibUtilities::BasisKey bkeyold1 =
+                    elemIter->second->m_basisKeyVector[1];
+
+                LibUtilities::BasisKey bkeynew1(LibUtilities::eModified_B,
+                                                bkeyold1.GetNumModes(),
+                                                bkeyold1.GetPointsKey());
+                elemIter->second->m_basisKeyVector[1] = bkeynew1;
+            }
+            break;
+            case LibUtilities::Hex:
+            {
+                for (unsigned i = 0; i < 3; ++i)
+                {
+                    LibUtilities::BasisKey bkeyold =
+                        elemIter->second->m_basisKeyVector[i];
+
+                    LibUtilities::BasisKey bkeynew(LibUtilities::eModified_A,
+                                                   bkeyold.GetNumModes(),
+                                                   bkeyold.GetPointsKey());
+                    elemIter->second->m_basisKeyVector[i] = bkeynew;
+                }
+            }
+            break;
+            case LibUtilities::Prism:
+            {
+                LibUtilities::BasisKey bkeyold0 =
+                    elemIter->second->m_basisKeyVector[0];
+
+                LibUtilities::BasisKey bkeynew0(LibUtilities::eModified_A,
+                                                bkeyold0.GetNumModes(),
+                                                bkeyold0.GetPointsKey());
+                elemIter->second->m_basisKeyVector[0] = bkeynew0;
+
+                LibUtilities::BasisKey bkeyold1 =
+                    elemIter->second->m_basisKeyVector[1];
+
+                LibUtilities::BasisKey bkeynew1(LibUtilities::eModified_A,
+                                                bkeyold1.GetNumModes(),
+                                                bkeyold1.GetPointsKey());
+                elemIter->second->m_basisKeyVector[1] = bkeynew1;
+
+                LibUtilities::BasisKey bkeyold2 =
+                    elemIter->second->m_basisKeyVector[2];
+
+                LibUtilities::BasisKey bkeynew2(LibUtilities::eModified_B,
+                                                bkeyold2.GetNumModes(),
+                                                bkeyold2.GetPointsKey());
+                elemIter->second->m_basisKeyVector[2] = bkeynew2;
+            }
+            break;
+            case LibUtilities::Pyr:
+            {
+                LibUtilities::BasisKey bkeyold0 =
+                    elemIter->second->m_basisKeyVector[0];
+
+                LibUtilities::BasisKey bkeynew0(LibUtilities::eModified_A,
+                                                bkeyold0.GetNumModes(),
+                                                bkeyold0.GetPointsKey());
+                elemIter->second->m_basisKeyVector[0] = bkeynew0;
+
+                LibUtilities::BasisKey bkeyold1 =
+                    elemIter->second->m_basisKeyVector[1];
+
+                LibUtilities::BasisKey bkeynew1(LibUtilities::eModified_A,
+                                                bkeyold1.GetNumModes(),
+                                                bkeyold1.GetPointsKey());
+                elemIter->second->m_basisKeyVector[1] = bkeynew1;
+
+                LibUtilities::BasisKey bkeyold2 =
+                    elemIter->second->m_basisKeyVector[2];
+
+                LibUtilities::BasisKey bkeynew2(LibUtilities::eModifiedPyr_C,
+                                                bkeyold2.GetNumModes(),
+                                                bkeyold2.GetPointsKey());
+                elemIter->second->m_basisKeyVector[2] = bkeynew2;
+            }
+            break;
+            case LibUtilities::Tet:
+            {
+                LibUtilities::BasisKey bkeyold0 =
+                    elemIter->second->m_basisKeyVector[0];
+
+                LibUtilities::BasisKey bkeynew0(LibUtilities::eModified_A,
+                                                bkeyold0.GetNumModes(),
+                                                bkeyold0.GetPointsKey());
+                elemIter->second->m_basisKeyVector[0] = bkeynew0;
+
+                LibUtilities::BasisKey bkeyold1 =
+                    elemIter->second->m_basisKeyVector[1];
+
+                LibUtilities::BasisKey bkeynew1(LibUtilities::eModified_B,
+                                                bkeyold1.GetNumModes(),
+                                                bkeyold1.GetPointsKey());
+                elemIter->second->m_basisKeyVector[1] = bkeynew1;
+
+                LibUtilities::BasisKey bkeyold2 =
+                    elemIter->second->m_basisKeyVector[2];
+
+                LibUtilities::BasisKey bkeynew2(LibUtilities::eModified_C,
+                                                bkeyold2.GetNumModes(),
+                                                bkeyold2.GetPointsKey());
+                elemIter->second->m_basisKeyVector[2] = bkeynew2;
+            }
+            break;
+            default:
+                NEKERROR(ErrorUtil::efatal, "Shape type not set up");
+                break;
+        }
+    }
+}
+
 /**
  *
  */
