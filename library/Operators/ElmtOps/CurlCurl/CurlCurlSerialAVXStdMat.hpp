@@ -123,6 +123,9 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
+        ASSERTL1(inblock.GetNumHomoModes() == 1,
+                 "Currently only setup for one homogeneous plane");
+
         // Initialize pointers.
         auto inptr = inblock.template GetPtr<MemSpace, ReadOnly>();
 

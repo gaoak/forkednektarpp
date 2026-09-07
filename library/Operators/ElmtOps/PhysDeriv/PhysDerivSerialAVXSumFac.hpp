@@ -367,7 +367,7 @@ protected:
                 }
             }
 
-            // Advance  by ncoord-1 componennts since have already
+            // Advance  by ncoord-1 components since have already
             // advanced one component in the above.
             if ((n + 1) % outblock.GetNumHomoModes() == 0)
             {

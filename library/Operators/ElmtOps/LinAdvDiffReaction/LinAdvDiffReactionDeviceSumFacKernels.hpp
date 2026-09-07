@@ -46,7 +46,7 @@ namespace Nektar::Operators::detail
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 template <typename TData>
-NEK_DEVICE_INLINE static void AddAdvection1DKernel(
+NEK_DEVICE_INLINE static void AddAdvection1DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
     const TData *NEK_RESTRICT advVel0, const TData *NEK_RESTRICT advVel1,
     const TData *NEK_RESTRICT advVel2, const TData *NEK_RESTRICT deriv0,
@@ -73,7 +73,7 @@ NEK_DEVICE_INLINE static void AddAdvection1DKernel(
 }
 
 template <typename TData>
-NEK_DEVICE_INLINE static void AddAdvection2DKernel(
+NEK_DEVICE_INLINE static void AddAdvection2DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
     const unsigned int nq1, const TData *NEK_RESTRICT advVel0,
     const TData *NEK_RESTRICT advVel1, const TData *NEK_RESTRICT advVel2,
@@ -98,7 +98,7 @@ NEK_DEVICE_INLINE static void AddAdvection2DKernel(
 }
 
 template <typename TData>
-NEK_DEVICE_INLINE static void AddAdvection3DKernel(
+NEK_DEVICE_INLINE static void AddAdvection3DSumFacKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const TData *NEK_RESTRICT advVel0,
     const TData *NEK_RESTRICT advVel1, const TData *NEK_RESTRICT advVel2,
@@ -179,9 +179,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         BwdTransSegSumFacKernel<false>(ilane, nm0, nq0, basis0, inptr, bwd);
         PhysDeriv1DSumFacKernel<DEFORMED>(ilane, ncoord, nq0, nelmt * nq0, D0,
                                           dfptr, bwd, deriv);
-        AddAdvection1DKernel(ilane, ncoord, nq0, advVel0ptr, advVel1ptr,
-                             advVel2ptr, deriv, deriv + nq0 * nelmt,
-                             deriv + 2 * nq0 * nelmt, bwd, lambda);
+        AddAdvection1DSumFacKernel(ilane, ncoord, nq0, advVel0ptr, advVel1ptr,
+                                   advVel2ptr, deriv, deriv + nq0 * nelmt,
+                                   deriv + 2 * nq0 * nelmt, bwd, lambda);
         ApplyMetric1DSumFacKernel<DEFORMED>(ilane, ncoord, nq0, nelmt * nq0, w0,
                                             dfptr, jacptr, coeff, deriv, deriv,
                                             bwd, (TData)1.0);
@@ -317,8 +317,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         PhysDeriv2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, ncoord, nq0, nq1, nelmt * nqTot, D0, D1, s_f0, s_f1, dfptr,
             bwd, deriv);
-        AddAdvection2DKernel(ilane, ncoord, nq0, nq1, advVel0ptr, advVel1ptr,
-                             advVel2ptr, deriv, deriv1, deriv2, bwd, lambda);
+        AddAdvection2DSumFacKernel(ilane, ncoord, nq0, nq1, advVel0ptr,
+                                   advVel1ptr, advVel2ptr, deriv, deriv1,
+                                   deriv2, bwd, lambda);
         ApplyMetric2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, ncoord, nq0, nq1, nelmt * nqTot, w0, w1, s_f0, s_f1, dfptr,
             jacptr, coeff, deriv, deriv0, deriv1, bwd, (TData)1.0);
@@ -587,8 +588,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         PhysDeriv3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, nq0, nq1, nq2, nelmt * nqTot, D0, D1, D2, s_f0, s_f1, s_f1m,
             s_f2, dfptr, bwd, deriv);
-        AddAdvection3DKernel(ilane, nq0, nq1, nq2, advVel0ptr, advVel1ptr,
-                             advVel2ptr, deriv0, deriv1, deriv2, bwd, lambda);
+        AddAdvection3DSumFacKernel(ilane, nq0, nq1, nq2, advVel0ptr, advVel1ptr,
+                                   advVel2ptr, deriv0, deriv1, deriv2, bwd,
+                                   lambda);
         ApplyMetric3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, nq0, nq1, nq2, nelmt * nqTot, w0, w1, w2, s_f0, s_f1, s_f1m,
             s_f2, dfptr, jacptr, coeff, deriv, deriv0, deriv1, deriv2, bwd,

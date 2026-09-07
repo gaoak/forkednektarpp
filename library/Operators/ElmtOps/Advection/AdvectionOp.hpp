@@ -73,7 +73,7 @@ public:
     void SetAppend(const bool &append)
     {
         // Loop over the blocks.
-        for (unsigned int blk = 0; blk < m_blockOp.size(); ++blk)
+        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
         {
             this->m_blockOp[blk]->SetAppend(append);
         }

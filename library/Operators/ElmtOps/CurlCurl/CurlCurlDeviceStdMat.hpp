@@ -123,8 +123,8 @@ protected:
     {
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
-        ASSERTL0(inblock.GetNumHomoModes() == 1,
-                 "Currently only setup for one homogenous plane");
+        ASSERTL1(inblock.GetNumHomoModes() == 1,
+                 "Currently only setup for one homogeneous plane");
 
         const auto nelmt = inblock.GetNumElementsWithPadding();
 

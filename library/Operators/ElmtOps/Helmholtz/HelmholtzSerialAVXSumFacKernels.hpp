@@ -300,7 +300,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTriKernel(
         }
     }
 
-    // Precompute Laplacian metricsp
+    // Precompute Laplacian metrics
     if constexpr (!DEFORMED)
     {
         jac = jac_ptr[0];
@@ -885,7 +885,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJHexKernel(
         }
     }
 
-    // All matricies are column major ordered since operators used to
+    // All matrices are column major ordered since operators used to
     // be computed via BLAS.
     if (DEFORMED || isVarDiff)
     {

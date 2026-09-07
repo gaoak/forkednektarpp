@@ -138,6 +138,9 @@ public:
 
     static inline const std::string name = "PhysDeriv";
 
+    // Public, unlike the other operators: Create() builds this class directly
+    // via shared_ptr<PhysDerivOp>(new PhysDerivOp(...)) rather than through
+    // the factory, so the shared_ptr deleter needs access to the destructor.
     ~PhysDerivOp() override = default;
 
 protected:
@@ -175,7 +178,7 @@ protected:
         ASSERTL1(in.GetNumHomoModes() == out.GetNumHomoModes(),
                  "Number of input and output homogeneous modes differ");
 
-        // For backward compatilbity for non-CUDA device backend.
+        // For backward compatibility for non-CUDA device backend.
         if (nhomo == 1)
         {
             // Loop over the blocks.

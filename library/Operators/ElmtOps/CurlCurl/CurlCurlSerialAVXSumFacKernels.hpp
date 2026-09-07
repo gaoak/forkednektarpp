@@ -49,7 +49,7 @@ namespace Nektar::Operators::detail
 // sweep, so the collapsed coordinate correction, the chain rule and the curl
 // are applied together rather than in three separate passes.
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE void Curl2DScalarKernel(
+NEK_FORCE_INLINE void Curl2DScalarSumFacKernel(
     const unsigned nq0, const unsigned nq1, const unsigned int outdim,
     [[maybe_unused]] const simd_type *f0, [[maybe_unused]] const simd_type *f1,
     const simd_type *df_ptr, const simd_type *tderiv0_0,
@@ -119,7 +119,7 @@ NEK_FORCE_INLINE void Curl2DScalarKernel(
 // Both output components come out of the same sweep, so the sign flip does
 // not need a pass of its own.
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE void Curl2DVectorKernel(
+NEK_FORCE_INLINE void Curl2DVectorSumFacKernel(
     const unsigned nq0, const unsigned nq1, const unsigned int outdim,
     [[maybe_unused]] const simd_type *f0, [[maybe_unused]] const simd_type *f1,
     const simd_type *df_ptr, const simd_type *tderiv0, const simd_type *tderiv1,
@@ -186,7 +186,7 @@ NEK_FORCE_INLINE void Curl2DVectorKernel(
 // sweep. Only the six off-diagonal physical derivatives are formed, the
 // diagonal ones cancel out.
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE void Curl3DKernel(
+NEK_FORCE_INLINE void Curl3DSumFacKernel(
     const unsigned nq0, const unsigned nq1, const unsigned nq2,
     [[maybe_unused]] const simd_type *f0, [[maybe_unused]] const simd_type *f1,
     [[maybe_unused]] const simd_type *f1m, [[maybe_unused]] const simd_type *f2,
@@ -386,14 +386,14 @@ NEK_FORCE_INLINE static void CurlCurlKernelLauncher(
     PhysDerivTensor2DKernel(nq0, nq1, in1, D0, D1, tderiv_v, tderiv_v + nqTot);
 
     // omega_z = dv/dx - du/dy
-    Curl2DScalarKernel<SHAPE_TYPE, DEFORMED>(nq0, nq1, 2, f0, f1, df_ptr,
-                                             tderiv_u, tderiv_u + nqTot,
-                                             tderiv_v, tderiv_v + nqTot, omega);
+    Curl2DScalarSumFacKernel<SHAPE_TYPE, DEFORMED>(
+        nq0, nq1, 2, f0, f1, df_ptr, tderiv_u, tderiv_u + nqTot, tderiv_v,
+        tderiv_v + nqTot, omega);
 
     // q = {d(omega_z)/dy, -d(omega_z)/dx}
     PhysDerivTensor2DKernel(nq0, nq1, omega, D0, D1, tderiv_u,
                             tderiv_u + nqTot);
-    Curl2DVectorKernel<SHAPE_TYPE, DEFORMED>(
+    Curl2DVectorSumFacKernel<SHAPE_TYPE, DEFORMED>(
         nq0, nq1, 2, f0, f1, df_ptr, tderiv_u, tderiv_u + nqTot, out0, out1);
 }
 
@@ -432,7 +432,7 @@ NEK_FORCE_INLINE static void CurlCurlKernelLauncher(
                             tderiv + 7u * nqTot, tderiv + 8u * nqTot);
 
     // omega = curl(u)
-    Curl3DKernel<SHAPE_TYPE, DEFORMED>(
+    Curl3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
         nq0, nq1, nq2, f0, f1, f1m, f2, df_ptr, tderiv, tderiv + nqTot,
         tderiv + 2u * nqTot, tderiv + 3u * nqTot, tderiv + 4u * nqTot,
         tderiv + 5u * nqTot, tderiv + 6u * nqTot, tderiv + 7u * nqTot,
@@ -449,7 +449,7 @@ NEK_FORCE_INLINE static void CurlCurlKernelLauncher(
                             tderiv + 8u * nqTot);
 
     // out = curl(omega)
-    Curl3DKernel<SHAPE_TYPE, DEFORMED>(
+    Curl3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
         nq0, nq1, nq2, f0, f1, f1m, f2, df_ptr, tderiv, tderiv + nqTot,
         tderiv + 2u * nqTot, tderiv + 3u * nqTot, tderiv + 4u * nqTot,
         tderiv + 5u * nqTot, tderiv + 6u * nqTot, tderiv + 7u * nqTot,

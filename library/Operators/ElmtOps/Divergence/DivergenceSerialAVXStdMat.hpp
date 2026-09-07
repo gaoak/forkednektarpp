@@ -69,7 +69,7 @@ public:
         m_nqTot     = exp->GetTotPoints();
 
         ASSERTL1(m_dimension == m_coordDim,
-                 "Assuming that these valeus are the same");
+                 "Shape dimension and coordinate dimension are not the same.");
 
         // Fetch matrix.
         std::vector<LibUtilities::BasisKey> basisKeys(
@@ -120,6 +120,9 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
+        ASSERTL1(inblock.GetNumHomoModes() == 1,
+                 "Currently only setup for one homogeneous plane");
+
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -170,16 +173,16 @@ protected:
             // Multiply by derivative factor.
             if (m_isDeformed)
             {
-                MultiplyByDirDerivFactorKernel<ExecSpace, false, true>(
-                    0, m_nqTot, m_coordDim, m_dimension, 1,
+                MultiplyByDerivDirFactorKernel<ExecSpace, false, true>(
+                    0, m_nqTot, m_coordDim, m_dimension, 1, m_nqTot,
                     reinterpret_cast<const simd_t *>(dfptr),
                     reinterpret_cast<const simd_t *>(wspptr),
                     reinterpret_cast<simd_t *>(outptr));
             }
             else
             {
-                MultiplyByDirDerivFactorKernel<ExecSpace, false, false>(
-                    0, m_nqTot, m_coordDim, m_dimension, 1,
+                MultiplyByDerivDirFactorKernel<ExecSpace, false, false>(
+                    0, m_nqTot, m_coordDim, m_dimension, 1, m_nqTot,
                     reinterpret_cast<const simd_t *>(dfptr),
                     reinterpret_cast<const simd_t *>(wspptr),
                     reinterpret_cast<simd_t *>(outptr));
@@ -207,16 +210,16 @@ protected:
                 // Multiply by derivative factor.
                 if (m_isDeformed)
                 {
-                    MultiplyByDirDerivFactorKernel<ExecSpace, true, true>(
-                        c, m_nqTot, m_coordDim, m_dimension, 1,
+                    MultiplyByDerivDirFactorKernel<ExecSpace, true, true>(
+                        c, m_nqTot, m_coordDim, m_dimension, 1, m_nqTot,
                         reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(wspptr),
                         reinterpret_cast<simd_t *>(outptr));
                 }
                 else
                 {
-                    MultiplyByDirDerivFactorKernel<ExecSpace, true, false>(
-                        c, m_nqTot, m_coordDim, m_dimension, 1,
+                    MultiplyByDerivDirFactorKernel<ExecSpace, true, false>(
+                        c, m_nqTot, m_coordDim, m_dimension, 1, m_nqTot,
                         reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(wspptr),
                         reinterpret_cast<simd_t *>(outptr));

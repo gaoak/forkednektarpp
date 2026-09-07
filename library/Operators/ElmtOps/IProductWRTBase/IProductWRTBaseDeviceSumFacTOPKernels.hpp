@@ -340,7 +340,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacTOPKernel(
         }
     }
 
-    // Correction for singular vertex in collpased coordinates.
+    // Correction for singular vertex in collapsed coordinates.
     // Basically we add phi_1 * phi_01 * (weighting, etc) to mode 00
     // With contributions from every quadrature point
     if (isModified)

@@ -195,7 +195,7 @@ protected:
             else if (d == 1)
             {
                 // if delta between nm0 and nm1 is 1 then keep this delta
-                // for new poitns to capitalise on switch templating
+                // for new points to capitalise on switch templating
                 const auto nq1 =
                     (m_nm[0] - m_nm[1] == 1)
                         ? (unsigned int)(this->m_scale * m_nm[0]) - 1

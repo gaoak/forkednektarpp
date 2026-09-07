@@ -45,7 +45,7 @@ namespace Nektar::Operators::detail
 {
 
 template <bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE static void AddAdvectionSegKernel(
+NEK_FORCE_INLINE static void AddAdvection1DKernel(
     const unsigned int ncoord, const unsigned int nq0,
     const simd_type *advVel0_ptr, const simd_type *advVel1_ptr,
     const simd_type *advVel2_ptr, const simd_type *df_ptr, simd_type *deriv0,
@@ -387,8 +387,8 @@ NEK_FORCE_INLINE static void LinAdvDiffReactionKernelLauncher(
     PhysDerivTensor1DKernel(nq0, bwd, D0, deriv0);
 
     // Step 3: Evaluate advection term and add to bwd * lambda.
-    AddAdvectionSegKernel<DEFORMED>(ncoord, nq0, advVel0_ptr, advVel1_ptr,
-                                    advVel2_ptr, df, deriv0, bwd, lambda);
+    AddAdvection1DKernel<DEFORMED>(ncoord, nq0, advVel0_ptr, advVel1_ptr,
+                                   advVel2_ptr, df, deriv0, bwd, lambda);
 
     // Step 4: Apply diffusion coeff and WJ.
     DiffusionCoeffwithWJ1DKernel<SHAPE_TYPE, true, DEFORMED>(

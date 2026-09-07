@@ -64,8 +64,7 @@ public:
         m_coordDim  = exp->GetCoordim();
 
         ASSERTL1(m_dimension == m_coordDim,
-                 "Setup assuming coordinate dimention is the same as shape "
-                 "dimension");
+                 "Shape dimension and coordinate dimension are not the same.");
 
         // Flag for collapsed coordinate correction.
         m_isModified = (exp->GetBasisType(0) == LibUtilities::eModified_A);

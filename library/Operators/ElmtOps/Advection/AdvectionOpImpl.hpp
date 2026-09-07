@@ -60,8 +60,6 @@ public:
         return std::make_unique<AdvectionOpImpl<ExecSpace, TData>>(
             expansionList, components);
     }
-
-protected:
 };
 
 } // namespace Nektar::Operators::detail

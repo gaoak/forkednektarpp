@@ -221,7 +221,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
                 out0.fma(c1, f1);
             }
 
-            // store ouputs
+            // store outputs
             simd_type WJ   = jac * w0[i] * w1[j];
             out[0][cnt_ji] = out0 * WJ;
             out[1][cnt_ji] = out1 * WJ;
@@ -350,7 +350,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
                     out0 *= f2;
                 }
 
-                // store ouputs
+                // store outputs
                 simd_type WJ    = jac * w0[i] * w12;
                 out[0][cnt_kji] = out0 * WJ;
                 out[1][cnt_kji] = out1 * WJ;
