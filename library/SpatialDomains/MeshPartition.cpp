@@ -626,7 +626,23 @@ void MeshPartition::PartitionGraph(int nParts, bool overlapping)
                      boost::adjacent_vertices(*vertit, m_graph);
                  adjvertit != adjvertit_end; ++adjvertit, ++acnt)
             {
-                adjncy_tmp.push_back(m_graph[*adjvertit].id);
+                // Adjacency entries index vertices of the CSR graph. In the
+                // parallel path the stored ids are the contiguous global
+                // element rows, which are exactly the distributed graph's
+                // vertex numbering; in the serial path they are raw mesh
+                // element ids, which need not start at zero or be contiguous
+                // (e.g. a DOMAIN selecting a subset of the file's elements),
+                // so use the vertex descriptor, which for vecS storage is the
+                // insertion position and thus matches the positional use of
+                // part[] below.
+                if (m_parallel)
+                {
+                    adjncy_tmp.push_back(m_graph[*adjvertit].id);
+                }
+                else
+                {
+                    adjncy_tmp.push_back(*adjvertit);
+                }
                 if (m_weightingRequired)
                 {
                     adjwgt_tmp.push_back(m_graph[*vertit].edgeWeight[0]);

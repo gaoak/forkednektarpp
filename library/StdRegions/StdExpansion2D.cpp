@@ -35,6 +35,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <StdRegions/StdExpansion2D.h>
+#include <StdRegions/StdSegExp.h>
 
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 #include <LibUtilities/Foundations/Interp.h>
@@ -584,6 +585,15 @@ void StdExpansion2D::v_ReOrientTracePhysMap(
             ASSERTL0(false, "Unknown orientation");
             break;
     }
+}
+
+void StdExpansion2D::v_GenStdTraceExp(const int traceid,
+                                      std::shared_ptr<StdExpansion> &exp)
+{
+    ASSERTL1(traceid < GetNtraces(), "Trace is out of range.");
+
+    exp = MemoryManager<StdRegions::StdSegExp>::AllocateSharedPtr(
+        GetTraceBasisKey(traceid));
 }
 
 } // namespace Nektar::StdRegions

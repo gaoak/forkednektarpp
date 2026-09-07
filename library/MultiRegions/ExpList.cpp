@@ -369,7 +369,7 @@ ExpList::ExpList(
         }
     }
 
-    // decalare expansions in provided order using geom and basis info
+    // declare expansions in provided order using geom and basis info
     for (auto &ordIt : ExpOrder)
     {
         for (auto &eit : ordIt.second)
@@ -493,7 +493,7 @@ ExpList::ExpList(
                     // if the existing edge has less points/modes than the
                     // present edge, then we update the existing edge with
                     // present one (trace should always have highest order)
-
+#if 1
                     // The pointsType is always GLL for edges
                     // So we can directly compare them.
                     if (np2 >= np1 && nm2 >= nm1)
@@ -504,6 +504,17 @@ ExpList::ExpList(
                     {
                         it->second.second = edge;
                     }
+#else
+                    // update if present edge is lower than existing
+                    if (np1 >= np2)
+                    {
+                        continue;
+                    }
+                    else if (np1 <= np2)
+                    {
+                        it->second.second = edge;
+                    }
+#endif
                     else
                     {
                         NEKERROR(ErrorUtil::efatal,
@@ -823,7 +834,7 @@ ExpList::ExpList(
                 LibUtilities::BasisKey existing1 = it->second.second.second;
 
                 // np -- number of points; nm -- number of modes;
-                // np_I_J --- I=1 current; I=2 existing; J=1 dir0; J=2 dir1;
+                // np_I_J --- I=0 current; I=1 existing; J=0 dir0; J=1 dir1;
                 auto ptype0 =
                     static_cast<LibUtilities::PointsType>(TracesPointsType0[i]);
                 auto ptype1 =
@@ -5696,8 +5707,11 @@ void ExpList::v_GetBoundaryNormals(int i,
         elmt = GetExp(ElmtID[cnt + n]);
         const Array<OneD, const Array<OneD, NekDouble>> normalsElmt =
             elmt->GetTraceNormal(EdgeID[cnt + n]);
+        // This branch replaced GetLocTraceExp with the frame-explicit pair;
+        // the boundary expansion lives in the shared-trace frame, which is
+        // what the aligned variant carries.
         LocalRegions::ExpansionSharedPtr locTraceExp =
-            elmt->GetLocTraceExp(EdgeID[cnt + n]);
+            elmt->GetAlignedTraceExp(EdgeID[cnt + n]);
 
         // Interp/Copy to result
         for (j = 0; j < coordim; ++j)

@@ -126,9 +126,11 @@ public:
     inline void GetLocTracePhysVals(
         const int trace, const StdRegions::StdExpansionSharedPtr &TraceExp,
         const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray)
+        Array<OneD, NekDouble> &outarray,
+        StdRegions::Orientation orient = StdRegions::eDir1FwdDir1_Dir2FwdDir2)
     {
-        v_GetLocTracePhysVals(trace, TraceExp, inarray.data(), outarray);
+        v_GetLocTracePhysVals(trace, TraceExp, inarray.data(), outarray,
+                              orient);
     }
 
 protected:
@@ -175,9 +177,13 @@ protected:
     void v_GetLocTracePhysVals(const int face,
                                const StdRegions::StdExpansionSharedPtr &FaceExp,
                                const NekDouble *inarray,
-                               Array<OneD, NekDouble> &outarray) override;
+                               Array<OneD, NekDouble> &outarray,
+                               StdRegions::Orientation orient) override;
 
     void v_GenTraceExp(const int traceid, ExpansionSharedPtr &exp) override;
+
+    void v_GenAlignedTraceExp(const int traceid,
+                              ExpansionSharedPtr &exp) override;
 
     void GetPhysFaceVarCoeffsFromElement(
         const int face, ExpansionSharedPtr &FaceExp,

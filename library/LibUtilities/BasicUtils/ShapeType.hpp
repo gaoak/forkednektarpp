@@ -99,6 +99,88 @@ constexpr unsigned int ShapeTypeDimMap[SIZE_ShapeType] = {
     3, // eNodalPrism
 };
 
+// Hold the dimension of each of the types of shapes.
+constexpr unsigned int ShapeTypeNumTraces[SIZE_ShapeType] = {
+    0, // Unknown
+    0, // ePoint
+    0, // eSegment
+    3, // eTriangle
+    4, // eQuadrilateral
+    4, // eTetrahedron
+    5, // ePyramid
+    5, // ePrism
+    6, // eHexahedron
+    3, // eNodalTtri
+    4, // eNodalTet
+    5, // eNodalPrism
+};
+
+// Hold the number of traces in given direction
+constexpr unsigned int ShapeTypeNumTraceInDir[SIZE_ShapeType][3] = {
+    {0, 0, 0}, // Unknown
+    {0, 0, 0}, // ePoint
+    {2, 0, 0}, // eSegment
+    {2, 1, 0}, // eTriangle
+    {2, 2, 0}, // eQuadrilateral
+    {2, 1, 1}, // eTetrahedron
+    {2, 2, 1}, // ePyramid
+    {2, 2, 1}, // ePrism
+    {2, 2, 2}, // eHexahedron
+    {2, 1, 0}, // eNodalTtri
+    {2, 1, 1}, // eNodalTet
+    {2, 2, 1}  // eNodalPrism
+};
+
+// Hold the traceid in given dim
+constexpr unsigned int ShapeTypeTraceIDInDir[SIZE_ShapeType][3][2] = {
+    {{0, 0}, {0, 0}, {0, 0}}, // Unknown
+    {{0, 0}, {0, 0}, {0, 0}}, // ePoint
+    {{0, 1}, {0, 0}, {0, 0}}, // eSegment
+    {{2, 1}, {0, 0}, {0, 0}}, // eTriangle
+    {{3, 1}, {0, 2}, {0, 0}}, // eQuadrilateral
+    {{3, 2}, {1, 0}, {0, 0}}, // eTetrahedron
+    {{4, 2}, {1, 3}, {0, 0}}, // ePyramid
+    {{4, 2}, {1, 3}, {0, 0}}, // ePrism
+    {{4, 2}, {1, 3}, {0, 5}}, // eHexahedron
+    {{2, 1}, {0, 0}, {0, 0}}, // eNodalTtri
+    {{3, 2}, {1, 0}, {0, 0}}, // eNodalTet
+    {{4, 2}, {1, 3}, {0, 0}}  // eNodalPrism
+};
+
+// Hold the shape of each trace of a given shape. Faces of a prism and a
+// pyramid are of mixed shape, so this is indexed by trace id; entries beyond
+// ShapeTypeNumTraces[shape] are eNoShapeType.
+constexpr ShapeType ShapeTypeTraceShape[SIZE_ShapeType][6] = {
+    // Unknown
+    {eNoShapeType, eNoShapeType, eNoShapeType, eNoShapeType, eNoShapeType,
+     eNoShapeType},
+    // ePoint
+    {eNoShapeType, eNoShapeType, eNoShapeType, eNoShapeType, eNoShapeType,
+     eNoShapeType},
+    // eSegment
+    {ePoint, ePoint, eNoShapeType, eNoShapeType, eNoShapeType, eNoShapeType},
+    // eTriangle
+    {eSegment, eSegment, eSegment, eNoShapeType, eNoShapeType, eNoShapeType},
+    // eQuadrilateral
+    {eSegment, eSegment, eSegment, eSegment, eNoShapeType, eNoShapeType},
+    // eTetrahedron
+    {eTriangle, eTriangle, eTriangle, eTriangle, eNoShapeType, eNoShapeType},
+    // ePyramid
+    {eQuadrilateral, eTriangle, eTriangle, eTriangle, eTriangle, eNoShapeType},
+    // ePrism
+    {eQuadrilateral, eTriangle, eQuadrilateral, eTriangle, eQuadrilateral,
+     eNoShapeType},
+    // eHexahedron
+    {eQuadrilateral, eQuadrilateral, eQuadrilateral, eQuadrilateral,
+     eQuadrilateral, eQuadrilateral},
+    // eNodalTtri
+    {eSegment, eSegment, eSegment, eNoShapeType, eNoShapeType, eNoShapeType},
+    // eNodalTet
+    {eTriangle, eTriangle, eTriangle, eTriangle, eNoShapeType, eNoShapeType},
+    // eNodalPrism
+    {eQuadrilateral, eTriangle, eQuadrilateral, eTriangle, eQuadrilateral,
+     eNoShapeType}};
+
 namespace StdSegData
 {
 inline constexpr int getNumberOfCoefficients(int Na)

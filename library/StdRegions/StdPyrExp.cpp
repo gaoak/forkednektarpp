@@ -921,6 +921,13 @@ int StdPyrExp::v_CalcNumberOfCoefficients(
     return nmodes;
 }
 
+bool StdPyrExp::v_IsBoundaryInteriorExpansion() const
+{
+    return (m_base[0]->GetBasisType() == LibUtilities::eModified_A) &&
+           (m_base[1]->GetBasisType() == LibUtilities::eModified_A) &&
+           (m_base[2]->GetBasisType() == LibUtilities::eModifiedPyr_C);
+}
+
 int StdPyrExp::v_GetVertexMap(int vId, bool useCoeffPacking)
 {
     ASSERTL1(GetBasisType(0) == LibUtilities::eModified_A ||

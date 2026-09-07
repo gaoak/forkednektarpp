@@ -219,20 +219,22 @@ void DisContField::SetUpDG(const std::string variable,
     int cnt, n;
 
     // Identify boundary trace
-    for (cnt = 0, n = 0; n < m_bndCondExpansions.size(); ++n)
+    if ((*m_exp)[0]->IsBoundaryInteriorExpansion())
     {
-        if (m_bndConditions[n]->GetBoundaryConditionType() !=
-            SpatialDomains::ePeriodic)
+        for (cnt = 0, n = 0; n < m_bndCondExpansions.size(); ++n)
         {
-            for (int v = 0; v < m_bndCondExpansions[n]->GetExpSize(); ++v)
+            if (m_bndConditions[n]->GetBoundaryConditionType() !=
+                SpatialDomains::ePeriodic)
             {
-                m_boundaryTraces.insert(
-                    m_traceMap->GetBndCondIDToGlobalTraceID(cnt + v));
+                for (int v = 0; v < m_bndCondExpansions[n]->GetExpSize(); ++v)
+                {
+                    m_boundaryTraces.insert(
+                        m_traceMap->GetBndCondIDToGlobalTraceID(cnt + v));
+                }
+                cnt += m_bndCondExpansions[n]->GetExpSize();
             }
-            cnt += m_bndCondExpansions[n]->GetExpSize();
         }
     }
-
     // Set up information for periodic boundary conditions.
     std::unordered_map<int, pair<int, int>> perTraceToExpMap;
     for (cnt = n = 0; n < m_exp->size(); ++n)
@@ -1180,8 +1182,28 @@ void DisContField::FindPeriodicTraces(
                 }
                 else
                 {
-                    cId1 = bndRegOrder.find(region1ID)->second[0];
-                    cId2 = bndRegOrder.find(region2ID)->second[0];
+                    // The ordering maps come from mesh partitioning. A graph
+                    // read from a pre-partitioned file that does not carry
+                    // them - one written before the ordering sections existed
+                    // - leaves them empty, and dereferencing the failed find
+                    // below read garbage composite ids that surfaced as
+                    // "Unable to find composite <uninitialised> in order
+                    // map" further down.
+                    auto bndIt1 = bndRegOrder.find(region1ID);
+                    auto bndIt2 = bndRegOrder.find(region2ID);
+                    ASSERTL0(bndIt1 != bndRegOrder.end() &&
+                                 !bndIt1->second.empty() &&
+                                 bndIt2 != bndRegOrder.end() &&
+                                 !bndIt2->second.empty(),
+                             "Periodic boundary region " +
+                                 std::to_string(region1ID) + " or " +
+                                 std::to_string(region2ID) +
+                                 " is missing from the boundary region "
+                                 "ordering. If this mesh was loaded from "
+                                 "pre-partitioned files, they predate the "
+                                 "ordering sections; repartition the mesh.");
+                    cId1 = bndIt1->second[0];
+                    cId2 = bndIt2->second[0];
                 }
 
                 ASSERTL0(it.second->size() == 1,
@@ -1399,8 +1421,8 @@ void DisContField::FindPeriodicTraces(
 
                 if (edgeIdx[i] > 1)
                 {
-                    o = o == StdRegions::eForwards ? StdRegions::eBackwards
-                                                   : StdRegions::eForwards;
+                    o = (o == StdRegions::eForwards) ? StdRegions::eBackwards
+                                                     : StdRegions::eForwards;
                 }
 
                 orientMap[edgeIds[i]] = o;
@@ -1770,8 +1792,28 @@ void DisContField::FindPeriodicTraces(
                 }
                 else
                 {
-                    cId1 = bndRegOrder.find(region1ID)->second[0];
-                    cId2 = bndRegOrder.find(region2ID)->second[0];
+                    // The ordering maps come from mesh partitioning. A graph
+                    // read from a pre-partitioned file that does not carry
+                    // them - one written before the ordering sections existed
+                    // - leaves them empty, and dereferencing the failed find
+                    // below read garbage composite ids that surfaced as
+                    // "Unable to find composite <uninitialised> in order
+                    // map" further down.
+                    auto bndIt1 = bndRegOrder.find(region1ID);
+                    auto bndIt2 = bndRegOrder.find(region2ID);
+                    ASSERTL0(bndIt1 != bndRegOrder.end() &&
+                                 !bndIt1->second.empty() &&
+                                 bndIt2 != bndRegOrder.end() &&
+                                 !bndIt2->second.empty(),
+                             "Periodic boundary region " +
+                                 std::to_string(region1ID) + " or " +
+                                 std::to_string(region2ID) +
+                                 " is missing from the boundary region "
+                                 "ordering. If this mesh was loaded from "
+                                 "pre-partitioned files, they predate the "
+                                 "ordering sections; repartition the mesh.");
+                    cId1 = bndIt1->second[0];
+                    cId2 = bndIt2->second[0];
                 }
 
                 // check to see if boundary is rotationally aligned
