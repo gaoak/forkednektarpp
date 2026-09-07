@@ -510,12 +510,6 @@ NEK_FORCE_INLINE static void BwdTrans2DWorkspace(
     [[maybe_unused]] const size_t nq0, [[maybe_unused]] const size_t nq1,
     size_t &wsp0Size)
 {
-    // Check preconditions
-    ASSERTL1((SHAPE_TYPE == LibUtilities::ShapeType::Tri && nm0 == nm1 &&
-              nq0 == nq1 + 1) ||
-                 (SHAPE_TYPE == LibUtilities::ShapeType::Quad && nm0 == nm1 &&
-                  nq0 == nq1),
-             "BwdTrans2DWorkspace: Requires homogenous points.");
 
 #if defined(SHAPE_TYPE_TRI)
     wsp0Size = std::max(wsp0Size, nm0);
@@ -533,17 +527,6 @@ NEK_FORCE_INLINE static void BwdTrans3DWorkspace(
     [[maybe_unused]] const size_t nq1, [[maybe_unused]] const size_t nq2,
     size_t &wsp0Size, size_t &wsp1Size)
 {
-    // Check preconditions
-    ASSERTL1((SHAPE_TYPE == LibUtilities::ShapeType::Hex && nm0 == nm1 &&
-              nm0 == nm2 && nq0 == nq1 && nq0 == nq2) ||
-                 (SHAPE_TYPE == LibUtilities::ShapeType::Tet && nm0 == nm1 &&
-                  nm0 == nm2 && nq0 == nq1 + 1 && nq0 == nq2 + 1) ||
-                 (SHAPE_TYPE == LibUtilities::ShapeType::Pyr && nm0 == nm1 &&
-                  nm0 == nm2 && nq0 == nq1 && nq0 == nq2 + 1) ||
-                 (SHAPE_TYPE == LibUtilities::ShapeType::Prism && nm0 == nm1 &&
-                  nm0 == nm2 && nq0 == nq1 && nq0 == nq2 + 1),
-             "BwdTrans3DWorkspace: Requires homogenous points.");
-
 #if defined(SHAPE_TYPE_HEX)
     wsp0Size = std::max(wsp0Size, nq0 * nm1 * nm2); // nm1 == nm2
     wsp1Size = std::max(wsp1Size, nq0 * nq1 * nm2); // nq0 == nq1

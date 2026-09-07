@@ -23,6 +23,7 @@ v5.11.0
 - Fail with a clear error, at session-read and lookup time, when a boundary region is missing a condition for a variable (!2699)
 - Fix non-deterministic CWIPI coupling by zero-initialising received fields and refreshing stale extrapolation weights (!2690)
 - Add EntityResolver for scalable rendezvous-based shared entity discovery, and use it in parallel HDF5 mesh reading and DG trace communication (!2700)
+- Trace-frame expansions and parallel mesh orderings (!2712)
 
 **CI**
 - Added DEBUG_IMAGES option to reduce load on registry storage (2648)

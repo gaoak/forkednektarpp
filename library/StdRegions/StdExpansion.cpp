@@ -1686,6 +1686,14 @@ void StdExpansion::v_MultiplyByQuadratureMetric(
     v_MultiplyByStdQuadratureMetric(inarray, outarray);
 }
 
+void StdExpansion::v_GenStdTraceExp(
+    [[maybe_unused]] const int traceid,
+    [[maybe_unused]] std::shared_ptr<StdExpansion> &exp)
+{
+    NEKERROR(ErrorUtil::efatal,
+             "Method does not exist for this shape or library");
+}
+
 void StdExpansion::v_MultiplyByStdQuadratureMetric(
     [[maybe_unused]] const Array<OneD, const NekDouble> &inarray,
     [[maybe_unused]] Array<OneD, NekDouble> &outarray)

@@ -134,8 +134,10 @@ BOOST_AUTO_TEST_CASE(TestBoundaryNormalsUseLocalTraceExpansion)
     {
         auto elmt         = field->GetExp(elmtId[n]);
         auto localNormals = elmt->GetTraceNormal(faceId[n]);
-        auto localTrace   = elmt->GetLocTraceExp(faceId[n]);
-        int offset        = field->GetBndCondExpansions()[0]->GetPhys_Offset(n);
+        // The boundary expansion lives in the shared-trace frame, which is
+        // what the aligned variant carries.
+        auto localTrace = elmt->GetAlignedTraceExp(faceId[n]);
+        int offset      = field->GetBndCondExpansions()[0]->GetPhys_Offset(n);
         Array<OneD, NekDouble> tmp;
 
         for (int d = 0; d < 3; ++d)

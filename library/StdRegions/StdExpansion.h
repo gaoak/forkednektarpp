@@ -342,6 +342,23 @@ public:
      *  trace in the k th direction (when trace is a 2D
      *  object)
      */
+    /**
+     * @brief Generate a StdExpansion for trace @p traceid of this expansion.
+     *
+     * The returned expansion carries this expansion's trace basis keys and no
+     * geometry, so it provides the trace's basis, points and standard
+     * quadrature metric only. Use it wherever a trace expansion is needed for
+     * its basis rather than its geometry; see
+     * LocalRegions::Expansion::GetAlignedTraceExp when geometric data in the
+     * trace frame is required.
+     */
+    std::shared_ptr<StdExpansion> GetStdTraceExp(const int traceid)
+    {
+        std::shared_ptr<StdExpansion> exp;
+        v_GenStdTraceExp(traceid, exp);
+        return exp;
+    }
+
     const LibUtilities::BasisKey GetTraceBasisKey(const int i, int k = -1,
                                                   bool UseGLL = false) const
     {
@@ -1396,6 +1413,9 @@ protected:
     {
         NEKERROR(ErrorUtil::efatal, "not defined");
     }
+
+    STD_REGIONS_EXPORT virtual void v_GenStdTraceExp(
+        const int traceid, std::shared_ptr<StdExpansion> &exp);
 
     STD_REGIONS_EXPORT virtual void v_MultiplyByStdQuadratureMetric(
         const Array<OneD, const NekDouble> &inarray,

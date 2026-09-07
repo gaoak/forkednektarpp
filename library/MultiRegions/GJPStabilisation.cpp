@@ -109,7 +109,7 @@ GJPStabilisation::GJPStabilisation(ExpListSharedPtr pField)
     {
         for (unsigned t = 0; t < (*exp)[e]->GetNtraces(); ++t)
         {
-            m_nLocTracePts += (*exp)[e]->GetLocTraceExp(t)->GetTotPoints();
+            m_nLocTracePts += (*exp)[e]->GetStdTraceExp(t)->GetTotPoints();
         }
     }
 
@@ -142,8 +142,10 @@ GJPStabilisation::GJPStabilisation(ExpListSharedPtr pField)
             // collect offset for traces in dgtrace
             unsigned eid = dgfield->GetTraceElmtId(e, n);
             m_traceOffset.push_back(dgtrace->GetPhys_Offset(eid));
-            LocalRegions::ExpansionSharedPtr LocTraceExp =
-                elmt->GetLocTraceExp(n);
+            // Only the trace's basis and points are needed here, so use the
+            // standard trace expansion rather than one carrying geometry.
+            StdRegions::StdExpansionSharedPtr LocTraceExp =
+                elmt->GetStdTraceExp(n);
             unsigned LocTracepts = LocTraceExp->GetTotPoints();
             if (LocTracepts != dgtrace->GetExp(eid)->GetTotPoints())
             {
@@ -223,9 +225,37 @@ GJPStabilisation::GJPStabilisation(ExpListSharedPtr pField)
 
             if (m_interpTrace.count(cnt)) // manage interpolated case
             {
-                m_interpTrace[cnt].first->MultiplyByQuadratureMetric(
+                // The local trace has a different point distribution from the
+                // global trace here, so the metric cannot be taken from the
+                // global trace and scattered as in the branch below. Build it
+                // instead from the standard trace weights, which are already
+                // in the element local frame, and the Jacobian of the aligned
+                // trace expansion, which is in the global trace frame and so
+                // must be scattered into the local one.
+                auto elExp          = m_dgfield->GetExp(e);
+                const unsigned npts = m_locTracePts0[cnt] * m_locTracePts1[cnt];
+
+                m_interpTrace[cnt].first->MultiplyByStdQuadratureMetric(
                     m_locTraceWeights + offset,
                     e_tmp = m_locTraceWeights + offset);
+
+                auto jac =
+                    elExp->GetAlignedTraceExp(j)->GetGeomFactors()->GetJac();
+
+                Array<OneD, NekDouble> jacLoc(npts);
+                if (jac.size() < npts)
+                {
+                    // Regular trace: the Jacobian is constant.
+                    Vmath::Fill(npts, jac[0], jacLoc, 1);
+                }
+                else
+                {
+                    elExp->ReOrientTracePhysVals(elExp->GetTraceOrient(j), jac,
+                                                 jacLoc, m_locTracePts0[cnt],
+                                                 m_locTracePts1[cnt], false);
+                }
+
+                Vmath::Vmul(npts, jacLoc, 1, e_tmp, 1, e_tmp, 1);
             }
             else
             {

@@ -119,8 +119,8 @@ private:
     std::vector<unsigned> m_ntrace;
     /// local trace and multiregion dg trace  if different (i.e variable p and
     /// BC trace)
-    std::map<int, std::pair<LocalRegions::ExpansionSharedPtr,
-                            LocalRegions::ExpansionSharedPtr>>
+    std::map<int, std::pair<StdRegions::StdExpansionSharedPtr,
+                            StdRegions::StdExpansionSharedPtr>>
         m_interpTrace;
 
     std::vector<bool> m_traceFwd;

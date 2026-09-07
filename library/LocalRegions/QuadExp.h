@@ -117,7 +117,8 @@ protected:
 
     LOCAL_REGIONS_EXPORT void v_GetLocTracePhysVals(
         const int edge, const StdRegions::StdExpansionSharedPtr &EdgeExp,
-        const NekDouble *inarray, Array<OneD, NekDouble> &outarray) override;
+        const NekDouble *inarray, Array<OneD, NekDouble> &outarray,
+        StdRegions::Orientation orient) override;
 
     LOCAL_REGIONS_EXPORT void v_GetTraceQFactors(
         const int edge, Array<OneD, NekDouble> &outarray) override;

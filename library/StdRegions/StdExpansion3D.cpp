@@ -35,6 +35,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <StdRegions/StdExpansion3D.h>
+#include <StdRegions/StdQuadExp.h>
+#include <StdRegions/StdTriExp.h>
 
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 #include <LibUtilities/Foundations/Interp.h>
@@ -633,7 +635,7 @@ void StdExpansion3D::v_ReOrientTracePhysMap(
                 {
                     for (int i = 0; i < nq0; ++i)
                     {
-                        idmap[j * nq0 + i] = nq1 - 1 - j + i * nq1;
+                        idmap[i + j * nq0] = nq1 - 1 - j + i * nq1;
                     }
                 }
             }
@@ -684,7 +686,7 @@ void StdExpansion3D::v_ReOrientTracePhysMap(
                 {
                     for (int i = 0; i < nq0; ++i)
                     {
-                        idmap[j * nq0 + i] = nq0 * nq1 - 1 - j - i * nq1;
+                        idmap[i + j * nq0] = nq0 * nq1 - 1 - j - i * nq1;
                     }
                 }
             }
@@ -998,6 +1000,30 @@ void StdExpansion3D::v_PhysInterp(std::shared_ptr<StdExpansion> fromExp,
                            fromExp->GetBasis(2)->GetPointsKey(), fromData,
                            m_base[0]->GetPointsKey(), m_base[1]->GetPointsKey(),
                            m_base[2]->GetPointsKey(), toData);
+}
+
+void StdExpansion3D::v_GenStdTraceExp(const int traceid,
+                                      std::shared_ptr<StdExpansion> &exp)
+{
+    ASSERTL1(traceid < GetNtraces(), "Trace is out of range.");
+
+    const auto traceShape =
+        LibUtilities::ShapeTypeTraceShape[DetShapeType()][traceid];
+
+    switch (traceShape)
+    {
+        case LibUtilities::eTriangle:
+            exp = MemoryManager<StdRegions::StdTriExp>::AllocateSharedPtr(
+                GetTraceBasisKey(traceid, 0), GetTraceBasisKey(traceid, 1));
+            break;
+        case LibUtilities::eQuadrilateral:
+            exp = MemoryManager<StdRegions::StdQuadExp>::AllocateSharedPtr(
+                GetTraceBasisKey(traceid, 0), GetTraceBasisKey(traceid, 1));
+            break;
+        default:
+            NEKERROR(ErrorUtil::efatal, "Unrecognised trace shape");
+            break;
+    }
 }
 
 } // namespace Nektar::StdRegions
