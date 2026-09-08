@@ -114,6 +114,14 @@ template <typename TPadding, FieldState TState>
 MULTI_REGIONS_EXPORT std::vector<LibUtilities::BlockAttributes<TState>>
 GetBlockAttributes(const MultiRegions::ExpListSharedPtr explist,
                    const unsigned interleave_width = 1);
+
+/// As GetBlockAttributes(), but sized for the element-local traces: one
+/// block per collection, each element carrying every point of every one
+/// of its traces.
+template <typename TPadding, FieldState TState>
+MULTI_REGIONS_EXPORT std::vector<LibUtilities::BlockAttributes<TState>>
+GetLocTraceBlockAttributes(const MultiRegions::ExpListSharedPtr explist,
+                           const unsigned interleave_width = 1);
 #endif
 
 /// Base class for all multi-elemental spectral/hp expansions.

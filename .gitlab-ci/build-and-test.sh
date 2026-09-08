@@ -54,6 +54,7 @@ if [[ $BUILD_TYPE == "default" ]]; then
     CMAKEARGS+=(
         "-DCMAKE_BUILD_TYPE=Release"
         "-DNEKTAR_ENABLE_DEVICE_SUPPORT:BOOL=ON"
+        "-DNEKTAR_SWITCH_MAX=4"
         "-DNEKTAR_TEST_ALL=ON"
         "-DNEKTAR_ERROR_ON_WARNINGS=OFF"
     )
@@ -69,6 +70,8 @@ elif [[ $BUILD_TYPE == "full" ]]; then
     CMAKEARGS+=(
         "-DCMAKE_BUILD_TYPE:STRING=Debug"
         "-DNEKTAR_FULL_DEBUG:BOOL=ON"
+        "-DNEKTAR_ENABLE_DEVICE_SUPPORT:BOOL=ON"
+        "-DNEKTAR_SWITCH_MAX=4"
         "-DNEKTAR_TEST_ALL:BOOL=ON"
         "-DNEKTAR_USE_ARPACK:BOOL=ON"
         "-DNEKTAR_USE_FFTW:BOOL=ON"
@@ -82,7 +85,6 @@ elif [[ $BUILD_TYPE == "full" ]]; then
         "-DNEKTAR_USE_CGNS:BOOL=ON"
         "-DNEKTAR_CCMIO_URL=https://www.nektar.info/ccmio/libccmio-2.6.1.tar.gz"
         "-DNEKTAR_USE_VTK:BOOL=ON"
-        "-DNEKTAR_ENABLE_DEVICE_SUPPORT:BOOL=ON"
         "-DNEKTAR_USE_LST:BOOL=ON"
         "-DNEKTAR_BUILD_PYTHON:BOOL=ON"
         "-DNEKTAR_TEST_USE_HOSTFILE=ON"

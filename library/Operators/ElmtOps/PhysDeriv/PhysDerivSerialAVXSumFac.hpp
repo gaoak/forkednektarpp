@@ -286,10 +286,12 @@ protected:
         std::integer_sequence<unsigned int, ind0...>,
         std::integer_sequence<unsigned int, ind1...>)
     {
+        constexpr unsigned int ndim = sizeof...(ind0);
+
         // Shape size.
         const auto nqTot = sizeParam.nqTot();
 
-        unsigned int dfsize = sizeof...(ind0) * m_coordDim;
+        unsigned int dfsize = ndim * m_coordDim;
         if constexpr (DEFORMED)
         {
             dfsize *= nqTot;

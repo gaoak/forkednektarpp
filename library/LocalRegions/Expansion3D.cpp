@@ -2980,15 +2980,14 @@ void Expansion3D::v_GetTracePhysVals(
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray, StdRegions::Orientation orient)
 {
-
+    // Reshuffule points as required and put into outarray.
     if (orient == StdRegions::eNoOrientation)
     {
         orient = GetTraceOrient(face);
     }
 
-    v_GetLocTracePhysVals(face, FaceExp, inarray.data(), outarray, orient);
-
-    // Reshuffule points as required and put into outarray.
+    GetLocTracePhysValsOriented(face, FaceExp, inarray.data(), outarray,
+                                orient);
 
     // If transposed face need to swap interpolation point
     int id0, id1;
@@ -3017,6 +3016,24 @@ inline void Expansion3D::v_GetLocTracePhysVals(
     const NekDouble *inarray, Array<OneD, NekDouble> &outarray,
     [[maybe_unused]] StdRegions::Orientation orient)
 {
+    // Callers that do not request an orientation keep the previous behaviour
+    // of using the mesh face orientation.
+    GetLocTracePhysValsOriented(face, FaceExp, inarray, outarray,
+                                GetTraceOrient(face));
+}
+
+/**
+ * @brief As v_GetLocTracePhysVals, but honours an explicitly requested face
+ * orientation when selecting the interpolation points keys. This matters when
+ * the face has a different number of quadrature points in each direction
+ * (variable order), where using the mesh orientation instead of the requested
+ * one transposes the points keys and yields a wrong face.
+ */
+void Expansion3D::GetLocTracePhysValsOriented(
+    const int face, const StdRegions::StdExpansionSharedPtr &FaceExp,
+    const NekDouble *inarray, Array<OneD, NekDouble> &outarray,
+    StdRegions::Orientation orient)
+{
     unsigned nfacepts = GetTraceNumPoints(face);
     unsigned dir0     = GetGeom3D()->GetDir(face, 0);
     unsigned dir1     = GetGeom3D()->GetDir(face, 1);
@@ -3037,7 +3054,7 @@ inline void Expansion3D::v_GetLocTracePhysVals(
 
     // If transposed face need to swap interpolation point
     int id0, id1;
-    if (GetTraceOrient(face) < StdRegions::eDir1FwdDir2_Dir2FwdDir1)
+    if (orient < StdRegions::eDir1FwdDir2_Dir2FwdDir1)
     {
         id0 = 0;
         id1 = 1;

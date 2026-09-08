@@ -99,6 +99,45 @@ enum PointsType
     SIZE_PointsType       //!<  Length of enum list
 };
 
+constexpr unsigned PointsTypeNumEndPts[SIZE_PointsType] = {
+    0, // eNoPointsType,
+    0, // eGaussGaussLegendre,
+    1, // eGaussRadauMLegendre,
+    1, // eGaussRadauPLegendre,
+    2, // eGaussLobattoLegendre,
+    0, // eGaussGaussChebyshev,
+    1, // eGaussRadauMChebyshev,
+    1, // eGaussRadauPChebyshev,
+    2, // eGaussLobattoChebyshev,
+    1, // eGaussRadauMAlpha0Beta1,
+    1, // eGaussRadauMAlpha0Beta2,
+    1, // eGaussRadauMAlpha1Beta0,
+    1, // eGaussRadauMAlpha2Beta0,
+    2, // eGaussKronrodLegendre,
+    1, // eGaussRadauKronrodMLegendre,
+    1, // eGaussRadauKronrodMAlpha1Beta0,
+    2, // eGaussLobattoKronrodLegendre,
+    2, // ePolyEvenlySpaced,
+    0, // eFourierEvenlySpaced,
+    0, // eFourierSingleModeSpaced,
+    1, // eBoundaryLayerPoints,
+    1, // eBoundaryLayerPointsRev,
+    0, // eNodalTriElec,
+    0, // eNodalTriFekete,
+    0, // eNodalTriEvenlySpaced,
+    0, // eNodalTetEvenlySpaced,
+    0, // eNodalTetElec,
+    0, // eNodalPrismEvenlySpaced,
+    0, // eNodalPrismElec,
+    0, // eNodalTriSPI,
+    0, // eNodalTetSPI,
+    0, // eNodalPrismSPI,
+    0, // eNodalQuadElec,
+    0, // eNodalHexElec,
+    1, // eGaussLegendreWithMP,
+    2  // eGaussLegendreWithM,
+};
+
 static std::vector<LibUtilities::PointsType> NullPointsTypeVector;
 } // namespace Nektar::LibUtilities
 

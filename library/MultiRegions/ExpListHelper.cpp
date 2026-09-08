@@ -150,4 +150,60 @@ template std::vector<BlockAttributes<FieldState::Phys>> GetBlockAttributes<
 template std::vector<BlockAttributes<FieldState::Coeff>> GetBlockAttributes<
     float, FieldState::Coeff>(const MultiRegions::ExpListSharedPtr explist,
                               const unsigned interleave_width);
+
+template <typename TPadding, FieldState TState>
+std::vector<BlockAttributes<TState>> GetLocTraceBlockAttributes(
+    const MultiRegions::ExpListSharedPtr explist,
+    const unsigned interleave_width)
+{
+    // The TPadding type is use to dertermine the padding requirement and must
+    // be of floating point type.
+    static_assert(std::is_floating_point_v<TPadding>,
+                  "GetBlockAttributes: Data type must be float or double.");
+
+    // Use maximum vector width for back-ends interoperability.
+    const auto vector_width = NektarSpaces::max_vector_width<TPadding>::value;
+
+    std::vector<BlockAttributes<TState>> blockAttr;
+
+    auto colls = GetCollections(explist);
+    for (auto &coll : colls)
+    {
+        auto expPtr               = coll.GetExpVector()[0];
+        const size_t num_elements = coll.GetExpVector().size();
+        auto shapetype            = expPtr->DetShapeType();
+        unsigned dimension        = expPtr->GetNumBases();
+        unsigned ndatatot         = 0;
+        for (unsigned d = 0; d < dimension; ++d)
+        {
+            unsigned ndata = 1;
+            for (unsigned d1 = 0, cnt = 0; d1 < dimension; ++d1)
+            {
+                if (d1 == d)
+                {
+                    continue;
+                }
+                ndata *= expPtr->GetTraceBasisKey(dimension - 1 - d, cnt++)
+                             .GetNumPoints();
+            }
+            ndatatot +=
+                ndata * LibUtilities::ShapeTypeNumTraceInDir[shapetype][d];
+        }
+
+        size_t num_elements_with_padding =
+            ((num_elements + vector_width - 1) / vector_width) * vector_width;
+        blockAttr.push_back({num_elements, num_elements_with_padding, ndatatot,
+                             interleave_width});
+    }
+
+    return blockAttr;
+}
+
+template std::vector<BlockAttributes<FieldState::Phys>> GetLocTraceBlockAttributes<
+    double, FieldState::Phys>(const MultiRegions::ExpListSharedPtr explist,
+                              const unsigned interleave_width);
+template std::vector<BlockAttributes<FieldState::Phys>> GetLocTraceBlockAttributes<
+    float, FieldState::Phys>(const MultiRegions::ExpListSharedPtr explist,
+                             const unsigned interleave_width);
+
 } // namespace Nektar::MultiRegions

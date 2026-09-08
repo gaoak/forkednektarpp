@@ -1723,7 +1723,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJ1DKernel(
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eSegment)
     {
-        DiffusionCoeffwithWJSegKernel<SCALE, DEFORMED, simd_type>(
+        DiffusionCoeffwithWJSegKernel<SCALE, DEFORMED>(
             ncoord, nq0, isConstVarDiff, constVarDiff, isVarDiff, varD00,
             varD01, varD11, varD02, varD12, varD22, jac_ptr, w0, df_ptr,
             deriv0);
@@ -1750,14 +1750,14 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJ2DKernel(
     if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
                   SHAPE_TYPE == LibUtilities::eNodalTri)
     {
-        DiffusionCoeffwithWJTriKernel<SCALE, DEFORMED, simd_type>(
+        DiffusionCoeffwithWJTriKernel<SCALE, DEFORMED>(
             ncoord, nq0, nq1, isConstVarDiff, constVarDiff, isVarDiff, varD00,
             varD01, varD11, varD02, varD12, varD22, jac_ptr, w0, w1, df_ptr, h0,
             h1, deriv0, deriv1);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::eQuadrilateral)
     {
-        DiffusionCoeffwithWJQuadKernel<SCALE, DEFORMED, simd_type>(
+        DiffusionCoeffwithWJQuadKernel<SCALE, DEFORMED>(
             ncoord, nq0, nq1, isConstVarDiff, constVarDiff, isVarDiff, varD00,
             varD01, varD11, varD02, varD12, varD22, jac_ptr, w0, w1, df_ptr,
             deriv0, deriv1);
@@ -1785,7 +1785,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJ3DKernel(
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
     {
-        DiffusionCoeffwithWJHexKernel<SCALE, DEFORMED, simd_type>(
+        DiffusionCoeffwithWJHexKernel<SCALE, DEFORMED>(
             nq0, nq1, nq2, isConstVarDiff, constVarDiff, isVarDiff, varD00,
             varD01, varD11, varD02, varD12, varD22, jac_ptr, w0, w1, w2, df_ptr,
             deriv0, deriv1, deriv2);
@@ -1793,7 +1793,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJ3DKernel(
     else if constexpr ((SHAPE_TYPE == LibUtilities::eTetrahedron) ||
                        (SHAPE_TYPE == LibUtilities::eNodalTet))
     {
-        DiffusionCoeffwithWJTetKernel<SCALE, DEFORMED, simd_type>(
+        DiffusionCoeffwithWJTetKernel<SCALE, DEFORMED>(
             nq0, nq1, nq2, isConstVarDiff, constVarDiff, isVarDiff, varD00,
             varD01, varD11, varD02, varD12, varD22, jac_ptr, w0, w1, w2, df_ptr,
             h0, h1, h2, h3, deriv0, deriv1, deriv2);
@@ -1801,14 +1801,14 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJ3DKernel(
     else if constexpr ((SHAPE_TYPE == LibUtilities::ePrism) ||
                        (SHAPE_TYPE == LibUtilities::eNodalPrism))
     {
-        DiffusionCoeffwithWJPrismKernel<SCALE, DEFORMED, simd_type>(
+        DiffusionCoeffwithWJPrismKernel<SCALE, DEFORMED>(
             nq0, nq1, nq2, isConstVarDiff, constVarDiff, isVarDiff, varD00,
             varD01, varD11, varD02, varD12, varD22, jac_ptr, w0, w1, w2, df_ptr,
             h0, h3, deriv0, deriv1, deriv2);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
     {
-        DiffusionCoeffwithWJPyrKernel<SCALE, DEFORMED, simd_type>(
+        DiffusionCoeffwithWJPyrKernel<SCALE, DEFORMED>(
             nq0, nq1, nq2, isConstVarDiff, constVarDiff, isVarDiff, varD00,
             varD01, varD11, varD02, varD12, varD22, jac_ptr, w0, w1, w2, df_ptr,
             h0, h1, h3, deriv0, deriv1, deriv2);
