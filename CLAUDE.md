@@ -13,4 +13,4 @@ Where the two disagree, CONTRIBUTING.md takes precedence.
 
 Match the surrounding code. Run `clang-format` (version 18, as CONTRIBUTING.md
 requires) before committing; a CI job verifies it and will fail the merge
-request otherwise.
+request otherwise. XML files should be formatted using `.gitlab-ci/formatXMLfile.sh path-to-xml-file path-to-xml-file`.
