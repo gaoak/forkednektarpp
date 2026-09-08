@@ -81,6 +81,11 @@ protected:
         int bcRegion, int cnt, Array<OneD, Array<OneD, NekDouble>> &Fwd,
         Array<OneD, Array<OneD, NekDouble>> &BfFwd,
         Array<OneD, Array<OneD, NekDouble>> &physarray) override;
+
+    void v_LinerBC(int bcRegion, int cnt,
+                   Array<OneD, Array<OneD, NekDouble>> &Fwd,
+                   Array<OneD, Array<OneD, NekDouble>> &physarray,
+                   const NekDouble intTime, const NekDouble simdt) override;
 };
 
 } // namespace Nektar
