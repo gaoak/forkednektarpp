@@ -207,19 +207,19 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
     {
         simd_type *outtmp = wsp0 + nq1;
 
-        IProductTriKernel<SCALE, APPEND, simd_type>(
-            nm0, nm1, nq0, nq1, isModified, in, B0, B1, wsp0, outtmp, scale);
+        IProductTriKernel<SCALE, APPEND>(nm0, nm1, nq0, nq1, isModified, in, B0,
+                                         B1, wsp0, outtmp, scale);
         MatVecKernel(nmTot, NtoMTrans, outtmp, out);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
     {
-        IProductTriKernel<SCALE, APPEND, simd_type>(
-            nm0, nm1, nq0, nq1, isModified, in, B0, B1, wsp0, out, scale);
+        IProductTriKernel<SCALE, APPEND>(nm0, nm1, nq0, nq1, isModified, in, B0,
+                                         B1, wsp0, out, scale);
     }
     else
     {
-        IProductQuadKernel<SCALE, APPEND, simd_type>(nm0, nm1, nq0, nq1, in, B0,
-                                                     B1, wsp0, out, scale);
+        IProductQuadKernel<SCALE, APPEND>(nm0, nm1, nq0, nq1, in, B0, B1, wsp0,
+                                          out, scale);
     }
 }
 
@@ -318,45 +318,44 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
     const unsigned int nq2                    = sizeParam3D.nq2();
     if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
     {
-        IProductHexKernel<SCALE, APPEND, simd_type>(nm0, nm1, nm2, nq0, nq1,
-                                                    nq2, in, B0, B1, B2, wsp0,
-                                                    wsp1, out, scale);
+        IProductHexKernel<SCALE, APPEND>(nm0, nm1, nm2, nq0, nq1, nq2, in, B0,
+                                         B1, B2, wsp0, wsp1, out, scale);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
     {
-        IProductTetKernel<SCALE, APPEND, simd_type>(nm0, nm1, nm2, nq0, nq1,
-                                                    nq2, isModified, in, B0, B1,
-                                                    B2, wsp0, wsp1, out, scale);
+        IProductTetKernel<SCALE, APPEND>(nm0, nm1, nm2, nq0, nq1, nq2,
+                                         isModified, in, B0, B1, B2, wsp0, wsp1,
+                                         out, scale);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::eNodalTet)
     {
         simd_type *outtmp = wsp0 + nq1 * nq2;
 
-        IProductTetKernel<SCALE, APPEND, simd_type>(
-            nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, B0, B1, B2, wsp0,
-            wsp1, outtmp, scale);
+        IProductTetKernel<SCALE, APPEND>(nm0, nm1, nm2, nq0, nq1, nq2,
+                                         isModified, in, B0, B1, B2, wsp0, wsp1,
+                                         outtmp, scale);
         MatVecKernel(nmTot, NtoMTrans, outtmp, out);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::ePrism)
     {
-        IProductPrismKernel<SCALE, APPEND, simd_type>(
-            nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, B0, B1, B2, wsp0,
-            wsp1, wsp2, out, scale);
+        IProductPrismKernel<SCALE, APPEND>(nm0, nm1, nm2, nq0, nq1, nq2,
+                                           isModified, in, B0, B1, B2, wsp0,
+                                           wsp1, wsp2, out, scale);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::eNodalPrism)
     {
         simd_type *outtmp = wsp0 + nq1 * nq2;
 
-        IProductPrismKernel<SCALE, APPEND, simd_type>(
-            nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, B0, B1, B2, wsp0,
-            wsp1, wsp2, outtmp, scale);
+        IProductPrismKernel<SCALE, APPEND>(nm0, nm1, nm2, nq0, nq1, nq2,
+                                           isModified, in, B0, B1, B2, wsp0,
+                                           wsp1, wsp2, outtmp, scale);
         MatVecKernel(nmTot, NtoMTrans, outtmp, out);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
     {
-        IProductPyrKernel<SCALE, APPEND, simd_type>(nm0, nm1, nm2, nq0, nq1,
-                                                    nq2, isModified, in, B0, B1,
-                                                    B2, wsp0, wsp1, out, scale);
+        IProductPyrKernel<SCALE, APPEND>(nm0, nm1, nm2, nq0, nq1, nq2,
+                                         isModified, in, B0, B1, B2, wsp0, wsp1,
+                                         out, scale);
     }
 }
 

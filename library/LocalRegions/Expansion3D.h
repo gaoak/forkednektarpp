@@ -180,6 +180,11 @@ protected:
                                Array<OneD, NekDouble> &outarray,
                                StdRegions::Orientation orient) override;
 
+    void GetLocTracePhysValsOriented(
+        const int face, const StdRegions::StdExpansionSharedPtr &FaceExp,
+        const NekDouble *inarray, Array<OneD, NekDouble> &outarray,
+        StdRegions::Orientation orient);
+
     void v_GenTraceExp(const int traceid, ExpansionSharedPtr &exp) override;
 
     void v_GenAlignedTraceExp(const int traceid,

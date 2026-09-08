@@ -52,6 +52,16 @@ MACRO(ADD_ELMT_OPERATOR dir)
         ENDIF()
     ENDFOREACH()
 
+    IF(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/BlockOpSwitchPhysTraceExtractSeg.h")
+    ELSE()
+        SET(ShapeIncludeName "Common/BlockOpSwitchPhysTraceExtract.h.in")
+        FOREACH (Shape IN LISTS Shapes)
+            SET(ShapeIncName include/BlockOpSwitchPhysTraceExtract${Shape}.h)
+            MESSAGE("Generating block header  file file: " "${ShapeIncName}")
+            CONFIGURE_FILE(${ShapeIncludeName} ${ShapeIncName})
+        ENDFOREACH()
+    ENDIF()
+
     # Loop through each possible execution space.
     FOREACH (ExecSpace IN LISTS ExecSpaces)
     
@@ -136,6 +146,16 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}${ExecName}Generic.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
+                    IF(EXISTS "${dir}/${name}GenericBlockOp.cpp.in")
+                        SET(ShapeConfigName "${dir}/${name}GenericBlockOp.cpp.in")
+                        FOREACH (Shape IN LISTS Shapes)
+                            SET(ShapeName src/${name}${ExecSpace}${Impl}${TData}${Shape}.${SOURCE_EXT})
+                            MESSAGE("Generating shape cpp file: " "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}")
+                            CONFIGURE_FILE(${ShapeConfigName} ${ShapeName})
+                            SET(CPP_SHAPE_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}")
+                            SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${CPP_SHAPE_SOURCE})
+                        ENDFOREACH()
+                    ENDIF()
                     MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
                 # No implementation, skip.
@@ -207,6 +227,41 @@ FILE(GLOB children GetFwdBwdTracePhys BndCondOps/FwdTransBC Norm/* CFL/*)
 FOREACH(child ${children})
     ADD_BLOCK_OPERATOR(${child} OPNAMESPACE OPERATORS_HEADERS OPERATORS_SOURCES)
 ENDFOREACH()
+
+# GCC 13 crashes with an internal compiler error in gimple_duplicate_bb
+# (gcc/tree-cfg.cc) while completely unrolling the three-dimensional
+# trace kernels: once the templated size parameter is substituted every
+# loop bound in them is a compile-time constant, and the whole call
+# chain is always_inline, so the cunroll pass is handed more to
+# duplicate than it can cope with. Seen on Hex, Pyr, Prism and
+# NodalPrism. Disable that one pass for the affected translation units;
+# every other file, and every other pass in these, is unaffected.
+#
+# Bounded to the 13 series: 14 compiles these files, 12 has not been
+# tried and is assumed good. Widen the bound if the crash turns up on
+# another version, and drop the block entirely once 13 is no longer
+# supported. The lower-impact alternative to the flag is --param
+# max-completely-peeled-insns=<n> below the default of 200, which keeps
+# unrolling the smaller loops.
+IF(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
+   AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 13
+   AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 14)
+    SET(CUNROLL_ICE_SOURCES)
+    FOREACH(src IN LISTS OPERATORS_SOURCES)
+        GET_FILENAME_COMPONENT(src_name "${src}" NAME)
+        IF(src_name MATCHES "^(PhysTraceExtract|IProductWRTPhysTrace)(Serial|AVX)Generic(double|float)(Hex|Pyr|Prism|NodalPrism|Tet|NodalTet)\\.cpp$")
+            LIST(APPEND CUNROLL_ICE_SOURCES "${src}")
+        ENDIF()
+    ENDFOREACH()
+    IF(CUNROLL_ICE_SOURCES)
+        MESSAGE(STATUS
+            "Disabling complete loop unrolling for the three-dimensional "
+            "trace operators: GCC ${CMAKE_CXX_COMPILER_VERSION} crashes in "
+            "gimple_duplicate_bb on them")
+        SET_SOURCE_FILES_PROPERTIES(${CUNROLL_ICE_SOURCES}
+            PROPERTIES COMPILE_OPTIONS "-fdisable-tree-cunroll")
+    ENDIF()
+ENDIF()
 
 SOURCE_GROUP(TREE ${CMAKE_CURRENT_SOURCE_DIR}
     FILES ${OPERATORS_HEADERS} ${GROUP_SOURCES})
