@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_implicit_gem.cpp
+// File: TestDIRK.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,43 +32,41 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestImplicitGEM
+#define BOOST_TEST_MODULE TestDIRK
 
-#include "init_timeop.hpp"
+#include "TestTimeOps.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
 
-#define TEST_SCHEME(test_name, test, scheme, variant, order)                   \
+#define TEST_SCHEME(test_name, test, scheme, order)                            \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
         Configure();                                                           \
         SetTestCase(0.0, -10.0);                                               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(CheckOrderOfAccuracy(scheme, variant, order));          \
+            BOOST_TEST(CheckOrderOfAccuracy(scheme, "", order));               \
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestImplicitGEM)
+BOOST_AUTO_TEST_SUITE(TestDIRK)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-TEST_SCHEME(gem_order_1, segment, "ImplicitGEM", "", 1)
+TEST_SCHEME(dirk_order_1, segment, "DIRK", 1)
 
-TEST_SCHEME(gem_order_2, segment, "ImplicitGEM", "", 2)
+TEST_SCHEME(dirk_order_2, segment, "DIRK", 2)
 
-TEST_SCHEME(gem_order_3, segment, "ImplicitGEM", "", 3)
+TEST_SCHEME(dirk_order_3, segment, "DIRK", 3)
 
-TEST_SCHEME(gem_order_4, segment, "ImplicitGEM", "", 4)
+TEST_SCHEME(esdirk_order_2, segment, "DIRK_ES", 2)
 
-TEST_SCHEME(gem_order_5, segment, "ImplicitGEM", "", 5)
+TEST_SCHEME(esdirk_order_3, segment, "DIRK_ES", 3)
 
-TEST_SCHEME(gem_midpoint_order_2, segment, "ImplicitGEM", "Midpoint", 2)
-
-TEST_SCHEME(gem_midpoint_order_4, segment, "ImplicitGEM", "Midpoint", 4)
-
-TEST_SCHEME(gem_midpoint_order_6, segment, "ImplicitGEM", "Midpoint", 6)
+TEST_SCHEME(esdirk_order_4, segment, "DIRK_ES", 4)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

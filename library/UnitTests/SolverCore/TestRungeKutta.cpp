@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_imex.cpp
+// File: TestRungeKutta.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,37 +32,45 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestIMEX
+#define BOOST_TEST_MODULE TestRungeKutta
 
-#include "init_timeop.hpp"
+#include "TestTimeOps.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
 
-#define TEST_SCHEME(test_name, test, order)                                    \
+#define TEST_SCHEME(test_name, test, scheme, variant, order)                   \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
-        SetTestCase(1.0, -10.0);                                               \
+        SetTestCase(1.0, 0.0);                                                 \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(CheckOrderOfAccuracy("IMEX", "", order));               \
+            BOOST_TEST(CheckOrderOfAccuracy(scheme, variant, order));          \
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestIMEX)
+BOOST_AUTO_TEST_SUITE(TestRungeKutta)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-TEST_SCHEME(imex_order_1, segment, 1)
+TEST_SCHEME(rk_order_1, segment, "RungeKutta", "", 1)
 
-TEST_SCHEME(imex_order_2, segment, 2)
+TEST_SCHEME(rk_order_2, segment, "RungeKutta", "", 2)
 
-TEST_SCHEME(imex_order_3, segment, 3)
+TEST_SCHEME(rk_order_3, segment, "RungeKutta", "", 3)
 
-TEST_SCHEME(imex_order_4, segment, 4)
+TEST_SCHEME(rk_order_4, segment, "RungeKutta", "", 4)
+
+TEST_SCHEME(rk_order_5, segment, "RungeKutta", "", 5)
+
+TEST_SCHEME(rk_ssp_order_1, segment, "RungeKutta", "SSP", 1)
+
+TEST_SCHEME(rk_ssp_order_2, segment, "RungeKutta", "SSP", 2)
+
+TEST_SCHEME(rk_ssp_order_3, segment, "RungeKutta", "SSP", 3)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

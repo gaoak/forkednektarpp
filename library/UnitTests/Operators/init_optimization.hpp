@@ -36,9 +36,9 @@
 #include "Operators/ElmtOps/ElmtOp.hpp"
 #include "init_fields.hpp"
 
-using namespace Nektar::Operators;
-using namespace Nektar::LibUtilities;
 using namespace Nektar;
+using namespace Nektar::LibUtilities;
+using namespace Nektar::Operators;
 
 class OptimizationField
 {

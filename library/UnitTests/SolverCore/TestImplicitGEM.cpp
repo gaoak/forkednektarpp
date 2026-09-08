@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_imex_sdc.cpp
+// File: TestImplicitGEM.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,69 +32,43 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestIMEXSDC
+#define BOOST_TEST_MODULE TestImplicitGEM
 
-#include "init_timeop.hpp"
+#include "TestTimeOps.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
 
-#define TEST_SCHEME(test_name, test, scheme, variant, order, freeparam)        \
+#define TEST_SCHEME(test_name, test, scheme, variant, order)                   \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        std::cout << std::string("Run: ") + std::string(#test_name)            \
-                  << std::endl;                                                \
         Configure();                                                           \
-        SetTestCase(1.0, -10.0);                                               \
+        SetTestCase(0.0, -10.0);                                               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(                                                        \
-                CheckOrderOfAccuracy(scheme, variant, order, freeparam));      \
+            BOOST_TEST(CheckOrderOfAccuracy(scheme, variant, order));          \
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestIMEXSDC)
+BOOST_AUTO_TEST_SUITE(TestImplicitGEM)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-// TEST_SCHEME(sdc_order_1, segment, "IMEXSDC", "Equidistant", 1,
-//             (std::vector<double>{1.0, 1}))
+TEST_SCHEME(gem_order_1, segment, "ImplicitGEM", "", 1)
 
-TEST_SCHEME(sdc_order_2, segment, "IMEXSDC", "Equidistant", 2,
-            (std::vector<double>{1.0, 2}))
+TEST_SCHEME(gem_order_2, segment, "ImplicitGEM", "", 2)
 
-TEST_SCHEME(sdc_order_3, segment, "IMEXSDC", "Equidistant", 3,
-            (std::vector<double>{1.0, 3}))
+TEST_SCHEME(gem_order_3, segment, "ImplicitGEM", "", 3)
 
-TEST_SCHEME(sdc_order_4, segment, "IMEXSDC", "Equidistant", 4,
-            (std::vector<double>{1.0, 4}))
+TEST_SCHEME(gem_order_4, segment, "ImplicitGEM", "", 4)
 
-TEST_SCHEME(sdc_order_5, segment, "IMEXSDC", "Equidistant", 5,
-            (std::vector<double>{1.0, 5}))
+TEST_SCHEME(gem_order_5, segment, "ImplicitGEM", "", 5)
 
-TEST_SCHEME(sdc_gll_order_2, segment, "IMEXSDC", "GaussLobattoLegendre", 2,
-            (std::vector<double>{1.0, 2}))
+TEST_SCHEME(gem_midpoint_order_2, segment, "ImplicitGEM", "Midpoint", 2)
 
-TEST_SCHEME(sdc_gll_order_4, segment, "IMEXSDC", "GaussLobattoLegendre", 4,
-            (std::vector<double>{1.0, 3}))
+TEST_SCHEME(gem_midpoint_order_4, segment, "ImplicitGEM", "Midpoint", 4)
 
-TEST_SCHEME(sdc_gll_order_6, segment, "IMEXSDC", "GaussLobattoLegendre", 6,
-            (std::vector<double>{1.0, 4}))
-
-TEST_SCHEME(sdc_grl_order_3, segment, "IMEXSDC", "GaussRadauLegendre", 3,
-            (std::vector<double>{1.0, 2}))
-
-TEST_SCHEME(sdc_grl_order_5, segment, "IMEXSDC", "GaussRadauLegendre", 5,
-            (std::vector<double>{1.0, 3}))
-
-// TEST_SCHEME(sdc_ggl_order_2, segment, "IMEXSDC", "GaussGaussLegendre", 2,
-//             (std::vector<double>{1.0, 1}))
-
-TEST_SCHEME(sdc_ggl_order_4, segment, "IMEXSDC", "GaussGaussLegendre", 4,
-            (std::vector<double>{1.0, 2}))
-
-TEST_SCHEME(sdc_ggl_order_6, segment, "IMEXSDC", "GaussGaussLegendre", 6,
-            (std::vector<double>{1.0, 3}))
+TEST_SCHEME(gem_midpoint_order_6, segment, "ImplicitGEM", "Midpoint", 6)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

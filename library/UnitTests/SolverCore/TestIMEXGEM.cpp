@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_explicit_gem.cpp
+// File: TestIMEXGEM.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,9 +32,9 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestExplicitGEM
+#define BOOST_TEST_MODULE TestIMEXGEM
 
-#include "init_timeop.hpp"
+#include "TestTimeOps.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
@@ -46,33 +46,31 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
-        SetTestCase(1.0, 0.0);                                                 \
+        SetTestCase(1.0, -10.0);                                               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(CheckOrderOfAccuracy(scheme, variant, order));          \
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestExplicitGEM)
+BOOST_AUTO_TEST_SUITE(TestIMEXGEM)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-TEST_SCHEME(gem_order_1, segment, "ExplicitGEM", "", 1)
+TEST_SCHEME(gem_order_1, segment, "IMEXGEM", "", 1)
 
-TEST_SCHEME(gem_order_2, segment, "ExplicitGEM", "", 2)
+TEST_SCHEME(gem_order_2, segment, "IMEXGEM", "", 2)
 
-TEST_SCHEME(gem_order_3, segment, "ExplicitGEM", "", 3)
+TEST_SCHEME(gem_order_3, segment, "IMEXGEM", "", 3)
 
-TEST_SCHEME(gem_order_4, segment, "ExplicitGEM", "", 4)
+TEST_SCHEME(gem_order_4, segment, "IMEXGEM", "", 4)
 
-// TEST_SCHEME(gem_order_5, segment, "ExplicitGEM", "", 5)
+TEST_SCHEME(gem_order_5, segment, "IMEXGEM", "", 5)
 
-TEST_SCHEME(gem_order_6, segment, "ExplicitGEM", "", 6)
+TEST_SCHEME(gem_midpoint_order_2, segment, "IMEXGEM", "Midpoint", 2)
 
-TEST_SCHEME(gem_midpoint_order_2, segment, "ExplicitGEM", "Midpoint", 2)
+TEST_SCHEME(gem_midpoint_order_4, segment, "IMEXGEM", "Midpoint", 4)
 
-TEST_SCHEME(gem_midpoint_order_4, segment, "ExplicitGEM", "Midpoint", 4)
-
-TEST_SCHEME(gem_midpoint_order_6, segment, "ExplicitGEM", "Midpoint", 6)
+TEST_SCHEME(gem_midpoint_order_6, segment, "IMEXGEM", "Midpoint", 6)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

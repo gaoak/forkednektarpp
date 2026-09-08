@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_comm.cpp
+// File: TestComm.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestComm
 
-#include "init_comm.hpp"
+#include "TestComm.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
@@ -50,7 +50,7 @@ using namespace Nektar::LibUtilities;
 BOOST_AUTO_TEST_SUITE(TestComm)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-BOOST_FIXTURE_TEST_CASE(bcast, InitComm)
+BOOST_FIXTURE_TEST_CASE(bcast, CommField)
 {
     std::string execStr(
         boost::unit_test::framework::master_test_suite().argv[1]);
@@ -90,7 +90,7 @@ BOOST_FIXTURE_TEST_CASE(bcast, InitComm)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(send_and_recv, InitComm)
+BOOST_FIXTURE_TEST_CASE(send_and_recv, CommField)
 {
     std::string execStr(
         boost::unit_test::framework::master_test_suite().argv[1]);
@@ -171,7 +171,7 @@ BOOST_FIXTURE_TEST_CASE(send_and_recv, InitComm)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(sendrecv, InitComm)
+BOOST_FIXTURE_TEST_CASE(sendrecv, CommField)
 {
     std::string execStr(
         boost::unit_test::framework::master_test_suite().argv[1]);
@@ -237,7 +237,7 @@ BOOST_FIXTURE_TEST_CASE(sendrecv, InitComm)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(allreduce, InitComm)
+BOOST_FIXTURE_TEST_CASE(allreduce, CommField)
 {
     std::string execStr(
         boost::unit_test::framework::master_test_suite().argv[1]);
@@ -292,7 +292,7 @@ BOOST_FIXTURE_TEST_CASE(allreduce, InitComm)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(scatter, InitComm)
+BOOST_FIXTURE_TEST_CASE(scatter, CommField)
 {
     std::string execStr(
         boost::unit_test::framework::master_test_suite().argv[1]);
@@ -347,7 +347,7 @@ BOOST_FIXTURE_TEST_CASE(scatter, InitComm)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(alltoall, InitComm)
+BOOST_FIXTURE_TEST_CASE(alltoall, CommField)
 {
     std::string execStr(
         boost::unit_test::framework::master_test_suite().argv[1]);
@@ -423,7 +423,7 @@ BOOST_FIXTURE_TEST_CASE(alltoall, InitComm)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(gather, InitComm)
+BOOST_FIXTURE_TEST_CASE(gather, CommField)
 {
     std::string execStr(
         boost::unit_test::framework::master_test_suite().argv[1]);
@@ -482,7 +482,7 @@ BOOST_FIXTURE_TEST_CASE(gather, InitComm)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(allgather, InitComm)
+BOOST_FIXTURE_TEST_CASE(allgather, CommField)
 {
     std::string execStr(
         boost::unit_test::framework::master_test_suite().argv[1]);

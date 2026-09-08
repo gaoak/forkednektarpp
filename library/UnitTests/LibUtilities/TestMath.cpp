@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_math.cpp
+// File: TestMath.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestMath
 
-#include "init_math.hpp"
+#include "TestMath.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
@@ -57,7 +57,7 @@ BOOST_FIXTURE_TEST_CASE(abskernel, MathField<double>)
     MathField<double>::abs();
 
     // Backend results
-    math.abs(*fixt_in, *fixt_out);
+    m_math.abs(*m_in1, *m_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -75,7 +75,7 @@ BOOST_FIXTURE_TEST_CASE(negkernel, MathField<double>)
     MathField<double>::neg();
 
     // Backend results
-    math.neg(*fixt_in, *fixt_out);
+    m_math.neg(*m_in1, *m_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -93,8 +93,8 @@ BOOST_FIXTURE_TEST_CASE(sqrtkernel, MathField<double>)
     MathField<double>::sqrt();
 
     // Backend results
-    math.abs(*fixt_in, *fixt_in2);
-    math.sqrt(*fixt_in2, *fixt_out);
+    m_math.abs(*m_in1, *m_in2);
+    m_math.sqrt(*m_in2, *m_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -112,7 +112,7 @@ BOOST_FIXTURE_TEST_CASE(addkernel, MathField<double>)
     MathField<double>::add();
 
     // Backend results
-    math.add(*fixt_in, *fixt_in2, *fixt_out);
+    m_math.add(*m_in1, *m_in2, *m_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -130,7 +130,7 @@ BOOST_FIXTURE_TEST_CASE(subkernel, MathField<double>)
     MathField<double>::sub();
 
     // Backend results
-    math.sub(*fixt_in, *fixt_in2, *fixt_out);
+    m_math.sub(*m_in1, *m_in2, *m_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -148,7 +148,7 @@ BOOST_FIXTURE_TEST_CASE(mulkernel, MathField<double>)
     MathField<double>::mul();
 
     // Backend results
-    math.mul(*fixt_in, *fixt_in2, *fixt_out);
+    m_math.mul(*m_in1, *m_in2, *m_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -166,7 +166,7 @@ BOOST_FIXTURE_TEST_CASE(mulkernel, MathField<double>)
     MathField<double>::div();
 
     // Backend results
-    math.div(,*fixt_in, *fixt_in2, *fixt_out);
+    m_math.div(,*m_in1, *m_in2, *m_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -185,7 +185,7 @@ BOOST_FIXTURE_TEST_CASE(daxpykernel, MathField<double>)
     MathField<double>::daxpy(alpha);
 
     // Backend results
-    math.daxpy(alpha, *fixt_in, *fixt_in2, *fixt_out);
+    m_math.daxpy(alpha, *m_in1, *m_in2, *m_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -274,7 +274,7 @@ BOOST_FIXTURE_TEST_CASE(sum, MathField<double>)
     double out = MathField<double>::sum();
 
     // Backend results
-    double h_out = math.reduceSum(*fixt_in);
+    double h_out = m_math.reduceSum(*m_in1);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 1.0E-11);
@@ -293,7 +293,7 @@ BOOST_FIXTURE_TEST_CASE(max, MathField<double>)
     double out = MathField<double>::max();
 
     // Backend results
-    double h_out = math.reduceMax(*fixt_in);
+    double h_out = m_math.reduceMax(*m_in1);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-12);
@@ -312,7 +312,7 @@ BOOST_FIXTURE_TEST_CASE(min, MathField<double>)
     double out = MathField<double>::min();
 
     // Backend results
-    double h_out = math.reduceMin(*fixt_in);
+    double h_out = m_math.reduceMin(*m_in1);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-12);
@@ -331,7 +331,7 @@ BOOST_FIXTURE_TEST_CASE(innerproduct, MathField<double>)
     double out = MathField<double>::inner_product();
 
     // Backend results
-    double h_out = math.ddot(*fixt_in, *fixt_in2);
+    double h_out = m_math.ddot(*m_in1, *m_in2);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-10);
@@ -351,7 +351,7 @@ BOOST_FIXTURE_TEST_CASE(l1norm, MathField<double>)
     double out = MathField<double>::l1norm();
 
     // Backend results
-    double h_out = math.l1norm(*fixt_in);
+    double h_out = m_math.l1norm(*m_in1);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-11);
@@ -370,7 +370,7 @@ BOOST_FIXTURE_TEST_CASE(l2norm, MathField<double>)
     double out = MathField<double>::l2norm();
 
     // Backend results
-    double h_out = math.l2norm(*fixt_in);
+    double h_out = m_math.l2norm(*m_in1);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-10);
@@ -392,7 +392,7 @@ BOOST_FIXTURE_TEST_CASE(lpnorm, MathField<double>)
         double out = MathField<double>::lpnorm(p);
 
         // Backend results
-        double h_out = math.lpnorm(p, *fixt_in);
+        double h_out = m_math.lpnorm(p, *m_in1);
 
         // Check results
         BOOST_TEST(fabs(h_out - out) < 5.0E-09);
@@ -413,7 +413,7 @@ BOOST_FIXTURE_TEST_CASE(linfnorm, MathField<double>)
     double out = MathField<double>::linfnorm();
 
     // Backend results
-    double h_out = math.linfnorm(*fixt_in);
+    double h_out = m_math.linfnorm(*m_in1);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-10);

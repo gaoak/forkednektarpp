@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_bdf.cpp
+// File: TestCNAB.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,37 +32,33 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestBDF
+#define BOOST_TEST_MODULE TestCNAB
 
-#include "init_timeop.hpp"
+#include "TestTimeOps.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
 
-#define TEST_SCHEME(test_name, test, order)                                    \
+#define TEST_SCHEME(test_name, test, scheme, variant, order)                   \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
-        SetTestCase(0.0, -10.0);                                               \
+        SetTestCase(1.0, -10.0);                                               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(CheckOrderOfAccuracy("BDFImplicit", "", order));        \
+            BOOST_TEST(CheckOrderOfAccuracy(scheme, variant, order));          \
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestBDF)
+BOOST_AUTO_TEST_SUITE(TestCNAB)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-TEST_SCHEME(bdf_order_1, segment, 1)
+TEST_SCHEME(cnab_order_2, segment, "CNAB", "", 2)
 
-TEST_SCHEME(bdf_order_2, segment, 2)
-
-TEST_SCHEME(bdf_order_3, segment, 3)
-
-TEST_SCHEME(bdf_order_4, segment, 4)
+TEST_SCHEME(mcnab_order_2, segment, "CNAB", "Modified", 2)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

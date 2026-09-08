@@ -41,20 +41,6 @@ ENDIF()
 
 ADD_NEKTAR_EXECUTABLE(test_optimization
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_optimization.cpp)
-ADD_NEKTAR_EXECUTABLE(test_comm
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_comm.cpp)
-ADD_NEKTAR_EXECUTABLE(test_math
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math.cpp)
-IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-    ADD_NEKTAR_EXECUTABLE(test_parallel_reduce
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_parallel_reduce.cu)
-ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
-    ADD_NEKTAR_EXECUTABLE(test_parallel_reduce
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_parallel_reduce.hip)
-ELSE()
-    ADD_NEKTAR_EXECUTABLE(test_parallel_reduce
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_parallel_reduce.cpp)
-ENDIF()
 ADD_NEKTAR_EXECUTABLE(test_assmbscatr
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_assmbscatr.cpp)
 ADD_NEKTAR_EXECUTABLE(test_dirichlet
@@ -63,34 +49,6 @@ ADD_NEKTAR_EXECUTABLE(test_neumann
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_neumann.cpp)
 #ADD_NEKTAR_EXECUTABLE(test_robin
 #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_robin.cpp)
-ADD_NEKTAR_EXECUTABLE(test_runge_kutta
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_runge_kutta.cpp)
-ADD_NEKTAR_EXECUTABLE(test_adams_bashforth
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_adams_bashforth.cpp)
-ADD_NEKTAR_EXECUTABLE(test_dirk
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_dirk.cpp)
-ADD_NEKTAR_EXECUTABLE(test_adams_moulton
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_adams_moulton.cpp)
-ADD_NEKTAR_EXECUTABLE(test_bdf
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bdf.cpp)
-ADD_NEKTAR_EXECUTABLE(test_cnab
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_cnab.cpp)
-ADD_NEKTAR_EXECUTABLE(test_imex
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_imex.cpp)
-ADD_NEKTAR_EXECUTABLE(test_imexdirk
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_imexdirk.cpp)
-ADD_NEKTAR_EXECUTABLE(test_explicit_sdc
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_explicit_sdc.cpp)
-ADD_NEKTAR_EXECUTABLE(test_implicit_sdc
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_implicit_sdc.cpp)
-ADD_NEKTAR_EXECUTABLE(test_imex_sdc
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_imex_sdc.cpp)
-ADD_NEKTAR_EXECUTABLE(test_explicit_gem
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_explicit_gem.cpp)
-ADD_NEKTAR_EXECUTABLE(test_implicit_gem
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_implicit_gem.cpp)
-ADD_NEKTAR_EXECUTABLE(test_imex_gem
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_imex_gem.cpp)
 ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass.cpp)
 ADD_NEKTAR_EXECUTABLE(test_expression
@@ -157,33 +115,11 @@ ADD_NEKTAR_EXECUTABLE(test_phystraceextract
 IF (NEKTAR_ENABLE_DOUBLE_PRECISION) # Only enable unit tests for double precision, for now
 SET_UNIT_TEST(Optimization test_optimization none none FALSE)
 
-# Comm
-IF (NEKTAR_USE_MPI)
-    SET_UNIT_TEST(Comm_host test_comm HostSpace none TRUE)
-    SET_UNIT_TEST(Comm_device test_comm DeviceSpace none TRUE)
-ENDIF()
-
 # Serial
-SET_UNIT_TEST(Math_serial test_math Serial none FALSE)
-SET_UNIT_TEST(Parallel_reduce_serial test_parallel_reduce Serial none FALSE)
 SET_UNIT_TEST(AssmbScatr_serial test_assmbscatr Serial none FALSE)
 SET_UNIT_TEST(Dirichlet_serial test_dirichlet Serial none FALSE)
 SET_UNIT_TEST(Neumann_serial test_neumann Serial SumFac FALSE)
 #SET_UNIT_TEST(Robin_serial test_robin Serial none FALSE)
-SET_UNIT_TEST(RungeKutta_serial test_runge_kutta Serial none FALSE)
-SET_UNIT_TEST(AdamsBashforth_serial test_adams_bashforth Serial none FALSE)
-SET_UNIT_TEST(DIRK_serial test_dirk Serial none FALSE)
-SET_UNIT_TEST(AdamsMoulton_serial test_adams_moulton Serial none FALSE)
-SET_UNIT_TEST(BDF_serial test_bdf Serial none FALSE)
-SET_UNIT_TEST(CNAB_serial test_cnab Serial none FALSE)
-SET_UNIT_TEST(IMEX_serial test_imex Serial none FALSE)
-SET_UNIT_TEST(IMEXdirk_serial test_imexdirk Serial none FALSE)
-SET_UNIT_TEST(Explicit_SDC_serial test_explicit_sdc Serial none FALSE)
-SET_UNIT_TEST(Implicit_SDC_serial test_implicit_sdc Serial none FALSE)
-SET_UNIT_TEST(IMEX_SDC_serial test_imex_sdc Serial none FALSE)
-SET_UNIT_TEST(Explicit_GEM_serial test_explicit_gem Serial none FALSE)
-SET_UNIT_TEST(Implicit_GEM_serial test_implicit_gem Serial none FALSE)
-SET_UNIT_TEST(IMEX_GEM_serial test_imex_gem Serial none FALSE)
 SET_UNIT_TEST(Getfwdbwdtracephys_serial test_getfwdbwdtracephys Serial none FALSE)
 IF (NEKTAR_USE_MPI)
     SET_UNIT_TEST(AssmbScatr_serial test_assmbscatr Serial none TRUE)
@@ -248,25 +184,9 @@ ENDIF()
 
 # AVX
 IF (NEKTAR_ENABLE_SIMD)
-    SET_UNIT_TEST(Math_avx test_math AVX none FALSE)
-    SET_UNIT_TEST(Parallel_reduce_avx test_parallel_reduce AVX none FALSE)
     SET_UNIT_TEST(AssmbScatr_avx test_assmbscatr AVX none FALSE)
     SET_UNIT_TEST(Dirichlet_avx  test_dirichlet AVX none FALSE)
     SET_UNIT_TEST(Neumann_avx test_neumann AVX SumFac FALSE)
-    SET_UNIT_TEST(RungeKutta_avx test_runge_kutta AVX none FALSE)
-    SET_UNIT_TEST(AdamsBashforth_avx test_adams_bashforth AVX none FALSE)
-    SET_UNIT_TEST(DIRK_avx test_dirk AVX none FALSE)
-    SET_UNIT_TEST(AdamsMoulton_avx test_adams_moulton AVX none FALSE)
-    SET_UNIT_TEST(BDF_avx test_bdf AVX none FALSE)
-    SET_UNIT_TEST(CNAB_avx test_cnab AVX none FALSE)
-    SET_UNIT_TEST(IMEX_avx test_imex AVX none FALSE)
-    SET_UNIT_TEST(IMEXdirk_avx test_imexdirk AVX none FALSE)
-    SET_UNIT_TEST(Explicit_SDC_avx test_explicit_sdc AVX none FALSE)
-    SET_UNIT_TEST(Implicit_SDC_avx test_implicit_sdc AVX none FALSE)
-    SET_UNIT_TEST(IMEX_SDC_avx test_imex_sdc AVX none FALSE)
-    SET_UNIT_TEST(Explicit_GEM_avx test_explicit_gem AVX none FALSE)
-    SET_UNIT_TEST(Implicit_GEM_avx test_implicit_gem AVX none FALSE)
-    SET_UNIT_TEST(IMEX_GEM_avx test_imex_gem AVX none FALSE)
     SET_UNIT_TEST(Getfwdbwdtracephys_avx test_getfwdbwdtracephys AVX none FALSE)
     IF (NEKTAR_USE_MPI)
         # SET_UNIT_TEST(AssmbScatr_avx test_assmbscatr AVX none TRUE)
@@ -333,25 +253,9 @@ ENDIF()
 
 # Device
 IF(NEKTAR_ENABLE_DEVICE)
-    SET_UNIT_TEST(Math_device test_math Device none FALSE)
-    SET_UNIT_TEST(Parallel_reduce_device test_parallel_reduce Device none FALSE)
     SET_UNIT_TEST(AssmbScatr_device test_assmbscatr Device none FALSE)
     SET_UNIT_TEST(Dirichlet_device test_dirichlet Device none FALSE)
     SET_UNIT_TEST(Neumann_device test_neumann Device SumFac FALSE)
-    SET_UNIT_TEST(RungeKutta_device test_runge_kutta Device none FALSE)
-    SET_UNIT_TEST(AdamsBashforth_device test_adams_bashforth Device none FALSE)
-    SET_UNIT_TEST(DIRK_device test_dirk Device none FALSE)
-    SET_UNIT_TEST(AdamsMoulton_device test_adams_moulton Device none FALSE)
-    SET_UNIT_TEST(BDF_device test_bdf Device none FALSE)
-    SET_UNIT_TEST(CNAB_device test_cnab Device none FALSE)
-    SET_UNIT_TEST(IMEX_device test_imex Device none FALSE)
-    SET_UNIT_TEST(IMEXdirk_device test_imexdirk Device none FALSE)
-    SET_UNIT_TEST(Explicit_SDC_device test_explicit_sdc Device none FALSE)
-    SET_UNIT_TEST(Implicit_SDC_device test_implicit_sdc Device none FALSE)
-    SET_UNIT_TEST(IMEX_SDC_device test_imex_sdc Device none FALSE)
-    SET_UNIT_TEST(Explicit_GEM_device test_explicit_gem Device none FALSE)
-    SET_UNIT_TEST(Implicit_GEM_device test_implicit_gem Device none FALSE)
-    SET_UNIT_TEST(IMEX_GEM_device test_imex_gem Device none FALSE)
     SET_UNIT_TEST(Getfwdbwdtracephys_device test_getfwdbwdtracephys Device none FALSE)
     IF (NEKTAR_USE_MPI)
         # Disabled: intermittently hangs in mesh partitioning (MeshPartition::
