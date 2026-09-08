@@ -30,6 +30,9 @@ v5.11.0
 - Fix trixie GitLab CI slowdown (!2701)
 - Fix collection autotuning selection and record results per polynomial order (!2635)
 
+**AcousticSolver**
+- Added new BC: liner / perforated plate (!2678)
+
 **Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)
 - Move using namespace std to avoid name clashes (!2618)

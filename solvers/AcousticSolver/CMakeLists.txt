@@ -18,6 +18,7 @@ IF( NEKTAR_SOLVER_ACOUSTIC )
        ./RiemannSolvers/APELaxFriedrichsSolver.cpp
        ./RiemannSolvers/LEEUpwindSolver.cpp
        ./RiemannSolvers/LEELaxFriedrichsSolver.cpp
+       ./LinerSolvers/PerforatedPlate.cpp
 )
 
     ADD_SOLVER_EXECUTABLE(AcousticSolver SOURCES ${AcousticSolverSource})
@@ -33,6 +34,7 @@ IF( NEKTAR_SOLVER_ACOUSTIC )
     ADD_NEKTAR_TEST(APE_2DPulseWall_WeakDG_MODIFIED)
     ADD_NEKTAR_TEST(APE_2DVariableC_WeakDG_MODIFIED)
     ADD_NEKTAR_TEST(APE_3DPulse_WeakDG_MODIFIED LENGTHY)
+    ADD_NEKTAR_TEST(APE_LinerBC_test)
 
     ADD_NEKTAR_TEST(APE_3DMMF_WeakDG_MODIFIED)
     # the following tests should be redundant with the MMF test above and are

@@ -280,4 +280,76 @@ void APE::v_RiemannInvariantBC(int bcRegion, int cnt,
     }
 }
 
+/**
+ * @brief Liner boundary conditions for the AcousticSystem equations.
+ */
+void APE::v_LinerBC(int bcRegion, int cnt,
+                    Array<OneD, Array<OneD, NekDouble>> &Fwd,
+                    Array<OneD, Array<OneD, NekDouble>> &physarray,
+                    const NekDouble intTime, const NekDouble simdt)
+{
+    int nVariables                            = physarray.size();
+    const Array<OneD, const int> &traceBndMap = m_fields[0]->GetTraceBndMap();
+
+    // Adjust the physical values of the trace to take
+    // user defined boundaries into account
+    int id1, id2, nBCEdgePts;
+    int eMax = m_fields[0]->GetBndCondExpansions()[bcRegion]->GetExpSize();
+
+    for (int e = 0; e < eMax; ++e)
+    {
+        nBCEdgePts = m_fields[0]
+                         ->GetBndCondExpansions()[bcRegion]
+                         ->GetExp(e)
+                         ->GetTotPoints();
+        id1 = m_fields[0]->GetBndCondExpansions()[bcRegion]->GetPhys_Offset(e);
+        id2 = m_fields[0]->GetTrace()->GetPhys_Offset(traceBndMap[cnt + e]);
+
+        // Calculate (v.n)
+        Array<OneD, NekDouble> u(nBCEdgePts, 0.0);
+        for (int i = 0; i < m_spacedim; ++i)
+        {
+            Vmath::Vvtvp(nBCEdgePts, &Fwd[m_iu + i][id2], 1,
+                         &m_traceNormals[i][id2], 1, &u[0], 1, &u[0], 1);
+        }
+
+        // Compute liner input: p/(2rc) + u
+        Array<OneD, NekDouble> in(nBCEdgePts, 0.0);
+        Array<OneD, NekDouble> rhoc(nBCEdgePts, 0.0);
+        for (int j = 0; j < nBCEdgePts; ++j)
+        {
+            rhoc[j] = m_bf[1][id2 + j] * sqrt(m_bf[0][id2 + j]);
+            in[j]   = Fwd[m_ip][id2 + j] / (2.0 * rhoc[j]) + u[j];
+        }
+
+        // Get output from liner model
+        Array<OneD, NekDouble> y(nBCEdgePts, 0.0);
+        y = m_perforatedPlate->LinerOutput(bcRegion, e, &in[0], intTime, simdt);
+
+        // Compute ghost pressure and velocity
+        for (int j = 0; j < nBCEdgePts; ++j)
+        {
+            Fwd[m_ip][id2 + j] =
+                2.0 * (in[j] + y[j]) * rhoc[j] - Fwd[m_ip][id2 + j];
+            u[j] = in[j] - y[j] - u[j];
+        }
+        for (int i = 0; i < m_spacedim; ++i)
+        {
+            Vmath::Vmul(nBCEdgePts, &u[0], 1, &m_traceNormals[i][id2], 1,
+                        &Fwd[m_iu + i][id2], 1);
+        }
+
+        // Copy boundary adjusted values into the boundary expansion
+        for (int i = 0; i < nVariables; ++i)
+        {
+            Vmath::Vcopy(nBCEdgePts, &Fwd[i][id2], 1,
+                         &(m_fields[i]
+                               ->GetBndCondExpansions()[bcRegion]
+                               ->UpdatePhys())[id1],
+                         1);
+        }
+    }
+    return;
+}
+
 } // namespace Nektar
