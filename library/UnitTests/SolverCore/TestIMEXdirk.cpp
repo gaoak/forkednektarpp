@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_imex_gem.cpp
+// File: TestIMEXdirk.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,15 +32,15 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestIMEXGEM
+#define BOOST_TEST_MODULE TestIMEXdirk
 
-#include "init_timeop.hpp"
+#include "TestTimeOps.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
 
-#define TEST_SCHEME(test_name, test, scheme, variant, order)                   \
+#define TEST_SCHEME(test_name, test, scheme, order)                            \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         std::cout << std::string("Run: ") + std::string(#test_name)            \
@@ -49,28 +49,28 @@
         SetTestCase(1.0, -10.0);                                               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(CheckOrderOfAccuracy(scheme, variant, order));          \
+            BOOST_TEST(CheckOrderOfAccuracy(scheme, "", order));               \
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestIMEXGEM)
+BOOST_AUTO_TEST_SUITE(TestIMEXdirk)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-TEST_SCHEME(gem_order_1, segment, "IMEXGEM", "", 1)
+TEST_SCHEME(imexdirk111, segment, "IMEXdirk11", 1)
 
-TEST_SCHEME(gem_order_2, segment, "IMEXGEM", "", 2)
+TEST_SCHEME(imexdirk121, segment, "IMEXdirk12", 1)
 
-TEST_SCHEME(gem_order_3, segment, "IMEXGEM", "", 3)
+TEST_SCHEME(imexdirk122, segment, "IMEXdirk12", 2)
 
-TEST_SCHEME(gem_order_4, segment, "IMEXGEM", "", 4)
+TEST_SCHEME(imexdirk222, segment, "IMEXdirk22", 2)
 
-TEST_SCHEME(gem_order_5, segment, "IMEXGEM", "", 5)
+TEST_SCHEME(imexdirk232, segment, "IMEXdirk23", 2)
 
-TEST_SCHEME(gem_midpoint_order_2, segment, "IMEXGEM", "Midpoint", 2)
+TEST_SCHEME(imexdirk233, segment, "IMEXdirk23", 3)
 
-TEST_SCHEME(gem_midpoint_order_4, segment, "IMEXGEM", "Midpoint", 4)
+TEST_SCHEME(imexdirk343, segment, "IMEXdirk34", 3)
 
-TEST_SCHEME(gem_midpoint_order_6, segment, "IMEXGEM", "Midpoint", 6)
+TEST_SCHEME(imexdirk443, segment, "IMEXdirk44", 3)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

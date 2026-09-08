@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_dirk.cpp
+// File: TestIMEXSDC.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,41 +32,69 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestDIRK
+#define BOOST_TEST_MODULE TestIMEXSDC
 
-#include "init_timeop.hpp"
+#include "TestTimeOps.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
 
-#define TEST_SCHEME(test_name, test, scheme, order)                            \
+#define TEST_SCHEME(test_name, test, scheme, variant, order, freeparam)        \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
-        SetTestCase(0.0, -10.0);                                               \
+        SetTestCase(1.0, -10.0);                                               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(CheckOrderOfAccuracy(scheme, "", order));               \
+            BOOST_TEST(                                                        \
+                CheckOrderOfAccuracy(scheme, variant, order, freeparam));      \
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestDIRK)
+BOOST_AUTO_TEST_SUITE(TestIMEXSDC)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-TEST_SCHEME(dirk_order_1, segment, "DIRK", 1)
+// TEST_SCHEME(sdc_order_1, segment, "IMEXSDC", "Equidistant", 1,
+//             (std::vector<double>{1.0, 1}))
 
-TEST_SCHEME(dirk_order_2, segment, "DIRK", 2)
+TEST_SCHEME(sdc_order_2, segment, "IMEXSDC", "Equidistant", 2,
+            (std::vector<double>{1.0, 2}))
 
-TEST_SCHEME(dirk_order_3, segment, "DIRK", 3)
+TEST_SCHEME(sdc_order_3, segment, "IMEXSDC", "Equidistant", 3,
+            (std::vector<double>{1.0, 3}))
 
-TEST_SCHEME(esdirk_order_2, segment, "DIRK_ES", 2)
+TEST_SCHEME(sdc_order_4, segment, "IMEXSDC", "Equidistant", 4,
+            (std::vector<double>{1.0, 4}))
 
-TEST_SCHEME(esdirk_order_3, segment, "DIRK_ES", 3)
+TEST_SCHEME(sdc_order_5, segment, "IMEXSDC", "Equidistant", 5,
+            (std::vector<double>{1.0, 5}))
 
-TEST_SCHEME(esdirk_order_4, segment, "DIRK_ES", 4)
+TEST_SCHEME(sdc_gll_order_2, segment, "IMEXSDC", "GaussLobattoLegendre", 2,
+            (std::vector<double>{1.0, 2}))
+
+TEST_SCHEME(sdc_gll_order_4, segment, "IMEXSDC", "GaussLobattoLegendre", 4,
+            (std::vector<double>{1.0, 3}))
+
+TEST_SCHEME(sdc_gll_order_6, segment, "IMEXSDC", "GaussLobattoLegendre", 6,
+            (std::vector<double>{1.0, 4}))
+
+TEST_SCHEME(sdc_grl_order_3, segment, "IMEXSDC", "GaussRadauLegendre", 3,
+            (std::vector<double>{1.0, 2}))
+
+TEST_SCHEME(sdc_grl_order_5, segment, "IMEXSDC", "GaussRadauLegendre", 5,
+            (std::vector<double>{1.0, 3}))
+
+// TEST_SCHEME(sdc_ggl_order_2, segment, "IMEXSDC", "GaussGaussLegendre", 2,
+//             (std::vector<double>{1.0, 1}))
+
+TEST_SCHEME(sdc_ggl_order_4, segment, "IMEXSDC", "GaussGaussLegendre", 4,
+            (std::vector<double>{1.0, 2}))
+
+TEST_SCHEME(sdc_ggl_order_6, segment, "IMEXSDC", "GaussGaussLegendre", 6,
+            (std::vector<double>{1.0, 3}))
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

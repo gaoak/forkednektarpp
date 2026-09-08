@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: init_comm.hpp
+// File: TestComm.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -68,16 +68,9 @@
 #include <boost/test/unit_test_log.hpp>
 
 #include <string>
-#include <type_traits>
-#include <vector>
 
-#if defined(_MSC_VER)
-#undef max
-#undef min
-#endif
-
-using namespace Nektar::LibUtilities;
 using namespace Nektar;
+using namespace Nektar::LibUtilities;
 
 struct GlobalConfiguration
 {
@@ -120,17 +113,17 @@ BOOST_TEST_GLOBAL_CONFIGURATION(GlobalConfiguration);
 #endif
 
 /**
- * @struct InitComm
+ * @class CommField
  *
  */
-class InitComm
+class CommField
 {
 public:
-    InitComm()
+    CommField()
     {
     }
 
-    ~InitComm()
+    ~CommField()
     {
         if (m_comm)
         {

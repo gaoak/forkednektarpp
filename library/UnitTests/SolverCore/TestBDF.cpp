@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_imexdirk.cpp
+// File: TestBDF.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,45 +32,37 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestIMEX
+#define BOOST_TEST_MODULE TestBDF
 
-#include "init_timeop.hpp"
+#include "TestTimeOps.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
 
-#define TEST_SCHEME(test_name, test, scheme, order)                            \
+#define TEST_SCHEME(test_name, test, order)                                    \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
-        SetTestCase(1.0, -10.0);                                               \
+        SetTestCase(0.0, -10.0);                                               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(CheckOrderOfAccuracy(scheme, "", order));               \
+            BOOST_TEST(CheckOrderOfAccuracy("BDFImplicit", "", order));        \
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestIMEX)
+BOOST_AUTO_TEST_SUITE(TestBDF)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-TEST_SCHEME(imexdirk111, segment, "IMEXdirk11", 1)
+TEST_SCHEME(bdf_order_1, segment, 1)
 
-TEST_SCHEME(imexdirk121, segment, "IMEXdirk12", 1)
+TEST_SCHEME(bdf_order_2, segment, 2)
 
-TEST_SCHEME(imexdirk122, segment, "IMEXdirk12", 2)
+TEST_SCHEME(bdf_order_3, segment, 3)
 
-TEST_SCHEME(imexdirk222, segment, "IMEXdirk22", 2)
-
-TEST_SCHEME(imexdirk232, segment, "IMEXdirk23", 2)
-
-TEST_SCHEME(imexdirk233, segment, "IMEXdirk23", 3)
-
-TEST_SCHEME(imexdirk343, segment, "IMEXdirk34", 3)
-
-TEST_SCHEME(imexdirk443, segment, "IMEXdirk44", 3)
+TEST_SCHEME(bdf_order_4, segment, 4)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()
