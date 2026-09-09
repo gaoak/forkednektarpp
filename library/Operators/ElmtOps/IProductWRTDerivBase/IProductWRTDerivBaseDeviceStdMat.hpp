@@ -180,6 +180,7 @@ protected:
                     inblock.GetNumData(), (TData *)inptr + k * inoffset,
                     m_streamID);
             }
+
             if (this->m_append)
             {
                 LibUtilities::ReshapeStorage<ExecSpace>(

@@ -676,7 +676,7 @@ protected:
      *
      * @details
      * The single-trace counterpart of OperatorND(), and its twin in
-     * shape: IProductWRTPhysTraceTraceKernel's two- and
+     * shape: IProductWRTPhysTraceTraceKernelLauncher's two- and
      * three-dimensional arms are one overload set, and this one body
      * launches whichever the index sequences expand to. Both arms
      * always run in appending mode; the caller is responsible for
@@ -783,8 +783,8 @@ protected:
 
         // IProductWRTPhysTrace kernel.
         DEVICE_2DGRID_KERNEL_LAUNCHER(
-            (IProductWRTPhysTraceTraceKernel<DEFORMED>), gridsize, ncomp,
-            blocksize, 1, 0, m_streamID, traceid, SHAPE_TYPE, sizeParam,
+            (IProductWRTPhysTraceTraceKernelLauncher<DEFORMED>), gridsize,
+            ncomp, blocksize, 1, 0, m_streamID, traceid, SHAPE_TYPE, sizeParam,
             m_B[ind0]..., nelmtPad, numDataIn, numDataOut, numDataJac,
             m_B[sizeof...(ind0) + ind1]..., m_W[ind1]...,
             m_jacptr + jacOffset * m_implInterleaveWidth, wspptr,
@@ -935,7 +935,7 @@ protected:
      * element of the block in one launch per component.
      *
      * @details
-     * The whole trace loop lives in IProductWRTPhysTraceKernel, whose
+     * The whole trace loop lives in IProductWRTPhysTraceKernelLauncher, whose
      * one-, two- and three-dimensional arms this one body launches;
      * overload resolution picks the arm from the number of arguments
      * the index sequences expand to. Each walks the packed traces of an
@@ -1052,11 +1052,11 @@ protected:
 
         // IProductWRTPhysTrace kernel.
         DEVICE_2DGRID_KERNEL_LAUNCHER(
-            (IProductWRTPhysTraceKernel<SHAPE_TYPE, DEFORMED>), gridsize, ncomp,
-            blocksize, 1, 0, m_streamID, sizeParam, m_B[ind0]..., nelmtPad,
-            numDataIn, numDataOut, numDataJac, m_B[sizeof...(ind0) + ind1]...,
-            m_W[ind1]..., m_jacptr, wspptr, inptr, outptr,
-            (bool)this->m_isCollocated[ind1]...,
+            (IProductWRTPhysTraceKernelLauncher<SHAPE_TYPE, DEFORMED>),
+            gridsize, ncomp, blocksize, 1, 0, m_streamID, sizeParam,
+            m_B[ind0]..., nelmtPad, numDataIn, numDataOut, numDataJac,
+            m_B[sizeof...(ind0) + ind1]..., m_W[ind1]..., m_jacptr, wspptr,
+            inptr, outptr, (bool)this->m_isCollocated[ind1]...,
             (bool)m_endPtsCollocated[ind0]..., this->m_append);
 
         // Reshape back, if necessary.

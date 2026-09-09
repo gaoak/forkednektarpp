@@ -922,7 +922,7 @@ win10-default-build-and-test:
     - echo $Env:path
     - mkdir build
     - cd build
-    - cmake.exe -DCMAKE_BUILD_TYPE=Debug -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON ..
+    - cmake.exe -DCMAKE_BUILD_TYPE=Debug -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON -DNEKTAR_SWITCH_MAX=4 ..
     - cmake.exe --build . --target ALL_BUILD
     - cmake.exe --build . --target INSTALL
     - ctest --output-on-failure -C Debug -j8 --timeout 2000
@@ -967,7 +967,7 @@ win10-mpi-default-build-and-test:
     - echo $Env:path
     - mkdir build
     - cd build
-    - cmake.exe -DCMAKE_BUILD_TYPE=Debug -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON -DNEKTAR_USE_MPI=ON ..
+    - cmake.exe -DCMAKE_BUILD_TYPE=Debug -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON -DNEKTAR_SWITCH_MAX=4 -DNEKTAR_USE_MPI=ON ..
     - cmake.exe --build . --target ALL_BUILD
     - cmake.exe --build . --target INSTALL
     - ctest --output-on-failure -C Debug -j8 --timeout 2000

@@ -113,7 +113,7 @@
  *
  * The live path is four layers deep, mirroring the SerialAVX
  * implementation one dimension up:
- * - top-level kernels (`IProductWRTPhysTraceKernel`,
+ * - top-level kernels (`IProductWRTPhysTraceKernelLauncher`,
  *   `IProductWRTPhysTrace{Edge,Face}Kernel`), which own the grid-stride
  *   loop, the warp mapping and the workspace partitioning;
  * - wrappers (`IProductWRTPhysTrace2D`, `IProductWRTPhysTrace3DFace`),
@@ -375,7 +375,7 @@ NEK_DEVICE_INLINE TData GetJac(const bool deformed, const unsigned int ilane,
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TTraceSizeParameter1D, typename TData, typename TthreadBlock>
-NEK_DEVICE_KERNEL void IProductWRTPhysTraceKernel(
+NEK_DEVICE_KERNEL void IProductWRTPhysTraceKernelLauncher(
     const TTraceSizeParameter1D sizeParam1D, const TData *NEK_RESTRICT nbasis0,
     const size_t nelmt, const unsigned int numDataIn,
     const unsigned int numDataOut,
@@ -938,7 +938,7 @@ NEK_DEVICE_INLINE static void IProductWRTPhysTrace2D(
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TTraceSizeParameter2D, typename TData, typename TthreadBlock>
-NEK_DEVICE_KERNEL void IProductWRTPhysTraceKernel(
+NEK_DEVICE_KERNEL void IProductWRTPhysTraceKernelLauncher(
     const TTraceSizeParameter2D sizeParam2D, const TData *NEK_RESTRICT nbasis0,
     const TData *NEK_RESTRICT nbasis1, const size_t nelmt,
     const unsigned int numDataIn, const unsigned int numDataOut,
@@ -1213,7 +1213,7 @@ NEK_DEVICE_INLINE static void IProductWRTPhysTraceEdge(
  * @brief Launch entry point for one edge of a block of
  * two-dimensional elements.
  *
- * The single-trace counterpart of IProductWRTPhysTraceKernel. It
+ * The single-trace counterpart of IProductWRTPhysTraceKernelLauncher. It
  * grid-strides over the block, offsets the pointers to the warp and the
  * workspace by `max(nm0,nm1) * warpsize`, one edge's worth rather than a
  * pair's, and calls IProductWRTPhysTraceEdge. The shape and the edge id
@@ -1261,7 +1261,7 @@ NEK_DEVICE_INLINE static void IProductWRTPhysTraceEdge(
  */
 template <bool DEFORMED, typename TTraceSizeParameter2D, typename TData,
           typename TthreadBlock>
-NEK_DEVICE_KERNEL void IProductWRTPhysTraceTraceKernel(
+NEK_DEVICE_KERNEL void IProductWRTPhysTraceTraceKernelLauncher(
     const unsigned edge, const LibUtilities::ShapeType shape,
     const TTraceSizeParameter2D sizeParam2D, const TData *NEK_RESTRICT nbasis0,
     const TData *NEK_RESTRICT nbasis1, const size_t nelmt,
@@ -2074,7 +2074,7 @@ NEK_DEVICE_INLINE static void IProductWRTPhysTrace3DFace(
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TTraceSizeParameter3D, typename TData, typename TthreadBlock>
-NEK_DEVICE_KERNEL void IProductWRTPhysTraceKernel(
+NEK_DEVICE_KERNEL void IProductWRTPhysTraceKernelLauncher(
     const TTraceSizeParameter3D sizeParam3D, const TData *NEK_RESTRICT nbasis0,
     const TData *NEK_RESTRICT nbasis1, const TData *NEK_RESTRICT nbasis2,
     const size_t nelmt, const unsigned int numDataIn,
@@ -2387,8 +2387,8 @@ NEK_DEVICE_INLINE static void IProductWRTPhysTraceFace(
  * @brief Launch entry point for one face of a block of
  * three-dimensional elements.
  *
- * The single-trace counterpart of IProductWRTPhysTraceKernel and
- * the three-dimensional counterpart of IProductWRTPhysTraceTraceKernel.
+ * The single-trace counterpart of IProductWRTPhysTraceKernelLauncher and
+ * the three-dimensional counterpart of IProductWRTPhysTraceTraceKernelLauncher.
  * It sizes and splits the workspace exactly as the bulk kernel does,
  * grid-strides over the block and calls IProductWRTPhysTraceFace. The
  * shape and the face id are runtime arguments, so one instantiation
@@ -2436,7 +2436,7 @@ NEK_DEVICE_INLINE static void IProductWRTPhysTraceFace(
  */
 template <bool DEFORMED, typename TTraceSizeParameter3D, typename TData,
           typename TthreadBlock>
-NEK_DEVICE_KERNEL void IProductWRTPhysTraceTraceKernel(
+NEK_DEVICE_KERNEL void IProductWRTPhysTraceTraceKernelLauncher(
     const unsigned face, const LibUtilities::ShapeType shape,
     const TTraceSizeParameter3D sizeParam3D, const TData *NEK_RESTRICT nbasis0,
     const TData *NEK_RESTRICT nbasis1, const TData *NEK_RESTRICT nbasis2,

@@ -46,6 +46,7 @@ enum BasisDataType
     eBasis,
     eBasisDerivative,
     eDerivative,
+    eInterpDerivative,
     eInterp,
     eInterpTranspose,
     eWeights,

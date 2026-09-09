@@ -133,7 +133,7 @@ inline constexpr size_t IProductWRTDerivBaseWorkSpaceSize(
 
     if constexpr (IsPhysSizeParameter3D_v<TSizeParameter3D>)
     {
-        wspsize = 2 * nq0 * nq1 * nq2 * nelmt;
+        wspsize = 3 * nq0 * nq1 * nq2 * nelmt;
     }
     else
     {

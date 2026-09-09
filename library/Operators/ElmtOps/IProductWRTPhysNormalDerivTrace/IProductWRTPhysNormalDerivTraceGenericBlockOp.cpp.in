@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTPhysTrace@ExecSpace@Generic@TData@@Shape@.cpp
+// File: IProductWRTPhysNormalDerivTrace@ExecSpace@Generic@TData@@Shape@.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -42,11 +42,11 @@ namespace Nektar::Operators::detail
 {
 template <>
 template <>
-void IProductWRTPhysTraceBlockOpImpl<NektarSpaces::@ExecSpace@,
-                                     Operators::@Impl@,
-                                     @TData@>::ShapeBlock<LibUtilities::@Shape@>
-                (LibUtilities::BlockAccessor<@TData@, FieldState::Phys> &inblock, 
-                 LibUtilities::BlockAccessor<@TData@, FieldState::Phys> &outblock)
+void IProductWRTPhysNormalDerivTraceBlockOpImpl<
+    NektarSpaces::@ExecSpace@, Operators::@Impl@, @TData@>::
+    ShapeBlock<LibUtilities::@Shape@>(
+        LibUtilities::BlockAccessor<@TData@, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<@TData@, FieldState::Phys> &outblock)
 {
     // The following will use predefined code found in the Operators/Common
     // directory to import boost_pp code to make wrapper code to call
