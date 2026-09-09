@@ -33,6 +33,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <LibUtilities/Foundations/NodalUtil.h>
+#include <StdRegions/StdNodalPrismExp.h>
+#include <StdRegions/StdNodalPyrExp.h>
 #include <StdRegions/StdNodalTetExp.h>
 #include <StdRegions/StdPrismExp.h>
 #include <StdRegions/StdQuadExp.h>
@@ -269,8 +271,8 @@ BOOST_AUTO_TEST_CASE(TestPrismExpInterpPhysToEquiSpaced)
     // define an equispaced Tet points
     PointsType PointsTypeEq = eNodalPrismEvenlySpaced;
 
-    StdRegions::StdTetExpSharedPtr ExpEq =
-        MemoryManager<StdRegions::StdNodalTetExp>::AllocateSharedPtr(
+    StdRegions::StdPrismExpSharedPtr ExpEq =
+        MemoryManager<StdRegions::StdNodalPrismExp>::AllocateSharedPtr(
             basisKeyDir1, basisKeyDir2, basisKeyDir3, PointsTypeEq);
 
     // Get coordinates at quadrature points
@@ -328,6 +330,104 @@ BOOST_AUTO_TEST_CASE(TestPrismExpInterpPhysToEquiSpaced)
     for (int k = 0; k < numEQ; ++k)
     {
         for (int j = 0; j < numEQ; ++j)
+        {
+            for (int i = 0; i < numEQ - k; ++i)
+            {
+                BOOST_CHECK_CLOSE(out[cnt++], -1.0 + 2.0 * k / (numEQ - 1.0),
+                                  epsilon);
+            }
+        }
+    }
+}
+
+BOOST_AUTO_TEST_CASE(TestPyrExpInterpPhysToEquiSpaced)
+{
+    using namespace LibUtilities;
+
+    PointsType PointsTypeDir1 = eGaussLobattoLegendre;
+    PointsType PointsTypeDir2 = eGaussLobattoLegendre;
+    PointsType PointsTypeDir3 = eGaussRadauMAlpha2Beta0;
+    BasisType basisTypeDir1   = eModified_A;
+    BasisType basisTypeDir2   = eModified_A;
+    BasisType basisTypeDir3   = eModifiedPyr_C;
+
+    unsigned int numPoints = 10;
+    unsigned int numEQ     = 8;
+
+    // Set up standard element.
+    const PointsKey PointsKeyDir1(numPoints, PointsTypeDir1);
+    const PointsKey PointsKeyDir2(numPoints, PointsTypeDir2);
+    const PointsKey PointsKeyDir3(numPoints - 1, PointsTypeDir3);
+    const BasisKey basisKeyDir1(basisTypeDir1, numEQ, PointsKeyDir1);
+    const BasisKey basisKeyDir2(basisTypeDir2, numEQ, PointsKeyDir2);
+    const BasisKey basisKeyDir3(basisTypeDir3, numEQ, PointsKeyDir3);
+
+    StdRegions::StdPyrExpSharedPtr Exp =
+        MemoryManager<StdRegions::StdPyrExp>::AllocateSharedPtr(
+            basisKeyDir1, basisKeyDir2, basisKeyDir3);
+
+    // define an equispaced Tet points
+    PointsType PointsTypeEq = eNodalPyrEvenlySpaced;
+
+    StdRegions::StdPyrExpSharedPtr ExpEq =
+        MemoryManager<StdRegions::StdNodalPyrExp>::AllocateSharedPtr(
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, PointsTypeEq);
+
+    // Get coordinates at quadrature points
+    Array<OneD, NekDouble> c0 = Array<OneD, NekDouble>(Exp->GetTotPoints());
+    Array<OneD, NekDouble> c1 = Array<OneD, NekDouble>(Exp->GetTotPoints());
+    Array<OneD, NekDouble> c2 = Array<OneD, NekDouble>(Exp->GetTotPoints());
+    Exp->GetCoords(c0, c1, c2);
+
+    // Get coordinates at equispaced points
+    Array<OneD, NekDouble> ceq0 = Array<OneD, NekDouble>(Exp->GetTotPoints());
+    Array<OneD, NekDouble> ceq1 = Array<OneD, NekDouble>(Exp->GetTotPoints());
+    Array<OneD, NekDouble> ceq2 = Array<OneD, NekDouble>(Exp->GetTotPoints());
+    ExpEq->GetCoords(ceq0, ceq1, ceq2);
+
+    Array<OneD, NekDouble> out   = Array<OneD, NekDouble>(Exp->GetNcoeffs());
+    Array<OneD, NekDouble> outeq = Array<OneD, NekDouble>(Exp->GetNcoeffs());
+    double epsilon               = 1.0e-8;
+
+    Array<OneD, int> sorted;
+    LibUtilities::NodalUtilPyr::CartesianOrdering(numEQ, sorted);
+
+    // compare x-coordinates
+    Exp->PhysInterpToSimplexEquiSpaced(c0, out, numEQ);
+    int cnt = 0;
+    for (int k = 0; k < numEQ; ++k)
+    {
+        for (int j = 0; j < numEQ - k; ++j)
+        {
+            for (int i = 0; i < numEQ - k; ++i)
+            {
+                BOOST_CHECK_CLOSE(out[cnt++], -1.0 + 2.0 * i / (numEQ - 1.0),
+                                  epsilon);
+            }
+        }
+    }
+
+    // compare y-coordinates
+    Exp->PhysInterpToSimplexEquiSpaced(c1, out, numEQ);
+    cnt = 0;
+    for (int k = 0; k < numEQ; ++k)
+    {
+        for (int j = 0; j < numEQ - k; ++j)
+        {
+            for (int i = 0; i < numEQ - k; ++i)
+            {
+                BOOST_CHECK_CLOSE(out[cnt++], -1.0 + 2.0 * j / (numEQ - 1.0),
+                                  epsilon);
+            }
+        }
+    }
+
+    // compare z-coordinates
+    Exp->PhysInterpToSimplexEquiSpaced(c2, out, numEQ);
+    cnt = 0;
+    for (int k = 0; k < numEQ; ++k)
+    {
+        for (int j = 0; j < numEQ - k; ++j)
         {
             for (int i = 0; i < numEQ - k; ++i)
             {

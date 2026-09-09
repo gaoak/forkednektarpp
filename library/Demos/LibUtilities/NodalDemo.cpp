@@ -83,6 +83,12 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    if (vm.count("help"))
+    {
+        cout << desc;
+        return 0;
+    }
+
     if (!vm.count("order"))
     {
         cerr << "Must supply an element order." << endl;
@@ -99,6 +105,7 @@ int main(int argc, char *argv[])
     nodalTypes[eNodalTetEvenlySpaced]   = eTetrahedron;
     nodalTypes[eNodalTetElec]           = eTetrahedron;
     nodalTypes[eNodalPrismEvenlySpaced] = ePrism;
+    nodalTypes[eNodalPyrEvenlySpaced]   = ePyramid;
 
     if (!vm.count("type"))
     {
@@ -151,6 +158,10 @@ int main(int argc, char *argv[])
     {
         util = new NodalUtilPrism(order, r, s, t);
     }
+    else if (shape == ePyramid)
+    {
+        util = new NodalUtilPyr(order, r, s, t);
+    }
     else if (shape == eQuadrilateral)
     {
         util = new NodalUtilQuad(order, r, s);
@@ -186,6 +197,9 @@ int main(int argc, char *argv[])
                 break;
             case eTetrahedron:
                 exact = 1.0 / M_E - 1.0 / M_E / M_E / M_E;
+                break;
+            case ePyramid:
+                exact = -1.0 / M_E / M_E / M_E - 4.0 / M_E + M_E;
                 break;
             case ePrism:
                 exact = M_E - 1.0 / M_E / M_E / M_E;

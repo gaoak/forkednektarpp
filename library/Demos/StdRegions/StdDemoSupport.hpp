@@ -40,6 +40,7 @@
 
 #include <StdRegions/StdHexExp.h>
 #include <StdRegions/StdNodalPrismExp.h>
+#include <StdRegions/StdNodalPyrExp.h>
 #include <StdRegions/StdNodalTetExp.h>
 #include <StdRegions/StdNodalTriExp.h>
 #include <StdRegions/StdPointExp.h>
@@ -207,6 +208,12 @@ public:
                     btype[1] = eOrtho_A;
                     btype[2] = eOrtho_B;
                     stype    = ePrism;
+                    break;
+                case eNodalPyrEvenlySpaced:
+                    btype[0] = eOrtho_A;
+                    btype[1] = eOrtho_A;
+                    btype[2] = eOrthoPyr_C;
+                    stype    = ePyramid;
                     break;
                 case eNodalHexElec:
                     btype[0] = eOrtho_A;
@@ -403,7 +410,10 @@ public:
             }
             case ePyramid:
             {
-                E = new StdPyrExp(bkey[0], bkey[1], bkey[2]);
+                E = nodaltype != eNoPointsType
+                        ? new StdNodalPyrExp(bkey[0], bkey[1], bkey[2],
+                                             nodaltype)
+                        : new StdPyrExp(bkey[0], bkey[1], bkey[2]);
                 break;
             }
             case ePrism:

@@ -130,6 +130,7 @@ public:
             case eNodalTetEvenlySpaced:
             case eNodalPrismEvenlySpaced:
             case eNodalPrismElec:
+            case eNodalPyrEvenlySpaced:
             case eNodalHexElec:
                 dimpoints = 3;
                 break;
@@ -179,6 +180,11 @@ public:
             case eNodalPrismSPI:
                 NEKERROR(ErrorUtil::efatal,
                          "This method cannot be implemented");
+                break;
+
+            case eNodalPyrEvenlySpaced:
+                totpoints =
+                    m_numpoints * (m_numpoints + 1) * (2 * m_numpoints + 1) / 6;
                 break;
 
             case eNodalHexElec:

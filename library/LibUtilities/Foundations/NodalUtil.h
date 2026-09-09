@@ -470,6 +470,204 @@ protected:
 };
 
 /**
+ * @brief Specialisation of the NodalUtil class to support nodal pyramidic
+ * elements.
+ *
+ * The orthogonal basis on the pyramid is constructed using the collapsed
+ * coordinate system \f$ (\eta_1,\eta_2,\eta_3) \f$, in which both \f$ \xi_1
+ * \f$ and \f$ \xi_2 \f$ collapse towards the apex as \f$ \xi_3 \to 1 \f$.
+ * Since the base of the pyramid is a square (rather than the nested
+ * triangular collapse seen in the tetrahedron), the appropriate collapsing
+ * exponent for a given mode \f$ (i,j,k) \f$ is \f$ m = \max(i,j) \f$, rather
+ * than a cumulative sum of indices. See Bergot, Cohen & Duruflé (2010) or
+ * Sherwin & Karniadakis for further details of this basis.
+ */
+class NodalUtilPyr : public NodalUtil
+{
+    typedef std::tuple<int, int, int> Mode;
+
+public:
+    LIB_UTILITIES_EXPORT NodalUtilPyr(size_t degree, Array<OneD, NekDouble> r,
+                                      Array<OneD, NekDouble> s,
+                                      Array<OneD, NekDouble> t);
+
+    LIB_UTILITIES_EXPORT ~NodalUtilPyr() override
+    {
+    }
+
+    /**
+     * @brief Set up mapping from point ordering (vert, edge, face, interior) to
+     * increasing point ordering in Cartesian type format.
+     *
+     * This is the ordering constructed by
+     * NodalPyrEvenlySpaced::NodalPointReorder3d: 5 vertices, 8 edges (01, 12,
+     * 23, 30 around the base; 04, 14, 24, 34 to the apex), 5 faces (0123 the
+     * quadrilateral base; 014, 124, 234, 034 the triangular sides), then
+     * interior (volume) points. Unlike the tetrahedron and prism, none of the
+     * edge or face blocks need to be traversed in reverse here, since -- by
+     * construction -- both this routine and the nodal point generator walk the
+     * standard element in the same (z outer, y middle, x inner) raster order.
+     */
+    LIB_UTILITIES_EXPORT static void CartesianOrdering(const int nq,
+                                                       Array<OneD, int> &sorted)
+    {
+        sorted = Array<OneD, int>(nq * (nq + 1) * (2 * nq + 1) / 6, -1);
+
+        // Block sizes: 8 edges of (nq-2) interior points each, one
+        // quadrilateral base face of (nq-2)^2 interior points, and four
+        // triangular faces of (nq-2)(nq-3)/2 interior points each.
+        const int edgeLen     = nq - 2 > 0 ? nq - 2 : 0;
+        const int faceBaseLen = edgeLen * edgeLen;
+        const int faceTriLen  = edgeLen * (nq - 3 > 0 ? nq - 3 : 0) / 2;
+
+        const int edge01Start   = 5;
+        const int edge12Start   = edge01Start + edgeLen;
+        const int edge23Start   = edge12Start + edgeLen;
+        const int edge30Start   = edge23Start + edgeLen;
+        const int edge04Start   = edge30Start + edgeLen;
+        const int edge14Start   = edge04Start + edgeLen;
+        const int edge24Start   = edge14Start + edgeLen;
+        const int edge34Start   = edge24Start + edgeLen;
+        const int faceBaseStart = edge34Start + edgeLen;
+        const int face014Start  = faceBaseStart + faceBaseLen;
+        const int face124Start  = face014Start + faceTriLen;
+        const int face234Start  = face124Start + faceTriLen;
+        const int face034Start  = face234Start + faceTriLen;
+        const int interiorStart = face034Start + faceTriLen;
+
+        int cntEdge01 = 0, cntEdge12 = 0, cntEdge23 = 0, cntEdge30 = 0;
+        int cntEdge04 = 0, cntEdge14 = 0, cntEdge24 = 0, cntEdge34 = 0;
+        int cntFaceBase = 0, cntFace014 = 0, cntFace124 = 0, cntFace234 = 0,
+            cntFace034  = 0;
+        int cntInterior = 0;
+
+        int cnt = 0;
+        for (int z = 0; z < nq; ++z)
+        {
+            for (int y = 0; y < nq - z; ++y)
+            {
+                for (int x = 0; x < nq - z; ++x, ++cnt)
+                {
+                    // Vertices
+                    if (x == 0 && y == 0 && z == 0)
+                    {
+                        sorted[cnt] = 0;
+                    }
+                    else if (x == nq - 1 && y == 0 && z == 0)
+                    {
+                        sorted[cnt] = 1;
+                    }
+                    else if (x == 0 && y == nq - 1 && z == 0)
+                    {
+                        sorted[cnt] = 2;
+                    }
+                    else if (x == nq - 1 && y == nq - 1 && z == 0)
+                    {
+                        sorted[cnt] = 3;
+                    }
+                    else if (x == 0 && y == 0 && z == nq - 1)
+                    {
+                        sorted[cnt] = 4;
+                    }
+                    // Edges
+                    else if (y == 0 && z == 0)
+                    {
+                        sorted[cnt] = edge01Start + cntEdge01++;
+                    }
+                    else if (x == nq - 1 && z == 0)
+                    {
+                        sorted[cnt] = edge12Start + cntEdge12++;
+                    }
+                    else if (y == nq - 1 && z == 0)
+                    {
+                        sorted[cnt] = edge23Start + cntEdge23++;
+                    }
+                    else if (x == 0 && z == 0)
+                    {
+                        sorted[cnt] = edge30Start + cntEdge30++;
+                    }
+                    else if (x == 0 && y == 0)
+                    {
+                        sorted[cnt] = edge04Start + cntEdge04++;
+                    }
+                    else if (y == 0 && (x + z) == (nq - 1))
+                    {
+                        sorted[cnt] = edge14Start + cntEdge14++;
+                    }
+                    else if ((x + z) == (nq - 1) && (y + z) == (nq - 1))
+                    {
+                        sorted[cnt] = edge24Start + cntEdge24++;
+                    }
+                    else if (x == 0 && (y + z) == (nq - 1))
+                    {
+                        sorted[cnt] = edge34Start + cntEdge34++;
+                    }
+                    // Faces
+                    else if (z == 0)
+                    {
+                        sorted[cnt] = faceBaseStart + cntFaceBase++;
+                    }
+                    else if (y == 0)
+                    {
+                        sorted[cnt] = face014Start + cntFace014++;
+                    }
+                    else if ((x + z) == (nq - 1))
+                    {
+                        sorted[cnt] = face124Start + cntFace124++;
+                    }
+                    else if ((y + z) == (nq - 1))
+                    {
+                        sorted[cnt] = face234Start + cntFace234++;
+                    }
+                    else if (x == 0)
+                    {
+                        sorted[cnt] = face034Start + cntFace034++;
+                    }
+                    // Interior
+                    else
+                    {
+                        sorted[cnt] = interiorStart + cntInterior++;
+                    }
+                }
+            }
+        }
+
+        ASSERTL1(cnt == nq * (nq + 1) * (2 * nq + 1) / 6,
+                 "No of sorted points not the same as number in expansion");
+    }
+
+protected:
+    /// Mapping from the \f$ (i,j,k) \f$ indexing of the basis to a continuous
+    /// ordering.
+    std::vector<Mode> m_ordering;
+
+    /// Collapsed coordinates \f$ (\eta_1, \eta_2, \eta_3) \f$ of the nodal
+    /// points.
+    Array<OneD, Array<OneD, NekDouble>> m_eta;
+
+    NekVector<NekDouble> v_OrthoBasis(const size_t mode) override;
+    NekVector<NekDouble> v_OrthoBasisDeriv(const size_t dir,
+                                           const size_t mode) override;
+
+    std::shared_ptr<NodalUtil> v_CreateUtil(
+        Array<OneD, Array<OneD, NekDouble>> &xi) override
+    {
+        return MemoryManager<NodalUtilPyr>::AllocateSharedPtr(m_degree, xi[0],
+                                                              xi[1], xi[2]);
+    }
+
+    NekDouble v_ModeZeroIntegral() override
+    {
+        return 16.0 * sqrt(2.0) / 3.0;
+    }
+
+    size_t v_NumModes() override
+    {
+        return (m_degree + 1) * (m_degree + 2) * (2 * m_degree + 3) / 6;
+    }
+};
+
+/**
  * @brief Specialisation of the NodalUtil class to support nodal quad elements.
  */
 class NodalUtilQuad : public NodalUtil

@@ -10,6 +10,7 @@ StdExpansion3D.cpp
 StdHexExp.cpp
 StdMatrixKey.cpp
 StdNodalPrismExp.cpp
+StdNodalPyrExp.cpp
 StdNodalTetExp.cpp
 StdNodalTriExp.cpp
 StdPrismExp.cpp
@@ -30,6 +31,7 @@ StdExpansion.h
 StdHexExp.h
 StdMatrixKey.h
 StdNodalPrismExp.h
+StdNodalPyrExp.h
 StdNodalTetExp.h
 StdNodalTriExp.h
 StdPrismExp.h

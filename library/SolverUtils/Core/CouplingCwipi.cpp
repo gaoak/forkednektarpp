@@ -499,6 +499,15 @@ void CouplingCwipi::AnnounceMesh()
 
 void CouplingCwipi::v_Finalize(void)
 {
+    // Complete the last outstanding non-blocking send before tearing the
+    // coupling down. SendCwipi() only waits for the *previous* issend, so the
+    // send posted on the final step is still in flight here, and
+    // cwipi_delete_coupling() releases the buffers backing it. The peer's
+    // matching irecv then lands partially-transferred and partially-freed
+    // memory, which shows up as a non-deterministic corruption of the received
+    // field on the last coupling step.
+    SendComplete();
+
     cwipi_delete_coupling(m_couplingName.c_str());
 }
 

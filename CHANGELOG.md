@@ -106,7 +106,13 @@ v5.10.0
 - Added an option to modify the number of decimal point print out in a constant-rate setup (!2491)
 - Added a stablized velocity correction scheme for fluid-structure interaction of rigid body (!2040)
 - Added Level Set Velocity Correction Scheme for two-phase flow simulations (!2555)
+- Add nodal pyramid points, expansions and equispaced interpolation (!2729)
+- Add missing nodal prism cases to the StdProject demo (!2729)
 	
+
+**NekMesh**
+- Add high-order support for pyramids: MakeOrder, GetCurvedNodes and GetEdgeOrient (!2729)
+
 **CI**
 - Add PROCESSORS property to tests to enforce correct parallelism (!2445)
 - Allow multiple tests per `.tst` file (!2509)
