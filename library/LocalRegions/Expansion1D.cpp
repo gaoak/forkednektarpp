@@ -651,6 +651,38 @@ void Expansion1D::v_NormalTraceDerivFactors(
     }
 }
 
+void Expansion1D::v_TraceDerivFactors(
+    [[maybe_unused]] const int dir,
+    Array<OneD, Array<OneD, NekDouble>> &d0factors,
+    [[maybe_unused]] Array<OneD, Array<OneD, NekDouble>> &d1factors,
+    [[maybe_unused]] Array<OneD, Array<OneD, NekDouble>> &d2factors)
+{
+    // As v_NormalTraceDerivFactors(), without the contraction over the trace
+    // normal: the value of derivative factor dir at each end of the segment.
+    int nquad                         = GetNumPoints(0);
+    Array<TwoD, const NekDouble> gmat = m_geomFactors->GetDerivFactors();
+
+    if (d0factors.size() <= 2)
+    {
+        d0factors    = Array<OneD, Array<OneD, NekDouble>>(2);
+        d0factors[0] = Array<OneD, NekDouble>(1);
+        d0factors[1] = Array<OneD, NekDouble>(1);
+    }
+
+    if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed)
+    {
+        // Trace 0 is the vertex at xi = -1 and trace 1 the one at xi = +1,
+        // matching v_NormalTraceDerivFactors().
+        d0factors[0][0] = gmat[dir][0];
+        d0factors[1][0] = gmat[dir][nquad - 1];
+    }
+    else
+    {
+        d0factors[0][0] = gmat[dir][0];
+        d0factors[1][0] = gmat[dir][0];
+    }
+}
+
 void Expansion1D::v_ReOrientTracePhysMap(
     [[maybe_unused]] const StdRegions::Orientation orient,
     Array<OneD, int> &idmap, [[maybe_unused]] const int nq0,

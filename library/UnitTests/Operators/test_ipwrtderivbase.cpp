@@ -100,8 +100,8 @@ BOOST_AUTO_TEST_SUITE(TestIProductWRTDerivBase)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 
-TEST_IPWRTDERIVBASEPHYS(ipwrtderivbase_seg_phys, Seg, 1.0E-12)
 TEST_IPWRTDERIVBASE(ipwrtderivbase_seg, Seg, 1.0E-12)
+TEST_IPWRTDERIVBASEPHYS(ipwrtderivbase_seg_phys, Seg, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_seg_sem, SegSEM, 1.0E-12)
 TEST_IPWRTDERIVBASEPHYS(ipwrtderivbase_seg_sem_phys, SegSEM, 1.0E-12)

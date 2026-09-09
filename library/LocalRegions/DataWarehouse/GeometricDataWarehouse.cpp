@@ -171,4 +171,19 @@ template LibUtilities::MemoryRegion<float> GeometricDataCreator::Create<
     const JacobianLocTraceKey<float> &jacobianLocTraceKey);
 #endif
 
+template LibUtilities::MemoryRegion<double> GeometricDataCreator::Create<
+    NektarSpaces::HostSpace, double>(
+    const JacNormGeomFactorLocTraceKey<double> &LocTraceKey);
+template LibUtilities::MemoryRegion<float> GeometricDataCreator::Create<
+    NektarSpaces::HostSpace, float>(
+    const JacNormGeomFactorLocTraceKey<float> &LocTraceKey);
+#if defined(NEKTAR_ENABLE_DEVICE)
+template LibUtilities::MemoryRegion<double> GeometricDataCreator::Create<
+    NektarSpaces::DeviceSpace, double>(
+    const JacNormGeomFactorLocTraceKey<double> &LocTraceKey);
+template LibUtilities::MemoryRegion<float> GeometricDataCreator::Create<
+    NektarSpaces::DeviceSpace, float>(
+    const JacNormGeomFactorLocTraceKey<float> &LocTraceKey);
+#endif
+
 } // namespace Nektar::LocalRegions

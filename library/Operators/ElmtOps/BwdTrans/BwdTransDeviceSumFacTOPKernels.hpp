@@ -142,7 +142,7 @@ inline constexpr unsigned int BwdTransSharedMemorySize(
     const unsigned int nq1   = sizeParam3D.nq1();
     const unsigned int nq2   = sizeParam3D.nq2();
     const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-    const unsigned int nm12  = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
+    const unsigned int nm02  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
@@ -160,7 +160,7 @@ inline constexpr unsigned int BwdTransSharedMemorySize(
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                        SHAPE_TYPE == LibUtilities::NodalPrism)
     {
-        return nm0 * nq0 + nm1 * nq1 + nm12 * nq2 + nmTot + (nm0 * nm1 * nq2) +
+        return nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + nmTot + (nm0 * nm1 * nq2) +
                (nm0 * nq1 * nq2);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
@@ -900,7 +900,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         offset1 = nm0 * nq1 * nq2;
         nmode0  = nm0;
         nmode1  = nm1;
-        nmode2  = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
+        nmode2  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {

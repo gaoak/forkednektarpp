@@ -37,6 +37,8 @@
 #include <Collections/Collection.h>
 #include <LibUtilities/BasicUtils/DataWarehouse/NekDataWarehouse.hpp>
 
+#include <LibUtilities/BasicUtils/ShapeType.hpp>
+
 namespace Nektar::LocalRegions
 {
 
@@ -277,6 +279,73 @@ private:
     unsigned int m_interleave_width;
 };
 
+/**
+ * Whether the trace normal derivative factors have to be stored once per
+ * trace quadrature point rather than once per trace.
+ *
+ * For a Seg, Quad or Hex this is just the element's deformed flag: a regular
+ * element has a constant normal and constant deriv factors, so one value per
+ * trace is enough.
+ *
+ * A collapsed shape is different. Its factors carry the regular part of the
+ * collapsed chain rule, for a triangle
+ *
+ *     f_0 + (1 + eta_0)/2 f_1,
+ *
+ * and eta_0 varies along edge 0 even when f_0 and f_1 are constant. So a
+ * straight sided triangle, which Nektar calls regular, still needs a factor
+ * at every trace point. Storing per point also means the trace is free to
+ * carry any quadrature it likes.
+ *
+ * The singular 2/(1 - eta) part of the chain rule is deliberately not in
+ * this data - the operator applies it on the volume - so evaluating these
+ * factors at every trace point is safe even at the collapsed apex.
+ */
+inline bool TraceDerivFactorsArePointwise(LibUtilities::ShapeType shape,
+                                          bool isDeformed)
+{
+    switch (shape)
+    {
+        case LibUtilities::Seg:
+        case LibUtilities::Quad:
+        case LibUtilities::Hex:
+            return isDeformed;
+        default:
+            return true;
+    }
+}
+
+template <typename TData>
+class JacNormGeomFactorLocTraceKey : public LibUtilities::BaseKey
+{
+    friend class GeometricDataCreator;
+
+public:
+    using creator = GeometricDataCreator;
+    typedef TData value_type;
+
+    ~JacNormGeomFactorLocTraceKey() override = default;
+
+    /// @param dir -1 (the default) contracts the derivative factors with
+    ///            the trace normal, the classic scalar form; 0..dim-1 keeps
+    ///            the factors of that Cartesian direction uncontracted, for
+    ///            the vector-input lift.
+    JacNormGeomFactorLocTraceKey(const unsigned int block_idx,
+                                 const unsigned int interleave_width,
+                                 const int dir = -1)
+        : m_block_idx(block_idx), m_interleave_width(interleave_width),
+          m_dir(dir)
+    {
+        hash_combine(m_hash, m_block_idx, m_interleave_width, m_dir,
+                     typeid(value_type).name(), "JacNormGeomFactorLocTraceKey");
+    }
+
+private:
+    unsigned int m_block_idx;
+    unsigned int m_interleave_width;
+    int m_dir;
+};
+
 class GeometricDataCreator : public LibUtilities::DataCreatorClass
 {
 public:
@@ -324,6 +393,10 @@ public:
     template <typename MemSpace, typename TData>
     LibUtilities::MemoryRegion<TData> Create(
         const JacobianLocTraceKey<TData> &jacobianLocTraceKey);
+
+    template <typename MemSpace, typename TData>
+    LibUtilities::MemoryRegion<TData> Create(
+        const JacNormGeomFactorLocTraceKey<TData> &jacnormgeomfacLocTraceKey);
 
     inline static const std::string m_name = "GeometricDataCreator";
 

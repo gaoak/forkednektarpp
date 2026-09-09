@@ -3262,6 +3262,100 @@ void Expansion3D::v_TraceNormLen(const int traceid, NekDouble &h, NekDouble &p)
     stabilisation and involves the product of the normal and
     geometric factors along the element trace.
 */
+void Expansion3D::v_TraceDerivFactors(
+    const int dir, Array<OneD, Array<OneD, NekDouble>> &d0factors,
+    Array<OneD, Array<OneD, NekDouble>> &d1factors,
+    Array<OneD, Array<OneD, NekDouble>> &d2factors)
+{
+    // As v_NormalTraceDerivFactors(), without the contraction over the trace
+    // normal: the face values of derivative factors d xi_e / d x_dir. The
+    // deformed branch interpolates df * J to the face and divides by the
+    // face's trace of J, exactly as the contracted routine does, so the two
+    // agree pointwise once the normal is folded back in.
+    const Array<TwoD, const NekDouble> &df  = m_geomFactors->GetDerivFactors();
+    const Array<OneD, const NekDouble> &Jac = m_geomFactors->GetJac();
+
+    unsigned ntrace = GetNtraces();
+
+    if (d0factors.size() != ntrace)
+    {
+        d0factors = Array<OneD, Array<OneD, NekDouble>>(ntrace);
+        d1factors = Array<OneD, Array<OneD, NekDouble>>(ntrace);
+        d2factors = Array<OneD, Array<OneD, NekDouble>>(ntrace);
+    }
+
+    Array<OneD, ExpansionSharedPtr> traceExp(ntrace);
+    Array<OneD, unsigned> nq_face(ntrace);
+    unsigned nq_max = 0;
+    for (int i = 0; i < ntrace; ++i)
+    {
+        v_GenTraceExp(i, traceExp[i]);
+        nq_face[i] = traceExp[i]->GetTotPoints();
+        if (d0factors[i].size() != nq_face[i])
+        {
+            d0factors[i] = Array<OneD, NekDouble>(nq_face[i]);
+            d1factors[i] = Array<OneD, NekDouble>(nq_face[i]);
+            d2factors[i] = Array<OneD, NekDouble>(nq_face[i]);
+        }
+        nq_max = max(nq_max, nq_face[i]);
+    }
+
+    if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed)
+    {
+        Array<OneD, Array<OneD, NekDouble>> fac(3);
+        for (int i = 0; i < 3; ++i)
+        {
+            fac[i] = Array<OneD, NekDouble>(nq_max);
+        }
+
+        Array<OneD, NekDouble> jac(nq_max);
+
+        // construct local copy of df multiplied by jacobian so that
+        // interpolation is of a polynomial function to be accurate
+        Array<OneD, Array<OneD, NekDouble>> dfdj(3);
+        unsigned nqtot = GetTotPoints();
+        for (unsigned i = 0; i < 3; ++i)
+        {
+            dfdj[i] = Array<OneD, NekDouble>(nqtot);
+            Vmath::Vmul(nqtot, &(df[3 * dir + i][0]), 1, &(Jac[0]), 1,
+                        &(dfdj[i][0]), 1);
+        }
+
+        for (unsigned f = 0; f < ntrace; ++f)
+        {
+            v_GetLocTracePhysVals(f, traceExp[f], &(Jac[0]), jac,
+                                  StdRegions::eDir1FwdDir1_Dir2FwdDir2);
+            Vmath::Sdiv(nq_face[f], 1.0, jac, 1, jac, 1);
+
+            v_GetLocTracePhysVals(f, traceExp[f], &(dfdj[0][0]), fac[0],
+                                  StdRegions::eDir1FwdDir1_Dir2FwdDir2);
+            v_GetLocTracePhysVals(f, traceExp[f], &(dfdj[1][0]), fac[1],
+                                  StdRegions::eDir1FwdDir1_Dir2FwdDir2);
+            v_GetLocTracePhysVals(f, traceExp[f], &(dfdj[2][0]), fac[2],
+                                  StdRegions::eDir1FwdDir1_Dir2FwdDir2);
+
+            for (int i = 0; i < nq_face[f]; ++i)
+            {
+                d0factors[f][i] = fac[0][i] * jac[i];
+                d1factors[f][i] = fac[1][i] * jac[i];
+                d2factors[f][i] = fac[2][i] * jac[i];
+            }
+        }
+    }
+    else
+    {
+        for (unsigned f = 0; f < ntrace; ++f)
+        {
+            for (int i = 0; i < nq_face[f]; ++i)
+            {
+                d0factors[f][i] = df[3 * dir][0];
+                d1factors[f][i] = df[3 * dir + 1][0];
+                d2factors[f][i] = df[3 * dir + 2][0];
+            }
+        }
+    }
+}
+
 void Expansion3D::v_NormalTraceDerivFactors(
     Array<OneD, Array<OneD, NekDouble>> &d0factors,
     Array<OneD, Array<OneD, NekDouble>> &d1factors,

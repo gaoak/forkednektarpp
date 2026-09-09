@@ -145,6 +145,45 @@ MemoryRegion<TData> BasisDataCreator::Create(
                 basis->GetD()->GetPtr());
         }
         break;
+        case eInterpDerivative: // interpolation of nodal derivative matrix
+        {
+            const auto npTo = basisDataKey.m_npts;
+            // Check if we interpolate to
+            // a different PointsType specified via m_pointsToType
+            // or use the basis' PointsType
+            LibUtilities::PointsType ptype =
+                basisDataKey.m_toPointsType == LibUtilities::eNoPointsType
+                    ? basis->GetPointsType()
+                    : basisDataKey.m_toPointsType;
+            LibUtilities::PointsKey toPkey(npTo, ptype);
+
+            // use points manager to get correct interpolation matrix
+            auto I = LibUtilities::PointsManager()[basis->GetPointsKey()]
+                         ->GetI(toPkey)
+                         ->GetPtr();
+
+            auto D = basis->GetD()->GetPtr();
+
+            auto npFrom = basis->GetNumPoints();
+            Array<OneD, double> ID(npTo * npFrom);
+
+            // calcaulate I x D
+            for (unsigned i = 0; i < npTo; ++i)
+            {
+                for (unsigned j = 0; j < npFrom; ++j)
+                {
+                    double sum = 0.0;
+                    for (unsigned k = 0; k < npFrom; ++k)
+                    {
+                        sum += I[i + k * npTo] * D[k + j * npFrom];
+                    }
+                    ID[i + npTo * j] = sum;
+                }
+            }
+
+            return MemoryRegion<TData>::template FromArray<MemSpace>(ID);
+        }
+        break;
         case eInterp:
         {
             const auto npTo = basisDataKey.m_npts;

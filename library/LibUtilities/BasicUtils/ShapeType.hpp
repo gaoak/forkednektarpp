@@ -103,7 +103,7 @@ constexpr unsigned int ShapeTypeDimMap[SIZE_ShapeType] = {
 constexpr unsigned int ShapeTypeNumTraces[SIZE_ShapeType] = {
     0, // Unknown
     0, // ePoint
-    0, // eSegment
+    2, // eSegment - its two vertices; a 0D trace is still a trace
     3, // eTriangle
     4, // eQuadrilateral
     4, // eTetrahedron

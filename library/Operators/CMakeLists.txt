@@ -249,7 +249,7 @@ IF(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
     SET(CUNROLL_ICE_SOURCES)
     FOREACH(src IN LISTS OPERATORS_SOURCES)
         GET_FILENAME_COMPONENT(src_name "${src}" NAME)
-        IF(src_name MATCHES "^(PhysTraceExtract|IProductWRTPhysTrace)(Serial|AVX)Generic(double|float)(Hex|Pyr|Prism|NodalPrism|Tet|NodalTet)\\.cpp$")
+        IF(src_name MATCHES "^(PhysTraceExtract|IProductWRTPhysTrace|IProductWRTPhysNormalDerivTrace)(Serial|AVX)Generic(double|float)(Hex|Pyr|Prism|NodalPrism|Tet|NodalTet)\\.cpp$")
             LIST(APPEND CUNROLL_ICE_SOURCES "${src}")
         ENDIF()
     ENDFOREACH()

@@ -99,6 +99,11 @@ protected:
     NekDouble v_VectorFlux(
         const Array<OneD, Array<OneD, NekDouble>> &vec) override;
 
+    void v_TraceDerivFactors(
+        const int dir, Array<OneD, Array<OneD, NekDouble>> &d0factors,
+        Array<OneD, Array<OneD, NekDouble>> &d1factors,
+        Array<OneD, Array<OneD, NekDouble>> &d2factors) override;
+
     void v_NormalTraceDerivFactors(
         Array<OneD, Array<OneD, NekDouble>> &factors,
         Array<OneD, Array<OneD, NekDouble>> &d0factors,
