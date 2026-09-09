@@ -92,11 +92,12 @@ enum PointsType
     eNodalPrismSPI, //!<  3D prism SPI
     eNodalQuadElec, //!<  2D GLL for quad
     eNodalHexElec,  //!<  3D GLL for hex
-    eGaussLegendreWithMP, //!<  1D Gauss-Legendre quadrature points with
-                          //!<  additional x=-1 and x=1 end points
-    eGaussLegendreWithM,  //!<  1D Gauss-Legendre quadrature points with
-                          //!<  additional x=-1 point
-    SIZE_PointsType       //!<  Length of enum list
+    eGaussLegendreWithMP,  //!<  1D Gauss-Legendre quadrature points with
+                           //!<  additional x=-1 and x=1 end points
+    eGaussLegendreWithM,   //!<  1D Gauss-Legendre quadrature points with
+                           //!<  additional x=-1 point
+    eNodalPyrEvenlySpaced, //!<  3D Nodal Pyramid evenly spaced points
+    SIZE_PointsType        //!<  Length of enum list
 };
 
 static std::vector<LibUtilities::PointsType> NullPointsTypeVector;

@@ -33,6 +33,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <algorithm>
 #include <iomanip>
 #include <limits>
 
@@ -802,6 +803,234 @@ NekVector<NekDouble> NodalUtilPrism::v_OrthoBasisDeriv(const size_t dir,
             }
 
             ret[i] += sqrt2 * jacA[i] * jacB[i] * tmp;
+        }
+    }
+
+    return ret;
+}
+
+/**
+ * @brief Construct the nodal utility class for a pyramid.
+ *
+ * The constructor of this class sets up two member variables used in the
+ * evaluation of the orthogonal basis:
+ *
+ * - NodalUtilPyr::m_eta is used to construct the collapsed coordinate
+ *   locations of the nodal points \f$ (\eta_1, \eta_2, \eta_3) \f$ inside the
+ *   cube \f$[-1,1]^3\f$ on which the orthogonal basis functions are defined.
+ * - NodalUtilPyr::m_ordering constructs a mapping from the index set
+ *   \f$ I = \{ (i,j,k)\ |\ 0\leq i,j \leq P, 0 \leq k \leq P - \max(i,j) \}\f$
+ *   to an ordering \f$ 0 \leq m(ijk) \leq (P+1)(P+2)(2P+3)/6 \f$ that defines
+ *   the monomials \f$ \xi_1^i \xi_2^j \xi_3^k \f$ that span the pyramidic
+ *   space. This is then used to calculate which \f$ (i,j,k) \f$ triple
+ *   (represented as a tuple) corresponding to a column of the Vandermonde
+ *   matrix when calculating the orthogonal polynomials.
+ *
+ * Note that unlike the tetrahedron -- where the collapsing exponents for the
+ * second and third coordinate directions accumulate as \f$ i \f$ and \f$ i+j
+ * \f$ respectively, owing to the nested triangular collapse -- the pyramid's
+ * base is a square and both \f$ \xi_1 \f$ and \f$ \xi_2 \f$ collapse
+ * independently and symmetrically towards the apex as \f$ \xi_3 \to 1 \f$.
+ * The correct collapsing exponent for a mode \f$ (i,j,k) \f$ is therefore
+ * \f$ m = \max(i,j) \f$; see Bergot, Cohen & Duruflé, "Higher-order finite
+ * elements for hybrid meshes using new nodal pyramidal elements" (2010), or
+ * Sherwin & Karniadakis.
+ *
+ * @param degree  Polynomial order of this nodal pyramid.
+ * @param r       \f$ \xi_1 \f$-coordinates of nodal points in the standard
+ *                element.
+ * @param s       \f$ \xi_2 \f$-coordinates of nodal points in the standard
+ *                element.
+ * @param t       \f$ \xi_3 \f$-coordinates of nodal points in the standard
+ *                element.
+ */
+NodalUtilPyr::NodalUtilPyr(size_t degree, Array<OneD, NekDouble> r,
+                           Array<OneD, NekDouble> s, Array<OneD, NekDouble> t)
+    : NodalUtil(degree, 3), m_eta(3)
+{
+    m_numPoints = r.size();
+    m_xi[0]     = r;
+    m_xi[1]     = s;
+    m_xi[2]     = t;
+
+    for (size_t i = 0; i <= m_degree; ++i)
+    {
+        for (size_t j = 0; j <= m_degree; ++j)
+        {
+            size_t m = std::max(i, j);
+            for (size_t k = 0; k <= m_degree - m; ++k)
+            {
+                m_ordering.push_back(Mode(i, j, k));
+            }
+        }
+    }
+
+    // Calculate collapsed coordinates from r/s/t values
+    m_eta[0] = Array<OneD, NekDouble>(m_numPoints);
+    m_eta[1] = Array<OneD, NekDouble>(m_numPoints);
+    m_eta[2] = Array<OneD, NekDouble>(m_numPoints);
+
+    for (size_t i = 0; i < m_numPoints; ++i)
+    {
+        if (fabs(m_xi[2][i] - 1.0) < NekConstants::kNekZeroTol)
+        {
+            // Apex of the pyramid: both eta_1 and eta_2 collapse to -1.
+            m_eta[0][i] = -1.0;
+            m_eta[1][i] = -1.0;
+            m_eta[2][i] = m_xi[2][i];
+        }
+        else
+        {
+            m_eta[0][i] = 2.0 * (1.0 + m_xi[0][i]) / (1.0 - m_xi[2][i]) - 1.0;
+            m_eta[1][i] = 2.0 * (1.0 + m_xi[1][i]) / (1.0 - m_xi[2][i]) - 1.0;
+            m_eta[2][i] = m_xi[2][i];
+        }
+    }
+}
+
+/**
+ * @brief Return the value of the modal functions for the pyramidic element at
+ * the nodal points #m_xi for a given mode.
+ *
+ * In a pyramid, we use the orthogonal basis
+ *
+ * \f[ \psi_{m(ijk)} = \sqrt{8} P^{(0,0)}_i(\eta_1) P_j^{(0,0)}(\eta_2)
+ * P_k^{(2m+2,0)}(\eta_3) (1-\eta_3)^{m}, \qquad m = \max(i,j) \f]
+ *
+ * where \f$ m(ijk) \f$ is the mapping defined in #m_ordering and \f$
+ * J_n^{(\alpha,\beta)}(z) \f$ denotes the standard Jacobi polynomial.
+ *
+ * @param mode  The mode of the orthogonal basis to evaluate.
+ *
+ * @return Vector containing orthogonal basis evaluated at the points #m_xi.
+ */
+NekVector<NekDouble> NodalUtilPyr::v_OrthoBasis(const size_t mode)
+{
+    std::vector<NekDouble> jacA(m_numPoints), jacB(m_numPoints);
+    std::vector<NekDouble> jacC(m_numPoints);
+
+    size_t I, J, K;
+    std::tie(I, J, K) = m_ordering[mode];
+    size_t M          = std::max(I, J);
+
+    // Calculate Jacobi polynomials
+    Polylib::jacobfd(m_numPoints, &m_eta[0][0], &jacA[0], nullptr, I, 0.0, 0.0);
+    Polylib::jacobfd(m_numPoints, &m_eta[1][0], &jacB[0], nullptr, J, 0.0, 0.0);
+    Polylib::jacobfd(m_numPoints, &m_eta[2][0], &jacC[0], nullptr, K,
+                     2.0 * M + 2.0, 0.0);
+
+    NekVector<NekDouble> ret(m_numPoints);
+    NekDouble sqrt8 = sqrt(8.0);
+
+    for (size_t i = 0; i < m_numPoints; ++i)
+    {
+        ret[i] =
+            sqrt8 * jacA[i] * jacB[i] * jacC[i] * pow(1.0 - m_eta[2][i], M);
+    }
+
+    return ret;
+}
+
+/**
+ * @brief Return the value of the derivative of the modal functions for the
+ * pyramidic element at the nodal points #m_xi for a given mode.
+ *
+ * Note that this routine must use the chain rule combined with the collapsed
+ * coordinate derivatives, in a similar fashion to the tetrahedral and
+ * prismatic cases. However, since both \f$ \xi_1 \f$ and \f$ \xi_2 \f$
+ * collapse independently through \f$ \xi_3 \f$ (rather than \f$ \xi_2 \f$
+ * collapsing through \f$ \xi_3 \f$ alone, as in the tetrahedron), the
+ * derivative in the \f$ \xi_3 \f$ direction picks up chain-rule
+ * contributions from both the \f$ \eta_1 \f$ and \f$ \eta_2 \f$ directions.
+ *
+ * @param dir   Coordinate direction in which to evaluate the derivative.
+ * @param mode  The mode of the orthogonal basis to evaluate.
+ *
+ * @return Vector containing the derivative of the orthogonal basis evaluated at
+ *         the points #m_xi.
+ */
+NekVector<NekDouble> NodalUtilPyr::v_OrthoBasisDeriv(const size_t dir,
+                                                     const size_t mode)
+{
+    std::vector<NekDouble> jacA(m_numPoints), jacB(m_numPoints);
+    std::vector<NekDouble> jacC(m_numPoints);
+    std::vector<NekDouble> jacDerivA(m_numPoints), jacDerivB(m_numPoints);
+    std::vector<NekDouble> jacDerivC(m_numPoints);
+
+    size_t I, J, K;
+    std::tie(I, J, K) = m_ordering[mode];
+    size_t M          = std::max(I, J);
+
+    // Calculate Jacobi polynomials and their derivatives. Note that we use both
+    // jacobfd and jacobd since jacobfd is only valid for derivatives in the
+    // open interval (-1,1).
+    Polylib::jacobfd(m_numPoints, &m_eta[0][0], &jacA[0], nullptr, I, 0.0, 0.0);
+    Polylib::jacobfd(m_numPoints, &m_eta[1][0], &jacB[0], nullptr, J, 0.0, 0.0);
+    Polylib::jacobfd(m_numPoints, &m_eta[2][0], &jacC[0], nullptr, K,
+                     2.0 * M + 2.0, 0.0);
+    Polylib::jacobd(m_numPoints, &m_eta[0][0], &jacDerivA[0], I, 0.0, 0.0);
+    Polylib::jacobd(m_numPoints, &m_eta[1][0], &jacDerivB[0], J, 0.0, 0.0);
+    Polylib::jacobd(m_numPoints, &m_eta[2][0], &jacDerivC[0], K, 2.0 * M + 2.0,
+                    0.0);
+
+    NekVector<NekDouble> ret(m_numPoints);
+    NekDouble sqrt8 = sqrt(8.0);
+
+    if (dir == 0)
+    {
+        // d/d(xi_1) = 2/(1-eta_3) d/d(eta_1)
+        for (size_t i = 0; i < m_numPoints; ++i)
+        {
+            ret[i] = 2.0 * sqrt8 * jacDerivA[i] * jacB[i] * jacC[i];
+            if (M > 0)
+            {
+                ret[i] *= pow(1.0 - m_eta[2][i], M - 1.0);
+            }
+        }
+    }
+    else if (dir == 1)
+    {
+        // d/d(xi_2) = 2/(1-eta_3) d/d(eta_2)
+        for (size_t i = 0; i < m_numPoints; ++i)
+        {
+            ret[i] = 2.0 * sqrt8 * jacA[i] * jacDerivB[i] * jacC[i];
+            if (M > 0)
+            {
+                ret[i] *= pow(1.0 - m_eta[2][i], M - 1.0);
+            }
+        }
+    }
+    else
+    {
+        // d/d(xi_3) = (1+eta_1)/(1-eta_3) d/d(eta_1)
+        //           + (1+eta_2)/(1-eta_3) d/d(eta_2) + d/d(eta_3)
+        for (size_t i = 0; i < m_numPoints; ++i)
+        {
+            // Contribution from the eta_1 collapsed-coordinate chain rule.
+            NekDouble termA = 2.0 * sqrt8 * jacDerivA[i] * jacB[i] * jacC[i];
+            if (M > 0)
+            {
+                termA *= pow(1.0 - m_eta[2][i], M - 1.0);
+            }
+            termA *= 0.5 * (1.0 + m_eta[0][i]);
+
+            // Contribution from the eta_2 collapsed-coordinate chain rule.
+            NekDouble termB = 2.0 * sqrt8 * jacA[i] * jacDerivB[i] * jacC[i];
+            if (M > 0)
+            {
+                termB *= pow(1.0 - m_eta[2][i], M - 1.0);
+            }
+            termB *= 0.5 * (1.0 + m_eta[1][i]);
+
+            // Direct partial derivative with respect to eta_3.
+            NekDouble termC = jacDerivC[i] * pow(1.0 - m_eta[2][i], M);
+            if (M > 0)
+            {
+                termC -= M * jacC[i] * pow(1.0 - m_eta[2][i], M - 1.0);
+            }
+            termC *= sqrt8 * jacA[i] * jacB[i];
+
+            ret[i] = termA + termB + termC;
         }
     }
 
