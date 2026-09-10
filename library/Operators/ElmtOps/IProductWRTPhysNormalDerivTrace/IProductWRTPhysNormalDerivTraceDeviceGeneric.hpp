@@ -53,10 +53,10 @@
  * CMake serves Operators::Generic from this one header (the Device
  * Generic branch of library/Operators/CMakeLists.txt) and generates one
  * translation unit per shape and data type from
- * IProductWRTPhysNormalDerivTraceGenericBlockOp.cpp.in. Those units define
- * the per-shape entry points declared below, expanding
- * Common/BlockOpSwitchPhysTraceExtract.h.in, the switch template this
- * operator shares with the other trace operators.
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in. Those units
+ * define the per-shape entry points declared below, expanding
+ * Common/BlockOpSwitchPhysTraceExtract.h.in, this operator's switch
+ * template.
  *
  * This operator has a single implementation, registered under
  * Operators::Generic, so the class is only ever built with that tag and
@@ -81,6 +81,10 @@
 #include "Operators/ElmtOps/IProductWRTPhysNormalDerivTrace/IProductWRTPhysNormalDerivTraceBlockOp.hpp"
 #include "Operators/ElmtOps/IProductWRTPhysNormalDerivTrace/IProductWRTPhysNormalDerivTraceDeviceGenericKernels.hpp"
 
+// Selects the switch construction used by the generated ShapeBlock
+// definitions (see LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in).
+#define NEKTAR_BLOCKOP_SWITCH_PHYSTRACE
+
 namespace Nektar::Operators::detail
 {
 
@@ -97,7 +101,7 @@ namespace Nektar::Operators::detail
  * #m_DB their derivatives; the kernels choose, term by term, which of the
  * two a slot reads.
  *
- * Streams. As the volume operators do, this implementation takes its own
+ * Streams. This implementation takes its own
  * stream from the block index, #m_streamID, and issues every pointer
  * fetch, reshape and launch on it, so blocks can run concurrently. The
  * workspace is BlockOperator's shared static buffer, kept per stream.
@@ -110,7 +114,8 @@ template <typename ExecSpace, typename Implementation, typename TData>
 class IProductWRTPhysNormalDerivTraceBlockOpImpl
     : public IProductWRTPhysNormalDerivTraceBlockOp<TData>
 {
-    using MemSpace = typename ExecSpace::memory_space;
+    using BlockOpBase = IProductWRTPhysNormalDerivTraceBlockOp<TData>;
+    using MemSpace    = typename ExecSpace::memory_space;
 
 public:
     /**
@@ -297,9 +302,7 @@ protected:
     /// rather than one per trace: deformed geometry, or a collapsed shape
     /// whatever its geometry. Read by the generated dispatch to pick the
     /// DEFORMED instantiation, which is what fixes the name: the switch
-    /// template Common/BlockOpSwitchPhysTraceExtract.h.in reads it by name
-    /// and is shared with the other two trace operators, where the flag
-    /// does mean the geometry type.
+    /// template Common/BlockOpSwitchPhysTraceExtract.h.in reads it by name.
     bool m_isDeformed = false;
     /// Dimension of the reference element (1, 2 or 3).
     unsigned int m_dimension = 0;
@@ -456,11 +459,10 @@ protected:
     }
 
     // Shape specific block operator, specialised for each shape in
-    // IProductWRTPhysNormalDerivTraceGenericBlockOp.cpp.in.
+    // LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in.
     template <LibUtilities::ShapeType SHAPE_TYPE>
-    void ShapeBlock(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock);
+    void ShapeBlock(typename BlockOpBase::InBlock &inblock,
+                    typename BlockOpBase::OutBlock &outblock);
 
     // Tangential directions the kernels index in dim dimensions: none
     // for a segment, whose traces are points, and dim * (dim - 1)

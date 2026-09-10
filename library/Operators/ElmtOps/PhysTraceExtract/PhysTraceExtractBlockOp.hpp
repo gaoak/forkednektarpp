@@ -76,9 +76,10 @@ namespace Nektar::Operators
  * PhysTraceExtractSerialAVXGeneric.hpp (Serial and AVX) and
  * PhysTraceExtractDeviceGeneric.hpp (Device). Their per-shape entry
  * points, the ShapeBlock() specialisations, are generated from
- * PhysTraceExtractGenericBlockOp.cpp.in, one translation unit per
- * shape, execution space and data type, so the size-templated
- * OperatorND() instantiations of the SumFac families are kept.
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in, one
+ * translation unit per shape, execution space and data type, so the
+ * size-templated OperatorND() instantiations of the SumFac families are
+ * kept.
  *
  * There is a single implementation, registered under
  * Operators::Generic: only one trace-extraction algorithm exists, and

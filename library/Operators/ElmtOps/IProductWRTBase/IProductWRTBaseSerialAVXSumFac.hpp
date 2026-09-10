@@ -41,12 +41,17 @@
 
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"
 
+// Selects the switch construction used by the generated ShapeBlock
+// definitions (see LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in).
+#define NEKTAR_BLOCKOP_SWITCH_CODE
+
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
 class IProductWRTBaseBlockOpImpl : public IProductWRTBaseBlockOp<TData>
 {
+    using BlockOpBase = IProductWRTBaseBlockOp<TData>;
     using simd_t =
         typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                               TData>::type;
@@ -255,11 +260,10 @@ protected:
     }
 
     // Shape specific block operator, specialised for each shape in
-    // IProductWRTBaseSumFacBlockOp.cpp.in.
+    // LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in.
     template <LibUtilities::ShapeType SHAPE_TYPE>
-    void ShapeBlock(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock);
+    void ShapeBlock(typename BlockOpBase::InBlock &inblock,
+                    typename BlockOpBase::OutBlock &outblock);
 
     // Number of workspaces used by the kernels in dim dimensions.
     static constexpr unsigned int NumWorkspace(const unsigned int dim)

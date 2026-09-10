@@ -42,6 +42,12 @@
 
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseSerialAVXSumFacKernels.hpp"
 
+// Selects the switch construction used by the generated ShapeBlock
+// definitions, one per output field state (see
+// LibUtilities/BasicUtils/Switch/BlockOpShapeBlockTwoOutStates.cpp.in).
+#define NEKTAR_BLOCKOP_SWITCH_CODE_CoeffOut
+#define NEKTAR_BLOCKOP_SWITCH_1DCOORDS_PhysOut
+
 namespace Nektar::Operators::detail
 {
 
@@ -50,6 +56,7 @@ template <typename ExecSpace, typename Implementation, FieldState TFieldOut,
 class IProductWRTDerivBaseBlockOpImpl
     : public IProductWRTDerivBaseBlockOp<TFieldOut, TData>
 {
+    using BlockOpBase = IProductWRTDerivBaseBlockOp<TFieldOut, TData>;
     using simd_t =
         typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                               TData>::type;
@@ -320,11 +327,10 @@ protected:
     }
 
     // Shape specific block operator, specialised for each shape in
-    // IProductWRTDerivBaseSumFacBlockOp.cpp.in.
+    // LibUtilities/BasicUtils/Switch/BlockOpShapeBlockTwoOutStates.cpp.in.
     template <LibUtilities::ShapeType SHAPE_TYPE>
-    void ShapeBlock(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, TFieldOut> &outblock);
+    void ShapeBlock(typename BlockOpBase::InBlock &inblock,
+                    typename BlockOpBase::OutBlock &outblock);
 
     // Number of workspaces used by the kernels in dim dimensions.
     static constexpr unsigned int NumWorkspace(const unsigned int dim)

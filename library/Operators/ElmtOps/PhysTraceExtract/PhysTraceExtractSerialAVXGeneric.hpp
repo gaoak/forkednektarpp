@@ -49,10 +49,11 @@
  *
  * CMake selects this header for the Serial and AVX execution spaces
  * with Operators::Generic and generates one translation unit per shape
- * and data type from PhysTraceExtractGenericBlockOp.cpp.in. Those units
+ * and data type from
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in. Those units
  * define the per-shape entry points declared below, expanding
- * Common/BlockOpSwitchPhysTraceExtract.h.in, the switch template this
- * operator shares with IProductWRTPhysTrace.
+ * Common/BlockOpSwitchPhysTraceExtract.h.in, this operator's switch
+ * template.
  *
  * Two entry points reach the kernels:
  * - v_Apply, the bulk path, which extracts all of an element's traces
@@ -94,6 +95,10 @@
 #include "Operators/ElmtOps/PhysTraceExtract/PhysTraceExtractBlockOp.hpp"
 
 #include "Operators/ElmtOps/PhysTraceExtract/PhysTraceExtractSerialAVXGenericKernels.hpp"
+
+// Selects the switch construction used by the generated ShapeBlock
+// definitions (see LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in).
+#define NEKTAR_BLOCKOP_SWITCH_PHYSTRACE
 
 namespace Nektar::Operators::detail
 {
@@ -154,6 +159,7 @@ namespace Nektar::Operators::detail
 template <typename ExecSpace, typename Implementation, typename TData>
 class PhysTraceExtractBlockOpImpl : public PhysTraceExtractBlockOp<TData>
 {
+    using BlockOpBase = PhysTraceExtractBlockOp<TData>;
     using simd_t =
         typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                               TData>::type;
@@ -731,11 +737,10 @@ protected:
     }
 
     // Shape specific block operator, specialised for each shape in
-    // PhysTraceExtractGenericBlockOp.cpp.in.
+    // LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in.
     template <LibUtilities::ShapeType SHAPE_TYPE>
-    void ShapeBlock(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock);
+    void ShapeBlock(typename BlockOpBase::InBlock &inblock,
+                    typename BlockOpBase::OutBlock &outblock);
 
     // Tangential directions the kernels index in dim dimensions: none
     // for a segment, whose traces are points, and dim * (dim - 1)
@@ -763,11 +768,9 @@ protected:
         constexpr unsigned int DIM = LibUtilities::ShapeTypeDimMap[SHAPE_TYPE];
 
         // sizeParam is built by the switch in
-        // Operators/Common/BlockOpSwitchPhysTraceExtract.h.in, which this
-        // operator shares with its adjoint rather than taking the
-        // LibUtilities/BasicUtils/Switch/BlockOpSwitchCode.h.in the volume
-        // operators use: the trace size parameters carry trace point counts
-        // per normal direction, which that switch knows nothing of.
+        // Operators/Common/BlockOpSwitchPhysTraceExtract.h.in: this
+        // operator's trace size parameters carry trace point counts per
+        // normal direction.
         static_assert(
             (DIM == 1 && IsTraceSizeParameter1D_v<TTraceSizeParameter>) ||
                 (DIM == 2 && IsTraceSizeParameter2D_v<TTraceSizeParameter>) ||

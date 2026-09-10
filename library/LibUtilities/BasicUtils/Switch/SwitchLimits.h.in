@@ -33,15 +33,30 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 // clang-format off
+/* This header is deliberately re-includable: it has no include guard and
+   undefines each macro before defining it. An operator with two output
+   states compiles both of its ShapeBlock definitions into one translation
+   unit, and the two may ask for different switch levels, so the level
+   definitions have to be re-established between them. */
+
+#undef MIN1D
 #define MIN1D @NEKTAR_SWITCH_MIN@
+#undef MAX1D
 #define MAX1D @NEKTAR_SWITCH_MAX@
+#undef MAXPLUSONE1D
 #define MAXPLUSONE1D @NEKTAR_SWITCH_MAX_PLUSONE@
 
+#undef MIN2D
 #define MIN2D @NEKTAR_SWITCH_MIN@
+#undef MAX2D
 #define MAX2D @NEKTAR_SWITCH_MAX@
+#undef MAXPLUSONE2D
 #define MAXPLUSONE2D @NEKTAR_SWITCH_MAX_PLUSONE@
 
+#undef MIN3D
 #define MIN3D @NEKTAR_SWITCH_MIN@
+#undef MAX3D
 #define MAX3D @NEKTAR_SWITCH_MAX@
+#undef MAXPLUSONE3D
 #define MAXPLUSONE3D @NEKTAR_SWITCH_MAX_PLUSONE@
 // clang-format on

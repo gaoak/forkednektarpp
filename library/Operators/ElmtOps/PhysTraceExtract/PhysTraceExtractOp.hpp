@@ -95,16 +95,14 @@
  *   PhysTraceExtractDeviceGenericKernels.hpp.
  *
  * The per-shape entry points are generated from
- * PhysTraceExtractGenericBlockOp.cpp.in, one translation unit per shape,
- * execution space and data type, so the size-templated
- * OperatorND instantiations of the SumFac families are kept even
- * though this operator registers a single implementation. What deviates
- * from the volume operators is the switch
- * template those units include, Common/BlockOpSwitchPhysTraceExtract.h.in
- * rather than Common/BlockOpSwitchCode.h.in: it is named after this
- * operator and shared with IProductWRTPhysTrace, because the per-shape
- * template arguments of the two trace operators differ from the volume
- * operators'.
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in, one
+ * translation unit per shape, execution space and data type, so the
+ * size-templated OperatorND instantiations of the SumFac families are
+ * kept even though this operator registers a single implementation.
+ * Those units include the switch template
+ * Common/BlockOpSwitchPhysTraceExtract.h.in, which is named after this
+ * operator: its per-shape template arguments carry trace point counts
+ * per normal direction.
  *
  * @note There is one trace-extraction algorithm and one registration,
  * under Operators::Generic. A StdMat, SumFac or SumFacTOP request does
@@ -176,8 +174,8 @@ namespace Nektar::Operators
  * - ExtractTrace() extracts one trace of every element into a
  *   caller-chosen offset of the packed record.
  *
- * Unlike its adjoint this operator has no append flag: both paths write
- * the entries they are responsible for.
+ * This operator has no append flag: both paths write the entries they
+ * are responsible for.
  *
  * @tparam TData Floating-point type of the field data.
  *

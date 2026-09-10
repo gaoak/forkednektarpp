@@ -40,13 +40,18 @@
 #include "Operators/ElmtOps/BwdTrans/BwdTransDeviceSumFacKernels.hpp"
 #include "Operators/ElmtOps/BwdTrans/BwdTransDeviceSumFacTOPKernels.hpp"
 
+// Selects the switch construction used by the generated ShapeBlock
+// definitions (see LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in).
+#define NEKTAR_BLOCKOP_SWITCH_CODE
+
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
 class BwdTransBlockOpImpl : public BwdTransBlockOp<TData>
 {
-    using MemSpace = typename ExecSpace::memory_space;
+    using BlockOpBase = BwdTransBlockOp<TData>;
+    using MemSpace    = typename ExecSpace::memory_space;
 
 public:
     BwdTransBlockOpImpl(const unsigned int block_idx,
@@ -231,11 +236,10 @@ protected:
     }
 
     // Shape specific block operator, specialised for each shape in
-    // BwdTransSumFacBlockOp.cpp.in.
+    // LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in.
     template <LibUtilities::ShapeType SHAPE_TYPE>
-    void ShapeBlock(
-        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock);
+    void ShapeBlock(typename BlockOpBase::InBlock &inblock,
+                    typename BlockOpBase::OutBlock &outblock);
 
     // Number of precomputed index arrays used by the kernels in dim dimensions.
     static constexpr unsigned int NumIndex(const unsigned int dim)

@@ -40,13 +40,18 @@
 #include "Operators/ElmtOps/CurlCurl/CurlCurlDeviceSumFacKernels.hpp"
 #include "Operators/ElmtOps/CurlCurl/CurlCurlDeviceSumFacTOPKernels.hpp"
 
+// Selects the switch construction used by the generated ShapeBlock
+// definitions (see LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in).
+#define NEKTAR_BLOCKOP_SWITCH_1DCOORDS
+
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
 class CurlCurlBlockOpImpl : public CurlCurlBlockOp<TData>
 {
-    using MemSpace = typename ExecSpace::memory_space;
+    using BlockOpBase = CurlCurlBlockOp<TData>;
+    using MemSpace    = typename ExecSpace::memory_space;
 
 public:
     CurlCurlBlockOpImpl(const unsigned int block_idx,
@@ -231,11 +236,10 @@ protected:
     }
 
     // Shape specific block operator, specialised for each shape in
-    // CurlCurlSumFacBlockOp.cpp.in.
+    // LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in.
     template <LibUtilities::ShapeType SHAPE_TYPE>
-    void ShapeBlock(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock);
+    void ShapeBlock(typename BlockOpBase::InBlock &inblock,
+                    typename BlockOpBase::OutBlock &outblock);
 
     // Number of collapsed coordinate factors used by the kernels in dim
     // dimensions.

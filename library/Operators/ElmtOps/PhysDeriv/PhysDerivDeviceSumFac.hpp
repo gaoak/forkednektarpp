@@ -40,13 +40,18 @@
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivDeviceSumFacKernels.hpp"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivDeviceSumFacTOPKernels.hpp"
 
+// Selects the switch construction used by the generated ShapeBlock
+// definitions (see LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in).
+#define NEKTAR_BLOCKOP_SWITCH_1DCOORDS
+
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
 class PhysDerivBlockOpImpl : public PhysDerivBlockOp<TData>
 {
-    using MemSpace = typename ExecSpace::memory_space;
+    using BlockOpBase = PhysDerivBlockOp<TData>;
+    using MemSpace    = typename ExecSpace::memory_space;
 
 public:
     PhysDerivBlockOpImpl(const unsigned int block_idx,
@@ -225,11 +230,10 @@ protected:
     }
 
     // Shape specific block operator, specialised for each shape in
-    // PhysDerivSumFacBlockOp.cpp.in.
+    // LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in.
     template <LibUtilities::ShapeType SHAPE_TYPE>
-    void ShapeBlock(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock);
+    void ShapeBlock(typename BlockOpBase::InBlock &inblock,
+                    typename BlockOpBase::OutBlock &outblock);
 
     // Number of collapsed coordinate factors used by the kernels in dim
     // dimensions.

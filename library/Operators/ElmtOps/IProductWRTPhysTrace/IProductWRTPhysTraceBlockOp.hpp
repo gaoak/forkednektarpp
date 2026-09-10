@@ -75,9 +75,10 @@ namespace Nektar::Operators
  * IProductWRTPhysTraceSerialAVXGeneric.hpp (Serial and AVX) and
  * IProductWRTPhysTraceDeviceGeneric.hpp (Device). Their per-shape entry
  * points, the ShapeBlock() specialisations, are generated from
- * IProductWRTPhysTraceGenericBlockOp.cpp.in, one translation unit per
- * shape, execution space and data type, so the size-templated
- * OperatorND() instantiations of the SumFac families are kept.
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in, one
+ * translation unit per shape, execution space and data type, so the
+ * size-templated OperatorND() instantiations of the SumFac families are
+ * kept.
  *
  * There is a single implementation, registered under
  * Operators::Generic: only one trace inner-product algorithm exists,

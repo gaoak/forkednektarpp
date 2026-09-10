@@ -40,6 +40,12 @@
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseDeviceSumFacKernels.hpp"
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseDeviceSumFacTOPKernels.hpp"
 
+// Selects the switch construction used by the generated ShapeBlock
+// definitions, one per output field state (see
+// LibUtilities/BasicUtils/Switch/BlockOpShapeBlockTwoOutStates.cpp.in).
+#define NEKTAR_BLOCKOP_SWITCH_CODE_CoeffOut
+#define NEKTAR_BLOCKOP_SWITCH_1DCOORDS_PhysOut
+
 namespace Nektar::Operators::detail
 {
 
@@ -48,7 +54,8 @@ template <typename ExecSpace, typename Implementation, FieldState TFieldOut,
 class IProductWRTDerivBaseBlockOpImpl
     : public IProductWRTDerivBaseBlockOp<TFieldOut, TData>
 {
-    using MemSpace = typename ExecSpace::memory_space;
+    using BlockOpBase = IProductWRTDerivBaseBlockOp<TFieldOut, TData>;
+    using MemSpace    = typename ExecSpace::memory_space;
 
 public:
     IProductWRTDerivBaseBlockOpImpl(
@@ -310,11 +317,10 @@ protected:
     }
 
     // Shape specific block operator, specialised for each shape in
-    // IProductWRTDerivBaseSumFacBlockOp.cpp.in.
+    // LibUtilities/BasicUtils/Switch/BlockOpShapeBlockTwoOutStates.cpp.in.
     template <LibUtilities::ShapeType SHAPE_TYPE>
-    void ShapeBlock(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, TFieldOut> &outblock);
+    void ShapeBlock(typename BlockOpBase::InBlock &inblock,
+                    typename BlockOpBase::OutBlock &outblock);
 
     // Number of precomputed index arrays used by the kernels in dim dimensions.
     static constexpr unsigned int NumIndex(const unsigned int dim)

@@ -13,53 +13,21 @@ MACRO(ADD_ELMT_OPERATOR dir)
     SET(NAME_SOURCES ${name}_SOURCES)
     SET(OPERATOR ${name})
 
-    # These operator have an additional argument for the FieldState
-    # which requires two delcarations.
-    If("${name}" STREQUAL "IProductWRTDerivBase")
+    # An operator templated on its output field state has an additional
+    # argument for the FieldState, which requires two declarations and two
+    # ShapeBlock definitions. That is a property of the operator's block
+    # class, so ask the header rather than keeping a list of names here.
+    UNSET(TwoOutStates)
+    IF(EXISTS "${dir}/${name}BlockOp.hpp")
+        FILE(STRINGS "${dir}/${name}BlockOp.hpp" TwoOutStates
+            REGEX "FieldState TFieldOut")
+    ENDIF()
+    IF(TwoOutStates)
         SET(CONFIG_FILE ElmtOps/ElmtBlockOpTwoOutStates.cpp.in)
+        SET(SHARED_SHAPE_TEMPLATE BlockOpShapeBlockTwoOutStates.cpp.in)
     ELSE()
         SET(CONFIG_FILE ElmtOps/ElmtBlockOpFactoryDec.cpp.in)
-    ENDIF()
-
-    SET(SWITCH_DIR ${CMAKE_SOURCE_DIR}/library/LibUtilities/BasicUtils/Switch)
-
-    # Check to see if shape specific BlockOpSwitch*.h files have
-    # been generated and if not generate for later potential use.
-    SET(ShapeIncludeName "${SWITCH_DIR}/BlockOpSwitchCode.h.in")
-    FOREACH (Shape IN LISTS Shapes)
-        IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/BlockOpSwitchCodeSeg.h")
-            SET(ShapeIncName include/BlockOpSwitchCode${Shape}.h)
-            # MESSAGE("Generating block header  file file: " "${ShapeIncName}")
-            CONFIGURE_FILE(${ShapeIncludeName} ${ShapeIncName})
-        ENDIF()
-    ENDFOREACH()
-
-    SET(ShapeIncludeName "${SWITCH_DIR}/BlockOpSwitch1DCoordsCode.h.in")
-    FOREACH (Shape IN LISTS Shapes)
-        IF(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/BlockOpSwitch1DCoordsCodeSeg.h")
-            SET(ShapeIncName include/BlockOpSwitch1DCoordsCode${Shape}.h)
-            # MESSAGE("Generating block header  file file: " "${ShapeIncName}")
-            CONFIGURE_FILE(${ShapeIncludeName} ${ShapeIncName})
-        ENDIF()
-    ENDFOREACH()
-
-    SET(ShapeIncludeName "${SWITCH_DIR}/BlockOpSwitchPhysInterp1D.h.in")
-    FOREACH (Shape IN LISTS Shapes)
-        IF(NOT EXISTS "${SWITCH_DIR}/BlockOpSwitchPhysInterp1DSeg.h")
-            SET(ShapeIncName include/BlockOpSwitchPhysInterp1D${Shape}.h)
-            # MESSAGE("Generating block header  file file: " "${ShapeIncName}")
-            CONFIGURE_FILE(${ShapeIncludeName} ${ShapeIncName})
-        ENDIF()
-    ENDFOREACH()
-
-    IF(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/BlockOpSwitchPhysTraceExtractSeg.h")
-    ELSE()
-        SET(ShapeIncludeName "Common/BlockOpSwitchPhysTraceExtract.h.in")
-        FOREACH (Shape IN LISTS Shapes)
-            SET(ShapeIncName include/BlockOpSwitchPhysTraceExtract${Shape}.h)
-            MESSAGE("Generating block header  file file: " "${ShapeIncName}")
-            CONFIGURE_FILE(${ShapeIncludeName} ${ShapeIncName})
-        ENDFOREACH()
+        SET(SHARED_SHAPE_TEMPLATE BlockOpShapeBlock.cpp.in)
     ENDIF()
 
     # Loop through each possible execution space.
@@ -85,6 +53,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
         FOREACH (Impl IN LISTS ElmtOpImpl)
 
             UNSET(IMPL_HEADER)
+            UNSET(IMPL_HEADER_FILE)
 
             # These combinations do/should not exist.
             IF(("${ExecSpace}" STREQUAL "Serial" AND "${Impl}" STREQUAL "SumFacTOP") OR
@@ -113,6 +82,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}${Impl}.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
+                    SET(IMPL_HEADER_FILE "${dir}/${name}${Impl}.hpp")
                     MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
                 # Found a ExecName + StdMat header.
@@ -120,6 +90,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}${ExecName}StdMat.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
+                    SET(IMPL_HEADER_FILE "${dir}/${name}${ExecName}StdMat.hpp")
                     MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
                 # Found a ExecName + SumFac header.
@@ -127,18 +98,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}${ExecName}SumFac.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
-                    IF(EXISTS "${dir}/${name}SumFacBlockOp.cpp.in")
-                        FOREACH (TData IN LISTS DataTypes)
-                            SET(ShapeConfigName "${dir}/${name}SumFacBlockOp.cpp.in")
-                            FOREACH (Shape IN LISTS Shapes)
-                                SET(ShapeName src/${name}${ExecSpace}${Impl}${TData}${Shape}.${SOURCE_EXT})
-                                MESSAGE("Generating shape cpp file: " "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}")
-                                CONFIGURE_FILE(${ShapeConfigName} ${ShapeName})
-                                SET(CPP_SHAPE_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}")
-                                SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${CPP_SHAPE_SOURCE})
-                            ENDFOREACH()
-                        ENDFOREACH()
-                    ENDIF()
+                    SET(IMPL_HEADER_FILE "${dir}/${name}${ExecName}SumFac.hpp")
                     MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
                 # Found a ExecName + generic header.
@@ -146,21 +106,47 @@ MACRO(ADD_ELMT_OPERATOR dir)
                     FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                         "${dir}/${name}${ExecName}Generic.hpp")
                     SET(IMPL_HEADER "#include \"${include_file}\"")
-                    IF(EXISTS "${dir}/${name}GenericBlockOp.cpp.in")
-                        SET(ShapeConfigName "${dir}/${name}GenericBlockOp.cpp.in")
-                        FOREACH (Shape IN LISTS Shapes)
-                            SET(ShapeName src/${name}${ExecSpace}${Impl}${TData}${Shape}.${SOURCE_EXT})
-                            MESSAGE("Generating shape cpp file: " "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}")
-                            CONFIGURE_FILE(${ShapeConfigName} ${ShapeName})
-                            SET(CPP_SHAPE_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}")
-                            SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${CPP_SHAPE_SOURCE})
-                        ENDFOREACH()
-                    ENDIF()
+                    SET(IMPL_HEADER_FILE "${dir}/${name}${ExecName}Generic.hpp")
                     MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
                 # No implementation, skip.
                 ELSE()
                     CONTINUE() # This avoid creating a *.cpp file
+                ENDIF()
+
+                # An implementation that splits its shape specific
+                # ShapeBlock definitions out of the header is compiled one
+                # file per shape. Whether it does so is a property of the
+                # implementation header, so ask the header rather than
+                # keeping a list here.
+                UNSET(ShapeBlockDecl)
+                IF(DEFINED IMPL_HEADER_FILE)
+                    FILE(STRINGS "${IMPL_HEADER_FILE}" ShapeBlockDecl
+                        REGEX "void ShapeBlock")
+                ENDIF()
+
+                # Operators share a template: one for the usual single
+                # output state, one for operators templated on their output
+                # field state. Nothing operator specific is passed to either
+                # beyond the substitutions made here; the field states and
+                # the switch construction are picked up from the operator's
+                # own headers. An operator whose declarations neither shared
+                # template can express keeps a local template of its own,
+                # named after the operator and the implementation.
+                IF(ShapeBlockDecl)
+                    IF(EXISTS "${dir}/${name}${Impl}BlockOp.cpp.in")
+                        SET(ShapeConfigName
+                            "${dir}/${name}${Impl}BlockOp.cpp.in")
+                    ELSE()
+                        SET(ShapeConfigName
+                            "${SWITCH_DIR}/${SHARED_SHAPE_TEMPLATE}")
+                    ENDIF()
+                    FOREACH (Shape IN LISTS Shapes)
+                        SET(ShapeName src/${name}${ExecSpace}${Impl}${TData}${Shape}.${SOURCE_EXT})
+                        CONFIGURE_FILE(${ShapeConfigName} ${ShapeName})
+                        LIST(APPEND ${NAME_SOURCES}
+                            "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}")
+                    ENDFOREACH()
                 ENDIF()
 
                 # Create the cpp file from the implementation file.
@@ -213,6 +199,23 @@ FILE(GLOB children AddTraceIntegral AssmbScatr BndCondOps/* ElmtOps/*
 FOREACH(child ${children})
     # MESSAGE("Child : " "${child}")
     ADD_OPERATOR(${child} OPNAMESPACE OPERATORS_HEADERS OPERATORS_SOURCES)
+ENDFOREACH()
+
+# Shape specific switch code included by the generated block operator
+# sources. This depends only on the shape and on the global switch limits,
+# not on the operator, so it is generated once here rather than once per
+# operator directory.
+SET(SWITCH_DIR ${CMAKE_SOURCE_DIR}/library/LibUtilities/BasicUtils/Switch)
+SET(Shapes Seg Tri NodalTri Quad Hex Pyr Prism NodalPrism Tet NodalTet)
+FOREACH (Shape IN LISTS Shapes)
+    CONFIGURE_FILE(${SWITCH_DIR}/BlockOpSwitchCode.h.in
+        include/BlockOpSwitchCode${Shape}.h)
+    CONFIGURE_FILE(${SWITCH_DIR}/BlockOpSwitch1DCoordsCode.h.in
+        include/BlockOpSwitch1DCoordsCode${Shape}.h)
+    CONFIGURE_FILE(${SWITCH_DIR}/BlockOpSwitchPhysInterp1D.h.in
+        include/BlockOpSwitchPhysInterp1D${Shape}.h)
+    CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/Common/BlockOpSwitchPhysTraceExtract.h.in
+        include/BlockOpSwitchPhysTraceExtract${Shape}.h)
 ENDFOREACH()
 
 # Loop through all of the directories which contain block operators and add
