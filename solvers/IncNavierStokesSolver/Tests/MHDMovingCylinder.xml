@@ -27,7 +27,6 @@
             <P> IO_InfoSteps  = 10      </P>
             <P> SVVDiffCoeff  = 0.1                 </P>
             <P> ElectricConductivity     = 1.0   </P>
-            <P> numConvectiveFields      = 2     </P>
         </PARAMETERS>
 
         <VARIABLES>

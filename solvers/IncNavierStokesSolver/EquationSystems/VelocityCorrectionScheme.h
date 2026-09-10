@@ -114,7 +114,7 @@ public:
         ASSERTL0(damping >= 0.0,
                  "The implicit Lorentz damping coefficient must be "
                  "non-negative.");
-        m_implicitLorentzDamping = damping;
+        m_MHD.implicitLorentzDamping = damping;
     }
 
 protected:
@@ -142,9 +142,6 @@ protected:
     bool m_IsSVVPowerKernel;
     /// Diffusion coefficients (will be kinvis for velocities)
     Array<OneD, NekDouble> m_diffCoeff;
-
-    /// Coefficient sigma |B|^2 treated in the velocity Helmholtz solve.
-    NekDouble m_implicitLorentzDamping = 0.0;
 
     /// Variable Coefficient map for the Laplacian which can be activated as
     /// part of SVV or otherwise
@@ -178,6 +175,14 @@ protected:
     NekDouble m_flowrateAiidt;
     /// Pointer to field holding electric potential field
     MultiRegions::ExpListSharedPtr m_epotential;
+    /// Quasi-static MHD configuration.
+    struct
+    {
+        /// Whether ForcingLorentz is defined.
+        bool hasLorentzForce = false;
+        /// Coefficient sigma |B|^2 treated in the velocity Helmholtz solve.
+        NekDouble implicitLorentzDamping = 0.0;
+    } m_MHD;
 
     Array<OneD, Array<OneD, NekDouble>> m_F;
 

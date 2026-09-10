@@ -32,7 +32,6 @@
             <P> ElectricConductivity     = 1.0   </P>
             <P> Kinvis                   = 1./Re </P>
             <P> MagneticFieldStrength    = sqrt(InteractionParameter/ElectricConductivity) </P>
-            <P> numConvectiveFields      = 3     </P>
             <P> Flowrate                 = 1.0   </P>
         </PARAMETERS>
 

@@ -2473,7 +2473,16 @@ velocity-correction-scheme solvers. For moving-wall boundary conditions, the
 local wall velocity, including both translation and rotation, is also used to
 include the damping term in the pressure Neumann condition.
 
-Two extra parameters should be provided.
+The pressure field \inltt{p} must be the last variable. When
+\inltt{ForcingLorentz} is defined, the electric potential field must be the
+penultimate variable, after the velocity components and any passive scalars.
+For example, a two-dimensional MHD case uses the ordering
+\inltt{u, v, phi, p}. The number of convective fields is determined
+automatically: the total number of variables minus two for MHD, or minus one
+without Lorentz forcing. Pressure and electric potential are not time-integrated
+as convective fields.
+
+The following extra parameter should be provided.
 \begin{center}
     \begin{tabularx}{0.99\textwidth}{lXr}
         \toprule
@@ -2481,7 +2490,6 @@ Two extra parameters should be provided.
         \\
         \midrule
         \inltt{ElectricConductivity}      & electric conductivity $\sigma$.  & \inltt{Yes}\\
-        \inltt{numConvectiveFields}      & number of convective fields, should be number of fields minus 2 & \inltt{Yes}\\
         \bottomrule
     \end{tabularx}
 \end{center}

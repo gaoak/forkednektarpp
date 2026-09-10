@@ -37,7 +37,7 @@ v5.11.0
 - Fix C++20 ambiguous reversed operator warning (!2703)
 
  **IncNavierStokesSolver**
-- Add a Lorentz force to support quasi-static MHD simulation (!2625) 
+- Add a Lorentz force to support quasi-static MHD simulation (!2625)
 
 v5.10.0
 -------

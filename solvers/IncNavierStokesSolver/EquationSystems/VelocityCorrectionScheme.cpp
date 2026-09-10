@@ -74,21 +74,24 @@ void VelocityCorrectionScheme::v_InitObject(bool DeclareField)
 {
     int n;
 
+    // The base initialisation calls v_GetSystemSingularChecks().
+    m_MHD.hasLorentzForce = DefinedForcing("ForcingLorentz");
     IncNavierStokes::v_InitObject(DeclareField);
     m_explicitDiffusion = false;
 
     // Set m_pressure to point to last field of m_fields;
     if (boost::iequals(m_session->GetVariable(m_fields.size() - 1), "p"))
     {
-        m_session->LoadParameter("numConvectiveFields", m_nConvectiveFields,
-                                 m_fields.size() - 1);
-        if (DefinedForcing("ForcingLorentz"))
+        m_nConvectiveFields = m_fields.size() - 1;
+        m_pressure          = m_fields[m_nConvectiveFields];
+        if (m_MHD.hasLorentzForce)
         {
-            ASSERTL0(m_nConvectiveFields == m_fields.size() - 2,
-                     "Need to define electric potential field.");
-            m_epotential = m_fields[m_fields.size() - 2];
+            ASSERTL0(m_fields.size() >= m_velocity.size() + 2,
+                     "Need to define an electric potential field immediately "
+                     "before pressure for ForcingLorentz.");
+            m_nConvectiveFields = m_fields.size() - 2;
+            m_epotential        = m_fields[m_nConvectiveFields];
         }
-        m_pressure = m_fields[m_fields.size() - 1];
     }
     else
     {
@@ -748,7 +751,7 @@ Array<OneD, bool> VelocityCorrectionScheme::v_GetSystemSingularChecks()
     int vVar = m_session->GetVariables().size();
     Array<OneD, bool> vChecks(vVar, false);
     vChecks[vVar - 1] = true;
-    if (DefinedForcing("ForcingLorentz"))
+    if (m_MHD.hasLorentzForce)
     {
         vChecks[vVar - 2] = true;
     }
@@ -797,9 +800,9 @@ void VelocityCorrectionScheme::v_EvaluateAdvection_SetPressureBCs(
     params["Kinvis"]   = m_kinvis;
     params["Time"]     = time + m_timestep;
     params["pressure"] = 1.;
-    if (m_implicitLorentzDamping > 0.0)
+    if (m_MHD.implicitLorentzDamping > 0.0)
     {
-        params["ImplicitLorentzDamping"] = m_implicitLorentzDamping;
+        params["ImplicitLorentzDamping"] = m_MHD.implicitLorentzDamping;
     }
     AddMovingFrameDataToParams(m_strFrameData, m_movingFrameData, params);
     m_extrapolation->EvaluatePressureBCs(inarray, outarray, m_kinvis);
@@ -1004,7 +1007,7 @@ void VelocityCorrectionScheme::v_SolveViscous(
         {
             if (m_velocity[j] == i)
             {
-                implicitLorentzDamping = m_implicitLorentzDamping;
+                implicitLorentzDamping = m_MHD.implicitLorentzDamping;
                 break;
             }
         }
