@@ -82,6 +82,13 @@ template <FieldState TFieldIn, FieldState TFieldOut, typename TData>
 class ElmtBlockOp : public BlockOperator<TData>
 {
 public:
+    // Accessor types for this operator's input and output fields. Derived
+    // classes and the generated ShapeBlock definitions use these rather than
+    // restating the field states, so each operator states them in exactly
+    // one place: its ElmtBlockOp base clause in <Op>BlockOp.hpp.
+    using InBlock  = LibUtilities::BlockAccessor<TData, TFieldIn>;
+    using OutBlock = LibUtilities::BlockAccessor<TData, TFieldOut>;
+
     ~ElmtBlockOp() override = default;
 
     template <template <typename> typename TOperator>

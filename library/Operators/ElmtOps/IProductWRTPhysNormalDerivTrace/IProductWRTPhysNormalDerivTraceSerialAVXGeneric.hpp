@@ -57,11 +57,12 @@
  * No arithmetic on the field happens here.
  *
  * CMake generates one translation unit per shape and data type from
- * IProductWRTPhysNormalDerivTraceGenericBlockOp.cpp.in (the Serial/AVX
- * Generic branch of library/Operators/CMakeLists.txt). Those units define
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in (the
+ * Serial/AVX Generic branch of library/Operators/CMakeLists.txt). Those
+ * units define
  * the per-shape entry points declared below, expanding
- * Common/BlockOpSwitchPhysTraceExtract.h.in, the switch template this
- * operator shares with the other trace operators. This operator registers
+ * Common/BlockOpSwitchPhysTraceExtract.h.in, this operator's switch
+ * template. This operator registers
  * a single implementation, so the class is only ever instantiated for
  * Operators::Generic and its Implementation template parameter is not
  * read anywhere.
@@ -80,6 +81,10 @@
 #include "LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp"
 #include "Operators/ElmtOps/IProductWRTPhysNormalDerivTrace/IProductWRTPhysNormalDerivTraceBlockOp.hpp"
 #include "Operators/ElmtOps/IProductWRTPhysNormalDerivTrace/IProductWRTPhysNormalDerivTraceSerialAVXGenericKernels.hpp"
+
+// Selects the switch construction used by the generated ShapeBlock
+// definitions (see LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in).
+#define NEKTAR_BLOCKOP_SWITCH_PHYSTRACE
 
 namespace Nektar::Operators::detail
 {
@@ -129,6 +134,7 @@ template <typename ExecSpace, typename Implementation, typename TData>
 class IProductWRTPhysNormalDerivTraceBlockOpImpl
     : public IProductWRTPhysNormalDerivTraceBlockOp<TData>
 {
+    using BlockOpBase = IProductWRTPhysNormalDerivTraceBlockOp<TData>;
     using simd_t =
         typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                               TData>::type;
@@ -362,9 +368,7 @@ protected:
     /// rather than one per trace: deformed geometry, or a collapsed shape
     /// whatever its geometry. Read by the generated dispatch to pick the
     /// DEFORMED instantiation, which is what fixes the name: the switch
-    /// template Common/BlockOpSwitchPhysTraceExtract.h.in reads it by name
-    /// and is shared with the other two trace operators, where the flag
-    /// does mean the geometry type.
+    /// template Common/BlockOpSwitchPhysTraceExtract.h.in reads it by name.
     bool m_isDeformed;
     /// Dimension of the reference element (1, 2 or 3).
     unsigned int m_dimension;
@@ -541,11 +545,10 @@ protected:
     }
 
     // Shape specific block operator, specialised for each shape in
-    // IProductWRTPhysNormalDerivTraceGenericBlockOp.cpp.in.
+    // LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in.
     template <LibUtilities::ShapeType SHAPE_TYPE>
-    void ShapeBlock(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock);
+    void ShapeBlock(typename BlockOpBase::InBlock &inblock,
+                    typename BlockOpBase::OutBlock &outblock);
 
     // Tangential directions the kernels index in dim dimensions: none
     // for a segment, whose traces are points, and dim * (dim - 1)

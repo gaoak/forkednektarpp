@@ -51,10 +51,10 @@
  * CMake serves Operators::Generic from this one header (the Device
  * Generic branch of library/Operators/CMakeLists.txt) and generates one
  * translation unit per shape and data type from
- * PhysTraceExtractGenericBlockOp.cpp.in. Those units define the
- * per-shape entry points declared below, expanding
- * Common/BlockOpSwitchPhysTraceExtract.h.in, the switch template this
- * operator shares with IProductWRTPhysTrace.
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in. Those units
+ * define the per-shape entry points declared below, expanding
+ * Common/BlockOpSwitchPhysTraceExtract.h.in, this operator's switch
+ * template.
  *
  * Unlike IProductWRTPhysTrace, which declares a primary template and
  * partially specialises it on NektarSpaces::Device, this header defines
@@ -107,6 +107,10 @@
 
 #include "Operators/ElmtOps/PhysTraceExtract/PhysTraceExtractDeviceGenericKernels.hpp"
 
+// Selects the switch construction used by the generated ShapeBlock
+// definitions (see LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in).
+#define NEKTAR_BLOCKOP_SWITCH_PHYSTRACE
+
 namespace Nektar::Operators::detail
 {
 
@@ -151,7 +155,7 @@ namespace Nektar::Operators::detail
  * interpolation carries no surface measure, so it fetches no geometric
  * data from the warehouse at all.
  *
- * Streams. As the volume operators do, this implementation takes its
+ * Streams. This implementation takes its
  * own stream from the block index, #m_streamID, and issues every
  * pointer fetch, reshape and launch on it, so blocks can run
  * concurrently. The workspace it uses is BlockOperator's shared static
@@ -170,7 +174,8 @@ namespace Nektar::Operators::detail
 template <typename ExecSpace, typename Implementation, typename TData>
 class PhysTraceExtractBlockOpImpl : public PhysTraceExtractBlockOp<TData>
 {
-    using MemSpace = typename ExecSpace::memory_space;
+    using BlockOpBase = PhysTraceExtractBlockOp<TData>;
+    using MemSpace    = typename ExecSpace::memory_space;
 
 public:
     /**
@@ -861,11 +866,10 @@ protected:
     }
 
     // Shape specific block operator, specialised for each shape in
-    // PhysTraceExtractGenericBlockOp.cpp.in.
+    // LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in.
     template <LibUtilities::ShapeType SHAPE_TYPE>
-    void ShapeBlock(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock);
+    void ShapeBlock(typename BlockOpBase::InBlock &inblock,
+                    typename BlockOpBase::OutBlock &outblock);
 
     // Tangential directions the kernels index in dim dimensions: none
     // for a segment, whose traces are points, and dim * (dim - 1)
@@ -887,11 +891,9 @@ protected:
         constexpr unsigned int DIM = LibUtilities::ShapeTypeDimMap[SHAPE_TYPE];
 
         // sizeParam is built by the switch in
-        // Operators/Common/BlockOpSwitchPhysTraceExtract.h.in, which this
-        // operator shares with its adjoint rather than taking the
-        // LibUtilities/BasicUtils/Switch/BlockOpSwitchCode.h.in the volume
-        // operators use: the trace size parameters carry trace point counts
-        // per normal direction, which that switch knows nothing of.
+        // Operators/Common/BlockOpSwitchPhysTraceExtract.h.in: this
+        // operator's trace size parameters carry trace point counts per
+        // normal direction.
         static_assert(
             (DIM == 1 && IsTraceSizeParameter1D_v<TTraceSizeParameter>) ||
                 (DIM == 2 && IsTraceSizeParameter2D_v<TTraceSizeParameter>) ||

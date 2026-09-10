@@ -33,7 +33,11 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#pragma once
+/* This header is deliberately re-includable: it has no include guard and
+   undefines each macro before defining it. An operator with two output
+   states compiles both of its ShapeBlock definitions into one translation
+   unit, and the two may ask for different switch levels, so the level
+   definitions have to be re-established between them. */
 
 #include <boost/preprocessor/arithmetic/inc.hpp>
 #include <boost/preprocessor/arithmetic/mul.hpp>
@@ -57,10 +61,12 @@
    the second element plus one, given by
    BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(1, state)) and returns 1 if not
    equal otherwise zero */
+#undef LEV2TEST
 #define LEV2TEST(r, state)                                                     \
     BOOST_PP_NOT_EQUAL(BOOST_PP_TUPLE_ELEM(0, state),                          \
                        BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(2, state)))
 
+#undef LEV2TEST1
 #define LEV2TEST1(r, state)                                                    \
     BOOST_PP_NOT_EQUAL(BOOST_PP_TUPLE_ELEM(1, state),                          \
                        BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(2, state)))
@@ -69,19 +75,26 @@
    BOOST_PP_TUPLE_ELEM(0, state), is incremented by one and the
    second element, given by BOOST_PP_TUPLE_ELEM(1, state) remains
    the same*/
+#undef LEV2UPDATE
 #define LEV2UPDATE(r, state)                                                   \
     (BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(0, state)),                              \
      BOOST_PP_TUPLE_ELEM(1, state), BOOST_PP_TUPLE_ELEM(2, state))
 
+#undef LEV2UPDATE1
 #define LEV2UPDATE1(r, state)                                                  \
     (BOOST_PP_TUPLE_ELEM(0, state),                                            \
      BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(1, state)),                              \
      BOOST_PP_TUPLE_ELEM(2, state))
 
+#undef NM
 #define NM(i) BOOST_PP_TUPLE_ELEM(0, i)
+#undef NM_P1
 #define NM_P1(i) BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(0, i))
+#undef NM_M1
 #define NM_M1(i) BOOST_PP_DEC(BOOST_PP_TUPLE_ELEM(0, i))
+#undef NQ
 #define NQ(i) BOOST_PP_TUPLE_ELEM(1, i)
+#undef NQ_M1
 #define NQ_M1(i) BOOST_PP_DEC(BOOST_PP_TUPLE_ELEM(1, i))
 
 #include "SwitchLimits.h"

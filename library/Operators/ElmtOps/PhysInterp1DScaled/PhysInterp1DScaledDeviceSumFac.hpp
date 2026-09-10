@@ -40,13 +40,18 @@
 #include "Operators/ElmtOps/PhysInterp1DScaled/PhysInterp1DScaledDeviceSumFacKernels.hpp"
 #include "Operators/ElmtOps/PhysInterp1DScaled/PhysInterp1DScaledDeviceSumFacTOPKernels.hpp"
 
+// Selects the switch construction used by the generated ShapeBlock
+// definitions (see LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in).
+#define NEKTAR_BLOCKOP_SWITCH_PHYSINTERP1D
+
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
 class PhysInterp1DScaledBlockOpImpl : public PhysInterp1DScaledBlockOp<TData>
 {
-    using MemSpace = typename ExecSpace::memory_space;
+    using BlockOpBase = PhysInterp1DScaledBlockOp<TData>;
+    using MemSpace    = typename ExecSpace::memory_space;
 
 public:
     PhysInterp1DScaledBlockOpImpl(
@@ -219,11 +224,10 @@ protected:
     }
 
     // Shape specific block operator, specialised for each shape in
-    // PhysInterp1DScaledSumFacBlockOp.cpp.in.
+    // LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in.
     template <LibUtilities::ShapeType SHAPE_TYPE>
-    void ShapeBlock(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock);
+    void ShapeBlock(typename BlockOpBase::InBlock &inblock,
+                    typename BlockOpBase::OutBlock &outblock);
 
     // Number of precomputed index arrays used by the kernels in dim dimensions.
     static constexpr unsigned int NumIndex(const unsigned int dim)

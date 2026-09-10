@@ -42,12 +42,17 @@
 // interpolation is just a bwd trans from a nodal basis so using these kernels
 #include "ElmtOps/BwdTrans/BwdTransSerialAVXSumFacKernels.hpp"
 
+// Selects the switch construction used by the generated ShapeBlock
+// definitions (see LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in).
+#define NEKTAR_BLOCKOP_SWITCH_PHYSINTERP1D
+
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
 class PhysInterp1DScaledBlockOpImpl : public PhysInterp1DScaledBlockOp<TData>
 {
+    using BlockOpBase = PhysInterp1DScaledBlockOp<TData>;
     using simd_t =
         typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                               TData>::type;
@@ -255,11 +260,10 @@ protected:
     }
 
     // Shape specific block operator, specialised for each shape in
-    // PhysInterp1DScaledSumFacBlockOp.cpp.in.
+    // LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in.
     template <LibUtilities::ShapeType SHAPE_TYPE>
-    void ShapeBlock(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock);
+    void ShapeBlock(typename BlockOpBase::InBlock &inblock,
+                    typename BlockOpBase::OutBlock &outblock);
 
     // Number of workspaces used by the kernels in dim dimensions.
     static constexpr unsigned int NumWorkspace(const unsigned int dim)

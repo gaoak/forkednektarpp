@@ -90,11 +90,10 @@
  *
  * The per-shape entry points, the ShapeBlock() specialisations, come
  * from the generated translation-unit template
- * IProductWRTPhysNormalDerivTraceGenericBlockOp.cpp.in. It expands
- * Common/BlockOpSwitchPhysTraceExtract.h.in rather than the volume
- * operators' Common/BlockOpSwitchCode.h.in, that switch template being
- * shared by the trace operators, whose per-shape template arguments
- * differ from the volume operators'.
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in. It expands
+ * the switch template Common/BlockOpSwitchPhysTraceExtract.h.in, whose
+ * per-shape template arguments carry trace point counts per normal
+ * direction.
  *
  * @note There is one algorithm here and one registration, under
  * Operators::Generic. A StdMat, SumFac or SumFacTOP request does not
