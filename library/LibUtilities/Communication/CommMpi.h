@@ -179,9 +179,13 @@ protected:
     void v_Scatter(const void *sendbuf, int sendcount, CommDataType sendtype,
                    void *recvbuf, int recvcount, CommDataType recvtype,
                    int root) final;
+    void v_Gatherv(const void *sendbuf, int sendcount, CommDataType sendtype,
+                   void *recvbuf, const int *recvcounts, const int *recvdispls,
+                   CommDataType recvtype, int root) final;
 
-    void v_DistGraphCreateAdjacent(int indegree, const int *sources,
-                                   const int *sourceweights, int reorder) final;
+    CommSharedPtr v_DistGraphCreateAdjacent(int indegree, const int *sources,
+                                            const int *sourceweights,
+                                            int reorder) final;
     void v_NeighborAlltoAllv(const void *sendbuf, const int *sendcounts,
                              const int *senddispls, CommDataType sendtype,
                              void *recvbuf, const int *recvcounts,

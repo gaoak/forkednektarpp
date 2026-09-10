@@ -127,6 +127,7 @@ protected:
         const std::vector<unsigned int> &nummodes, int &modes_offset) override;
     STD_REGIONS_EXPORT const LibUtilities::BasisKey v_GetTraceBasisKey(
         const int i, const int k, bool UseGLL = false) const override;
+    STD_REGIONS_EXPORT bool v_IsBoundaryInteriorExpansion() const override;
 
     //---------------------------------------
     // Mappings

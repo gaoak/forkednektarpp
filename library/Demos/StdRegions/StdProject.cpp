@@ -216,9 +216,11 @@ int main(int argc, char *argv[])
             exact = 1.0 / M_E - 1.0 / M_E / M_E / M_E;
             break;
         case ePrism:
+        case eNodalPrism:
             exact = M_E - 1.0 / M_E / M_E / M_E;
             break;
         case ePyramid:
+        case eNodalPyr:
             exact = -1.0 / M_E / M_E / M_E - 4.0 / M_E + M_E;
             break;
         case eHexahedron:
@@ -262,7 +264,13 @@ NekDouble Shape_sol(NekDouble x, NekDouble y, NekDouble z,
     shapeConstraint2[ePyramid] = [](int k, const std::vector<int> &order) {
         return order[1] - k;
     };
+    shapeConstraint2[eNodalPyr] = [](int k, const std::vector<int> &order) {
+        return order[1] - k;
+    };
     shapeConstraint2[ePrism] = [](int, const std::vector<int> &order) {
+        return order[1];
+    };
+    shapeConstraint2[eNodalPrism] = [](int, const std::vector<int> &order) {
         return order[1];
     };
     shapeConstraint2[eHexahedron] = [](int, const std::vector<int> &order) {
@@ -299,9 +307,15 @@ NekDouble Shape_sol(NekDouble x, NekDouble y, NekDouble z,
                                     const std::vector<int> &order) {
         return order[2] - k - l;
     };
+    shapeConstraint3[eNodalPyr] = [](int k, int l,
+                                     const std::vector<int> &order) {
+        return order[2] - k - l;
+    };
     shapeConstraint3[ePrism] = [](int k, int, const std::vector<int> &order) {
         return order[2] - k;
     };
+    shapeConstraint3[eNodalPrism] =
+        [](int k, int, const std::vector<int> &order) { return order[2] - k; };
     shapeConstraint3[eHexahedron] =
         [](int, int, const std::vector<int> &order) { return order[2]; };
 

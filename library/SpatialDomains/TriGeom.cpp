@@ -261,6 +261,8 @@ StdRegions::Orientation TriGeom::GetFaceOrientation(
         // vertex vmap[j] of face1.
         for (i = 0; i < 3; ++i)
         {
+            NekDouble epsmin = 1e10, eps;
+
             x = (*face1[i])(0);
             y = (*face1[i])(1);
             z = (*face1[i])(2);
@@ -269,13 +271,18 @@ StdRegions::Orientation TriGeom::GetFaceOrientation(
                 x1 = (*face2[j])(0) - cx;
                 y1 = (*face2[j])(1) - cy;
                 z1 = (*face2[j])(2) - cz;
-                if (sqrt((x1 - x) * (x1 - x) + (y1 - y) * (y1 - y) +
-                         (z1 - z) * (z1 - z)) < 1e-8)
+
+                eps    = sqrt((x1 - x) * (x1 - x) + (y1 - y) * (y1 - y) +
+                              (z1 - z) * (z1 - z));
+                epsmin = std::min(eps, epsmin);
+                if (eps < 1e-8)
                 {
                     vmap[j] = i;
                     break;
                 }
             }
+            WARNINGL1(j != 3, "Failed to match point, error = " +
+                                  boost::lexical_cast<std::string>(epsmin))
         }
     }
 

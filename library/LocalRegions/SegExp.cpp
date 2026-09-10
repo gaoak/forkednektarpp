@@ -412,8 +412,25 @@ int SegExp::v_NumDGBndryCoeffs() const
 void SegExp::v_ExtractDataToCoeffs(
     const NekDouble *data, const std::vector<unsigned int> &nummodes,
     const int mode_offset, NekDouble *coeffs,
-    [[maybe_unused]] std::vector<LibUtilities::BasisType> &fromType)
+    std::vector<LibUtilities::BasisType> &fromType)
 {
+    // These routines copy modes across without regard to the basis they were
+    // written in, so they are only correct when the two agree. Fail rather
+    // than reinterpret the coefficients: the result of doing so stays finite
+    // and smooth within each element and reads as a plausible field, which is
+    // far worse than an error. TriExp, QuadExp, HexExp and PyrExp convert
+    // properly; this shape does not yet, and should follow them when needed.
+    // fromType can carry a trailing homogeneous basis the local expansion
+    // does not own, so only compare the bases this shape expands in.
+    for (int i = 0; i < GetNumBases(); ++i)
+    {
+        ASSERTL0(fromType[i] == m_base[i]->GetBasisType(),
+                 "SegExp::ExtractDataToCoeffs cannot convert between bases: "
+                 "the data was written in a different basis to the one being "
+                 "expanded in. Supply the session file that declares the "
+                 "expansion the data was written with.");
+    }
+
     switch (m_base[0]->GetBasisType())
     {
         case LibUtilities::eModified_A:
@@ -497,6 +514,43 @@ void SegExp::v_ComputeTraceNormal(const int vertex)
 
         // normalise
         vert = 0.0;
+        for (i = 0; i < vCoordDim; ++i)
+        {
+            vert += normal[i][0] * normal[i][0];
+        }
+        vert = 1.0 / sqrt(vert);
+
+        Vmath::Fill(nqb, vert, length, 1);
+
+        for (i = 0; i < vCoordDim; ++i)
+        {
+            Vmath::Smul(nqe, vert, normal[i], 1, normal[i], 1);
+        }
+    }
+    else
+    {
+        // Deformed geometry case. The deriv factors vary along the element,
+        // so each vertex takes them at its own quadrature point: point 0 for
+        // vertex 0, which sits at xi = -1, and nquad - 1 for vertex 1 at
+        // xi = +1. That is the same convention
+        // Expansion1D::v_NormalTraceDerivFactors uses.
+        //
+        // Without this the normal arrays were allocated and left unwritten,
+        // so a deformed segment handed out uninitialised values.
+        ASSERTL0(vertex == 0 || vertex == 1,
+                 "point is out of range (point < 2)");
+
+        const int nquad     = m_base[0]->GetNumPoints();
+        const int pt        = (vertex == 0) ? 0 : nquad - 1;
+        const NekDouble sgn = (vertex == 0) ? -1.0 : 1.0;
+
+        for (i = 0; i < vCoordDim; ++i)
+        {
+            Vmath::Fill(nqe, sgn * gmat[i][pt], normal[i], 1);
+        }
+
+        // normalise
+        NekDouble vert = 0.0;
         for (i = 0; i < vCoordDim; ++i)
         {
             vert += normal[i][0] * normal[i][0];

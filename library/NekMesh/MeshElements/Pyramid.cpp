@@ -32,8 +32,12 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-#include <NekMesh/MeshElements/Pyramid.h>
 #include <SpatialDomains/PyrGeom.h>
+
+#include <NekMesh/MeshElements/HOAlignment.h>
+#include <NekMesh/MeshElements/Pyramid.h>
+
+#include <LibUtilities/Foundations/ManagerAccess.h>
 
 using namespace std;
 
@@ -47,6 +51,13 @@ LibUtilities::ShapeType Pyramid::type =
 /// Vertex IDs that make up pyramid faces.
 int Pyramid::m_faceIds[5][4] = {
     {0, 1, 2, 3}, {0, 1, 4, -1}, {1, 2, 4, -1}, {3, 2, 4, -1}, {0, 3, 4, -1}};
+
+/// Vertex IDs that make up pyramid edges, in the order and direction used by
+/// the standard element: the four base edges followed by the four edges
+/// running up to the apex. Note that edges 2 and 3 are directed 3->2 and 0->3
+/// respectively, matching the ordering that NodalPyrEvenlySpaced emits.
+int Pyramid::m_edgeVerts[8][2] = {{0, 1}, {1, 2}, {3, 2}, {0, 3},
+                                  {0, 4}, {1, 4}, {2, 4}, {3, 4}};
 
 /**
  * @brief Create a pyramidic element.
@@ -194,5 +205,175 @@ unsigned int Pyramid::GetNumNodes(ElmtConfig pConf)
             + pConf.m_volumeNodes * (n - 2) * (n - 1) * (2 * n - 3) /
                   6 // square pyramidal numbers
     );
+}
+
+StdRegions::Orientation Pyramid::GetEdgeOrient(int edgeId, EdgeSharedPtr edge)
+{
+    if (edge->m_n1 == m_vertex[m_edgeVerts[edgeId][0]])
+    {
+        return StdRegions::eForwards;
+    }
+    else if (edge->m_n1 == m_vertex[m_edgeVerts[edgeId][1]])
+    {
+        return StdRegions::eBackwards;
+    }
+    else
+    {
+        ASSERTL1(false, "Edge is not connected to this pyramid.");
+    }
+
+    return StdRegions::eNoOrientation;
+}
+
+void Pyramid::MakeOrder(int order, SpatialDomains::Geometry *geom,
+                        LibUtilities::PointsType pType, int coordDim, int &id,
+                        bool justConfig)
+{
+    m_conf.m_order = order;
+    m_curveType    = pType;
+    m_volumeNodes.clear();
+
+    if (order == 1)
+    {
+        m_conf.m_volumeNodes = m_conf.m_faceNodes = false;
+        return;
+    }
+    else if (order == 2)
+    {
+        m_conf.m_faceNodes   = true;
+        m_conf.m_volumeNodes = false;
+        return;
+    }
+
+    m_conf.m_faceNodes   = true;
+    m_conf.m_volumeNodes = true;
+
+    if (justConfig)
+    {
+        return;
+    }
+
+    int nPoints                            = order + 1;
+    StdRegions::StdExpansionSharedPtr xmap = geom->GetXmap();
+
+    Array<OneD, NekDouble> px, py, pz;
+    LibUtilities::PointsKey pKey(nPoints, pType);
+    ASSERTL1(pKey.GetPointsDim() == 3, "Points distribution must be 3D");
+    LibUtilities::PointsManager()[pKey]->GetPoints(px, py, pz);
+
+    Array<OneD, Array<OneD, NekDouble>> phys(coordDim);
+
+    for (int i = 0; i < coordDim; ++i)
+    {
+        phys[i] = Array<OneD, NekDouble>(xmap->GetTotPoints());
+        xmap->BwdTrans(geom->GetCoeffs(i), phys[i]);
+    }
+
+    // The nodal distribution stacks an (nPoints - k) by (nPoints - k) layer at
+    // each height k, so the total is the square pyramidal number P(nPoints).
+    // Stripping the boundary leaves the same lattice three sizes down, i.e.
+    // P(nPoints - 3), and those points come last in the nodal ordering.
+    const int nPyrPts = nPoints * (nPoints + 1) * (2 * nPoints + 1) / 6;
+    const int nPyrIntPts =
+        (nPoints - 3) * (nPoints - 2) * (2 * nPoints - 5) / 6;
+    m_volumeNodes.resize(nPyrIntPts);
+
+    for (int i = nPyrPts - nPyrIntPts, cnt = 0; i < nPyrPts; ++i, ++cnt)
+    {
+        Array<OneD, NekDouble> xp(3);
+        xp[0] = px[i];
+        xp[1] = py[i];
+        xp[2] = pz[i];
+
+        Array<OneD, NekDouble> x(3, 0.0);
+        for (int j = 0; j < coordDim; ++j)
+        {
+            x[j] = xmap->PhysEvaluate(xp, phys[j]);
+        }
+
+        m_volumeNodes[cnt] =
+            std::shared_ptr<Node>(new Node(id++, x[0], x[1], x[2]));
+    }
+}
+
+void Pyramid::GetCurvedNodes(std::vector<NodeSharedPtr> &nodeList) const
+{
+    int n = m_edge[0]->GetNodeCount();
+    nodeList.resize(n * (n + 1) * (2 * n + 1) / 6);
+
+    for (int i = 0; i < 5; ++i)
+    {
+        nodeList[i] = m_vertex[i];
+    }
+    int k = 5;
+
+    for (int i = 0; i < 8; i++)
+    {
+        bool reverseEdge = m_edge[i]->m_n1 == m_vertex[m_edgeVerts[i][0]];
+        if (reverseEdge)
+        {
+            for (int j = 0; j < n - 2; j++)
+            {
+                nodeList[k++] = m_edge[i]->m_edgeNodes[j];
+            }
+        }
+        else
+        {
+            for (int j = n - 3; j >= 0; j--)
+            {
+                nodeList[k++] = m_edge[i]->m_edgeNodes[j];
+            }
+        }
+    }
+
+    // Target vertex ordering of each face, taken from the standard element.
+    vector<vector<int>> ts;
+    for (int i = 0; i < 5; ++i)
+    {
+        const int nFaceVert = i == 0 ? 4 : 3;
+        vector<int> t(nFaceVert);
+        for (int j = 0; j < nFaceVert; ++j)
+        {
+            t[j] = m_vertex[m_faceIds[i][j]]->m_id;
+        }
+        ts.push_back(t);
+    }
+
+    for (int i = 0; i < ts.size(); i++)
+    {
+        if (ts[i].size() == 3)
+        {
+            vector<int> fcid;
+            fcid.push_back(m_face[i]->m_vertexList[0]->m_id);
+            fcid.push_back(m_face[i]->m_vertexList[1]->m_id);
+            fcid.push_back(m_face[i]->m_vertexList[2]->m_id);
+
+            HOTriangle<NodeSharedPtr> hot(fcid, m_face[i]->m_faceNodes);
+
+            hot.Align(ts[i]);
+
+            std::copy(hot.surfVerts.begin(), hot.surfVerts.end(),
+                      nodeList.begin() + k);
+            k += hot.surfVerts.size();
+        }
+        else
+        {
+            vector<int> fcid;
+            fcid.push_back(m_face[i]->m_vertexList[0]->m_id);
+            fcid.push_back(m_face[i]->m_vertexList[1]->m_id);
+            fcid.push_back(m_face[i]->m_vertexList[2]->m_id);
+            fcid.push_back(m_face[i]->m_vertexList[3]->m_id);
+
+            HOQuadrilateral<NodeSharedPtr> hoq(fcid, m_face[i]->m_faceNodes);
+
+            hoq.Align(ts[i]);
+
+            std::copy(hoq.surfVerts.begin(), hoq.surfVerts.end(),
+                      nodeList.begin() + k);
+            k += hoq.surfVerts.size();
+        }
+    }
+
+    std::copy(m_volumeNodes.begin(), m_volumeNodes.end(), nodeList.begin() + k);
 }
 } // namespace Nektar::NekMesh

@@ -184,6 +184,9 @@ protected:
         [[maybe_unused]] bool CollDir1 = false,
         [[maybe_unused]] bool CollDir2 = false) = 0;
 
+    STD_REGIONS_EXPORT void v_GenStdTraceExp(
+        const int traceid, std::shared_ptr<StdExpansion> &exp) override;
+
     STD_REGIONS_EXPORT void v_MultiplyByStdQuadratureMetric(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;

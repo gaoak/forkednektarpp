@@ -46,6 +46,7 @@
 #include <MultiRegions/AssemblyMap/AssemblyMapDG.h>
 
 #include <AcousticSolver/EquationSystems/AcousticSystem.h>
+#include <AcousticSolver/LinerSolvers/PerforatedPlate.h>
 
 namespace Nektar
 {
@@ -108,6 +109,72 @@ void AcousticSystem::v_InitObject(bool DeclareFields)
 
     m_whiteNoiseBC_lastUpdate = -1.0;
     m_whiteNoiseBC_p          = 0.0;
+
+    // Load liner information
+    if (m_session->DefinesParameter("LinerType"))
+    {
+        int linerType;
+        NekDouble w0, wI, uR, uI;
+        m_session->LoadParameter("LinerType", linerType);
+        m_session->LoadParameter("w0", w0, 0.0);
+        m_session->LoadParameter("wI", wI, 0.0);
+        m_session->LoadParameter("u0", uR, 0.0);
+        m_session->LoadParameter("uI", uI, 0.0);
+        Array<OneD, NekDouble> linerA(10, 0.0);
+        Array<OneD, NekDouble> linerB(10, 0.0);
+        short sizeA = 10, sizeB = 10;
+        for (short i = 0; i < 10; ++i)
+        {
+            if (m_session->DefinesFunction("RationalFraction",
+                                           "A" + std::to_string(i)))
+            {
+                linerA[i] = m_session
+                                ->GetFunction("RationalFraction",
+                                              "A" + std::to_string(i))
+                                ->Evaluate(0);
+                if (linerA[i] != 0.0)
+                {
+                    sizeA = i + 1;
+                }
+            }
+            if (m_session->DefinesFunction("RationalFraction",
+                                           "B" + std::to_string(i)))
+            {
+                linerB[i] = m_session
+                                ->GetFunction("RationalFraction",
+                                              "B" + std::to_string(i))
+                                ->Evaluate(0);
+                if (linerB[i] != 0.0)
+                {
+                    sizeB = i + 1;
+                }
+            }
+        }
+        ASSERTL0(sizeB > 0, "Polynomials must be of order 1 or higher");
+        ASSERTL0(
+            sizeA >= sizeB,
+            "Polynomial A must be of equal or higher order than polynomial B");
+
+        // Get number of boundary conditions, expansions and points
+        int nBC = m_fields[0]->GetBndConditions().size();
+        Array<OneD, int> nPnt(nBC, 0);
+        for (int i = nBC - 1; i >= 0; --i)
+        {
+            std::string userDefStr =
+                m_fields[0]->GetBndConditions()[i]->GetUserDefined();
+            if (boost::iequals(userDefStr, "LinerBC"))
+            {
+                nPnt[i] = m_fields[0]->GetBndCondExpansions()[i]->GetExpSize();
+            }
+        }
+        int nExp =
+            m_fields[0]->GetBndCondExpansions()[0]->GetExp(0)->GetTotPoints();
+
+        // Create the perforated plate object
+        m_perforatedPlate = std::unique_ptr<PerforatedPlate>(
+            new PerforatedPlate(linerType, w0, wI, uR, uI));
+        m_perforatedPlate->InitObject(linerA, linerB, sizeA, nBC, nPnt, nExp);
+    }
 }
 
 /**
@@ -263,6 +330,10 @@ void AcousticSystem::SetBoundaryConditions(
             else if (boost::iequals(userDefStr, "RiemannInvariantBC"))
             {
                 v_RiemannInvariantBC(n, cnt, Fwd, bfFwd, inarray);
+            }
+            else if (boost::iequals(userDefStr, "LinerBC"))
+            {
+                v_LinerBC(n, cnt, Fwd, inarray, time, m_timestep);
             }
             else if (boost::iequals(userDefStr, "TimeDependent"))
             {

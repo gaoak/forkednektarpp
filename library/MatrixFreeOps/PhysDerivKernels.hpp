@@ -526,10 +526,6 @@ template <LibUtilities::ShapeType SHAPE_TYPE>
 NEK_FORCE_INLINE static void PhysDeriv2DWorkspace(
     [[maybe_unused]] const size_t nq0, [[maybe_unused]] const size_t nq1)
 {
-    // Check preconditions
-    ASSERTL1((SHAPE_TYPE == LibUtilities::ShapeType::Tri && nq0 == nq1 + 1) ||
-                 (SHAPE_TYPE == LibUtilities::ShapeType::Quad && nq0 == nq1),
-             "PhysDeriv2DWorkspace: Requires homogenous points.");
 }
 
 #elif defined(SHAPE_DIMENSION_3D)
@@ -540,17 +536,6 @@ NEK_FORCE_INLINE static void PhysDeriv3DWorkspace(
     [[maybe_unused]] const size_t nq2, [[maybe_unused]] size_t &wsp1Size,
     [[maybe_unused]] size_t &wsp2Size)
 {
-    // Check preconditions
-    ASSERTL1((SHAPE_TYPE == LibUtilities::ShapeType::Hex && nq0 == nq1 &&
-              nq0 == nq2) ||
-                 (SHAPE_TYPE == LibUtilities::ShapeType::Tet &&
-                  nq0 == nq1 + 1 && nq0 == nq2 + 1) ||
-                 (SHAPE_TYPE == LibUtilities::ShapeType::Prism && nq0 == nq1 &&
-                  nq0 == nq2 + 1) ||
-                 (SHAPE_TYPE == LibUtilities::ShapeType::Pyr && nq0 == nq1 &&
-                  nq0 == nq2 + 1),
-             "PhysDeriv3DWorkspace: Requires homogenous points.");
-
 #if defined(SHAPE_TYPE_TET)
     wsp1Size = std::max(wsp1Size, nq0 * nq1 * nq2);
     wsp2Size = std::max(wsp2Size, nq0 * nq1 * nq2);

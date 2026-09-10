@@ -284,8 +284,25 @@ StdRegions::StdExpansionSharedPtr TetExp::v_GetLinStdExp(void) const
 void TetExp::v_ExtractDataToCoeffs(
     const NekDouble *data, const std::vector<unsigned int> &nummodes,
     const int mode_offset, NekDouble *coeffs,
-    [[maybe_unused]] std::vector<LibUtilities::BasisType> &fromType)
+    std::vector<LibUtilities::BasisType> &fromType)
 {
+    // These routines copy modes across without regard to the basis they were
+    // written in, so they are only correct when the two agree. Fail rather
+    // than reinterpret the coefficients: the result of doing so stays finite
+    // and smooth within each element and reads as a plausible field, which is
+    // far worse than an error. TriExp, QuadExp, HexExp and PyrExp convert
+    // properly; this shape does not yet, and should follow them when needed.
+    // fromType can carry a trailing homogeneous basis the local expansion
+    // does not own, so only compare the bases this shape expands in.
+    for (int i = 0; i < GetNumBases(); ++i)
+    {
+        ASSERTL0(fromType[i] == m_base[i]->GetBasisType(),
+                 "TetExp::ExtractDataToCoeffs cannot convert between bases: "
+                 "the data was written in a different basis to the one being "
+                 "expanded in. Supply the session file that declares the "
+                 "expansion the data was written with.");
+    }
+
     int data_order0 = nummodes[mode_offset];
     int fillorder0  = min(m_base[0]->GetNumModes(), data_order0);
     int data_order1 = nummodes[mode_offset + 1];

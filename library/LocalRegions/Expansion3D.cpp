@@ -31,7 +31,7 @@
 // Description: File for Expansion3D routines
 //
 ///////////////////////////////////////////////////////////////////////////////
-
+#include <LibUtilities/BasicUtils/NekInline.hpp>
 #include <LibUtilities/Foundations/Interp.h>
 #include <LibUtilities/Foundations/InterpCoeff.h>
 #include <LocalRegions/Expansion2D.h>
@@ -41,10 +41,12 @@
 #include <LocalRegions/TriExp.h>
 #include <SpatialDomains/Geometry3D.h>
 
+#include <LocalRegions/ReOrientFaceKernel.hpp>
 using namespace std;
 
 namespace Nektar::LocalRegions
 {
+
 //  evaluate additional terms in HDG face. Note that this assumes that
 // edges are unpacked into local cartesian order.
 void Expansion3D::AddHDGHelmholtzFaceTerms(
@@ -2979,13 +2981,14 @@ void Expansion3D::v_GetTracePhysVals(
     Array<OneD, NekDouble> &outarray, StdRegions::Orientation orient)
 {
 
-    v_GetLocTracePhysVals(face, FaceExp, inarray.data(), outarray);
-
-    // Reshuffule points as required and put into outarray.
     if (orient == StdRegions::eNoOrientation)
     {
         orient = GetTraceOrient(face);
     }
+
+    v_GetLocTracePhysVals(face, FaceExp, inarray.data(), outarray, orient);
+
+    // Reshuffule points as required and put into outarray.
 
     // If transposed face need to swap interpolation point
     int id0, id1;
@@ -3011,7 +3014,8 @@ void Expansion3D::v_GetTracePhysVals(
  */
 inline void Expansion3D::v_GetLocTracePhysVals(
     const int face, const StdRegions::StdExpansionSharedPtr &FaceExp,
-    const NekDouble *inarray, Array<OneD, NekDouble> &outarray)
+    const NekDouble *inarray, Array<OneD, NekDouble> &outarray,
+    [[maybe_unused]] StdRegions::Orientation orient)
 {
     unsigned nfacepts = GetTraceNumPoints(face);
     unsigned dir0     = GetGeom3D()->GetDir(face, 0);
@@ -3019,6 +3023,9 @@ inline void Expansion3D::v_GetLocTracePhysVals(
 
     Array<OneD, NekDouble> o_tmp(nfacepts);
     Array<OneD, int> faceids;
+
+    ASSERTL1(m_base[0]->GetPointsType() == LibUtilities::eGaussLobattoLegendre,
+             "Expansion needs to be at GLL for this routine to work");
 
     // Get local face pts and put into o_tmp
     GetTracePhysMap(face, faceids);
@@ -3066,6 +3073,37 @@ void Expansion3D::v_GenTraceExp(const int traceid, ExpansionSharedPtr &exp)
 }
 
 /**
+ * @brief Generate a face expansion aligned with the shared face geometry.
+ *
+ * See Expansion::GetAlignedTraceExp for what "aligned" means here and how the
+ * result relates to the element local frame.
+ */
+void Expansion3D::v_GenAlignedTraceExp(const int traceid,
+                                       ExpansionSharedPtr &exp)
+{
+    SpatialDomains::Geometry *faceGeom = m_geom->GetFace(traceid);
+    if (faceGeom->GetNumVerts() == 3)
+    {
+        // A triangular face cannot take a transposing orientation, so it is
+        // always aligned with its geometry.
+        v_GenTraceExp(traceid, exp);
+        return;
+    }
+
+    // The face geometry is parametrised in the face's own two directions,
+    // which the element sees transposed for orientations at or beyond
+    // eDir1FwdDir2_Dir2FwdDir1. Order the basis keys to match the geometry so
+    // that the resulting expansion is self-consistent.
+    const bool transposed =
+        GetTraceOrient(traceid) >= StdRegions::eDir1FwdDir2_Dir2FwdDir1;
+
+    exp = MemoryManager<LocalRegions::QuadExp>::AllocateSharedPtr(
+        GetTraceBasisKey(traceid, transposed ? 1 : 0),
+        GetTraceBasisKey(traceid, transposed ? 0 : 1),
+        m_geom->GetFace(traceid));
+}
+
+/**
  * @breif This will take the in-values and apply the reorientation of the
  * points given by orient to output
  */
@@ -3074,165 +3112,28 @@ void Expansion3D::v_ReOrientTracePhysVals(
     const Array<OneD, const NekDouble> &in, Array<OneD, NekDouble> &out,
     const int nq0, const int nq1, bool Forwards)
 {
-    switch (orient)
+    // special but possibly common case
+    if (orient == StdRegions::eDir1FwdDir1_Dir2FwdDir2)
     {
-        case StdRegions::eDir1FwdDir1_Dir2FwdDir2: // used for Tris and Quads
+        if (out.data() != in.data()) // only do copy if required
         {
-            if (out.data() != in.data()) // only do copy if required
-            {
-                // traight copy
-                std::memcpy(out.data(), in.data(),
-                            nq0 * nq1 * sizeof(NekDouble));
-            }
-            break;
+            // straight copy
+            std::memcpy(out.data(), in.data(), nq0 * nq1 * sizeof(NekDouble));
         }
-        case StdRegions::eDir1BwdDir1_Dir2FwdDir2: // used for Tris and
-                                                   // Quads
-        {
-            // Direction A negative and B positive
-            for (int j = 0; j < nq1; j++)
-            {
-                Vmath::Reverse(nq0, &in[j * nq0], 1, &out[j * nq0], 1);
-            }
-        }
-        break;
-        case StdRegions::eDir1FwdDir1_Dir2BwdDir2:
-        {
-            Array<OneD, NekDouble> intmp(nq0 * nq1, in.data());
-            // Direction A positive and B negative
-            for (int j = 0; j < nq1; j++)
-            {
-                for (int i = 0; i < nq0; ++i)
-                {
-                    out[j * nq0 + i] = intmp[nq0 * (nq1 - 1 - j) + i];
-                }
-            }
-        }
-        break;
-        case StdRegions::eDir1BwdDir1_Dir2BwdDir2:
-        {
-            Array<OneD, NekDouble> intmp(nq0 * nq1, in.data());
-            // Direction A negative and B negative
-            for (int j = 0; j < nq1; j++)
-            {
-                for (int i = 0; i < nq0; ++i)
-                {
-                    out[j * nq0 + i] = intmp[nq0 * nq1 - 1 - j * nq0 - i];
-                }
-            }
-        }
-        break;
-        case StdRegions::eDir1FwdDir2_Dir2FwdDir1:
-        {
-            Array<OneD, NekDouble> intmp(nq0 * nq1, in.data());
-            // Transposed, Direction A and B positive
-            if (Forwards)
-            {
-                for (int i = 0; i < nq0; ++i)
-                {
-                    for (int j = 0; j < nq1; ++j)
-                    {
-                        out[i * nq1 + j] = intmp[i + j * nq0];
-                    }
-                }
-            }
-            else // inverse case - different if nq0 != nq1
-            {
-                for (int j = 0; j < nq1; ++j)
-                {
-                    for (int i = 0; i < nq0; ++i)
-                    {
-                        out[j * nq0 + i] = intmp[i * nq1 + j];
-                    }
-                }
-            }
-        }
-        break;
-        case StdRegions::eDir1FwdDir2_Dir2BwdDir1:
-        {
-            Array<OneD, NekDouble> intmp(nq0 * nq1, in.data());
-            if (Forwards)
-            {
+    }
+    else
+    {
 
-                // Transposed, Direction A positive and B negative
-                for (int i = 0; i < nq0; ++i)
-                {
-                    for (int j = 0; j < nq1; ++j)
-                    {
+        Array<OneD, NekDouble> incpy;
+        const NekDouble *intmp = in.data();
+        if (in.data() == out.data()) // copy input
+        {
+            incpy = Array<OneD, NekDouble>(nq0 * nq1, intmp);
+            intmp = incpy.data();
+        }
 
-                        out[i * nq1 + j] = intmp[i + nq0 * (nq1 - 1) - j * nq0];
-                    }
-                }
-            }
-            else
-            {
-                // inverse case (trace to element)
-                // Transposed, Direction A positive and B negative
-                for (int j = 0; j < nq1; ++j)
-                {
-                    for (int i = 0; i < nq0; ++i)
-                    {
-                        out[j * nq0 + i] = intmp[nq1 - 1 - j + i * nq1];
-                    }
-                }
-            }
-        }
-        break;
-        case StdRegions::eDir1BwdDir2_Dir2FwdDir1:
-        {
-            Array<OneD, NekDouble> intmp(nq0 * nq1, in.data());
-            // Transposed, Direction A negative and B positive
-            if (Forwards)
-            {
-                for (int i = 0; i < nq0; ++i)
-                {
-                    for (int j = 0; j < nq1; ++j)
-                    {
-                        out[i * nq1 + j] = intmp[nq0 - 1 - i + j * nq0];
-                    }
-                }
-            }
-            else
-            {
-                for (int j = 0; j < nq1; ++j)
-                {
-                    for (int i = 0; i < nq0; ++i)
-                    {
-                        out[j * nq0 + i] = intmp[nq1 * (nq0 - 1) - i * nq1 + j];
-                    }
-                }
-            }
-        }
-        break;
-        case StdRegions::eDir1BwdDir2_Dir2BwdDir1:
-        {
-            Array<OneD, NekDouble> intmp(nq0 * nq1, in.data());
-            // Transposed, Direction A and B negative
-            if (Forwards)
-            {
-                for (int i = 0; i < nq0; ++i)
-                {
-                    for (int j = 0; j < nq1; ++j)
-                    {
-                        out[i * nq1 + j] = intmp[nq0 * nq1 - 1 - i - j * nq0];
-                    }
-                }
-            }
-            else // inverse case - different if nq0 != nq1
-            {
-                for (int j = 0; j < nq1; ++j)
-                {
-                    for (int i = 0; i < nq0; ++i)
-                    {
-                        out[j * nq0 + i] = intmp[nq0 * nq1 - 1 - j - i * nq1];
-                    }
-                }
-            }
-        }
-        break;
-        default:
-            ASSERTL0(false, "Unknow orientation");
-            break;
+        ReOrientFaceKernel<false, false>(orient, nq0, nq1, intmp, out.data(),
+                                         Forwards);
     }
 }
 
@@ -3409,7 +3310,8 @@ void Expansion3D::v_NormalTraceDerivFactors(
         for (unsigned f = 0; f < ntrace; ++f)
         {
             // get local trace phys values
-            v_GetLocTracePhysVals(f, traceExp[f], &(Jac[0]), jac);
+            v_GetLocTracePhysVals(f, traceExp[f], &(Jac[0]), jac,
+                                  StdRegions::eDir1FwdDir1_Dir2FwdDir2);
             Vmath::Sdiv(nq_face[f], 1.0, jac, 1, jac, 1);
 
             Vmath::Zero(nq_face[f], d0factors[f], 1);
@@ -3418,12 +3320,14 @@ void Expansion3D::v_NormalTraceDerivFactors(
 
             for (int n = 0; n < ncoords; ++n)
             {
-                v_GetLocTracePhysVals(f, traceExp[f], &(dfdj[3 * n][0]),
-                                      fac[0]);
+                v_GetLocTracePhysVals(f, traceExp[f], &(dfdj[3 * n][0]), fac[0],
+                                      StdRegions::eDir1FwdDir1_Dir2FwdDir2);
                 v_GetLocTracePhysVals(f, traceExp[f], &(dfdj[3 * n + 1][0]),
-                                      fac[1]);
+                                      fac[1],
+                                      StdRegions::eDir1FwdDir1_Dir2FwdDir2);
                 v_GetLocTracePhysVals(f, traceExp[f], &(dfdj[3 * n + 2][0]),
-                                      fac[2]);
+                                      fac[2],
+                                      StdRegions::eDir1FwdDir1_Dir2FwdDir2);
                 for (int i = 0; i < nq_face[f]; ++i)
                 {
                     d0factors[f][i] +=

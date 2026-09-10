@@ -622,8 +622,15 @@ void Expansion1D::v_NormalTraceDerivFactors(
 
     if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed)
     {
-        factors[0][0] = gmat[0][nquad - 1] * normal_0[0][0];
-        factors[1][0] = gmat[0][0] * normal_1[0][0];
+        // Trace 0 is the vertex at xi = -1 and trace 1 the one at xi = +1,
+        // so they take the deriv factors at quadrature points 0 and
+        // nquad - 1 respectively. The n > 0 terms below already do this; the
+        // two ends used to be the other way round here, which disagreed with
+        // them. Only a deformed element sees it, gmat being constant
+        // otherwise, and in 1D that means a curved segment embedded in 2D or
+        // 3D.
+        factors[0][0] = gmat[0][0] * normal_0[0][0];
+        factors[1][0] = gmat[0][nquad - 1] * normal_1[0][0];
 
         for (int n = 1; n < normal_0.size(); ++n)
         {

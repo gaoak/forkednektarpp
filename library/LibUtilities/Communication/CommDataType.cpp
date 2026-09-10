@@ -58,6 +58,8 @@ int CommDataTypeGetSize(CommDataType dt)
 #elif NEKTAR_USING_PETSC
     if (dt == MPI_CHAR)
         return sizeof(char);
+    else if (dt == MPI_BYTE)
+        return sizeof(std::byte);
     else if (dt == MPI_INT)
         return sizeof(int);
     else if (dt == MPI_UNSIGNED)
@@ -82,6 +84,8 @@ int CommDataTypeGetSize(CommDataType dt)
     {
         case MPI_CHAR:
             return sizeof(char);
+        case MPI_BYTE:
+            return sizeof(std::byte);
         case MPI_INT:
             return sizeof(int);
         case MPI_UNSIGNED:
@@ -110,6 +114,12 @@ int CommDataTypeGetSize(CommDataType dt)
 template <> CommDataType &CommDataTypeTraits<char>::GetDataType()
 {
     static CommDataType type = MPI_CHAR;
+    return type;
+}
+
+template <> CommDataType &CommDataTypeTraits<std::byte>::GetDataType()
+{
+    static CommDataType type = MPI_BYTE;
     return type;
 }
 

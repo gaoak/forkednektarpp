@@ -191,7 +191,8 @@ protected:
     void v_GetLocTracePhysVals(const int edge,
                                const StdRegions::StdExpansionSharedPtr &EdgeExp,
                                const NekDouble *inarray,
-                               Array<OneD, NekDouble> &outarray) override;
+                               Array<OneD, NekDouble> &outarray,
+                               StdRegions::Orientation orient) override;
 
 private:
     LibUtilities::NekManager<MatrixKey, DNekScalMat, MatrixKey::opLess>

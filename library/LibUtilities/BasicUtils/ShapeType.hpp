@@ -62,6 +62,7 @@ enum ShapeType
     eNodalTri,
     eNodalTet,
     eNodalPrism,
+    eNodalPyr,
     SIZE_ShapeType,
 
     // These are the short names used for MatrixFree operators
@@ -75,13 +76,14 @@ enum ShapeType
     Hex        = eHexahedron,
     NodalTri   = eNodalTri,
     NodalTet   = eNodalTet,
-    NodalPrism = eNodalPrism
+    NodalPrism = eNodalPrism,
+    NodalPyr   = eNodalPyr
 };
 
 const char *const ShapeTypeMap[SIZE_ShapeType] = {
-    "NoGeomShapeType", "Point",       "Segment",  "Triangle",
-    "Quadrilateral",   "Tetrahedron", "Pyramid",  "Prism",
-    "Hexahedron",      "NodalTri",    "NodalTet", "NodalPrism"};
+    "NoGeomShapeType", "Point",      "Segment", "Triangle",   "Quadrilateral",
+    "Tetrahedron",     "Pyramid",    "Prism",   "Hexahedron", "NodalTri",
+    "NodalTet",        "NodalPrism", "NodalPyr"};
 
 // Hold the dimension of each of the types of shapes.
 constexpr unsigned int ShapeTypeDimMap[SIZE_ShapeType] = {
@@ -97,7 +99,90 @@ constexpr unsigned int ShapeTypeDimMap[SIZE_ShapeType] = {
     2, // eNodalTtri
     3, // eNodalTet
     3, // eNodalPrism
+    3, // eNodalPyr
 };
+
+// Hold the dimension of each of the types of shapes.
+constexpr unsigned int ShapeTypeNumTraces[SIZE_ShapeType] = {
+    0, // Unknown
+    0, // ePoint
+    0, // eSegment
+    3, // eTriangle
+    4, // eQuadrilateral
+    4, // eTetrahedron
+    5, // ePyramid
+    5, // ePrism
+    6, // eHexahedron
+    3, // eNodalTtri
+    4, // eNodalTet
+    5, // eNodalPrism
+};
+
+// Hold the number of traces in given direction
+constexpr unsigned int ShapeTypeNumTraceInDir[SIZE_ShapeType][3] = {
+    {0, 0, 0}, // Unknown
+    {0, 0, 0}, // ePoint
+    {2, 0, 0}, // eSegment
+    {2, 1, 0}, // eTriangle
+    {2, 2, 0}, // eQuadrilateral
+    {2, 1, 1}, // eTetrahedron
+    {2, 2, 1}, // ePyramid
+    {2, 2, 1}, // ePrism
+    {2, 2, 2}, // eHexahedron
+    {2, 1, 0}, // eNodalTtri
+    {2, 1, 1}, // eNodalTet
+    {2, 2, 1}  // eNodalPrism
+};
+
+// Hold the traceid in given dim
+constexpr unsigned int ShapeTypeTraceIDInDir[SIZE_ShapeType][3][2] = {
+    {{0, 0}, {0, 0}, {0, 0}}, // Unknown
+    {{0, 0}, {0, 0}, {0, 0}}, // ePoint
+    {{0, 1}, {0, 0}, {0, 0}}, // eSegment
+    {{2, 1}, {0, 0}, {0, 0}}, // eTriangle
+    {{3, 1}, {0, 2}, {0, 0}}, // eQuadrilateral
+    {{3, 2}, {1, 0}, {0, 0}}, // eTetrahedron
+    {{4, 2}, {1, 3}, {0, 0}}, // ePyramid
+    {{4, 2}, {1, 3}, {0, 0}}, // ePrism
+    {{4, 2}, {1, 3}, {0, 5}}, // eHexahedron
+    {{2, 1}, {0, 0}, {0, 0}}, // eNodalTtri
+    {{3, 2}, {1, 0}, {0, 0}}, // eNodalTet
+    {{4, 2}, {1, 3}, {0, 0}}  // eNodalPrism
+};
+
+// Hold the shape of each trace of a given shape. Faces of a prism and a
+// pyramid are of mixed shape, so this is indexed by trace id; entries beyond
+// ShapeTypeNumTraces[shape] are eNoShapeType.
+constexpr ShapeType ShapeTypeTraceShape[SIZE_ShapeType][6] = {
+    // Unknown
+    {eNoShapeType, eNoShapeType, eNoShapeType, eNoShapeType, eNoShapeType,
+     eNoShapeType},
+    // ePoint
+    {eNoShapeType, eNoShapeType, eNoShapeType, eNoShapeType, eNoShapeType,
+     eNoShapeType},
+    // eSegment
+    {ePoint, ePoint, eNoShapeType, eNoShapeType, eNoShapeType, eNoShapeType},
+    // eTriangle
+    {eSegment, eSegment, eSegment, eNoShapeType, eNoShapeType, eNoShapeType},
+    // eQuadrilateral
+    {eSegment, eSegment, eSegment, eSegment, eNoShapeType, eNoShapeType},
+    // eTetrahedron
+    {eTriangle, eTriangle, eTriangle, eTriangle, eNoShapeType, eNoShapeType},
+    // ePyramid
+    {eQuadrilateral, eTriangle, eTriangle, eTriangle, eTriangle, eNoShapeType},
+    // ePrism
+    {eQuadrilateral, eTriangle, eQuadrilateral, eTriangle, eQuadrilateral,
+     eNoShapeType},
+    // eHexahedron
+    {eQuadrilateral, eQuadrilateral, eQuadrilateral, eQuadrilateral,
+     eQuadrilateral, eQuadrilateral},
+    // eNodalTtri
+    {eSegment, eSegment, eSegment, eNoShapeType, eNoShapeType, eNoShapeType},
+    // eNodalTet
+    {eTriangle, eTriangle, eTriangle, eTriangle, eNoShapeType, eNoShapeType},
+    // eNodalPrism
+    {eQuadrilateral, eTriangle, eQuadrilateral, eTriangle, eQuadrilateral,
+     eNoShapeType}};
 
 namespace StdSegData
 {
@@ -333,6 +418,53 @@ inline constexpr int getNumberOfBndCoefficients(int Na, int Nb, int Nc)
 }
 } // namespace StdPyrData
 
+namespace StdNodalPyrData
+{
+inline constexpr int getNumberOfCoefficients(int Na, int Nb, int Nc)
+{
+    ASSERTL1(Na > 1, "Order in 'a' direction must be > 1.");
+    ASSERTL1(Nb > 1, "Order in 'b' direction must be > 1.");
+    ASSERTL1(Nc > 1, "Order in 'c' direction must be > 1.");
+    ASSERTL1(Na <= Nc, "Order in 'a' direction is higher "
+                       "than order in 'c' direction.");
+    ASSERTL1(Nb <= Nc, "Order in 'b' direction is higher "
+                       "than order in 'c' direction.");
+
+    // Count number of coefficients explicitly.
+    int nCoeff = 0;
+
+    // Count number of interior tet modes
+    for (int a = 0; a < Na; ++a)
+    {
+        for (int b = 0; b < Nb; ++b)
+        {
+            for (int c = 0; c < Nc - std::max(a, b); ++c)
+            {
+                ++nCoeff;
+            }
+        }
+    }
+    return nCoeff;
+}
+
+inline constexpr int getNumberOfBndCoefficients(int Na, int Nb, int Nc)
+{
+    ASSERTL1(Na > 1, "Order in 'a' direction must be > 1.");
+    ASSERTL1(Nb > 1, "Order in 'b' direction must be > 1.");
+    ASSERTL1(Nc > 1, "Order in 'c' direction must be > 1.");
+    ASSERTL1(Na <= Nc, "Order in 'a' direction is higher "
+                       "than order in 'c' direction.");
+    ASSERTL1(Nb <= Nc, "Order in 'b' direction is higher "
+                       "than order in 'c' direction.");
+
+    return Na * Nb                                    // base
+           + 2 * (Na * (Na + 1) / 2 + (Nc - Na) * Na) // front and back
+           + 2 * (Nb * (Nb + 1) / 2 + (Nc - Nb) * Nb) // sides
+           - 2 * Na - 2 * Nb - 4 * Nc                 // less edges
+           + 5;                                       // plus vertices
+}
+} // namespace StdNodalPyrData
+
 namespace StdPrismData
 {
 inline constexpr int getNumberOfCoefficients(int Na, int Nb, int Nc)
@@ -465,6 +597,9 @@ inline constexpr int GetNumberOfCoefficients(ShapeType shape, int na,
             break;
         case eNodalPrism:
             returnval = StdNodalPrismData::getNumberOfCoefficients(na, nb, nc);
+            break;
+        case eNodalPyr:
+            returnval = StdNodalPyrData::getNumberOfCoefficients(na, nb, nc);
             break;
         case eHexahedron:
             returnval = na * nb * nc;

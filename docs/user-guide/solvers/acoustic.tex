@@ -279,6 +279,42 @@ The Riemann-Invariant BC approximates a non-reflecting (r.g. Farfield)  boundary
 The white noise BC imposes a stochastic, uniform pressure at the boundary. The implementation uses a Mersenne-Twister pseudo random number generator to generate white Gaussian noise.
 The standard deviation $\sigma$ of the pressure  is specified by the \inltt{VALUE} attribute.
 
+\item Perforated Plate / Liner Boundary Condition, e.g. for APE:
+\begin{lstlisting}[style=XmlStyle]
+<BOUNDARYCONDITIONS>
+<REGION REF="0">
+    <D VAR="p" USERDEFINEDTYPE="LinerBC" VALUE="0" />
+    <D VAR="u" USERDEFINEDTYPE="LinerBC" VALUE="0" />
+    <D VAR="v" USERDEFINEDTYPE="LinerBC" VALUE="0" />
+    <D VAR="w" USERDEFINEDTYPE="LinerBC" VALUE="0" />
+</REGION>
+</BOUNDARYCONDITIONS>
+\end{lstlisting}
+The liner BC imposes the behavior of a perforated plate at that boundary. This is done through the time integration of a rational fraction that represents the frequency-domain behavior of such liner. The rational fraction needs to be inputted as:
+\begin{lstlisting}[style=XmlStyle]
+<FUNCTION NAME="RationalFraction">
+    <E VAR="A0" VALUE="8.333432886643921*1e6"   />
+    <E VAR="A1" VALUE="0.199971852470347*1e6"   />
+    <E VAR="A2" VALUE="0.001123670329966*1e6"   />
+    <E VAR="A3" VALUE="1.0"                     />
+    <E VAR="B0" VALUE="-7.228420908799834*1e6"  />
+    <E VAR="B1" VALUE="-0.159965320270149*1e6"  />
+    <E VAR="B2" VALUE="-0.000607940813080*1e6"  />
+    <E VAR="B3" VALUE="0.000001000001475*1e6"   />
+</FUNCTION>
+\end{lstlisting}
+Where the order of the denominator (\inltt{A}) needs to be equal or higher than the numerator (\inltt{B}), order can be up to 9 and unspecified values are considered to be 0. The liner also has additional parameter specifications:
+\begin{lstlisting}[style=XmlStyle]
+<PARAMETERS>
+    <P> LinerType     = 0                       </P>
+    <P> w0            = 1.129341573967544e+03   </P>
+    <P> wI            = 2.552709408621595       </P>
+    <P> u0            = 1.083268522636659       </P>
+    <P> uI            = -0.519856677269848      </P>
+</PARAMETERS>
+\end{lstlisting}
+Where \inltt{LinerType} is mandatory in order to use the linerBC. Its value has no use at the current state, but is meant to identify the time of liner model to be used. The other parameters are optional, \inltt{w0} and \inltt{wI} represent the real and imaginary components of the initial oscillation frequency and \inltt{u0} and \inltt{uI} the real and imaginary components of the initial liner input. These for values are used to adequately initialize the liner in frequency domain before the time integration. These values are optional, but recommended to use if the initial conditions have a given frequency.
+
 \end{itemize}
 
 

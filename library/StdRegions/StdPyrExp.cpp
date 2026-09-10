@@ -700,7 +700,7 @@ void StdPyrExp::v_FillMode(const int mode, Array<OneD, NekDouble> &outarray)
 {
     Array<OneD, NekDouble> tmp(m_ncoeffs, 0.0);
     tmp[mode] = 1.0;
-    v_BwdTrans(tmp, outarray);
+    StdPyrExp::v_BwdTrans(tmp, outarray);
 }
 
 void StdPyrExp::v_GetTraceNumModes(const int fid, int &numModes0,
@@ -919,6 +919,13 @@ int StdPyrExp::v_CalcNumberOfCoefficients(
 
     modes_offset += 3;
     return nmodes;
+}
+
+bool StdPyrExp::v_IsBoundaryInteriorExpansion() const
+{
+    return (m_base[0]->GetBasisType() == LibUtilities::eModified_A) &&
+           (m_base[1]->GetBasisType() == LibUtilities::eModified_A) &&
+           (m_base[2]->GetBasisType() == LibUtilities::eModifiedPyr_C);
 }
 
 int StdPyrExp::v_GetVertexMap(int vId, bool useCoeffPacking)
@@ -1740,7 +1747,89 @@ void StdPyrExp::v_GetTraceInteriorToElementMap(
 
 DNekMatSharedPtr StdPyrExp::v_GenMatrix(const StdMatrixKey &mkey)
 {
-    return CreateGeneralMatrix(mkey);
+    MatrixType mtype = mkey.GetMatrixType();
+
+    DNekMatSharedPtr Mat;
+
+    switch (mtype)
+    {
+        case ePhysInterpToEquiSpaced:
+        {
+            int nq0 = m_base[0]->GetNumPoints();
+            int nq1 = m_base[1]->GetNumPoints();
+            int nq2 = m_base[2]->GetNumPoints();
+            int nq;
+
+            // take definition from key
+            if (mkey.ConstFactorExists(eFactorConst))
+            {
+                nq = (int)mkey.GetConstFactor(eFactorConst);
+            }
+            else
+            {
+                nq = max(nq0, max(nq1, nq2));
+            }
+
+            int neq =
+                LibUtilities::StdPyrData::getNumberOfCoefficients(nq, nq, nq);
+            Array<OneD, Array<OneD, NekDouble>> coords(neq);
+            Array<OneD, NekDouble> coll(3);
+            Array<OneD, DNekMatSharedPtr> I(3);
+            Array<OneD, NekDouble> tmp(nq0);
+
+            Mat =
+                MemoryManager<DNekMat>::AllocateSharedPtr(neq, nq0 * nq1 * nq2);
+            int cnt = 0;
+
+            for (int i = 0; i < nq; ++i)
+            {
+                for (int j = 0; j < nq - i; ++j)
+                {
+                    for (int k = 0; k < nq - i; ++k, ++cnt)
+                    {
+                        coords[cnt]    = Array<OneD, NekDouble>(3);
+                        coords[cnt][0] = -1.0 + 2 * k / (NekDouble)(nq - 1);
+                        coords[cnt][1] = -1.0 + 2 * j / (NekDouble)(nq - 1);
+                        coords[cnt][2] = -1.0 + 2 * i / (NekDouble)(nq - 1);
+                    }
+                }
+            }
+
+            for (int i = 0; i < neq; ++i)
+            {
+                LocCoordToLocCollapsed(coords[i], coll);
+
+                I[0] = m_base[0]->GetI(coll);
+                I[1] = m_base[1]->GetI(coll + 1);
+                I[2] = m_base[2]->GetI(coll + 2);
+
+                // interpolate first coordinate direction
+                NekDouble fac;
+                for (int k = 0; k < nq2; ++k)
+                {
+                    for (int j = 0; j < nq1; ++j)
+                    {
+
+                        fac = (I[1]->GetPtr())[j] * (I[2]->GetPtr())[k];
+                        Vmath::Smul(nq0, fac, I[0]->GetPtr(), 1, tmp, 1);
+
+                        Vmath::Vcopy(nq0, &tmp[0], 1,
+                                     Mat->GetRawPtr() + k * nq0 * nq1 * neq +
+                                         j * nq0 * neq + i,
+                                     neq);
+                    }
+                }
+            }
+        }
+        break;
+        default:
+        {
+            Mat = StdExpansion::CreateGeneralMatrix(mkey);
+        }
+        break;
+    }
+
+    return Mat;
 }
 
 DNekMatSharedPtr StdPyrExp::v_CreateStdMatrix(const StdMatrixKey &mkey)

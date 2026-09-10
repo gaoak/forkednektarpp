@@ -49,6 +49,8 @@
 #include <SolverUtils/RiemannSolvers/RiemannSolver.h>
 #include <SolverUtils/UnsteadySystem.h>
 
+#include <AcousticSolver/LinerSolvers/PerforatedPlate.h>
+
 using namespace Nektar::SolverUtils;
 
 namespace Nektar
@@ -72,6 +74,8 @@ protected:
     Array<OneD, Array<OneD, NekDouble>> m_vecLocs;
     Array<OneD, Array<OneD, NekDouble>> m_bf;
     std::vector<std::string> m_bfNames;
+    // class containing the perforated plate model
+    std::unique_ptr<PerforatedPlate> m_perforatedPlate;
 
     /// Initialises UnsteadySystem class members.
     AcousticSystem(const LibUtilities::SessionReaderSharedPtr &pSession,
@@ -101,6 +105,11 @@ protected:
         int bcRegion, int cnt, Array<OneD, Array<OneD, NekDouble>> &Fwd,
         Array<OneD, Array<OneD, NekDouble>> &BfFwd,
         Array<OneD, Array<OneD, NekDouble>> &physarray) = 0;
+
+    virtual void v_LinerBC(int bcRegion, int cnt,
+                           Array<OneD, Array<OneD, NekDouble>> &Fwd,
+                           Array<OneD, Array<OneD, NekDouble>> &physarray,
+                           const NekDouble intTime, const NekDouble simdt) = 0;
 
     bool v_PreIntegrate(int step) override;
 

@@ -517,6 +517,8 @@ public:
         ExpansionInfoMapShPtr &expansionMap, LibUtilities::ShapeType shape,
         LibUtilities::BasisKeyVector &keys);
 
+    SPATIAL_DOMAINS_EXPORT void ResetExpansionInfoToModified(std::string var);
+
     inline bool SameExpansionInfo(const std::string var1,
                                   const std::string var2);
 

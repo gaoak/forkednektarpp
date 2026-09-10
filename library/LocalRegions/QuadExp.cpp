@@ -330,12 +330,13 @@ void QuadExp::v_GetTracePhysVals(
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray, StdRegions::Orientation orient)
 {
-    v_GetLocTracePhysVals(edge, EdgeExp, inarray.data(), outarray);
-
     if (orient == StdRegions::eNoOrientation)
     {
         orient = GetTraceOrient(edge);
     }
+
+    v_GetLocTracePhysVals(edge, EdgeExp, inarray.data(), outarray, orient);
+
     // Reverse data if necessary
     if (orient == StdRegions::eBackwards)
     {
@@ -346,7 +347,8 @@ void QuadExp::v_GetTracePhysVals(
 
 void QuadExp::v_GetLocTracePhysVals(
     const int edge, const StdRegions::StdExpansionSharedPtr &EdgeExp,
-    const double *inarray, Array<OneD, NekDouble> &outarray)
+    const double *inarray, Array<OneD, NekDouble> &outarray,
+    [[maybe_unused]] StdRegions::Orientation orient)
 {
     int nquad0 = m_base[0]->GetNumPoints();
     int nquad1 = m_base[1]->GetNumPoints();
