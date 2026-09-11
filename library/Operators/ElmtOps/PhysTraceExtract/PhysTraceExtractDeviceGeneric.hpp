@@ -48,13 +48,13 @@
  * PhysTraceExtractDeviceGenericKernels.hpp. No arithmetic on the field
  * happens here.
  *
- * CMake serves Operators::Generic from this one header (the Device
- * Generic branch of library/Operators/CMakeLists.txt) and generates one
- * translation unit per shape and data type from
- * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in. Those units
- * define the per-shape entry points declared below, expanding
- * Common/BlockOpSwitchPhysTraceExtract.h.in, this operator's switch
- * template.
+ * CMake serves Operators::Generic from this one header (the Device Generic
+ * branch of library/Operators/CMakeLists.txt) and generates one translation
+ * unit per shape and data type from
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in. Those units define
+ * the per-shape entry points declared below, expanding
+ * LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in, this
+ * operator's switch template.
  *
  * Unlike IProductWRTPhysTrace, which declares a primary template and
  * partially specialises it on NektarSpaces::Device, this header defines
@@ -891,8 +891,8 @@ protected:
         constexpr unsigned int DIM = LibUtilities::ShapeTypeDimMap[SHAPE_TYPE];
 
         // sizeParam is built by the switch in
-        // Operators/Common/BlockOpSwitchPhysTraceExtract.h.in: this
-        // operator's trace size parameters carry trace point counts per
+        // LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in:
+        // this operator's trace size parameters carry trace point counts per
         // normal direction.
         static_assert(
             (DIM == 1 && IsTraceSizeParameter1D_v<TTraceSizeParameter>) ||

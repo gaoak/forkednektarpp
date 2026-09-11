@@ -51,9 +51,10 @@ namespace Nektar::LocalRegions
  * @p Forwards selects the direction the data travels:
  *
  *   - `true`  - @p in is the element's local face, @p out the global trace.
- *               This is the gather, used by LocFaceToGloFaceBlock().
+ *               This is the gather, from the element's local face layout
+ *               to the shared trace layout.
  *   - `false` - @p in is the global trace, @p out the element's local face.
- *               This is the scatter, used by GloFaceToLocFaceBlock().
+ *               This is the scatter, the inverse of the gather.
  *
  * The two are inverses of each other for the same @p orient, so a gather
  * followed by a scatter returns the original data.

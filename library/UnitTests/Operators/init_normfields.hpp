@@ -153,8 +153,8 @@ public:
 
             if (l2Diff > tol)
             {
-                std::cout << "Component " << comp << " mismatch: "
-                          << "L2(actual=" << m_l2Test[comp]
+                std::cout << "Component " << comp
+                          << " mismatch: " << "L2(actual=" << m_l2Test[comp]
                           << ", expected=" << m_l2Expected[comp]
                           << ", diff=" << l2Diff << ")" << std::endl;
                 match = false;
@@ -162,8 +162,8 @@ public:
 
             if (linfDiff > tol)
             {
-                std::cout << "Component " << comp << " mismatch: "
-                          << "Linf(actual=" << m_linfTest[comp]
+                std::cout << "Component " << comp
+                          << " mismatch: " << "Linf(actual=" << m_linfTest[comp]
                           << ", expected=" << m_linfExpected[comp]
                           << ", diff=" << linfDiff << ")" << std::endl;
                 match = false;
@@ -179,8 +179,8 @@ public:
 
             if (l2Diff > tol)
             {
-                std::cout << "Component " << comp << " mismatch: "
-                          << "L2(actual=" << m_l2Test2[comp]
+                std::cout << "Component " << comp
+                          << " mismatch: " << "L2(actual=" << m_l2Test2[comp]
                           << ", expected=" << m_l2Expected[comp]
                           << ", diff=" << l2Diff << ")" << std::endl;
                 match = false;

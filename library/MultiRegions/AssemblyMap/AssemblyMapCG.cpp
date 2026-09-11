@@ -2538,7 +2538,7 @@ void AssemblyMapCG::SetUpUniversalC0ContMap(const ExpList &locExp,
     m_gsh = Gs::Init(tmp, vRowComm, verbose);
 
     // this is needed for device support calls to DataWarehouse
-    m_cgcomm = std::make_unique<AssemblyCommCG<double>>(vRowComm, tmp);
+    m_cgcomm = std::make_unique<AssemblyComm<double>>(vRowComm, tmp);
 
     Gs::Unique(tmp, vRowComm);
 

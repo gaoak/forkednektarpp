@@ -231,6 +231,138 @@ MemoryRegion<TData> BasisDataCreator::Create(
             return MemoryRegion<TData>::template FromArray<MemSpace>(tmpI);
         }
         break;
+        /// make an orthonormal projection from one set of points
+        /// specified in the basis key to a lower number given by
+        /// m_npts.
+        ///
+        ///  Project to Orthonormal basis:
+        ///         fB[p][i] = Ortho_p(x_i}  0 <= i,p,<npFrom (square matrix)
+        ///  so fB \hat{u}_p = u_i   -->   \hat{u}_p = inv(fB) u_i
+        ///  filter top modes:
+        ///        \hat{u}^f =  diag(F)(\hat{u}} = diag(F) inv(fB) u_i
+        ///  Evaluate at lower points: tB[q][j] = Ortho_p(x_j) 0 <= j,q < npTo
+        ///         u^to_i = tB \hat{u}^f = tB diag(F) inv(fB) u_i
+        case eOrthoProject:
+        {
+            ASSERTL1(basisDataKey.m_toPointsType != LibUtilities::eNoPointsType,
+                     "Need to define a points key to project down to");
+
+            const auto npTo   = basisDataKey.m_npts;
+            const auto npFrom = basisDataKey.m_basisKey.GetNumPoints();
+
+            ASSERTL1(npTo < npFrom, "This method assumes you are projecting to "
+                                    "a lower number of points");
+
+            // construct an orthonormal square basis matrix and invert
+            LibUtilities::BasisKey fromOrth(
+                LibUtilities::eOrtho_A, npFrom,
+                basisDataKey.m_basisKey.GetPointsKey());
+            LibUtilities::BasisSharedPtr fbasis =
+                LibUtilities::BasisManager()[fromOrth];
+
+            // Convert to a NekMatrix and invert
+            Array<OneD, double> fB_data = fbasis->GetBdata();
+            NekMatrix<double> fBinv(npFrom, npFrom, fB_data);
+            fBinv.Invert();
+
+            // Filter off the unwanted high frequency modes. fBinv has its
+            // rows indexed by mode and its columns by point, and NekMatrix
+            // stores column major, so the modes to drop are a stride npFrom
+            // apart rather than a contiguous block: zeroing contiguously here
+            // would discard whole points instead of modes.
+            for (unsigned j = 0; j < npFrom; ++j)
+            {
+                Vmath::Zero(npFrom - npTo,
+                            fBinv.GetRawPtr() + j * npFrom + npTo, 1);
+            }
+
+            // construct an orthonormal basis at "to" points
+            LibUtilities::PointsKey toPkey(npTo, basisDataKey.m_toPointsType);
+            LibUtilities::BasisKey toOrth(LibUtilities::eOrtho_A, npFrom,
+                                          toPkey);
+            LibUtilities::BasisSharedPtr tbasis =
+                LibUtilities::BasisManager()[toOrth];
+            Array<OneD, double> tB_data = tbasis->GetBdata();
+
+            // finally multiply by filtered matrix by backwards
+            // transform to points
+            Array<OneD, double> tmpI(npFrom * npTo);
+            for (unsigned i = 0; i < npTo; ++i)
+            {
+                for (unsigned j = 0; j < npFrom; ++j)
+                {
+                    double sum = 0.0;
+                    for (unsigned k = 0; k < npFrom; ++k)
+                    {
+                        sum += tB_data[k * npTo + i] * fBinv.GetValue(k, j);
+                    }
+                    tmpI[i + j * npTo] = sum;
+                }
+            }
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(tmpI);
+        }
+        break;
+        /// make an orthonormal projection from one set of points
+        /// specified in the basis key to a lower order given by
+        /// m_npts and return the projection back to the original points
+        case eOrthoProjectSamePts:
+        {
+            ASSERTL1(basisDataKey.m_toPointsType != LibUtilities::eNoPointsType,
+                     "Need to define a points key to project down to");
+
+            const auto npFilter = basisDataKey.m_npts;
+            const auto np       = basisDataKey.m_basisKey.GetNumPoints();
+
+            ASSERTL1(npFilter < np, "This method assumes you are filtering to "
+                                    "a lower number of points");
+
+            // construct an orthonormal square basis matrix and invert
+            LibUtilities::BasisKey fromOrth(
+                LibUtilities::eOrtho_A, np,
+                basisDataKey.m_basisKey.GetPointsKey());
+            LibUtilities::BasisSharedPtr fbasis =
+                LibUtilities::BasisManager()[fromOrth];
+
+            // Convert to a NekMatrix and invert
+            Array<OneD, double> fB_data = fbasis->GetBdata();
+            NekMatrix<double> fBinv(np, np, fB_data);
+            fBinv.Invert();
+
+            // Filter off the unwanted high frequency modes; see the note in
+            // eOrthoProject on why this is strided rather than contiguous.
+            for (unsigned j = 0; j < np; ++j)
+            {
+                Vmath::Zero(np - npFilter,
+                            fBinv.GetRawPtr() + j * np + npFilter, 1);
+            }
+
+            // construct an orthonormal basis at "to" points
+            LibUtilities::PointsKey toPkey(np, basisDataKey.m_toPointsType);
+            LibUtilities::BasisKey toOrth(LibUtilities::eOrtho_A, np, toPkey);
+            LibUtilities::BasisSharedPtr tbasis =
+                LibUtilities::BasisManager()[toOrth];
+            Array<OneD, double> tB_data = tbasis->GetBdata();
+
+            // finally multiply by filtered matrix by backwards
+            // transform to points
+            Array<OneD, double> tmpI(np * np);
+            for (unsigned i = 0; i < np; ++i)
+            {
+                for (unsigned j = 0; j < np; ++j)
+                {
+                    double sum = 0.0;
+                    for (unsigned k = 0; k < np; ++k)
+                    {
+                        sum += tB_data[k * np + i] * fBinv.GetValue(k, j);
+                    }
+                    tmpI[j * np + i] = sum;
+                }
+            }
+            return LibUtilities::MemoryRegion<TData>::template FromArray<
+                MemSpace>(tmpI);
+        }
+        break;
         case eHalfMultOnePlusZero:
         {
             const auto z = basis->GetZ();

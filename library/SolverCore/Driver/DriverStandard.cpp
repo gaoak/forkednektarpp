@@ -34,6 +34,9 @@
 
 #include <SolverCore/Driver/DriverStandard.h>
 
+#include <LibUtilities/Backends/Backends.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+
 namespace Nektar::SolverCore
 {
 
@@ -63,6 +66,10 @@ void DriverStandard::v_Execute(std::ostream &out)
     timer.Start();
     m_equ[0]->DoInitialise();
     m_equ[0]->DoSolve();
+    // A device runs asynchronously, so wait for the work submitted above to
+    // finish before the timer is read; otherwise the time reported is the
+    // host's, up to its last submission.
+    nekDeviceSynchronize();
     timer.Stop();
 
     m_equ[0]->Output();
@@ -71,21 +78,18 @@ void DriverStandard::v_Execute(std::ostream &out)
     {
         NekDouble CpuTime;
         CpuTime = timer.Elapsed().count();
-        if (boost::iequals(
-                m_session->GetCmdLineArgument<std::string>("opExecSpace"),
-                "Device"))
-        {
-            out << "-------------------------------------------" << std::endl;
-            out << "Total Computation Time = " << "NO TIMER IMPLEMENTED"
-                << std::endl;
-            out << "-------------------------------------------" << std::endl;
-        }
-        else
-        {
-            out << "-------------------------------------------" << std::endl;
-            out << "Total Computation Time = " << CpuTime << std::endl;
-            out << "-------------------------------------------" << std::endl;
-        }
+
+        // The execution space follows the operators': the command-line
+        // argument when it is given, and otherwise whatever the build
+        // provides.
+        const std::string execSpace =
+            m_session->DefinesCmdLineArgument("opExecSpace")
+                ? m_session->GetCmdLineArgument<std::string>("opExecSpace")
+                : (nekGetNumDevice() ? "Device" : "Host");
+
+        out << "-------------------------------------------" << std::endl;
+        out << "Total Computation Time = " << CpuTime << std::endl;
+        out << "-------------------------------------------" << std::endl;
     }
 
     m_equ[0]->PrintNorms(out);

@@ -249,7 +249,7 @@ public:
                 for (unsigned e = 0; e < numElmts; ++e)
                 {
                     auto expPtr = this->fixt_explist->GetExp(eid + e);
-                    Array<OneD, NekDouble> indata(numData, inptr + physoffset);
+                    Array<OneD, double> indata(numData, inptr + physoffset);
 
                     auto Shape = expPtr->DetShapeType();
 

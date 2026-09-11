@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    A single deformed prism whose quadrilateral face 16 has its edge list
+    rotated so that the face is seen by the element under a *transposing*
+    orientation (eDir1FwdDir2_Dir2BwdDir1). Combined with an expansion whose
+    two face directions carry different numbers of quadrature points, this
+    exercises geometric data that must be sampled in the face frame and then
+    reoriented into the element local frame; getting that wrong is invisible
+    on an aligned or affine mesh, and invisible to any check with a constant
+    integrand.
+-->
+<NEKTAR>
+    <GEOMETRY DIM="3" SPACE="3">
+        <VERTEX>
+            <V ID="9"> 0.00000000e+00 4.00000000e-01 5.00000000e-01 </V>
+            <V ID="10"> 0.00000000e+00 5.00000000e-01 0.00000000e+00 </V>
+            <V ID="12"> 5.00000000e-01 1.00000000e+00 5.00000000e-01 </V>
+            <V ID="13"> 5.00000000e-01 1.00000000e+00 0.00000000e+00 </V>
+            <V ID="15"> 0.00000000e+00 1.00000000e+00 5.00000000e-01 </V>
+            <V ID="16"> 0.00000000e+00 1.00000000e+00 0.00000000e+00 </V>
+        </VERTEX>
+        <EDGE>
+            <E ID="19"> 9  10 </E>
+            <E ID="23"> 9  12 </E>
+            <E ID="26"> 10  13 </E>
+            <E ID="27"> 12  13 </E>
+            <E ID="31"> 9  15 </E>
+            <E ID="32"> 12  15 </E>
+            <E ID="33"> 13  16 </E>
+            <E ID="34"> 10  16 </E>
+            <E ID="35"> 15  16 </E>
+        </EDGE>
+        <FACE>
+            <T ID="24"> 32        31        23 </T>
+            <T ID="26"> 33        34        26 </T>
+            <!-- rotated to start at edge 23; the aligned ordering is
+                27 26 19 23, which gives eDir1FwdDir1_Dir2FwdDir2 -->
+            <Q ID="16"> 23        27        26        19 </Q>
+            <Q ID="23"> 32        35        33        27 </Q>
+            <Q ID="25"> 35        34        19        31 </Q>
+        </FACE>
+        <ELEMENT>
+            <R ID="6"> 23    24    25    26    16 </R>
+        </ELEMENT>
+        <COMPOSITE>
+            <C ID="10"> R[6] </C>
+            <C ID="1"> F[16,23,24,25,26] </C>
+        </COMPOSITE>
+        <DOMAIN> C[10] </DOMAIN>
+    </GEOMETRY>
+    <EXPANSIONS>
+        <E COMPOSITE="C[10]" BASISTYPE="Modified_A,Modified_A,Modified_B"
+            NUMMODES="2,2,2"
+            POINTSTYPE="GaussLobattoLegendre,GaussLobattoLegendre,GaussRadauMAlpha1Beta0"
+            NUMPOINTS="3,3,3" FIELDS="u" />
+    </EXPANSIONS>
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="GLOBALSYSSOLN"    VALUE="IterativeFull" />
+            <I PROPERTY="LinSysIterSolver" VALUE="ConjugateGradientLoc"/>
+            <I PROPERTY="Preconditioner"   VALUE="Diagonal"/>
+        </SOLVERINFO>
+        <PARAMETERS>
+            <P> IterativeSolverTolerance = 1e-14 </P>
+        </PARAMETERS>
+        <VARIABLES>
+            <V ID="0">u</V>
+        </VARIABLES>
+    </CONDITIONS>
+</NEKTAR>

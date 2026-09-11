@@ -96,6 +96,24 @@ std::vector<TData> GetIPTraceLengthRecip(const ExpListSharedPtr &expansionList)
     Array<OneD, double> lengthBwd(nTracePts, 0.0);
     expansionList->GetTrace()->GetElmtNormalLength(lengthFwd, lengthBwd);
 
+    // GetElmtNormalLength() fills lengthBwd from the element on the far side
+    // of each trace, and leaves it zero where there is no such element on this
+    // rank - a domain boundary, a periodic pair, or a trace the partitioner
+    // cut. The first two are dealt with below; the third is not local
+    // knowledge at all and has to be fetched.
+    //
+    // Without this a partition boundary keeps a zero backward length, falls
+    // into the boundary branch below and is treated as the edge of the domain:
+    // its element length is halved and mirrored instead of being paired with
+    // the neighbour's. The interior penalty is inversely proportional to that
+    // length, so the flux is wrong on exactly the traces the partitioner made,
+    // and only there. Legacy does the same exchange at the same point, in
+    // DiffusionIP::v_InitObject.
+    if (auto traceMap = expansionList->GetTraceMap())
+    {
+        traceMap->GetAssemblyCommDG()->PerformExchange(lengthFwd, lengthBwd);
+    }
+
     if (auto discontField =
             std::dynamic_pointer_cast<DisContField>(expansionList))
     {
@@ -126,28 +144,48 @@ std::vector<TData> GetIPTraceLengthRecip(const ExpListSharedPtr &expansionList)
     return lengthRecip;
 }
 
+/**
+ * @brief Single-component trace data for the whole trace, block by block.
+ *
+ * One allocation spanning every block, each block's points followed by its
+ * padding, which is the layout a Field uses and therefore the layout the
+ * callers' trace offsets are built for. Returning a region per block instead
+ * looks harmless and is not: a caller holding block 0 and indexing it with an
+ * offset that accumulates over blocks reads correct values for the first block
+ * and off the end for every other one. That reads neighbouring trace data far
+ * more often than anything invalid, so it produces a plausible wrong answer
+ * rather than a crash, and only on a mesh with more than one trace block.
+ */
 template <typename TData, typename FillFunc>
 LibUtilities::MemoryRegion<TData> CreateIPTraceBlockData(
-    const ExpListSharedPtr &expansionList, const unsigned int blockIdx,
-    FillFunc fill)
+    const ExpListSharedPtr &expansionList, FillFunc fill)
 {
     auto trace  = expansionList->GetTrace();
     auto blocks = GetBlockAttributes<TData, FieldState::Phys>(trace);
 
-    size_t traceOffset = 0;
-    for (unsigned int blk = 0; blk < blockIdx; ++blk)
+    size_t total = 0;
+    for (const auto &block : blocks)
     {
-        traceOffset += blocks[blk].GetNumElements() * blocks[blk].GetNumData();
+        total += block.CompSize();
     }
 
-    const auto &block     = blocks[blockIdx];
-    const size_t nRealPts = block.GetNumElements() * block.GetNumData();
-    auto data             = LibUtilities::MemoryRegion<TData>(block.CompSize());
+    auto data    = LibUtilities::MemoryRegion<TData>(total);
     auto dataptr = data.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
-    for (size_t i = 0; i < block.CompSize(); ++i)
+    size_t traceOffset = 0;
+    size_t dataOffset  = 0;
+    for (const auto &block : blocks)
     {
-        dataptr[i] = (i < nRealPts) ? fill(traceOffset + i) : TData(0.0);
+        const size_t nRealPts = block.GetNumElements() * block.GetNumData();
+
+        for (size_t i = 0; i < block.CompSize(); ++i)
+        {
+            dataptr[dataOffset + i] =
+                (i < nRealPts) ? fill(traceOffset + i) : TData(0.0);
+        }
+
+        traceOffset += nRealPts;
+        dataOffset += block.CompSize();
     }
 
     return data;
@@ -228,7 +266,7 @@ LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 
 template <typename MemSpace, typename TData>
 LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
-    const IPTraceNormalKey<TData> &ipTraceNormalKey)
+    const GlobalTraceNormalKey<TData> &globalTraceNormalKey)
 {
     const size_t nTracePts  = m_expansionList->GetTrace()->GetTotPoints();
     const unsigned int nDim = m_expansionList->GetCoordim(0);
@@ -241,10 +279,10 @@ LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
 
     auto blocks = GetBlockAttributes<TData, FieldState::Phys>(
         m_expansionList->GetTrace());
-    const auto &block = blocks[ipTraceNormalKey.m_block_idx];
+    const auto &block = blocks[globalTraceNormalKey.m_block_idx];
 
     size_t traceOffset = 0;
-    for (unsigned int blk = 0; blk < ipTraceNormalKey.m_block_idx; ++blk)
+    for (unsigned int blk = 0; blk < globalTraceNormalKey.m_block_idx; ++blk)
     {
         traceOffset += blocks[blk].GetNumElements() * blocks[blk].GetNumData();
     }
@@ -267,6 +305,39 @@ LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
 
 template <typename MemSpace, typename TData>
 LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
+    const BndCondNormalKey<TData> &bndCondNormalKey)
+{
+    const unsigned int nDim = m_expansionList->GetCoordim(0);
+
+    Array<OneD, Array<OneD, NekDouble>> normals;
+    m_expansionList->GetBoundaryNormals(bndCondNormalKey.m_region_idx, normals);
+
+    // GetBoundaryNormals() sizes its result to the boundary expansion's total
+    // points, which is exactly the stride BndCondPhysOp reports for the
+    // matching block - both are that expansion's GetTotPoints() - so the two
+    // line up with no padding on either side. Should the boundary storage ever
+    // be padded for vectorisation, this is the one place that has to learn
+    // about it.
+    const size_t nPts =
+        m_expansionList->GetBndCondExpansions()[bndCondNormalKey.m_region_idx]
+            ->GetTotPoints();
+
+    auto data    = LibUtilities::MemoryRegion<TData>(nDim * nPts);
+    auto dataptr = data.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
+    for (unsigned int d = 0; d < nDim; ++d)
+    {
+        for (size_t i = 0; i < nPts; ++i)
+        {
+            dataptr[d * nPts + i] = static_cast<TData>(normals[d][i]);
+        }
+    }
+
+    return data;
+}
+
+template <typename MemSpace, typename TData>
+LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
     const IPTraceScalarKey<TData> &ipTraceScalarKey)
 {
     const size_t nTracePts = m_expansionList->GetTrace()->GetTotPoints();
@@ -274,6 +345,22 @@ LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
 
     switch (ipTraceScalarKey.m_type)
     {
+        case IPTraceScalarData::LengthRecip:
+        {
+            scalarData = GetIPTraceLengthRecip<TData>(m_expansionList);
+            break;
+        }
+        case IPTraceScalarData::IPPenaltyFactor:
+        {
+            auto lenrecip = GetIPTraceLengthRecip<TData>(m_expansionList);
+            scalarData    = GetIPTracePenaltyFactor<TData>(m_expansionList);
+
+            for (unsigned i = 0; i < nTracePts; ++i)
+            {
+                scalarData[i] *= lenrecip[i];
+            }
+            break;
+        }
         case IPTraceScalarData::BwdWeightAver:
         {
             Array<OneD, double> bwdWeightAver(nTracePts, 0.0);
@@ -296,11 +383,6 @@ LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
             }
             break;
         }
-        case IPTraceScalarData::LengthRecip:
-        {
-            scalarData = GetIPTraceLengthRecip<TData>(m_expansionList);
-            break;
-        }
         case IPTraceScalarData::PenaltyFactor:
         {
             scalarData = GetIPTracePenaltyFactor<TData>(m_expansionList);
@@ -308,9 +390,9 @@ LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
         }
     }
 
+    // Spans every block; ipTraceScalarKey.m_block_idx is not consulted.
     return CreateIPTraceBlockData<TData>(
-        m_expansionList, ipTraceScalarKey.m_block_idx,
-        [&](const size_t i) { return scalarData[i]; });
+        m_expansionList, [&](const size_t i) { return scalarData[i]; });
 }
 
 template <typename MemSpace, typename TData>
@@ -336,13 +418,52 @@ LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
     unsigned int traceOffset = 0;
     for (int t = 0; t < exp->GetNtraces(); ++t)
     {
-        auto traceExp             = exp->GetLocTraceExp(t);
+        auto traceExp             = exp->GetStdTraceExp(t);
         const int nPts            = exp->GetTraceNumPoints(t);
         const int nTraceMetricPts = traceExp->GetTotPoints();
 
         Array<OneD, double> ones(nTraceMetricPts, 1.0);
         Array<OneD, double> metric(nTraceMetricPts, 0.0);
-        traceExp->MultiplyByQuadratureMetric(ones, metric);
+
+        // The quadrature metric is W*|J|, and derivBaseOnTrace below is
+        // expressed in the element local trace frame, so both factors must be
+        // in that frame. traceExp carries the element's local basis keys, so
+        // its weights are already local, but it is built on the shared trace
+        // geometry and so its Jacobian is not (see
+        // Expansion::GetAlignedTraceExp). Take the weights from traceExp and
+        // the Jacobian from the aligned expansion, scattered into the local
+        // frame.
+        traceExp->MultiplyByStdQuadratureMetric(ones, metric);
+
+        auto jacAligned =
+            exp->GetAlignedTraceExp(t)->GetGeomFactors()->GetJac();
+
+        Array<OneD, double> jacLocal(nTraceMetricPts);
+        const auto orient = exp->GetTraceOrient(t);
+
+        if (jacAligned.size() < static_cast<size_t>(nTraceMetricPts))
+        {
+            // Regular trace: the Jacobian is constant.
+            Vmath::Fill(nTraceMetricPts, jacAligned[0], jacLocal, 1);
+        }
+        // A 2D element needs this just as much as a 3D one: its edges 2 and 3
+        // run against the local coordinate, so a backwards oriented edge has
+        // to be reversed.
+        else if (orient != ((exp->GetShapeDimension() == 3)
+                                ? StdRegions::eDir1FwdDir1_Dir2FwdDir2
+                                : StdRegions::eForwards))
+        {
+            exp->ReOrientTracePhysVals(
+                orient, jacAligned, jacLocal, traceExp->GetNumPoints(0),
+                (exp->GetShapeDimension() == 3) ? traceExp->GetNumPoints(1) : 1,
+                false);
+        }
+        else
+        {
+            Vmath::Vcopy(nTraceMetricPts, jacAligned, 1, jacLocal, 1);
+        }
+
+        Vmath::Vmul(nTraceMetricPts, jacLocal, 1, metric, 1, metric, 1);
 
         Array<OneD, DNekMatSharedPtr> derivBaseOnTrace;
         exp->PhysDerivBaseOnTraceMat(t, derivBaseOnTrace);

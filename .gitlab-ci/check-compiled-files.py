@@ -62,6 +62,8 @@ ignore_sources = [
     "library/LibUtilities/FFT/NekCuFFTDx.cu",
     "library/LibUtilities/FFT/PhysDerivZCuFFT.cu",
     "library/UnitTests/LibUtilities/TestDeviceFFT.cpp",
+    # Profiler
+    "library/Demos/Operators/Profilers/ProfilerTraceOps.cpp",
     # NekBlas
     "library/LibUtilities/LinearAlgebra/NekBlas/magma.cpp",
     "library/LibUtilities/LinearAlgebra/NekBlas/magmaHandle.cpp",

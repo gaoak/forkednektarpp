@@ -51,13 +51,34 @@ class TraceEssentialCreator;
 
 enum class IPTraceScalarData
 {
-    BwdWeightAver,
-    BwdWeightJump,
     LengthRecip,
-    PenaltyFactor
+    IPPenaltyFactor,
+    // Kept for the interior-penalty consumers not yet moved to
+    // IPPenaltyFactor; removed with the last of them.
+    BwdWeightAver,
+    // Kept for the interior-penalty consumers not yet moved to
+    // IPPenaltyFactor; removed with the last of them.
+    BwdWeightJump,
+    // Kept for the interior-penalty consumers not yet moved to
+    // IPPenaltyFactor; removed with the last of them.
+    PenaltyFactor,
 };
 
-template <typename TData> class IPTraceNormalKey : public LibUtilities::BaseKey
+/**
+ * @brief Outward normals of one global trace block, in trace block layout.
+ *
+ * Keyed on the trace block index. Each entry holds every coordinate component
+ * of the block, laid out component-major with a stride of the block's padded
+ * CompSize(): real points first, zero beyond. That is the same layout a
+ * Field over the trace uses internally, so an entry can be copied straight
+ * into a trace Field block without rearrangement.
+ *
+ * This is the trace-layout counterpart of BndCondNormalKey, which holds the
+ * same quantity in boundary expansion layout for the boundary condition
+ * operators. A trace flux operator works over the trace and wants this one.
+ */
+template <typename TData>
+class GlobalTraceNormalKey : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;
 
@@ -65,16 +86,54 @@ public:
     using creator = TraceEssentialCreator;
     typedef TData value_type;
 
-    ~IPTraceNormalKey() override = default;
+    ~GlobalTraceNormalKey() override = default;
 
-    IPTraceNormalKey(const unsigned int block_idx) : m_block_idx(block_idx)
+    GlobalTraceNormalKey(const unsigned int block_idx) : m_block_idx(block_idx)
     {
         hash_combine(m_hash, m_block_idx, typeid(value_type).name(),
-                     "IPTraceNormalKey");
+                     "GlobalTraceNormalKey");
     }
 
 private:
     unsigned int m_block_idx;
+};
+
+/**
+ * @brief Outward normals of one boundary region, in that region's boundary
+ * expansion layout.
+ *
+ * The boundary counterpart of GlobalTraceNormalKey, which is in global trace
+ * layout. A boundary condition operator works in the storage layout of
+ * BndCondPhysOp - one block per region, in boundary expansion order - and
+ * never sees the trace, so it cannot use the trace-layout normals.
+ *
+ * Keyed on the *region* ordinal, which indexes GetBndCondExpansions(). That is
+ * not the same as a BndCondPhysOp block index once periodic regions are
+ * skipped, so the caller must pass the ordinal it recorded at construction
+ * rather than the block index.
+ */
+/// Former name of GlobalTraceNormalKey, kept for the interior-penalty
+/// trace-flux operators not yet moved to it; removed with the last of them.
+template <typename TData> using IPTraceNormalKey = GlobalTraceNormalKey<TData>;
+
+template <typename TData> class BndCondNormalKey : public LibUtilities::BaseKey
+{
+    friend class TraceEssentialCreator;
+
+public:
+    using creator = TraceEssentialCreator;
+    typedef TData value_type;
+
+    ~BndCondNormalKey() override = default;
+
+    BndCondNormalKey(const unsigned int region_idx) : m_region_idx(region_idx)
+    {
+        hash_combine(m_hash, m_region_idx, typeid(value_type).name(),
+                     "BndCondNormalKey");
+    }
+
+private:
+    unsigned int m_region_idx;
 };
 
 template <typename TData> class IPTraceScalarKey : public LibUtilities::BaseKey
@@ -712,7 +771,11 @@ public:
 
     template <typename MemSpace, typename TData>
     LibUtilities::MemoryRegion<TData> Create(
-        const IPTraceNormalKey<TData> &ipTraceNormalKey);
+        const GlobalTraceNormalKey<TData> &globalTraceNormalKey);
+
+    template <typename MemSpace, typename TData>
+    LibUtilities::MemoryRegion<TData> Create(
+        const BndCondNormalKey<TData> &bndCondNormalKey);
 
     template <typename MemSpace, typename TData>
     LibUtilities::MemoryRegion<TData> Create(

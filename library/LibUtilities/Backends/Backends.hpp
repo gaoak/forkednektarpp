@@ -346,7 +346,7 @@ template <typename TData> struct simd_type_if<true, TData>
 
 [[maybe_unused]] static inline unsigned int nekGetNumDevice()
 {
-    int num_device = 1;
+    int num_device = 0;
 #if defined(NEKTAR_ENABLE_CUDA)
     CHECK_HIPCUDA_ERROR(cudaGetDeviceCount(&num_device));
 #elif defined(NEKTAR_ENABLE_HIP)
@@ -354,6 +354,8 @@ template <typename TData> struct simd_type_if<true, TData>
 #elif defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP) ||                 \
     defined(SYCL_ENABLE_INTEL)
     num_device = sycl::device::get_devices(sycl::info::device_type::gpu).size();
+#elif defined(NEKTAR_USE_SIMSYCL)
+    num_device = 1;
 #endif
     return num_device;
 }

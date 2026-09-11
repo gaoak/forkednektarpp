@@ -58,15 +58,13 @@
  * arithmetic on the field happens here.
  *
  * CMake generates one translation unit per shape and data type from
- * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in (the
- * Serial/AVX Generic branch of library/Operators/CMakeLists.txt). Those
- * units define the
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in (the Serial/AVX
+ * Generic branch of library/Operators/CMakeLists.txt). Those units define the
  * per-shape entry points declared below, expanding
- * Common/BlockOpSwitchPhysTraceExtract.h.in, this operator's switch
- * template. This operator registers a
- * single implementation, so the class is only ever instantiated for
- * Operators::Generic and its Implementation template parameter is not
- * read anywhere.
+ * LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in, this
+ * operator's switch template. This operator registers a single implementation,
+ * so the class is only ever instantiated for Operators::Generic and its
+ * Implementation template parameter is not read anywhere.
  *
  * Two entry points reach the kernels:
  * - v_Apply, the bulk path, which lifts all of an element's traces
@@ -932,8 +930,8 @@ protected:
         constexpr unsigned int DIM = LibUtilities::ShapeTypeDimMap[SHAPE_TYPE];
 
         // sizeParam is built by the switch in
-        // Operators/Common/BlockOpSwitchPhysTraceExtract.h.in: this
-        // operator's trace size parameters carry trace point counts per
+        // LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in:
+        // this operator's trace size parameters carry trace point counts per
         // normal direction.
         static_assert(
             (DIM == 1 && IsTraceSizeParameter1D_v<TTraceSizeParameter>) ||

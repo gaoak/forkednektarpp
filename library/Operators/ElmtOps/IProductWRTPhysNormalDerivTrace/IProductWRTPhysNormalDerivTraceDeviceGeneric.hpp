@@ -50,13 +50,13 @@
  * IProductWRTPhysNormalDerivTraceDeviceGenericKernels.hpp. No arithmetic
  * on the field happens here.
  *
- * CMake serves Operators::Generic from this one header (the Device
- * Generic branch of library/Operators/CMakeLists.txt) and generates one
- * translation unit per shape and data type from
- * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in. Those units
- * define the per-shape entry points declared below, expanding
- * Common/BlockOpSwitchPhysTraceExtract.h.in, this operator's switch
- * template.
+ * CMake serves Operators::Generic from this one header (the Device Generic
+ * branch of library/Operators/CMakeLists.txt) and generates one translation
+ * unit per shape and data type from
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in. Those units define
+ * the per-shape entry points declared below, expanding
+ * LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in, this
+ * operator's switch template.
  *
  * This operator has a single implementation, registered under
  * Operators::Generic, so the class is only ever built with that tag and
@@ -302,7 +302,9 @@ protected:
     /// rather than one per trace: deformed geometry, or a collapsed shape
     /// whatever its geometry. Read by the generated dispatch to pick the
     /// DEFORMED instantiation, which is what fixes the name: the switch
-    /// template Common/BlockOpSwitchPhysTraceExtract.h.in reads it by name.
+    /// template
+    /// LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in reads
+    /// it by name.
     bool m_isDeformed = false;
     /// Dimension of the reference element (1, 2 or 3).
     unsigned int m_dimension = 0;
@@ -596,8 +598,9 @@ protected:
             numDataJac, jacCompStride, m_B[sizeof...(ind0) + ind1]...,
             m_DB[sizeof...(ind0) + ind1]..., m_W[ind1]...,
             m_twoOverOneMinusZ[ind0]..., m_jacptr, wspptr, inptr, outptr,
-            m_traceDir[ind1]..., (bool)this->m_isCollocated[ind1]...,
-            (bool)m_endPtsCollocated[ind0]..., this->m_append);
+            m_traceDir[ind1]..., this->m_append,
+            (bool)this->m_isCollocated[ind1]...,
+            (bool)m_endPtsCollocated[ind0]...);
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

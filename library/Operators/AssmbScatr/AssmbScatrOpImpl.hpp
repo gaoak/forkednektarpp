@@ -100,7 +100,7 @@ protected:
     /// flag to identify when method is setup for parallel communication
     bool m_isParallel;
     /// A pointer to the assembly communication for inter device commonication
-    std::unique_ptr<MultiRegions::AssemblyCommCG<TData>> m_assmbCommCG;
+    std::unique_ptr<MultiRegions::AssemblyComm<TData>> m_assmbCommCG;
     /// Buffer to place send data for inter device communication
     LibUtilities::MemoryRegion<TData> m_send_buffer;
     /// Buffer to receive data into  for inter device communication
@@ -162,9 +162,8 @@ protected:
             {
                 tmp[i] = globalToUniMap[i];
             }
-            m_assmbCommCG =
-                std::make_unique<MultiRegions::AssemblyCommCG<TData>>(m_rowComm,
-                                                                      tmp);
+            m_assmbCommCG = std::make_unique<MultiRegions::AssemblyComm<TData>>(
+                m_rowComm, tmp);
 
             // setup GS info of values interior to device
             auto GSBndNumAssmbKey =

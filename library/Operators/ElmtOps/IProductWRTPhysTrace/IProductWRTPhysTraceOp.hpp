@@ -88,14 +88,14 @@
  * - the kernels in IProductWRTPhysTraceSerialAVXGenericKernels.hpp and
  *   IProductWRTPhysTraceDeviceGenericKernels.hpp.
  *
- * The per-shape entry points, the ShapeBlock() specialisations, come
- * from the generated translation-unit template
+ * The per-shape entry points, the ShapeBlock() specialisations, come from the
+ * generated translation-unit template
  * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in, so the
- * size-templated OperatorND() instantiations of the SumFac families are
- * kept even though this operator registers a single implementation.
- * They expand the switch template
- * Common/BlockOpSwitchPhysTraceExtract.h.in, whose per-shape template
- * arguments carry trace point counts per normal direction.
+ * size-templated OperatorND() instantiations of the SumFac families are kept
+ * even though this operator registers a single implementation. They expand the
+ * switch template
+ * LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in, whose
+ * per-shape template arguments carry trace point counts per normal direction.
  *
  * @note There is one trace inner-product algorithm and one
  * registration, under Operators::Generic. A StdMat, SumFac or SumFacTOP
