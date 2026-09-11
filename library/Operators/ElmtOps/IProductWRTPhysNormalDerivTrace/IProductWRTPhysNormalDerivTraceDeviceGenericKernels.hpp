@@ -148,8 +148,8 @@ NEK_DEVICE_KERNEL void IProductWRTPhysNormalDerivTraceKernelLauncher(
     const unsigned int numDataJac, [[maybe_unused]] const size_t jacCompStride,
     [[maybe_unused]] const TData *NEK_RESTRICT twoOver0,
     const TData *NEK_RESTRICT jac, [[maybe_unused]] TData *NEK_RESTRICT wsp,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-    [[maybe_unused]] const bool endPtsCollocated0, const bool append,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out, const bool append,
+    [[maybe_unused]] const bool endPtsCollocated0,
     [[maybe_unused]] unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(IsTraceSizeParameter1D_v<TTraceSizeParameter1D>,
@@ -269,8 +269,8 @@ NEK_DEVICE_KERNEL void IProductWRTPhysNormalDerivTraceKernelLauncher(
     const TData *NEK_RESTRICT twoOver1, const TData *NEK_RESTRICT jac,
     TData *NEK_RESTRICT wsp, const TData *NEK_RESTRICT in,
     TData *NEK_RESTRICT out, const unsigned int traceDir0,
-    const unsigned int traceDir1, const bool isColl0, const bool isColl1,
-    const bool endPtsColl0, const bool endPtsColl1, const bool append,
+    const unsigned int traceDir1, const bool append, const bool isColl0,
+    const bool isColl1, const bool endPtsColl0, const bool endPtsColl1,
     [[maybe_unused]] unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(IsTraceSizeParameter2D_v<TTraceSizeParameter2D>,
@@ -440,10 +440,10 @@ NEK_DEVICE_KERNEL void IProductWRTPhysNormalDerivTraceKernelLauncher(
     const unsigned int traceDir00, const unsigned int traceDir01,
     const unsigned int traceDir10, const unsigned int traceDir11,
     const unsigned int traceDir20, const unsigned int traceDir21,
-    const bool isColl00, const bool isColl01, const bool isColl10,
-    const bool isColl11, const bool isColl20, const bool isColl21,
-    const bool endPtsColl0, const bool endPtsColl1, const bool endPtsColl2,
-    const bool append, [[maybe_unused]] unsigned char *shmemptr,
+    const bool append, const bool isColl00, const bool isColl01,
+    const bool isColl10, const bool isColl11, const bool isColl20,
+    const bool isColl21, const bool endPtsColl0, const bool endPtsColl1,
+    const bool endPtsColl2, [[maybe_unused]] unsigned char *shmemptr,
     const TthreadBlock &threadBlock)
 {
     static_assert(IsTraceSizeParameter3D_v<TTraceSizeParameter3D>,

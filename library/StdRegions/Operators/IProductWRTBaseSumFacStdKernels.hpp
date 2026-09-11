@@ -90,6 +90,7 @@ NEK_FORCE_INLINE static void IProductSegKernel(
     }
 }
 
+// inner product without quadrature metric wJ
 template <bool SCALE, bool APPEND, typename simd_type>
 NEK_FORCE_INLINE static void IProductSegKernel(
     const unsigned int nm0, const unsigned int nq0, const simd_type *in,

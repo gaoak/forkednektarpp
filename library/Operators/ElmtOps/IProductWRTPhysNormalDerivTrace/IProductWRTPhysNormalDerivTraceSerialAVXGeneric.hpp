@@ -57,15 +57,13 @@
  * No arithmetic on the field happens here.
  *
  * CMake generates one translation unit per shape and data type from
- * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in (the
- * Serial/AVX Generic branch of library/Operators/CMakeLists.txt). Those
- * units define
- * the per-shape entry points declared below, expanding
- * Common/BlockOpSwitchPhysTraceExtract.h.in, this operator's switch
- * template. This operator registers
- * a single implementation, so the class is only ever instantiated for
- * Operators::Generic and its Implementation template parameter is not
- * read anywhere.
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in (the Serial/AVX
+ * Generic branch of library/Operators/CMakeLists.txt). Those units define the
+ * per-shape entry points declared below, expanding
+ * LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in, this
+ * operator's switch template. This operator registers a single implementation,
+ * so the class is only ever instantiated for Operators::Generic and its
+ * Implementation template parameter is not read anywhere.
  *
  * @see IProductWRTPhysNormalDerivTraceOp.hpp for what the operator
  * computes and how the family is laid out.
@@ -368,7 +366,9 @@ protected:
     /// rather than one per trace: deformed geometry, or a collapsed shape
     /// whatever its geometry. Read by the generated dispatch to pick the
     /// DEFORMED instantiation, which is what fixes the name: the switch
-    /// template Common/BlockOpSwitchPhysTraceExtract.h.in reads it by name.
+    /// template
+    /// LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in reads
+    /// it by name.
     bool m_isDeformed;
     /// Dimension of the reference element (1, 2 or 3).
     unsigned int m_dimension;
@@ -603,7 +603,9 @@ protected:
      * The output is always reshaped to #m_implInterleaveWidth on the way
      * in, whether appending or not: the kernels accumulate the later terms
      * onto the first inside the same layout, and the back-reshape assumes
-     * the storage was brought to it.
+     * the storage was brought to it. The append flag reaches the launcher
+     * as a run-time argument, as does the direction term inside it, so the
+     * size-specialised body is instantiated once per size and geometry.
      *
      * @c jacoffset walks the factor array alongside the field: by the
      * element group's worth of trace points when the factors are pointwise,
@@ -689,36 +691,18 @@ protected:
 
                 const TData *jacptr = m_jacptr + jacoffset;
 
-                if (this->m_append)
-                {
-                    IProductWRTPhysNormalDerivTraceKernelLauncher<
-                        SHAPE_TYPE, DEFORMED, true>(
-                        sizeParam, m_B[ind0]..., m_DB[ind0]...,
-                        m_B[sizeof...(ind0) + ind1]...,
-                        m_DB[sizeof...(ind0) + ind1]..., m_W[ind1]...,
-                        m_twoOverOneMinusZ[ind0]...,
-                        reinterpret_cast<const simd_t *>(jacptr), jacCompStride,
-                        m_wsp[ind2].data()...,
-                        reinterpret_cast<const simd_t *>(inptr),
-                        reinterpret_cast<simd_t *>(outptr), m_traceDir[ind1]...,
-                        (bool)this->m_isCollocated[ind1]...,
-                        (bool)m_endPtsCollocated[ind0]...);
-                }
-                else
-                {
-                    IProductWRTPhysNormalDerivTraceKernelLauncher<
-                        SHAPE_TYPE, DEFORMED, false>(
-                        sizeParam, m_B[ind0]..., m_DB[ind0]...,
-                        m_B[sizeof...(ind0) + ind1]...,
-                        m_DB[sizeof...(ind0) + ind1]..., m_W[ind1]...,
-                        m_twoOverOneMinusZ[ind0]...,
-                        reinterpret_cast<const simd_t *>(jacptr), jacCompStride,
-                        m_wsp[ind2].data()...,
-                        reinterpret_cast<const simd_t *>(inptr),
-                        reinterpret_cast<simd_t *>(outptr), m_traceDir[ind1]...,
-                        (bool)this->m_isCollocated[ind1]...,
-                        (bool)m_endPtsCollocated[ind0]...);
-                }
+                IProductWRTPhysNormalDerivTraceKernelLauncher<SHAPE_TYPE,
+                                                              DEFORMED>(
+                    sizeParam, m_B[ind0]..., m_DB[ind0]...,
+                    m_B[sizeof...(ind0) + ind1]...,
+                    m_DB[sizeof...(ind0) + ind1]..., m_W[ind1]...,
+                    m_twoOverOneMinusZ[ind0]...,
+                    reinterpret_cast<const simd_t *>(jacptr), jacCompStride,
+                    m_wsp[ind2].data()...,
+                    reinterpret_cast<const simd_t *>(inptr),
+                    reinterpret_cast<simd_t *>(outptr), m_traceDir[ind1]...,
+                    this->m_append, (bool)this->m_isCollocated[ind1]...,
+                    (bool)m_endPtsCollocated[ind0]...);
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)

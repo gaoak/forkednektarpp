@@ -241,9 +241,10 @@ public:
                                           int reorder);
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace, class T>
-    void DistGraphCreateAdjacent(LibUtilities::MemoryRegion<T> &sources,
-                                 LibUtilities::MemoryRegion<T> &sourceweights,
-                                 int reorder, const unsigned int streamID = 0);
+    CommSharedPtr DistGraphCreateAdjacent(
+        LibUtilities::MemoryRegion<T> &sources,
+        LibUtilities::MemoryRegion<T> &sourceweights, int reorder,
+        const unsigned int streamID = 0);
 #endif
 
     template <class T1, class T2>
@@ -1297,9 +1298,10 @@ CommSharedPtr Comm::DistGraphCreateAdjacent(T &sources, T &sourceweights,
 
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
 template <class MemSpace, class T>
-void Comm::DistGraphCreateAdjacent(LibUtilities::MemoryRegion<T> &sources,
-                                   LibUtilities::MemoryRegion<T> &sourceweights,
-                                   int reorder, const unsigned int streamID)
+CommSharedPtr Comm::DistGraphCreateAdjacent(
+    LibUtilities::MemoryRegion<T> &sources,
+    LibUtilities::MemoryRegion<T> &sourceweights, int reorder,
+    const unsigned int streamID)
 {
     ASSERTL0(sources.size() == sourceweights.size(),
              "Sources and weights array sizes don't match");
@@ -1311,14 +1313,14 @@ void Comm::DistGraphCreateAdjacent(LibUtilities::MemoryRegion<T> &sources,
         // Synchronize stream before communication.
         nekStreamSynchronize(streamID);
 
-        v_DistGraphCreateAdjacent(
+        return v_DistGraphCreateAdjacent(
             indegree, sources.template GetPtr<MemSpace, ReadOnly>(streamID),
             sourceweights.template GetPtr<MemSpace, ReadOnly>(streamID),
             reorder);
     }
     else
     {
-        v_DistGraphCreateAdjacent(
+        return v_DistGraphCreateAdjacent(
             indegree,
             sources.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
                 streamID),

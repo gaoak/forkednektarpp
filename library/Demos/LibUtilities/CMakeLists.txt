@@ -16,6 +16,10 @@ IF(NEKTAR_USE_MPI)
         COMPONENT demos DEPENDS LibUtilities SOURCES FieldIOBenchmarker.cpp)
     ADD_NEKTAR_EXECUTABLE(MPIInit
         COMPONENT demos DEPENDS LibUtilities SOURCES MPIInit.cpp)
+    ADD_NEKTAR_EXECUTABLE(EntityResolverDemo
+        COMPONENT demos DEPENDS LibUtilities SOURCES EntityResolverDemo.cpp)
+    ADD_NEKTAR_EXECUTABLE(CrystalRouterDemo
+        COMPONENT demos DEPENDS LibUtilities SOURCES CrystalRouterDemo.cpp)
 ENDIF()
 
 ADD_NEKTAR_TEST(NodalDemo_Tri_Deriv_P8)

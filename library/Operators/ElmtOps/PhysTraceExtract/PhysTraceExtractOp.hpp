@@ -95,14 +95,13 @@
  *   PhysTraceExtractDeviceGenericKernels.hpp.
  *
  * The per-shape entry points are generated from
- * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in, one
- * translation unit per shape, execution space and data type, so the
- * size-templated OperatorND instantiations of the SumFac families are
- * kept even though this operator registers a single implementation.
- * Those units include the switch template
- * Common/BlockOpSwitchPhysTraceExtract.h.in, which is named after this
- * operator: its per-shape template arguments carry trace point counts
- * per normal direction.
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in, one translation unit
+ * per shape, execution space and data type, so the size-templated OperatorND
+ * instantiations of the SumFac families are kept even though this operator
+ * registers a single implementation. Those units include the switch template
+ * LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in, which is
+ * named after this operator: its per-shape template arguments carry trace point
+ * counts per normal direction.
  *
  * @note There is one trace-extraction algorithm and one registration,
  * under Operators::Generic. A StdMat, SumFac or SumFacTOP request does

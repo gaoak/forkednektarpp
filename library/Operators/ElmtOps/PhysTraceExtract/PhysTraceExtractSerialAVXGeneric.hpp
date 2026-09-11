@@ -47,13 +47,12 @@
  * PhysTraceExtractSerialAVXGenericKernels.hpp. No arithmetic on the
  * field happens here.
  *
- * CMake selects this header for the Serial and AVX execution spaces
- * with Operators::Generic and generates one translation unit per shape
- * and data type from
- * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in. Those units
+ * CMake selects this header for the Serial and AVX execution spaces with
+ * Operators::Generic and generates one translation unit per shape and data type
+ * from LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in. Those units
  * define the per-shape entry points declared below, expanding
- * Common/BlockOpSwitchPhysTraceExtract.h.in, this operator's switch
- * template.
+ * LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in, this
+ * operator's switch template.
  *
  * Two entry points reach the kernels:
  * - v_Apply, the bulk path, which extracts all of an element's traces
@@ -768,8 +767,8 @@ protected:
         constexpr unsigned int DIM = LibUtilities::ShapeTypeDimMap[SHAPE_TYPE];
 
         // sizeParam is built by the switch in
-        // Operators/Common/BlockOpSwitchPhysTraceExtract.h.in: this
-        // operator's trace size parameters carry trace point counts per
+        // LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in:
+        // this operator's trace size parameters carry trace point counts per
         // normal direction.
         static_assert(
             (DIM == 1 && IsTraceSizeParameter1D_v<TTraceSizeParameter>) ||

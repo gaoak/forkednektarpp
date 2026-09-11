@@ -690,7 +690,7 @@ LocalToGlobalDataCreator::Create(
     // connected to this global id.
 
     // Get vector of send receive entries of gids in order that are required
-    // for communication in AssemblyCommCG
+    // for communication in AssemblyComm
     auto SREntries = loc2glo->GetSREntries();
     // Get from rank index of each sent/receive entry to ensure rank
     // ordering of assemble points for inter node consistency

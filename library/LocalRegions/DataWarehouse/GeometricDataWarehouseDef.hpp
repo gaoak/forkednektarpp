@@ -728,7 +728,7 @@ LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
         // first trace id
         auto traceId = LibUtilities::ShapeTypeTraceIDInDir[shape][dir][0];
 
-        auto npts = expPtr->GetLocTraceExp(traceId)->GetTotPoints();
+        auto npts = expPtr->GetStdTraceExp(traceId)->GetTotPoints();
         nTracePts.push_back(npts);
 
         if (isDeformed)
@@ -764,24 +764,69 @@ LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
                     // Index for edge id
                     if (el < num_elements)
                     {
-                        // Get trace expansion
-                        auto traceExp = coll[el]->GetLocTraceExp(traceId);
+                        auto elExp = coll[el];
+
+                        // Trace geometry comes from the aligned expansion, so
+                        // it is laid out in the global trace frame; the
+                        // standard trace expansion supplies the element local
+                        // extents.
+                        auto alignedExp = elExp->GetAlignedTraceExp(traceId);
+                        auto stdExp     = elExp->GetStdTraceExp(traceId);
 
                         // Get trace Jacobian
-                        auto jacArray = traceExp->GetGeomFactors()->GetJac();
+                        auto jacArray = alignedExp->GetGeomFactors()->GetJac();
 
                         if (isDeformed)
                         {
                             auto TraceDeformed =
-                                (traceExp->GetGeomFactors()->GetGtype() ==
+                                (alignedExp->GetGeomFactors()->GetGtype() ==
                                  SpatialDomains::eDeformed);
 
                             if (TraceDeformed)
                             {
-                                for (unsigned pt = 0; pt < nTracePts[dir]; ++pt)
+                                // This operator consumes the element local
+                                // trace, so scatter the Jacobian into the
+                                // local frame (global -> local, hence
+                                // Forwards = false, with local extents).
+                                //
+                                // A 2D element needs this just as much as a
+                                // 3D one: its edges 2 and 3 run against the
+                                // local coordinate, so a backwards oriented
+                                // edge has to be reversed.
+                                const auto orient =
+                                    elExp->GetTraceOrient(traceId);
+                                const auto identity =
+                                    (nDim == 3)
+                                        ? StdRegions::eDir1FwdDir1_Dir2FwdDir2
+                                        : StdRegions::eForwards;
+
+                                if (orient != identity)
                                 {
-                                    jacptr[(offset + pt) * interleave_width +
-                                           i] = jacArray[pt];
+                                    Array<OneD, double> jacLoc(nTracePts[dir]);
+                                    elExp->ReOrientTracePhysVals(
+                                        orient, jacArray, jacLoc,
+                                        stdExp->GetNumPoints(0),
+                                        (nDim == 3) ? stdExp->GetNumPoints(1)
+                                                    : 1,
+                                        false);
+
+                                    for (unsigned pt = 0; pt < nTracePts[dir];
+                                         ++pt)
+                                    {
+                                        jacptr[(offset + pt) *
+                                                   interleave_width +
+                                               i] = jacLoc[pt];
+                                    }
+                                }
+                                else
+                                {
+                                    for (unsigned pt = 0; pt < nTracePts[dir];
+                                         ++pt)
+                                    {
+                                        jacptr[(offset + pt) *
+                                                   interleave_width +
+                                               i] = jacArray[pt];
+                                    }
                                 }
                             }
                             else

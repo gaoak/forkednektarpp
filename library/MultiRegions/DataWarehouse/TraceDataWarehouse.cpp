@@ -38,17 +38,32 @@ namespace Nektar::MultiRegions
 {
 template LibUtilities::MemoryRegion<double> TraceEssentialCreator::Create<
     NektarSpaces::HostSpace, double>(
-    const IPTraceNormalKey<double> &ipTraceNormalKey);
+    const GlobalTraceNormalKey<double> &globalTraceNormalKey);
 template LibUtilities::MemoryRegion<float> TraceEssentialCreator::Create<
     NektarSpaces::HostSpace, float>(
-    const IPTraceNormalKey<float> &ipTraceNormalKey);
+    const GlobalTraceNormalKey<float> &globalTraceNormalKey);
 #if defined(NEKTAR_ENABLE_DEVICE)
 template LibUtilities::MemoryRegion<double> TraceEssentialCreator::Create<
     NektarSpaces::DeviceSpace, double>(
-    const IPTraceNormalKey<double> &ipTraceNormalKey);
+    const GlobalTraceNormalKey<double> &globalTraceNormalKey);
 template LibUtilities::MemoryRegion<float> TraceEssentialCreator::Create<
     NektarSpaces::DeviceSpace, float>(
-    const IPTraceNormalKey<float> &ipTraceNormalKey);
+    const GlobalTraceNormalKey<float> &globalTraceNormalKey);
+#endif
+
+template LibUtilities::MemoryRegion<double> TraceEssentialCreator::Create<
+    NektarSpaces::HostSpace, double>(
+    const BndCondNormalKey<double> &bndCondNormalKey);
+template LibUtilities::MemoryRegion<float> TraceEssentialCreator::Create<
+    NektarSpaces::HostSpace, float>(
+    const BndCondNormalKey<float> &bndCondNormalKey);
+#if defined(NEKTAR_ENABLE_DEVICE)
+template LibUtilities::MemoryRegion<double> TraceEssentialCreator::Create<
+    NektarSpaces::DeviceSpace, double>(
+    const BndCondNormalKey<double> &bndCondNormalKey);
+template LibUtilities::MemoryRegion<float> TraceEssentialCreator::Create<
+    NektarSpaces::DeviceSpace, float>(
+    const BndCondNormalKey<float> &bndCondNormalKey);
 #endif
 
 template LibUtilities::MemoryRegion<double> TraceEssentialCreator::Create<

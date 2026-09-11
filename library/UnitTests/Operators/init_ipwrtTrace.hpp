@@ -61,6 +61,16 @@ public:
     {
     }
 
+    /**
+     * @brief Build the fixture.
+     *
+     * @param divtest  Configure for a divergence test: the check of
+     *                 SetTestCaseDivTest(), which lifts a linear field over
+     *                 the element traces and compares the result with the
+     *                 volume integral the divergence theorem gives for it.
+     *                 That check needs one component and no homogeneous
+     *                 directions, so the fixture is built accordingly.
+     */
     void Configure(bool divtest = false)
     {
         this->SetSession();
@@ -110,21 +120,46 @@ public:
         phys = new Field<TData, FieldState::Phys>(std::move(phys_tmp));
     }
 
-    Array<OneD, NekDouble> GetXNOnTrace(unsigned tid,
-                                        LocalRegions::ExpansionSharedPtr &exp)
+    Array<OneD, double> GetXNOnTrace(unsigned tid,
+                                     LocalRegions::ExpansionSharedPtr &exp)
     {
-        // get Trace
-        auto trace = exp->GetTraceExp(tid);
+        // Every length here must come from the *local* trace. The normals are
+        // local, and the result is written into the local trace buffer, so
+        // sizing anything from exp->GetTraceExp() -- the shared trace, which
+        // under variable p takes the higher of the two adjacent orders --
+        // overruns the normals.
+        //
+        // Take the coordinates from the aligned trace expansion, which carries
+        // this element's own trace basis keys and so is always of local size,
+        // then scatter them into the local frame.
+        auto stdTrace = exp->GetStdTraceExp(tid);
+        auto alignExp = exp->GetAlignedTraceExp(tid);
 
-        // get trace normals
-        auto tnorm = exp->GetTraceNormal(tid);
+        auto tnorm   = exp->GetTraceNormal(tid);
+        auto tcoords = alignExp->GetCoords();
 
-        // get trace coordinates
-        auto tcoords = trace->GetCoords();
+        const auto dim    = alignExp->GetCoordim();
+        const auto ntrace = stdTrace->GetTotPoints();
 
-        auto dim    = trace->GetCoordim();
-        auto ntrace = tcoords[0].size();
-        Array<OneD, NekDouble> output(ntrace, 0.0);
+        ASSERTL1(tnorm[0].size() >= ntrace,
+                 "Trace normals are shorter than the local trace.");
+
+        Array<OneD, double> output(ntrace, 0.0);
+
+        const auto orient = exp->GetTraceOrient(tid);
+        if (exp->GetShapeDimension() == 3 &&
+            orient != StdRegions::eDir1FwdDir1_Dir2FwdDir2)
+        {
+            Array<OneD, double> tmp(ntrace);
+            for (unsigned d = 0; d < dim; ++d)
+            {
+                exp->ReOrientTracePhysVals(orient, tcoords[d], tmp,
+                                           stdTrace->GetNumPoints(0),
+                                           stdTrace->GetNumPoints(1), false);
+                Vmath::Vcopy(ntrace, tmp, 1, tcoords[d], 1);
+            }
+        }
+
         // calculate n.x (with correct sign)
         for (unsigned d = 0; d < dim; ++d)
         {
@@ -602,6 +637,47 @@ public:
         iProdDerivOpAppend->Apply(Xvals, *this->fixt_expected);
     }
 
+    void ApplyLocalTraceJac(LocalRegions::ExpansionSharedPtr &expPtr,
+                            unsigned t,
+                            StdRegions::StdExpansionSharedPtr &traceExp,
+                            Array<OneD, TData> &phys)
+    {
+        auto jacAligned =
+            expPtr->GetAlignedTraceExp(t)->GetGeomFactors()->GetJac();
+
+        const unsigned npts = traceExp->GetTotPoints();
+
+        if (jacAligned.size() < npts)
+        {
+            // Regular trace: the Jacobian is constant.
+            for (unsigned i = 0; i < npts; ++i)
+            {
+                phys[i] *= jacAligned[0];
+            }
+            return;
+        }
+
+        const auto orient = expPtr->GetTraceOrient(t);
+        Array<OneD, double> jacLocal(npts);
+
+        if (expPtr->GetShapeDimension() == 3 &&
+            orient != StdRegions::eDir1FwdDir1_Dir2FwdDir2)
+        {
+            expPtr->ReOrientTracePhysVals(orient, jacAligned, jacLocal,
+                                          traceExp->GetNumPoints(0),
+                                          traceExp->GetNumPoints(1), false);
+        }
+        else
+        {
+            Vmath::Vcopy(npts, jacAligned, 1, jacLocal, 1);
+        }
+
+        for (unsigned i = 0; i < npts; ++i)
+        {
+            phys[i] *= jacLocal[i];
+        }
+    }
+
     void ExpectedSolution()
     {
         const unsigned numComp = this->fixt_in->GetNumComponents();
@@ -641,14 +717,14 @@ public:
 
                     // set up local trace expansions
                     auto ntrace = expPtr->GetNtraces();
-                    std::vector<LocalRegions::ExpansionSharedPtr> TraceExp;
+                    std::vector<StdRegions::StdExpansionSharedPtr> TraceExp;
                     TraceExp.resize(ntrace);
                     if (Shape != LibUtilities::Seg) // ignore Segs since
                                                     // method does not exist
                     {
                         for (unsigned t = 0; t < ntrace; ++t)
                         {
-                            TraceExp[t] = expPtr->GetLocTraceExp(t);
+                            TraceExp[t] = expPtr->GetStdTraceExp(t);
                         }
                     }
                     switch (Shape)
@@ -677,6 +753,7 @@ public:
 
                             // extract phys points
                             Vmath::Vcopy(npts, inptr, 1, phys.data(), 1);
+                            ApplyLocalTraceJac(expPtr, 3, TraceExp[3], phys);
                             TraceExp[3]->IProductWRTBase(phys, coeff);
 
                             expPtr->GetTraceCoeffMap(3, maparray);
@@ -692,6 +769,7 @@ public:
                             // extract phys points
                             Vmath::Vcopy(npts, inptr, 1, phys.data(), 1);
 
+                            ApplyLocalTraceJac(expPtr, 1, TraceExp[1], phys);
                             TraceExp[1]->IProductWRTBase(phys, coeff);
 
                             expPtr->GetTraceCoeffMap(1, maparray);
@@ -709,6 +787,7 @@ public:
 
                             Vmath::Vcopy(npts, inptr, 1, phys.data(), 1);
 
+                            ApplyLocalTraceJac(expPtr, 0, TraceExp[0], phys);
                             TraceExp[0]->IProductWRTBase(phys, coeff);
 
                             expPtr->GetTraceCoeffMap(0, maparray);
@@ -724,6 +803,7 @@ public:
 
                             Vmath::Vcopy(npts, inptr, 1, phys.data(), 1);
 
+                            ApplyLocalTraceJac(expPtr, 2, TraceExp[2], phys);
                             TraceExp[2]->IProductWRTBase(phys, coeff);
 
                             expPtr->GetTraceCoeffMap(2, maparray);
@@ -751,6 +831,7 @@ public:
                             // extract phys points
                             Vmath::Vcopy(npts, inptr, 1, phys.data(), 1);
 
+                            ApplyLocalTraceJac(expPtr, 2, TraceExp[2], phys);
                             TraceExp[2]->IProductWRTBase(phys, coeff);
 
                             expPtr->GetTraceCoeffMap(2, maparray);
@@ -766,6 +847,7 @@ public:
                             // extract phys points
                             Vmath::Vcopy(npts, inptr, 1, phys.data(), 1);
 
+                            ApplyLocalTraceJac(expPtr, 1, TraceExp[1], phys);
                             TraceExp[1]->IProductWRTBase(phys, coeff);
 
                             expPtr->GetTraceCoeffMap(1, maparray);
@@ -783,6 +865,7 @@ public:
 
                             Vmath::Vcopy(npts, inptr, 1, phys.data(), 1);
 
+                            ApplyLocalTraceJac(expPtr, 0, TraceExp[0], phys);
                             TraceExp[0]->IProductWRTBase(phys, coeff);
 
                             expPtr->GetTraceCoeffMap(0, maparray);
@@ -810,6 +893,7 @@ public:
                             auto nm   = TraceExp[4]->GetNcoeffs();
 
                             Vmath::Vcopy(npts, inptr, 1, phys.data(), 1);
+                            ApplyLocalTraceJac(expPtr, 4, TraceExp[4], phys);
                             TraceExp[4]->IProductWRTBase(phys, coeff);
 
                             expPtr->GetTraceCoeffMap(4, maparray);
@@ -823,6 +907,7 @@ public:
 
                             // face 2
                             Vmath::Vcopy(npts, inptr, 1, phys.data(), 1);
+                            ApplyLocalTraceJac(expPtr, 2, TraceExp[2], phys);
                             TraceExp[2]->IProductWRTBase(phys, coeff);
 
                             expPtr->GetTraceCoeffMap(2, maparray);
@@ -839,6 +924,7 @@ public:
                             nm   = TraceExp[1]->GetNcoeffs();
 
                             Vmath::Vcopy(npts, inptr, 1, phys.data(), 1);
+                            ApplyLocalTraceJac(expPtr, 1, TraceExp[1], phys);
                             TraceExp[1]->IProductWRTBase(phys, coeff);
 
                             expPtr->GetTraceCoeffMap(1, maparray);
@@ -852,6 +938,7 @@ public:
 
                             // face 3
                             Vmath::Vcopy(npts, inptr, 1, phys.data(), 1);
+                            ApplyLocalTraceJac(expPtr, 3, TraceExp[3], phys);
                             TraceExp[3]->IProductWRTBase(phys, coeff);
 
                             expPtr->GetTraceCoeffMap(3, maparray);
@@ -868,6 +955,7 @@ public:
                             nm   = TraceExp[0]->GetNcoeffs();
 
                             Vmath::Vcopy(npts, inptr, 1, phys.data(), 1);
+                            ApplyLocalTraceJac(expPtr, 0, TraceExp[0], phys);
                             TraceExp[0]->IProductWRTBase(phys, coeff);
 
                             expPtr->GetTraceCoeffMap(0, maparray);
@@ -886,6 +974,8 @@ public:
                                 auto nm   = TraceExp[5]->GetNcoeffs();
 
                                 Vmath::Vcopy(npts, inptr, 1, phys.data(), 1);
+                                ApplyLocalTraceJac(expPtr, 5, TraceExp[5],
+                                                   phys);
                                 TraceExp[5]->IProductWRTBase(phys, coeff);
 
                                 expPtr->GetTraceCoeffMap(5, maparray);
@@ -911,6 +1001,7 @@ public:
                             auto nm   = TraceExp[3]->GetNcoeffs();
 
                             Vmath::Vcopy(npts, inptr, 1, phys.data(), 1);
+                            ApplyLocalTraceJac(expPtr, 3, TraceExp[3], phys);
                             TraceExp[3]->IProductWRTBase(phys, coeff);
 
                             expPtr->GetTraceCoeffMap(3, maparray);
@@ -924,6 +1015,7 @@ public:
 
                             // face 2
                             Vmath::Vcopy(npts, inptr, 1, phys.data(), 1);
+                            ApplyLocalTraceJac(expPtr, 2, TraceExp[2], phys);
                             TraceExp[2]->IProductWRTBase(phys, coeff);
 
                             expPtr->GetTraceCoeffMap(2, maparray);
@@ -940,6 +1032,7 @@ public:
                             nm   = TraceExp[1]->GetNcoeffs();
 
                             Vmath::Vcopy(npts, inptr, 1, phys.data(), 1);
+                            ApplyLocalTraceJac(expPtr, 1, TraceExp[1], phys);
                             TraceExp[1]->IProductWRTBase(phys, coeff);
 
                             expPtr->GetTraceCoeffMap(1, maparray);
@@ -956,6 +1049,7 @@ public:
                             nm   = TraceExp[0]->GetNcoeffs();
 
                             Vmath::Vcopy(npts, inptr, 1, phys.data(), 1);
+                            ApplyLocalTraceJac(expPtr, 0, TraceExp[0], phys);
                             TraceExp[0]->IProductWRTBase(phys, coeff);
 
                             expPtr->GetTraceCoeffMap(0, maparray);
@@ -1054,6 +1148,7 @@ TEST(HexFixedP, "run/hex_fixedp.xml")
 TEST(HexAffineGauss, "run/hex_affine_gauss.xml")
 
 TEST(Prism, "run/prism.xml")
+TEST(PrismTransposedFace, "run/prism_transposed_face.xml")
 
 TEST(PrismVarP, "run/prism_varp.xml")
 

@@ -108,10 +108,10 @@ public:
      * @brief Return the execution space name ("opExecSpace") for an
      * operator.
      *
-     * This function returns the execution space selected for a given operator
-     * from the command-line argument "opExecSpace".
-     *
-     * otherwise ASSERTL1 is triggered.
+     * The space comes from the command-line argument "opExecSpace". Without
+     * it the operator takes the space the build provides, "Device" when a
+     * device is present and otherwise "AVX" or "Serial", and warns that it
+     * has done so.
      *
      * @param session  Session reader to recover the relevant command-line
      * argument.
@@ -122,13 +122,25 @@ public:
     static std::string GetOpExecSpace(
         std::shared_ptr<LibUtilities::SessionReader> session)
     {
-        if (!session->DefinesCmdLineArgument("opExecSpace"))
+        std::string OpExec = (nekGetNumDevice()) ? "Device" :
+#if defined(NEKTAR_ENABLE_SIMD)
+                                                 "AVX";
+#else
+                                                 "Serial";
+#endif
+
+        if (session->DefinesCmdLineArgument("opExecSpace"))
         {
-            NEKERROR(ErrorUtil::efatal,
-                     "No execution space specified for operator. Please "
-                     "specify using the command-line argument 'opExecSpace'.");
+            OpExec = session->GetCmdLineArgument<std::string>("opExecSpace");
         }
-        return session->GetCmdLineArgument<std::string>("opExecSpace");
+        else
+        {
+            NEKERROR(ErrorUtil::ewarning,
+                     "No execution space specified for operator. Defaulting "
+                     "to " +
+                         OpExec);
+        }
+        return OpExec;
     }
 
 protected:

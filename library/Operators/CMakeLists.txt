@@ -214,7 +214,7 @@ FOREACH (Shape IN LISTS Shapes)
         include/BlockOpSwitch1DCoordsCode${Shape}.h)
     CONFIGURE_FILE(${SWITCH_DIR}/BlockOpSwitchPhysInterp1D.h.in
         include/BlockOpSwitchPhysInterp1D${Shape}.h)
-    CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/Common/BlockOpSwitchPhysTraceExtract.h.in
+    CONFIGURE_FILE(${SWITCH_DIR}/BlockOpSwitchPhysTraceExtract.h.in
         include/BlockOpSwitchPhysTraceExtract${Shape}.h)
 ENDFOREACH()
 

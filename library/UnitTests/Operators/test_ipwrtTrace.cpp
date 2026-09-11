@@ -57,6 +57,10 @@
         }                                                                      \
     }
 
+// A DIVTEST case is a divergence test: the fixture lifts a linear field
+// over the element traces and the result is compared with the volume
+// integral the divergence theorem gives for it, so the case exercises the
+// trace geometry rather than a stored reference solution.
 #define TEST_IPWRTTRACE_DIVTEST(test_name, test, tol)                          \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
@@ -166,6 +170,15 @@ TEST_IPWRTTRACE_DIVTEST(ipwrtTrace_tet_divtest, TetOrtho, 1.0E-12)
 TEST_IPWRTTRACE_DIVTEST(ipwrtTrace_tet_divtest_gauss, TetOrthoGauss, 1.0E-12)
 
 TEST_IPWRTTRACE_DIVTEST(ipwrtTrace_hex_affine_gauss, HexAffineGauss, 1.0E-12)
+
+TEST_IPWRTTRACE_DIVTEST(ipwrtTrace_prism_divtest, PrismFixedP, 1.0E-12)
+
+TEST_IPWRTTRACE_DIVTEST(ipwrtTrace_hex_divtest, HexFixedP, 1.0E-12)
+
+TEST_IPWRTTRACE_DIVTEST(ipwrtTrace_prism_transposed_face_divtest,
+                        PrismTransposedFace, 1.0E-12)
+
+TEST_IPWRTTRACE_DIVTEST(ipwrtTrace_pyr_divtest, Pyr, 1.0E-12)
 
 TEST_IPWRTTRACE(ipwrtTrace_cube_prism_hex, CubePrismHex, 1.0E-12, true)
 

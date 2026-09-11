@@ -97,12 +97,36 @@ using namespace Nektar::MultiRegions;
 
 struct GlobalConfiguration
 {
+    // The execution space and implementation strings, captured once up
+    // front. Two reasons: MPI_Init below is handed the live argv and may
+    // rewrite it, and reading argv[1]/argv[2] per test without a bounds
+    // check was undefined when the arguments were missing - which happens
+    // more easily than it sounds, e.g. zsh passes an unquoted $var holding
+    // "Serial SumFac" as a single argument. The bounds check in the
+    // constructor now turns that into a usage message instead.
+    static std::string &ExecStr()
+    {
+        static std::string s;
+        return s;
+    }
+    static std::string &ImplStr()
+    {
+        static std::string s;
+        return s;
+    }
+
     GlobalConfiguration()
     {
         [[maybe_unused]] int argc =
             boost::unit_test::framework::master_test_suite().argc;
         [[maybe_unused]] char **argv =
             boost::unit_test::framework::master_test_suite().argv;
+
+        if (argc > 2)
+        {
+            ExecStr() = argv[1];
+            ImplStr() = argv[2];
+        }
 
 #ifdef NEKTAR_USE_MAGMA
         magma_init();
@@ -111,10 +135,11 @@ struct GlobalConfiguration
         MPI_Init(&argc, &argv);
 #endif
 
-        // check to see if at least one argument is given and that the last two
-        // argv entries are the same which happens when the -- is specified in
-        // command line
-        if (argc <= 1 && argv[argc] != argv[argc - 1])
+        // The execution space and the implementation must both be present:
+        // exe -- ExecName ImplName. Anything less gets the usage message,
+        // including the easy zsh mistake of passing both words as one
+        // argument.
+        if (argc < 3)
         {
             int rank = 0;
 
@@ -127,19 +152,19 @@ struct GlobalConfiguration
                 std::string execname(argv[0]);
 
                 std::cerr << "Usage: " << execname
-                          << " -- ExecName [optional] OpName" << std::endl;
+                          << " -- ExecName [optional] ImplName" << std::endl;
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(NEKTAR_ENABLE_SIMD)
                 std::cerr << "\t ExecName = Serial, AVX, Device" << std::endl;
-                std::cerr << "\t OpName   = StdMat, SumFac, SumFacTOP"
+                std::cerr << "\t ImplName = StdMat, SumFac, SumFacTOP"
 #elif defined(NEKTAR_ENABLE_DEVICE)
                 std::cerr << "\t ExecName = Serial, Device" << std::endl;
-                std::cerr << "\t OpName   = StdMat, SumFac, SumFacTOP"
+                std::cerr << "\t ImplName = StdMat, SumFac, SumFacTOP"
 #elif defined(NEKTAR_ENABLE_SIMD)
                 std::cerr << "\t ExecName = Serial, AVX" << std::endl;
-                std::cerr << "\t OpName   = StdMat, SumFac"
+                std::cerr << "\t ImplName = StdMat, SumFac"
 #else
                 std::cerr << "\t ExecName = Serial" << std::endl;
-                std::cerr << "\t OpName   = StdMat, SumFac"
+                std::cerr << "\t ImplName = StdMat, SumFac"
 #endif
                           << std::endl;
             }
@@ -251,10 +276,9 @@ public:
 
     void SetSession(void)
     {
-        std::string execStr(
-            boost::unit_test::framework::master_test_suite().argv[1]);
-        std::string implStr(
-            boost::unit_test::framework::master_test_suite().argv[2]);
+        // Captured once before MPI_Init - see GlobalConfiguration.
+        std::string execStr(GlobalConfiguration::ExecStr());
+        std::string implStr(GlobalConfiguration::ImplStr());
 
         BOOST_TEST_MESSAGE("Creating input and output fields");
 

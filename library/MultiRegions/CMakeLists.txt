@@ -75,7 +75,7 @@ SET(MULTI_REGIONS_HEADERS
 )
 
 SET(ASSEMBLY_MAP_HEADERS
-    ./AssemblyMap/AssemblyCommCG.h
+    ./AssemblyMap/AssemblyComm.h
     ./AssemblyMap/AssemblyCommDG.h
     ./AssemblyMap/AssemblyMap.h
     ./AssemblyMap/AssemblyMapCG.h

@@ -49,6 +49,8 @@ enum BasisDataType
     eInterpDerivative,
     eInterp,
     eInterpTranspose,
+    eOrthoProject,
+    eOrthoProjectSamePts,
     eWeights,
     eZeros,
     eHalfMultOnePlusZero,

@@ -41,7 +41,7 @@
 #include <MultiRegions/ExpList.h>
 #include <MultiRegions/MultiRegionsDeclspec.h>
 
-#include <MultiRegions/AssemblyMap/AssemblyCommCG.h>
+#include <MultiRegions/AssemblyMap/AssemblyComm.h>
 
 namespace Nektar::MultiRegions
 {
@@ -176,8 +176,8 @@ protected:
     /// from; see GetParaDirBnd(). Empty for assembly maps built through a
     /// path that does not set up m_dirBndGsh.
     Array<OneD, long> m_paraDirBnd;
-    std::unique_ptr<AssemblyCommCG<double>> m_cgcomm;
-    std::unique_ptr<AssemblyCommCG<double>> m_cgcommBnd;
+    std::unique_ptr<AssemblyComm<double>> m_cgcomm;
+    std::unique_ptr<AssemblyComm<double>> m_cgcommBnd;
 
     MULTI_REGIONS_EXPORT int CreateGraph(
         const ExpList &locExp, const BndCondExp &bndCondExp,

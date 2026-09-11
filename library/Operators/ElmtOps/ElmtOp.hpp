@@ -105,14 +105,13 @@ public:
      * ParseOptimisations().
      *
      * Lookup rules:
-     * - The map keys use the UPPERCASE of @p opName (e.g. "Mass" -> "MASS").
-     * - If opExecSpace == "Serial", the lookup is performed in
-     *   m_serialBackendInfo; otherwise in m_avxBackendInfo (for "AVX") or
-     * in deviceBackendInfo (for "Device").
-     * - If the operator is not found in the map for the set opExecSpace, the
-     * command-line arguments are consulted.
-     * - If the operator is not present in the command-line either the, an
-     * ASSERT is triggered.
+     * - The command-line argument "opImpl" overrides everything.
+     * - Otherwise the map for @p opExecSpace is consulted:
+     *   m_serialBackendInfo for "Serial", m_avxBackendInfo for "AVX" and
+     *   deviceBackendInfo for "Device". The map keys use the UPPERCASE of
+     *   @p opName (e.g. "Mass" -> "MASS").
+     * - An operator named in neither takes "SumFac" and warns that it has
+     *   done so.
      *
      * @param opName  Operator name (e.g. "Mass", "Helmholtz").
      * @param session  Session reader to recover the relevant the maps and
@@ -125,54 +124,68 @@ public:
                                  const std::string &opExecSpace,
                                  LibUtilities::SessionReaderSharedPtr session)
     {
-        if (session->DefinesCmdLineArgument("opImpl"))
-        {
-            return session->GetCmdLineArgument<std::string>("opImpl");
-        }
-
-        LibUtilities::BackendMap &serialBackendInfo =
-            session->GetSerialBackendMap();
-        LibUtilities::BackendMap &avxBackendInfo = session->GetAVXBackendMap();
-        LibUtilities::BackendMap &deviceBackendInfo =
-            session->GetDeviceBackendMap();
-
         ASSERTL0(
             opExecSpace == "Serial" || opExecSpace == "AVX" ||
                 opExecSpace == "Device",
             "Operator execution space must be 'Serial', 'AVX', or, 'Device'");
 
-        // Keys are stored uppercased by ParseOptimisations().
-        const std::string opNameUpper = boost::to_upper_copy(opName);
-        if (opExecSpace == "Serial")
+        std::string OpImpl = "SumFac";
+
+        // command line overrides everything
+        if (session->DefinesCmdLineArgument("opImpl"))
         {
-            auto opImplIter = serialBackendInfo.find(opNameUpper);
-            if (opImplIter != serialBackendInfo.end())
+            OpImpl = session->GetCmdLineArgument<std::string>("opImpl");
+        }
+        else
+        {
+            bool OpImplSet = false;
+
+            // Keys are stored uppercased by ParseOptimisations().
+            const std::string opNameUpper = boost::to_upper_copy(opName);
+            if (opExecSpace == "Serial")
             {
-                return opImplIter->second;
+                LibUtilities::BackendMap &serialBackendInfo =
+                    session->GetSerialBackendMap();
+                auto opImplIter = serialBackendInfo.find(opNameUpper);
+                if (opImplIter != serialBackendInfo.end())
+                {
+                    OpImpl    = opImplIter->second;
+                    OpImplSet = true;
+                }
+            }
+            else if (opExecSpace == "AVX")
+            {
+                LibUtilities::BackendMap &avxBackendInfo =
+                    session->GetAVXBackendMap();
+                auto opImplIter = avxBackendInfo.find(opNameUpper);
+                if (opImplIter != avxBackendInfo.end())
+                {
+                    OpImpl    = opImplIter->second;
+                    OpImplSet = true;
+                }
+            }
+            else if (opExecSpace == "Device")
+            {
+                LibUtilities::BackendMap &deviceBackendInfo =
+                    session->GetDeviceBackendMap();
+                auto opImplIter = deviceBackendInfo.find(opNameUpper);
+                if (opImplIter != deviceBackendInfo.end())
+                {
+                    OpImpl    = opImplIter->second;
+                    OpImplSet = true;
+                }
+            }
+
+            if (OpImplSet == false)
+            {
+                NEKERROR(ErrorUtil::ewarning,
+                         "No implementation space specified "
+                         "for operator. Defaulting to " +
+                             OpImpl);
             }
         }
 
-        if (opExecSpace == "AVX")
-        {
-            auto opImplIter = avxBackendInfo.find(opNameUpper);
-            if (opImplIter != avxBackendInfo.end())
-            {
-                return opImplIter->second;
-            }
-        }
-
-        if (opExecSpace == "Device")
-        {
-            auto opImplIter = deviceBackendInfo.find(opNameUpper);
-            if (opImplIter != deviceBackendInfo.end())
-            {
-                return opImplIter->second;
-            }
-        }
-
-        NEKERROR(ErrorUtil::efatal,
-                 "Implementation not found in optimisation file");
-        return "";
+        return OpImpl;
     }
 
 protected:

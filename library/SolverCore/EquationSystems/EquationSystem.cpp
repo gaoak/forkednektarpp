@@ -36,8 +36,6 @@
 #include <MultiRegions/DisContField.h>
 #include <SolverCore/EquationSystems/EquationSystem.h>
 
-#include <Operators/ElmtOps/BwdTrans/BwdTransOp.hpp>
-#include <Operators/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp>
 #include <Operators/Norm/NormL2/NormL2Op.hpp>
 #include <Operators/Norm/NormLinf/NormLinfOp.hpp>
 #include <vector>
@@ -73,8 +71,9 @@ EquationSystem::EquationSystem(
     m_expdim  = m_graph->GetMeshDimension();
 
     // Initialise Math
-    std::string execName = Operator<double>::GetOpExecSpace(m_session);
-    m_math               = Math::MathHelper(execName);
+    std::string execName =
+        Operators::Operator<double>::GetOpExecSpace(m_session);
+    m_math = Math::MathHelper(execName);
 
     // Check and set definitions for homogeneous/Fourier dimensions
     CheckHomogeneousDimensions();
@@ -541,19 +540,20 @@ void EquationSystem::v_InitialiseOperators()
             // the forward direction is not m_fwdTransOp, which is a global
             // mass matrix solve carrying boundary conditions, but the element
             // local M^-1 B^T W that a discontinuous field calls for.
-            m_bwdTransOp =
-                BwdTransOp<double>::Create(m_expansionLists[0], m_variables);
-            m_iProductWRTBaseOp = IProductWRTBaseOp<double>::Create(
+            m_bwdTransOp = Operators::BwdTransOp<double>::Create(
                 m_expansionLists[0], m_variables);
-            m_multiplyByElmtInvMassOp = MultiplyByElmtInvMassOp<double>::Create(
+            m_iProductWRTBaseOp = Operators::IProductWRTBaseOp<double>::Create(
                 m_expansionLists[0], m_variables);
+            m_multiplyByElmtInvMassOp =
+                Operators::MultiplyByElmtInvMassOp<double>::Create(
+                    m_expansionLists[0], m_variables);
             break;
         }
         case MultiRegions::eGalerkin:
         {
             // Continuous projection
-            m_bwdTransOp =
-                BwdTransOp<double>::Create(m_expansionLists[0], m_variables);
+            m_bwdTransOp = Operators::BwdTransOp<double>::Create(
+                m_expansionLists[0], m_variables);
 
             // Projection operators
             m_fwdTransOp =

@@ -683,6 +683,23 @@ public:
     }
 
     /**
+     * @brief Gets a copy of the components names for a vector field.
+     *
+     * @return std::vector<std::string>
+     */
+    std::vector<std::string> GetComponentNames() const
+    {
+        if (!m_instantiated)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "Field::GetComponentNames - Object has not been "
+                     "instantiated by custom constructor.");
+        }
+
+        return m_component_names;
+    }
+
+    /**
      * @brief Gets the number of homogeneous modes.
      *
      * @return unsigned int

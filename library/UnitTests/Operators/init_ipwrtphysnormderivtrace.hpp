@@ -85,9 +85,9 @@ private:
     Field<TData, FieldState::Phys> *phys = nullptr;
 
     // Coefficients of the linear function G = sum_d m_gcoeff[d] * x_d.
-    static NekDouble GCoeff(unsigned d)
+    static double GCoeff(unsigned d)
     {
-        return static_cast<NekDouble>(d + 1);
+        return static_cast<double>(d + 1);
     }
 
 public:
@@ -411,14 +411,14 @@ public:
 
                 // G at the element quadrature points
                 auto coords = exp->GetCoords();
-                Array<OneD, NekDouble> G(nq, 0.0);
+                Array<OneD, double> G(nq, 0.0);
                 for (unsigned d = 0; d < dim; ++d)
                 {
                     Vmath::Svtvp(nq, GCoeff(d), coords[d], 1, G, 1, G, 1);
                 }
 
-                Array<OneD, NekDouble> phi(nq), lap(nq), tmp(nq);
-                Array<OneD, NekDouble> d0(nq), d1(nq), d2(nq);
+                Array<OneD, double> phi(nq), lap(nq), tmp(nq);
+                Array<OneD, double> d0(nq), d1(nq), d2(nq);
 
                 for (unsigned p = 0; p < nc; ++p)
                 {

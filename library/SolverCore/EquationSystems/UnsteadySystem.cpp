@@ -42,9 +42,6 @@
 #include <SolverCore/Core/SessionFunction.h>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 
-#include "Operators/ElmtOps/BwdTrans/BwdTransOp.hpp"
-#include "Operators/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp"
-
 namespace Nektar::SolverCore
 {
 // Spencer, Numerical Methods for Fluid Dynamics, p317.
@@ -97,16 +94,17 @@ void UnsteadySystem::v_InitObject(bool declareExpansionLists)
     m_session->LoadParameter("CFL", m_cflSafetyFactor, 1.0);
     // Cadence of the Courant number report; see GetCFLNumber().
     m_session->LoadParameter("IO_CFLSteps", m_cflSteps, 0);
+    m_session->LoadParameter("Time", m_time, 0.0);
+    m_session->LoadParameter("TimeStep", m_timestep, 0.0);
+    m_session->LoadParameter("NumSteps", m_steps, 0);
+    m_session->LoadParameter("FinTime", m_fintime, 0.0);
+
     // Cadence of the in-flight NaN and abort-file tests.
     m_session->LoadParameter("CheckAbortSteps", m_abortSteps, 1);
     if (m_session->DefinesSolverInfo("CheckAbortFile"))
     {
         m_abortFile = m_session->GetSolverInfo("CheckAbortFile");
     }
-    m_session->LoadParameter("Time", m_time, 0.0);
-    m_session->LoadParameter("TimeStep", m_timestep, 0.0);
-    m_session->LoadParameter("NumSteps", m_steps, 0);
-    m_session->LoadParameter("FinTime", m_fintime, 0.0);
 
     ASSERTL0(m_timestep > 0, "m_timestep < 0");
 

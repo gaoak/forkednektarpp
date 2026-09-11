@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AssemblyCommCG.h
+// File: AssemblyComm.h
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,9 +32,11 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef NEKTAR_MULTIREGIONS_ASSEMBLYMAP_ASSEMBLYCOMMCG
-#define NEKTAR_MULTIREGIONS_ASSEMBLYMAP_ASSEMBLYCOMMCG
+#ifndef NEKTAR_MULTIREGIONS_ASSEMBLYMAP_ASSEMBLYCOMM
+#define NEKTAR_MULTIREGIONS_ASSEMBLYMAP_ASSEMBLYCOMM
 
+#include <map>
+#include <numeric>
 #include <vector>
 
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
@@ -44,11 +46,39 @@
 namespace Nektar::MultiRegions
 {
 
-template <typename TData> class AssemblyCommCG
+/**
+ * @brief Persistent point-to-point exchange of shared data with neighbouring
+ * ranks.
+ *
+ * Was AssemblyCommCG, and continuous assembly is still what the first
+ * constructor serves: given a local-index-to-universal-id map it discovers
+ * which ranks share each id, groups the shared entries by rank, and opens a
+ * persistent send/receive request per neighbour so that a step reduces to
+ * BeginComm() / EndComm() around whatever local work can overlap it.
+ *
+ * None of that machinery is specific to a continuous field, which is why the
+ * name no longer says CG. A discontinuous trace flux shares the same shape -
+ * a set of entries, each owned jointly with exactly one other rank, exchanged
+ * every step - and reaches it through the second constructor, which takes
+ * connectivity already discovered rather than rediscovering it here.
+ *
+ * ### Fixed and variable payloads
+ *
+ * The assembly path exchanges one value per entry, or @c numComp of them, and
+ * uses the InitSendRecvComms() overloads taking a component count. A trace
+ * carries a whole quadrature line or face per entry, and under variable
+ * polynomial order the two sides of a trace need not even carry the same
+ * number of points, so the payload is neither one value nor a fixed multiple
+ * of one. That case uses InitSendRecvCommsVar(), which takes an explicit
+ * element count per entry for each direction and lays the buffers out as
+ * their running sums; GetSendOffsets() and GetRecvOffsets() then say where
+ * each entry's payload begins.
+ */
+template <typename TData> class AssemblyComm
 {
 public:
-    AssemblyCommCG(LibUtilities::CommSharedPtr comm,
-                   const Array<OneD, long> &gids_to_uids)
+    AssemblyComm(LibUtilities::CommSharedPtr comm,
+                 const Array<OneD, long> &gids_to_uids)
         : m_comm(comm), m_gids_to_uids(gids_to_uids)
     {
         m_rank = comm->GetRank();
@@ -56,6 +86,46 @@ public:
 
         DiscoverSharedIDsRing();
         BuildSendRecvMaps();
+    }
+
+    /**
+     * @brief Construct from connectivity discovered elsewhere.
+     *
+     * The other constructor finds its neighbours by passing every local id
+     * round a ring of all P ranks. A caller that already knows who its
+     * neighbours are - having resolved them through
+     * LibUtilities::SharedPayloadResolver, say, which answers in two
+     * rendezvous exchanges rather than P - has no reason to pay for that
+     * again, and hands the answer in here instead.
+     *
+     * @param comm          Communicator to exchange over.
+     * @param sharedEntries Local entry indices to exchange with each
+     *                      neighbouring rank. Both ends of every pair must
+     *                      list their entries in a matching order, since it
+     *                      is position within the list, and nothing else,
+     *                      that pairs a sent entry with a received one. Order
+     *                      by an id both ranks agree on to get that.
+     */
+    AssemblyComm(LibUtilities::CommSharedPtr comm,
+                 const std::map<int, std::vector<size_t>> &sharedEntries)
+        : m_comm(comm)
+    {
+        m_rank = comm->GetRank();
+        m_size = comm->GetSize();
+
+        size_t offset = 0;
+        for (const auto &[rank, entries] : sharedEntries)
+        {
+            m_sr_blocks.push_back({rank, offset, entries.size()});
+
+            for (auto idx : entries)
+            {
+                m_sr_entries.push_back(idx);
+                m_fromRank.push_back(rank);
+            }
+
+            offset += entries.size();
+        }
     }
 
     void InitSendRecvComms()
@@ -90,6 +160,74 @@ public:
             m_comm->RecvInit(block.rank, recv_ptr, block.count * numComp,
                              m_recv_reqs, reqCnt++);
         }
+    }
+
+    /**
+     * @brief Open persistent requests for payloads that differ in size from
+     * entry to entry.
+     *
+     * @param send_storage_ptr Send buffer, laid out as the running sum of
+     *                         @p sendCounts.
+     * @param sendCounts       Elements this rank sends for each entry, in
+     *                         GetSREntries() order.
+     * @param recv_storage_ptr Receive buffer, laid out as the running sum of
+     *                         @p recvCounts.
+     * @param recvCounts       Elements this rank receives for each entry, in
+     *                         the same order. Equal to the neighbour's send
+     *                         count for the matching entry, which need not be
+     *                         this rank's - the two sides of a trace may
+     *                         carry different numbers of points.
+     */
+    void InitSendRecvCommsVar(TData *send_storage_ptr,
+                              const std::vector<size_t> &sendCounts,
+                              TData *recv_storage_ptr,
+                              const std::vector<size_t> &recvCounts)
+    {
+        ASSERTL0(sendCounts.size() == m_sr_entries.size() &&
+                     recvCounts.size() == m_sr_entries.size(),
+                 "One send and one receive count is needed per shared entry");
+
+        BuildOffsets(sendCounts, m_send_offsets);
+        BuildOffsets(recvCounts, m_recv_offsets);
+
+        m_send_reqs = m_comm->CreateRequest(m_sr_blocks.size());
+        m_recv_reqs = m_comm->CreateRequest(m_sr_blocks.size());
+
+        int reqCnt = 0;
+        for (const auto &block : m_sr_blocks)
+        {
+            // A block's entries are contiguous in GetSREntries(), so its
+            // payload is contiguous in the buffer too, and one message
+            // carries the whole block however its entries are sized.
+            const size_t sendBeg = m_send_offsets[block.offset];
+            const size_t sendEnd = m_send_offsets[block.offset + block.count];
+            const size_t recvBeg = m_recv_offsets[block.offset];
+            const size_t recvEnd = m_recv_offsets[block.offset + block.count];
+
+            CommPtrView<TData> send_ptr(send_storage_ptr + sendBeg,
+                                        sendEnd - sendBeg);
+            CommPtrView<TData> recv_ptr(recv_storage_ptr + recvBeg,
+                                        recvEnd - recvBeg);
+
+            m_comm->SendInit(block.rank, send_ptr, sendEnd - sendBeg,
+                             m_send_reqs, reqCnt);
+            m_comm->RecvInit(block.rank, recv_ptr, recvEnd - recvBeg,
+                             m_recv_reqs, reqCnt++);
+        }
+    }
+
+    /// Start of each entry's payload in the send buffer, with a final entry
+    /// holding the total. Valid after InitSendRecvCommsVar().
+    const std::vector<size_t> &GetSendOffsets() const
+    {
+        return m_send_offsets;
+    }
+
+    /// Start of each entry's payload in the receive buffer; see
+    /// GetSendOffsets().
+    const std::vector<size_t> &GetRecvOffsets() const
+    {
+        return m_recv_offsets;
     }
 
     const std::vector<unsigned> &GetFromRank() const
@@ -194,6 +332,21 @@ private:
     std::vector<TData> m_send_storage;
     /// Recv storage if required
     std::vector<TData> m_recv_storage;
+
+    /// Running sums of the per-entry payload sizes, when those vary; see
+    /// InitSendRecvCommsVar(). Both hold one more element than there are
+    /// entries, the last being the buffer total.
+    std::vector<size_t> m_send_offsets;
+    std::vector<size_t> m_recv_offsets;
+
+    /// Turn per-entry counts into the running sum the buffers are laid out by.
+    static void BuildOffsets(const std::vector<size_t> &counts,
+                             std::vector<size_t> &offsets)
+    {
+        offsets.resize(counts.size() + 1);
+        offsets[0] = 0;
+        std::partial_sum(counts.begin(), counts.end(), offsets.begin() + 1);
+    }
 
     /// Send requests
     LibUtilities::CommRequestSharedPtr m_send_reqs = nullptr;

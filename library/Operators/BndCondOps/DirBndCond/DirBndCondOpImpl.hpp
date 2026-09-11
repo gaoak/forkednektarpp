@@ -36,14 +36,14 @@
 
 #include <memory>
 #include <unordered_map>
-// AssemblyCommCG.h uses std::unordered_set/std::unordered_map without
+// AssemblyComm.h uses std::unordered_set/std::unordered_map without
 // including the corresponding headers itself; include them here first so it
 // does not depend on whatever an enclosing translation unit happens to have
 // pulled in.
 #include <unordered_set>
 #include <vector>
 
-#include <MultiRegions/AssemblyMap/AssemblyCommCG.h>
+#include <MultiRegions/AssemblyMap/AssemblyComm.h>
 #include <MultiRegions/ContField.h>
 
 #include "Operators/BndCondOps/Common/CGBndCondKernels.hpp"
@@ -112,7 +112,7 @@ public:
         // m_numBndCoeffCompSize: BuildCGBndCondCoeffMaps() below constructs
         // a fresh ContField per component, which is collective over the row
         // communicator, and SetUpUniversalDirComm() below builds each
-        // component's AssemblyCommCG, whose shared-id discovery is itself a
+        // component's AssemblyComm, whose shared-id discovery is itself a
         // ring exchange every rank must enter. If one rank's local partition
         // has zero
         // Dirichlet dofs while another rank's has some (entirely possible,
@@ -478,7 +478,7 @@ protected:
         LibUtilities::MemoryRegion<size_t> srEntries;
         LibUtilities::MemoryRegion<TData> sendBuffer;
         LibUtilities::MemoryRegion<TData> recvBuffer;
-        std::unique_ptr<MultiRegions::AssemblyCommCG<TData>> comm;
+        std::unique_ptr<MultiRegions::AssemblyComm<TData>> comm;
         size_t nSREntries = 0;
     };
     std::vector<DirUniversalComm> m_dirComm;
@@ -640,7 +640,7 @@ protected:
     // Build one component's device-resident universal Dirichlet assembly.
     //
     // Collective over the row communicator when running in parallel (the
-    // AssemblyCommCG constructor performs a ring discovery in which every
+    // AssemblyComm constructor performs a ring discovery in which every
     // rank must take part), so this is only ever reached from the
     // constructor, under the same global m_hasAnyBndCoeff guard as the rest
     // of the collective setup.
@@ -668,7 +668,7 @@ protected:
                  "coefficient count.");
 
         // Group local coefficients by universal id. A group's representative
-        // is its *last* local index, matching AssemblyCommCG's own choice in
+        // is its *last* local index, matching AssemblyComm's own choice in
         // BuildSendRecvMaps() (m_uid_to_index[uid] = i over ascending i), so
         // that the local indices it later hands back through GetSREntries()
         // are exactly these representatives.
@@ -711,7 +711,7 @@ protected:
 
         // Constructed on every rank, including ranks whose own mask is
         // entirely zero: the ring discovery inside is collective.
-        dc.comm = std::make_unique<MultiRegions::AssemblyCommCG<TData>>(
+        dc.comm = std::make_unique<MultiRegions::AssemblyComm<TData>>(
             m_rowComm, paraDirBnd);
 
         const std::vector<size_t> &sr = dc.comm->GetSREntries();
@@ -726,7 +726,7 @@ protected:
             ASSERTL1(idx < static_cast<size_t>(paraDirBnd.size()) &&
                          paraDirBnd[idx] != 0 &&
                          repOfUid[paraDirBnd[idx]] == idx,
-                     "AssemblyCommCG send/recv entry is not the "
+                     "AssemblyComm send/recv entry is not the "
                      "representative local index for its universal id.");
         }
 #endif
