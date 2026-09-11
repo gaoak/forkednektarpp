@@ -8,6 +8,7 @@ SET(LOCAL_REGIONS_SOURCES
     IndexMapKey.cpp
     MatrixKey.cpp
     NodalPrismExp.cpp
+    NodalPyrExp.cpp
     NodalTetExp.cpp
     NodalTriExp.cpp
     PointExp.cpp
@@ -34,6 +35,7 @@ SET(LOCAL_REGIONS_HEADERS
     NodalTetExp.h
     NodalTriExp.h
     NodalPrismExp.h
+    NodalPyrExp.h
     PointExp.h
     PrismExp.h
     PyrExp.h

@@ -62,6 +62,7 @@ enum ShapeType
     eNodalTri,
     eNodalTet,
     eNodalPrism,
+    eNodalPyr,
     SIZE_ShapeType,
 
     // These are the short names used for MatrixFree operators
@@ -75,13 +76,14 @@ enum ShapeType
     Hex        = eHexahedron,
     NodalTri   = eNodalTri,
     NodalTet   = eNodalTet,
-    NodalPrism = eNodalPrism
+    NodalPrism = eNodalPrism,
+    NodalPyr   = eNodalPyr
 };
 
 const char *const ShapeTypeMap[SIZE_ShapeType] = {
-    "NoGeomShapeType", "Point",       "Segment",  "Triangle",
-    "Quadrilateral",   "Tetrahedron", "Pyramid",  "Prism",
-    "Hexahedron",      "NodalTri",    "NodalTet", "NodalPrism"};
+    "NoGeomShapeType", "Point",      "Segment", "Triangle",   "Quadrilateral",
+    "Tetrahedron",     "Pyramid",    "Prism",   "Hexahedron", "NodalTri",
+    "NodalTet",        "NodalPrism", "NodalPyr"};
 
 // Hold the dimension of each of the types of shapes.
 constexpr unsigned int ShapeTypeDimMap[SIZE_ShapeType] = {
@@ -97,6 +99,7 @@ constexpr unsigned int ShapeTypeDimMap[SIZE_ShapeType] = {
     2, // eNodalTtri
     3, // eNodalTet
     3, // eNodalPrism
+    3, // eNodalPyr
 };
 
 // Hold the dimension of each of the types of shapes.
@@ -415,6 +418,53 @@ inline constexpr int getNumberOfBndCoefficients(int Na, int Nb, int Nc)
 }
 } // namespace StdPyrData
 
+namespace StdNodalPyrData
+{
+inline constexpr int getNumberOfCoefficients(int Na, int Nb, int Nc)
+{
+    ASSERTL1(Na > 1, "Order in 'a' direction must be > 1.");
+    ASSERTL1(Nb > 1, "Order in 'b' direction must be > 1.");
+    ASSERTL1(Nc > 1, "Order in 'c' direction must be > 1.");
+    ASSERTL1(Na <= Nc, "Order in 'a' direction is higher "
+                       "than order in 'c' direction.");
+    ASSERTL1(Nb <= Nc, "Order in 'b' direction is higher "
+                       "than order in 'c' direction.");
+
+    // Count number of coefficients explicitly.
+    int nCoeff = 0;
+
+    // Count number of interior tet modes
+    for (int a = 0; a < Na; ++a)
+    {
+        for (int b = 0; b < Nb; ++b)
+        {
+            for (int c = 0; c < Nc - std::max(a, b); ++c)
+            {
+                ++nCoeff;
+            }
+        }
+    }
+    return nCoeff;
+}
+
+inline constexpr int getNumberOfBndCoefficients(int Na, int Nb, int Nc)
+{
+    ASSERTL1(Na > 1, "Order in 'a' direction must be > 1.");
+    ASSERTL1(Nb > 1, "Order in 'b' direction must be > 1.");
+    ASSERTL1(Nc > 1, "Order in 'c' direction must be > 1.");
+    ASSERTL1(Na <= Nc, "Order in 'a' direction is higher "
+                       "than order in 'c' direction.");
+    ASSERTL1(Nb <= Nc, "Order in 'b' direction is higher "
+                       "than order in 'c' direction.");
+
+    return Na * Nb                                    // base
+           + 2 * (Na * (Na + 1) / 2 + (Nc - Na) * Na) // front and back
+           + 2 * (Nb * (Nb + 1) / 2 + (Nc - Nb) * Nb) // sides
+           - 2 * Na - 2 * Nb - 4 * Nc                 // less edges
+           + 5;                                       // plus vertices
+}
+} // namespace StdNodalPyrData
+
 namespace StdPrismData
 {
 inline constexpr int getNumberOfCoefficients(int Na, int Nb, int Nc)
@@ -547,6 +597,9 @@ inline constexpr int GetNumberOfCoefficients(ShapeType shape, int na,
             break;
         case eNodalPrism:
             returnval = StdNodalPrismData::getNumberOfCoefficients(na, nb, nc);
+            break;
+        case eNodalPyr:
+            returnval = StdNodalPyrData::getNumberOfCoefficients(na, nb, nc);
             break;
         case eHexahedron:
             returnval = na * nb * nc;

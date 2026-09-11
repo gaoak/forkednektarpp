@@ -66,6 +66,13 @@ public:
 
     NEKMESH_EXPORT SpatialDomains::Geometry *GetGeom(
         int coordDim, SpatialDomains::EntityHolder &holder) override;
+    NEKMESH_EXPORT void GetCurvedNodes(
+        std::vector<NodeSharedPtr> &nodeList) const override;
+    NEKMESH_EXPORT StdRegions::Orientation GetEdgeOrient(
+        int edgeId, EdgeSharedPtr edge) override;
+    NEKMESH_EXPORT void MakeOrder(int order, SpatialDomains::Geometry *geom,
+                                  LibUtilities::PointsType pType, int coordDim,
+                                  int &id, bool justConfig = false) override;
     NEKMESH_EXPORT static unsigned int GetNumNodes(ElmtConfig pConf);
     NEKMESH_EXPORT int GetFaceVertex(int i, int j) override
     {
@@ -79,6 +86,7 @@ public:
 
 private:
     static int m_faceIds[5][4];
+    static int m_edgeVerts[8][2];
 };
 } // namespace Nektar::NekMesh
 

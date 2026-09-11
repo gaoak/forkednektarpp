@@ -123,7 +123,8 @@ void Mesh::MakeOrder(int order, LibUtilities::PointsType distType, Logger &log)
         pTypes[LibUtilities::eQuadrilateral] = LibUtilities::ePolyEvenlySpaced;
         pTypes[LibUtilities::eTetrahedron] =
             LibUtilities::eNodalTetEvenlySpaced;
-        pTypes[LibUtilities::ePrism] = LibUtilities::eNodalPrismEvenlySpaced;
+        pTypes[LibUtilities::ePrism]   = LibUtilities::eNodalPrismEvenlySpaced;
+        pTypes[LibUtilities::ePyramid] = LibUtilities::eNodalPyrEvenlySpaced;
         pTypes[LibUtilities::eHexahedron] = LibUtilities::ePolyEvenlySpaced;
     }
     else if (distType == LibUtilities::eGaussLobattoLegendre)
