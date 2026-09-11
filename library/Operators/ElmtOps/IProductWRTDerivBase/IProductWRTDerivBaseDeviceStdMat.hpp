@@ -143,116 +143,118 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, TFieldOut> &outblock) override
     {
+        // Get BLAS handle.
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
+        // Get block sizes.
         const auto nhomo = inblock.GetNumHomoModes();
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-        const auto nelmtTot =
-            inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes();
+        const auto ncomp =
+            outblock.GetNumComponents() * outblock.GetNumHomoModes();
+        const auto nelmt    = inblock.GetNumElementsWithPadding();
+        const auto nelmtTot = nelmt * nhomo;
 
         // Initialize pointers.
         auto inptr = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
         auto outptr =
-            this->m_append
+            (this->m_append)
                 ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get static workspace pointer.
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                m_dimension * nelmtTot * m_nqTot, m_streamID);
+                m_dimension * nelmt * ncomp * m_nqTot, m_streamID);
 
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
         const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
-        // Loop over components.
+        // Offsets between the components of a block. The metric of every
+        // component is held at once, so the offset between two directions of
+        // the workspace spans all of them.
         const auto inoffset  = inblock.CompSize() * inblock.GetNumHomoModes();
         const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
-        const auto wspoffset = m_nqTot * nelmtTot;
+        const auto wspoffset = m_nqTot * nelmt * ncomp;
+
+        // Reshape, if necessary.
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            m_implInterleaveWidth, inInterleaveWidth,
+            nelmt * ncomp * m_coordDim, inblock.GetNumData(), (TData *)inptr,
+            m_streamID);
+        if (this->m_append)
+        {
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, outInterleaveWidth, nelmt * ncomp,
+                outblock.GetNumData(), (TData *)outptr, m_streamID);
+        }
+
+        // Multiply by derivative factor and Jacobian. The coordinate
+        // directions of a component are held in m_coordDim slots of the input
+        // block, so the components are taken one at a time.
         for (unsigned int n = 0; n < outblock.GetNumComponents(); ++n)
         {
-            // Reshape, if necessary.
-            for (unsigned int k = 0; k < m_coordDim; ++k)
-            {
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    m_implInterleaveWidth, inInterleaveWidth, nelmtTot,
-                    inblock.GetNumData(), (TData *)inptr + k * inoffset,
-                    m_streamID);
-            }
-
-            if (this->m_append)
-            {
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    m_implInterleaveWidth, outInterleaveWidth, nelmtTot,
-                    outblock.GetNumData(), (TData *)outptr, m_streamID);
-            }
-
             if constexpr (TFieldOut == FieldState::Coeff)
             {
-                // Multiply by derivative factor and Jacobian.
                 if (m_isDeformed)
                 {
                     JacobianDerivFactorKernel<ExecSpace, true>(
                         m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
-                        inoffset, wspoffset, m_jacptr, m_dfptr, inptr, wspptr,
-                        m_streamID);
+                        inoffset, wspoffset, m_jacptr, m_dfptr,
+                        inptr + n * m_coordDim * inoffset,
+                        wspptr + n * m_nqTot * nelmtTot, m_streamID);
                 }
                 else
                 {
                     JacobianDerivFactorKernel<ExecSpace, false>(
                         m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
-                        inoffset, wspoffset, m_jacptr, m_dfptr, inptr, wspptr,
-                        m_streamID);
+                        inoffset, wspoffset, m_jacptr, m_dfptr,
+                        inptr + n * m_coordDim * inoffset,
+                        wspptr + n * m_nqTot * nelmtTot, m_streamID);
                 }
             }
             else
             {
-                // Multiply by derivative factor and Jacobian.
                 if (m_isDeformed)
                 {
                     JacobianDerivFactorWeightsKernel<ExecSpace, true>(
                         m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
                         inoffset, wspoffset, m_jacptr, m_dfptr, m_weights,
-                        inptr, wspptr, m_streamID);
+                        inptr + n * m_coordDim * inoffset,
+                        wspptr + n * m_nqTot * nelmtTot, m_streamID);
                 }
                 else
                 {
                     JacobianDerivFactorWeightsKernel<ExecSpace, false>(
                         m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
                         inoffset, wspoffset, m_jacptr, m_dfptr, m_weights,
-                        inptr, wspptr, m_streamID);
+                        inptr + n * m_coordDim * inoffset,
+                        wspptr + n * m_nqTot * nelmtTot, m_streamID);
                 }
             }
-
-            // Perform matrix-matrix multiply.
-            for (unsigned int d = 0; d < m_dimension; d++)
-            {
-                TData alpha = this->m_scale;
-                TData beta  = (d != 0 || this->m_append);
-
-                NekBlas::Gemm(handle, "N", "N", m_outTot, nelmtTot, m_nqTot,
-                              alpha, m_matptr + d * m_nqTot * m_outTot,
-                              m_outTot, wspptr + d * nelmtTot * m_nqTot,
-                              m_nqTot, beta, outptr, m_outTot);
-            }
-
-            // Reshape back, if necessary.
-            for (unsigned int k = 0; k < m_coordDim; ++k)
-            {
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    inInterleaveWidth, m_implInterleaveWidth, nelmtTot,
-                    inblock.GetNumData(), (TData *)inptr + k * inoffset,
-                    m_streamID);
-            }
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                inInterleaveWidth, m_implInterleaveWidth, nelmtTot,
-                outblock.GetNumData(), outptr, m_streamID);
-
-            // Increment pointers.
-            inptr += m_coordDim * inoffset;
-            outptr += outoffset;
         }
+
+        // Perform batched matrix-matrix multiply, one multiply per component,
+        // with the homogeneous modes held in the columns.
+        for (unsigned int d = 0; d < m_dimension; d++)
+        {
+            TData alpha = this->m_scale;
+            TData beta  = (d != 0 || this->m_append);
+
+            NekBlas::GemmStridedBatched(
+                handle, "N", "N", m_outTot, nelmtTot, m_nqTot, alpha,
+                m_matptr + d * m_nqTot * m_outTot, m_outTot, 0,
+                wspptr + d * wspoffset, m_nqTot, m_nqTot * nelmtTot, beta,
+                outptr, m_outTot, outoffset, outblock.GetNumComponents());
+        }
+
+        // Reshape back, if necessary.
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            inInterleaveWidth, m_implInterleaveWidth,
+            nelmt * ncomp * m_coordDim, inblock.GetNumData(), (TData *)inptr,
+            m_streamID);
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            inInterleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
+            outblock.GetNumData(), outptr, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);

@@ -118,101 +118,94 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
-        auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
-
         ASSERTL1(inblock.GetNumHomoModes() == 1,
                  "Currently only setup for one homogeneous plane");
 
+        // Get BLAS handle.
+        auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
+
+        // Get block sizes.
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
-        // Get static workspace pointer.
+        // Get static workspace pointer. The standard derivatives of every
+        // component are held at once so that the chain rule is applied to a
+        // contiguous workspace.
         auto derivptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                m_dimension * nelmt * m_nqTot, m_streamID);
+                m_dimension * m_dimension * nelmt * m_nqTot, m_streamID);
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
-        // Loop over components.
-        const auto inoffset    = inblock.CompSize();
+        // Offset between the components of a block. The derivatives of every
+        // component are held at once, so the offset between two directions of
+        // the workspace spans all of them.
         const auto derivoffset = m_nqTot * nelmt;
 
-        // du/dx
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
-            m_implInterleaveWidth, interleaveWidth, nelmt, inblock.GetNumData(),
-            (TData *)inptr, m_streamID);
+            m_implInterleaveWidth, interleaveWidth, m_dimension * nelmt,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
 
-        for (unsigned int d = 0; d < m_dimension; d++)
+        // Standard derivatives of all the components.
+        // Perform batched matrix-matrix multiply, one multiply per direction,
+        // with the components held in the columns.
+        NekBlas::GemmStridedBatched(
+            handle, "N", "N", m_nqTot, m_dimension * nelmt, m_nqTot, (TData)1.0,
+            m_matptr, m_nqTot, m_nqTot * m_nqTot, inptr, m_nqTot, 0, (TData)0.0,
+            derivptr, m_nqTot, m_dimension * derivoffset, m_dimension);
+
+        // Multiply by derivative factor. Each component contributes one
+        // direction of the divergence, so they are accumulated one at a time.
+        for (unsigned int c = 0; c < m_dimension; c++)
         {
-            // Perform matrix-matrix multiply.
-            NekBlas::Gemm(handle, "N", "N", m_nqTot, nelmt, m_nqTot, (TData)1.0,
-                          m_matptr + d * m_nqTot * m_nqTot, m_nqTot, inptr,
-                          m_nqTot, (TData)0.0, derivptr + d * m_nqTot * nelmt,
-                          m_nqTot);
-        }
-
-        // Multiply by derivative factor.
-        if (m_isDeformed)
-        {
-            MultiplyByDerivDirFactorKernel<ExecSpace, false, true>(
-                0, m_nqTot, m_coordDim, m_dimension, nelmt, derivoffset,
-                m_dfptr, derivptr, outptr, m_streamID);
-        }
-        else
-        {
-            MultiplyByDerivDirFactorKernel<ExecSpace, false, false>(
-                0, m_nqTot, m_coordDim, m_dimension, nelmt, derivoffset,
-                m_dfptr, derivptr, outptr, m_streamID);
-        }
-
-        // Calculate dv/dy and dw/dz
-        for (unsigned int c = 1; c < m_dimension; c++)
-        {
-            // Reshape, if necessary.
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                m_implInterleaveWidth, interleaveWidth, nelmt,
-                inblock.GetNumData(), (TData *)inptr + c * inoffset,
-                m_streamID);
-
-            for (unsigned int d = 0; d < m_dimension; d++)
-            {
-                // Perform matrix-matrix multiply.
-                NekBlas::Gemm(handle, "N", "N", m_nqTot, nelmt, m_nqTot,
-                              (TData)1.0, m_matptr + d * m_nqTot * m_nqTot,
-                              m_nqTot, inptr + c * inoffset, m_nqTot,
-                              (TData)0.0, derivptr + d * m_nqTot * nelmt,
-                              m_nqTot);
-            }
-
-            // Multiply by derivative factor.
             if (m_isDeformed)
             {
-                MultiplyByDerivDirFactorKernel<ExecSpace, true, true>(
-                    c, m_nqTot, m_coordDim, m_dimension, nelmt, derivoffset,
-                    m_dfptr, derivptr, outptr, m_streamID);
+                if (c == 0)
+                {
+                    MultiplyByDerivDirFactorKernel<ExecSpace, false, true>(
+                        c, m_nqTot, m_coordDim, m_dimension, nelmt,
+                        m_dimension * derivoffset, m_dfptr,
+                        derivptr + c * derivoffset, outptr, m_streamID);
+                }
+                else
+                {
+                    MultiplyByDerivDirFactorKernel<ExecSpace, true, true>(
+                        c, m_nqTot, m_coordDim, m_dimension, nelmt,
+                        m_dimension * derivoffset, m_dfptr,
+                        derivptr + c * derivoffset, outptr, m_streamID);
+                }
             }
             else
             {
-                MultiplyByDerivDirFactorKernel<ExecSpace, true, false>(
-                    c, m_nqTot, m_coordDim, m_dimension, nelmt, derivoffset,
-                    m_dfptr, derivptr, outptr, m_streamID);
+                if (c == 0)
+                {
+                    MultiplyByDerivDirFactorKernel<ExecSpace, false, false>(
+                        c, m_nqTot, m_coordDim, m_dimension, nelmt,
+                        m_dimension * derivoffset, m_dfptr,
+                        derivptr + c * derivoffset, outptr, m_streamID);
+                }
+                else
+                {
+                    MultiplyByDerivDirFactorKernel<ExecSpace, true, false>(
+                        c, m_nqTot, m_coordDim, m_dimension, nelmt,
+                        m_dimension * derivoffset, m_dfptr,
+                        derivptr + c * derivoffset, outptr, m_streamID);
+                }
             }
         }
 
-        for (unsigned int k = 0; k < m_coordDim; k++)
-        {
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                interleaveWidth, m_implInterleaveWidth, nelmt, m_nqTot,
-                (TData *)inptr + k * inoffset, m_streamID);
-        }
+        // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
-            interleaveWidth, m_implInterleaveWidth, nelmt, m_nqTot,
-            (TData *)outptr, m_streamID);
+            interleaveWidth, m_implInterleaveWidth, m_dimension * nelmt,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, nelmt,
+            outblock.GetNumData(), (TData *)outptr, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);

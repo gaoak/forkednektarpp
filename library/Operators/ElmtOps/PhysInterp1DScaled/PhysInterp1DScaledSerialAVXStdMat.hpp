@@ -65,9 +65,6 @@ public:
         m_dimension = exp->GetShapeDimension();
         m_coordDim  = exp->GetCoordim();
 
-        // Flag for collapsed coordinate correction.
-        m_isModified = (exp->GetBasisType(0) == LibUtilities::eModified_A);
-
         for (unsigned int d = 0; d < m_dimension; d++)
         {
             m_nm.push_back(exp->GetNumPoints(d));
@@ -108,7 +105,6 @@ protected:
     LibUtilities::ShapeType m_shapeType;
     LibUtilities::PointsType m_nodalType;
     bool m_isDeformed;
-    bool m_isModified;
     unsigned int m_dimension;
     unsigned int m_coordDim;
     unsigned int m_nmTot;
