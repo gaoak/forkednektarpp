@@ -130,108 +130,115 @@ protected:
                 m_implInterleaveWidth);
         }
 
+        // Get BLAS handle.
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
-        const auto nhomo = inblock.GetNumHomoModes();
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-        const auto nelmtTot =
-            inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes();
+        // Get block sizes.
+        const auto nhomo    = inblock.GetNumHomoModes();
+        const auto ncomp    = inblock.GetNumComponents() * nhomo;
+        const auto nelmt    = inblock.GetNumElementsWithPadding();
+        const auto nelmtTot = nelmt * nhomo;
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
+        auto inptr = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr =
+            (this->m_append)
+                ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
+                : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
+        auto advVelPtr =
+            this->m_advVel->template GetPtr<MemSpace, ReadOnly>(m_streamID);
+
+        // Get static workspace pointer.
+        auto derivptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                m_coordDim * nelmt * ncomp * m_nqTot, m_streamID);
 
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
         const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
-        // Get static workspace pointer.
-        auto derivptr =
-            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                m_coordDim * nelmtTot * m_nqTot, m_streamID);
-
-        // Loop over components.
+        // Offsets between the components of a block. The derivatives of every
+        // component are held at once, so the offset between two directions
+        // spans all of them, while the advection velocity is shared by them.
         const auto advelsize =
             m_nqTot * inblock.GetNumElmtGroups(m_implInterleaveWidth);
-        const auto inoffset  = inblock.CompSize() * inblock.GetNumHomoModes();
         const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
+        const auto derivoffset = m_nqTot * nelmt * ncomp;
+
+        // Reshape, if necessary.
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            m_implInterleaveWidth, inInterleaveWidth, nelmt * ncomp,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
+        if (this->m_append)
+        {
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, outInterleaveWidth, nelmt * ncomp,
+                outblock.GetNumData(), (TData *)outptr, m_streamID);
+        }
+
+        // Perform batched matrix-matrix multiply, one multiply per direction,
+        // with the components and homogeneous modes held in the columns.
+        NekBlas::GemmStridedBatched(
+            handle, "N", "N", m_nqTot, nelmt * ncomp, m_nqTot, (TData)1.0,
+            m_matptr, m_nqTot, m_nqTot * m_nqTot, inptr, m_nqTot, 0, (TData)0.0,
+            derivptr, m_nqTot, derivoffset, m_dimension);
+
+        // Multiply by derivative factor. The advection velocity is indexed by
+        // the elements of a single component, so the components are taken one
+        // at a time.
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
-            auto advVelPtr =
-                this->m_advVel->template GetPtr<MemSpace, ReadOnly>(m_streamID);
-
-            // Reshape, if necessary.
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                m_implInterleaveWidth, inInterleaveWidth, nelmtTot,
-                inblock.GetNumData(), (TData *)inptr, m_streamID);
-
-            // Perform matrix-matrix multiply.
-            for (unsigned int d = 0; d < m_dimension; d++)
-            {
-                NekBlas::Gemm(handle, "N", "N", m_nqTot, nelmtTot, m_nqTot,
-                              (TData)1.0, m_matptr + d * m_nqTot * m_nqTot,
-                              m_nqTot, inptr, m_nqTot, (TData)0.0,
-                              derivptr + d * outoffset, m_nqTot);
-            }
-
-            // Multiply by derivative factor.
             if (m_isDeformed)
             {
                 if (this->m_append)
                 {
-                    // Reshape, if necessary.
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        m_implInterleaveWidth, outInterleaveWidth, nelmtTot,
-                        outblock.GetNumData(), (TData *)outptr, m_streamID);
-
                     MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, true,
                                                            true>(
                         m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
-                        outoffset, m_dfptr, advVelPtr, advelsize, derivptr,
-                        outptr, this->m_scale, m_streamID);
+                        derivoffset, m_dfptr, advVelPtr, advelsize,
+                        derivptr + n * m_nqTot * nelmtTot,
+                        outptr + n * outoffset, this->m_scale, m_streamID);
                 }
                 else
                 {
                     MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, false,
                                                            true>(
                         m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
-                        outoffset, m_dfptr, advVelPtr, advelsize, derivptr,
-                        outptr, this->m_scale, m_streamID);
+                        derivoffset, m_dfptr, advVelPtr, advelsize,
+                        derivptr + n * m_nqTot * nelmtTot,
+                        outptr + n * outoffset, this->m_scale, m_streamID);
                 }
             }
             else
             {
                 if (this->m_append)
                 {
-                    // Reshape, if necessary.
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        m_implInterleaveWidth, outInterleaveWidth, nelmtTot,
-                        outblock.GetNumData(), (TData *)outptr, m_streamID);
-
                     MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, true,
                                                            false>(
                         m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
-                        outoffset, m_dfptr, advVelPtr, advelsize, derivptr,
-                        outptr, this->m_scale, m_streamID);
+                        derivoffset, m_dfptr, advVelPtr, advelsize,
+                        derivptr + n * m_nqTot * nelmtTot,
+                        outptr + n * outoffset, this->m_scale, m_streamID);
                 }
                 else
                 {
                     MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, false,
                                                            false>(
                         m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
-                        outoffset, m_dfptr, advVelPtr, advelsize, derivptr,
-                        outptr, this->m_scale, m_streamID);
+                        derivoffset, m_dfptr, advVelPtr, advelsize,
+                        derivptr + n * m_nqTot * nelmtTot,
+                        outptr + n * outoffset, this->m_scale, m_streamID);
                 }
             }
-
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                inInterleaveWidth, m_implInterleaveWidth, nelmtTot, m_nqTot,
-                (TData *)outptr, m_streamID);
-
-            // Increment pointer.
-            inptr += inoffset;
-            outptr += outoffset;
         }
+
+        // Reshape back, if necessary.
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            inInterleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            inInterleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
+            outblock.GetNumData(), outptr, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);

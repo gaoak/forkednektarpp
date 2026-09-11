@@ -115,12 +115,14 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
+        // Get BLAS handle.
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
-        const auto nhomo = inblock.GetNumHomoModes();
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-        const auto nelmtTot =
-            inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes();
+        // Get block sizes.
+        const auto nhomo    = inblock.GetNumHomoModes();
+        const auto ncomp    = inblock.GetNumComponents() * nhomo;
+        const auto nelmt    = inblock.GetNumElementsWithPadding();
+        const auto nelmtTot = nelmt * nhomo;
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
@@ -129,53 +131,58 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
-        // Loop over components.
+        // Offsets between the components of a block. In 3DH1 (nhomo > 1) the
+        // output has 3 slots per component (x, y, z) regardless of base mesh
+        // coordDim, leaving slot 2 free for the z-derivative written by
+        // PhysDerivZOpHost/Device.
         const auto outDim = (outblock.GetNumHomoModes() > 1) ? 3u : m_coordDim;
         const auto inoffset  = inblock.CompSize() * inblock.GetNumHomoModes();
         const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
+
+        // Reshape, if necessary.
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            m_implInterleaveWidth, interleaveWidth, nelmt * ncomp,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
+
+        // Perform batched matrix-matrix multiply, one multiply per component,
+        // with the homogeneous modes held in the columns.
+        for (unsigned int d = 0; d < m_dimension; d++)
+        {
+            NekBlas::GemmStridedBatched(
+                handle, "N", "N", m_nqTot, nelmtTot, m_nqTot, (TData)1.0,
+                m_matptr + d * m_nqTot * m_nqTot, m_nqTot, 0, inptr, m_nqTot,
+                inoffset, (TData)0.0, outptr + d * outoffset, m_nqTot,
+                outDim * outoffset, inblock.GetNumComponents());
+        }
+
+        // Multiply by derivative factor. The directions of a component are
+        // held in outDim slots of the output block, so the components are
+        // taken one at a time.
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
-            // Reshape, if necessary.
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                m_implInterleaveWidth, interleaveWidth, nelmtTot,
-                inblock.GetNumData(), (TData *)inptr, m_streamID);
-
-            // Perform matrix-matrix multiply.
-            for (unsigned int d = 0; d < m_dimension; d++)
-            {
-                NekBlas::Gemm(handle, "N", "N", m_nqTot, nelmtTot, m_nqTot,
-                              (TData)1.0, m_matptr + d * m_nqTot * m_nqTot,
-                              m_nqTot, inptr, m_nqTot, (TData)0.0,
-                              outptr + d * outoffset, m_nqTot);
-            }
-
-            // Multiply by derivative factor.
             if (m_isDeformed)
             {
                 MultiplyByDerivFactorKernel<ExecSpace, true>(
                     m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, outoffset,
-                    outoffset, m_dfptr, outptr, outptr, m_streamID);
+                    outoffset, m_dfptr, outptr + n * outDim * outoffset,
+                    outptr + n * outDim * outoffset, m_streamID);
             }
             else
             {
                 MultiplyByDerivFactorKernel<ExecSpace, false>(
                     m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, outoffset,
-                    outoffset, m_dfptr, outptr, outptr, m_streamID);
+                    outoffset, m_dfptr, outptr + n * outDim * outoffset,
+                    outptr + n * outDim * outoffset, m_streamID);
             }
-
-            for (unsigned int k = 0; k < outDim; k++)
-            {
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    interleaveWidth, m_implInterleaveWidth, nelmtTot, m_nqTot,
-                    (TData *)outptr + k * outoffset, m_streamID);
-            }
-
-            // In 3DH1 (nhomo > 1) the output has 3 slots per component
-            // (x, y, z) regardless of base mesh coordDim, leaving slot 2
-            // free for the z-derivative written by PhysDerivZOpHost/Device.
-            inptr += inoffset;
-            outptr += outDim * outoffset;
         }
+
+        // Reshape back, if necessary.
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp * outDim,
+            outblock.GetNumData(), (TData *)outptr, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);

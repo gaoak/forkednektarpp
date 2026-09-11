@@ -154,25 +154,29 @@ protected:
                 m_implInterleaveWidth);
         }
 
+        // Get BLAS handle.
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
-        const auto nhomo = inblock.GetNumHomoModes();
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-        const auto nelmtTot =
-            inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes();
+        // Get block sizes.
+        const auto ncomp =
+            inblock.GetNumComponents() * inblock.GetNumHomoModes();
+        const auto nelmt    = inblock.GetNumElementsWithPadding();
+        const auto nelmtTot = nelmt * inblock.GetNumHomoModes();
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
         auto diffCoeffPtr =
             this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto advVelPtr =
+            this->m_advVel->template GetPtr<MemSpace, ReadOnly>(m_streamID);
 
         // Get static workspace pointer.
         auto bwdptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                nelmtTot * m_nqTot + m_dimension * nelmtTot * m_nqTot,
+                nelmt * ncomp * m_nqTot + m_dimension * nelmt * ncomp * m_nqTot,
                 m_streamID);
-        auto derivptr = bwdptr + nelmtTot * m_nqTot;
+        auto derivptr = bwdptr + nelmt * ncomp * m_nqTot;
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -180,87 +184,88 @@ protected:
         // Set Kernel parameters.
         const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
         const unsigned int gridSize =
-            (nelmt * m_nqTot * nhomo + blockSize - 1u) / blockSize;
+            (nelmt * m_nqTot * ncomp + blockSize - 1u) / blockSize;
 
-        // Loop over components.
+        // Offsets between the components of a block. The derivatives of every
+        // component are held at once, so the offset between two directions
+        // spans all of them, while the advection velocity is shared by them.
+        const auto inoffset  = inblock.CompSize() * inblock.GetNumHomoModes();
+        const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
         const auto adveloffset = m_nqTot * nelmt;
-        const auto derivoffset = m_nqTot * nelmtTot;
-        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
+        const auto derivoffset = m_nqTot * nelmt * ncomp;
+
+        // Reshape, if necessary.
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            m_implInterleaveWidth, interleaveWidth, nelmt * ncomp,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
+
+        // Step 1: BwdTrans
+        // Perform batched matrix-matrix multiply, one multiply per component,
+        // with the homogeneous modes held in the columns.
+        if (this->m_lambda != 0.0)
         {
-            auto advVelPtr =
-                this->m_advVel->template GetPtr<MemSpace, ReadOnly>(m_streamID);
-
-            // Reshape, if necessary.
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                m_implInterleaveWidth, interleaveWidth, nelmtTot,
-                inblock.GetNumData(), (TData *)inptr, m_streamID);
-
-            // Step 1: BwdTrans
-            // Perform matrix-matrix multiply.
-            if (this->m_lambda != 0.0)
-            {
-                NekBlas::Gemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot,
-                              (TData)1.0, m_bwdmat, m_nqTot, inptr, m_nmTot,
-                              (TData)0.0, bwdptr, m_nqTot);
-            }
-
-            // Step 2: Deriv
-            // Perform matrix-matrix multiply.
-            for (unsigned int d = 0; d < m_dimension; d++)
-            {
-                NekBlas::Gemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot,
-                              (TData)1.0, m_derivmat + d * m_nqTot * m_nmTot,
-                              m_nqTot, inptr, m_nmTot, (TData)0.0,
-                              derivptr + d * m_nqTot * nelmtTot, m_nqTot);
-            }
-
-            // Step 3: Multiply by diffusion coefficient, derivative
-            // factor and Jacobian and add advection.
-            if (m_isDeformed)
-            {
-                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (ApplyMetricKernel<true>), gridSize, blockSize, m_streamID,
-                    m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
-                    derivoffset, adveloffset, diffCoeffPtr, m_jacptr, m_dfptr,
-                    advVelPtr, derivptr, derivptr, bwdptr, this->m_lambda);
-            }
-            else
-            {
-                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (ApplyMetricKernel<false>), gridSize, blockSize, m_streamID,
-                    m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
-                    derivoffset, adveloffset, diffCoeffPtr, m_jacptr, m_dfptr,
-                    advVelPtr, derivptr, derivptr, bwdptr, this->m_lambda);
-            }
-
-            // Step 4: IProduct
-            // Perform matrix-matrix multiply.
-            NekBlas::Gemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot,
-                          (TData)1.0, m_ipbmat, m_nmTot, bwdptr, m_nqTot,
-                          (TData)0.0, outptr, m_nmTot);
-
-            // Step 5: IProductWRTDerivBase
-            // Perform matrix-matrix multiply.
-            for (unsigned int d = 0; d < m_dimension; d++)
-            {
-                NekBlas::Gemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot,
-                              (TData)1.0, m_ipdmat + d * m_nqTot * m_nmTot,
-                              m_nmTot, derivptr + d * nelmtTot * m_nqTot,
-                              m_nqTot, (TData)1.0, outptr, m_nmTot);
-            }
-
-            // Reshape back, if necessary.
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                interleaveWidth, m_implInterleaveWidth, nelmtTot,
-                inblock.GetNumData(), (TData *)inptr, m_streamID);
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                interleaveWidth, m_implInterleaveWidth, nelmtTot,
-                outblock.GetNumData(), outptr, m_streamID);
-
-            // Increment pointers.
-            inptr += inblock.CompSize() * inblock.GetNumHomoModes();
-            outptr += outblock.CompSize() * outblock.GetNumHomoModes();
+            NekBlas::GemmStridedBatched(handle, "N", "N", m_nqTot, nelmtTot,
+                                        m_nmTot, (TData)1.0, m_bwdmat, m_nqTot,
+                                        0, inptr, m_nmTot, inoffset, (TData)0.0,
+                                        bwdptr, m_nqTot, m_nqTot * nelmtTot,
+                                        inblock.GetNumComponents());
         }
+
+        // Step 2: Deriv
+        // Perform batched matrix-matrix multiply, one multiply per direction,
+        // with the components and homogeneous modes held in the columns.
+        NekBlas::GemmStridedBatched(
+            handle, "N", "N", m_nqTot, nelmt * ncomp, m_nmTot, (TData)1.0,
+            m_derivmat, m_nqTot, m_nqTot * m_nmTot, inptr, m_nmTot, 0,
+            (TData)0.0, derivptr, m_nqTot, derivoffset, m_dimension);
+
+        // Step 3: Multiply by diffusion coefficient, derivative
+        // factor and Jacobian and add advection.
+        if (m_isDeformed)
+        {
+            DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                (ApplyMetricKernel<true>), gridSize, blockSize, m_streamID,
+                m_nqTot, m_coordDim, m_dimension, nelmt, ncomp, derivoffset,
+                derivoffset, adveloffset, diffCoeffPtr, m_jacptr, m_dfptr,
+                advVelPtr, derivptr, derivptr, bwdptr, this->m_lambda);
+        }
+        else
+        {
+            DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                (ApplyMetricKernel<false>), gridSize, blockSize, m_streamID,
+                m_nqTot, m_coordDim, m_dimension, nelmt, ncomp, derivoffset,
+                derivoffset, adveloffset, diffCoeffPtr, m_jacptr, m_dfptr,
+                advVelPtr, derivptr, derivptr, bwdptr, this->m_lambda);
+        }
+
+        // Step 4: IProduct
+        // Perform batched matrix-matrix multiply, one multiply per component,
+        // with the homogeneous modes held in the columns.
+        NekBlas::GemmStridedBatched(
+            handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, (TData)1.0, m_ipbmat,
+            m_nmTot, 0, bwdptr, m_nqTot, m_nqTot * nelmtTot, (TData)0.0, outptr,
+            m_nmTot, outoffset, inblock.GetNumComponents());
+
+        // Step 5: IProductWRTDerivBase
+        // Perform batched matrix-matrix multiply, one multiply per component,
+        // with the homogeneous modes held in the columns.
+        for (unsigned int d = 0; d < m_dimension; d++)
+        {
+            NekBlas::GemmStridedBatched(
+                handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, (TData)1.0,
+                m_ipdmat + d * m_nqTot * m_nmTot, m_nmTot, 0,
+                derivptr + d * derivoffset, m_nqTot, m_nqTot * nelmtTot,
+                (TData)1.0, outptr, m_nmTot, outoffset,
+                inblock.GetNumComponents());
+        }
+
+        // Reshape back, if necessary.
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
+            outblock.GetNumData(), outptr, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);

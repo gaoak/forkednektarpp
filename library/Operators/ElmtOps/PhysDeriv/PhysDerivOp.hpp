@@ -162,8 +162,6 @@ protected:
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
                  LibUtilities::Field<TData, FieldState::Phys> &out) override
     {
-        const unsigned int nhomo = in.GetNumHomoModes();
-
         // m_blockNXY is non-empty only for 3DH1 (set in Create when
         // dynamic_cast to ExpListHomogeneous1D succeeds). For 2D/3D/3DH2
         // use coordim to determine the output-component ratio.
@@ -177,6 +175,8 @@ protected:
 
         ASSERTL1(in.GetNumHomoModes() == out.GetNumHomoModes(),
                  "Number of input and output homogeneous modes differ");
+
+        const unsigned int nhomo = in.GetNumHomoModes();
 
         // For backward compatibility for non-CUDA device backend.
         if (nhomo == 1)

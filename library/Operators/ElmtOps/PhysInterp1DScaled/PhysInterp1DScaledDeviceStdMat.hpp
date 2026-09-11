@@ -62,9 +62,6 @@ public:
         m_dimension = exp->GetShapeDimension();
         m_coordDim  = exp->GetCoordim();
 
-        // Flag for collapsed coordinate correction.
-        m_isModified = (exp->GetBasisType(0) == LibUtilities::eModified_A);
-
         for (unsigned int d = 0; d < m_dimension; d++)
         {
             m_nm.push_back(exp->GetNumPoints(d));
@@ -99,14 +96,13 @@ public:
     }
 
 protected:
-    static constexpr unsigned int m_implInterleaveWidth = 1;
+    static constexpr unsigned int m_implInterleaveWidth = 1u;
 
     unsigned int m_streamID;
     std::vector<LibUtilities::BasisKey> m_basisKeys;
     LibUtilities::ShapeType m_shapeType;
     LibUtilities::PointsType m_nodalType;
     bool m_isDeformed;
-    bool m_isModified;
     unsigned int m_dimension;
     unsigned int m_coordDim;
     unsigned int m_nmTot;
@@ -119,10 +115,14 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
+        // Get BLAS handle.
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
-        const auto nelmtTot =
-            inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes();
+        // Get block sizes.
+        const auto ncomp =
+            inblock.GetNumComponents() * inblock.GetNumHomoModes();
+        const auto nelmt    = inblock.GetNumElementsWithPadding();
+        const auto nelmtTot = nelmt * inblock.GetNumHomoModes();
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
@@ -131,31 +131,29 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
-        // Loop over components.
-        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
-        {
-            // Reshape, if necessary.
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                m_implInterleaveWidth, interleaveWidth, nelmtTot,
-                inblock.GetNumData(), (TData *)inptr, m_streamID);
+        // Offsets between the components of a block.
+        const auto inoffset  = inblock.CompSize() * inblock.GetNumHomoModes();
+        const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
 
-            // Perform matrix-matrix multiply.
-            NekBlas::Gemm(handle, "N", "N", m_nqTot, nelmtTot, m_nmTot,
-                          (TData)1.0, m_matptr, m_nqTot, inptr, m_nmTot,
-                          (TData)0.0, outptr, m_nqTot);
+        // Reshape, if necessary.
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            m_implInterleaveWidth, interleaveWidth, nelmt * ncomp,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
 
-            // Reshape back, if necessary.
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                interleaveWidth, m_implInterleaveWidth, nelmtTot,
-                inblock.GetNumData(), (TData *)inptr, m_streamID);
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                interleaveWidth, m_implInterleaveWidth, nelmtTot,
-                outblock.GetNumData(), outptr, m_streamID);
+        // Perform batched matrix-matrix multiply, one multiply per component,
+        // with the homogeneous modes held in the columns.
+        NekBlas::GemmStridedBatched(
+            handle, "N", "N", m_nqTot, nelmtTot, m_nmTot, (TData)1.0, m_matptr,
+            m_nqTot, 0, inptr, m_nmTot, inoffset, (TData)0.0, outptr, m_nqTot,
+            outoffset, inblock.GetNumComponents());
 
-            // Increment pointers.
-            inptr += inblock.CompSize() * inblock.GetNumHomoModes();
-            outptr += outblock.CompSize() * outblock.GetNumHomoModes();
-        }
+        // Reshape back, if necessary.
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
+            outblock.GetNumData(), outptr, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);

@@ -125,12 +125,14 @@ protected:
                  LibUtilities::BlockAccessor<TData, FieldState::Coeff>
                      &outblock) override
     {
+        // Get BLAS handle.
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
-        const auto nhomo = inblock.GetNumHomoModes();
-        const auto nelmt = inblock.GetNumElementsWithPadding();
-        const auto nelmtTot =
-            inblock.GetNumElementsWithPadding() * inblock.GetNumHomoModes();
+        // Get block sizes.
+        const auto ncomp =
+            inblock.GetNumComponents() * inblock.GetNumHomoModes();
+        const auto nelmt    = inblock.GetNumElementsWithPadding();
+        const auto nelmtTot = nelmt * inblock.GetNumHomoModes();
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
@@ -140,61 +142,61 @@ protected:
         auto wspptr =
             (this->m_integration)
                 ? BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                      nelmtTot * m_nqTot, m_streamID)
+                      nelmt * ncomp * m_nqTot, m_streamID)
                 : nullptr;
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
-        // Loop over components.
-        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
+        // Offsets between the components of a block.
+        const auto inoffset  = inblock.CompSize() * inblock.GetNumHomoModes();
+        const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
+        const auto wspoffset = m_nqTot * nelmtTot;
+
+        // Reshape, if necessary.
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            m_implInterleaveWidth, interleaveWidth, nelmt * ncomp,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
+        if (this->m_integration) // integration with weights
         {
-            // Reshape, if necessary.
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                m_implInterleaveWidth, interleaveWidth, nelmtTot,
-                inblock.GetNumData(), (TData *)inptr, m_streamID);
-
-            if (this->m_integration) // integration with weights
+            // Multiply by jacobian.
+            if (m_isDeformed)
             {
-                // Multiply by jacobian.
-                if (m_isDeformed)
-                {
-                    MultiplyByJacobian<ExecSpace, true>(
-                        nelmt, m_nqTot, nhomo, m_jacptr, inptr, wspptr,
-                        this->m_scale, m_streamID);
-                }
-                else
-                {
-                    MultiplyByJacobian<ExecSpace, false>(
-                        nelmt, m_nqTot, nhomo, m_jacptr, inptr, wspptr,
-                        this->m_scale, m_streamID);
-                }
-
-                // Perform matrix-matrix multiply.
-                NekBlas::Gemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot,
-                              (TData)1.0, m_matptr, m_nmTot, wspptr, m_nqTot,
-                              (TData)0.0, outptr, m_nmTot);
+                MultiplyByJacobian<ExecSpace, true>(nelmt, m_nqTot, ncomp,
+                                                    m_jacptr, inptr, wspptr,
+                                                    this->m_scale, m_streamID);
             }
             else
             {
-                // Just perform matrix-matrix multiply of B^T
-                NekBlas::Gemm(handle, "N", "N", m_nmTot, nelmtTot, m_nqTot,
-                              this->m_scale, m_BT_matptr, m_nmTot, inptr,
-                              m_nqTot, (TData)0.0, outptr, m_nmTot);
+                MultiplyByJacobian<ExecSpace, false>(nelmt, m_nqTot, ncomp,
+                                                     m_jacptr, inptr, wspptr,
+                                                     this->m_scale, m_streamID);
             }
 
-            // Reshape back, if necessary.
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                interleaveWidth, m_implInterleaveWidth, nelmtTot,
-                inblock.GetNumData(), (TData *)inptr, m_streamID);
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                interleaveWidth, m_implInterleaveWidth, nelmtTot,
-                outblock.GetNumData(), outptr, m_streamID);
-
-            // Increment pointers.
-            inptr += inblock.CompSize() * inblock.GetNumHomoModes();
-            outptr += outblock.CompSize() * outblock.GetNumHomoModes();
+            // Perform batched matrix-matrix multiply, one multiply per
+            // component, with the homogeneous modes held in the columns.
+            NekBlas::GemmStridedBatched(
+                handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, (TData)1.0,
+                m_matptr, m_nmTot, 0, wspptr, m_nqTot, wspoffset, (TData)0.0,
+                outptr, m_nmTot, outoffset, inblock.GetNumComponents());
         }
+        else
+        {
+            // Perform batched matrix-matrix multiply of B^T, one multiply
+            // per component, with the homogeneous modes held in the columns.
+            NekBlas::GemmStridedBatched(
+                handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, this->m_scale,
+                m_BT_matptr, m_nmTot, 0, inptr, m_nqTot, inoffset, (TData)0.0,
+                outptr, m_nmTot, outoffset, inblock.GetNumComponents());
+        }
+
+        // Reshape back, if necessary.
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
+            outblock.GetNumData(), outptr, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);

@@ -121,16 +121,30 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
-        auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
-
         ASSERTL1(inblock.GetNumHomoModes() == 1,
                  "Currently only setup for one homogeneous plane");
 
-        const auto nelmt = inblock.GetNumElementsWithPadding();
+        // Get BLAS handle.
+        auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
+
+        // Get block sizes. omega = curl(u) is a scalar in 2D and a vector
+        // in 3D.
+        const auto nelmt          = inblock.GetNumElementsWithPadding();
+        const unsigned int nOmega = (m_dimension == 2u) ? 1u : 3u;
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
+
+        // Get static workspace pointer. The standard derivatives of every
+        // component are held at once so that the chain rule and the curl can
+        // be applied by a single kernel.
+        auto wspptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                (m_dimension * m_coordDim + nOmega) * m_nqTot * nelmt,
+                m_streamID);
+        auto derivptr = wspptr;
+        auto omegaptr = derivptr + m_dimension * m_coordDim * m_nqTot * nelmt;
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -139,33 +153,18 @@ protected:
         const auto outoffset   = outblock.CompSize();
         const auto derivoffset = m_nqTot * nelmt;
 
-        // omega = curl(u) is a scalar in 2D and a vector in 3D.
-        const unsigned int nOmega = (m_dimension == 2u) ? 1u : 3u;
-
-        // Get static workspace pointer. The standard derivatives of every
-        // component are held at once so that the chain rule and the curl can
-        // be applied by a single kernel.
-        auto wspptr =
-            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                (m_dimension * m_coordDim + nOmega) * derivoffset, m_streamID);
-        auto derivptr = wspptr;
-        auto omegaptr = derivptr + m_dimension * m_coordDim * derivoffset;
-
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
             m_implInterleaveWidth, interleaveWidth, m_coordDim * nelmt,
             inblock.GetNumData(), (TData *)inptr, m_streamID);
 
-        // Standard derivatives of all the components, one matrix-matrix
-        // multiply per direction. The components of a block are contiguous,
-        // so they are all handled by the same multiply.
-        for (unsigned int d = 0; d < m_dimension; d++)
-        {
-            NekBlas::Gemm(handle, "N", "N", m_nqTot, m_coordDim * nelmt,
-                          m_nqTot, (TData)1.0, m_matptr + d * m_nqTot * m_nqTot,
-                          m_nqTot, inptr, m_nqTot, (TData)0.0,
-                          derivptr + d * m_coordDim * derivoffset, m_nqTot);
-        }
+        // Standard derivatives of all the components.
+        // Perform batched matrix-matrix multiply, one multiply per direction,
+        // with the components held in the columns.
+        NekBlas::GemmStridedBatched(
+            handle, "N", "N", m_nqTot, m_coordDim * nelmt, m_nqTot, (TData)1.0,
+            m_matptr, m_nqTot, m_nqTot * m_nqTot, inptr, m_nqTot, 0, (TData)0.0,
+            derivptr, m_nqTot, m_coordDim * derivoffset, m_dimension);
 
         // omega = curl(u)
         if (m_dimension == 2u)
@@ -200,13 +199,12 @@ protected:
         }
 
         // Standard derivatives of omega.
-        for (unsigned int d = 0; d < m_dimension; d++)
-        {
-            NekBlas::Gemm(handle, "N", "N", m_nqTot, nOmega * nelmt, m_nqTot,
-                          (TData)1.0, m_matptr + d * m_nqTot * m_nqTot, m_nqTot,
-                          omegaptr, m_nqTot, (TData)0.0,
-                          derivptr + d * nOmega * derivoffset, m_nqTot);
-        }
+        // Perform batched matrix-matrix multiply, one multiply per direction,
+        // with the components held in the columns.
+        NekBlas::GemmStridedBatched(
+            handle, "N", "N", m_nqTot, nOmega * nelmt, m_nqTot, (TData)1.0,
+            m_matptr, m_nqTot, m_nqTot * m_nqTot, omegaptr, m_nqTot, 0,
+            (TData)0.0, derivptr, m_nqTot, nOmega * derivoffset, m_dimension);
 
         // out = curl(omega)
         if (m_dimension == 2u)

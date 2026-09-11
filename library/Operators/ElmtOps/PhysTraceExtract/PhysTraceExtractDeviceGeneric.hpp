@@ -529,20 +529,20 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock,
         const unsigned int outOffset) override
     {
+        ASSERTL1(inblock.GetInterleaveWidth() == outblock.GetInterleaveWidth(),
+                 "Input and output interleave widths differ");
+
+        ASSERTL1(outOffset + GetTraceNumPoints(traceid) <=
+                     outblock.GetNumData(),
+                 "Trace output range exceeds output block storage");
+
         const auto numDataIn       = inblock.GetNumData();
         const auto numDataOut      = outblock.GetNumData();
         const auto nelmtPad        = inblock.GetNumElementsWithPadding();
         const auto interleaveWidth = inblock.GetInterleaveWidth();
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
-
-        ASSERTL1(interleaveWidth == outblock.GetInterleaveWidth(),
-                 "Input and output interleave widths differ");
-
         const unsigned int nTracePts = GetTraceNumPoints(traceid);
-
-        ASSERTL1(outOffset + nTracePts <= numDataOut,
-                 "Trace output range exceeds output block storage");
 
         // Initialize pointers.
         auto inptr    = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
