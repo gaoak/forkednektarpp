@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AdvectionOp.hpp
+// File: PhysGalerkinProject1DScaledOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,7 +28,10 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Strong-form (non-conservative) advection: advVel \dot \grad(u)
+// Description: Physical space (1D tensor based) Galerkin projection from a
+// scaled (finer) quadrature grid back down to the native quadrature grid.
+// This is the reverse operator to PhysInterp1DScaled and is used to
+// complete the anti-aliasing filter of 3/2-rule spectral/hp dealiasing.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -36,37 +39,41 @@
 
 #include "Operators/ElmtOps/ElmtOp.hpp"
 
-#include "Operators/ElmtOps/Advection/AdvectionBlockOp.hpp"
+#include "Operators/ElmtOps/PhysGalerkinProject1DScaled/PhysGalerkinProject1DScaledBlockOp.hpp"
 
 namespace Nektar::Operators
 {
 
-// Advection base class
+// PhysGalerkinProject1DScaled base class
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
-class AdvectionOp : public ElmtOp<FieldState::Phys, FieldState::Phys, TData>
+class PhysGalerkinProject1DScaledOp
+    : public ElmtOp<FieldState::Phys, FieldState::Phys, TData>
 {
     friend class ElmtOp<FieldState::Phys, FieldState::Phys, TData>;
 
 public:
-    static std::shared_ptr<AdvectionOp<TData>> Create(
+    static std::shared_ptr<PhysGalerkinProject1DScaledOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components,
         const std::string &execStr = "", const std::string &implStr = "")
     {
         return ElmtOp<FieldState::Phys, FieldState::Phys, TData>::
-            template Create<AdvectionOp, AdvectionBlockOp>(
+            template Create<PhysGalerkinProject1DScaledOp,
+                            PhysGalerkinProject1DScaledBlockOp>(
                 expansionList, components, execStr, implStr);
     }
 
-    static inline const std::string name = "Advection";
+    static inline const std::string name = "PhysGalerkinProject1DScaled";
 
-    void SetScale(const TData &scale)
+    // scale is the same over-integration factor used to build the source
+    // (finer) grid via PhysInterp1DScaled, e.g. 1.5 for the 3/2 rule.
+    void SetScaleFactor(TData scale)
     {
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
         {
-            this->m_blockOp[blk]->SetScale(scale);
+            this->m_blockOp[blk]->SetScaleFactor(scale);
         }
     }
 
@@ -79,33 +86,19 @@ public:
         }
     }
 
-    void SetAdvVel(LibUtilities::Field<TData, FieldState::Phys> &advVel)
-    {
-        ASSERTL1(
-            advVel.GetNumComponents() ==
-                static_cast<unsigned int>(this->m_expansionList->GetCoordim(0)),
-            "Advection velocity must have coordDim components");
-
-        // Loop over the blocks.
-        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
-        {
-            this->m_blockOp[blk]->SetAdvVel(advVel.GetBlocks()[blk]);
-        }
-        m_isSetAdvVel = true;
-    }
-
 protected:
-    bool m_isSetAdvVel = false;
-    std::vector<std::shared_ptr<AdvectionBlockOp<TData>>> m_blockOp;
+    std::vector<std::shared_ptr<PhysGalerkinProject1DScaledBlockOp<TData>>>
+        m_blockOp;
 
-    AdvectionOp(const MultiRegions::ExpListSharedPtr &expansionList,
-                const std::vector<std::string> &components)
+    PhysGalerkinProject1DScaledOp(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
         : ElmtOp<FieldState::Phys, FieldState::Phys, TData>(expansionList,
                                                             components)
     {
     }
 
-    ~AdvectionOp() override = default;
+    ~PhysGalerkinProject1DScaledOp() override = default;
 
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
                  LibUtilities::Field<TData, FieldState::Phys> &out) override
@@ -115,10 +108,6 @@ protected:
 
         ASSERTL1(in.GetNumHomoModes() == out.GetNumHomoModes(),
                  "Number of input and output homogeneous modes differ");
-
-        ASSERTL1(m_isSetAdvVel,
-                 "Advection velocity has not been set."
-                 "Set the value with SetAdvVel() before calling Apply().");
 
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)

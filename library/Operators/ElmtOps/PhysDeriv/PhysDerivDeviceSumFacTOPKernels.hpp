@@ -744,7 +744,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
-    const unsigned int outoffset, const TData *NEK_RESTRICT D0,
+    const size_t outoffset, const TData *NEK_RESTRICT D0,
     const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
     const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
@@ -858,7 +858,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
     const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
-    const unsigned int outoffset, const TData *NEK_RESTRICT D0,
+    const size_t outoffset, const TData *NEK_RESTRICT D0,
     const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
     const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
     const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,

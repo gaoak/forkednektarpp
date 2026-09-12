@@ -471,9 +471,10 @@ NEK_DEVICE_KERNEL void IProductWRTPhysNormalDerivTraceKernelLauncher(
     // lift uses, followed here by the volume buffer. A whole face group
     // goes through one call, so the mode block holds a face pair where the
     // plain lift, integrating one face at a time, holds one.
-    const size_t wsp0Size =
+    const unsigned int wsp0Size =
         2u * IProductWRTPhysTraceFaceModeBlockSize(sizeParam3D);
-    const size_t wsp1Size = IProductWRTPhysTraceFaceScratchSize(sizeParam3D);
+    const unsigned int wsp1Size =
+        IProductWRTPhysTraceFaceScratchSize(sizeParam3D);
 
     size_t e             = getGlobalIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);

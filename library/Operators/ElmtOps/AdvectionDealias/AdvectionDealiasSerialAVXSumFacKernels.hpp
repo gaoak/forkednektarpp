@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysInterp1DScaledBlockOp.hpp
+// File: AdvectionDealiasSerialAVXSumFacKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,55 +28,33 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Fine-grid product for 3/2-rule dealiased advection.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include "Operators/ElmtOps/ElmtBlockOp.hpp"
-
-namespace Nektar::Operators
+namespace Nektar::Operators::detail
 {
 
-template <typename TData>
-class PhysInterp1DScaledBlockOp
-    : public ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>
+template <typename simd_type>
+NEK_FORCE_INLINE void AdvectionDealiasCombineKernel(
+    const unsigned int nqTot, const unsigned int coordDim,
+    const simd_type *advVelPtr, const unsigned int advVelOffset,
+    const simd_type *gradPtr, const unsigned int gradOffset, simd_type *out,
+    const typename simd_type::scalarType scale)
 {
-public:
-    static std::shared_ptr<PhysInterp1DScaledBlockOp<TData>> Create(
-        const unsigned int block_idx,
-        const LocalRegions::ExpansionSharedPtr &exp,
-        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
-        const std::string &execStr, std::string implStr)
+    for (unsigned int j = 0; j < nqTot; ++j)
     {
-        return ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>::
-            template Create<PhysInterp1DScaledBlockOp>(
-                block_idx, exp, dataWarehouse, execStr, implStr);
+        simd_type tmp = advVelPtr[j] * gradPtr[j];
+        for (unsigned int d = 1; d < coordDim; ++d)
+        {
+            tmp.fma(advVelPtr[d * advVelOffset + j],
+                    gradPtr[d * gradOffset + j]);
+        }
+
+        out[j] = scale * tmp;
     }
+}
 
-    static inline const std::string name = "BlockPhysInterp1DScaled";
-
-    void SetScaleFactor(const TData &scale)
-    {
-        v_SetScaleFactor(scale);
-    }
-
-protected:
-    TData m_scale = -1.0; // scaling factor
-
-    PhysInterp1DScaledBlockOp(
-        const unsigned int block_idx,
-        const LocalRegions::ExpansionSharedPtr &exp,
-        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
-        : ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>(block_idx, exp,
-                                                                 dataWarehouse)
-    {
-    }
-
-    ~PhysInterp1DScaledBlockOp() override = default;
-
-    virtual void v_SetScaleFactor(const TData &scale) = 0;
-};
-
-} // namespace Nektar::Operators
+} // namespace Nektar::Operators::detail

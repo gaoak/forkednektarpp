@@ -36,6 +36,7 @@
 #include <IncNavierStokesSolverRedesign/EquationSystems/VelocityCorrectionScheme.h>
 
 #include <Operators/ElmtOps/Advection/AdvectionOp.hpp>
+#include <Operators/ElmtOps/AdvectionDealias/AdvectionDealiasOp.hpp>
 #include <Operators/ElmtOps/BwdTrans/BwdTransOp.hpp>
 #include <Operators/ElmtOps/Divergence/DivergenceOp.hpp>
 #include <Operators/ElmtOps/PhysDeriv/PhysDerivOp.hpp>
@@ -236,6 +237,18 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
     // Scale divergence by \gamma / \Delta t
     m_math.mul(1.0 / dt_inv_gamma, m_wsp_phys_1c, m_wsp_phys_1c);
 
+    // A singular (periodic) pressure system needs a zero-mean RHS; dealiased
+    // advection's interpolate/project round trip can leave a small residual.
+    if (m_checkIfSystemSingular[m_pressureIndex])
+    {
+        if (!m_meanRemovalOp)
+        {
+            m_meanRemovalOp = SolverCore::MeanRemovalOp<double>::Create(
+                m_expansionLists[m_pressureIndex], m_variablesPressure);
+        }
+        m_meanRemovalOp->Apply(m_wsp_phys_1c);
+    }
+
     /// Solve Pressure System
     // Update or re-use preconditioner
     if (m_preconPressureOpMap.find(dt_inv_gamma) == m_preconPressureOpMap.end())
@@ -371,10 +384,19 @@ void VelocityCorrectionScheme::EvaluateAdvectionContribution(
     [[maybe_unused]] const double &time, const double &dt)
 {
     m_math.zero(out);
-    m_advectionOp->SetScale(-dt);
     m_math.copy(in, m_advVel);
-    m_advectionOp->SetAdvVel(m_advVel);
-    m_advectionOp->Apply(in, out);
+    if (m_specHPDealiasing)
+    {
+        m_advectionDealiasOp->SetScale(-dt);
+        m_advectionDealiasOp->SetAdvVel(m_advVel);
+        m_advectionDealiasOp->Apply(in, out);
+    }
+    else
+    {
+        m_advectionOp->SetScale(-dt);
+        m_advectionOp->SetAdvVel(m_advVel);
+        m_advectionOp->Apply(in, out);
+    }
 }
 
 std::deque<LibUtilities::Field<double, FieldState::Phys>> &VelocityCorrectionScheme::
@@ -475,9 +497,20 @@ void VelocityCorrectionScheme::v_InitialiseOperators()
 {
     EquationSystem::v_InitialiseOperators();
 
-    // Create velocity operators
-    m_advectionOp =
-        AdvectionOp<double>::Create(m_expansionLists[0], m_variablesFields);
+    // Create velocity operators. Only one of these two is actually used
+    // (see EvaluateAdvectionContribution), selected by m_specHPDealiasing;
+    // build only the one needed so the unused path doesn't pay for its own
+    // operator/scratch-field setup.
+    if (m_specHPDealiasing)
+    {
+        m_advectionDealiasOp = AdvectionDealiasOp<double>::Create(
+            m_expansionLists[0], m_variablesFields);
+    }
+    else
+    {
+        m_advectionOp =
+            AdvectionOp<double>::Create(m_expansionLists[0], m_variablesFields);
+    }
     m_divergenceOp =
         DivergenceOp<double>::Create(m_expansionLists[0], m_variablesFields);
 
@@ -727,6 +760,14 @@ void VelocityCorrectionScheme::InitialiseParameters()
            << ". Valid entries are 'semiimplicit' and 'linearimplicit'.";
         NEKERROR(ErrorUtil::efatal, ss.str());
     }
+
+    // 3/2-rule spectral/hp dealiasing (local over-integration) for the
+    // explicit nonlinear advection term. Mirrors legacy
+    // EquationSystem.cpp's SPECTRALHPDEALIASING flag, but defaults to
+    // enabled here (legacy defaults to disabled) now that the fused
+    // AdvectionDealiasOp is validated across Serial/AVX/Device.
+    m_session->MatchSolverInfo("SPECTRALHPDEALIASING", "True",
+                               m_specHPDealiasing, true);
 }
 
 /*

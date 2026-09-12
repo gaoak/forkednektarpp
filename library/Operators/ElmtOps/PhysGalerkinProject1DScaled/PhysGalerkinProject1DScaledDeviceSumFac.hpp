@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysInterp1DScaledSerialAVXSumFac.hpp
+// File: PhysGalerkinProject1DScaledDeviceSumFac.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,19 +28,36 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: interp in physical space by a scaled number of points
+// Description: Device (SumFac/SumFacTOP) Galerkin projection from a scaled
+// (finer) quadrature grid back down to the native quadrature grid. Reuses
+// the generic BwdTransXxxKernelLauncher machinery (Operators/ElmtOps/BwdTrans)
+// - the same tensor-contraction kernels PhysInterp1DScaledOp's device
+// backend uses for the forward interpolation direction - since those
+// kernels are agnostic to which of nm/nq is larger.
+//
+// Scope matches the Serial implementation (see
+// PhysGalerkinProject1DScaledSerialAVXSumFac.hpp), including its reuse of
+// PhysInterp1DScaled's optimisation switch: the switch sweeps the native
+// counts in m_nm and the scaled counts m_scale * m_nm derived from them,
+// which is this operator's pair of grids too, and OperatorND exchanges the
+// mode and quadrature roles with TransposeSizeParameter because the
+// kernels here run the reverse (scaled -> native) direction. The switch
+// dispatches every 2D shape as a Quad and every 3D shape as a Hex, which
+// is what this operator wants: both grids are physical-space
+// tensor-product grids on every shape, via the Duffy transform on the
+// collapsed-coordinate ones, and neither side is modal, so the
+// collapsed-coordinate correction other BwdTrans-derived kernels apply is
+// never needed here.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include <LibUtilities/SimdLib/tinysimd.hpp>
-
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "Operators/ElmtOps/PhysInterp1DScaled/PhysInterp1DScaledBlockOp.hpp"
+#include "Operators/ElmtOps/PhysGalerkinProject1DScaled/PhysGalerkinProject1DScaledBlockOp.hpp"
 
-// interpolation is just a bwd trans from a nodal basis so using these kernels
-#include "ElmtOps/BwdTrans/BwdTransSerialAVXSumFacKernels.hpp"
+#include "Operators/ElmtOps/BwdTrans/BwdTransDeviceSumFacKernels.hpp"
+#include "Operators/ElmtOps/BwdTrans/BwdTransDeviceSumFacTOPKernels.hpp"
 
 // Selects the switch construction used by the generated ShapeBlock
 // definitions (see LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in).
@@ -50,21 +67,22 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class PhysInterp1DScaledBlockOpImpl : public PhysInterp1DScaledBlockOp<TData>
+class PhysGalerkinProject1DScaledBlockOpImpl
+    : public PhysGalerkinProject1DScaledBlockOp<TData>
 {
-    using BlockOpBase = PhysInterp1DScaledBlockOp<TData>;
-    using simd_t =
-        typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                              TData>::type;
-    using MemSpace = typename ExecSpace::memory_space;
+    using BlockOpBase = PhysGalerkinProject1DScaledBlockOp<TData>;
+    using MemSpace    = typename ExecSpace::memory_space;
 
 public:
-    PhysInterp1DScaledBlockOpImpl(
+    PhysGalerkinProject1DScaledBlockOpImpl(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
-        : PhysInterp1DScaledBlockOp<TData>(block_idx, exp, dataWarehouse)
+        : PhysGalerkinProject1DScaledBlockOp<TData>(block_idx, exp,
+                                                    dataWarehouse)
     {
+        m_streamID = block_idx + 1;
+
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
         m_isDeformed =
@@ -75,10 +93,14 @@ public:
         // Flag for collapsed coordinate correction.
         m_isModified = (exp->GetBasisType(0) == LibUtilities::eModified_A);
 
+        // Native (target) quadrature point counts - fixed, independent of
+        // the over-integration scale factor.
         for (unsigned int d = 0; d < m_dimension; d++)
         {
             m_nm.push_back(exp->GetNumPoints(d));
         }
+
+        m_index = {nullptr, nullptr};
     }
 
     // className - for BlockOperatorFactory
@@ -91,42 +113,42 @@ public:
                 const LocalRegions::ExpansionSharedPtr &exp,
                 LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
-        return std::make_unique<
-            PhysInterp1DScaledBlockOpImpl<ExecSpace, Implementation, TData>>(
-            block_idx, exp, dataWarehouse);
+        return std::make_unique<PhysGalerkinProject1DScaledBlockOpImpl<
+            ExecSpace, Implementation, TData>>(block_idx, exp, dataWarehouse);
     }
 
 protected:
-    static constexpr unsigned int m_implInterleaveWidth = simd_t::width;
+    static constexpr unsigned int m_implInterleaveWidth =
+        std::is_same_v<Implementation, Operators::SumFac>
+            ? NektarSpaces::Device::warpSize
+            : 1u;
 
+    unsigned int m_streamID;
     LibUtilities::ShapeType m_shapeType;
     bool m_isDeformed;
     bool m_isModified;
     unsigned int m_dimension;
     unsigned int m_coordDim;
+    // Named for the roles the switch gives them, not for the direction the
+    // kernels run in: m_nm is the native (here target/output) grid the
+    // switch sweeps, m_nq the scaled (here source/input) grid it derives as
+    // m_scale * m_nm. v_SetScaleFactor fills m_nq with the identical
+    // formula PhysInterp1DScaledOp uses for its own m_nq, so the two
+    // operators always agree on the size of the grid passed between them.
+    // OperatorND exchanges the two roles for the kernels.
     std::vector<unsigned int> m_nm;
     std::vector<unsigned int> m_nq;
     std::vector<const TData *> m_B;
-    std::vector<std::vector<simd_t, tinysimd::allocator<simd_t>>> m_wsp;
-#if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
-    // flag to ensure we only get one warning for alignment otherwise CI system
-    // is saturated with warnings
-    bool m_warnOnce = false;
-#endif
+    // The precomputed collapsed coordinate mode index arrays the 3D kernel
+    // takes. Only the Seg/Quad/Hex kernels are ever launched here and none
+    // of them applies that correction, so both are always null; they exist
+    // to keep the launcher call the same shape in every dimension.
+    std::vector<const unsigned int *> m_index;
 
     void v_Apply(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
-        WARNINGL1(
-            m_warnOnce || (inblock.GetAlignment() % simd_t::alignment == 0 &&
-                           outblock.GetAlignment() % simd_t::alignment == 0),
-            "Input or output Field are not aligned to the required alignment "
-            "for the SIMD vector type.");
-#if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
-        m_warnOnce = true;
-#endif
-
         ASSERTL1(this->m_scale != -1.0,
                  "Scale factor has not been initialised");
 
@@ -202,10 +224,11 @@ protected:
         this->m_scale = scale;
         m_nq.clear();
         m_B.clear();
-        m_wsp.clear();
         for (unsigned int d = 0; d < m_dimension; d++)
         {
-            // Fetch element size.
+            // Scaled (source) point count - the identical formula
+            // PhysInterp1DScaledOp uses for its own m_nq, so both operators
+            // arrive at the same integer counts for the grid between them.
             if (d == 0)
             {
                 m_nq.push_back(this->m_scale * m_nm[0]);
@@ -229,35 +252,13 @@ protected:
                 m_nq.push_back(nq2);
             }
 
-            // Fetch basis data.
+            // Fetch the Galerkin projection matrix: from the scaled grid
+            // (m_nq[d] points) down to this basis' native quadrature
+            // (m_nm[d] points).
             m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 LibUtilities::BasisDataKey<TData>(
                     this->m_exp->GetBasis(d)->GetBasisKey(),
-                    LibUtilities::eInterp, m_nq[d])));
-        }
-
-        // Workspace for kernels - also checks preconditions.
-        if (m_dimension == 1)
-        {
-            BwdTrans1DWorkspace(LibUtilities::Seg, m_nm[0], m_nq[0]);
-        }
-        else if (m_dimension == 2)
-        {
-            unsigned int wsp0Size = 0;
-            BwdTrans2DWorkspace(LibUtilities::Quad, m_nm[0], m_nm[1], m_nq[0],
-                                m_nq[1], wsp0Size);
-            m_wsp.push_back(
-                std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp0Size));
-        }
-        else if (m_dimension == 3)
-        {
-            unsigned int wsp0Size = 0, wsp1Size = 0;
-            BwdTrans3DWorkspace(LibUtilities::Hex, m_nm[0], m_nm[1], m_nm[2],
-                                m_nq[0], m_nq[1], m_nq[2], wsp0Size, wsp1Size);
-            m_wsp.push_back(
-                std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp0Size));
-            m_wsp.push_back(
-                std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp1Size));
+                    LibUtilities::eGalerkinProject, m_nq[d])));
         }
     }
 
@@ -267,14 +268,16 @@ protected:
     void ShapeBlock(typename BlockOpBase::InBlock &inblock,
                     typename BlockOpBase::OutBlock &outblock);
 
-    // Number of workspaces used by the kernels in dim dimensions.
-    static constexpr unsigned int NumWorkspace(const unsigned int dim)
+    // Number of precomputed index arrays used by the kernels in dim
+    // dimensions.
+    static constexpr unsigned int NumIndex(const unsigned int dim)
     {
-        return (dim == 1) ? 0 : (dim == 2) ? 1 : 2;
+        return (dim == 1) ? 0 : (dim == 2) ? 0 : 2;
     }
 
-    // Generic operator. Builds the index sequences from the shape dimension
-    // and forwards to OperatorNDImpl.
+    // Generic operator. Exchanges the size parameter's mode and quadrature
+    // roles, builds the index sequences from the shape dimension and
+    // forwards to OperatorNDImpl.
     template <LibUtilities::ShapeType SHAPE_TYPE, typename TSizeParameter>
     NEK_FORCE_INLINE void OperatorND(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
@@ -291,14 +294,18 @@ protected:
                       "OperatorND expects a size parameter matching the "
                       "dimension of the shape.");
 
+        // The switch hands over the grids the way PhysInterp1DScaled reads
+        // them - native as the mode side, scaled as the quadrature side.
+        // This operator runs the other way, and the kernels always take the
+        // mode side as their source, so the two roles are exchanged here.
         OperatorNDImpl<SHAPE_TYPE>(
-            inblock, outblock, sizeParam,
+            inblock, outblock, TransposeSizeParameter(sizeParam),
             std::make_integer_sequence<unsigned int, DIM>(),
-            std::make_integer_sequence<unsigned int, NumWorkspace(DIM)>());
+            std::make_integer_sequence<unsigned int, NumIndex(DIM)>());
     }
 
     // Generic operator implementation. ind0 indexes each direction,
-    // ind1 the workspaces used by the kernels.
+    // ind1 the precomputed index arrays used by the kernels.
     template <LibUtilities::ShapeType SHAPE_TYPE, typename TSizeParameter,
               unsigned int... ind0, unsigned int... ind1>
     NEK_FORCE_INLINE void OperatorNDImpl(
@@ -307,64 +314,77 @@ protected:
         TSizeParameter sizeParam, std::integer_sequence<unsigned int, ind0...>,
         std::integer_sequence<unsigned int, ind1...>)
     {
-        // Shape size.
-        const auto nmTot = sizeParam.nmTot();
-        const auto nqTot = sizeParam.nqTot();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
-        // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        // Initialize pointers. Appending accumulates into the pre-existing
+        // output values, so they are read as well as written.
+        auto inptr = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr =
+            (this->m_append)
+                ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
+                : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
+
+        // Get static workspace pointer.
+        const unsigned int ncomp =
+            inblock.GetNumComponents() * inblock.GetNumHomoModes();
+        auto wspSize =
+            BwdTransWorkSpaceSize<SHAPE_TYPE, Implementation>(nelmt, sizeParam);
+        auto wspptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                wspSize * ncomp, m_streamID);
+
+        // Neither side of this operator is modal, so there is no nodal to
+        // modal transform to apply and no collapsed coordinate correction
+        // to make.
+        const TData *nodToMod = nullptr;
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
-        // Loop over components.
-        for (unsigned int n = 0;
-             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
+        // Set Kernel parameters.
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
+        const unsigned int gridsize =
+            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
+
+        // Reshape, if necessary.
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            m_implInterleaveWidth, interleaveWidth, nelmt * ncomp,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
+
+        if (this->m_append)
         {
-            // Loop over element groups.
-            for (size_t e = 0;
-                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
-            {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
-                {
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        m_implInterleaveWidth, interleaveWidth, chunkSize,
-                        nmTot, (TData *)inptr);
-                }
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, interleaveWidth, nelmt * ncomp,
+                outblock.GetNumData(), (TData *)outptr, m_streamID);
 
-                // PhysInterp1DScaled kernel.
-                BwdTransKernelLauncher<SHAPE_TYPE, false>(
-                    sizeParam, m_isModified, m_B[ind0]...,
-                    (const simd_t *)nullptr, m_wsp[ind1].data()...,
-                    reinterpret_cast<const simd_t *>(inptr),
-                    reinterpret_cast<simd_t *>(outptr));
-
-                // Reshape back, if necessary.
-                if (e % width_ratio == width_ratio - 1)
-                {
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nmTot,
-                        (TData *)inptr -
-                            (width_ratio - 1) * nmTot * simd_t::width);
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nqTot,
-                        (TData *)outptr -
-                            (width_ratio - 1) * nqTot * simd_t::width);
-                }
-
-                // Increment pointers for the next elmt group.
-                inptr += nmTot * simd_t::width;
-                outptr += nqTot * simd_t::width;
-            }
+            // PhysGalerkinProject1DScaled kernel.
+            DEVICE_2DGRID_KERNEL_LAUNCHER(
+                (BwdTransKernelLauncher<SHAPE_TYPE, Implementation, true>),
+                gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
+                nelmt, false, m_index[ind1]..., m_B[ind0]..., nodToMod, inptr,
+                outptr, wspptr);
         }
+        else
+        {
+            // PhysGalerkinProject1DScaled kernel.
+            DEVICE_2DGRID_KERNEL_LAUNCHER(
+                (BwdTransKernelLauncher<SHAPE_TYPE, Implementation, false>),
+                gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
+                nelmt, false, m_index[ind1]..., m_B[ind0]..., nodToMod, inptr,
+                outptr, wspptr);
+        }
+
+        // Reshape back, if necessary.
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
+            outblock.GetNumData(), outptr, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);

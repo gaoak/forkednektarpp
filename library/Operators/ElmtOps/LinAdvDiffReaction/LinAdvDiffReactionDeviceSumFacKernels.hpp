@@ -172,9 +172,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                        nq0 * (ncoord * nelmt * c + warpsize * iwarp);
         const TData *advVel0ptr = advVel0 + nq0 * warpsize * iwarp;
         const TData *advVel1ptr =
-            ncoord > 1 ? advVel1 + nq0 * warpsize * iwarp : advVel1;
+            (ncoord > 1) ? advVel1 + nq0 * warpsize * iwarp : advVel1;
         const TData *advVel2ptr =
-            ncoord > 2 ? advVel2 + nq0 * warpsize * iwarp : advVel2;
+            (ncoord > 2) ? advVel2 + nq0 * warpsize * iwarp : advVel2;
 
         BwdTransSegSumFacKernel<false>(ilane, nm0, nq0, basis0, inptr, bwd);
         PhysDeriv1DSumFacKernel<DEFORMED>(ilane, ncoord, nq0, nelmt * nq0, D0,
@@ -284,7 +284,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *advVel0ptr = advVel0 + nqTot * warpsize * iwarp;
         const TData *advVel1ptr = advVel1 + nqTot * warpsize * iwarp;
         const TData *advVel2ptr =
-            ncoord == 3 ? advVel2 + nqTot * warpsize * iwarp : advVel2;
+            (ncoord == 3) ? advVel2 + nqTot * warpsize * iwarp : advVel2;
 
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {

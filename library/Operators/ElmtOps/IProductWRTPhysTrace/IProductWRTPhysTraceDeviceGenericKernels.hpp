@@ -2111,8 +2111,10 @@ NEK_DEVICE_KERNEL void IProductWRTPhysTraceKernelLauncher(
 
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
-    const size_t wsp0Size = IProductWRTPhysTraceFaceModeBlockSize(sizeParam3D);
-    const size_t wsp1Size = IProductWRTPhysTraceFaceScratchSize(sizeParam3D);
+    const unsigned int wsp0Size =
+        IProductWRTPhysTraceFaceModeBlockSize(sizeParam3D);
+    const unsigned int wsp1Size =
+        IProductWRTPhysTraceFaceScratchSize(sizeParam3D);
 
     size_t e             = getGlobalIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -2474,8 +2476,10 @@ NEK_DEVICE_KERNEL void IProductWRTPhysTraceTraceKernelLauncher(
 
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
-    const size_t wsp0Size = IProductWRTPhysTraceFaceModeBlockSize(sizeParam3D);
-    const size_t wsp1Size = IProductWRTPhysTraceFaceScratchSize(sizeParam3D);
+    const unsigned int wsp0Size =
+        IProductWRTPhysTraceFaceModeBlockSize(sizeParam3D);
+    const unsigned int wsp1Size =
+        IProductWRTPhysTraceFaceScratchSize(sizeParam3D);
 
     size_t e             = getGlobalIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);

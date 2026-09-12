@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: init_advectionfields.hpp
+// File: init_advectiondealias.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,24 +28,28 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Test fixture for AdvectionDealiasOp.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "init_fields.hpp"
 
-#include "Operators/ElmtOps/Advection/AdvectionOp.hpp"
+#include "Operators/ElmtOps/AdvectionDealias/AdvectionDealiasOp.hpp"
+
+#include <LibUtilities/Foundations/PhysGalerkinProject.h>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::Operators;
+using namespace Nektar::MultiRegions;
 
 template <typename TData>
-class AdvectionField
+class AdvectionDealiasField
     : public InitFields<TData, FieldState::Phys, FieldState::Phys>
 {
 public:
-    AdvectionField() : InitFields<TData, FieldState::Phys, FieldState::Phys>()
+    AdvectionDealiasField()
+        : InitFields<TData, FieldState::Phys, FieldState::Phys>()
     {
     }
 
@@ -70,7 +74,7 @@ public:
             new Field<TData, FieldState::Phys>(std::move(f_expected));
     }
 
-    void RunTestCase()
+    void RunTestCase(bool append)
     {
         auto advelblockAttr =
             GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
@@ -78,10 +82,21 @@ public:
                                                   m_coordDim, 1);
         vel.template CopyArray<NektarSpaces::HostSpace>(m_vel);
 
-        auto op = AdvectionOp<TData>::Create(this->fixt_explist,
-                                             this->session->GetVariables());
+        if (append)
+        {
+            auto outSize = this->fixt_out->GetNumComponents() *
+                           this->fixt_explist->GetTotPoints();
+            Array<OneD, TData> offsetArr(outSize, m_appendOffset);
+            this->fixt_out->template CopyArray<NektarSpaces::HostSpace>(
+                offsetArr);
+        }
+
+        auto op = AdvectionDealiasOp<TData>::Create(
+            this->fixt_explist, this->session->GetVariables());
         op->SetAdvVel(vel);
+        op->SetAppend(append);
         op->Apply(*this->fixt_in, *this->fixt_out);
+        ExpectedSolution(append);
     }
 
     void SetTestCase()
@@ -172,22 +187,62 @@ public:
                 count += 1;
             }
         }
-        // Compute expected solution.
-        ExpectedSolution();
     }
 
-    void ExpectedSolution()
+    // ExpList only dispatches this operation for 2D and 3D expansions.
+    void PhysGalerkinProjection1DScaledDimAware(const TData scale,
+                                                Array<OneD, TData> &in,
+                                                Array<OneD, TData> &out)
     {
-        // Calculate expected result from Nektar++
+        if (this->fixt_explist->GetExp(0)->GetShapeDimension() == 1)
+        {
+            int cnt = 0, cnt1 = 0;
+            for (int e = 0; e < this->fixt_explist->GetExpSize(); ++e)
+            {
+                auto exp = this->fixt_explist->GetExp(e);
+                int pt0  = exp->GetNumPoints(0);
+                int npt0 = (int)(pt0 * scale);
+
+                LibUtilities::PointsKey newPointsKey0(npt0,
+                                                      exp->GetPointsType(0));
+
+                LibUtilities::PhysGalerkinProject1D(
+                    newPointsKey0, &in[cnt], exp->GetBasis(0)->GetPointsKey(),
+                    &out[cnt1]);
+
+                cnt += npt0;
+                cnt1 += pt0;
+            }
+        }
+        else
+        {
+            this->fixt_explist->PhysGalerkinProjection1DScaled(scale, in, out);
+        }
+    }
+
+    void ExpectedSolution(bool append)
+    {
+        // Calculate the expected result using ExpList primitives.
         const unsigned int numComp = this->fixt_in->GetNumComponents();
         const size_t nphys         = this->fixt_explist->GetTotPoints();
-        Array<OneD, TData> inphys  = this->fixt_in->ToArray();
-        Array<OneD, TData> outphys = Array<OneD, TData>(nphys * numComp, 0.0);
-        Array<OneD, TData> grad0   = Array<OneD, TData>(nphys);
-        Array<OneD, TData> grad1   = Array<OneD, TData>(nphys);
-        Array<OneD, TData> grad2   = Array<OneD, TData>(nphys);
+        const size_t nphys1D = this->fixt_explist->Get1DScaledTotPoints(1.5);
 
-        unsigned int count = 0;
+        Array<OneD, TData> inphys = this->fixt_in->ToArray();
+        Array<OneD, TData> outphys(numComp * nphys, 0.0);
+
+        Array<OneD, TData> grad0(nphys), grad1(nphys), grad2(nphys);
+        Array<OneD, TData> grad0Fine(nphys1D), grad1Fine(nphys1D),
+            grad2Fine(nphys1D);
+        Array<OneD, TData> velFine(m_coordDim * nphys1D);
+        Array<OneD, TData> combinedFine(nphys1D);
+        Array<OneD, TData> combinedNative(nphys), tmp;
+
+        for (int c = 0; c < m_coordDim; ++c)
+        {
+            this->fixt_explist->PhysInterp1DScaled(1.5, m_vel + c * nphys,
+                                                   tmp = velFine + c * nphys1D);
+        }
+
         for (unsigned int i = 0; i < numComp; i++)
         {
             Vmath::Zero(nphys, grad0, 1);
@@ -197,20 +252,43 @@ public:
             this->fixt_explist->PhysDeriv(inphys + i * nphys, grad0, grad1,
                                           grad2);
 
-            // Dot Product by advection velocity to Grad(U)
-            for (int j = 0; j < nphys; j++)
+            this->fixt_explist->PhysInterp1DScaled(1.5, grad0, tmp = grad0Fine);
+            if (m_coordDim >= 2)
             {
-                outphys[count] = grad0[j] * m_vel[j];
+                this->fixt_explist->PhysInterp1DScaled(1.5, grad1,
+                                                       tmp = grad1Fine);
+            }
+            if (m_coordDim == 3)
+            {
+                this->fixt_explist->PhysInterp1DScaled(1.5, grad2,
+                                                       tmp = grad2Fine);
+            }
+
+            for (size_t j = 0; j < nphys1D; ++j)
+            {
+                TData val = grad0Fine[j] * velFine[j];
                 if (m_coordDim >= 2)
                 {
-                    outphys[count] += grad1[j] * m_vel[j + nphys];
+                    val += grad1Fine[j] * velFine[j + nphys1D];
                 }
                 if (m_coordDim == 3)
                 {
-                    outphys[count] += grad2[j] * m_vel[j + 2 * nphys];
+                    val += grad2Fine[j] * velFine[j + 2 * nphys1D];
                 }
-                count += 1;
+                combinedFine[j] = val;
             }
+
+            PhysGalerkinProjection1DScaledDimAware(1.5, combinedFine,
+                                                   tmp = combinedNative);
+
+            Vmath::Vcopy(nphys, combinedNative, 1, tmp = outphys + i * nphys,
+                         1);
+        }
+
+        if (append)
+        {
+            Vmath::Sadd(numComp * nphys, m_appendOffset, outphys, 1, outphys,
+                        1);
         }
 
         this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
@@ -220,12 +298,13 @@ public:
 protected:
     unsigned int m_coordDim;
     Array<OneD, TData> m_vel;
+    static constexpr TData m_appendOffset = TData(3.0);
 };
 
 // clang-format off
 #if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
 #define TESTFLOAT(type, filename)                                              \
-    class type##float : public AdvectionField<float>                           \
+    class type##float : public AdvectionDealiasField<float>                    \
     {                                                                          \
     public:                                                                    \
         type##float()                                                          \
@@ -238,7 +317,7 @@ protected:
 #endif
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 #define TESTDOUBLE(type, filename)                                             \
-    class type : public AdvectionField<double>                                 \
+    class type : public AdvectionDealiasField<double>                         \
     {                                                                          \
     public:                                                                    \
         type()                                                                 \
@@ -258,17 +337,16 @@ TEST(Seg, "run/segment.xml")
 
 TEST(SegSEM, "run/line_sem.xml")
 
-TEST(Seg3D, "run/segment_3D.xml")
-
 TEST(Quad, "run/square.xml")
 
-TEST(QuadVarP, "run/square_varp.xml")
+// Exercise point-varying derivative factors.
+TEST(QuadDeformed, "run/Helmholtz2D_Quad.xml")
 
 TEST(QuadSEM, "run/square_sem.xml")
 
-TEST(Tri, "run/tri.xml")
+TEST(QuadVarP, "run/square_varp.xml")
 
-TEST(Tri3D, "run/tri_3D.xml")
+TEST(Tri, "run/tri.xml")
 
 TEST(TriVarP, "run/tri_varp.xml")
 
@@ -278,9 +356,9 @@ TEST(SquareAllElements, "run/square_all_elements.xml")
 
 TEST(Hex, "run/hex.xml")
 
-TEST(HexVarP, "run/hex_varp.xml")
-
 TEST(HexSEM, "run/hex_sem.xml")
+
+TEST(HexVarP, "run/hex_varp.xml")
 
 TEST(Prism, "run/prism.xml")
 

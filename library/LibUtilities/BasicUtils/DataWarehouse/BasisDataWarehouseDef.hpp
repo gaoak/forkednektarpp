@@ -231,6 +231,32 @@ MemoryRegion<TData> BasisDataCreator::Create(
             return MemoryRegion<TData>::template FromArray<MemSpace>(tmpI);
         }
         break;
+        case eGalerkinProject:
+        {
+            const auto npFrom = basisDataKey.m_npts;
+            // Check if the source (over-integrated) grid uses a
+            // different PointsType than the basis' native PointsType.
+            LibUtilities::PointsType ptype =
+                basisDataKey.m_toPointsType == LibUtilities::eNoPointsType
+                    ? basis->GetPointsType()
+                    : basisDataKey.m_toPointsType;
+            LibUtilities::PointsKey fromPkey(npFrom, ptype);
+
+            // Galerkin projection matrix from the finer (npFrom) grid
+            // down to this basis' native quadrature points. Unlike
+            // GetI(), GetGalerkinProjection() is already returned
+            // oriented [native rows x npFrom cols] (see
+            // GaussPoints::CalculateGalerkinProjectionMatrix), so it
+            // can be used directly as out = GP * in without the
+            // manual transpose eInterpTranspose above needs for
+            // GetI().
+            auto GP = LibUtilities::PointsManager()[basis->GetPointsKey()]
+                          ->GetGalerkinProjection(fromPkey)
+                          ->GetPtr();
+
+            return MemoryRegion<TData>::template FromArray<MemSpace>(GP);
+        }
+        break;
         /// make an orthonormal projection from one set of points
         /// specified in the basis key to a lower number given by
         /// m_npts.

@@ -162,10 +162,10 @@ protected:
                         // for boundary elements where the domain uses one
                         // more dimension than the boundary
                         fielddata[0] = coordptr[i];
-                        fielddata[1] = this->m_coordDim > 1
+                        fielddata[1] = (this->m_coordDim > 1)
                                            ? coordptr[chunkSize + i]
                                            : 0.0;
-                        fielddata[2] = this->m_coordDim > 2
+                        fielddata[2] = (this->m_coordDim > 2)
                                            ? coordptr[2 * chunkSize + i]
                                            : 0.0;
                         fielddata[3] = this->m_time;

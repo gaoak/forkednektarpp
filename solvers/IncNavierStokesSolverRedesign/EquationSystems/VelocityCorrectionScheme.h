@@ -51,6 +51,7 @@ namespace Nektar
 namespace Operators
 {
 template <typename TData> class AdvectionOp;
+template <typename TData> class AdvectionDealiasOp;
 template <typename TData> class BwdTransOp;
 template <typename TData> class DivergenceOp;
 template <typename TData> class PhysDerivOp;
@@ -92,6 +93,10 @@ protected:
     // true = linear-implicit, false = semi-implicit scheme
     bool m_implicitAdvection = false;
 
+    // true = evaluate explicit advection with 3/2-rule spectral/hp
+    // dealiasing (local over-integration), false = native-order evaluation
+    bool m_specHPDealiasing = false;
+
     // Kinematic viscosity
     double m_kinvis;
 
@@ -125,6 +130,7 @@ protected:
     // Initialise operators
     std::shared_ptr<BwdTransOp<double>> m_bwdTransPressureOp;
     std::shared_ptr<AdvectionOp<double>> m_advectionOp;
+    std::shared_ptr<AdvectionDealiasOp<double>> m_advectionDealiasOp;
     std::shared_ptr<PhysDerivOp<double>> m_physDerivPressureOp;
     std::shared_ptr<LinearSystemOp<double>> m_fieldsSolveOp;
     std::shared_ptr<LinearSolverOp<double>> m_linearSolverFieldsOp;

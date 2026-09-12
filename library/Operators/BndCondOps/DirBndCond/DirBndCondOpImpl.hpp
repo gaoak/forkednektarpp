@@ -721,7 +721,7 @@ protected:
         // The pack/unpack steps index the flattened coefficient array
         // directly with these entries, which is only correct if each one is
         // the representative of its universal id group.
-        for (auto idx : sr)
+        for ([[maybe_unused]] auto idx : sr)
         {
             ASSERTL1(idx < static_cast<size_t>(paraDirBnd.size()) &&
                          paraDirBnd[idx] != 0 &&

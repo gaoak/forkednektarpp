@@ -955,6 +955,68 @@ template <typename T> struct IsSizeParameter3D
 template <typename T>
 inline constexpr bool IsSizeParameter3D_v = IsSizeParameter3D<T>::value;
 
+// Exchange the mode and quadrature roles of a size parameter.
+//
+// A switch describes an operator's two grids in the direction it was
+// written for: BlockOpSwitchPhysInterp1D.h.in sweeps the native counts as
+// the mode side and the scaled counts derived from them as the quadrature
+// side. A kernel always reads the mode side as its source and the
+// quadrature side as its target, so an operator consuming the scaled grid
+// and producing the native one - PhysGalerkinProject1DScaled, the reverse
+// of PhysInterp1DScaled - needs those two roles exchanged before it can
+// reuse both the switch and the kernels. Transposing keeps a templated
+// size parameter templated, so the compile time sizes survive the swap.
+//
+// Both sides are full tensor product grids here, so the transposed nmTot
+// is the product of the original quadrature counts.
+template <typename TSizeParameter>
+NEK_FORCE_INLINE static auto TransposeSizeParameter(
+    [[maybe_unused]] const TSizeParameter sizeParam)
+{
+    if constexpr (IsTemplatedSizeParameter1D<TSizeParameter>::value)
+    {
+        return TemplatedSizeParameter1D<TSizeParameter::nq0(),
+                                        TSizeParameter::nm0()>();
+    }
+    else if constexpr (IsTemplatedSizeParameter2D<TSizeParameter>::value)
+    {
+        return TemplatedSizeParameter2D<
+            TSizeParameter::nq0(), TSizeParameter::nq1(),
+            TSizeParameter::nq0() * TSizeParameter::nq1(),
+            TSizeParameter::nm0(), TSizeParameter::nm1()>();
+    }
+    else if constexpr (IsTemplatedSizeParameter3D<TSizeParameter>::value)
+    {
+        return TemplatedSizeParameter3D<
+            TSizeParameter::nq0(), TSizeParameter::nq1(), TSizeParameter::nq2(),
+            TSizeParameter::nq0() * TSizeParameter::nq1() *
+                TSizeParameter::nq2(),
+            TSizeParameter::nm0(), TSizeParameter::nm1(),
+            TSizeParameter::nm2()>();
+    }
+    else if constexpr (IsNonTemplatedSizeParameter1D<TSizeParameter>::value)
+    {
+        return NonTemplatedSizeParameter1D(sizeParam.nq0(), sizeParam.nm0());
+    }
+    else if constexpr (IsNonTemplatedSizeParameter2D<TSizeParameter>::value)
+    {
+        return NonTemplatedSizeParameter2D(sizeParam.nq0(), sizeParam.nq1(),
+                                           sizeParam.nq0() * sizeParam.nq1(),
+                                           sizeParam.nm0(), sizeParam.nm1());
+    }
+    else
+    {
+        static_assert(IsNonTemplatedSizeParameter3D<TSizeParameter>::value,
+                      "TransposeSizeParameter expects a 1D, 2D or 3D size "
+                      "parameter.");
+
+        return NonTemplatedSizeParameter3D(
+            sizeParam.nq0(), sizeParam.nq1(), sizeParam.nq2(),
+            sizeParam.nq0() * sizeParam.nq1() * sizeParam.nq2(),
+            sizeParam.nm0(), sizeParam.nm1(), sizeParam.nm2());
+    }
+}
+
 template <typename T> struct IsTraceSizeParameter1D
 {
     static constexpr bool value =

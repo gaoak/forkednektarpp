@@ -164,9 +164,10 @@ int main(int argc, char *argv[])
     {
         Operators0 = {
             "BwdTrans",           "IProductWRTBase", "IProductWRTDerivBase",
-            "PhysInterp1DScaled", "Advection",       "PhysDeriv",
-            "Divergence",         "CurlCurl",        "Mass",
-            "Laplacian",          "Helmholtz",       "LinAdvDiffReaction",
+            "PhysInterp1DScaled", "Advection",       "AdvectionDealias",
+            "PhysDeriv",          "Divergence",      "Mass",
+            "CurlCurl",           "Laplacian",       "Helmholtz",
+            "LinAdvDiffReaction",
         };
     }
     else
@@ -216,6 +217,12 @@ int main(int argc, char *argv[])
         {
             LaunchProfiler<AdvectionOp, FieldState::Phys, FieldState::Phys,
                            double>(explist, Ntest, 1, 1, Ncomp);
+        }
+        else if (Operator == "AdvectionDealias")
+        {
+            LaunchProfiler<AdvectionDealiasOp, FieldState::Phys,
+                           FieldState::Phys, double>(explist, Ntest, 1, 1,
+                                                     Ncomp);
         }
         else if (Operator == "PhysDeriv")
         {
@@ -295,6 +302,12 @@ int main(int argc, char *argv[])
         {
             LaunchProfiler<AdvectionOp, FieldState::Phys, FieldState::Phys,
                            float>(explist, Ntest, 1, 1, Ncomp);
+        }
+        else if (Operator == "AdvectionDealias")
+        {
+            LaunchProfiler<AdvectionDealiasOp, FieldState::Phys,
+                           FieldState::Phys, float>(explist, Ntest, 1, 1,
+                                                    Ncomp);
         }
         else if (Operator == "PhysDeriv")
         {

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysInterp1DScaledBlockOp.hpp
+// File: AdvectionDealiasDeviceStdMatKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,55 +28,49 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Fine-grid product for 3/2-rule dealiased advection, StdMat
+// convention.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include "Operators/ElmtOps/ElmtBlockOp.hpp"
+#include "LibUtilities/LoopExecution/LoopExecution.hpp"
 
-namespace Nektar::Operators
+namespace Nektar::Operators::detail
 {
 
-template <typename TData>
-class PhysInterp1DScaledBlockOp
-    : public ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>
+template <typename ExecSpace, bool APPEND, typename TData>
+NEK_FORCE_INLINE static void AdvectionDealiasCombineStdMatKernel(
+    const size_t nsize, const unsigned int coordDim, const TData *advVel,
+    const size_t advVelOffset, const TData *grad, const size_t gradOffset,
+    TData *out, const TData scale, const unsigned int streamID)
 {
-public:
-    static std::shared_ptr<PhysInterp1DScaledBlockOp<TData>> Create(
-        const unsigned int block_idx,
-        const LocalRegions::ExpansionSharedPtr &exp,
-        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
-        const std::string &execStr, std::string implStr)
-    {
-        return ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>::
-            template Create<PhysInterp1DScaledBlockOp>(
-                block_idx, exp, dataWarehouse, execStr, implStr);
-    }
+    Nektar::LoopExecutionSetStreamID(streamID);
 
-    static inline const std::string name = "BlockPhysInterp1DScaled";
+    Nektar::parallel_for<ExecSpace>(
+        0, nsize, NEKTAR_LAMBDA(const size_t idx) {
+            TData tmp = advVel[idx] * grad[idx];
+            for (unsigned int d = 1u; d < coordDim; ++d)
+            {
+                tmp +=
+                    advVel[d * advVelOffset + idx] * grad[d * gradOffset + idx];
+            }
 
-    void SetScaleFactor(const TData &scale)
-    {
-        v_SetScaleFactor(scale);
-    }
+            // Plain runtime `if`, not `if constexpr`: nvcc's extended
+            // __device__ lambda rejects first-capturing a variable inside a
+            // constexpr-if branch.
+            if (APPEND)
+            {
+                out[idx] += scale * tmp;
+            }
+            else
+            {
+                out[idx] = scale * tmp;
+            }
+        });
 
-protected:
-    TData m_scale = -1.0; // scaling factor
+    Nektar::LoopExecutionSetStreamID(0);
+}
 
-    PhysInterp1DScaledBlockOp(
-        const unsigned int block_idx,
-        const LocalRegions::ExpansionSharedPtr &exp,
-        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
-        : ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>(block_idx, exp,
-                                                                 dataWarehouse)
-    {
-    }
-
-    ~PhysInterp1DScaledBlockOp() override = default;
-
-    virtual void v_SetScaleFactor(const TData &scale) = 0;
-};
-
-} // namespace Nektar::Operators
+} // namespace Nektar::Operators::detail

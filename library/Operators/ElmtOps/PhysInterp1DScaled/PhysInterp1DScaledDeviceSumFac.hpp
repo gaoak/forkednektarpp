@@ -118,6 +118,7 @@ protected:
     {
         ASSERTL1(this->m_scale != -1.0,
                  "Scale factor has not been initialised");
+
         switch (m_shapeType)
         {
             // Segment
@@ -189,6 +190,7 @@ protected:
     {
         this->m_scale = scale;
         m_nq.clear();
+        m_B.clear();
         for (unsigned int d = 0; d < m_dimension; d++)
         {
             // Fetch element size.
@@ -284,6 +286,9 @@ protected:
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize * ncomp, m_streamID);
 
+        // Neither side of this operator is modal, so there is no nodal to
+        // modal transform to apply and no collapsed coordinate correction
+        // to make.
         const TData *nodToMod = nullptr;
 
         // Get interleave parameter.

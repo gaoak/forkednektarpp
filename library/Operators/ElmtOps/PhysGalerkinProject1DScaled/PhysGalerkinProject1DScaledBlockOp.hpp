@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysInterp1DScaledBlockOp.hpp
+// File: PhysGalerkinProject1DScaledBlockOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -40,32 +40,38 @@ namespace Nektar::Operators
 {
 
 template <typename TData>
-class PhysInterp1DScaledBlockOp
+class PhysGalerkinProject1DScaledBlockOp
     : public ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>
 {
 public:
-    static std::shared_ptr<PhysInterp1DScaledBlockOp<TData>> Create(
+    static std::shared_ptr<PhysGalerkinProject1DScaledBlockOp<TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
         const std::string &execStr, std::string implStr)
     {
         return ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>::
-            template Create<PhysInterp1DScaledBlockOp>(
+            template Create<PhysGalerkinProject1DScaledBlockOp>(
                 block_idx, exp, dataWarehouse, execStr, implStr);
     }
 
-    static inline const std::string name = "BlockPhysInterp1DScaled";
+    static inline const std::string name = "BlockPhysGalerkinProject1DScaled";
 
     void SetScaleFactor(const TData &scale)
     {
         v_SetScaleFactor(scale);
     }
 
+    void SetAppend(const bool &append)
+    {
+        m_append = append;
+    }
+
 protected:
     TData m_scale = -1.0; // scaling factor
+    bool m_append = false;
 
-    PhysInterp1DScaledBlockOp(
+    PhysGalerkinProject1DScaledBlockOp(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
@@ -74,7 +80,7 @@ protected:
     {
     }
 
-    ~PhysInterp1DScaledBlockOp() override = default;
+    ~PhysGalerkinProject1DScaledBlockOp() override = default;
 
     virtual void v_SetScaleFactor(const TData &scale) = 0;
 };
