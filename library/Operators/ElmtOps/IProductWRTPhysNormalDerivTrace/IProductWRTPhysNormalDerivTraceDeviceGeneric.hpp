@@ -566,7 +566,7 @@ protected:
         const unsigned int numDataJac =
             (DEFORMED) ? numDataIn
                        : LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
-        const size_t jacCompStride = (size_t)nelmtPad * (size_t)numDataJac;
+        const size_t jacCompStride = nelmtPad * numDataJac;
 
         // Set Kernel parameters.
         const unsigned int blocksize =

@@ -61,7 +61,7 @@ NEK_FORCE_INLINE static void Curl2DScalarStdMatKernel(
             const size_t e = idx / nqTot;
             const size_t dfbase =
                 DEFORMED ? ndf * nqTot * e + (idx - e * nqTot) : ndf * e;
-            const size_t dfstride = DEFORMED ? nqTot : 1u;
+            const unsigned int dfstride = DEFORMED ? nqTot : 1u;
 
             const TData d0u = deriv[0u * derivoffset + idx];
             const TData d0v = deriv[1u * derivoffset + idx];
@@ -100,7 +100,7 @@ NEK_FORCE_INLINE static void Curl2DVectorStdMatKernel(
             const size_t e = idx / nqTot;
             const size_t dfbase =
                 DEFORMED ? ndf * nqTot * e + (idx - e * nqTot) : ndf * e;
-            const size_t dfstride = DEFORMED ? nqTot : 1u;
+            const unsigned int dfstride = DEFORMED ? nqTot : 1u;
 
             const TData d0 = deriv[0u * derivoffset + idx];
             const TData d1 = deriv[1u * derivoffset + idx];
@@ -137,7 +137,7 @@ NEK_FORCE_INLINE static void Curl3DStdMatKernel(
             const size_t e = idx / nqTot;
             const size_t dfbase =
                 DEFORMED ? ndf * nqTot * e + (idx - e * nqTot) : ndf * e;
-            const size_t dfstride = DEFORMED ? nqTot : 1u;
+            const unsigned int dfstride = DEFORMED ? nqTot : 1u;
 
             TData d0[3], d1[3], d2[3];
             for (unsigned int c = 0u; c < 3u; ++c)

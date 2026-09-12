@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AdvectionOp.hpp
+// File: AdvectionDealiasOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,7 +28,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Strong-form (non-conservative) advection: advVel \dot \grad(u)
+// Description: Strong-form advection with 3/2-rule spectral/hp dealiasing.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -36,30 +36,31 @@
 
 #include "Operators/ElmtOps/ElmtOp.hpp"
 
-#include "Operators/ElmtOps/Advection/AdvectionBlockOp.hpp"
+#include "Operators/ElmtOps/AdvectionDealias/AdvectionDealiasBlockOp.hpp"
 
 namespace Nektar::Operators
 {
 
-// Advection base class
+// AdvectionDealias base class
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
-class AdvectionOp : public ElmtOp<FieldState::Phys, FieldState::Phys, TData>
+class AdvectionDealiasOp
+    : public ElmtOp<FieldState::Phys, FieldState::Phys, TData>
 {
     friend class ElmtOp<FieldState::Phys, FieldState::Phys, TData>;
 
 public:
-    static std::shared_ptr<AdvectionOp<TData>> Create(
+    static std::shared_ptr<AdvectionDealiasOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components,
         const std::string &execStr = "", const std::string &implStr = "")
     {
         return ElmtOp<FieldState::Phys, FieldState::Phys, TData>::
-            template Create<AdvectionOp, AdvectionBlockOp>(
+            template Create<AdvectionDealiasOp, AdvectionDealiasBlockOp>(
                 expansionList, components, execStr, implStr);
     }
 
-    static inline const std::string name = "Advection";
+    static inline const std::string name = "AdvectionDealias";
 
     void SetScale(const TData &scale)
     {
@@ -96,16 +97,16 @@ public:
 
 protected:
     bool m_isSetAdvVel = false;
-    std::vector<std::shared_ptr<AdvectionBlockOp<TData>>> m_blockOp;
+    std::vector<std::shared_ptr<AdvectionDealiasBlockOp<TData>>> m_blockOp;
 
-    AdvectionOp(const MultiRegions::ExpListSharedPtr &expansionList,
-                const std::vector<std::string> &components)
+    AdvectionDealiasOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                       const std::vector<std::string> &components)
         : ElmtOp<FieldState::Phys, FieldState::Phys, TData>(expansionList,
                                                             components)
     {
     }
 
-    ~AdvectionOp() override = default;
+    ~AdvectionDealiasOp() override = default;
 
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
                  LibUtilities::Field<TData, FieldState::Phys> &out) override
@@ -119,6 +120,12 @@ protected:
         ASSERTL1(m_isSetAdvVel,
                  "Advection velocity has not been set."
                  "Set the value with SetAdvVel() before calling Apply().");
+
+        // 3/2-rule over-integration runs on the native element grid, not per
+        // homogeneous-Fourier-plane, so 3DH1/3DH2 is not supported.
+        ASSERTL1(in.GetNumHomoModes() == 1 && out.GetNumHomoModes() == 1,
+                 "AdvectionDealiasOp does not support homogeneous "
+                 "(3DH1/3DH2) configurations.");
 
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)

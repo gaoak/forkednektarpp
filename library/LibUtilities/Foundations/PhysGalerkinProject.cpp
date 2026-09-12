@@ -72,7 +72,22 @@ void PhysGalerkinProject1D(const PointsKey &fpoints0,
         NekVector<NekDouble> in(fpoints0.GetNumPoints(), from, eWrapper);
         NekVector<NekDouble> out(tpoints0.GetNumPoints(), to, eWrapper);
 
-        GP0->Transpose();
+        // GetGalerkinProjection() already returns the matrix oriented
+        // [tpoints0.GetNumPoints() x fpoints0.GetNumPoints()] (rows x
+        // columns), directly conformable with out = GP0 * in - see
+        // GaussPoints::CalculateGalerkinProjectionMatrix, which builds it
+        // via MemoryManager<NekMatrix<NekDouble>>::AllocateSharedPtr(
+        // numpointsto, numpointsfrom, ...), and PhysGalerkinProject2D/3D's
+        // own direction-0 contraction below, which consumes it
+        // untransposed via Blas::Dgemm('N', 'N', tnp0, ..., fnp0, ...).
+        // Transposing here (as before) swaps GetRows()/GetColumns() to
+        // [fpoints0 x tpoints0], so the multiply loop
+        // (NekMultiplyUnspecializedMatrixType) reads only the first
+        // tpoints0.GetNumPoints() entries of the fpoints0-sized `in` and
+        // writes fpoints0.GetNumPoints() entries into the
+        // tpoints0-sized `out` buffer - silently wrong when
+        // tpoints0.GetNumPoints() < fpoints0.GetNumPoints() and an
+        // out-of-bounds write otherwise.
         out = (*GP0) * in;
     }
 }
@@ -98,7 +113,19 @@ void PhysGalerkinProject1D(const PointsKey &fpoints0, const NekDouble *from,
 
         GP0 = PointsManager()[tpoints0]->GetGalerkinProjection(fpoints0);
 
-        Blas::Dgemv('T', tpoints0.GetNumPoints(), fpoints0.GetNumPoints(), 1.0,
+        // GP0 is already stored [tpoints0.GetNumPoints() x
+        // fpoints0.GetNumPoints()] (see CalculateGalerkinProjectionMatrix
+        // and the matching comment in the Array-based overload above), so
+        // it is used untransposed here, consistent with how
+        // PhysGalerkinProject2D/3D consume GetGalerkinProjection() for
+        // their own direction-0 contraction (Blas::Dgemm('N', 'N', tnp0,
+        // ..., fnp0, GP0->GetPtr().data(), tnp0, ...) below). The
+        // previous 'T' here required `from`/`to` to be
+        // tpoints0.GetNumPoints()/fpoints0.GetNumPoints()-sized (the
+        // reverse of what this function's own parameters document and
+        // every caller assumes), reading and writing out of bounds of
+        // the fpoints0/tpoints0-sized buffers actually passed in.
+        Blas::Dgemv('N', tpoints0.GetNumPoints(), fpoints0.GetNumPoints(), 1.0,
                     GP0->GetPtr().data(), tpoints0.GetNumPoints(), from, 1, 0.0,
                     to, 1);
     }

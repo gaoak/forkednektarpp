@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysInterp1DScaledBlockOp.hpp
+// File: PhysGalerkinProject1DScaledOpImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,49 +34,35 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/ElmtBlockOp.hpp"
+#include "Operators/ElmtOps/PhysGalerkinProject1DScaled/PhysGalerkinProject1DScaledOp.hpp"
 
-namespace Nektar::Operators
+namespace Nektar::Operators::detail
 {
 
-template <typename TData>
-class PhysInterp1DScaledBlockOp
-    : public ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>
+template <typename ExecSpace, typename TData>
+class PhysGalerkinProject1DScaledOpImpl
+    : public PhysGalerkinProject1DScaledOp<TData>
 {
 public:
-    static std::shared_ptr<PhysInterp1DScaledBlockOp<TData>> Create(
-        const unsigned int block_idx,
-        const LocalRegions::ExpansionSharedPtr &exp,
-        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
-        const std::string &execStr, std::string implStr)
-    {
-        return ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>::
-            template Create<PhysInterp1DScaledBlockOp>(
-                block_idx, exp, dataWarehouse, execStr, implStr);
-    }
-
-    static inline const std::string name = "BlockPhysInterp1DScaled";
-
-    void SetScaleFactor(const TData &scale)
-    {
-        v_SetScaleFactor(scale);
-    }
-
-protected:
-    TData m_scale = -1.0; // scaling factor
-
-    PhysInterp1DScaledBlockOp(
-        const unsigned int block_idx,
-        const LocalRegions::ExpansionSharedPtr &exp,
-        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
-        : ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>(block_idx, exp,
-                                                                 dataWarehouse)
+    PhysGalerkinProject1DScaledOpImpl(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
+        : PhysGalerkinProject1DScaledOp<TData>(expansionList, components)
     {
     }
 
-    ~PhysInterp1DScaledBlockOp() override = default;
+    // className - for OperatorFactory
+    static std::string className;
 
-    virtual void v_SetScaleFactor(const TData &scale) = 0;
+    // instantiation function for CreatorFunction in OperatorFactory
+    static std::unique_ptr<Operator<TData>> Instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
+    {
+        return std::make_unique<
+            PhysGalerkinProject1DScaledOpImpl<ExecSpace, TData>>(expansionList,
+                                                                 components);
+    }
 };
 
-} // namespace Nektar::Operators
+} // namespace Nektar::Operators::detail

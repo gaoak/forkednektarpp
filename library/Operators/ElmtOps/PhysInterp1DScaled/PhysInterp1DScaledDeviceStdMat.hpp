@@ -168,8 +168,7 @@ protected:
             // Fetch element size.
             if (d == 0)
             {
-                const auto nq0 = this->m_scale * m_nm[0];
-                m_nq.push_back(nq0);
+                m_nq.push_back(this->m_scale * m_nm[0]);
             }
             else if (d == 1)
             {

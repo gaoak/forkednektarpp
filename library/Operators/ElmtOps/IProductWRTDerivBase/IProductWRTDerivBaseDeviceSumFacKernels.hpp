@@ -424,7 +424,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
     IProductWRTDerivBaseKernelLauncher(
         const TSizeParameter1D sizeParam1D, const unsigned int ncoord,
-        const size_t nelmt, const unsigned int inoffset,
+        const size_t nelmt, const size_t inoffset,
         [[maybe_unused]] const bool isModified,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT D0,
         const TData *NEK_RESTRICT w0,
@@ -490,7 +490,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TPhysSizeParameter1D>()))
     IProductWRTDerivBasePhysKernelLauncher(
         const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
-        const unsigned int inoffset, const TData *NEK_RESTRICT D0,
+        const size_t inoffset, const TData *NEK_RESTRICT D0,
         const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT df,
         const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
         TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, TData scale,
@@ -548,7 +548,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
     IProductWRTDerivBaseKernelLauncher(
         const TSizeParameter2D sizeParam2D, const unsigned int ncoord,
-        const size_t nelmt, const unsigned int inoffset, const bool isModified,
+        const size_t nelmt, const size_t inoffset, const bool isModified,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
         const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
@@ -675,7 +675,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TPhysSizeParameter2D>()))
     IProductWRTDerivBasePhysKernelLauncher(
         const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
-        const unsigned int inoffset, const TData *NEK_RESTRICT D0,
+        const size_t inoffset, const TData *NEK_RESTRICT D0,
         const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT w0,
         const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT f0,
         const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
@@ -769,7 +769,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     IProductWRTDerivBaseKernelLauncher(
         const TSizeParameter3D sizeParam3D,
         [[maybe_unused]] const unsigned int ncoord, const size_t nelmt,
-        const unsigned int inoffset, const bool isModified,
+        const size_t inoffset, const bool isModified,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index1,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index2,
@@ -1007,7 +1007,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TPhysSizeParameter3D>()))
     IProductWRTDerivBasePhysKernelLauncher(
         const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
-        const unsigned int inoffset, const TData *NEK_RESTRICT D0,
+        const size_t inoffset, const TData *NEK_RESTRICT D0,
         const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
         const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
         const TData *NEK_RESTRICT w2, const TData *NEK_RESTRICT f0,

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysInterp1DScaledSerialAVXStdMat.hpp
+// File: PhysGalerkinProject1DScaledSerialAVXStdMat.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -38,13 +38,14 @@
 
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
-#include "Operators/ElmtOps/PhysInterp1DScaled/PhysInterp1DScaledBlockOp.hpp"
+#include "Operators/ElmtOps/PhysGalerkinProject1DScaled/PhysGalerkinProject1DScaledBlockOp.hpp"
 
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class PhysInterp1DScaledBlockOpImpl : public PhysInterp1DScaledBlockOp<TData>
+class PhysGalerkinProject1DScaledBlockOpImpl
+    : public PhysGalerkinProject1DScaledBlockOp<TData>
 {
     using simd_t =
         typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
@@ -52,11 +53,12 @@ class PhysInterp1DScaledBlockOpImpl : public PhysInterp1DScaledBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    PhysInterp1DScaledBlockOpImpl(
+    PhysGalerkinProject1DScaledBlockOpImpl(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
-        : PhysInterp1DScaledBlockOp<TData>(block_idx, exp, dataWarehouse)
+        : PhysGalerkinProject1DScaledBlockOp<TData>(block_idx, exp,
+                                                    dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -65,6 +67,11 @@ public:
         m_dimension = exp->GetShapeDimension();
         m_coordDim  = exp->GetCoordim();
 
+        // Flag for collapsed coordinate correction.
+        m_isModified = (exp->GetBasisType(0) == LibUtilities::eModified_A);
+
+        // Native (target) quadrature point counts - fixed, independent of
+        // the over-integration scale factor.
         for (unsigned int d = 0; d < m_dimension; d++)
         {
             m_nm.push_back(exp->GetNumPoints(d));
@@ -93,9 +100,8 @@ public:
                 const LocalRegions::ExpansionSharedPtr &exp,
                 LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
-        return std::make_unique<
-            PhysInterp1DScaledBlockOpImpl<ExecSpace, Implementation, TData>>(
-            block_idx, exp, dataWarehouse);
+        return std::make_unique<PhysGalerkinProject1DScaledBlockOpImpl<
+            ExecSpace, Implementation, TData>>(block_idx, exp, dataWarehouse);
     }
 
 protected:
@@ -105,8 +111,14 @@ protected:
     LibUtilities::ShapeType m_shapeType;
     LibUtilities::PointsType m_nodalType;
     bool m_isDeformed;
+    bool m_isModified;
     unsigned int m_dimension;
     unsigned int m_coordDim;
+    // m_nm is the native (target/output) grid, m_nq the scaled
+    // (source/input) grid v_SetScaleFactor derives from it as
+    // m_scale * m_nm - the same naming the data warehouse uses for this
+    // matrix, and the same PhysInterp1DScaled uses for the reverse
+    // direction.
     unsigned int m_nmTot;
     unsigned int m_nqTot;
     std::vector<unsigned int> m_nm;
@@ -117,9 +129,15 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
-        // Initialize pointers.
+        ASSERTL1(this->m_scale != -1.0,
+                 "Scale factor has not been initialised");
+
+        // Initialize pointers. Appending accumulates into the pre-existing
+        // output values, so they are read as well as written.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto outptr = (this->m_append)
+                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                          : outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -128,9 +146,9 @@ protected:
                                          : interleaveWidth / m_implInterleaveWidth;
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
-        // Dispatch kernel.
+        // Dispatch kernel. Appending is a beta of one on the projection.
         auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-            simd_t::width, m_nqTot, m_nmTot, 1.0, 0.0);
+            simd_t::width, m_nmTot, m_nqTot, 1.0, this->m_append ? 1.0 : 0.0);
 
         // Loop over components.
         for (unsigned int n = 0;
@@ -145,7 +163,19 @@ protected:
                 {
                     LibUtilities::ReshapeStorage<ExecSpace>(
                         m_implInterleaveWidth, interleaveWidth, chunkSize,
-                        m_nmTot, (TData *)inptr);
+                        m_nqTot, (TData *)inptr);
+
+                    // Appending reads the pre-existing output values, which
+                    // are still in the block's storage interleave, so they
+                    // need reshaping before the kernel accumulates into
+                    // them. When overwriting, outptr is never read before
+                    // being fully rewritten.
+                    if (this->m_append)
+                    {
+                        LibUtilities::ReshapeStorage<ExecSpace>(
+                            m_implInterleaveWidth, interleaveWidth, chunkSize,
+                            m_nmTot, (TData *)outptr);
+                    }
                 }
 
                 // Perform matrix-matrix multiply.
@@ -156,19 +186,19 @@ protected:
                 {
                     LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        m_nmTot,
+                        m_nqTot,
                         (TData *)inptr -
-                            (width_ratio - 1) * m_nmTot * simd_t::width);
+                            (width_ratio - 1) * m_nqTot * simd_t::width);
                     LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        m_nqTot,
+                        m_nmTot,
                         (TData *)outptr -
-                            (width_ratio - 1) * m_nqTot * simd_t::width);
+                            (width_ratio - 1) * m_nmTot * simd_t::width);
                 }
 
                 // Increment pointers.
-                inptr += m_nmTot * simd_t::width;
-                outptr += m_nqTot * simd_t::width;
+                inptr += m_nqTot * simd_t::width;
+                outptr += m_nmTot * simd_t::width;
             }
         }
 
@@ -212,10 +242,13 @@ protected:
         m_nqTot =
             std::accumulate(m_nq.begin(), m_nq.end(), 1, std::multiplies());
 
+        // The Galerkin projection matrix, from the scaled grid (m_nq) down
+        // to this basis' native quadrature (m_nm).
         m_matptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            StdRegions::StdMatKey<TData>(m_basisKeys, m_shapeType,
-                                         StdRegions::ePhysInterpStdMatTranspose,
-                                         m_nodalType, m_nq));
+            StdRegions::StdMatKey<TData>(
+                m_basisKeys, m_shapeType,
+                StdRegions::eGalerkinProjectStdMatTranspose, m_nodalType,
+                m_nq));
     }
 };
 

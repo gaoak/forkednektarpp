@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: init_physinterp1dscaled.hpp
+// File: init_physgalerkinproject1dscaled.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,24 +28,29 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: fixture is the mirror image of
+// init_physinterp1dscaled.hpp's PhysInterp1DScaledField: input lives on
+// the scaled (finer) grid, output on the native grid.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "init_fields.hpp"
 
-#include "Operators/ElmtOps/PhysInterp1DScaled/PhysInterp1DScaledOp.hpp"
+#include "Operators/ElmtOps/PhysGalerkinProject1DScaled/PhysGalerkinProject1DScaledOp.hpp"
+
+#include <LibUtilities/Foundations/PhysGalerkinProject.h>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::Operators;
+using namespace Nektar::MultiRegions;
 
 template <typename TData>
-class PhysInterp1DScaledField
+class PhysGalerkinProject1DScaledField
     : public InitFields<TData, FieldState::Phys, FieldState::Phys>
 {
 public:
-    PhysInterp1DScaledField()
+    PhysGalerkinProject1DScaledField()
         : InitFields<TData, FieldState::Phys, FieldState::Phys>()
     {
     }
@@ -59,35 +64,18 @@ public:
         this->SetFixture();
     }
 
-    void Configure3DH1(const TData scale, const unsigned int nhomo = 1)
-    {
-        this->scale = scale;
-        this->SetSession();
-        this->SetExpList3DH1(nhomo);
-        this->fixt_explist->SetDataWarehouse();
-        this->SetFixture(nhomo);
-    }
-
-    void Configure3DH2(const TData scale, const unsigned int nhomoY = 1,
-                       const unsigned int nhomoZ = 1)
-    {
-        this->scale = scale;
-        this->SetSession();
-        this->SetExpList3DH2(nhomoY, nhomoZ);
-        this->fixt_explist->SetDataWarehouse();
-        this->SetFixture(nhomoY * nhomoZ);
-    }
-
     void SetFixture(const unsigned int nhomo = 1) override
     {
         auto nin  = this->session->GetVariables().size();
         auto nout = this->session->GetVariables().size();
-        auto inblockAttr =
+
+        // Native-sized blocks are the *output* of this operator.
+        auto outblockAttr =
             GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
-        std::vector<BlockAttributes<FieldState::Phys>> outblockAttr;
+        std::vector<BlockAttributes<FieldState::Phys>> inblockAttr;
 
         size_t eid = 0;
-        for (unsigned int blk = 0; blk < inblockAttr.size(); ++blk)
+        for (unsigned int blk = 0; blk < outblockAttr.size(); ++blk)
         {
             auto expPtr = this->fixt_explist->GetExp(eid);
 
@@ -101,13 +89,13 @@ public:
             }
 
             BlockAttributes<FieldState::Phys> new_block(
-                inblockAttr[blk].GetNumElements(),
-                inblockAttr[blk].GetNumElementsWithPadding(), ndata,
-                inblockAttr[blk].GetInterleaveWidth());
+                outblockAttr[blk].GetNumElements(),
+                outblockAttr[blk].GetNumElementsWithPadding(), ndata,
+                outblockAttr[blk].GetInterleaveWidth());
 
-            outblockAttr.push_back(new_block);
+            inblockAttr.push_back(new_block);
 
-            eid += inblockAttr[blk].GetNumElements();
+            eid += outblockAttr[blk].GetNumElements();
         }
 
         auto f_in =
@@ -124,7 +112,7 @@ public:
 
     void SetTestCase(void)
     {
-        // Set initial conditions.
+        // Set initial conditions on the (fine) input grid.
         for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
              ++blk)
         {
@@ -154,7 +142,7 @@ public:
 
     void RunTestCase()
     {
-        auto op = PhysInterp1DScaledOp<TData>::Create(
+        auto op = PhysGalerkinProject1DScaledOp<TData>::Create(
             this->fixt_explist, this->session->GetVariables());
         op->SetScaleFactor(this->scale);
         op->Apply(*this->fixt_in, *this->fixt_out);
@@ -169,12 +157,56 @@ public:
 
         // Calculate expected result from Nektar++
         Array<OneD, TData> inphys = this->fixt_in->ToArray();
-        Array<OneD, TData> outphys(numComp * nphys1D), tmp;
+        Array<OneD, TData> outphys(numComp * nphys), tmp;
 
-        for (unsigned int i = 0; i < numComp; ++i)
+        // ExpList::PhysGalerkinProjection1DScaled only implements its 2D
+        // and 3D switch cases (see ExpList.cpp:6748), so for 1D/Seg
+        // meshes drive the same underlying, dimension-general primitive,
+        // LibUtilities::PhysGalerkinProject1D, directly per element -
+        // mirroring exactly the per-element loop
+        // ExpList::v_PhysGalerkinProjection1DScaled itself uses for its
+        // 2D (PhysGalerkinProject2D) and 3D (PhysGalerkinProject3D)
+        // cases. This is still an independent legacy reference: it uses
+        // the same PointsManager()-cached Galerkin projection matrix
+        // machinery that both this new operator and the legacy 2D/3D
+        // path (already validated) are built on.
+        if (this->fixt_explist->GetExp(0)->GetShapeDimension() == 1)
         {
-            this->fixt_explist->PhysInterp1DScaled(
-                this->scale, inphys + i * nphys, tmp = outphys + i * nphys1D);
+            for (unsigned int i = 0; i < numComp; ++i)
+            {
+                int cnt = 0, cnt1 = 0;
+                for (int e = 0; e < this->fixt_explist->GetExpSize(); ++e)
+                {
+                    auto exp = this->fixt_explist->GetExp(e);
+                    int pt0  = exp->GetNumPoints(0);
+                    int npt0 = (int)(pt0 * this->scale);
+
+                    LibUtilities::PointsKey newPointsKey0(
+                        npt0, exp->GetPointsType(0));
+
+                    LibUtilities::PhysGalerkinProject1D(
+                        newPointsKey0, &inphys[i * nphys1D + cnt],
+                        exp->GetBasis(0)->GetPointsKey(),
+                        &outphys[i * nphys + cnt1]);
+
+                    cnt += npt0;
+                    cnt1 += pt0;
+                }
+            }
+        }
+        else
+        {
+            // Calculate expected result using the legacy Nektar++
+            // Galerkin projection utility
+            // (LibUtilities::PhysGalerkinProject2D/3D via
+            // ExpList::PhysGalerkinProjection1DScaled), independent of
+            // this new operator's implementation.
+            for (unsigned int i = 0; i < numComp; ++i)
+            {
+                this->fixt_explist->PhysGalerkinProjection1DScaled(
+                    this->scale, inphys + i * nphys1D,
+                    tmp = outphys + i * nphys);
+            }
         }
         this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
             outphys);
@@ -187,7 +219,7 @@ private:
 // clang-format off
 #if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
 #define TESTFLOAT(type, filename)                                              \
-    class type##float : public PhysInterp1DScaledField<float>                  \
+    class type##float : public PhysGalerkinProject1DScaledField<float>         \
     {                                                                          \
     public:                                                                    \
         type##float()                                                          \
@@ -200,7 +232,7 @@ private:
 #endif
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 #define TESTDOUBLE(type, filename)                                             \
-    class type : public PhysInterp1DScaledField<double>                        \
+    class type : public PhysGalerkinProject1DScaledField<double>               \
     {                                                                          \
     public:                                                                    \
         type()                                                                 \
@@ -215,6 +247,11 @@ private:
     TESTFLOAT(type, filename)                                                  \
     TESTDOUBLE(type, filename)
 // clang-format on
+
+// NOTE: the homogeneous (3DH1/3DH2) extension is not implemented for
+// PhysGalerkinProject1DScaled, so unlike init_physinterp1dscaled.hpp this
+// fixture set has no Configure3DH1/Configure3DH2 methods and no
+// corresponding *_3dh1/_3dh2 test cases below.
 
 TEST(Seg, "run/segment.xml")
 

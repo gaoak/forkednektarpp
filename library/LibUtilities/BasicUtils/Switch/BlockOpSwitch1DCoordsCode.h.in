@@ -123,9 +123,8 @@ const auto nq0 = m_nq[0];
                                "Executing nq = " + std::to_string(nq0) + 
                                " non-templated operator");              
                     m_warnOnceTemplate = true;
-                    OPERATOR_DEF;                                      
-                }                                                  
-                OPERATOR_DEF;
+                    OPERATOR_DEF;
+                }
                 break;
             }
         }

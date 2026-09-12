@@ -37,6 +37,7 @@
 #include <iostream>
 
 #include <Operators/ElmtOps/Advection/AdvectionOp.hpp>
+#include <Operators/ElmtOps/AdvectionDealias/AdvectionDealiasOp.hpp>
 #include <Operators/ElmtOps/BwdTrans/BwdTransOp.hpp>
 #include <Operators/ElmtOps/CurlCurl/CurlCurlOp.hpp>
 #include <Operators/ElmtOps/Divergence/DivergenceOp.hpp>
@@ -134,6 +135,74 @@ void GetExpectedResults(const std::string &opName,
             {
                 outArr[j] += grad2[j] * vel[j + 2 * outArr.size()];
             }
+        }
+    }
+    else if (opName == "AdvectionDealias")
+    {
+        // Reference for AdvectionDealiasOp: the 3/2-rule spectral/hp
+        // dealiased nonlinear term advVel . grad(u), built from legacy
+        // ExpList primitives only (PhysDeriv on the native grid ->
+        // PhysInterp1DScaled to the 1.5x over-integrated grid -> pointwise
+        // combine -> PhysGalerkinProjection1DScaled back down), mirroring
+        // what the operator does internally. advVel is all-ones, matching
+        // the SetAdvVel() call in LaunchProfiler. Result scale is 1.0 (the
+        // profiler does not call SetScale). PhysGalerkinProjection1DScaled
+        // only implements its 2D/3D cases, so this path assumes a 2D or 3D
+        // mesh.
+        auto coordDim            = expList->GetCoordim(0);
+        const size_t nphys       = expList->GetTotPoints();
+        const size_t nphysFine   = expList->Get1DScaledTotPoints(1.5);
+        const size_t nComponents = (nphys > 0) ? outArr.size() / nphys : 0;
+
+        Array<OneD, double> grad0(nphys, 0.0);
+        Array<OneD, double> grad1(nphys, 0.0);
+        Array<OneD, double> grad2(nphys, 0.0);
+        Array<OneD, double> grad0Fine(nphysFine, 0.0);
+        Array<OneD, double> grad1Fine(nphysFine, 0.0);
+        Array<OneD, double> grad2Fine(nphysFine, 0.0);
+        Array<OneD, double> velFine(nphysFine, 0.0);
+        Array<OneD, double> combinedFine(nphysFine, 0.0);
+        Array<OneD, double> combinedNative(nphys, 0.0);
+        Array<OneD, double> tmp;
+
+        // advVel components are all ones, so a single interpolation suffices.
+        Array<OneD, double> vel(nphys, 1.0);
+        expList->PhysInterp1DScaled(1.5, vel, tmp = velFine);
+
+        for (size_t c = 0; c < nComponents; ++c)
+        {
+            Vmath::Zero(nphys, grad0, 1);
+            Vmath::Zero(nphys, grad1, 1);
+            Vmath::Zero(nphys, grad2, 1);
+            expList->PhysDeriv(inArr + c * nphys, grad0, grad1, grad2);
+
+            expList->PhysInterp1DScaled(1.5, grad0, tmp = grad0Fine);
+            if (coordDim >= 2)
+            {
+                expList->PhysInterp1DScaled(1.5, grad1, tmp = grad1Fine);
+            }
+            if (coordDim == 3)
+            {
+                expList->PhysInterp1DScaled(1.5, grad2, tmp = grad2Fine);
+            }
+
+            for (size_t j = 0; j < nphysFine; ++j)
+            {
+                double val = grad0Fine[j] * velFine[j];
+                if (coordDim >= 2)
+                {
+                    val += grad1Fine[j] * velFine[j];
+                }
+                if (coordDim == 3)
+                {
+                    val += grad2Fine[j] * velFine[j];
+                }
+                combinedFine[j] = val;
+            }
+
+            expList->PhysGalerkinProjection1DScaled(1.5, combinedFine,
+                                                    tmp = combinedNative);
+            Vmath::Vcopy(nphys, combinedNative, 1, tmp = outArr + c * nphys, 1);
         }
     }
     else if (opName == "PhysDeriv")
@@ -448,6 +517,15 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
         oper->SetScaleFactor(2.0);
     }
     else if constexpr (std::is_same_v<Op<TData>, AdvectionOp<TData>>)
+    {
+        auto velblockAttr =
+            GetBlockAttributes<TData, FieldState::Phys>(expList);
+        vel = Field<TData, FieldState::Phys>("f_out", velblockAttr,
+                                             expList->GetCoordim(0), 1);
+        vel.template Initialize<NektarSpaces::HostSpace>(1.0);
+        oper->SetAdvVel(vel);
+    }
+    else if constexpr (std::is_same_v<Op<TData>, AdvectionDealiasOp<TData>>)
     {
         auto velblockAttr =
             GetBlockAttributes<TData, FieldState::Phys>(expList);

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysInterp1DScaledSerialAVXStdMat.hpp
+// File: PhysGalerkinProject1DScaledDeviceStdMat.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,30 +34,29 @@
 
 #pragma once
 
-#include <LibUtilities/SimdLib/tinysimd.hpp>
-
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
-#include "Operators/ElmtOps/PhysInterp1DScaled/PhysInterp1DScaledBlockOp.hpp"
+#include "Operators/ElmtOps/PhysGalerkinProject1DScaled/PhysGalerkinProject1DScaledBlockOp.hpp"
 
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename Implementation, typename TData>
-class PhysInterp1DScaledBlockOpImpl : public PhysInterp1DScaledBlockOp<TData>
+class PhysGalerkinProject1DScaledBlockOpImpl
+    : public PhysGalerkinProject1DScaledBlockOp<TData>
 {
-    using simd_t =
-        typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                              TData>::type;
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    PhysInterp1DScaledBlockOpImpl(
+    PhysGalerkinProject1DScaledBlockOpImpl(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
-        : PhysInterp1DScaledBlockOp<TData>(block_idx, exp, dataWarehouse)
+        : PhysGalerkinProject1DScaledBlockOp<TData>(block_idx, exp,
+                                                    dataWarehouse)
     {
+        m_streamID = block_idx + 1;
+
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
         m_isDeformed =
@@ -65,6 +64,8 @@ public:
         m_dimension = exp->GetShapeDimension();
         m_coordDim  = exp->GetCoordim();
 
+        // Native (target) quadrature point counts - fixed, independent of
+        // the over-integration scale factor.
         for (unsigned int d = 0; d < m_dimension; d++)
         {
             m_nm.push_back(exp->GetNumPoints(d));
@@ -93,20 +94,25 @@ public:
                 const LocalRegions::ExpansionSharedPtr &exp,
                 LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
-        return std::make_unique<
-            PhysInterp1DScaledBlockOpImpl<ExecSpace, Implementation, TData>>(
-            block_idx, exp, dataWarehouse);
+        return std::make_unique<PhysGalerkinProject1DScaledBlockOpImpl<
+            ExecSpace, Implementation, TData>>(block_idx, exp, dataWarehouse);
     }
 
 protected:
-    static constexpr unsigned int m_implInterleaveWidth = simd_t::width;
+    static constexpr unsigned int m_implInterleaveWidth = 1u;
 
+    unsigned int m_streamID;
     std::vector<LibUtilities::BasisKey> m_basisKeys;
     LibUtilities::ShapeType m_shapeType;
     LibUtilities::PointsType m_nodalType;
     bool m_isDeformed;
     unsigned int m_dimension;
     unsigned int m_coordDim;
+    // m_nm is the native (target/output) grid, m_nq the scaled
+    // (source/input) grid v_SetScaleFactor derives from it as
+    // m_scale * m_nm - the same naming the data warehouse uses for this
+    // matrix, and the same PhysInterp1DScaled uses for the reverse
+    // direction.
     unsigned int m_nmTot;
     unsigned int m_nqTot;
     std::vector<unsigned int> m_nm;
@@ -117,63 +123,63 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
-        // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        ASSERTL1(this->m_scale != -1.0,
+                 "Scale factor has not been initialised");
+
+        // Get BLAS handle.
+        auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
+
+        // Get block sizes.
+        const auto ncomp =
+            inblock.GetNumComponents() * inblock.GetNumHomoModes();
+        const auto nelmt    = inblock.GetNumElementsWithPadding();
+        const auto nelmtTot = nelmt * inblock.GetNumHomoModes();
+
+        // Initialize pointers. Appending accumulates into the pre-existing
+        // output values, so they are read as well as written.
+        auto inptr = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr =
+            (this->m_append)
+                ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
+                : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
-        // Dispatch kernel.
-        auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-            simd_t::width, m_nqTot, m_nmTot, 1.0, 0.0);
+        // Offsets between the components of a block.
+        const auto inoffset  = inblock.CompSize() * inblock.GetNumHomoModes();
+        const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
 
-        // Loop over components.
-        for (unsigned int n = 0;
-             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
+        // Reshape, if necessary.
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            m_implInterleaveWidth, inInterleaveWidth, nelmt * ncomp,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
+        if (this->m_append)
         {
-            // Loop over element groups.
-            for (size_t e = 0;
-                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
-            {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
-                {
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        m_implInterleaveWidth, interleaveWidth, chunkSize,
-                        m_nmTot, (TData *)inptr);
-                }
-
-                // Perform matrix-matrix multiply.
-                gemm_kernel(inptr, m_matptr, outptr);
-
-                // Reshape back, if necessary.
-                if (e % width_ratio == width_ratio - 1)
-                {
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        m_nmTot,
-                        (TData *)inptr -
-                            (width_ratio - 1) * m_nmTot * simd_t::width);
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
-                        m_nqTot,
-                        (TData *)outptr -
-                            (width_ratio - 1) * m_nqTot * simd_t::width);
-                }
-
-                // Increment pointers.
-                inptr += m_nmTot * simd_t::width;
-                outptr += m_nqTot * simd_t::width;
-            }
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, outInterleaveWidth, nelmt * ncomp,
+                outblock.GetNumData(), (TData *)outptr, m_streamID);
         }
 
+        // Perform batched matrix-matrix multiply, one multiply per component,
+        // with the homogeneous modes held in the columns. Appending is a beta
+        // of one on the projection.
+        NekBlas::GemmStridedBatched(
+            handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, (TData)1.0, m_matptr,
+            m_nmTot, 0, inptr, m_nqTot, inoffset, (TData)this->m_append, outptr,
+            m_nmTot, outoffset, inblock.GetNumComponents());
+
+        // Reshape back, if necessary.
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            inInterleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            inInterleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
+            outblock.GetNumData(), outptr, m_streamID);
+
         // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
     }
 
     void v_SetScaleFactor(const TData &scale) override
@@ -212,9 +218,11 @@ protected:
         m_nqTot =
             std::accumulate(m_nq.begin(), m_nq.end(), 1, std::multiplies());
 
+        // The Galerkin projection matrix, from the scaled grid (m_nq) down
+        // to this basis' native quadrature (m_nm).
         m_matptr = this->m_dataWarehouse->template GetData<MemSpace>(
             StdRegions::StdMatKey<TData>(m_basisKeys, m_shapeType,
-                                         StdRegions::ePhysInterpStdMatTranspose,
+                                         StdRegions::eGalerkinProjectStdMat,
                                          m_nodalType, m_nq));
     }
 };

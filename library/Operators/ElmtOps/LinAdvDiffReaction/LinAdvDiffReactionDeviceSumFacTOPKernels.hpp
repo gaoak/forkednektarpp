@@ -159,8 +159,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *inptr      = in + nm0 * nelmt * c + nm0 * e;
         TData *outptr           = out + nm0 * nelmt * c + nm0 * e;
         const TData *advVel0ptr = advVel0 + nq0 * e;
-        const TData *advVel1ptr = ncoord > 1 ? advVel1 + nq0 * e : advVel1;
-        const TData *advVel2ptr = ncoord > 2 ? advVel2 + nq0 * e : advVel2;
+        const TData *advVel1ptr = (ncoord > 1) ? advVel1 + nq0 * e : advVel1;
+        const TData *advVel2ptr = (ncoord > 2) ? advVel2 + nq0 * e : advVel2;
 
         BwdTransSegSumFacTOPKernel<false>(nm0, nq0, basis0, inptr, bwd,
                                           threadBlock);
@@ -303,7 +303,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             threadBlock);
         const TData *advVel0ptr = advVel0 + nqTot * e;
         const TData *advVel1ptr = advVel1 + nqTot * e;
-        const TData *advVel2ptr = ncoord == 3 ? advVel2 + nqTot * e : advVel2;
+        const TData *advVel2ptr = (ncoord == 3) ? advVel2 + nqTot * e : advVel2;
         AddAdvection2DSumFacTOPKernel(
             ncoord, nq0, nq1, advVel0ptr, advVel1ptr, advVel2ptr, deriv,
             deriv + nqTot, deriv + 2 * nqTot, bwd, lambda, threadBlock);

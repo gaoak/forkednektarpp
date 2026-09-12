@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysInterp1DScaledBlockOp.hpp
+// File: AdvectionDealiasBlockOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,8 +28,8 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
-//
+// Description: Fused 3/2-rule spectral/hp dealiased advection:
+// scale * advVel . grad(u).
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
@@ -40,32 +40,44 @@ namespace Nektar::Operators
 {
 
 template <typename TData>
-class PhysInterp1DScaledBlockOp
+class AdvectionDealiasBlockOp
     : public ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>
 {
 public:
-    static std::shared_ptr<PhysInterp1DScaledBlockOp<TData>> Create(
+    static std::shared_ptr<AdvectionDealiasBlockOp<TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
         const std::string &execStr, std::string implStr)
     {
         return ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>::
-            template Create<PhysInterp1DScaledBlockOp>(
+            template Create<AdvectionDealiasBlockOp>(
                 block_idx, exp, dataWarehouse, execStr, implStr);
     }
 
-    static inline const std::string name = "BlockPhysInterp1DScaled";
+    static inline const std::string name = "BlockAdvectionDealias";
 
-    void SetScaleFactor(const TData &scale)
+    void SetScale(const TData &scale)
     {
-        v_SetScaleFactor(scale);
+        m_scale = scale;
+    }
+
+    void SetAppend(const bool &append)
+    {
+        this->m_append = append;
+    }
+
+    void SetAdvVel(LibUtilities::BlockAccessor<TData, FieldState::Phys> &Vel)
+    {
+        m_advVel = &Vel;
     }
 
 protected:
-    TData m_scale = -1.0; // scaling factor
+    TData m_scale                                                  = 1.0;
+    bool m_append                                                  = false;
+    LibUtilities::BlockAccessor<TData, FieldState::Phys> *m_advVel = nullptr;
 
-    PhysInterp1DScaledBlockOp(
+    AdvectionDealiasBlockOp(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
@@ -74,9 +86,7 @@ protected:
     {
     }
 
-    ~PhysInterp1DScaledBlockOp() override = default;
-
-    virtual void v_SetScaleFactor(const TData &scale) = 0;
+    ~AdvectionDealiasBlockOp() override = default;
 };
 
 } // namespace Nektar::Operators

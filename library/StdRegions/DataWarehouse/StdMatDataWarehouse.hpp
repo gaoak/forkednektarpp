@@ -65,6 +65,9 @@ enum StdMatType
     eModalToNodal                        = 19,
     eInvMassInteriorStdMat               = 20,
     eInvMassInteriorStdMatTranspose      = 21,
+    // Galerkin projection from a fine physical grid to the native grid.
+    eGalerkinProjectStdMat          = 22,
+    eGalerkinProjectStdMatTranspose = 23,
 };
 
 class StdMatDataCreator;

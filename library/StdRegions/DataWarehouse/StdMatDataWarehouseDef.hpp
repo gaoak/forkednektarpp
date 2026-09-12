@@ -37,6 +37,7 @@
 #include <StdRegions/DataWarehouse/StdMatDataWarehouse.hpp>
 
 #include <LibUtilities/Foundations/Interp.h>
+#include <LibUtilities/Foundations/PhysGalerkinProject.h>
 #include <StdRegions/StdHexExp.h>
 #include <StdRegions/StdNodalPrismExp.h>
 #include <StdRegions/StdNodalTetExp.h>
@@ -458,6 +459,154 @@ LibUtilities::MemoryRegion<TData> StdMatDataCreator::Create(
                              outkey2, t);
                     // Copy to mat with stride nmTot
                     Vmath::Vcopy(nqTot, &t[0], 1, &mat[i], nmTot);
+                }
+            }
+
+            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+        }
+        break;
+        case eGalerkinProjectStdMat:
+        {
+            // Reverse of ePhysInterpStdMat: input lives on the "fine" (nq)
+            // grid, output on the native (basisKeys) grid, via
+            // PhysGalerkinProject{1,2,3}D instead of Interp{1,2,3}D.
+            const auto nmTot = stdExp->GetTotPoints();
+            const auto nqTot =
+                std::accumulate(nq.begin(), nq.end(), 1, std::multiplies());
+            Array<OneD, double> tmp(nqTot), t;
+            Array<OneD, double> mat(nqTot * nmTot);
+            for (unsigned int i = 0; i < nqTot; ++i)
+            {
+                Vmath::Zero(nqTot, tmp, 1);
+                tmp[i] = 1.0;
+
+                if (stdExp->GetShapeDimension() == 1)
+                {
+                    // In (fine) keys
+                    const LibUtilities::PointsKey inkey0(
+                        nq[0], stdExp->GetBasis(0)->GetPointsType());
+
+                    // Out (native) keys
+                    const LibUtilities::PointsKey &outkey0 =
+                        stdExp->GetBasis(0)->GetPointsKey();
+
+                    LibUtilities::PhysGalerkinProject1D(inkey0, tmp, outkey0,
+                                                        t = mat + i * nmTot);
+                }
+                else if (stdExp->GetShapeDimension() == 2)
+                {
+                    // In (fine) keys
+                    const LibUtilities::PointsKey inkey0(
+                        nq[0], stdExp->GetBasis(0)->GetPointsType());
+                    const LibUtilities::PointsKey inkey1(
+                        nq[1], stdExp->GetBasis(1)->GetPointsType());
+
+                    // Out (native) keys
+                    const LibUtilities::PointsKey &outkey0 =
+                        stdExp->GetBasis(0)->GetPointsKey();
+                    const LibUtilities::PointsKey &outkey1 =
+                        stdExp->GetBasis(1)->GetPointsKey();
+
+                    LibUtilities::PhysGalerkinProject2D(inkey0, inkey1, tmp,
+                                                        outkey0, outkey1,
+                                                        t = mat + i * nmTot);
+                }
+                else if (stdExp->GetShapeDimension() == 3)
+                {
+                    // In (fine) keys
+                    const LibUtilities::PointsKey inkey0(
+                        nq[0], stdExp->GetBasis(0)->GetPointsType());
+                    const LibUtilities::PointsKey inkey1(
+                        nq[1], stdExp->GetBasis(1)->GetPointsType());
+                    const LibUtilities::PointsKey inkey2(
+                        nq[2], stdExp->GetBasis(2)->GetPointsType());
+
+                    // Out (native) keys
+                    const LibUtilities::PointsKey &outkey0 =
+                        stdExp->GetBasis(0)->GetPointsKey();
+                    const LibUtilities::PointsKey &outkey1 =
+                        stdExp->GetBasis(1)->GetPointsKey();
+                    const LibUtilities::PointsKey &outkey2 =
+                        stdExp->GetBasis(2)->GetPointsKey();
+
+                    LibUtilities::PhysGalerkinProject3D(
+                        inkey0, inkey1, inkey2, tmp, outkey0, outkey1, outkey2,
+                        t = mat + i * nmTot);
+                }
+            }
+
+            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+        }
+        break;
+        case eGalerkinProjectStdMatTranspose:
+        {
+            const auto nmTot = stdExp->GetTotPoints();
+            const auto nqTot =
+                std::accumulate(nq.begin(), nq.end(), 1, std::multiplies());
+            Array<OneD, double> tmp(nqTot), t(nmTot);
+            Array<OneD, double> mat(nqTot * nmTot);
+            for (unsigned int i = 0; i < nqTot; ++i)
+            {
+                Vmath::Zero(nqTot, tmp, 1);
+                tmp[i] = 1.0;
+
+                if (stdExp->GetShapeDimension() == 1)
+                {
+                    // In (fine) keys
+                    const LibUtilities::PointsKey inkey0(
+                        nq[0], stdExp->GetBasis(0)->GetPointsType());
+
+                    // Out (native) keys
+                    const LibUtilities::PointsKey &outkey0 =
+                        stdExp->GetBasis(0)->GetPointsKey();
+
+                    LibUtilities::PhysGalerkinProject1D(inkey0, tmp, outkey0,
+                                                        t);
+                    // Copy to mat with stride nqTot
+                    Vmath::Vcopy(nmTot, &t[0], 1, &mat[i], nqTot);
+                }
+                else if (stdExp->GetShapeDimension() == 2)
+                {
+                    // In (fine) keys
+                    const LibUtilities::PointsKey inkey0(
+                        nq[0], stdExp->GetBasis(0)->GetPointsType());
+                    const LibUtilities::PointsKey inkey1(
+                        nq[1], stdExp->GetBasis(1)->GetPointsType());
+
+                    // Out (native) keys
+                    const LibUtilities::PointsKey &outkey0 =
+                        stdExp->GetBasis(0)->GetPointsKey();
+                    const LibUtilities::PointsKey &outkey1 =
+                        stdExp->GetBasis(1)->GetPointsKey();
+
+                    LibUtilities::PhysGalerkinProject2D(inkey0, inkey1, tmp,
+                                                        outkey0, outkey1, t);
+                    // Copy to mat with stride nqTot
+                    Vmath::Vcopy(nmTot, &t[0], 1, &mat[i], nqTot);
+                }
+                else if (stdExp->GetShapeDimension() == 3)
+                {
+                    // In (fine) keys
+                    const LibUtilities::PointsKey inkey0(
+                        nq[0], stdExp->GetBasis(0)->GetPointsType());
+                    const LibUtilities::PointsKey inkey1(
+                        nq[1], stdExp->GetBasis(1)->GetPointsType());
+                    const LibUtilities::PointsKey inkey2(
+                        nq[2], stdExp->GetBasis(2)->GetPointsType());
+
+                    // Out (native) keys
+                    const LibUtilities::PointsKey &outkey0 =
+                        stdExp->GetBasis(0)->GetPointsKey();
+                    const LibUtilities::PointsKey &outkey1 =
+                        stdExp->GetBasis(1)->GetPointsKey();
+                    const LibUtilities::PointsKey &outkey2 =
+                        stdExp->GetBasis(2)->GetPointsKey();
+
+                    LibUtilities::PhysGalerkinProject3D(inkey0, inkey1, inkey2,
+                                                        tmp, outkey0, outkey1,
+                                                        outkey2, t);
+                    // Copy to mat with stride nqTot
+                    Vmath::Vcopy(nmTot, &t[0], 1, &mat[i], nqTot);
                 }
             }
 
