@@ -48,7 +48,7 @@
 #include "Operators/ElmtOps/BwdTrans/BwdTransOp.hpp"
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
 #include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp"
-#include "Operators/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp"
+#include "SolverCore/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp"
 
 namespace Nektar::SolverCore
 {

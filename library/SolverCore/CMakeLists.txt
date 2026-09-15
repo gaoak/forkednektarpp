@@ -200,7 +200,8 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
     add_component_sources(SOLVER_CORE_HEADERS SOLVER_CORE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/Forcing")
 
     # Set SolverCore operators
-    FILE(GLOB children Advection/* Advection/AdvectionWeakDG/* Diffusion/* Diffusion/DiffusionIP/* MeanRemoval)
+    FILE(GLOB children Advection/* Advection/AdvectionWeakDG/* Diffusion/* Diffusion/DiffusionIP/* MeanRemoval NormOps/* CFL/*
+         GlobalLinSysOps/LinearSystems/* GlobalLinSysOps/LinearSolvers/* PreconOps/*)
 
     SET(OPNAMESPACE "Nektar::SolverCore::detail")
     FOREACH(child ${children})
@@ -210,6 +211,12 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
 
     # Set compilation for MeanRemoval operator
     ADD_BLOCK_OPERATOR("${CMAKE_CURRENT_SOURCE_DIR}/MeanRemoval" OPNAMESPACE SOLVER_CORE_HEADERS SOLVER_CORE_SOURCES)
+
+    # Set compilation for the Norm and CFL block operators
+    FILE(GLOB children NormOps/* CFL/*)
+    FOREACH(child ${children})
+        ADD_BLOCK_OPERATOR(${child} OPNAMESPACE SOLVER_CORE_HEADERS SOLVER_CORE_SOURCES)
+    ENDFOREACH()
 
     # Set compilation for Riemann solvers
     SET(SolverTypes Upwind)

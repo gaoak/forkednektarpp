@@ -81,8 +81,9 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
 
     # The fixtures in TestMath.hpp and TestParallelReduce.hpp open
     # "run/segment.xml" relative to the working directory of the test, which
-    # is this directory in the build tree.
-    FILE(COPY run DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+    # is this directory in the build tree. The meshes themselves are shared
+    # by every unit test and live in one place, so copy them from there.
+    FILE(COPY ${CMAKE_SOURCE_DIR}/library/UnitTests/run DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
     # Registers one test per execution space. Named rather than overriding the
     # SET_UNIT_TEST of cmake/NektarCommon.cmake, which the sibling Operators

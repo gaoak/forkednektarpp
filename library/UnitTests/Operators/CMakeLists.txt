@@ -12,17 +12,14 @@
 # LinAdvDiffReaction     Nodepend - Seg, Quad, etc
 # Mass                   Nodepend - Seg, Quad, etc
 # MultiplyByElmtInvMass  Nodepend - Seg, Quad, etc
-# NullPrecon             Nodepend - Seg, Quad, etc
 # PhysDeriv              Nodepend - Seg, Quad, etc
 # Advection              Nodepend - Seg, Quad, etc
 # Divergence             Nodepend - Seg, Quad, etc
 # CurlCurl               Nodepend - Seg, Quad, etc
 # PhysInterp1D           Nodepend - Seg, Quad, etc
-# Norm                   Nodepend - Seg, Quad, etc
 # Expression             Nodepend - Helmholtz1D_Seg, etc.
 
 # These tests may require an individual  cpp.in file
-# DiagPrecon             create operator - Helmholtz - Helmholtz1D_Seg, etc.
 
 # FwdTrans               create operator - DiagPrecon - Helmholtz1D_Seg, etc.
 # HelmSolve              create operator - DiagPrecon - Helmholtz1D_Seg, etc.
@@ -53,30 +50,16 @@ ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass.cpp)
 ADD_NEKTAR_EXECUTABLE(test_expression
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_expression.cpp)
-ADD_NEKTAR_EXECUTABLE(test_norm
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_norm.cpp)
 ADD_NEKTAR_EXECUTABLE(test_addtraceintegral
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral.cpp)
-ADD_NEKTAR_EXECUTABLE(test_maxstdvelocity
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_maxstdvelocity.cpp)
 ADD_NEKTAR_EXECUTABLE(test_bwdtrans
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans.cpp)
 ADD_NEKTAR_EXECUTABLE(test_fwdtransbc
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtransbc.cpp)
-ADD_NEKTAR_EXECUTABLE(test_diagprecon
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon.cpp)
-ADD_NEKTAR_EXECUTABLE(test_fwdtrans
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans.cpp)
 ADD_NEKTAR_EXECUTABLE(test_helmholtz
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz.cpp)
 ADD_NEKTAR_EXECUTABLE(test_laplacian
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_laplacian.cpp)
-ADD_NEKTAR_EXECUTABLE(test_poissonsolve
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_poissonsolve.cpp)
-ADD_NEKTAR_EXECUTABLE(test_helmsolve
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve.cpp)
-ADD_NEKTAR_EXECUTABLE(test_linearadrsolve
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linearadrsolve.cpp)
 ADD_NEKTAR_EXECUTABLE(test_ipwrtbase
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase.cpp)
 ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase
@@ -85,8 +68,6 @@ ADD_NEKTAR_EXECUTABLE(test_linadvdiffreaction
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_linadvdiffreaction.cpp)
 ADD_NEKTAR_EXECUTABLE(test_mass
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass.cpp)
-ADD_NEKTAR_EXECUTABLE(test_nullprecon
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon.cpp)
 ADD_NEKTAR_EXECUTABLE(test_physderiv
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv.cpp)
 IF(NEKTAR_USE_CUFFTDX)
@@ -136,8 +117,6 @@ ENDIF()
 SET_UNIT_TEST(MultiplyByElmtInvMass_serial_generic test_multiplybyelmtinvmass Serial Generic FALSE)
 SET_UNIT_TEST(FwdTransBC_serial_generic test_fwdtransbc Serial Generic FALSE)
 SET_UNIT_TEST(Expression_serial_generic test_expression Serial Generic FALSE)
-SET_UNIT_TEST(Norm_serial_generic test_norm Serial Generic FALSE)
-SET_UNIT_TEST(MaxStdVelocity_serial_generic test_maxstdvelocity Serial Generic FALSE)
 
 # Serial StdMat
 SET_UNIT_TEST(IProductWRTPhysTrace_serial_stdmat test_ipwrtTrace Serial StdMat FALSE)
@@ -145,18 +124,12 @@ SET_UNIT_TEST(IProductWRTPhysNormalDerivTrace_serial_stdmat test_ipwrtphysnormde
 SET_UNIT_TEST(PhysTraceExtract_serial_stdmat test_phystraceextract Serial StdMat FALSE)
 SET_UNIT_TEST(AddTraceIntegral_serial_stdmat test_addtraceintegral Serial StdMat FALSE)
 SET_UNIT_TEST(BwdTrans_serial_stdmat test_bwdtrans Serial StdMat FALSE)
-SET_UNIT_TEST(DiagPrecon_serial_stdmat test_diagprecon Serial StdMat FALSE)
-SET_UNIT_TEST(FwdTrans_serial_stdmat test_fwdtrans Serial StdMat FALSE)
 SET_UNIT_TEST(Helmholtz_serial_stdmat test_helmholtz Serial StdMat FALSE)
 SET_UNIT_TEST(Laplacian_serial_stdmat test_laplacian Serial StdMat FALSE)
-SET_UNIT_TEST(PoissonSolve_serial_stdmat test_poissonsolve Serial StdMat FALSE)
-SET_UNIT_TEST(HelmSolve_serial_stdmat test_helmsolve Serial StdMat FALSE)
-SET_UNIT_TEST(LinearADRSolve_serial_stdmat test_linearadrsolve Serial StdMat FALSE)
 SET_UNIT_TEST(IProductWRTBase_serial_stdmat test_ipwrtbase Serial StdMat FALSE)
 SET_UNIT_TEST(IProductWRTDerivBase_serial_stdmat test_ipwrtderivbase Serial StdMat FALSE)
 SET_UNIT_TEST(LinAdvDiffReaction_serial_stdmat test_linadvdiffreaction Serial StdMat FALSE)
 SET_UNIT_TEST(Mass_serial_stdmat test_mass Serial StdMat FALSE)
-SET_UNIT_TEST(NullPrecon_serial_stdmat test_nullprecon Serial StdMat FALSE)
 SET_UNIT_TEST(PhysDeriv_serial_stdmat test_physderiv Serial StdMat FALSE)
 SET_UNIT_TEST(Advection_serial_stdmat test_advection Serial StdMat FALSE)
 SET_UNIT_TEST(Divergence_serial_stdmat test_divergence Serial StdMat FALSE)
@@ -171,18 +144,12 @@ SET_UNIT_TEST(IProductWRTPhysNormalDerivTrace_serial_sumfac test_ipwrtphysnormde
 SET_UNIT_TEST(PhysTraceExtract_serial_sumfac test_phystraceextract Serial SumFac FALSE)
 SET_UNIT_TEST(AddTraceIntegral_serial_sumfac test_addtraceintegral Serial SumFac FALSE)
 SET_UNIT_TEST(BwdTrans_serial_sumfac test_bwdtrans Serial SumFac FALSE)
-SET_UNIT_TEST(DiagPrecon_serial_sumfac test_diagprecon Serial SumFac FALSE)
-SET_UNIT_TEST(FwdTrans_serial_sumfac test_fwdtrans Serial SumFac FALSE)
 SET_UNIT_TEST(Helmholtz_serial_sumfac test_helmholtz Serial SumFac FALSE)
 SET_UNIT_TEST(Laplacian_serial_sumfac test_laplacian Serial SumFac FALSE)
-SET_UNIT_TEST(PoissonSolve_serial_sumfac test_poissonsolve Serial SumFac FALSE)
-SET_UNIT_TEST(HelmSolve_serial_sumfac test_helmsolve Serial SumFac FALSE)
-SET_UNIT_TEST(LinearADRSolve_serial_sumfac test_linearadrsolve Serial SumFac FALSE)
 SET_UNIT_TEST(IProductWRTBase_serial_sumfac test_ipwrtbase Serial SumFac FALSE)
 SET_UNIT_TEST(IProductWRTDerivBase_serial_sumfac test_ipwrtderivbase Serial SumFac FALSE)
 SET_UNIT_TEST(LinAdvDiffReaction_serial_sumfac test_linadvdiffreaction Serial SumFac FALSE)
 SET_UNIT_TEST(Mass_serial_sumfac test_mass Serial SumFac FALSE)
-SET_UNIT_TEST(NullPrecon_serial_sumfac test_nullprecon Serial SumFac FALSE)
 SET_UNIT_TEST(PhysDeriv_serial_sumfac test_physderiv Serial SumFac FALSE)
 SET_UNIT_TEST(Advection_serial_sumfac test_advection Serial SumFac FALSE)
 SET_UNIT_TEST(Divergence_serial_sumfac test_divergence Serial SumFac FALSE)
@@ -190,9 +157,6 @@ SET_UNIT_TEST(CurlCurl_serial_sumfac test_curlcurl Serial SumFac FALSE)
 SET_UNIT_TEST(PhysInterp1DScaled_serial_sumfac test_physinterp1dscaled Serial SumFac FALSE)
 SET_UNIT_TEST(PhysGalerkinProject1DScaled_serial_sumfac test_physgalerkinproject1dscaled Serial SumFac FALSE)
 SET_UNIT_TEST(AdvectionDealias_serial_sumfac test_advectiondealias Serial SumFac FALSE)
-IF (NEKTAR_USE_MPI)
-    # SET_UNIT_TEST(HelmSolve_serial test_helmsolve Serial SumFac TRUE)
-ENDIF()
 
 # AVX
 IF (NEKTAR_ENABLE_SIMD)
@@ -210,8 +174,6 @@ IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(MultiplyByElmtInvMass_avx_generic test_multiplybyelmtinvmass AVX Generic FALSE)
     SET_UNIT_TEST(FwdTransBC_avx_generic test_fwdtransbc AVX Generic FALSE)
     SET_UNIT_TEST(Expression_avx_generic test_expression AVX Generic FALSE)
-    SET_UNIT_TEST(Norm_avx_generic test_norm AVX Generic FALSE)
-SET_UNIT_TEST(MaxStdVelocity_avx_generic test_maxstdvelocity AVX Generic FALSE)
 ENDIF()
 
 # AVX StdMat
@@ -221,17 +183,12 @@ IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(PhysTraceExtract_avx_stdmat test_phystraceextract AVX StdMat FALSE)
     SET_UNIT_TEST(AddTraceIntegral_avx_stdmat test_addtraceintegral AVX StdMat FALSE)
     SET_UNIT_TEST(BwdTrans_avx_stdmat test_bwdtrans AVX StdMat FALSE)
-    SET_UNIT_TEST(DiagPrecon_avx_stdmat test_diagprecon AVX StdMat FALSE)
-    SET_UNIT_TEST(FwdTrans_avx_stdmat test_fwdtrans AVX StdMat FALSE)
     SET_UNIT_TEST(Helmholtz_avx_stdmat test_helmholtz AVX StdMat FALSE)
     SET_UNIT_TEST(Laplacian_avx_stdmat test_laplacian AVX StdMat FALSE)
-    SET_UNIT_TEST(HelmSolve_avx_stdmat test_helmsolve AVX StdMat FALSE)
-    SET_UNIT_TEST(LinearADRSolve_avx_stdmat test_linearadrsolve AVX StdMat FALSE)
     SET_UNIT_TEST(IProductWRTBase_avx_stdmat test_ipwrtbase AVX StdMat FALSE)
     SET_UNIT_TEST(IProductWRTDerivBase_avx_stdmat test_ipwrtderivbase AVX StdMat FALSE)
     SET_UNIT_TEST(LinAdvDiffReaction_avx_stdmat test_linadvdiffreaction AVX StdMat FALSE)
     SET_UNIT_TEST(Mass_avx_stdmat test_mass AVX StdMat FALSE)
-    SET_UNIT_TEST(NullPrecon_avx_stdmat test_nullprecon AVX StdMat FALSE)
     SET_UNIT_TEST(PhysDeriv_avx_stdmat test_physderiv AVX StdMat FALSE)
     SET_UNIT_TEST(Advection_avx_stdmat test_advection AVX StdMat FALSE)
     SET_UNIT_TEST(Divergence_avx_stdmat test_divergence AVX StdMat FALSE)
@@ -248,17 +205,12 @@ IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(PhysTraceExtract_avx_sumfac test_phystraceextract AVX SumFac FALSE)
     SET_UNIT_TEST(AddTraceIntegral_avx_sumfac test_addtraceintegral AVX SumFac FALSE)
     SET_UNIT_TEST(BwdTrans_avx_sumfac test_bwdtrans AVX SumFac FALSE)
-    SET_UNIT_TEST(DiagPrecon_avx_sumfac test_diagprecon AVX SumFac FALSE)
-    SET_UNIT_TEST(FwdTrans_avx_sumfac test_fwdtrans AVX SumFac FALSE)
     SET_UNIT_TEST(Helmholtz_avx_sumfac test_helmholtz AVX SumFac FALSE)
     SET_UNIT_TEST(Laplacian_avx_sumfac test_laplacian AVX SumFac FALSE)    
-    SET_UNIT_TEST(HelmSolve_avx_sumfac test_helmsolve AVX SumFac FALSE)
-    SET_UNIT_TEST(LinearADRSolve_avx_sumfac test_linearadrsolve AVX SumFac FALSE)
     SET_UNIT_TEST(IProductWRTBase_avx_sumfac test_ipwrtbase AVX SumFac FALSE)
     SET_UNIT_TEST(IProductWRTDerivBase_avx_sumfac test_ipwrtderivbase AVX SumFac FALSE)
     SET_UNIT_TEST(LinAdvDiffReaction_avx_sumfac test_linadvdiffreaction AVX SumFac FALSE)
     SET_UNIT_TEST(Mass_avx_sumfac test_mass AVX SumFac FALSE)
-    SET_UNIT_TEST(NullPrecon_avx_sumfac test_nullprecon AVX SumFac FALSE)
     SET_UNIT_TEST(PhysDeriv_avx_sumfac test_physderiv AVX SumFac FALSE)
     SET_UNIT_TEST(Advection_avx_sumfac test_advection AVX SumFac FALSE)
     SET_UNIT_TEST(Divergence_avx_sumfac test_divergence AVX SumFac FALSE)
@@ -290,8 +242,6 @@ IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(MultiplyByElmtInvMass_device_generic test_multiplybyelmtinvmass Device Generic FALSE)
     SET_UNIT_TEST(FwdTransBC_device_generic test_fwdtransbc Device Generic FALSE)
     SET_UNIT_TEST(Expression_device_generic test_expression Device Generic FALSE)
-    SET_UNIT_TEST(Norm_device_generic test_norm Device Generic FALSE)
-SET_UNIT_TEST(MaxStdVelocity_device_generic test_maxstdvelocity Device Generic FALSE)
 ENDIF()
 
 # Device StdMat
@@ -300,18 +250,12 @@ IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(PhysTraceExtract_device_stdmat test_phystraceextract Device StdMat FALSE)
     SET_UNIT_TEST(AddTraceIntegral_device_stdmat test_addtraceintegral Device StdMat FALSE)
     SET_UNIT_TEST(BwdTrans_device_stdmat test_bwdtrans Device StdMat FALSE)
-    SET_UNIT_TEST(DiagPrecon_device_stdmat test_diagprecon Device StdMat FALSE)
-    SET_UNIT_TEST(FwdTrans_device_stdmat test_fwdtrans Device StdMat FALSE)
     SET_UNIT_TEST(Helmholtz_device_stdmat test_helmholtz Device StdMat FALSE)
     SET_UNIT_TEST(Laplacian_device_stdmat test_laplacian Device StdMat FALSE)    
-    SET_UNIT_TEST(PoissonSolve_device_stdmat test_poissonsolve Device StdMat FALSE)
-    SET_UNIT_TEST(HelmSolve_device_stdmat test_helmsolve Device StdMat FALSE)
-    SET_UNIT_TEST(LinearADRSolve_device_stdmat test_linearadrsolve Device StdMat FALSE)
     SET_UNIT_TEST(IProductWRTBase_device_stdmat test_ipwrtbase Device StdMat FALSE)
     SET_UNIT_TEST(IProductWRTDerivBase_device_stdmat test_ipwrtderivbase Device StdMat FALSE)
     SET_UNIT_TEST(LinAdvDiffReaction_device_stdmat test_linadvdiffreaction Device StdMat FALSE)
     SET_UNIT_TEST(Mass_device_stdmat test_mass Device StdMat FALSE)
-    SET_UNIT_TEST(NullPrecon_device_stdmat test_nullprecon Device StdMat FALSE)
     SET_UNIT_TEST(PhysDeriv_device_stdmat test_physderiv Device StdMat FALSE)
     SET_UNIT_TEST(Advection_device_stdmat test_advection Device StdMat FALSE)
     SET_UNIT_TEST(Divergence_device_stdmat test_divergence Device StdMat FALSE)
@@ -328,17 +272,12 @@ IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(PhysTraceExtract_device_sumfac test_phystraceextract Device SumFac FALSE)
     SET_UNIT_TEST(AddTraceIntegral_device_sumfac test_addtraceintegral Device SumFac FALSE)
     SET_UNIT_TEST(BwdTrans_device_sumfac test_bwdtrans Device SumFac FALSE)
-    SET_UNIT_TEST(DiagPrecon_device_sumfac test_diagprecon Device SumFac FALSE)
-    SET_UNIT_TEST(FwdTrans_device_sumfac test_fwdtrans Device SumFac FALSE)
     SET_UNIT_TEST(Helmholtz_device_sumfac test_helmholtz Device SumFac FALSE)
     SET_UNIT_TEST(Laplacian_device_sumfac test_laplacian Device SumFac FALSE)    
-    SET_UNIT_TEST(HelmSolve_device_sumfac test_helmsolve Device SumFac FALSE)
-    SET_UNIT_TEST(LinearADRSolve_device_sumfac test_linearadrsolve Device SumFac FALSE)
     SET_UNIT_TEST(IProductWRTBase_device_sumfac test_ipwrtbase Device SumFac FALSE)
     SET_UNIT_TEST(IProductWRTDerivBase_device_sumfac test_ipwrtderivbase Device SumFac FALSE)
     SET_UNIT_TEST(LinAdvDiffReaction_device_sumfac test_linadvdiffreaction Device SumFac FALSE)
     SET_UNIT_TEST(Mass_device_sumfac test_mass Device SumFac FALSE)
-    SET_UNIT_TEST(NullPrecon_device_sumfac test_nullprecon Device SumFac FALSE)
     SET_UNIT_TEST(PhysDeriv_device_sumfac test_physderiv Device SumFac FALSE)
     SET_UNIT_TEST(Advection_device_sumfac test_advection Device SumFac FALSE)
     SET_UNIT_TEST(Divergence_device_sumfac test_divergence Device SumFac FALSE)
@@ -352,18 +291,12 @@ ENDIF()
 IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(AddTraceIntegral_device_sumfactop test_addtraceintegral Device SumFacTOP FALSE)
     SET_UNIT_TEST(BwdTrans_device_sumfactop test_bwdtrans Device SumFacTOP FALSE)
-    SET_UNIT_TEST(DiagPrecon_device_sumfactop test_diagprecon Device SumFacTOP FALSE)
-    SET_UNIT_TEST(FwdTrans_device_sumfactop test_fwdtrans Device SumFacTOP FALSE)
     SET_UNIT_TEST(Helmholtz_device_sumfactop test_helmholtz Device SumFacTOP FALSE)
     SET_UNIT_TEST(Laplacian_device_sumfactop test_laplacian Device SumFacTOP FALSE)    
-    SET_UNIT_TEST(PoissonSolve_device_sumfactop test_poissonsolve Device SumFacTOP FALSE)
-    SET_UNIT_TEST(HelmSolve_device_sumfactop test_helmsolve Device SumFacTOP FALSE)
-    SET_UNIT_TEST(LinearADRSolve_device_sumfactop test_linearadrsolve Device SumFacTOP FALSE)
     SET_UNIT_TEST(IProductWRTBase_device_sumfactop test_ipwrtbase Device SumFacTOP FALSE)
     SET_UNIT_TEST(IProductWRTDerivBase_device_sumfactop test_ipwrtderivbase Device SumFacTOP FALSE)
     SET_UNIT_TEST(LinAdvDiffReaction_device_sumfactop test_linadvdiffreaction Device SumFacTOP FALSE)
     SET_UNIT_TEST(Mass_device_sumfactop test_mass Device SumFacTOP FALSE)
-    SET_UNIT_TEST(NullPrecon_device_sumfactop test_nullprecon Device SumFacTOP FALSE)
     SET_UNIT_TEST(PhysDeriv_device_sumfactop test_physderiv Device SumFacTOP FALSE)
     SET_UNIT_TEST(Advection_device_sumfactop test_advection Device SumFacTOP FALSE)
     SET_UNIT_TEST(Divergence_device_sumfactop test_divergence Device SumFacTOP FALSE)
@@ -375,5 +308,7 @@ ENDIF()
 
 ENDIF()
 
-# Copy XML file to build directory
-FILE(COPY run DESTINATION ${CMAKE_BINARY_DIR}/library/UnitTests/Operators/)
+# The test fixtures open their session files as "run/<mesh>.xml", relative
+# to the working directory of the test. The meshes themselves are shared by
+# every unit test and live in one place, so copy them from there.
+FILE(COPY ${CMAKE_SOURCE_DIR}/library/UnitTests/run DESTINATION ${CMAKE_BINARY_DIR}/library/UnitTests/Operators/)

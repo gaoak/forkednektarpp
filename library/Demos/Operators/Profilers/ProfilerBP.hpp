@@ -39,8 +39,8 @@
 #include <iostream>
 
 #include "Operators/AssmbScatr/AssmbScatrOp.hpp"
-#include "Operators/GlobalLinSysOps/LinearSolvers/ConjGrad/ConjGradOp.hpp"
-#include "Operators/PreconOps/DiagPrecon/DiagPreconOp.hpp"
+#include "SolverCore/GlobalLinSysOps/LinearSolvers/ConjGrad/ConjGradOp.hpp"
+#include "SolverCore/PreconOps/DiagPrecon/DiagPreconOp.hpp"
 #include <Operators/ElmtOps/Helmholtz/HelmholtzOp.hpp>
 #include <Operators/ElmtOps/Laplacian/LaplacianOp.hpp>
 #include <Operators/ElmtOps/Mass/MassOp.hpp>
@@ -70,6 +70,7 @@ using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
 using namespace Nektar::Operators;
+using namespace Nektar::SolverCore;
 
 /// Print the profiler results, computed from the elapsed time and the total
 /// number of dofs.

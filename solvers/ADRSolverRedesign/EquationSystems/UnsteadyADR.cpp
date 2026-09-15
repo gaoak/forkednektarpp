@@ -35,9 +35,9 @@
 #include <ADRSolverRedesign/DiffusionScalarIPTraceFlux/DiffusionScalarIPTraceFluxOp.hpp>
 #include <ADRSolverRedesign/DiffusionScalarIPVolFlux/DiffusionScalarIPVolFluxOp.hpp>
 #include <Operators/ElmtOps/Expression/ExpressionOp.hpp>
-#include <Operators/GlobalLinSysOps/LinearSystems/HelmSolve/HelmSolveOp.hpp>
-#include <Operators/GlobalLinSysOps/LinearSystems/LinearADRSolve/LinearADRSolveOp.hpp>
-#include <Operators/GlobalLinSysOps/LinearSystems/PoissonSolve/PoissonSolveOp.hpp>
+#include <SolverCore/GlobalLinSysOps/LinearSystems/HelmSolve/HelmSolveOp.hpp>
+#include <SolverCore/GlobalLinSysOps/LinearSystems/LinearADRSolve/LinearADRSolveOp.hpp>
+#include <SolverCore/GlobalLinSysOps/LinearSystems/PoissonSolve/PoissonSolveOp.hpp>
 
 #include <ADRSolverRedesign/EquationSystems/UnsteadyADR.h>
 

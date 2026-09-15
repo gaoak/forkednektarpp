@@ -34,10 +34,10 @@
 
 #pragma once
 
-#include <Operators/CFL/MaxStdVelocity/MaxStdVelocityOp.hpp>
-#include <Operators/Norm/NormL2/NormL2Op.hpp>
+#include <SolverCore/CFL/MaxStdVelocity/MaxStdVelocityOp.hpp>
 #include <SolverCore/EquationSystems/EquationSystem.h>
 #include <SolverCore/Filters/Filter.h>
+#include <SolverCore/NormOps/NormL2/NormL2Op.hpp>
 #include <SolverCore/TimeOps/TimeOp.hpp>
 
 namespace Nektar::SolverCore
@@ -92,7 +92,7 @@ protected:
     /// largest standard element velocity times \f$(P-1)^2\f$, as returned
     /// by MaxStdVelocityOp. Kept from the last estimate for reporting.
     double m_cflInvTimeScale = 0.0;
-    std::shared_ptr<Operators::MaxStdVelocityOp<double>> m_maxStdVelocityOp;
+    std::shared_ptr<MaxStdVelocityOp<double>> m_maxStdVelocityOp;
 
     /// Cadence, in steps, of the in-flight NaN and abort-file tests; zero
     /// disables both. Session parameter CheckAbortSteps.
@@ -100,7 +100,7 @@ protected:
     /// A file of this name beside the run requests a clean stop; it is
     /// consumed when seen. Session property CheckAbortFile.
     std::string m_abortFile = "abort";
-    std::shared_ptr<Operators::NormL2Op<double>> m_abortNormOp;
+    std::shared_ptr<NormL2Op<double>> m_abortNormOp;
 
     /// Test the two conditions under which a run should stop early.
     SOLVER_CORE_EXPORT bool CheckAbortConditions();

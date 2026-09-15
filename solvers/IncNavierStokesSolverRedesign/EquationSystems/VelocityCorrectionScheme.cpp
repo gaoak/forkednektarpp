@@ -40,17 +40,17 @@
 #include <Operators/ElmtOps/BwdTrans/BwdTransOp.hpp>
 #include <Operators/ElmtOps/Divergence/DivergenceOp.hpp>
 #include <Operators/ElmtOps/PhysDeriv/PhysDerivOp.hpp>
-#include <Operators/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp>
-#include <Operators/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp>
-#include <Operators/GlobalLinSysOps/LinearSystems/HelmSolve/HelmSolveOp.hpp>
-#include <Operators/GlobalLinSysOps/LinearSystems/LinearADRSolve/LinearADRSolveOp.hpp>
-#include <Operators/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp>
-#include <Operators/GlobalLinSysOps/LinearSystems/PoissonSolve/PoissonSolveOp.hpp>
-#include <Operators/Norm/NormL2/NormL2Op.hpp>
-#include <Operators/Norm/NormLinf/NormLinfOp.hpp>
-#include <Operators/PreconOps/PreconOp.hpp>
 #include <SolverCore/Core/SessionFunction.h>
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp>
+#include <SolverCore/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp>
+#include <SolverCore/GlobalLinSysOps/LinearSystems/HelmSolve/HelmSolveOp.hpp>
+#include <SolverCore/GlobalLinSysOps/LinearSystems/LinearADRSolve/LinearADRSolveOp.hpp>
+#include <SolverCore/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp>
+#include <SolverCore/GlobalLinSysOps/LinearSystems/PoissonSolve/PoissonSolveOp.hpp>
 #include <SolverCore/MeanRemoval/MeanRemovalOp.hpp>
+#include <SolverCore/NormOps/NormL2/NormL2Op.hpp>
+#include <SolverCore/NormOps/NormLinf/NormLinfOp.hpp>
+#include <SolverCore/PreconOps/PreconOp.hpp>
 #include <SpatialDomains/Conditions.h>
 
 #include <algorithm>
@@ -712,13 +712,13 @@ void VelocityCorrectionScheme::v_PrintNorms(std::ostream &out)
     }
 
     // Compute L2 norm
-    auto pressureL2NormOp = Operators::NormL2Op<double>::Create(
+    auto pressureL2NormOp = SolverCore::NormL2Op<double>::Create(
         m_expansionLists[m_pressureIndex], m_variablesPressure);
     pressureL2NormOp->Apply(wsp_phys);
     auto pressureL2Error = pressureL2NormOp->GetNorms()[0];
 
     // Compute Linf norm
-    auto pressureLinfNormOp = Operators::NormLinfOp<double>::Create(
+    auto pressureLinfNormOp = SolverCore::NormLinfOp<double>::Create(
         m_expansionLists[m_pressureIndex], m_variablesPressure);
     pressureLinfNormOp->Apply(wsp_phys);
     auto pressureLinfError = pressureLinfNormOp->GetNorms()[0];

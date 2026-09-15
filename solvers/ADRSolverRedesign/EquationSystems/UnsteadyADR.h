@@ -38,11 +38,11 @@
 #include <ADRSolverRedesign/LinearAdvVolumeFlux/LinearAdvVolumeFluxOp.hpp>
 #include <Operators/ElmtOps/Advection/AdvectionOp.hpp>
 #include <Operators/GetFwdBwdTracePhys/GetFwdBwdTracePhysOp.hpp>
-#include <Operators/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp>
 #include <SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
 #include <SolverCore/Diffusion/DiffusionIP/DiffusionIPOp.hpp>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 #include <SolverCore/Forcing/Forcing.h>
+#include <SolverCore/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp>
 #include <SolverCore/RiemannSolvers/RiemannSolverOp.hpp>
 
 #include <LibUtilities/BasicUtils/Field/Field.hpp>

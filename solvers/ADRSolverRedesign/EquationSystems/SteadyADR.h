@@ -36,9 +36,9 @@
 #pragma once
 
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
-#include <Operators/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp>
 #include <SolverCore/EquationSystems/EquationSystem.h>
 #include <SolverCore/Forcing/Forcing.h>
+#include <SolverCore/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp>
 
 namespace Nektar
 {

@@ -37,8 +37,6 @@
 #include "TestTimeOps.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
-#include <iostream>
-#include <memory>
 
 #define TEST_SCHEME(test_name, test, scheme, variant, order, freeparam)        \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \

@@ -361,8 +361,8 @@ double UnsteadySystem::ComputeCFLInvTimeScale()
 
     if (!m_maxStdVelocityOp)
     {
-        m_maxStdVelocityOp = Operators::MaxStdVelocityOp<double>::Create(
-            m_expansionLists[0], m_variables);
+        m_maxStdVelocityOp =
+            MaxStdVelocityOp<double>::Create(m_expansionLists[0], m_variables);
     }
 
     m_maxStdVelocityOp->SetSoundSpeedFactor(v_GetSoundSpeedFactor());
@@ -559,8 +559,8 @@ bool UnsteadySystem::CheckAbortConditions()
     // operator makes the verdict identical on every rank.
     if (!m_abortNormOp)
     {
-        m_abortNormOp = Operators::NormL2Op<double>::Create(m_expansionLists[0],
-                                                            m_variables);
+        m_abortNormOp =
+            NormL2Op<double>::Create(m_expansionLists[0], m_variables);
     }
     m_abortNormOp->Apply(m_fields);
     for (const double &norm : m_abortNormOp->GetNorms())

@@ -36,8 +36,8 @@
 #include <MultiRegions/DisContField.h>
 #include <SolverCore/EquationSystems/EquationSystem.h>
 
-#include <Operators/Norm/NormL2/NormL2Op.hpp>
-#include <Operators/Norm/NormLinf/NormLinfOp.hpp>
+#include <SolverCore/NormOps/NormL2/NormL2Op.hpp>
+#include <SolverCore/NormOps/NormLinf/NormLinfOp.hpp>
 #include <vector>
 
 #include "LibUtilities/BasicUtils/Field/Block.hpp"

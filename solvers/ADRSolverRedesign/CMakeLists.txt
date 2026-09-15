@@ -47,6 +47,12 @@ IF(NEKTAR_SOLVER_ADR_DEVICE_SUPPORT)
     ENDIF()
     ENDIF()
 
+    # The test fixtures open their session files as "run/<mesh>.xml", relative
+    # to the working directory of the test. The meshes themselves are shared by
+    # every unit test and live in one place, so copy them from there.
+    FILE(COPY ${CMAKE_SOURCE_DIR}/library/UnitTests/run
+        DESTINATION ${CMAKE_BINARY_DIR}/solvers/ADRSolverRedesign/)
+
     ADD_SOLVER_EXECUTABLE(ADRSolverRedesign
         DEPENDS SolverCore
         SOURCES

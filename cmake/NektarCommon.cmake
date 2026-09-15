@@ -59,9 +59,10 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
                 SET(CURRENT_HEADERS ${name}_${ExecSpace}_HEADERS)
                 SET(CURRENT_SOURCES ${name}_${ExecSpace}_SOURCES)
                     
-                # Get the headers matching the name and execution space
+                # Get the headers matching the name and execution space.
                 FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-                    ${abs_dir}/${name}${ExecSpace}*.hpp)
+                    ${abs_dir}/${name}${ExecSpace}*.hpp
+                    ${abs_dir}/${name}BlockOp${ExecSpace}*.hpp)
 
                 # Found a impl header.
                 IF(EXISTS "${abs_dir}/${name}OpImpl.hpp")
@@ -136,20 +137,20 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
                 SET(EXEC_MEM_SPACE_TAG NektarSpaces::Device)
             ENDIF()
         
+            IF("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX")
+                SET(ExecName "SerialAVX")
+            ELSE()
+                SET(ExecName "${ExecSpace}")
+            ENDIF()
+
             # Loop through each possible data type.
             FOREACH (TData IN LISTS DataTypes)
                 # Reset for this (ExecSpace, TData)
                 UNSET(IMPL_HEADER)  
                 # Set up the name used for the .cpp declaration file.
                 SET(FactoryDeclName "src/Block${name}${ExecSpace}${TData}.${SOURCE_EXT}")
-                # Found a Serial/AVX header.
-                IF((EXISTS "${dir}/${name}SerialAVX.hpp") AND
-                    ("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX"))
-                    SET(IMPL_HEADER "#include \"${abs_dir}/${name}SerialAVX.hpp\"")
-                    MESSAGE("Adding block operator with a ${ExecSpace} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
-                # Found a Device header.
-                ELSEIF(EXISTS "${dir}/${name}Device.hpp" AND ("${ExecSpace}" STREQUAL "Device"))
-                    SET(IMPL_HEADER "#include \"${abs_dir}/${name}Device.hpp\"")
+		IF(EXISTS "${dir}/${name}BlockOp${ExecName}.hpp")
+                    SET(IMPL_HEADER "#include \"${abs_dir}/${name}BlockOp${ExecName}.hpp\"")
                     MESSAGE("Adding block operator with a ${ExecSpace} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
                 ENDIF()
 
