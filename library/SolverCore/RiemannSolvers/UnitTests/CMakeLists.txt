@@ -35,5 +35,7 @@ IF(NEKTAR_ENABLE_DEVICE)
 ENDIF()
 ENDIF()
 
-# Copy XML file to build directory
-FILE(COPY run DESTINATION ${CMAKE_BINARY_DIR}/library/SolverCore/RiemannSolvers/UnitTests/)
+# The test fixtures open their session files as "run/<mesh>.xml", relative
+# to the working directory of the test. The meshes themselves are shared by
+# every unit test and live in one place, so copy them from there.
+FILE(COPY ${CMAKE_SOURCE_DIR}/library/UnitTests/run DESTINATION ${CMAKE_BINARY_DIR}/library/SolverCore/RiemannSolvers/UnitTests/)

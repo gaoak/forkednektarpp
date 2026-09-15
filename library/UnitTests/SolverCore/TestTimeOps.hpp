@@ -35,7 +35,7 @@
 
 #pragma once
 
-#include "SolverCore/TimeOps/TimeOp.hpp"
+#include <SolverCore/TimeOps/TimeOp.hpp>
 
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <LibUtilities/BasicUtils/Math/MathHelper.hpp>
@@ -43,35 +43,7 @@
 #include <MultiRegions/ExpList.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
-// Currently the BOOST_TEST_DYN_LINK is local only to this unit
-// test. It is undefined at the bottom of the file.
-#if defined(OPERATORS_BOOST_TEST_DYN_LINK)
-#if !defined(BOOST_TEST_DYN_LINK)
-#define LOCALLY_DEFINED_BOOST_TEST_DYN_LINK
-#define BOOST_TEST_DYN_LINK
-#endif
-#endif
-
-// Currently the BOOST_TEST_NO_MAIN is local only to this unit
-// test. It is undefined at the bottom of the file.
-#if defined(OPERATORS_BOOST_TEST_NO_MAIN)
-#if !defined(BOOST_TEST_NO_MAIN)
-#define LOCALLY_DEFINED_BOOST_TEST_NO_MAIN
-#define BOOST_TEST_NO_MAIN
-#endif
-#endif
-
-#if defined(BOOST_TEST_DYN_LINK) || defined(BOOST_TEST_NO_MAIN)
-#define BOOST_TEST_ALTERNATIVE_INIT_API
-#endif
-
-#if defined(BOOST_TEST_DYN_LINK)
-#include <boost/test/unit_test.hpp>
-#else
-#include <boost/test/included/unit_test.hpp>
-#endif
-
-#include <boost/test/unit_test_log.hpp>
+#include <UnitTests/TestBoostSetup.hpp>
 
 #include <cmath>
 #include <cstdlib>
@@ -88,21 +60,34 @@ using namespace Nektar::SolverCore;
 
 struct GlobalConfiguration
 {
+    // The execution space string, captured once up front: MPI_Init below is
+    // handed the live argv and may rewrite it, and reading argv[1] per test
+    // without a bounds check is undefined when the argument is missing. The
+    // bounds check in the constructor turns that into a usage message
+    // instead.
+    static std::string &ExecStr()
+    {
+        static std::string s;
+        return s;
+    }
+
     GlobalConfiguration()
     {
-        [[maybe_unused]] int argc =
-            boost::unit_test::framework::master_test_suite().argc;
-        [[maybe_unused]] char **argv =
-            boost::unit_test::framework::master_test_suite().argv;
+        int argc    = boost::unit_test::framework::master_test_suite().argc;
+        char **argv = boost::unit_test::framework::master_test_suite().argv;
+
+        if (argc > 1)
+        {
+            ExecStr() = argv[1];
+        }
 
 #ifdef NEKTAR_USE_MPI
         MPI_Init(&argc, &argv);
 #endif
 
-        // check to see if at least one argument is given and that the last two
-        // argv entries are the same which happens when the -- is specified in
-        // command line
-        if (argc <= 1 && argv[argc] != argv[argc - 1])
+        // The execution space must be present: exe -- ExecName. Anything
+        // less gets the usage message.
+        if (argc < 2)
         {
             int rank = 0;
 
@@ -160,7 +145,7 @@ BOOST_TEST_GLOBAL_CONFIGURATION(GlobalConfiguration);
 #endif
 
 /**
- * @class TimeOpField
+ * @class TestTimeOps
  *
  * A test fixture that integrates the scalar test problem
  * du/dt = (alpha + beta) u in time, alpha being the non-stiff factor carried
@@ -175,11 +160,11 @@ BOOST_TEST_GLOBAL_CONFIGURATION(GlobalConfiguration);
  * details:
  * https://www.boost.org/doc/libs/1_82_0/libs/test/doc/html/boost_test/tests_organization/fixtures/case.html
  */
-template <typename TData> class TimeOpField
+template <typename TData> class TestTimeOps
 {
 public:
-    TimeOpField()  = default;
-    ~TimeOpField() = default;
+    TestTimeOps()  = default;
+    ~TestTimeOps() = default;
 
     /**
      * @brief Read the session, build the expansion list and allocate the
@@ -189,7 +174,6 @@ public:
     {
         SetSession();
         SetExpList();
-        m_expList->SetDataWarehouse();
         SetFixture();
     }
 
@@ -251,10 +235,10 @@ public:
         // Initialise Time-stepping operator
         auto op = TimeOp<TData>::Create(m_expList, m_session->GetVariables(),
                                         scheme, order, variant, freeParams);
-        op->DefineExplicitRhs(&TimeOpField::DoExplicitRHS, this);
-        op->DefineImplicitRhs(&TimeOpField::DoImplicitRHS, this);
-        op->DefineImplicit(&TimeOpField::DoLHS, this);
-        op->DefineProjection(&TimeOpField::DoProjection, this);
+        op->DefineExplicitRhs(&TestTimeOps::DoExplicitRHS, this);
+        op->DefineImplicitRhs(&TestTimeOps::DoImplicitRHS, this);
+        op->DefineImplicit(&TestTimeOps::DoLHS, this);
+        op->DefineProjection(&TestTimeOps::DoProjection, this);
 
         // Initialise timestepping operator
         // Loop all steps
@@ -397,8 +381,7 @@ protected:
      */
     void SetSession()
     {
-        std::string execStr(
-            boost::unit_test::framework::master_test_suite().argv[1]);
+        std::string execStr(GlobalConfiguration::ExecStr());
 
         BOOST_TEST_MESSAGE("Creating input and output fields");
 
@@ -425,6 +408,7 @@ protected:
         auto graph = SpatialDomains::MeshGraphIO::Read(m_session);
         m_expList  = MemoryManager<ExpList>::AllocateSharedPtr(
             m_session, graph, true, "u", Collections::eNoCollection);
+        m_expList->SetDataWarehouse();
     }
 
     void SetFixture()
@@ -489,7 +473,7 @@ protected:
 // clang-format off
 #if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
 #define TESTFLOAT(type, filename)                                              \
-    class type##float : public TimeOpField<float>                              \
+    class type##float : public TestTimeOps<float>                              \
     {                                                                          \
     public:                                                                    \
         type##float()                                                          \
@@ -502,7 +486,7 @@ protected:
 #endif
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 #define TESTDOUBLE(type, filename)                                             \
-    class type : public TimeOpField<double>                                    \
+    class type : public TestTimeOps<double>                                    \
     {                                                                          \
     public:                                                                    \
         type()                                                                 \
@@ -520,10 +504,4 @@ protected:
 
 TEST(segment, "run/segment.xml")
 
-#if defined(LOCALLY_DEFINED_BOOST_TEST_DYN_LINK)
-#undef BOOST_TEST_DYN_LINK
-#endif
-
-#if defined(LOCALLY_DEFINED_BOOST_TEST_NO_MAIN)
-#undef BOOST_TEST_NO_MAIN
-#endif
+#include <UnitTests/TestBoostTeardown.hpp>

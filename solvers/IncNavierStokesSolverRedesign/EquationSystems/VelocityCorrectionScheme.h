@@ -55,15 +55,15 @@ template <typename TData> class AdvectionDealiasOp;
 template <typename TData> class BwdTransOp;
 template <typename TData> class DivergenceOp;
 template <typename TData> class PhysDerivOp;
-template <typename TData> class LinearSystemOp;
-template <typename TData> class LinearSolverOp;
-template <typename TData> class PoissonSolveOp;
-template <typename TData> class PreconOp;
 } // namespace Operators
 
 namespace SolverCore
 {
 template <typename TData> class MeanRemovalOp;
+template <typename TData> class PreconOp;
+template <typename TData> class LinearSystemOp;
+template <typename TData> class LinearSolverOp;
+template <typename TData> class PoissonSolveOp;
 } // namespace SolverCore
 
 using namespace SolverCore;

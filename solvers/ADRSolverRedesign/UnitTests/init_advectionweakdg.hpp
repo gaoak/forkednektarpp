@@ -303,8 +303,7 @@ public:
     public:                                                                    \
         type##float()                                                          \
         {                                                                      \
-            std::string dir = "../../../library/UnitTests/Operators/";         \
-            meshName = dir + filename;                                         \
+            meshName = filename;                                               \
         }                                                                      \
     };
 #else
@@ -317,8 +316,7 @@ public:
     public:                                                                    \
         type()                                                                 \
         {                                                                      \
-            std::string dir = "../../../library/UnitTests/Operators/";         \
-            meshName = dir + filename;                                         \
+            meshName = filename;                                               \
         }                                                                      \
     };
 #else

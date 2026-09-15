@@ -43,35 +43,7 @@
 
 #include "../CompressibleSolverOp.hpp"
 
-// Currently the BOOST_TEST_DYN_LINK is local only to this unit
-// test. It is undefined at the bottom of the file.
-#if defined(OPERATORS_BOOST_TEST_DYN_LINK)
-#if !defined(BOOST_TEST_DYN_LINK)
-#define LOCALLY_DEFINED_BOOST_TEST_DYN_LINK
-#define BOOST_TEST_DYN_LINK
-#endif
-#endif
-
-// Currently the BOOST_TEST_NO_MAIN is local only to this unit
-// test. It is undefined at the bottom of the file.
-#if defined(OPERATORS_BOOST_TEST_NO_MAIN)
-#if !defined(BOOST_TEST_NO_MAIN)
-#define LOCALLY_DEFINED_BOOST_TEST_NO_MAIN
-#define BOOST_TEST_NO_MAIN
-#endif
-#endif
-
-#if defined(BOOST_TEST_DYN_LINK) || defined(BOOST_TEST_NO_MAIN)
-#define BOOST_TEST_ALTERNATIVE_INIT_API
-#endif
-
-#if defined(BOOST_TEST_DYN_LINK)
-#include <boost/test/unit_test.hpp>
-#else
-#include <boost/test/included/unit_test.hpp>
-#endif
-
-#include <boost/test/unit_test_log.hpp>
+#include <UnitTests/TestBoostSetup.hpp>
 
 #if defined(_MSC_VER)
 #undef max
@@ -124,13 +96,7 @@ int main(int argc, char *argv[])
 BOOST_TEST_GLOBAL_CONFIGURATION(GlobalConfiguration);
 #endif
 
-#if defined(LOCALLY_DEFINED_BOOST_TEST_DYN_LINK)
-#undef BOOST_TEST_DYN_LINK
-#endif
-
-#if defined(LOCALLY_DEFINED_BOOST_TEST_NO_MAIN)
-#undef BOOST_TEST_NO_MAIN
-#endif
+#include <UnitTests/TestBoostTeardown.hpp>
 
 // Helpers: flatten/unflatten component-major
 template <typename TData>
