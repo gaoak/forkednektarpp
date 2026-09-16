@@ -52,7 +52,7 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestBDF)
+BOOST_AUTO_TEST_SUITE(TestSuiteBDF)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_SCHEME(bdf_order_1, segment, 1)

@@ -26,7 +26,7 @@ ENDIF()
 
 IF( BOOST_TEST_DYN_LINK )
 #    Currently only supported in
-#    library/UnitTests/Operators/init_fields.hpp
+#    library/UnitTests/Operators/TestOp.hpp
 #    ADD_DEFINITIONS(-DBOOST_TEST_DYN_LINK)
     ADD_DEFINITIONS(-DOPERATORS_BOOST_TEST_DYN_LINK)
     SET(NEEDED_BOOST_LIBS ${NEEDED_BOOST_LIBS} unit_test_framework)
@@ -34,7 +34,7 @@ ENDIF()
 
 IF( BOOST_TEST_NO_MAIN )
 #    Currently only supported in
-#    library/UnitTests/Operators/init_fields.hpp
+#    library/UnitTests/Operators/TestOp.hpp
 #    ADD_DEFINITIONS(-DBOOST_TEST_NO_MAIN)
     ADD_DEFINITIONS(-DOPERATORS_BOOST_TEST_NO_MAIN)
 ENDIF()

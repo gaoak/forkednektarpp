@@ -47,9 +47,7 @@ template <typename TData>
 class TestPoissonSolve : public TestLinearSolver<TData>
 {
 public:
-    TestPoissonSolve() : TestLinearSolver<TData>()
-    {
-    }
+    TestPoissonSolve() = default;
 
     void SetTestCase()
     {

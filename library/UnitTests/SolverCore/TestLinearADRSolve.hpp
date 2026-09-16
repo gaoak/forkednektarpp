@@ -56,9 +56,7 @@ template <typename TData>
 class TestLinearADRSolve : public TestLinearSolver<TData>
 {
 public:
-    TestLinearADRSolve() : TestLinearSolver<TData>()
-    {
-    }
+    TestLinearADRSolve() = default;
 
     // Custom configure method to avoid non-symmetric system warning in
     // GlobalLinsSysIterative

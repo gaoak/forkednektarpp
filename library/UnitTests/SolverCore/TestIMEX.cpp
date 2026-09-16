@@ -52,7 +52,7 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestIMEX)
+BOOST_AUTO_TEST_SUITE(TestSuiteIMEX)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_SCHEME(imex_order_1, segment, 1)

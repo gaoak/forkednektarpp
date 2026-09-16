@@ -52,7 +52,7 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestAdamsMoulton)
+BOOST_AUTO_TEST_SUITE(TestSuiteAdamsMoulton)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_SCHEME(adams_moulton_order_1, segment, 1)

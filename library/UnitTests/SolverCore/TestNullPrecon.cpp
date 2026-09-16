@@ -53,7 +53,7 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestNullPrecon)
+BOOST_AUTO_TEST_SUITE(TestSuiteNullPrecon)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_NULLPRECON(nullprecon_seg, Helmholtz1D_Seg, 1.0E-15)

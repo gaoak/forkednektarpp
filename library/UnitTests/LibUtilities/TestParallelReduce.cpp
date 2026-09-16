@@ -47,10 +47,10 @@
 #undef min
 #endif
 
-BOOST_AUTO_TEST_SUITE(TestReducer)
+BOOST_AUTO_TEST_SUITE(TestSuiteParallelReduce)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-BOOST_FIXTURE_TEST_CASE(sum, ParallelReduceField<double>)
+BOOST_FIXTURE_TEST_CASE(sum, TestParallelReduce<double>)
 {
     Configure();
     SetTestCase();
@@ -59,7 +59,7 @@ BOOST_FIXTURE_TEST_CASE(sum, ParallelReduceField<double>)
         boost::unit_test::framework::master_test_suite().argv[1]);
 
     // std results
-    double out = ParallelReduceField<double>::sum();
+    double out = TestParallelReduce<double>::sum();
 
     // Backend results
     double h_out = 0.0;
@@ -114,7 +114,7 @@ BOOST_FIXTURE_TEST_CASE(sum, ParallelReduceField<double>)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(max, ParallelReduceField<double>)
+BOOST_FIXTURE_TEST_CASE(max, TestParallelReduce<double>)
 {
     Configure();
     SetTestCase();
@@ -123,7 +123,7 @@ BOOST_FIXTURE_TEST_CASE(max, ParallelReduceField<double>)
         boost::unit_test::framework::master_test_suite().argv[1]);
 
     // std results
-    double out = ParallelReduceField<double>::max();
+    double out = TestParallelReduce<double>::max();
 
     // Backend results
     double h_out = std::numeric_limits<double>::lowest();
@@ -178,7 +178,7 @@ BOOST_FIXTURE_TEST_CASE(max, ParallelReduceField<double>)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(min, ParallelReduceField<double>)
+BOOST_FIXTURE_TEST_CASE(min, TestParallelReduce<double>)
 {
     Configure();
     SetTestCase();
@@ -187,7 +187,7 @@ BOOST_FIXTURE_TEST_CASE(min, ParallelReduceField<double>)
         boost::unit_test::framework::master_test_suite().argv[1]);
 
     // std results
-    double out = ParallelReduceField<double>::min();
+    double out = TestParallelReduce<double>::min();
 
     // Backend results
     double h_out = std::numeric_limits<double>::max();

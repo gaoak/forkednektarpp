@@ -55,7 +55,7 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestFwdTrans)
+BOOST_AUTO_TEST_SUITE(TestSuiteFwdTrans)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_FWDTRANS(fwdtrans_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-08)

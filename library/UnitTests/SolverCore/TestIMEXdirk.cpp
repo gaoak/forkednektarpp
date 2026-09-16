@@ -52,7 +52,7 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestIMEXdirk)
+BOOST_AUTO_TEST_SUITE(TestSuiteIMEXdirk)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_SCHEME(imexdirk111, segment, "IMEXdirk11", 1)

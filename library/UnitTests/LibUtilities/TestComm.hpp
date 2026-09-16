@@ -38,64 +38,25 @@
 #include <LibUtilities/Communication/Comm.h>
 
 #include <UnitTests/TestBoostSetup.hpp>
+#include <UnitTests/TestGlobalConfiguration.hpp>
 
 #include <string>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
 
-struct GlobalConfiguration
-{
-    GlobalConfiguration()
-    {
-        [[maybe_unused]] int argc =
-            boost::unit_test::framework::master_test_suite().argc;
-        [[maybe_unused]] char **argv =
-            boost::unit_test::framework::master_test_suite().argv;
-
-#ifdef NEKTAR_USE_MPI
-        MPI_Init(&argc, &argv);
-#endif
-    }
-
-    ~GlobalConfiguration()
-    {
-#ifdef NEKTAR_USE_MPI
-        MPI_Finalize();
-#endif
-    }
-};
-
-#if defined(BOOST_TEST_NO_MAIN)
-
-bool init_function()
-{
-    return true;
-}
-
-int main(int argc, char *argv[])
-{
-    GlobalConfiguration gc;
-
-    return boost::unit_test::unit_test_main(&init_function, argc, argv);
-}
-
-#else
-BOOST_TEST_GLOBAL_CONFIGURATION(GlobalConfiguration);
-#endif
+NEKTAR_TEST_GLOBAL_CONFIGURATION(Nektar::UnitTests::TestArgs::None);
 
 /**
- * @class CommField
+ * @class TestComm
  *
  */
-class CommField
+class TestComm
 {
 public:
-    CommField()
-    {
-    }
+    TestComm() = default;
 
-    ~CommField()
+    ~TestComm()
     {
         if (m_comm)
         {

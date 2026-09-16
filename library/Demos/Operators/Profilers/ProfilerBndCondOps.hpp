@@ -350,10 +350,7 @@ void LaunchProfiler(MultiRegions::ContFieldSharedPtr &expList,
     auto out =
         Field<TData, FieldState::Coeff>("f_out", blockAttr, nComp, nHomo);
 
-    // Start from all-zero coefficients, matching how DirBndCondOp and
-    // NeuBndCondOp are exercised in the unit tests (test_dirichlet.cpp,
-    // test_neumann.cpp): this way a non-zero result after Apply() is a
-    // meaningful signal that boundary conditions were actually imposed.
+    // Start from all-zero coefficients.
     out.template Initialize<NektarSpaces::HostSpace>(0.0);
 
     // Reshape.

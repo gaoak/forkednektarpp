@@ -52,7 +52,7 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestDIRK)
+BOOST_AUTO_TEST_SUITE(TestSuiteDIRK)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_SCHEME(dirk_order_1, segment, "DIRK", 1)

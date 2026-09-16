@@ -2,11 +2,11 @@ SET(UnitTestSources
     main.cpp
     ScaledMatrixUnitTests.cpp
     BlockMatrixUnitTests.cpp
-    testLinearSystem.cpp
-    testNekMatrix.cpp
-    testNekPoint.cpp
-    testNekVector.cpp
-    testNekSharedArray.cpp
+    TestLinearSystem.cpp
+    TestNekMatrix.cpp
+    TestNekPoint.cpp
+    TestNekVector.cpp
+    TestNekSharedArray.cpp
     Memory/TestNekMemoryManager.cpp
     util.cpp
 )

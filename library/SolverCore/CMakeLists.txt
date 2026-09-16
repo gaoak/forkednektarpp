@@ -307,9 +307,4 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
         DEPENDS MultiRegions Operators
         SUMMARY "Nektar++ SolverCore library"
         DESCRIPTION "Minimal standalone solver core for device support solvers.")
-
-    IF(NEKTAR_BUILD_UNIT_TESTS)
-        ADD_SUBDIRECTORY(RiemannSolvers/UnitTests)
-        ADD_SUBDIRECTORY(MeanRemoval/UnitTests)
-    ENDIF()
 ENDIF(NEKTAR_ENABLE_DEVICE_SUPPORT)
