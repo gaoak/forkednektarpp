@@ -46,17 +46,15 @@ namespace Nektar::Operators
 
 /// \brief Host FFTW backend for the homogeneous z-derivative.
 ///
-/// Launch() owns the complete per-call pipeline:
-///   1. xy-derivatives via blockOp[blk]->Apply() for all blocks.
-///   2. For each input component (when nhomo > 1): gather all blocks' unpadded
-///      per-plane data into a contiguous array of size m_npoints, call
-///      Homogeneous1DTrans once on the full field, do wavenumber multiply,
-///      inverse transform, then scatter z-derivative results back to blocks.
+/// For each input component, Launch() gathers all blocks' unpadded per-plane
+/// data into a contiguous array of size nTotal, calls Homogeneous1DTrans
+/// once on the full field, does the wavenumber multiply, inverse transforms,
+/// then scatters the z-derivative results back to the blocks.
 ///
 /// Gathering across all blocks before calling Homogeneous1DTrans is required
 /// because that function's transposition object is built for the full-field
-/// point count (m_npoints = nhomo × planePts) and cannot operate on
-/// per-block subsets.
+/// point count (nTotal = nhomo × planePts) and cannot operate on per-block
+/// subsets.
 ///
 /// \tparam TData Floating-point element type.
 template <typename TData>
@@ -66,7 +64,8 @@ public:
     /// \param expansionList  Expansion list; dynamic-cast to
     ///                       ExpListHomogeneous1D to obtain the
     ///                       FFT/transposition objects. May be null or a
-    ///                       non-homo list (then Launch() simply does xy only).
+    ///                       non-homo list, and Launch() then returns without
+    ///                       computing dz.
     explicit PhysDerivZOpHost(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
@@ -81,37 +80,34 @@ protected:
         m_beta = beta;
     }
 
-    void v_Launch(
-        std::vector<std::shared_ptr<PhysDerivBlockOp<TData>>> &blockOp,
-        LibUtilities::Field<TData, FieldState::Phys> &in,
-        LibUtilities::Field<TData, FieldState::Phys> &out, unsigned int nhomo,
-        [[maybe_unused]] const std::vector<int> &blockNXY) override
+    void v_Launch(LibUtilities::Field<TData, FieldState::Phys> &in,
+                  LibUtilities::Field<TData, FieldState::Phys> &out) override
     {
-        // xy derivatives (always).
-        for (unsigned int blk = 0; blk < blockOp.size(); ++blk)
-        {
-            blockOp[blk]->Apply(in.GetBlocks()[blk], out.GetBlocks()[blk]);
-        }
+        const auto nhomo = in.GetNumHomoModes();
 
         if (nhomo <= 1)
         {
             return;
         }
 
-        // 3DH2 expansions cast as ExpListHomogeneous2D, m_homoExpList is only
-        // set for ExpListHomogeneous1D. Skip z-FFT for non-1D-homogeneous
-        // lists.
+        // Only ExpListHomogeneous1D carries the FFT and transposition
+        // objects; without them there is no z-FFT to apply.
         if (!m_homoExpList)
         {
             return;
         }
 
-        const int iNhomo  = static_cast<int>(nhomo);
-        const double lhom = m_homoExpList->GetHomoLen();
+        const int iNhomo = static_cast<int>(nhomo);
 
-        // Total points across all planes (= nhomo x planePts, no padding).
-        const int nTotal   = m_homoExpList->GetTotPoints();
-        const int planePts = m_homoExpList->GetPlane(0)->GetTotPoints();
+        // Unpadded points per plane, summed over the blocks of `in`, and the
+        // total across all planes.
+        int planePts = 0;
+        for (auto &inblock : in.GetBlocks())
+        {
+            planePts += static_cast<int>(inblock.GetNumElements() *
+                                         inblock.GetNumData());
+        }
+        const int nTotal = planePts * iNhomo;
 
         Array<OneD, double> gathered(nTotal);
         Array<OneD, double> coef(nTotal, 0.0);
@@ -126,20 +122,19 @@ protected:
             // Block b contributes realPts = GetNumElements * GetNumData points
             // per plane, placed at gathered[p*planePts + spatialOffset].
             int spatialOffset = 0;
-            for (unsigned int blk = 0; blk < blockOp.size(); ++blk)
+            for (auto &inblock : in.GetBlocks())
             {
-                auto &inblock      = in.GetBlocks()[blk];
-                const int realPts  = static_cast<int>(inblock.GetNumElements() *
-                                                      inblock.GetNumData());
-                const int compSize = static_cast<int>(inblock.CompSize());
-
-                const TData *inbase =
+                const int realPts = static_cast<int>(inblock.GetNumElements() *
+                                                     inblock.GetNumData());
+                const int compStride = static_cast<int>(inblock.CompSize());
+                const TData *phiPtr =
                     inblock
-                        .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+                        .template GetPtr<NektarSpaces::HostSpace, ReadOnly>() +
+                    static_cast<std::ptrdiff_t>(n) * compStride * iNhomo;
 
                 for (int p = 0; p < iNhomo; ++p)
                 {
-                    const TData *src = inbase + (n * iNhomo + p) * compSize;
+                    const TData *src = phiPtr + p * compStride;
                     auto *dst = gathered.data() + p * planePts + spatialOffset;
                     if constexpr (std::is_same_v<TData, double>)
                     {
@@ -165,10 +160,9 @@ protected:
             double sign = -1.0;
             for (int i = 0; i < iNhomo; ++i)
             {
-                const double betaI = -sign * 2.0 * M_PI *
-                                     m_homoExpList->m_transposition->GetK(i) /
-                                     lhom;
-                for (size_t j = 0; j < planePts; j++)
+                const double betaI =
+                    -sign * m_beta * m_homoExpList->m_transposition->GetK(i);
+                for (int j = 0; j < planePts; ++j)
                 {
                     waveCoef[(i - static_cast<int>(sign)) * planePts + j] =
                         betaI * coef[i * planePts + j];
@@ -181,35 +175,34 @@ protected:
 
             // Scatter: write z-derivative back to per-block output z-slots.
             // Output component for z of input n is at index (n*3 + 2).
-            // Block b, plane p offset = ((n*3+2)*nhomo + p) * outCompSize.
+            // Block b, plane p offset = ((n*3+2)*nhomo + p) * compStride.
             spatialOffset = 0;
-            for (unsigned int blk = 0; blk < blockOp.size(); ++blk)
+            for (auto &outblock : out.GetBlocks())
             {
-                auto &outblock    = out.GetBlocks()[blk];
                 const int realPts = static_cast<int>(outblock.GetNumElements() *
                                                      outblock.GetNumData());
-                const int outCompSize = static_cast<int>(outblock.CompSize());
-
-                TData *outbase =
+                const int compStride = static_cast<int>(outblock.CompSize());
+                TData *dzPtr =
                     outblock
-                        .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+                        .template GetPtr<NektarSpaces::HostSpace, WriteOnly>() +
+                    static_cast<std::ptrdiff_t>(n * 3 + 2) * compStride *
+                        iNhomo;
 
                 for (int p = 0; p < iNhomo; ++p)
                 {
-                    TData *dzDst =
-                        outbase + ((n * 3 + 2) * iNhomo + p) * outCompSize;
+                    TData *dst = dzPtr + p * compStride;
                     const auto *src =
                         dzFlat.data() + p * planePts + spatialOffset;
 
                     if constexpr (std::is_same_v<TData, double>)
                     {
-                        std::copy(src, src + realPts, dzDst);
+                        std::copy(src, src + realPts, dst);
                     }
                     else
                     {
                         for (int i = 0; i < realPts; ++i)
                         {
-                            dzDst[i] = static_cast<TData>(src[i]);
+                            dst[i] = static_cast<TData>(src[i]);
                         }
                     }
                 }

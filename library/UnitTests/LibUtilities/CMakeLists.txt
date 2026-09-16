@@ -26,19 +26,17 @@ ADD_NEKTAR_EXECUTABLE(LibUtilitiesUnitTests
 ADD_TEST(NAME LibUtilitiesUnitTests COMMAND LibUtilitiesUnitTests --detect_memory_leaks=0)
 
 IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-	SET(DeviceFFTUnitTestSources
-					TestDeviceFFT.cpp
-					main.cpp
-					../util.cpp
-	)
+    SET(DeviceFFTUnitTestSources
+        TestDeviceFFT.cpp
+        main.cpp
+        ../util.cpp
+    )
 
-	ADD_NEKTAR_EXECUTABLE(DeviceFFTUnitTests
-					COMPONENT unit-test DEPENDS LibUtilities
-					SOURCES ${DeviceFFTUnitTestSources})
+    ADD_NEKTAR_EXECUTABLE(DeviceFFTUnitTests
+                          COMPONENT unit-test DEPENDS LibUtilities
+                          SOURCES ${DeviceFFTUnitTestSources})
 
-	TARGET_LINK_LIBRARIES(DeviceFFTUnitTests PRIVATE ${NEKTAR_CUFFT_TARGET} CUDA::cudart)
-
-	ADD_TEST(NAME DeviceFFTUnitTests COMMAND DeviceFFTUnitTests --detect_memory_leaks=0)
+    ADD_TEST(NAME DeviceFFTUnitTests COMMAND DeviceFFTUnitTests --detect_memory_leaks=0)
 ENDIF()
 
 # EntityResolver's MPI transports can only be exercised under mpirun at more

@@ -51,10 +51,8 @@ namespace Nektar::Operators
 /// \brief Abstract base for the homogeneous z-derivative backend used by
 /// PhysDerivOp.
 ///
-/// Each subclass owns the FULL per-call pipeline: xy derivatives via
-/// blockOp[blk]->Apply(), then the z-FFT when nhomo > 1. This lets
-/// PhysDerivOp::v_Apply make one unconditional call to m_zOp->Launch()
-/// with no execution-space branches.
+/// Subclasses compute only the z-FFT. The xy derivatives are applied by
+/// PhysDerivOp::v_Apply before it calls Launch().
 ///
 /// Concrete implementations:
 ///   - PhysDerivZOpHost (PhysDerivZOpHost.h) - always built, FFTW path.
@@ -77,46 +75,38 @@ public:
         v_Init(beta);
     }
 
-    /// \brief Execute the full xy+z pipeline for one Apply() call.
+    /// \brief Compute the z-derivative. Called only when nhomo > 1, after
+    ///        the xy derivatives have been applied.
     ///
-    /// Implementations must call blockOp[blk]->Apply() for all blocks
-    /// (xy derivatives), and additionally compute dz when nhomo > 1.
-    ///
-    /// \param blockOp   Per-block xy operator list.
-    /// \param in        Input field.
-    /// \param out       Output field.
-    /// \param nhomo     Number of homogeneous planes (1 = no z-FFT).
-    /// \param blockNXY  Points per plane for each block.
-    void Launch(std::vector<std::shared_ptr<PhysDerivBlockOp<TData>>> &blockOp,
-                LibUtilities::Field<TData, FieldState::Phys> &in,
-                LibUtilities::Field<TData, FieldState::Phys> &out,
-                unsigned int nhomo, const std::vector<int> &blockNXY)
+    /// \param in   Input field.
+    /// \param out  Output field.
+    void Launch(LibUtilities::Field<TData, FieldState::Phys> &in,
+                LibUtilities::Field<TData, FieldState::Phys> &out)
     {
-        v_Launch(blockOp, in, out, nhomo, blockNXY);
+        v_Launch(in, out);
     }
 
 protected:
     virtual void v_Init(TData beta) = 0;
 
     virtual void v_Launch(
-        std::vector<std::shared_ptr<PhysDerivBlockOp<TData>>> &blockOp,
         LibUtilities::Field<TData, FieldState::Phys> &in,
-        LibUtilities::Field<TData, FieldState::Phys> &out, unsigned int nhomo,
-        const std::vector<int> &blockNXY) = 0;
+        LibUtilities::Field<TData, FieldState::Phys> &out) = 0;
 
 public:
     /// \brief Factory: create a z-op backend matching execStr.
     ///
-    /// \param execStr       Backend selector: "" / "Serial" / "Host" always
-    ///                      built; "Device" requires NEKTAR_ENABLE_CUDA;
-    ///                      "DeviceDx" additionally requires
-    ///                      NEKTAR_USE_CUFFTDX. Unknown or unbuilt strings
-    ///                      trigger ASSERTL0.
     /// \param expansionList Used by the host backend to obtain the
     ///                      homogeneous FFT and transposition objects.
+    /// \param execStr       Backend selector; "" resolves it from the
+    ///                      session. "Device" takes the CUDA path (cuFFTDx
+    ///                      when NEKTAR_USE_CUFFTDX, otherwise cuFFT);
+    ///                      everything else -- including "Device" on a
+    ///                      non-CUDA device build -- takes the host FFTW
+    ///                      path. Never returns null.
     static std::shared_ptr<PhysDerivZOpBase<TData>> Create(
-        const std::string &execStr,
-        const MultiRegions::ExpListSharedPtr &expansionList);
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::string &execStr);
 };
 
 } // namespace Nektar::Operators
@@ -135,35 +125,32 @@ namespace Nektar::Operators
 
 template <typename TData>
 std::shared_ptr<PhysDerivZOpBase<TData>> PhysDerivZOpBase<TData>::Create(
-    const std::string &execStr,
-    const MultiRegions::ExpListSharedPtr &expansionList)
+    const MultiRegions::ExpListSharedPtr &expansionList,
+    const std::string &execStr)
 {
-    if (execStr.empty() || execStr == "Serial" || execStr == "AVX")
-    {
-        return std::make_shared<PhysDerivZOpHost<TData>>(expansionList);
-    }
+    auto session = expansionList->GetSession();
 
+    std::string execStr0 =
+        (execStr == "") ? Operator<TData>::GetOpExecSpace(session) : execStr;
+
+    // "Device" takes a CUDA z-FFT where the build provides one; a device
+    // build with no z-FFT of its own (HIP/SYCL) falls through to the host
+    // path below.
+    if (execStr0 == "Device")
+    {
 #if defined(NEKTAR_ENABLE_CUDA)
-    if (execStr == "Device")
-    {
-        return std::make_shared<PhysDerivZOpDevice<TData>>();
-    }
-
 #if defined(NEKTAR_USE_CUFFTDX)
-    if (execStr == "DeviceDx")
-    {
         return std::make_shared<PhysDerivZOpDeviceDx<TData>>();
-    }
 #else
-    if (execStr == "DeviceDx")
-    {
-        ASSERTL0(false, "PhysDerivZOp: execStr \"DeviceDx\" requires "
-                        "NEKTAR_USE_CUFFTDX.");
-    }
+        return std::make_shared<PhysDerivZOpDevice<TData>>();
 #endif // NEKTAR_USE_CUFFTDX
 #endif // NEKTAR_ENABLE_CUDA
+    }
 
-    return nullptr;
+    // Serial/AVX, and any device build without its own z-FFT. Reading the
+    // blocks through GetPtr<HostSpace> pulls the xy results back from the
+    // device first, so this stays correct -- just not fast.
+    return std::make_shared<PhysDerivZOpHost<TData>>(expansionList);
 }
 
 } // namespace Nektar::Operators
