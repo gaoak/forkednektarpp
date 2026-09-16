@@ -29,6 +29,7 @@ v5.11.0
 - Fix for non-isotropic case in ReOrientFace (!2649)
 - Fix trixie GitLab CI slowdown (!2701)
 - Fix collection autotuning selection and record results per polynomial order (!2635)
+- Fix noble full build CI (!2742)
 
 **AcousticSolver**
 - Added new BC: liner / perforated plate (!2678)
