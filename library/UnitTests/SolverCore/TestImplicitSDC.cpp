@@ -50,7 +50,7 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestImplicitSDC)
+BOOST_AUTO_TEST_SUITE(TestSuiteImplicitSDC)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_SCHEME(sdc_order_1, segment, "ImplicitSDC", "Equidistant", 1,

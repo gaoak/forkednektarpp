@@ -52,7 +52,7 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestRungeKutta)
+BOOST_AUTO_TEST_SUITE(TestSuiteRungeKutta)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_SCHEME(rk_order_1, segment, "RungeKutta", "", 1)

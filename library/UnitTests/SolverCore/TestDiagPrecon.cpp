@@ -53,7 +53,7 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestDiagPrecon)
+BOOST_AUTO_TEST_SUITE(TestSuiteDiagPrecon)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_DIAGPRECON(diagprecon_seg, Helmholtz1D_Seg, 1.0E-12)

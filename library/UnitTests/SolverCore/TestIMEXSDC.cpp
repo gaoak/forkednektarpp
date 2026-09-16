@@ -53,7 +53,7 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestIMEXSDC)
+BOOST_AUTO_TEST_SUITE(TestSuiteIMEXSDC)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 // TEST_SCHEME(sdc_order_1, segment, "IMEXSDC", "Equidistant", 1,

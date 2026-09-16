@@ -47,9 +47,7 @@ template <typename TData, typename TExpList>
 class TestFwdTransBase : public TestLinearSolver<TData, TExpList>
 {
 public:
-    TestFwdTransBase() : TestLinearSolver<TData, TExpList>()
-    {
-    }
+    TestFwdTransBase() = default;
 
     void SetTestCase()
     {

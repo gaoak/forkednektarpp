@@ -44,6 +44,7 @@
 #include "../CompressibleSolverOp.hpp"
 
 #include <UnitTests/TestBoostSetup.hpp>
+#include <UnitTests/TestGlobalConfiguration.hpp>
 
 #if defined(_MSC_VER)
 #undef max
@@ -56,45 +57,7 @@ using namespace Nektar::MultiRegions;
 using namespace Nektar::Operators;
 using namespace Nektar::SolverCore;
 
-struct GlobalConfiguration
-{
-    GlobalConfiguration()
-    {
-        [[maybe_unused]] int argc =
-            boost::unit_test::framework::master_test_suite().argc;
-        [[maybe_unused]] char **argv =
-            boost::unit_test::framework::master_test_suite().argv;
-
-#ifdef NEKTAR_USE_MPI
-        MPI_Init(&argc, &argv);
-#endif
-    }
-
-    ~GlobalConfiguration()
-    {
-#ifdef NEKTAR_USE_MPI
-        MPI_Finalize();
-#endif
-    }
-};
-
-#if defined(BOOST_TEST_NO_MAIN)
-
-bool init_function()
-{
-    return true;
-}
-
-int main(int argc, char *argv[])
-{
-    GlobalConfiguration gc;
-
-    return boost::unit_test::unit_test_main(&init_function, argc, argv);
-}
-
-#else
-BOOST_TEST_GLOBAL_CONFIGURATION(GlobalConfiguration);
-#endif
+NEKTAR_TEST_GLOBAL_CONFIGURATION(Nektar::UnitTests::TestArgs::None);
 
 #include <UnitTests/TestBoostTeardown.hpp>
 
@@ -830,7 +793,7 @@ struct Case
     }
 }
 
-BOOST_AUTO_TEST_SUITE(Riemann_ConstState_AllOps_AllCases)
+BOOST_AUTO_TEST_SUITE(TestSuiteRiemann)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_Average)
@@ -961,7 +924,7 @@ BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_Roe)
 
 BOOST_AUTO_TEST_SUITE_END()
 
-BOOST_AUTO_TEST_SUITE(Riemann_MachTest)
+BOOST_AUTO_TEST_SUITE(TestSuiteRiemannMach)
 
 BOOST_AUTO_TEST_CASE(Riemann_MachTest_2D_square)
 {

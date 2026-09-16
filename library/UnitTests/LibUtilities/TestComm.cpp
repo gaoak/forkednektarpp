@@ -47,10 +47,10 @@
 
 using namespace Nektar::LibUtilities;
 
-BOOST_AUTO_TEST_SUITE(TestComm)
+BOOST_AUTO_TEST_SUITE(TestSuiteComm)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-BOOST_FIXTURE_TEST_CASE(bcast, CommField)
+BOOST_FIXTURE_TEST_CASE(bcast, TestComm)
 {
     std::string execStr(
         boost::unit_test::framework::master_test_suite().argv[1]);
@@ -90,7 +90,7 @@ BOOST_FIXTURE_TEST_CASE(bcast, CommField)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(send_and_recv, CommField)
+BOOST_FIXTURE_TEST_CASE(send_and_recv, TestComm)
 {
     std::string execStr(
         boost::unit_test::framework::master_test_suite().argv[1]);
@@ -171,7 +171,7 @@ BOOST_FIXTURE_TEST_CASE(send_and_recv, CommField)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(sendrecv, CommField)
+BOOST_FIXTURE_TEST_CASE(sendrecv, TestComm)
 {
     std::string execStr(
         boost::unit_test::framework::master_test_suite().argv[1]);
@@ -237,7 +237,7 @@ BOOST_FIXTURE_TEST_CASE(sendrecv, CommField)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(allreduce, CommField)
+BOOST_FIXTURE_TEST_CASE(allreduce, TestComm)
 {
     std::string execStr(
         boost::unit_test::framework::master_test_suite().argv[1]);
@@ -292,7 +292,7 @@ BOOST_FIXTURE_TEST_CASE(allreduce, CommField)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(scatter, CommField)
+BOOST_FIXTURE_TEST_CASE(scatter, TestComm)
 {
     std::string execStr(
         boost::unit_test::framework::master_test_suite().argv[1]);
@@ -347,7 +347,7 @@ BOOST_FIXTURE_TEST_CASE(scatter, CommField)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(alltoall, CommField)
+BOOST_FIXTURE_TEST_CASE(alltoall, TestComm)
 {
     std::string execStr(
         boost::unit_test::framework::master_test_suite().argv[1]);
@@ -423,7 +423,7 @@ BOOST_FIXTURE_TEST_CASE(alltoall, CommField)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(gather, CommField)
+BOOST_FIXTURE_TEST_CASE(gather, TestComm)
 {
     std::string execStr(
         boost::unit_test::framework::master_test_suite().argv[1]);
@@ -482,7 +482,7 @@ BOOST_FIXTURE_TEST_CASE(gather, CommField)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(allgather, CommField)
+BOOST_FIXTURE_TEST_CASE(allgather, TestComm)
 {
     std::string execStr(
         boost::unit_test::framework::master_test_suite().argv[1]);

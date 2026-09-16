@@ -52,7 +52,7 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestAdamsBashforth)
+BOOST_AUTO_TEST_SUITE(TestSuiteAdamsBashforth)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_SCHEME(adams_bashforth_order_1, segment, 1)

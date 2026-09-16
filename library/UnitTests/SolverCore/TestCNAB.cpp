@@ -52,7 +52,7 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestCNAB)
+BOOST_AUTO_TEST_SUITE(TestSuiteCNAB)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_SCHEME(cnab_order_2, segment, "CNAB", "", 2)

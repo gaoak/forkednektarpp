@@ -52,7 +52,7 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestIMEXGEM)
+BOOST_AUTO_TEST_SUITE(TestSuiteIMEXGEM)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_SCHEME(gem_order_1, segment, "IMEXGEM", "", 1)

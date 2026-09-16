@@ -46,6 +46,7 @@
 #include <SpatialDomains/MeshGraphIO.h>
 
 #include <UnitTests/TestBoostSetup.hpp>
+#include <UnitTests/TestGlobalConfiguration.hpp>
 
 #include <cmath>
 #include <cstdlib>
@@ -59,91 +60,7 @@ using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
 using namespace Nektar::SolverCore;
 
-struct GlobalConfiguration
-{
-    // The execution space string, captured once up front: MPI_Init below is
-    // handed the live argv and may rewrite it, and reading argv[1] per test
-    // without a bounds check is undefined when the argument is missing. The
-    // bounds check in the constructor turns that into a usage message
-    // instead.
-    static std::string &ExecStr()
-    {
-        static std::string s;
-        return s;
-    }
-
-    GlobalConfiguration()
-    {
-        int argc    = boost::unit_test::framework::master_test_suite().argc;
-        char **argv = boost::unit_test::framework::master_test_suite().argv;
-
-        if (argc > 1)
-        {
-            ExecStr() = argv[1];
-        }
-
-#ifdef NEKTAR_USE_MPI
-        MPI_Init(&argc, &argv);
-#endif
-
-        // The execution space must be present: exe -- ExecName. Anything
-        // less gets the usage message.
-        if (argc < 2)
-        {
-            int rank = 0;
-
-#ifdef NEKTAR_USE_MPI
-            MPI_Comm comm = MPI_COMM_WORLD;
-            MPI_Comm_rank(comm, &rank);
-#endif
-            if (rank == 0)
-            {
-                std::string execname(argv[0]);
-
-                std::cerr << "Usage: " << execname << " -- ExecName"
-                          << std::endl;
-#if defined(NEKTAR_ENABLE_DEVICE) && defined(NEKTAR_ENABLE_SIMD)
-                std::cerr << "\t ExecName = Serial, AVX, Device" << std::endl;
-#elif defined(NEKTAR_ENABLE_DEVICE)
-                std::cerr << "\t ExecName = Serial, Device" << std::endl;
-#elif defined(NEKTAR_ENABLE_SIMD)
-                std::cerr << "\t ExecName = Serial, AVX" << std::endl;
-#else
-                std::cerr << "\t ExecName = Serial" << std::endl;
-#endif
-            }
-#ifdef NEKTAR_USE_MPI
-            MPI_Finalize();
-#endif
-            exit(1);
-        }
-    }
-
-    ~GlobalConfiguration()
-    {
-#ifdef NEKTAR_USE_MPI
-        MPI_Finalize();
-#endif
-    }
-};
-
-#if defined(BOOST_TEST_NO_MAIN)
-
-bool init_function()
-{
-    return true;
-}
-
-int main(int argc, char *argv[])
-{
-    GlobalConfiguration gc;
-
-    return boost::unit_test::unit_test_main(&init_function, argc, argv);
-}
-
-#else
-BOOST_TEST_GLOBAL_CONFIGURATION(GlobalConfiguration);
-#endif
+NEKTAR_TEST_GLOBAL_CONFIGURATION(Nektar::UnitTests::TestArgs::Exec);
 
 /**
  * @class TestNormOps

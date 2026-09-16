@@ -46,9 +46,7 @@ using namespace Nektar::SolverCore;
 template <typename TData> class TestHelmSolve : public TestLinearSolver<TData>
 {
 public:
-    TestHelmSolve() : TestLinearSolver<TData>()
-    {
-    }
+    TestHelmSolve() = default;
 
     void SetTestCase()
     {

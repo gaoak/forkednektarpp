@@ -29,21 +29,21 @@ IF(NEKTAR_SOLVER_ADR_DEVICE_SUPPORT)
             ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
     ENDIF()
 
-    ADD_NEKTAR_EXECUTABLE(test_advectionweakdg
+    ADD_NEKTAR_EXECUTABLE(TestAdvectionWeakDG
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SolverCore SolverUtils
-        SOURCES UnitTests/test_advectionweakdg.cpp ${ADR_OPERATORS_SOURCES})
+        SOURCES UnitTests/TestAdvectionWeakDG.cpp ${ADR_OPERATORS_SOURCES})
 
     IF (NEKTAR_ENABLE_DOUBLE_PRECISION) # Only enable unit tests for double precision, for now
-    SET_UNIT_TEST(AdvectionWeakDG_serial_stdmat test_advectionweakdg Serial StdMat FALSE)
-    SET_UNIT_TEST(AdvectionWeakDG_serial_sumfac test_advectionweakdg Serial SumFac FALSE)
+    SET_UNIT_TEST(AdvectionWeakDG_serial_stdmat TestAdvectionWeakDG Serial StdMat FALSE)
+    SET_UNIT_TEST(AdvectionWeakDG_serial_sumfac TestAdvectionWeakDG Serial SumFac FALSE)
     IF(NEKTAR_ENABLE_SIMD)
-        SET_UNIT_TEST(AdvectionWeakDG_avx_stdmat test_advectionweakdg AVX StdMat FALSE)
-        SET_UNIT_TEST(AdvectionWeakDG_avx_sumfac test_advectionweakdg AVX SumFac FALSE)
+        SET_UNIT_TEST(AdvectionWeakDG_avx_stdmat TestAdvectionWeakDG AVX StdMat FALSE)
+        SET_UNIT_TEST(AdvectionWeakDG_avx_sumfac TestAdvectionWeakDG AVX SumFac FALSE)
     ENDIF()
     IF(NEKTAR_ENABLE_DEVICE)
-        SET_UNIT_TEST(AdvectionWeakDG_device_stdmat test_advectionweakdg Device StdMat FALSE)
-        SET_UNIT_TEST(AdvectionWeakDG_device_sumfac test_advectionweakdg Device SumFac FALSE)
-        SET_UNIT_TEST(AdvectionWeakDG_device_sumfactop test_advectionweakdg Device SumFacTOP FALSE)
+        SET_UNIT_TEST(AdvectionWeakDG_device_stdmat TestAdvectionWeakDG Device StdMat FALSE)
+        SET_UNIT_TEST(AdvectionWeakDG_device_sumfac TestAdvectionWeakDG Device SumFac FALSE)
+        SET_UNIT_TEST(AdvectionWeakDG_device_sumfactop TestAdvectionWeakDG Device SumFacTOP FALSE)
     ENDIF()
     ENDIF()
 

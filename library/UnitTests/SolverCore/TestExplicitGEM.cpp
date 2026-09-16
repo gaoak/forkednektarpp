@@ -52,7 +52,7 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestExplicitGEM)
+BOOST_AUTO_TEST_SUITE(TestSuiteExplicitGEM)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_SCHEME(gem_order_1, segment, "ExplicitGEM", "", 1)

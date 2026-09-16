@@ -42,10 +42,6 @@
 
 #pragma once
 
-#if defined(NEKTAR_USE_MAGMA)
-#include "magma_v2.h"
-#endif
-
 #include <LibUtilities/Backends/Backends.hpp>
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <LibUtilities/BasicUtils/SessionReader.h>
@@ -55,6 +51,7 @@
 #include <SpatialDomains/MeshGraphIO.h>
 
 #include <UnitTests/TestBoostSetup.hpp>
+#include <UnitTests/TestGlobalConfiguration.hpp>
 
 #include <cmath>
 #include <cstdio>
@@ -68,112 +65,7 @@ using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
 
-struct GlobalConfiguration
-{
-    // The execution space and implementation strings, captured once up
-    // front. Two reasons: MPI_Init below is handed the live argv and may
-    // rewrite it, and reading argv[1]/argv[2] per test without a bounds check
-    // was undefined when the arguments were missing - which happens more
-    // easily than it sounds, e.g. zsh passes an unquoted $var holding
-    // "Serial SumFac" as a single argument. The bounds check in the
-    // constructor now turns that into a usage message instead.
-    static std::string &ExecStr()
-    {
-        static std::string s;
-        return s;
-    }
-    static std::string &ImplStr()
-    {
-        static std::string s;
-        return s;
-    }
-
-    GlobalConfiguration()
-    {
-        int argc    = boost::unit_test::framework::master_test_suite().argc;
-        char **argv = boost::unit_test::framework::master_test_suite().argv;
-
-        if (argc > 2)
-        {
-            ExecStr() = argv[1];
-            ImplStr() = argv[2];
-        }
-
-#ifdef NEKTAR_USE_MAGMA
-        magma_init();
-#endif
-#ifdef NEKTAR_USE_MPI
-        MPI_Init(&argc, &argv);
-#endif
-
-        // The execution space and the implementation must both be present:
-        // exe -- ExecName ImplName. These tests drive element operators whose
-        // implementation is selected by the second argument, so unlike the
-        // other SolverCore fixtures one argument is not enough.
-        if (argc < 3)
-        {
-            int rank = 0;
-
-#ifdef NEKTAR_USE_MPI
-            MPI_Comm comm = MPI_COMM_WORLD;
-            MPI_Comm_rank(comm, &rank);
-#endif
-            if (rank == 0)
-            {
-                std::string execname(argv[0]);
-
-                std::cerr << "Usage: " << execname << " -- ExecName ImplName"
-                          << std::endl;
-#if defined(NEKTAR_ENABLE_DEVICE) && defined(NEKTAR_ENABLE_SIMD)
-                std::cerr << "\t ExecName = Serial, AVX, Device" << std::endl;
-                std::cerr << "\t ImplName = StdMat, SumFac, SumFacTOP"
-#elif defined(NEKTAR_ENABLE_DEVICE)
-                std::cerr << "\t ExecName = Serial, Device" << std::endl;
-                std::cerr << "\t ImplName = StdMat, SumFac, SumFacTOP"
-#elif defined(NEKTAR_ENABLE_SIMD)
-                std::cerr << "\t ExecName = Serial, AVX" << std::endl;
-                std::cerr << "\t ImplName = StdMat, SumFac"
-#else
-                std::cerr << "\t ExecName = Serial" << std::endl;
-                std::cerr << "\t ImplName = StdMat, SumFac"
-#endif
-                          << std::endl;
-            }
-#ifdef NEKTAR_USE_MPI
-            MPI_Finalize();
-#endif
-            exit(1);
-        }
-    }
-
-    ~GlobalConfiguration()
-    {
-#ifdef NEKTAR_USE_MPI
-        MPI_Finalize();
-#endif
-#ifdef NEKTAR_USE_MAGMA
-        magma_finalize();
-#endif
-    }
-};
-
-#if defined(BOOST_TEST_NO_MAIN)
-
-bool init_function()
-{
-    return true;
-}
-
-int main(int argc, char *argv[])
-{
-    GlobalConfiguration gc;
-
-    return boost::unit_test::unit_test_main(&init_function, argc, argv);
-}
-
-#else
-BOOST_TEST_GLOBAL_CONFIGURATION(GlobalConfiguration);
-#endif
+NEKTAR_TEST_GLOBAL_CONFIGURATION(Nektar::UnitTests::TestArgs::ExecAndImpl);
 
 /**
  * @class TestLinearSolver

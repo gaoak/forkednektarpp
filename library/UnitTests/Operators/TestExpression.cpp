@@ -1,0 +1,81 @@
+///////////////////////////////////////////////////////////////////////////////
+//
+// File: TestExpression.cpp
+//
+// For more information, please see: http://www.nektar.info
+//
+// The MIT License
+//
+// Copyright (c) 2006 Division of Applied Mathematics, Brown University (USA),
+// Department of Aeronautics, Imperial College London (UK), and Scientific
+// Computing and Imaging Institute, University of Utah (USA).
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom the
+// Software is furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+// THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+// DEALINGS IN THE SOFTWARE.
+//
+// Description:
+//
+///////////////////////////////////////////////////////////////////////////////
+
+#define BOOST_TEST_MODULE TestExpression
+
+#include "TestExpression.hpp"
+
+#include <boost/test/tools/output_test_stream.hpp>
+#include <iostream>
+#include <memory>
+
+#define TEST_EXPRESSION(test_name, test, tol)                                  \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        Configure();                                                           \
+        SetTestCase();                                                         \
+        RunTestCase();                                                         \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
+BOOST_AUTO_TEST_SUITE(TestSuiteExpression)
+
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+TEST_EXPRESSION(expression1d_seg, Helmholtz1D_Seg, 1.0E-12)
+
+TEST_EXPRESSION(expression2d_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-12)
+
+TEST_EXPRESSION(expression3d_hex, Helmholtz3D_Hex, 1.0E-12)
+
+TEST_EXPRESSION(expression3d_prism, Helmholtz3D_Prism, 1.0E-12)
+
+TEST_EXPRESSION(expression3d_pyr, Helmholtz3D_Pyr, 1.0E-12)
+
+TEST_EXPRESSION(expression3d_tet, Helmholtz3D_Tet, 1.0E-12)
+
+TEST_EXPRESSION(expression3d_3c, Helmholtz3D_3C, 1.0E-12)
+
+TEST_EXPRESSION(expression_seg_evars, Seg_3C_Evars, 1.0E-12)
+
+TEST_EXPRESSION(expression_quad_tri_evars, QuadTri_2C_Evars, 1.0E-12)
+
+TEST_EXPRESSION(expression_hex_evars, Hex_3C_Evars, 1.0E-12)
+#endif
+
+BOOST_AUTO_TEST_SUITE_END()

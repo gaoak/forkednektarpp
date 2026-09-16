@@ -41,6 +41,7 @@
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 
 #include <UnitTests/TestBoostSetup.hpp>
+#include <UnitTests/TestGlobalConfiguration.hpp>
 
 #include <algorithm>
 #include <cstdlib>
@@ -59,55 +60,17 @@ using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
 
-struct GlobalConfiguration
-{
-    GlobalConfiguration()
-    {
-        [[maybe_unused]] int argc =
-            boost::unit_test::framework::master_test_suite().argc;
-        [[maybe_unused]] char **argv =
-            boost::unit_test::framework::master_test_suite().argv;
+NEKTAR_TEST_GLOBAL_CONFIGURATION(Nektar::UnitTests::TestArgs::None);
 
-#ifdef NEKTAR_USE_MPI
-        MPI_Init(&argc, &argv);
-#endif
-    }
-
-    ~GlobalConfiguration()
-    {
-#ifdef NEKTAR_USE_MPI
-        MPI_Finalize();
-#endif
-    }
-};
-
-#if defined(BOOST_TEST_NO_MAIN)
-
-bool init_function()
-{
-    return true;
-}
-
-int main(int argc, char *argv[])
-{
-    GlobalConfiguration gc;
-
-    return boost::unit_test::unit_test_main(&init_function, argc, argv);
-}
-
-#else
-BOOST_TEST_GLOBAL_CONFIGURATION(GlobalConfiguration);
-#endif
-
-template <typename TData> class ParallelReduceField
+template <typename TData> class TestParallelReduce
 {
 public:
-    ParallelReduceField()
+    TestParallelReduce()
     {
         m_meshName = "run/segment.xml";
     }
 
-    ~ParallelReduceField()
+    ~TestParallelReduce()
     {
         BOOST_TEST_MESSAGE("teardown this->fixture");
 

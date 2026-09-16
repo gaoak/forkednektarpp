@@ -57,7 +57,7 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestPoissonSolveConjGrad)
+BOOST_AUTO_TEST_SUITE(TestSuitePoissonSolve)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 TEST_POISSONSOLVE(poissonsolve_seg, Poisson1D_Seg, 1.0E-12)
