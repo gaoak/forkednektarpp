@@ -666,6 +666,16 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
     IF(NEKTAR_USE_MAGMA)
         # MAGMA require pubic linking
         TARGET_LINK_LIBRARIES(NekBlas LINK_PUBLIC ${MAGMA_LIBRARY})
+        # magmaHandle.cpp calls cuBLAS/cuSPARSE (resp. hipBLAS/hipSPARSE)
+        # directly to build the MAGMA queue, so link them here rather than
+        # relying on libmagma's own dependencies.
+        IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+            TARGET_LINK_LIBRARIES(NekBlas LINK_PRIVATE
+                ${CUBLAS_LIBRARY} ${CUSPARSE_LIBRARY})
+        ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+            TARGET_LINK_LIBRARIES(NekBlas LINK_PUBLIC
+                ${HIPBLAS_LIBRARY} ${HIPSPARSE_LIBRARY})
+        ENDIF()
         ADD_DEPENDENCIES(NekBlas magma-v2.10.0)
     # CUBLAS
     ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")

@@ -57,12 +57,9 @@ namespace Nektar::Operators
 
 /// \brief cuFFT backend for the homogeneous z-derivative (PhysDerivOp).
 ///
-/// Launch() owns the complete per-call pipeline:
-///   1. xy-derivatives via blockOp[blk]->Apply() for all blocks.
-///   2. When nhomo > 1: cuFFT D2Z + wavenumber multiply + Z2D via
-///      PhysDerivZDirect. On the second and subsequent calls the z-pipeline
-///      is captured as a CUDA graph and replayed for lower launch overhead.
-///      The xy loop always runs outside graph capture.
+/// Launch() applies cuFFT D2Z + wavenumber multiply + Z2D via
+/// PhysDerivZDirect. On the second and subsequent calls the pipeline is
+/// captured as a CUDA graph and replayed for lower launch overhead.
 ///
 /// Requires NEKTAR_ENABLE_CUDA. The cuFFTDx variant is
 /// PhysDerivZOpDeviceDx (below).
@@ -98,43 +95,22 @@ protected:
         m_graphExec      = nullptr;
     }
 
-    void v_Launch(
-        std::vector<std::shared_ptr<PhysDerivBlockOp<TData>>> &blockOp,
-        LibUtilities::Field<TData, FieldState::Phys> &in,
-        LibUtilities::Field<TData, FieldState::Phys> &out, unsigned int nhomo,
-        const std::vector<int> &blockNXY) override
+    void v_Launch(LibUtilities::Field<TData, FieldState::Phys> &in,
+                  LibUtilities::Field<TData, FieldState::Phys> &out) override
     {
+        const auto nhomo = in.GetNumHomoModes();
+
 #if !defined(NEKTAR_ENABLE_CUDA)
         ASSERTL0(false, "PhysDerivZOp: execStr \"" + execStr +
                             "\" requires NEKTAR_ENABLE_CUDA.");
 #endif
 
-        // xy derivatives (always). When nhomo <= 1 there is no z-FFT.
-        if (nhomo <= 1 || m_stream == nullptr)
-        {
-            for (unsigned int blk = 0; blk < blockOp.size(); ++blk)
-            {
-                blockOp[blk]->Apply(in.GetBlocks()[blk], out.GetBlocks()[blk]);
-            }
-            return;
-        }
-
         if (m_hasGraph)
         {
-            for (unsigned int blk = 0; blk < blockOp.size(); ++blk)
-            {
-                blockOp[blk]->Apply(in.GetBlocks()[blk], out.GetBlocks()[blk]);
-            }
-            WaitForBlockProducers(blockOp.size());
+            WaitForBlockProducers(in.GetBlocks().size());
             cudaGraphLaunch(m_graphExec, m_stream);
             cudaStreamSynchronize(m_stream);
             return;
-        }
-
-        // xy cuBLAS derivatives run outside capture.
-        for (unsigned int blk = 0; blk < blockOp.size(); ++blk)
-        {
-            blockOp[blk]->Apply(in.GetBlocks()[blk], out.GetBlocks()[blk]);
         }
 
         // m_stream is a private stream, not registered with CUDAStream, so
@@ -145,7 +121,7 @@ protected:
         // the z-FFT reads below. Done outside graph capture: replay must
         // re-synchronize against fresh input every call, so this cannot be
         // baked into the graph.
-        WaitForBlockProducers(blockOp.size());
+        WaitForBlockProducers(in.GetBlocks().size());
 
         if (m_pendingCapture)
         {
@@ -154,7 +130,7 @@ protected:
 
         for (unsigned int n = 0; n < in.GetNumComponents(); ++n)
         {
-            for (unsigned int blk = 0; blk < blockOp.size(); ++blk)
+            for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
             {
                 auto &inblock        = in.GetBlocks()[blk];
                 auto &outblock       = out.GetBlocks()[blk];
@@ -170,7 +146,7 @@ protected:
                     static_cast<std::ptrdiff_t>(n * 3 + 2) * compStride *
                         static_cast<std::ptrdiff_t>(nhomo);
                 LibUtilities::PhysDerivZDirect(
-                    phiPtr, dzPtr, static_cast<int>(nhomo), blockNXY[blk],
+                    phiPtr, dzPtr, static_cast<int>(nhomo), compStride,
                     compStride, m_beta, m_stream);
             }
         }
@@ -250,14 +226,11 @@ private:
 
 /// \brief cuFFTDx backend for the homogeneous z-derivative (PhysDerivOp).
 ///
-/// Launch() owns the complete per-call pipeline:
-///   1. xy-derivatives via blockOp[blk]->Apply() for all blocks.
-///   2. When nhomo > 1: fused cuFFTDx D2Z + wavenumber multiply + Z2D via
-///      PhysDerivZDxDirect. On the second and subsequent calls the z-pipeline
-///      is captured as a CUDA graph and replayed.
+/// Launch() applies a fused cuFFTDx D2Z + wavenumber multiply + Z2D via
+/// PhysDerivZDxDirect. On the second and subsequent calls the pipeline is
+/// captured as a CUDA graph and replayed.
 ///
-/// Requires NEKTAR_ENABLE_CUDA and NEKTAR_USE_CUFFTDX. Reachable only
-/// via execStr == "DeviceDx" in PhysDerivZOpBase::Create().
+/// Requires NEKTAR_ENABLE_CUDA and NEKTAR_USE_CUFFTDX.
 template <typename TData>
 class PhysDerivZOpDeviceDx : public PhysDerivZOpBase<TData>
 {
@@ -289,43 +262,22 @@ protected:
         m_graphExec      = nullptr;
     }
 
-    void v_Launch(
-        std::vector<std::shared_ptr<PhysDerivBlockOp<TData>>> &blockOp,
-        LibUtilities::Field<TData, FieldState::Phys> &in,
-        LibUtilities::Field<TData, FieldState::Phys> &out, unsigned int nhomo,
-        const std::vector<int> &blockNXY) override
+    void v_Launch(LibUtilities::Field<TData, FieldState::Phys> &in,
+                  LibUtilities::Field<TData, FieldState::Phys> &out) override
     {
 #if !defined(NEKTAR_ENABLE_CUDA)
         ASSERTL0(false, "PhysDerivZOp: execStr \"" + execStr +
                             "\" requires NEKTAR_ENABLE_CUDA.");
 #endif
 
-        // xy derivatives (always). When nhomo <= 1 there is no z-FFT.
-        if (nhomo <= 1 || m_stream == nullptr)
-        {
-            for (unsigned int blk = 0; blk < blockOp.size(); ++blk)
-            {
-                blockOp[blk]->Apply(in.GetBlocks()[blk], out.GetBlocks()[blk]);
-            }
-            return;
-        }
+        const auto nhomo = in.GetNumHomoModes();
 
         if (m_hasGraph)
         {
-            for (unsigned int blk = 0; blk < blockOp.size(); ++blk)
-            {
-                blockOp[blk]->Apply(in.GetBlocks()[blk], out.GetBlocks()[blk]);
-            }
-            WaitForBlockProducers(blockOp.size());
+            WaitForBlockProducers(in.GetBlocks().size());
             cudaGraphLaunch(m_graphExec, m_stream);
             cudaStreamSynchronize(m_stream);
             return;
-        }
-
-        // xy cuBLAS derivatives run outside capture.
-        for (unsigned int blk = 0; blk < blockOp.size(); ++blk)
-        {
-            blockOp[blk]->Apply(in.GetBlocks()[blk], out.GetBlocks()[blk]);
         }
 
         // m_stream is a private stream, not registered with CUDAStream, so
@@ -336,7 +288,7 @@ protected:
         // the z-FFT reads below. Done outside graph capture: replay must
         // re-synchronize against fresh input every call, so this cannot be
         // baked into the graph.
-        WaitForBlockProducers(blockOp.size());
+        WaitForBlockProducers(in.GetBlocks().size());
 
         if (m_pendingCapture)
         {
@@ -345,7 +297,7 @@ protected:
 
         for (unsigned int n = 0; n < in.GetNumComponents(); ++n)
         {
-            for (unsigned int blk = 0; blk < blockOp.size(); ++blk)
+            for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
             {
                 auto &inblock        = in.GetBlocks()[blk];
                 auto &outblock       = out.GetBlocks()[blk];
@@ -361,7 +313,7 @@ protected:
                     static_cast<std::ptrdiff_t>(n * 3 + 2) * compStride *
                         static_cast<std::ptrdiff_t>(nhomo);
                 LibUtilities::PhysDerivZDxDirect(
-                    phiPtr, dzPtr, blockNXY[blk], compStride,
+                    phiPtr, dzPtr, compStride, compStride,
                     static_cast<int>(nhomo), m_beta, m_stream);
             }
         }

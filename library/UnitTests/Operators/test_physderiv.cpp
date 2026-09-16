@@ -68,20 +68,6 @@
         }                                                                      \
     }
 
-#define TEST_PHYSDERIV3DH1_DX(test_name, test, tol)                            \
-    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
-    {                                                                          \
-        std::cout << std::string("Run: ") + std::string(#test_name)            \
-                  << std::endl;                                                \
-        Configure3DH1(16);                                                     \
-        SetTestCase();                                                         \
-        RunTestCase();                                                         \
-        boost::test_tools::output_test_stream output;                          \
-        {                                                                      \
-            BOOST_TEST(Compare(tol));                                          \
-        }                                                                      \
-    }
-
 BOOST_AUTO_TEST_SUITE(TestPhysDeriv)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
@@ -134,29 +120,14 @@ TEST_PHYSDERIV(physderiv_tet_nodal, TetNodal, 2.0E-12)
 TEST_PHYSDERIV(physderiv_cube_prism_hex, CubePrismHex, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_cube_all_elements, CubeAllElements, 1.0E-12)
+#if !defined(NEKTAR_ENABLE_DEVICE) || defined(NEKTAR_ENABLE_CUDA)
+TEST_PHYSDERIV3DH1(physderiv_quad_3dh1, QuadFFT, 1.0E-10)
 
-// cuFFT z-derivative tests (3DH1)
-#if defined(NEKTAR_ENABLE_CUDA)
-TEST_PHYSDERIV3DH1(physderiv_quad_3dh1_gpu, QuadFFT, 1.0E-10)
+TEST_PHYSDERIV3DH1(physderiv_tri_3dh1, TriFFT, 1.0E-10)
 
-TEST_PHYSDERIV3DH1(physderiv_tri_3dh1_gpu, TriFFT, 1.0E-10)
-
-TEST_PHYSDERIV3DH1(physderiv_square_all_elements_3dh1_gpu, SquareAllElementsFFT,
+TEST_PHYSDERIV3DH1(physderiv_square_all_elements_3dh1, SquareAllElementsFFT,
                    1.0E-10)
-#endif // NEKTAR_ENABLE_CUDA
-
-// cuFFTDx z-derivative tests (3DH1)
-#if defined(NEKTAR_USE_CUFFTDX)
-#if defined(NEKTAR_ENABLE_CUDA)
-TEST_PHYSDERIV3DH1_DX(physderiv_quad_3dh1_dx, QuadFFT, 1.0E-10)
-
-TEST_PHYSDERIV3DH1_DX(physderiv_tri_3dh1_dx, TriFFT, 1.0E-10)
-
-TEST_PHYSDERIV3DH1_DX(physderiv_square_all_elements_3dh1_dx,
-                      SquareAllElementsFFT, 1.0E-10)
-#endif // NEKTAR_ENABLE_CUDA
-#endif // NEKTAR_USE_CUFFTDX
-
+#endif
 #endif // NEKTAR_ENABLE_DOUBLE_PRECISION
 
 BOOST_AUTO_TEST_SUITE_END()

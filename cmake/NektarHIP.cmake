@@ -54,10 +54,10 @@ FIND_LIBRARY(HIPRTC_LIB hiprtc HINTS ${HIP_PATH}/lib /opt/rocm/lib)
 SET(NEKTAR_HIP_DEPENDS
     hip::host
     hip::device
-    roc::hipsparse
-    roc::hipsolver
-    hip::hiprand
     ${HIPRTC_LIB}
 )
 SET(HIPBLAS_LIBRARY roc::hipblas)
 SET(HIPFFT_LIBRARY roc::hipfft)
+SET(HIPSPARSE_LIBRARY roc::hipsparse)
+SET(HIPSOLVER_LIBRARY roc::hipsolver)
+SET(HIPRAND_LIBRARY roc::hiprand)

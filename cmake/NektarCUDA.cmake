@@ -140,9 +140,8 @@ SET(NEKTAR_CUDA_DEPENDS
     CUDA::cudart
     CUDA::cuda_driver
     CUDA::nvrtc
-    CUDA::cusparse
-    CUDA::cusolver
-    ${CUFFT_LIBRARY}
-    CUDA::curand
 )
 SET(CUBLAS_LIBRARY CUDA::cublas)
+SET(CUSPARSE_LIBRARY CUDA::cusparse)
+SET(CUSOLVER_LIBRARY CUDA::cusolver)
+SET(CURAND_LIBRARY CUDA::curand)
