@@ -92,7 +92,7 @@ with open(sys.argv[1], 'r') as f:
     # Compare the lists of files.
     all_good = True
     for f in found_files:
-        if f in ignore_sources or "XSMM" in f or "CUDA" in f or "HIP" in f or "SYCL" in f or "AVX" in f or "UnitTests/Operators/test_" in f:
+        if f in ignore_sources or "XSMM" in f or "CUDA" in f or "HIP" in f or "SYCL" in f or "AVX" in f or "UnitTests/Operators/Test" in f:
             continue
 
         if f not in compiled_files:

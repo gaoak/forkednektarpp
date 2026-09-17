@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include <algorithm>
+#include <cctype>
 #include <string>
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
@@ -141,6 +143,66 @@ public:
                          OpExec);
         }
         return OpExec;
+    }
+
+    /**
+     * @brief Return the default interleave width that persistent Fields
+     * (e.g. solution storage, time-integration and linear-solver workspace)
+     * should be constructed with for the given session.
+     *
+     * The SumFac implementation on the Device backend (and any AVX-backed
+     * execution space) natively operates on interleaved data, so Fields are
+     * pre-interleaved to that native width to avoid repeated reshape
+     * operations. All other configurations use a trivial width of 1.
+     *
+     * @param session  Session reader to recover the relevant command-line
+     * arguments.
+     *
+     * @return unsigned int interleave width.
+     */
+    static unsigned int GetDefaultInterleaveWidth(
+        std::shared_ptr<LibUtilities::SessionReader> session)
+    {
+        // Discontinuous (DG) projections default to interleavewidth = 1
+        // as the current DG operator implementations cannot use
+        // interleaving and hence would cause a slowdown
+        // due to many interleaving/deinterleaving calls.
+        if (IsDiscontinuousProjection(session))
+        {
+            return 1u;
+        }
+
+        std::string execName = GetOpExecSpace(session);
+        std::string implName =
+            session->DefinesCmdLineArgument("opImpl")
+                ? session->GetCmdLineArgument<std::string>("opImpl")
+                : "";
+
+        return (implName == "SumFac" || execName == "AVX")
+                   ? NektarSpaces::GetVectorWidth<TData>(execName)
+                   : 1u;
+    }
+
+    /**
+     * @brief Return true if the session uses a Discontinuous (DG) projection.
+     *
+     * @param session  Session reader to recover the relevant SolverInfo.
+     *
+     * @return bool true if the "Projection" SolverInfo is "DG" or
+     * "Discontinuous".
+     */
+    static bool IsDiscontinuousProjection(
+        std::shared_ptr<LibUtilities::SessionReader> session)
+    {
+        if (!session->DefinesSolverInfo("Projection"))
+        {
+            return false;
+        }
+
+        std::string projection = session->GetSolverInfo("Projection");
+        std::transform(projection.begin(), projection.end(), projection.begin(),
+                       [](unsigned char c) { return std::toupper(c); });
+        return projection == "DG" || projection == "DISCONTINUOUS";
     }
 
 protected:

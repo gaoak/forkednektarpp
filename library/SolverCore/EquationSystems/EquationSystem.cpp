@@ -134,9 +134,13 @@ void EquationSystem::v_Output()
  */
 void EquationSystem::v_InitialiseFields()
 {
+    // Get interleave width
+    auto interleaveWidth =
+        Operators::Operator<double>::GetDefaultInterleaveWidth(m_session);
+
     // Create solution fields in physical space (at quadrature points)
     auto bAtr_phys = MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-        m_expansionLists[0]);
+        m_expansionLists[0], interleaveWidth);
     m_fields = LibUtilities::Field<double, FieldState::Phys>(
         "solution", bAtr_phys, m_nVariables, m_npointsZ);
 
@@ -144,7 +148,7 @@ void EquationSystem::v_InitialiseFields()
     // basis function)
     auto bAtr_coeff =
         MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            m_expansionLists[0]);
+            m_expansionLists[0], interleaveWidth);
     m_fields_coeff = LibUtilities::Field<double, FieldState::Coeff>(
         "solution coeff", bAtr_coeff, m_nVariables, m_npointsZ);
 
@@ -202,11 +206,16 @@ void EquationSystem::v_GenerateSummary(SummaryList &summary)
 
 void EquationSystem::v_PrintNorms(std::ostream &out)
 {
-    // Create workspace Field
+    // Create workspace Field, matching the interleave width of m_fields so
+    // that the subtraction below combines consistently laid-out data. This
+    // is recomputed from the session rather than read off m_fields' blocks
+    // since GetBlocks() can be empty on a rank with no local elements.
+    const auto interleaveWidth =
+        Operators::Operator<double>::GetDefaultInterleaveWidth(m_session);
     auto wsp_phys = LibUtilities::Field<double, FieldState::Phys>(
         "exact solution",
         MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-            m_expansionLists[0]),
+            m_expansionLists[0], interleaveWidth),
         m_nVariables, m_npointsZ);
     m_math.zero(wsp_phys);
 

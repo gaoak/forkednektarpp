@@ -7,7 +7,6 @@ import subprocess
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 
-
 VELOCITY_VARS = ["u", "v"]
 DEFAULT_METHOD_BY_ORDER = {2: "IMEXdirk23", 3: "IMEXdirk23"}
 DEFAULT_STEPS_BY_ORDER = {2: 4, 3: 4}
@@ -186,22 +185,22 @@ def install_manufactured_solution(text):
         r"        <BOUNDARYREGIONS>.*?</BOUNDARYCONDITIONS>",
         BOUNDARY_CONDITIONS,
         text,
-        flags=re.S,
+        flags=re.DOTALL,
     )
     text = re.sub(
         r"\n\s*<FUNCTION NAME=\"InitialConditions\">.*?</FUNCTION>\s*"
         r"<FUNCTION NAME=\"ExactSolution\">.*?</FUNCTION>",
         "\n" + MANUFACTURED_FUNCTIONS,
         text,
-        flags=re.S,
+        flags=re.DOTALL,
     )
     text = re.sub(
         r"\n\s*<(?:FORCING|Forcing)>.*?</(?:FORCING|Forcing)>",
         "",
         text,
-        flags=re.S,
+        flags=re.DOTALL,
     )
-    text = re.sub(r"\n\s*<FILTERS>.*?</FILTERS>", "", text, flags=re.S)
+    text = re.sub(r"\n\s*<FILTERS>.*?</FILTERS>", "", text, flags=re.DOTALL)
     text = re.sub(r"\n\s*</NEKTAR>", f"\n{FORCING_BLOCK}\n</NEKTAR>", text)
     return text
 
@@ -225,7 +224,7 @@ def set_time_integration(text, method, order):
         r"        <TIMEINTEGRATIONSCHEME>.*?</TIMEINTEGRATIONSCHEME>",
         replacement,
         text,
-        flags=re.S,
+        flags=re.DOTALL,
     )
 
 

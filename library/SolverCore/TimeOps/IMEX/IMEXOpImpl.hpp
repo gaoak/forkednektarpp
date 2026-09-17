@@ -147,6 +147,10 @@ protected:
                  "IMEX schemes require a DoImplicit method. Define with "
                  "IMEXOp->DefineImplicit().");
 
+        const auto interleaveWidth =
+            Operators::Operator<TData>::GetDefaultInterleaveWidth(
+                this->m_expansionList->GetSession());
+
         // Startup.
         if (this->m_step + 1 < IntOrder)
         {
@@ -154,7 +158,7 @@ protected:
             this->m_explicits.push_front(
                 LibUtilities::Field<TData, FieldState::Phys>(
                     MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                        this->m_expansionList),
+                        this->m_expansionList, interleaveWidth),
                     this->m_components, inout.GetNumHomoModes()));
 
             // Compute explicit terms.
@@ -166,7 +170,7 @@ protected:
                 LibUtilities::Field<TData, FieldState::Phys>(
                     "timestep n-" + std::to_string(this->m_step + 1),
                     MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                        this->m_expansionList),
+                        this->m_expansionList, interleaveWidth),
                     this->m_components, inout.GetNumHomoModes()));
 
             this->m_solutions[0].template Copy<MemSpace>(inout);
@@ -198,8 +202,9 @@ protected:
             {
                 this->m_explicits.push_back(
                     LibUtilities::Field<TData, FieldState::Phys>(
-                        MultiRegions::GetBlockAttributes<
-                            TData, FieldState::Phys>(this->m_expansionList),
+                        MultiRegions::GetBlockAttributes<TData,
+                                                         FieldState::Phys>(
+                            this->m_expansionList, interleaveWidth),
                         this->m_components, inout.GetNumHomoModes()));
             }
             // UpdateSolution previous solutions, explicit part, and sum up.
@@ -232,8 +237,9 @@ protected:
                 {
                     this->m_implicits.push_back(
                         LibUtilities::Field<TData, FieldState::Phys>(
-                            MultiRegions::GetBlockAttributes<
-                                TData, FieldState::Phys>(this->m_expansionList),
+                            MultiRegions::GetBlockAttributes<TData,
+                                                             FieldState::Phys>(
+                                this->m_expansionList, interleaveWidth),
                             this->m_components, inout.GetNumHomoModes()));
                 }
 

@@ -68,10 +68,14 @@ public:
         }
 
         // Allocate memory.
+        const auto interleaveWidth =
+            Operators::Operator<TData>::GetDefaultInterleaveWidth(
+                this->m_expansionList->GetSession());
+
         this->m_solutions.push_back(
             LibUtilities::Field<TData, FieldState::Phys>(
                 MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                    this->m_expansionList),
+                    this->m_expansionList, interleaveWidth),
                 this->m_components, 1));
 
         for (unsigned int i = 0; i < NStage(); i++)
@@ -79,7 +83,7 @@ public:
             this->m_implicits.push_back(
                 LibUtilities::Field<TData, FieldState::Phys>(
                     MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                        this->m_expansionList),
+                        this->m_expansionList, interleaveWidth),
                     this->m_components, 1));
         }
     }

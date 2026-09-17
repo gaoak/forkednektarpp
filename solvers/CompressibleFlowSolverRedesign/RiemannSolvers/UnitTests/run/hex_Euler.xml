@@ -167,6 +167,7 @@
             <I PROPERTY="Projection"            VALUE="DisContinuous"       />
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
             <I PROPERTY="UpwindType"            VALUE="LaxFriedrichs"       />
+            <I PROPERTY="GlobalSysSoln"         VALUE="IterativeFull"       />
         </SOLVERINFO>
         <VARIABLES>
             <V ID="0">rho</V>
