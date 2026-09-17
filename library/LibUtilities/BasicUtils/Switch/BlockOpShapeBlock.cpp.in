@@ -64,7 +64,7 @@
 #elif defined(NEKTAR_BLOCKOP_SWITCH_PHYSINTERP1D)
 #include "LibUtilities/BasicUtils/Switch/SwitchLevel2Defs.h"
 #elif defined(NEKTAR_BLOCKOP_SWITCH_PHYSTRACE)
-#include "LibUtilities/BasicUtils/Switch/SwitchLevel2Defs.h"
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel1Defs.h"
 #else
 // The @OPERATOR@ @Impl@ implementation header defines no
 // NEKTAR_BLOCKOP_SWITCH_<kind> macro. The kinds are CODE,

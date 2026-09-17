@@ -210,12 +210,11 @@ public:
      * In one dimension there are no in-trace directions, so the second
      * loop body never runs and no trace Jacobian is fetched: a segment
      * trace is a point and carries no surface measure. #m_nq is given
-     * the volume point count instead. The generated segment switch reads
-     * `m_nq[0]` and compares it against the compiled point counts of the
-     * matched `m_nm[0]`, a range that starts at `m_nm[0]` itself, so
-     * that choice always lands on a compiled instantiation. The vectors
-     * are not padded any further: each generated translation unit reads
-     * only the entries its own shape has.
+     * the volume point count instead, which is the count the generated
+     * segment switch dispatches on, so that choice always lands on a
+     * compiled instantiation. The vectors are not padded any further:
+     * each generated translation unit reads only the entries its own
+     * shape has.
      *
      * @param   block_idx       Index of this block in the expansion
      *                          list; also selects the block's trace

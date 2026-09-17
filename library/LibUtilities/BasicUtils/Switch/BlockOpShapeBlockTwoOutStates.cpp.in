@@ -72,7 +72,7 @@ namespace Nektar::Operators::detail
 #elif defined(NEKTAR_BLOCKOP_SWITCH_PHYSINTERP1D_CoeffOut)
 #include "LibUtilities/BasicUtils/Switch/SwitchLevel2Defs.h"
 #elif defined(NEKTAR_BLOCKOP_SWITCH_PHYSTRACE_CoeffOut)
-#include "LibUtilities/BasicUtils/Switch/SwitchLevel2Defs.h"
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel1Defs.h"
 #else
 // The @OPERATOR@ @Impl@ implementation header defines no
 // NEKTAR_BLOCKOP_SWITCH_<kind>_CoeffOut macro. The kinds are
@@ -121,7 +121,7 @@ void @OPERATOR@BlockOpImpl<NektarSpaces::@ExecSpace@, Operators::@Impl@,
 #elif defined(NEKTAR_BLOCKOP_SWITCH_PHYSINTERP1D_PhysOut)
 #include "LibUtilities/BasicUtils/Switch/SwitchLevel2Defs.h"
 #elif defined(NEKTAR_BLOCKOP_SWITCH_PHYSTRACE_PhysOut)
-#include "LibUtilities/BasicUtils/Switch/SwitchLevel2Defs.h"
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel1Defs.h"
 #else
 // The @OPERATOR@ @Impl@ implementation header defines no
 // NEKTAR_BLOCKOP_SWITCH_<kind>_PhysOut macro. The kinds are
