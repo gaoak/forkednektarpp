@@ -101,6 +101,29 @@ This filter evaluates the aerodynamic forces along a specific surface. The
 forces are projected along the Cartesian axes and the pressure and viscous
 contributions are computed in each direction.
 
+For 3DH1D simulations, all three force components are output, including the
+force in the homogeneous $z$ direction (\inltt{F3-press}, \inltt{F3-visc}
+and \inltt{F3-total} for the default Cartesian directions). Forces are reported
+per unit homogeneous length:
+\[
+  \overline{F_i} = \frac{1}{L_z}\int_0^{L_z}
+       \left(\int_{\partial\Omega_w} t_i(s,z)\,\mathrm{d}s\right)\mathrm{d}z.
+\]
+The plane average already includes this normalisation; multiply it by $L_z$
+to recover the total force over one homogeneous period. Setting
+\inltt{OutputAllPlanes} to \inltt{True} additionally writes the force per unit
+length at each physical Fourier plane, followed by an \inltt{average} row.
+For Cartesian walls extruded along $z$, the $z$ pressure force is zero and
+the $z$ force comes from viscous shear. The existing $z$ moment output is
+unchanged.
+
+For Cartesian 3DH1D calculations, mean-only output uses the zero Fourier mode,
+which is the homogeneous average. With \inltt{OutputAllPlanes}, the fields are
+transformed to physical space before evaluating the stresses; homogeneous
+derivatives are evaluated spectrally. Calculations with a coordinate mapping
+use physical-space planes even for mean-only output. The filter restores the
+input field's physical/Fourier representation after computing the forces.
+
 The following parameters are supported:
 
 \begin{center}
