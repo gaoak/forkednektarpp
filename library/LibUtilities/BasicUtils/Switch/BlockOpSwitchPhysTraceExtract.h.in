@@ -1,7 +1,30 @@
 // clang-format off
+/* One level switch over the single point count that sizes a trace
+   operator's block.
+
+   Unlike the SumFac switches this one has no mode order in it. The
+   operators that name NEKTAR_BLOCKOP_SWITCH_PHYSTRACE -- PhysTraceExtract,
+   IProductWRTPhysTrace and IProductWRTPhysNormalDerivTrace -- fill m_nm
+   with GetNumPoints, that is with volume quadrature counts, and m_nq with
+   the trace quadrature counts. Both levels of a two level switch would
+   therefore be quadrature counts, and the inner range of one, running from
+   the mode order to twice it, would have no meaning.
+
+   The two counts are not independent either. A trace rule is the rule of
+   the volume direction the trace direction runs along, promoted to the
+   next Gauss-Lobatto rule where that volume direction is collapsed
+   (StdRegions::EvaluateQuadFaceBasisKey and EvaluateTriFaceBasisKey), so
+   every shape's trace counts follow its volume counts with the same
+   collapsed-direction pattern and nq00 == nm0 throughout. One case per
+   point count in [MIN1D, MAX1D] covers every combination that can occur,
+   and the guards below send anything else to the non-templated call, as
+   a point count outside the compiled range already goes.
+
+   NQ(i) is that point count and NQ_M1(i) is one less, which is what a
+   collapsed direction carries. */
+
 #if defined(SHAPE_TYPE_Seg)
     const auto nm0 = m_nm[0];
-    const auto nq0 = m_nq[0];
 
     if (m_isDeformed)
     {
@@ -11,54 +34,30 @@
     OperatorND<LibUtilities::@Shape@, true>(                                   \
         inblock, outblock, NonTemplatedTraceSizeParameter1D(m_nm[0], m_nq[0]));
 
-        // Inner loop case over quarature points Shape dependent
+        // Loop case over the point count, Shape dependent
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         OperatorND<LibUtilities::@Shape@, true>(                               \
             inblock, outblock,                                                 \
-            TemplatedTraceSizeParameter1D<NM(i), NQ(i)>());                    \
+            TemplatedTraceSizeParameter1D<NQ(i), NQ(i)>());                    \
         break;
 
-        // outer loop case over modes
-#undef OPERATOR_M
-#define OPERATOR_M(r, i)                                                       \
-    case NM(i):                                                                \
-    {                                                                          \
-        switch (nq0)                                                           \
-        {                                                                      \
-            BOOST_PP_FOR_##r((NM(i), NM(i),                                    \
-               BOOST_PP_ADD(BOOST_PP_MUL(@NEKTAR_SWITCH_QMAX_MUL@, NM(i)),     \
-                         @NEKTAR_SWITCH_QMAX_ADD@)),                           \
-                             LEV2TEST1, LEV2UPDATE1, OPERATOR_Q)               \
-            default :                                                          \
-            {                                                                  \
-                WARNINGL0( m_warnOnceTemplate,                                 \
-                           "Executing nq = " + std::to_string(nq0) +           \
-                           " non-templated operator");                         \
-                m_warnOnceTemplate = true;                                     \
-                OPERATOR_DEF                                                   \
-            }                                                                  \
-            break;                                                             \
-        }                                                                      \
-    }                                                                          \
-    break;
-
-            // templated cases on equi-ordered modes and standard quad usage
-            // where quad order goes from mode order to 2(*mode order)
-    switch (nm0)
-       {
-            BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
-                         OPERATOR_M)
-       default:
-           {                                                            
-               WARNINGL0( m_warnOnceTemplate,                           
+        // A segment's traces are its end points and carry no rule of their
+        // own, so the implementations set m_nq[0] to m_nm[0] and the two
+        // counts always agree.
+        switch (nm0)
+        {
+            BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR_Q)
+            default:
+            {
+                WARNINGL0( m_warnOnceTemplate,
                            "Executing nm = " + std::to_string(nm0) +
-                           " non-templated operator"); 
-               m_warnOnceTemplate = true;                               
-               OPERATOR_DEF                                        
-           }                                                            
-           break;
+                           " non-templated operator");
+                m_warnOnceTemplate = true;
+                OPERATOR_DEF
+            }
+            break;
         }
     }
     else
@@ -69,54 +68,27 @@
     OperatorND<LibUtilities::@Shape@, false>(                                  \
         inblock, outblock, NonTemplatedTraceSizeParameter1D(m_nm[0], m_nq[0]));
 
-        // Inner loop case over quarature points Shape dependent
+        // Loop case over the point count, Shape dependent
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         OperatorND<LibUtilities::@Shape@, false>(                              \
             inblock, outblock,                                                 \
-            TemplatedTraceSizeParameter1D<NM(i), NQ(i)>());                    \
+            TemplatedTraceSizeParameter1D<NQ(i), NQ(i)>());                    \
         break;
 
-        // outer loop case over modes
-#undef OPERATOR_M
-#define OPERATOR_M(r, i)                                                       \
-    case NM(i):                                                                \
-    {                                                                          \
-        switch (nq0)                                                           \
-        {                                                                      \
-            BOOST_PP_FOR_##r((NM(i), NM(i),                                    \
-               BOOST_PP_ADD(BOOST_PP_MUL(@NEKTAR_SWITCH_QMAX_MUL@, NM(i)),     \
-                         @NEKTAR_SWITCH_QMAX_ADD@)),                           \
-                             LEV2TEST1, LEV2UPDATE1, OPERATOR_Q)               \
-            default :                                                          \
-            {                                                                  \
-                WARNINGL0( m_warnOnceTemplate,                                 \
-                           "Executing nq = " + std::to_string(nq0) +           \
-                           " non-templated operator");                         \
-                m_warnOnceTemplate = true;                                     \
-                OPERATOR_DEF                                                   \
-            }                                                                  \
-            break;                                                             \
-        }                                                                      \
-    }                                                                          \
-    break;
-
-            // templated cases on equi-ordered modes and standard quad usage
-            // where quad order goes from mode order to 2(*mode order)
-    switch (nm0)
-       {
-            BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
-                         OPERATOR_M)
-       default:
-           {                                                            
-               WARNINGL0( m_warnOnceTemplate,                           
+        switch (nm0)
+        {
+            BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR_Q)
+            default:
+            {
+                WARNINGL0( m_warnOnceTemplate,
                            "Executing nm = " + std::to_string(nm0) +
-                           " non-templated operator"); 
-               m_warnOnceTemplate = true;                               
-               OPERATOR_DEF                                        
-           }                                                            
-           break;
+                           " non-templated operator");
+                m_warnOnceTemplate = true;
+                OPERATOR_DEF
+            }
+            break;
         }
     }
 
@@ -136,14 +108,14 @@
         inblock, outblock,                                                     \
         NonTemplatedTraceSizeParameter2D(m_nm[0], m_nm[1], m_nq[0], m_nq[1]));
 
-        // Inner loop case over quarature points Shape dependent
+        // Loop case over the point count, Shape dependent
 #if defined(SHAPE_TYPE_Quad)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         OperatorND<LibUtilities::@Shape@, true>(                               \
             inblock, outblock,                                                 \
-            TemplatedTraceSizeParameter2D<NM(i), NM(i), NQ(i), NQ(i)>());      \
+            TemplatedTraceSizeParameter2D<NQ(i), NQ(i), NQ(i), NQ(i)>());      \
         break;
 #elif defined(SHAPE_TYPE_Tri)|| defined(SHAPE_TYPE_NodalTri)
 #undef OPERATOR_Q
@@ -151,66 +123,40 @@
     case NQ(i):                                                                \
         OperatorND<LibUtilities::@Shape@, true>(                               \
             inblock, outblock,                                                 \
-            TemplatedTraceSizeParameter2D<NM(i), NM_M1(i), NQ(i), NQ(i)>());   \
+            TemplatedTraceSizeParameter2D<NQ(i), NQ_M1(i), NQ(i), NQ(i)>());   \
         break;
 #endif
 
-        // outer loop case over modes
-#undef OPERATOR_M
-#define OPERATOR_M(r, i)                                                       \
-    case NM(i):                                                                \
-    {                                                                          \
-        switch (nq0)                                                           \
-        {                                                                      \
-            BOOST_PP_FOR_##r((NM(i), NM(i),                                    \
-               BOOST_PP_ADD(BOOST_PP_MUL(@NEKTAR_SWITCH_QMAX_MUL@, NM(i)),     \
-                         @NEKTAR_SWITCH_QMAX_ADD@)),                           \
-                             LEV2TEST1, LEV2UPDATE1, OPERATOR_Q)               \
-            default :                                                          \
-            {                                                                  \
-                WARNINGL0( m_warnOnceTemplate,                                 \
-                           "Executing nq = " + std::to_string(nq0) +           \
-                           " non-templated operator");                         \
-                m_warnOnceTemplate = true;                                     \
-                OPERATOR_DEF                                                   \
-            }                                                                  \
-            break;                                                             \
-        }                                                                      \
-    }                                                                          \
-    break;
-
-        // templated cases on equi-ordered modes and standard quad
-        // usage where quad order goes from mode order to 2(*mode
-        // order) Note this will likely not work on cases wtih nquad,
-        // nquad+1 distributions
+        // templated cases on the standard point distributions, where the
+        // trace counts follow the volume counts. Note this will likely not
+        // work on cases with nquad, nquad+1 distributions
 #if defined(SHAPE_TYPE_Quad)
-        if ((nm0 == nm1) && (nq0 == nq1))
+        if ((nm0 == nm1) && (nq0 == nq1) && (nq0 == nm0))
 #elif defined(SHAPE_TYPE_Tri)|| defined(SHAPE_TYPE_NodalTri)
-        if ((nm0 == nm1 + 1) && (nq0 == nq1))
+        if ((nm0 == nm1 + 1) && (nq0 == nq1) && (nq0 == nm0))
 #endif
         {
             switch (nm0)
             {
-                BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
-                             OPERATOR_M)
+                BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR_Q)
                 default:
-                {                                                       
-                    WARNINGL0( m_warnOnceTemplate,                      
+                {
+                    WARNINGL0( m_warnOnceTemplate,
                            "Executing nm = " + std::to_string(nm0) +
-                           " non-templated operator"); 
-                    m_warnOnceTemplate = true;                          
-                    OPERATOR_DEF                           
-                }                                               
+                           " non-templated operator");
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF
+                }
                 break;
             }
         }
         else
         {
-            WARNINGL0( m_warnOnceTemplate,                              
+            WARNINGL0( m_warnOnceTemplate,
                            "Executing nm = " + std::to_string(nm0) +
-                           " non-templated operator"); 
-            m_warnOnceTemplate = true;                                  
-            OPERATOR_DEF                                           
+                           " non-templated operator");
+            m_warnOnceTemplate = true;
+            OPERATOR_DEF
         }
     }
     else
@@ -222,14 +168,14 @@
         inblock, outblock,                                                     \
         NonTemplatedTraceSizeParameter2D(m_nm[0], m_nm[1], m_nq[0], m_nq[1]));
 
-        // Inner loop case over quarature points Shape dependent
+        // Loop case over the point count, Shape dependent
 #if defined(SHAPE_TYPE_Quad)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         OperatorND<LibUtilities::@Shape@, false>(                              \
             inblock, outblock,                                                 \
-            TemplatedTraceSizeParameter2D<NM(i), NM(i), NQ(i), NQ(i)>());      \
+            TemplatedTraceSizeParameter2D<NQ(i), NQ(i), NQ(i), NQ(i)>());      \
         break;
 #elif defined(SHAPE_TYPE_Tri)|| defined(SHAPE_TYPE_NodalTri)
 #undef OPERATOR_Q
@@ -237,66 +183,40 @@
     case NQ(i):                                                                \
         OperatorND<LibUtilities::@Shape@, false>(                              \
             inblock, outblock,                                                 \
-            TemplatedTraceSizeParameter2D<NM(i), NM_M1(i), NQ(i), NQ(i)>());   \
+            TemplatedTraceSizeParameter2D<NQ(i), NQ_M1(i), NQ(i), NQ(i)>());   \
         break;
 #endif
 
-        // outer loop case over modes
-#undef OPERATOR_M
-#define OPERATOR_M(r, i)                                                       \
-    case NM(i):                                                                \
-    {                                                                          \
-        switch (nq0)                                                           \
-        {                                                                      \
-            BOOST_PP_FOR_##r((NM(i), NM(i),                                    \
-               BOOST_PP_ADD(BOOST_PP_MUL(@NEKTAR_SWITCH_QMAX_MUL@, NM(i)),     \
-                         @NEKTAR_SWITCH_QMAX_ADD@)),                           \
-                             LEV2TEST1, LEV2UPDATE1, OPERATOR_Q)               \
-            default :                                                          \
-            {                                                                  \
-                WARNINGL0( m_warnOnceTemplate,                                 \
-                           "Executing nq = " + std::to_string(nq0) +           \
-                           " non-templated operator");                         \
-                m_warnOnceTemplate = true;                                     \
-                OPERATOR_DEF                                                   \
-            }                                                                  \
-            break;                                                             \
-        }                                                                      \
-    }                                                                          \
-    break;
-
-        // templated cases on equi-ordered modes and standard quad
-        // usage where quad order goes from mode order to 2(*mode
-        // order) Note this will likely not work on cases wtih nquad,
-        // nquad+1 distributions
+        // templated cases on the standard point distributions, where the
+        // trace counts follow the volume counts. Note this will likely not
+        // work on cases with nquad, nquad+1 distributions
 #if defined(SHAPE_TYPE_Quad)
-        if ((nm0 == nm1) && (nq0 == nq1))
+        if ((nm0 == nm1) && (nq0 == nq1) && (nq0 == nm0))
 #elif defined(SHAPE_TYPE_Tri)|| defined(SHAPE_TYPE_NodalTri)
-        if ((nm0 == nm1 + 1) && (nq0 == nq1))
+        if ((nm0 == nm1 + 1) && (nq0 == nq1) && (nq0 == nm0))
 #endif
         {
             switch (nm0)
             {
-                BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
-                             OPERATOR_M)
+                BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR_Q)
                 default:
-                {                                                       
-                    WARNINGL0( m_warnOnceTemplate,                      
+                {
+                    WARNINGL0( m_warnOnceTemplate,
                            "Executing nm = " + std::to_string(nm0) +
-                           " non-templated operator"); 
-                    m_warnOnceTemplate = true;                          
-                    OPERATOR_DEF                           
-                }                                               
+                           " non-templated operator");
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF
+                }
                 break;
             }
         }
         else
         {
-            WARNINGL0( m_warnOnceTemplate,                              
+            WARNINGL0( m_warnOnceTemplate,
                            "Executing nm = " + std::to_string(nm0) +
-                           " non-templated operator"); 
-            m_warnOnceTemplate = true;                                  
-            OPERATOR_DEF                                           
+                           " non-templated operator");
+            m_warnOnceTemplate = true;
+            OPERATOR_DEF
         }
     }
 #else
@@ -322,14 +242,14 @@
                                          m_nq[1], m_nq[2], m_nq[3], m_nq[4],   \
                                          m_nq[5]));
 
-        // Inner loop case over quarature points Shape dependent
+        // Loop case over the point count, Shape dependent
 #if defined(SHAPE_TYPE_Hex)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         OperatorND<LibUtilities::@Shape@, true>(                               \
             inblock, outblock,                                                 \
-            TemplatedTraceSizeParameter3D<NM(i), NM(i), NM(i), NQ(i),          \
+            TemplatedTraceSizeParameter3D<NQ(i), NQ(i), NQ(i), NQ(i),          \
                                           NQ(i), NQ(i), NQ(i), NQ(i),          \
                                           NQ(i)>());                           \
         break;
@@ -340,7 +260,7 @@
     case NQ(i):                                                                \
         OperatorND<LibUtilities::@Shape@, true>(                               \
             inblock, outblock,                                                 \
-            TemplatedTraceSizeParameter3D<NM(i), NM(i), NM_M1(i), NQ(i),       \
+            TemplatedTraceSizeParameter3D<NQ(i), NQ(i), NQ_M1(i), NQ(i),       \
                                           NQ_M1(i), NQ(i), NQ_M1(i), NQ(i),    \
                                           NQ(i)>());                           \
         break;
@@ -350,72 +270,49 @@
     case NQ(i):                                                                \
         OperatorND<LibUtilities::@Shape@, true>(                               \
             inblock, outblock,                                                 \
-            TemplatedTraceSizeParameter3D<NM(i), NM_M1(i), NM_M1(i), NQ(i),    \
+            TemplatedTraceSizeParameter3D<NQ(i), NQ_M1(i), NQ_M1(i), NQ(i),    \
                                           NQ_M1(i), NQ(i), NQ_M1(i), NQ(i),    \
                                           NQ_M1(i)>());                        \
         break;
 #endif
 
-        // outer loop case over modes
-#undef OPERATOR_M
-#define OPERATOR_M(r, i)                                                       \
-    case NM(i):                                                                \
-    {                                                                          \
-        switch (nq00)                                                          \
-        {                                                                      \
-            BOOST_PP_FOR_##r((NM(i), NM(i),                                    \
-               BOOST_PP_ADD(BOOST_PP_MUL(@NEKTAR_SWITCH_QMAX_MUL@, NM(i)),     \
-                         @NEKTAR_SWITCH_QMAX_ADD@)),                           \
-                             LEV2TEST1, LEV2UPDATE1, OPERATOR_Q)               \
-            default :                                                          \
-            {                                                                  \
-                WARNINGL0( m_warnOnceTemplate,                                 \
-                           "Executing nq = " + std::to_string(nq00) +          \
-                           " non-templated operator");                         \
-                m_warnOnceTemplate = true;                                     \
-                OPERATOR_DEF                                                   \
-            }                                                                  \
-            break;                                                             \
-        }                                                                      \
-    }                                                                          \
-    break;
-
-        // templated cases on equi-ordered modes and standard quad usage
-        // where quad order goes from mode order to 2(*mode order)
+        // templated cases on the standard point distributions, where the
+        // trace counts follow the volume counts
 #if defined(SHAPE_TYPE_Hex)
         if ((nm0 == nm1) && (nm1 == nm2) && (nq00 == nq10) && (nq00 == nq20) &&
-            (nq00 == nq01) && (nq10 == nq11) && (nq20 == nq21))
+            (nq00 == nq01) && (nq10 == nq11) && (nq20 == nq21) &&
+            (nq00 == nm0))
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) ||           \
     defined(SHAPE_TYPE_Pyr)
         if ((nm0 == nm1) && (nm1 == nm2+1) && (nq00 == nq10) && (nq00 == nq20) &&
-            (nq00 == nq01+1) && (nq10 == nq11+1) && (nq20 == nq21))
+            (nq00 == nq01+1) && (nq10 == nq11+1) && (nq20 == nq21) &&
+            (nq00 == nm0))
 #elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
         if ((nm0 == nm1+1) && (nm1 == nm2) && (nq00 == nq10) &&
             (nq00 == nq20)  && (nq00 == nq01+1) && (nq10 == nq11+1) &&
-            (nq20 == nq21+1))
+            (nq20 == nq21+1) && (nq00 == nm0))
 #endif
         {
             switch (nm0)
             {
-                BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
-                             OPERATOR_M)
+                BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR_Q)
                 default:
-                {                                                       
-                    WARNINGL0( m_warnOnceTemplate,                      
+                {
+                    WARNINGL0( m_warnOnceTemplate,
                            "Executing nm = " + std::to_string(nm0) +
-                           " non-templated operator"); 
-                    m_warnOnceTemplate = true;                          
-                    OPERATOR_DEF                                   
-                }                                                       
+                           " non-templated operator");
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF
+                }
                 break;
             }
         }
         else
         {
-            WARNINGL0( m_warnOnceTemplate,                              
-                       "Executing - nm = " + std::to_string(nm0) +
-                       " non-templated operator"); 
-            m_warnOnceTemplate = true;                                  
+            WARNINGL0( m_warnOnceTemplate,
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator");
+            m_warnOnceTemplate = true;
             OPERATOR_DEF
         }
     }
@@ -430,14 +327,14 @@
                                          m_nq[1], m_nq[2], m_nq[3], m_nq[4],   \
                                          m_nq[5]));
 
-        // Inner loop case over quarature points Shape dependent
+        // Loop case over the point count, Shape dependent
 #if defined(SHAPE_TYPE_Hex)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
         OperatorND<LibUtilities::@Shape@, false>(                              \
             inblock, outblock,                                                 \
-            TemplatedTraceSizeParameter3D<NM(i), NM(i), NM(i), NQ(i),          \
+            TemplatedTraceSizeParameter3D<NQ(i), NQ(i), NQ(i), NQ(i),          \
                                           NQ(i), NQ(i), NQ(i), NQ(i),          \
                                           NQ(i)>());                           \
         break;
@@ -448,7 +345,7 @@
     case NQ(i):                                                                \
         OperatorND<LibUtilities::@Shape@, false>(                              \
             inblock, outblock,                                                 \
-            TemplatedTraceSizeParameter3D<NM(i), NM(i), NM_M1(i), NQ(i),       \
+            TemplatedTraceSizeParameter3D<NQ(i), NQ(i), NQ_M1(i), NQ(i),       \
                                           NQ_M1(i), NQ(i), NQ_M1(i), NQ(i),    \
                                           NQ(i)>());                           \
         break;
@@ -458,81 +355,49 @@
     case NQ(i):                                                                \
         OperatorND<LibUtilities::@Shape@, false>(                              \
             inblock, outblock,                                                 \
-            TemplatedTraceSizeParameter3D<NM(i), NM_M1(i), NM_M1(i), NQ(i),    \
+            TemplatedTraceSizeParameter3D<NQ(i), NQ_M1(i), NQ_M1(i), NQ(i),    \
                                           NQ_M1(i), NQ(i), NQ_M1(i), NQ(i),    \
                                           NQ_M1(i)>());                        \
         break;
 #endif
 
-        // outer loop case over modes
-#undef OPERATOR_M
-#define OPERATOR_M(r, i)                                                       \
-    case NM(i):                                                                \
-    {                                                                          \
-        switch (nq00)                                                          \
-        {                                                                      \
-            BOOST_PP_FOR_##r((NM(i), NM(i),                                    \
-               BOOST_PP_ADD(BOOST_PP_MUL(@NEKTAR_SWITCH_QMAX_MUL@, NM(i)),     \
-                         @NEKTAR_SWITCH_QMAX_ADD@)),                           \
-                             LEV2TEST1, LEV2UPDATE1, OPERATOR_Q)               \
-            default :                                                          \
-            {                                                                  \
-                WARNINGL0( m_warnOnceTemplate,                                 \
-                           "Executing nq = " + std::to_string(nq00) +          \
-                           " non-templated operator");                         \
-                m_warnOnceTemplate = true;                                     \
-                OPERATOR_DEF                                                   \
-            }                                                                  \
-            break;                                                             \
-        }                                                                      \
-    }                                                                          \
-    break;
-
-        // templated cases on equi-ordered modes and standard quad usage
-        // where quad order goes from mode order to 2(*mode order)
+        // templated cases on the standard point distributions, where the
+        // trace counts follow the volume counts
 #if defined(SHAPE_TYPE_Hex)
         if ((nm0 == nm1) && (nm1 == nm2) && (nq00 == nq10) && (nq00 == nq20) &&
-            (nq00 == nq01) && (nq10 == nq11) && (nq20 == nq21))
+            (nq00 == nq01) && (nq10 == nq11) && (nq20 == nq21) &&
+            (nq00 == nm0))
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) ||           \
     defined(SHAPE_TYPE_Pyr)
         if ((nm0 == nm1) && (nm1 == nm2+1) && (nq00 == nq10) && (nq00 == nq20) &&
-            (nq00 == nq01+1) && (nq10 == nq11+1) && (nq20 == nq21))
+            (nq00 == nq01+1) && (nq10 == nq11+1) && (nq20 == nq21) &&
+            (nq00 == nm0))
 #elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
         if ((nm0 == nm1+1) && (nm1 == nm2) && (nq00 == nq10) &&
-            (nq00 == nq20) && (nq00 == nq01+1) && (nq10 == nq11+1) &&
-            (nq20 == nq21+1))
+            (nq00 == nq20)  && (nq00 == nq01+1) && (nq10 == nq11+1) &&
+            (nq20 == nq21+1) && (nq00 == nm0))
 #endif
         {
             switch (nm0)
             {
-                BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
-                             OPERATOR_M)
+                BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR_Q)
                 default:
-                {                                                       
-                    WARNINGL0( m_warnOnceTemplate,                      
+                {
+                    WARNINGL0( m_warnOnceTemplate,
                            "Executing nm = " + std::to_string(nm0) +
-                           " non-templated operator"); 
-                    m_warnOnceTemplate = true;                          
-                    OPERATOR_DEF                                   
-                }                                                       
+                           " non-templated operator");
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF
+                }
                 break;
             }
         }
         else
         {
-            WARNINGL0( m_warnOnceTemplate,                              
-                       "Executing - nm = " + std::to_string(nm0) +
-                       " non-templated operator: "
-                       + std::to_string(nm0)  + ","
-                       + std::to_string(nm1) + ","
-                       + std::to_string(nm2) + ","
-                       + std::to_string(nq00) + ","
-                       + std::to_string(nq01) + ","
-                       + std::to_string(nq10) + ","
-                       + std::to_string(nq11) + ","
-                       + std::to_string(nq20) + ","
-                       + std::to_string(nq21)); 
-            m_warnOnceTemplate = true;                                  
+            WARNINGL0( m_warnOnceTemplate,
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator");
+            m_warnOnceTemplate = true;
             OPERATOR_DEF
         }
     }
