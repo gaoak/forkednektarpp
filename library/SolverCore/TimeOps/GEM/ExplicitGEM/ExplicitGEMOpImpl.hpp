@@ -54,7 +54,9 @@ public:
     {
         auto blockAttr =
             MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                this->m_expansionList);
+                this->m_expansionList,
+                Operators::Operator<TData>::GetDefaultInterleaveWidth(
+                    this->m_expansionList->GetSession()));
         unsigned int n =
             (this->m_variant == "Midpoint") ? this->m_order / 2 : this->m_order;
         for (unsigned int m = 0; m < n; ++m)

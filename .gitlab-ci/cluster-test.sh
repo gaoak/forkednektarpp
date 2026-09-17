@@ -157,7 +157,8 @@ if (( $error_code )); then
     echo "JOB FAILED" >> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
 
     # Clean-up build directory
-    rm -rf "$rootdir/${CI_PIPELINE_ID}/${JOBNAME}/nektar"
+    cd $rootdir
+    rm -rf "$rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/nektar"
     trigger_gate
     exit $error_code
 fi
@@ -165,6 +166,7 @@ fi
 echo "JOB SUCCEEDED" >> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
 
 # Clean-up build directory
-rm -rf "$rootdir/${CI_PIPELINE_ID}/${JOBNAME}/nektar"
+cd $rootdir
+rm -rf "$rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/nektar"
 trigger_gate
 exit $error_code

@@ -477,6 +477,10 @@ void UnsteadyADR::v_InitialiseFields()
 
     unsigned int numHomoModes = m_npointsZ; // Note read in EquationSystem.cpp
 
+    // Get interleave width
+    auto interleaveWidth =
+        Operator<double>::GetDefaultInterleaveWidth(m_session);
+
     // Switch on the projection type (Discontinuous or Continuous)
     switch (m_projectionType)
     {
@@ -486,10 +490,10 @@ void UnsteadyADR::v_InitialiseFields()
             // Create blocks.
             auto bAtr_phys =
                 MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-                    m_expansionLists[0]);
+                    m_expansionLists[0], interleaveWidth);
             auto bAtr_phys_trace =
                 MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-                    m_expansionLists[0]->GetTrace());
+                    m_expansionLists[0]->GetTrace(), interleaveWidth);
 
             if (m_advection)
             {
@@ -508,10 +512,10 @@ void UnsteadyADR::v_InitialiseFields()
             // Get block Attributes.
             auto bAtr_phys =
                 MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-                    m_expansionLists[0]);
+                    m_expansionLists[0], interleaveWidth);
             auto bAtr_coeff =
                 MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-                    m_expansionLists[0]);
+                    m_expansionLists[0], interleaveWidth);
 
             // Create fields.
             if (m_advection)

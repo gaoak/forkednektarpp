@@ -60,7 +60,9 @@ public:
 
         auto blockAttr =
             MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                this->m_expansionList);
+                this->m_expansionList,
+                Operators::Operator<TData>::GetDefaultInterleaveWidth(
+                    this->m_expansionList->GetSession()));
         for (unsigned int m = 0; m < this->m_nQuadPts; ++m)
         {
             this->m_SFint.push_back(

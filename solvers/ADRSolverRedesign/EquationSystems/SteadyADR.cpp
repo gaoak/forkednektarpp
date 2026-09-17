@@ -242,12 +242,16 @@ void SteadyADR::v_InitialiseFields()
     // Initialise solution "m_fields" via EquationSystem routine
     EquationSystem::v_InitialiseFields();
 
+    // Get interleave width
+    auto interleaveWidth =
+        Operator<double>::GetDefaultInterleaveWidth(m_session);
+
     // Get block Attributes.
     auto bAtr_phys = MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-        m_expansionLists[0]);
+        m_expansionLists[0], interleaveWidth);
     auto bAtr_coeff =
         MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            m_expansionLists[0]);
+            m_expansionLists[0], interleaveWidth);
 
     // Create fields.
     unsigned int nhomo = m_npointsZ; // Note read in EquationSystem.cpp
