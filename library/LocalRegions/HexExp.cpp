@@ -871,12 +871,9 @@ void HexExp::v_ReduceOrderCoeffs(int numMin,
     int nmodes0  = m_base[0]->GetNumModes();
     int nmodes1  = m_base[1]->GetNumModes();
     int nmodes2  = m_base[2]->GetNumModes();
-    int numMax   = nmodes0;
 
     Array<OneD, NekDouble> coeff(n_coeffs);
-    Array<OneD, NekDouble> coeff_tmp1(nmodes0 * nmodes1, 0.0);
     Array<OneD, NekDouble> coeff_tmp2(n_coeffs, 0.0);
-    Array<OneD, NekDouble> tmp, tmp2, tmp3, tmp4;
 
     Vmath::Vcopy(n_coeffs, inarray, 1, coeff_tmp2, 1);
 
@@ -899,22 +896,21 @@ void HexExp::v_ReduceOrderCoeffs(int numMin,
 
     Vmath::Zero(n_coeffs, coeff_tmp2, 1);
 
-    int cnt = 0, cnt2 = 0;
-
-    for (int u = 0; u < numMin + 1; ++u)
+    // Keep the modes below numMin in each direction. The orthogonal
+    // coefficients are stored with the first direction fastest, so mode
+    // (p, q, r) sits at (r * nmodes1 + q) * nmodes0 + p; the bounds keep an
+    // anisotropic expansion, or one with fewer modes than numMin, inside its
+    // own array.
+    for (int r = 0; r < std::min(numMin, nmodes2); ++r)
     {
-        for (int i = 0; i < numMin; ++i)
+        for (int q = 0; q < std::min(numMin, nmodes1); ++q)
         {
-            Vmath::Vcopy(numMin, tmp = coeff + cnt + cnt2, 1,
-                         tmp2 = coeff_tmp1 + cnt, 1);
-
-            cnt = i * numMax;
+            for (int p = 0; p < std::min(numMin, nmodes0); ++p)
+            {
+                const int mode   = (r * nmodes1 + q) * nmodes0 + p;
+                coeff_tmp2[mode] = coeff[mode];
+            }
         }
-
-        Vmath::Vcopy(nmodes0 * nmodes1, tmp3 = coeff_tmp1, 1,
-                     tmp4 = coeff_tmp2 + cnt2, 1);
-
-        cnt2 = u * nmodes0 * nmodes1;
     }
 
     LibUtilities::InterpCoeff3D(bortho0, bortho1, bortho2, coeff_tmp2, b0, b1,

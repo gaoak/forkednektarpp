@@ -229,10 +229,22 @@ protected:
 
     /// Shock sensor
     NekDouble m_mu0;
+    /// Floor under an element's mean density in the artificial viscosity,
+    /// taken as a fraction of the reference density rhoInf so that it follows
+    /// the units the session is written in.
+    NekDouble m_rhoAvMin;
     std::string m_shockCaptureType;
     std::string m_shockSensorType;
     std::string m_ducrosSensor;
     std::string m_smoothing;
+    /// Report the modal sensor as the energy ratio of Persson and Peraire
+    /// rather than its square root, the amplitude ratio; SOLVERINFO
+    /// ShockSensorRatio.
+    bool m_sensorEnergyRatio = false;
+    /// Take the interior artificial viscosity on boundary traces, and
+    /// exchange it across partitions, instead of averaging against zero;
+    /// SOLVERINFO ArtificialViscosityBndTrace.
+    bool m_avBndTraceInterior                       = false;
     MultiRegions::ContFieldSharedPtr m_C0ProjectExp = nullptr;
 
     /// h/p scaling

@@ -61,9 +61,38 @@ VariableConverter::VariableConverter(
     m_session->LoadParameter("mu", m_mu, 1.78e-05);
     m_oneOverT_star = (m_rhoInf * m_gasConstant) / m_pInf;
 
+    // Floor under an element's mean density in the artificial viscosity, which
+    // holds it away from zero so that a vanishing density cannot inflate the
+    // viscosity. It is a fraction of the reference density rather than an
+    // absolute number, so that it follows the units the session is written in:
+    // against an absolute floor, a session scaled so that its density fell
+    // below it would have every element raised to the same constant. The
+    // smooth maximum that applies the floor blends over a width of one floor,
+    // so its sharpness is the floor's reciprocal.
+    m_rhoAvMin = 1.0e-4 * m_rhoInf;
+
     // Parameters for sensor
     m_session->LoadParameter("Skappa", m_Skappa, -1.0);
     m_session->LoadParameter("Kappa", m_Kappa, 0.25);
+
+    // How the modal sensor reports the truncation error: the amplitude ratio
+    // sqrt(<q - q~, q - q~> / <q, q>), which this solver has always used, or
+    // the energy ratio <q - q~, q - q~> / <q, q> of Persson and Peraire,
+    // which is its square and so doubles s_e. The threshold's order
+    // correction, 4.25 log10(P), is applied either way, so Skappa and Kappa
+    // tuned for one definition need retuning for the other.
+    std::string sensorRatio;
+    m_session->LoadSolverInfo("ShockSensorRatio", sensorRatio, "Amplitude");
+    if (sensorRatio == "Energy")
+    {
+        m_sensorEnergyRatio = true;
+    }
+    else
+    {
+        ASSERTL0(sensorRatio == "Amplitude",
+                 "ShockSensorRatio must be Amplitude or Energy, not " +
+                     sensorRatio);
+    }
 
     m_hOverP = NullNekDouble1DArray;
 
@@ -87,6 +116,27 @@ VariableConverter::VariableConverter(
         if (m_ducrosSensor != "Off" || m_shockSensorType == "Dilatation")
         {
             m_flagCalcDivCurl = true;
+        }
+
+        // The artificial viscosity on a trace is the average of its two
+        // sides. A physical boundary has no exterior side: by default it is
+        // left at zero, so the trace carries half the interior value;
+        // Interior takes the interior value as it stands, and exchanges the
+        // values across partition boundaries as well, which the default does
+        // not, so that the result no longer depends on the partitioning.
+        std::string bndTrace;
+        m_session->LoadSolverInfo("ArtificialViscosityBndTrace", bndTrace,
+                                  "HalfInterior");
+        if (bndTrace == "Interior")
+        {
+            m_avBndTraceInterior = true;
+        }
+        else
+        {
+            ASSERTL0(bndTrace == "HalfInterior",
+                     "ArtificialViscosityBndTrace must be HalfInterior or "
+                     "Interior, not " +
+                         bndTrace);
         }
     }
     // Load smoothing type.
@@ -461,7 +511,8 @@ void VariableConverter::SetAv(
 
     // Set trace AV
     Array<OneD, NekDouble> muFwd(nTracePts, 0.0), muBwd(nTracePts, 0.0);
-    fields[0]->GetFwdBwdTracePhys(m_muAv, muFwd, muBwd, false, false, false);
+    fields[0]->GetFwdBwdTracePhys(m_muAv, muFwd, muBwd, m_avBndTraceInterior,
+                                  m_avBndTraceInterior, m_avBndTraceInterior);
     for (size_t p = 0; p < nTracePts; ++p)
     {
         m_muAvTrace[p] = 0.5 * (muFwd[p] + muBwd[p]);
@@ -596,7 +647,11 @@ void VariableConverter::GetSensor(
         numerator   = Vmath::Dot(nElmtPoints, difference, difference);
         denominator = Vmath::Dot(nElmtPoints, elmtPhys, elmtPhys);
 
-        NekDouble elmtSensor = sqrt(numerator / denominator);
+        NekDouble elmtSensor = numerator / denominator;
+        if (!m_sensorEnergyRatio)
+        {
+            elmtSensor = sqrt(elmtSensor);
+        }
         elmtSensor =
             log10(std::max(elmtSensor, NekConstants::kNekMachineEpsilon));
 
@@ -671,7 +726,7 @@ void VariableConverter::GetMuAv(
         NekDouble rhoAve =
             Vmath::Vsum(nElmtPoints, tmp = consVar[0] + physOffset, 1);
         rhoAve = rhoAve / nElmtPoints;
-        rhoAve = Smath::Smax(rhoAve, 1.0e-4, 1.0e+4);
+        rhoAve = Smath::Smax(rhoAve, m_rhoAvMin, 1.0 / m_rhoAvMin);
 
         // Scale sensor by coeff, h/p, and density
         LambdaElmt *= m_mu0 * m_hOverP[e] * rhoAve;
