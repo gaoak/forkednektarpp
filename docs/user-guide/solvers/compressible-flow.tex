@@ -391,7 +391,30 @@ Under this section it is possible to set the solver information.
     \begin{itemize}
       \item \inltt{C0} smooth the artificial viscosity to be a continuous field.
     \end{itemize}
+  \item \inltt{ShockSensorRatio} how the modal sensor measures the truncation error (see Sec.~\ref{subsec:modal-sensor}):
+    \begin{itemize}
+      \item \inltt{Amplitude} (default) $s_e$ is the logarithm of the amplitude ratio $\sqrt{\langle q - \tilde{q}, q - \tilde{q} \rangle / \langle q, q \rangle}$, the historical definition in this solver.
+      \item \inltt{Energy} $s_e$ is the logarithm of the energy ratio $\langle q - \tilde{q}, q - \tilde{q} \rangle / \langle q, q \rangle$ of Persson and Peraire, which is twice the amplitude value. The threshold $s_0 = s_\kappa - 4.25\log_{10}(p)$ is applied unchanged, so \inltt{Skappa} and \inltt{Kappa} tuned for \inltt{Amplitude} need retuning; the order-dependent part is the one the paper wrote for the energy ratio.
+    \end{itemize}
+  \item \inltt{ArtificialViscosityBndTrace} how the trace value of the \inltt{Physical} artificial viscosity is formed where a trace has only one element:
+    \begin{itemize}
+      \item \inltt{HalfInterior} (default) the missing side is taken as zero, so a physical boundary carries half the interior value; the same happens on partition boundaries.
+      \item \inltt{Interior} the interior value is used on physical boundaries, and the values are exchanged across partition boundaries.
+    \end{itemize}
 \end{itemize}
+
+The \inltt{Physical} artificial viscosity is
+$\mu_{av,e} = \mu_0 \, (h_e/p) \, \bar\rho_e \, \max_{e}(|\boldsymbol{u}|+c) \, \sigma_e$,
+in which $\bar\rho_e$ is the element's mean density, held above a floor of
+$10^{-4}\rho_\infty$ so that a vanishing density cannot inflate the viscosity.
+The floor is a fraction of \inltt{rhoInf} rather than an absolute number, so
+it follows the units the session is written in and the viscosity scales as a
+dynamic viscosity should. If you non-dimensionalise, set \inltt{rhoInf} to the
+reference density in the units the session itself uses; it is the same
+parameter the transport properties already read. Left at its default of
+$1.225$ while the session is scaled, the floor would sit far above the
+density and every element would be raised to it.
+
 
 \subsection*{Boundary conditions}
 In this section we can specify the boundary conditions for our problem.
@@ -656,7 +679,7 @@ As shock sensor, a modal resolution-based indicator is used
 \begin{equation}\label{eq:sensor}
   s_e = log_{10}\left( \frac{\langle q - \tilde{q}, q - \tilde{q}  \rangle}{\langle q, q \rangle} \right) ,
 \end{equation}
-where $\langle \cdot, \cdot \rangle$ represents a $L^2$ inner product, $q$ and $\tilde{q}$ are the full and truncated expansions of a state variable (in our case density)
+where $\langle \cdot, \cdot \rangle$ represents a $L^2$ inner product, $q$ and $\tilde{q}$ are the full and truncated expansions of a state variable (in our case density). This is the energy ratio of Persson and Peraire, selected with \inltt{ShockSensorRatio = Energy}; by default (\inltt{Amplitude}) the solver takes the logarithm of the square root of the ratio, so that $s_e$ is half the value above. The inner products are evaluated as sums of squares over the quadrature points of the element,
 \begin{equation}
   q(x) = \sum_{i=1}^{N(P)} \hat{q}_i \phi_i , \quad \tilde{q}(x) = \sum_{i=1}^{N(P-1)} \hat{q}_i \phi_i ,
 \end{equation}

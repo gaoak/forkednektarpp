@@ -21,6 +21,8 @@ v5.11.0
 - Set up physical normals once per field in DG boundary-condition setup and reuse normals across fields sharing expansions (!2699)
 - Fail with a clear error, at session-read and lookup time, when a boundary region is missing a condition for a variable (!2699)
 - Fix non-deterministic CWIPI coupling by zero-initialising received fields and refreshing stale extrapolation weights (!2690)
+- Fix ReduceOrderCoeffs: the tetrahedral truncation copied misaligned rows, the quadrilateral and hexahedral ones assumed isotropic order, and the triangular one only truncated one order (!2735)
+- Fix the artificial viscosity's density floor, which was an absolute number and so made the viscosity depend on the units a session was written in; it is now a fraction of rhoInf (!2735)
 - Add EntityResolver for scalable rendezvous-based shared entity discovery, and use it in parallel HDF5 mesh reading and DG trace communication (!2700)
 - Trace-frame expansions and parallel mesh orderings (!2712)
 
@@ -33,6 +35,10 @@ v5.11.0
 
 **AcousticSolver**
 - Added new BC: liner / perforated plate (!2678)
+
+**CompressibleFlowSolver**
+- Add ShockSensorRatio, to report the modal shock sensor as the Persson-Peraire energy ratio rather than its square root, and ArtificialViscosityBndTrace, to take the interior artificial viscosity on boundary and partition traces rather than half of it (!2735)
+- Add a three-dimensional tetrahedral shock-capturing test, the first in the solver, covering the modal sensor on tetrahedra (!2735)
 
 **Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)

@@ -190,9 +190,6 @@ protected:
     LOCAL_REGIONS_EXPORT void v_LaplacianMatrixOp_MatFree_Kernel(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &wsp) override;
-    LOCAL_REGIONS_EXPORT void v_ReduceOrderCoeffs(
-        int numMin, const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray) override;
     LOCAL_REGIONS_EXPORT void v_ComputeLaplacianMetric() override;
 
     LOCAL_REGIONS_EXPORT void v_SVVLaplacianFilter(
