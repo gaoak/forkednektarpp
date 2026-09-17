@@ -1599,12 +1599,9 @@ void StdQuadExp::v_ReduceOrderCoeffs(
 
     Array<OneD, NekDouble> coeff(n_coeffs);
     Array<OneD, NekDouble> coeff_tmp(n_coeffs, 0.0);
-    Array<OneD, NekDouble> tmp;
-    Array<OneD, NekDouble> tmp2;
 
     int nmodes0 = m_base[0]->GetNumModes();
     int nmodes1 = m_base[1]->GetNumModes();
-    int numMax  = nmodes0;
 
     Vmath::Vcopy(n_coeffs, inarray, 1, coeff_tmp, 1);
 
@@ -1623,12 +1620,16 @@ void StdQuadExp::v_ReduceOrderCoeffs(
 
     Vmath::Zero(n_coeffs, coeff_tmp, 1);
 
-    int cnt = 0;
-    for (int i = 0; i < numMin + 1; ++i)
+    // Keep the modes below numMin in each direction. The orthogonal
+    // coefficients are stored with the first direction fastest, so mode
+    // (p, q) sits at q * nmodes0 + p; the bounds keep an anisotropic
+    // expansion, or one with fewer modes than numMin, inside its own array.
+    for (int q = 0; q < std::min(numMin, nmodes1); ++q)
     {
-        Vmath::Vcopy(numMin, tmp = coeff + cnt, 1, tmp2 = coeff_tmp + cnt, 1);
-
-        cnt = i * numMax;
+        for (int p = 0; p < std::min(numMin, nmodes0); ++p)
+        {
+            coeff_tmp[q * nmodes0 + p] = coeff[q * nmodes0 + p];
+        }
     }
 
     LibUtilities::InterpCoeff2D(bortho0, bortho1, coeff_tmp, b0, b1, outarray);

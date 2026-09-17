@@ -1751,50 +1751,43 @@ void StdTriExp::v_ReduceOrderCoeffs(int numMin,
     int nquad0   = m_base[0]->GetNumPoints();
     int nquad1   = m_base[1]->GetNumPoints();
     Array<OneD, NekDouble> coeff(n_coeffs);
-    Array<OneD, NekDouble> coeff_tmp(n_coeffs, 0.0);
-    Array<OneD, NekDouble> tmp;
-    Array<OneD, NekDouble> tmp2;
     int nqtot = nquad0 * nquad1;
     Array<OneD, NekDouble> phys_tmp(nqtot, 0.0);
 
     int nmodes0 = m_base[0]->GetNumModes();
     int nmodes1 = m_base[1]->GetNumModes();
-    int numMin2 = nmodes0;
-    int i;
 
-    const LibUtilities::PointsKey Pkey0(nmodes0,
-                                        LibUtilities::eGaussLobattoLegendre);
-    const LibUtilities::PointsKey Pkey1(nmodes1,
-                                        LibUtilities::eGaussLobattoLegendre);
-
-    LibUtilities::BasisKey b0(m_base[0]->GetBasisType(), nmodes0, Pkey0);
-    LibUtilities::BasisKey b1(m_base[1]->GetBasisType(), nmodes1, Pkey1);
+    // The orthogonal expansion is built on this expansion's own points, so
+    // that the collapsed direction keeps its Gauss-Radau quadrature.
+    const LibUtilities::PointsKey Pkey0 = m_base[0]->GetPointsKey();
+    const LibUtilities::PointsKey Pkey1 = m_base[1]->GetPointsKey();
 
     LibUtilities::BasisKey bortho0(LibUtilities::eOrtho_A, nmodes0, Pkey0);
     LibUtilities::BasisKey bortho1(LibUtilities::eOrtho_B, nmodes1, Pkey1);
 
-    StdRegions::StdTriExpSharedPtr m_OrthoTriExp;
-    StdRegions::StdTriExpSharedPtr m_TriExp;
+    StdRegions::StdTriExpSharedPtr OrthoTriExp =
+        MemoryManager<StdRegions::StdTriExp>::AllocateSharedPtr(bortho0,
+                                                                bortho1);
 
-    m_TriExp = MemoryManager<StdRegions::StdTriExp>::AllocateSharedPtr(b0, b1);
-    m_OrthoTriExp = MemoryManager<StdRegions::StdTriExp>::AllocateSharedPtr(
-        bortho0, bortho1);
+    BwdTrans(inarray, phys_tmp);
+    OrthoTriExp->FwdTrans(phys_tmp, coeff);
 
-    m_TriExp->BwdTrans(inarray, phys_tmp);
-    m_OrthoTriExp->FwdTrans(phys_tmp, coeff);
-
-    for (i = 0; i < n_coeffs; i++)
+    // Remove every mode whose total degree reaches numMin. The orthogonal
+    // coefficients are stored with p outermost and q < nmodes1 - p, so the
+    // degree of a mode is p + q.
+    for (int p = 0, mode = 0; p < nmodes0; ++p)
     {
-        if (i == numMin)
+        for (int q = 0; q < nmodes1 - p; ++q, ++mode)
         {
-            coeff[i] = 0.0;
-            numMin += numMin2 - 1;
-            numMin2 -= 1.0;
+            if (p + q >= numMin)
+            {
+                coeff[mode] = 0.0;
+            }
         }
     }
 
-    m_OrthoTriExp->BwdTrans(coeff, phys_tmp);
-    m_TriExp->FwdTrans(phys_tmp, outarray);
+    OrthoTriExp->BwdTrans(coeff, phys_tmp);
+    FwdTrans(phys_tmp, outarray);
 }
 
 //---------------------------------------

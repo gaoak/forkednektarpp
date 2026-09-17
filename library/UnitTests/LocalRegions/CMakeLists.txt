@@ -2,6 +2,7 @@ SET(LocalRegionsUnitTestsSources
     main.cpp
     TestGetCoords.cpp
     TestReOrientFacePhysMap.cpp
+    TestReduceOrderCoeffs.cpp
 )
 
 ADD_DEFINITIONS(-DENABLE_NEKTAR_EXCEPTIONS)
