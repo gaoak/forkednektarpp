@@ -1,32 +1,33 @@
 # These tests can all likely be derived from the same cpp.in file
-# AssmbScatr             Nodepend - Seg, Quad, etc
-# BwdTran                Nodepend - Seg, Quad, etc
-# FwdTransBC             Nodepend - Seg, Quad, only 0D, 1D and 2D
-# Helmholtz              Nodepend - Seg, Quad, etc
-# Laplacian              Nodepend - Seg, Quad, etc
-# IdentityCoeff          Nodepend - Seg, Quad, etc
-# IdentityPhys           Nodepend - Seg, Quad, etc
-# IProductWRTBase        Nodepend - Seg, Quad, etc
-# IProductWRTDerivBase   Nodepend - Seg, Quad, etc
-# LinAdvDiffReaction     Nodepend - Seg, Quad, etc
-# Mass                   Nodepend - Seg, Quad, etc
-# MultiplyByElmtInvMass  Nodepend - Seg, Quad, etc
-# PhysDeriv              Nodepend - Seg, Quad, etc
-# Advection              Nodepend - Seg, Quad, etc
-# Divergence             Nodepend - Seg, Quad, etc
-# CurlCurl               Nodepend - Seg, Quad, etc
-# PhysInterp1D           Nodepend - Seg, Quad, etc
-# Expression             Nodepend - Helmholtz1D_Seg, etc.
+# AssmbScatr                      Nodepend - Seg, Quad, etc
+# BwdTrans                        Nodepend - Seg, Quad, etc
+# FwdTransBC                      Nodepend - Seg, Quad, only 0D, 1D and 2D
+# Helmholtz                       Nodepend - Seg, Quad, etc
+# Laplacian                       Nodepend - Seg, Quad, etc
+# IProductWRTBase                 Nodepend - Seg, Quad, etc
+# IProductWRTDerivBase            Nodepend - Seg, Quad, etc
+# LinAdvDiffReaction              Nodepend - Seg, Quad, etc
+# Mass                            Nodepend - Seg, Quad, etc
+# MultiplyByElmtInvMass           Nodepend - Seg, Quad, etc
+# PhysDeriv                       Nodepend - Seg, Quad, etc
+# Advection                       Nodepend - Seg, Quad, etc
+# Divergence                      Nodepend - Seg, Quad, etc
+# CurlCurl                        Nodepend - Seg, Quad, etc
+# PhysInterp1DScaled              Nodepend - Seg, Quad, etc
+# PhysGalerkinProject1DScaled     Nodepend - Seg, Quad, etc
+# AdvectionDealias                Nodepend - Seg, Quad, etc
+# PhysTraceExtract                Nodepend - Seg, Quad, etc
+# IProductWRTPhysTrace            Nodepend - Seg, Quad, etc
+# IProductWRTPhysNormalDerivTrace Nodepend - Seg, Quad, etc
+# Expression                      Nodepend - Helmholtz1D_Seg, etc.
 
-# These tests may require an individual  cpp.in file
+# Dirichlet                       only output - Nodepend - Helmholtz1D_Seg, etc.
+# Neumann                         only output - Nodepend - Helmholtz1D_Seg, etc.
+# Robin                           only output - Nodepend - Helmholtz2D_AllBCs
+# NOTE: TestRobin is not built - its executable and test lines are commented
+#       out below.
 
-# FwdTrans               create operator - DiagPrecon - Helmholtz1D_Seg, etc.
-# HelmSolve              create operator - DiagPrecon - Helmholtz1D_Seg, etc.
-# PoissonSolve           create operator - DiagPrecon - Poisson1D_Seg, etc.
-# LinearADRSolve         create operator - DiagPrecon - Helmholtz1D_Seg, etc.
-
-# Dirichlet              only output - Nodepend - Helmholtz1D_Seg, etc.
-# Neumann                only output - Nodepend - Helmholtz1D_Seg, etc.
+# Optimization                    backend/impl selection - optimization.xml
 
 SET(OPERATOR_UNIT_TEST_DEPENDS SolverCore)
 

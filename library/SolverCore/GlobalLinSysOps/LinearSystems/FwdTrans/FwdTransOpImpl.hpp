@@ -34,12 +34,9 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp"
 #include "SolverCore/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp"
 
 #include "LibUtilities/BasicUtils/Math/Math.hpp"
-
-#include "MultiRegions/DisContField.h"
 
 namespace Nektar::SolverCore::detail
 {
@@ -54,38 +51,15 @@ public:
                    const std::vector<std::string> &components)
         : FwdTransOp<TData>(expansionList, components)
     {
-        auto session = this->m_expansionList->GetSession();
-
-        if (session->DefinesSolverInfo("Projection"))
-        {
-            m_isDG = session->GetSolverInfo("Projection") == "DisContinuous";
-        }
-        else
-        {
-            m_isDG = std::dynamic_pointer_cast<MultiRegions::DisContField>(
-                         this->m_expansionList) != nullptr &&
-                     std::dynamic_pointer_cast<MultiRegions::ContField>(
-                         this->m_expansionList) == nullptr;
-        }
-
         this->m_IProdOp = Operators::IProductWRTBaseOp<TData>::Create(
             this->m_expansionList, components, ExecSpace::name);
-        if (!m_isDG)
-        {
-            this->m_ElmtOp = Operators::MassOp<TData>::Create(
-                this->m_expansionList, components, ExecSpace::name);
-            // Add default Dirichlet BC
-            this->m_DirBCOps.push_back(Operators::DirBndCondOp<TData>::Create(
-                this->m_expansionList, components, ExecSpace::name));
-            this->m_RobBCOp = Operators::RobBndCondOp<TData>::Create(
-                this->m_expansionList, components, ExecSpace::name);
-        }
-        else
-        {
-            m_MultiplyByElmtInvMassOp =
-                Operators::MultiplyByElmtInvMassOp<TData>::Create(
-                    this->m_expansionList, components, ExecSpace::name);
-        }
+        this->m_ElmtOp = Operators::MassOp<TData>::Create(
+            this->m_expansionList, components, ExecSpace::name);
+        // Add default Dirichlet BC
+        this->m_DirBCOps.push_back(Operators::DirBndCondOp<TData>::Create(
+            this->m_expansionList, components, ExecSpace::name));
+        this->m_RobBCOp = Operators::RobBndCondOp<TData>::Create(
+            this->m_expansionList, components, ExecSpace::name);
     }
 
     // className - for OperatorFactory
@@ -101,42 +75,30 @@ public:
     }
 
 protected:
-    bool m_isDG = false;
-    std::shared_ptr<Operators::MultiplyByElmtInvMassOp<TData>>
-        m_MultiplyByElmtInvMassOp;
-
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
                  LibUtilities::Field<TData, FieldState::Coeff> &out) override
     {
         // IProductWRT of RHS.
         this->m_IProdOp->Apply(in, this->m_rhs);
 
-        if (!m_isDG)
+        // Handle Dirichlet BCs.
+        for (auto &dirBCOp : this->m_DirBCOps)
         {
-            // Handle Dirichlet BCs.
-            for (auto &dirBCOp : this->m_DirBCOps)
-            {
-                dirBCOp->Apply(out);
-            }
-
-            // Apply Mass operator.
-            this->m_ElmtOp->Apply(out, this->m_tmp);
-
-            // Handle Robin BCs.
-            this->m_RobBCOp->Apply(out, this->m_tmp);
-
-            // Solve linear system.
-            Math::sub<ExecSpace>(this->m_rhs, this->m_tmp, this->m_rhs);
-            this->m_LinSolverOp->Apply(this->m_rhs, this->m_tmp);
-
-            // Add Dirichlet BCs.
-            Math::add<ExecSpace>(out, this->m_tmp, out);
+            dirBCOp->Apply(out);
         }
-        else
-        {
-            // DG forward transform is local: coeffs = M_e^{-1} (u, phi).
-            m_MultiplyByElmtInvMassOp->Apply(this->m_rhs, out);
-        }
+
+        // Apply Mass operator.
+        this->m_ElmtOp->Apply(out, this->m_tmp);
+
+        // Handle Robin BCs.
+        this->m_RobBCOp->Apply(out, this->m_tmp);
+
+        // Solve linear system.
+        Math::sub<ExecSpace>(this->m_rhs, this->m_tmp, this->m_rhs);
+        this->m_LinSolverOp->Apply(this->m_rhs, this->m_tmp);
+
+        // Add Dirichlet BCs.
+        Math::add<ExecSpace>(out, this->m_tmp, out);
     }
 };
 

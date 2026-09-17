@@ -43,11 +43,10 @@
 
 using namespace Nektar::SolverCore;
 
-template <typename TData, typename TExpList>
-class TestFwdTransBase : public TestLinearSolver<TData, TExpList>
+template <typename TData> class TestFwdTrans : public TestLinearSolver<TData>
 {
 public:
-    TestFwdTransBase() = default;
+    TestFwdTrans() = default;
 
     void SetTestCase()
     {
@@ -63,10 +62,7 @@ public:
         Array<OneD, TData> fce(numComp * nphys, 0.0);
         this->m_expList->GetCoords(x, y, z);
 
-        const bool useForcing = !std::is_same_v<TExpList, DisContField> &&
-                                this->m_session->DefinesFunction("Forcing");
-
-        if (useForcing)
+        if (this->m_session->DefinesFunction("Forcing"))
         {
             for (unsigned int n = 0; n < numComp; ++n)
             {
@@ -94,7 +90,7 @@ public:
                     for (unsigned int phys = 0; phys < block.GetNumData();
                          ++phys, ++cnt)
                     {
-                        if (useForcing)
+                        if (this->m_session->DefinesFunction("Forcing"))
                         {
                             inptr[cnt] = *(fceptr++);
                         }
@@ -161,19 +157,15 @@ public:
                 NektarSpaces::GetVectorWidth<TData>(execStr));
         }
 
-        auto op = FwdTransOp<TData>::Create(this->m_expList,
-                                            this->m_session->GetVariables());
-
-        if constexpr (!std::is_same_v<TExpList, DisContField>)
-        {
-            auto precon = PreconOp<TData>::Create(
-                this->m_expList, this->m_session->GetVariables(), "Diagonal");
-            auto linsolve = LinearSolverOp<TData>::Create(
-                this->m_expList, this->m_session->GetVariables(), method);
-            op->SetLinearSolver(linsolve);
-            op->SetPrecon(precon);
-            op->UpdatePrecon();
-        }
+        auto op     = FwdTransOp<TData>::Create(this->m_expList,
+                                                this->m_session->GetVariables());
+        auto precon = PreconOp<TData>::Create(
+            this->m_expList, this->m_session->GetVariables(), "Diagonal");
+        auto linsolve = LinearSolverOp<TData>::Create(
+            this->m_expList, this->m_session->GetVariables(), method);
+        op->SetLinearSolver(linsolve);
+        op->SetPrecon(precon);
+        op->UpdatePrecon();
         op->Apply(this->m_in, this->m_out);
     }
 
@@ -194,10 +186,9 @@ public:
         auto graph = SpatialDomains::MeshGraphIO::Read(this->m_session);
         for (unsigned int n = 0; n < numComp; ++n)
         {
-            auto expListVar = MemoryManager<TExpList>::AllocateSharedPtr(
+            auto expListVar = MemoryManager<ContField>::AllocateSharedPtr(
                 this->m_session, graph, variables[n % variables.size()], true,
-                std::is_same_v<TExpList, DisContField>,
-                Collections::eNoCollection);
+                false, Collections::eNoCollection);
             Array<OneD, TData> inphysVar    = inphys + n * nphys;
             Array<OneD, TData> outcoeffsVar = outcoeffs + n * ncoeffs;
             expListVar->FwdTrans(inphysVar, outcoeffsVar);
@@ -211,20 +202,10 @@ protected:
     unsigned int m_coordDim;
 };
 
-template <typename TData>
-class TestFwdTransCG : public TestFwdTransBase<TData, ContField>
-{
-};
-
-template <typename TData>
-class TestFwdTransDG : public TestFwdTransBase<TData, DisContField>
-{
-};
-
 // clang-format off
 #if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
 #define TESTFLOAT(type, filename)                                              \
-    class type##float : public TestFwdTransCG<float>                           \
+    class type##float : public TestFwdTrans<float>                             \
     {                                                                          \
     public:                                                                    \
         type##float()                                                          \
@@ -237,7 +218,7 @@ class TestFwdTransDG : public TestFwdTransBase<TData, DisContField>
 #endif
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 #define TESTDOUBLE(type, filename)                                             \
-    class type : public TestFwdTransCG<double>                                 \
+    class type : public TestFwdTrans<double>                                   \
     {                                                                          \
     public:                                                                    \
         type()                                                                 \
@@ -251,36 +232,6 @@ class TestFwdTransDG : public TestFwdTransBase<TData, DisContField>
 #define TEST(type, filename)                                                   \
     TESTFLOAT(type, filename)                                                  \
     TESTDOUBLE(type, filename)
-
-#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
-#define TESTDGFLOAT(type, filename)                                            \
-    class type##float : public TestFwdTransDG<float>                           \
-    {                                                                          \
-    public:                                                                    \
-        type##float()                                                          \
-        {                                                                      \
-            m_meshName = filename;                                             \
-        }                                                                      \
-    };
-#else
-#define TESTDGFLOAT(type, filename)
-#endif
-#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
-#define TESTDGDOUBLE(type, filename)                                           \
-    class type : public TestFwdTransDG<double>                                 \
-    {                                                                          \
-    public:                                                                    \
-        type()                                                                 \
-        {                                                                      \
-            m_meshName = filename;                                             \
-        }                                                                      \
-    };
-#else
-#define TESTDGDOUBLE(type, filename)
-#endif
-#define TESTDG(type, filename)                                                 \
-    TESTDGFLOAT(type, filename)                                                \
-    TESTDGDOUBLE(type, filename)
 // clang-format on
 
 TEST(Helmholtz1D_Seg, "run/Helmholtz1D_P8.xml")
@@ -300,38 +251,3 @@ TEST(Helmholtz3D_Pyr, "run/Helmholtz3D_Pyr_VarP.xml")
 
 TEST(Helmholtz3D_Tet, "run/Helmholtz3D_Tet_VarP.xml")
 TEST(Helmholtz3D_Tet_3C, "run/Helmholtz3D_Tet_3C.xml")
-
-TESTDG(DGSeg, "run/segment.xml")
-TESTDG(DGSegSEM, "run/line_sem.xml")
-TESTDG(DGSeg3D, "run/segment_3D.xml")
-
-TESTDG(DGQuad, "run/square.xml")
-TESTDG(DGQuad3D, "run/square_3D.xml")
-TESTDG(DGQuadVarP, "run/square_varp.xml")
-TESTDG(DGQuadSEM, "run/square_sem.xml")
-
-TESTDG(DGTri, "run/tri.xml")
-TESTDG(DGTri3D, "run/tri_3D.xml")
-TESTDG(DGTriVarP, "run/tri_varp.xml")
-TESTDG(DGTriNodal, "run/tri_nodal.xml")
-
-TESTDG(DGSquareAllElements, "run/square_all_elements.xml")
-
-TESTDG(DGHex, "run/hex.xml")
-TESTDG(DGHexVarP, "run/hex_varp.xml")
-TESTDG(DGHexSEM, "run/hex_sem.xml")
-
-TESTDG(DGPrism, "run/prism.xml")
-TESTDG(DGPrismVarP, "run/prism_varp.xml")
-TESTDG(DGPrismNodal, "run/prism_nodal.xml")
-
-TESTDG(DGPyr, "run/pyr.xml")
-TESTDG(DGPyrVarP, "run/pyr_varp.xml")
-
-TESTDG(DGTet, "run/tet.xml")
-TESTDG(DGTetVarP, "run/tet_varp.xml")
-TESTDG(DGTetNodal, "run/tet_nodal.xml")
-
-TESTDG(DGCubePrismHex, "run/cube_prismhex.xml")
-
-TESTDG(DGCubeAllElements, "run/cube_all_elements.xml")

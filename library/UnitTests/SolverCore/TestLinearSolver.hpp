@@ -35,8 +35,7 @@
 //
 // This carries only what those four tests use. In particular there is no
 // homogeneous (3DH1/3DH2) setup and no plain ExpList branch: every one of
-// them solves a global system on a ContField, or on a DisContField in the
-// discontinuous FwdTrans case.
+// them solves a global system on a ContField.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -46,8 +45,6 @@
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <MultiRegions/ContField.h>
-#include <MultiRegions/DisContField.h>
-#include <MultiRegions/ExpList.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
 #include <UnitTests/TestBoostSetup.hpp>
@@ -59,7 +56,6 @@
 #include <cstring>
 #include <iostream>
 #include <string>
-#include <type_traits>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
@@ -75,10 +71,6 @@ NEKTAR_TEST_GLOBAL_CONFIGURATION(Nektar::UnitTests::TestArgs::ExecAndImpl);
  * coefficient space output, and the coefficient space result the operator is
  * expected to produce.
  *
- * @tparam TExpList  the expansion list to build - ContField for the
- *                   continuous solves, DisContField for the discontinuous
- *                   forward transform.
- *
  * The fixture constructor (destructor) is called before (after) each call to
  * the BOOST_FIXTURE_TEST_CASE(<test name>, <fixture>) macro.
  *
@@ -86,7 +78,7 @@ NEKTAR_TEST_GLOBAL_CONFIGURATION(Nektar::UnitTests::TestArgs::ExecAndImpl);
  * details:
  * https://www.boost.org/doc/libs/1_82_0/libs/test/doc/html/boost_test/tests_organization/fixtures/case.html
  */
-template <typename TData, typename TExpList = ContField> class TestLinearSolver
+template <typename TData> class TestLinearSolver
 {
 public:
     TestLinearSolver()          = default;
@@ -241,19 +233,8 @@ protected:
     {
         auto graph = SpatialDomains::MeshGraphIO::Read(m_session);
 
-        if constexpr (std::is_same_v<TExpList, DisContField>)
-        {
-            const auto &vars      = m_session->GetVariables();
-            const std::string var = vars.empty() ? "DefaultVar" : vars[0];
-
-            m_expList = MemoryManager<DisContField>::AllocateSharedPtr(
-                m_session, graph, var, true, true, Collections::eNoCollection);
-        }
-        else
-        {
-            m_expList = MemoryManager<ContField>::AllocateSharedPtr(
-                m_session, graph, "u", true, false, Collections::eNoCollection);
-        }
+        m_expList = MemoryManager<ContField>::AllocateSharedPtr(
+            m_session, graph, "u", true, false, Collections::eNoCollection);
         m_expList->SetDataWarehouse();
     }
 
