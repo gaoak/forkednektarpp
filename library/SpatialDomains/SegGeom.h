@@ -77,13 +77,9 @@ public:
     SPATIAL_DOMAINS_EXPORT static StdRegions::Orientation GetEdgeOrientation(
         const SegGeom &edge1, const SegGeom &edge2);
 
-    inline SPATIAL_DOMAINS_EXPORT Curve *GetCurve()
+    void SetVertex(int i, PointGeom *vert)
     {
-        return m_curve;
-    }
-    inline SPATIAL_DOMAINS_EXPORT void SetCurve(Curve *curvePtr)
-    {
-        m_curve = curvePtr;
+        m_verts[i] = vert;
     }
 
 protected:
@@ -96,6 +92,8 @@ protected:
     GeomFactorsUniquePtr v_GenGeomFactors(
         LibUtilities::PointsKeyVector &keyTgt) override;
     void v_FillGeom() override;
+    std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>> v_MakeOrder(
+        int order, const LibUtilities::PointsType pType) override;
     void v_Reset(CurveMap &curvedEdges, CurveMap &curvedFaces) override;
     void v_Setup() override;
     NekDouble v_GetCoord(const int i,
@@ -104,10 +102,17 @@ protected:
     NekDouble v_FindDistance(const Array<OneD, const NekDouble> &xs,
                              Array<OneD, NekDouble> &xi) override;
 
-private:
-    /// Boolean indicating whether object owns the data
-    Curve *m_curve = nullptr;
+    inline int v_GetNumFacets() const override
+    {
+        return kNfacets;
+    }
 
+    inline Geometry *v_GetFacet(const int i) const override
+    {
+        return v_GetVertex(i);
+    }
+
+private:
     void SetUpXmap();
 };
 

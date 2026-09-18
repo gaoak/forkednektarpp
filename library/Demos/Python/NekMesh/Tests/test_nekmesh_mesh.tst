@@ -5,8 +5,12 @@
     <parameters>-v</parameters>
     <metrics>
         <metric type="pyunittest" id="1">
-            <function>testMeshConstructor</function>
-            <function>testMeshFieldAccess</function>
+            <function>testMeshDimensions</function>
+            <function>testMeshDimensionsAreTheGraphs</function>
+            <function>testMeshElementTags</function>
+            <function>testMeshElements</function>
+            <function>testMeshElementsBadDimension</function>
+            <function>testMeshVertices</function>
         </metric>
     </metrics>
 </test>

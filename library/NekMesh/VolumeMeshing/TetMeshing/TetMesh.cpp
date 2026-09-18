@@ -34,6 +34,7 @@
 
 #include <NekMesh/Octree/Octree.h>
 #include <NekMesh/VolumeMeshing/TetMeshing/TetMesh.h>
+#include <SpatialDomains/CADSystem/CADAssociation.h>
 
 using namespace std;
 namespace Nektar::NekMesh
@@ -41,44 +42,53 @@ namespace Nektar::NekMesh
 
 void TetMesh::Mesh()
 {
-    vector<std::array<NekDouble, 3>> voidPts = m_mesh->m_cad->GetVoidPoints();
+    auto &m_graph  = m_mesh->m_meshGraph;
+    Octree &octree = GetOctree(m_mesh, m_log);
+
+    vector<std::array<NekDouble, 3>> voidPts =
+        m_graph->GetCAD()->GetVoidPoints();
     tetgen = MemoryManager<TetGenInterface>::AllocateSharedPtr(voidPts);
 
-    map<int, NodeSharedPtr> IdToNode;
-    map<NodeSharedPtr, int> IdToNodeRev;
+    map<int, SpatialDomains::PointGeom *> IdToNode;
+    map<SpatialDomains::PointGeom *, int> IdToNodeRev;
 
     // build sequentially ordered maps of nodes that exist and there delta value
     // in the octree
     map<int, NekDouble> IdToDelta;
     vector<std::array<int, 3>> surfacetris;
-    NodeSet alreadyInSurface;
+    std::unordered_set<SpatialDomains::PointGeom *> alreadyInSurface;
 
     if (m_surface.size() == 0)
     {
-        m_surface = m_mesh->m_element[2];
+        for (auto &[geom, tag] : m_mesh->m_elementTags[2])
+        {
+            m_surface.push_back(geom);
+        }
     }
 
     int cnt = 0;
     for (int i = 0; i < m_surface.size(); i++)
     {
-        vector<NodeSharedPtr> n = m_surface[i]->GetVertexList();
         std::array<int, 3> tri;
-        for (int j = 0; j < n.size(); j++)
+        for (int j = 0; j < m_surface[i]->GetNumVerts(); j++)
         {
-            pair<NodeSet::iterator, bool> testIns =
-                alreadyInSurface.insert(n[j]);
+            SpatialDomains::PointGeom *n = m_surface[i]->GetVertex(j);
+            auto testIns                 = alreadyInSurface.insert(n);
 
             if (testIns.second)
             {
-                tri[j]            = cnt;
-                IdToNode[cnt]     = n[j];
-                IdToNodeRev[n[j]] = cnt;
-                IdToDelta[cnt]    = m_mesh->m_octree->Query(n[j]->GetLoc());
+                std::array<NekDouble, 3> loc;
+                n->GetCoords(loc[0], loc[1], loc[2]);
+
+                tri[j]         = cnt;
+                IdToNode[cnt]  = n;
+                IdToNodeRev[n] = cnt;
+                IdToDelta[cnt] = octree.Query(loc);
                 cnt++;
             }
             else
             {
-                tri[j] = IdToNodeRev[(*testIns.first)];
+                tri[j] = IdToNodeRev[n];
             }
         }
         surfacetris.push_back(tri);
@@ -98,7 +108,7 @@ void TetMesh::Mesh()
         tetgen->GetNewPoints(ctbefore, newp);
         for (int i = 0; i < newp.size(); i++)
         {
-            NekDouble d             = m_mesh->m_octree->Query(newp[i]);
+            NekDouble d             = octree.Query(newp[i]);
             IdToDelta[ctbefore + i] = d;
         }
         tetgen->RefineMesh(IdToDelta);
@@ -109,9 +119,21 @@ void TetMesh::Mesh()
     tetgen->GetNewPoints(ctbefore, newp);
     for (int i = 0; i < newp.size(); i++)
     {
-        NodeSharedPtr n = std::shared_ptr<Node>(
-            new Node(ctbefore + i, newp[i][0], newp[i][1], newp[i][2]));
+        int newId = NextPointId(m_graph);
+        auto pt = ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
+            3, newId, newp[i][0], newp[i][1], newp[i][2]);
+
+        SpatialDomains::PointGeom *n = pt.get();
+        m_graph->AddGeom<SpatialDomains::PointGeom>(newId, std::move(pt));
+
         IdToNode[ctbefore + i] = n;
+    }
+
+    // initial ids coming from the surface meshing
+    std::unordered_set<int> naiveTriIDs;
+    for (int i = 0; i < m_surface.size(); i++)
+    {
+        naiveTriIDs.insert(m_surface[i]->GetGlobalID());
     }
 
     m_tetconnect = tetgen->Extract();
@@ -119,16 +141,16 @@ void TetMesh::Mesh()
     // create tets
     for (int i = 0; i < m_tetconnect.size(); i++)
     {
-        vector<NodeSharedPtr> n = {
+        vector<SpatialDomains::PointGeom *> n = {
             IdToNode[m_tetconnect[i][0]], IdToNode[m_tetconnect[i][1]],
             IdToNode[m_tetconnect[i][2]], IdToNode[m_tetconnect[i][3]]};
         ElmtConfig conf(LibUtilities::eTetrahedron, 1, false, false);
-        vector<int> tags;
-        tags.push_back(m_id);
-        ElementSharedPtr E = GetElementFactory().CreateInstance(
-            LibUtilities::eTetrahedron, conf, n, tags);
 
-        m_mesh->m_element[3].push_back(E);
+        SpatialDomains::Geometry *E = GetElementFactory().CreateInstance(
+            LibUtilities::eTetrahedron, n, m_graph, m_mesh->m_edgeSet,
+            m_mesh->m_faceSet, conf, nullptr, nullptr, &naiveTriIDs, nullptr);
+
+        m_mesh->m_elementTags[3][E] = m_id;
     }
 
     m_log(VERBOSE) << "  Volume meshing complete: " << m_tetconnect.size()

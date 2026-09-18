@@ -59,14 +59,10 @@ InputVtk::~InputVtk()
 }
 
 /**
- * Gmsh file contains a list of nodes and their coordinates, along with
- * a list of elements and those nodes which define them. We read in and
- * store the list of nodes in #m_node and store the list of elements in
- * #m_element. Each new element is supplied with a list of entries from
- * #m_node which defines the element. Finally some mesh statistics are
- * printed.
- *
- * @param   pFilename           Filename of Gmsh file to read.
+ * Reads the points and the polygon, strip and line cells of a legacy VTK
+ * PolyData file, creating a PointGeom for each point and a linear element for
+ * each cell. Only linear triangles and segments are supported, which is all
+ * the three cell arrays we read can hold.
  */
 void InputVtk::Process()
 {
@@ -105,26 +101,34 @@ void InputVtk::Process()
 
     double p[3];
 
+    // Keep track of spaceDim as we read the points, retro-fitting the coordim
+    // of those already created whenever it grows.
+    int spaceDim = 0;
+
     for (int i = 0; i < vtkPoints->GetNumberOfPoints(); ++i)
     {
         vtkPoints->GetPoint(i, p);
 
-        if ((p[0] * p[0]) > 0.000001 && m_mesh->m_spaceDim < 1)
+        if ((p[0] * p[0]) > 0.000001 && spaceDim < 1)
         {
-            m_mesh->m_spaceDim = 1;
+            spaceDim = 1;
+            UpdateCoordim(m_mesh->m_meshGraph, i, spaceDim);
         }
-        if ((p[1] * p[1]) > 0.000001 && m_mesh->m_spaceDim < 2)
+        if ((p[1] * p[1]) > 0.000001 && spaceDim < 2)
         {
-            m_mesh->m_spaceDim = 2;
+            spaceDim = 2;
+            UpdateCoordim(m_mesh->m_meshGraph, i, spaceDim);
         }
-        if ((p[2] * p[2]) > 0.000001 && m_mesh->m_spaceDim < 3)
+        if ((p[2] * p[2]) > 0.000001 && spaceDim < 3)
         {
-            m_mesh->m_spaceDim = 3;
+            spaceDim = 3;
+            UpdateCoordim(m_mesh->m_meshGraph, i, spaceDim);
         }
 
-        m_mesh->m_node.push_back(
-            std::shared_ptr<Node>(new Node(i, p[0], p[1], p[2])));
+        m_mesh->m_meshGraph->CreatePointGeom(spaceDim, i, p[0], p[1], p[2]);
     }
+
+    m_mesh->m_meshGraph->SetSpaceDimension(spaceDim);
 
     for (int c = 0; c < numCellTypes; ++c)
     {
@@ -133,37 +137,36 @@ void InputVtk::Process()
         {
             for (int j = 0; j < npts - vtkNumPoints[c] + 1; ++j)
             {
-                // Create element tags
-                vector<int> tags;
-                tags.push_back(0);               // composite
-                tags.push_back(vtkCellTypes[c]); // element type
-
                 // Read element node list
-                vector<NodeSharedPtr> nodeList;
+                std::vector<SpatialDomains::PointGeom *> nodeList;
                 for (int k = j; k < j + vtkNumPoints[c]; ++k)
                 {
-                    nodeList.push_back(m_mesh->m_node[pts[k]]);
+                    nodeList.push_back(
+                        m_mesh->m_meshGraph->GetPointGeom(pts[k]));
                 }
 
                 // Create element
                 ElmtConfig conf(vtkCellTypes[c], 1, false, false);
-                ElementSharedPtr E = GetElementFactory().CreateInstance(
-                    vtkCellTypes[c], conf, nodeList, tags);
+                SpatialDomains::Geometry *element =
+                    GetElementFactory().CreateInstance(
+                        vtkCellTypes[c], nodeList, m_mesh->m_meshGraph,
+                        m_mesh->m_edgeSet, m_mesh->m_faceSet, conf, nullptr,
+                        nullptr, nullptr, nullptr);
 
                 // Determine mesh expansion dimension
-                if (E->GetDim() > m_mesh->m_expDim)
+                int shapeDim = LibUtilities::ShapeTypeDimMap[vtkCellTypes[c]];
+                if (shapeDim > m_mesh->m_meshGraph->GetMeshDimension())
                 {
-                    m_mesh->m_expDim = E->GetDim();
+                    m_mesh->m_meshGraph->SetMeshDimension(shapeDim);
                 }
-                m_mesh->m_element[E->GetDim()].push_back(E);
+                m_mesh->m_elementTags[shapeDim][element] = 0;
             }
         }
     }
 
-    ProcessVertices();
-    ProcessEdges();
-    ProcessFaces();
     ProcessElements();
     ProcessComposites();
+
+    PrintSummary();
 }
 } // namespace Nektar::NekMesh

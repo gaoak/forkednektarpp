@@ -39,6 +39,7 @@
 #include <LibUtilities/Python/NekPyConfig.hpp>
 
 #include <functional>
+#include <memory>
 #include <type_traits>
 #include <utility>
 
@@ -124,12 +125,21 @@ template <typename tFac> class NekFactory_Register;
  *   global namespace of the current module. This then ties the capsule to the
  *   lifetime of the module.
  */
-template <template <typename, typename, typename...> typename tFac,
-          typename tBase, typename tKey, typename... tParam>
-class NekFactory_Register<tFac<tKey, tBase, tParam...>>
+template <template <typename, typename, typename, typename...> typename tFac,
+          typename tKey, typename tBase, typename tBasePtr, typename... tParam>
+class NekFactory_Register<tFac<tKey, tBase, tBasePtr, tParam...>>
 {
+    // NekFactoryBase carries the type it stores as its third parameter, and
+    // NekFactory is an alias that fixes it to std::shared_ptr<tBase>. The
+    // creator built below hands back a shared pointer, so only the latter can
+    // be registered from Python.
+    static_assert(std::is_same_v<tBasePtr, std::shared_ptr<tBase>>,
+                  "Only factories storing std::shared_ptr<tBase> can have "
+                  "creators registered from Python.");
+
 public:
-    NekFactory_Register(tFac<tKey, tBase, tParam...> &fac) : m_fac(fac)
+    NekFactory_Register(tFac<tKey, tBase, tBasePtr, tParam...> &fac)
+        : m_fac(fac)
     {
     }
 
@@ -179,7 +189,7 @@ private:
     }
 
     /// Reference to the NekFactory.
-    tFac<tKey, tBase, tParam...> &m_fac;
+    tFac<tKey, tBase, tBasePtr, tParam...> &m_fac;
 };
 
 #endif

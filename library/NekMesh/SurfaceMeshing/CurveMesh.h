@@ -35,18 +35,33 @@
 #ifndef NEKTAR_MESHUTILS_SURFACEMESHING_CURVEMESH_H
 #define NEKTAR_MESHUTILS_SURFACEMESHING_CURVEMESH_H
 
-#include <NekMesh/CADSystem/CADCurve.h>
-#include <NekMesh/CADSystem/CADVert.h>
 #include <NekMesh/MeshElements/Mesh.h>
+#include <SpatialDomains/CADSystem/CADCurve.h>
+#include <SpatialDomains/CADSystem/CADVert.h>
 
 #include <LibUtilities/Interpreter/Interpreter.h>
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
+#include <SpatialDomains/CADSystem/CADAssociation.h>
 
 namespace Nektar::NekMesh
 {
 
 class CurveMesh;
 typedef std::shared_ptr<CurveMesh> CurveMeshSharedPtr;
+
+/**
+ * @brief The mesh vertex sitting on each CAD vertex, by CAD vertex id.
+ *
+ * Curves meeting at a CAD vertex have to share the mesh vertex there or their
+ * curve meshes come out disconnected, and the MeshGraph's CAD association
+ * runs the other way -- from mesh entity to CAD object -- so it cannot answer
+ * the question. This is shared by all the CurveMesh instances the surface and
+ * 2D generators create, which is why it cannot simply be a member of one.
+ */
+struct CADVertPoints
+{
+    std::unordered_map<int, SpatialDomains::PointGeom *> points;
+};
 
 /**
  * @brief class for meshing individual curves (1d meshing)
@@ -63,14 +78,15 @@ public:
         : m_id(id), m_mesh(m), m_log(log)
     {
         m_blID     = m_bl.DefineFunction("x y z", expr);
-        m_cadcurve = m_mesh->m_cad->GetCurve(m_id);
+        m_cadcurve = m_mesh->m_meshGraph->GetCAD()->GetCurve(m_id);
         m_log.SetPrefix("CurveMesh");
     }
 
-    CurveMesh(int id, MeshSharedPtr m, std::vector<NodeSharedPtr> ns, Logger l)
+    CurveMesh(int id, MeshSharedPtr m,
+              std::vector<SpatialDomains::PointGeom *> ns, Logger l)
         : m_id(id), m_mesh(m), m_meshpoints(ns), m_log(l)
     {
-        m_cadcurve = m_mesh->m_cad->GetCurve(m_id);
+        m_cadcurve = m_mesh->m_meshGraph->GetCAD()->GetCurve(m_id);
         m_log.SetPrefix("CurveMesh");
     }
 
@@ -87,7 +103,7 @@ public:
     /**
      * @brief get id of first node
      */
-    NodeSharedPtr GetFirstPoint()
+    SpatialDomains::PointGeom *GetFirstPoint()
     {
         return m_meshpoints[0];
     }
@@ -95,7 +111,7 @@ public:
     /**
      * @brief get id of last node
      */
-    NodeSharedPtr GetLastPoint()
+    SpatialDomains::PointGeom *GetLastPoint()
     {
         return m_meshpoints.back();
     }
@@ -103,12 +119,12 @@ public:
     /**
      * @brief get list of mesh nodes
      */
-    std::vector<NodeSharedPtr> GetMeshPoints()
+    std::vector<SpatialDomains::PointGeom *> GetMeshPoints()
     {
         return m_meshpoints;
     }
 
-    std::vector<EdgeSharedPtr> GetMeshEdges()
+    std::vector<SpatialDomains::SegGeom *> GetMeshEdges()
     {
         return m_meshedges;
     }
@@ -143,6 +159,13 @@ public:
 
 private:
     /**
+     * @brief get the mesh vertex sitting on a CAD vertex, creating it on first
+     * use so that curves meeting there share it
+     */
+    SpatialDomains::PointGeom *GetOrCreateCADVertPoint(
+        SpatialDomains::CADVertSharedPtr cadVert);
+
+    /**
      * @brief get node spacing sampling function
      */
     void GetSampleFunction();
@@ -163,7 +186,7 @@ private:
     NekDouble EvaluatePS(NekDouble s);
 
     /// CAD curve
-    CADCurveSharedPtr m_cadcurve;
+    SpatialDomains::CADCurveSharedPtr m_cadcurve;
     /// length of the curve in real space
     NekDouble m_curvelength;
     /// number of sampling points used in algorithm
@@ -184,13 +207,13 @@ private:
     /// paramteric coordiates of the mesh nodes
     std::vector<NekDouble> meshsvalue;
     /// list of mesh edges in the curvemesh
-    std::vector<EdgeSharedPtr> m_meshedges;
+    std::vector<SpatialDomains::SegGeom *> m_meshedges;
     /// id of the curvemesh
     int m_id;
     ///
     MeshSharedPtr m_mesh;
     /// ids of the mesh nodes
-    std::vector<NodeSharedPtr> m_meshpoints;
+    std::vector<SpatialDomains::PointGeom *> m_meshpoints;
     LibUtilities::Interpreter m_bl;
     int m_blID;
     /// offset of second point at each end

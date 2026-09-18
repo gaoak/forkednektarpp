@@ -63,6 +63,11 @@ public:
     SPATIAL_DOMAINS_EXPORT TriGeom(const int id,
                                    std::array<SegGeom *, kNedges> edges,
                                    Curve *curve = nullptr);
+    SPATIAL_DOMAINS_EXPORT TriGeom(const int id,
+                                   std::array<SegGeom *, kNedges> edges,
+                                   std::array<PointGeom *, kNedges> verts,
+                                   bool skipSetUp = false,
+                                   Curve *curve   = nullptr);
     SPATIAL_DOMAINS_EXPORT ~TriGeom() override = default;
 
     /// Get the orientation of face1.
@@ -75,6 +80,15 @@ public:
         std::array<PointGeom *, kNedges> face2, bool doRot, int dir,
         NekDouble angle, NekDouble tol);
 
+    void SetEdge(int i, SegGeom *edge)
+    {
+        m_edges[i] = edge;
+    }
+    void SetVertex(int i, PointGeom *vert)
+    {
+        m_verts[i] = vert;
+    }
+
 protected:
     SPATIAL_DOMAINS_EXPORT NekDouble v_GetCoord(
         const int i, const Array<OneD, const NekDouble> &Lcoord) override;
@@ -82,11 +96,14 @@ protected:
     GeomFactorsUniquePtr v_GenGeomFactors(
         LibUtilities::PointsKeyVector &keyTgt) override;
     SPATIAL_DOMAINS_EXPORT void v_FillGeom() override;
+    SPATIAL_DOMAINS_EXPORT std::pair<CurveUniquePtr,
+                                     std::vector<PointGeomUniquePtr>>
+    v_MakeOrder(int order, const LibUtilities::PointsType pTypes) override;
     SPATIAL_DOMAINS_EXPORT int v_GetDir(const int faceidx,
                                         const int facedir) const override;
     SPATIAL_DOMAINS_EXPORT void v_Reset(CurveMap &curvedEdges,
                                         CurveMap &curvedFaces) override;
-
+    SPATIAL_DOMAINS_EXPORT void v_ResetLite() override;
     SPATIAL_DOMAINS_EXPORT void v_Setup() override;
 
     int v_AllLeftCheck(const Array<OneD, const NekDouble> &gloCoord) override;
@@ -99,6 +116,16 @@ protected:
     inline int v_GetNumEdges() const final
     {
         return kNedges;
+    }
+
+    inline int v_GetNumFacets() const final
+    {
+        return kNfacets;
+    }
+
+    inline Geometry *v_GetFacet(const int i) const final
+    {
+        return v_GetEdge(i);
     }
 
     inline PointGeom *v_GetVertex(const int i) const final

@@ -70,6 +70,47 @@ public:
     void BoundaryLayer3D();
     /// Write mesh to output file.
     void Process() override;
+
+private:
+    // Consolidate geometry IDs. reorCurves used for 1D & 2D, and so goes
+    // unread for the volume instantiations; firstKey used for subsequent shape
+    // types in 2D & 3D.
+    template <typename T>
+    int consolidateIDs(
+        int firstKey                                          = 0,
+        [[maybe_unused]] SpatialDomains::CurveMap *reorCurves = nullptr)
+    {
+        auto &graph = m_mesh->m_meshGraph;
+        SpatialDomains::GeomMap<T> reorGeoms;
+        int newKey = firstKey;
+        for (auto [oldKey, rawPtr] : graph->GetGeomMap<T>())
+        {
+            rawPtr->SetGlobalID(newKey);
+            reorGeoms[newKey] = graph->ExtractGeom<T>(oldKey);
+            if constexpr (std::is_same_v<T, SpatialDomains::SegGeom>)
+            {
+                auto it = graph->GetCurvedEdges().find(oldKey);
+                if (it != graph->GetCurvedEdges().end())
+                {
+                    it->second->m_curveID = newKey;
+                    (*reorCurves)[newKey] = std::move(it->second);
+                }
+            }
+            else if constexpr (std::is_same_v<T, SpatialDomains::TriGeom> ||
+                               std::is_same_v<T, SpatialDomains::QuadGeom>)
+            {
+                auto it = graph->GetCurvedFaces().find(oldKey);
+                if (it != graph->GetCurvedFaces().end())
+                {
+                    it->second->m_curveID = newKey;
+                    (*reorCurves)[newKey] = std::move(it->second);
+                }
+            }
+            newKey++;
+        }
+        graph->SetGeomMap<T>(std::move(reorGeoms));
+        return newKey;
+    }
 };
 } // namespace Nektar::NekMesh
 

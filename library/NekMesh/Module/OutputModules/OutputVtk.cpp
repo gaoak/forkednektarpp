@@ -61,40 +61,28 @@ OutputVtk::~OutputVtk()
 {
 }
 
-int OutputVtk::GetVtkCellType(std::string pType)
+int OutputVtk::GetVtkCellType(LibUtilities::ShapeType pType)
 {
-    if (pType == "S")
+    switch (pType)
     {
-        return VTK_LINE;
-    }
-    else if (pType == "T")
-    {
-        return VTK_TRIANGLE;
-    }
-    else if (pType == "Q")
-    {
-        return VTK_QUAD;
-    }
-    else if (pType == "A")
-    {
-        return VTK_TETRA;
-    }
-    else if (pType == "P")
-    {
-        return VTK_PYRAMID;
-    }
-    else if (pType == "R")
-    {
-        return VTK_WEDGE;
-    }
-    else if (pType == "H")
-    {
-        return VTK_HEXAHEDRON;
-    }
-    else
-    {
-        ASSERTL0(false, "Element type not supported.");
-        return 0;
+        case LibUtilities::eSegment:
+            return VTK_LINE;
+        case LibUtilities::eTriangle:
+            return VTK_TRIANGLE;
+        case LibUtilities::eQuadrilateral:
+            return VTK_QUAD;
+        case LibUtilities::eTetrahedron:
+            return VTK_TETRA;
+        case LibUtilities::ePyramid:
+            return VTK_PYRAMID;
+        case LibUtilities::ePrism:
+            return VTK_WEDGE;
+        case LibUtilities::eHexahedron:
+            return VTK_HEXAHEDRON;
+        default:
+            m_log(FATAL) << "Element type " << LibUtilities::ShapeTypeMap[pType]
+                         << " is not supported by the VTK writer." << endl;
+            return 0;
     }
 }
 
@@ -114,29 +102,49 @@ void OutputVtk::Process()
     vtkSmartPointer<vtkPoints> vtkMeshPoints =
         vtkSmartPointer<vtkPoints>::New();
 
-    std::set<NodeSharedPtr> tmp(m_mesh->m_vertexSet.begin(),
-                                m_mesh->m_vertexSet.end());
+    // VTK indexes points by position in its own array, so the mesh's global
+    // ids -- which need be neither contiguous nor start at zero -- have to be
+    // mapped rather than used directly. The geometry map is ordered by id, so
+    // the resulting point order is deterministic.
+    std::unordered_map<int, vtkIdType> ptIdMap;
 
-    for (auto &n : tmp)
+    for (auto &[id, vert] :
+         m_mesh->m_meshGraph->GetGeomMap<SpatialDomains::PointGeom>())
     {
-        vtkMeshPoints->InsertPoint(n->m_id, n->m_x, n->m_y, n->m_z);
+        ptIdMap[id] =
+            vtkMeshPoints->InsertNextPoint((*vert)[0], (*vert)[1], (*vert)[2]);
     }
 
-    vtkIdType p[8];
-    vector<ElementSharedPtr> &elmt = m_mesh->m_element[m_mesh->m_expDim];
-    for (int i = 0; i < elmt.size(); ++i)
+    // Write the elements out in a deterministic order: the tag map is keyed on
+    // pointers, whose iteration order varies between runs.
+    std::vector<SpatialDomains::Geometry *> elmt;
+    for (auto &entry :
+         m_mesh->m_elementTags[m_mesh->m_meshGraph->GetMeshDimension()])
     {
-        int vertexCount = elmt[i]->GetVertexCount();
+        elmt.push_back(entry.first);
+    }
+    std::sort(elmt.begin(), elmt.end(),
+              [](SpatialDomains::Geometry *a, SpatialDomains::Geometry *b) {
+                  return std::make_pair(static_cast<int>(a->GetShapeType()),
+                                        a->GetGlobalID()) <
+                         std::make_pair(static_cast<int>(b->GetShapeType()),
+                                        b->GetGlobalID());
+              });
+
+    vtkIdType p[8];
+    for (auto &el : elmt)
+    {
+        int vertexCount = el->GetNumVerts();
         for (int j = 0; j < vertexCount; ++j)
         {
-            p[j] = elmt[i]->GetVertex(j)->m_id;
+            p[j] = ptIdMap[el->GetVertex(j)->GetGlobalID()];
         }
         // Adjust vertex order to the vtk convention
-        if (elmt[i]->GetTag() == "R")
+        if (el->GetShapeType() == LibUtilities::ePrism)
         {
             std::swap(p[2], p[4]);
         }
-        vtkMesh->InsertNextCell(GetVtkCellType(elmt[i]->GetTag()), vertexCount,
+        vtkMesh->InsertNextCell(GetVtkCellType(el->GetShapeType()), vertexCount,
                                 &p[0]);
     }
 

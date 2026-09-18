@@ -39,6 +39,8 @@
 
 #include "ProcessInsertSurface.h"
 #include <NekMesh/MeshElements/Element.h>
+#include <SpatialDomains/Curve.hpp>
+#include <boost/core/ignore_unused.hpp>
 
 namespace bg  = boost::geometry;
 namespace bgi = boost::geometry::index;
@@ -87,25 +89,29 @@ void ProcessInsertSurface::Process()
     // tolerance of matching vertices
     NekDouble tol = 1e-5;
 
-    NodeSet surfaceNodes;
-    for (int i = 0; i < inMsh->m_element[2].size(); i++)
-    {
-        vector<NodeSharedPtr> ns = inMsh->m_element[2][i]->GetVertexList();
-        for (int j = 0; j < ns.size(); j++)
+    auto surfaceVerts = [](MeshSharedPtr &m) {
+        std::unordered_set<SpatialDomains::PointGeom *> verts;
+        for (auto &[geom, tag] : m->m_elementTags[2])
         {
-            surfaceNodes.insert(ns[j]);
+            boost::ignore_unused(tag);
+            for (int j = 0; j < geom->GetNumVerts(); ++j)
+            {
+                verts.insert(geom->GetVertex(j));
+            }
         }
-    }
+        return verts;
+    };
 
-    vector<NodeSharedPtr> inMshnodeList(surfaceNodes.begin(),
-                                        surfaceNodes.end());
+    auto inSurfVerts = surfaceVerts(inMsh);
+    vector<SpatialDomains::PointGeom *> inMshnodeList(inSurfVerts.begin(),
+                                                      inSurfVerts.end());
 
     vector<PointI> dataPts;
     for (int i = 0; i < inMshnodeList.size(); i++)
     {
         dataPts.push_back(
-            make_pair(Point(inMshnodeList[i]->m_x, inMshnodeList[i]->m_y,
-                            inMshnodeList[i]->m_z),
+            make_pair(Point((*inMshnodeList[i])[0], (*inMshnodeList[i])[1],
+                            (*inMshnodeList[i])[2]),
                       i));
     }
 
@@ -113,96 +119,98 @@ void ProcessInsertSurface::Process()
     bgi::rtree<PointI, bgi::rstar<16>> rtree;
     rtree.insert(dataPts.begin(), dataPts.end());
 
-    surfaceNodes.clear();
-    for (int i = 0; i < m_mesh->m_element[2].size(); i++)
-    {
-        vector<NodeSharedPtr> ns = m_mesh->m_element[2][i]->GetVertexList();
-        for (int j = 0; j < ns.size(); j++)
-        {
-            surfaceNodes.insert(ns[j]);
-        }
-    }
-
-    if (!nonconform && surfaceNodes.size() != inMshnodeList.size())
+    if (!nonconform && surfaceVerts(m_mesh).size() != inMshnodeList.size())
     {
         m_log(FATAL) << "Surface mesh node count mismatch, inserting surface "
                      << "will not work" << endl;
     }
 
-    EdgeSet surfEdges;
-    for (int i = 0; i < m_mesh->m_element[2].size(); i++)
+    // The boundary elements are the surface geometries themselves, so what
+    // used to be reached through Element::GetFaceLink() is the tagged entity.
+    std::unordered_set<SpatialDomains::SegGeom *> surfEdges;
+    for (auto &[face, tag] : m_mesh->m_elementTags[2])
     {
-        FaceSharedPtr f          = m_mesh->m_element[2][i]->GetFaceLink();
-        vector<EdgeSharedPtr> es = f->m_edgeList;
-        for (int j = 0; j < es.size(); j++)
+        boost::ignore_unused(tag);
+        for (int j = 0; j < face->GetNumEdges(); ++j)
         {
-            surfEdges.insert(es[j]);
+            surfEdges.insert(
+                static_cast<SpatialDomains::SegGeom *>(face->GetEdge(j)));
         }
     }
 
-    for (auto &it : surfEdges)
-    {
-        Point queryPt1(it->m_n1->m_x, it->m_n1->m_y, it->m_n1->m_z);
+    // Locate a working-mesh vertex among the inserted mesh's surface
+    // vertices, or return nullptr if nothing lies within tolerance.
+    auto locate =
+        [&](SpatialDomains::PointGeom *v) -> SpatialDomains::PointGeom * {
+        Point queryPt((*v)[0], (*v)[1], (*v)[2]);
         vector<PointI> result;
-        rtree.query(bgi::nearest(queryPt1, 1), std::back_inserter(result));
+        rtree.query(bgi::nearest(queryPt, 1), std::back_inserter(result));
 
-        NekDouble dist1 = bg::distance(result[0].first, queryPt1);
-        if (nonconform)
+        if (bg::distance(result[0].first, queryPt) > tol)
         {
-            if (dist1 > tol)
-            {
-                continue;
-            }
-        }
-        else
-        {
-            if (dist1 > tol)
+            if (!nonconform)
             {
                 m_log(FATAL)
                     << "Cannot locate point accurately enough." << endl;
             }
+            return nullptr;
         }
 
-        NodeSharedPtr inN1 = inMshnodeList[result[0].second];
+        return inMshnodeList[result[0].second];
+    };
 
-        Point queryPt2(it->m_n2->m_x, it->m_n2->m_y, it->m_n2->m_z);
-        result.clear();
-        rtree.query(bgi::nearest(queryPt2, 1), std::back_inserter(result));
+    for (auto &edge : surfEdges)
+    {
+        SpatialDomains::PointGeom *inN1 = locate(edge->GetVertex(0));
+        SpatialDomains::PointGeom *inN2 = locate(edge->GetVertex(1));
 
-        NekDouble dist2 = bg::distance(result[0].first, queryPt2);
-        if (nonconform)
+        if (inN1 == nullptr || inN2 == nullptr)
         {
-            if (dist2 > tol)
-            {
-                continue;
-            }
+            continue;
         }
-        else
-        {
-            if (dist2 > tol)
-            {
-                m_log(FATAL)
-                    << "Cannot locate point accurately enough." << endl;
-            }
-        }
-        NodeSharedPtr inN2 = inMshnodeList[result[0].second];
 
-        EdgeSharedPtr tst = std::shared_ptr<Edge>(new Edge(inN1, inN2));
-
-        auto f = inMsh->m_edgeSet.find(tst);
+        auto f = inMsh->m_edgeSet.find(
+            std::make_pair(inN1->GetGlobalID(), inN2->GetGlobalID()));
 
         if (f == inMsh->m_edgeSet.end())
         {
             m_log(FATAL) << "Could not find edge in input" << endl;
         }
 
-        it->m_edgeNodes = (*f)->m_edgeNodes;
-        it->m_curveType = (*f)->m_curveType;
-
-        if ((*f)->m_n1->Distance(it->m_n1) > tol)
+        SpatialDomains::Curve *inCurve = f->second->GetCurve();
+        if (inCurve == nullptr || inCurve->m_points.size() < 3)
         {
-            reverse(it->m_edgeNodes.begin(), it->m_edgeNodes.end());
+            continue;
         }
+
+        // The interior of the inserted curve, in the direction of this edge.
+        // The inserted mesh is a local object whose graph owns its curvature
+        // nodes, so the coordinates have to be copied into nodes owned by
+        // this mesh rather than the pointers shared.
+        const bool reversed =
+            f->second->GetVertex(0)->dist(*edge->GetVertex(0)) > tol;
+
+        auto curve = ObjPoolManager<SpatialDomains::Curve>::AllocateUniquePtr(
+            edge->GetGlobalID(), inCurve->m_ptype);
+
+        const int nInterior = inCurve->m_points.size() - 2;
+        curve->m_points.push_back(edge->GetVertex(0));
+        for (int k = 0; k < nInterior; ++k)
+        {
+            SpatialDomains::PointGeom *src =
+                inCurve->m_points[reversed ? nInterior - k : k + 1];
+
+            auto pt =
+                ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
+                    edge->GetVertex(0)->GetCoordim(), 0, (*src)[0], (*src)[1],
+                    (*src)[2]);
+            curve->m_points.push_back(pt.get());
+            m_mesh->m_meshGraph->GetAllCurveNodes().push_back(std::move(pt));
+        }
+        curve->m_points.push_back(edge->GetVertex(1));
+
+        edge->SetCurve(curve.get());
+        m_mesh->m_meshGraph->AddCurvedEdge(std::move(curve));
     }
 }
 } // namespace Nektar::NekMesh

@@ -77,8 +77,8 @@ void NodeOpti2D2D::Optimise()
     if (m_grad[0] * m_grad[0] + m_grad[1] * m_grad[1] > gradTol())
     {
         // needs to optimise
-        NekDouble xc = m_node->m_x;
-        NekDouble yc = m_node->m_y;
+        NekDouble xc = (*m_node)[0];
+        NekDouble yc = (*m_node)[1];
 
         vector<NekDouble> sk(2);
         NekDouble val;
@@ -106,8 +106,8 @@ void NodeOpti2D2D::Optimise()
         while (alpha > alphaTol())
         {
             // Update node
-            m_node->m_x = xc + alpha * sk[0];
-            m_node->m_y = yc + alpha * sk[1];
+            (*m_node)[0] = xc + alpha * sk[0];
+            (*m_node)[1] = yc + alpha * sk[1];
 
             newVal = GetFunctional<2>(minJacNew, false);
 
@@ -124,8 +124,8 @@ void NodeOpti2D2D::Optimise()
         if (!found)
         {
             // reset the node
-            m_node->m_x = xc;
-            m_node->m_y = yc;
+            (*m_node)[0] = xc;
+            (*m_node)[1] = yc;
 
             mtx.lock();
             m_res->nReset[2]++;
@@ -144,8 +144,8 @@ void NodeOpti2D2D::Optimise()
         }
 
         mtx.lock();
-        m_res->val = max(sqrt((m_node->m_x - xc) * (m_node->m_x - xc) +
-                              (m_node->m_y - yc) * (m_node->m_y - yc)),
+        m_res->val = max(sqrt(((*m_node)[0] - xc) * ((*m_node)[0] - xc) +
+                              ((*m_node)[1] - yc) * ((*m_node)[1] - yc)),
                          m_res->val);
         mtx.unlock();
     }
@@ -168,9 +168,9 @@ void NodeOpti3D3D::Optimise()
         gradTol())
     {
         // needs to optimise
-        NekDouble xc = m_node->m_x;
-        NekDouble yc = m_node->m_y;
-        NekDouble zc = m_node->m_z;
+        NekDouble xc = (*m_node)[0];
+        NekDouble yc = (*m_node)[1];
+        NekDouble zc = (*m_node)[2];
 
         vector<NekDouble> sk(3);
         NekDouble val;
@@ -217,9 +217,9 @@ void NodeOpti3D3D::Optimise()
         while (alpha > alphaTol())
         {
             // Update node
-            m_node->m_x = xc + alpha * sk[0];
-            m_node->m_y = yc + alpha * sk[1];
-            m_node->m_z = zc + alpha * sk[2];
+            (*m_node)[0] = xc + alpha * sk[0];
+            (*m_node)[1] = yc + alpha * sk[1];
+            (*m_node)[2] = zc + alpha * sk[2];
 
             newVal = GetFunctional<3>(minJacNew, false);
             // dont need the hessian again this function updates G to be the new
@@ -237,9 +237,9 @@ void NodeOpti3D3D::Optimise()
 
         if (!found)
         {
-            m_node->m_x = xc;
-            m_node->m_y = yc;
-            m_node->m_z = zc;
+            (*m_node)[0] = xc;
+            (*m_node)[1] = yc;
+            (*m_node)[2] = zc;
 
             mtx.lock();
             m_res->nReset[2]++;
@@ -258,9 +258,9 @@ void NodeOpti3D3D::Optimise()
         }
 
         mtx.lock();
-        m_res->val = max(sqrt((m_node->m_x - xc) * (m_node->m_x - xc) +
-                              (m_node->m_y - yc) * (m_node->m_y - yc) +
-                              (m_node->m_z - zc) * (m_node->m_z - zc)),
+        m_res->val = max(sqrt(((*m_node)[0] - xc) * ((*m_node)[0] - xc) +
+                              ((*m_node)[1] - yc) * ((*m_node)[1] - yc) +
+                              ((*m_node)[2] - zc) * ((*m_node)[2] - zc)),
                          m_res->val);
         mtx.unlock();
     }

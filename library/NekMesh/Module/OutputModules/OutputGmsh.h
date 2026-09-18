@@ -74,7 +74,7 @@ public:
 
 private:
     std::unordered_map<NekMesh::ElmtConfig, unsigned int, ElmtConfigHash>
-        elmMap;
+        m_elmMap;
 };
 
 } // namespace Nektar::NekMesh

@@ -43,7 +43,7 @@ namespace Nektar::NekMesh
 /// Converter for VTK files.
 class OutputVtk : public NekMesh::OutputModule
 {
-    int GetVtkCellType(std::string pType);
+    int GetVtkCellType(LibUtilities::ShapeType pType);
 
 public:
     /// Creates an instance of this class

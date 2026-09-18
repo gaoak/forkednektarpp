@@ -35,6 +35,7 @@
 
 #include <LibUtilities/Foundations/Interp.h>
 #include <LibUtilities/Foundations/ManagerAccess.h>
+#include <SpatialDomains/MeshGraph.h>
 #include <SpatialDomains/TriGeom.h>
 #include <StdRegions/StdNodalTriExp.h>
 
@@ -102,6 +103,46 @@ TriGeom::TriGeom(const TriGeom &in) : Geometry2D(in)
     {
         m_eorient[i] = in.m_eorient[i];
     }
+}
+
+TriGeom::TriGeom(const int id, std::array<SegGeom *, kNverts> edges,
+                 std::array<PointGeom *, kNverts> verts, bool skipSetUp,
+                 Curve *curve)
+    : Geometry2D(edges[0]->GetVertex(0)->GetCoordim(), curve)
+{
+    m_shapeType = LibUtilities::eTriangle;
+    m_globalID  = id;
+
+    /// Copy the edge pointers
+    for (int i = 0; i < 3; ++i)
+    {
+        m_edges[i] = edges[i];
+    }
+
+    /// Copy the vert pointers
+    for (int i = 0; i < 3; ++i)
+    {
+        m_verts[i] = verts[i];
+    }
+
+    if (!skipSetUp)
+    {
+        for (int j = 0; j < kNverts; ++j)
+        {
+            m_eorient[j] =
+                SegGeom::GetEdgeOrientation(*edges[j], *edges[(j + 1) % 3]);
+        }
+
+        for (int j = 2; j < kNedges; ++j)
+        {
+            m_eorient[j] = m_eorient[j] == StdRegions::eBackwards
+                               ? StdRegions::eForwards
+                               : StdRegions::eBackwards;
+        }
+    }
+
+    m_coordim = edges[0]->GetVertex(0)->GetCoordim();
+    ASSERTL0(m_coordim > 1, "Cannot call function with dim == 1");
 }
 
 int TriGeom::v_AllLeftCheck(const Array<OneD, const NekDouble> &gloCoord)
@@ -388,7 +429,6 @@ GeomType TriGeom::v_CalcGeomType()
     {
         v_CalculateInverseIsoParam();
     }
-
     return Gtype;
 }
 
@@ -616,6 +656,96 @@ void TriGeom::v_FillGeom()
     m_state = ePtsFilled;
 }
 
+std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>> TriGeom::v_MakeOrder(
+    int order, const LibUtilities::PointsType pType)
+{
+    int nPoints = order + 1;
+
+    Array<OneD, NekDouble> px, py;
+    LibUtilities::PointsKey pKey(nPoints, pType);
+    ASSERTL1(pKey.GetPointsDim() == 2, "Points distribution must be 2D");
+    LibUtilities::PointsManager()[pKey]->GetPoints(px, py);
+
+    const int nTriPts    = nPoints * (nPoints + 1) / 2;
+    const int nEdgeNodes = nPoints - 2;
+
+    std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>> cd;
+
+    cd.first = ObjPoolManager<SpatialDomains::Curve>::AllocateUniquePtr(
+        m_globalID, pType);
+
+    Curve *c = cd.first.get();
+    c->m_points.resize(nTriPts);
+
+    m_curve = c;
+
+    // Vertices
+    for (int i = 0; i < 3; ++i)
+    {
+        c->m_points[i] = m_verts[i];
+    }
+
+    // Edge interior nodes: copy directly from edge curves to avoid
+    // floating-point discrepancies that arise from independent PhysEvaluate
+    for (int e = 0; e < kNedges; ++e)
+    {
+        Curve *edgeCurve = m_edges[e]->GetCurve();
+        ASSERTL1(edgeCurve != nullptr,
+                 "Edge curve not set; call MakeOrder on edges before faces");
+
+        // m_eorient[2] was flipped during construction; flip back to get the
+        // actual relation between the SegGeom direction and the local edge
+        // direction (matching the orientation logic in v_FillGeom)
+        StdRegions::Orientation orient = m_eorient[e];
+        if (e == 2)
+        {
+            orient = (orient == StdRegions::eForwards) ? StdRegions::eBackwards
+                                                       : StdRegions::eForwards;
+        }
+
+        const int offset = 3 + e * nEdgeNodes;
+        for (int j = 0; j < nEdgeNodes; ++j)
+        {
+            c->m_points[offset + j] =
+                (orient == StdRegions::eForwards)
+                    ? edgeCurve->m_points[j + 1]
+                    : edgeCurve->m_points[nPoints - 2 - j];
+        }
+    }
+
+    // Face interior nodes only: use PhysEvaluate
+    const int faceStart = 3 + 3 * nEdgeNodes;
+    if (faceStart < nTriPts)
+    {
+        Array<OneD, Array<OneD, NekDouble>> phys(m_coordim);
+        for (int i = 0; i < m_coordim; ++i)
+        {
+            phys[i] = Array<OneD, NekDouble>(m_xmap->GetTotPoints());
+            m_xmap->BwdTrans(GetCoeffs(i), phys[i]);
+        }
+
+        for (int i = faceStart; i < nTriPts; ++i)
+        {
+            Array<OneD, NekDouble> xp(2);
+            xp[0] = px[i];
+            xp[1] = py[i];
+
+            Array<OneD, NekDouble> x(3, 0.0);
+            for (int j = 0; j < m_coordim; ++j)
+            {
+                x[j] = m_xmap->PhysEvaluate(xp, phys[j]);
+            }
+
+            cd.second.push_back(
+                ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
+                    m_coordim, 0, x[0], x[1], x[2]));
+            c->m_points[i] = cd.second.back().get();
+        }
+    }
+
+    return cd;
+}
+
 int TriGeom::v_GetDir(const int i, [[maybe_unused]] const int j) const
 {
     return i == 0 ? 0 : 1;
@@ -630,6 +760,10 @@ void TriGeom::v_Reset(CurveMap &curvedEdges, CurveMap &curvedFaces)
     {
         m_curve = it->second.get();
     }
+    else
+    {
+        m_curve = nullptr;
+    }
 
     for (int i = 0; i < 3; ++i)
     {
@@ -638,6 +772,19 @@ void TriGeom::v_Reset(CurveMap &curvedEdges, CurveMap &curvedFaces)
 
     SetUpXmap();
     SetUpCoeffs(m_xmap->GetNcoeffs());
+}
+
+void TriGeom::v_ResetLite()
+{
+    for (int j = 0; j < 3; ++j)
+    {
+        m_eorient[j] =
+            SegGeom::GetEdgeOrientation(*m_edges[j], *m_edges[(j + 1) % 3]);
+    }
+
+    m_eorient[2] = m_eorient[2] == StdRegions::eBackwards
+                       ? StdRegions::eForwards
+                       : StdRegions::eBackwards;
 }
 
 void TriGeom::v_Setup()

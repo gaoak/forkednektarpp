@@ -38,9 +38,7 @@
 #include <memory>
 
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
-
-#include <NekMesh/MeshElements/Mesh.h>
-#include <NekMesh/MeshElements/Node.h>
+#include <SpatialDomains/PointGeom.h>
 
 #define TETLIBRARY
 #include <tetgen.h>
@@ -67,7 +65,7 @@ public:
     /**
      * @brief Assign parameters for meshing
      */
-    void InitialMesh(std::map<int, NodeSharedPtr> tgidton,
+    void InitialMesh(std::map<int, SpatialDomains::PointGeom *> tgidton,
                      std::vector<std::array<int, 3>> tri);
 
     /**

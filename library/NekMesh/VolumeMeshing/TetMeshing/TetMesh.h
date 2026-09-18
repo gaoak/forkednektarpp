@@ -57,7 +57,8 @@ public:
      * @brief default constructor
      */
     TetMesh(MeshSharedPtr m, int id, Logger m_log,
-            std::vector<ElementSharedPtr> e = std::vector<ElementSharedPtr>())
+            std::vector<SpatialDomains::Geometry *> e =
+                std::vector<SpatialDomains::Geometry *>())
         : m_mesh(m), m_surface(e), m_id(id)
     {
         m_log.SetPrefix("TetMesh");
@@ -70,7 +71,7 @@ public:
 
 private:
     MeshSharedPtr m_mesh;
-    std::vector<ElementSharedPtr> m_surface;
+    std::vector<SpatialDomains::Geometry *> m_surface;
     /// number of tetrahedra
     int m_numtet;
     int m_id;

@@ -37,8 +37,9 @@
 
 #include "Octant.h"
 #include "SourcePoint.hpp"
+#include <LibUtilities/BasicUtils/Log.hpp>
 #include <NekMesh/MeshElements/Mesh.h>
-#include <NekMesh/Module/Log.hpp>
+#include <SpatialDomains/CADSystem/CADCurve.h>
 
 #include <string>
 
@@ -58,9 +59,9 @@ struct CurveSource
     /// The fixed element edge length.
     NekDouble delta;
     /// Curve on which source points are lying
-    CADCurveSharedPtr curve;
+    SpatialDomains::CADCurveSharedPtr curve;
 
-    CurveSource(NekDouble r, NekDouble d, CADCurveSharedPtr c)
+    CurveSource(NekDouble r, NekDouble d, SpatialDomains::CADCurveSharedPtr c)
         : R(r), delta(d), curve(c)
     {
     }
@@ -324,6 +325,22 @@ private:
     std::vector<CurveSource> m_csources;
 };
 typedef std::shared_ptr<Octree> OctreeSharedPtr;
+
+/// The octree is sampled from the CAD and holds no mesh entity, so it outlives
+/// anything that happens to the mesh itself.
+template <> struct PayloadFollowsEntities<Octree> : std::false_type
+{
+};
+
+/**
+ * @brief Fetch the octree the @c loadoctree module handed to the pipeline.
+ *
+ * Every mesh generation module needs an octree to query for target mesh
+ * spacing, but none of them build one; @c loadoctree does, and leaves it in
+ * the mesh's ModuleContext. Fails with a diagnostic rather than a segfault if
+ * the pipeline did not run it.
+ */
+NEKMESH_EXPORT Octree &GetOctree(MeshSharedPtr mesh, Logger &log);
 
 } // namespace Nektar::NekMesh
 

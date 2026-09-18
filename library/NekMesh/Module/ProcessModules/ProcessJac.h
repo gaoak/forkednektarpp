@@ -84,11 +84,14 @@ public:
         CompositeID      = 15,
         NeighborElID     = 30
     };
-    typedef struct
-    {
-        NekDouble Jac;
-        ElementSharedPtr El;
-    } element_reorder;
+    // Part of the invalid-element extraction and boundary reporting, whose
+    // implementations are still commented out in ProcessJac.cpp pending a port
+    // to the SpatialDomains geometry classes.
+    // typedef struct
+    // {
+    //     NekDouble Jac;
+    //     ElementSharedPtr El;
+    // } element_reorder;
 
 private:
     /// The maximum value shown on the on-screen histogram. Defined by the user
@@ -113,8 +116,8 @@ private:
      * @param detail True also gets and writes the composite name the element
      * boundary is on.
      */
-    void GetBoundaryCoordinate(const ElementSharedPtr &el,
-                               std::ofstream &output_file, bool detail);
+    // void GetBoundaryCoordinate(const ElementSharedPtr &el,
+    //                            std::ofstream &output_file, bool detail);
     /**
      * @brief Get the composite name and ID of a boundary element, which can be
      * further exported into a text file.
@@ -127,9 +130,9 @@ private:
      * composites.
      */
 
-    bool GetCompositeName(const ElementSharedPtr &el,
-                          std::string &CompositeNamed,
-                          unsigned int &CompositeID);
+    // bool GetCompositeName(const ElementSharedPtr &el,
+    //                       std::string &CompositeNamed,
+    //                       unsigned int &CompositeID);
     /**
      * @brief  Output histogram of scaled Jacobian on the screen.
      *

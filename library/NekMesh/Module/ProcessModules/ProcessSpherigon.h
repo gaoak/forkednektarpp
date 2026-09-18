@@ -32,11 +32,12 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef UTILITIES_NEKMESH_PROCESSJAC
-#define UTILITIES_NEKMESH_PROCESSJAC
+#ifndef UTILITIES_NEKMESH_PROCESSSPHERIGON
+#define UTILITIES_NEKMESH_PROCESSSPHERIGON
 
 #include <NekMesh/Module/InputModules/InputPly.h>
 #include <NekMesh/Module/Module.h>
+#include <NekMesh/Module/SurfaceHints.h>
 
 namespace Nektar::NekMesh
 {
@@ -63,17 +64,18 @@ public:
     }
 
 protected:
-    void GenerateNormals(std::vector<NekMesh::ElementSharedPtr> &el,
-                         NekMesh::MeshSharedPtr &mesh);
-    NekDouble CrossProdMag(NekMesh::Node &a, NekMesh::Node &b);
-    void UnitCrossProd(NekMesh::Node &a, NekMesh::Node &b, NekMesh::Node &c);
-    NekDouble Blend(NekDouble r);
-    void SuperBlend(std::vector<NekDouble> &r, std::vector<NekMesh::Node> &Q,
-                    NekMesh::Node &P, std::vector<NekDouble> &blend);
-
+    /// Approximate the vertex normals of a surface by averaging the normals
+    /// of the entities meeting at each vertex.
+    void GenerateNormals(const std::vector<SpatialDomains::Geometry *> &el,
+                         int spaceDim, NekMesh::VertexNormals &out);
+    /// Transfer normals from the nearest vertex of a separately read surface.
     void FindNormalFromPlyFile(
         NekMesh::MeshSharedPtr &plymesh,
-        std::map<int, NekMesh::NodeSharedPtr> &surfverts);
+        const std::vector<SpatialDomains::PointGeom *> &surfverts);
+
+    /// Vertex normals in use for this invocation, whether supplied by an
+    /// input module, read from a ply file or approximated here.
+    NekMesh::VertexNormals m_normals;
 };
 
 } // namespace Nektar::NekMesh

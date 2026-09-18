@@ -43,6 +43,8 @@
 
 #include "ProcessCurvedEdges.h"
 
+#include <boost/core/ignore_unused.hpp>
+
 using namespace std;
 
 namespace Nektar::NekMesh
@@ -68,56 +70,51 @@ void ProcessCurvedEdges::Process()
 {
     int surfTag         = m_config["surf"].as<int>();
     int prismedge[2][3] = {{0, 5, 4}, {2, 6, 7}};
-    int dim             = m_mesh->m_expDim;
+    int dim             = m_mesh->m_meshGraph->GetMeshDimension();
 
-    for (int i = 0; i < m_mesh->m_element[dim].size(); ++i)
+    ASSERTL0(dim == 2 || dim == 3, "Dimension not supported");
+
+    // The boundary element that a face or edge of an element belongs to is
+    // found by looking the geometry itself up among the tagged entities one
+    // dimension down, which is what Element::GetBoundaryLink() used to
+    // record.
+    auto &bndTags = m_mesh->m_elementTags[dim - 1];
+
+    for (auto &[el, elTag] : m_mesh->m_elementTags[dim])
     {
-        ElementSharedPtr el = m_mesh->m_element[dim][i];
-        int nSurf = dim == 3 ? el->GetFaceCount() : el->GetEdgeCount();
+        boost::ignore_unused(elTag);
+
+        int nSurf = dim == 3 ? el->GetNumFaces() : el->GetNumEdges();
 
         for (int j = 0; j < nSurf; ++j)
         {
-            int bl = el->GetBoundaryLink(j);
-            if (bl == -1)
+            SpatialDomains::Geometry *bnd =
+                dim == 3
+                    ? static_cast<SpatialDomains::Geometry *>(el->GetFace(j))
+                    : static_cast<SpatialDomains::Geometry *>(el->GetEdge(j));
+
+            auto blIt = bndTags.find(bnd);
+            if (blIt == bndTags.end() || blIt->second != surfTag)
             {
                 continue;
             }
 
-            ElementSharedPtr bEl = m_mesh->m_element[dim - 1][bl];
-            vector<int> tags     = bEl->GetTagList();
-
-            if (find(tags.begin(), tags.end(), surfTag) == tags.end())
+            if (dim == 2)
             {
-                continue;
+                GenerateEdgeNodes(
+                    static_cast<SpatialDomains::SegGeom *>(el->GetEdge(j)));
             }
-
-            switch (dim)
+            else
             {
-                case 2:
-                {
-                    EdgeSharedPtr edge = el->GetEdge(j);
-                    GenerateEdgeNodes(edge);
-                }
-                break;
+                ASSERTL0(j == 1 || j == 3,
+                         "Curved edge needs to be on prism triangular face");
 
-                case 3:
+                // Check all edge interior points.
+                for (int k = 0; k < 3; ++k)
                 {
-                    ASSERTL0(
-                        j == 1 || j == 3,
-                        "Curved edge needs to be on prism triangular face");
-                    // Check all edge interior points.
-                    for (int k = 0; k < 3; ++k)
-                    {
-                        EdgeSharedPtr edge =
-                            el->GetEdge(prismedge[(j - 1) / 2][k]);
-                        GenerateEdgeNodes(edge);
-                    }
+                    GenerateEdgeNodes(static_cast<SpatialDomains::SegGeom *>(
+                        el->GetEdge(prismedge[(j - 1) / 2][k])));
                 }
-                break;
-
-                default:
-                    ASSERTL0(0, "Dimension not supported");
-                    break;
             }
         }
     }

@@ -38,12 +38,13 @@
 
 #include <NekMesh/Module/Module.h>
 
-#include <NekMesh/CADSystem/CFI/CADSystemCFI.h>
+#include <SpatialDomains/CADSystem/CFI/CADSystemCFI.h>
 
 namespace Nektar
 {
 namespace NekMesh
 {
+using SpatialDomains::CADSystemCFISharedPtr;
 
 /// Appends to CADfix database files.
 class OutputCADfix : public NekMesh::OutputModule

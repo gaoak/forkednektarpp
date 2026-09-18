@@ -35,13 +35,14 @@
 #include <thread>
 
 #include <LibUtilities/BasicUtils/SessionReader.h>
-#include <NekMesh/CADSystem/CADCurve.h>
+#include <SpatialDomains/CADSystem/CADCurve.h>
 
 #include <boost/algorithm/string.hpp>
 
 #include <tinyxml.h>
 
 #include "InputMCF.h"
+#include <SpatialDomains/CADSystem/CADAssociation.h>
 
 using namespace std;
 
@@ -451,9 +452,9 @@ void InputMCF::Process()
 
     ParseFile(m_config["infile"].as<string>());
 
-    m_mesh->m_expDim   = 3;
-    m_mesh->m_spaceDim = 3;
-    m_mesh->m_nummode  = std::stoi(m_order) + 1;
+    m_mesh->m_meshGraph->SetMeshDimension(3);
+    m_mesh->m_meshGraph->SetSpaceDimension(3);
+    m_nummode = std::stoi(m_order) + 1;
 
     ModuleSharedPtr module;
 
@@ -502,13 +503,12 @@ void InputMCF::Process()
     if (m_2D)
     {
         ////**** 2DGenerator ****////
-        m_mesh->m_expDim   = 2;
-        m_mesh->m_spaceDim = 2;
-        module             = GetModuleFactory().CreateInstance(
+        m_mesh->m_meshGraph->SetMeshDimension(2);
+        m_mesh->m_meshGraph->SetSpaceDimension(2);
+        module = GetModuleFactory().CreateInstance(
             ModuleKey(eProcessModule, "2dgenerator"), m_mesh);
 
         module->SetLogger(m_log);
-
         if (m_makeBL)
         {
             module->RegisterConfig("blcurves", m_blsurfs);
@@ -535,6 +535,7 @@ void InputMCF::Process()
                 module->RegisterConfig("nospaceoutsurf", m_nospaceoutsurf);
             }
         }
+
         if (m_periodic.size())
         {
             module->RegisterConfig("periodic", m_periodic);
@@ -573,20 +574,18 @@ void InputMCF::Process()
             m_log(WARNING) << "Any surfaces which were successfully meshed will"
                            << " be written as a manifold mesh." << endl;
 
-            m_mesh->m_expDim = 2;
+            m_mesh->m_meshGraph->SetMeshDimension(2);
 
             ProcessVertices();
-            ProcessEdges();
-            ProcessFaces();
             ProcessElements();
             ProcessComposites();
             return;
         }
 
+        // Temprorary assume it is manifold for dev.
         if (m_manifold)
         {
-            // Don't want to volume mesh.
-            m_mesh->m_expDim = 2;
+            m_mesh->m_meshGraph->SetMeshDimension(2);
         }
         else
         {
@@ -617,12 +616,10 @@ void InputMCF::Process()
                 m_log(WARNING) << "The linear surface mesh be written as a "
                                << "manifold mesh" << endl;
 
-                m_mesh->m_expDim = 2;
-                m_mesh->m_element[3].clear();
+                m_mesh->m_meshGraph->SetMeshDimension(2);
+                m_mesh->m_elementTags[3].clear();
 
                 ProcessVertices();
-                ProcessEdges();
-                ProcessFaces();
                 ProcessElements();
                 ProcessComposites();
 
@@ -636,6 +633,7 @@ void InputMCF::Process()
         ModuleKey(eProcessModule, "hosurface"), m_mesh);
 
     module->SetLogger(m_log);
+    module->RegisterConfig("order", m_order);
 
     if (m_surfopti)
     {
@@ -649,8 +647,8 @@ void InputMCF::Process()
     }
     catch (runtime_error &e)
     {
-        m_log(WARNING) << "High-order surface meshing has failed with message:"
-                       << endl;
+        m_log(WARNING)
+            << "High-order surface meshing has failed with message : " << endl;
         m_log(WARNING) << e.what() << endl;
         m_log(WARNING) << "The mesh will be written as normal but the "
                        << "incomplete surface will remain faceted" << endl;
@@ -698,7 +696,7 @@ void InputMCF::Process()
         module->SetLogger(m_log);
         module->RegisterConfig("layers", m_bllayers);
         module->RegisterConfig("surf", m_blsurfs);
-        module->RegisterConfig("nq", std::to_string(m_mesh->m_nummode));
+        module->RegisterConfig("nq", std::to_string(m_nummode));
         module->RegisterConfig("r", m_blprog);
 
         try
@@ -718,16 +716,17 @@ void InputMCF::Process()
     }
 
     // apply surface labels
-    for (auto &it : m_mesh->m_composite)
+    for (auto &it : m_mesh->m_meshGraph->GetComposites())
     {
-        ElementSharedPtr el = it.second->m_items[0];
-        if (el->m_parentCAD)
+        SpatialDomains::Geometry *el = it.second->m_geomVec[0];
+        auto surf = m_mesh->m_meshGraph->GetCADAssociation()->GetSurf(el);
+        if (surf)
         {
-            string name = el->m_parentCAD->GetName();
+            string name = surf->GetName();
             if (name.size() > 0)
             {
-                m_mesh->m_faceLabels.insert(
-                    make_pair(el->GetTagList()[0], name));
+                m_mesh->m_meshGraph->GetCompositesLabels().insert(
+                    make_pair(it.first, name));
             }
         }
     }

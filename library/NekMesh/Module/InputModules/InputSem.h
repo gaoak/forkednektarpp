@@ -69,6 +69,10 @@ private:
 
     /// Maps Semtex sections to positions inside the input file.
     std::map<std::string, std::streampos> sectionMap;
+
+    /// Elements in the order the file gives them; the CURVES and SURFACES
+    /// sections refer to elements by that index.
+    std::vector<SpatialDomains::Geometry *> m_elements;
 };
 } // namespace Nektar::NekMesh
 

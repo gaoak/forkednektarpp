@@ -52,11 +52,19 @@ bool FaceMesh::ValidateCurves()
         }
     }
 
-    bool error = false;
+    bool error  = false;
+    auto &graph = m_mesh->m_meshGraph;
+
+    // Note: a curve mesh point's stored (u,v) on this surface is only as
+    // accurate as the projection that produced it, and does not map back
+    // exactly onto the point: a curve's end points come from CADVert::GetLoc()
+    // while their surface parameters come from CADSurf::locuv, and the two
+    // disagree by around 1e-5 on the test geometries. That is not an error,
+    // and checking for it here is what used to make surface meshing fail.
 
     for (int i = 0; i < curvesInSurface.size(); i++)
     {
-        vector<EdgeSharedPtr> es =
+        vector<SpatialDomains::SegGeom *> es =
             m_curvemeshes[curvesInSurface[i]]->GetMeshEdges();
 
         for (int j = i; j < curvesInSurface.size(); j++)
@@ -66,25 +74,29 @@ bool FaceMesh::ValidateCurves()
                 continue;
             }
 
-            vector<EdgeSharedPtr> es2 =
+            vector<SpatialDomains::SegGeom *> es2 =
                 m_curvemeshes[curvesInSurface[j]]->GetMeshEdges();
 
             for (int l = 0; l < es.size(); l++)
             {
-                auto P1 = es[l]->m_n1->GetCADSurfInfo(m_id);
-                auto P2 = es[l]->m_n2->GetCADSurfInfo(m_id);
+                auto P1 = graph->GetCADAssociation()->GetSurfUV(
+                    es[l]->GetVertex(0), m_id);
+                auto P2 = graph->GetCADAssociation()->GetSurfUV(
+                    es[l]->GetVertex(1), m_id);
                 for (int k = 0; k < es2.size(); k++)
                 {
-                    if (es[l]->m_n1 == es2[k]->m_n1 ||
-                        es[l]->m_n1 == es2[k]->m_n2 ||
-                        es[l]->m_n2 == es2[k]->m_n1 ||
-                        es[l]->m_n2 == es2[k]->m_n2)
+                    if (es[l]->GetVertex(0) == es2[k]->GetVertex(0) ||
+                        es[l]->GetVertex(0) == es2[k]->GetVertex(1) ||
+                        es[l]->GetVertex(1) == es2[k]->GetVertex(0) ||
+                        es[l]->GetVertex(1) == es2[k]->GetVertex(1))
                     {
                         continue;
                     }
 
-                    auto P3 = es2[k]->m_n1->GetCADSurfInfo(m_id);
-                    auto P4 = es2[k]->m_n2->GetCADSurfInfo(m_id);
+                    auto P3 = graph->GetCADAssociation()->GetSurfUV(
+                        es2[k]->GetVertex(0), m_id);
+                    auto P4 = graph->GetCADAssociation()->GetSurfUV(
+                        es2[k]->GetVertex(1), m_id);
 
                     NekDouble den = (P4[0] - P3[0]) * (P2[1] - P1[1]) -
                                     (P2[0] - P1[0]) * (P4[1] - P3[1]);
@@ -110,7 +122,13 @@ bool FaceMesh::ValidateCurves()
                         m_log(VERBOSE).Newline();
                         m_log(WARNING)
                             << "Curve mesh error at " << loc[0] << " " << loc[1]
-                            << " " << loc[2] << " on face " << m_id << endl;
+                            << " " << loc[2] << " on face " << m_id
+                            << ": curve " << curvesInSurface[i] << " edge " << l
+                            << " (uv " << P1[0] << "," << P1[1] << " -> "
+                            << P2[0] << "," << P2[1] << ") crosses curve "
+                            << curvesInSurface[j] << " edge " << k << " (uv "
+                            << P3[0] << "," << P3[1] << " -> " << P4[0] << ","
+                            << P4[1] << ")" << endl;
                         error = true;
                     }
                 }
@@ -178,7 +196,21 @@ void FaceMesh::Mesh()
         centers.push_back(m_edgeloops[i]->center);
     }
 
-    pplanemesh->Assign(orderedLoops, centers, m_id, m_str);
+    // TriangleInterface meshes in the parametric plane but holds no CAD or
+    // graph handle, so the (u,v) of every node it is given is passed in.
+    auto &graph = m_mesh->m_meshGraph;
+
+    NodeUVMap nodeUV;
+    for (int i = 0; i < orderedLoops.size(); i++)
+    {
+        for (int j = 0; j < orderedLoops[i].size(); j++)
+        {
+            nodeUV[orderedLoops[i][j]] =
+                graph->GetCADAssociation()->GetSurfUV(orderedLoops[i][j], m_id);
+        }
+    }
+
+    pplanemesh->Assign(orderedLoops, centers, m_id, nodeUV, m_str);
 
     pplanemesh->Mesh();
 
@@ -196,7 +228,17 @@ void FaceMesh::Mesh()
             break;
         }
         m_connec.clear();
-        pplanemesh->AssignStiener(m_stienerpoints);
+
+        // Validate() appends to m_stienerpoints, so rebuild the uv for the
+        // points added on this pass before handing them over.
+        NodeUVMap stienerUV;
+        for (int i = 0; i < m_stienerpoints.size(); i++)
+        {
+            stienerUV[m_stienerpoints[i]] =
+                graph->GetCADAssociation()->GetSurfUV(m_stienerpoints[i], m_id);
+        }
+
+        pplanemesh->AssignStiener(m_stienerpoints, stienerUV);
         pplanemesh->Mesh();
         pplanemesh->Extract(m_connec);
     }
@@ -207,16 +249,11 @@ void FaceMesh::Mesh()
 
     OptimiseLocalMesh();
 
-    // make new elements and add to list from list of nodes and connectivity
-    // from triangle removing unnesercary infomration from the elements
+    // The triangles are registered with the graph as BuildLocalMesh sowe record
+    // which composite they belong
     for (int i = 0; i < m_localElements.size(); i++)
     {
-        vector<EdgeSharedPtr> e = m_localElements[i]->GetEdgeList();
-        for (int j = 0; j < e.size(); j++)
-        {
-            e[j]->m_elLink.clear();
-        }
-        m_mesh->m_element[2].push_back(m_localElements[i]);
+        m_mesh->m_elementTags[2][m_localElements[i]] = m_compId;
     }
 
     m_log(VERBOSE).Overwrite();
@@ -230,112 +267,131 @@ void FaceMesh::Mesh()
 
 void FaceMesh::OptimiseLocalMesh()
 {
-    // each optimisation algorithm is based on the work in chapter 19
-    DiagonalSwap();
+    // Each optimisation algorithm is based on the work in chapter 19.
+    //
+    // Two rounds do not converge. Swapping a diagonal moves the nodes that
+    // smoothing then relaxes, and relaxing them makes further diagonals worth
+    // swapping, so the two have to alternate until they stop changing
+    // anything. Stopping early leaves the result depending on the order the
+    // nodes and edges were visited in, which is a property of the containers
+    // holding them rather than of the geometry: on 3d_bl_cyl the worst scaled
+    // Jacobian came out at 0.0108 under one node ordering and 0.0032 under
+    // another, against 0.1485 for either once converged -- the same value to
+    // nine figures, which is what makes the result independent of the order.
+    // The third round is within 3e-4 of that fixed point and the sixth sits on
+    // it.
+    //
+    // Three is what is used here rather than six: from four rounds on,
+    // 3d_bl_wing fails to build its boundary layer at all ("shrinking to
+    // nothing"), so the smoother surface mesh is more than that case's
+    // boundary layer can extrude. That is a separate weakness worth fixing on
+    // its own, and until it is, this is a value chosen between two cliffs
+    // rather than a converged one.
+    for (int i = 0; i < 3; ++i)
+    {
+        DiagonalSwap();
 
-    Smoothing();
-
-    DiagonalSwap();
-
-    Smoothing();
+        Smoothing();
+    }
 }
 
 void FaceMesh::Smoothing()
 {
-    EdgeSet::iterator eit;
-    NodeSet::iterator nit;
-
+    auto &graph = m_mesh->m_meshGraph;
     auto bounds = m_cadsurf->GetBounds();
 
-    map<int, vector<EdgeSharedPtr>> connectingedges;
+    // Vertex connectivity, keyed on the vertex itself rather than its id.
+    std::unordered_map<SpatialDomains::PointGeom *,
+                       vector<SpatialDomains::SegGeom *>>
+        connectingedges;
+    std::unordered_map<SpatialDomains::PointGeom *,
+                       vector<SpatialDomains::Geometry *>>
+        connectingelements;
 
-    map<int, vector<ElementSharedPtr>> connectingelements;
-
-    for (eit = m_localEdges.begin(); eit != m_localEdges.end(); eit++)
+    for (auto &[key, ed] : m_localEdges)
     {
-        connectingedges[(*eit)->m_n1->m_id].push_back(*eit);
-        connectingedges[(*eit)->m_n2->m_id].push_back(*eit);
+        connectingedges[ed->GetVertex(0)].push_back(ed);
+        connectingedges[ed->GetVertex(1)].push_back(ed);
     }
 
     for (int i = 0; i < m_localElements.size(); i++)
     {
-        vector<NodeSharedPtr> v = m_localElements[i]->GetVertexList();
         for (int j = 0; j < 3; j++)
         {
-            connectingelements[v[j]->m_id].push_back(m_localElements[i]);
+            connectingelements[m_localElements[i]->GetVertex(j)].push_back(
+                m_localElements[i]);
         }
     }
 
     // perform 4 runs of elastic relaxation based on the octree
     for (int q = 0; q < 4; q++)
     {
-        for (nit = m_localNodes.begin(); nit != m_localNodes.end(); nit++)
+        for (auto *I : m_localNodes)
         {
-            NodeSet::iterator f = m_inBoundary.find((*nit));
-
             // node is on curve so skip
-            if (f != m_inBoundary.end())
+            if (m_inBoundary.find(I) != m_inBoundary.end())
             {
                 continue;
             }
 
-            // this can be real nodes or dummy nodes depending on the system
-            vector<NodeSharedPtr> connodes;
+            vector<SpatialDomains::SegGeom *> &edges = connectingedges[I];
+            vector<SpatialDomains::Geometry *> &els  = connectingelements[I];
 
-            vector<EdgeSharedPtr> edges  = connectingedges[(*nit)->m_id];
-            vector<ElementSharedPtr> els = connectingelements[(*nit)->m_id];
+            // The old implementation built throwaway Node objects to carry the
+            // parametric location of each spoke; only the (u,v) is ever read,
+            // so the locations are collected directly and no vertex is created.
+            vector<std::array<NekDouble, 2>> uvsystem;
 
-            vector<NodeSharedPtr> nodesystem;
-            vector<NekDouble> lamp;
+            auto ui = graph->GetCADAssociation()->GetSurfUV(I, m_id);
 
             for (int i = 0; i < edges.size(); i++)
             {
                 vector<NekDouble> lambda;
 
-                NodeSharedPtr J;
-                if (*nit == edges[i]->m_n1)
+                SpatialDomains::PointGeom *J;
+                if (I == edges[i]->GetVertex(0))
                 {
-                    J = edges[i]->m_n2;
+                    J = edges[i]->GetVertex(1);
                 }
-                else if (*nit == edges[i]->m_n2)
+                else if (I == edges[i]->GetVertex(1))
                 {
-                    J = edges[i]->m_n1;
+                    J = edges[i]->GetVertex(0);
                 }
                 else
                 {
                     ASSERTL0(false, "could not find node");
                 }
 
-                auto ui = (*nit)->GetCADSurfInfo(m_id);
-                auto uj = J->GetCADSurfInfo(m_id);
+                auto uj = graph->GetCADAssociation()->GetSurfUV(J, m_id);
 
                 for (int j = 0; j < els.size(); j++)
                 {
-                    vector<NodeSharedPtr> v = els[j]->GetVertexList();
-
                     // elememt is adjacent to J therefore no intersection on IJ
-                    if (v[0] == J || v[1] == J || v[2] == J)
+                    if (els[j]->GetVertex(0) == J ||
+                        els[j]->GetVertex(1) == J || els[j]->GetVertex(2) == J)
                     {
                         continue;
                     }
 
                     // need to find other edge
-                    EdgeSharedPtr AtoB;
-                    bool found               = false;
-                    vector<EdgeSharedPtr> es = els[j]->GetEdgeList();
-                    for (int k = 0; k < es.size(); k++)
+                    SpatialDomains::Geometry1D *AtoB = nullptr;
+                    bool found                       = false;
+                    for (int k = 0; k < els[j]->GetNumEdges(); k++)
                     {
-                        if (!(es[k]->m_n1 == *nit || es[k]->m_n2 == *nit))
+                        auto *e = els[j]->GetEdge(k);
+                        if (!(e->GetVertex(0) == I || e->GetVertex(1) == I))
                         {
                             found = true;
-                            AtoB  = es[k];
+                            AtoB  = e;
                             break;
                         }
                     }
                     ASSERTL0(found, "failed to find edge to test");
 
-                    auto A = AtoB->m_n1->GetCADSurfInfo(m_id);
-                    auto B = AtoB->m_n2->GetCADSurfInfo(m_id);
+                    auto A = graph->GetCADAssociation()->GetSurfUV(
+                        AtoB->GetVertex(0), m_id);
+                    auto B = graph->GetCADAssociation()->GetSurfUV(
+                        AtoB->GetVertex(1), m_id);
 
                     NekDouble lam = ((A[0] - uj[0]) * (B[1] - A[1]) -
                                      (A[1] - uj[1]) * (B[0] - A[0])) /
@@ -351,32 +407,22 @@ void FaceMesh::Smoothing()
                 if (lambda.size() > 0)
                 {
                     sort(lambda.begin(), lambda.end());
-                    // make a new dummy node based on the system
-                    std::array<NekDouble, 2> ud = {
-                        uj[0] + lambda[0] * (ui[0] - uj[0]),
-                        uj[1] + lambda[0] * (ui[1] - uj[1])};
-                    auto locd        = m_cadsurf->P(ud);
-                    NodeSharedPtr dn = std::shared_ptr<Node>(
-                        new Node(0, locd[0], locd[1], locd[2]));
-                    dn->SetCADSurf(m_cadsurf, ud);
-
-                    nodesystem.push_back(dn);
-                    lamp.push_back(lambda[0]);
+                    // parametric location of the dummy point on the spoke
+                    uvsystem.push_back({uj[0] + lambda[0] * (ui[0] - uj[0]),
+                                        uj[1] + lambda[0] * (ui[1] - uj[1])});
                 }
                 else
                 {
-                    nodesystem.push_back(J);
-                    lamp.push_back(1.0);
+                    uvsystem.push_back(uj);
                 }
             }
 
             std::array<NekDouble, 2> u0 = {0.0, 0.0};
 
-            for (int i = 0; i < nodesystem.size(); i++)
+            for (int i = 0; i < uvsystem.size(); i++)
             {
-                auto uj = nodesystem[i]->GetCADSurfInfo(m_id);
-                u0[0] += uj[0] / nodesystem.size();
-                u0[1] += uj[1] / nodesystem.size();
+                u0[0] += uvsystem[i][0] / uvsystem.size();
+                u0[1] += uvsystem[i][1] / uvsystem.size();
             }
 
             bool inbounds = true;
@@ -402,96 +448,135 @@ void FaceMesh::Smoothing()
                 continue;
             }
 
+            // Node::Move set both the position and the parametric location.
             auto l2 = m_cadsurf->P(u0);
-            (*nit)->Move(l2, m_id, u0);
+            I->UpdatePosition(l2[0], l2[1], l2[2]);
+            graph->GetCADAssociation()->Add(I, {m_cadsurf, {u0[0], u0[1]}});
         }
+    }
+
+    // Vertices have moved, so any cached geometric information on the elements
+    // and their edges is now stale.
+    for (int i = 0; i < m_localElements.size(); i++)
+    {
+        m_localElements[i]->ResetLite();
     }
 }
 
 void FaceMesh::DiagonalSwap()
 {
-    map<int, int> idealConnec;
-    map<int, int> actualConnec;
-    map<int, vector<EdgeSharedPtr>> nodetoedge;
-    // figure out ideal node count and actual node count
-    EdgeSet::iterator eit;
-    for (eit = m_localEdges.begin(); eit != m_localEdges.end(); eit++)
-    {
-        nodetoedge[(*eit)->m_n1->m_id].push_back(*eit);
-        nodetoedge[(*eit)->m_n2->m_id].push_back(*eit);
-    }
-    NodeSet::iterator nit;
-    for (nit = m_localNodes.begin(); nit != m_localNodes.end(); nit++)
-    {
-        // this routine is broken and needs looking at
-        NodeSet::iterator f = m_inBoundary.find((*nit));
-        if (f == m_inBoundary.end()) // node isnt on curve so skip
-        {
-            // node is interior
-            idealConnec[(*nit)->m_id] = 6;
-        }
-        else
-        {
-            // need to identify the two other nodes on the boundary to find
-            // interior angle
-            /*vector<NodeSharedPtr> ns;
-            vector<EdgeSharedPtr> e = nodetoedge[(*nit)->m_id];
-            for (int i = 0; i < e.size(); i++)
-            {
-                if (!e[i]->onCurve)
-                    continue; // the linking nodes are not going to exist on
-                              // interior edges
+    auto &graph = m_mesh->m_meshGraph;
 
-                if (e[i]->m_n1 == (*nit))
-                    ns.push_back(e[i]->m_n2);
-                else
-                    ns.push_back(e[i]->m_n1);
-            }
-            ASSERTL0(ns.size() == 2,
-                     "failed to find 2 nodes in the angle system");
+    auto locOf = [](SpatialDomains::PointGeom *p) {
+        std::array<NekDouble, 3> l;
+        p->GetCoords(l[0], l[1], l[2]);
+        return l;
+    };
 
-            idealConnec[(*nit)->m_id] =
-                ceil((*nit)->Angle(ns[0], ns[1]) / 3.142 * 3) + 1;*/
-            idealConnec[(*nit)->m_id] = 4;
-        }
-    }
-    for (nit = m_localNodes.begin(); nit != m_localNodes.end(); nit++)
+    // Interior angle at P in the triangle P-X-Y, oriented by the surface
+    // normal so that the value returned is the angle inside the element.
+    auto angleAt = [&](SpatialDomains::PointGeom *P,
+                       SpatialDomains::PointGeom *X,
+                       SpatialDomains::PointGeom *Y) {
+        return P->Angle(
+            locOf(X), locOf(Y),
+            m_cadsurf->N(graph->GetCADAssociation()->GetSurfUV(P, m_id)));
+    };
+
+    // Ideal and actual valency, keyed on the vertex rather than its id.
+    std::unordered_map<SpatialDomains::PointGeom *, int> idealConnec;
+    std::unordered_map<SpatialDomains::PointGeom *, int> actualConnec;
+    std::unordered_map<SpatialDomains::PointGeom *,
+                       vector<SpatialDomains::SegGeom *>>
+        nodetoedge;
+
+    for (auto &[key, ed] : m_localEdges)
     {
-        actualConnec[(*nit)->m_id] = nodetoedge[(*nit)->m_id].size();
+        nodetoedge[ed->GetVertex(0)].push_back(ed);
+        nodetoedge[ed->GetVertex(1)].push_back(ed);
+    }
+
+    for (auto *nd : m_localNodes)
+    {
+        // interior vertices want six neighbours, boundary vertices four
+        idealConnec[nd] = (m_inBoundary.find(nd) == m_inBoundary.end()) ? 6 : 4;
+        actualConnec[nd] = nodetoedge[nd].size();
+    }
+
+    // Position of each element in m_localElements, so a swapped pair can be
+    // replaced in place.
+    std::unordered_map<SpatialDomains::Geometry *, size_t> elIndex;
+    for (size_t i = 0; i < m_localElements.size(); i++)
+    {
+        elIndex[m_localElements[i]] = i;
+    }
+
+    // Edges no longer carry element back-links (the old m_elLink), so the
+    // adjacency the swap needs is built here and patched as elements are
+    // replaced.
+    std::unordered_map<SpatialDomains::SegGeom *,
+                       vector<SpatialDomains::Geometry *>>
+        edgeToEl;
+
+    auto addToAdj = [&](SpatialDomains::Geometry *el) {
+        for (int i = 0; i < el->GetNumEdges(); i++)
+        {
+            edgeToEl[static_cast<SpatialDomains::SegGeom *>(el->GetEdge(i))]
+                .push_back(el);
+        }
+    };
+    auto removeFromAdj = [&](SpatialDomains::Geometry *el) {
+        for (int i = 0; i < el->GetNumEdges(); i++)
+        {
+            auto &v = edgeToEl[static_cast<SpatialDomains::SegGeom *>(
+                el->GetEdge(i))];
+            v.erase(std::remove(v.begin(), v.end(), el), v.end());
+        }
+    };
+
+    for (auto *el : m_localElements)
+    {
+        addToAdj(el);
     }
 
     // edgeswapping fun times
     // perfrom edge swap based on node defect and then angle
     for (int q = 0; q < 4; q++)
     {
-        int edgesStart = m_localEdges.size();
-        EdgeSet edges  = m_localEdges;
+        size_t edgesStart = m_localEdges.size();
+        EdgeMap edges     = m_localEdges;
         m_localEdges.clear();
 
-        EdgeSet::iterator it;
-
-        for (it = edges.begin(); it != edges.end(); it++)
+        for (auto &[key, e] : edges)
         {
-            EdgeSharedPtr e = *it;
+            SpatialDomains::PointGeom *n1 = e->GetVertex(0);
+            SpatialDomains::PointGeom *n2 = e->GetVertex(1);
 
-            NodeSet::iterator f1 = m_inBoundary.find((*it)->m_n1);
-            NodeSet::iterator f2 = m_inBoundary.find((*it)->m_n2);
-            if (f1 != m_inBoundary.end() && f2 != m_inBoundary.end())
+            if (m_inBoundary.find(n1) != m_inBoundary.end() &&
+                m_inBoundary.find(n2) != m_inBoundary.end())
             {
-                m_localEdges.insert(e);
+                m_localEdges[key] = e;
                 continue;
             }
 
-            ElementSharedPtr tri1 = e->m_elLink[0].first.lock();
-            ElementSharedPtr tri2 = e->m_elLink[1].first.lock();
+            auto adjIt = edgeToEl.find(e);
+            if (adjIt == edgeToEl.end() || adjIt->second.size() != 2)
+            {
+                // not shared by exactly two triangles, cannot swap
+                m_localEdges[key] = e;
+                continue;
+            }
 
-            NodeSharedPtr n1 = e->m_n1;
-            NodeSharedPtr n2 = e->m_n2;
-
-            vector<NodeSharedPtr> nt = tri1->GetVertexList();
+            SpatialDomains::Geometry *tri1 = adjIt->second[0];
+            SpatialDomains::Geometry *tri2 = adjIt->second[1];
 
             // identify node a,b,c,d of the swapping
-            NodeSharedPtr A, B, C, D;
+            SpatialDomains::PointGeom *A = nullptr, *B = nullptr, *C = nullptr,
+                                      *D = nullptr;
+
+            std::array<SpatialDomains::PointGeom *, 3> nt = {
+                tri1->GetVertex(0), tri1->GetVertex(1), tri1->GetVertex(2)};
+
             if (nt[0] != n1 && nt[0] != n2)
             {
                 C = nt[0];
@@ -515,7 +600,7 @@ void FaceMesh::DiagonalSwap()
                 ASSERTL0(false, "failed to identify verticies in tri1");
             }
 
-            nt = tri2->GetVertexList();
+            nt = {tri2->GetVertex(0), tri2->GetVertex(1), tri2->GetVertex(2)};
 
             if (nt[0] != n1 && nt[0] != n2)
             {
@@ -535,10 +620,10 @@ void FaceMesh::DiagonalSwap()
             }
 
             // determine signed area of alternate config
-            auto ai = A->GetCADSurfInfo(m_id);
-            auto bi = B->GetCADSurfInfo(m_id);
-            auto ci = C->GetCADSurfInfo(m_id);
-            auto di = D->GetCADSurfInfo(m_id);
+            auto ai = graph->GetCADAssociation()->GetSurfUV(A, m_id);
+            auto bi = graph->GetCADAssociation()->GetSurfUV(B, m_id);
+            auto ci = graph->GetCADAssociation()->GetSurfUV(C, m_id);
+            auto di = graph->GetCADAssociation()->GetSurfUV(D, m_id);
 
             NekDouble CDA, CBD;
 
@@ -552,7 +637,7 @@ void FaceMesh::DiagonalSwap()
             // that configuration is invalid and swap cannot be performed
             if (!(CDA > 0.001 && CBD > 0.001))
             {
-                m_localEdges.insert(e);
+                m_localEdges[key] = e;
                 continue;
             }
 
@@ -561,24 +646,16 @@ void FaceMesh::DiagonalSwap()
             if (q < 2)
             {
                 int nodedefectbefore = 0;
-                nodedefectbefore +=
-                    abs(actualConnec[A->m_id] - idealConnec[A->m_id]);
-                nodedefectbefore +=
-                    abs(actualConnec[B->m_id] - idealConnec[B->m_id]);
-                nodedefectbefore +=
-                    abs(actualConnec[C->m_id] - idealConnec[C->m_id]);
-                nodedefectbefore +=
-                    abs(actualConnec[D->m_id] - idealConnec[D->m_id]);
+                nodedefectbefore += abs(actualConnec[A] - idealConnec[A]);
+                nodedefectbefore += abs(actualConnec[B] - idealConnec[B]);
+                nodedefectbefore += abs(actualConnec[C] - idealConnec[C]);
+                nodedefectbefore += abs(actualConnec[D] - idealConnec[D]);
 
                 int nodedefectafter = 0;
-                nodedefectafter +=
-                    abs(actualConnec[A->m_id] - 1 - idealConnec[A->m_id]);
-                nodedefectafter +=
-                    abs(actualConnec[B->m_id] - 1 - idealConnec[B->m_id]);
-                nodedefectafter +=
-                    abs(actualConnec[C->m_id] + 1 - idealConnec[C->m_id]);
-                nodedefectafter +=
-                    abs(actualConnec[D->m_id] + 1 - idealConnec[D->m_id]);
+                nodedefectafter += abs(actualConnec[A] - 1 - idealConnec[A]);
+                nodedefectafter += abs(actualConnec[B] - 1 - idealConnec[B]);
+                nodedefectafter += abs(actualConnec[C] + 1 - idealConnec[C]);
+                nodedefectafter += abs(actualConnec[D] + 1 - idealConnec[D]);
 
                 if (nodedefectafter < nodedefectbefore)
                 {
@@ -587,19 +664,19 @@ void FaceMesh::DiagonalSwap()
             }
             else
             {
-                NekDouble minanglebefore = C->Angle(A, B);
-                minanglebefore           = min(minanglebefore, A->Angle(B, C));
-                minanglebefore           = min(minanglebefore, B->Angle(A, C));
-                minanglebefore           = min(minanglebefore, B->Angle(A, D));
-                minanglebefore           = min(minanglebefore, A->Angle(B, D));
-                minanglebefore           = min(minanglebefore, D->Angle(A, B));
+                NekDouble minanglebefore = angleAt(C, A, B);
+                minanglebefore = min(minanglebefore, angleAt(A, B, C));
+                minanglebefore = min(minanglebefore, angleAt(B, A, C));
+                minanglebefore = min(minanglebefore, angleAt(B, A, D));
+                minanglebefore = min(minanglebefore, angleAt(A, B, D));
+                minanglebefore = min(minanglebefore, angleAt(D, A, B));
 
-                NekDouble minangleafter = C->Angle(B, D);
-                minangleafter           = min(minangleafter, D->Angle(B, C));
-                minangleafter           = min(minangleafter, B->Angle(C, D));
-                minangleafter           = min(minangleafter, C->Angle(A, D));
-                minangleafter           = min(minangleafter, A->Angle(C, D));
-                minangleafter           = min(minangleafter, D->Angle(A, C));
+                NekDouble minangleafter = angleAt(C, B, D);
+                minangleafter           = min(minangleafter, angleAt(D, B, C));
+                minangleafter           = min(minangleafter, angleAt(B, C, D));
+                minangleafter           = min(minangleafter, angleAt(C, A, D));
+                minangleafter           = min(minangleafter, angleAt(A, C, D));
+                minangleafter           = min(minangleafter, angleAt(D, A, C));
 
                 if (minangleafter > minanglebefore)
                 {
@@ -607,181 +684,92 @@ void FaceMesh::DiagonalSwap()
                 }
             }
 
-            if (swap)
+            if (!swap)
             {
-                actualConnec[A->m_id]--;
-                actualConnec[B->m_id]--;
-                actualConnec[C->m_id]++;
-                actualConnec[D->m_id]++;
-
-                // make the 4 other edges
-                EdgeSharedPtr CA, AD, DB, BC, CAt, ADt, DBt, BCt;
-                CAt = std::shared_ptr<Edge>(new Edge(C, A));
-                ADt = std::shared_ptr<Edge>(new Edge(A, D));
-                DBt = std::shared_ptr<Edge>(new Edge(D, B));
-                BCt = std::shared_ptr<Edge>(new Edge(B, C));
-
-                vector<EdgeSharedPtr> es = tri1->GetEdgeList();
-                for (int i = 0; i < 3; i++)
-                {
-                    if (es[i] == CAt)
-                    {
-                        CA = es[i];
-                    }
-                    if (es[i] == BCt)
-                    {
-                        BC = es[i];
-                    }
-                }
-                es = tri2->GetEdgeList();
-                for (int i = 0; i < 3; i++)
-                {
-                    if (es[i] == DBt)
-                    {
-                        DB = es[i];
-                    }
-                    if (es[i] == ADt)
-                    {
-                        AD = es[i];
-                    }
-                }
-
-                // now sort out links for the 4 edges surrounding the patch
-                vector<pair<weak_ptr<Element>, int>> links;
-
-                links = CA->m_elLink;
-                CA->m_elLink.clear();
-                for (int i = 0; i < links.size(); i++)
-                {
-                    if (links[i].first.lock()->GetId() == tri1->GetId())
-                    {
-                        continue;
-                    }
-                    CA->m_elLink.push_back(links[i]);
-                }
-
-                links = BC->m_elLink;
-                BC->m_elLink.clear();
-                for (int i = 0; i < links.size(); i++)
-                {
-                    if (links[i].first.lock()->GetId() == tri1->GetId())
-                    {
-                        continue;
-                    }
-                    BC->m_elLink.push_back(links[i]);
-                }
-
-                links = AD->m_elLink;
-                AD->m_elLink.clear();
-                for (int i = 0; i < links.size(); i++)
-                {
-                    if (links[i].first.lock()->GetId() == tri2->GetId())
-                    {
-                        continue;
-                    }
-                    AD->m_elLink.push_back(links[i]);
-                }
-
-                links = DB->m_elLink;
-                DB->m_elLink.clear();
-                for (int i = 0; i < links.size(); i++)
-                {
-                    if (links[i].first.lock()->GetId() == tri2->GetId())
-                    {
-                        continue;
-                    }
-                    DB->m_elLink.push_back(links[i]);
-                }
-
-                EdgeSharedPtr newe = std::shared_ptr<Edge>(new Edge(C, D));
-
-                vector<NodeSharedPtr> t1, t2;
-                t1.push_back(B);
-                t1.push_back(D);
-                t1.push_back(C);
-                t2.push_back(A);
-                t2.push_back(C);
-                t2.push_back(D);
-
-                ElmtConfig conf(LibUtilities::eTriangle, 1, false, false,
-                                m_mesh->m_spaceDim != 3);
-                vector<int> tags = tri1->GetTagList();
-
-                int id1 = tri1->GetId();
-                int id2 = tri2->GetId();
-
-                ElementSharedPtr ntri1 = GetElementFactory().CreateInstance(
-                    LibUtilities::eTriangle, conf, t1, tags);
-                tags                   = tri2->GetTagList();
-                ElementSharedPtr ntri2 = GetElementFactory().CreateInstance(
-                    LibUtilities::eTriangle, conf, t2, tags);
-
-                ntri1->SetId(id1);
-                ntri2->SetId(id2);
-                ntri1->m_parentCAD = m_cadsurf;
-                ntri2->m_parentCAD = m_cadsurf;
-
-                vector<EdgeSharedPtr> t1es = ntri1->GetEdgeList();
-                for (int i = 0; i < 3; i++)
-                {
-                    if (t1es[i] == DB)
-                    {
-                        ntri1->SetEdge(i, DB);
-                        DB->m_elLink.push_back(
-                            pair<ElementSharedPtr, int>(ntri1, i));
-                    }
-                    else if (t1es[i] == BC)
-                    {
-                        ntri1->SetEdge(i, BC);
-                        BC->m_elLink.push_back(
-                            pair<ElementSharedPtr, int>(ntri1, i));
-                    }
-                    else if (t1es[i] == newe)
-                    {
-                        ntri1->SetEdge(i, newe);
-                        newe->m_elLink.push_back(
-                            pair<ElementSharedPtr, int>(ntri1, i));
-                    }
-                    else
-                    {
-                        ASSERTL0(false, "weird edge in new tri 1");
-                    }
-                }
-                vector<EdgeSharedPtr> t2es = ntri2->GetEdgeList();
-                for (int i = 0; i < 3; i++)
-                {
-                    if (t2es[i] == CA)
-                    {
-                        ntri2->SetEdge(i, CA);
-                        CA->m_elLink.push_back(
-                            pair<ElementSharedPtr, int>(ntri2, i));
-                    }
-                    else if (t2es[i] == AD)
-                    {
-                        ntri2->SetEdge(i, AD);
-                        AD->m_elLink.push_back(
-                            pair<ElementSharedPtr, int>(ntri2, i));
-                    }
-                    else if (t2es[i] == newe)
-                    {
-                        ntri2->SetEdge(i, newe);
-                        newe->m_elLink.push_back(
-                            pair<ElementSharedPtr, int>(ntri2, i));
-                    }
-                    else
-                    {
-                        ASSERTL0(false, "weird edge in new tri 2");
-                    }
-                }
-
-                m_localEdges.insert(newe);
-
-                m_localElements[id1] = ntri1;
-                m_localElements[id2] = ntri2;
+                m_localEdges[key] = e;
+                continue;
             }
-            else
+
+            actualConnec[A]--;
+            actualConnec[B]--;
+            actualConnec[C]++;
+            actualConnec[D]++;
+
+            // Note what has to survive the removal below: once the geometry
+            // is extracted from the graph, tri1, tri2 and e are dangling.
+            size_t i1     = elIndex[tri1];
+            size_t i2     = elIndex[tri2];
+            int id1       = tri1->GetGlobalID();
+            int id2       = tri2->GetGlobalID();
+            int oldEdgeId = e->GetGlobalID();
+
+            std::array<int, 4> vids1 = {tri1->GetVertex(0)->GetGlobalID(),
+                                        tri1->GetVertex(1)->GetGlobalID(),
+                                        tri1->GetVertex(2)->GetGlobalID(), -1};
+            std::array<int, 4> vids2 = {tri2->GetVertex(0)->GetGlobalID(),
+                                        tri2->GetVertex(1)->GetGlobalID(),
+                                        tri2->GetVertex(2)->GetGlobalID(), -1};
+
+            removeFromAdj(tri1);
+            removeFromAdj(tri2);
+            elIndex.erase(tri1);
+            elIndex.erase(tri2);
+            m_mesh->m_elementTags[2].erase(tri1);
+            m_mesh->m_elementTags[2].erase(tri2);
+            edgeToEl.erase(e);
+            m_mesh->m_edgeSet.erase(key);
+
+            // Bug fix - need to clean the faces and the mid edge from the set
+            m_localEdges.erase(key);
+            m_mesh->m_faceSet.erase(vids1);
+            m_mesh->m_faceSet.erase(vids2);
+
+            // Take ownership back out of the graph and let it go; the four
+            // surrounding edges are untouched and will be reused below.
+            graph->ExtractGeom<SpatialDomains::TriGeom>(id1, true);
+            graph->ExtractGeom<SpatialDomains::TriGeom>(id2, true);
+            graph->ExtractGeom<SpatialDomains::SegGeom>(oldEdgeId, true);
+
+            ElmtConfig conf(LibUtilities::eTriangle, 1, false, false,
+                            graph->GetSpaceDimension() != 3);
+
+            vector<SpatialDomains::PointGeom *> t1 = {B, D, C};
+            vector<SpatialDomains::PointGeom *> t2 = {A, C, D};
+
+            SpatialDomains::Geometry *ntri1 =
+                GetElementFactory().CreateInstance(
+                    LibUtilities::eTriangle, t1, graph, m_mesh->m_edgeSet,
+                    m_mesh->m_faceSet, conf, nullptr, nullptr, nullptr,
+                    nullptr);
+            SpatialDomains::Geometry *ntri2 =
+                GetElementFactory().CreateInstance(
+                    LibUtilities::eTriangle, t2, graph, m_mesh->m_edgeSet,
+                    m_mesh->m_faceSet, conf, nullptr, nullptr, nullptr,
+                    nullptr);
+
+            graph->GetCADAssociation()->Set(ntri1, {m_cadsurf});
+            graph->GetCADAssociation()->Set(ntri2, {m_cadsurf});
+            m_mesh->m_elementTags[2][ntri1] = m_compId;
+            m_mesh->m_elementTags[2][ntri2] = m_compId;
+
+            m_localElements[i1] = ntri1;
+            m_localElements[i2] = ntri2;
+            elIndex[ntri1]      = i1;
+            elIndex[ntri2]      = i2;
+
+            addToAdj(ntri1);
+            addToAdj(ntri2);
+
+            // Record the edges of the new pair, which picks up the new C-D
+            // edge as well as re-registering the four reused ones.
+            for (auto *el : {ntri1, ntri2})
             {
-                m_localEdges.insert(e);
+                for (int i = 0; i < el->GetNumEdges(); i++)
+                {
+                    auto *ed =
+                        static_cast<SpatialDomains::SegGeom *>(el->GetEdge(i));
+                    m_localEdges[{ed->GetVid(0), ed->GetVid(1)}] = ed;
+                }
             }
         }
 
@@ -796,58 +784,37 @@ void FaceMesh::BuildLocalMesh()
     putting them into m_mesh
     */
 
+    auto &graph = m_mesh->m_meshGraph;
+
     for (int i = 0; i < m_connec.size(); i++)
     {
+        // Triangle produces its connectivity in the parameter plane,
+        // which is not the orientation the element needs. We need orient.
         ElmtConfig conf(LibUtilities::eTriangle, 1, false, false,
-                        m_mesh->m_spaceDim != 3);
+                        graph->GetSpaceDimension() != 3);
 
-        vector<int> tags;
-        tags.push_back(m_compId);
-        ElementSharedPtr E = GetElementFactory().CreateInstance(
-            LibUtilities::eTriangle, conf, m_connec[i], tags);
-        E->m_parentCAD = m_cadsurf;
+        // The factory uses m_edgeSet for every edge of the new triag,
+        // so an edge already created by a curve mesh or a neighbouring
+        // triangle is reused rather than duplicated.
+        SpatialDomains::Geometry *E = GetElementFactory().CreateInstance(
+            LibUtilities::eTriangle, m_connec[i], graph, m_mesh->m_edgeSet,
+            m_mesh->m_faceSet, conf, nullptr, nullptr, nullptr, nullptr);
 
-        vector<NodeSharedPtr> nods = E->GetVertexList();
-        for (int j = 0; j < nods.size(); j++)
+        graph->GetCADAssociation()->Set(E, {m_cadsurf});
+
+        for (int j = 0; j < E->GetNumVerts(); j++)
         {
             // nodes are already unique some will insert some wont
-            m_localNodes.insert(nods[j]);
+            m_localNodes.insert(E->GetVertex(j));
         }
 
-        E->SetId(m_localElements.size());
-        m_localElements.push_back(E);
-    }
-
-    for (int i = 0; i < m_localElements.size(); ++i)
-    {
-        for (int j = 0; j < m_localElements[i]->GetEdgeCount(); ++j)
+        for (int j = 0; j < E->GetNumEdges(); j++)
         {
-            pair<EdgeSet::iterator, bool> testIns;
-            EdgeSharedPtr ed = m_localElements[i]->GetEdge(j);
-            // look for edge in m_mesh edgeset from curves
-            EdgeSet::iterator s = m_mesh->m_edgeSet.find(ed);
-            if (!(s == m_mesh->m_edgeSet.end()))
-            {
-                ed = *s;
-                m_localElements[i]->SetEdge(j, *s);
-            }
-
-            testIns = m_localEdges.insert(ed);
-
-            if (testIns.second)
-            {
-                EdgeSharedPtr ed2 = *testIns.first;
-                ed2->m_elLink.push_back(
-                    pair<ElementSharedPtr, int>(m_localElements[i], j));
-            }
-            else
-            {
-                EdgeSharedPtr e2 = *(testIns.first);
-                m_localElements[i]->SetEdge(j, e2);
-                e2->m_elLink.push_back(
-                    pair<ElementSharedPtr, int>(m_localElements[i], j));
-            }
+            auto *ed = static_cast<SpatialDomains::SegGeom *>(E->GetEdge(j));
+            m_localEdges[{ed->GetVid(0), ed->GetVid(1)}] = ed;
         }
+
+        m_localElements.push_back(E);
     }
 }
 
@@ -907,8 +874,11 @@ bool FaceMesh::Validate()
 {
     // check all edges in the current mesh for length against the octree
     // if the octree is not conformed to add a new point inside the triangle
+    Octree &octree = GetOctree(m_mesh, m_log);
     // if no new points are added meshing can stop
     int pointBefore = m_stienerpoints.size();
+    auto &graph     = m_mesh->m_meshGraph;
+
     for (int i = 0; i < m_connec.size(); i++)
     {
         std::array<NekDouble, 3> r, a;
@@ -917,33 +887,34 @@ bool FaceMesh::Validate()
 
         for (int j = 0; j < 3; j++)
         {
-            info.push_back(m_connec[i][j]->GetCADSurfInfo(m_id));
+            info.push_back(
+                graph->GetCADAssociation()->GetSurfUV(m_connec[i][j], m_id));
         }
 
-        r[0] = m_connec[i][0]->Distance(m_connec[i][1]);
-        r[1] = m_connec[i][1]->Distance(m_connec[i][2]);
-        r[2] = m_connec[i][2]->Distance(m_connec[i][0]);
+        std::array<std::array<NekDouble, 3>, 3> loc;
+        for (int j = 0; j < 3; j++)
+        {
+            m_connec[i][j]->GetCoords(loc[j][0], loc[j][1], loc[j][2]);
+        }
 
-        a[0] = m_connec[i][0]->Angle(m_connec[i][1]->GetLoc(),
-                                     m_connec[i][2]->GetLoc(),
-                                     m_cadsurf->N(info[0]));
-        a[1] = m_connec[i][1]->Angle(m_connec[i][2]->GetLoc(),
-                                     m_connec[i][0]->GetLoc(),
-                                     m_cadsurf->N(info[1]));
-        a[2] = m_connec[i][2]->Angle(m_connec[i][0]->GetLoc(),
-                                     m_connec[i][1]->GetLoc(),
-                                     m_cadsurf->N(info[2]));
+        r[0] = m_connec[i][0]->dist(*m_connec[i][1]);
+        r[1] = m_connec[i][1]->dist(*m_connec[i][2]);
+        r[2] = m_connec[i][2]->dist(*m_connec[i][0]);
 
-        NekDouble d1 = m_mesh->m_octree->Query(m_connec[i][0]->GetLoc());
-        NekDouble d2 = m_mesh->m_octree->Query(m_connec[i][1]->GetLoc());
-        NekDouble d3 = m_mesh->m_octree->Query(m_connec[i][2]->GetLoc());
+        a[0] = m_connec[i][0]->Angle(loc[1], loc[2], m_cadsurf->N(info[0]));
+        a[1] = m_connec[i][1]->Angle(loc[2], loc[0], m_cadsurf->N(info[1]));
+        a[2] = m_connec[i][2]->Angle(loc[0], loc[1], m_cadsurf->N(info[2]));
+
+        NekDouble d1 = octree.Query(loc[0]);
+        NekDouble d2 = octree.Query(loc[1]);
+        NekDouble d3 = octree.Query(loc[2]);
 
         std::array<NekDouble, 2> uvc = {
             (info[0][0] + info[1][0] + info[2][0]) / 3.0,
             (info[0][1] + info[1][1] + info[2][1]) / 3.0};
 
         auto locc    = m_cadsurf->P(uvc);
-        NekDouble d4 = m_mesh->m_octree->Query(locc);
+        NekDouble d4 = octree.Query(locc);
 
         NekDouble d = (d1 + d2 + d3 + d4) / 4.0;
 
@@ -1017,11 +988,15 @@ bool FaceMesh::Validate()
 void FaceMesh::AddNewPoint(std::array<NekDouble, 2> uv)
 {
     // adds a new point but checks that there are no other points nearby first
-    auto np           = m_cadsurf->P(uv);
-    NekDouble npDelta = m_mesh->m_octree->Query(np);
+    auto &graph = m_mesh->m_meshGraph;
 
-    NodeSharedPtr n = std::shared_ptr<Node>(
-        new Node(m_mesh->m_numNodes++, np[0], np[1], np[2]));
+    auto np           = m_cadsurf->P(uv);
+    NekDouble npDelta = GetOctree(m_mesh, m_log).Query(np);
+
+    // Candidate location, used only for the proximity tests. The vertex is
+    // not created in the graph unless it is actually kept, so that a rejected
+    // candidate leaves nothing behind.
+    SpatialDomains::PointGeom candidate(3, -1, np[0], np[1], np[2]);
 
     bool add = true;
 
@@ -1029,7 +1004,7 @@ void FaceMesh::AddNewPoint(std::array<NekDouble, 2> uv)
     {
         for (int j = 0; j < orderedLoops[i].size(); j++)
         {
-            NekDouble r = orderedLoops[i][j]->Distance(n);
+            NekDouble r = orderedLoops[i][j]->dist(candidate);
 
             if (r < npDelta / 2.0)
             {
@@ -1043,7 +1018,7 @@ void FaceMesh::AddNewPoint(std::array<NekDouble, 2> uv)
     {
         for (int i = 0; i < m_stienerpoints.size(); i++)
         {
-            NekDouble r = m_stienerpoints[i]->Distance(n);
+            NekDouble r = m_stienerpoints[i]->dist(candidate);
 
             if (r < npDelta / 2.0)
             {
@@ -1055,7 +1030,14 @@ void FaceMesh::AddNewPoint(std::array<NekDouble, 2> uv)
 
     if (add)
     {
-        n->SetCADSurf(m_cadsurf, uv);
+        int newId = NextPointId(graph);
+        auto pt = ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
+            3, newId, np[0], np[1], np[2]);
+
+        SpatialDomains::PointGeom *n = pt.get();
+        graph->AddGeom<SpatialDomains::PointGeom>(newId, std::move(pt));
+
+        graph->GetCADAssociation()->Add(n, {m_cadsurf, {uv[0], uv[1]}});
         m_stienerpoints.push_back(n);
     }
 }
@@ -1068,16 +1050,17 @@ void FaceMesh::OrientateCurves()
     // create list of bounding loop nodes
     for (int i = 0; i < m_edgeloops.size(); i++)
     {
-        vector<NodeSharedPtr> cE;
+        vector<SpatialDomains::PointGeom *> cE;
         for (int j = 0; j < m_edgeloops[i]->edges.size(); j++)
         {
             int cid = m_edgeloops[i]->edges[j]->GetId();
-            vector<NodeSharedPtr> edgePoints =
+            vector<SpatialDomains::PointGeom *> edgePoints =
                 m_curvemeshes[cid]->GetMeshPoints();
 
             int numPoints = m_curvemeshes[cid]->GetNumPoints();
 
-            if (m_edgeloops[i]->edgeo[j] == CADOrientation::eForwards)
+            if (m_edgeloops[i]->edgeo[j] ==
+                SpatialDomains::CADOrientation::eForwards)
             {
                 for (int k = 0; k < numPoints - 1; k++)
                 {

@@ -37,19 +37,24 @@
 
 #include "NodeOpti.h"
 
-#include <NekMesh/CADSystem/CADCurve.h>
+#include <SpatialDomains/CADSystem/CADAssociation.h>
+#include <SpatialDomains/CADSystem/CADCurve.h>
 
 namespace Nektar::NekMesh
 {
+using SpatialDomains::CADCurve;
+using SpatialDomains::CADCurveSharedPtr;
+using SpatialDomains::CADSurf;
+using SpatialDomains::CADSurfSharedPtr;
 
 class NodeOpti1D3D : public NodeOpti // 1D optimsation in 3D space
 {
 public:
-    NodeOpti1D3D(NodeSharedPtr n, std::vector<ElUtilSharedPtr> e,
+    NodeOpti1D3D(SpatialDomains::PointGeom *n, std::vector<ElUtilSharedPtr> e,
                  ResidualSharedPtr r,
                  std::map<LibUtilities::ShapeType, DerivUtilSharedPtr> d,
-                 optiType o, CADCurveSharedPtr c)
-        : NodeOpti(n, e, r, d, o, 3), curve(c)
+                 optiType o, SpatialDomains::MeshGraph *g, CADCurveSharedPtr c)
+        : NodeOpti(n, e, r, d, o, 3, g), curve(c)
     {
     }
 
@@ -59,11 +64,13 @@ public:
 
     static int m_type;
     static NodeOptiSharedPtr create(
-        NodeSharedPtr n, std::vector<ElUtilSharedPtr> e, ResidualSharedPtr r,
-        std::map<LibUtilities::ShapeType, DerivUtilSharedPtr> d, optiType o)
+        SpatialDomains::PointGeom *n, std::vector<ElUtilSharedPtr> e,
+        ResidualSharedPtr r,
+        std::map<LibUtilities::ShapeType, DerivUtilSharedPtr> d, optiType o,
+        SpatialDomains::MeshGraph *g)
     {
-        std::vector<CADCurveSharedPtr> cs = n->GetCADCurves();
-        return NodeOptiSharedPtr(new NodeOpti1D3D(n, e, r, d, o, cs[0]));
+        return NodeOptiSharedPtr(new NodeOpti1D3D(
+            n, e, r, d, o, g, g->GetCADAssociation()->GetCurve(n)));
     }
 
 private:
@@ -74,11 +81,11 @@ private:
 class NodeOpti2D3D : public NodeOpti // 1D optimsation in 3D space
 {
 public:
-    NodeOpti2D3D(NodeSharedPtr n, std::vector<ElUtilSharedPtr> e,
+    NodeOpti2D3D(SpatialDomains::PointGeom *n, std::vector<ElUtilSharedPtr> e,
                  ResidualSharedPtr r,
                  std::map<LibUtilities::ShapeType, DerivUtilSharedPtr> d,
-                 optiType o, CADSurfSharedPtr s)
-        : NodeOpti(n, e, r, d, o, 3), surf(s)
+                 optiType o, SpatialDomains::MeshGraph *g, CADSurfSharedPtr s)
+        : NodeOpti(n, e, r, d, o, 3, g), surf(s)
     {
     }
 
@@ -88,11 +95,13 @@ public:
 
     static int m_type;
     static NodeOptiSharedPtr create(
-        NodeSharedPtr n, std::vector<ElUtilSharedPtr> e, ResidualSharedPtr r,
-        std::map<LibUtilities::ShapeType, DerivUtilSharedPtr> d, optiType o)
+        SpatialDomains::PointGeom *n, std::vector<ElUtilSharedPtr> e,
+        ResidualSharedPtr r,
+        std::map<LibUtilities::ShapeType, DerivUtilSharedPtr> d, optiType o,
+        SpatialDomains::MeshGraph *g)
     {
-        std::vector<CADSurfSharedPtr> ss = n->GetCADSurfs();
-        return NodeOptiSharedPtr(new NodeOpti2D3D(n, e, r, d, o, ss[0]));
+        return NodeOptiSharedPtr(new NodeOpti2D3D(
+            n, e, r, d, o, g, g->GetCADAssociation()->GetSurf(n)));
     }
 
 private:
@@ -103,11 +112,11 @@ private:
 class NodeOpti1D2D : public NodeOpti // 1D optimsation in 2D space
 {
 public:
-    NodeOpti1D2D(NodeSharedPtr n, std::vector<ElUtilSharedPtr> e,
+    NodeOpti1D2D(SpatialDomains::PointGeom *n, std::vector<ElUtilSharedPtr> e,
                  ResidualSharedPtr r,
                  std::map<LibUtilities::ShapeType, DerivUtilSharedPtr> d,
-                 optiType o, CADCurveSharedPtr c)
-        : NodeOpti(n, e, r, d, o, 2), curve(c)
+                 optiType o, SpatialDomains::MeshGraph *g, CADCurveSharedPtr c)
+        : NodeOpti(n, e, r, d, o, 2, g), curve(c)
     {
         m_bd = curve->GetBounds();
     }
@@ -118,11 +127,13 @@ public:
 
     static int m_type;
     static NodeOptiSharedPtr create(
-        NodeSharedPtr n, std::vector<ElUtilSharedPtr> e, ResidualSharedPtr r,
-        std::map<LibUtilities::ShapeType, DerivUtilSharedPtr> d, optiType o)
+        SpatialDomains::PointGeom *n, std::vector<ElUtilSharedPtr> e,
+        ResidualSharedPtr r,
+        std::map<LibUtilities::ShapeType, DerivUtilSharedPtr> d, optiType o,
+        SpatialDomains::MeshGraph *g)
     {
-        std::vector<CADCurveSharedPtr> cs = n->GetCADCurves();
-        return NodeOptiSharedPtr(new NodeOpti1D2D(n, e, r, d, o, cs[0]));
+        return NodeOptiSharedPtr(new NodeOpti1D2D(
+            n, e, r, d, o, g, g->GetCADAssociation()->GetCurve(n)));
     }
 
 private:

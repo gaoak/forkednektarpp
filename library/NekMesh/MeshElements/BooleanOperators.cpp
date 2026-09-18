@@ -32,8 +32,8 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <NekMesh/MeshElements/HOAlignment.h>
 #include <NekMesh/MeshElements/Mesh.h>
-#include <NekMesh/MeshElements/Triangle.h>
 
 using namespace std;
 
@@ -46,43 +46,6 @@ namespace Nektar::NekMesh
 bool operator==(ElmtConfig const &c1, ElmtConfig const &c2)
 {
     return (c1.m_e == c2.m_e && c1.m_order == c2.m_order);
-}
-
-/**
- * @brief Compares two element shared pointers
- */
-bool operator==(ElementSharedPtr const &e1, ElementSharedPtr const &e2)
-{
-    return e1->GetId() == e2->GetId();
-}
-
-/**
- * @brief Compares two %HOSurf objects referred to as shared pointers.
- *
- * Two %HOSurf objects are defined to be equal if they contain identical
- * vertex ids contained in HOSurf::vertId.
- */
-bool operator==(HOSurfSharedPtr const &p1, HOSurfSharedPtr const &p2)
-{
-    if (p1->vertId.size() != p2->vertId.size())
-    {
-        return false;
-    }
-
-    vector<int> ids1 = p1->vertId;
-    vector<int> ids2 = p2->vertId;
-    sort(ids1.begin(), ids1.end());
-    sort(ids2.begin(), ids2.end());
-
-    for (int i = 0; i < ids1.size(); ++i)
-    {
-        if (ids1[i] != ids2[i])
-        {
-            return false;
-        }
-    }
-
-    return true;
 }
 
 /**
@@ -112,91 +75,6 @@ bool operator==(ConditionSharedPtr const &c1, ConditionSharedPtr const &c2)
     }
 
     return true;
-}
-
-/**
- * @brief Defines equality between two #NodeSharedPtr objects.
- */
-bool operator==(NodeSharedPtr const &p1, NodeSharedPtr const &p2)
-{
-    return *p1 == *p2;
-}
-
-/**
- * @brief Compares two nodes for inequality based on IDs
- */
-bool operator!=(NodeSharedPtr const &p1, NodeSharedPtr const &p2)
-{
-    if (p1->m_id != p2->m_id)
-    {
-        return true;
-    }
-    else
-    {
-        return false;
-    }
-}
-
-/**
- * @brief Defines ordering between two #NodeSharedPtr objects.
- */
-bool operator<(NodeSharedPtr const &p1, NodeSharedPtr const &p2)
-{
-    return *p1 < *p2;
-}
-
-/**
- * @brief Print description of node to given ostream.
- */
-std::ostream &operator<<(std::ostream &os, const NodeSharedPtr &n)
-{
-    os << n->m_x << " " << n->m_y << " " << n->m_z;
-    return os;
-}
-
-/**
- * @brief Defines equality of two edges (equal if IDs of end nodes
- * match in either ordering).
- */
-bool operator==(EdgeSharedPtr const &p1, EdgeSharedPtr const &p2)
-{
-    return (((*(p1->m_n1) == *(p2->m_n1)) && (*(p1->m_n2) == *(p2->m_n2))) ||
-            ((*(p1->m_n2) == *(p2->m_n1)) && (*(p1->m_n1) == *(p2->m_n2))));
-}
-
-/**
- * @brief Defines ordering between two edges (based on ID of edges).
- */
-bool operator<(EdgeSharedPtr const &p1, EdgeSharedPtr const &p2)
-{
-    return p1->m_id < p2->m_id;
-}
-
-/**
- * @brief Defines equality of two faces (equal if IDs of vertices are
- * the same.)
- */
-bool operator==(FaceSharedPtr const &p1, FaceSharedPtr const &p2)
-{
-    std::vector<NodeSharedPtr>::iterator it1;
-    for (it1 = p1->m_vertexList.begin(); it1 != p1->m_vertexList.end(); ++it1)
-    {
-        if (find(p2->m_vertexList.begin(), p2->m_vertexList.end(), *it1) ==
-            p2->m_vertexList.end())
-        {
-            return false;
-        }
-    }
-    return true;
-}
-
-/**
- * @brief Defines ordering between two faces (depending on ID of
- * faces).
- */
-bool operator<(FaceSharedPtr const &p1, FaceSharedPtr const &p2)
-{
-    return p1->m_id < p2->m_id;
 }
 
 } // namespace Nektar::NekMesh

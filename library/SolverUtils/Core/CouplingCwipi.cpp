@@ -413,23 +413,23 @@ void CouplingCwipi::AnnounceMesh()
     // get Elements
     if (m_spacedim == 1)
     {
-        int nSeg = graph->GetGeomMap<SpatialDomains::SegGeom>().size();
+        int nSeg = graph->GetNumGeoms<SpatialDomains::SegGeom>();
         nElts += nSeg;
         tmp += nSeg * 2;
     }
     else if (m_spacedim == 2)
     {
-        int nTri  = graph->GetGeomMap<SpatialDomains::TriGeom>().size();
-        int nQuad = graph->GetGeomMap<SpatialDomains::QuadGeom>().size();
+        int nTri  = graph->GetNumGeoms<SpatialDomains::TriGeom>();
+        int nQuad = graph->GetNumGeoms<SpatialDomains::QuadGeom>();
         nElts += nTri + nQuad;
         tmp += nTri * 3 + nQuad * 4;
     }
     else if (m_spacedim == 3)
     {
-        int nTet   = graph->GetGeomMap<SpatialDomains::TetGeom>().size();
-        int nPyr   = graph->GetGeomMap<SpatialDomains::PyrGeom>().size();
-        int nPrism = graph->GetGeomMap<SpatialDomains::PrismGeom>().size();
-        int nHex   = graph->GetGeomMap<SpatialDomains::HexGeom>().size();
+        int nTet   = graph->GetNumGeoms<SpatialDomains::TetGeom>();
+        int nPyr   = graph->GetNumGeoms<SpatialDomains::PyrGeom>();
+        int nPrism = graph->GetNumGeoms<SpatialDomains::PrismGeom>();
+        int nHex   = graph->GetNumGeoms<SpatialDomains::HexGeom>();
 
         nElts += nTet + nPyr + nPrism + nHex;
         tmp += 4 * nTet + 5 * nPyr + 6 * nPrism + 8 * nHex;

@@ -43,11 +43,14 @@ exts = ['cpp', 'c']
 
 # Presently some stuff is not in the CI.
 ignore_sources = [
-    # CADfix API
-    "library/NekMesh/CADSystem/CFI/CADSystemCFI.cpp",
-    "library/NekMesh/CADSystem/CFI/CADSurfCFI.cpp",
-    "library/NekMesh/CADSystem/CFI/CADCurveCFI.cpp",
-    "library/NekMesh/CADSystem/CFI/CADVertCFI.cpp",
+    # CADfix API. The CAD classes moved from NekMesh to SpatialDomains; the
+    # two NekMesh modules are additionally not yet ported to build against
+    # SpatialDomains geometry, and NEKTAR_USE_CFI refuses to configure until
+    # they are.
+    "library/SpatialDomains/CADSystem/CFI/CADSystemCFI.cpp",
+    "library/SpatialDomains/CADSystem/CFI/CADSurfCFI.cpp",
+    "library/SpatialDomains/CADSystem/CFI/CADCurveCFI.cpp",
+    "library/SpatialDomains/CADSystem/CFI/CADVertCFI.cpp",
     "library/NekMesh/Module/InputModules/InputCADfix.cpp",
     "library/NekMesh/Module/OutputModules/OutputCADfix.cpp",
     # Likwid

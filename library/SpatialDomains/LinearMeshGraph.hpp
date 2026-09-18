@@ -1117,12 +1117,12 @@ void LinearMeshGraph::LinMeshSetUpTetGeom(
 
     int maxfaceid = 0;
 
-    if (m_linMesh->GetGeomMap<TriGeom>().size())
+    if (m_linMesh->GetNumGeoms<TriGeom>())
     {
         maxfaceid = std::max(
             maxfaceid, m_linMesh->GetGeomMap<TriGeom>().rbegin()->first + 1);
     }
-    if (m_linMesh->GetGeomMap<QuadGeom>().size())
+    if (m_linMesh->GetNumGeoms<QuadGeom>())
     {
         maxfaceid = std::max(
             maxfaceid, m_linMesh->GetGeomMap<QuadGeom>().rbegin()->first + 1);
@@ -1860,12 +1860,12 @@ void LinearMeshGraph::LinMeshSetUpPrismGeom(
     comm->AllReduce(maxedgeid, LibUtilities::ReduceMax);
 
     int maxfaceid = 0;
-    if (m_linMesh->GetGeomMap<TriGeom>().size())
+    if (m_linMesh->GetNumGeoms<TriGeom>())
     {
         maxfaceid = std::max(
             maxfaceid, m_linMesh->GetGeomMap<TriGeom>().rbegin()->first + 1);
     }
-    if (m_linMesh->GetGeomMap<QuadGeom>().size())
+    if (m_linMesh->GetNumGeoms<QuadGeom>())
     {
         maxfaceid = std::max(
             maxfaceid, m_linMesh->GetGeomMap<QuadGeom>().rbegin()->first + 1);

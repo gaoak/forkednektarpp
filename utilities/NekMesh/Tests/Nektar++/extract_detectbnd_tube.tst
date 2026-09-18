@@ -2,7 +2,7 @@
 <test>
     <description>Test BL refinement from XML file</description>
     <executable>NekMesh</executable>
-    <parameters>-m jac:list -m extract:surf=2:detectbnd tube.xml extract_detectbnd_tube-out.xml:xml:test</parameters>
+    <parameters>-m jac:list -m extract:surf=2:detectbnd tube.xml extract_detectbnd_tube-out.xml:xml:test:stats</parameters>
     <files>
         <file description="Input File">tube.xml</file>
     </files>
@@ -12,6 +12,22 @@
             <matches>
                 <match>
                     <field id="0">0</field>
+                </match>
+            </matches>
+        </metric>
+        <metric type="regex" id="2">
+            <regex>.*Elements\s*:\s*(\d+)</regex>
+            <matches>
+                <match>
+                    <field id="0">398</field>
+                </match>
+            </matches>
+        </metric>
+        <metric type="regex" id="3">
+            <regex>.*Bnd elements\s*:\s*(\d+)</regex>
+            <matches>
+                <match>
+                    <field id="0">24</field>
                 </match>
             </matches>
         </metric>

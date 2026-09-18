@@ -28,101 +28,52 @@
 ## FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 ## DEALINGS IN THE SOFTWARE.
 ##
-## Description: Unit tests for the Node class.
+## Description: Unit tests for mesh vertices.
 ##
 ###############################################################################
 
-from NekPy.NekMesh import Node, NodeSet
+from NekPy.NekMesh import Mesh
 import unittest
 
-class TestNode(unittest.TestCase):
+class TestVertex(unittest.TestCase):
+    """A mesh vertex is a SpatialDomains PointGeom owned by the MeshGraph,
+    so it is not seperately built as old NekMesh Node."""
+
     def setUp(self):
-        self.id = int(1)
-        self.x  = float(1.1)
-        self.y  = float(2.2)
-        self.z  = float(3.3)
-        self.node = Node(self.id, self.x, self.y, self.z)
+        self.mesh = Mesh()
+        self.mesh.expDim   = 3
+        self.mesh.spaceDim = 3
+        self.id = 1
+        self.x, self.y, self.z = 1.1, 2.2, 3.3
+        self.vert = self.mesh.CreateVertex(self.id, self.x, self.y, self.z)
 
-    def testNodeConstructor(self):
-        self.assertEqual(self.node.id, self.id)
-        self.assertEqual(self.node.x,  self.x)
-        self.assertEqual(self.node.y,  self.y)
-        self.assertEqual(self.node.z,  self.z)
+    def testVertexCoordinates(self):
+        x, y, z = self.vert.GetCoordinates()
+        self.assertEqual(x, self.x)
+        self.assertEqual(y, self.y)
+        self.assertEqual(z, self.z)
 
-    def testNodeGetID(self):
-        self.assertEqual(self.node.GetID(), self.id)
+    def testVertexGlobalID(self):
+        self.assertEqual(self.vert.GetGlobalID(), self.id)
+        self.vert.SetGlobalID(2)
+        self.assertEqual(self.vert.GetGlobalID(), 2)
 
-    def testNodeSetID(self):
-        self.id = 2
-        self.node.SetID(self.id)
-        self.assertEqual(self.node.GetID(), self.id)
+    def testVertexCoordim(self):
+        self.assertEqual(self.vert.GetCoordim(), 3)
 
-    def testNodeDistance(self):
-        node = Node(self.id + 1, self.x + 1, self.y + 2, self.z + 2)
-        distance = self.node.Distance(node)
-        expected_distance = 3.0
-        self.assertAlmostEqual(distance, expected_distance)
+    def testVertexAutomaticID(self):
+        # An id of -1 asks the mesh for the next unused one.
+        other = self.mesh.CreateVertex(-1, 0.0, 0.0, 0.0)
+        self.assertNotEqual(other.GetGlobalID(), self.vert.GetGlobalID())
 
-    def testNodeGetLoc(self):
-        expected_locations = [self.x, self.y, self.z]
-        locations = self.node.GetLoc()
-        for i in range(len(locations)):
-            self.assertEqual(locations[i], expected_locations[i])
+    def testMeshOwnsVertices(self):
+        verts = self.mesh.GetVertices()
+        self.assertEqual(len(verts), 1)
+        self.assertEqual(verts[0].GetGlobalID(), self.vert.GetGlobalID())
 
-    def testNodeAbs2(self):
-        expected_abs2 = self.x**2 + self.y**2 + self.z**2
-        abs2 = self.node.abs2()
-        self.assertAlmostEqual(abs2, expected_abs2)
-
-    def testNodeFieldAccess(self):
-        id = int(2)
-        x  = float(11.1)
-        y  = float(12.2)
-        z  = float(13.3)
-
-        self.node.id = id
-        self.node.x  = x
-        self.node.y  = y
-        self.node.z  = z
-        self.assertEqual(self.node.id, id)
-        self.assertEqual(self.node.x,  x)
-        self.assertEqual(self.node.y,  y)
-        self.assertEqual(self.node.z,  z)
-
-
-class TestNodeSet(unittest.TestCase):
-    def setUp(self):
-        self.nodeset = NodeSet()
-        self.nodeset_def_len = 10
-        for i in range(self.nodeset_def_len):
-            id = i
-            x  = float(i)
-            y  = float(self.nodeset_def_len + i)
-            z  = float(self.nodeset_def_len**2 + i)
-            n  = Node(id, x, y, z)
-            self.nodeset.add(n)
-
-    def testNodeSet__len__(self):
-        slen = len(self.nodeset)
-        self.assertEqual(slen, self.nodeset_def_len)
-
-    def testNodeSetClear(self):
-        self.nodeset.clear()
-        slen = len(self.nodeset)
-        self.assertEqual(slen, 0)
-
-    def testNodeSet__iter__(self):
-        for node in self.nodeset:
-            self.assertTrue(node.GetID() <= self.nodeset_def_len)
-
-    def testNodeSet__contains__(self):
-        for node in self.nodeset:
-            self.assertTrue(node in self.nodeset)
-
-    def testNodeSetAdd(self):
-        new_node = Node(len(self.nodeset) + 1, 1.0, 2.0, 3.0)
-        self.nodeset.add(new_node)
-        self.assertTrue(new_node in self.nodeset)
+        for i in range(9):
+            self.mesh.CreateVertex(-1, float(i), float(i), float(i))
+        self.assertEqual(len(self.mesh.GetVertices()), 10)
 
 if __name__ == '__main__':
     unittest.main()

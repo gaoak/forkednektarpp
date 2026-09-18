@@ -57,15 +57,14 @@ void InputSwan::Process()
     // Open the file stream.
     OpenStream();
 
-    vector<vector<NodeSharedPtr>> elementList;
     vector<int> tmp, tets;
     vector<double> pts;
 
     m_log(VERBOSE) << "Reading Swansea mesh file '"
                    << m_config["infile"].as<string>() << "'" << endl;
 
-    m_mesh->m_expDim   = 3;
-    m_mesh->m_spaceDim = 3;
+    m_mesh->m_meshGraph->SetMeshDimension(3);
+    m_mesh->m_meshGraph->SetSpaceDimension(3);
 
     // First read in header; 4 integers containing number of tets,
     // number of points, nas2 (unknown) and order of the grid
@@ -125,7 +124,7 @@ void InputSwan::Process()
         double x = pts[i];
         double y = pts[1 * NB_Points + i];
         double z = pts[2 * NB_Points + i];
-        m_mesh->m_node.push_back(std::shared_ptr<Node>(new Node(vid, x, y, z)));
+        m_mesh->m_meshGraph->CreatePointGeom(3, vid, x, y, z);
         vid++;
     }
 
@@ -133,21 +132,19 @@ void InputSwan::Process()
     // moment discard high order data and create linear mesh.
     for (i = 0; i < NB_Tet; ++i)
     {
-        vector<NodeSharedPtr> nodeList;
+        vector<SpatialDomains::PointGeom *> nodeList;
         for (j = 0; j < 20; ++j)
         {
             int vid = tets[j * NB_Tet + i + 1];
-            nodeList.push_back(m_mesh->m_node[vid - 1]);
+            nodeList.push_back(m_mesh->m_meshGraph->GetPointGeom(vid - 1));
         }
 
-        vector<int> tags;
-        tags.push_back(0);      // composite
-        tags.push_back(elType); // element type
-
         ElmtConfig conf(elType, 3, true, true);
-        ElementSharedPtr E =
-            GetElementFactory().CreateInstance(elType, conf, nodeList, tags);
-        m_mesh->m_element[3].push_back(E);
+        SpatialDomains::Geometry *element = GetElementFactory().CreateInstance(
+            elType, nodeList, m_mesh->m_meshGraph, m_mesh->m_edgeSet,
+            m_mesh->m_faceSet, conf, nullptr, nullptr, nullptr, nullptr);
+
+        m_mesh->m_elementTags[3][element] = 0;
     }
 
     // Attempt to read in composites. Need to determine number of
@@ -172,29 +169,28 @@ void InputSwan::Process()
     // Process list of triangles forming surfaces.
     for (i = 0; i < n_tri; ++i)
     {
-        vector<NodeSharedPtr> nodeList;
+        vector<SpatialDomains::PointGeom *> nodeList;
 
         for (j = 0; j < 3; ++j)
         {
-            nodeList.push_back(m_mesh->m_node[tets[i + j * n_tri] - 1]);
+            nodeList.push_back(
+                m_mesh->m_meshGraph->GetPointGeom(tets[i + j * n_tri] - 1));
         }
 
         vector<int> tags;
-        tags.push_back(1);      // composite
-        tags.push_back(elType); // element type
+        tags.push_back(1); // composite
 
         ElmtConfig conf(elType, 1, false, false);
-        ElementSharedPtr E =
-            GetElementFactory().CreateInstance(elType, conf, nodeList, tags);
-        m_mesh->m_element[2].push_back(E);
+        SpatialDomains::Geometry *element = GetElementFactory().CreateInstance(
+            elType, nodeList, m_mesh->m_meshGraph, m_mesh->m_edgeSet,
+            m_mesh->m_faceSet, conf, nullptr, nullptr, nullptr, nullptr);
+
+        m_mesh->m_elementTags[2][element] = 1;
     }
 
     m_mshFile.reset();
 
     // Process the rest of the mesh.
-    ProcessVertices();
-    ProcessEdges();
-    ProcessFaces();
     ProcessElements();
     ProcessComposites();
 

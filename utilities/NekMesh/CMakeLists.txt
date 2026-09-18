@@ -17,6 +17,7 @@ ADD_NEKTAR_TEST(Nektar++/jac_list_tet_face)
 ADD_NEKTAR_TEST(Nektar++/linearise_invalid_quad)
 ADD_NEKTAR_TEST(Nektar++/linearise_invalid_tet)
 ADD_NEKTAR_TEST(Nektar++/scaleHO)
+ADD_NEKTAR_TEST(Nektar++/prismreorder_tube)
 
 IF (NOT WIN32 AND NEKTAR_SOLVER_INCNAVIERSTOKES)
     ADD_NEKTAR_TEST(Nektar++/peralign_double_periodic_hybrid)
@@ -32,10 +33,12 @@ IF(NEKTAR_USE_MESHGEN)
     ADD_NEKTAR_TEST(MeshGen/NACA/2d_bl)
 
     ADD_NEKTAR_TEST(MeshGen/STEP/2d_bl_aerofoil)
+    ADD_NEKTAR_TEST(MeshGen/STEP/2d_bl_aerofoil_determinism)
     ADD_NEKTAR_TEST(MeshGen/STEP/2d_bl_t106)
     ADD_NEKTAR_TEST(MeshGen/STEP/2d_circle_square)
     ADD_NEKTAR_TEST(MeshGen/STEP/2d_circle_square-radapt)
     ADD_NEKTAR_TEST(MeshGen/STEP/3d_bl_cyl)
+    ADD_NEKTAR_TEST(MeshGen/STEP/3d_bl_cyl_determinism)
     ADD_NEKTAR_TEST(MeshGen/STEP/3d_bl_wing LENGTHY)
     ADD_NEKTAR_TEST(MeshGen/STEP/3d_sphere LENGTHY)
     
@@ -65,9 +68,17 @@ ADD_NEKTAR_TEST(Gmsh/v2.2/cube_hex)
 ADD_NEKTAR_TEST(Gmsh/v2.2/cube_prism_lin)
 ADD_NEKTAR_TEST(Gmsh/v2.2/cube_prism)
 ADD_NEKTAR_TEST(Gmsh/v2.2/channel_pyr)
+ADD_NEKTAR_TEST(Gmsh/v2.2/channel_pyr_ho_volume)
 ADD_NEKTAR_TEST(Gmsh/v2.2/cube_tet_lin LENGTHY)
 ADD_NEKTAR_TEST(Gmsh/v2.2/cube_tet)
 ADD_NEKTAR_TEST(Gmsh/v2.2/square_tri_lin)
+ADD_NEKTAR_TEST(Gmsh/v2.2/curve_square)
+ADD_NEKTAR_TEST(Gmsh/v2.2/cube_tet_lin_stl)
+ADD_NEKTAR_TEST(Gmsh/v2.2/cube_tet_lin_determinism)
+ADD_NEKTAR_TEST(Gmsh/v2.2/cube_hex_ho_volume)
+ADD_NEKTAR_TEST(Gmsh/v2.2/scalar_cube)
+ADD_NEKTAR_TEST(Gmsh/v2.2/detectsurf_square)
+ADD_NEKTAR_TEST(Gmsh/v2.2/insertsurface_square)
 ADD_NEKTAR_TEST(Gmsh/v2.2/square_tri)
 ADD_NEKTAR_TEST(Gmsh/v2.2/peralign_3d_cylinder)
 ADD_NEKTAR_TEST(Gmsh/v2.2/identify_boundary_tet)
@@ -85,6 +96,7 @@ ADD_NEKTAR_TEST(Gmsh/v4.0/square_tri)
 
 ADD_NEKTAR_TEST(Gmsh/v4.1/cube_all)
 ADD_NEKTAR_TEST(Gmsh/v4.1/cube_all_p6)
+ADD_NEKTAR_TEST(Gmsh/v4.1/cube_all_p6_ho_volume)
 ADD_NEKTAR_TEST(Gmsh/v4.1/cube_hex_lin)
 ADD_NEKTAR_TEST(Gmsh/v4.1/cube_hex)
 ADD_NEKTAR_TEST(Gmsh/v4.1/cube_prism_lin)
@@ -127,6 +139,7 @@ ENDIF()
 
 # Rot peralign tests
 ADD_NEKTAR_TEST(Gmsh/v2.2/peralign_rot_cyl)
+ADD_NEKTAR_TEST(Gmsh/v2.2/cyl_arc)
 
 # VarOpti tests
 ADD_NEKTAR_TEST(Gmsh/v2.2/varopti_cube_sphere)
@@ -138,8 +151,23 @@ IF (NEKTAR_USE_HDF5)
 ENDIF()
 
 # StarCCM tests
+IF (NEKTAR_USE_CCM)
+    # Reading the binary Star-CCM+ format on its own. The projectcad tests
+    # above also read it, but need mesh generation, so without these the
+    # reader has no coverage at all.
+    ADD_NEKTAR_TEST(MeshGen/StarCCM/read_ahmed)
+    ADD_NEKTAR_TEST(MeshGen/StarCCM/read_pyramids)
+ENDIF()
+
+IF (NEKTAR_USE_VTK)
+    ADD_NEKTAR_TEST(Vtk/tri_square)
+    ADD_NEKTAR_TEST(Vtk/tri_square_out)
+ENDIF()
+
+ADD_NEKTAR_TEST(Ply/spherigon_sphere)
+ADD_NEKTAR_TEST(Semtex/semtest)
 ADD_NEKTAR_TEST(StarTec/peralign_bl_cube)
-ADD_NEKTAR_TEST(StarTec/spherigon_bl_straight_rw LENGTHY)
+ADD_NEKTAR_TEST(StarTec/spherigon_straight_rw)
 
 
 

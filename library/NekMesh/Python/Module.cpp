@@ -161,30 +161,6 @@ T Module_GetConfig(std::shared_ptr<Module> mod, const std::string &key)
     return mod->GetConfigOption(key).as<T>();
 }
 
-/**
- * @brief Lightweight wrapper for NekMesh::Module::ProcessEdges.
- *
- * @param mod        Module to call.
- * @param reprocess  If true then edges will be reprocessed (i.e. match 1D
- *                   elements to 2D element edges to construct boundaries).
- */
-void Module_ProcessEdges(std::shared_ptr<Module> mod, bool reprocess = true)
-{
-    mod->ProcessEdges(reprocess);
-}
-
-/**
- * @brief Lightweight wrapper for NekMesh::Module::ProcessFaces.
- *
- * @param mod        Module to call.
- * @param reprocess  If true then faces will be reprocessed (i.e. match 2D
- *                   elements to 3D element faces to construct boundaries).
- */
-void Module_ProcessFaces(std::shared_ptr<Module> mod, bool reprocess = true)
-{
-    mod->ProcessFaces(reprocess);
-}
-
 template <typename MODTYPE> struct ModuleTypeProxy
 {
 };
@@ -223,15 +199,17 @@ ModuleSharedPtr Module_Create(py::args args, const py::kwargs &kwargs)
 
     if (modType == eProcessModule && py::len(args) != 2)
     {
-        throw NekMeshError("ProcessModule.Create() requires two arguments: "
-                           "module name and a Mesh object.");
+        throw ErrorUtil::NekError(
+            "ProcessModule.Create() requires two arguments: "
+            "module name and a Mesh object.");
     }
     else if (modType != eProcessModule && py::len(args) != 3)
     {
-        throw NekMeshError(ModuleTypeMap[modType] +
-                           "Module.Create() requires "
-                           "three arguments: module name, a Mesh object, and a "
-                           "filename");
+        throw ErrorUtil::NekError(
+            ModuleTypeMap[modType] +
+            "Module.Create() requires "
+            "three arguments: module name, a Mesh object, and a "
+            "filename");
     }
 
     std::string modName = py::cast<std::string>(args[0]);
@@ -239,7 +217,7 @@ ModuleSharedPtr Module_Create(py::args args, const py::kwargs &kwargs)
 
     if (!GetModuleFactory().ModuleExists(modKey))
     {
-        throw NekMeshError("Module '" + modName + "' does not exist.");
+        throw ErrorUtil::NekError("Module '" + modName + "' does not exist.");
     }
 
     MeshSharedPtr mesh;
@@ -249,8 +227,9 @@ ModuleSharedPtr Module_Create(py::args args, const py::kwargs &kwargs)
     }
     catch (...)
     {
-        throw NekMeshError("Second argument to Create() should be a mesh "
-                           "object.");
+        throw ErrorUtil::NekError(
+            "Second argument to Create() should be a mesh "
+            "object.");
     }
 
     ModuleSharedPtr mod = GetModuleFactory().CreateInstance(modKey, mesh);
@@ -393,13 +372,9 @@ void export_Module(py::module &m)
 
         // Mesh processing functions.
         .def("ProcessVertices", &Module::ProcessVertices)
-        .def("ProcessEdges", &Module_ProcessEdges,
-             py::arg("reprocessEdges") = true)
-        .def("ProcessFaces", &Module_ProcessFaces,
-             py::arg("reprocessFaces") = true)
         .def("ProcessElements", &Module::ProcessElements)
         .def("ProcessComposites", &Module::ProcessComposites)
-        .def("ClearElementLinks", &Module::ClearElementLinks)
+        .def("RemoveOrphanedEntities", &Module::RemoveOrphanedEntities)
 
         // Allow direct access to mesh object through a property.
         .def_readwrite("mesh", &ModuleWrap::m_mesh)

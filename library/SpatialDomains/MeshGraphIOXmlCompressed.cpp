@@ -459,8 +459,8 @@ void MeshGraphIOXmlCompressed::v_ReadCurves()
             int idx = cpts.index[offset + j];
             curveNodes.emplace_back(
                 ObjPoolManager<PointGeom>::AllocateUniquePtr(
-                    spaceDimension, edginfo[i].id, cpts.pts[idx].x,
-                    cpts.pts[idx].y, cpts.pts[idx].z));
+                    spaceDimension, -1, cpts.pts[idx].x, cpts.pts[idx].y,
+                    cpts.pts[idx].z));
             curvedEdges[edgeid]->m_points.emplace_back(curveNodes.back().get());
         }
     }
@@ -479,8 +479,8 @@ void MeshGraphIOXmlCompressed::v_ReadCurves()
             int idx = cpts.index[offset + j];
             curveNodes.emplace_back(
                 ObjPoolManager<PointGeom>::AllocateUniquePtr(
-                    spaceDimension, facinfo[i].id, cpts.pts[idx].x,
-                    cpts.pts[idx].y, cpts.pts[idx].z));
+                    spaceDimension, -1, cpts.pts[idx].x, cpts.pts[idx].y,
+                    cpts.pts[idx].z));
             curvedFaces[faceid]->m_points.emplace_back(curveNodes.back().get());
         }
     }
@@ -1050,7 +1050,7 @@ void MeshGraphIOXmlCompressed::v_WriteVertices(TiXmlElement *geomTag,
                                                std::vector<int> keysToWrite)
 {
     auto &verts = m_meshGraph->GetGeomMap<PointGeom>();
-    if (m_meshGraph->GetGeomMap<PointGeom>().size() == 0)
+    if (m_meshGraph->GetNumGeoms<PointGeom>() == 0)
     {
         return;
     }
@@ -1099,7 +1099,7 @@ void MeshGraphIOXmlCompressed::v_WriteEdges(TiXmlElement *geomTag,
                                             std::vector<int> keysToWrite)
 {
     auto &edges = m_meshGraph->GetGeomMap<SegGeom>();
-    if (m_meshGraph->GetGeomMap<SegGeom>().size() == 0)
+    if (m_meshGraph->GetNumGeoms<SegGeom>() == 0)
     {
         return;
     }

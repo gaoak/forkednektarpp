@@ -24,6 +24,9 @@ v5.11.0
 - Add EntityResolver for scalable rendezvous-based shared entity discovery, and use it in parallel HDF5 mesh reading and DG trace communication (!2700)
 - Trace-frame expansions and parallel mesh orderings (!2712)
 
+**NekMesh**
+- Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
+
 **CI**
 - Added DEBUG_IMAGES option to reduce load on registry storage (2648)
 - Fix for non-isotropic case in ReOrientFace (!2649)

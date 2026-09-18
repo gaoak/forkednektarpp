@@ -39,12 +39,112 @@
 
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 
+#include <SpatialDomains/CADSystem/CADAssociation.h>
 #include <boost/algorithm/string.hpp>
 
 using namespace std;
 
 namespace Nektar::NekMesh
 {
+
+namespace
+{
+
+/**
+ * @brief Every node belonging to @p g: the nodes of its curve if it carries
+ * one, and otherwise just its vertices.
+ */
+std::vector<SpatialDomains::PointGeom *> AllNodes(SpatialDomains::Geometry *g)
+{
+    SpatialDomains::Curve *curve = g->GetCurve();
+
+    if (curve != nullptr && !curve->m_points.empty())
+    {
+        return curve->m_points;
+    }
+
+    std::vector<SpatialDomains::PointGeom *> verts(g->GetNumVerts());
+    for (int i = 0; i < g->GetNumVerts(); ++i)
+    {
+        verts[i] = g->GetVertex(i);
+    }
+    return verts;
+}
+
+/**
+ * @brief The nodes strictly interior to @p g.
+ *
+ * Taken as every node of @p g less those belonging to its vertices, edges and
+ * faces, rather than by indexing into the curve. That keeps this independent
+ * of the nodal orderings, which differ between shapes.
+ */
+std::vector<SpatialDomains::PointGeom *> InteriorNodes(
+    SpatialDomains::Geometry *g)
+{
+    std::unordered_set<SpatialDomains::PointGeom *> onBoundary;
+
+    for (int i = 0; i < g->GetNumVerts(); ++i)
+    {
+        onBoundary.insert(g->GetVertex(i));
+    }
+    for (int i = 0; i < g->GetNumEdges(); ++i)
+    {
+        for (auto *n : AllNodes(g->GetEdge(i)))
+        {
+            onBoundary.insert(n);
+        }
+    }
+    for (int i = 0; i < g->GetNumFaces(); ++i)
+    {
+        for (auto *n : AllNodes(g->GetFace(i)))
+        {
+            onBoundary.insert(n);
+        }
+    }
+
+    std::vector<SpatialDomains::PointGeom *> interior;
+    for (auto *n : AllNodes(g))
+    {
+        if (onBoundary.find(n) == onBoundary.end())
+        {
+            interior.push_back(n);
+        }
+    }
+    return interior;
+}
+
+/**
+ * @brief Map each facet (edge in 2D, face in 3D) of the mesh dimension's
+ * elements to the elements either side of it. A facet reached by only one
+ * element lies on the boundary of the mesh.
+ */
+std::unordered_map<SpatialDomains::Geometry *,
+                   std::vector<SpatialDomains::Geometry *>>
+BuildFacetElementMap(MeshSharedPtr mesh, int meshDim)
+{
+    std::unordered_map<SpatialDomains::Geometry *,
+                       std::vector<SpatialDomains::Geometry *>>
+        facetMap;
+
+    for (auto &[geom, tag] : mesh->m_elementTags[meshDim])
+    {
+        const int nFacets =
+            (meshDim == 3) ? geom->GetNumFaces() : geom->GetNumEdges();
+
+        for (int f = 0; f < nFacets; ++f)
+        {
+            SpatialDomains::Geometry *facet =
+                (meshDim == 3)
+                    ? static_cast<SpatialDomains::Geometry *>(geom->GetFace(f))
+                    : static_cast<SpatialDomains::Geometry *>(geom->GetEdge(f));
+            facetMap[facet].push_back(geom);
+        }
+    }
+
+    return facetMap;
+}
+
+} // namespace
 
 map<LibUtilities::ShapeType, DerivUtilSharedPtr> ProcessVarOpti::BuildDerivUtil(
     int o)
@@ -60,7 +160,7 @@ map<LibUtilities::ShapeType, DerivUtilSharedPtr> ProcessVarOpti::BuildDerivUtil(
 
     map<LibUtilities::ShapeType, PTypes> typeMap;
 
-    if (m_mesh->m_nummode + o <= 11)
+    if (m_nummode + o <= 11)
     {
         typeMap[LibUtilities::eTriangle] =
             PTypes(LibUtilities::eNodalTriSPI, LibUtilities::eNodalTriElec);
@@ -80,11 +180,11 @@ map<LibUtilities::ShapeType, DerivUtilSharedPtr> ProcessVarOpti::BuildDerivUtil(
         PTypes pType           = it.second;
         DerivUtilSharedPtr der = std::shared_ptr<DerivUtil>(new DerivUtil());
 
-        LibUtilities::PointsKey pkey1(m_mesh->m_nummode, pType.second);
-        LibUtilities::PointsKey pkey2(m_mesh->m_nummode + o, pType.first);
+        LibUtilities::PointsKey pkey1(m_nummode, pType.second);
+        LibUtilities::PointsKey pkey2(m_nummode + o, pType.first);
 
         const int pDim  = pkey1.GetPointsDim();
-        const int order = m_mesh->m_nummode - 1;
+        const int order = m_nummode - 1;
 
         Array<OneD, Array<OneD, NekDouble>> u1(pDim), u2(pDim);
 
@@ -179,198 +279,104 @@ struct NodeComparator
     }
 };
 
-vector<vector<NodeSharedPtr>> ProcessVarOpti::GetColouredNodes(
+vector<vector<SpatialDomains::PointGeom *>> ProcessVarOpti::GetColouredNodes(
     vector<ElUtilSharedPtr> elLock)
 {
+    const int meshDim = m_mesh->m_meshGraph->GetMeshDimension();
 
     // create set of nodes to be ignored and hence not included in the
     // coloursets
-    NodeSet ignoredNodes;
+    std::unordered_set<SpatialDomains::PointGeom *> ignoredNodes;
     for (int i = 0; i < elLock.size(); i++)
     {
-        vector<NodeSharedPtr> nodes;
-        elLock[i]->GetEl()->GetCurvedNodes(nodes);
-        for (int j = 0; j < nodes.size(); j++)
+        for (auto *n : GetCurvedNodes(elLock[i]->GetEl()))
         {
-            ignoredNodes.insert(nodes[j]);
+            ignoredNodes.insert(n);
         }
     }
 
-    // create set of nodes which are at the boundary and hence not included in
-    // the colourset
-    NodeSet boundaryNodes;
+    // Create the set of nodes on the boundary of the mesh, which must not
+    // move. A facet reached by only one element lies on that boundary.
+    std::unordered_set<SpatialDomains::PointGeom *> boundaryNodes;
 
-    switch (m_mesh->m_spaceDim)
+    for (auto &[facet, elmts] : BuildFacetElementMap(m_mesh, meshDim))
     {
-        case 2:
+        if (elmts.size() == 2)
         {
-            for (auto &edge : m_mesh->m_edgeSet)
-            {
-                if (edge->m_elLink.size() == 2)
-                {
-                    continue;
-                }
-
-                // Keep the nodes with 1 CAD Curve to the optimizable(movable)
-                // set
-                if (edge->m_n1->GetCADCurves().size() == 1 &&
-                    edge->m_n2->GetCADCurves().size() == 1)
-                {
-                    continue;
-                }
-
-                boundaryNodes.insert(edge->m_n1);
-                boundaryNodes.insert(edge->m_n2);
-                for (int i = 0; i < edge->m_edgeNodes.size(); i++)
-                {
-                    boundaryNodes.insert(edge->m_edgeNodes[i]);
-                }
-            }
-            break;
+            continue;
         }
-        case 3:
+
+        for (auto *n : AllNodes(facet))
         {
-            if (!m_mesh->m_cad)
-            {
-                for (auto &face : m_mesh->m_faceSet)
-                {
-                    if (face->m_elLink.size() == 2)
-                    {
-                        continue;
-                    }
-
-                    vector<NodeSharedPtr> vs = face->m_vertexList;
-                    for (int j = 0; j < vs.size(); j++)
-                    {
-                        boundaryNodes.insert(vs[j]);
-                    }
-
-                    vector<EdgeSharedPtr> es = face->m_edgeList;
-                    for (int j = 0; j < es.size(); j++)
-                    {
-                        for (int k = 0; k < es[j]->m_edgeNodes.size(); k++)
-                        {
-                            boundaryNodes.insert(es[j]->m_edgeNodes[k]);
-                        }
-                    }
-
-                    for (int i = 0; i < face->m_faceNodes.size(); i++)
-                    {
-                        boundaryNodes.insert(face->m_faceNodes[i]);
-                    }
-                }
-            }
-            else
-            {
-                // If we have CAD therefore the only fixed nodes exist on
-                // vertices only
-                for (auto &node : m_mesh->m_vertexSet)
-                {
-                    if (node->GetNumCadCurve() > 1)
-                    {
-                        boundaryNodes.insert(node);
-                    }
-                }
-            }
-            break;
+            boundaryNodes.insert(n);
         }
-        default:
-            ASSERTL0(false, "space dim issue");
     }
 
-    // Create vector of free nodes which "remain", hence will be included in the
-    // coloursets
-    vector<NodeSharedPtr> remainEdgeVertex;
-    vector<NodeSharedPtr> remainFace;
-    vector<NodeSharedPtr> remainVolume;
+    // Free nodes, split into the tiers the colouring below works through:
+    // nodes on element vertices and edges, then nodes interior to a face,
+    // then nodes interior to a volume.
+    vector<SpatialDomains::PointGeom *> remainEdgeVertex;
+    vector<SpatialDomains::PointGeom *> remainFace;
+    vector<SpatialDomains::PointGeom *> remainVolume;
     m_res->nDoF = 0;
 
-    // check if vertex nodes are in boundary or ignored nodes, otherwise add to
-    // EDGE-VERTEX remain nodes
-    for (auto &node : m_mesh->m_vertexSet)
-    {
-        if (boundaryNodes.find(node) == boundaryNodes.end() &&
-            ignoredNodes.find(node) == ignoredNodes.end())
+    const int spaceDim = m_mesh->m_meshGraph->GetSpaceDimension();
+
+    auto consider = [&](SpatialDomains::PointGeom *n,
+                        vector<SpatialDomains::PointGeom *> &remain) {
+        if (boundaryNodes.find(n) != boundaryNodes.end() ||
+            ignoredNodes.find(n) != ignoredNodes.end())
         {
-            remainEdgeVertex.push_back(node);
-            if (node->GetNumCadCurve() == 1)
-            {
-                m_res->nDoF++;
-            }
-            else if (node->GetNumCADSurf() == 1)
-            {
-                m_res->nDoF += 2;
-            }
-            else
-            {
-                m_res->nDoF += m_mesh->m_spaceDim;
-            }
+            return;
+        }
+
+        remain.push_back(n);
+
+        // With no CAD attached, every free node may move in all directions.
+        // Nodes constrained to a CAD curve or surface would contribute 1 or 2
+        // degrees of freedom instead.
+        m_res->nDoF += spaceDim;
+    };
+
+    for (auto &[id, vert] :
+         m_mesh->m_meshGraph->GetGeomMap<SpatialDomains::PointGeom>())
+    {
+        consider(vert, remainEdgeVertex);
+    }
+
+    for (auto &[id, edge] :
+         m_mesh->m_meshGraph->GetGeomMap<SpatialDomains::SegGeom>())
+    {
+        for (auto *n : InteriorNodes(edge))
+        {
+            consider(n, remainEdgeVertex);
         }
     }
 
-    // check if edge nodes are in boundary or ignored nodes, otherwise add to
-    // EDGE-VERTEX remain nodes
-    for (auto &edge : m_mesh->m_edgeSet)
+    for (auto &[id, face] :
+         m_mesh->m_meshGraph->GetGeomMap<SpatialDomains::TriGeom>())
     {
-        vector<NodeSharedPtr> &n = edge->m_edgeNodes;
-        for (int j = 0; j < n.size(); j++)
+        for (auto *n : InteriorNodes(face))
         {
-            if (boundaryNodes.find(n[j]) == boundaryNodes.end() &&
-                ignoredNodes.find(n[j]) == ignoredNodes.end())
-            {
-                remainEdgeVertex.push_back(n[j]);
-                if (n[j]->GetNumCadCurve() == 1)
-                {
-                    m_res->nDoF++;
-                }
-                else if (n[j]->GetNumCADSurf() == 1)
-                {
-                    m_res->nDoF += 2;
-                }
-                else
-                {
-                    m_res->nDoF += m_mesh->m_spaceDim;
-                }
-            }
+            consider(n, remainFace);
+        }
+    }
+    for (auto &[id, face] :
+         m_mesh->m_meshGraph->GetGeomMap<SpatialDomains::QuadGeom>())
+    {
+        for (auto *n : InteriorNodes(face))
+        {
+            consider(n, remainFace);
         }
     }
 
-    // check if face nodes are in boundary or ignored nodes, otherwise add to
-    // FACE remain nodes
-    for (auto &face : m_mesh->m_faceSet)
+    if (meshDim == 3)
     {
-        vector<NodeSharedPtr> &n = face->m_faceNodes;
-        for (int j = 0; j < n.size(); j++)
+        for (auto &[geom, tag] : m_mesh->m_elementTags[3])
         {
-            if (boundaryNodes.find(n[j]) == boundaryNodes.end() &&
-                ignoredNodes.find(n[j]) == ignoredNodes.end())
+            for (auto *n : InteriorNodes(geom))
             {
-                remainFace.push_back(n[j]);
-                if (n[j]->GetNumCADSurf() == 1)
-                {
-                    m_res->nDoF += 2;
-                }
-                else
-                {
-                    m_res->nDoF += m_mesh->m_spaceDim;
-                }
-            }
-        }
-    }
-
-    // check if volume nodes are in boundary or ignored nodes, otherwise add to
-    // VOLUME remain nodes
-    for (int i = 0; i < m_mesh->m_element[m_mesh->m_expDim].size(); i++)
-    {
-        vector<NodeSharedPtr> ns =
-            m_mesh->m_element[m_mesh->m_expDim][i]->GetVolumeNodes();
-        for (int j = 0; j < ns.size(); j++)
-        {
-            if (boundaryNodes.find(ns[j]) == boundaryNodes.end() &&
-                ignoredNodes.find(ns[j]) == ignoredNodes.end())
-            {
-                remainVolume.push_back(ns[j]);
-                m_res->nDoF += m_mesh->m_spaceDim;
+                consider(n, remainVolume);
             }
         }
     }
@@ -381,8 +387,8 @@ vector<vector<NodeSharedPtr>> ProcessVarOpti::GetColouredNodes(
 
     // data structure for coloursets, that will ultimately contain all free
     // nodes
-    vector<vector<NodeSharedPtr>> ret;
-    vector<vector<NodeSharedPtr>> retPart;
+    vector<vector<SpatialDomains::PointGeom *>> ret;
+    vector<vector<SpatialDomains::PointGeom *>> retPart;
 
     // edge and vertex nodes
     // create vector num_el of number of associated elements of each node
@@ -390,7 +396,7 @@ vector<vector<NodeSharedPtr>> ProcessVarOpti::GetColouredNodes(
     for (int i = 0; i < remainEdgeVertex.size(); i++)
     {
         // try to find node within all elements
-        auto it = m_nodeElMap.find(remainEdgeVertex[i]->m_id);
+        auto it = m_nodeElMap.find(remainEdgeVertex[i]);
         vector<ElUtilSharedPtr> &elUtils = it->second;
         num_el[i]                        = elUtils.size();
     }
@@ -402,7 +408,8 @@ vector<vector<NodeSharedPtr>> ProcessVarOpti::GetColouredNodes(
     }
     std::sort(permNode.begin(), permNode.end(), NodeComparator(num_el));
     // applying the permutation to remainEdgeVertex
-    vector<NodeSharedPtr> remainEdgeVertexSort(remainEdgeVertex.size());
+    vector<SpatialDomains::PointGeom *> remainEdgeVertexSort(
+        remainEdgeVertex.size());
     for (int i = 0; i < remainEdgeVertex.size(); ++i)
     {
         int j                   = permNode[i];
@@ -443,21 +450,21 @@ vector<vector<NodeSharedPtr>> ProcessVarOpti::GetColouredNodes(
     return ret;
 }
 
-vector<vector<NodeSharedPtr>> ProcessVarOpti::CreateColoursets(
-    vector<NodeSharedPtr> remain)
+vector<vector<SpatialDomains::PointGeom *>> ProcessVarOpti::CreateColoursets(
+    vector<SpatialDomains::PointGeom *> remain)
 {
-    vector<vector<NodeSharedPtr>> retPart;
+    vector<vector<SpatialDomains::PointGeom *>> retPart;
 
     // loop until all free nodes have been sorted
     while (remain.size() > 0)
     {
-        vector<NodeSharedPtr> layer; // one colourset
+        vector<SpatialDomains::PointGeom *> layer; // one colourset
         set<int> locked;
-        set<int> completed;
+        std::unordered_set<SpatialDomains::PointGeom *> completed;
         for (int i = 0; i < remain.size(); i++)
         {
             // Try to find node within all elements
-            auto it = m_nodeElMap.find(remain[i]->m_id);
+            auto it = m_nodeElMap.find(remain[i]);
             ASSERTL0(it != m_nodeElMap.end(), "could not find node");
 
             // identify the vector of all associated elements of the node
@@ -484,7 +491,7 @@ vector<vector<NodeSharedPtr>> ProcessVarOpti::CreateColoursets(
             if (!islocked)
             {
                 layer.push_back(remain[i]);
-                completed.insert(remain[i]->m_id);
+                completed.insert(remain[i]);
                 for (int j = 0; j < elUtils.size(); j++)
                 {
                     locked.insert(elUtils[j]->GetId());
@@ -494,11 +501,11 @@ vector<vector<NodeSharedPtr>> ProcessVarOpti::CreateColoursets(
 
         // identify nodes which are not sorted, yet and create new "remain"
         // vector
-        vector<NodeSharedPtr> tmp = remain;
+        vector<SpatialDomains::PointGeom *> tmp = remain;
         remain.clear();
         for (int i = 0; i < tmp.size(); i++)
         {
-            if (completed.find(tmp[i]->m_id) == completed.end())
+            if (completed.find(tmp[i]) == completed.end())
             {
                 remain.push_back(tmp[i]);
             }
@@ -518,6 +525,8 @@ vector<vector<NodeSharedPtr>> ProcessVarOpti::CreateColoursets(
 void ProcessVarOpti::GetElementMap(
     int o, map<LibUtilities::ShapeType, DerivUtilSharedPtr> derMap)
 {
+    const int meshDim = m_mesh->m_meshGraph->GetMeshDimension();
+
     // Build the bounding boxes around each CAD curve when r-adaption on CAD
     // curves is set.
     m_radaptCAD = (m_config["radaptcurves"].beenSet);
@@ -527,46 +536,52 @@ void ProcessVarOpti::GetElementMap(
                                   ? m_config["radaptrad"].as<NekDouble>() * 1.5
                                   : 0.0;
         std::vector<unsigned int> curveIds;
-        Node curve_min;
-        Node curve_max;
         ParseUtils::GenerateSeqVector(
             m_config["radaptcurves"].as<std::string>().c_str(), curveIds);
+
+        auto cad = m_mesh->m_meshGraph->GetCAD();
+
         for (auto Id : curveIds)
         {
-            auto locs     = m_mesh->m_cad->GetCurve(Id)->GetMinMax();
-            curve_min.m_x = (locs[0] <= locs[3]) ? locs[0] - radaptrad
-                                                 : locs[3] - radaptrad;
-            curve_max.m_x =
-                (locs[0] > locs[3]) ? locs[0] + radaptrad : locs[3] + radaptrad;
-            curve_min.m_y = (locs[1] <= locs[4]) ? locs[1] - radaptrad
-                                                 : locs[4] - radaptrad;
-            curve_max.m_y =
-                (locs[1] > locs[4]) ? locs[1] + radaptrad : locs[4] + radaptrad;
-            curve_min.m_z = (locs[2] <= locs[5]) ? locs[2] - radaptrad
-                                                 : locs[5] - radaptrad;
-            curve_max.m_z =
-                (locs[2] > locs[5]) ? locs[2] + radaptrad : locs[5] + radaptrad;
+            // GetMinMax() gives the curve's two end points; widen the box
+            // they span by the radius of influence. Held in the same
+            // {xmin, ymin, zmin, xmax, ymax, zmax} order that
+            // Geometry::GetBoundingBox() uses.
+            auto locs = cad->GetCurve(Id)->GetMinMax();
 
-            m_adaptCurves.push_back(
-                std::make_pair(m_mesh->m_cad->GetCurve(Id),
-                               std::make_pair(curve_min, curve_max)));
+            std::array<NekDouble, 6> box;
+            for (int d = 0; d < 3; ++d)
+            {
+                box[d]     = std::min(locs[d], locs[d + 3]) - radaptrad;
+                box[d + 3] = std::max(locs[d], locs[d + 3]) + radaptrad;
+            }
+
+            m_adaptCurves.push_back(std::make_pair(cad->GetCurve(Id), box));
         }
     }
 
-    for (int i = 0; i < m_mesh->m_element[m_mesh->m_expDim].size(); i++)
+    // Take the elements in a fixed order: m_dataSet is indexed by position,
+    // so the second pass below has to see the same order as this one.
+    std::vector<SpatialDomains::Geometry *> elmts;
+    elmts.reserve(m_mesh->m_elementTags[meshDim].size());
+    for (auto &[geom, tag] : m_mesh->m_elementTags[meshDim])
     {
-        ElementSharedPtr el = m_mesh->m_element[m_mesh->m_expDim][i];
-        vector<NodeSharedPtr> ns;
-        el->GetCurvedNodes(ns);
-        ElUtilSharedPtr d = std::shared_ptr<ElUtil>(new ElUtil(
-            el, derMap[el->GetShapeType()], m_res, m_mesh->m_nummode, o));
+        elmts.push_back(geom);
+    }
+
+    for (int i = 0; i < elmts.size(); i++)
+    {
+        SpatialDomains::Geometry *el = elmts[i];
+        ElUtilSharedPtr d            = std::shared_ptr<ElUtil>(
+            new ElUtil(el, derMap[el->GetShapeType()], m_res, m_nummode, o));
         m_dataSet.push_back(d);
 
         if (m_radaptCAD) // Initial r-adaption on CAD curve step.
         {
             bool update = m_dataSet.back()->PreUpdateMapping(
                 m_adaptCurves, m_config["radaptscale"].as<NekDouble>(),
-                m_config["radaptrad"].as<NekDouble>());
+                m_config["radaptrad"].as<NekDouble>(),
+                m_mesh->m_meshGraph.get());
             if (update)
             {
                 m_dataSet.back()->UpdateMapping();
@@ -585,15 +600,14 @@ void ProcessVarOpti::GetElementMap(
         }
     }
 
-    for (int i = 0; i < m_mesh->m_element[m_mesh->m_expDim].size(); i++)
+    for (int i = 0; i < elmts.size(); i++)
     {
-        ElementSharedPtr el = m_mesh->m_element[m_mesh->m_expDim][i];
-        vector<NodeSharedPtr> ns;
-        el->GetCurvedNodes(ns);
+        SpatialDomains::Geometry *el                = elmts[i];
+        std::vector<SpatialDomains::PointGeom *> ns = GetCurvedNodes(el);
 
         for (int j = 0; j < ns.size(); j++)
         {
-            m_nodeElMap[ns[j]->m_id].push_back(m_dataSet[i]);
+            m_nodeElMap[ns[j]].push_back(m_dataSet[i]);
         }
 
         ASSERTL0(derMap[el->GetShapeType()]->ptsStd == ns.size(),
@@ -612,32 +626,53 @@ vector<ElUtilSharedPtr> ProcessVarOpti::GetLockedElements(NekDouble thres)
         }
     }
 
+    // m_dataSet is indexed by position, not by element id, so map each
+    // element back to its slot.
+    std::unordered_map<SpatialDomains::Geometry *, int> elIndex;
+    for (int i = 0; i < m_dataSet.size(); ++i)
+    {
+        elIndex[m_dataSet[i]->GetEl()] = i;
+    }
+
+    const int meshDim = m_mesh->m_meshGraph->GetMeshDimension();
+    auto facetMap     = BuildFacetElementMap(m_mesh, meshDim);
+
     std::unordered_set<int> inmesh;
     vector<ElUtilSharedPtr> totest;
 
-    for (int i = 0; i < elBelowThres.size(); i++)
-    {
-        auto t = inmesh.insert(elBelowThres[i]->GetId());
+    // Collect the elements neighbouring @p el, through the facets it shares
+    // with them, keeping only those not already gathered.
+    auto addNeighbours = [&](ElUtilSharedPtr el, vector<ElUtilSharedPtr> &out) {
+        SpatialDomains::Geometry *g = el->GetEl();
+        const int nFacets =
+            (meshDim == 3) ? g->GetNumFaces() : g->GetNumEdges();
 
-        vector<FaceSharedPtr> f = elBelowThres[i]->GetEl()->GetFaceList();
-        for (int j = 0; j < f.size(); j++)
+        for (int f = 0; f < nFacets; ++f)
         {
-            for (int k = 0; k < f[j]->m_elLink.size(); k++)
+            SpatialDomains::Geometry *facet =
+                (meshDim == 3)
+                    ? static_cast<SpatialDomains::Geometry *>(g->GetFace(f))
+                    : static_cast<SpatialDomains::Geometry *>(g->GetEdge(f));
+
+            for (auto *neighbour : facetMap[facet])
             {
-                if (f[j]->m_elLink[k].first.lock()->GetId() ==
-                    elBelowThres[i]->GetId())
+                if (neighbour == g)
                 {
                     continue;
                 }
 
-                t = inmesh.insert(f[j]->m_elLink[k].first.lock()->GetId());
-                if (t.second)
+                if (inmesh.insert(neighbour->GetGlobalID()).second)
                 {
-                    totest.push_back(
-                        m_dataSet[f[j]->m_elLink[k].first.lock()->GetId()]);
+                    out.push_back(m_dataSet[elIndex[neighbour]]);
                 }
             }
         }
+    };
+
+    for (int i = 0; i < elBelowThres.size(); i++)
+    {
+        inmesh.insert(elBelowThres[i]->GetId());
+        addNeighbours(elBelowThres[i], totest);
     }
 
     for (int i = 0; i < 6; i++)
@@ -646,26 +681,7 @@ vector<ElUtilSharedPtr> ProcessVarOpti::GetLockedElements(NekDouble thres)
         totest.clear();
         for (int j = 0; j < tmp.size(); j++)
         {
-            vector<FaceSharedPtr> f = tmp[j]->GetEl()->GetFaceList();
-            for (int k = 0; k < f.size(); k++)
-            {
-                for (int l = 0; l < f[k]->m_elLink.size(); l++)
-                {
-                    if (f[k]->m_elLink[l].first.lock()->GetId() ==
-                        tmp[j]->GetId())
-                    {
-                        continue;
-                    }
-
-                    auto t =
-                        inmesh.insert(f[k]->m_elLink[l].first.lock()->GetId());
-                    if (t.second)
-                    {
-                        totest.push_back(
-                            m_dataSet[f[k]->m_elLink[l].first.lock()->GetId()]);
-                    }
-                }
-            }
+            addNeighbours(tmp[j], totest);
         }
     }
 
@@ -684,60 +700,15 @@ vector<ElUtilSharedPtr> ProcessVarOpti::GetLockedElements(NekDouble thres)
 
 void ProcessVarOpti::RemoveLinearCurvature()
 {
-    for (int i = 0; i < m_dataSet.size(); i++)
-    {
-        if (m_dataSet[i]->GetScaledJac() > 0.999)
-        {
-            ElementSharedPtr el = m_dataSet[i]->GetEl();
-            vector<NodeSharedPtr> ns;
-            el->SetVolumeNodes(ns);
-        }
-    }
-
-    map<int, vector<FaceSharedPtr>> edgeToFace;
-
-    for (auto &face : m_mesh->m_faceSet)
-    {
-        bool rm = true;
-        for (int i = 0; i < face->m_elLink.size(); i++)
-        {
-            int id = face->m_elLink[i].first.lock()->GetId();
-            if (m_dataSet[id]->GetScaledJac() <= 0.999)
-            {
-                rm = false;
-                break;
-            }
-        }
-        if (rm)
-        {
-            face->m_faceNodes.clear();
-        }
-
-        vector<EdgeSharedPtr> es = face->m_edgeList;
-        for (int i = 0; i < es.size(); i++)
-        {
-            edgeToFace[es[i]->m_id].push_back(face);
-        }
-    }
-
-    for (auto &edge : m_mesh->m_edgeSet)
-    {
-        auto it = edgeToFace.find(edge->m_id);
-        ASSERTL0(it != edgeToFace.end(), "not found");
-        bool rm = true;
-        for (int i = 0; i < it->second.size(); i++)
-        {
-            if (it->second[i]->m_faceNodes.size() > 0)
-            {
-                rm = false;
-                break;
-            }
-        }
-        if (rm)
-        {
-            edge->m_edgeNodes.clear();
-        }
-    }
+    // This used to strip the high-order nodes back off elements, faces and
+    // edges that had come out essentially straight, to keep the output
+    // smaller. Doing that now means dropping the curves those entities hold
+    // in MeshGraph, and since the only call site has long been commented out
+    // there is nothing exercising the result. Left unimplemented rather than
+    // ported blind.
+    NEKERROR(ErrorUtil::efatal,
+             "ProcessVarOpti::RemoveLinearCurvature has not been ported to "
+             "the SpatialDomains geometry classes.");
 }
 
 LibUtilities::Interpolator ProcessVarOpti::GetScalingFieldFromFile(string file)
@@ -783,7 +754,7 @@ LibUtilities::Interpolator ProcessVarOpti::GetScalingFieldFromFile(string file)
         data.push_back(tmpD);
     }
 
-    int dim = m_mesh->m_expDim;
+    int dim = m_mesh->m_meshGraph->GetMeshDimension();
 
     Array<OneD, Array<OneD, NekDouble>> inPts(dim + 1);
     for (int i = 0; i < dim + 1; ++i)
@@ -802,7 +773,7 @@ LibUtilities::Interpolator ProcessVarOpti::GetScalingFieldFromFile(string file)
 LibUtilities::Interpolator ProcessVarOpti::GetField(
     Array<OneD, Array<OneD, NekDouble>> inPts)
 {
-    int dim = m_mesh->m_expDim;
+    int dim = m_mesh->m_meshGraph->GetMeshDimension();
 
     vector<string> fieldNames;
     fieldNames.push_back("");

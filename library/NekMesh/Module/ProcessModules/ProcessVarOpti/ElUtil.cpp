@@ -34,6 +34,7 @@
 
 #include "ElUtil.h"
 #include "ProcessVarOpti.h"
+#include <SpatialDomains/CADSystem/CADAssociation.h>
 
 #include <LibUtilities/Foundations/ManagerAccess.h>
 #include <mutex>
@@ -45,42 +46,37 @@ namespace Nektar::NekMesh
 
 std::mutex mtx2;
 
-ElUtil::ElUtil(ElementSharedPtr e, DerivUtilSharedPtr d, ResidualSharedPtr r,
-               int n, int o)
+ElUtil::ElUtil(SpatialDomains::Geometry *e, DerivUtilSharedPtr d,
+               ResidualSharedPtr r, int n, int o)
 {
     m_el        = e;
     m_derivUtil = d;
     m_res       = r;
     m_mode      = n;
     m_order     = o;
-    m_dim       = m_el->GetDim();
+    m_dim       = m_el->GetShapeDim();
     m_radapt    = false;
-    vector<NodeSharedPtr> ns;
-    m_el->GetCurvedNodes(ns);
+
+    // The optimiser works directly on the node coordinates, so hold a pointer
+    // into each one rather than a copy.
+    std::vector<SpatialDomains::PointGeom *> ns = GetCurvedNodes(m_el);
     nodes.resize(ns.size());
     for (int i = 0; i < ns.size(); ++i)
     {
         nodes[i].resize(m_dim);
-        nodes[i][0] = &ns[i]->m_x;
-
-        if (m_dim >= 2)
+        for (int j = 0; j < m_dim; ++j)
         {
-            nodes[i][1] = &ns[i]->m_y;
+            nodes[i][j] = &(*ns[i])[j];
         }
 
-        if (m_dim >= 3)
-        {
-            nodes[i][2] = &ns[i]->m_z;
-        }
-
-        m_idmap[ns[i]->m_id] = i;
+        m_idmap[ns[i]] = i;
     }
     MappingIdealToRef();
 }
 
 void ElUtil::MappingIdealToRef()
 {
-    if (m_el->GetConf().m_e == LibUtilities::eQuadrilateral)
+    if (m_el->GetShapeType() == LibUtilities::eQuadrilateral)
     {
         LibUtilities::PointsKey pkey1(m_mode, LibUtilities::eNodalQuadElec);
         LibUtilities::PointsKey pkey2(m_mode + m_order,
@@ -93,13 +89,17 @@ void ElUtil::MappingIdealToRef()
         LibUtilities::PointsManager()[pkey2]->GetPoints(u2, v2);
 
         vector<vector<NekDouble>> xyz(4);
-        vector<NodeSharedPtr> ns = m_el->GetVertexList();
+        std::vector<SpatialDomains::PointGeom *> ns(m_el->GetNumVerts());
+        for (int i = 0; i < m_el->GetNumVerts(); ++i)
+        {
+            ns[i] = m_el->GetVertex(i);
+        }
         for (int i = 0; i < 4; i++)
         {
             vector<NekDouble> x(3);
-            x[0]   = ns[i]->m_x;
-            x[1]   = ns[i]->m_y;
-            x[2]   = ns[i]->m_z;
+            x[0]   = (*ns[i])[0];
+            x[1]   = (*ns[i])[1];
+            x[2]   = (*ns[i])[2];
             xyz[i] = x;
         }
 
@@ -177,7 +177,7 @@ void ElUtil::MappingIdealToRef()
             m_maps.push_back(r);
         }
     }
-    else if (m_el->GetConf().m_e == LibUtilities::eTriangle)
+    else if (m_el->GetShapeType() == LibUtilities::eTriangle)
     {
         DNekMat J(2, 2, 0.0);
         J(0, 0) = (*nodes[1][0] - *nodes[0][0]);
@@ -211,7 +211,7 @@ void ElUtil::MappingIdealToRef()
             m_mapsStd.push_back(r);
         }
     }
-    else if (m_el->GetConf().m_e == LibUtilities::eTetrahedron)
+    else if (m_el->GetShapeType() == LibUtilities::eTetrahedron)
     {
         DNekMat J(3, 3, 0.0);
         J(0, 0) = (*nodes[1][0] - *nodes[0][0]);
@@ -254,7 +254,7 @@ void ElUtil::MappingIdealToRef()
             m_mapsStd.push_back(r);
         }
     }
-    else if (m_el->GetConf().m_e == LibUtilities::ePrism)
+    else if (m_el->GetShapeType() == LibUtilities::ePrism)
     {
         LibUtilities::PointsKey pkey1(m_mode, LibUtilities::eNodalPrismElec);
         LibUtilities::PointsKey pkey2(m_mode + m_order,
@@ -264,13 +264,17 @@ void ElUtil::MappingIdealToRef()
         LibUtilities::PointsManager()[pkey2]->GetPoints(u2, v2, w2);
 
         vector<vector<NekDouble>> xyz(6);
-        vector<NodeSharedPtr> ns = m_el->GetVertexList();
+        std::vector<SpatialDomains::PointGeom *> ns(m_el->GetNumVerts());
+        for (int i = 0; i < m_el->GetNumVerts(); ++i)
+        {
+            ns[i] = m_el->GetVertex(i);
+        }
         for (int i = 0; i < 6; i++)
         {
             vector<NekDouble> x(3);
-            x[0]   = ns[i]->m_x;
-            x[1]   = ns[i]->m_y;
-            x[2]   = ns[i]->m_z;
+            x[0]   = (*ns[i])[0];
+            x[1]   = (*ns[i])[1];
+            x[2]   = (*ns[i])[2];
             xyz[i] = x;
         }
 
@@ -381,7 +385,7 @@ void ElUtil::MappingIdealToRef()
             m_maps.push_back(r);
         }
     }
-    else if (m_el->GetConf().m_e == LibUtilities::eHexahedron)
+    else if (m_el->GetShapeType() == LibUtilities::eHexahedron)
     {
         LibUtilities::PointsKey pkey1(m_mode, LibUtilities::eNodalHexElec);
         LibUtilities::PointsKey pkey2(m_mode + m_order,
@@ -394,13 +398,17 @@ void ElUtil::MappingIdealToRef()
         LibUtilities::PointsManager()[pkey2]->GetPoints(u2, v2, w2);
 
         vector<vector<NekDouble>> xyz(8);
-        vector<NodeSharedPtr> ns = m_el->GetVertexList();
+        std::vector<SpatialDomains::PointGeom *> ns(m_el->GetNumVerts());
+        for (int i = 0; i < m_el->GetNumVerts(); ++i)
+        {
+            ns[i] = m_el->GetVertex(i);
+        }
         for (int i = 0; i < 8; i++)
         {
             vector<NekDouble> x(3);
-            x[0]   = ns[i]->m_x;
-            x[1]   = ns[i]->m_y;
-            x[2]   = ns[i]->m_z;
+            x[0]   = (*ns[i])[0];
+            x[1]   = (*ns[i])[1];
+            x[2]   = (*ns[i])[2];
             xyz[i] = x;
         }
 
@@ -748,30 +756,24 @@ void ElUtil::InitialMinJac()
     m_minJac = mn;
 }
 
-bool ElUtil::PreUpdateMapping(
-    std::vector<std::pair<CADCurveSharedPtr, std::pair<Node, Node>>>
-        &adaptCurves,
-    NekDouble scale, NekDouble rad)
+bool ElUtil::PreUpdateMapping(AdaptCurveVector &adaptCurves, NekDouble scale,
+                              NekDouble rad, SpatialDomains::MeshGraph *graph)
 {
     ASSERTL0(m_dim > 1, "Adaption for mesh dim < 2 not implemented.");
 
-    std::vector<CADCurveSharedPtr> radaptCurves;
+    std::vector<SpatialDomains::CADCurveSharedPtr> radaptCurves;
 
-    auto el_boundingBox = m_el->GetBoundingBox();
-    auto el_bb_min      = el_boundingBox.first.GetLoc();
-    auto el_bb_max      = el_boundingBox.second.GetLoc();
+    // Bounding boxes are {xmin, ymin, zmin, xmax, ymax, zmax}.
+    auto el_bb = m_el->GetBoundingBox();
 
     for (auto &curve : adaptCurves)
     {
-        auto curve_bb_min = curve.second.first.GetLoc();
-        auto curve_bb_max = curve.second.second.GetLoc();
+        auto &curve_bb = curve.second;
 
-        bool x_outside = (el_bb_max[0] <= curve_bb_min[0]) ||
-                         (el_bb_min[0] >= curve_bb_max[0]);
-        bool y_outside = (el_bb_max[1] <= curve_bb_min[1]) ||
-                         (el_bb_min[1] >= curve_bb_max[1]);
-        bool z_outside = (m_dim > 2) ? ((el_bb_max[2] <= curve_bb_min[2]) ||
-                                        (el_bb_min[2] >= curve_bb_max[2]))
+        bool x_outside = (el_bb[3] <= curve_bb[0]) || (el_bb[0] >= curve_bb[3]);
+        bool y_outside = (el_bb[4] <= curve_bb[1]) || (el_bb[1] >= curve_bb[4]);
+        bool z_outside = (m_dim > 2) ? ((el_bb[5] <= curve_bb[2]) ||
+                                        (el_bb[2] >= curve_bb[5]))
                                      : false;
 
         if (!(x_outside || y_outside || z_outside))
@@ -782,7 +784,7 @@ bool ElUtil::PreUpdateMapping(
 
     if (!radaptCurves.empty())
     {
-        SetScalingFromInput(scale, rad, radaptCurves);
+        SetScalingFromInput(scale, rad, radaptCurves, graph);
         return true;
     }
     else
@@ -815,24 +817,25 @@ void ElUtil::UpdateMapping()
                     m_dim, fieldNames, centre, ptsInfo);
         }
 
-        vector<NodeSharedPtr> nodes = m_el->GetVertexList();
+        const int nVerts = m_el->GetNumVerts();
 
         vector<NekDouble> centre(m_dim, 0.0);
-        for (int i = 0; i < nodes.size(); ++i)
+        for (int i = 0; i < nVerts; ++i)
         {
-            centre[0] += nodes[i]->m_x;
-            centre[1] += nodes[i]->m_y;
+            SpatialDomains::PointGeom *v = m_el->GetVertex(i);
+            centre[0] += (*v)[0];
+            centre[1] += (*v)[1];
             if (m_dim > 2)
             {
-                centre[2] += nodes[i]->m_z;
+                centre[2] += (*v)[2];
             }
         }
 
-        m_interpField->SetPointVal(0, 0, centre[0] / nodes.size());
-        m_interpField->SetPointVal(1, 0, centre[1] / nodes.size());
+        m_interpField->SetPointVal(0, 0, centre[0] / nVerts);
+        m_interpField->SetPointVal(1, 0, centre[1] / nVerts);
         if (m_dim > 2)
         {
-            m_interpField->SetPointVal(2, 0, centre[2] / nodes.size());
+            m_interpField->SetPointVal(2, 0, centre[2] / nVerts);
         }
 
         m_interp.CalcWeights(m_interp.GetInField(), m_interpField, true);
@@ -848,12 +851,13 @@ void ElUtil::UpdateMapping()
                             // the curve
         {
             [&] {
-                for (auto &vert : m_el->GetVertexList())
+                for (int i = 0; i < m_el->GetNumVerts(); ++i)
                 {
+                    SpatialDomains::PointGeom *vert = m_el->GetVertex(i);
                     std::array<NekDouble, 3> x;
-                    x[0] = vert->m_x;
-                    x[1] = vert->m_y;
-                    x[2] = vert->m_z;
+                    x[0] = (*vert)[0];
+                    x[1] = (*vert)[1];
+                    x[2] = (*vert)[2];
                     for (auto &curve : m_adaptcurves)
                     {
                         if (curve->GetMinDistance(x) < m_adapt_radius)
@@ -865,15 +869,18 @@ void ElUtil::UpdateMapping()
                 }
             }();
         }
-        else // Using only elements with a node on the curve
+        // Using only elements with a node on the curve. Without CAD there are
+        // no curves to sit on, so the scaling stays at its default.
+        else if (m_graph->HasCAD())
         {
             [&] {
-                for (auto &vert : m_el->GetVertexList())
+                for (int i = 0; i < m_el->GetNumVerts(); ++i)
                 {
-                    for (auto &curve : vert->GetCADCurves())
+                    for (auto &curve : m_graph->GetCADAssociation()->GetCurves(
+                             m_el->GetVertex(i)))
                     {
-                        std::vector<CADCurveSharedPtr>::iterator it = std::find(
-                            m_adaptcurves.begin(), m_adaptcurves.end(), curve);
+                        auto it = std::find(m_adaptcurves.begin(),
+                                            m_adaptcurves.end(), curve);
                         if (it != m_adaptcurves.end())
                         {
                             scaling = m_adapt_scale;
@@ -920,12 +927,10 @@ ElUtilJob *ElUtil::GetJob(bool update)
     return new ElUtilJob(this, update);
 }
 
-ElUtilJob *ElUtil::GetAdaptJob(
-    std::vector<std::pair<CADCurveSharedPtr, std::pair<Node, Node>>>
-        &adaptCurves,
-    NekDouble scale, NekDouble rad)
+ElUtilJob *ElUtil::GetAdaptJob(AdaptCurveVector &adaptCurves, NekDouble scale,
+                               NekDouble rad, SpatialDomains::MeshGraph *graph)
 {
-    return new ElUtilJob(this, adaptCurves, scale, rad);
+    return new ElUtilJob(this, adaptCurves, scale, rad, graph);
 }
 
 } // namespace Nektar::NekMesh

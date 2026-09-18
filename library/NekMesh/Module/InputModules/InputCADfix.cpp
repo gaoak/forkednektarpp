@@ -34,16 +34,19 @@
 
 #include "InputCADfix.h"
 
-#include <NekMesh/CADSystem/CADCurve.h>
-#include <NekMesh/CADSystem/CADSurf.h>
-#include <NekMesh/CADSystem/CADVert.h>
-#include <NekMesh/CADSystem/CFI/CADElementCFI.h>
+#include <SpatialDomains/CADSystem/CADCurve.h>
+#include <SpatialDomains/CADSystem/CADSurf.h>
+#include <SpatialDomains/CADSystem/CADVert.h>
+#include <SpatialDomains/CADSystem/CFI/CADElementCFI.h>
 
 using namespace std;
 namespace Nektar
 {
 namespace NekMesh
 {
+using SpatialDomains::CADCurveSharedPtr;
+using SpatialDomains::CADSurfSharedPtr;
+using SpatialDomains::CADVertSharedPtr;
 
 using namespace Nektar::NekMesh;
 

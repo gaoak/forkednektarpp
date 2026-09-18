@@ -54,7 +54,7 @@ public:
     SPATIAL_DOMAINS_EXPORT ~Geometry2D() override = default;
 
     SPATIAL_DOMAINS_EXPORT static const int kDim = 2;
-    SPATIAL_DOMAINS_EXPORT Curve *GetCurve()
+    SPATIAL_DOMAINS_EXPORT Curve *GetCurve() override
     {
         return m_curve;
     }

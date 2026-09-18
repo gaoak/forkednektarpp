@@ -55,6 +55,12 @@ public:
                                      NekDouble x, NekDouble y, NekDouble z);
     SPATIAL_DOMAINS_EXPORT PointGeom(const PointGeom &T);
 
+    /// Declaring the copy constructor above leaves the implicit copy
+    /// assignment deprecated, and a PointGeom is used as a value in places
+    /// (the centroids in ProcessPerAlign, for one). The copy constructor is a
+    /// plain member-wise copy, so this matches it.
+    SPATIAL_DOMAINS_EXPORT PointGeom &operator=(const PointGeom &T) = default;
+
     SPATIAL_DOMAINS_EXPORT ~PointGeom() override = default;
 
     SPATIAL_DOMAINS_EXPORT void GetCoords(NekDouble &x, NekDouble &y,
@@ -69,6 +75,12 @@ public:
     SPATIAL_DOMAINS_EXPORT void Rotate(PointGeom &a, int dir, NekDouble angle);
     SPATIAL_DOMAINS_EXPORT NekDouble dist(PointGeom &a);
     SPATIAL_DOMAINS_EXPORT NekDouble dot(PointGeom &a);
+    SPATIAL_DOMAINS_EXPORT NekDouble Angle(std::array<NekDouble, 3> locA,
+                                           std::array<NekDouble, 3> locB,
+                                           std::array<NekDouble, 3> N);
+    SPATIAL_DOMAINS_EXPORT bool IsNodeClose(const PointGeom &a,
+                                            const unsigned int fact,
+                                            const NekDouble tol) const;
 
     SPATIAL_DOMAINS_EXPORT friend bool operator==(const PointGeom &x,
                                                   const PointGeom &y);

@@ -32,252 +32,263 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-#include <NekMesh/MeshElements/Hexahedron.h>
+#include <NekMesh/MeshElements/Element.h>
 #include <SpatialDomains/HexGeom.h>
 
 #include <LibUtilities/Foundations/ManagerAccess.h>
-
-using namespace std;
+#include <SpatialDomains/QuadGeom.h>
 
 namespace Nektar::NekMesh
 {
 
-LibUtilities::ShapeType Hexahedron::m_type =
-    GetElementFactory().RegisterCreatorFunction(
-        LibUtilities::eHexahedron, Hexahedron::create, "Hexahedron");
-
-/// Vertex IDs that make up hexahedron faces.
-int Hexahedron::m_faceIds[6][4] = {{0, 1, 2, 3}, {0, 1, 5, 4}, {1, 2, 6, 5},
-                                   {3, 2, 6, 7}, {0, 3, 7, 4}, {4, 5, 6, 7}};
-
-Hexahedron::Hexahedron(ElmtConfig pConf, vector<NodeSharedPtr> pNodeList,
-                       vector<int> pTagList)
-    : Element(pConf, GetNumNodes(pConf), pNodeList.size())
+struct hexahedronHelper
 {
-    m_tag     = "H";
-    m_dim     = 3;
-    m_taglist = pTagList;
-    int n     = m_conf.m_order - 1;
-
-    // Create a map to relate edge nodes to a pair of vertices defining an edge
-    // This is based on the ordering produced by gmsh.
-    map<pair<int, int>, int> edgeNodeMap;
-    map<pair<int, int>, int>::iterator it;
-    edgeNodeMap[pair<int, int>(1, 2)] = 9;
-    edgeNodeMap[pair<int, int>(2, 3)] = 9 + n;
-    edgeNodeMap[pair<int, int>(3, 4)] = 9 + 2 * n;
-    edgeNodeMap[pair<int, int>(4, 1)] = 9 + 3 * n;
-    edgeNodeMap[pair<int, int>(1, 5)] = 9 + 4 * n;
-    edgeNodeMap[pair<int, int>(2, 6)] = 9 + 5 * n;
-    edgeNodeMap[pair<int, int>(3, 7)] = 9 + 6 * n;
-    edgeNodeMap[pair<int, int>(4, 8)] = 9 + 7 * n;
-    edgeNodeMap[pair<int, int>(5, 6)] = 9 + 8 * n;
-    edgeNodeMap[pair<int, int>(6, 7)] = 9 + 9 * n;
-    edgeNodeMap[pair<int, int>(7, 8)] = 9 + 10 * n;
-    edgeNodeMap[pair<int, int>(8, 5)] = 9 + 11 * n;
-
-    // Add vertices
-    for (int i = 0; i < 8; ++i)
+    /**
+     * @brief Create a hexahedron element.
+     */
+    static SpatialDomains::Geometry *create(
+        std::vector<SpatialDomains::PointGeom *> &nodeList,
+        SpatialDomains::MeshGraphSharedPtr &meshGraph, EdgeMap &edgeMap,
+        FaceMap &faceMap, ElmtConfig &conf, std::set<int> *vertIDs,
+        std::unordered_set<int> *curveNodeIDs,
+        [[maybe_unused]] std::unordered_set<int> *naiveTriIDs,
+        ElmtIds *forceIDs)
     {
-        m_vertex.push_back(pNodeList[i]);
-    }
 
-    // Create edges (with corresponding set of edge points)
-    for (it = edgeNodeMap.begin(); it != edgeNodeMap.end(); ++it)
-    {
-        vector<NodeSharedPtr> edgeNodes;
-        if (m_conf.m_order > 1)
+        auto &curvedEdges = meshGraph->GetCurvedEdges();
+        auto &curvedFaces = meshGraph->GetCurvedFaces();
+
+        // Vertex IDs that make up the hexahedron edges
+        const unsigned int edgeIds[12][2] = {{0, 1}, {1, 2}, {2, 3}, {3, 0},
+                                             {0, 4}, {1, 5}, {2, 6}, {3, 7},
+                                             {4, 5}, {5, 6}, {6, 7}, {7, 4}};
+
+        // Vertex IDs that make up hexahedron faces.
+        const unsigned int faceIds[6][4] = {{0, 1, 2, 3}, {0, 1, 5, 4},
+                                            {1, 2, 6, 5}, {3, 2, 6, 7},
+                                            {0, 3, 7, 4}, {4, 5, 6, 7}};
+
+        // Edges that make up hexahedron faces
+        const unsigned int faceEdgeIds[6][4] = {{0, 1, 2, 3},  {0, 5, 8, 4},
+                                                {1, 6, 9, 5},  {2, 6, 10, 7},
+                                                {3, 7, 11, 4}, {8, 9, 10, 11}};
+
+        // Add vertices
+        std::array<SpatialDomains::PointGeom *, 8> vertex;
+        for (int i = 0; i < 8; ++i)
         {
-            for (int j = it->second; j < it->second + n; ++j)
-            {
-                edgeNodes.push_back(pNodeList[j - 1]);
-            }
+            vertex[i] = nodeList[i];
         }
-        m_edge.push_back(EdgeSharedPtr(new Edge(
-            pNodeList[it->first.first - 1], pNodeList[it->first.second - 1],
-            edgeNodes, m_conf.m_edgeCurveType)));
-    }
 
-    // Create faces
-    int face_edges[6][4];
-    for (int j = 0; j < 6; ++j)
-    {
-        vector<NodeSharedPtr> faceVertices;
-        vector<EdgeSharedPtr> faceEdges;
-        vector<NodeSharedPtr> faceNodes;
-        for (int k = 0; k < 4; ++k)
+        // Create edges (with corresponding set of edge points)
+        std::array<SpatialDomains::SegGeom *, 12> edges{};
+        for (int e = 0; e < 12; ++e)
         {
-            faceVertices.push_back(m_vertex[m_faceIds[j][k]]);
-            NodeSharedPtr a = m_vertex[m_faceIds[j][k]];
-            NodeSharedPtr b = m_vertex[m_faceIds[j][(k + 1) % 4]];
-            for (unsigned int i = 0; i < m_edge.size(); ++i)
+            std::array<SpatialDomains::PointGeom *, 2> edgeVerts = {
+                nodeList[edgeIds[e][0]], nodeList[edgeIds[e][1]]};
+
+            // Check if edge already exists in edgeSet using edgeVert ids, if it
+            // does we can just reuse that...
+            auto idPair = std::make_pair(edgeVerts[0]->GetGlobalID(),
+                                         edgeVerts[1]->GetGlobalID());
+            auto it     = edgeMap.find(idPair);
+
+            if (it == edgeMap.end())
             {
-                if (((*(m_edge[i]->m_n1) == *a) &&
-                     (*(m_edge[i]->m_n2) == *b)) ||
-                    ((*(m_edge[i]->m_n1) == *b) && (*(m_edge[i]->m_n2) == *a)))
+                // Create edge.
+                int id = NextEdgeId(meshGraph);
+                if (forceIDs != nullptr)
                 {
-                    face_edges[j][k] = i;
-                    faceEdges.push_back(m_edge[i]);
-                    break;
+                    id = forceIDs->edges[e];
+                }
+                SpatialDomains::Curve *curvePtr = nullptr;
+
+                if (conf.m_order > 1)
+                {
+                    int n = conf.m_order - 1;
+                    std::vector<SpatialDomains::PointGeom *> tmpNodeList;
+                    tmpNodeList.emplace_back(edgeVerts[0]);
+                    for (int j = 8 + n * e; j < 8 + n * (e + 1); ++j)
+                    {
+                        tmpNodeList.emplace_back(nodeList[j]);
+                    }
+                    tmpNodeList.emplace_back(edgeVerts[1]);
+
+                    auto curve = ObjPoolManager<SpatialDomains::Curve>::
+                        AllocateUniquePtr(id, conf.m_edgeCurveType);
+                    for (auto &node : tmpNodeList)
+                    {
+                        curveNodeIDs->insert(node->GetGlobalID());
+                        curve->m_points.emplace_back(node);
+                    }
+                    curvePtr        = curve.get();
+                    curvedEdges[id] = std::move(curve);
+                }
+
+                auto seg =
+                    ObjPoolManager<SpatialDomains::SegGeom>::AllocateUniquePtr(
+                        id, nodeList[0]->GetCoordim(), edgeVerts, curvePtr);
+
+                edges[e]        = seg.get();
+                edgeMap[idPair] = seg.get();
+                meshGraph->AddGeom<SpatialDomains::SegGeom>(id, std::move(seg));
+            }
+            else
+            {
+                edges[e] = it->second;
+
+                // Create edge curvature if it's needed and we haven't already
+                if (conf.m_order > 1 && edges[e]->GetCurve() == nullptr)
+                {
+                    int n = conf.m_order - 1;
+                    std::vector<SpatialDomains::PointGeom *> tmpNodeList;
+                    tmpNodeList.emplace_back(edgeVerts[0]);
+                    for (int j = 8 + n * e; j < 8 + n * (e + 1); ++j)
+                    {
+                        tmpNodeList.emplace_back(nodeList[j]);
+                    }
+                    tmpNodeList.emplace_back(edgeVerts[1]);
+
+                    auto curve = ObjPoolManager<SpatialDomains::Curve>::
+                        AllocateUniquePtr(edges[e]->GetGlobalID(),
+                                          conf.m_edgeCurveType);
+                    for (auto &node : tmpNodeList)
+                    {
+                        curveNodeIDs->insert(node->GetGlobalID());
+                        curve->m_points.emplace_back(node);
+                    }
+                    edges[e]->SetCurve(curve.get());
+                    curvedEdges[edges[e]->GetGlobalID()] = std::move(curve);
                 }
             }
         }
 
-        if (m_conf.m_faceNodes)
+        // Create faces
+        std::array<SpatialDomains::QuadGeom *, 6> faces{};
+        std::array<SpatialDomains::PointGeom *, 4> faceVertices;
+        std::array<SpatialDomains::SegGeom *, 4> faceEdges;
+
+        for (int j = 0; j < 6; ++j)
         {
-            int N = 8 + 12 * n + j * n * n;
-            for (int i = 0; i < n * n; ++i)
+            for (int k = 0; k < 4; ++k)
             {
-                faceNodes.push_back(pNodeList[N + i]);
+                faceVertices[k] = vertex[faceIds[j][k]];
             }
-        }
-        m_face.push_back(FaceSharedPtr(new Face(
-            faceVertices, faceNodes, faceEdges, m_conf.m_faceCurveType)));
-    }
 
-    // Reorder edges to be consistent with Nektar++ ordering.
-    vector<EdgeSharedPtr> tmp(12);
-    tmp[0]  = m_edge[face_edges[0][0]];
-    tmp[1]  = m_edge[face_edges[0][1]];
-    tmp[2]  = m_edge[face_edges[0][2]];
-    tmp[3]  = m_edge[face_edges[0][3]];
-    tmp[4]  = m_edge[face_edges[1][3]];
-    tmp[5]  = m_edge[face_edges[1][1]];
-    tmp[6]  = m_edge[face_edges[2][1]];
-    tmp[7]  = m_edge[face_edges[4][1]];
-    tmp[8]  = m_edge[face_edges[5][0]];
-    tmp[9]  = m_edge[face_edges[5][1]];
-    tmp[10] = m_edge[face_edges[5][2]];
-    tmp[11] = m_edge[face_edges[5][3]];
-    m_edge  = tmp;
-}
+            // Check if quad already exists in faceSet using vertex IDs
+            std::array<int, 4> vids = {
+                faceVertices[0]->GetGlobalID(), faceVertices[1]->GetGlobalID(),
+                faceVertices[2]->GetGlobalID(), faceVertices[3]->GetGlobalID()};
 
-SpatialDomains::Geometry *Hexahedron::GetGeom(
-    int coordDim, SpatialDomains::EntityHolder &holder)
-{
-    std::array<SpatialDomains::QuadGeom *, 6> faces;
-    SpatialDomains::HexGeomUniquePtr hex;
+            auto it = faceMap.find(vids);
 
-    for (int i = 0; i < 6; ++i)
-    {
-        faces[i] = dynamic_cast<SpatialDomains::QuadGeom *>(
-            m_face[i]->GetGeom(coordDim, holder));
-    }
-
-    hex =
-        ObjPoolManager<SpatialDomains::HexGeom>::AllocateUniquePtr(m_id, faces);
-    auto ret = hex.get();
-    holder.m_hexVec.push_back(std::move(hex));
-
-    ret->Setup();
-    return ret;
-}
-
-StdRegions::Orientation Hexahedron::GetEdgeOrient(int edgeId,
-                                                  EdgeSharedPtr edge)
-{
-    static int edgeVerts[12][2] = {{0, 1}, {1, 2}, {2, 3}, {3, 0},
-                                   {0, 4}, {1, 5}, {2, 6}, {3, 7},
-                                   {4, 5}, {5, 6}, {6, 7}, {7, 4}};
-
-    if (edge->m_n1 == m_vertex[edgeVerts[edgeId][0]])
-    {
-        return StdRegions::eForwards;
-    }
-    else if (edge->m_n1 == m_vertex[edgeVerts[edgeId][1]])
-    {
-        return StdRegions::eBackwards;
-    }
-    else
-    {
-        ASSERTL1(false, "Edge is not connected to this hexahedron.");
-    }
-
-    return StdRegions::eNoOrientation;
-}
-
-void Hexahedron::MakeOrder(int order, SpatialDomains::Geometry *geom,
-                           LibUtilities::PointsType pType, int coordDim,
-                           int &id, bool justConfig)
-{
-    m_curveType    = pType;
-    m_conf.m_order = order;
-    m_volumeNodes.clear();
-
-    if (order == 1)
-    {
-        m_conf.m_volumeNodes = m_conf.m_faceNodes = false;
-        return;
-    }
-
-    m_conf.m_faceNodes   = true;
-    m_conf.m_volumeNodes = true;
-
-    if (justConfig)
-    {
-        return;
-    }
-
-    int nPoints                            = order + 1;
-    StdRegions::StdExpansionSharedPtr xmap = geom->GetXmap();
-
-    Array<OneD, NekDouble> px;
-    LibUtilities::PointsKey pKey(nPoints, pType);
-    ASSERTL1(pKey.GetPointsDim() == 1, "Points distribution must be 1D");
-    LibUtilities::PointsManager()[pKey]->GetPoints(px);
-
-    Array<OneD, Array<OneD, NekDouble>> phys(coordDim);
-
-    for (int i = 0; i < coordDim; ++i)
-    {
-        phys[i] = Array<OneD, NekDouble>(xmap->GetTotPoints());
-        xmap->BwdTrans(geom->GetCoeffs(i), phys[i]);
-    }
-
-    int nHexIntPts = (nPoints - 2) * (nPoints - 2) * (nPoints - 2);
-    m_volumeNodes.resize(nHexIntPts);
-
-    for (int i = 1, cnt = 0; i < nPoints - 1; ++i)
-    {
-        for (int j = 1; j < nPoints - 1; ++j)
-        {
-            for (int k = 1; k < nPoints - 1; ++k, ++cnt)
+            if (it == faceMap.end())
             {
-                Array<OneD, NekDouble> xp(3);
-                xp[0] = px[k];
-                xp[1] = px[j];
-                xp[2] = px[i];
-
-                Array<OneD, NekDouble> x(3, 0.0);
-                for (int k = 0; k < coordDim; ++k)
+                int id = NextFaceId(meshGraph);
+                if (forceIDs != nullptr)
                 {
-                    x[k] = xmap->PhysEvaluate(xp, phys[k]);
+                    id = forceIDs->faces[j];
                 }
 
-                m_volumeNodes[cnt] =
-                    std::shared_ptr<Node>(new Node(id++, x[0], x[1], x[2]));
+                for (int k = 0; k < 4; ++k)
+                {
+                    faceEdges[k] = edges[faceEdgeIds[j][k]];
+                }
+
+                SpatialDomains::Curve *curvePtr = nullptr;
+                if (conf.m_faceNodes)
+                {
+                    int n = conf.m_order - 1;
+                    int N = 8 + 12 * n + j * n * n;
+                    std::vector<SpatialDomains::PointGeom *> faceNodes;
+                    for (int i = 0; i < n * n; ++i)
+                    {
+                        faceNodes.emplace_back(nodeList[N + i]);
+                    }
+
+                    auto tmpNodeList =
+                        GetCurvedNodesQuad(conf.m_faceCurveType, faceVertices,
+                                           faceEdges, faceNodes);
+
+                    auto curve = ObjPoolManager<SpatialDomains::Curve>::
+                        AllocateUniquePtr(id, conf.m_faceCurveType);
+                    for (auto &node : tmpNodeList)
+                    {
+                        curveNodeIDs->insert(node->GetGlobalID());
+                        curve->m_points.emplace_back(node);
+                    }
+                    curvePtr        = curve.get();
+                    curvedFaces[id] = std::move(curve);
+                }
+
+                auto quadGeom =
+                    ObjPoolManager<SpatialDomains::QuadGeom>::AllocateUniquePtr(
+                        id, faceEdges, faceVertices, false, curvePtr);
+                auto quadPtr = quadGeom.get();
+                meshGraph->AddGeom<SpatialDomains::QuadGeom>(
+                    id, std::move(quadGeom));
+
+                faces[j]      = quadPtr;
+                faceMap[vids] = quadPtr;
+            }
+            else
+            {
+                faces[j] = static_cast<SpatialDomains::QuadGeom *>(it->second);
+
+                // Create face curvature if it's needed and we haven't already
+                if (conf.m_faceNodes && faces[j]->GetCurve() == nullptr)
+                {
+                    for (int k = 0; k < 4; ++k)
+                    {
+                        faceEdges[k] = edges[faceEdgeIds[j][k]];
+                    }
+                    int n = conf.m_order - 1;
+                    int N = 8 + 12 * n + j * n * n;
+                    std::vector<SpatialDomains::PointGeom *> faceNodes;
+                    for (int i = 0; i < n * n; ++i)
+                    {
+                        faceNodes.emplace_back(nodeList[N + i]);
+                    }
+                    auto tmpNodeList =
+                        GetCurvedNodesQuad(conf.m_faceCurveType, faceVertices,
+                                           faceEdges, faceNodes);
+
+                    auto curve = ObjPoolManager<SpatialDomains::Curve>::
+                        AllocateUniquePtr(faces[j]->GetGlobalID(),
+                                          conf.m_faceCurveType);
+                    for (auto &node : tmpNodeList)
+                    {
+                        curveNodeIDs->insert(node->GetGlobalID());
+                        curve->m_points.emplace_back(node);
+                    }
+                    faces[j]->SetCurve(curve.get());
+                    curvedFaces[faces[j]->GetGlobalID()] = std::move(curve);
+                }
             }
         }
-    }
-}
 
-/**
- * @brief Return the number of nodes defining a hexahedron.
- */
-unsigned int Hexahedron::GetNumNodes(ElmtConfig pConf)
-{
-    int n = pConf.m_order;
-    if (pConf.m_faceNodes && pConf.m_volumeNodes)
-    {
-        return (n + 1) * (n + 1) * (n + 1);
+        if (vertIDs != nullptr)
+        {
+            for (auto vert : vertex)
+            {
+                vertIDs->insert(vert->GetGlobalID());
+            }
+        }
+
+        int id =
+            forceIDs != nullptr ? forceIDs->elmt : meshGraph->GetNumElements(3);
+        auto hexGeom =
+            ObjPoolManager<SpatialDomains::HexGeom>::AllocateUniquePtr(
+                id, faces, edges, vertex, true);
+        auto hexPtr = hexGeom.get();
+        meshGraph->AddGeom<SpatialDomains::HexGeom>(id, std::move(hexGeom));
+        meshGraph->PopulateFaceToElMap(hexPtr, 6);
+
+        return hexPtr;
     }
-    else if (pConf.m_faceNodes && !pConf.m_volumeNodes)
-    {
-        return 6 * (n + 1) * (n + 1) - 12 * (n + 1) + 8;
-    }
-    else
-    {
-        return 12 * (n + 1) - 16;
-    }
-}
+};
+
+LibUtilities::ShapeType hexType = GetElementFactory().RegisterCreatorFunction(
+    LibUtilities::eHexahedron, hexahedronHelper::create, "Hexahedron");
+
 } // namespace Nektar::NekMesh
